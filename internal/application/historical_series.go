@@ -18,7 +18,7 @@ const historicalSeriesTimeout = 10 * time.Second
 var historicalSeriesLimits = domain.HistoricalSeriesLimits{MaxLeaves: 1000, MaxFacts: 100000, MaxBytes: 32 << 20}
 
 type historicalSeriesRepository interface {
-	LoadHistoricalOverviewSeriesBatch(context.Context, time.Time, domain.HistoricalSeriesLimits) (domain.HistoricalSnapshotBatch, domain.HistoricalSeriesWork, error)
+	LoadHistoricalOverviewSeriesBatch(context.Context, time.Time, domain.HistoricalSeriesLimits, func(domain.HistoryOrigin) error) (domain.HistoricalSnapshotBatch, domain.HistoricalSeriesWork, error)
 }
 
 type HistoricalSeriesCoverage struct {
@@ -143,19 +143,18 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 	}
 	now := s.clock()
 	provider, ttl := s.FXProviderKey(), s.QuoteCacheTTL()
-	batch, work, err := reader.LoadHistoricalOverviewSeriesBatch(ctx, now, historicalSeriesLimits)
+	batch, work, err := reader.LoadHistoricalOverviewSeriesBatch(ctx, now, historicalSeriesLimits, func(origin domain.HistoryOrigin) error {
+		_, err := historicalSeriesDateWindow(origin, now, a, b)
+		return err
+	})
 	if err != nil {
 		return out, err
 	}
-	location, err := time.LoadLocation(batch.Origin.Timezone)
+	location, err := historicalSeriesDateWindow(batch.Origin, now, a, b)
 	if err != nil {
-		return out, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "invalid history timezone"}
+		return out, err
 	}
-	today := now.In(location).Format("2006-01-02")
 	originDate := batch.Origin.StartedAt.In(location).Format("2006-01-02")
-	if from < originDate || to >= today {
-		return out, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "range", Message: "series endpoints must be closed dates on or after the history origin"}
-	}
 	index, err := indexHistoricalSeries(ctx, &batch)
 	if err != nil {
 		return out, err
@@ -165,6 +164,7 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 	var leftRows, rightRows []HistoricalOverviewRow
 	var previousScope, previousBasis string
 	previousAvailable := false
+	evidenceMemory := seriesEvidenceMemory{}
 	for day := a; !day.After(b); day = day.AddDate(0, 0, 1) {
 		if err := ctx.Err(); err != nil {
 			return HistoricalOverviewSeriesResult{}, err
@@ -176,6 +176,7 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 			if date != from && date != to && errors.As(cutoffErr, &problem) && problem.Field == "localDate" {
 				out.Points = append(out.Points, HistoricalSeriesPoint{Date: date, GapReason: "nonexistent_civil_date", Missing: []HistoricalSeriesMissing{}})
 				previousAvailable = false
+				clear(evidenceMemory)
 				continue
 			}
 			return HistoricalOverviewSeriesResult{}, cutoffErr
@@ -184,12 +185,12 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 		if err != nil {
 			return HistoricalOverviewSeriesResult{}, err
 		}
-		point, state, scope, basis, selected, err := s.historicalSeriesPoint(ctx, portfolio, index, date, cutoff, provider, ttl)
+		point, state, scope, basis, selected, err := s.historicalSeriesPoint(ctx, portfolio, index, date, cutoff, provider, ttl, evidenceMemory)
 		if err != nil {
 			return HistoricalOverviewSeriesResult{}, err
 		}
 		point.ScopeChanged = previousAvailable && previousScope != scope
-		point.BasisChanged = previousAvailable && previousBasis != basis
+		point.BasisChanged = previousAvailable && (previousBasis != basis || point.BasisChanged)
 		if len(out.Points) > 0 {
 			prev := out.Points[len(out.Points)-1]
 			same := previousAvailable && !point.ScopeChanged && !point.BasisChanged
@@ -210,12 +211,18 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 			for _, row := range rows {
 				cell := row.Left
 				if row.Kind != "account" && row.Role == "asset" && cell.Included && cell.BaseAmount != nil {
-					value, _ := decimal.NewFromString(*cell.BaseAmount)
+					value, err := decimal.NewFromString(*cell.BaseAmount)
+					if err != nil {
+						return HistoricalOverviewSeriesResult{}, err
+					}
 					classes[cell.AssetClass] = classes[cell.AssetClass].Add(value)
 					currencies[cell.Currency] = currencies[cell.Currency].Add(value)
 				}
 			}
-			total, _ := decimal.NewFromString(state.KnownAssets)
+			total, err := decimal.NewFromString(state.KnownAssets)
+			if err != nil {
+				return HistoricalOverviewSeriesResult{}, err
+			}
 			state.ByClass, state.ByCurrency = historicalAllocations(classes, total), historicalAllocations(currencies, total)
 			if date == from {
 				out.Overview.Left, leftRows = state, rows
@@ -235,9 +242,25 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 	return out, nil
 }
 
+func historicalSeriesDateWindow(origin domain.HistoryOrigin, now, from, to time.Time) (*time.Location, error) {
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return nil, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "invalid history timezone"}
+	}
+	if from.Format("2006-01-02") < origin.StartedAt.In(location).Format("2006-01-02") || to.Format("2006-01-02") >= now.In(location).Format("2006-01-02") {
+		return nil, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "range", Message: "series endpoints must be closed dates on or after the history origin"}
+	}
+	for _, endpoint := range []time.Time{from, to} {
+		if _, err := historicalOverviewDayCutoff(endpoint, location); err != nil {
+			return nil, err
+		}
+	}
+	return location, nil
+}
+
 // Resolve each instrument/pair once per day from the one prebuilt fact index.
 // Account valuation then sees only the selected immutable observations.
-func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioSnapshot, index seriesIndex, date string, cutoff time.Time, provider string, ttl time.Duration) (HistoricalSeriesPoint, HistoricalOverviewState, string, string, domain.PortfolioSnapshot, error) {
+func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioSnapshot, index seriesIndex, date string, cutoff time.Time, provider string, ttl time.Duration, evidenceMemory seriesEvidenceMemory) (HistoricalSeriesPoint, HistoricalOverviewState, string, string, domain.PortfolioSnapshot, error) {
 	point := HistoricalSeriesPoint{Date: date, CutoffAt: cutoff.UTC().Format(time.RFC3339Nano), Available: true, Missing: []HistoricalSeriesMissing{}}
 	state := HistoricalOverviewState{Date: date, CutoffAt: point.CutoffAt, Currency: p.Household.BaseCurrency.String(), ByClass: []HistoricalOverviewAllocation{}, ByCurrency: []HistoricalOverviewAllocation{}}
 	v := NewValuationService(s.repository, func() time.Time { return cutoff })
@@ -249,6 +272,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 	instruments := map[domain.InstrumentID]domain.Instrument{}
 	selectedPriceBasis := map[string][]string{}
 	selectedFXBasis := map[string][]string{}
+	evidenceKeys := map[string]bool{}
 	p.InstrumentQuotes = nil
 	var scope, basis []string
 	for _, i := range p.Instruments {
@@ -336,12 +360,12 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 			}
 			preference := implicitFXPreference(p, c.NativeCurrency)
 			basis = append(basis, key+":fx:"+string(preference.SourceKind))
-			if c.PriceEvidence != nil {
-				basis = append(basis, key+":price-evidence:"+seriesEvidenceBasis(c.PriceEvidence, selectedPriceBasis[c.PriceEvidence.ObservationID]))
-			}
-			if c.FXEvidence != nil {
-				basis = append(basis, key+":fx-evidence:"+seriesEvidenceBasis(c.FXEvidence, selectedFXBasis[c.FXEvidence.ObservationID]))
-			}
+			missing := item.componentMissing[n]
+			knownZero := c.Available && len(missing) == 0 && c.NativeAmount == "0" && c.BaseAmountExact == "0"
+			priceKey, fxKey := key+":"+role+":price", key+":"+role+":fx"
+			evidenceKeys[priceKey], evidenceKeys[fxKey] = true, true
+			point.BasisChanged = evidenceMemory.observe(priceKey, c.PriceEvidence, selectedPriceBasis, knownZero) || point.BasisChanged
+			point.BasisChanged = evidenceMemory.observe(fxKey, c.FXEvidence, selectedFXBasis, knownZero) || point.BasisChanged
 			if c.BaseAmountExact != "" {
 				value, err := decimal.NewFromString(c.BaseAmountExact)
 				if err != nil {
@@ -354,7 +378,6 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 					assets = assets.Add(value)
 				}
 			}
-			missing := item.componentMissing[n]
 			if !c.Available || len(missing) > 0 || c.BaseAmountExact == "" {
 				coverage.Missing++
 				reasons := []string{}
@@ -366,6 +389,11 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 				}
 				point.Missing = append(point.Missing, HistoricalSeriesMissing{Key: key, Name: a.Account.Name, Role: role, Reasons: reasons})
 			}
+		}
+	}
+	for key := range evidenceMemory {
+		if !evidenceKeys[key] {
+			delete(evidenceMemory, key)
 		}
 	}
 	point.AssetsComplete = point.AssetCoverage.Missing == 0
@@ -391,6 +419,27 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 	sort.Strings(basis)
 	sort.Slice(point.Missing, func(i, j int) bool { return point.Missing[i].Key < point.Missing[j].Key })
 	return point, state, strings.Join(scope, "|"), strings.Join(basis, "|"), p, nil
+}
+
+// Comparison memory only: a known zero needs no price/FX evidence. Retain its
+// leaf's last actual basis without putting that evidence into the valuation.
+// Removed leaves and unavailable civil dates discard this capture-local memory.
+type seriesEvidenceMemory map[string]string
+
+func (memory seriesEvidenceMemory) observe(key string, evidence *domain.QuoteEvidenceView, metadata map[string][]string, knownZero bool) bool {
+	if memory == nil {
+		return false
+	}
+	if evidence == nil {
+		if !knownZero {
+			delete(memory, key)
+		}
+		return false
+	}
+	actual := seriesEvidenceBasis(evidence, metadata[evidence.ObservationID])
+	previous, hadActual := memory[key]
+	memory[key] = actual
+	return hadActual && previous != actual
 }
 
 // Identity selects the retained record but is not part of its valuation basis.

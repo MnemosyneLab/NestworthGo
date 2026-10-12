@@ -9,6 +9,7 @@ import i18n from "@/i18n";
 import { shiftCivilDate } from "./dates";
 import type { HistoricalOverviewSeriesResult } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { formatAmount } from "@/lib/money";
+import { formatHistoricalAmount } from "./historicalAmount";
 import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
 const { read, origin, seriesRead } = vi.hoisted(() => ({ read: vi.fn(), origin: vi.fn(), seriesRead: vi.fn() }));
@@ -829,6 +830,35 @@ it("keeps failed range capture and budget rejection explicit without showing old
   await userEvent.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
   await screen.findByRole("region", { name: "Time trend" });
   expect(seriesRead).toHaveBeenCalledTimes(2);
+});
+
+it("uses nullable series subtotals in endpoint cards instead of legacy P1 zero placeholders", async () => {
+  seriesRead.mockImplementation((from: string, to: string) => {
+    const capture = seriesResult(from, to);
+    const points = capture.points!;
+    const last = points[points.length - 1];
+    for (const state of [capture.overview.left, capture.overview.right!]) {
+      state.assets = null; state.liabilities = null; state.netWorth = null; state.complete = false;
+      state.knownAssets = "0"; state.knownLiabilities = "0"; // Unchanged P1 contract.
+    }
+    for (const point of points) {
+      point.assets = null; point.liabilities = null; point.netWorth = null;
+      point.knownAssets = null; point.knownLiabilities = null;
+      point.assetsComplete = false; point.liabilitiesComplete = false;
+      point.assetCoverage = { included: 1, known: 0, missing: 1 };
+      point.liabilityCoverage = { included: 1, known: 0, missing: 1 };
+    }
+    // B retains one observed zero alongside an unknown leaf; its subtotal is
+    // known zero, distinct from A's entirely unknown subtotal.
+    last.knownAssets = "0"; last.assetCoverage = { included: 2, known: 1, missing: 1 };
+    return Promise.resolve(capture);
+  });
+  show(true); await screen.findByRole("region", { name: "Asset allocation" });
+  await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+  await userEvent.click(screen.getByRole("button", { name: "Enable trend · New capture" }));
+  const summaries = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  expect(within(summaries).getAllByText(`${i18n.t("historicalOverview.knownSubtotal")}: ${i18n.t("historicalOverview.unknown")}`)).toHaveLength(3);
+  expect(within(summaries).getAllByText(`${i18n.t("historicalOverview.knownSubtotal")}: ${formatHistoricalAmount("0", "CNY")}`)).toHaveLength(1);
 });
 
 it("cancels obsolete range work and suppresses a late result after explicit date selection", async () => {

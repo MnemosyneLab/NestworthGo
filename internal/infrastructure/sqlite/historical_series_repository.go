@@ -12,7 +12,7 @@ import (
 
 // This optional port is specific to the trend. P1 and snapshot loaders keep
 // their existing behavior. All preflight and hydration use the same read tx.
-func (r *Repository) LoadHistoricalOverviewSeriesBatch(ctx context.Context, cutoff time.Time, limits domain.HistoricalSeriesLimits) (domain.HistoricalSnapshotBatch, domain.HistoricalSeriesWork, error) {
+func (r *Repository) LoadHistoricalOverviewSeriesBatch(ctx context.Context, cutoff time.Time, limits domain.HistoricalSeriesLimits, validateOrigin func(domain.HistoryOrigin) error) (domain.HistoricalSnapshotBatch, domain.HistoricalSeriesWork, error) {
 	var work domain.HistoricalSeriesWork
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -22,6 +22,20 @@ func (r *Repository) LoadHistoricalOverviewSeriesBatch(ctx context.Context, cuto
 	q := &seriesQueryCounter{queryer: tx, work: &work}
 	if limits.MaxFacts <= 0 || limits.MaxLeaves <= 0 || limits.MaxBytes <= 0 {
 		return domain.HistoricalSnapshotBatch{}, work, &domain.Error{Code: domain.ErrHistoricalSeriesBudget, Message: "invalid series input budget"}
+	}
+	// Authoritative date validation reads only origin metadata, in this same
+	// transaction, before budget scans or financial hydration can mask bad dates.
+	if validateOrigin != nil {
+		var origin domain.HistoryOrigin
+		if _, err := scanHistoryOrigin(q.QueryRowContext(ctx, `SELECT id,household_id,timezone,started_at,created_at FROM history_origins WHERE household_id=(SELECT id FROM households WHERE singleton_key=1)`), &origin); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.HistoricalSnapshotBatch{}, work, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history origin was not found"}
+			}
+			return domain.HistoricalSnapshotBatch{}, work, err
+		}
+		if err := validateOrigin(origin); err != nil {
+			return domain.HistoricalSnapshotBatch{}, work, err
+		}
 	}
 	// Fixed schema tables only; never interpolate a user supplied identifier.
 	// Snapshots and app configuration are neither counted nor read.

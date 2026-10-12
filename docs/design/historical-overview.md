@@ -331,7 +331,9 @@ observations. This is current retained evidence/current metadata reconstruction,
 not an as-known historical archive.
 
 The optional repository port performs preflight and hydration in **one read-only
-transaction**. Before financial decoding it scans at most 100,001 retained rows
+transaction**. It first reads origin metadata and validates the authoritative
+closed-date window/endpoints before budget scanning or financial hydration; no
+second financial batch is read. Before financial decoding it scans at most 100,001 retained rows
 and accepts at most 100,000 facts, 1,000 possible component leaves and 32 MiB of
 serialized column payload. The cap conservatively counts the whole retained
 profile, including archived facts, corrected activity effects and product
@@ -366,8 +368,20 @@ price/timestamp basis, source policy and price binding revision alongside saved
 preferences. Agent observations that supplement manual/provider preferences
 therefore break connections when their selected source/basis changes. Quote
 identity, dates, ordinary values, quote revisions and freshness do not change
-the basis signature. Endpoint totals and rows use the P1 conventions and
-retained provenance.
+the basis signature. A known-zero exposure with no applied price/FX evidence is
+neutral: comparison state retains each included leaf's last actual semantic
+source across contiguous known-zero points, then compares actual evidence when
+exposure resumes. The first actual source after an initial zero has no earlier
+actual source to differ from. Scope removal, unknown evidence on nonzero
+exposure and nonexistent-date gaps clear the relevant comparison memory.
+Durable scope/preferences/binding/currency checks still apply at zero. This is
+capture-local comparison state, never invented valuation evidence or amounts.
+Endpoint totals and rows use the P1 conventions and retained provenance.
+Series endpoint cards take nullable known subtotals from the same series points,
+so an all-unknown subtotal is shown as unknown, while observed zero stays zero;
+the P1 result shape and its legacy subtotal strings remain compatible. Decimal
+parse failures during endpoint allocation accumulation are returned explicitly,
+even though current valuation output guarantees valid exact strings.
 
 The application imposes a 10-second deadline. Context cancellation is checked
 through SQL, effect replay, historical replay, indexing, date iteration and

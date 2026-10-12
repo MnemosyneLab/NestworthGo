@@ -296,7 +296,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
       : data && <>
         <p className="text-xs text-muted-foreground">{t("historicalOverview.captureTime")}: <ObservationTime value={data.capturedAt} timezone={data.timezone} /> · {t("historicalOverview.refreshHint")}</p>
         {data.right?.current && <p className="text-xs text-muted-foreground">{t("historicalOverview.capturedCurrent")}</p>}
-        <section aria-label={t("historicalOverview.totalChange")}><HistoricalMetricCards data={data} />{data.right && <p className="mt-2 text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>}</section>
+        <section aria-label={t("historicalOverview.totalChange")}><HistoricalMetricCards data={data} seriesPoints={series?.points} />{data.right && <p className="mt-2 text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>}</section>
         <HistoricalCoverage data={data} onDetails={() => { setCategoryFilter(null); setChangesOnly(false); setView("accounts"); }} />
         {data.right && <>
           {data.right.date === data.left.date && !data.right.current && <p role="status" className="text-sm text-muted-foreground">{t("historicalOverview.sameDate")}</p>}

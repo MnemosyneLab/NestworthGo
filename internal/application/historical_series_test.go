@@ -92,7 +92,7 @@ func TestHistoricalSeriesBoundsSkippedDatesCancellationAndScope(t *testing.T) {
 		t.Fatalf("cancel ignored %v", err)
 	}
 	repo := sqlite.NewRepository(db)
-	_, work, err := repo.LoadHistoricalOverviewSeriesBatch(ctx, *now, domain.HistoricalSeriesLimits{MaxLeaves: 1, MaxFacts: 1, MaxBytes: 1000})
+	_, work, err := repo.LoadHistoricalOverviewSeriesBatch(ctx, *now, domain.HistoricalSeriesLimits{MaxLeaves: 1, MaxFacts: 1, MaxBytes: 1000}, nil)
 	var budget *domain.Error
 	if !errors.As(err, &budget) || budget.Code != domain.ErrHistoricalSeriesBudget || work.CandidateFacts > 2 {
 		t.Fatalf("budget not bounded %+v %v", work, err)
@@ -306,9 +306,9 @@ type historicalSeriesProbe struct {
 	after  func()
 }
 
-func (r *historicalSeriesProbe) LoadHistoricalOverviewSeriesBatch(ctx context.Context, at time.Time, limits domain.HistoricalSeriesLimits) (domain.HistoricalSnapshotBatch, domain.HistoricalSeriesWork, error) {
+func (r *historicalSeriesProbe) LoadHistoricalOverviewSeriesBatch(ctx context.Context, at time.Time, limits domain.HistoricalSeriesLimits, validateOrigin func(domain.HistoryOrigin) error) (domain.HistoricalSnapshotBatch, domain.HistoricalSeriesWork, error) {
 	r.loads++
-	b, w, err := r.reader.LoadHistoricalOverviewSeriesBatch(ctx, at, limits)
+	b, w, err := r.reader.LoadHistoricalOverviewSeriesBatch(ctx, at, limits, validateOrigin)
 	if r.after != nil {
 		r.after()
 	}
@@ -449,7 +449,7 @@ func TestHistoricalSeriesPreflightLeafAndByteBudgets(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, limits := range []domain.HistoricalSeriesLimits{{MaxLeaves: 1, MaxFacts: 100000, MaxBytes: 32 << 20}, {MaxLeaves: 1000, MaxFacts: 100000, MaxBytes: 1}} {
-		batch, work, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(context.Background(), *now, limits)
+		batch, work, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(context.Background(), *now, limits, nil)
 		var budget *domain.Error
 		if !errors.As(err, &budget) || budget.Code != domain.ErrHistoricalSeriesBudget || batch.Origin.ID != "" {
 			t.Fatalf("preflight hydrated a rejected profile: %+v %v", work, err)
@@ -473,13 +473,28 @@ SELECT 'synthetic-budget-'||x,(SELECT id FROM households),'value_update','other'
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch, work, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(context.Background(), *now, historicalSeriesLimits)
+	batch, work, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(context.Background(), *now, historicalSeriesLimits, nil)
 	var budget *domain.Error
 	if !errors.As(err, &budget) || budget.Code != domain.ErrHistoricalSeriesBudget || work.CandidateFacts != 100001 || batch.Origin.ID != "" {
 		t.Fatalf("unbounded/default hydration: %+v %v", work, err)
 	}
 	if work.Queries > 40 {
 		t.Fatalf("continued hydrating after fact rejection: %d queries", work.Queries)
+	}
+	for _, dates := range [][2]string{{"2026-07-31", "2026-07-31"}, {"2026-08-01", "2026-08-01"}, {"2026-08-01", "2026-08-02"}} {
+		_, err := s.HistoricalOverviewSeries(t.Context(), dates[0], dates[1])
+		var invalid *domain.Error
+		if !errors.As(err, &invalid) || invalid.Code != domain.ErrInvalidChangeTime {
+			t.Fatalf("invalid civil-date window was masked by budget rejection: %v", err)
+		}
+	}
+	_, preflight, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(t.Context(), *now, historicalSeriesLimits, func(origin domain.HistoryOrigin) error {
+		from, _ := time.Parse("2006-01-02", "2026-07-31")
+		_, err := historicalSeriesDateWindow(origin, *now, from, from)
+		return err
+	})
+	if err == nil || preflight.Queries != 1 || preflight.CandidateFacts != 0 || preflight.CandidateBytes != 0 {
+		t.Fatalf("invalid window scanned financial facts: %+v %v", preflight, err)
 	}
 }
 
@@ -587,7 +602,7 @@ func TestHistoricalSeriesMarketCloseAndCoverageEquivalence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		point, state, _, _, selected, err := s.historicalSeriesPoint(ctx, portfolio, index, "2026-09-09", cutoff, "", 12*time.Hour)
+		point, state, _, _, selected, err := s.historicalSeriesPoint(ctx, portfolio, index, "2026-09-09", cutoff, "", 12*time.Hour, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

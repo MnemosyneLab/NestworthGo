@@ -128,3 +128,50 @@ cancellation setup; that fixture passed in the full non-race Go run. Frontend
 code/contracts are unchanged and its suite/build were not rerun for this fix.
 Native visual acceptance remains pending. The reviewed new head is recorded in
 PR #57.
+
+## Further review: known-zero exposure and Atlas adjudication
+
+The zero-exposure regression failed before production changes on `c058a65d`:
+unchanged price and FX bases incorrectly broke the line when holding quantity
+became zero. The fix keeps durable signatures separate from capture-local,
+per-leaf actual-evidence comparison memory. It retains actual source semantics
+through known-zero points, compares on resume, and clears memory on scope
+removal, unknown nonzero evidence or nonexistent-date gaps. Zero valuation rows
+remain evidence-free and keep their exact backend amounts.
+
+`historical_series_zero_test.go` covers price and FX cases: unchanged
+1→0→0→1 stays connected; changed A→0→0→B breaks at B; a selected range starting
+at zero and an origin-zero holding have no prior actual source. Scope removal
+and Apia gaps reset memory before resumed exposure. A durable FX-preference
+change still breaks at zero. Query-only reads, exact totals and full P1 endpoint
+equality are checked, and zero detail rows retain no price/FX evidence.
+
+Atlas's all-unknown endpoint subtotal issue was confirmed with a failing page
+regression: the point/table reported unknown but the card used P1's legacy zero
+string. Series cards now use nullable endpoint point subtotals, preserving P1
+API compatibility and distinguishing unknown from an observed-zero subtotal.
+
+The invalid-date/budget precedence issue was also reproduced. Range validation
+now reads authoritative origin metadata in the same transaction before any
+financial facts. The over-budget fixture rejects before-origin/current/future
+dates as invalid, with one metadata query and zero fact/byte scans. Valid series
+captures add one metadata query to the original benchmark query counts; no new
+benchmark timing or heap measurements are claimed.
+
+Ignored endpoint decimal parse errors were unreachable under current exact
+valuation-output invariants. They are now propagated explicitly to protect
+against future invariant changes, without altering financial calculation rules.
+Final checks and the new immutable head are recorded in PR #57. Native GUI
+acceptance remains pending; independent Atlas measurements of 3.51 seconds for
+dense 31-day capture and 10.24 ms preflight cancellation concern its original
+`36661f69` review, not measurements of this follow-up.
+
+This follow-up passed full server-tag Go tests (application 43.921 seconds),
+focused application/SQLite/API vet, and focused Historical Series/Overview/Agent
+quote/FX race tests with `-short` (84.615 seconds). The dense cancellation
+fixture is omitted from short race mode and passed in the full non-race suite.
+Frontend validation passed 95 files / 948 tests, typecheck, ESLint, production
+build and generated-bindings check. Shared chart and Sheet suites are included.
+Generated legacy binding blobs were restored per repository policy. Existing
+bundle-size warnings remain. No native visual acceptance or new benchmark
+measurement is inferred from these checks.
