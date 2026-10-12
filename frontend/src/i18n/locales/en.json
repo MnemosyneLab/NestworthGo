@@ -48,7 +48,21 @@
     "wholeAccountInclusionWarning": "Portfolio and liquid-assets inclusion applies to all cash and holdings in this account.",
     "adjustmentReason": "Reason (optional)",
     "balanceBefore": "Current balance",
-    "adjustmentDelta": "Adjustment"
+    "adjustmentDelta": "Adjustment",
+    "compositionView": {
+      "type": "By type",
+      "detail": "By detail",
+      "grouping": "Composition grouping",
+      "bankProducts": "Investment products & term deposits",
+      "unknownType": "Unknown type",
+      "remainder": "Remaining {{count}} items",
+      "expand": "Show all {{count}} items",
+      "collapse": "Show top 10",
+      "hint": "Shares use the valued subtotal in household currency. The data table includes every original item; missing values are not zero.",
+      "unavailable": "Composition is unavailable until prices or exchange rates are supplied.",
+      "empty": "No positive valued balance to chart.",
+      "invalid": "Composition cannot be charted because a component has a negative value."
+    }
   },
   "analytics": {
     "empty": "No closed-day snapshots are available yet.",

@@ -650,6 +650,10 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 		t.Fatal(err)
 	}
 	assertMoneyView(t, accountValue.BaseValue, "0.0001", "CNY")
+	composition := accountValue.Composition
+	if composition.TotalExact != "0.0001" || len(composition.Types) != 1 || composition.Types[0].BaseAmountExact != "0.0001" || composition.Types[0].ShareBPS != 10000 || len(composition.Details) != 2 || composition.Details[0].ShareBPS != 5000 || composition.Details[1].ShareBPS != 5000 {
+		t.Fatalf("exact account composition = %+v", composition)
+	}
 	for _, component := range accountValue.Components {
 		if component.BaseAmountExact != "0.00005" || component.BaseAmount == nil || component.BaseAmount.Amount != "0" {
 			t.Fatalf("component precision = %+v", component)
@@ -688,6 +692,13 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 	// Archiving an Instrument stops new writes but retains an active Holding's
 	// valuation evidence until the Holding itself is archived or reaches zero.
 	assertMoneyView(t, afterArchive.ValuedSubtotal, "999.0001", "CNY")
+	retained, err := service.AccountValuation(ctx, account.Account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retained.Composition.Types[0].TypeKey != "stock" || retained.Composition.Types[0].BaseAmountExact != "999" || retained.Composition.TotalExact != "999.0001" {
+		t.Fatalf("archived instrument composition = %+v", retained.Composition)
+	}
 }
 
 func TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX(t *testing.T) {

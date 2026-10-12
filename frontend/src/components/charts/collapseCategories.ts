@@ -7,6 +7,8 @@ export interface ChartCategory {
   shareBps: number;
   nativeAmount?: string;
   nativeCurrency?: string;
+  available?: boolean;
+  missingCount?: number;
 }
 
 /**

@@ -48,7 +48,21 @@
     "wholeAccountInclusionWarning": "投資組合與流動資產開關適用於此帳戶內的全部現金和持倉。",
     "adjustmentReason": "原因（選填）",
     "balanceBefore": "目前餘額",
-    "adjustmentDelta": "調整差額"
+    "adjustmentDelta": "調整差額",
+    "compositionView": {
+      "type": "按類型",
+      "detail": "按明細",
+      "grouping": "構成分組方式",
+      "bankProducts": "理財及定期",
+      "unknownType": "類型未知",
+      "remainder": "其餘 {{count}} 項",
+      "expand": "展開全部 {{count}} 項",
+      "collapse": "收起至前 10 項",
+      "hint": "占比使用家庭本位幣的已估值小計。資料表包含所有原始明細；缺失值不按零計入。",
+      "unavailable": "缺少價格或匯率，暫無法顯示構成。",
+      "empty": "暫無可繪製的正值餘額。",
+      "invalid": "存在負值明細，無法繪製構成圖。"
+    }
   },
   "analytics": {
     "empty": "暫時沒有可用的已收盤日快照。",

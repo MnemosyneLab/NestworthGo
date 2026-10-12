@@ -43,6 +43,7 @@ function valuation(id: string, amount: string): AccountValuationDTO {
     account: account(id, `Account ${id}`),
     ownership: [],
     complete: true,
+    composition: { currency: "USD", complete: true, status: "unsupported", valuedCount: 0, missingCount: 0, types: [], details: [], detailSlices: [] },
     components: [],
     missingInputs: [],
     baseValue: { amount, currency: "USD" },

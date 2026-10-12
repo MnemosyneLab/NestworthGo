@@ -626,6 +626,25 @@ describe("AccountsPage", () => {
         account: brokerageAccount.account,
         ownership: brokerageAccount.ownership,
         complete: false,
+        composition: {
+          currency: "USD", totalExact: "2450", complete: false, status: "partial", valuedCount: 3, missingCount: 1,
+          types: [
+            { key: "account-composition:type:stock", typeKey: "stock", label: "stock", detailRefs: ["h1", "missing"], baseAmountExact: "1500", shareBps: 6122, valuedCount: 1, missingCount: 1 },
+            { key: "account-composition:type:cash", typeKey: "cash", label: "cash", detailRefs: ["cash-USD", "cash-SGD"], baseAmountExact: "950", shareBps: 3878, valuedCount: 2, missingCount: 0 },
+          ],
+          details: [
+            { key: "h1", label: "NVIDIA", typeKey: "stock", detailRefs: ["h1"], baseAmountExact: "1500", shareBps: 6122, nativeAmount: "1500", nativeCurrency: "USD", valuedCount: 1, missingCount: 0 },
+            { key: "cash-USD", label: "USD", typeKey: "cash", detailRefs: ["cash-USD"], baseAmountExact: "800", shareBps: 3265, nativeAmount: "800", nativeCurrency: "USD", valuedCount: 1, missingCount: 0 },
+            { key: "cash-SGD", label: "SGD", typeKey: "cash", detailRefs: ["cash-SGD"], baseAmountExact: "150", shareBps: 613, nativeAmount: "200", nativeCurrency: "SGD", valuedCount: 1, missingCount: 0 },
+            { key: "missing", label: "Missing instrument", typeKey: "stock", detailRefs: ["missing"], shareBps: 0, valuedCount: 0, missingCount: 1 },
+          ],
+          detailSlices: [
+            { key: "h1", label: "NVIDIA", typeKey: "stock", detailRefs: ["h1"], baseAmountExact: "1500", shareBps: 6122, nativeAmount: "1500", nativeCurrency: "USD", valuedCount: 1, missingCount: 0 },
+            { key: "cash-USD", label: "USD", typeKey: "cash", detailRefs: ["cash-USD"], baseAmountExact: "800", shareBps: 3265, nativeAmount: "800", nativeCurrency: "USD", valuedCount: 1, missingCount: 0 },
+            { key: "cash-SGD", label: "SGD", typeKey: "cash", detailRefs: ["cash-SGD"], baseAmountExact: "150", shareBps: 613, nativeAmount: "200", nativeCurrency: "SGD", valuedCount: 1, missingCount: 0 },
+            { key: "missing", label: "Missing instrument", typeKey: "stock", detailRefs: ["missing"], shareBps: 0, valuedCount: 0, missingCount: 1 },
+          ],
+        },
         components: [
           { nativeCurrency: "SGD", nativeAmount: "200", available: true, baseAmount: { amount: "150", currency: "USD" } },
           { nativeCurrency: "USD", nativeAmount: "800", available: true, baseAmount: { amount: "800", currency: "USD" } },
@@ -640,7 +659,7 @@ describe("AccountsPage", () => {
           },
         ],
         missingInputs: [{ kind: "fx_rate", accountId: "brk-1" }],
-        baseValue: { amount: "2500", currency: "USD" },
+        baseValue: { amount: "2450", currency: "USD" },
       },
     ]);
     holdingsByAccounts.mockResolvedValue({
@@ -650,8 +669,12 @@ describe("AccountsPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
-    expect(screen.getByText("$2,500.00", { selector: ".text-2xl" })).toHaveClass("text-2xl");
+    expect(screen.getByText("$2,450.00", { selector: ".text-2xl" })).toHaveClass("text-2xl");
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
+    const fetchCounts = [accountValuations.mock.calls.length, currentInstrumentQuote.mock.calls.length, listInstruments.mock.calls.length, holdingsByAccounts.mock.calls.length];
+    expect(screen.getByRole("button", { name: "By type" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "By detail" }));
+    expect([accountValuations.mock.calls.length, currentInstrumentQuote.mock.calls.length, listInstruments.mock.calls.length, holdingsByAccounts.mock.calls.length]).toEqual(fetchCounts);
     const slices = ["h1", "cash-USD", "cash-SGD"].map((key) => screen.getByTestId(`composition-slice-${key}`));
     expect(slices[0]).toHaveTextContent("NVIDIA");
     expect(slices[1]).toHaveTextContent("USD");
@@ -771,6 +794,18 @@ describe("AccountsPage", () => {
       account: multiCurrencyCashAccount.account,
       ownership: multiCurrencyCashAccount.ownership,
       complete: true,
+      composition: {
+        currency: "USD", totalExact: "425", complete: true, status: "ready", valuedCount: 2, missingCount: 0,
+        types: [{ key: "account-composition:type:cash", typeKey: "cash", label: "cash", detailRefs: ["cash-SGD", "cash-USD"], baseAmountExact: "425", shareBps: 10000, valuedCount: 2, missingCount: 0 }],
+        details: [
+          { key: "cash-SGD", typeKey: "cash", label: "SGD", detailRefs: ["cash-SGD"], baseAmountExact: "225", shareBps: 5294, nativeAmount: "300", nativeCurrency: "SGD", valuedCount: 1, missingCount: 0 },
+          { key: "cash-USD", typeKey: "cash", label: "USD", detailRefs: ["cash-USD"], baseAmountExact: "200", shareBps: 4706, nativeAmount: "200", nativeCurrency: "USD", valuedCount: 1, missingCount: 0 },
+        ],
+        detailSlices: [
+          { key: "cash-SGD", typeKey: "cash", label: "SGD", detailRefs: ["cash-SGD"], baseAmountExact: "225", shareBps: 5294, nativeAmount: "300", nativeCurrency: "SGD", valuedCount: 1, missingCount: 0 },
+          { key: "cash-USD", typeKey: "cash", label: "USD", detailRefs: ["cash-USD"], baseAmountExact: "200", shareBps: 4706, nativeAmount: "200", nativeCurrency: "USD", valuedCount: 1, missingCount: 0 },
+        ],
+      },
       components: [
         { nativeCurrency: "SGD", nativeAmount: "300", available: true, baseAmount: { amount: "225", currency: "USD" } },
         { nativeCurrency: "USD", nativeAmount: "200", available: true, baseAmount: { amount: "200", currency: "USD" } },
@@ -783,6 +818,8 @@ describe("AccountsPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /Travel cash/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
+    expect(screen.getByTestId("composition-slice-account-composition:type:cash")).toHaveTextContent("100.0%");
+    await userEvent.click(screen.getByRole("button", { name: "By detail" }));
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
     expect(screen.getByTestId("composition-slice-cash-SGD")).toHaveTextContent("SGD");

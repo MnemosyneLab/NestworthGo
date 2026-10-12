@@ -111,6 +111,7 @@ type ValuationComponent struct {
 }
 
 type AccountValuation struct {
+	Composition     *AccountComposition
 	Account         Account
 	Ownership       Ownership
 	InstitutionName string

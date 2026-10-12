@@ -22,8 +22,8 @@ import { useProducts } from "@/queries/liquidity";
 import { useHistoryOrigin } from "@/queries/history";
 import { compareCanonical, formatAmount, formatAuditMoney, sortByCanonicalDesc } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
-import { accountCompositionItems, componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
-import { CompositionChart } from "@/components/charts/CompositionChart";
+import { componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
+import { AccountCompositionPanel } from "./AccountCompositionPanel";
 import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
@@ -190,10 +190,7 @@ export function AccountDetail({
   const investmentRows = investmentHoldings.filter((row) => compareCanonical(row.holding.quantity, "0") !== 0);
   const dividendHoldingsAvailable = investmentHoldings.some((row) => row.instrumentActive);
   const householdCurrency = valuation?.baseValue?.currency ?? "";
-  const compositionItems = useMemo(
-    () => (composite && householdCurrency ? accountCompositionItems(valuation?.components ?? [], householdCurrency) : []),
-    [composite, householdCurrency, valuation?.components],
-  );
+
 
   const displayMoney = accountDisplayMoney(record, valuation);
   const titleAmount = displayMoney.primary
@@ -285,26 +282,8 @@ export function AccountDetail({
         <ErrorState title={t("accounts.loadError")} description={t("ui.state.errorDescription")} onRetry={() => holdingsQuery.refetch()} retryLabel={t("common.retryAction")} />
       )}
 
-      {composite && compositionItems.length >= 2 && householdCurrency && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("accounts.composition")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CompositionChart
-              title={t("accounts.composition")}
-              items={compositionItems}
-              currency={householdCurrency}
-              centerValue={valuation?.baseValue?.amount ?? compositionItems[0]?.amount ?? "0"}
-              centerCaption={t("charts.valuedSubtotal")}
-              ariaLabel={t("accounts.composition")}
-              summary={t("accounts.composition")}
-              height={280}
-              complete={valuation?.complete ?? true}
-              missingCount={(valuation?.missingInputs ?? []).length}
-            />
-          </CardContent>
-        </Card>
+      {composite && record.account.balanceSheetRole !== "liability" && valuation?.composition && (
+        <AccountCompositionPanel key={record.account.id} composition={valuation.composition} updatedAt={valuationUpdatedAt} />
       )}
 
       {composite && (cashOnly || (!holdingsQuery.isLoading && !holdingsQuery.isError)) && (
