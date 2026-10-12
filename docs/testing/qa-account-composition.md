@@ -29,7 +29,10 @@ amount/currency. Type/remainder native amounts are absent because unlike
 currencies must never be added together.
 
 Amounts are summed before rounding. Shares use the same exact valued total;
-backend largest-remainder allocation rounds only the displayed basis points.
+backend largest-remainder allocation assigns the displayed basis points once
+per original detail, breaking ties by stable detail key. Types and the collapsed
+remainder add those assigned shares; unchanged details keep the same percentages
+in the collapsed list, expanded list, source table, and tooltip.
 The ring uses the exact amount strings converted to numbers only for drawing.
 Frontend code does not recompute financial totals or shares. In particular,
 two `0.00005` components remain two 50% details and a `0.0001` type total even

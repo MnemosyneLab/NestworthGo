@@ -1,13 +1,16 @@
 package application
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 func compositionFixture() domain.AccountValuation {
@@ -27,6 +30,10 @@ func compositionComponent(key, amount string) domain.ValuationComponent {
 
 func assertCompositionSums(t *testing.T, result domain.AccountComposition) {
 	t.Helper()
+	detailShares := map[string]int{}
+	for _, detail := range result.Details {
+		detailShares[detail.Key] = detail.ShareBPS
+	}
 	for _, rows := range [][]domain.AccountCompositionItem{result.Types, result.Details, result.DetailSlices} {
 		total, shares := decimal.Zero, 0
 		refs := map[string]bool{}
@@ -35,6 +42,13 @@ func assertCompositionSums(t *testing.T, result domain.AccountComposition) {
 				total = total.Add(decimal.RequireFromString(row.BaseAmountExact))
 			}
 			shares += row.ShareBPS
+			originalShare := 0
+			for _, ref := range row.DetailRefs {
+				originalShare += detailShares[ref]
+			}
+			if row.ShareBPS != originalShare {
+				t.Fatalf("row %s share=%d, original share sum=%d", row.Key, row.ShareBPS, originalShare)
+			}
 			for _, ref := range row.DetailRefs {
 				if refs[ref] {
 					t.Fatalf("duplicate detail ref %s", ref)
@@ -248,4 +262,81 @@ func TestAccountCompositionSnapshotFXAndPartial(t *testing.T) {
 		t.Fatal(valuation.Composition)
 	}
 	assertCompositionSums(t, *valuation.Composition)
+}
+
+// Independent rounding of slices used to change an unchanged top-ten item's
+// displayed percentage on expansion. Detail shares must be the sole allocation
+// and every grouped view must be an additive partition of that allocation.
+func TestAccountCompositionShareAllocationStableAcrossViewsAndTies(t *testing.T) {
+	account := compositionFixture()
+	instruments := map[domain.InstrumentID]domain.Instrument{}
+	amounts := []int{181, 178, 178, 171, 142, 137, 122, 97, 57, 41, 28, 12}
+	expected := []int{1347, 1325, 1324, 1272, 1057, 1019, 908, 722, 424, 305, 208, 89}
+	for i, amount := range amounts {
+		component := compositionComponent(fmt.Sprintf("item-%02d", i), fmt.Sprint(amount))
+		account.Components = append(account.Components, component)
+		kind := domain.InstrumentStock
+		if i%2 == 0 {
+			kind = domain.InstrumentETF
+		}
+		instruments[*component.InstrumentID] = domain.Instrument{ID: *component.InstrumentID, Type: kind}
+	}
+	result, err := projectAccountComposition(account, instruments, "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.TotalExact != "1344" {
+		t.Fatal(result)
+	}
+	// The UI regression consumes this exact wire payload, so its displayed
+	// percentages are tied to the backend projection rather than a mock drift.
+	fixtureJSON, err := os.ReadFile("../../testdata/current/account-composition-shares.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture wire.AccountCompositionDTO
+	if err := json.Unmarshal(fixtureJSON, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if actual := wire.FromAccountComposition(&result); !reflect.DeepEqual(actual, &fixture) {
+		t.Fatalf("backend wire projection differs from shared UI fixture: %+v", actual)
+	}
+	assertCompositionSums(t, result)
+	for i, detail := range result.Details {
+		if detail.ShareBPS != expected[i] {
+			t.Fatalf("detail %s share=%d, want %d", detail.Key, detail.ShareBPS, expected[i])
+		}
+		if i < 10 && !reflect.DeepEqual(result.DetailSlices[i], detail) {
+			t.Fatalf("collapsed item %s differs from original: %+v vs %+v", detail.Key, result.DetailSlices[i], detail)
+		}
+	}
+	remainder := result.DetailSlices[10]
+	if remainder.BaseAmountExact != "40" || remainder.ShareBPS != 297 {
+		t.Fatalf("remainder=%+v", remainder)
+	}
+	detailsByRef := map[string]domain.AccountCompositionItem{}
+	for _, detail := range result.Details {
+		detailsByRef[detail.Key] = detail
+	}
+	for _, group := range result.Types {
+		share := 0
+		for _, ref := range group.DetailRefs {
+			share += detailsByRef[ref].ShareBPS
+		}
+		if group.ShareBPS != share {
+			t.Fatalf("type %s share=%d, original sum=%d", group.TypeKey, group.ShareBPS, share)
+		}
+	}
+	// Equal amounts and fractional remainders are resolved by stable detail key,
+	// independent of input order and whether one is visible or in the remainder.
+	for i, j := 0, len(account.Components)-1; i < j; i, j = i+1, j-1 {
+		account.Components[i], account.Components[j] = account.Components[j], account.Components[i]
+	}
+	reversed, err := projectAccountComposition(account, instruments, "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(result, reversed) {
+		t.Fatal("tie allocation depends on input order")
+	}
 }

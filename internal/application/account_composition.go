@@ -116,6 +116,33 @@ func projectAccountComposition(account domain.AccountValuation, instruments map[
 	}
 	sortCompositionItems(result.Types)
 	sortCompositionItems(result.Details)
+	// Allocate displayed shares once for original details. Grouped views add
+	// those assigned basis points so expansion cannot change a holding's share.
+	if !invalid && total.IsPositive() {
+		values := make(map[string]decimal.Decimal, len(result.Details))
+		for _, detail := range result.Details {
+			if detail.BaseAmountExact != "" {
+				values[detail.Key], _ = decimal.NewFromString(detail.BaseAmountExact)
+			}
+		}
+		allocations, err := makeAllocations(values, nil, total, currency)
+		if err != nil {
+			return result, err
+		}
+		shares := make(map[string]int, len(allocations))
+		for _, allocation := range allocations {
+			shares[allocation.Key] = allocation.ShareBPS
+		}
+		sharesByType := make(map[string]int, len(result.Types))
+		for i := range result.Details {
+			detail := &result.Details[i]
+			detail.ShareBPS = shares[detail.Key]
+			sharesByType[detail.TypeKey] += detail.ShareBPS
+		}
+		for i := range result.Types {
+			result.Types[i].ShareBPS = sharesByType[result.Types[i].TypeKey]
+		}
+	}
 	result.DetailSlices = append(result.DetailSlices, result.Details...)
 	if len(result.Details) > accountCompositionDetailLimit {
 		remainder := domain.AccountCompositionItem{Key: accountCompositionRemainderKey, DetailRefs: []string{}}
@@ -125,7 +152,6 @@ func projectAccountComposition(account domain.AccountValuation, instruments map[
 		result.DetailSlices = append(append([]domain.AccountCompositionItem{}, result.Details[:accountCompositionDetailLimit]...), remainder)
 	}
 	for _, rows := range [][]domain.AccountCompositionItem{result.Types, result.Details, result.DetailSlices} {
-		values := map[string]decimal.Decimal{}
 		for i := range rows {
 			if rows[i].BaseAmountExact == "" {
 				continue
@@ -136,21 +162,6 @@ func projectAccountComposition(account domain.AccountValuation, instruments map[
 				return result, err
 			}
 			rows[i].BaseAmount = &domain.MoneyView{Amount: signed.CanonicalAmount(), Currency: signed.Currency()}
-			values[rows[i].Key] = amount
-		}
-		if invalid || !total.IsPositive() {
-			continue
-		}
-		allocations, err := makeAllocations(values, nil, total, currency)
-		if err != nil {
-			return result, err
-		}
-		shares := map[string]int{}
-		for _, allocation := range allocations {
-			shares[allocation.Key] = allocation.ShareBPS
-		}
-		for i := range rows {
-			rows[i].ShareBPS = shares[rows[i].Key]
 		}
 	}
 	return result, nil
@@ -158,6 +169,7 @@ func projectAccountComposition(account domain.AccountValuation, instruments map[
 
 func addCompositionItem(group *domain.AccountCompositionItem, item domain.AccountCompositionItem) {
 	group.DetailRefs = append(group.DetailRefs, item.DetailRefs...)
+	group.ShareBPS += item.ShareBPS
 	group.ValuedCount += item.ValuedCount
 	group.MissingCount += item.MissingCount
 	if item.BaseAmountExact != "" {
