@@ -1,8 +1,10 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -139,7 +141,7 @@ func TestPopulatedV15UpgradeRecoveryAndReopen(t *testing.T) {
 		t.Fatalf("recovery snapshots %v: %v", snapshots, err)
 	}
 	fileInfo, err := os.Stat(snapshots[0])
-	if err != nil || fileInfo.Mode().Perm() != 0600 {
+	if err != nil || fileInfo.Mode().Perm() != 0400 {
 		t.Fatalf("recovery permissions: %v %v", fileInfo, err)
 	}
 	dirInfo, err := os.Stat(filepath.Dir(snapshots[0]))
@@ -279,4 +281,114 @@ func TestV15UpgradeCancelledCommitRollsBack(t *testing.T) {
 	if !reflect.DeepEqual(before, allV15Rows(t, db)) {
 		t.Fatal("cancelled transaction changed records")
 	}
+}
+
+func TestV15UpgradeAbortsWhenConcurrentWriterCommitsAfterSnapshot(t *testing.T) {
+	path := populatedV15(t)
+	db, err := sql.Open("sqlite", path+"?_txlock=immediate&_pragma=foreign_keys%3d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	generation, err := prepareV15Recovery(context.Background(), db, path, (*os.File).Sync, syncUpgradeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Exec(`INSERT INTO app_configuration VALUES('concurrent-write','preserve exactly')`); err != nil {
+		t.Fatal(err)
+	}
+	other.Close()
+	if err := commitV15Upgrade(context.Background(), db, generation); err == nil {
+		t.Fatal("upgraded against stale recovery snapshot")
+	}
+	if err := verifySchemaVersion(context.Background(), db, 15); err != nil {
+		t.Fatal(err)
+	}
+	var value string
+	if err := db.QueryRow(`SELECT value FROM app_configuration WHERE key='concurrent-write'`).Scan(&value); err != nil || value != "preserve exactly" {
+		t.Fatalf("concurrent write %q %v", value, err)
+	}
+}
+
+func TestV15UpgradeFlushFailuresKeepOriginalSchemaAndRecords(t *testing.T) {
+	for _, phase := range []string{"file", "recovery-directory", "parent-directory"} {
+		t.Run(phase, func(t *testing.T) {
+			path := populatedV15(t)
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys%3d1")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			fail := errors.New("synthetic flush failure")
+			calls := 0
+			_, err = prepareV15Recovery(context.Background(), db, path, func(file *os.File) error {
+				if phase == "file" {
+					return fail
+				}
+				return file.Sync()
+			}, func(dir string) error {
+				calls++
+				if (phase == "recovery-directory" && calls == 1) || (phase == "parent-directory" && calls == 2) {
+					return fail
+				}
+				return syncUpgradeDir(dir)
+			})
+			if !errors.Is(err, fail) {
+				t.Fatalf("flush %s: %v", phase, err)
+			}
+			if err := verifySchemaVersion(context.Background(), db, 15); err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(before, after) {
+				t.Fatal("failed flush changed live database")
+			}
+			copies, _ := filepath.Glob(filepath.Join(filepath.Dir(path), ".nestworth-v15-recovery-*", "original-v15.sqlite"))
+			for _, copy := range copies {
+				info, err := os.Stat(copy)
+				if err != nil || info.Mode().Perm() != 0400 {
+					t.Fatal("failed upgrade left writable named recovery copy")
+				}
+			}
+		})
+	}
+}
+
+func TestRetainedV15RecoveryCannotBeUpgradedInPlace(t *testing.T) {
+	path := populatedV15(t)
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	copies, _ := filepath.Glob(filepath.Join(filepath.Dir(path), ".nestworth-v15-recovery-*", "original-v15.sqlite"))
+	if len(copies) != 1 {
+		t.Fatalf("copies %v", copies)
+	}
+	before, err := os.ReadFile(copies[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(copies[0]); err == nil {
+		t.Fatal("opened recovery copy writable")
+	}
+	after, err := os.ReadFile(copies[0])
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("recovery copy changed")
+	}
+	inspected, err := OpenReadOnlyForVerify(copies[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inspected.Close()
 }

@@ -473,7 +473,7 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 	m.previewPins[p.StreamID] = true
 	m.retentionPreview = nil
 	m.setStatus(func(s *status) { s.RestoreState = "preview" })
-	return Candidate{Path: destination, AppVersion: info.AppVersion, AppBuild: info.AppBuild}, nil
+	return Candidate{Path: destination, SchemaVersion: foundVersion, AppVersion: info.AppVersion, AppBuild: info.AppBuild}, nil
 }
 
 // PauseForRestore is called inside the exclusive restore operation before

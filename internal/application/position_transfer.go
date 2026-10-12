@@ -66,7 +66,7 @@ func (s *Service) preparePositionTransfer(ctx context.Context, snapshot domain.P
 	}
 	state.Holdings[holding.ID] = domain.ChangeHoldingState{
 		ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID,
-		InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: pointerText(instrument.Symbol), Currency: instrument.QuoteCurrency, Current: zero,
+		InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: pointerText(instrument.Symbol), InstrumentISIN: pointerText(instrument.ISIN), InstrumentMarketCode: pointerText(instrument.MarketCode), InstrumentQuantityUnit: instrument.QuantityUnit, InstrumentProviderKey: pointerText(instrument.ProviderKey), InstrumentProviderSymbol: pointerText(instrument.ProviderSymbol), Currency: instrument.QuoteCurrency, Current: zero,
 	}
 	input.ToHoldingID = holding.ID
 	input.ToAccountID = nil

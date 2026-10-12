@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -219,7 +220,8 @@ func (s *Service) tools(mode string) *mcp.Server {
 			if x.Symbol != nil {
 				symbol = *x.Symbol
 			}
-			if matches(in.Query, x.Name, symbol) {
+			query := strings.TrimFunc(in.Query, func(r rune) bool { return unicode.IsSpace(r) || r == '\uFEFF' })
+			if matches(query, x.Name, symbol, x.ShortName) {
 				out = append(out, x)
 			}
 		}

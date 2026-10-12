@@ -130,7 +130,8 @@ func (b fileBackend) ensureIdentity(ctx context.Context, info streamIdentity) er
 // Candidate remains inside Go infrastructure/controller code; its local path
 // is never returned as a Wails DTO. Identity is checked before downloading LTX.
 type Candidate struct {
-	Path       string
-	AppVersion string
-	AppBuild   string
+	SchemaVersion int
+	Path          string
+	AppVersion    string
+	AppBuild      string
 }

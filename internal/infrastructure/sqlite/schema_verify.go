@@ -74,7 +74,13 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 
 	tables := expectedSchemaTables()
 	if expectedVersion == 15 {
-		tables["instruments"] = tables["instruments"][:len(tables["instruments"])-1]
+		columns := []schemaColumn{}
+		for _, column := range tables["instruments"] {
+			if column.name != "short_name" {
+				columns = append(columns, column)
+			}
+		}
+		tables["instruments"] = columns
 	}
 	tableNames := make([]string, 0, len(tables))
 	for name := range tables {

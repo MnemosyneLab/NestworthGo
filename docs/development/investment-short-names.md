@@ -55,10 +55,13 @@ For an existing v15 file, `sqlite.Open`:
    indexes, financial/history invariants, integrity and foreign keys.
 2. Creates a consistent `VACUUM INTO` copy in an adjacent private
    `.nestworth-v15-recovery-*` directory. The retained file is
-   `original-v15.sqlite` (directory 0700, file 0600).
+   `original-v15.sqlite` (directory 0700, published file 0400).
 3. Verifies the recovery file read-only and flushes its data and directory
    entries before changing the live schema. Failure to create, verify or flush
-   recovery stops the upgrade.
+   recovery stops the upgrade. The snapshot keeps an unpublished
+   `.snapshot-v15.partial` name until verification, file flush and read-only
+   permissions succeed. Partial artifacts are cleaned on failure; published
+   copies remain read-only even if a later directory flush or transaction fails.
 4. Acquires the existing immediate SQLite transaction, checks `data_version`
    against the pre-snapshot generation, and verifies v15 again. A concurrent
    committed change aborts rather than proceeding with a stale recovery copy.
@@ -82,10 +85,39 @@ source stream metadata unchanged. New streams use v16; existing stream metadata
 is never overwritten. No external connection/provider behavior changes.
 
 Old schema-15 binaries deliberately reject a schema-16 live database. Rollback
-uses the retained pre-upgrade v15 copy with the old binary, or a verified backup.
-It must not reset `user_version` on the upgraded file. The recovery copy reflects
+copies the retained pre-upgrade v15 file to a **new live path** (file 0600)
+for the old binary, or uses a verified backup. Never open the retained original
+as a live database; it is read-only and the new binary refuses to upgrade it
+in place. It must not reset `user_version` on the upgraded file. The recovery copy reflects
 pre-upgrade state: financial writes made afterwards require preservation before
 choosing that older state. This change does not implement a v16-to-v15 downgrade.
+
+## JSON export compatibility
+
+`com.nestworth.export` format version 2 is a deliberately versioned financial
+projection, not the restorable application database. It does **not** export
+short names. This change leaves that contract unchanged. Alias-preserving
+backup/restore uses the SQLite backup package or the cloud database snapshot.
+
+## Review follow-up
+
+- Holding selectors, starting-point unit-cost inputs and preview endpoints keep
+  the universal primary label first and append code, legal name and available
+  ISIN/market/currency/unit/provider identity. Regression cases use duplicate
+  aliases in the same account with equal quantities and verify selected IDs.
+- Reservation source selection also resolves the instrument identity through
+  existing local queries; colliding source descriptions retain source IDs.
+- MCP `list_instruments` query matching covers alias, legal name and code,
+  preserving duplicate results and Unicode whitespace/case matching.
+- Cloud candidates carry the actual verified schema into Wails packaging.
+  Populated v15 synthetic cloud objects pass real Manager staging, Wails
+  inspect/confirm, journal reconciliation and open/upgrade; every table, exact
+  value and ID is compared. Mismatched/future schemas, corrupt LTX, invalid
+  confirmation and failed quiesce preserve the original live session and data.
+  The local replica backend is injected only through a test-only export.
+- v15 schema columns are filtered by name. Tests additionally cover a real
+  committed second-connection write between snapshot and upgrade, file flush
+  and both directory-flush failures, and attempted in-place recovery upgrade.
 
 ## Synthetic evidence
 
@@ -153,7 +185,7 @@ Validation on 2026-10-12:
 | Full Go suite in server/headless mode | Passed; 37 tested packages |
 | Go vet and gofmt | Passed |
 | Focused race suites for aliases, v15 upgrade/recovery, manifests and stream identity | Passed across all seven listed packages |
-| Frontend suite with two workers | 94 files / 948 tests passed |
+| Frontend suite with two workers | 94 files / 955 tests passed |
 | TypeScript, ESLint and generated-binding consistency | Passed |
 | Production frontend and headless server builds | Passed; existing ECharts chunk-size warning |
 | Native packaged build and visual/mobile acceptance | Pending parent review; native dependencies absent |
@@ -170,7 +202,7 @@ Use a fresh isolated application-data directory and disposable populated v15
 copies. Never point the app at the user's financial database.
 
 - [ ] Packaged native build opens populated v15; recovery file exists, is
-  private, and reopens with the old binary. The live copy reopens as v16.
+  private/read-only; a copy at a new live path reopens with the old binary. The live copy reopens as v16.
 - [ ] On every supported native OS, backup/directory flush succeeds; disk-full,
   read-only directory and interrupted startup preserve recoverable original data.
 - [ ] Primary short name/code/name order holds for all instrument types without

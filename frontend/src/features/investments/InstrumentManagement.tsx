@@ -24,6 +24,7 @@ import { useInstruments,
 import { useProducts } from "@/queries/liquidity";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
+import { trimInstrumentText } from "@/lib/instrumentDisplay";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
@@ -228,7 +229,7 @@ export function InstrumentManagement({
 
   const filtered = useMemo(() => {
     const items = (instruments.data ?? []).filter(item => !focus?.instrumentId || item.id === focus.instrumentId);
-    const needle = query.trim().toLowerCase();
+    const needle = trimInstrumentText(query).toLowerCase();
     if (!needle) {
       return items;
     }

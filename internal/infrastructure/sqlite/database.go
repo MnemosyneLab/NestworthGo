@@ -88,6 +88,9 @@ type DB struct {
 }
 
 func Open(path string) (*DB, error) {
+	if isV15RecoveryCopy(path) {
+		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
+	}
 	if strings.TrimSpace(path) == "" {
 		return nil, &BootstrapError{Status: StatusUnavailable, Err: errors.New("database path is empty")}
 	}

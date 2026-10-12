@@ -61,3 +61,10 @@ describe("short names", () => {
     expect(instrumentDisplayLabel({ shortName: "界".repeat(120), name: "Full name" })).toBe("界".repeat(120));
   });
 });
+
+it("retains unit and provider identity in selectors without changing the primary label", () => {
+  const common = { name: "Gold", shortName: "Family gold", symbol: "XAU", quoteCurrency: "USD", providerKey: "yahoo_finance", providerSymbol: "GC=F" };
+  expect(instrumentDisplayLabel({ ...common, quantityUnit: "g" })).toBe("Family gold");
+  expect(instrumentSelectionLabel({ ...common, quantityUnit: "g" })).toBe("Family gold · XAU · Gold · USD · g · yahoo_finance · GC=F");
+  expect(instrumentSelectionLabel({ ...common, quantityUnit: "troy_oz" })).toContain("troy_oz");
+});

@@ -36,3 +36,37 @@ func TestInstrumentUniversalDisplayRuleAndValidation(t *testing.T) {
 		t.Fatal("accepted overlong alias")
 	}
 }
+
+func TestShortNamePreviewEndpointsRetainShareClassIdentity(t *testing.T) {
+	state, _, _, first, second := changeTestState(t)
+	for index, id := range []HoldingID{first, second} {
+		h := state.Holdings[id]
+		h.Current = state.Holdings[first].Current
+		h.InstrumentID = NewInstrumentID()
+		h.InstrumentShortName = "Family fund"
+		h.InstrumentSymbol = []string{"000001", "000002"}[index]
+		h.InstrumentName = "Share class " + h.InstrumentSymbol
+		h.InstrumentISIN = "ISIN-" + h.InstrumentSymbol
+		state.Holdings[id] = h
+	}
+	quantity, err := ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for _, id := range []HoldingID{first, second} {
+		preview, err := PreviewChange(state, PositionAdjustmentInput{HouseholdID: state.HouseholdID, HoldingID: id, Quantity: quantity, Added: false, EffectiveAt: state.Now})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := state.Holdings[id]
+		name := preview.Resulting[0].Name
+		if !strings.HasPrefix(name, "Family fund · ") || !strings.Contains(name, h.InstrumentSymbol) || !strings.Contains(name, h.InstrumentName) || !strings.Contains(name, h.InstrumentISIN) || names[name] {
+			t.Fatalf("ambiguous endpoint %q", name)
+		}
+		if preview.Resulting[0].HoldingID == nil || *preview.Resulting[0].HoldingID != id {
+			t.Fatal("endpoint identity changed")
+		}
+		names[name] = true
+	}
+}

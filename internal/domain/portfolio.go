@@ -221,6 +221,25 @@ func (i Instrument) DisplayLabel() string {
 	return InstrumentDisplayLabel(i.Name, symbol, i.ShortName)
 }
 
+// InstrumentSelectionLabel retains the universal primary label, followed by identity.
+func InstrumentSelectionLabel(name, symbol, shortName string, identity ...string) string {
+	values := append([]string{InstrumentDisplayLabel(name, symbol, shortName), symbol, name}, identity...)
+	seen := map[string]bool{}
+	labels := []string{}
+	for _, value := range values {
+		value = trimInstrumentLabel(value)
+		if value != "" && !seen[value] {
+			seen[value] = true
+			labels = append(labels, value)
+		}
+	}
+	return strings.Join(labels, " · ")
+}
+
+func (i Instrument) SelectionLabel() string {
+	return InstrumentSelectionLabel(i.Name, stringPointerValue(i.Symbol), i.ShortName, stringPointerValue(i.MarketCode), i.QuoteCurrency.String(), stringPointerValue(i.ISIN), i.QuantityUnit, stringPointerValue(i.ProviderKey), stringPointerValue(i.ProviderSymbol))
+}
+
 // Go and JavaScript whitespace sets differ for NEL and BOM; use their union.
 func trimInstrumentLabel(value string) string {
 	return strings.TrimFunc(value, func(r rune) bool { return unicode.IsSpace(r) || r == '\uFEFF' })

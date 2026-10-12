@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayError } from "@/lib/display";
+import { useAllHoldingsFlat, useInstruments } from "@/queries/investments";
+import { instrumentSelectionLabel } from "@/lib/instrumentDisplay";
 import { useSaveReservation } from "@/queries/liquidity";
 import type { LiquiditySourceDTO, ReservationDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import { sourceName } from "./sourceName";
@@ -24,6 +26,10 @@ type FieldErrors = Partial<Record<"source" | "label" | "amount", string>>;
 export function ReservationForm({ source, sources = [], accountNames = {}, reservation, onSaved, onCancel, onPendingChange }: ReservationFormProps) {
   const { t } = useTranslation();
   const save = useSaveReservation();
+  const holdingAccounts = [...new Set([source, ...sources].flatMap(item => item?.sourceRef.holdingId ? [item.accountId] : []))];
+  const holdings = useAllHoldingsFlat(holdingAccounts);
+  const instruments = useInstruments(true);
+  const instrumentById = new Map((instruments.data ?? []).map(item => [item.id, item]));
   const eligibleSources = sources.filter((item) => !item.excluded);
   const [selectedSourceKey, setSelectedSourceKey] = useState(eligibleSources.length === 1 ? eligibleSources[0].sourceKey : "");
   const selectedSource = source ?? eligibleSources.find((item) => item.sourceKey === selectedSourceKey) ?? null;
@@ -33,7 +39,15 @@ export function ReservationForm({ source, sources = [], accountNames = {}, reser
   const [error, setError] = useState<string>();
   const pending = useRef(false);
   const currency = reservation?.amount.currency ?? selectedSource?.nativeCurrency;
-  const describeSource = (item: LiquiditySourceDTO) => [accountNames[item.accountId], sourceName(t, item), item.nativeCurrency].filter(Boolean).join(" · ");
+  const describeSource = (item: LiquiditySourceDTO) => {
+    const holding = holdings.data.find(value => value.id === item.sourceRef.holdingId);
+    const instrument = holding && instrumentById.get(holding.instrumentId);
+    const identity = instrument ? instrumentSelectionLabel(instrument) : sourceName(t, item);
+    // A source ID remains explicit if identity is unavailable or descriptions still collide.
+    const label = [accountNames[item.accountId], identity, instrument ? undefined : item.nativeCurrency].filter(Boolean).join(" · ");
+    const sameDescription = eligibleSources.filter(other => other.accountId === item.accountId && other.nativeCurrency === item.nativeCurrency && other.displayName === item.displayName).length > 1;
+    return sameDescription ? `${label} · ${item.sourceRef.holdingId ?? item.sourceKey}` : label;
+  };
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

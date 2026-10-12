@@ -3,6 +3,8 @@ export type InstrumentIdentityFields = {
   metalTemplate?: string;
   quantityUnit?: string;
   quoteCurrency?: string | null;
+  providerKey?: string | null;
+  providerSymbol?: string | null;
   isin?: string | null;
   marketCode?: string | null;
   shortName?: string | null;
@@ -53,7 +55,7 @@ export function instrumentDisplayLabels<T extends { id: string } & InstrumentIde
 /** Selectors keep identity text alongside the universal primary label. Values remain IDs. */
 export function instrumentSelectionLabel(instrument: InstrumentIdentityFields, fallback = ""): string {
   const primary = instrumentDisplayLabel(instrument, fallback);
-  const identity = [instrument.symbol, instrument.name, instrument.marketCode, instrument.quoteCurrency, instrument.isin]
+  const identity = [instrument.symbol, instrument.name, instrument.marketCode, instrument.quoteCurrency, instrument.isin, instrument.quantityUnit, instrument.providerKey, instrument.providerSymbol]
     .map(value => trimInstrumentText(value)).filter((value): value is string => Boolean(value));
   return [...new Set([primary, ...identity].filter(Boolean))].join(" · ");
 }
