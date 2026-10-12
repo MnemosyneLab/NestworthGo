@@ -77,9 +77,10 @@ function cashChangeLabel(value: AccountCashValueDTO): string {
 function holdingRows(
   holdings: HoldingDTO[],
   valuation: AccountValuationDTO | undefined,
-  instruments: { id: string; name: string; type: string; symbol?: string | null }[],
+  instruments: { id: string; name: string; shortName?: string; type: string; symbol?: string | null }[],
 ): {
   holding: HoldingDTO;
+  instrumentShortName?: string;
   instrumentName: string;
   instrumentSymbol?: string;
   instrumentType: string;
@@ -96,6 +97,7 @@ function holdingRows(
       const component = byHoldingId.get(holding.id);
       return {
         holding,
+        instrumentShortName: component?.instrumentShortName || instrument?.shortName,
         instrumentName: component?.instrumentName || instrument?.name || holding.instrumentId,
         instrumentSymbol: component?.instrumentSymbol || instrument?.symbol || undefined,
         instrumentType: instrument?.type ?? "",
@@ -107,8 +109,8 @@ function holdingRows(
     rows,
     (row) => (row.component ? componentHouseholdAmount(row.component, householdCurrency) : undefined) ?? "0",
     (left, right) =>
-      instrumentDisplayLabel({ name: left.instrumentName, symbol: left.instrumentSymbol }).localeCompare(
-        instrumentDisplayLabel({ name: right.instrumentName, symbol: right.instrumentSymbol }),
+      instrumentDisplayLabel({ name: left.instrumentName, shortName: left.instrumentShortName, symbol: left.instrumentSymbol }).localeCompare(
+        instrumentDisplayLabel({ name: right.instrumentName, shortName: right.instrumentShortName, symbol: right.instrumentSymbol }),
       ),
   );
 }
@@ -375,7 +377,7 @@ export function AccountDetail({
                     {investmentRows.map((row) => (
                       <tr key={row.holding.id} className="border-b border-border last:border-0">
                         <td className="py-2">
-                          <InstrumentLabel name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
+                          <InstrumentLabel shortName={row.instrumentShortName} name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
                         <td className="num py-2 text-right">{row.instrumentType === "bank_investment_product" ? `${formatAmount(row.holding.quantity)} ${t("common.units")}` : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>
@@ -391,7 +393,7 @@ export function AccountDetail({
                           )}
                         </td>
                         <td className="py-2 text-right">
-                          <AnalyzeMenu accountId={record.account.id} instrumentId={row.holding.instrumentId} label={row.instrumentName}
+                          <AnalyzeMenu accountId={record.account.id} instrumentId={row.holding.instrumentId} label={instrumentDisplayLabel({ name: row.instrumentName, symbol: row.instrumentSymbol, shortName: row.instrumentShortName })}
                             onDividend={!readOnly && row.instrumentActive ? () => {
                               setActionHoldingId(row.holding.id);
                               setAction("dividend");

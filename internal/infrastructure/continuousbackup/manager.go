@@ -462,7 +462,14 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 		m.setStatus(func(s *status) { s.RestoreState = "error" })
 		return Candidate{}, err
 	}
+	var foundVersion int
+	versionErr := verified.SQL.QueryRowContext(stageCtx, "PRAGMA user_version").Scan(&foundVersion)
 	verified.Close()
+	if versionErr != nil || foundVersion != info.Schema {
+		os.RemoveAll(dir)
+		m.setStatus(func(s *status) { s.RestoreState = "error" })
+		return Candidate{}, ErrUnavailable
+	}
 	m.previewPins[p.StreamID] = true
 	m.retentionPreview = nil
 	m.setStatus(func(s *status) { s.RestoreState = "preview" })

@@ -67,6 +67,7 @@ export interface OverviewHoldingLabelDTO {
 }
 
 export interface OverviewInstrumentLabelDTO {
+    "shortName"?: string;
     "id": string;
     "name": string;
     "symbol"?: string;

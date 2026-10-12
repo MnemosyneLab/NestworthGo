@@ -7,6 +7,7 @@ import (
 )
 
 type ProductTermsInput struct {
+	ShortName             *string `json:"shortName,omitempty"`
 	Kind                  string  `json:"kind"`
 	Name                  string  `json:"name"`
 	Note                  *string `json:"note"`
@@ -146,6 +147,7 @@ type ProductOperationPage struct {
 }
 
 type ProductDetail struct {
+	Symbol           string
 	Contract         domain.ProductContract
 	Policy           domain.LiquidityPolicy
 	CurrentValue     *domain.Money

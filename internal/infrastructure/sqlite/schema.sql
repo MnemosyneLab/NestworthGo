@@ -137,6 +137,7 @@ CREATE TABLE instruments (
     archived_at TEXT,
     metal_template TEXT NOT NULL DEFAULT '',
     quantity_unit TEXT NOT NULL DEFAULT '',
+    short_name TEXT NOT NULL DEFAULT '',
     CHECK(quote_source <> 'provider' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL)),
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
@@ -774,6 +775,6 @@ CREATE TABLE agent_quote_records (
 CREATE UNIQUE INDEX ux_agent_quote_records_quote ON agent_quote_records(target_type, quote_id) WHERE quote_id IS NOT NULL;
 CREATE UNIQUE INDEX ux_agent_quote_records_target ON agent_quote_records(target_type, target_quote_id) WHERE target_quote_id IS NOT NULL;
 CREATE INDEX idx_agent_quote_records_household ON agent_quote_records(household_id, created_at, id);
-PRAGMA user_version = 15;
+PRAGMA user_version = 16;
 
 CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);

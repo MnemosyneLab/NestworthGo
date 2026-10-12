@@ -1288,10 +1288,10 @@ func (s *Service) attachOverviewHeadlines(ctx context.Context, snapshot domain.P
 		if instrument.Symbol != nil {
 			symbol = *instrument.Symbol
 		}
-		instrumentNames[instrument.ID] = domain.InstrumentDisplayLabel(instrument.Name, symbol)
+		instrumentNames[instrument.ID] = domain.InstrumentDisplayLabel(instrument.Name, symbol, instrument.ShortName)
 		instrumentSources[instrument.ID] = instrument.QuoteSource
 		result.InstrumentLabels = append(result.InstrumentLabels, domain.OverviewInstrumentRef{
-			ID: instrument.ID.String(), Name: instrument.Name, Symbol: symbol, QuoteSource: instrument.QuoteSource,
+			ID: instrument.ID.String(), Name: instrument.Name, ShortName: instrument.ShortName, Symbol: symbol, QuoteSource: instrument.QuoteSource,
 		})
 	}
 	sort.Slice(result.InstrumentLabels, func(i, j int) bool { return result.InstrumentLabels[i].ID < result.InstrumentLabels[j].ID })

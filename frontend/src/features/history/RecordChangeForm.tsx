@@ -33,7 +33,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
 import type { WireError } from "@/lib/wails";
-import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
+import { instrumentSelectionLabel, instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { formatExactTimestamp, formatTimestamp, hasSubMinuteTime, localDateTimeInTimeZone, resolvedTimeZone } from "@/lib/time";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
 import { QuoteHint } from "@/features/history/QuoteHint";
@@ -452,8 +452,8 @@ function RecordChangeFormReady({
   const debtAccountOptions = debtAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
   const cashAccountOptions = cashAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
 
-  const holdingName = (holding: { instrumentName?: string; instrumentSymbol?: string | null; accountName?: string; quantity: string }) =>
-    `${instrumentDisplayLabel({ name: holding.instrumentName, symbol: holding.instrumentSymbol }, t("portfolio.unknownInstrument"))} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
+  const holdingName = (holding: { instrumentShortName?: string; instrumentName?: string; instrumentSymbol?: string | null; accountName?: string; quantity: string }) =>
+    `${instrumentDisplayLabel({ name: holding.instrumentName, shortName: holding.instrumentShortName, symbol: holding.instrumentSymbol }, t("portfolio.unknownInstrument"))} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
   const holdingOptions = holdings.data.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
   const transferSource = holdings.data.find((holding) => holding.id === request.fromHoldingId);
   // Existing Fix requests identify the old destination holding; new commands use
@@ -483,7 +483,7 @@ function RecordChangeFormReady({
   const sellHoldingOptions = positiveSettlementHoldings.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
   const activeInstrumentOptions = (instruments.data ?? [])
     .filter((instrument) => !instrument.archivedAt)
-    .map((instrument) => ({ id: instrument.id, name: `${instrumentDisplayLabel(instrument, instrument.name)} · ${instrument.quoteCurrency}` }));
+    .map((instrument) => ({ id: instrument.id, name: instrumentSelectionLabel(instrument, instrument.name) }));
   const selectedInstrument = (instruments.data ?? []).find((instrument) => instrument.id === request.instrumentId);
   const tradeOptions = request.side === "sell" ? sellHoldingOptions : activeInstrumentOptions;
   const tradeSelection = request.side === "sell" ? request.holdingId ?? "" : request.instrumentId ?? "";

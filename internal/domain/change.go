@@ -343,14 +343,27 @@ type ChangeAccountState struct {
 }
 
 type ChangeHoldingState struct {
-	ID                 HoldingID
-	AccountID          AccountID
-	InstrumentID       InstrumentID
-	InstrumentName     string
-	Currency           CurrencyCode
-	Archived           bool
-	Current            Quantity
-	CostBasisAvailable bool
+	ID                  HoldingID
+	AccountID           AccountID
+	InstrumentID        InstrumentID
+	InstrumentName      string
+	InstrumentSymbol    string `json:"instrumentSymbol,omitempty"`
+	InstrumentShortName string `json:"instrumentShortName,omitempty"`
+	Currency            CurrencyCode
+	Archived            bool
+	Current             Quantity
+	CostBasisAvailable  bool
+}
+
+func stringPointerValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func (h ChangeHoldingState) DisplayLabel() string {
+	return InstrumentDisplayLabel(h.InstrumentName, h.InstrumentSymbol, h.InstrumentShortName)
 }
 
 // ChangeState is the injected, read-only state used by PreviewChange. It is
@@ -641,7 +654,7 @@ func ApplyEffects(state ChangeState, effects []ActivityEffect) (ChangeState, []E
 				return ChangeState{}, nil, changeError(ErrInvalidChange, "effect", "cost correction requires a positive matching Holding")
 			}
 			holdingID := holding.ID
-			view = EndpointView{Target: EffectTargetHoldingCost, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: holding.Current.Canonical(), CostUnitPrice: effect.CostUnitPrice}
+			view = EndpointView{Target: EffectTargetHoldingCost, HoldingID: &holdingID, Name: holding.DisplayLabel(), Quantity: holding.Current.Canonical(), CostUnitPrice: effect.CostUnitPrice}
 			views = upsertEndpointView(views, view)
 			continue
 		}
@@ -698,7 +711,7 @@ func ApplyEffects(state ChangeState, effects []ActivityEffect) (ChangeState, []E
 			holding.Current = updated
 			state.Holdings[holding.ID] = holding
 			holdingID := holding.ID
-			view = EndpointView{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: updated.Canonical()}
+			view = EndpointView{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.DisplayLabel(), Quantity: updated.Canonical()}
 		}
 		views = upsertEndpointView(views, view)
 	}
@@ -1204,7 +1217,7 @@ func buildPositionTransfer(state ChangeState, input PositionTransferInput) (Chan
 	effects := []ActivityEffect{holdingEffect(activity.ID, 1, EffectRoleTransferFrom, EffectRemoved, ClassificationInternalTransfer, from, input.Quantity), holdingEffect(activity.ID, 2, EffectRoleTransferTo, EffectAdded, ClassificationInternalTransfer, to, input.Quantity)}
 	activity.Effects = effects
 	fromID, toID := from.ID, to.ID
-	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &fromID, Name: from.InstrumentName, Quantity: fromQty.Canonical()}, {Target: EffectTargetHoldingQuantity, HoldingID: &toID, Name: to.InstrumentName, Quantity: toQty.Canonical()}}}, nil
+	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &fromID, Name: from.DisplayLabel(), Quantity: fromQty.Canonical()}, {Target: EffectTargetHoldingQuantity, HoldingID: &toID, Name: to.DisplayLabel(), Quantity: toQty.Canonical()}}}, nil
 }
 
 func buildPositionAdjustment(state ChangeState, input PositionAdjustmentInput) (ChangePreview, error) {
@@ -1243,7 +1256,7 @@ func buildPositionAdjustment(state ChangeState, input PositionAdjustmentInput) (
 	}
 	activity.Effects = []ActivityEffect{effect}
 	holdingID := holding.ID
-	preview := ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: quantity.Canonical()}}}
+	preview := ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.DisplayLabel(), Quantity: quantity.Canonical()}}}
 	if input.Added && input.UnitCost != nil {
 		preview.DerivedUnitPrice = input.UnitCost
 	}
@@ -1268,7 +1281,7 @@ func buildPositionCostAdjustment(state ChangeState, input PositionCostAdjustment
 	holdingID, instrumentID := holding.ID, holding.InstrumentID
 	effect := ActivityEffect{ID: NewActivityEffectID(), ActivityID: activity.ID, Sequence: 1, Role: EffectRoleCost, Direction: EffectAdded, Target: EffectTargetHoldingCost, Classification: ClassificationRemeasurement, HoldingID: &holdingID, InstrumentID: &instrumentID, CostUnitPrice: &input.UnitCost}
 	activity.Effects = []ActivityEffect{effect}
-	view := EndpointView{Target: EffectTargetHoldingCost, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: holding.Current.Canonical(), CostUnitPrice: &input.UnitCost}
+	view := EndpointView{Target: EffectTargetHoldingCost, HoldingID: &holdingID, Name: holding.DisplayLabel(), Quantity: holding.Current.Canonical(), CostUnitPrice: &input.UnitCost}
 	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{view}, DerivedUnitPrice: &input.UnitCost}, nil
 }
 
@@ -1308,7 +1321,7 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 		if zeroErr != nil {
 			return ChangePreview{}, zeroErr
 		}
-		holding = ChangeHoldingState{ID: NewHoldingID(), AccountID: account.ID, InstrumentID: instrument.ID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
+		holding = ChangeHoldingState{ID: NewHoldingID(), AccountID: account.ID, InstrumentID: instrument.ID, InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: stringPointerValue(instrument.Symbol), Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
 	}
 	if holding.AccountID != account.ID || holding.InstrumentID != input.InstrumentID || input.Quantity.IsZero() || input.Gross.IsZero() {
 		return ChangePreview{}, &Error{Code: ErrInvalidTrade, Field: "trade", Message: "Holding, Instrument, quantity, and gross total must match"}
@@ -1361,7 +1374,7 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 	effects := []ActivityEffect{holdingEffect(activity.ID, 1, EffectRoleQuantity, quantityDirection, ClassificationTradePrincipal, holding, quantity), cashEffect(activity.ID, 2, EffectRolePrincipal, cashDirection, ClassificationTradePrincipal, account.ID, input.Gross)}
 	views := []EndpointView{cashView}
 	holdingID := holding.ID
-	views = append(views, EndpointView{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: newQuantity.Canonical()})
+	views = append(views, EndpointView{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.DisplayLabel(), Quantity: newQuantity.Canonical()})
 	if input.Fee != nil && !input.Fee.IsZero() {
 		feeView, feeErr := state.cashAfter(account.ID, *input.Fee, EffectRemoved, input.Gross, cashDirection)
 		if feeErr != nil {

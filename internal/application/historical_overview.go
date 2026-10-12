@@ -315,7 +315,10 @@ func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain
 				}
 			}
 			if component.HoldingID != nil {
-				kind, name, key = "holding", component.InstrumentName, parentKey+":holding:"+component.HoldingID.String()
+				kind, name, key = "holding", domain.InstrumentDisplayLabel(component.InstrumentName, component.InstrumentSymbol, component.InstrumentShortName), parentKey+":holding:"+component.HoldingID.String()
+				if instrument != nil {
+					name = instrument.DisplayLabel()
+				}
 				holding := holdings[*component.HoldingID]
 				cell.Quantity = historicalString(holding.Quantity.Canonical())
 				componentArchived = holding.ArchivedAt != nil

@@ -481,6 +481,7 @@ export interface InstrumentDTO {
     "id": string;
     "householdId": string;
     "name": string;
+    "shortName"?: string;
     "type": string;
     "metalTemplate"?: string;
     "quantityUnit"?: string;
@@ -540,6 +541,7 @@ export interface MissingInputDTO {
     "accountName"?: string;
     "instrumentId"?: string | null;
     "instrumentName"?: string;
+    "instrumentShortName"?: string;
     "instrumentSymbol"?: string;
     "quoteSource"?: string;
     "baseCurrency"?: string;
@@ -729,6 +731,7 @@ export interface ValuationComponentDTO {
     "holdingId"?: string | null;
     "instrumentId"?: string | null;
     "instrumentName"?: string;
+    "instrumentShortName"?: string;
     "instrumentSymbol"?: string;
     "nativeAmount": string;
     "nativeCurrency": string;

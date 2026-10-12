@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"os"
 	"path/filepath"
 	"time"
@@ -31,7 +32,7 @@ func InstallRestore(ctx context.Context, liveDBPath string, pkg Package, hooks *
 	if err := ExtractDatabase(pkg, stagingPath); err != nil {
 		return err
 	}
-	if err := VerifyExtractedDatabase(ctx, stagingPath); err != nil {
+	if err := verifyRestoreCandidate(ctx, stagingPath, pkg.Manifest.SchemaVersion); err != nil {
 		_ = os.Remove(stagingPath)
 		return err
 	}
@@ -99,6 +100,23 @@ func InstallRestore(ctx context.Context, liveDBPath string, pkg Package, hooks *
 	journal.State = StateReplacementInstalled
 	if err := WriteJournal(liveDBPath, journal); err != nil {
 		return err
+	}
+	return nil
+}
+
+// Supported versions must still agree with the checksummed backup manifest.
+func verifyRestoreCandidate(ctx context.Context, path string, expectedVersion int) error {
+	db, err := sqlite.OpenReadOnlyForVerifyContext(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	var version int
+	if err := db.SQL.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	if version != expectedVersion {
+		return &domain.Error{Code: domain.ErrBackupIntegrityFailed, Message: "database schema does not match backup manifest"}
 	}
 	return nil
 }

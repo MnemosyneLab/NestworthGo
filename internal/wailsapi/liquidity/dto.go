@@ -133,6 +133,8 @@ type ReservationDTO struct {
 }
 
 type ProductDTO struct {
+	Symbol                string          `json:"symbol,omitempty"`
+	ShortName             string          `json:"shortName,omitempty"`
 	ID                    string          `json:"id"`
 	AccountID             string          `json:"accountId"`
 	HoldingID             string          `json:"holdingId"`
@@ -366,7 +368,7 @@ func fromProductDetail(value application.ProductDetail) ProductDetailDTO {
 	product := ProductDTO{
 		ID: value.Contract.ID.String(), AccountID: value.Contract.AccountID.String(),
 		HoldingID: value.Contract.HoldingID.String(), InstrumentID: value.Contract.InstrumentID.String(),
-		Kind: string(value.Contract.Kind), Name: value.Contract.Name, Note: value.Contract.Note,
+		Symbol: value.Symbol, Kind: string(value.Contract.Kind), Name: value.Contract.Name, ShortName: value.Contract.ShortName, Note: value.Contract.Note,
 		Currency: value.Contract.Currency.String(), Principal: wire.FromMoney(value.Contract.Principal),
 		CurrentValue: wire.FromMoneyPtr(value.CurrentValue), CurrentCostBasis: wire.FromMoneyPtr(value.CurrentCostBasis),
 		StartOn: value.Contract.StartOn, MaturityOn: value.Contract.MaturityOn, InterestMode: string(value.Contract.InterestMode),

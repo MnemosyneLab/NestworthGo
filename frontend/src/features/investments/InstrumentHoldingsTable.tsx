@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { compareCanonical, formatAmount } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
@@ -25,7 +26,7 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
     : visible.flatMap(group => group.holdings.map(member => ({ id: member.holdingId, group, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName })));
   rows.sort((a, b) => {
     let cmp = 0;
-    if (sort.key === "name") cmp = a.group.name.localeCompare(b.group.name, i18n.language);
+    if (sort.key === "name") cmp = instrumentDisplayLabel(a.group).localeCompare(instrumentDisplayLabel(b.group), i18n.language);
     else if (sort.key === "account") cmp = (a.accountName ?? "").localeCompare(b.accountName ?? "", i18n.language);
     else if (sort.key === "quantity") {
       const unit = a.group.quantityUnit.localeCompare(b.group.quantityUnit);
@@ -40,7 +41,7 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
         if (right == null && left != null) return -1;
       } else cmp = compareCanonical(left, right);
     }
-    return (sort.desc ? -cmp : cmp) || a.group.name.localeCompare(b.group.name, i18n.language) || a.id.localeCompare(b.id);
+    return (sort.desc ? -cmp : cmp) || instrumentDisplayLabel(a.group).localeCompare(instrumentDisplayLabel(b.group), i18n.language) || a.group.name.localeCompare(b.group.name, i18n.language) || a.id.localeCompare(b.id);
   });
   const money = (a: HoldingAmountsDTO, key: "totalCost" | "currentValue" | "unrealizedGain") => {
     const value = a[key];
@@ -54,8 +55,8 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
         {view === "instrument" && !child && <button type="button" aria-label={t("holdingsSummary.toggleAccounts", { name: row.group.name })} aria-expanded={expanded.has(row.id)} onClick={() => setExpanded(previous => { const next = new Set(previous); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           {expanded.has(row.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </button>}
-        <InstrumentLabel name={row.group.name} symbol={row.group.symbol} fallback={row.group.name} />
-        <AnalyzeMenu instrumentId={row.group.instrumentId} accountId={row.accountId} label={row.group.name} />
+        <InstrumentLabel shortName={row.group.shortName} name={row.group.name} symbol={row.group.symbol} fallback={row.group.name} />
+        <AnalyzeMenu instrumentId={row.group.instrumentId} accountId={row.accountId} label={instrumentDisplayLabel(row.group)} />
         {row.group.archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
       </div>
     </td>

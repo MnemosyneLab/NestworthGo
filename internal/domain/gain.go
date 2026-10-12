@@ -12,24 +12,25 @@ type SignedMoneyView struct {
 // when the current quote or required FX input is unavailable; they are never
 // replaced with a misleading zero.
 type HoldingGainView struct {
-	HoldingID          HoldingID
-	AccountID          AccountID
-	InstrumentID       InstrumentID
-	InstrumentName     string
-	InstrumentSymbol   string
-	Quantity           string
-	AverageCost        MoneyView
-	TotalCost          MoneyView
-	TotalCostBase      *MoneyView
-	CurrentValue       *MoneyView
-	CurrentValueBase   *MoneyView
-	RealizedGain       SignedMoneyView
-	UnrealizedGain     *SignedMoneyView
-	UnrealizedGainBase *SignedMoneyView
-	InstrumentMovement *SignedMoneyView
-	CurrencyMovement   *SignedMoneyView
-	Available          bool
-	MissingReason      string
+	HoldingID           HoldingID
+	AccountID           AccountID
+	InstrumentID        InstrumentID
+	InstrumentName      string
+	InstrumentShortName string
+	InstrumentSymbol    string
+	Quantity            string
+	AverageCost         MoneyView
+	TotalCost           MoneyView
+	TotalCostBase       *MoneyView
+	CurrentValue        *MoneyView
+	CurrentValueBase    *MoneyView
+	RealizedGain        SignedMoneyView
+	UnrealizedGain      *SignedMoneyView
+	UnrealizedGainBase  *SignedMoneyView
+	InstrumentMovement  *SignedMoneyView
+	CurrencyMovement    *SignedMoneyView
+	Available           bool
+	MissingReason       string
 }
 
 // AccountGainView groups the Holding gain read models for one account. The

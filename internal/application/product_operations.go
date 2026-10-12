@@ -315,6 +315,10 @@ func (s *Service) planOpen(ctx context.Context, origin *domain.HistoryOrigin, sn
 	if err != nil {
 		return productPlan{}, err
 	}
+	instrument.ShortName, err = domain.NormalizeInstrumentShortName(pointerText(input.Terms.ShortName))
+	if err != nil {
+		return productPlan{}, err
+	}
 	quote, err := buildManagedQuote(instrument, principal, effectiveAt)
 	if err != nil {
 		return productPlan{}, err
@@ -343,7 +347,7 @@ func (s *Service) planOpen(ctx context.Context, origin *domain.HistoryOrigin, sn
 	}
 	contract := domain.ProductContract{
 		ID: productID, HouseholdID: origin.HouseholdID, AccountID: accountID, HoldingID: holding.ID,
-		InstrumentID: instrument.ID, Kind: kind, Name: input.Terms.Name, Note: input.Terms.Note, Currency: currency,
+		InstrumentID: instrument.ID, Kind: kind, ShortName: instrument.ShortName, Name: input.Terms.Name, Note: input.Terms.Note, Currency: currency,
 		Principal: principal, StartOn: input.Terms.StartOn, MaturityOn: input.Terms.MaturityOn, InterestMode: mode,
 		AnnualRate: rate, MaturityInterest: maturityInterest, InterestPaidThroughOn: paidThrough,
 		State: domain.ProductStateOpen, OpenedOperationID: operationID, Revision: 1, CreatedAt: now, UpdatedAt: now,
@@ -428,6 +432,10 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 	if err != nil {
 		return productPlan{}, err
 	}
+	instrument.ShortName, err = domain.NormalizeInstrumentShortName(pointerText(input.Terms.ShortName))
+	if err != nil {
+		return productPlan{}, err
+	}
 	quote, err := buildManagedQuote(instrument, currentValue, effectiveAt)
 	if err != nil {
 		return productPlan{}, err
@@ -458,7 +466,7 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 	}
 	contract := domain.ProductContract{
 		ID: productID, HouseholdID: origin.HouseholdID, AccountID: accountID, HoldingID: holding.ID,
-		InstrumentID: instrument.ID, Kind: kind, Name: input.Terms.Name, Note: input.Terms.Note, Currency: currency,
+		InstrumentID: instrument.ID, Kind: kind, ShortName: instrument.ShortName, Name: input.Terms.Name, Note: input.Terms.Note, Currency: currency,
 		Principal: principal, StartOn: input.Terms.StartOn, MaturityOn: input.Terms.MaturityOn, InterestMode: mode,
 		AnnualRate: rate, MaturityInterest: maturityInterest, InterestPaidThroughOn: paidThrough,
 		State: domain.ProductStateOpen, OpenedOperationID: operationID, Revision: 1, CreatedAt: now, UpdatedAt: now,

@@ -139,7 +139,7 @@ func addInstrumentToState(state domain.ChangeState, instrument domain.Instrument
 	state.Instruments[instrument.ID] = instrument
 	state.Holdings[holding.ID] = domain.ChangeHoldingState{
 		ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID,
-		InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: holding.Quantity,
+		InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: pointerText(instrument.Symbol), Currency: instrument.QuoteCurrency, Current: holding.Quantity,
 	}
 	return state
 }

@@ -123,7 +123,7 @@ func liquiditySourceFromComponent(account domain.AccountValuation, component dom
 		if holding, ok := holdings[*component.HoldingID]; ok {
 			source.QuantityZero = holding.Quantity.IsZero()
 			if instrument, ok := instruments[holding.InstrumentID]; ok {
-				source.DisplayName = instrument.Name
+				source.DisplayName = domain.InstrumentDisplayLabel(instrument.Name, pointerText(instrument.Symbol), instrument.ShortName)
 				kind := instrument.Type
 				source.InstrumentType = &kind
 			}
@@ -133,7 +133,7 @@ func liquiditySourceFromComponent(account domain.AccountValuation, component dom
 			source.Managed = true
 			source.Contract = &copy
 			source.ProductID = &copy.ID
-			source.DisplayName = contract.Name
+			source.DisplayName = domain.InstrumentDisplayLabel(contract.Name, component.InstrumentSymbol, contract.ShortName)
 		}
 	} else if account.Account.TrackingMode == domain.TrackingHoldings {
 		source.Ref = domain.AccountCashSourceRef(account.Account.ID, component.NativeCurrency)
@@ -269,8 +269,15 @@ func (s *Service) productDetail(ctx context.Context, householdID domain.Househol
 	} else {
 		disabled["settle"] = "the contract is not open"
 	}
+	symbol := ""
+	for _, instrument := range snapshot.Instruments {
+		if instrument.ID == contract.InstrumentID {
+			symbol = pointerText(instrument.Symbol)
+			break
+		}
+	}
 	return ProductDetail{
-		Contract: contract, Policy: policy, CurrentValue: current, DisplayState: display,
+		Symbol: symbol, Contract: contract, Policy: policy, CurrentValue: current, DisplayState: display,
 		Reservations: active, PredecessorID: contract.RenewedFromID, PermittedActions: actions, DisabledReasons: disabled,
 	}, nil
 }
@@ -483,6 +490,7 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 	if err := s.repository.SaveProductTerms(ctx, prepared.contract, prepared.policy, prepared.expectedPolicyRevision); err != nil {
 		return ProductDetail{}, err
 	}
+	s.invalidateAnalysis()
 	return s.productDetail(ctx, prepared.contract.HouseholdID, prepared.contract)
 }
 
@@ -510,6 +518,12 @@ func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTe
 		return preparedProductTerms{}, &domain.Error{Code: domain.ErrRevisionConflict, Field: "expectedRevision", Message: "product revision does not match"}
 	}
 	before := contract
+	if input.Terms.ShortName != nil {
+		contract.ShortName, err = domain.NormalizeInstrumentShortName(*input.Terms.ShortName)
+		if err != nil {
+			return preparedProductTerms{}, err
+		}
+	}
 	if contract.State != domain.ProductStateOpen && input.Terms.Name == "" {
 		return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Field: "productId", Message: "settled contracts only accept name and note edits"}
 	}

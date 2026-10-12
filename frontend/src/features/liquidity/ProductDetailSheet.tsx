@@ -1,3 +1,4 @@
+import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumentDisplay";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -145,7 +146,8 @@ export function ProductDetailSheet({
     <Sheet open={open} onOpenChange={(next) => { if (!isSaving) { if (!next) receiptIntentEpoch.current += 1; onOpenChange(next); } }}>
       <SheetContent size="lg" onChangeCapture={() => setReviewed(null)}>
         <SheetHeader>
-          <SheetTitle>{product?.name ?? t("availableFunds.products")}</SheetTitle>
+          <SheetTitle>{product ? instrumentDisplayLabel(product) : t("availableFunds.products")}</SheetTitle>
+          {product && instrumentSecondaryName(product) && <p className="text-xs text-muted-foreground">{instrumentSecondaryName(product)}</p>}
         </SheetHeader>
         {detail.isLoading && <p>{t("ui.state.loadingPage")}</p>}
         {detail.isError && <p role="alert">{t("availableFunds.loadError")}</p>}

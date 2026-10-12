@@ -68,7 +68,7 @@ func (s *Service) incompleteSnapshotHealth(ctx context.Context, origin *domain.H
 				issue.TargetKey = instrumentTargetKey(id)
 				issue.GroupKey = issue.TargetKey
 				instrument := names[id]
-				issue.Label = instrument.Name
+				issue.Label = instrument.DisplayLabel()
 				need := needs[id]
 				issue.Provider = need.ProviderKey
 				if item.MissingReason != nil && strings.Contains(*item.MissingReason, "coverage") && domain.UsesMetalFuturesHistory(need.InstrumentType, need.Market) && snapshot.LocalDate > need.LastFinalizedMarketDate && need.LastFinalizedMarketDate != "" {

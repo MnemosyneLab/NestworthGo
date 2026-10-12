@@ -198,7 +198,7 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain
 			if localDate < from || localDate > to {
 				continue
 			}
-			instrumentGroup := groupForInstrument(byInstrument, instrument.ID, instrument.Name)
+			instrumentGroup := groupForInstrument(byInstrument, instrument.ID, instrument.DisplayLabel())
 			accountGroup := groupForAccount(byAccount, holding.AccountID, accounts[holding.AccountID])
 			rate, rateAvailable := g.fxRateAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
 			if !rateAvailable {
@@ -319,7 +319,7 @@ func (g *GainService) dividendIncomeFromSnapshot(ctx context.Context, scope doma
 		}
 		instrumentLabel := detail.InstrumentID.String()
 		if instrument, found := instruments[detail.InstrumentID]; found {
-			instrumentLabel = instrument.Name
+			instrumentLabel = instrument.DisplayLabel()
 		}
 		accountLabel := accountID.String()
 		if name := accounts[accountID]; name != "" {
@@ -528,7 +528,7 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 	name, symbol := instrumentIdentity(instrument)
 	view := domain.HoldingGainView{
 		HoldingID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID,
-		InstrumentName: name, InstrumentSymbol: symbol, Quantity: holding.Quantity.Canonical(),
+		InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, Quantity: holding.Quantity.Canonical(),
 		AverageCost: average, TotalCost: totalView, RealizedGain: realized, Available: true,
 	}
 	if holding.Quantity.IsZero() {

@@ -78,15 +78,16 @@ const (
 )
 
 type MissingInputView struct {
-	Kind             MissingInputKind
-	AccountID        AccountID
-	AccountName      string
-	InstrumentID     *InstrumentID
-	InstrumentName   string
-	InstrumentSymbol string
-	QuoteSource      QuoteSourceKind
-	BaseCurrency     CurrencyCode
-	QuoteCurrency    CurrencyCode
+	Kind                MissingInputKind
+	AccountID           AccountID
+	AccountName         string
+	InstrumentID        *InstrumentID
+	InstrumentName      string
+	InstrumentShortName string `json:"instrumentShortName,omitempty"`
+	InstrumentSymbol    string
+	QuoteSource         QuoteSourceKind
+	BaseCurrency        CurrencyCode
+	QuoteCurrency       CurrencyCode
 }
 
 // ValuationComponent keeps full-precision arithmetic separate from the
@@ -99,6 +100,7 @@ type ValuationComponent struct {
 	StateObservationID        *AccountStateObservationID
 	FXPreferenceObservationID *FXPreferenceObservationID
 	InstrumentName            string
+	InstrumentShortName       string
 	InstrumentSymbol          string
 	NativeAmount              string
 	NativeCurrency            CurrencyCode

@@ -8,6 +8,7 @@
  */
 export interface InstrumentRequest {
     "replace"?: boolean;
+    "shortName"?: string | null;
     "name": string;
     "type": string;
     "metalTemplate"?: string;

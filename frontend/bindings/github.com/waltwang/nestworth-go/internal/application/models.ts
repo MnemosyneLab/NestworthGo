@@ -8,6 +8,40 @@ export interface DerivedDataRebuildResult {
     "incompleteDays": number;
 }
 
+/**
+ * Categories are projected from leaves, never account totals. Assets and debt
+ * balances have separate denominators. An absent member is not a zero balance.
+ */
+export interface HistoricalCategoryCell {
+    "status": string;
+    "amount": string | null;
+    "knownAmount": string | null;
+    "share": string | null;
+    "shareBasis": string;
+    "includedCount": number;
+    "missingRowKeys": string[] | null;
+}
+
+export interface HistoricalCategoryComparison {
+    "role": string;
+    "dimension": string;
+    "key": string;
+    "left": HistoricalCategoryCell;
+    "right": HistoricalCategoryCell;
+    "amountChange": string | null;
+    "shareChangePp": string | null;
+    "amountReasons": string[] | null;
+    "shareReasons": string[] | null;
+}
+
+export interface HistoricalMissingDetail {
+    "kind": string;
+    "baseCurrency": string;
+    "quoteCurrency": string;
+    "source": string;
+    "instrumentId": string;
+}
+
 export interface HistoricalOverviewAllocation {
     "key": string;
     "amount": string;
@@ -29,6 +63,7 @@ export interface HistoricalOverviewCell {
     "price": HistoricalOverviewEvidence | null;
     "fx": HistoricalOverviewEvidence | null;
     "missing": string[] | null;
+    "missingDetails": HistoricalMissingDetail[] | null;
 }
 
 export interface HistoricalOverviewEvidence {
@@ -37,6 +72,16 @@ export interface HistoricalOverviewEvidence {
     "effectiveAt": string;
     "marketDate": string;
     "freshness": string;
+    "sourceKey": string;
+    "value": string | null;
+    "currency": string;
+    "baseCurrency": string;
+    "quoteCurrency": string;
+    "operation": string;
+    "observationKind": string;
+    "priceBasis": string;
+    "timestampBasis": string;
+    "sourcePolicyVersion": string;
 }
 
 /**
@@ -54,10 +99,14 @@ export interface HistoricalOverviewResult {
     "right": HistoricalOverviewState | null;
     "change": HistoricalOverviewTotalsChange | null;
     "rows": HistoricalOverviewRow[] | null;
+    "categories": HistoricalCategoryComparison[] | null;
 }
 
 export interface HistoricalOverviewRow {
     "key": string;
+    "accountId": string;
+    "holdingId": string;
+    "instrumentId": string;
     "parentKey": string;
     "kind": string;
     "name": string;
@@ -125,6 +174,7 @@ export interface ProductPolicyInput {
 }
 
 export interface ProductTermsInput {
+    "shortName"?: string | null;
     "kind": string;
     "name": string;
     "note": string | null;

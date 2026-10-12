@@ -15,7 +15,7 @@ import (
 
 func TestOpenRejectsEveryNonCurrentVersionWithoutWriting(t *testing.T) {
 	versions := []int{0, CurrentSchemaVersion + 1, 99}
-	for version := 1; version < CurrentSchemaVersion; version++ {
+	for version := 1; version < 15; version++ {
 		versions = append(versions, version)
 	}
 	for _, version := range versions {

@@ -148,7 +148,7 @@ function InstrumentRow({
     >
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 shrink-0 self-start text-primary" />
-        <InstrumentLabel className="min-w-0" name={instrument.name} symbol={instrument.symbol} fallback={instrument.name} />
+        <InstrumentLabel className="min-w-0" shortName={instrument.shortName} name={instrument.name} symbol={instrument.symbol} fallback={instrument.name} />
         <Badge variant="secondary">{instrument.quoteCurrency}{metalPriceSuffix(instrument, t)}</Badge>
         {instrument.metalTemplate && <Badge variant="outline">{t("metals.reference")}</Badge>}
         {productKind && <Badge variant="outline">{displayEnum(t, "availableFunds", productKind === "term_deposit" ? "termDeposit" : "lockedProduct")}</Badge>}
@@ -233,7 +233,7 @@ export function InstrumentManagement({
       return items;
     }
     return items.filter((instrument) => {
-      const haystack = [instrument.name, instrument.symbol, instrument.providerSymbol, instrument.quoteCurrency].filter(Boolean).join(" ").toLowerCase();
+      const haystack = [instrument.shortName, instrument.name, instrument.symbol, instrument.isin, instrument.marketCode, instrument.providerSymbol, instrument.quoteCurrency].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(needle);
     });
   }, [instruments.data, query, focus]);
@@ -359,7 +359,7 @@ export function InstrumentManagement({
                   <AlertDialogHeader>
                     <AlertDialogTitle>{editTarget.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      <InstrumentLabel name={editTarget.name} symbol={editTarget.symbol} fallback={editTarget.name} />
+                      <InstrumentLabel shortName={editTarget.shortName} name={editTarget.name} symbol={editTarget.symbol} fallback={editTarget.name} />
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

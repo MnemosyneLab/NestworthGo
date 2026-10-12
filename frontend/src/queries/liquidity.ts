@@ -15,7 +15,7 @@ import type {
 } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
-import { invalidateActivityChange, invalidateLiquidityReads } from "@/queries/invalidation";
+import { invalidateActivityChange, invalidateLiquidityReads, invalidateInstrumentChange } from "@/queries/invalidation";
 
 export function useLiquidityOverview(request: OverviewRequest, enabled = true) {
   const customHorizonOn = request.customHorizonOn ?? "";
@@ -116,7 +116,7 @@ export function useUpdateProductTerms() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: UpdateProductTermsRequest) => callService(() => LiquidityService.UpdateProductTerms(request)),
-    onSuccess: () => invalidateLiquidityReads(queryClient),
+    onSuccess: (detail) => { invalidateLiquidityReads(queryClient); invalidateInstrumentChange(queryClient, detail.product.instrumentId); },
   });
 }
 

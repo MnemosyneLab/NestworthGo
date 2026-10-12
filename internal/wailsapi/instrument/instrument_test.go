@@ -134,3 +134,78 @@ func TestInstrumentDTORoundTripsAsJSON(t *testing.T) {
 		t.Fatal("round-trip produced an empty object")
 	}
 }
+
+func TestOptionalShortNameWirePatchClearAndDefault(t *testing.T) {
+	service := onboardedService(t)
+	ctx := context.Background()
+	symbol := "000001"
+	alias := " 家庭 🌿 "
+	i, err := service.CreateInstrument(ctx, instrument.InstrumentRequest{Name: "Fund class A", Symbol: &symbol, Type: "mutual_fund", QuoteCurrency: "USD"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i.ShortName != "" {
+		t.Fatal("new record has nonempty alias")
+	}
+	updated, err := service.UpdateInstrument(ctx, i.ID, instrument.InstrumentRequest{ShortName: &alias})
+	if err != nil || updated.ShortName != "家庭 🌿" {
+		t.Fatalf("update %+v %v", updated, err)
+	}
+	retained, err := service.UpdateInstrument(ctx, i.ID, instrument.InstrumentRequest{Name: i.Name})
+	if err != nil || retained.ShortName != updated.ShortName {
+		t.Fatalf("omit %+v %v", retained, err)
+	}
+	empty := " "
+	cleared, err := service.UpdateInstrument(ctx, i.ID, instrument.InstrumentRequest{ShortName: &empty})
+	if err != nil || cleared.ShortName != "" || cleared.ID != i.ID || cleared.Name != i.Name || cleared.Symbol == nil || *cleared.Symbol != symbol {
+		t.Fatalf("clear %+v %v", cleared, err)
+	}
+}
+
+func TestOldReplaceRequestWithoutShortNamePreservesAlias(t *testing.T) {
+	service := onboardedService(t)
+	ctx := context.Background()
+	alias := "Alias"
+	i, err := service.CreateInstrument(ctx, instrument.InstrumentRequest{Name: "Full name", ShortName: &alias, Type: "etf", QuoteCurrency: "USD"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := service.UpdateInstrument(ctx, i.ID, instrument.InstrumentRequest{Replace: true, Name: "New full name", Type: i.Type, QuoteCurrency: i.QuoteCurrency})
+	if err != nil || updated.ShortName != alias {
+		t.Fatalf("old complete-form request %+v %v", updated, err)
+	}
+}
+
+func TestDuplicateAliasesRetainShareClassAndArchivedIdentity(t *testing.T) {
+	service := onboardedService(t)
+	ctx := context.Background()
+	alias := "Family fund"
+	firstCode, secondCode := "000001", "000002"
+	first, err := service.CreateInstrument(ctx, instrument.InstrumentRequest{Name: "Fund class A", ShortName: &alias, Symbol: &firstCode, Type: "mutual_fund", QuoteCurrency: "USD"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.CreateInstrument(ctx, instrument.InstrumentRequest{Name: "Fund class B", ShortName: &alias, Symbol: &secondCode, Type: "mutual_fund", QuoteCurrency: "USD"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ID == second.ID {
+		t.Fatal("duplicate alias collapsed identities")
+	}
+	if err := service.ArchiveInstrument(ctx, first.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	active, err := service.ListInstruments(ctx, false)
+	if err != nil || len(active) != 1 || active[0].ID != second.ID || active[0].ShortName != alias {
+		t.Fatalf("active %+v %v", active, err)
+	}
+	all, err := service.ListInstruments(ctx, true)
+	if err != nil || len(all) != 2 {
+		t.Fatalf("all %+v %v", all, err)
+	}
+	for _, value := range all {
+		if value.ShortName != alias || value.Symbol == nil {
+			t.Fatalf("identity %+v", value)
+		}
+	}
+}

@@ -20,7 +20,7 @@ import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nes
 import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { formatExactTimestamp } from "@/lib/time";
 import { displayError } from "@/lib/display";
-import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
+import { instrumentSelectionLabel } from "@/lib/instrumentDisplay";
 import { toast } from "sonner";
 import { QuoteHint } from "@/features/history/QuoteHint";
 import { currencyFractionDigits, formatAmount, sameCanonicalDecimal } from "@/lib/money";
@@ -297,7 +297,7 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
               <option value="">{t("history.selectEmpty")}</option>
               {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => (
                 <option key={instrument.id} value={instrument.id}>
-                  {instrumentDisplayLabel(instrument, instrument.name)}
+                  {instrumentSelectionLabel(instrument, instrument.name)}
                 </option>
               ))}
             </NativeSelect>

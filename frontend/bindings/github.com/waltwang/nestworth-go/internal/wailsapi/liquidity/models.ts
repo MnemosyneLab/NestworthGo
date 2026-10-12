@@ -140,6 +140,8 @@ export interface ProductCommandRequest {
 }
 
 export interface ProductDTO {
+    "symbol"?: string;
+    "shortName"?: string;
     "id": string;
     "accountId": string;
     "holdingId": string;

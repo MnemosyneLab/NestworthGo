@@ -33,7 +33,7 @@ import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindin
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
 type OverviewLabel = { id: string; name: string };
-type OverviewInstrumentLabel = OverviewLabel & { quoteSource?: string; symbol?: string };
+type OverviewInstrumentLabel = OverviewLabel & { quoteSource?: string; symbol?: string; shortName?: string };
 type OverviewHoldingLabel = OverviewLabel & { accountId: string; instrumentId: string };
 
 type OverviewReadModel = {
@@ -139,7 +139,7 @@ function missingItemLabel(
   accountNames: Map<string, string>,
 ): string {
   if (item.kind === "instrument_price") {
-    return instrumentDisplayLabel({ name: item.instrumentName, symbol: item.instrumentSymbol }, t("overview.unknownInstrument"));
+    return instrumentDisplayLabel({ name: item.instrumentName, shortName: item.instrumentShortName, symbol: item.instrumentSymbol }, t("overview.unknownInstrument"));
   }
   if (item.kind === "fx_rate" && (item.baseCurrency || item.quoteCurrency)) {
     return `${item.baseCurrency}/${item.quoteCurrency}`;

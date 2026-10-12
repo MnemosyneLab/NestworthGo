@@ -170,6 +170,7 @@ type ProductContract struct {
 	HoldingID             HoldingID
 	InstrumentID          InstrumentID
 	Kind                  ProductKind
+	ShortName             string `json:"shortName,omitempty"`
 	Name                  string
 	Note                  *string
 	Currency              CurrencyCode
@@ -196,7 +197,7 @@ func (c ProductContract) MarshalJSON() ([]byte, error) {
 	payload := productContractJSON{
 		ID: c.ID.String(), HouseholdID: c.HouseholdID.String(), AccountID: c.AccountID.String(),
 		HoldingID: c.HoldingID.String(), InstrumentID: c.InstrumentID.String(), Kind: string(c.Kind),
-		Name: c.Name, Note: c.Note, Currency: c.Currency.String(), Principal: c.Principal.CanonicalAmount(),
+		Name: c.Name, ShortName: c.ShortName, Note: c.Note, Currency: c.Currency.String(), Principal: c.Principal.CanonicalAmount(),
 		StartOn: c.StartOn, MaturityOn: c.MaturityOn, InterestMode: string(c.InterestMode),
 		InterestPaidThroughOn: c.InterestPaidThroughOn, State: string(c.State),
 		OpenedOperationID: c.OpenedOperationID.String(), Revision: c.Revision, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
@@ -271,7 +272,7 @@ func (c *ProductContract) UnmarshalJSON(raw []byte) error {
 	}
 	restored := ProductContract{
 		ID: id, HouseholdID: householdID, AccountID: accountID, HoldingID: holdingID, InstrumentID: instrumentID,
-		Kind: kind, Name: payload.Name, Note: payload.Note, Currency: currency, Principal: principal, StartOn: payload.StartOn,
+		Kind: kind, Name: payload.Name, ShortName: payload.ShortName, Note: payload.Note, Currency: currency, Principal: principal, StartOn: payload.StartOn,
 		MaturityOn: payload.MaturityOn, InterestMode: mode, InterestPaidThroughOn: payload.InterestPaidThroughOn,
 		State: state, OpenedOperationID: openedID, Revision: payload.Revision, CreatedAt: payload.CreatedAt, UpdatedAt: payload.UpdatedAt,
 	}
@@ -314,6 +315,7 @@ type productContractJSON struct {
 	HoldingID             string    `json:"holdingId"`
 	InstrumentID          string    `json:"instrumentId"`
 	Kind                  string    `json:"kind"`
+	ShortName             string    `json:"shortName,omitempty"`
 	Name                  string    `json:"name"`
 	Note                  *string   `json:"note,omitempty"`
 	Currency              string    `json:"currency"`
@@ -339,6 +341,7 @@ type ProductContractInput struct {
 	HoldingID             HoldingID
 	InstrumentID          InstrumentID
 	Kind                  ProductKind
+	ShortName             string `json:"shortName,omitempty"`
 	Name                  string
 	Note                  *string
 	Currency              CurrencyCode
@@ -360,7 +363,7 @@ func NewProductContract(input ProductContractInput, now time.Time) (ProductContr
 	contract := ProductContract{
 		ID: NewProductContractID(), HouseholdID: input.HouseholdID, AccountID: input.AccountID,
 		HoldingID: input.HoldingID, InstrumentID: input.InstrumentID, Kind: input.Kind,
-		Name: input.Name, Note: input.Note, Currency: input.Currency, Principal: input.Principal,
+		Name: input.Name, ShortName: trimInstrumentLabel(input.ShortName), Note: input.Note, Currency: input.Currency, Principal: input.Principal,
 		StartOn: input.StartOn, MaturityOn: input.MaturityOn, InterestMode: input.InterestMode,
 		AnnualRate: input.AnnualRate, MaturityInterest: input.MaturityInterest,
 		InterestPaidThroughOn: input.InterestPaidThroughOn, RenewedFromID: input.RenewedFromID,
@@ -380,6 +383,9 @@ func NewProductContract(input ProductContractInput, now time.Time) (ProductContr
 }
 
 func (c ProductContract) Validate() error {
+	if _, err := NormalizeInstrumentShortName(c.ShortName); err != nil {
+		return err
+	}
 	if _, err := ParseHouseholdID(c.HouseholdID.String()); err != nil {
 		return validation("householdId", "must be a lowercase UUID")
 	}

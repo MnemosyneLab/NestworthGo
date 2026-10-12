@@ -39,7 +39,7 @@ func (s *Service) syncLatestTargets(ctx context.Context, request SyncRequest) ([
 func refreshDetail(target refreshTarget) SyncItemProgress {
 	item := SyncItemProgress{TargetKey: target.key, Kind: "latest_" + string(target.kind), Provider: target.providerKey, Status: "planned", Detail: "missing_or_due"}
 	if target.kind == RefreshInstrumentTarget {
-		item.Label = target.instrument.Name
+		item.Label = target.instrument.DisplayLabel()
 		item.Symbol = target.providerSymbol
 	} else {
 		item.Label = strings.TrimPrefix(target.key, "fx:")
@@ -57,7 +57,7 @@ func (s *Service) syncHistoryDetail(ctx context.Context, household domain.Househ
 		item.Kind = "history_instrument"
 		id := domain.InstrumentID(strings.TrimPrefix(target, "instrument:"))
 		if instrument, err := s.repository.Instrument(ctx, household, id); err == nil {
-			item.Label = instrument.Name
+			item.Label = instrument.DisplayLabel()
 			if instrument.ProviderSymbol != nil {
 				item.Symbol = *instrument.ProviderSymbol
 			}

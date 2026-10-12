@@ -64,7 +64,7 @@ func (s *Service) preparePositionImport(snapshot domain.PortfolioSnapshot, state
 	}
 	state.Holdings[holding.ID] = domain.ChangeHoldingState{
 		ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID,
-		InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero,
+		InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: pointerText(instrument.Symbol), Currency: instrument.QuoteCurrency, Current: zero,
 		CostBasisAvailable: false,
 	}
 	adjustment := domain.PositionAdjustmentInput{

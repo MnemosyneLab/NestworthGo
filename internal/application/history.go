@@ -214,7 +214,7 @@ func (s *Service) StartingPointDraft(ctx context.Context) ([]domain.StartingPoin
 		if instrument.Symbol != nil {
 			symbol = *instrument.Symbol
 		}
-		draft = append(draft, domain.StartingPointHoldingView{HoldingID: holding.ID, InstrumentID: holding.InstrumentID, InstrumentName: domain.InstrumentDisplayLabel(instrument.Name, symbol), Currency: instrument.QuoteCurrency, Quantity: holding.Quantity.Canonical(), UnitCost: unitCost})
+		draft = append(draft, domain.StartingPointHoldingView{HoldingID: holding.ID, InstrumentID: holding.InstrumentID, InstrumentName: domain.InstrumentDisplayLabel(instrument.Name, symbol, instrument.ShortName), Currency: instrument.QuoteCurrency, Quantity: holding.Quantity.Canonical(), UnitCost: unitCost})
 	}
 	return draft, nil
 }

@@ -2,13 +2,14 @@ import { cn } from "@/lib/utils";
 import { instrumentDisplayLabel, instrumentSecondaryName, type InstrumentIdentityFields } from "@/lib/instrumentDisplay";
 
 export function InstrumentLabel({
+  shortName,
   name,
   symbol,
   fallback = "",
   className,
 }: InstrumentIdentityFields & { fallback?: string; className?: string }) {
-  const ticker = instrumentDisplayLabel({ name, symbol }, fallback);
-  const subtitle = instrumentSecondaryName({ name, symbol });
+  const ticker = instrumentDisplayLabel({ shortName, name, symbol }, fallback);
+  const subtitle = instrumentSecondaryName({ shortName, name, symbol });
   if (!ticker) {
     return null;
   }

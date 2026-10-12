@@ -41,7 +41,7 @@ export function accountCompositionItems(components: ValuationComponentDTO[], hou
   const shares = allocateShareBps(amounts);
   return valued.map((component, index) => ({
     key: componentKey(component),
-    label: instrumentDisplayLabel({ name: component.instrumentName, symbol: component.instrumentSymbol }) || component.nativeCurrency,
+    label: instrumentDisplayLabel({ name: component.instrumentName, shortName: component.instrumentShortName, symbol: component.instrumentSymbol }) || component.nativeCurrency,
     amount: amounts[index],
     shareBps: shares[index],
     nativeAmount: component.nativeAmount,

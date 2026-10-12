@@ -32,6 +32,15 @@ fails, recover that step; do not recreate the account.
 
 ## Instruments
 
+`shortName` is optional display metadata, not an instrument identity. The primary
+label is trimmed short name, otherwise symbol/code, otherwise full name, for
+every instrument type. Duplicate aliases are allowed: resolve using saved IDs,
+full name, symbol/code, market, currency and ISIN. To edit only an alias, pass
+`changes.shortName` to `update_instrument`; an empty string clears it and omission
+preserves it, including older complete-form requests. Managed product aliases
+use the product contract's terms-edit path; do not edit its internal instrument
+independently.
+
 Call `list_instruments` first. Use name, market/exchange, currency, share class,
 ISIN or provider identifier as available. Match a crypto asset by chain/coin
 identity as well as symbol. External search currently covers stock/ETF/crypto;

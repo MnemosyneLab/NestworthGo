@@ -3,6 +3,9 @@
 
 export type {
     DerivedDataRebuildResult,
+    HistoricalCategoryCell,
+    HistoricalCategoryComparison,
+    HistoricalMissingDetail,
     HistoricalOverviewAllocation,
     HistoricalOverviewCell,
     HistoricalOverviewEvidence,

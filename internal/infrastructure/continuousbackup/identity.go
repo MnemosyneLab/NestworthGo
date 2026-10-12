@@ -40,7 +40,7 @@ func readIdentity(r io.Reader, stream string) (streamIdentity, error) {
 	if err != nil || len(data) > maxIdentityBytes || json.Unmarshal(data, &info) != nil {
 		return info, ErrUnavailable
 	}
-	if info.Format != 1 || info.AppID != version.AppID || info.Schema != sqlite.CurrentSchemaVersion || info.StreamID != stream || !validStream(stream) || info.AppVersion == "" || info.AppBuild == "" {
+	if info.Format != 1 || info.AppID != version.AppID || (info.Schema != sqlite.CurrentSchemaVersion && info.Schema != 15) || info.StreamID != stream || !validStream(stream) || info.AppVersion == "" || info.AppBuild == "" {
 		return info, ErrUnavailable
 	}
 	if _, err := time.Parse(time.RFC3339Nano, info.StartedAt); err != nil {

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -128,7 +129,15 @@ func verifyProductTermsMutations(ctx context.Context, query schemaQuery) error {
 	if len(mutations) == 0 {
 		return nil
 	}
-	contracts, err := query.QueryContext(ctx, productContractSelect)
+	var version int
+	if err := query.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	statement := productContractSelect
+	if version == 15 {
+		statement = strings.Replace(statement, productShortNameSelect, "''", 1)
+	}
+	contracts, err := query.QueryContext(ctx, statement)
 	if err != nil {
 		return err
 	}

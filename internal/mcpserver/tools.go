@@ -58,6 +58,7 @@ type UpdateAccountInput struct {
 // Optional fields for patch semantics; the create DTO requires identity fields.
 type InstrumentPatch struct {
 	Replace        bool    `json:"replace,omitempty"`
+	ShortName      *string `json:"shortName,omitempty"`
 	Name           string  `json:"name,omitempty"`
 	Type           string  `json:"type,omitempty"`
 	MetalTemplate  string  `json:"metalTemplate,omitempty"`

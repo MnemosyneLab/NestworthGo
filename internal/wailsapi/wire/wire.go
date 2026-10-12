@@ -396,23 +396,24 @@ func FromQuoteEvidence(value *domain.QuoteEvidenceView) *QuoteEvidenceDTO {
 
 // ValuationComponentDTO mirrors domain.ValuationComponent.
 type ValuationComponentDTO struct {
-	AccountID        string            `json:"accountId"`
-	HoldingID        *string           `json:"holdingId,omitempty"`
-	InstrumentID     *string           `json:"instrumentId,omitempty"`
-	InstrumentName   string            `json:"instrumentName,omitempty"`
-	InstrumentSymbol string            `json:"instrumentSymbol,omitempty"`
-	NativeAmount     string            `json:"nativeAmount"`
-	NativeCurrency   string            `json:"nativeCurrency"`
-	BaseAmount       *MoneyView        `json:"baseAmount,omitempty"`
-	BaseAmountExact  string            `json:"baseAmountExact,omitempty"`
-	PriceEvidence    *QuoteEvidenceDTO `json:"priceEvidence,omitempty"`
-	FXEvidence       *QuoteEvidenceDTO `json:"fxEvidence,omitempty"`
-	Available        bool              `json:"available"`
+	AccountID           string            `json:"accountId"`
+	HoldingID           *string           `json:"holdingId,omitempty"`
+	InstrumentID        *string           `json:"instrumentId,omitempty"`
+	InstrumentName      string            `json:"instrumentName,omitempty"`
+	InstrumentShortName string            `json:"instrumentShortName,omitempty"`
+	InstrumentSymbol    string            `json:"instrumentSymbol,omitempty"`
+	NativeAmount        string            `json:"nativeAmount"`
+	NativeCurrency      string            `json:"nativeCurrency"`
+	BaseAmount          *MoneyView        `json:"baseAmount,omitempty"`
+	BaseAmountExact     string            `json:"baseAmountExact,omitempty"`
+	PriceEvidence       *QuoteEvidenceDTO `json:"priceEvidence,omitempty"`
+	FXEvidence          *QuoteEvidenceDTO `json:"fxEvidence,omitempty"`
+	Available           bool              `json:"available"`
 }
 
 func FromValuationComponent(value domain.ValuationComponent) ValuationComponentDTO {
 	dto := ValuationComponentDTO{
-		AccountID: value.AccountID.String(), InstrumentName: value.InstrumentName, InstrumentSymbol: value.InstrumentSymbol,
+		AccountID: value.AccountID.String(), InstrumentName: value.InstrumentName, InstrumentShortName: value.InstrumentShortName, InstrumentSymbol: value.InstrumentSymbol,
 		NativeAmount: value.NativeAmount, NativeCurrency: value.NativeCurrency.String(),
 		BaseAmount: FromMoneyView(value.BaseAmount), BaseAmountExact: value.BaseAmountExact,
 		PriceEvidence: FromQuoteEvidence(value.PriceEvidence), FXEvidence: FromQuoteEvidence(value.FXEvidence),
@@ -439,21 +440,22 @@ func FromValuationComponents(values []domain.ValuationComponent) []ValuationComp
 
 // MissingInputDTO mirrors domain.MissingInputView.
 type MissingInputDTO struct {
-	Kind             string  `json:"kind"`
-	AccountID        string  `json:"accountId"`
-	AccountName      string  `json:"accountName,omitempty"`
-	InstrumentID     *string `json:"instrumentId,omitempty"`
-	InstrumentName   string  `json:"instrumentName,omitempty"`
-	InstrumentSymbol string  `json:"instrumentSymbol,omitempty"`
-	QuoteSource      string  `json:"quoteSource,omitempty"`
-	BaseCurrency     string  `json:"baseCurrency,omitempty"`
-	QuoteCurrency    string  `json:"quoteCurrency,omitempty"`
+	Kind                string  `json:"kind"`
+	AccountID           string  `json:"accountId"`
+	AccountName         string  `json:"accountName,omitempty"`
+	InstrumentID        *string `json:"instrumentId,omitempty"`
+	InstrumentName      string  `json:"instrumentName,omitempty"`
+	InstrumentShortName string  `json:"instrumentShortName,omitempty"`
+	InstrumentSymbol    string  `json:"instrumentSymbol,omitempty"`
+	QuoteSource         string  `json:"quoteSource,omitempty"`
+	BaseCurrency        string  `json:"baseCurrency,omitempty"`
+	QuoteCurrency       string  `json:"quoteCurrency,omitempty"`
 }
 
 func FromMissingInput(value domain.MissingInputView) MissingInputDTO {
 	dto := MissingInputDTO{
 		Kind: string(value.Kind), AccountID: value.AccountID.String(), AccountName: value.AccountName,
-		InstrumentName: value.InstrumentName, InstrumentSymbol: value.InstrumentSymbol, QuoteSource: string(value.QuoteSource),
+		InstrumentName: value.InstrumentName, InstrumentShortName: value.InstrumentShortName, InstrumentSymbol: value.InstrumentSymbol, QuoteSource: string(value.QuoteSource),
 		BaseCurrency: value.BaseCurrency.String(), QuoteCurrency: value.QuoteCurrency.String(),
 	}
 	if value.InstrumentID != nil {
@@ -551,6 +553,7 @@ type InstrumentDTO struct {
 	ID             string  `json:"id"`
 	HouseholdID    string  `json:"householdId"`
 	Name           string  `json:"name"`
+	ShortName      string  `json:"shortName,omitempty"`
 	Type           string  `json:"type"`
 	MetalTemplate  string  `json:"metalTemplate,omitempty"`
 	QuantityUnit   string  `json:"quantityUnit,omitempty"`
@@ -572,7 +575,7 @@ type InstrumentDTO struct {
 
 func FromInstrument(value domain.Instrument) InstrumentDTO {
 	dto := InstrumentDTO{
-		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Name: value.Name, Type: string(value.Type),
+		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Name: value.Name, ShortName: value.ShortName, Type: string(value.Type),
 		QuoteCurrency: value.QuoteCurrency.String(), MetalTemplate: value.MetalTemplate, QuantityUnit: value.QuantityUnit, Symbol: value.Symbol, MarketCode: value.MarketCode,
 		CountryCode: value.CountryCode, ISIN: value.ISIN, Note: value.Note, IconKey: iconValue(value.IconKey, domain.DefaultInstrumentIcon(value.Type)), SortOrder: value.SortOrder,
 		QuoteSource: string(value.QuoteSource), ProviderKey: value.ProviderKey, ProviderSymbol: value.ProviderSymbol,

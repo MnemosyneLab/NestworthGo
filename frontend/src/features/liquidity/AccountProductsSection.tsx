@@ -1,3 +1,4 @@
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { productStateLabel } from "./liquidityDisplay";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -83,7 +84,7 @@ export function AccountProductsSection({
                     <tr key={product.id} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
                       <td className="py-2">
                         <Button type="button" variant="link" className="h-auto p-0" onClick={() => setProductId(product.id)}>
-                          {product.name}
+                          {instrumentDisplayLabel(product)}
                         </Button>
                         <Badge className="ml-2" variant={product.displayState === "due_unconfirmed" ? "warning" : "secondary"}>{productStateLabel(t, product.displayState)}</Badge>
                       </td>

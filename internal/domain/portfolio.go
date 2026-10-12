@@ -3,6 +3,7 @@ package domain
 import (
 	"strings"
 	"time"
+	"unicode"
 )
 
 // InstrumentType is intentionally closed so the persistence and UI labels do
@@ -142,6 +143,7 @@ type Instrument struct {
 	ID                      InstrumentID
 	HouseholdID             HouseholdID
 	Name                    string
+	ShortName               string `json:"shortName,omitempty"`
 	Type                    InstrumentType
 	MetalTemplate           string
 	QuantityUnit            string
@@ -168,6 +170,7 @@ type InstrumentInput struct {
 	QuantityUnit   string
 	HouseholdID    HouseholdID
 	Name           string
+	ShortName      string
 	Type           InstrumentType
 	QuoteCurrency  CurrencyCode
 	Symbol         *string
@@ -196,17 +199,48 @@ func SupportedInstrumentMarketCodes() []string {
 	return []string{"ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX", "KRX", "SIX"}
 }
 
-// InstrumentDisplayLabel prefers a ticker when one is stored so family-facing
-// lists stay scannable. Empty symbols fall back to the legal name.
-func InstrumentDisplayLabel(name, symbol string) string {
-	if trimmed := strings.TrimSpace(symbol); trimmed != "" {
+// InstrumentDisplayLabel uses one rule for every instrument: short name, symbol, full name.
+func InstrumentDisplayLabel(name, symbol string, shortName ...string) string {
+	if len(shortName) > 0 {
+		if trimmed := trimInstrumentLabel(shortName[0]); trimmed != "" {
+			return trimmed
+		}
+	}
+	if trimmed := trimInstrumentLabel(symbol); trimmed != "" {
 		return trimmed
 	}
-	return strings.TrimSpace(name)
+	return trimInstrumentLabel(name)
+}
+
+// DisplayLabel is presentation metadata; it never substitutes for an instrument ID.
+func (i Instrument) DisplayLabel() string {
+	symbol := ""
+	if i.Symbol != nil {
+		symbol = *i.Symbol
+	}
+	return InstrumentDisplayLabel(i.Name, symbol, i.ShortName)
+}
+
+// Go and JavaScript whitespace sets differ for NEL and BOM; use their union.
+func trimInstrumentLabel(value string) string {
+	return strings.TrimFunc(value, func(r rune) bool { return unicode.IsSpace(r) || r == '\uFEFF' })
+}
+
+// NormalizeInstrumentShortName allows clearing and duplicate aliases; identity is separate.
+func NormalizeInstrumentShortName(value string) (string, error) {
+	value = trimInstrumentLabel(value)
+	if len([]rune(value)) > 120 {
+		return "", validation("shortName", "must be at most 120 characters")
+	}
+	return value, nil
 }
 
 func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	name, err := validateName("name", input.Name)
+	if err != nil {
+		return Instrument{}, err
+	}
+	shortName, err := NormalizeInstrumentShortName(input.ShortName)
 	if err != nil {
 		return Instrument{}, err
 	}
@@ -291,7 +325,7 @@ func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	}
 	now = normalizeTime(now)
 	return Instrument{
-		ID: NewInstrumentID(), HouseholdID: input.HouseholdID, Name: name, Type: instrumentType,
+		ID: NewInstrumentID(), HouseholdID: input.HouseholdID, Name: name, ShortName: shortName, Type: instrumentType,
 		MetalTemplate: input.MetalTemplate, QuantityUnit: input.QuantityUnit,
 		QuoteCurrency: currency, Symbol: symbol, MarketCode: marketCode, CountryCode: countryCode,
 		ISIN: isin, Note: note, IconKey: iconKey, SortOrder: input.SortOrder,

@@ -55,6 +55,9 @@ function ProductEditForm({ product, save, onSaved }: { product: ProductDTO; save
       <Label htmlFor="closed-name">{t("availableFunds.name")}</Label><Input id="closed-name" aria-invalid={invalidField === "name"} aria-describedby={invalidField === "name" ? "product-edit-error" : undefined} value={terms.name} onChange={(e) => setTerms({ ...terms, name:e.target.value })} />
       <Label htmlFor="closed-note">{t("availableFunds.contractNote")}</Label><Input id="closed-note" value={terms.note ?? ""} onChange={(e) => setTerms({ ...terms, note:e.target.value || null })} />
     </>}
+    <Label htmlFor="product-short-name">{t("portfolio.shortName")}</Label>
+    <Input id="product-short-name" value={terms.shortName ?? ""} aria-describedby="product-short-name-help" aria-invalid={invalidField === "shortName"} onChange={(e) => setTerms({ ...terms, shortName: e.target.value })} />
+    <p id="product-short-name-help" className="text-xs text-muted-foreground">{t("portfolio.shortNameHelp")}</p>
     </fieldset>
     {error && <p id="product-edit-error" role="alert" className="text-sm text-destructive">{error}</p>}
     <SheetFooter><Button type="button" variant="ghost" disabled={save.isPending} onClick={onSaved}>{t("availableFunds.cancel")}</Button><Button type="button" disabled={save.isPending} onClick={() => {
