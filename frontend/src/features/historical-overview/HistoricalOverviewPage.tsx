@@ -18,6 +18,7 @@ import { HistoricalAccountDeltaView, HistoricalAllocationView, HistoricalCoverag
 import { HistoricalCategoryComparisonView } from "./HistoricalCategoryComparison";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import type { HistoricalCategoryFilter, HistoricalNavigationContext } from "@/app/navigation";
+import { displayEnum } from "@/lib/display";
 import { formatHistoricalAmount } from "./historicalAmount";
 import type {
   HistoricalOverviewCell, HistoricalOverviewEvidence, HistoricalOverviewRow,
@@ -149,6 +150,9 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [categoryRole, setCategoryRole] = useState<"asset" | "liability">(initialContext?.categoryRole ?? "asset");
   const [dimension, setDimension] = useState<"byClass" | "byCurrency">(initialContext?.dimension ?? "byClass");
+  const categoryFilterLabel = categoryFilter ? categoryFilter.dimension === "byClass"
+    ? displayEnum(t, "enum", categoryFilter.key) || t("historicalOverview.unclassified")
+    : categoryFilter.key : "";
   const categoryReturn = useRef<{ scroll: number; focusId: string } | null>(null);
   const dateInput = useRef<HTMLInputElement>(null);
   const clearFilterButton = useRef<HTMLButtonElement>(null);
@@ -285,7 +289,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
         {view === "delta" && data.right && <HistoricalAccountDeltaView data={data} onOpen={openDetail} />}
         {view === "allocation" && (data.right ? <HistoricalCategoryComparisonView data={data} role={categoryRole} dimension={dimension} onRole={setCategoryRole} onDimension={setDimension} onFilter={(filter, trigger) => filterCategory(filter, trigger)} /> : <HistoricalAllocationView data={data} selectedDimension={dimension} onDimension={setDimension} onFilter={(dimension, key, trigger) => filterCategory({ role: "asset", dimension, key }, trigger)} />)}
         {view === "accounts" && <section aria-label={t("historicalOverview.table")}>
-        {categoryFilter && <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="outline">{t("historicalOverview.filteredCategory", { category: categoryFilter.key })}</Badge><Button ref={clearFilterButton} size="sm" variant="outline" onClick={() => { accountsTab.current?.focus(); setCategoryFilter(null); }}>{t("historicalOverview.clearFilter")}</Button><Button size="sm" variant="outline" onClick={returnToCategories}>{t("historicalOverview.returnToCategories")}</Button></div>}
+        {categoryFilter && <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="outline">{t("historicalOverview.filteredCategory", { category: categoryFilterLabel })}</Badge><Button ref={clearFilterButton} size="sm" variant="outline" onClick={() => { accountsTab.current?.focus(); setCategoryFilter(null); }}>{t("historicalOverview.clearFilter")}</Button><Button size="sm" variant="outline" onClick={returnToCategories}>{t("historicalOverview.returnToCategories")}</Button></div>}
         {data.right && <><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={changesOnly} onChange={event => setChangesOnly(event.target.checked)} />{t("historicalOverview.changesOnly")}</label><p className="text-xs text-muted-foreground">{t("historicalOverview.changesOnlyCount", { shown: accounts.length, total: (data.rows ?? []).filter(row => row.kind === "account").length })} · {t("historicalOverview.changesOnlyHint")}</p></>}
         {accounts.length === 0
           ? <div><EmptyState title={t(changesOnly && data.right ? "historicalOverview.noChanges" : "historicalOverview.noAccounts")} />{(changesOnly || categoryFilter) && <Button variant="outline" onClick={() => { setChangesOnly(false); setCategoryFilter(null); }}>{t("historicalOverview.showAllAccounts")}</Button>}</div>
@@ -348,7 +352,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
             </SheetHeader>
             {selected && <>
               {navigation && selected.accountId && <div className="flex flex-wrap gap-2"><Button id="historical-open-history" variant="outline" onClick={() => navigation.open({ page: "history", filters: { accountId: selected.accountId, instrumentId: selected.instrumentId || undefined, from: data.right && !data.right.current && data.right.date < data.left.date ? data.right.date : data.left.date, to: data.right?.current ? data.lastClosedDate : data.right && data.right.date > data.left.date ? data.right.date : data.left.date } })}>{t("historicalOverview.openHistory")}</Button><p className="text-xs text-muted-foreground">{t(data.right?.current ? "historicalOverview.historyClosedRangeNote" : "historicalOverview.leaveCaptureNote")}</p></div>}
-              {categoryFilter && <div className="space-y-2"><Badge variant="outline">{t("historicalOverview.filteredCategory", { category: categoryFilter.key })}</Badge>{selected.kind === "account" && <p className="text-xs text-muted-foreground">{t("historicalOverview.detailCategoryScope")}</p>}{selected.kind !== "account" && !matchesCategory(selected) && <Badge variant="warning">{t("historicalOverview.outsideCategoryFilter")}</Badge>}</div>}
+              {categoryFilter && <div className="space-y-2"><Badge variant="outline">{t("historicalOverview.filteredCategory", { category: categoryFilterLabel })}</Badge>{selected.kind === "account" && <p className="text-xs text-muted-foreground">{t("historicalOverview.detailCategoryScope")}</p>}{selected.kind !== "account" && !matchesCategory(selected) && <Badge variant="warning">{t("historicalOverview.outsideCategoryFilter")}</Badge>}</div>}
               {selected.kind === "account" && detailChildren.length > 0 && (categoryFilter ? [true, false] : [true]).map(matched => {
                 const rows = categoryFilter ? detailChildren.filter(row => matchesCategory(row) === matched) : detailChildren;
                 const title = t(matched ? "historicalOverview.matchingComponents" : "historicalOverview.otherAccountComponents");
@@ -357,7 +361,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                   <div className="flex flex-wrap gap-2">{rows.map(row => <Button key={row.key} size="sm" variant="outline" onClick={() => setSelectedKey(row.key)}>{rowLabel(row, t)}</Button>)}</div>
                 </section>;
               })}
-              {parent && <Button variant="outline" size="sm" onClick={() => setSelectedKey(parent.key)}>{t("historicalOverview.returnToAccount", { name: parent.name })}</Button>}
+              {parent && <Button variant="outline" size="sm" className="h-auto min-h-8 max-w-full shrink-0 self-start whitespace-normal py-1.5 text-left [overflow-wrap:anywhere]" onClick={() => setSelectedKey(parent.key)}>{t("historicalOverview.returnToAccount", { name: parent.name })}</Button>}
               <CellDetail cell={selected.left} state={data.left} timezone={data.timezone} />
               {data.right && <>
                 <CellDetail cell={selected.right} state={data.right} timezone={data.timezone} />

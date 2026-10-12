@@ -49,3 +49,12 @@ Record commit, profile, locale, theme, content width and zoom for each screensho
 Automated results and environment limits are recorded in the PR description.
 Native screenshots, Linux/macOS GUI acceptance and user-task studies are pending;
 no build or component test is evidence that these manual gates passed.
+
+The parent reported Atlas's Linux pointer acceptance on
+`d3cf505f7fa3da1ea306452378277bd5263445d7`: wide/390px category-to-History return
+preserved dates, capture, filter, detail and scroll; narrow/GDK_SCALE2 first-open
+Sheet, Escape focus and chart class/currency paths passed. The current polish
+changes still require a targeted native recheck of localized filter chips and
+the nonshrinking return-to-account button, including long names at narrow width
+and scale. DOM tests guard the sizing constraints and existing scroll/header
+structure; they do not measure native pixel height.

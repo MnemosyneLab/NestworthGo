@@ -32,7 +32,7 @@ beforeEach(() => {
   origin.mockResolvedValue({ id: "origin", householdId: "household", startedAt: "2026-08-01T12:00:00Z", createdAt: "2026-08-01T12:00:00Z", timezone: "UTC" });
   read.mockImplementation((date: string, compare: string) => Promise.resolve(result(date, compare)));
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["light", "dark"].map(theme => ({ locale, theme }))))(
   "keeps full monetary tokens accessible in single and comparison summaries ($locale, $theme)", async ({ locale, theme }) => {
@@ -715,3 +715,58 @@ it.each(["table", "card"])("groups category-matching and full-account context in
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(trigger).toHaveFocus();
 });
+
+
+it.each((["en", "zh-CN", "zh-TW"] as const).flatMap(locale => (["byClass", "byCurrency"] as const).map(dimension => ({ locale, dimension }))))(
+  "uses canonical category labels in both page and detail filter chips ($locale, $dimension)", async ({ locale, dimension }) => {
+    await i18n.changeLanguage(locale);
+    const data = result();
+    data.rows![1].left!.assetClass = "property";
+    read.mockResolvedValue(data);
+    const client = createTestQueryClient();
+    const key = dimension === "byClass" ? "property" : "CNY";
+    const label = dimension === "byClass" ? i18n.t("enum.property") : "CNY";
+    const chip = i18n.t("historicalOverview.filteredCategory", { category: label });
+    render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ view: "accounts", categoryFilter: { role: "asset", dimension, key } }} onExit={vi.fn()} /></QueryClientProvider>);
+    const account = await screen.findByRole("button", { name: "Bank" });
+    expect(screen.getByText(chip)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unchanged" })).not.toBeInTheDocument();
+    await userEvent.click(account);
+    expect(within(await screen.findByRole("dialog")).getByText(chip)).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(account).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.clearFilter") }));
+    expect(screen.getByRole("button", { name: "Unchanged" })).toBeInTheDocument();
+  },
+);
+
+// jsdom cannot measure flex layout. Guard the nonshrinking target and existing
+// viewport/scroll/header constraints; Linux pointer recheck verifies pixel size.
+it.each([{ width: 390, scale: 1 }, { width: 195, scale: 2 }])(
+  "keeps return-to-account usable inside a narrow scrolling Sheet ($width px, scale $scale)", async ({ width, scale }) => {
+    vi.stubGlobal("visualViewport", Object.assign(new EventTarget(), { width, height: 220, offsetLeft: 0, offsetTop: 0, scale }));
+    const data = result();
+    const name = "Long retained bank account name ".repeat(5).trim();
+    data.rows![0].name = name;
+    read.mockResolvedValue(data);
+    const client = createTestQueryClient();
+    render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
+    const account = await screen.findByRole("button", { name });
+    await userEvent.click(account);
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: i18n.t("historicalOverview.cashCurrency", { currency: "CNY" }) }));
+    const panel = screen.getByRole("dialog");
+    const back = within(panel).getByRole("button", { name: i18n.t("historicalOverview.returnToAccount", { name }) });
+    expect(back).toHaveClass("h-auto", "min-h-8", "shrink-0", "self-start", "max-w-full", "whitespace-normal");
+    expect(back).not.toHaveClass("w-full");
+    expect(panel).toHaveClass("flex", "flex-col", "overflow-y-auto");
+    expect(panel.parentElement).toHaveStyle({ width: `${width}px`, height: "220px" });
+    expect(panel.querySelector("[data-sheet-close]")?.parentElement).toHaveClass("sticky", "shrink-0");
+    back.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(screen.getByRole("dialog")).toHaveAccessibleName(name);
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(account).toHaveFocus();
+  },
+);
