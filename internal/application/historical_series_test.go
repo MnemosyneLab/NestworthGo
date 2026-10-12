@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -117,6 +118,184 @@ func TestHistoricalSeriesInteriorSkippedCivilDate(t *testing.T) {
 	}
 	if _, err := s.HistoricalOverviewSeries(ctx, "2011-12-30", "2011-12-31"); err == nil {
 		t.Fatal("skipped endpoint accepted")
+	}
+}
+
+func TestHistoricalSeriesEmptyScopeTransitions(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s, _, owner, now := overviewFixture(t)
+	account, err := s.CreateAccount(ctx, AccountInput{Name: "Synthetic cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: false, OwnerIDs: []domain.MemberID{owner}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range []struct {
+		day      int
+		included bool
+	}{{2, true}, {3, false}, {5, true}} {
+		*now = time.Date(2026, 8, change.day, 12, 0, 0, 0, time.UTC)
+		if _, err := s.UpdateAccount(ctx, account.Account.ID, AccountInput{IncludeInNetWorth: change.included, IncludeInNetWorthSet: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	*now = time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC)
+	out, err := s.HistoricalOverviewSeries(ctx, "2026-08-01", "2026-08-06")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []string{"0", "100", "0", "0", "100", "100"} {
+		point := out.Points[i]
+		wantOverviewAmount(t, point.Assets, want)
+		wantOverviewAmount(t, point.NetWorth, want)
+		changed := i == 1 || i == 2 || i == 4
+		connected := i == 3 || i == 5
+		if !point.Available || point.ScopeChanged != changed || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectLiabilities != connected || point.ConnectNetWorth != connected {
+			t.Fatalf("day %d has incorrect transition: %+v", i+1, point)
+		}
+	}
+	original, err := s.HistoricalOverview(ctx, "2026-08-01", "2026-08-06")
+	if err != nil || !reflect.DeepEqual(original, out.Overview) {
+		t.Fatalf("scope transition changed endpoint totals/evidence: %v", err)
+	}
+}
+
+func TestHistoricalSeriesScopeAfterMissingCivilDate(t *testing.T) {
+	t.Parallel()
+	for _, initialIncluded := range []bool{false, true} {
+		t.Run(fmt.Sprintf("initialIncluded=%t", initialIncluded), func(t *testing.T) {
+			ctx := context.Background()
+			s, _, owner, now := overviewFixture(t)
+			*now = time.Date(2011, 12, 29, 12, 0, 0, 0, time.UTC)
+			account, err := s.CreateAccount(ctx, AccountInput{Name: "Synthetic Apia cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: initialIncluded, OwnerIDs: []domain.MemberID{owner}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.StartHistory(ctx, "Pacific/Apia"); err != nil {
+				t.Fatal(err)
+			}
+			*now = time.Date(2011, 12, 30, 12, 0, 0, 0, time.UTC) // Dec 31 in Apia, after its skipped Dec 30.
+			if _, err := s.UpdateAccount(ctx, account.Account.ID, AccountInput{IncludeInNetWorth: !initialIncluded, IncludeInNetWorthSet: true}); err != nil {
+				t.Fatal(err)
+			}
+			*now = time.Date(2012, 1, 3, 12, 0, 0, 0, time.UTC)
+			out, err := s.HistoricalOverviewSeries(ctx, "2011-12-29", "2012-01-01")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if out.Points[1].Available || out.Points[1].GapReason != "nonexistent_civil_date" {
+				t.Fatalf("missing day lost: %+v", out.Points[1])
+			}
+			for i, point := range out.Points {
+				if point.ScopeChanged || point.BasisChanged || point.ConnectAssets != (i == 3) || point.ConnectLiabilities != (i == 3) || point.ConnectNetWorth != (i == 3) {
+					t.Fatalf("flags crossed gap or lost subsequent continuity: %+v", point)
+				}
+			}
+		})
+	}
+}
+
+func TestHistoricalSeriesSelectedEvidenceBasis(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"price", "fx"} {
+		t.Run(kind, func(t *testing.T) {
+			ctx := context.Background()
+			s, db, owner, now := overviewFixture(t)
+			var instrument domain.Instrument
+			if kind == "price" {
+				broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
+				var err error
+				instrument, err = s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.AppendManualInstrumentQuote(ctx, instrument.ID, "1", "2026-08-01", false); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				overviewAccount(t, s, owner, "Synthetic USD cash", "bank_account", "asset", "balance", "USD", "1")
+				if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.AppendManualFXQuote(ctx, "USD", "CNY", "1", "2026-08-01"); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+			if kind == "price" {
+				if _, err := s.AppendManualInstrumentQuote(ctx, instrument.ID, "2", "2026-08-02", false); err != nil {
+					t.Fatal(err)
+				}
+			} else if _, err := s.AppendManualFXQuote(ctx, "USD", "CNY", "2", "2026-08-02"); err != nil {
+				t.Fatal(err)
+			}
+			*now = time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+			var items []AgentMarketDataItem
+			for day := 3; day <= 5; day++ {
+				item := AgentMarketDataItem{Date: fmt.Sprintf("2026-08-%02d", day), Timezone: "UTC", Value: fmt.Sprint(day), SourceTitle: "Synthetic source"}
+				if kind == "price" {
+					item.InstrumentID = instrument.ID.String()
+					item.Currency = "CNY"
+					item.Kind = "close"
+				} else {
+					item.BaseCurrency = "USD"
+					item.QuoteCurrency = "CNY"
+					item.Kind = "daily_reference"
+				}
+				// Same Agent source/observation on day 5, different timestamp basis.
+				if day == 5 {
+					item.QuotedAt = "2026-08-05T12:00:00Z"
+				}
+				items = append(items, item)
+			}
+			if _, err := s.ImportAgentMarketData(ctx, domain.NewActivityID().String(), AgentMarketDataInput{Items: items}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.SQL.Exec(`PRAGMA query_only=ON`); err != nil {
+				t.Fatal(err)
+			}
+			out, err := s.HistoricalOverviewSeries(ctx, "2026-08-01", "2026-08-05")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, point := range out.Points {
+				wantOverviewAmount(t, point.Assets, fmt.Sprint(i+1))
+				wantOverviewAmount(t, point.NetWorth, fmt.Sprint(i+1))
+				changed := i == 2 || i == 4
+				connected := i == 1 || i == 3
+				if point.ScopeChanged || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectLiabilities != connected || point.ConnectNetWorth != connected {
+					t.Fatalf("%s day %d selected evidence basis/continuity: %+v", kind, i+1, point)
+				}
+			}
+			original, err := s.HistoricalOverview(ctx, "2026-08-01", "2026-08-05")
+			if err != nil || !reflect.DeepEqual(original, out.Overview) {
+				t.Fatalf("selected %s changed P1 endpoints: %v", kind, err)
+			}
+			for _, row := range out.Overview.Rows {
+				if row.Kind == "account" {
+					continue
+				}
+				left, right := row.Left.Price, row.Right.Price
+				if kind == "fx" {
+					left, right = row.Left.FX, row.Right.FX
+				}
+				if left == nil || right == nil || left.Source != "manual" || right.Source != "agent" || right.TimestampBasis != "source_timestamp" {
+					t.Fatalf("fixture did not select actual sources: %+v", row)
+				}
+			}
+		})
 	}
 }
 

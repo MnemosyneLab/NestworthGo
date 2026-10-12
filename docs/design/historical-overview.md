@@ -358,8 +358,16 @@ amounts are unknown; an empty role or observed zero is a known zero. Missing
 liabilities do not erase a complete asset series. Parent rows are never added
 to their component leaves. Unknown values are not substituted into the line.
 Scope and source/binding/native/base-currency basis changes conservatively break
-connections; changing quote identity or ordinary amounts/quantities alone does
-not. Endpoint totals and rows use the P1 conventions and retained provenance.
+connections. An available empty portfolio has a valid empty scope; entering or
+leaving that scope breaks connections too. A missing civil date resets preceding
+point availability without comparing scope/basis across the gap. Selected price
+and FX evidence supply their actual source/key, observation kind, currency/pair,
+price/timestamp basis, source policy and price binding revision alongside saved
+preferences. Agent observations that supplement manual/provider preferences
+therefore break connections when their selected source/basis changes. Quote
+identity, dates, ordinary values, quote revisions and freshness do not change
+the basis signature. Endpoint totals and rows use the P1 conventions and
+retained provenance.
 
 The application imposes a 10-second deadline. Context cancellation is checked
 through SQL, effect replay, historical replay, indexing, date iteration and

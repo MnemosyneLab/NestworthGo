@@ -21,6 +21,8 @@ component tests and builds do not establish visual acceptance.
 
 ## Synthetic benchmarks, saved cloud host
 
+Measured on initial PR #57 head `36661f69bac215ca355f46ea8907b5f7c8c561fa`;
+later review fixes are not new benchmark measurements.
 AMD EPYC 9V74 80-Core Processor, Go server tag, CGO disabled. 100 brokerage accounts,
 900 holdings in nine shared manual CNY instruments plus 100 cash leaves: exactly
 1,000 possible leaves. Small values are exact `0.00012` per holding. Sparse
@@ -96,3 +98,33 @@ unbounded-range acceptance is claimed.
   `webkitgtk-6.0`. The server build is not a native desktop acceptance claim.
 - Scoped race results are recorded in the PR after completion; native full-tree
   race is blocked by the same GTK/WebKit development dependencies.
+
+## Review regressions: empty scope and selected evidence basis
+
+Astra's two findings were reproduced before the fix. An available zero-total
+portfolio entering an included CNY cash scope incorrectly retained all metric
+connections. Manual price and FX observations followed by exact-date Agent
+observations also incorrectly retained connections despite the selected source
+changing. Saved preferences alone did not identify the applied evidence basis.
+
+- `TestHistoricalSeriesEmptyScopeTransitions`: zero → included 100 → zero →
+  unchanged zero → included 100 → unchanged 100. Both scope directions break
+  all connections; unchanged empty/populated scopes reconnect normally.
+- `TestHistoricalSeriesScopeAfterMissingCivilDate`: Apia's skipped civil date,
+  both entering and leaving the cash scope after it. No flags/connections cross
+  the gap; the next unchanged available point reconnects normally.
+- `TestHistoricalSeriesSelectedEvidenceBasis`, price and FX cases: ordinary
+  manual updates stay connected; selected manual → Agent source breaks;
+  ordinary Agent date/value/identity updates stay connected; an Agent timestamp
+  basis change breaks. Exact point totals and full P1 endpoint equality hold,
+  and reads succeed with SQLite `query_only` enabled.
+
+The fix keeps explicit preceding-available-point state and derives selected
+source/basis signatures from valuation evidence and its retained observation.
+Review-fix validation passed: full server-tag Go tests, focused application/API
+vet, and `go test -race -short` for Historical Series, Historical Overview and
+Agent quote/FX tests (71.985 seconds). Short race mode omits the dense synthetic
+cancellation setup; that fixture passed in the full non-race Go run. Frontend
+code/contracts are unchanged and its suite/build were not rerun for this fix.
+Native visual acceptance remains pending. The reviewed new head is recorded in
+PR #57.

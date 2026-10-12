@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sort"
 	"strconv"
@@ -163,6 +164,7 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 	out.Overview = HistoricalOverviewResult{Timezone: batch.Origin.Timezone, OriginDate: originDate, LastClosedDate: time.Date(now.In(location).Year(), now.In(location).Month(), now.In(location).Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1).Format("2006-01-02"), CapturedAt: now.UTC().Format(time.RFC3339Nano), InputGeneration: batch.InputGeneration, ResolverPolicy: domain.MarketDataResolverPolicy}
 	var leftRows, rightRows []HistoricalOverviewRow
 	var previousScope, previousBasis string
+	previousAvailable := false
 	for day := a; !day.After(b); day = day.AddDate(0, 0, 1) {
 		if err := ctx.Err(); err != nil {
 			return HistoricalOverviewSeriesResult{}, err
@@ -173,7 +175,7 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 			var problem *domain.Error
 			if date != from && date != to && errors.As(cutoffErr, &problem) && problem.Field == "localDate" {
 				out.Points = append(out.Points, HistoricalSeriesPoint{Date: date, GapReason: "nonexistent_civil_date", Missing: []HistoricalSeriesMissing{}})
-				previousScope, previousBasis = "", ""
+				previousAvailable = false
 				continue
 			}
 			return HistoricalOverviewSeriesResult{}, cutoffErr
@@ -186,17 +188,18 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 		if err != nil {
 			return HistoricalOverviewSeriesResult{}, err
 		}
-		point.ScopeChanged = previousScope != "" && previousScope != scope
-		point.BasisChanged = previousBasis != "" && previousBasis != basis
+		point.ScopeChanged = previousAvailable && previousScope != scope
+		point.BasisChanged = previousAvailable && previousBasis != basis
 		if len(out.Points) > 0 {
 			prev := out.Points[len(out.Points)-1]
-			same := prev.Available && !point.ScopeChanged && !point.BasisChanged
+			same := previousAvailable && !point.ScopeChanged && !point.BasisChanged
 			point.ConnectAssets = same && prev.Assets != nil && point.Assets != nil
 			point.ConnectLiabilities = same && prev.Liabilities != nil && point.Liabilities != nil
 			point.ConnectNetWorth = same && prev.NetWorth != nil && point.NetWorth != nil
 		}
 		out.Points = append(out.Points, point)
 		previousScope, previousBasis = scope, basis
+		previousAvailable = point.Available
 		if date == from || date == to {
 			rows, err := s.historicalSeriesEndpoint(ctx, &batch, selected, index, date, cutoff, provider, ttl)
 			if err != nil {
@@ -244,6 +247,8 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 	v.SetFXProviderKey(func() string { return provider })
 	v.SetQuoteCacheTTL(func() time.Duration { return ttl })
 	instruments := map[domain.InstrumentID]domain.Instrument{}
+	selectedPriceBasis := map[string][]string{}
+	selectedFXBasis := map[string][]string{}
 	p.InstrumentQuotes = nil
 	var scope, basis []string
 	for _, i := range p.Instruments {
@@ -253,7 +258,9 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 		instruments[i.ID] = i
 		selection := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(i, index.quotes.instrumentQuotes[i.ID], index.coverage[i.ID], date, cutoff)
 		if selection.quote != nil {
-			p.InstrumentQuotes = append(p.InstrumentQuotes, *selection.quote)
+			quote := *selection.quote
+			p.InstrumentQuotes = append(p.InstrumentQuotes, quote)
+			selectedPriceBasis[quote.ID.String()] = []string{quote.Currency.String(), quote.ObservationKind, quote.PriceBasis, quote.TimestampBasis, quote.SourcePolicyVersion, strconv.Itoa(quote.BindingRevision)}
 		}
 	}
 	fx := []domain.FXQuote{}
@@ -279,6 +286,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 		}
 		if q := v.selectFXQuote(p, index.fxPairs[seriesFXPair(currency, p.Household.BaseCurrency)], currency, nil); q != nil {
 			fx = append(fx, *q)
+			selectedFXBasis[q.ID.String()] = []string{q.BaseCurrency.String(), q.QuoteCurrency.String(), q.ObservationKind, q.TimestampBasis, q.SourcePolicyVersion}
 		}
 	}
 	p.FXQuotes = fx
@@ -328,6 +336,12 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 			}
 			preference := implicitFXPreference(p, c.NativeCurrency)
 			basis = append(basis, key+":fx:"+string(preference.SourceKind))
+			if c.PriceEvidence != nil {
+				basis = append(basis, key+":price-evidence:"+seriesEvidenceBasis(c.PriceEvidence, selectedPriceBasis[c.PriceEvidence.ObservationID]))
+			}
+			if c.FXEvidence != nil {
+				basis = append(basis, key+":fx-evidence:"+seriesEvidenceBasis(c.FXEvidence, selectedFXBasis[c.FXEvidence.ObservationID]))
+			}
 			if c.BaseAmountExact != "" {
 				value, err := decimal.NewFromString(c.BaseAmountExact)
 				if err != nil {
@@ -377,6 +391,15 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 	sort.Strings(basis)
 	sort.Slice(point.Missing, func(i, j int) bool { return point.Missing[i].Key < point.Missing[j].Key })
 	return point, state, strings.Join(scope, "|"), strings.Join(basis, "|"), p, nil
+}
+
+// Identity selects the retained record but is not part of its valuation basis.
+// Quote dates, values, revisions and freshness do not change this signature;
+// source/basis metadata changes disconnect the series.
+func seriesEvidenceBasis(evidence *domain.QuoteEvidenceView, metadata []string) string {
+	fields := append([]string{string(evidence.Source), evidence.SourceKey}, metadata...)
+	encoded, _ := json.Marshal(fields) // A string slice always has a JSON encoding.
+	return string(encoded)
 }
 
 func seriesAccountPortfolio(p domain.PortfolioSnapshot, a domain.AccountRecord, h []domain.Holding, c []domain.AccountCashValue) domain.PortfolioSnapshot {
