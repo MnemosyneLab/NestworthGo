@@ -3,6 +3,33 @@
 Implemented as an independent, read-only page. Desktop visual acceptance is
 pending; automated component and application tests cover the contracts below.
 
+## Historical panorama P0
+
+The first panorama UI milestone organizes net worth, assets and liabilities by
+metric, with explicit A, B and backend supplied B − A values. Single-date asset
+composition uses the existing ECharts wrapper: a donut for eligible nonnegative
+values, signed bars for negative or invalid composition, and an honest zero or
+table fallback. Two-date asset categories share one order and axis; a missing
+category on one side stays missing. Charts only convert exact decimal strings to
+`Number` for geometry. Backend amounts, shares and row `baseChange` remain the
+sole financial values shown in details and source tables.
+
+The comparison overview ranks up to ten comparable changed account balances by
+exact absolute delta, separates asset and debt accounts, and offers expansion.
+Incomparable and scope/status changes remain visible separately. The full
+account table defaults to all accounts, with an explicit changes-only toggle.
+Category buttons filter account leaves without changing household totals. Detail
+still uses the same captured bundle and existing read-only Sheet. Small windows
+get account cards plus a full table option; loading uses fixed-height skeletons
+and never labels stale totals with a new selection.
+
+This milestone adds no new API, schema, provider, trend or attribution path.
+Category amount/percentage-point deltas, richer price/FX evidence, same-basis
+trends and attribution still require separate backend contracts. The P0 DOM,
+financial and server-tag regressions are automated; native wide/narrow/zoom
+screenshots and first-open Sheet visual acceptance remain pending on a GTK4 and
+WebKitGTK capable host with a synthetic profile.
+
 ## Meaning and scope
 
 A selected date reconstructs the household's retained economic state using
