@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ChevronDown, ChevronRight, History } from "lucide-react";
 import { useHistoryOrigin } from "@/queries/history";
+import { useHistoricalSeries } from "@/queries/historicalSeries";
+import { HistoricalTrend, type HistoricalTrendMetric } from "./HistoricalTrend";
 import { useHistoricalOverview } from "@/queries/historicalOverview";
 import { ymdInTimeZone } from "@/features/insights/calendar";
 import { isClosedDate, previousMonthEnd, shiftCivilDate } from "./dates";
@@ -143,7 +145,13 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const [comparison, setComparison] = useState(initialContext?.compareTo ? initialContext.compareTo === "current" ? "current" : "date" : "none");
   const [comparisonDate, setComparisonDate] = useState<string | null>(initialContext?.compareTo && initialContext.compareTo !== "current" ? initialContext.compareTo : null);
   const [changesOnly, setChangesOnly] = useState(initialContext?.changesOnly ?? false);
-  const [view, setView] = useState<"allocation" | "delta" | "accounts">(initialContext?.view ?? (initialContext?.compareTo ? "delta" : "allocation"));
+  const [view, setView] = useState<"allocation" | "delta" | "accounts" | "trend">(initialContext?.view ?? (initialContext?.compareTo ? "delta" : "allocation"));
+  const [seriesMode, setSeriesMode] = useState(false);
+  const [captureRequest, setCaptureRequest] = useState(0);
+  const [trendMetric, setTrendMetric] = useState<HistoricalTrendMetric>("netWorth");
+  const [trendSelection, setTrendSelection] = useState<string | null>(null);
+  const [trendFrom, setTrendFrom] = useState<string | null>(null);
+  const [trendTo, setTrendTo] = useState<string | null>(null);
   const [fullTable, setFullTable] = useState(initialContext?.fullTable ?? false);
   const [categoryFilter, setCategoryFilter] = useState<HistoricalCategoryFilter | null>(initialContext?.categoryFilter ?? null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(initialContext?.expanded ?? []));
@@ -174,8 +182,18 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const validDate = isClosedDate(date, firstDate, lastDate);
   const validComparison = comparison !== "date" || isClosedDate(compareDate, firstDate, lastDate);
   const valid = Boolean(origin.data && validDate && validComparison);
-  const query = useHistoricalOverview(date, compareTo, valid);
-  const data = valid && !query.isFetching && !query.isError ? query.data : undefined;
+  const spanValid = (from: string, to: string) => isClosedDate(from, firstDate, lastDate) && isClosedDate(to, firstDate, lastDate) && from <= to && to <= shiftCivilDate(from, 30);
+  const validCapture = valid && (!seriesMode || spanValid(date, compareTo));
+  const overviewQuery = useHistoricalOverview(date, compareTo, validCapture && !seriesMode, captureRequest);
+  const seriesQuery = useHistoricalSeries(date, compareTo, validCapture && seriesMode, captureRequest);
+  const query = seriesMode ? seriesQuery : overviewQuery;
+  const budgetExceeded = (query.error as (Error & { wireError?: { code: string } }) | null)?.wireError?.code === "historical_series_budget";
+  const data = validCapture && !query.isFetching && !query.isError ? seriesMode ? seriesQuery.data?.overview : overviewQuery.data : undefined;
+  const series = data && seriesMode ? seriesQuery.data : undefined;
+  const draftFrom = trendFrom ?? date;
+  const draftTo = trendTo ?? (comparison === "date" ? compareDate : lastDate);
+  const enableSeries = (from: string, to: string) => { setChosenDate(from); setComparisonDate(to); setTrendFrom(from); setTrendTo(to); setComparison("date"); setSeriesMode(true); setCaptureRequest(value => value + 1); setSelectedKey(null); setCategoryFilter(null); setTrendSelection(null); setView("trend"); };
+  const exitSeriesSelection = () => { if (seriesMode) { setSeriesMode(false); setCaptureRequest(value => value + 1); setTrendSelection(null); } };
   const selected = data?.rows?.find(row => row.key === selectedKey);
   const parent = data?.rows?.find(row => row.key === selected?.parentKey);
   const childrenByParent = useMemo(() => {
@@ -200,7 +218,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     setCategoryFilter(null); setView("allocation");
     requestAnimationFrame(() => { const main = document.getElementById("main-content"); if (main) main.scrollTop = position?.scroll ?? 0; (document.getElementById(position?.focusId ?? "") ?? dateInput.current)?.focus({ preventScroll: true }); });
   };
-  const chooseDate = (value: string) => { setSelectedKey(null); setCategoryFilter(null); setChosenDate(value); };
+  const chooseDate = (value: string) => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setChosenDate(value); };
   const openDetail = (key: string, trigger: HTMLButtonElement) => { detailTrigger.current = trigger; setSelectedKey(key); };
   const toggleAccount = (key: string) => setExpanded(previous => {
     const next = new Set(previous);
@@ -208,6 +226,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     return next;
   });
   const chooseComparison = (value: string) => {
+    exitSeriesSelection();
     setSelectedKey(null);
     setCategoryFilter(null);
     if (value === "date" && comparisonDate === null) setComparisonDate(lastDate);
@@ -252,11 +271,11 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
       </label>
       {comparison === "date" && <label className="flex min-w-0 flex-col gap-1 text-sm">
         {t("historicalOverview.comparisonDateB")}
-        <Input type="date" value={compareDate} min={firstDate} max={lastDate} aria-label={t("historicalOverview.compareDate")} aria-invalid={!validComparison} aria-describedby="historical-date-range" onChange={event => { setSelectedKey(null); setCategoryFilter(null); setComparisonDate(event.target.value); }} />
+        <Input type="date" value={compareDate} min={firstDate} max={lastDate} aria-label={t("historicalOverview.compareDate")} aria-invalid={!validComparison} aria-describedby="historical-date-range" onChange={event => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setComparisonDate(event.target.value); }} />
       </label>}
-      {comparison === "date" && <Button variant="outline" disabled={!validDate || !validComparison} onClick={() => { setSelectedKey(null); setCategoryFilter(null); setChosenDate(compareDate); setComparisonDate(date); }}>{t("historicalOverview.swap")}</Button>}
+      {comparison === "date" && <Button variant="outline" disabled={!validDate || !validComparison} onClick={() => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setChosenDate(compareDate); setComparisonDate(date); }}>{t("historicalOverview.swap")}</Button>}
       {comparison === "current" && <Button variant="outline" disabled title={t("historicalOverview.swapCurrentHint")}>{t("historicalOverview.swap")}</Button>}
-      <Button variant="outline" disabled={!valid || query.isFetching} onClick={() => { setSelectedKey(null); void query.refetch(); }}>
+      <Button variant="outline" disabled={!validCapture || query.isFetching} onClick={() => { setSelectedKey(null); void query.refetch(); }}>
         {t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")}
       </Button>
     </div>
@@ -271,9 +290,9 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     {comparison === "date" && valid && compareDate < date && <p className="text-xs text-muted-foreground">{t("historicalOverview.reverseComparison")}</p>}
     <p id="historical-date-range" className="text-xs text-muted-foreground">{t("historicalOverview.dateRange", { first: firstDate, last: lastDate, timezone })}</p>
     <p className="text-xs text-muted-foreground">{t("historicalOverview.cutoffNote")}</p>
-    {!valid ? <EmptyState title={t("historicalOverview.invalidDate")} description={t("historicalOverview.invalidDateHint")} />
+    {!validCapture ? <EmptyState title={t("historicalOverview.invalidDate")} description={t(seriesMode ? "historicalOverview.trend.rangeHint" : "historicalOverview.invalidDateHint")} />
       : query.isFetching ? <div role="status" aria-live="polite" className="space-y-4" aria-label={t("historicalOverview.loading")}><div className="grid gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">{[0, 1, 2].map(index => <div key={index} className="h-36 animate-pulse rounded-xl bg-muted" />)}</div><div className="h-72 animate-pulse rounded-xl bg-muted" /></div>
-      : query.isError ? <ErrorState title={t("historicalOverview.error")} description={t("historicalOverview.errorHint")} onRetry={() => void query.refetch()} retryLabel={t("common.retryAction")} />
+      : query.isError ? <ErrorState title={t("historicalOverview.error")} description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")} onRetry={() => void query.refetch()} retryLabel={t("common.retryAction")} />
       : data && <>
         <p className="text-xs text-muted-foreground">{t("historicalOverview.captureTime")}: <ObservationTime value={data.capturedAt} timezone={data.timezone} /> · {t("historicalOverview.refreshHint")}</p>
         {data.right?.current && <p className="text-xs text-muted-foreground">{t("historicalOverview.capturedCurrent")}</p>}
@@ -283,9 +302,10 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
           {data.right.date === data.left.date && !data.right.current && <p role="status" className="text-sm text-muted-foreground">{t("historicalOverview.sameDate")}</p>}
         </>}
         <div role="tablist" aria-label={t("historicalOverview.views")} className="flex flex-wrap gap-2">
-          {(data.right ? ["delta", "allocation", "accounts"] as const : ["allocation", "accounts"] as const).map(value => <Button key={value} ref={value === "accounts" ? accountsTab : undefined} role="tab" aria-controls="historical-view-panel" aria-selected={view === value} variant={view === value ? "default" : "outline"} onClick={() => setView(value)}>{t(data.right && value === "allocation" ? "historicalOverview.categoryCompare" : `historicalOverview.view.${value}`)}</Button>)}
+          {(data.right ? ["delta", "allocation", "accounts", "trend"] as const : ["allocation", "accounts", "trend"] as const).map(value => <Button key={value} ref={value === "accounts" ? accountsTab : undefined} role="tab" aria-controls="historical-view-panel" aria-selected={view === value} variant={view === value ? "default" : "outline"} onClick={() => setView(value)}>{t(data.right && value === "allocation" ? "historicalOverview.categoryCompare" : `historicalOverview.view.${value}`)}</Button>)}
         </div>
         <div id="historical-view-panel" role="tabpanel" className="min-w-0">
+        {view === "trend" && (series ? <HistoricalTrend capture={series} metric={trendMetric} selectedDate={trendSelection} onMetric={setTrendMetric} onSelect={setTrendSelection} onEndpoint={(side, pointDate) => enableSeries(side === "A" ? pointDate : date, side === "B" ? pointDate : compareTo)} onOpenDay={pointDate => { exitSeriesSelection(); setChosenDate(pointDate); setComparison("none"); setCategoryFilter(null); setSelectedKey(null); setView("accounts"); }} /> : <section className="rounded-xl border border-border bg-card p-4" aria-label={t("historicalOverview.trend.title")}><h2 className="font-semibold">{t("historicalOverview.trend.title")}</h2><p className="my-2 text-sm">{t("historicalOverview.trend.rangeHint")}</p><p className="my-2 text-xs text-muted-foreground">{t("historicalOverview.trend.enableNote")}</p><div className="flex flex-wrap gap-3"><label>A<Input type="date" value={draftFrom} min={firstDate} max={lastDate} aria-label={t("historicalOverview.trend.from")} onChange={event => setTrendFrom(event.target.value)} /></label><label>B<Input type="date" value={draftTo} min={firstDate} max={lastDate} aria-label={t("historicalOverview.trend.to")} onChange={event => setTrendTo(event.target.value)} /></label><Button disabled={!spanValid(draftFrom, draftTo)} onClick={() => enableSeries(draftFrom, draftTo)}>{t("historicalOverview.trend.enable")}</Button></div></section>)}
         {view === "delta" && data.right && <HistoricalAccountDeltaView data={data} onOpen={openDetail} />}
         {view === "allocation" && (data.right ? <HistoricalCategoryComparisonView data={data} role={categoryRole} dimension={dimension} onRole={setCategoryRole} onDimension={setDimension} onFilter={(filter, trigger) => filterCategory(filter, trigger)} /> : <HistoricalAllocationView data={data} selectedDimension={dimension} onDimension={setDimension} onFilter={(dimension, key, trigger) => filterCategory({ role: "asset", dimension, key }, trigger)} />)}
         {view === "accounts" && <section aria-label={t("historicalOverview.table")}>

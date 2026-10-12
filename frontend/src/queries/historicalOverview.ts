@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Service } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics";
 import { callService } from "@/lib/wails";
 
-export function useHistoricalOverview(date: string, compareTo: string, enabled: boolean) {
+export function useHistoricalOverview(date: string, compareTo: string, enabled: boolean, request = 0) {
   const session = useId();
   return useQuery({
-    queryKey: ["historical-overview", session, date, compareTo],
+    queryKey: ["historical-overview", session, date, compareTo, request],
     queryFn: () => callService(() => Service.HistoricalOverview(date, compareTo)),
     enabled,
     // A captured comparison stays fixed even when workspace observers invalidate

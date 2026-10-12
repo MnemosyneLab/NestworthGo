@@ -6,11 +6,13 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { HistoricalOverviewPage } from "./HistoricalOverviewPage";
 import { NavigationContext } from "@/app/NavigationContext";
 import i18n from "@/i18n";
+import { shiftCivilDate } from "./dates";
+import type { HistoricalOverviewSeriesResult } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { formatAmount } from "@/lib/money";
 import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
-const { read, origin } = vi.hoisted(() => ({ read: vi.fn(), origin: vi.fn() }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { HistoricalOverview: read } }));
+const { read, origin, seriesRead } = vi.hoisted(() => ({ read: vi.fn(), origin: vi.fn(), seriesRead: vi.fn() }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { HistoricalOverview: read, HistoricalOverviewSeries: seriesRead } }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: origin } }));
 
 function cell(value: string | null = "100", patch: Partial<HistoricalOverviewCell> = {}): HistoricalOverviewCell {
@@ -24,6 +26,16 @@ function result(date = "2026-08-01", compareTo = ""): HistoricalOverviewResult {
   return { categories: [], timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-09", capturedAt: "2026-08-10T12:00:00Z", inputGeneration: 1, resolverPolicy: "market-date-daily-summary-v3", left: state, right: compareTo ? { ...state, date: compareTo, current: compareTo === "current", cutoffAt: compareTo === "current" ? "2026-08-10T12:00:00Z" : `${compareTo}T23:59:59.999Z`, assets: "220", netWorth: "220", knownAssets: "220" } : null, change: compareTo ? { assets: "20", liabilities: "0", netWorth: "20" } : null, rows };
 }
 
+function seriesResult(from: string, to: string): HistoricalOverviewSeriesResult {
+  const overview = result(from, to); overview.capturedAt = new Date().toISOString();
+  const points: HistoricalOverviewSeriesResult["points"] = [];
+  for (let date = from; date <= to; date = shiftCivilDate(date, 1)) {
+    const state = date === to ? overview.right! : overview.left;
+    points.push({ date, cutoffAt: `${date}T23:59:59Z`, available: true, gapReason: "", assets: state.assets, liabilities: state.liabilities, netWorth: state.netWorth, knownAssets: state.knownAssets, knownLiabilities: state.knownLiabilities, assetsComplete: true, liabilitiesComplete: true, assetCoverage: { included: 2, known: 2, missing: 0 }, liabilityCoverage: { included: 0, known: 0, missing: 0 }, missing: [], scopeChanged: false, basisChanged: false, connectAssets: date !== from, connectLiabilities: date !== from, connectNetWorth: date !== from });
+  }
+  return { overview, points, from, to, work: { leaves: 2, queries: 1, candidateFacts: 10, candidateBytes: 500 } };
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-08-10T12:00:00Z"));
@@ -31,6 +43,7 @@ beforeEach(() => {
   void i18n.changeLanguage("en");
   origin.mockResolvedValue({ id: "origin", householdId: "household", startedAt: "2026-08-01T12:00:00Z", createdAt: "2026-08-01T12:00:00Z", timezone: "UTC" });
   read.mockImplementation((date: string, compare: string) => Promise.resolve(result(date, compare)));
+  seriesRead.mockImplementation((from: string, to: string) => Promise.resolve(seriesResult(from, to)));
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -770,3 +783,82 @@ it.each([{ width: 390, scale: 1 }, { width: 195, scale: 2 }])(
     expect(account).toHaveFocus();
   },
 );
+
+
+it("atomically enables a new series capture and keeps metric, dates and tabs local", async () => {
+  const { client } = show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  const originalReads = read.mock.calls.length;
+  await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+  expect(seriesRead).not.toHaveBeenCalled();
+  let resolve!: (value: HistoricalOverviewSeriesResult) => void;
+  seriesRead.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  await userEvent.click(screen.getByRole("button", { name: "Enable trend · New capture" }));
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveAttribute("aria-label", i18n.t("historicalOverview.loading"));
+  const capture = seriesResult("2026-08-01", "2026-08-09");
+  capture.overview.capturedAt = "2026-08-10T12:30:00Z";
+  await act(async () => resolve(capture));
+  const trend = await screen.findByRole("region", { name: "Time trend" });
+  expect(screen.getAllByTitle(capture.overview.capturedAt).length).toBeGreaterThan(0);
+  await userEvent.click(within(trend).getByRole("button", { name: "Assets" }));
+  await userEvent.click(within(trend).getByRole("button", { name: "2026-08-03" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Account details" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+  expect(within(screen.getByRole("region", { name: "Time trend" })).getByRole("button", { name: "Assets" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "2026-08-03" })).toHaveAttribute("aria-pressed", "true");
+  await act(async () => client.invalidateQueries());
+  expect(seriesRead).toHaveBeenCalledTimes(1); expect(read).toHaveBeenCalledTimes(originalReads);
+  const row = screen.getByRole("button", { name: "2026-08-03" }).closest("tr")!;
+  await userEvent.click(within(row).getByRole("button", { name: "Set as A · Recapture range" }));
+  await waitFor(() => expect(seriesRead).toHaveBeenCalledTimes(2));
+  expect(seriesRead).toHaveBeenLastCalledWith("2026-08-03", "2026-08-09");
+  expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-08-03");
+  await userEvent.click(within(screen.getByRole("button", { name: "2026-08-03" }).closest("tr")!).getByRole("button", { name: "Open day · New capture" }));
+  await waitFor(() => expect(read).toHaveBeenLastCalledWith("2026-08-03", ""));
+  expect(screen.getByLabelText("Compare with")).toHaveValue("none");
+});
+
+it("keeps failed range capture and budget rejection explicit without showing old totals", async () => {
+  show(true); await screen.findByRole("region", { name: "Asset allocation" });
+  await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+  seriesRead.mockRejectedValueOnce(new Error(JSON.stringify({ code: "historical_series_budget", message: "budget exceeded" })));
+  await userEvent.click(screen.getByRole("button", { name: "Enable trend · New capture" }));
+  expect(await screen.findByText(i18n.t("historicalOverview.trend.budgetError"))).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Total change (right minus left)" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
+  await screen.findByRole("region", { name: "Time trend" });
+  expect(seriesRead).toHaveBeenCalledTimes(2);
+});
+
+it("cancels obsolete range work and suppresses a late result after explicit date selection", async () => {
+  show(true); await screen.findByRole("region", { name: "Asset allocation" });
+  await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+  let resolve!: (value: HistoricalOverviewSeriesResult) => void;
+  const cancel = vi.fn();
+  const pending = Object.assign(new Promise<HistoricalOverviewSeriesResult>(done => { resolve = done; }), { cancel });
+  seriesRead.mockReturnValueOnce(pending);
+  await userEvent.click(screen.getByRole("button", { name: "Enable trend · New capture" }));
+  fireEvent.change(screen.getByLabelText(i18n.t("historicalOverview.baselineDate")), { target: { value: "2026-08-04" } });
+  await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(read).toHaveBeenLastCalledWith("2026-08-04", "2026-08-09"));
+  await act(async () => resolve(seriesResult("2026-08-01", "2026-08-09")));
+  expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-08-04");
+  expect(screen.queryByRole("button", { name: "Set as A · Recapture range" })).not.toBeInTheDocument();
+});
+
+it("allows all 31 civil labels and rejects a 32-label enable without truncation", async () => {
+  vi.setSystemTime(new Date("2026-09-02T12:00:00Z"));
+  read.mockImplementation((from: string, to: string) => Promise.resolve({ ...result(from, to), lastClosedDate: "2026-09-01" }));
+  show(true); await screen.findByRole("region", { name: "Asset allocation" });
+  await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+  fireEvent.change(screen.getByLabelText(i18n.t("historicalOverview.trend.from")), { target: { value: "2026-08-01" } });
+  fireEvent.change(screen.getByLabelText(i18n.t("historicalOverview.trend.to")), { target: { value: "2026-09-01" } });
+  const enable = screen.getByRole("button", { name: "Enable trend · New capture" });
+  expect(enable).toBeDisabled(); expect(seriesRead).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(i18n.t("historicalOverview.trend.to")), { target: { value: "2026-08-31" } });
+  expect(enable).toBeEnabled();
+  await userEvent.click(enable);
+  await waitFor(() => expect(seriesRead).toHaveBeenLastCalledWith("2026-08-01", "2026-08-31"));
+  expect(within(await screen.findByRole("region", { name: "Time trend" })).getAllByRole("row")).toHaveLength(32);
+});

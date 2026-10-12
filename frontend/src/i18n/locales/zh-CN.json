@@ -1307,7 +1307,8 @@
     "view": {
       "allocation": "资产结构",
       "delta": "变化概览",
-      "accounts": "账户明细"
+      "accounts": "账户明细",
+      "trend": "时间走势"
     },
     "allocationCompare": "资产类别对比",
     "assetOnly": "仅资产；原币种金额已折合本位币",
@@ -1431,6 +1432,27 @@
     "outsideCategoryFilter": "不属于当前类别筛选",
     "matchingComponents": "匹配类别筛选的子项",
     "otherAccountComponents": "账户其余保留子项",
-    "accountComponents": "账户保留子项"
+    "accountComponents": "账户保留子项",
+    "trend": {
+      "title": "时间走势",
+      "metric": "走势指标",
+      "basis": "同一本地捕获的结日重建。缺口及范围或口径变化会断开连线；这不是投资收益或当时已知的存档。",
+      "onePoint": "只有一个日期，历史不足以展示走势。",
+      "noCompleteTotals": "此指标没有完整总额，请查看表中的未知值及原因。",
+      "actionsNote": "选择日期或指标只影响本地显示。设置 A/B 会重新捕获整个区间；打开单日会明确退出走势模式并捕获新的单日全景。",
+      "actions": "日期操作",
+      "componentCounts": "已知金额子项：资产 {{assetKnown}}/{{assetTotal}}，负债 {{debtKnown}}/{{debtTotal}}。项数不代表金额覆盖百分比。",
+      "skippedDate": "家庭时区中不存在此民用日期，不投影金额。",
+      "basisChanged": "估值口径有变化，连线已断开。",
+      "setA": "设为 A · 重捕获区间",
+      "setB": "设为 B · 重捕获区间",
+      "openDay": "打开单日 · 新捕获",
+      "rangeHint": "请选择 1–31 个正向结日的明确区间。当前捕获和反向比较仍可在比较视图中使用，不生成走势序列。",
+      "enableNote": "启用后，全景与序列将由同一新捕获共同替换。首版设有本地输入预算；较大的保留档案可能被明确拒绝，不会截断事实。",
+      "from": "走势 A · 首个结日",
+      "to": "走势 B · 最后结日",
+      "enable": "启用走势 · 新捕获",
+      "budgetError": "本地走势输入或计算超过预算。仍可使用双期比较，不会替换为截断序列。"
+    }
   }
 }
