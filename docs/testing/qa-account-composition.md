@@ -60,7 +60,19 @@ arrow-key navigation, matching existing account controls. Expanded original
 rows retain their detail identities; tail hover/focus/selection highlights the
 remainder wedge. Expanding/collapsing clears account-chart interactions while
 leaving the source table open. Other chart consumers do not opt into this
-interaction mapping. English remainder labels use singular/plural forms.
+interaction mapping. ECharts selection is synchronized with explicit unselect/
+select actions: merging `data.selected: false` alone retains its internal
+selected map and can leave a wedge pulled out. Deselect, collapse and reset
+clear the actual pie selection, as well as the legend. English remainder labels
+use singular/plural forms.
+
+The shared EChart policy defaults emphasis item fills to `inherit`. zrender
+6.1.0 cannot lift CSS OKLCH colors, which otherwise replaces highlighted pie
+and bar fills with an undefined color. ECharts' inheritance path keeps the
+normal/selected theme fill and alpha without converting colors or adding a
+palette. Explicit emphasis colors, line/area styles, focus and scaling remain
+intact. Real renderer tests reproduce the original disappearance and exercise
+stock/remainder pies, bars and line markers across every shipped OKLCH token.
 
 ## Automated checks
 
@@ -86,9 +98,14 @@ On the reviewed commit, check:
 - By detail at 10/11/many entries; expand, collapse, refresh, and account switch.
 - Narrow window controls, long names, large monetary values, light/dark themes,
   and all three locales. Verify wrapping without clipping and readable amounts.
+- Hover stock and the expanded managed-product tail, and hover wedges directly.
+  Account and Portfolio pie fills must remain visible while emphasizing. Check
+  Overview pies, historical bars, trend lines/markers and quote-history charts.
 - Mouse hover/selection, keyboard focus, screen-reader grouping controls,
   expand/collapse state, and the full data table.
-- Partial, all-missing, zero, and invalid synthetic fixtures; no misleading pie.
+- Partial, all-missing and zero valid native fixtures; no misleading pie.
+  Invalid-negative and unknown-metadata cases are unit-only under current valid
+  database constraints, and do not block the native GUI matrix.
 - Overview/Portfolio chart behavior and Historical Panorama views after the
   main update. No real household profile is needed.
 

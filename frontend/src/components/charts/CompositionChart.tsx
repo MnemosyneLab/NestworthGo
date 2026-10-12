@@ -139,6 +139,7 @@ export function CompositionChart({
           option={option}
           height={height}
           highlightedName={highlightedSliceKey}
+          selectedName={selectedSliceKey}
           ariaLabel={ariaLabel}
           summary={summary}
           dataTableLabel={t("charts.viewDataTable")}
