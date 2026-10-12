@@ -3,6 +3,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import i18n from "@/i18n";
 import { InstrumentManagement } from "./InstrumentManagement";
 import { TEST_CATALOG, selectValues } from "@/test/catalog";
 
@@ -59,11 +60,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
   Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
 }));
 
-function renderManagement() {
+function renderManagement(enableSearch = false) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <InstrumentManagement pageId="market-data" active />
+      <InstrumentManagement pageId="market-data" active enableSearch={enableSearch} />
     </QueryClientProvider>,
   );
 }
@@ -497,4 +498,61 @@ describe("InstrumentManagement", () => {
       providerSymbol: "ARKK",
     }));
   });
+});
+
+
+describe("optional instrument short name", () => {
+  it.each(["en", "zh-CN", "zh-TW"])("edits and clears by keyboard in %s", async (language) => {
+    await i18n.changeLanguage(language);
+    const t = i18n.t.bind(i18n);
+    const original = { id: "i1", name: "Full identity name", shortName: "家庭 🌿", symbol: "000001", isin: "CN000001", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "manual", providerKey: "eastmoney", providerSymbol: "000001" };
+    listInstruments.mockResolvedValue([original]);
+    renderManagement();
+    expect(await screen.findByText("家庭 🌿")).toBeInTheDocument();
+    expect(screen.getByText(original.name)).toHaveClass("text-xs", "text-muted-foreground");
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: t("common.edit") }));
+    const field = screen.getByLabelText(t("portfolio.shortName"));
+    expect(field).toHaveValue("家庭 🌿");
+    field.focus();
+    await user.keyboard("{Control>}a{/Control}{Backspace}  New alias 🌿  ");
+    await user.click(screen.getByRole("button", { name: t("common.save") }));
+    await waitFor(() => expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({ shortName: "New alias 🌿", symbol: original.symbol, isin: original.isin, providerKey: original.providerKey, providerSymbol: original.providerSymbol })));
+    // Reopen the editor from refreshed saved data, then clear explicitly.
+    listInstruments.mockResolvedValue([{ ...original, shortName: "New alias 🌿" }]);
+    await waitFor(() => expect(screen.queryByRole("form", { name: t("portfolio.instrumentFormLabel") })).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: t("common.edit") }));
+    await user.clear(screen.getByLabelText(t("portfolio.shortName")));
+    await user.click(screen.getByRole("button", { name: t("common.save") }));
+    await waitFor(() => expect(updateInstrument).toHaveBeenLastCalledWith("i1", expect.objectContaining({ shortName: "" })));
+  });
+
+  it("searches duplicate aliases and preserves both share classes", async () => {
+    listInstruments.mockResolvedValue([
+      { id: "i1", shortName: "Family", name: "Fund A", symbol: "000001", type: "mutual_fund", quoteCurrency: "CNY", quoteSource: "manual" },
+      { id: "i2", shortName: "Family", name: "Fund B", symbol: "000002", type: "mutual_fund", quoteCurrency: "CNY", quoteSource: "manual" },
+    ]);
+    renderManagement(true);
+    expect(await screen.findAllByText("Family")).toHaveLength(2);
+    await userEvent.type(screen.getByLabelText(i18n.t("marketData.searchInstruments")), "Family");
+    expect(screen.getByText("Fund A")).toBeInTheDocument();
+    expect(screen.getByText("Fund B")).toBeInTheDocument();
+  });
+});
+
+it("validates short names by Unicode code points and keeps an invalid form editable", async () => {
+  renderManagement();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Add instrument" }));
+  const form = screen.getByRole("form", { name: "Instrument form" });
+  await user.type(within(form).getByLabelText("Name"), "Full identity");
+  const alias = within(form).getByLabelText("Short name (optional)");
+  await user.type(alias, "🌿".repeat(121));
+  await user.click(within(form).getByRole("button", { name: "Add instrument" }));
+  expect(await within(form).findByRole("alert")).toHaveTextContent("Use at most 120 characters.");
+  expect(createInstrument).not.toHaveBeenCalled();
+  await user.clear(alias);
+  await user.type(alias, "🌿".repeat(120));
+  await user.click(within(form).getByRole("button", { name: "Add instrument" }));
+  await waitFor(() => expect(createInstrument).toHaveBeenCalledWith(expect.objectContaining({ shortName: "🌿".repeat(120) })));
 });

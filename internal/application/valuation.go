@@ -404,7 +404,7 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 			return domain.ValuationComponent{}, nil, err
 		}
 		return domain.ValuationComponent{
-			AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol,
+			AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol,
 			NativeAmount: "0", NativeCurrency: instrument.QuoteCurrency, BaseAmount: &baseView,
 			PreferenceObservationID: instrument.PreferenceObservationID,
 			BaseAmountExact:         "0", Available: true,
@@ -423,11 +423,11 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 			preference = &domain.FXPreference{HouseholdID: snapshot.Household.ID, SourceKind: domain.QuoteSourceProvider}
 		}
 		if selectFXQuote(*preference, snapshot.FXQuotes, "USD", instrument.QuoteCurrency, v.providerKey(), nil) == nil {
-			return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingFXRate, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteSource: preference.SourceKind, BaseCurrency: "USD", QuoteCurrency: instrument.QuoteCurrency}}, nil
+			return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingFXRate, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, QuoteSource: preference.SourceKind, BaseCurrency: "USD", QuoteCurrency: instrument.QuoteCurrency}}, nil
 		}
 	}
 	if quote == nil {
-		return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency}}, nil
+		return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency}}, nil
 	}
 	native, err := holding.Quantity.Multiply(quote.UnitPrice)
 	if err != nil {
@@ -439,12 +439,13 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 		return domain.ValuationComponent{}, nil, err
 	}
 	component.InstrumentName = name
+	component.InstrumentShortName = instrument.ShortName
 	component.InstrumentSymbol = symbol
 	holdingID := holding.ID
 	component.HoldingID = &holdingID
 	component.PreferenceObservationID = instrument.PreferenceObservationID
 	if v.historical && !historyCoverageComplete {
-		missing = append(missing, domain.MissingInputView{Kind: domain.MissingHistoryCoverage, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency})
+		missing = append(missing, domain.MissingInputView{Kind: domain.MissingHistoryCoverage, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency})
 	}
 	return component, missing, nil
 }

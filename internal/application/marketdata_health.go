@@ -131,7 +131,7 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 			continue
 		}
 		instrument := names[need.InstrumentID]
-		label := instrument.Name
+		label := instrument.DisplayLabel()
 		if label == "" {
 			label = need.ProviderSymbol
 		}
@@ -443,7 +443,7 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 			covered[instrument.ID.String()] = struct{}{}
 			issues = append(issues, HealthIssue{
 				ID: "agent-" + instrument.ID.String(), Kind: HealthKindMissingAgentPrice, Severity: HealthSeverityBlocking,
-				GroupKey: instrumentTargetKey(instrument.ID), TargetKey: instrumentTargetKey(instrument.ID), Label: instrument.Name,
+				GroupKey: instrumentTargetKey(instrument.ID), TargetKey: instrumentTargetKey(instrument.ID), Label: instrument.DisplayLabel(),
 				InstrumentID: instrument.ID.String(), RangeStart: missing[0], RangeEnd: missing[len(missing)-1],
 				RangeCount: len(dateRangesFromDates(missing)), Code: HealthKindMissingAgentPrice, Reason: "agent_data_required", Action: HealthActionNone,
 			})
@@ -459,7 +459,7 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 			Severity:     HealthSeverityBlocking,
 			GroupKey:     "instrument:" + instrument.ID.String(),
 			TargetKey:    instrumentTargetKey(instrument.ID),
-			Label:        instrument.Name,
+			Label:        instrument.DisplayLabel(),
 			InstrumentID: instrument.ID.String(),
 			RangeStart:   originDate,
 			RangeEnd:     max(originDate, plan.LastFinalizedMarketDate),
@@ -661,7 +661,7 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 				kind = HealthKindMissingAgentPrice
 				executable = false
 			}
-			label := domain.InstrumentDisplayLabel(missing.InstrumentName, missing.InstrumentSymbol)
+			label := domain.InstrumentDisplayLabel(missing.InstrumentName, missing.InstrumentSymbol, missing.InstrumentShortName)
 			id := ""
 			if missing.InstrumentID != nil {
 				id = missing.InstrumentID.String()

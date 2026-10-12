@@ -963,6 +963,9 @@ export const additionsEn = {
     },
   },
   portfolio: {
+    shortName: "Short name (optional)",
+    shortNameHelp: "Used as the primary label. Clear to show the symbol/code or full name.",
+    shortNameTooLong: "Use at most 120 characters.",
     description: "Review household holdings, cost, and current value. Instrument identity and quotes live on Market Data.",
     instrumentsTab: "Instruments",
     holdingsTab: "All holdings index",
@@ -2093,6 +2096,9 @@ export const additionsZhCN = {
     },
   },
   portfolio: {
+    shortName: "简称（可选）",
+    shortNameHelp: "用作主要标签。清空后显示代码或全名。",
+    shortNameTooLong: "最多输入 120 个字符。",
     description: "查看家庭持仓、成本和现值。标的身份和报价在市场数据页管理。",
     instrumentsTab: "投资标的",
     holdingsTab: "所有持仓索引",
@@ -3222,6 +3228,9 @@ export const additionsZhTW = {
     },
   },
   portfolio: {
+    shortName: "簡稱（選填）",
+    shortNameHelp: "用作主要標籤。清空後顯示代碼或全名。",
+    shortNameTooLong: "最多輸入 120 個字元。",
     description: "查看家庭持倉、成本和現值。標的身份和報價在市場資料頁管理。",
     instrumentsTab: "投資標的",
     holdingsTab: "所有持倉索引",

@@ -1510,3 +1510,65 @@ it("rejects a source reversed after its editable draft was opened", async () => 
   expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
   expect(confirmRepeat).not.toHaveBeenCalled();
 });
+
+it.each(["sell", "dividend", "adjust", "transfer"] as const)("distinguishes equal-quantity share classes with duplicate aliases in the %s selector", async (flow) => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([
+    { account: { id: "brokerage", name: "Brokerage", trackingMode: "holdings", accountType: "brokerage", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] },
+    { account: { id: "destination", name: "Destination", trackingMode: "holdings", accountType: "brokerage", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] },
+  ]);
+  listInstruments.mockResolvedValue([
+    { id: "class-a", shortName: "Family fund", name: "Share class A", symbol: "000001", isin: "ISIN-A", marketCode: "CN", quoteCurrency: "USD", quoteSource: "manual" },
+    { id: "class-b", shortName: "Family fund", name: "Share class B", symbol: "000002", isin: "ISIN-B", marketCode: "CN", quoteCurrency: "USD", quoteSource: "manual" },
+  ]);
+  holdingsByAccounts.mockResolvedValue({ brokerage: [
+    { id: "holding-a", instrumentId: "class-a", quantity: "10" },
+    { id: "holding-b", instrumentId: "class-b", quantity: "10" },
+  ], destination: [] });
+  previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+  renderPage();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: /record change/i }));
+  const form = screen.getByRole("form", { name: "Record change" });
+  const kind = { sell: ChangeCommandKind.ChangeTrade, dividend: ChangeCommandKind.ChangeCashDividend, adjust: ChangeCommandKind.ChangePositionAdjustment, transfer: ChangeCommandKind.ChangePositionTransfer }[flow];
+  await user.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${kind}`) }));
+  if (flow === "sell") {
+    await user.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage");
+    await user.selectOptions(within(form).getByLabelText("Side"), "sell");
+  }
+  const selector = within(form).getByLabelText(flow === "sell" ? "Instrument" : flow === "transfer" ? "From holding" : "Holding");
+  const a = await within(selector).findByRole("option", { name: /^Family fund · 000001 · Share class A/ });
+  const b = within(selector).getByRole("option", { name: /^Family fund · 000002 · Share class B/ });
+  expect(a).toHaveTextContent("ISIN-A");
+  expect(b).toHaveTextContent("ISIN-B");
+  expect(a).toHaveTextContent("Brokerage · 10");
+  expect(b).toHaveTextContent("Brokerage · 10");
+  expect(a.textContent).not.toBe(b.textContent);
+  await user.selectOptions(selector, b);
+  if (flow === "dividend") await user.type(within(form).getByLabelText("Amount"), "25");
+  else {
+    await user.type(within(form).getByLabelText(/Quantity/), "1");
+    if (flow === "sell") await user.type(within(form).getByLabelText(i18n.t("history.grossTotal")), "25");
+    if (flow === "transfer") await user.selectOptions(within(form).getByLabelText("To account"), "destination");
+  }
+  await user.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining(flow === "transfer" ? { fromHoldingId: "holding-b", toAccountId: "destination" } : flow === "sell" ? { holdingId: "holding-b", instrumentId: "class-b", side: "sell" } : { holdingId: "holding-b" })));
+});
+
+it("keeps duplicate-alias starting-point cost inputs distinct and submits each holding ID", async () => {
+  historyOrigin.mockResolvedValue(null);
+  startingPointDraft.mockResolvedValue([
+    { holdingId: "holding-a", instrumentId: "class-a", instrumentName: "Family fund · 000001 · Share class A · USD · ISIN-A", quantity: "10", currency: "USD", unitCost: "" },
+    { holdingId: "holding-b", instrumentId: "class-b", instrumentName: "Family fund · 000002 · Share class B · USD · ISIN-B", quantity: "10", currency: "USD", unitCost: "" },
+  ]);
+  startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  renderPage();
+  const user = userEvent.setup();
+  const a = await screen.findByLabelText(/Family fund · 000001 · Share class A.*ISIN-A.*10/);
+  const b = screen.getByLabelText(/Family fund · 000002 · Share class B.*ISIN-B.*10/);
+  expect(a).not.toBe(b);
+  await user.type(a, "12.34");
+  await user.type(b, "56.78");
+  await user.click(screen.getByRole("button", { name: "Start history" }));
+  await waitFor(() => expect(startHistoryOnDate).toHaveBeenCalledWith(expect.any(String), expect.any(String), { "holding-a": "12.34", "holding-b": "56.78" }));
+});

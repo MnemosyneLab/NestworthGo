@@ -23,6 +23,7 @@ type InstrumentHoldingMemberDTO struct {
 	Amounts     HoldingAmountsDTO `json:"amounts"`
 }
 type InstrumentHoldingsDTO struct {
+	ShortName     string                       `json:"shortName,omitempty"`
 	InstrumentID  string                       `json:"instrumentId"`
 	Name          string                       `json:"name"`
 	Symbol        string                       `json:"symbol"`
@@ -47,7 +48,7 @@ func (s *Service) InstrumentHoldings(ctx context.Context) ([]InstrumentHoldingsD
 		for _, m := range g.Holdings {
 			members = append(members, InstrumentHoldingMemberDTO{HoldingID: m.HoldingID.String(), AccountID: m.AccountID.String(), AccountName: m.AccountName, Amounts: holdingAmountsDTO(m.Amounts)})
 		}
-		result = append(result, InstrumentHoldingsDTO{InstrumentID: g.InstrumentID.String(), Name: g.Name, Symbol: g.Symbol, QuoteCurrency: g.QuoteCurrency.String(), QuantityUnit: g.QuantityUnit, Archived: g.Archived, Amounts: holdingAmountsDTO(g.Amounts), Holdings: members})
+		result = append(result, InstrumentHoldingsDTO{InstrumentID: g.InstrumentID.String(), Name: g.Name, ShortName: g.ShortName, Symbol: g.Symbol, QuoteCurrency: g.QuoteCurrency.String(), QuantityUnit: g.QuantityUnit, Archived: g.Archived, Amounts: holdingAmountsDTO(g.Amounts), Holdings: members})
 	}
 	return result, nil
 }

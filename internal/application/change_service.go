@@ -63,7 +63,7 @@ func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.
 	state.Instruments = instruments
 	for _, holding := range snapshot.Holdings {
 		instrument := instruments[holding.InstrumentID]
-		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Archived: holding.ArchivedAt != nil || instrument.ArchivedAt != nil || state.Accounts[holding.AccountID].Archived, Current: holding.Quantity, CostBasisAvailable: false}
+		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: pointerText(instrument.Symbol), InstrumentISIN: pointerText(instrument.ISIN), InstrumentMarketCode: pointerText(instrument.MarketCode), InstrumentQuantityUnit: instrument.QuantityUnit, InstrumentProviderKey: pointerText(instrument.ProviderKey), InstrumentProviderSymbol: pointerText(instrument.ProviderSymbol), Currency: instrument.QuoteCurrency, Archived: holding.ArchivedAt != nil || instrument.ArchivedAt != nil || state.Accounts[holding.AccountID].Archived, Current: holding.Quantity, CostBasisAvailable: false}
 	}
 	return state, nil
 }
@@ -251,7 +251,7 @@ func (s *Service) prepareTradeHolding(snapshot domain.PortfolioSnapshot, state d
 	if err != nil {
 		return state, command, nil, err
 	}
-	state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
+	state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: pointerText(instrument.Symbol), InstrumentISIN: pointerText(instrument.ISIN), InstrumentMarketCode: pointerText(instrument.MarketCode), InstrumentQuantityUnit: instrument.QuantityUnit, InstrumentProviderKey: pointerText(instrument.ProviderKey), InstrumentProviderSymbol: pointerText(instrument.ProviderSymbol), Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
 	trade.HoldingID = holding.ID
 	return state, trade, &holding, nil
 }

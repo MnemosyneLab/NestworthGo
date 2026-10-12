@@ -23,6 +23,7 @@ export interface InstrumentHoldingMemberDTO {
 }
 
 export interface InstrumentHoldingsDTO {
+    "shortName"?: string;
     "instrumentId": string;
     "name": string;
     "symbol": string;

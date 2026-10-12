@@ -24,6 +24,7 @@ export function AccountCompositionPanel({ composition, updatedAt }: { compositio
         : item.typeKey === "unknown" ? t("accounts.compositionView.unknownType") : t(`enum.${item.typeKey}`)
       : item.key === "account-composition:remainder" ? t("accounts.compositionView.remainder", { count: item.detailRefs?.length ?? 0 }) : item.label,
     amount: item.baseAmountExact || "0",
+    identityLabel: byType ? undefined : item.identityLabel,
     shareBps: item.shareBps,
     nativeAmount: item.nativeAmount || undefined,
     nativeCurrency: item.nativeCurrency || undefined,
@@ -96,7 +97,7 @@ export function AccountCompositionPanel({ composition, updatedAt }: { compositio
                     <thead><tr>{[t("charts.category"), t("accounts.nativeAmount"), t("accounts.householdAmount"), t("charts.share")].map((label) => <th key={label} className="px-2 py-1.5">{label}</th>)}</tr></thead>
                     <tbody>{details.map((item) => (
                       <tr key={item.key}>
-                        <td className="break-words px-2 py-1.5">{item.label}</td>
+                        <td className="break-words px-2 py-1.5">{item.identityLabel || item.label}</td>
                         <td className="px-2 py-1.5">{item.nativeAmount ? formatAmount(item.nativeAmount, item.nativeCurrency) : t("accounts.noValue")}</td>
                         <td className="px-2 py-1.5">{item.baseAmountExact ? formatAmount(item.baseAmountExact, composition.currency) : t("accounts.noValue")}</td>
                         <td className="px-2 py-1.5">{item.valuedCount && composition.status === "empty" ? formatPercent(0) : "—"}</td>

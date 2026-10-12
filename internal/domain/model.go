@@ -754,6 +754,7 @@ type OverviewNamedRef struct {
 // OverviewInstrumentRef includes quote source so Overview can distinguish
 // manual-price next steps from provider refresh without listing Instruments.
 type OverviewInstrumentRef struct {
+	ShortName   string
 	ID          string
 	Name        string
 	Symbol      string

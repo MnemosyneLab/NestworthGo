@@ -97,6 +97,7 @@ export function useAllHoldingsFlat(accountIds: string[]) {
           accountId: accId,
           accountName: accountNameById.get(accId),
           instrumentName: instrument?.name,
+          instrumentShortName: instrument?.shortName,
           instrumentSymbol: instrument?.symbol ?? undefined,
         };
       }),

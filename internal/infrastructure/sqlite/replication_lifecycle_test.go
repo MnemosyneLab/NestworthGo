@@ -26,7 +26,7 @@ func TestDrainForReplicationQueuesReadersAndPreservesPool(t *testing.T) {
 	go func() {
 		var version int
 		err := db.SQL.QueryRow("PRAGMA user_version").Scan(&version)
-		if err == nil && version != 15 {
+		if err == nil && version != CurrentSchemaVersion {
 			err = errors.New("wrong schema")
 		}
 		readDone <- err

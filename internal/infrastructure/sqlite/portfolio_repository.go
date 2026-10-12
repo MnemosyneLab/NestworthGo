@@ -130,7 +130,7 @@ func (r *Repository) UpdateInstrument(ctx context.Context, instrument domain.Ins
 		if err := validateInstrumentBinding(instrument); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, short_name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, instrument.ShortName, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
@@ -146,7 +146,7 @@ func (r *Repository) UpdateInstrumentWithObservation(ctx context.Context, instru
 		if err := validateInstrumentBinding(instrument); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, short_name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, instrument.ShortName, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
@@ -164,7 +164,7 @@ func (r *Repository) UpdateInstrumentWithObservation(ctx context.Context, instru
 }
 
 func (r *Repository) Instrument(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID) (domain.Instrument, error) {
-	statement := `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.metal_template, i.quantity_unit, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.id = ? AND i.household_id = ?`
+	statement := `SELECT i.id, i.household_id, i.name, i.short_name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.metal_template, i.quantity_unit, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.id = ? AND i.household_id = ?`
 	row := r.database.SQL.QueryRowContext(ctx, statement, id.String(), householdID.String())
 	return scanInstrumentColumns(row)
 }
@@ -721,7 +721,7 @@ func validateInstrumentBinding(instrument domain.Instrument) error {
 }
 
 func insertInstrumentTx(ctx context.Context, tx *sql.Tx, instrument domain.Instrument) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
+	_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, short_name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, instrument.ShortName, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
 	return mapPortfolioWriteError(err, "instrument")
 }
 
@@ -796,7 +796,7 @@ func nullableTime(value *time.Time) any {
 }
 
 func listInstrumentsQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, includeArchived bool) ([]domain.Instrument, error) {
-	statement := `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.metal_template, i.quantity_unit, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.household_id = ?`
+	statement := `SELECT i.id, i.household_id, i.name, i.short_name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.metal_template, i.quantity_unit, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.household_id = ?`
 	if !includeArchived {
 		statement += ` AND i.archived_at IS NULL`
 	}
@@ -927,12 +927,12 @@ func listFXPreferencesQuery(ctx context.Context, query queryer, householdID doma
 }
 
 func scanInstrumentColumns(row interface{ Scan(...any) error }) (domain.Instrument, error) {
-	var id, householdID, name, instrumentType, quoteCurrency, createdAt, updatedAt string
+	var id, householdID, name, shortName, instrumentType, quoteCurrency, createdAt, updatedAt string
 	var symbol, marketCode, countryCode, isin, note, icon, quoteSource, providerKey, providerSymbol, archived sql.NullString
 	var sortOrder int
 	var bindingRevision int
 	var metalTemplate, quantityUnit string
-	destinations := []any{&id, &householdID, &name, &instrumentType, &quoteCurrency, &symbol, &marketCode, &countryCode, &isin, &note, &icon, &sortOrder, &quoteSource, &providerKey, &providerSymbol, &metalTemplate, &quantityUnit, &createdAt, &updatedAt, &archived}
+	destinations := []any{&id, &householdID, &name, &shortName, &instrumentType, &quoteCurrency, &symbol, &marketCode, &countryCode, &isin, &note, &icon, &sortOrder, &quoteSource, &providerKey, &providerSymbol, &metalTemplate, &quantityUnit, &createdAt, &updatedAt, &archived}
 	destinations = append(destinations, &bindingRevision)
 	if err := row.Scan(destinations...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -972,7 +972,7 @@ func scanInstrumentColumns(row interface{ Scan(...any) error }) (domain.Instrume
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	return domain.Instrument{ID: instrumentID, HouseholdID: hID, Name: name, Type: parsedType, QuoteCurrency: currency, Symbol: parseNullable(nullString(symbol)), MarketCode: parseNullable(nullString(marketCode)), CountryCode: parseNullable(nullString(countryCode)), ISIN: parseNullable(nullString(isin)), Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), SortOrder: sortOrder, QuoteSource: source, ProviderKey: parseNullable(nullString(providerKey)), ProviderSymbol: parseNullable(nullString(providerSymbol)), ProviderBindingRevision: bindingRevision, MetalTemplate: metalTemplate, QuantityUnit: quantityUnit, CreatedAt: created, UpdatedAt: updated, ArchivedAt: archivedAt}, nil
+	return domain.Instrument{ID: instrumentID, HouseholdID: hID, Name: name, ShortName: shortName, Type: parsedType, QuoteCurrency: currency, Symbol: parseNullable(nullString(symbol)), MarketCode: parseNullable(nullString(marketCode)), CountryCode: parseNullable(nullString(countryCode)), ISIN: parseNullable(nullString(isin)), Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), SortOrder: sortOrder, QuoteSource: source, ProviderKey: parseNullable(nullString(providerKey)), ProviderSymbol: parseNullable(nullString(providerSymbol)), ProviderBindingRevision: bindingRevision, MetalTemplate: metalTemplate, QuantityUnit: quantityUnit, CreatedAt: created, UpdatedAt: updated, ArchivedAt: archivedAt}, nil
 }
 
 func scanHolding(row interface{ Scan(...any) error }) (domain.Holding, error) {

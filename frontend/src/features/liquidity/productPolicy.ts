@@ -63,7 +63,7 @@ export function policyFromDTO(policy: import("../../../bindings/github.com/waltw
 
 export function termsFromProduct(product: ProductDTO): ProductTermsInput {
   return {
-    kind: product.kind, name: product.name, note: product.note, startOn: product.startOn, maturityOn: product.maturityOn,
+    kind: product.kind, name: product.name, shortName: product.shortName ?? "", note: product.note, startOn: product.startOn, maturityOn: product.maturityOn,
     interestMode: product.interestMode, annualRate: null,
     annualRatePercent: product.annualRate == null ? null : multiplyCanonical(product.annualRate, "100"),
     maturityInterest: product.maturityInterest?.amount ?? null, interestPaidThroughOn: product.interestPaidThroughOn,

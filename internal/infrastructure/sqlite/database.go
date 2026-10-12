@@ -19,7 +19,7 @@ import (
 //go:embed schema.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 15
+const CurrentSchemaVersion = 16
 
 type BootstrapStatus string
 
@@ -88,6 +88,9 @@ type DB struct {
 }
 
 func Open(path string) (*DB, error) {
+	if isV15RecoveryCopy(path) {
+		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
+	}
 	if strings.TrimSpace(path) == "" {
 		return nil, &BootstrapError{Status: StatusUnavailable, Err: errors.New("database path is empty")}
 	}
@@ -101,18 +104,25 @@ func Open(path string) (*DB, error) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Err: err}
 	}
 	// Inspect existing files before opening a writable connection. Every existing
-	// database, including version zero, must already use the current schema.
+	// database, including version zero, must use the current schema or verified v15.
 	if existed {
-		probe, err := sql.Open("sqlite", path+"?mode=ro&_pragma=query_only%3d1")
+		probe, err := sql.Open("sqlite", path+"?mode=ro&_pragma=query_only%3d1&_pragma=foreign_keys%3d1")
 		if err != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
 		found, readErr := readVersion(probe)
+		if readErr == nil && found == 15 {
+			readErr = verifySchemaVersion(context.Background(), probe, 15)
+			if readErr != nil {
+				probe.Close()
+				return nil, &BootstrapError{Status: StatusIntegrityFailed, Found: found, Supported: CurrentSchemaVersion, Path: path, Err: readErr}
+			}
+		}
 		closeErr := probe.Close()
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion {
+		if found != CurrentSchemaVersion && found != 15 {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -138,6 +148,12 @@ func Open(path string) (*DB, error) {
 	}
 	if found > CurrentSchemaVersion {
 		return closeOnError(StatusUnsupportedFuture, found, nil)
+	}
+	if found == 15 && existed {
+		if err := upgradeV15(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = CurrentSchemaVersion
 	}
 	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)

@@ -154,6 +154,9 @@ func saveProductTermsTx(ctx context.Context, tx *sql.Tx, contract domain.Product
 	if err := upsertProductContractTx(ctx, tx, contract); err != nil {
 		return err
 	}
+	if _, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, short_name = ?, updated_at = ? WHERE id = ? AND household_id = ?`, contract.Name, contract.ShortName, formatTimestamp(contract.UpdatedAt), contract.InstrumentID.String(), contract.HouseholdID.String()); err != nil {
+		return err
+	}
 	if err := failProductCommit("terms:contract"); err != nil {
 		return err
 	}
@@ -446,7 +449,9 @@ func failProductCommit(stage string) error {
 	return nil
 }
 
-const productContractSelect = `SELECT id, household_id, account_id, holding_id, instrument_id, kind, name, note, currency, principal, start_on, maturity_on, interest_mode, annual_rate, maturity_interest, interest_paid_through_on, renewed_from_id, state, opened_operation_id, closed_operation_id, revision, created_at, updated_at FROM product_contracts`
+const productShortNameSelect = `(SELECT short_name FROM instruments WHERE instruments.id = product_contracts.instrument_id)`
+
+const productContractSelect = `SELECT ` + productShortNameSelect + `, id, household_id, account_id, holding_id, instrument_id, kind, name, note, currency, principal, start_on, maturity_on, interest_mode, annual_rate, maturity_interest, interest_paid_through_on, renewed_from_id, state, opened_operation_id, closed_operation_id, revision, created_at, updated_at FROM product_contracts`
 
 type scanner interface {
 	Scan(dest ...any) error
@@ -491,10 +496,10 @@ func scanProductOperation(row scanner) (domain.ProductOperation, error) {
 }
 
 func scanProductContract(row scanner) (domain.ProductContract, error) {
-	var id, householdID, accountID, holdingID, instrumentID, kind, name, currency, principal, startOn, interestMode, state, openedID, createdAt, updatedAt string
+	var shortName, id, householdID, accountID, holdingID, instrumentID, kind, name, currency, principal, startOn, interestMode, state, openedID, createdAt, updatedAt string
 	var note, maturityOn, annualRate, maturityInterest, paidThrough, renewedFrom, closedID sql.NullString
 	var revision int
-	if err := row.Scan(&id, &householdID, &accountID, &holdingID, &instrumentID, &kind, &name, &note, &currency, &principal, &startOn, &maturityOn, &interestMode, &annualRate, &maturityInterest, &paidThrough, &renewedFrom, &state, &openedID, &closedID, &revision, &createdAt, &updatedAt); err != nil {
+	if err := row.Scan(&shortName, &id, &householdID, &accountID, &holdingID, &instrumentID, &kind, &name, &note, &currency, &principal, &startOn, &maturityOn, &interestMode, &annualRate, &maturityInterest, &paidThrough, &renewedFrom, &state, &openedID, &closedID, &revision, &createdAt, &updatedAt); err != nil {
 		return domain.ProductContract{}, err
 	}
 	parsedID, err := domain.ParseProductContractID(id)
@@ -550,7 +555,7 @@ func scanProductContract(row scanner) (domain.ProductContract, error) {
 		return domain.ProductContract{}, err
 	}
 	contract := domain.ProductContract{
-		ID: parsedID, HouseholdID: parsedHousehold, AccountID: parsedAccount, HoldingID: parsedHolding, InstrumentID: parsedInstrument,
+		ShortName: shortName, ID: parsedID, HouseholdID: parsedHousehold, AccountID: parsedAccount, HoldingID: parsedHolding, InstrumentID: parsedInstrument,
 		Kind: parsedKind, Name: name, Currency: parsedCurrency, Principal: parsedPrincipal, StartOn: startOn, InterestMode: parsedMode,
 		State: parsedState, OpenedOperationID: parsedOpened, Revision: revision, CreatedAt: created, UpdatedAt: updated,
 	}

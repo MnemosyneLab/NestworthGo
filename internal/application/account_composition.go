@@ -52,9 +52,11 @@ func projectAccountComposition(account domain.AccountValuation, instruments map[
 		typeKey := "cash"
 		key := "account-composition:cash:" + component.NativeCurrency.String()
 		label := component.NativeCurrency.String()
+		identityLabel := ""
 		if component.InstrumentID != nil {
 			typeKey = "unknown"
 			if instrument, ok := instruments[*component.InstrumentID]; ok {
+				identityLabel = instrument.SelectionLabel()
 				for _, known := range domain.AllInstrumentTypes() {
 					if instrument.Type == known {
 						typeKey = string(known)
@@ -66,15 +68,12 @@ func projectAccountComposition(account domain.AccountValuation, instruments map[
 			if component.HoldingID != nil {
 				key = "account-composition:holding:" + component.HoldingID.String()
 			}
-			label = component.InstrumentSymbol
-			if label == "" {
-				label = component.InstrumentName
-			}
+			label = domain.InstrumentDisplayLabel(component.InstrumentName, component.InstrumentSymbol, component.InstrumentShortName)
 			if label == "" {
 				label = component.InstrumentID.String()
 			}
 		}
-		item := domain.AccountCompositionItem{Key: key, TypeKey: typeKey, Label: label, DetailRefs: []string{key}, NativeAmount: component.NativeAmount, NativeCurrency: component.NativeCurrency}
+		item := domain.AccountCompositionItem{Key: key, TypeKey: typeKey, Label: label, IdentityLabel: identityLabel, DetailRefs: []string{key}, NativeAmount: component.NativeAmount, NativeCurrency: component.NativeCurrency}
 		if component.Available && component.BaseAmountExact != "" {
 			amount, err := decimal.NewFromString(component.BaseAmountExact)
 			if err != nil {

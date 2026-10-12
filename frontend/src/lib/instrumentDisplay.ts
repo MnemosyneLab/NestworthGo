@@ -3,31 +3,38 @@ export type InstrumentIdentityFields = {
   metalTemplate?: string;
   quantityUnit?: string;
   quoteCurrency?: string | null;
+  providerKey?: string | null;
+  providerSymbol?: string | null;
+  isin?: string | null;
+  marketCode?: string | null;
+  shortName?: string | null;
   name?: string | null;
   symbol?: string | null;
 };
 
-/** Ticker when present, otherwise the saved name. Compact selects and
- * activity sentences use this so long ETF names do not dominate the UI. */
+/** Match Go Unicode whitespace plus BOM, including NEL omitted by JS trim. */
+export function trimInstrumentText(value?: string | null): string {
+ return value?.replace(/^[\s\u0085]+|[\s\u0085]+$/gu, "") ?? "";
+}
+
+/** Universal primary label: trimmed short name, symbol/code, then full name. */
 export function instrumentDisplayLabel(instrument: InstrumentIdentityFields, fallback = ""): string {
-  if (instrument.metalTemplate) {
-    return [instrument.name || fallback, `${instrument.quoteCurrency ?? ""}/${instrument.quantityUnit === "g" ? "g" : "oz t"}`].join(" · ");
-  }
-  const symbol = instrument.symbol?.trim();
+  const shortName = trimInstrumentText(instrument.shortName);
+  if (shortName) return shortName;
+  const symbol = trimInstrumentText(instrument.symbol);
   if (symbol) {
     return symbol;
   }
-  const name = instrument.name?.trim();
+  const name = trimInstrumentText(instrument.name);
   if (name) {
     return name;
   }
   return fallback;
 }
 
-/** Full name when it adds information beyond the ticker. Identical ticker/name
- * pairs, and instruments with no ticker, omit the subtitle. */
+/** Keep a distinct full name below the universal primary label. */
 export function instrumentSecondaryName(instrument: InstrumentIdentityFields): string | undefined {
-  const name = instrument.name?.trim();
+  const name = trimInstrumentText(instrument.name);
   if (!name) {
     return undefined;
   }
@@ -43,4 +50,12 @@ export function instrumentDisplayLabels<T extends { id: string } & InstrumentIde
   fallback = "",
 ): Map<string, string> {
   return new Map(instruments.map((instrument) => [instrument.id, instrumentDisplayLabel(instrument, fallback)]));
+}
+
+/** Selectors keep identity text alongside the universal primary label. Values remain IDs. */
+export function instrumentSelectionLabel(instrument: InstrumentIdentityFields, fallback = ""): string {
+  const primary = instrumentDisplayLabel(instrument, fallback);
+  const identity = [instrument.symbol, instrument.name, instrument.marketCode, instrument.quoteCurrency, instrument.isin, instrument.quantityUnit, instrument.providerKey, instrument.providerSymbol]
+    .map(value => trimInstrumentText(value)).filter((value): value is string => Boolean(value));
+  return [...new Set([primary, ...identity].filter(Boolean))].join(" · ");
 }

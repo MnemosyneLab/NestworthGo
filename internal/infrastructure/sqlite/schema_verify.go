@@ -46,12 +46,16 @@ type expectedForeignKey struct {
 }
 
 func verifySchema(ctx context.Context, query schemaQuery) error {
+	return verifySchemaVersion(ctx, query, CurrentSchemaVersion)
+}
+
+func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion int) error {
 	var version int
 	if err := query.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version != CurrentSchemaVersion {
-		return fmt.Errorf("database schema version is %d, want %d", version, CurrentSchemaVersion)
+	if version != expectedVersion {
+		return fmt.Errorf("database schema version is %d, want %d", version, expectedVersion)
 	}
 	var foreignKeys int
 	if err := query.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&foreignKeys); err != nil {
@@ -69,6 +73,15 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 	}
 
 	tables := expectedSchemaTables()
+	if expectedVersion == 15 {
+		columns := []schemaColumn{}
+		for _, column := range tables["instruments"] {
+			if column.name != "short_name" {
+				columns = append(columns, column)
+			}
+		}
+		tables["instruments"] = columns
+	}
 	tableNames := make([]string, 0, len(tables))
 	for name := range tables {
 		tableNames = append(tableNames, name)
@@ -565,7 +578,7 @@ func expectedSchemaTables() map[string][]schemaColumn {
 			expectedColumn("quote_currency", "TEXT", 1, 0), expectedColumn("symbol", "TEXT", 0, 0), expectedColumn("market_code", "TEXT", 0, 0), expectedColumn("country_code", "TEXT", 0, 0),
 			expectedColumn("isin", "TEXT", 0, 0), expectedColumn("note", "TEXT", 0, 0), expectedColumn("icon_key", "TEXT", 1, 0), expectedColumn("sort_order", "INTEGER", 1, 0, "0"),
 			expectedColumn("quote_source", "TEXT", 1, 0, "'manual'"), expectedColumn("provider_key", "TEXT", 0, 0), expectedColumn("provider_symbol", "TEXT", 0, 0),
-			expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("metal_template", "TEXT", 1, 0, "''"), expectedColumn("quantity_unit", "TEXT", 1, 0, "''"),
+			expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("metal_template", "TEXT", 1, 0, "''"), expectedColumn("quantity_unit", "TEXT", 1, 0, "''"), expectedColumn("short_name", "TEXT", 1, 0, "''"),
 		},
 		"holdings": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0),

@@ -1,3 +1,4 @@
+import { trimInstrumentText } from "@/lib/instrumentDisplay";
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ import type { InstrumentSearchHitDTO } from "../../../bindings/github.com/waltwa
 const instrumentFormSchema = z.object({
   metalTemplate: z.string(),
   quantityUnit: z.string(),
+  shortName: z.string().transform(trimInstrumentText).refine(value => [...value].length <= 120).optional(),
   name: z.string().trim().min(1),
   type: z.string(),
   quoteCurrency: z.string().length(3),
@@ -75,6 +77,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
     defaultValues: {
       metalTemplate: instrument?.metalTemplate ?? "",
       quantityUnit: instrument?.quantityUnit ?? "",
+      shortName: instrument?.shortName ?? "",
       name: instrument?.name ?? "",
       type: instrument?.type ?? "stock",
       quoteCurrency: instrument?.quoteCurrency ?? "CNY",
@@ -186,16 +189,17 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   }, [iconCustomized, instrumentType, setValue]);
 
   const submit = (values: InstrumentFormValues) => {
-    // Keep an existing provider binding when Agent is selected so the user can
-    // switch back later. A new Agent-only instrument needs no provider binding.
+    // Metadata edits preserve an existing provider identity for every quote source.
+    // A new instrument using Agent or Manual needs no provider binding.
     const includeProvider = values.quoteSource === "provider" ||
-      (values.quoteSource === "agent" && Boolean(instrument?.providerKey)) ||
+      Boolean(instrument?.providerKey) ||
       (values.quoteSource === "manual" && Boolean(values.metalTemplate));
     onSubmit({
       replace: Boolean(instrument),
       metalTemplate: values.metalTemplate || undefined,
       quantityUnit: values.quantityUnit || undefined,
       name: values.name,
+      shortName: trimInstrumentText(values.shortName),
       type: values.type,
       quoteCurrency: values.quoteCurrency,
       symbol: values.symbol?.trim() || undefined,
@@ -220,6 +224,12 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
             {t("error.validation.notEmpty")}
           </p>
         )}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="instrument-short-name">{t("portfolio.shortName")}</Label>
+        <Input id="instrument-short-name" aria-describedby={errors.shortName ? "instrument-short-name-help instrument-short-name-error" : "instrument-short-name-help"} aria-invalid={Boolean(errors.shortName)} {...register("shortName")} />
+        <p id="instrument-short-name-help" className="text-xs text-muted-foreground">{t("portfolio.shortNameHelp")}</p>
+        {errors.shortName && <p id="instrument-short-name-error" role="alert" className="text-xs text-destructive">{t("portfolio.shortNameTooLong")}</p>}
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>

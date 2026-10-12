@@ -6,6 +6,7 @@ type AccountCompositionItemDTO struct {
 	Key             string     `json:"key"`
 	TypeKey         string     `json:"typeKey"`
 	Label           string     `json:"label"`
+	IdentityLabel   string     `json:"identityLabel,omitempty"`
 	DetailRefs      []string   `json:"detailRefs"`
 	BaseAmount      *MoneyView `json:"baseAmount,omitempty"`
 	BaseAmountExact string     `json:"baseAmountExact,omitempty"`
@@ -38,7 +39,7 @@ func FromAccountComposition(value *domain.AccountComposition) *AccountCompositio
 func fromCompositionItems(values []domain.AccountCompositionItem) []AccountCompositionItemDTO {
 	result := make([]AccountCompositionItemDTO, 0, len(values))
 	for _, item := range values {
-		result = append(result, AccountCompositionItemDTO{Key: item.Key, TypeKey: item.TypeKey, Label: item.Label, DetailRefs: item.DetailRefs, BaseAmount: FromMoneyView(item.BaseAmount), BaseAmountExact: item.BaseAmountExact, ShareBPS: item.ShareBPS, NativeAmount: item.NativeAmount, NativeCurrency: item.NativeCurrency.String(), ValuedCount: item.ValuedCount, MissingCount: item.MissingCount})
+		result = append(result, AccountCompositionItemDTO{Key: item.Key, TypeKey: item.TypeKey, Label: item.Label, IdentityLabel: item.IdentityLabel, DetailRefs: item.DetailRefs, BaseAmount: FromMoneyView(item.BaseAmount), BaseAmountExact: item.BaseAmountExact, ShareBPS: item.ShareBPS, NativeAmount: item.NativeAmount, NativeCurrency: item.NativeCurrency.String(), ValuedCount: item.ValuedCount, MissingCount: item.MissingCount})
 	}
 	return result
 }

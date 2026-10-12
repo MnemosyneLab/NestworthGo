@@ -24,6 +24,7 @@ func NewService(app *application.Service) *Service {
 // false and used for an update, zero-valued fields keep the current value.
 type InstrumentRequest struct {
 	Replace        bool    `json:"replace,omitempty"`
+	ShortName      *string `json:"shortName,omitempty"`
 	Name           string  `json:"name"`
 	Type           string  `json:"type"`
 	MetalTemplate  string  `json:"metalTemplate,omitempty"`
@@ -43,7 +44,7 @@ type InstrumentRequest struct {
 
 func (r InstrumentRequest) toApplicationInput() application.InstrumentInput {
 	return application.InstrumentInput{
-		Replace: r.Replace, Name: r.Name, Type: r.Type, QuoteCurrency: r.QuoteCurrency, MetalTemplate: r.MetalTemplate, QuantityUnit: r.QuantityUnit,
+		Replace: r.Replace, Name: r.Name, ShortName: r.ShortName, Type: r.Type, QuoteCurrency: r.QuoteCurrency, MetalTemplate: r.MetalTemplate, QuantityUnit: r.QuantityUnit,
 		Symbol: wire.StringFromPtr(r.Symbol), MarketCode: wire.StringFromPtr(r.MarketCode),
 		CountryCode: wire.StringFromPtr(r.CountryCode), ISIN: wire.StringFromPtr(r.ISIN),
 		Note: r.Note, IconKey: wire.StringFromPtr(r.IconKey), SortOrder: r.SortOrder,

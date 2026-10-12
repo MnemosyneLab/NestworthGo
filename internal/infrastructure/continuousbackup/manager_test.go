@@ -1,6 +1,7 @@
 package continuousbackup
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -486,7 +487,7 @@ func TestTargetSwapClearsOldEvidenceAndUnavailableSaveKeepsCredentials(t *testin
 	}
 }
 func TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement(t *testing.T) {
-	for _, version := range []int{0, 9, 10, 11, 12, 13, 14, 16} {
+	for _, version := range []int{0, 9, 10, 11, 12, 13, 14, 15, sqlite.CurrentSchemaVersion + 1} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			m, db, _ := fixture(t)
 			if _, err := db.SQL.Exec(fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
@@ -507,7 +508,7 @@ func TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement(t *testing
 			if err := db.SQL.QueryRow("PRAGMA user_version").Scan(&current); err != nil || current != version {
 				t.Fatal("stage changed current database")
 			}
-			if _, err := db.SQL.Exec("PRAGMA user_version=15"); err != nil {
+			if _, err := db.SQL.Exec(fmt.Sprintf("PRAGMA user_version=%d", sqlite.CurrentSchemaVersion)); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -526,7 +527,7 @@ func TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement(t *testing
 			t.Fatal(err)
 		}
 		if _, err := m.Stage(context.Background(), points[0]); err == nil {
-			t.Fatal("accepted incomplete schema 15")
+			t.Fatal("accepted incomplete current schema")
 		}
 	})
 }
@@ -853,7 +854,7 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.AppID != appversion.AppID || info.AppVersion != strings.TrimPrefix(appversion.Version, "v") || info.AppBuild != appversion.Build || info.Schema != 15 {
+	if info.AppID != appversion.AppID || info.AppVersion != strings.TrimPrefix(appversion.Version, "v") || info.AppBuild != appversion.Build || info.Schema != sqlite.CurrentSchemaVersion {
 		t.Fatal("source identity incorrect")
 	}
 	if err := b.ensureIdentity(ctx, info); err != nil {
@@ -890,7 +891,7 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 		case "other-app":
 			invalid.AppID = "other.app"
 		case "future-schema":
-			invalid.Schema = 16
+			invalid.Schema = sqlite.CurrentSchemaVersion + 1
 		case "wrong-stream":
 			invalid.StreamID = conflicting.StreamID + "-wrong"
 		}
@@ -917,5 +918,65 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 	}
 	if err := os.WriteFile(path, original, 0600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *testing.T) {
+	m, db, root := fixture(t)
+	ctx := context.Background()
+	if _, err := db.SQL.Exec(`ALTER TABLE instruments DROP COLUMN short_name; PRAGMA user_version=15`); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Configure(ctx, testUpdate(true)); err != nil {
+		t.Fatal(err)
+	}
+	stream := waitState(t, m, "recent-backup-confirmed").StreamID
+	path := filepath.Join(root, filepath.FromSlash(stream), identityFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var info streamIdentity
+	if err := json.Unmarshal(data, &info); err != nil {
+		t.Fatal(err)
+	}
+	info.Schema = 15
+	data, err = json.Marshal(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	points, err := m.RecoveryPoints(ctx)
+	if err != nil || len(points) == 0 {
+		t.Fatalf("points %v %v", points, err)
+	}
+	candidate, err := m.Stage(ctx, points[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(filepath.Dir(candidate.Path))
+	legacy, err := sqlite.OpenReadOnlyForVerify(candidate.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var version int
+	if err := legacy.SQL.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != 15 {
+		t.Fatalf("stage changed v15: %d %v", version, err)
+	}
+	legacy.Close()
+	current, err := sqlite.Open(candidate.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer current.Close()
+	if err := current.Verify(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Source stream metadata is never overwritten by recovery or upgrade.
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(data, after) {
+		t.Fatal("old stream identity changed")
 	}
 }

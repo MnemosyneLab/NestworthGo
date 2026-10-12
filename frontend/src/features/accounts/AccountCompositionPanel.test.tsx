@@ -18,6 +18,28 @@ function projection(count = 1): CompositionFixture {
 }
 
 describe("account composition panel", () => {
+  it.each(["ready", "empty"])("retains distinct full identities for duplicate aliases in %s detail tables", async (status) => {
+    const user = userEvent.setup();
+    const composition = projection(2);
+    composition.status = status;
+    composition.details = composition.details.map((row, index) => ({
+      ...row, label: "Shared alias", identityLabel: `Shared alias · Fund class ${index + 1} · CODE${index + 1} · ISIN${index + 1}`,
+      ...(status === "empty" ? { baseAmountExact: "0", nativeAmount: "0", shareBps: 0 } : {}),
+    }));
+    composition.detailSlices = composition.details;
+    if (status === "empty") composition.totalExact = "0";
+    render(<AccountCompositionPanel composition={composition} />);
+    await user.click(screen.getByRole("radio", { name: "By detail" }));
+    for (const row of composition.details) {
+      const prefix = status === "ready" ? "composition-slice-" : "account-composition-row-";
+      expect(screen.getByTestId(`${prefix}${row.key}`)).toHaveTextContent("Shared alias");
+    }
+    await user.click(screen.getByText("View data table"));
+    const table = screen.getByRole("table");
+    for (const row of composition.details) expect(within(table).getByText(row.identityLabel!)).toBeInTheDocument();
+    expect(within(table).getAllByRole("row")).toHaveLength(3);
+  });
+
   it("defaults to type and shows a single-category 100% chart", () => {
     render(<AccountCompositionPanel composition={projection()} />);
     expect(screen.getByRole("radio", { name: "By type" })).toBeChecked();

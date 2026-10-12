@@ -49,6 +49,7 @@ type OverviewNamedDTO struct {
 }
 
 type OverviewInstrumentLabelDTO struct {
+	ShortName   string `json:"shortName,omitempty"`
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Symbol      string `json:"symbol,omitempty"`
@@ -79,7 +80,7 @@ func fromOverview(value domain.OverviewResult) OverviewDTO {
 	}
 	instrumentLabels := make([]OverviewInstrumentLabelDTO, 0, len(value.InstrumentLabels))
 	for _, label := range value.InstrumentLabels {
-		instrumentLabels = append(instrumentLabels, OverviewInstrumentLabelDTO{ID: label.ID, Name: label.Name, Symbol: label.Symbol, QuoteSource: string(label.QuoteSource)})
+		instrumentLabels = append(instrumentLabels, OverviewInstrumentLabelDTO{ID: label.ID, Name: label.Name, ShortName: label.ShortName, Symbol: label.Symbol, QuoteSource: string(label.QuoteSource)})
 	}
 	holdingLabels := make([]OverviewHoldingLabelDTO, 0, len(value.HoldingLabels))
 	for _, label := range value.HoldingLabels {

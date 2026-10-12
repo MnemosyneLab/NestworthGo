@@ -7,6 +7,11 @@ import { ReservationManager } from "./ReservationManager";
 import { ReservationSheet } from "./ReservationSheet";
 import type { LiquiditySourceDTO, ReservationDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
+const identityReads = vi.hoisted(() => ({ accounts: vi.fn(), instruments: vi.fn(), holdings: vi.fn() }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({ Service: { ListAccounts: () => identityReads.accounts() } }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({ Service: { ListInstruments: () => identityReads.instruments() } }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({ Service: { HoldingsByAccounts: () => identityReads.holdings() } }));
+
 const api = vi.hoisted(() => ({ ListReservations: vi.fn(), SaveReservation: vi.fn(), ReleaseReservation: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({ Service: api }));
 
@@ -26,6 +31,9 @@ function show(ui: React.ReactNode, retry?: false) { return render(<QueryClientPr
 function change(label: string, value: string) { fireEvent.change(screen.getByLabelText(label), { target: { value } }); }
 
 beforeEach(() => {
+  identityReads.accounts.mockResolvedValue([]);
+  identityReads.instruments.mockResolvedValue([]);
+  identityReads.holdings.mockResolvedValue({});
   Object.values(api).forEach((mock) => mock.mockReset());
   api.ListReservations.mockResolvedValue([]);
   api.SaveReservation.mockResolvedValue(reservation);
@@ -172,4 +180,23 @@ it("expands and focuses a released reservation once without refetch stealing foc
   expect(close).toHaveFocus(); expect(api.ReleaseReservation).not.toHaveBeenCalled(); expect(api.SaveReservation).not.toHaveBeenCalled();
   view.rerender(panel(false)); view.rerender(panel(true));
   await waitFor(() => expect(screen.getByText("Rent").closest("[data-reservation-id]")).toHaveFocus());
+});
+
+it("distinguishes reservation sources with duplicate aliases in the same account and currency", async () => {
+  const a = { ...source(), sourceKey: "holding:account:h-a", sourceRef: { kind: "holding", accountId: "account", holdingId: "h-a" }, displayName: "Family fund" };
+  const b = { ...a, sourceKey: "holding:account:h-b", sourceRef: { ...a.sourceRef, holdingId: "h-b" } };
+  identityReads.instruments.mockResolvedValue([
+    { id: "i-a", name: "Share class A", symbol: "000001", shortName: "Family fund", isin: "ISIN-A", quoteCurrency: "USD" },
+    { id: "i-b", name: "Share class B", symbol: "000002", shortName: "Family fund", isin: "ISIN-B", quoteCurrency: "USD" },
+  ]);
+  identityReads.holdings.mockResolvedValue({ account: [{ id: "h-a", instrumentId: "i-a", quantity: "10" }, { id: "h-b", instrumentId: "i-b", quantity: "10" }] });
+  const user = userEvent.setup();
+  show(<ReservationManager source={null} sources={[a, b]} accountNames={{ account: "Brokerage" }} open onOpenChange={vi.fn()} />);
+  await user.click(screen.getByRole("button", { name: "Add reservation" }));
+  const option = await screen.findByRole("option", { name: /Family fund · 000002 · Share class B.*ISIN-B.*h-b/ });
+  expect(screen.getByRole("option", { name: /Family fund · 000001 · Share class A.*ISIN-A.*h-a/ })).toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Reservation source"), option);
+  change("Purpose", "Selected B"); change("Amount", "1.25");
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(api.SaveReservation).toHaveBeenCalledWith(expect.objectContaining({ sourceRef: b.sourceRef, amount: "1.25" })));
 });

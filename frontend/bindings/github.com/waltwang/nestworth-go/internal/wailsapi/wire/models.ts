@@ -19,6 +19,33 @@ export interface AccountCashValueDTO {
     "change"?: SignedMoneyView | null;
 }
 
+export interface AccountCompositionDTO {
+    "currency": string;
+    "totalExact"?: string;
+    "complete": boolean;
+    "status": string;
+    "valuedCount": number;
+    "missingCount": number;
+    "types": AccountCompositionItemDTO[] | null;
+    "details": AccountCompositionItemDTO[] | null;
+    "detailSlices": AccountCompositionItemDTO[] | null;
+}
+
+export interface AccountCompositionItemDTO {
+    "key": string;
+    "typeKey": string;
+    "label": string;
+    "identityLabel"?: string;
+    "detailRefs": string[] | null;
+    "baseAmount"?: MoneyView | null;
+    "baseAmountExact"?: string;
+    "shareBps": number;
+    "nativeAmount"?: string;
+    "nativeCurrency"?: string;
+    "valuedCount": number;
+    "missingCount": number;
+}
+
 /**
  * AccountDTO mirrors domain.Account. It is shared by the account service
  * (owns Account CRUD) and the portfolio/analytics services (which embed it
@@ -63,6 +90,7 @@ export interface AccountRecordDTO {
  * AccountValuationDTO mirrors domain.AccountValuation.
  */
 export interface AccountValuationDTO {
+    "composition"?: AccountCompositionDTO | null;
     "account": AccountDTO;
     "ownership": OwnershipShareDTO[] | null;
     "institutionName"?: string;
@@ -481,6 +509,7 @@ export interface InstrumentDTO {
     "id": string;
     "householdId": string;
     "name": string;
+    "shortName"?: string;
     "type": string;
     "metalTemplate"?: string;
     "quantityUnit"?: string;
@@ -540,6 +569,7 @@ export interface MissingInputDTO {
     "accountName"?: string;
     "instrumentId"?: string | null;
     "instrumentName"?: string;
+    "instrumentShortName"?: string;
     "instrumentSymbol"?: string;
     "quoteSource"?: string;
     "baseCurrency"?: string;
@@ -729,6 +759,7 @@ export interface ValuationComponentDTO {
     "holdingId"?: string | null;
     "instrumentId"?: string | null;
     "instrumentName"?: string;
+    "instrumentShortName"?: string;
     "instrumentSymbol"?: string;
     "nativeAmount": string;
     "nativeCurrency": string;

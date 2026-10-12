@@ -89,7 +89,7 @@ func (s *Service) RecoveryPointPage(ctx context.Context, cursor string) (infra.R
 	return points, safe(err)
 }
 
-// InspectRestore downloads separately and feeds a verified schema-15 candidate
+// InspectRestore downloads separately and feeds a verified candidate with its actual schema
 // through the existing token-based preview/journal path. It cannot install it.
 func (s *Service) InspectRestore(ctx context.Context, p infra.RecoveryPoint) (recovery.RestorePreviewDTO, error) {
 	if s.manager == nil || s.inspector == nil {
@@ -106,9 +106,16 @@ func (s *Service) InspectRestore(ctx context.Context, p infra.RecoveryPoint) (re
 		return recovery.RestorePreviewDTO{}, safe(err)
 	}
 	counts, err := verified.EntityCounts(ctx)
+	var actualSchema int
+	if err == nil {
+		err = verified.SQL.QueryRowContext(ctx, "PRAGMA user_version").Scan(&actualSchema)
+	}
 	verified.Close()
 	if err != nil {
 		return recovery.RestorePreviewDTO{}, safe(err)
+	}
+	if actualSchema != candidate.SchemaVersion {
+		return recovery.RestorePreviewDTO{}, safe(&domain.Error{Code: domain.ErrBackupIntegrityFailed, Message: "cloud candidate schema does not match its verified metadata"})
 	}
 	info, err := os.Stat(path)
 	if err != nil || info.Size() > backup.MaxMemberBytes {
@@ -119,6 +126,7 @@ func (s *Service) InspectRestore(ctx context.Context, p infra.RecoveryPoint) (re
 		return recovery.RestorePreviewDTO{}, safe(infra.ErrUnavailable)
 	}
 	pkg := backup.Package{Manifest: backup.NewManifest(time.Now().UTC(), data, []byte("{}\n"), counts), Database: data, Settings: []byte("{}\n")}
+	pkg.Manifest.SchemaVersion = candidate.SchemaVersion
 	pkg.Manifest.AppVersion = candidate.AppVersion
 	pkg.Manifest.AppBuild = candidate.AppBuild
 	if captured, parseErr := time.Parse(time.RFC3339Nano, p.CapturedAt); parseErr == nil {

@@ -19,6 +19,7 @@ type AccountCompositionItem struct {
 	Key             string
 	TypeKey         string
 	Label           string
+	IdentityLabel   string
 	DetailRefs      []string
 	BaseAmount      *MoneyView
 	BaseAmountExact string

@@ -148,14 +148,14 @@ export function CompositionChart({
             : [t("charts.category"), t("charts.amount"), t("charts.share")]}
           dataTableRows={sourceRows.map((item) => showNative
             ? [
-              item.label,
+              item.identityLabel || item.label,
               distinctNative(item, currency) && item.nativeAmount && item.nativeCurrency
                 ? formatAmount(item.nativeAmount, item.nativeCurrency)
                 : amountLabel(item),
               amountLabel(item),
               shareLabel(item),
             ]
-            : [item.label, amountLabel(item), shareLabel(item)])}
+            : [item.identityLabel || item.label, amountLabel(item), shareLabel(item)])}
           onSelectName={(name) => {
             const key = keyFromChartName(name);
             setSelectedKey((current) => (key && sliceKeyForRow(current) === key ? null : key));

@@ -17,7 +17,7 @@ import {
 } from "@/queries/investments";
 import { useInstrumentHoldings } from "@/queries/analytics";
 import { displayError } from "@/lib/display";
-import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
+import { instrumentSelectionLabel } from "@/lib/instrumentDisplay";
 import { InstrumentHoldingsTable } from "./InstrumentHoldingsTable";
 import { useProducts } from "@/queries/liquidity";
 
@@ -122,7 +122,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
                     <option value="">{t("history.selectInstrument")}</option>
                     {(instruments.data ?? []).filter((instrument) => !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id)).map((instrument) => (
                       <option key={instrument.id} value={instrument.id}>
-                        {instrumentDisplayLabel(instrument, instrument.name)}
+                        {instrumentSelectionLabel(instrument, instrument.name)}
                       </option>
                     ))}
                   </NativeSelect>

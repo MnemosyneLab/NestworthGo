@@ -18,6 +18,7 @@ type InstrumentInput struct {
 	// intentionally perform a partial programmatic update.
 	Replace        bool
 	Name           string
+	ShortName      *string
 	Type           string
 	MetalTemplate  string
 	QuantityUnit   string
@@ -289,6 +290,11 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	if err := s.rejectManagedInstrument(ctx, id); err != nil {
 		return domain.Instrument{}, err
 	}
+	// Omission remains compatible with older complete-form callers. Clearing is explicit.
+	if input.ShortName == nil {
+		value := current.ShortName
+		input.ShortName = &value
+	}
 	if !input.Replace {
 		mergeInstrumentInput(&input, current)
 	}
@@ -469,7 +475,7 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 			}
 			unitCost = &cost
 		}
-		state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: map[domain.HoldingID]domain.ChangeHoldingState{holding.ID: {ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}}}
+		state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: map[domain.HoldingID]domain.ChangeHoldingState{holding.ID: {ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: pointerText(instrument.Symbol), InstrumentISIN: pointerText(instrument.ISIN), InstrumentMarketCode: pointerText(instrument.MarketCode), InstrumentQuantityUnit: instrument.QuantityUnit, InstrumentProviderKey: pointerText(instrument.ProviderKey), InstrumentProviderSymbol: pointerText(instrument.ProviderSymbol), Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}}}
 		preview, previewErr := domain.PreviewChange(state, domain.PositionAdjustmentInput{HouseholdID: origin.HouseholdID, HoldingID: holding.ID, Quantity: quantity, Added: true, UnitCost: unitCost, EffectiveAt: state.Now})
 		if previewErr != nil {
 			return domain.Holding{}, previewErr
@@ -878,7 +884,7 @@ func newInstrumentFromInput(householdID domain.HouseholdID, input InstrumentInpu
 		return domain.Instrument{}, err
 	}
 	return domain.NewInstrument(domain.InstrumentInput{
-		HouseholdID: householdID, Name: input.Name, Type: instrumentType, QuoteCurrency: quoteCurrency, MetalTemplate: input.MetalTemplate, QuantityUnit: input.QuantityUnit,
+		HouseholdID: householdID, Name: input.Name, ShortName: pointerText(input.ShortName), Type: instrumentType, QuoteCurrency: quoteCurrency, MetalTemplate: input.MetalTemplate, QuantityUnit: input.QuantityUnit,
 		Symbol: optionalText(input.Symbol), MarketCode: optionalText(input.MarketCode), CountryCode: optionalText(input.CountryCode), ISIN: optionalText(input.ISIN), Note: input.Note,
 		IconKey: optionalText(input.IconKey), SortOrder: input.SortOrder, QuoteSource: quoteSource, ProviderKey: optionalText(input.ProviderKey), ProviderSymbol: optionalText(input.ProviderSymbol),
 	}, now)

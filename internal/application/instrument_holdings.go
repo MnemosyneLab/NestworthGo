@@ -65,7 +65,7 @@ func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.Instrume
 			index = len(groups)
 			indices[instrument.ID] = index
 			name, symbol := instrumentIdentity(instrument)
-			groups = append(groups, domain.InstrumentHoldingsView{InstrumentID: instrument.ID, Name: name, Symbol: symbol, QuoteCurrency: instrument.QuoteCurrency, QuantityUnit: instrument.QuantityUnit, Archived: instrument.ArchivedAt != nil, Holdings: []domain.InstrumentHoldingMember{}})
+			groups = append(groups, domain.InstrumentHoldingsView{InstrumentID: instrument.ID, Name: name, ShortName: instrument.ShortName, Symbol: symbol, QuoteCurrency: instrument.QuoteCurrency, QuantityUnit: instrument.QuantityUnit, Archived: instrument.ArchivedAt != nil, Holdings: []domain.InstrumentHoldingMember{}})
 		}
 		groups[index].Holdings = append(groups[index].Holdings, domain.InstrumentHoldingMember{HoldingID: holding.ID, AccountID: holding.AccountID, AccountName: accountName, Amounts: amounts})
 	}
