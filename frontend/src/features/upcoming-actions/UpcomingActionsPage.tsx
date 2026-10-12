@@ -19,8 +19,11 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
     if (filter === "all") return true;
     if (filter === "receipt") return item.phase === "receipt_due";
     if (filter === "reservations") return item.kind.startsWith("reservation_");
-    return (item.kind === "product_schedule" || item.kind === "source_access") && item.phase !== "receipt_due";
+    return item.group === "scheduled";
   });
+  const attentionItems = items.filter(item => item.group === "attention");
+  const scheduledItems = items.filter(item => item.group === "scheduled");
+  const hasMore = filter === "all" ? attentionItems.length > limit || scheduledItems.length > limit : items.length > limit;
   return <div className="space-y-5" aria-busy={query.isFetching}>
     <PageChrome pageId="upcoming-actions" title={t("upcomingActions.title")} actions={<Button variant="outline" disabled={query.isFetching} onClick={() => { void query.refetch(); }}>{t("upcomingActions.refresh")}</Button>} />
     <h2 id="upcoming-actions-heading" tabIndex={-1} className="text-xl font-semibold">{t("upcomingActions.title")}</h2>
@@ -34,14 +37,17 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
       <div role="group" aria-label={t("upcomingActions.filter")} className="flex flex-wrap gap-2">
         {["all", "receipt", "reservations", "scheduled"].map(value => <Button key={value} variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => { setFilter(value); setLimit(50); }}>{t(`upcomingActions.filters.${value}`)}</Button>)}
       </div>
-      <UpcomingActionList context="upcoming-list" items={items.slice(0, limit)} />
+      {filter === "all" ? <>
+        <section aria-label={t("upcomingActions.attentionTitle")}><h3 className="text-lg font-semibold">{t("upcomingActions.attentionTitle")} · {data.counts.attention}</h3><UpcomingActionList context="upcoming-attention" items={attentionItems.slice(0, limit)} /></section>
+        <section aria-label={t("upcomingActions.scheduledTitle")}><h3 className="text-lg font-semibold">{t("upcomingActions.scheduledTitle")} · {data.counts.scheduled}</h3><UpcomingActionList context="upcoming-scheduled" items={scheduledItems.slice(0, limit)} /></section>
+      </> : <UpcomingActionList context="upcoming-list" items={items.slice(0, limit)} />}
       {items.length === 0 && <p>{t("upcomingActions.empty")}</p>}
-      {items.length > limit && <Button variant="outline" onClick={() => setLimit(value => value + 50)}>{t("upcomingActions.showMore")}</Button>}
+      {hasMore && <Button variant="outline" onClick={() => setLimit(value => value + 50)}>{t("upcomingActions.showMore")}</Button>}
       <details className="rounded-lg border p-4"><summary className="cursor-pointer">{t("upcomingActions.eligibleTitle", { count: data.counts.eligible })}</summary><UpcomingActionList context="upcoming-eligible" items={(data.items ?? []).filter(item => item.group === "eligible")} /></details>
       <details className="space-y-3 rounded-lg border p-4"><summary className="cursor-pointer">{t("upcomingActions.checksTitle", upcomingCountLabels(t, data.counts))}</summary>
         <ul className="space-y-4">{(data.dataChecks ?? []).map(check => {
-          const target = upcomingNavigation(check.target);
-          return <li key={check.id} className="space-y-1 break-words"><p className="font-medium">{check.displayName}{check.anchorOn && <> · {check.anchorOn}</>}</p>{check.referenceOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.reference", { date: check.referenceOn })}</p>}{(check.reasonCodes ?? []).map(reason => <p key={reason} className="text-sm">{t(`upcomingActions.reasons.${reason}`, { defaultValue: t("upcomingActions.reasons.unsupported_source") })}</p>)}{target && navigation && <Button variant="outline" size="sm" onClick={() => navigation.open(target)}>{upcomingButton(t, check.target)}</Button>}</li>;
+          const targets = [check.target, ...(check.targets ?? [])].filter((target, index, all) => all.findIndex(other => JSON.stringify(other) === JSON.stringify(target)) === index);
+          return <li key={check.id} className="space-y-1 break-words"><p className="font-medium">{check.displayName}{check.anchorOn && <> · {check.anchorOn}</>}</p>{check.referenceOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.reference", { date: check.referenceOn })}</p>}{(check.reasonCodes ?? []).map(reason => <p key={reason} className="text-sm">{t(`upcomingActions.reasons.${reason}`, { defaultValue: t("upcomingActions.reasons.unsupported_source") })}</p>)}{navigation && <div className="flex flex-wrap gap-2">{targets.map((target, index) => { const destination = upcomingNavigation(target); return destination && <Button key={`${target.kind}-${index}`} variant="outline" size="sm" onClick={() => navigation.open(destination)}>{upcomingButton(t, target)}</Button>; })}</div>}</li>;
         })}</ul>
         {navigation && <Button variant="link" onClick={() => navigation.open({ page: "data-health" })}>{t("nav.dataHealth")}</Button>}
       </details>

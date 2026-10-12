@@ -24,6 +24,10 @@ export function AppendAccountCashValue(accountID: string, amount: string, curren
     return $Call.ByID(2810686086, accountID, amount, currency, effectiveAt);
 }
 
+export function ConfirmCashBalance(planID: string): $CancellablePromise<wire$0.AccountCashValueDTO> {
+    return $Call.ByID(2524206886, planID);
+}
+
 export function CreateHolding(request: $models.CreateHoldingRequest): $CancellablePromise<wire$0.HoldingDTO> {
     return $Call.ByID(1487305998, request);
 }
@@ -39,4 +43,8 @@ export function HoldingsByAccounts(accountIDs: string[] | null): $CancellablePro
 
 export function ListAccountCashValues(accountID: string): $CancellablePromise<wire$0.AccountCashValueDTO[] | null> {
     return $Call.ByID(28387767, accountID);
+}
+
+export function PreviewCashBalance(accountID: string, amount: string, currency: string, reason: string | null): $CancellablePromise<$models.CashBalancePreviewDTO> {
+    return $Call.ByID(3424324470, accountID, amount, currency, reason);
 }

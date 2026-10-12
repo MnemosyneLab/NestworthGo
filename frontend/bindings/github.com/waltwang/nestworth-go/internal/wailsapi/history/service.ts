@@ -17,6 +17,10 @@ export function Activity(activityID: string): $CancellablePromise<wire$0.Activit
     return $Call.ByID(537140027, activityID);
 }
 
+export function ConfirmRepeatChange(planID: string): $CancellablePromise<wire$0.ChangePreviewDTO> {
+    return $Call.ByID(1599920009, planID);
+}
+
 export function DailySnapshotState($0: string): $CancellablePromise<$models.DailySnapshotStateDTO> {
     return $Call.ByID(3301983652, $0);
 }
@@ -51,6 +55,14 @@ export function PreviewChange(request: $models.ChangeCommandRequest): $Cancellab
  */
 export function PreviewFixChange(activityID: string, replacement: $models.ChangeCommandRequest): $CancellablePromise<wire$0.ChangePreviewDTO> {
     return $Call.ByID(4027359909, activityID, replacement);
+}
+
+/**
+ * Repeat accepts only an ordinary single-account cash draft. It does not accept
+ * transaction identity; sourceID is read-only eligibility metadata.
+ */
+export function PreviewRepeatChange(sourceID: string, request: $models.ChangeCommandRequest): $CancellablePromise<$models.RepeatPreviewDTO> {
+    return $Call.ByID(1504541933, sourceID, request);
 }
 
 export function RebuildHistoricalSnapshots(startDate: string, endDate: string): $CancellablePromise<number> {

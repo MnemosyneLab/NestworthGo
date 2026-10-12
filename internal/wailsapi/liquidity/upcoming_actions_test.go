@@ -25,7 +25,7 @@ func TestUpcomingWireArraysNullAndMoney(t *testing.T) {
 		t.Fatal(string(b))
 	}
 	item := wire["items"].([]any)[0].(map[string]any)
-	for _, k := range []string{"reservationIds", "reservationLabels", "reasonCodes", "assumptions"} {
+	for _, k := range []string{"reservationIds", "reservationLabels", "reasonCodes", "assumptions", "targets"} {
 		if item[k] == nil {
 			t.Fatalf("null %s", k)
 		}

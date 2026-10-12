@@ -52,6 +52,7 @@ export function AvailableFundsPage({
   const [chooseAccount, setChooseAccount] = useState(false);
   const [productFormAccountId, setProductFormAccountId] = useState<string | null>(accountId ?? null);
   const [detailProductId, setDetailProductId] = useState<string | null>(productId ?? null);
+  const [receiptRequestId, setReceiptRequestId] = useState<number>();
   const overview = useLiquidityOverview({
     customHorizonOn: customDate || null,
     includeEarlyWithdrawal: includeEarly,
@@ -90,16 +91,18 @@ export function AvailableFundsPage({
     let cancelled = false;
     void refetchOverview().then(result => {
       if (cancelled) return;
-      setPolicySource(null); setManageReservations(false); setReservationSource(null); setProductFormAccountId(null); setDetailProductId(null); setFocusReservationId(undefined);
+      setPolicySource(null); setManageReservations(false); setReservationSource(null); setProductFormAccountId(null); setDetailProductId(null); setReceiptRequestId(undefined); setFocusReservationId(undefined);
       if (result.isError || !result.data) { setNavigationMessage(t("upcomingActions.loadError")); return; }
       consumedRequests.current.add(navigationRequestId);
       setNavigationMessage(undefined);
       const target = focus ?? (productId ? { kind: "product" as const, productId } : undefined);
       const freshSources = result.data.sources ?? [];
       const sameSource = (source: LiquiditySourceDTO, ref: LiquiditySourceDTO["sourceRef"]) => source.sourceRef.kind === ref.kind && source.sourceRef.accountId === ref.accountId && source.sourceRef.holdingId === ref.holdingId && (ref.kind !== "account_cash" || source.sourceRef.currency === ref.currency);
-      if (target?.kind === "product") {
-        setDetailProductId(target.productId);
-        if (!freshSources.some(source => source.productId === target.productId)) setNavigationMessage(t("upcomingActions.stateChanged"));
+      if (target?.kind === "product" || target?.kind === "receipt") {
+        const exists = freshSources.some(source => source.productId === target.productId);
+        if (target.kind === "product" || exists) setDetailProductId(target.productId);
+        if (target.kind === "receipt" && exists) setReceiptRequestId(navigationRequestId);
+        if (!exists) setNavigationMessage(t("upcomingActions.stateChanged"));
       } else if (target?.kind === "policy") {
         const source = freshSources.find(source => sameSource(source, target.sourceRef));
         if (source) setPolicySource(source); else setNavigationMessage(t("upcomingActions.targetMissing"));
@@ -122,7 +125,7 @@ export function AvailableFundsPage({
     setPreviousIsActive(isActive);
     if (!isActive) {
       setPolicySource(null); setManageReservations(false); setChooseAccount(false);
-      setProductFormAccountId(null); setDetailProductId(null); setFocusReservationId(undefined);
+      setProductFormAccountId(null); setDetailProductId(null); setReceiptRequestId(undefined); setFocusReservationId(undefined);
     }
   }
   const unknown = t("availableFunds.unknownAmount");
@@ -337,7 +340,7 @@ export function AvailableFundsPage({
           onOpenChange={(open) => { if (!open) setProductFormAccountId(null); }}
         />
       )}
-      <ProductDetailSheet key={detailProductId ?? "product"} productId={detailProductId} open={isActive && Boolean(detailProductId)} onOpenChange={(open) => { if (!open) setDetailProductId(null); }} />
+      <ProductDetailSheet key={detailProductId ?? "product"} productId={detailProductId} receiptRequestId={receiptRequestId} open={isActive && Boolean(detailProductId)} onOpenChange={(open) => { if (!open) { setDetailProductId(null); setReceiptRequestId(undefined); } }} />
     </div>
   );
 }

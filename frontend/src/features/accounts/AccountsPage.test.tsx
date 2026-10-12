@@ -701,7 +701,7 @@ describe("AccountsPage", () => {
     listAccountCashValues.mockResolvedValue([{
       id: "cash-1",
       accountId: "brk-1",
-      amount: { amount: "200", currency: "SGD" },
+      amount: { amount: "200.0001", currency: "SGD" },
       effectiveAt: "2026-09-15T03:00:00.000Z",
       createdAt: "2026-09-15T03:05:00.000Z",
       observationKind: "event",
@@ -710,7 +710,7 @@ describe("AccountsPage", () => {
       activityKind: "cash_in",
       activityReason: "income",
       activityNote: "Salary",
-      change: { amount: "100", currency: "SGD" },
+      change: { amount: "100.0001", currency: "SGD" },
     }, {
       id: "cash-2",
       accountId: "brk-1",
@@ -723,7 +723,7 @@ describe("AccountsPage", () => {
       activityKind: "cash_out",
       activityReason: "fee",
       activityNote: "Broker fee",
-      change: { amount: "-100", currency: "SGD" },
+      change: { amount: "-0.0001", currency: "SGD" },
     }]);
 
     renderPage();
@@ -743,6 +743,9 @@ describe("AccountsPage", () => {
     expect(within(history).getByText("Broker fee")).toBeInTheDocument();
     expect(history.textContent).toContain("+SGD");
     expect(history.textContent).toContain("−SGD");
+    expect(history.textContent).toContain("100.0001 SGD");
+    expect(history.textContent).toContain("200.0001 SGD");
+    expect(history.textContent).toMatch(/−SGD\s*0\.00 \(-0\.0001 SGD\)/);
     expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
       "2026-09-15T03:00:00.000Z",
       "2026-09-15T03:05:00.000Z",
@@ -887,6 +890,7 @@ describe("AccountsPage", () => {
     expect(appendCash).not.toHaveBeenCalled();
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(confirmCash).toHaveBeenCalledWith("cash-plan"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add cash balance" })).toHaveFocus());
     expect(recordChange).not.toHaveBeenCalled();
   });
 
@@ -1525,12 +1529,15 @@ it("cash review supports back, edits, stale failure and cancel/reopen without wr
   expect(within(form).getByRole("button", { name: "Preview" })).toBeInTheDocument();
   expect(within(form).getByLabelText("Resulting balance")).toHaveValue("9000");
   await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconcile balance" })).toHaveFocus());
   await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
   form = await screen.findByRole("form", { name: "Add cash balance" });
   expect(within(form).getByLabelText("Resulting balance")).toHaveValue("");
   expect(within(form).getByLabelText("Reason (optional)")).toHaveValue("");
   expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
   expect(appendCash).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconcile balance" })).toHaveFocus());
 });
 
 it("cash review shows origin-local time and exact sub-minor-unit values alongside currency formatting", async () => {

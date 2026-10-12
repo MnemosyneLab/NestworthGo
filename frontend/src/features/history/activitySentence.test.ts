@@ -127,6 +127,14 @@ describe("activitySentence", () => {
     expect(activitySentence(t, activity, accounts, instruments)).toBe("Checking increased $20.00");
   });
 
+  it("keeps the signed exact delta when a tiny value decrease rounds to zero", () => {
+    const activity = {
+      kind: "value_update",
+      effects: [{ accountId: "acc-1", money: { amount: "-0.0001", currency: "USD" } }],
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Checking decreased $0.00 (-0.0001 USD)");
+  });
+
   it("includes trade and FX fees in the sentence", () => {
     const trade = {
       kind: "buy",

@@ -444,9 +444,27 @@
     "type": "變更類型",
     "undo": "撤銷",
     "repeatAction": "重複為新草稿",
-    "repeatDescription": "建立一筆新的收入或支出。檢查帳戶、金額和時間，再預覽並確認。開啟草稿不會記帳。",
+    "repeatSourceActivity": "來源記錄",
+    "repeatDescription": "建立一筆一般現金記錄。確認前請檢查帳戶、幣別、金額、原因和時間。開啟草稿不會記帳。",
     "effectiveAt": "生效時間",
-    "repeatUnavailable": "預覽前請選擇可用的帳戶和支援的幣別。"
+    "repeatUnavailable": "預覽前請選擇可用的帳戶和支援的幣別。",
+    "repeatAccountUnavailable": "原帳戶已不可用。預覽前請選擇有效帳戶。",
+    "repeatCurrencyUnavailable": "{{currency}} 不可用。預覽前請選擇支援的幣別。",
+    "repeatRetryConfirm": "重試同一次確認",
+    "repeatRetryHelp": "若結果不確定，請先重試保留的這次確認。新預覽會建立另一筆操作；請先檢查歷史記錄。",
+    "repeatUncertainEditedHelp": "先前確認的結果仍不確定。建立新預覽前，請先檢查歷史記錄。",
+    "repeatFreshPreviewHelp": "本次確認已被拒絕，沒有記帳。若來源仍符合條件，請重新預覽。",
+    "repeatPlanUnavailableHelp": "此確認計畫已不可用，結果可能尚不確定。建立新預覽前請先檢查歷史記錄；再次確認將是一筆新操作。",
+    "repeatSourceRejectedHelp": "這筆來源記錄已不能重複。請關閉草稿並選擇另一筆符合條件的記錄。",
+    "repeatReason": {
+      "reversed": "此記錄已撤銷，不能重複。",
+      "corrected": "此記錄是更正或撤銷。請在歷史記錄中查看替代記錄。",
+      "product": "產品生命週期記錄請在產品詳情中處理。",
+      "specialized": "股息和交易記錄請使用對應的專用流程。",
+      "holding_attribution": "這筆費用或稅費歸屬於持倉。記錄另一筆變更前請查看相關持倉；此記錄不能重複。",
+      "not_single_account": "重複需要一筆單帳戶的一般現金變動。",
+      "unsupported_reason": "一般單帳戶收入或支出（含利息、費用和稅費）才可重複；其他記錄請使用其專用流程。"
+    }
   },
   "icons": {
     "account": "帳戶",

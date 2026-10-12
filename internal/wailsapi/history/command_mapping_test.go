@@ -28,6 +28,15 @@ var commandKindActivity = []struct {
 	{ChangeDebtPayment, domain.ActivityDebtPayment},
 }
 
+func TestPositionAdjustmentReportsUnitCostField(t *testing.T) {
+	request := ChangeCommandRequest{Kind: ChangePositionAdjustment, HoldingID: domain.NewHoldingID().String(), Quantity: "1", UnitCost: "bad", Added: true, EffectiveAt: "2026-10-11T00:00:00Z"}
+	_, err := request.ToCommand(domain.NewHouseholdID(), "UTC")
+	fieldError, ok := err.(*domain.Error)
+	if !ok || fieldError.Field != "unitCost" {
+		t.Fatalf("unit cost error = %v", err)
+	}
+}
+
 func TestToCommandResolvesLocalDateTimeInHistoryOriginTimezone(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	accountID := domain.NewAccountID().String()

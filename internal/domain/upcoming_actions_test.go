@@ -78,6 +78,12 @@ func TestUpcomingSchedulePhases(t *testing.T) {
 			if c.count == 1 && got.Items[0].Phase != c.phase {
 				t.Fatalf("phase=%s want %s", got.Items[0].Phase, c.phase)
 			}
+			if got.Counts.Total != got.Counts.Attention+got.Counts.Scheduled {
+				t.Fatal("attention and scheduled do not sum to total")
+			}
+			if c.name == "blocked overdue" && (got.Counts.Attention != 1 || got.Counts.Scheduled != 0) {
+				t.Fatalf("past blocked item missing from attention: %+v", got.Counts)
+			}
 			if c.phase == "blocked" && got.Completeness != StatusPartial {
 				t.Fatal("blocked data marked complete")
 			}
@@ -344,7 +350,7 @@ func TestUpcomingUnresolvedReservationAndCountConsistency(t *testing.T) {
 	if got.Counts.ReservationIssues != 1 || got.Counts.Total != 1 || got.Items[0].Kind != "reservation_unresolved" || got.Items[0].PrimaryTarget.ReservationID == nil {
 		t.Fatalf("unresolved=%+v", got)
 	}
-	if got.Counts.Total != got.Counts.ReceiptDue+got.Counts.ReservationIssues+got.Counts.Scheduled {
+	if got.Counts.Total != got.Counts.Attention+got.Counts.Scheduled {
 		t.Fatal("counts differ")
 	}
 }
@@ -355,6 +361,10 @@ func TestUpcomingExcludedDatesSurviveReservationNotes(t *testing.T) {
 	got := projectUpcoming(t, q, []LiquiditySource{s}, []LiquidityReservation{r})
 	if len(got.DataChecks) != 1 || got.DataChecks[0].AnchorOn == nil || *got.DataChecks[0].AnchorOn != "2026-10-15" || got.DataChecks[0].ReferenceOn == nil || got.Completeness != StatusComplete {
 		t.Fatalf("scope=%+v", got)
+	}
+	check := got.DataChecks[0]
+	if check.Target.Kind != "product" || len(check.Targets) != 2 || check.Targets[0].Kind == check.Targets[1].Kind {
+		t.Fatalf("merged terms and reservations targets lost: %+v", check)
 	}
 }
 func TestUpcomingInvalidReservationErrors(t *testing.T) {

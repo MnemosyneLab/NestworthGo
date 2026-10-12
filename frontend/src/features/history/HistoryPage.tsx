@@ -62,6 +62,8 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
   const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
   const [undoTarget, setUndoTarget] = useState<ActivityDTO | null>(null);
   const [detailTarget, setDetailTarget] = useState<ActivityDTO | null>(null);
+  const [repeatFromDetail, setRepeatFromDetail] = useState(false);
+  const [detailTrigger, setDetailTrigger] = useState<HTMLButtonElement | null>(null);
   const [kindFilter, setKindFilter] = useState(navigationFilters?.kinds?.[0] ?? "");
   const [accountFilter, setAccountFilter] = useState(navigationFilters?.accountId ?? "");
   const [instrumentFilter, setInstrumentFilter] = useState(navigationFilters?.instrumentId ?? "");
@@ -118,6 +120,15 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
     if (last && last.date === activity.effectiveLocalDate) last.items.push(activity);
     else activityGroups.push({ date: activity.effectiveLocalDate, items: [activity] });
   }
+
+  const openActivityDetail = (activity: ActivityDTO, trigger: HTMLButtonElement) => {
+    setDetailTrigger(trigger);
+    setDetailTarget(activity);
+  };
+  const openRepeatFromMenu = (activity: ActivityDTO) => {
+    setRepeatFromDetail(false);
+    setRepeatTarget(activity);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -213,7 +224,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
                         { id: "undo", label: t("history.undoAction"), onSelect: () => setUndoTarget(activity) },
                       ]
                     : [];
-                  if (activity.repeatEligible && activityToRepeatDraft(activity)) menuItems.unshift({ id: "repeat", label: t("history.repeatAction"), onSelect: () => setRepeatTarget(activity) });
+                  if (activity.repeatEligible && activityToRepeatDraft(activity)) menuItems.unshift({ id: "repeat", label: t("history.repeatAction"), onSelect: () => openRepeatFromMenu(activity) });
                   return (
                     <li key={activity.id} className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary/5">
                       <IconTile icon={style.icon} tone={style.tone} />
@@ -228,7 +239,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
                       </div>
                       <span className="flex shrink-0 items-center gap-1">
                         {/* The Details button stretches over the whole row so the entire row opens the detail sheet. */}
-                        <Button variant="ghost" size="sm" className="after:absolute after:inset-0 after:rounded-none focus-visible:ring-inset" onClick={() => setDetailTarget(activity)}>
+                        <Button variant="ghost" size="sm" className="after:absolute after:inset-0 after:rounded-none focus-visible:ring-inset" onClick={(event) => openActivityDetail(activity, event.currentTarget)}>
                           {t("common.details")}
                         </Button>
                         {activity.productContext && <Button variant="outline" size="sm" className="relative z-10" onClick={() => setProductTarget(activity.productContext!.productId)}>{t("availableFunds.manageProductOperation")}</Button>}
@@ -285,7 +296,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
       </AlertDialog>
 
       <Sheet open={repeatTarget !== null} onOpenChange={(next) => !next && setRepeatTarget(null)}>
-        <SheetContent size="lg"><SheetHeader><SheetTitle>{t("history.repeatAction")}</SheetTitle><SheetDescription>{t("history.repeatDescription")}</SheetDescription></SheetHeader>
+        <SheetContent size="lg" finalFocus={repeatFromDetail ? () => detailTrigger?.isConnected ? detailTrigger : document.getElementById("history-filter-kind") ?? document.getElementById("main-content") : undefined}><SheetHeader><SheetTitle>{t("history.repeatAction")}</SheetTitle><SheetDescription>{t("history.repeatDescription")}</SheetDescription></SheetHeader>
           {repeatTarget && activityToRepeatDraft(repeatTarget) && <RecordChangeForm key={repeatTarget.id} repeat repeatSourceId={repeatTarget.id} initial={activityToRepeatDraft(repeatTarget)!} lock={{ kind: activityToRepeatDraft(repeatTarget)!.kind, hideKind: true }} onRecorded={() => { toast.success(t("history.recorded")); setRepeatTarget(null); }} />}
         </SheetContent>
       </Sheet>
@@ -320,6 +331,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
         originalActivity={originalActivity.data}
         originalActivityLoading={originalActivity.isLoading}
         onClose={() => setDetailTarget(null)}
+        onRepeat={() => { if (detailTarget?.repeatEligible && activityToRepeatDraft(detailTarget)) { setRepeatFromDetail(true); setRepeatTarget(detailTarget); setDetailTarget(null); } }}
         t={t}
       />
     </div>

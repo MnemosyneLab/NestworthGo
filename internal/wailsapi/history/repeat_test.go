@@ -76,7 +76,7 @@ func TestRepeatFreshGuardedConfirmation(t *testing.T) {
 	}
 	_, err = fx.service.ConfirmRepeatChange(ctx, stale.PlanID)
 	var wire *apierror.WireError
-	if !errors.As(err, &wire) || wire.Code != "stale_preview" {
+	if !errors.As(err, &wire) || wire.Code != "stale_preview" || wire.Field != "previewToken" {
 		t.Fatalf("stale %v", err)
 	}
 	if _, err := fx.service.PreviewRepeatChange(ctx, source.Activity.ID, request); err == nil {
@@ -94,13 +94,15 @@ func TestRepeatFreshGuardedConfirmation(t *testing.T) {
 	}
 	if _, err := history.NewService(fx.app).ConfirmRepeatChange(ctx, plan.PlanID); err == nil {
 		t.Fatal("unavailable process plan accepted")
+	} else if !errors.As(err, &wire) || wire.Code != "stale_preview" || wire.Field != "planId" {
+		t.Fatalf("unavailable plan = %v, want planId stale_preview", err)
 	}
 }
 
 func TestRepeatRejectsSpecializedCommands(t *testing.T) {
 	fx := newFixture(t)
 	for _, request := range []history.ChangeCommandRequest{
-		{Kind: history.ChangeMoneyAdded, Reason: "reconciliation"}, {Kind: history.ChangeMoneyAdded, Reason: "interest"}, {Kind: history.ChangeMoneyRemoved, Reason: "fee"}, {Kind: history.ChangeTrade, Reason: "income"}, {Kind: history.ChangeCashDividend, Reason: "income"}, {Kind: history.ChangeCashTransfer, Reason: "expense"}, {Kind: history.ChangeValueUpdate, Reason: "income"}, {Kind: history.ChangeFXConversion, Reason: "income"}, {Kind: history.ChangeDebtPayment, Reason: "expense"},
+		{Kind: history.ChangeMoneyAdded, Reason: "reconciliation"}, {Kind: history.ChangeMoneyRemoved, Reason: "reconciliation"}, {Kind: history.ChangeMoneyAdded, Reason: "fee"}, {Kind: history.ChangeMoneyRemoved, Reason: "gift"}, {Kind: history.ChangeTrade, Reason: "income"}, {Kind: history.ChangeCashDividend, Reason: "income"}, {Kind: history.ChangeCashTransfer, Reason: "expense"}, {Kind: history.ChangeValueUpdate, Reason: "income"}, {Kind: history.ChangeFXConversion, Reason: "income"}, {Kind: history.ChangeDebtPayment, Reason: "expense"},
 	} {
 		if _, err := fx.service.PreviewRepeatChange(context.Background(), "00000000-0000-0000-0000-000000000001", request); err == nil {
 			t.Fatalf("accepted %+v", request)
@@ -132,7 +134,7 @@ func TestRepeatRejectsReversedSourceOutsideFilteredPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	page, err = fx.service.ListActivityPage(ctx, history.ActivityQueryRequest{Kinds: []string{"cash_in"}, Limit: 1})
-	if err != nil || len(page.Activities) != 1 || page.Activities[0].RepeatEligible {
+	if err != nil || len(page.Activities) != 1 || page.Activities[0].RepeatEligible || page.Activities[0].RepeatIneligibleReason != "reversed" {
 		t.Fatalf("hidden reversal eligibility %+v %v", page, err)
 	}
 	if _, err := fx.service.PreviewRepeatChange(ctx, source.Activity.ID, request); err == nil {
@@ -175,9 +177,46 @@ func TestRepeatReceiptReplaysAfterSourceIsReversed(t *testing.T) {
 	if _, err := fx.service.UndoChange(ctx, source.Activity.ID); err != nil {
 		t.Fatal(err)
 	}
+	var unavailable *apierror.WireError
+	if _, err := history.NewService(fx.app).ConfirmRepeatChange(ctx, plan.PlanID); !errors.As(err, &unavailable) || unavailable.Code != "stale_preview" || unavailable.Field != "planId" {
+		t.Fatalf("lost plan after committed write = %v", err)
+	}
 	replay, err := fx.service.ConfirmRepeatChange(ctx, plan.PlanID)
 	if err != nil || replay.Activity.ID != committed.Activity.ID || replay.Activity.ID == source.Activity.ID {
 		t.Fatalf("receipt replay %+v %v", replay, err)
+	}
+}
+
+func TestRepeatInterestKeepsExistingClassification(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	origin, err := fx.service.HistoryOrigin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		kind         history.ChangeCommandKind
+		amount, want string
+	}{
+		{history.ChangeMoneyAdded, "100", "external_inflow"},
+		{history.ChangeMoneyRemoved, "10", "external_outflow"},
+	} {
+		request := history.ChangeCommandRequest{Kind: test.kind, AccountID: fx.checkingID, Amount: test.amount, Currency: "USD", Reason: "interest", EffectiveAt: origin.StartedAt}
+		source, err := fx.service.RecordChange(ctx, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan, err := fx.service.PreviewRepeatChange(ctx, source.Activity.ID, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := fx.service.ConfirmRepeatChange(ctx, plan.PlanID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Activity.ID == source.Activity.ID || result.Activity.Reason != "interest" || len(result.Activity.Effects) != 1 || result.Activity.Effects[0].Classification != test.want || source.Activity.Effects[0].Classification != test.want {
+			t.Fatalf("interest classification changed: source=%+v repeated=%+v", source.Activity, result.Activity)
+		}
 	}
 }
 

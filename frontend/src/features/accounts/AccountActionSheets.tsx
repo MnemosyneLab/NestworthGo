@@ -53,6 +53,7 @@ export function AccountActionSheet({
   historyStarted,
   onClose,
   onRecorded,
+  finalFocus,
 }: {
   action: Exclude<AccountAction, "settings" | null>;
   holdingId?: string;
@@ -61,6 +62,7 @@ export function AccountActionSheet({
   historyStarted: boolean;
   onClose: () => void;
   onRecorded: () => void;
+  finalFocus?: () => HTMLElement | null | undefined;
 }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
@@ -94,7 +96,7 @@ export function AccountActionSheet({
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent size="lg">
+      <SheetContent size="lg" finalFocus={finalFocus}>
         <SheetHeader>
           <SheetTitle>{waitingForHistory ? t("accounts.historyRequiredTitle") : title}</SheetTitle>
           {waitingForHistory && <SheetDescription>{t("accounts.historyRequiredDescription")}</SheetDescription>}
@@ -129,7 +131,7 @@ function reviewedCashAmount(amount: string, currency: string, signed = false): s
   const standard = `${sign}${formatAmount(amount, currency)}`;
   const places = amount.split(".")[1]?.length ?? 0;
   return places > currencyFractionDigits(currency)
-    ? `${standard} (${sign}${formatAmount(amount)} ${currency})`
+    ? `${standard} (${sign}${amount} ${currency})`
     : standard;
 }
 

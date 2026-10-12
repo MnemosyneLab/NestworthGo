@@ -7,5 +7,6 @@ export {
 };
 
 export type {
+    CashBalancePreviewDTO,
     CreateHoldingRequest
 } from "./models.js";

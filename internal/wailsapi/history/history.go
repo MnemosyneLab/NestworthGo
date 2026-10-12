@@ -303,13 +303,17 @@ func (s *Service) ListActivityPage(ctx context.Context, request ActivityQueryReq
 	if err != nil {
 		return wire.ActivityPageDTO{}, apierror.Wrap(err)
 	}
-	eligible, err := s.app.RepeatEligibleActivities(ctx, page.Activities)
+	statuses, err := s.app.RepeatSourceStatuses(ctx, page.Activities)
 	if err != nil {
 		return wire.ActivityPageDTO{}, apierror.Wrap(err)
 	}
 	dto := wire.FromActivityPage(page)
 	for i := range dto.Activities {
-		dto.Activities[i].RepeatEligible = eligible[page.Activities[i].ID]
+		status := statuses[page.Activities[i].ID]
+		dto.Activities[i].RepeatEligible = status == "eligible"
+		if status != "eligible" {
+			dto.Activities[i].RepeatIneligibleReason = status
+		}
 	}
 	return dto, nil
 }

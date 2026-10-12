@@ -7,33 +7,90 @@ import (
 )
 
 func ordinaryRepeatSource(a domain.Activity) bool {
-	if a.ProductContext != nil || a.CorrectionGroupID != nil || a.ReversesActivityID != nil {
+	if a.ProductContext != nil || a.DividendDetail != nil || a.TradeDetail != nil || a.CorrectionGroupID != nil || a.ReversesActivityID != nil {
 		return false
 	}
-	if !((a.Kind == domain.ActivityCashIn && a.Reason == domain.ReasonIncome) || (a.Kind == domain.ActivityCashOut && a.Reason == domain.ReasonExpense)) {
+	if !repeatReasonAllowed(a.Kind, a.Reason) {
 		return false
 	}
 	return len(a.Effects) == 1 && a.Effects[0].AccountID != nil && a.Effects[0].Money != nil && a.Effects[0].HoldingID == nil
 }
 
-// RepeatEligibleActivities reads lifecycle state independently of page filters
-// and cursors. It is only a UI hint; preview and commit check again under gates.
-func (s *Service) RepeatEligibleActivities(ctx context.Context, activities []domain.Activity) (map[domain.ActivityID]bool, error) {
+// Keep this narrower than the domain money-reason catalog: reconciliation and
+// specialized financial records must never acquire a Repeat draft.
+func repeatReasonAllowed(kind domain.ActivityKind, reason domain.ActivityReason) bool {
+	switch kind {
+	case domain.ActivityCashIn:
+		switch reason {
+		case domain.ReasonIncome, domain.ReasonInterest, domain.ReasonContribution, domain.ReasonGift, domain.ReasonOther:
+			return true
+		}
+	case domain.ActivityCashOut:
+		switch reason {
+		case domain.ReasonExpense, domain.ReasonFee, domain.ReasonTax, domain.ReasonInterest, domain.ReasonOther:
+			return true
+		}
+	}
+	return false
+}
+
+func repeatSourceReason(a domain.Activity) string {
+	switch {
+	case a.CorrectionGroupID != nil || a.ReversesActivityID != nil:
+		return "corrected"
+	case a.ProductContext != nil:
+		return "product"
+	// Holding-attributed fee/tax is stored in DividendDetail, while the cash
+	// effect itself has no HoldingID. It is not a cash dividend.
+	case a.Kind == domain.ActivityCashOut && (a.Reason == domain.ReasonFee || a.Reason == domain.ReasonTax) && a.DividendDetail != nil && a.TradeDetail == nil:
+		return "holding_attribution"
+	case a.DividendDetail != nil || a.TradeDetail != nil:
+		return "specialized"
+	case !repeatReasonAllowed(a.Kind, a.Reason):
+		return "unsupported_reason"
+	case len(a.Effects) != 1 || a.Effects[0].AccountID == nil || a.Effects[0].Money == nil:
+		return "not_single_account"
+	case a.Effects[0].HoldingID != nil:
+		return "holding_attribution"
+	default:
+		return "eligible"
+	}
+}
+
+// RepeatSourceStatuses derives stable UI explanations using the full ledger.
+func (s *Service) RepeatSourceStatuses(ctx context.Context, activities []domain.Activity) (map[domain.ActivityID]string, error) {
 	unlock, err := s.beginPreviewRead(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer unlock()
-	eligible := make(map[domain.ActivityID]bool)
+	statuses := make(map[domain.ActivityID]string, len(activities))
 	for _, a := range activities {
-		if !ordinaryRepeatSource(a) {
-			continue
+		status := repeatSourceReason(a)
+		if status == "eligible" {
+			reversed, err := s.repository.ActivityHasReversal(ctx, a.HouseholdID, a.ID)
+			if err != nil {
+				return nil, err
+			}
+			if reversed {
+				status = "reversed"
+			}
 		}
-		reversed, err := s.repository.ActivityHasReversal(ctx, a.HouseholdID, a.ID)
-		if err != nil {
-			return nil, err
-		}
-		eligible[a.ID] = !reversed
+		statuses[a.ID] = status
+	}
+	return statuses, nil
+}
+
+// RepeatEligibleActivities reads lifecycle state independently of page filters
+// and cursors. It is only a UI hint; preview and commit check again under gates.
+func (s *Service) RepeatEligibleActivities(ctx context.Context, activities []domain.Activity) (map[domain.ActivityID]bool, error) {
+	statuses, err := s.RepeatSourceStatuses(ctx, activities)
+	if err != nil {
+		return nil, err
+	}
+	eligible := make(map[domain.ActivityID]bool)
+	for id, status := range statuses {
+		eligible[id] = status == "eligible"
 	}
 	return eligible, nil
 }
@@ -46,7 +103,7 @@ func (s *Service) ValidateRepeatSource(ctx context.Context, id domain.ActivityID
 		return err
 	}
 	if !ordinaryRepeatSource(a) {
-		return &domain.Error{Code: domain.ErrValidation, Field: "sourceActivityId", Message: "only ordinary income and expense can be repeated"}
+		return &domain.Error{Code: domain.ErrValidation, Field: "sourceActivityId", Message: "only ordinary single-account cash changes can be repeated"}
 	}
 	reversed, err := s.repository.ActivityHasReversal(ctx, a.HouseholdID, id)
 	if err != nil {
@@ -57,11 +114,11 @@ func (s *Service) ValidateRepeatSource(ctx context.Context, id domain.ActivityID
 	}
 	switch c := command.(type) {
 	case domain.MoneyAddedInput:
-		if a.Kind == domain.ActivityCashIn && c.Reason == domain.ReasonIncome {
+		if a.Kind == domain.ActivityCashIn && repeatReasonAllowed(domain.ActivityCashIn, c.Reason) {
 			return nil
 		}
 	case domain.MoneyRemovedInput:
-		if a.Kind == domain.ActivityCashOut && c.Reason == domain.ReasonExpense && c.HoldingID == nil {
+		if a.Kind == domain.ActivityCashOut && repeatReasonAllowed(domain.ActivityCashOut, c.Reason) && c.HoldingID == nil {
 			return nil
 		}
 	}

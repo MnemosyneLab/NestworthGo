@@ -19,7 +19,7 @@ type UpcomingActions struct {
 	DataChecks                                      []UpcomingDataCheck
 	ScopeWarnings                                   []string
 }
-type UpcomingCounts struct{ Total, ReceiptDue, ReservationIssues, Scheduled, Eligible, DataChecks, ScopeNotes int }
+type UpcomingCounts struct{ Total, Attention, ReceiptDue, ReservationIssues, Scheduled, Eligible, DataChecks, ScopeNotes int }
 type UpcomingTarget struct {
 	Kind          string
 	ProductID     *ProductContractID
@@ -45,6 +45,7 @@ type UpcomingAction struct {
 	AmountRole, AmountStatus, CoverageStatus                string
 	ReasonCodes, Assumptions                                []string
 	PrimaryTarget                                           UpcomingTarget
+	Targets                                                 []UpcomingTarget
 	DaysFromToday                                           *int
 	PolicyRevision                                          int
 }
@@ -57,6 +58,7 @@ type UpcomingDataCheck struct {
 	AnchorOn                *string
 	CoverageStatus          string
 	Target                  UpcomingTarget
+	Targets                 []UpcomingTarget
 	ReferenceOn             *string
 }
 
@@ -109,7 +111,10 @@ func ProjectUpcomingActions(overview LiquidityOverview, sources []LiquiditySourc
 		c.Category = category
 		c.ProductID = s.ProductID
 		c.DisplayName = s.DisplayName
-		c.Target = target
+		if c.Target.Kind == "" {
+			c.Target = target
+		}
+		c.Targets = appendUpcomingTarget(c.Targets, target)
 		c.ReasonCodes = upcomingStrings(append(c.ReasonCodes, reasons...))
 		c.CoverageStatus = coverage
 		if coverage != "" {
@@ -307,6 +312,9 @@ func ProjectUpcomingActions(overview LiquidityOverview, sources []LiquiditySourc
 		if c.Category == "data_issue" {
 			if i, ok := actionBySource[c.SourceKey]; ok {
 				out.Items[i].ReasonCodes = upcomingStrings(append(out.Items[i].ReasonCodes, c.ReasonCodes...))
+				for _, target := range c.Targets {
+					out.Items[i].Targets = appendUpcomingTarget(out.Items[i].Targets, target)
+				}
 				if c.CoverageStatus != "" {
 					out.Items[i].CoverageStatus = c.CoverageStatus
 					out.Items[i].ReferenceOn = c.ReferenceOn
@@ -318,6 +326,8 @@ func ProjectUpcomingActions(overview LiquidityOverview, sources []LiquiditySourc
 	}
 	for i := range out.Items {
 		item := &out.Items[i]
+		item.Targets = appendUpcomingTarget(item.Targets, item.PrimaryTarget)
+		sortUpcomingTargets(item.Targets)
 		item.ReasonCodes = upcomingStrings(item.ReasonCodes)
 		if item.Amount != nil && len(item.ReasonCodes) > 0 {
 			item.AmountStatus = "partial"
@@ -328,13 +338,16 @@ func ProjectUpcomingActions(overview LiquidityOverview, sources []LiquiditySourc
 			continue
 		}
 		out.Counts.Total++
-		switch {
-		case item.Phase == "receipt_due":
-			out.Counts.ReceiptDue++
-		case item.Kind == "reservation_shortfall" || item.Kind == "reservation_unresolved":
-			out.Counts.ReservationIssues++
-		default:
+		if item.Group == "attention" {
+			out.Counts.Attention++
+		} else {
 			out.Counts.Scheduled++
+		}
+		if item.Phase == "receipt_due" {
+			out.Counts.ReceiptDue++
+		}
+		if item.Kind == "reservation_shortfall" || item.Kind == "reservation_unresolved" {
+			out.Counts.ReservationIssues++
 		}
 		for _, a := range item.Assumptions {
 			if a == string(AssumptionWeekdaysNoHolidays) {
@@ -371,6 +384,9 @@ func ProjectUpcomingActions(overview LiquidityOverview, sources []LiquiditySourc
 		}
 		return a.ID < b.ID
 	})
+	for i := range out.DataChecks {
+		sortUpcomingTargets(out.DataChecks[i].Targets)
+	}
 	for _, c := range out.DataChecks {
 		if c.Category == "data_issue" {
 			out.Counts.DataChecks++
@@ -380,6 +396,28 @@ func ProjectUpcomingActions(overview LiquidityOverview, sources []LiquiditySourc
 	}
 	out.ScopeWarnings = upcomingStrings(out.ScopeWarnings)
 	return out, nil
+}
+
+func appendUpcomingTarget(targets []UpcomingTarget, target UpcomingTarget) []UpcomingTarget {
+	if target.Kind == "" {
+		return targets
+	}
+	key, _ := json.Marshal(target)
+	for _, existing := range targets {
+		v, _ := json.Marshal(existing)
+		if string(v) == string(key) {
+			return targets
+		}
+	}
+	return append(targets, target)
+}
+
+func sortUpcomingTargets(targets []UpcomingTarget) {
+	sort.Slice(targets, func(i, j int) bool {
+		a, _ := json.Marshal(targets[i])
+		b, _ := json.Marshal(targets[j])
+		return string(a) < string(b)
+	})
 }
 
 func upcomingSchedule(s LiquiditySourceResult, raw LiquiditySource, today, end string) *UpcomingAction {

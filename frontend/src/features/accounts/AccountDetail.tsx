@@ -20,7 +20,7 @@ import { AccountProductsSection } from "@/features/liquidity/AccountProductsSect
 import { canHoldProducts } from "@/features/liquidity/productPolicy";
 import { useProducts } from "@/queries/liquidity";
 import { useHistoryOrigin } from "@/queries/history";
-import { compareCanonical, formatAmount, sortByCanonicalDesc } from "@/lib/money";
+import { compareCanonical, formatAmount, formatAuditMoney, sortByCanonicalDesc } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { accountCompositionItems, componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
 import { CompositionChart } from "@/components/charts/CompositionChart";
@@ -70,9 +70,8 @@ function cashChangeLabel(value: AccountCashValueDTO): string {
   if (!value.change) {
     return "—";
   }
-  const negative = value.change.amount.startsWith("-");
-  const unsignedAmount = negative ? value.change.amount.slice(1) : value.change.amount;
-  return `${negative ? "−" : "+"}${formatAmount(unsignedAmount, value.change.currency)}`;
+  const formatted = formatAuditMoney(value.change.amount, value.change.currency);
+  return value.change.amount.startsWith("-") ? formatted.replace(/^-/, "−") : `+${formatted}`;
 }
 
 function holdingRows(
@@ -167,6 +166,8 @@ export function AccountDetail({
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
   const [action, setAction] = useState<AccountAction>(updateValue && !record.account.archivedAt ? record.account.trackingMode === "holdings" ? "cash" : "simple" : null);
+  const cashActionTrigger = useRef<HTMLButtonElement>(null);
+  const backTrigger = useRef<HTMLButtonElement>(null);
   const [actionHoldingId, setActionHoldingId] = useState<string>();
   const [settingsCanSubmit, setSettingsCanSubmit] = useState(false);
   const [settingsError, setSettingsError] = useState<string | undefined>();
@@ -242,7 +243,7 @@ export function AccountDetail({
         actions={
           <>
             <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />
-            <Button type="button" variant="outline" size="sm" onClick={onBack}>
+            <Button ref={backTrigger} type="button" variant="outline" size="sm" onClick={onBack}>
               <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => { setSettingsError(undefined); setAction("settings"); }}>
@@ -334,7 +335,7 @@ export function AccountDetail({
               )}
               {!readOnly && (
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={() => setAction("cash")}>
+                  <Button ref={cashActionTrigger} type="button" onClick={() => setAction("cash")}>
                     {historyStarted ? t("accounts.reconcileBalance") : t("accounts.addCashBalance")}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setAction("deposit")}>
@@ -467,7 +468,7 @@ export function AccountDetail({
                         </div>
                       </td>
                       <td className="num py-2 pr-4 font-medium">{cashChangeLabel(value)}</td>
-                      <td className="num py-2 pr-4 font-medium">{formatAmount(value.amount.amount, value.amount.currency)}</td>
+                      <td className="num py-2 pr-4 font-medium">{formatAuditMoney(value.amount.amount, value.amount.currency)}</td>
                       <td className="hidden py-2 pr-4 md:table-cell">{value.amount.currency}</td>
                       <td className="py-2 pr-4">
                         <time dateTime={value.effectiveAt}>{formatTimestamp(value.effectiveAt, settings.data?.timezone, i18n.language)}</time>
@@ -515,6 +516,7 @@ export function AccountDetail({
             setAction(null);
             setActionHoldingId(undefined);
           }}
+          finalFocus={action === "cash" ? () => cashActionTrigger.current?.isConnected ? cashActionTrigger.current : backTrigger.current?.isConnected ? backTrigger.current : document.getElementById("main-content") : undefined}
           onRecorded={() => {
             setAction(null);
             setActionHoldingId(undefined);

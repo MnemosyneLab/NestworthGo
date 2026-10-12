@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { ProductCommandRequest, ProductOperationPreviewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
 // A response belongs to the command that requested it, even if the form changes
@@ -6,8 +6,10 @@ import type { ProductCommandRequest, ProductOperationPreviewDTO } from "../../..
 export function useReviewedCommand(command: ProductCommandRequest | null) {
   const key = JSON.stringify(command);
   const [result, setResult] = useState<{ key: string; preview: ProductOperationPreviewDTO } | null>(null);
+  const clearReviewed = useCallback(() => setResult(null), []);
   return {
     reviewed: result?.key === key ? result.preview : null,
     setReviewed: (preview: ProductOperationPreviewDTO | null) => setResult(preview ? { key, preview } : null),
+    clearReviewed,
   };
 }

@@ -1,12 +1,23 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { addCanonical, allocateShareBps, divideCanonical, formatAmount, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
+import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAuditMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
 });
 
 describe("formatAmount", () => {
+  it.each(["en", "zh-CN", "zh-TW"])("shows exact signed subminor audit amounts in %s", async language => {
+    await i18n.changeLanguage(language);
+    for (const currency of ["USD", "CNY", "JPY", "KRW"]) {
+      for (const amount of ["0.0001", "-0.0001"]) {
+        const shown = formatAuditMoney(amount, currency);
+        expect(shown).toContain(`${amount} ${currency}`);
+        expect(shown).toContain(formatAmount(amount, currency));
+      }
+    }
+    expect(formatAuditMoney("1.20", "USD")).toBe(formatAmount("1.20", "USD"));
+  });
   it.each([
     ["en", "9007199254740993", "9,007,199,254,740,993"],
     ["en", "123456789012345678", "123,456,789,012,345,678"],
