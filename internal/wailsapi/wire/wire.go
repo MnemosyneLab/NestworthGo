@@ -473,6 +473,7 @@ func FromMissingInputs(values []domain.MissingInputView) []MissingInputDTO {
 
 // AccountValuationDTO mirrors domain.AccountValuation.
 type AccountValuationDTO struct {
+	Composition     *AccountCompositionDTO  `json:"composition,omitempty"`
 	Account         AccountDTO              `json:"account"`
 	Ownership       []OwnershipShareDTO     `json:"ownership"`
 	InstitutionName string                  `json:"institutionName,omitempty"`
@@ -486,6 +487,7 @@ type AccountValuationDTO struct {
 func FromAccountValuation(value domain.AccountValuation) AccountValuationDTO {
 	return AccountValuationDTO{
 		Account: FromAccount(value.Account), Ownership: FromOwnershipShares(value.Ownership.Shares()),
+		Composition:     FromAccountComposition(value.Composition),
 		InstitutionName: value.InstitutionName, GroupName: value.GroupName, BaseValue: FromMoneyView(value.BaseValue),
 		Complete: value.Complete, Components: FromValuationComponents(value.Components), MissingInputs: FromMissingInputs(value.MissingInputs),
 	}

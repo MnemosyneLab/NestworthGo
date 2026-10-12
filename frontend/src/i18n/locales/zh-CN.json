@@ -48,7 +48,23 @@
     "wholeAccountInclusionWarning": "投资组合与流动资产开关适用于此账户内的全部现金和持仓。",
     "adjustmentReason": "原因（可选）",
     "balanceBefore": "当前余额",
-    "adjustmentDelta": "调整差额"
+    "adjustmentDelta": "调整差额",
+    "compositionView": {
+      "type": "按类型",
+      "detail": "按明细",
+      "grouping": "构成分组方式",
+      "bankProducts": "理财及定期",
+      "unknownType": "类型未知",
+      "remainder": "其余 {{count}} 项",
+      "remainder_one": "其余 {{count}} 项",
+      "remainder_other": "其余 {{count}} 项",
+      "expand": "展开全部 {{count}} 项",
+      "collapse": "收起至前 10 项",
+      "hint": "占比使用家庭本位币的已估值小计。数据表包含所有原始明细；缺失值不按零计入。",
+      "unavailable": "缺少价格或汇率，暂无法展示构成。",
+      "empty": "暂无可绘制的正值余额。",
+      "invalid": "存在负值明细，无法绘制构成图。"
+    }
   },
   "analytics": {
     "empty": "暂时没有可用的已收盘日快照。",

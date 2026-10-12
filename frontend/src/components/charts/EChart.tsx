@@ -15,6 +15,19 @@ export type EChartsOption = ComposeOption<
 >;
 
 export function applyChartPolicy(option: EChartsOption, reducedMotion = prefersReducedMotion()): EChartsOption {
+  // CSS OKLCH colors render normally, but zrender 6 cannot parse them for
+  // its automatic emphasis color lift. ECharts' inherit path preserves the
+  // exact normal/selected fill, including opacity and per-point theme colors.
+  const keepEmphasisFill = <T extends LineSeriesOption | BarSeriesOption | PieSeriesOption>(series: T): T => ({
+    ...series,
+    emphasis: {
+      ...series.emphasis,
+      itemStyle: { ...series.emphasis?.itemStyle, color: series.emphasis?.itemStyle?.color ?? "inherit" },
+    },
+  });
+  const series = Array.isArray(option.series)
+    ? option.series.map(keepEmphasisFill)
+    : option.series ? keepEmphasisFill(option.series) : option.series;
   const tooltip = option.tooltip && typeof option.tooltip === "object" && !Array.isArray(option.tooltip)
     ? {
       ...option.tooltip,
@@ -36,7 +49,19 @@ export function applyChartPolicy(option: EChartsOption, reducedMotion = prefersR
       ].filter(Boolean).join(";"),
     }
     : option.tooltip;
-  return { ...option, tooltip, animation: !reducedMotion };
+  return { ...option, series, tooltip, animation: !reducedMotion };
+}
+
+/** Account-only controlled pie selection. Merge updates retain selectedMap
+ * even when data.selected is false; selection actions are authoritative. */
+export function synchronizePieSelection(chart: Pick<echarts.ECharts, "dispatchAction">, option: EChartsOption, selectedName: string | null): void {
+  const series = Array.isArray(option.series) ? option.series : option.series ? [option.series] : [];
+  series.forEach((item, seriesIndex) => {
+    if (item.type !== "pie") return;
+    const dataIndex = Array.from({ length: item.data?.length ?? 0 }, (_, index) => index);
+    chart.dispatchAction({ type: "unselect", seriesIndex, dataIndex });
+    if (selectedName) chart.dispatchAction({ type: "select", seriesIndex, name: selectedName });
+  });
 }
 
 export interface EChartProps {
@@ -52,6 +77,10 @@ export interface EChartProps {
   onSelectName?: (name: string | null) => void;
   onHoverName?: (name: string | null) => void;
   center?: React.ReactNode;
+  /** Opt-in account legend highlighting; undefined preserves existing behavior. */
+  highlightedName?: string | null;
+  /** Undefined preserves native selection for other chart consumers. */
+  selectedName?: string | null;
 }
 
 /**
@@ -71,6 +100,8 @@ export function EChart({
   onSelectName,
   onHoverName,
   center,
+  highlightedName,
+  selectedName,
 }: EChartProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<echarts.ECharts | null>(null);
@@ -147,6 +178,24 @@ export function EChart({
       // Drawing is optional; the data table remains the accessible source.
     }
   }, [option]);
+
+  React.useEffect(() => {
+    if (selectedName === undefined || !chartRef.current) return;
+    try { synchronizePieSelection(chartRef.current, option, selectedName); }
+    catch { /* The source table remains available when drawing is unavailable. */ }
+  }, [selectedName, option]);
+
+  React.useEffect(() => {
+    if (highlightedName === undefined) return;
+    try {
+      chartRef.current?.dispatchAction({ type: "downplay", seriesIndex: 0 });
+      if (highlightedName) {
+        chartRef.current?.dispatchAction({ type: "highlight", seriesIndex: 0, name: highlightedName });
+      }
+    } catch {
+      // The original rows and data table remain usable without canvas drawing.
+    }
+  }, [highlightedName, option]);
 
   return (
     <figure className="flex min-w-0 w-full max-w-full flex-col gap-3">
