@@ -305,17 +305,8 @@ func listHistoricalSeriesActivities(ctx context.Context, q queryer, id domain.Ho
 	if err != nil {
 		return nil, err
 	}
-	for start := 0; start < len(activities); start += 256 {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		end := start + 256
-		if end > len(activities) {
-			end = len(activities)
-		}
-		if err := hydrateActivities(ctx, q, activities[start:end]); err != nil {
-			return nil, err
-		}
+	if err := hydrateHistoricalActivities(ctx, q, activities); err != nil {
+		return nil, err
 	}
 	var originID string
 	if err := q.QueryRowContext(ctx, `SELECT id FROM history_origins WHERE household_id=?`, id.String()).Scan(&originID); err != nil {

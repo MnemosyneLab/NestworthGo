@@ -175,3 +175,54 @@ build and generated-bindings check. Shared chart and Sheet suites are included.
 Generated legacy binding blobs were restored per repository policy. Existing
 bundle-size warnings remain. No native visual acceptance or new benchmark
 measurement is inferred from these checks.
+
+## Native dense-entry blocker: historical activity hydration
+
+Atlas found that the initial P1 overview prevented entry to the trend on the
+dense synthetic profile, despite the series API working. This was reproduced
+on `cb09d746` with the same 100 accounts / 1,000 leaves / 25,000 activities:
+both `HistoricalOverview` single-day and comparison reads failed with SQLite
+`too many SQL variables`. The resulting-endpoint union repeats the full activity
+ID list four times, exceeding the bundled SQLite parameter limit.
+
+The historical loader now shares the existing series strategy: hydrate children
+in at most 256-activity chunks using the caller's one transaction, then replay
+the full economically ordered activity set once. Generic activity-page and
+mutation hydration are unchanged. The economic correction query and effect
+ordering are unchanged, and historical money replay now observes cancellation.
+No input/date truncation, new admission limit, migration/provider, snapshot
+write or unrelated repository refactor was added.
+
+`TestHistoricalOverviewDenseEntrySingleAndComparison` exercises the actual
+single-day and comparison entry APIs in a query-only profile, retaining all
+1,100 rows and exact `0.108` assets/net worth, zero B−A and unchanged total
+changes. Its 31-point series has 86,433 facts and deep-equal P1 endpoints. The
+targeted post-fix run measured about 5.02 seconds single-day and 6.14 seconds
+comparison, with fixture setup excluded. These are API observations, not native
+GUI acceptance or a latency promise.
+
+`TestHistoricalOverviewHydrationChunksPreserveEconomicReplay` crosses two
+256-activity boundaries with 513 economic records and an earlier correction.
+It verifies unique IDs, original economic ordering, one resulting endpoint and
+effect per record, unchanged audit magnitudes and global absolute-balance
+normalization (644 versus recorded 645; later delta 244; final balance 1500).
+Infrastructure regressions check bounded SQL parameters, cancellation before
+later chunks, and stable results across a concurrent derived-projection update
+in a separate WAL connection. The read uses one unchanged snapshot throughout.
+
+The dense entry fixture runs in full non-race validation; short race mode skips
+its expensive 1,000-leaf setup while retaining the smaller chunk/correction and
+transaction/cancellation tests. Final aggregate results and the new head are
+recorded in PR #57. Atlas's native recheck is still required on that head.
+
+This loader follow-up passed full server-tag Go tests (application 77.443
+seconds), focused SQLite/application/API vet, and focused historical,
+correction and financial-context race tests with `-short` (SQLite 9.770 seconds;
+application 97.591 seconds). Dense entry runs in the full non-race suite; the
+smaller chunk-order, cancellation and concurrent-transaction cases run under
+race. Frontend/public DTOs are unchanged and frontend checks were not repeated.
+Atlas's additional native 8,000-activity pass / 8,300-activity failure supports
+the four-times-ID parameter diagnosis; its 5,000-activity GUI pass and native
+date/Back/cancellation results do not substitute for rechecking the retained
+25,000-activity profile on the new head. No model substitution or duplicate
+commit was performed while resuming the existing work.

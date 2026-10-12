@@ -294,6 +294,9 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		activity, scanErr := activityFromScanner(rows)
 		if scanErr != nil {
 			return nil, scanErr
@@ -306,7 +309,7 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	if err := hydrateActivities(ctx, query, activities); err != nil {
+	if err := hydrateHistoricalActivities(ctx, query, activities); err != nil {
 		return nil, err
 	}
 	// Use the same adjusted balance deltas for snapshots and analysis.
@@ -322,7 +325,7 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err != nil {
 		return nil, err
 	}
-	return domain.ReplayMoneyEffects(activities, components)
+	return domain.ReplayMoneyEffectsContext(ctx, activities, components)
 }
 
 func hydrateActivities(ctx context.Context, query queryer, activities []domain.Activity) error {
