@@ -49,6 +49,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		}
 		activities = append(activities, activity)
 		for _, effect := range activity.Effects {
+			if err := ctx.Err(); err != nil {
+				return domain.PortfolioSnapshot{}, err
+			}
 			if effect.AccountID != nil {
 				activeAccounts[*effect.AccountID] = true
 			}
@@ -62,6 +65,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	}
 	// A position effect also proves its parent account and instrument existed.
 	for _, holding := range snapshot.Holdings {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		if activeHoldings[holding.ID] {
 			activeAccounts[holding.AccountID] = true
 			activeInstruments[holding.InstrumentID] = true
@@ -72,6 +78,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	cash := make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money)
 	quantities := make(map[domain.HoldingID]domain.Quantity)
 	for _, component := range originData.Components {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		switch component.Kind {
 		case domain.HistoryOriginAccountValue:
 			if component.AccountID != nil && component.Amount != nil {
@@ -93,6 +102,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	// Preserve a recorded zero at creation without treating missing balances as
 	// zero or importing today's value into a closed day. Apply activities after it.
 	for _, baseline := range batch.ZeroAccountBaselines {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		if _, present := values[baseline.AccountID]; !present && !baseline.EffectiveAt.After(cutoff) {
 			values[baseline.AccountID] = baseline.Amount
 		}
@@ -102,6 +114,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			return domain.PortfolioSnapshot{}, err
 		}
 		for _, effect := range activity.Effects {
+			if err := ctx.Err(); err != nil {
+				return domain.PortfolioSnapshot{}, err
+			}
 			if effect.Money != nil && effect.AccountID != nil {
 				if err := applyHistoricalMoney(values, cash, effect); err != nil {
 					return domain.PortfolioSnapshot{}, err
@@ -133,13 +148,22 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	originHoldingIDs := make(map[domain.HoldingID]struct{})
 	originInstrumentIDs := make(map[domain.InstrumentID]struct{})
 	for _, state := range originData.AccountStates {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		originStates[state.AccountID] = state
 		originAccountIDs[state.AccountID] = struct{}{}
 	}
 	for _, share := range originData.Ownership {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		originOwnership[share.AccountID] = append(originOwnership[share.AccountID], domain.OwnershipShare{MemberID: share.MemberID, ShareBPS: share.ShareBPS})
 	}
 	for _, component := range originData.Components {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		if component.AccountID != nil {
 			originAccountIDs[*component.AccountID] = struct{}{}
 		}
@@ -153,6 +177,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 
 	filteredAccounts := make([]domain.AccountRecord, 0, len(snapshot.Accounts))
 	for _, record := range snapshot.Accounts {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		state, hasOriginState := originStates[record.Account.ID]
 		_, wasPresentAtOrigin := originAccountIDs[record.Account.ID]
 		openingObservation := latestAccountObservation(accountObservations, record.Account.ID, cutoff)
@@ -209,9 +236,15 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	filteredInstruments := make([]domain.Instrument, 0, len(snapshot.Instruments))
 	originInstrumentPreferences := make(map[domain.InstrumentID]domain.HistoryOriginInstrumentPreference, len(originData.InstrumentPreferences))
 	for _, preference := range originData.InstrumentPreferences {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		originInstrumentPreferences[preference.InstrumentID] = preference
 	}
 	for _, instrument := range snapshot.Instruments {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		if instrument.CreatedAt.After(cutoff) {
 			if _, wasPresentAtOrigin := originInstrumentIDs[instrument.ID]; !wasPresentAtOrigin && !activeInstruments[instrument.ID] {
 				continue
@@ -265,15 +298,24 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	snapshot.Instruments = filteredInstruments
 	instrumentIDs := make(map[domain.InstrumentID]struct{}, len(snapshot.Instruments))
 	for _, instrument := range snapshot.Instruments {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		instrumentIDs[instrument.ID] = struct{}{}
 	}
 
 	filteredHoldings := make([]domain.Holding, 0, len(snapshot.Holdings))
 	accountIDs := make(map[domain.AccountID]struct{}, len(snapshot.Accounts))
 	for _, record := range snapshot.Accounts {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		accountIDs[record.Account.ID] = struct{}{}
 	}
 	for _, holding := range snapshot.Holdings {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		if holding.CreatedAt.After(cutoff) {
 			if _, wasPresentAtOrigin := originHoldingIDs[holding.ID]; !wasPresentAtOrigin && !activeHoldings[holding.ID] {
 				continue
@@ -302,6 +344,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	snapshot.FXQuotes = nil
 	snapshot.FXPreferences = nil
 	for accountID, currencies := range cash {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		for _, value := range currencies {
 			account, ok := accountRecordByID(snapshot.Accounts, accountID)
 			if !ok {
@@ -318,10 +363,16 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	if quoteCache == nil {
 		quoteCache = &historicalQuoteCache{instrumentQuotes: map[domain.InstrumentID][]domain.InstrumentQuote{}, fxQuotes: batch.FXQuoteFacts}
 		for _, quote := range batch.InstrumentQuoteFacts {
+			if err := ctx.Err(); err != nil {
+				return domain.PortfolioSnapshot{}, err
+			}
 			quoteCache.instrumentQuotes[quote.InstrumentID] = append(quoteCache.instrumentQuotes[quote.InstrumentID], quote)
 		}
 	}
 	for index := range snapshot.Instruments {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		instrument := snapshot.Instruments[index]
 		quotes := quoteCache.instrumentQuotes[instrument.ID]
 		if instrument.CreatedAt.After(cutoff) && activeInstruments[instrument.ID] {
@@ -333,6 +384,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			snapshot.Instruments[index] = instrument
 		}
 		for _, quote := range quotes {
+			if err := ctx.Err(); err != nil {
+				return domain.PortfolioSnapshot{}, err
+			}
 			// A correction may be fetched after the household day closed while
 			// its economic effective time is historical. Keep all immutable facts
 			// here; the historical valuation resolver applies the requested
@@ -344,13 +398,22 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	preferences := batch.FXPreferences
 	originFXPreferences := make(map[string]domain.HistoryOriginFXPreference, len(originData.FXPreferences))
 	for _, preference := range originData.FXPreferences {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		originFXPreferences[fxPreferenceKey(preference.CurrencyA, preference.CurrencyB)] = preference
 	}
 	currentFXPreferences := make(map[string]domain.FXPreference, len(preferences))
 	for _, preference := range preferences {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		currentFXPreferences[fxPreferenceKey(preference.CurrencyA, preference.CurrencyB)] = preference
 	}
 	for key, baseline := range originFXPreferences {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		preference, ok := currentFXPreferences[key]
 		if !ok {
 			preference, err = domain.NewFXPreference(origin.HouseholdID, baseline.CurrencyA, baseline.CurrencyB, baseline.SourceKind, baseline.CreatedAt)
@@ -367,6 +430,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		delete(currentFXPreferences, key)
 	}
 	for _, preference := range currentFXPreferences {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		observation := latestFXObservation(fxObservations, preference.CurrencyA, preference.CurrencyB, cutoff)
 		if preference.CreatedAt.After(cutoff) && observation == nil {
 			continue

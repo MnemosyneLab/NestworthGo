@@ -1323,7 +1323,8 @@
     "view": {
       "allocation": "Asset composition",
       "delta": "Changes overview",
-      "accounts": "Account details"
+      "accounts": "Account details",
+      "trend": "Time trend"
     },
     "allocationCompare": "Asset category comparison",
     "assetOnly": "Assets only; original currency amounts converted to base currency",
@@ -1447,6 +1448,27 @@
     "outsideCategoryFilter": "Outside the active category filter",
     "matchingComponents": "Components matching the category filter",
     "otherAccountComponents": "Other retained account components",
-    "accountComponents": "Retained account components"
+    "accountComponents": "Retained account components",
+    "trend": {
+      "title": "Time trend",
+      "metric": "Trend metric",
+      "basis": "Closed-day reconstruction from one local capture. Gaps and scope/basis changes break lines. This is not investment return or an as-known archive.",
+      "onePoint": "One available date; insufficient history to show a trend.",
+      "noCompleteTotals": "No complete totals for this metric. Inspect unknown values and reasons in the table.",
+      "actionsNote": "Selecting a date or metric is local. Setting A/B captures the entire range again. Opening a day explicitly exits trend mode and captures a new single-day overview.",
+      "actions": "Date actions",
+      "componentCounts": "Known amounts: assets {{assetKnown}}/{{assetTotal}}, liabilities {{debtKnown}}/{{debtTotal}} components. Counts are not value coverage percentages.",
+      "skippedDate": "This civil date does not exist in the household timezone. No value is projected.",
+      "basisChanged": "Valuation basis changed; the line is disconnected.",
+      "setA": "Set as A · Recapture range",
+      "setB": "Set as B · Recapture range",
+      "openDay": "Open day · New capture",
+      "rangeHint": "Select an explicit forward range of 1–31 closed civil dates. Current captures and reverse comparisons remain available in the comparison views, without a trend series.",
+      "enableNote": "Enabling replaces the overview and series together with one new capture. This first version enforces a local input budget; large retained profiles can be rejected, without truncating facts.",
+      "from": "Trend A · First closed date",
+      "to": "Trend B · Last closed date",
+      "enable": "Enable trend · New capture",
+      "budgetError": "The local trend input/computation budget was exceeded. Date comparisons remain available; no partial series was substituted."
+    }
   }
 }

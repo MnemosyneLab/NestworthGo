@@ -1323,7 +1323,8 @@
     "view": {
       "allocation": "資產結構",
       "delta": "變化概覽",
-      "accounts": "帳戶明細"
+      "accounts": "帳戶明細",
+      "trend": "時間走勢"
     },
     "allocationCompare": "資產類別對比",
     "assetOnly": "僅資產；原幣別金額已折合本位幣",
@@ -1447,6 +1448,27 @@
     "outsideCategoryFilter": "不屬於目前類別篩選",
     "matchingComponents": "匹配類別篩選的子項",
     "otherAccountComponents": "帳戶其餘保留子項",
-    "accountComponents": "帳戶保留子項"
+    "accountComponents": "帳戶保留子項",
+    "trend": {
+      "title": "時間走勢",
+      "metric": "走勢指標",
+      "basis": "同一本地捕獲的結日重建。缺口及範圍或口徑變化會斷開連線；這不是投資收益或當時已知的存檔。",
+      "onePoint": "只有一個日期，歷史不足以展示走勢。",
+      "noCompleteTotals": "此指標沒有完整總額，請查看表中的未知值及原因。",
+      "actionsNote": "選擇日期或指標只影響本地顯示。設定 A/B 會重新捕獲整個區間；開啟單日會明確退出走勢模式並捕獲新的單日全景。",
+      "actions": "日期操作",
+      "componentCounts": "已知金額子項：資產 {{assetKnown}}/{{assetTotal}}，負債 {{debtKnown}}/{{debtTotal}}。項數不代表金額覆蓋百分比。",
+      "skippedDate": "家庭時區中不存在此民用日期，不投影金額。",
+      "basisChanged": "估值口徑有變化，連線已斷開。",
+      "setA": "設為 A · 重捕獲區間",
+      "setB": "設為 B · 重捕獲區間",
+      "openDay": "開啟單日 · 新捕獲",
+      "rangeHint": "請選擇 1–31 個正向結日的明確區間。目前捕獲和反向比較仍可在比較視圖中使用，不產生走勢序列。",
+      "enableNote": "啟用後，全景與序列將由同一新捕獲共同替換。首版設有本地輸入預算；較大的保留檔案可能被明確拒絕，不會截斷事實。",
+      "from": "走勢 A · 首個結日",
+      "to": "走勢 B · 最後結日",
+      "enable": "啟用走勢 · 新捕獲",
+      "budgetError": "本地走勢輸入或計算超過預算。仍可使用雙期比較，不會替換為截斷序列。"
+    }
   }
 }

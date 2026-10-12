@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/shopspring/decimal"
+import (
+	"context"
+
+	"github.com/shopspring/decimal"
+)
 
 func replayMoneyKey(target EffectTarget, account AccountID, currency CurrencyCode) string {
 	return string(target) + ":" + account.String() + ":" + currency.String()
@@ -10,8 +14,16 @@ func replayMoneyKey(target EffectTarget, account AccountID, currency CurrencyCod
 // changes. Only their derived delta changes; recorded observation values remain
 // intact. Subsequent undo records invert the recalculated delta as well.
 func ReplayMoneyEffects(activities []Activity, components []HistoryOriginComponent) ([]Activity, error) {
+	return ReplayMoneyEffectsContext(context.Background(), activities, components)
+}
+
+// The bounded read-only trend can interrupt replay as well as SQL hydration.
+func ReplayMoneyEffectsContext(ctx context.Context, activities []Activity, components []HistoryOriginComponent) ([]Activity, error) {
 	balances := map[string]decimal.Decimal{}
 	for _, c := range components {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if c.AccountID == nil || c.Amount == nil {
 			continue
 		}
@@ -24,6 +36,9 @@ func ReplayMoneyEffects(activities []Activity, components []HistoryOriginCompone
 	result := make([]Activity, 0, len(activities))
 	prior := map[ActivityID][]ActivityEffect{}
 	for _, a := range activities {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if a.RecordedEffects == nil {
 			a.RecordedEffects = append([]ActivityEffect{}, a.Effects...)
 		}
@@ -51,6 +66,9 @@ func ReplayMoneyEffects(activities []Activity, components []HistoryOriginCompone
 		}
 		effects := make([]ActivityEffect, 0, len(a.Effects))
 		for _, e := range a.Effects {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			if e.Money != nil && e.AccountID != nil {
 				key := replayMoneyKey(e.Target, *e.AccountID, e.Money.Currency())
 				if a.Kind == ActivityValueUpdate {

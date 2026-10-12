@@ -76,7 +76,7 @@ export interface HistoricalCategoryFilter {
 
 export interface HistoricalNavigationContext {
   compareTo?: string;
-  view?: "allocation" | "delta" | "accounts";
+  view?: "allocation" | "delta" | "accounts" | "trend";
   categoryFilter?: HistoricalCategoryFilter;
   changesOnly?: boolean;
   categoryRole?: "asset" | "liability";
