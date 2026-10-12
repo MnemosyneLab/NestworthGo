@@ -68,8 +68,25 @@ export type LiquidityFocus =
   | { kind: "policy"; sourceRef: SourceRefDTO }
   | { kind: "reservations"; sourceRef?: SourceRefDTO; reservationId?: string };
 
+export interface HistoricalCategoryFilter {
+  role: "asset" | "liability";
+  dimension: "byClass" | "byCurrency";
+  key: string;
+}
+
+export interface HistoricalNavigationContext {
+  compareTo?: string;
+  view?: "allocation" | "delta" | "accounts";
+  categoryFilter?: HistoricalCategoryFilter;
+  changesOnly?: boolean;
+  categoryRole?: "asset" | "liability";
+  dimension?: "byClass" | "byCurrency";
+  expanded?: string[];
+  fullTable?: boolean;
+}
+
 export type NavigationTarget =
-  | { page: "historical-overview"; date?: string }
+  | { page: "historical-overview"; date?: string; historical?: HistoricalNavigationContext }
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "history"; filters?: HistoryNavigationFilters }

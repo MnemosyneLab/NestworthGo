@@ -1304,7 +1304,11 @@
     "currencyMismatch": "本位幣不一致，無法繪製共用金額圖。",
     "viewEvidence": "查看帳戶依據",
     "views": "歷史檢視",
-    "view": { "allocation": "資產結構", "delta": "變化概覽", "accounts": "帳戶明細" },
+    "view": {
+      "allocation": "資產結構",
+      "delta": "變化概覽",
+      "accounts": "帳戶明細"
+    },
     "allocationCompare": "資產類別對比",
     "assetOnly": "僅資產；原幣別金額已折合本位幣",
     "valuedOnly": "A 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
@@ -1362,6 +1366,71 @@
       "fx_rate": "缺少匯率",
       "account_value": "缺少帳戶餘額紀錄",
       "history_coverage": "歷史行情涵蓋範圍尚未驗證"
-    }
+    },
+    "categoryCompare": "分類比較",
+    "categoryRole": "資產負債側",
+    "unclassified": "未分類",
+    "percentagePoints": "{{value}} 個百分點",
+    "shareDelta": "占比變化 · B − A（百分點）",
+    "debtCategoryNote": "負債分類展示帳面餘額變化，並非淨資產影響或收益。占比以負債餘額為分母。",
+    "noCategories": "兩側均無保留的分類記錄。",
+    "noComparableCategories": "分類金額不可用，請查看下方保留的狀態與證據。",
+    "categoryMissing": "{{count}} 個已納入葉子項缺少估值輸入",
+    "comparability": "可比性",
+    "comparable": "可比",
+    "returnToCategories": "返回分類",
+    "returnToAccount": "返回 {{name}}",
+    "openHistory": "離開全景 · 查看交易記錄",
+    "leaveCaptureNote": "交易記錄是獨立的目前讀取；返回後恢復此凍結捕獲。",
+    "historyClosedRangeNote": "交易記錄範圍截至最近結日。目前捕獲也可能包含今日活動；返回後恢復此凍結捕獲。",
+    "sourceKey": "記錄的來源鍵",
+    "observationId": "觀測 ID",
+    "usedRate": "使用的匯率觀測",
+    "usedPrice": "使用的單位價格",
+    "observationKind": "觀測類型",
+    "priceBasis": "記錄的價格口徑",
+    "timestampBasis": "記錄的時間口徑",
+    "sourcePolicy": "記錄的來源策略",
+    "archivedExplanation": "本側已封存；保留供檢查，不納入總額。",
+    "excludedExplanation": "本側未納入總額；仍可檢查保留餘額。",
+    "zeroPositionEvidence": "零數量無需價格觀測；此持倉不補造價格。",
+    "identityFX": "原幣與本位幣相同，無需匯率換算。",
+    "rawBalanceDelta": "原始餘額差並非納入範圍變化的影響。",
+    "captureBasis": "捕獲與估值口徑",
+    "resolverPolicy": "解析策略",
+    "inputGeneration": "捕獲的輸入版本",
+    "categoryReason": {
+      "complete": "完整",
+      "partial": "估值輸入缺失，完整分類金額未知",
+      "absent": "本側無保留的分類記錄，並非零",
+      "excluded": "保留的分類未納入總額",
+      "existence_changed": "A/B 保留的成員集合不同",
+      "scope_changed": "A/B 納入範圍有變化",
+      "currency_mismatch": "A/B 本位幣不同",
+      "share_denominator_unavailable": "占比比較要求兩側餘額完整且非負、總額為正",
+      "membership_changed": "A/B 分類成員有變化"
+    },
+    "shareBasis": {
+      "total": "占總額",
+      "known_subtotal": "僅占已知小計",
+      "unavailable": "不可用"
+    },
+    "fxOperation": {
+      "multiply": "原幣金額乘以此記錄匯率。",
+      "divide": "原幣金額除以此記錄匯率。"
+    },
+    "observationKinds": {
+      "daily_close": "日收盤觀測",
+      "daily_reference": "日參考觀測",
+      "latest": "最新觀測",
+      "manual": "手動觀測"
+    },
+    "zeroAvailableCategories": "可用分類金額為零；不可用的一側仍保留為未知。",
+    "categoryComparisonBasis": "按目前分類彙總。占比使用所選資產或負債總額；部分占比僅表示各側已知小計。",
+    "detailCategoryScope": "類別篩選不會改變已捕獲的帳戶金額。下方分別列出匹配及其餘保留子項。",
+    "outsideCategoryFilter": "不屬於目前類別篩選",
+    "matchingComponents": "匹配類別篩選的子項",
+    "otherAccountComponents": "帳戶其餘保留子項",
+    "accountComponents": "帳戶保留子項"
   }
 }
