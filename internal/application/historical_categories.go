@@ -114,7 +114,7 @@ func historicalCategorySide(result HistoricalOverviewResult, role, dimension, ke
 	cell := HistoricalCategoryCell{Status: "absent", ShareBasis: "unavailable", MissingRowKeys: []string{}}
 	known, total := decimal.Zero, decimal.Zero
 	roleComplete, nonnegative := true, true
-	found := false
+	found, hasKnownAmount := false, false
 	for _, row := range result.Rows {
 		if row.Kind == "account" || row.Role != role {
 			continue
@@ -153,6 +153,7 @@ func historicalCategorySide(result HistoricalOverviewResult, role, dimension, ke
 			total = total.Add(amount)
 			if matches {
 				known = known.Add(amount)
+				hasKnownAmount = true
 			}
 		}
 	}
@@ -163,14 +164,16 @@ func historicalCategorySide(result HistoricalOverviewResult, role, dimension, ke
 		cell.Status = "excluded"
 		return cell
 	}
-	cell.KnownAmount = historicalString(known.String())
+	if hasKnownAmount {
+		cell.KnownAmount = historicalString(known.String())
+	}
 	cell.Status = "complete"
 	if len(cell.MissingRowKeys) > 0 {
 		cell.Status = "partial"
 	} else {
 		cell.Amount = historicalString(known.String())
 	}
-	if nonnegative && total.IsPositive() {
+	if hasKnownAmount && nonnegative && total.IsPositive() {
 		cell.Share = historicalString(known.Mul(decimal.NewFromInt(100)).Div(total).Round(2).String())
 		cell.ShareBasis = "known_subtotal"
 		if roleComplete {

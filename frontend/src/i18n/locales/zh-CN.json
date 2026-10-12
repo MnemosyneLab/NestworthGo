@@ -1426,6 +1426,11 @@
       "manual": "手工观测"
     },
     "zeroAvailableCategories": "可用分类金额为零；不可用的一侧仍保留为未知。",
-    "categoryComparisonBasis": "按当前分类汇总。占比使用所选资产或负债总额；部分占比仅表示各侧已知小计。"
+    "categoryComparisonBasis": "按当前分类汇总。占比使用所选资产或负债总额；部分占比仅表示各侧已知小计。",
+    "detailCategoryScope": "账户金额包括全部保留的子项。下方分别列出匹配及其余子项；类别筛选不会重新计算这些金额。",
+    "outsideCategoryFilter": "不属于当前类别筛选",
+    "matchingComponents": "匹配类别筛选的子项",
+    "otherAccountComponents": "账户其余保留子项",
+    "accountComponents": "账户保留子项"
   }
 }

@@ -179,12 +179,13 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     for (const row of data?.rows ?? []) if (row.parentKey) index.set(row.parentKey, [...(index.get(row.parentKey) ?? []), row]);
     return index;
   }, [data]);
+  const matchesCategory = (row: HistoricalOverviewRow) => !categoryFilter || row.role === categoryFilter.role && [row.left, row.right].some(cell =>
+    (categoryFilter.dimension === "byClass" ? cell?.assetClass : cell?.currency) === categoryFilter.key);
+  const detailChildren = childrenByParent.get(selected?.key ?? "") ?? [];
   const accounts = data?.rows?.filter(row => {
     if (row.kind !== "account" || (changesOnly && data.right && !row.changed)) return false;
     if (!categoryFilter) return true;
-    const matches = (item: HistoricalOverviewRow) => [item.left, item.right].some(cell => item.role === categoryFilter.role &&
-      (categoryFilter.dimension === "byClass" ? cell?.assetClass : cell?.currency) === categoryFilter.key);
-    return (childrenByParent.get(row.key) ?? []).some(matches);
+    return (childrenByParent.get(row.key) ?? []).some(matchesCategory);
   }) ?? [];
   const filterCategory = (filter: HistoricalCategoryFilter, trigger?: HTMLButtonElement) => {
     categoryReturn.current = { scroll: document.getElementById("main-content")?.scrollTop ?? 0, focusId: trigger?.id ?? "" };
@@ -322,8 +323,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                     {data.right && <><td className="p-3"><CellValue cell={account.right} currency={data.right.currency} /></td><td className="p-3">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</td></>}
                   </tr>
                   {expanded.has(account.key) && (childrenByParent.get(account.key) ?? []).filter(row =>
-                    (!changesOnly || !data.right || row.changed) && (!categoryFilter || [row.left, row.right].some(cell => row.role === categoryFilter.role &&
-                      (categoryFilter.dimension === "byClass" ? cell?.assetClass : cell?.currency) === categoryFilter.key)),
+                    (!changesOnly || !data.right || row.changed) && matchesCategory(row),
                   ).map(row => <tr key={row.key} className="border-t border-border/60">
                     <th scope="row" data-account-column className="sticky left-0 z-10 max-w-52 bg-card py-3 pl-12 pr-3 text-left font-normal">
                       <Button variant="link" className="h-auto whitespace-normal [overflow-wrap:anywhere] p-0 text-left" onClick={event => openDetail(row.key, event.currentTarget)}>{rowLabel(row, t)}</Button>
@@ -348,7 +348,15 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
             </SheetHeader>
             {selected && <>
               {navigation && selected.accountId && <div className="flex flex-wrap gap-2"><Button id="historical-open-history" variant="outline" onClick={() => navigation.open({ page: "history", filters: { accountId: selected.accountId, instrumentId: selected.instrumentId || undefined, from: data.right && !data.right.current && data.right.date < data.left.date ? data.right.date : data.left.date, to: data.right?.current ? data.lastClosedDate : data.right && data.right.date > data.left.date ? data.right.date : data.left.date } })}>{t("historicalOverview.openHistory")}</Button><p className="text-xs text-muted-foreground">{t(data.right?.current ? "historicalOverview.historyClosedRangeNote" : "historicalOverview.leaveCaptureNote")}</p></div>}
-              {selected.kind === "account" && (childrenByParent.get(selected.key) ?? []).length > 0 && <div className="flex flex-wrap gap-2">{(childrenByParent.get(selected.key) ?? []).map(row => <Button key={row.key} size="sm" variant="outline" onClick={() => setSelectedKey(row.key)}>{rowLabel(row, t)}</Button>)}</div>}
+              {categoryFilter && <div className="space-y-2"><Badge variant="outline">{t("historicalOverview.filteredCategory", { category: categoryFilter.key })}</Badge>{selected.kind === "account" && <p className="text-xs text-muted-foreground">{t("historicalOverview.detailCategoryScope")}</p>}{selected.kind !== "account" && !matchesCategory(selected) && <Badge variant="warning">{t("historicalOverview.outsideCategoryFilter")}</Badge>}</div>}
+              {selected.kind === "account" && detailChildren.length > 0 && (categoryFilter ? [true, false] : [true]).map(matched => {
+                const rows = categoryFilter ? detailChildren.filter(row => matchesCategory(row) === matched) : detailChildren;
+                const title = t(matched ? "historicalOverview.matchingComponents" : "historicalOverview.otherAccountComponents");
+                return rows.length > 0 && <section key={String(matched)} aria-label={categoryFilter ? title : t("historicalOverview.accountComponents")}>
+                  {categoryFilter && <h3 className="mb-2 text-sm font-semibold">{title}</h3>}
+                  <div className="flex flex-wrap gap-2">{rows.map(row => <Button key={row.key} size="sm" variant="outline" onClick={() => setSelectedKey(row.key)}>{rowLabel(row, t)}</Button>)}</div>
+                </section>;
+              })}
               {parent && <Button variant="outline" size="sm" onClick={() => setSelectedKey(parent.key)}>{t("historicalOverview.returnToAccount", { name: parent.name })}</Button>}
               <CellDetail cell={selected.left} state={data.left} timezone={data.timezone} />
               {data.right && <>

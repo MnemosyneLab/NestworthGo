@@ -28,14 +28,19 @@ percentage points. A missing side, incomplete valuation or changed inclusion
 scope can make a comparison unavailable. Its reason remains visible. Shares
 marked **of known subtotal only** describe valued components; missing components
 have unknown value. These shares cannot be compared as a complete allocation.
-A zero or negative denominator does not produce a percentage. Expand **Full
+A category with no known component amounts has an unknown subtotal and no
+share; an observed zero remains distinct. A zero or negative denominator does
+not produce a percentage. Expand **Full
 source data table** to inspect every category, including zero and missing states.
 
 Select a category to inspect its accounts without changing the household totals.
 Use **Back to categories** to restore your position and selection. Account
 details default to all accounts; **Only changed rows** is an explicit filter. Open
 an account's read-only detail, then select its cash/holding child or return to
-the parent. Details show exact values and the applied price/FX observation's
+the parent. When a category filter is active, details group matching and other
+retained components explicitly. Account amounts still include the full captured
+account; opening an other component labels it outside the filter. The source
+table names missing components with stable identities alongside them. Details show exact values and the applied price/FX observation's
 available source, date, rate direction and valuation basis. Missing inputs say
 which currency or instrument is affected. Missing provenance is left blank;
 there is no replacement with a current quote.

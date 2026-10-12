@@ -688,3 +688,30 @@ it("uses explicit identity and ordered dates for a History navigation, keeping c
   expect(open).toHaveBeenCalledWith({ page: "history", filters: { accountId: "explicit-account", instrumentId: "explicit-instrument", from: "2026-08-01", to: "2026-08-09" } });
   expect(read).toHaveBeenCalledTimes(1);
 });
+
+it.each(["table", "card"])("groups category-matching and full-account context in the %s detail path", async path => {
+  const data = result("2026-08-01", "2026-08-09");
+  const usd = { ...data.rows![1], key: "usd", name: "USD", left: cell("10", { currency: "USD" }), right: cell("10", { currency: "USD" }) };
+  data.rows!.push(usd);
+  read.mockResolvedValue(data);
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ compareTo: "2026-08-09", view: "accounts", categoryFilter: { role: "asset", dimension: "byCurrency", key: "CNY" }, expanded: ["bank"] }} onExit={vi.fn()} /></QueryClientProvider>);
+  const trigger = await screen.findByRole("button", { name: path === "table" ? "Bank" : i18n.t("historicalOverview.openCard", { name: "Bank" }) });
+  await userEvent.click(trigger);
+  const dialog = await screen.findByRole("dialog");
+  const cnyLabel = i18n.t("historicalOverview.cashCurrency", { currency: "CNY" });
+  const usdLabel = i18n.t("historicalOverview.cashCurrency", { currency: "USD" });
+  const matched = within(dialog).getByRole("region", { name: i18n.t("historicalOverview.matchingComponents") });
+  const other = within(dialog).getByRole("region", { name: i18n.t("historicalOverview.otherAccountComponents") });
+  expect(within(matched).getByRole("button", { name: cnyLabel })).toBeInTheDocument();
+  expect(within(matched).queryByRole("button", { name: usdLabel })).not.toBeInTheDocument();
+  expect(within(other).getByRole("button", { name: usdLabel })).toBeInTheDocument();
+  expect(dialog).toHaveTextContent(i18n.t("historicalOverview.detailCategoryScope"));
+  await userEvent.click(within(other).getByRole("button", { name: usdLabel }));
+  expect(screen.getByRole("dialog")).toHaveTextContent(i18n.t("historicalOverview.outsideCategoryFilter"));
+  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Back to Bank" }));
+  expect(within(within(screen.getByRole("dialog")).getByRole("region", { name: i18n.t("historicalOverview.matchingComponents") })).getByRole("button", { name: cnyLabel })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(trigger).toHaveFocus();
+});

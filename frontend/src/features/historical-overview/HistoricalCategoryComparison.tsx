@@ -1,4 +1,4 @@
-import { Fragment, useRef } from "react";
+import { Fragment, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
   onFilter: (filter: HistoricalCategoryFilter, trigger: HTMLButtonElement) => void;
 }) {
   const { t } = useTranslation();
+  const rowsByKey = useMemo(() => new Map((data.rows ?? []).map(row => [row.key, row])), [data.rows]);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   useThemeVersion();
   const theme = chartTheme();
@@ -35,6 +36,13 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
   const points = (value: string | null) => value == null ? t("historicalOverview.notComparable") : t("historicalOverview.percentagePoints", { value: `${compareCanonical(value, "0") > 0 ? "+" : ""}${value}` });
   const reason = (value: string) => t(`historicalOverview.categoryReason.${value}`);
   const cellText = (cell: HistoricalCategoryCell, side: "left" | "right") => cell.amount == null ? reason(cell.status) : money(cell.amount, false, data[side]?.currency ?? currency);
+  const knownSubtotal = (cell: HistoricalCategoryCell, side: "left" | "right") => cell.knownAmount == null ? t("historicalOverview.unknown") : money(cell.knownAmount, false, data[side]?.currency ?? currency);
+  const missingRows = (cell: HistoricalCategoryCell) => (cell.missingRowKeys ?? []).map(key => {
+    const row = rowsByKey.get(key);
+    const parent = rowsByKey.get(row?.parentKey ?? "");
+    const name = row?.kind === "cash" ? t("historicalOverview.cashCurrency", { currency: row.name }) : row?.name;
+    return <li key={key} data-row-key={key} title={key}>{parent?.name && parent.name !== name ? `${parent.name} · ` : ""}{name || key}{name && <span className="ml-1 text-xs text-muted-foreground">({key})</span>}</li>;
+  });
   const shareText = (cell: HistoricalCategoryCell) => cell.share == null ? "—" : `${cell.share}% · ${t(`historicalOverview.shareBasis.${cell.shareBasis}`)}`;
   const openCategory = (item: HistoricalCategoryComparison, trigger: HTMLButtonElement) => onFilter({ role, dimension, key: item.key }, trigger);
   const option: EChartsOption = {
@@ -77,11 +85,11 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
         <div><dt>{t("historicalOverview.deltaBA")}</dt><dd className="num overflow-x-auto whitespace-nowrap">{mismatch ? t("historicalOverview.notComparable") : money(item.amountChange, true)}</dd></div>
         <div><dt>{t("historicalOverview.shareDelta")}</dt><dd>{mismatch ? t("historicalOverview.notComparable") : points(item.shareChangePp)}</dd></div>
       </dl>
-      {(["left", "right"] as const).map(side => item[side].status === "partial" && <p key={side} className="mt-2 text-xs text-warning-foreground">{side === "left" ? "A" : "B"} · {t("historicalOverview.knownSubtotal")}: {money(item[side].knownAmount, false, data[side]?.currency ?? currency)} · {t("historicalOverview.categoryMissing", { count: (item[side].missingRowKeys ?? []).length })}</p>)}
+      {(["left", "right"] as const).map(side => item[side].status === "partial" && <p key={side} className="mt-2 text-xs text-warning-foreground">{side === "left" ? "A" : "B"} · {t("historicalOverview.knownSubtotal")}: {knownSubtotal(item[side], side)} · {t("historicalOverview.categoryMissing", { count: (item[side].missingRowKeys ?? []).length })}</p>)}
       <div className="mt-2 flex flex-wrap gap-1">{[...new Set([...(item.amountReasons ?? []), ...(item.shareReasons ?? [])])].map(code => <Badge key={code} variant="warning">{reason(code)}</Badge>)}</div>
     </li>)}</ul>
     <details className="mt-3" open={!safe || allKnownZero || knownValues.length === 0}><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary>
-      <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t(`historicalOverview.${dimension}`)}</th><th scope="col">{sideLabel("left")} · {currency}</th><th scope="col">A · %</th><th scope="col">{sideLabel("right")} · {data.right?.currency}</th><th scope="col">B · %</th><th scope="col">{t("historicalOverview.deltaBA")}</th><th scope="col">{t("historicalOverview.shareDelta")}</th><th scope="col">{t("historicalOverview.comparability")}</th></tr></thead><tbody>{items.map(item => <tr key={item.key} className="border-t border-border"><th scope="row">{label(item.key)}</th>{(["left", "right"] as const).map(side => <Fragment key={side}><td className="p-2">{cellText(item[side], side)}{item[side].status === "partial" && <> · {t("historicalOverview.knownSubtotal")}: {money(item[side].knownAmount, false, data[side]?.currency ?? currency)} · {(item[side].missingRowKeys ?? []).join(", ")}</>}</td><td className="p-2">{shareText(item[side])}</td></Fragment>)}<td className="num p-2">{mismatch ? t("historicalOverview.notComparable") : money(item.amountChange, true)}</td><td className="p-2">{mismatch ? t("historicalOverview.notComparable") : points(item.shareChangePp)}</td><td className="p-2">{mismatch ? t("historicalOverview.currencyMismatch") : [...new Set([...(item.amountReasons ?? []), ...(item.shareReasons ?? [])])].map(reason).join(" · ") || t("historicalOverview.comparable")}</td></tr>)}</tbody></table></div>
+      <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t(`historicalOverview.${dimension}`)}</th><th scope="col">{sideLabel("left")} · {currency}</th><th scope="col">A · %</th><th scope="col">{sideLabel("right")} · {data.right?.currency}</th><th scope="col">B · %</th><th scope="col">{t("historicalOverview.deltaBA")}</th><th scope="col">{t("historicalOverview.shareDelta")}</th><th scope="col">{t("historicalOverview.comparability")}</th></tr></thead><tbody>{items.map(item => <tr key={item.key} className="border-t border-border"><th scope="row">{label(item.key)}</th>{(["left", "right"] as const).map(side => <Fragment key={side}><td className="p-2">{cellText(item[side], side)}{item[side].status === "partial" && <> · {t("historicalOverview.knownSubtotal")}: {knownSubtotal(item[side], side)}<ul className="mt-1">{missingRows(item[side])}</ul></>}</td><td className="p-2">{shareText(item[side])}</td></Fragment>)}<td className="num p-2">{mismatch ? t("historicalOverview.notComparable") : money(item.amountChange, true)}</td><td className="p-2">{mismatch ? t("historicalOverview.notComparable") : points(item.shareChangePp)}</td><td className="p-2">{mismatch ? t("historicalOverview.currencyMismatch") : [...new Set([...(item.amountReasons ?? []), ...(item.shareReasons ?? [])])].map(reason).join(" · ") || t("historicalOverview.comparable")}</td></tr>)}</tbody></table></div>
     </details>
   </section>;
 }

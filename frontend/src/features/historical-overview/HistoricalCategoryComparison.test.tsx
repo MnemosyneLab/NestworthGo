@@ -1,13 +1,19 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
+import * as echarts from "echarts/core";
+import { BarChart } from "echarts/charts";
+import { GridComponent } from "echarts/components";
+import { SVGRenderer } from "echarts/renderers";
+import type { EChartsOption } from "@/components/charts/EChart";
 import i18n from "@/i18n";
 import { HistoricalCategoryComparisonView } from "./HistoricalCategoryComparison";
 import type { HistoricalCategoryCell, HistoricalCategoryComparison, HistoricalOverviewResult } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
-const chart = vi.hoisted(() => ({ options: [] as unknown[] }));
+const chart = vi.hoisted(() => ({ options: [] as unknown[], select: null as ((name: string) => void) | null }));
 vi.mock("@/components/charts/EChart", () => ({ EChart: ({ option, ariaLabel, onSelectName }: { option: { series: Array<{ data: Array<{ name: string } | null> }> }; ariaLabel: string; onSelectName: (key: string) => void }) => {
   chart.options.push(option);
+  chart.select = onSelectName;
   return <div role="img" aria-label={ariaLabel}>{option.series[1].data.map(item => item && <button key={item.name} onClick={() => onSelectName(item.name)}>chart-{item.name}</button>)}</div>;
 } }));
 const cell = (amount: string | null, share: string | null, patch: Partial<HistoricalCategoryCell> = {}): HistoricalCategoryCell => ({ amount, share, knownAmount: amount, status: "complete", shareBasis: "total", includedCount: 1, missingRowKeys: [], ...patch });
@@ -83,4 +89,40 @@ it("does not describe a zero with an absent opposite side as known zero on both 
   expect(screen.getByText("Available category amounts are zero; unavailable sides remain unknown.")).toBeInTheDocument();
   expect(screen.queryByText(/zero on both sides/)).not.toBeInTheDocument();
   expect(screen.getByRole("table")).toBeVisible();
+});
+
+
+it.each(["en", "zh-CN", "zh-TW"])("keeps stable category identity in actual installed ECharts params with translated axis labels (%s)", async locale => {
+  await i18n.changeLanguage(locale);
+  echarts.use([BarChart, GridComponent, SVGRenderer]);
+  const onFilter = show(result([category()]));
+  const option = chart.options[chart.options.length - 1] as EChartsOption & { tooltip: { formatter: (point: unknown) => string }; yAxis: { data: string[] } };
+  const instance = echarts.init(null, undefined, { renderer: "svg", ssr: true, width: 500, height: 300 });
+  try {
+    instance.setOption({ ...option, tooltip: undefined });
+    // Inspect the installed renderer's event-param builder, not a hand-written event.
+    const runtime = instance as unknown as { getModel: () => { getSeriesByIndex: (index: number) => { getDataParams: (index: number) => { name: string; data: unknown } } } };
+    const point = runtime.getModel().getSeriesByIndex(1).getDataParams(0);
+    expect(option.yAxis.data[0]).toBe(i18n.t("enum.cash"));
+    expect(point.name).toBe("cash");
+    expect(point.data).toMatchObject({ name: "cash" });
+    expect(option.tooltip.formatter(point)).toContain("100 CNY");
+    act(() => chart.select?.(point.name));
+    expect(onFilter.mock.calls[0][0]).toEqual({ role: "asset", dimension: "byClass", key: "cash" });
+  } finally {
+    instance.dispose();
+  }
+});
+
+it("shows readable missing account/component names with supplemental stable identities", async () => {
+  await i18n.changeLanguage("en");
+  const data = result([category({ left: cell(null, null, { status: "partial", knownAmount: null, shareBasis: "unavailable", missingRowKeys: ["holding-a"] }), amountChange: null, shareChangePp: null, amountReasons: ["partial"], shareReasons: ["partial"] })]);
+  data.rows = [{ key: "parent", parentKey: "", name: "Synthetic brokerage", kind: "account" }, { key: "holding-a", parentKey: "parent", name: "Unpriced ETF", kind: "holding" }] as typeof data.rows;
+  show(data);
+  await userEvent.click(screen.getByText("Full source data table"));
+  const entry = within(screen.getByRole("table")).getByTitle("holding-a");
+  expect(entry).toHaveTextContent("Synthetic brokerage · Unpriced ETF");
+  expect(entry).toHaveTextContent("(holding-a)");
+  expect(entry).toHaveAttribute("data-row-key", "holding-a");
+  expect(screen.getByRole("table")).toHaveTextContent(`${i18n.t("historicalOverview.knownSubtotal")}: ${i18n.t("historicalOverview.unknown")}`);
 });

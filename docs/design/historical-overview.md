@@ -41,7 +41,8 @@ Classification uses current metadata. Each side reports:
 
 - `status`: complete, partial, excluded or absent;
 - nullable complete `amount`, separate `knownAmount`, included leaf count and
-  missing leaf keys;
+  missing leaf keys. `knownAmount` remains null when no included member has a
+  parsed base amount; a retained actual zero is still a known amount;
 - nullable percent-string `share` and `shareBasis`: total, known_subtotal or
   unavailable. Liability shares have their own liability denominator.
 
@@ -53,7 +54,8 @@ zero-filled. Confirmed zero leaves remain complete zero values.
 
 Shares use the existing backend allocation convention (percent rounded to two
 places). A share is only available for nonnegative included balances and a
-positive side denominator. A partial side's share describes its known subtotal;
+positive side denominator and at least one parsed amount in that category. A
+partial side's share describes its known subtotal;
 it never becomes a whole-state allocation claim. `shareChangePp` subtracts the
 two backend share strings in Go and is only available when the monetary
 comparison is eligible and both role denominators are complete. Incomplete
@@ -76,10 +78,15 @@ FX; these explanations do not synthesize an observation.
 
 Rows now carry explicit account/holding/instrument IDs. Category controls drill
 into both sides' matching leaves, including retained excluded and incomplete
-items. They leave household totals unchanged. Returning to categories restores
+items. The source table presents missing account/component names with their
+stable row keys as supplemental identity. Category filters leave household
+totals unchanged. Returning to categories restores
 the dimension, asset/debt choice, position and keyboard trigger. Account detail
-provides child/parent navigation, including in narrow card layouts. Navigation
-can initialize A/B, view, filter, expansion and table preferences explicitly.
+provides child/parent navigation, including in narrow card layouts. With a
+category filter active, the complete account context remains available in
+explicit matching/other component groups. A scope note says the captured account
+amounts include all components, and navigating to another component labels it
+as outside the active filter. Navigation can initialize A/B, view, filter, expansion and table preferences explicitly.
 
 The explicit transaction-history action leaves the read-only panorama and uses
 projected identities and an ordered date range. For current comparisons that

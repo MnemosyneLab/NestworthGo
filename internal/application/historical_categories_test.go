@@ -296,3 +296,28 @@ func TestHistoricalCategoryCurrencyMembershipChangeNotHiddenInAggregate(t *testi
 	c := categoryAt(t, r, "asset", "byClass", "cash")
 	wantOverviewAmount(t, c.AmountChange, "2")
 }
+
+func TestHistoricalCategoryAllMissingIsNotObservedZero(t *testing.T) {
+	t.Parallel()
+	missing := categoryLeaf("missing", "asset", "stock", "USD", "", "")
+	missing.Left.Complete = false
+	missing.Right.Complete = false
+	observed := categoryLeaf("observed", "asset", "cash", "CNY", "10", "10")
+	c := categoryAt(t, categoryResult(missing, observed), "asset", "byClass", "stock")
+	for _, side := range []HistoricalCategoryCell{c.Left, c.Right} {
+		if side.Status != "partial" || side.KnownAmount != nil || side.Amount != nil || side.Share != nil || side.ShareBasis != "unavailable" {
+			t.Fatalf("all-missing category became observed zero: %+v", side)
+		}
+	}
+	zero := categoryLeaf("zero", "asset", "stock", "USD", "0", "0")
+	c = categoryAt(t, categoryResult(zero, observed), "asset", "byClass", "stock")
+	wantOverviewAmount(t, c.Left.KnownAmount, "0")
+	wantOverviewAmount(t, c.Left.Amount, "0")
+	wantOverviewAmount(t, c.Left.Share, "0")
+	c = categoryAt(t, categoryResult(zero, missing, observed), "asset", "byClass", "stock")
+	wantOverviewAmount(t, c.Left.KnownAmount, "0")
+	wantOverviewAmount(t, c.Left.Share, "0")
+	if c.Left.Amount != nil || c.Left.ShareBasis != "known_subtotal" {
+		t.Fatalf("observed zero within partial category lost: %+v", c.Left)
+	}
+}
