@@ -250,16 +250,19 @@ only the unchanged ten-second computation-deadline error after ten seconds with
 an empty bundle. Other errors, input-budget rejection and partial results fail.
 The full-scale successful series result remains mandatory without instrumentation.
 
-The first representative full 288-test application 2/2 shard passed in 580.147
+The first LOCAL representative full 288-test application 2/2 shard passed in 580.147
 seconds with 1,000 race leaves, too close to the ten-minute limit. Account scale
 was then reduced only for race mode, retaining the variable-limit failure case.
 Final representative shard results are recorded in PR #57.
 
-The final full application 2/2 race shard selected the same 288 of 533 names and
+The final LOCAL full application 2/2 race shard selected the same 288 of 533 names and
 passed in 438.135 seconds using the CI selector and command, without `-short`
-or a timeout increase. Standalone/hydration race regressions passed separately
-in 5.965 seconds. Local Go uses 1.26.2 versus CI 1.26.0; application package
-selection and race command match CI, with no server-tag difference in that run.
+or a timeout increase. LOCAL standalone/hydration race regressions passed
+separately in 5.965 seconds. These are saved-cloud measurements, not GitHub CI
+durations; application package selection and the race command match CI, with no
+server tag in the local race run. A subsequent read-only toolchain check observed
+Go1.26.0 locally. The historical test logs do not record their Go version, so no
+historical toolchain version is asserted from those logs.
 
 Atlas's standalone `ListActivitiesUntil` concern also reproduced: its multiple
 database reads could combine an activity marker and a derived projection from
@@ -276,7 +279,7 @@ ties across the 256-record boundary. The regression failed before the fix,
 then passed three repeated normal runs and race validation. No unrelated
 repository interface or schema/provider changes are introduced.
 
-The final full non-race server-tag Go suite passed (application 70.993 seconds;
+The final LOCAL full non-race server-tag Go suite passed (application 70.993 seconds;
 SQLite 5.012 seconds), retaining the original full dense success assertions.
 Focused application/SQLite/API vet passed. Frontend and public DTOs are unchanged;
 frontend validation was not repeated for this test/read-transaction follow-up.
