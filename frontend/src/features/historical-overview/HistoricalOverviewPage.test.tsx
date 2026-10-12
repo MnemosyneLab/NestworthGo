@@ -12,7 +12,7 @@ const { read, origin } = vi.hoisted(() => ({ read: vi.fn(), origin: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { HistoricalOverview: read } }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: origin } }));
 
-function cell(value = "100", patch: Partial<HistoricalOverviewCell> = {}): HistoricalOverviewCell {
+function cell(value: string | null = "100", patch: Partial<HistoricalOverviewCell> = {}): HistoricalOverviewCell {
   return { status: "active", included: true, complete: true, currency: "CNY", nativeAmount: value, baseAmount: value, quantity: null, assetClass: "cash", manual: false, valueSourceAt: "2026-08-01T12:00:00Z", valueSourceId: "origin", price: null, fx: null, missing: [], ...patch };
 }
 
@@ -521,4 +521,106 @@ it("does not draw a shared amount axis for inconsistent base currencies", async 
   expect(within(overview).queryByRole("img")).not.toBeInTheDocument();
   expect(overview).toHaveTextContent("Base currencies differ");
   expect(screen.getByRole("region", { name: "Total change (right minus left)" })).toHaveTextContent("Base currencies differ");
+});
+
+it("does not show a phantom B valuation warning for a complete single day", async () => {
+  show(true);
+  const allocation = await screen.findByRole("region", { name: "Asset allocation" });
+  expect(within(allocation).getByRole("img")).toBeInTheDocument();
+  expect(allocation).not.toHaveTextContent("A shows valued assets only");
+  expect(allocation).not.toHaveTextContent("B shows valued assets only");
+});
+
+it("keeps a single-day asset composition complete when only debt valuation is missing", async () => {
+  const data = result();
+  data.left = { ...data.left, complete: false, liabilities: null, netWorth: null };
+  data.rows!.push({
+    key: "loan", parentKey: "", kind: "account", name: "Loan", role: "liability",
+    left: cell(null, { complete: false, missing: ["account_value"] }), right: null,
+    baseChange: null, nativeChange: null, quantityChange: null, changed: false,
+  }, {
+    key: "loan:balance", parentKey: "loan", kind: "balance", name: "Loan", role: "liability",
+    left: cell(null, { complete: false, missing: ["account_value"] }), right: null,
+    baseChange: null, nativeChange: null, quantityChange: null, changed: false,
+  });
+  read.mockResolvedValue(data);
+  show(true);
+  const allocation = await screen.findByRole("region", { name: "Asset allocation" });
+  expect(within(allocation).getByRole("img")).toBeInTheDocument();
+  expect(allocation).not.toHaveTextContent("A shows valued assets only");
+  expect(allocation).not.toHaveTextContent("B shows valued assets only");
+  expect(screen.getByRole("region", { name: "Total change (right minus left)" })).toHaveTextContent("Unknown");
+});
+
+it("shows the B valuation warning only when a real B side has missing assets", async () => {
+  read.mockImplementation((date: string, compare: string) => {
+    const data = result(date, compare);
+    if (data.right) {
+      data.right = { ...data.right, complete: false, assets: null, netWorth: null };
+      data.rows!.push({
+        key: "missing-stock", parentKey: "bank", kind: "holding", name: "Missing stock", role: "asset",
+        left: cell("5"), right: cell(null, { complete: false, missing: ["fx_rate"] }),
+        baseChange: null, nativeChange: null, quantityChange: null, changed: true,
+      });
+    }
+    return Promise.resolve(data);
+  });
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await userEvent.click(await screen.findByRole("tab", { name: "Asset composition" }));
+  const comparison = await screen.findByRole("region", { name: "Asset category comparison" });
+  expect(comparison).toHaveTextContent("B shows valued assets only; 1 included asset item(s) missing valuation.");
+  expect(comparison).not.toHaveTextContent("A shows valued assets only");
+});
+
+it("keeps zero-to-active assets and active-to-zero debt in their comparable balance charts", async () => {
+  read.mockImplementation((date: string, compare: string) => {
+    const data = result(date, compare);
+    if (compare) {
+      data.rows![0].left = cell("0", { status: "zero" });
+      data.rows![0].right = cell("100", { status: "active" });
+      data.rows![0].baseChange = "100";
+      data.rows!.push({ key: "loan", parentKey: "", kind: "account", name: "Loan", role: "liability",
+        left: cell("100", { status: "active" }), right: cell("0", { status: "zero" }),
+        baseChange: "-100", nativeChange: "-100", quantityChange: null, changed: true });
+    }
+    return Promise.resolve(data);
+  });
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  const changes = await screen.findByRole("region", { name: "Account balance changes" });
+  expect(within(changes).getByText("Showing 1 of 1 comparable accounts")).toBeInTheDocument();
+  expect(within(changes).getByRole("button", { name: "Bank" })).toBeInTheDocument();
+  await userEvent.click(within(changes).getByRole("button", { name: "Liabilities" }));
+  expect(within(changes).getByText("Showing 1 of 1 comparable accounts")).toBeInTheDocument();
+  expect(within(changes).getByRole("button", { name: "Loan" })).toBeInTheDocument();
+});
+
+it.each(["en", "zh-CN", "zh-TW"])("keeps negative sub-cent values exact in cards, cells and account changes (%s)", async locale => {
+  await i18n.changeLanguage(locale);
+  read.mockImplementation((date: string, compare: string) => {
+    const data = result(date, compare);
+    data.left = { ...data.left, assets: "-0.00012", netWorth: "-0.00012", knownAssets: "-0.00012", byClass: [{ key: "cash", amount: "-0.00012", share: "-100" }] };
+    data.rows![0].left = cell("-0.00012");
+    if (data.right && data.change) {
+      data.right = { ...data.right, assets: "-0.00024", netWorth: "-0.00024", knownAssets: "-0.00024" };
+      data.change = { ...data.change, assets: "-0.00012", netWorth: "-0.00012" };
+      data.rows![0].right = cell("-0.00024");
+      data.rows![0].baseChange = "-0.00012";
+    }
+    return Promise.resolve(data);
+  });
+  show(true);
+  await screen.findByRole("region", { name: i18n.t("historicalOverview.allocation") });
+  const metrics = screen.getByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  expect(within(metrics).getAllByTitle("-0.00012 CNY")[0]).toHaveTextContent("-0.00012 CNY");
+  await userEvent.click(screen.getByRole("tab", { name: i18n.t("historicalOverview.view.accounts") }));
+  const accounts = screen.getByRole("region", { name: i18n.t("historicalOverview.table") });
+  expect(within(accounts).getAllByTitle("-0.00012 CNY")[0]).toHaveTextContent("-0.00012 CNY");
+  await userEvent.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "date");
+  await userEvent.click(await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.delta") }));
+  const changes = await screen.findByRole("region", { name: i18n.t("historicalOverview.accountDeltaTitle") });
+  expect(changes).toHaveTextContent("-0.00012 CNY");
 });

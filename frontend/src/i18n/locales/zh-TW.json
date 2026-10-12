@@ -1310,6 +1310,8 @@
     "valuedOnly": "A 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
     "valuedOnlyB": "B 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
     "zeroKnownAssets": "已知資產為零，不顯示結構圖。",
+    "zeroBothAssets": "兩側已知類別金額均為零，不顯示對比圖。",
+    "comparisonLegend": "A/B 圖例",
     "valuedAssets": "已估值資產",
     "geometryUnavailable": "這些精確值無法可靠繪圖，請查看完整資料表。",
     "chartSummary": "資產金額單位為 {{currency}}；A/B 使用相同尺度，精確值見完整資料表。",

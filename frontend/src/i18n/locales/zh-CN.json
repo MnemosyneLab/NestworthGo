@@ -1310,6 +1310,8 @@
     "valuedOnly": "A 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
     "valuedOnlyB": "B 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
     "zeroKnownAssets": "已知资产为零，不显示结构图。",
+    "zeroBothAssets": "两侧已知类别金额均为零，不显示对比图。",
+    "comparisonLegend": "A/B 图例",
     "valuedAssets": "已估值资产",
     "geometryUnavailable": "这些精确值无法可靠绘图，请查看完整数据表。",
     "chartSummary": "资产金额单位为 {{currency}}；A/B 使用相同尺度，精确值见完整数据表。",

@@ -51,8 +51,12 @@ export function alignedAllocations(left: HistoricalOverviewAllocation[], right: 
 }
 
 export function comparableAccount(row: HistoricalOverviewRow): boolean {
-  return row.kind === "account" && Boolean(row.left && row.right && row.left.status === row.right.status && row.left.included && row.right.included &&
+  return row.kind === "account" && Boolean(row.left && row.right && comparableStatuses(row.left.status, row.right.status) && row.left.included && row.right.included &&
     row.left.complete && row.right.complete && row.left.baseAmount != null && row.right.baseAmount != null && row.baseChange != null);
+}
+
+export function comparableStatuses(left: string, right: string): boolean {
+  return left === right || ([left, right].every(status => status === "active" || status === "zero"));
 }
 
 export function accountChanges(rows: HistoricalOverviewRow[], role: "asset" | "liability") {

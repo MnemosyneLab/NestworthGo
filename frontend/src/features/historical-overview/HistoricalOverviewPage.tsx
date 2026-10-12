@@ -14,9 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { formatAmount } from "@/lib/money";
 import { HistoricalAccountDeltaView, HistoricalAllocationView, HistoricalCoverage, HistoricalMetricCards } from "./HistoricalPanorama";
-import { isZero } from "./historicalChartModel";
+import { formatHistoricalAmount } from "./historicalAmount";
 import type {
   HistoricalOverviewCell, HistoricalOverviewEvidence, HistoricalOverviewRow,
   HistoricalOverviewState,
@@ -27,11 +26,8 @@ function Amount({ value, currency, signed = false, exact = false }: {
 }) {
   const { t } = useTranslation();
   if (value == null) return <span>{t("historicalOverview.unknown")}</span>;
-  const sign = signed && !isZero(value) && !value.startsWith("-") ? "+" : "";
-  const display = !exact && !isZero(value) && formatAmount(value, currency) === formatAmount("0", currency)
-    ? `${value} ${currency}` : formatAmount(value, exact ? undefined : currency);
   return <span className="num whitespace-nowrap" title={`${value} ${currency}`}>
-    {sign}{display}{exact ? ` ${currency}` : ""}
+    {formatHistoricalAmount(value, currency, signed, exact)}
   </span>;
 }
 

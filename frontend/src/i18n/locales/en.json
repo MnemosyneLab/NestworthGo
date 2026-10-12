@@ -1310,6 +1310,8 @@
     "valuedOnly": "A shows valued assets only; {{count}} included asset item(s) missing valuation.",
     "valuedOnlyB": "B shows valued assets only; {{count}} included asset item(s) missing valuation.",
     "zeroKnownAssets": "Known assets are zero; no composition chart.",
+    "zeroBothAssets": "Known category amounts are zero on both sides; no comparison chart.",
+    "comparisonLegend": "A and B chart key",
     "valuedAssets": "Valued assets",
     "geometryUnavailable": "Chart geometry is unavailable for these exact values. Use the full data table.",
     "chartSummary": "Asset amounts in {{currency}}; A and B share a scale. Exact values are in the full data table.",

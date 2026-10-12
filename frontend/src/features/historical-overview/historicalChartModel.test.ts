@@ -70,3 +70,14 @@ it("sorts comparable changed accounts by exact absolute balance delta and separa
   expect(accountChanges(rows, "liability").comparable.map(item => item.key)).toEqual(["debt"]);
   expect(comparableAccount(rows[6])).toBe(false);
 });
+
+it("keeps ordinary zero-to-active and active-to-zero balances comparable", () => {
+  const rows = [
+    row("opened", "asset", "100", { left: cell("0", { status: "zero" }), right: cell("100", { status: "active" }) }),
+    row("paid-down", "liability", "-100", { left: cell("100", { status: "active" }), right: cell("0", { status: "zero" }) }),
+    row("archived", "asset", "-100", { right: cell("0", { status: "archived" }) }),
+  ];
+  expect(accountChanges(rows, "asset").comparable.map(item => item.key)).toEqual(["opened"]);
+  expect(accountChanges(rows, "liability").comparable.map(item => item.key)).toEqual(["paid-down"]);
+  expect(accountChanges(rows, "asset").separate.map(item => item.key)).toEqual(["archived"]);
+});
