@@ -24,11 +24,76 @@ get account cards plus a full table option; loading uses fixed-height skeletons
 and never labels stale totals with a new selection.
 
 This milestone adds no new API, schema, provider, trend or attribution path.
-Category amount/percentage-point deltas, richer price/FX evidence, same-basis
-trends and attribution still require separate backend contracts. The P0 DOM,
+Category amount/percentage-point deltas and richer price/FX evidence are now
+provided by the P1 projection below. Same-basis trends and attribution still
+require separate backend contracts. The P0 DOM,
 financial and server-tag regressions are automated; native wide/narrow/zoom
 screenshots and first-open Sheet visual acceptance remain pending on a GTK4 and
 WebKitGTK capable host with a synthetic profile.
+
+## Historical panorama P1
+
+`HistoricalOverviewResult.categories` is a same-batch comparison projection,
+separate from the existing asset-only `byClass`/`byCurrency` arrays. Stable
+`role` (asset or liability), `dimension` and category `key` identify each row.
+Only component leaves are aggregated; account parent balances are never added.
+Classification uses current metadata. Each side reports:
+
+- `status`: complete, partial, excluded or absent;
+- nullable complete `amount`, separate `knownAmount`, included leaf count and
+  missing leaf keys;
+- nullable percent-string `share` and `shareBasis`: total, known_subtotal or
+  unavailable. Liability shares have their own liability denominator.
+
+`amountChange` is exact decimal B minus A and is unavailable for partial,
+absent, excluded, changed existence/inclusion/category membership or different base currency.
+`amountReasons` states these limits. Both complete category amounts can remain
+visible when their difference is incomparable. A missing category is never
+zero-filled. Confirmed zero leaves remain complete zero values.
+
+Shares use the existing backend allocation convention (percent rounded to two
+places). A share is only available for nonnegative included balances and a
+positive side denominator. A partial side's share describes its known subtotal;
+it never becomes a whole-state allocation claim. `shareChangePp` subtracts the
+two backend share strings in Go and is only available when the monetary
+comparison is eligible and both role denominators are complete. Incomplete
+liabilities do not invalidate complete asset shares, and conversely. Percent
+points are explicitly labelled, rather than presented as growth or return.
+There is no frontend financial arithmetic, Other sum, debt sign inversion or
+optional balance growth-rate projection.
+
+Evidence adds the selected observation's exact price/rate, recorded source key,
+quote ID, observation type, effective date/time, stored price/timestamp basis and
+source policy when present. FX includes the recorded pair and applied multiply
+or divide operation; reciprocal rates are not invented. Fields absent from the
+retained observation stay absent. Manual values show their original source date;
+provider observations are not universally labelled same-day close. This is not
+a reconstruction of provider fetches or of what was known on that historical
+date. A concrete missing-input projection carries kind, applicable currency
+pair, selected source kind and instrument ID, alongside the retained generic
+missing reasons. Zero quantity needs no price and same-currency values need no
+FX; these explanations do not synthesize an observation.
+
+Rows now carry explicit account/holding/instrument IDs. Category controls drill
+into both sides' matching leaves, including retained excluded and incomplete
+items. They leave household totals unchanged. Returning to categories restores
+the dimension, asset/debt choice, position and keyboard trigger. Account detail
+provides child/parent navigation, including in narrow card layouts. Navigation
+can initialize A/B, view, filter, expansion and table preferences explicitly.
+
+The explicit transaction-history action leaves the read-only panorama and uses
+projected identities and an ordered date range. For current comparisons that
+range ends at the last closed day, with a visible explanation that the capture
+can also contain today's activity. A historical source retained on the App's
+Back trail keeps its immutable query session, dates, filters, selected detail
+and scroll/focus position. Its Sheet is closed while inactive. Returning does
+not recapture. A top-level exit removes the retained session; an explicit new
+panorama navigation creates a new session. No saved database snapshots,
+providers, schema changes, trend/attribution series or automatic repairs are
+added by P1.
+
+Automated acceptance and native checks are recorded in
+[Historical panorama P1 acceptance](../testing/historical-panorama-p1.md).
 
 ## Meaning and scope
 

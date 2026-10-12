@@ -9,10 +9,10 @@ const state = (patch: Partial<HistoricalOverviewState> = {}): HistoricalOverview
 });
 const cell = (baseAmount: string | null, patch: Record<string, unknown> = {}) => ({
   status: "active", included: true, complete: baseAmount !== null, currency: "CNY", nativeAmount: baseAmount,
-  baseAmount, quantity: null, assetClass: "cash", manual: false, valueSourceAt: "", valueSourceId: "", price: null, fx: null, missing: [], ...patch,
+  baseAmount, quantity: null, assetClass: "cash", manual: false, valueSourceAt: "", valueSourceId: "", price: null, fx: null, missing: [], missingDetails: [], ...patch,
 });
 const row = (key: string, role: string, baseChange: string | null, patch: Partial<HistoricalOverviewRow> = {}): HistoricalOverviewRow => ({
-  key, parentKey: "", kind: "account", name: key, role, left: cell("100"), right: cell("100"),
+  key, accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: key, role, left: cell("100"), right: cell("100"),
   baseChange, nativeChange: null, quantityChange: null, changed: true, ...patch,
 });
 
@@ -44,9 +44,9 @@ it("aligns one-sided categories without inventing zero, preserving a common orde
 it("counts only included, missing asset leaves on each side, not parents or debts", () => {
   const rows = [
     row("parent", "asset", null, { left: cell(null) }),
-    row("missing-asset", "asset", null, { kind: "holding", parentKey: "parent", left: cell(null, { missing: ["fx_rate"] }) }),
-    row("excluded", "asset", null, { kind: "cash", parentKey: "parent", left: cell(null, { included: false }) }),
-    row("debt", "liability", null, { kind: "balance", parentKey: "debt-parent", left: cell(null) }),
+    row("missing-asset", "asset", null, { kind: "holding", accountId: "", holdingId: "", instrumentId: "", parentKey: "parent", left: cell(null, { missing: ["fx_rate"] }) }),
+    row("excluded", "asset", null, { kind: "cash", accountId: "", holdingId: "", instrumentId: "", parentKey: "parent", left: cell(null, { included: false }) }),
+    row("debt", "liability", null, { kind: "balance", accountId: "", holdingId: "", instrumentId: "", parentKey: "debt-parent", left: cell(null) }),
   ];
   const data = { left: state({ assets: null }), right: state({ liabilities: null }), rows } as HistoricalOverviewResult;
   expect(missingAssetLeaves(data, "left")).toBe(1);

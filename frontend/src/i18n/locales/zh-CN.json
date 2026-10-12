@@ -1304,7 +1304,11 @@
     "currencyMismatch": "本位币不一致，无法绘制共享金额图。",
     "viewEvidence": "查看账户依据",
     "views": "历史视图",
-    "view": { "allocation": "资产结构", "delta": "变化概览", "accounts": "账户明细" },
+    "view": {
+      "allocation": "资产结构",
+      "delta": "变化概览",
+      "accounts": "账户明细"
+    },
     "allocationCompare": "资产类别对比",
     "assetOnly": "仅资产；原币种金额已折合本位币",
     "valuedOnly": "A 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
@@ -1362,6 +1366,66 @@
       "fx_rate": "缺少汇率",
       "account_value": "缺少账户余额记录",
       "history_coverage": "历史行情覆盖尚未验证"
-    }
+    },
+    "categoryCompare": "分类比较",
+    "categoryRole": "资产负债侧",
+    "unclassified": "未分类",
+    "percentagePoints": "{{value}} 个百分点",
+    "shareDelta": "占比变化 · B − A（百分点）",
+    "debtCategoryNote": "负债分类展示账面余额变化，并非净资产影响或收益。占比以负债余额为分母。",
+    "noCategories": "两侧均无保留的分类记录。",
+    "noComparableCategories": "分类金额不可用，请查看下方保留的状态与证据。",
+    "categoryMissing": "{{count}} 个已纳入叶子项缺少估值输入",
+    "comparability": "可比性",
+    "comparable": "可比",
+    "returnToCategories": "返回分类",
+    "returnToAccount": "返回 {{name}}",
+    "openHistory": "离开全景 · 查看交易记录",
+    "leaveCaptureNote": "交易记录是独立的当前读取；返回后恢复此冻结捕获。",
+    "historyClosedRangeNote": "交易记录范围截至最近结日。当前捕获也可能包含今日活动；返回后恢复此冻结捕获。",
+    "sourceKey": "记录的来源键",
+    "observationId": "观测 ID",
+    "usedRate": "使用的汇率观测",
+    "usedPrice": "使用的单位价格",
+    "observationKind": "观测类型",
+    "priceBasis": "记录的价格口径",
+    "timestampBasis": "记录的时间口径",
+    "sourcePolicy": "记录的来源策略",
+    "archivedExplanation": "本侧已归档；保留供检查，不纳入总额。",
+    "excludedExplanation": "本侧未纳入总额；仍可检查保留余额。",
+    "zeroPositionEvidence": "零数量无需价格观测；此持仓不补造价格。",
+    "identityFX": "原币与本位币相同，无需汇率换算。",
+    "rawBalanceDelta": "原始余额差并非纳入范围变化的影响。",
+    "captureBasis": "捕获与估值口径",
+    "resolverPolicy": "解析策略",
+    "inputGeneration": "捕获的输入版本",
+    "categoryReason": {
+      "complete": "完整",
+      "partial": "估值输入缺失，完整分类金额未知",
+      "absent": "本侧无保留的分类记录，并非零",
+      "excluded": "保留的分类未纳入总额",
+      "existence_changed": "A/B 保留的成员集合不同",
+      "scope_changed": "A/B 纳入范围有变化",
+      "currency_mismatch": "A/B 本位币不同",
+      "share_denominator_unavailable": "占比比较要求两侧余额完整且非负、总额为正",
+      "membership_changed": "A/B 分类成员有变化"
+    },
+    "shareBasis": {
+      "total": "占总额",
+      "known_subtotal": "仅占已知小计",
+      "unavailable": "不可用"
+    },
+    "fxOperation": {
+      "multiply": "原币金额乘以此记录汇率。",
+      "divide": "原币金额除以此记录汇率。"
+    },
+    "observationKinds": {
+      "daily_close": "日收盘观测",
+      "daily_reference": "日参考观测",
+      "latest": "最新观测",
+      "manual": "手工观测"
+    },
+    "zeroAvailableCategories": "可用分类金额为零；不可用的一侧仍保留为未知。",
+    "categoryComparisonBasis": "按当前分类汇总。占比使用所选资产或负债总额；部分占比仅表示各侧已知小计。"
   }
 }

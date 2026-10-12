@@ -1,5 +1,7 @@
 import { upcomingData, upcomingItem } from "@/test/upcomingActions";
-vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), HistoricalOverview: () => Promise.resolve({ capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] }) } }));
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), HistoricalOverview: (...args: unknown[]) => historicalRead(...args) } }));
+/* default historical fixture */
+const defaultHistorical = { capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] };
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -8,7 +10,8 @@ import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { useUiStore } from "./stores/ui";
 
-const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead } = vi.hoisted(() => ({
+  historicalRead: vi.fn(),
   upcomingRead: vi.fn(),
   scanHealth: vi.fn(),
   startup: vi.fn().mockResolvedValue({ available: true }),
@@ -228,6 +231,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidit
 
 beforeEach(() => {
   queryClient.clear();
+  historicalRead.mockReset().mockResolvedValue(defaultHistorical);
   scanHealth.mockReset().mockResolvedValue({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] });
   upcomingRead.mockReset().mockResolvedValue(upcomingData([upcomingItem()]));
   startup.mockReset();
@@ -552,4 +556,42 @@ it("preserves same-page Data Health gap focus history", async () => {
   await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(1));
   await userEvent.click(await screen.findByRole("button", { name: "← Back to Data Health" }));
   await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(2));
+});
+
+
+vi.mock("@/features/history/HistoryPage", () => ({ HistoryPage: ({ navigationFilters }: { navigationFilters?: unknown }) => <section aria-label="Synthetic transaction history"><pre>{JSON.stringify(navigationFilters)}</pre></section> }));
+
+it("returns from transaction history to the same panorama capture, dates, filter, detail and position", async () => {
+  await i18n.changeLanguage("en");
+  const cell = { status: "active", included: true, complete: true, currency: "USD", nativeAmount: "10", baseAmount: "10", assetClass: "cash", manual: false, missing: [], missingDetails: [] };
+  const state = { ...defaultHistorical.left, date: "2026-09-30", knownAssets: "10", knownLiabilities: "0" };
+  historicalRead.mockImplementation((date: string, compareTo: string) => Promise.resolve({ ...defaultHistorical, categories: [], timezone: "UTC", originDate: "2026-01-01", lastClosedDate: "2026-10-11", inputGeneration: 7, resolverPolicy: "policy", left: { ...state, date }, right: compareTo ? { ...state, date: compareTo, current: compareTo === "current" } : null, rows: [{ key: "account", accountId: "explicit-account", kind: "account", name: "Synthetic retained bank", role: "asset", parentKey: "", left: cell, right: compareTo ? cell : null, changed: false }, { key: "leaf", accountId: "explicit-account", kind: "balance", name: "USD", role: "asset", parentKey: "account", left: cell, right: compareTo ? cell : null, changed: false }] }));
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await userEvent.click(within(nav).getByRole("button", { name: "Historical overview" }));
+  await screen.findByLabelText("Historical date");
+  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
+  await userEvent.click(await screen.findByRole("tab", { name: "Account details" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Synthetic retained bank" }));
+  const dialog = await screen.findByRole("dialog");
+  const sourceButton = within(dialog).getByRole("button", { name: "Leave panorama · View transaction history" });
+  const main = document.getElementById("main-content")!; main.scrollTop = 210;
+  const capturedReads = historicalRead.mock.calls.length;
+  await userEvent.click(sourceButton);
+  const history = await screen.findByRole("region", { name: "Synthetic transaction history" });
+  expect(history).toHaveTextContent('"accountId":"explicit-account"');
+  expect(history).toHaveTextContent('"from":"2026-09-30"'); expect(history).toHaveTextContent('"to":"2026-10-11"');
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Historical overview" }));
+  await waitFor(() => expect(screen.getByRole("dialog")).toHaveTextContent("Synthetic retained bank"));
+  expect(screen.getByLabelText("Compare with")).toHaveValue("current");
+  expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveTextContent("Account details");
+  expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveAttribute("aria-selected", "true");
+  await waitFor(() => expect(main.scrollTop).toBe(210));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Leave panorama · View transaction history" })).toHaveFocus());
+  expect(historicalRead).toHaveBeenCalledTimes(capturedReads);
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByRole("button", { name: "Synthetic retained bank" })).toHaveFocus();
 });

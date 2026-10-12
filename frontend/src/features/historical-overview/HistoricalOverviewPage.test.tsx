@@ -4,6 +4,7 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HistoricalOverviewPage } from "./HistoricalOverviewPage";
+import { NavigationContext } from "@/app/NavigationContext";
 import i18n from "@/i18n";
 import { formatAmount } from "@/lib/money";
 import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
@@ -13,14 +14,14 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/an
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: origin } }));
 
 function cell(value: string | null = "100", patch: Partial<HistoricalOverviewCell> = {}): HistoricalOverviewCell {
-  return { status: "active", included: true, complete: true, currency: "CNY", nativeAmount: value, baseAmount: value, quantity: null, assetClass: "cash", manual: false, valueSourceAt: "2026-08-01T12:00:00Z", valueSourceId: "origin", price: null, fx: null, missing: [], ...patch };
+  return { status: "active", included: true, complete: true, currency: "CNY", nativeAmount: value, baseAmount: value, quantity: null, assetClass: "cash", manual: false, valueSourceAt: "2026-08-01T12:00:00Z", valueSourceId: "origin", price: null, fx: null, missing: [], missingDetails: [], ...patch };
 }
 
 function result(date = "2026-08-01", compareTo = ""): HistoricalOverviewResult {
-  const row = (key: string, parentKey: string, kind: string, name: string, changed: boolean): HistoricalOverviewRow => ({ key, parentKey, kind, name, role: "asset", left: cell(), right: compareTo ? cell(changed ? "120" : "100") : null, baseChange: compareTo ? (changed ? "20" : "0") : null, nativeChange: compareTo ? (changed ? "20" : "0") : null, quantityChange: null, changed: Boolean(compareTo) && changed });
+  const row = (key: string, parentKey: string, kind: string, name: string, changed: boolean): HistoricalOverviewRow => ({ key, accountId: "", holdingId: "", instrumentId: "", parentKey, kind, name, role: "asset", left: cell(), right: compareTo ? cell(changed ? "120" : "100") : null, baseChange: compareTo ? (changed ? "20" : "0") : null, nativeChange: compareTo ? (changed ? "20" : "0") : null, quantityChange: null, changed: Boolean(compareTo) && changed });
   const state = { date, cutoffAt: `${date}T23:59:59.999Z`, current: false, currency: "CNY", complete: true, assets: "200", liabilities: "0", netWorth: "200", knownAssets: "200", knownLiabilities: "0", byClass: [{ key: "cash", amount: "200", share: "100" }], byCurrency: [{ key: "CNY", amount: "200", share: "100" }] };
   const rows = [row("bank", "", "account", "Bank", true), row("cash", "bank", "cash", "CNY", true), row("steady", "", "account", "Unchanged", false)];
-  return { timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-09", capturedAt: "2026-08-10T12:00:00Z", inputGeneration: 1, resolverPolicy: "market-date-daily-summary-v3", left: state, right: compareTo ? { ...state, date: compareTo, current: compareTo === "current", cutoffAt: compareTo === "current" ? "2026-08-10T12:00:00Z" : `${compareTo}T23:59:59.999Z`, assets: "220", netWorth: "220", knownAssets: "220" } : null, change: compareTo ? { assets: "20", liabilities: "0", netWorth: "20" } : null, rows };
+  return { categories: [], timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-09", capturedAt: "2026-08-10T12:00:00Z", inputGeneration: 1, resolverPolicy: "market-date-daily-summary-v3", left: state, right: compareTo ? { ...state, date: compareTo, current: compareTo === "current", cutoffAt: compareTo === "current" ? "2026-08-10T12:00:00Z" : `${compareTo}T23:59:59.999Z`, assets: "220", netWorth: "220", knownAssets: "220" } : null, change: compareTo ? { assets: "20", liabilities: "0", netWorth: "20" } : null, rows };
 }
 
 beforeEach(() => {
@@ -151,7 +152,7 @@ it("shows unknown, zero, absent, archived and manual evidence without fetching c
   read.mockImplementation((date: string, compare: string) => {
     const data = result(date, compare);
     data.left.complete = false; data.left.netWorth = null;
-    data.rows![0].left = cell("0", { status: "archived", included: false, manual: true, complete: false, baseAmount: null, missing: ["fx_rate"], price: { id: "price", source: "manual", effectiveAt: "2026-07-20T00:00:00Z", marketDate: "", freshness: "manual" } });
+    data.rows![0].left = cell("0", { status: "archived", included: false, manual: true, complete: false, baseAmount: null, missing: ["fx_rate"], price: { sourceKey: "", value: null, currency: "", baseCurrency: "", quoteCurrency: "", operation: "", observationKind: "", priceBasis: "", timestampBasis: "", sourcePolicyVersion: "", id: "price", source: "manual", effectiveAt: "2026-07-20T00:00:00Z", marketDate: "", freshness: "manual" } });
     data.rows![0].right = compare ? cell("0", { status: "zero" }) : null;
     data.rows![2].left = null;
     return Promise.resolve(data);
@@ -487,10 +488,10 @@ it("shows debt as a separate balance group and expands more than ten comparable 
     const data = result(date, compare);
     if (compare) {
       data.rows = [...data.rows!, ...Array.from({ length: 11 }, (_, index): HistoricalOverviewRow => ({
-        key: `extra-${index}`, parentKey: "", kind: "account", name: `Extra ${index}`, role: "asset",
+        key: `extra-${index}`, accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: `Extra ${index}`, role: "asset",
         left: cell("100"), right: cell("101"), baseChange: "1", nativeChange: "1", quantityChange: null, changed: true,
       })), {
-        key: "loan", parentKey: "", kind: "account", name: "Loan", role: "liability",
+        key: "loan", accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: "Loan", role: "liability",
         left: cell("200"), right: cell("100"), baseChange: "-100", nativeChange: "-100", quantityChange: null, changed: true,
       }];
     }
@@ -535,11 +536,11 @@ it("keeps a single-day asset composition complete when only debt valuation is mi
   const data = result();
   data.left = { ...data.left, complete: false, liabilities: null, netWorth: null };
   data.rows!.push({
-    key: "loan", parentKey: "", kind: "account", name: "Loan", role: "liability",
+    key: "loan", accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: "Loan", role: "liability",
     left: cell(null, { complete: false, missing: ["account_value"] }), right: null,
     baseChange: null, nativeChange: null, quantityChange: null, changed: false,
   }, {
-    key: "loan:balance", parentKey: "loan", kind: "balance", name: "Loan", role: "liability",
+    key: "loan:balance", accountId: "", holdingId: "", instrumentId: "", parentKey: "loan", kind: "balance", name: "Loan", role: "liability",
     left: cell(null, { complete: false, missing: ["account_value"] }), right: null,
     baseChange: null, nativeChange: null, quantityChange: null, changed: false,
   });
@@ -558,7 +559,7 @@ it("shows the B valuation warning only when a real B side has missing assets", a
     if (data.right) {
       data.right = { ...data.right, complete: false, assets: null, netWorth: null };
       data.rows!.push({
-        key: "missing-stock", parentKey: "bank", kind: "holding", name: "Missing stock", role: "asset",
+        key: "missing-stock", accountId: "", holdingId: "", instrumentId: "", parentKey: "bank", kind: "holding", name: "Missing stock", role: "asset",
         left: cell("5"), right: cell(null, { complete: false, missing: ["fx_rate"] }),
         baseChange: null, nativeChange: null, quantityChange: null, changed: true,
       });
@@ -568,8 +569,8 @@ it("shows the B valuation warning only when a real B side has missing assets", a
   show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
   await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
-  await userEvent.click(await screen.findByRole("tab", { name: "Asset composition" }));
-  const comparison = await screen.findByRole("region", { name: "Asset category comparison" });
+  await userEvent.click(await screen.findByRole("tab", { name: "Category comparison" }));
+  const comparison = await screen.findByRole("region", { name: "Category comparison" });
   expect(comparison).toHaveTextContent("B shows valued assets only; 1 included asset item(s) missing valuation.");
   expect(comparison).not.toHaveTextContent("A shows valued assets only");
 });
@@ -581,7 +582,7 @@ it("keeps zero-to-active assets and active-to-zero debt in their comparable bala
       data.rows![0].left = cell("0", { status: "zero" });
       data.rows![0].right = cell("100", { status: "active" });
       data.rows![0].baseChange = "100";
-      data.rows!.push({ key: "loan", parentKey: "", kind: "account", name: "Loan", role: "liability",
+      data.rows!.push({ key: "loan", accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: "Loan", role: "liability",
         left: cell("100", { status: "active" }), right: cell("0", { status: "zero" }),
         baseChange: "-100", nativeChange: "-100", quantityChange: null, changed: true });
     }
@@ -623,4 +624,53 @@ it.each(["en", "zh-CN", "zh-TW"])("keeps negative sub-cent values exact in cards
   await userEvent.click(await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.delta") }));
   const changes = await screen.findByRole("region", { name: i18n.t("historicalOverview.accountDeltaTitle") });
   expect(changes).toHaveTextContent("-0.00012 CNY");
+});
+
+
+it("restores category role, dimension, position and keyboard focus after drilling into account leaves", async () => {
+  const data = result("2026-08-01", "2026-08-09");
+  data.categories = [{ role: "asset", dimension: "byCurrency", key: "CNY", left: { status: "complete", amount: "200", knownAmount: "200", share: "100", shareBasis: "total", includedCount: 1, missingRowKeys: [] }, right: { status: "complete", amount: "220", knownAmount: "220", share: "100", shareBasis: "total", includedCount: 1, missingRowKeys: [] }, amountChange: "20", shareChangePp: "0", amountReasons: [], shareReasons: [] }];
+  read.mockResolvedValue(data);
+  const client = createTestQueryClient();
+  render(<div id="main-content"><QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ compareTo: "2026-08-09", view: "allocation", dimension: "byCurrency" }} onExit={vi.fn()} /></QueryClientProvider></div>);
+  const category = await screen.findByRole("button", { name: "CNY" });
+  const main = document.getElementById("main-content")!; main.scrollTop = 180;
+  category.focus(); await userEvent.keyboard("{Enter}");
+  expect(await screen.findByRole("button", { name: "Clear category filter" })).toHaveFocus();
+  const count = read.mock.calls.length;
+  await userEvent.click(screen.getByRole("button", { name: "Back to categories" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "CNY" })).toHaveFocus());
+  expect(main.scrollTop).toBe(180);
+  expect(screen.getByRole("button", { name: "Original currency" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByLabelText("Comparison date")).toHaveValue("2026-08-09");
+  expect(read).toHaveBeenCalledTimes(count);
+});
+
+it.each(["en", "zh-CN", "zh-TW"])("shows applied evidence and concrete side-specific missing inputs without new reads (%s)", async locale => {
+  await i18n.changeLanguage(locale);
+  const data = result("2026-08-01", "current");
+  const evidence = { id: "quote-id", source: "provider", sourceKey: "recorded-provider", effectiveAt: "2026-08-01T21:00:00Z", marketDate: "2026-08-01", freshness: "stale", value: "0.0000012", currency: "USD", baseCurrency: "", quoteCurrency: "", operation: "", observationKind: "daily_close", priceBasis: "raw_close", timestampBasis: "session_close", sourcePolicyVersion: "stored-policy" };
+  data.rows![0].left = cell("100", { price: evidence, fx: { ...evidence, id: "fx-id", value: "0.125", currency: "", baseCurrency: "CNY", quoteCurrency: "USD", operation: "divide", priceBasis: "", observationKind: "daily_reference" } });
+  data.rows![0].right = cell(null, { complete: false, currency: "USD", nativeAmount: "10", missing: ["fx_rate"], missingDetails: [{ kind: "fx_rate", baseCurrency: "CNY", quoteCurrency: "USD", source: "manual", instrumentId: "instrument-id" }] });
+  read.mockResolvedValue(data);
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ compareTo: "current", view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
+  await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("0.0000012 USD"); expect(dialog).toHaveTextContent("1 CNY = 0.125 USD");
+  expect(dialog).toHaveTextContent("recorded-provider"); expect(dialog).toHaveTextContent("quote-id"); expect(dialog).toHaveTextContent("raw_close");
+  expect(dialog).toHaveTextContent(i18n.t("historicalOverview.fxOperation.divide"));
+  expect(dialog).toHaveTextContent("USD ↔ CNY"); expect(dialog).toHaveTextContent("instrument-id");
+  expect(read).toHaveBeenCalledTimes(1);
+});
+
+it("uses explicit identity and ordered dates for a History navigation, keeping current capture semantics clear", async () => {
+  const data = result("2026-08-09", "2026-08-01");
+  data.rows![0].accountId = "explicit-account"; data.rows![0].instrumentId = "explicit-instrument";
+  read.mockResolvedValue(data); const open = vi.fn(); const client = createTestQueryClient();
+  render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-09" initialContext={{ compareTo: "2026-08-01", view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider></NavigationContext.Provider>);
+  await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
+  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Leave panorama · View transaction history" }));
+  expect(open).toHaveBeenCalledWith({ page: "history", filters: { accountId: "explicit-account", instrumentId: "explicit-instrument", from: "2026-08-01", to: "2026-08-09" } });
+  expect(read).toHaveBeenCalledTimes(1);
 });

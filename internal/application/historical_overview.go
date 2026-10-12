@@ -23,6 +23,7 @@ type HistoricalOverviewResult struct {
 	Right           *HistoricalOverviewState        `json:"right"`
 	Change          *HistoricalOverviewTotalsChange `json:"change"`
 	Rows            []HistoricalOverviewRow         `json:"rows"`
+	Categories      []HistoricalCategoryComparison  `json:"categories"`
 }
 
 // HistoricalOverviewTotalsChange is right minus left, not return attribution.
@@ -55,32 +56,54 @@ type HistoricalOverviewAllocation struct {
 }
 
 type HistoricalOverviewEvidence struct {
-	ID          string `json:"id"`
-	Source      string `json:"source"`
-	EffectiveAt string `json:"effectiveAt"`
-	MarketDate  string `json:"marketDate"`
-	Freshness   string `json:"freshness"`
+	ID                  string  `json:"id"`
+	Source              string  `json:"source"`
+	EffectiveAt         string  `json:"effectiveAt"`
+	MarketDate          string  `json:"marketDate"`
+	Freshness           string  `json:"freshness"`
+	SourceKey           string  `json:"sourceKey"`
+	Value               *string `json:"value"`
+	Currency            string  `json:"currency"`
+	BaseCurrency        string  `json:"baseCurrency"`
+	QuoteCurrency       string  `json:"quoteCurrency"`
+	Operation           string  `json:"operation"`
+	ObservationKind     string  `json:"observationKind"`
+	PriceBasis          string  `json:"priceBasis"`
+	TimestampBasis      string  `json:"timestampBasis"`
+	SourcePolicyVersion string  `json:"sourcePolicyVersion"`
+}
+
+type HistoricalMissingDetail struct {
+	Kind          string `json:"kind"`
+	BaseCurrency  string `json:"baseCurrency"`
+	QuoteCurrency string `json:"quoteCurrency"`
+	Source        string `json:"source"`
+	InstrumentID  string `json:"instrumentId"`
 }
 
 type HistoricalOverviewCell struct {
-	Status        string                      `json:"status"`
-	Included      bool                        `json:"included"`
-	Complete      bool                        `json:"complete"`
-	Currency      string                      `json:"currency"`
-	NativeAmount  *string                     `json:"nativeAmount"`
-	BaseAmount    *string                     `json:"baseAmount"`
-	Quantity      *string                     `json:"quantity"`
-	AssetClass    string                      `json:"assetClass"`
-	Manual        bool                        `json:"manual"`
-	ValueSourceAt string                      `json:"valueSourceAt"`
-	ValueSourceID string                      `json:"valueSourceId"`
-	Price         *HistoricalOverviewEvidence `json:"price"`
-	FX            *HistoricalOverviewEvidence `json:"fx"`
-	Missing       []string                    `json:"missing"`
+	Status         string                      `json:"status"`
+	Included       bool                        `json:"included"`
+	Complete       bool                        `json:"complete"`
+	Currency       string                      `json:"currency"`
+	NativeAmount   *string                     `json:"nativeAmount"`
+	BaseAmount     *string                     `json:"baseAmount"`
+	Quantity       *string                     `json:"quantity"`
+	AssetClass     string                      `json:"assetClass"`
+	Manual         bool                        `json:"manual"`
+	ValueSourceAt  string                      `json:"valueSourceAt"`
+	ValueSourceID  string                      `json:"valueSourceId"`
+	Price          *HistoricalOverviewEvidence `json:"price"`
+	FX             *HistoricalOverviewEvidence `json:"fx"`
+	Missing        []string                    `json:"missing"`
+	MissingDetails []HistoricalMissingDetail   `json:"missingDetails"`
 }
 
 type HistoricalOverviewRow struct {
 	Key            string                  `json:"key"`
+	AccountID      string                  `json:"accountId"`
+	HoldingID      string                  `json:"holdingId"`
+	InstrumentID   string                  `json:"instrumentId"`
 	ParentKey      string                  `json:"parentKey"`
 	Kind           string                  `json:"kind"`
 	Name           string                  `json:"name"`
@@ -165,6 +188,7 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 		}
 	}
 	result.Rows = alignHistoricalOverview(leftRows, rightRows, result.Right != nil)
+	result.Categories = historicalCategoryComparisons(result)
 	return result, nil
 }
 
@@ -273,15 +297,15 @@ func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain
 		a := record.Account
 		parentKey := a.ID.String()
 		included := domain.AccountEligibleForNetWorth(a)
-		parent := HistoricalOverviewCell{Status: "active", Included: included, Complete: true, Missing: []string{}}
+		parent := HistoricalOverviewCell{MissingDetails: []HistoricalMissingDetail{}, Status: "active", Included: included, Complete: true, Missing: []string{}}
 		if a.ArchivedAt != nil {
 			parent.Status = "archived"
 		}
 		parentIndex := len(rows)
-		rows = append(rows, HistoricalOverviewRow{Key: parentKey, Kind: "account", Name: a.Name, Role: string(a.BalanceSheetRole)})
+		rows = append(rows, HistoricalOverviewRow{Key: parentKey, AccountID: parentKey, Kind: "account", Name: a.Name, Role: string(a.BalanceSheetRole)})
 		accountSum := decimal.Zero
 		for componentIndex, component := range account.Components {
-			cell := HistoricalOverviewCell{Status: "active", Included: included, Complete: component.Available, Currency: component.NativeCurrency.String(), NativeAmount: historicalString(component.NativeAmount), BaseAmount: historicalString(component.BaseAmountExact), Missing: []string{}}
+			cell := HistoricalOverviewCell{MissingDetails: []HistoricalMissingDetail{}, Status: "active", Included: included, Complete: component.Available, Currency: component.NativeCurrency.String(), NativeAmount: historicalString(component.NativeAmount), BaseAmount: historicalString(component.BaseAmountExact), Missing: []string{}}
 			kind, name, key := "balance", a.Name, parentKey+":balance"
 			componentArchived := false
 			var instrument *domain.Instrument
@@ -320,6 +344,11 @@ func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain
 			// a zero holding needs no FX even beside an archived foreign position.
 			for _, missing := range valuedAccount.componentMissing[componentIndex] {
 				cell.Missing = append(cell.Missing, string(missing.Kind))
+				detail := HistoricalMissingDetail{Kind: string(missing.Kind), BaseCurrency: missing.BaseCurrency.String(), QuoteCurrency: missing.QuoteCurrency.String(), Source: string(missing.QuoteSource)}
+				if missing.InstrumentID != nil {
+					detail.InstrumentID = missing.InstrumentID.String()
+				}
+				cell.MissingDetails = append(cell.MissingDetails, detail)
 			}
 			cell.Complete = cell.Complete && len(cell.Missing) == 0
 			if cell.NativeAmount == nil && cell.Status == "active" {
@@ -330,6 +359,12 @@ func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain
 			}
 			cell.Price = historicalPriceEvidence(component.PriceEvidence, portfolio.InstrumentQuotes, cutoff, !current, ttl)
 			cell.FX = historicalFXEvidence(component.FXEvidence, portfolio.FXQuotes, cutoff, !current, ttl)
+			if cell.FX != nil && cell.FX.Value != nil {
+				cell.FX.Operation = "divide"
+				if cell.FX.BaseCurrency == cell.Currency && cell.FX.QuoteCurrency == state.Currency {
+					cell.FX.Operation = "multiply"
+				}
+			}
 			cell.Manual = a.TrackingMode == domain.TrackingManualValue || (cell.Price != nil && cell.Price.Source == "manual")
 			if kind == "balance" || kind == "cash" {
 				if current {
@@ -338,10 +373,18 @@ func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain
 					cell.ValueSourceAt, cell.ValueSourceID = historicalBalanceSource(batch, a.ID, cell.Currency, kind == "cash", cutoff)
 				}
 			}
-			rows = append(rows, HistoricalOverviewRow{Key: key, ParentKey: parentKey, Kind: kind, Name: name, Role: string(a.BalanceSheetRole), Left: &cell})
+			row := HistoricalOverviewRow{Key: key, AccountID: parentKey, ParentKey: parentKey, Kind: kind, Name: name, Role: string(a.BalanceSheetRole), Left: &cell}
+			if component.HoldingID != nil {
+				row.HoldingID = component.HoldingID.String()
+			}
+			if component.InstrumentID != nil {
+				row.InstrumentID = component.InstrumentID.String()
+			}
+			rows = append(rows, row)
 			if !componentArchived {
 				parent.Complete = parent.Complete && cell.Complete && cell.BaseAmount != nil
 				parent.Missing = append(parent.Missing, cell.Missing...)
+				parent.MissingDetails = append(parent.MissingDetails, cell.MissingDetails...)
 				if cell.BaseAmount != nil {
 					amount, parseErr := decimal.NewFromString(*cell.BaseAmount)
 					if parseErr != nil {
@@ -484,9 +527,11 @@ func historicalPriceEvidence(e *domain.QuoteEvidenceView, quotes []domain.Instru
 	if e == nil {
 		return nil
 	}
-	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), Freshness: string(e.Freshness), EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
+	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), SourceKey: e.SourceKey, Freshness: string(e.Freshness), EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
 	for _, q := range quotes {
 		if q.ID.String() == e.ObservationID {
+			r.Value, r.Currency = historicalString(q.UnitPrice.Canonical()), q.Currency.String()
+			r.ObservationKind, r.PriceBasis, r.TimestampBasis, r.SourcePolicyVersion = q.ObservationKind, q.PriceBasis, q.TimestampBasis, q.SourcePolicyVersion
 			at := q.ValueEffectiveAt
 			if at.IsZero() {
 				at = q.QuotedAt
@@ -511,9 +556,12 @@ func historicalFXEvidence(e *domain.QuoteEvidenceView, quotes []domain.FXQuote, 
 	if e == nil {
 		return nil
 	}
-	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), Freshness: string(e.Freshness), EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
+	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), SourceKey: e.SourceKey, Freshness: string(e.Freshness), EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
 	for _, q := range quotes {
 		if q.ID.String() == e.ObservationID {
+			r.Value = historicalString(q.Rate.Canonical())
+			r.BaseCurrency, r.QuoteCurrency = q.BaseCurrency.String(), q.QuoteCurrency.String()
+			r.ObservationKind, r.TimestampBasis, r.SourcePolicyVersion = q.ObservationKind, q.TimestampBasis, q.SourcePolicyVersion
 			at := q.ValueEffectiveAt
 			if at.IsZero() {
 				at = q.QuotedAt

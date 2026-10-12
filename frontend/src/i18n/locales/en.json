@@ -1304,7 +1304,11 @@
     "currencyMismatch": "Base currencies differ; shared amount chart unavailable.",
     "viewEvidence": "View account evidence",
     "views": "Historical views",
-    "view": { "allocation": "Asset composition", "delta": "Changes overview", "accounts": "Account details" },
+    "view": {
+      "allocation": "Asset composition",
+      "delta": "Changes overview",
+      "accounts": "Account details"
+    },
     "allocationCompare": "Asset category comparison",
     "assetOnly": "Assets only; original currency amounts converted to base currency",
     "valuedOnly": "A shows valued assets only; {{count}} included asset item(s) missing valuation.",
@@ -1362,6 +1366,66 @@
       "fx_rate": "Exchange rate is missing",
       "account_value": "Recorded account value is missing",
       "history_coverage": "Historical market coverage is unverified"
-    }
+    },
+    "categoryCompare": "Category comparison",
+    "categoryRole": "Balance sheet side",
+    "unclassified": "Unclassified",
+    "percentagePoints": "{{value}} percentage points",
+    "shareDelta": "Share change · B − A (percentage points)",
+    "debtCategoryNote": "Debt categories show book balance changes, not net worth effects or returns. Shares use the liability balance denominator.",
+    "noCategories": "No retained categories on either side.",
+    "noComparableCategories": "Category amounts are unavailable. Inspect the retained states and evidence below.",
+    "categoryMissing": "{{count}} included leaves have missing valuation inputs",
+    "comparability": "Comparability",
+    "comparable": "Comparable",
+    "returnToCategories": "Back to categories",
+    "returnToAccount": "Back to {{name}}",
+    "openHistory": "Leave panorama · View transaction history",
+    "leaveCaptureNote": "Transaction history is a separate current read. Returning restores this frozen capture.",
+    "historyClosedRangeNote": "History opens through the last closed day. Current capture may also include today’s activity; returning restores this frozen capture.",
+    "sourceKey": "Recorded source key",
+    "observationId": "Observation ID",
+    "usedRate": "Applied FX observation",
+    "usedPrice": "Applied unit price",
+    "observationKind": "Observation type",
+    "priceBasis": "Recorded price basis",
+    "timestampBasis": "Recorded timestamp basis",
+    "sourcePolicy": "Recorded source policy",
+    "archivedExplanation": "Archived on this side; retained for inspection and excluded from totals.",
+    "excludedExplanation": "Excluded from totals on this side; its retained balance can still be inspected.",
+    "zeroPositionEvidence": "Zero quantity needs no price observation. No price is invented for this position.",
+    "identityFX": "Native and base currencies match; no FX conversion is required.",
+    "rawBalanceDelta": "The raw balance difference is not the effect of the inclusion change.",
+    "captureBasis": "Capture and valuation basis",
+    "resolverPolicy": "Resolver policy",
+    "inputGeneration": "Captured input generation",
+    "categoryReason": {
+      "complete": "Complete",
+      "partial": "Missing valuation inputs; full category amount is unknown",
+      "absent": "No retained category record on this side; not zero",
+      "excluded": "Retained category is excluded from totals",
+      "existence_changed": "The retained member set differs between A and B",
+      "scope_changed": "Inclusion scope changed between A and B",
+      "currency_mismatch": "Base currency differs between A and B",
+      "share_denominator_unavailable": "Share comparison requires complete nonnegative balances and positive totals on both sides",
+      "membership_changed": "Category membership changed between A and B"
+    },
+    "shareBasis": {
+      "total": "of total",
+      "known_subtotal": "of known subtotal only",
+      "unavailable": "unavailable"
+    },
+    "fxOperation": {
+      "multiply": "Native amount multiplied by this recorded rate.",
+      "divide": "Native amount divided by this recorded rate."
+    },
+    "observationKinds": {
+      "daily_close": "Daily close observation",
+      "daily_reference": "Daily reference observation",
+      "latest": "Latest observation",
+      "manual": "Manual observation"
+    },
+    "zeroAvailableCategories": "Available category amounts are zero; unavailable sides remain unknown.",
+    "categoryComparisonBasis": "By current classification. Shares use the selected asset or liability total; partial shares describe only their known subtotal."
   }
 }

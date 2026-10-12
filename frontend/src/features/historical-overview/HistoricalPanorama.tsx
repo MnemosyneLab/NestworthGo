@@ -66,11 +66,14 @@ export function HistoricalCoverage({ data, onDetails }: { data: HistoricalOvervi
   </div>;
 }
 
-export function HistoricalAllocationView({ data, onFilter }: { data: HistoricalOverviewResult; onFilter: (dimension: Dimension, key: string) => void }) {
+export function HistoricalAllocationView({ data, onFilter, selectedDimension, onDimension }: { data: HistoricalOverviewResult; onFilter: (dimension: Dimension, key: string, trigger?: HTMLButtonElement) => void; selectedDimension?: Dimension; onDimension?: (dimension: Dimension) => void }) {
   const { t } = useTranslation();
   useThemeVersion();
   const theme = chartTheme();
-  const [dimension, setDimension] = useState<Dimension>("byClass");
+  const [localDimension, setLocalDimension] = useState<Dimension>("byClass");
+  const dimension = selectedDimension ?? localDimension;
+  const setDimension = onDimension ?? setLocalDimension;
+  const categoryButtons = useRef(new Map<string, HTMLButtonElement>());
   const left = data.left[dimension] ?? [];
   const right = data.right?.[dimension] ?? [];
   const label = (key: string) => dimension === "byClass" ? displayEnum(t, "enum", key) || key : key;
@@ -138,8 +141,8 @@ export function HistoricalAllocationView({ data, onFilter }: { data: HistoricalO
     {!option && items.length > 0 && !mismatch && !allAmountsZero && <p className="text-sm text-muted-foreground">{t("historicalOverview.geometryUnavailable")}</p>}
     {option && <EChart key={`${dimension}-${data.right ? "paired" : mode}`} option={option} height={Math.max(220, items.length * (data.right ? 55 : 38) + 60)} ariaLabel={t(data.right ? "historicalOverview.allocationCompare" : "historicalOverview.allocation")} summary={t("historicalOverview.chartSummary", { currency })}
       center={mode === "donut" && !data.right ? <><span className="text-xs text-muted-foreground">{t("historicalOverview.valuedAssets")}</span><strong className="num text-sm">{amount(data.left.knownAssets, currency)}</strong></> : undefined}
-      onSelectName={name => { const item = items.find(key => label(key) === name || key === name); if (item) onFilter(dimension, item); }} />}
-    <div className="mt-3 flex flex-wrap gap-2">{items.map(key => <Button key={key} size="sm" variant="outline" onClick={() => onFilter(dimension, key)}>{label(key)}</Button>)}</div>
+      onSelectName={name => { const item = items.find(key => label(key) === name || key === name); if (item) onFilter(dimension, item, categoryButtons.current.get(item)); }} />}
+    <div className="mt-3 flex flex-wrap gap-2">{items.map(key => <Button key={key} id={`historical-category-asset-${dimension}-${encodeURIComponent(key)}`} ref={node => { if (node) categoryButtons.current.set(key, node); else categoryButtons.current.delete(key); }} size="sm" variant="outline" onClick={event => onFilter(dimension, key, event.currentTarget)}>{label(key)}</Button>)}</div>
     <details className="mt-3" open={!option}><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary>
       <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t(`historicalOverview.${dimension}`)}</th><th scope="col">{data.right ? "A · " : `${data.left.date} · `}{currency}</th><th scope="col">{data.right ? "A · " : `${data.left.date} · `}%</th>{data.right && <><th scope="col">B · {data.right.currency}</th><th scope="col">B · %</th></>}</tr></thead><tbody>{rows.map((row, index) => <tr key={items[index]} className="border-t border-border">{row.map((value, cell) => <td key={cell} className="num p-2" title={value}>{value}</td>)}</tr>)}</tbody></table></div>
     </details>

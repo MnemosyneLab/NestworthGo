@@ -166,12 +166,16 @@ func TestHistoricalOverviewUnknownFXAndExactPrecision(t *testing.T) {
 	if usd.Left.BaseAmount != nil || usd.Left.Complete {
 		t.Fatal("missing FX replaced")
 	}
+	if len(usd.Left.MissingDetails) != 1 || usd.Left.MissingDetails[0].Kind != "fx_rate" || usd.Left.MissingDetails[0].QuoteCurrency != "USD" || usd.Left.MissingDetails[0].BaseCurrency != "CNY" {
+		t.Fatalf("concrete missing FX: %+v", usd.Left.MissingDetails)
+	}
 	u := overviewRow(t, result, unknown.Account.ID.String())
 	if u.Left.NativeAmount != nil || u.Left.Status != "unknown" {
 		t.Fatal("missing balance became zero")
 	}
 	row := overviewRow(t, result, broker.Account.ID.String()+":holding:"+h.ID.String())
 	wantOverviewAmount(t, row.Left.BaseAmount, "0.00012")
+	wantOverviewAmount(t, row.Left.Price.Value, "0.00006")
 	wantOverviewAmount(t, row.BaseChange, "0")
 	if result.Left.KnownAssets != "0.00012" || row.Left.Price == nil || row.Left.Price.Source != "manual" {
 		t.Fatalf("precision/evidence: %+v", result.Left)

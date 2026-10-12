@@ -11,7 +11,7 @@ import { useStartup } from "@/queries/app";
 import { useSettings } from "@/queries/settings";
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
-import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus } from "@/app/navigation";
+import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus, type HistoricalNavigationContext } from "@/app/navigation";
 import { useAnalysisStore } from "@/stores/analysis";
 import { Button } from "@/components/ui/button";
 import { NavigationContext } from "@/app/NavigationContext";
@@ -55,6 +55,8 @@ function App() {
   const [healthFocus, setHealthFocus] = useState<HealthFocus>();
   const [marketFocus, setMarketFocus] = useState<HealthFocus>();
   const [historicalDate, setHistoricalDate] = useState<string>();
+  const [historicalContext, setHistoricalContext] = useState<HistoricalNavigationContext>();
+  const [historicalRequest, setHistoricalRequest] = useState(0);
   const [liquidityProductId, setLiquidityProductId] = useState<string | undefined>();
   const [liquidityAccountId, setLiquidityAccountId] = useState<string | undefined>();
   const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
@@ -121,7 +123,7 @@ function App() {
     if (!retainSource) setTrail([]);
     const navigation = typeof target === "string" ? targetForPage(target) : target;
     const pageId = navigation.page;
-    if (navigation.page === "historical-overview") setHistoricalDate(navigation.date);
+    if (navigation.page === "historical-overview") { setHistoricalDate(navigation.date); setHistoricalContext(navigation.historical); setHistoricalRequest(previous => previous + 1); }
     // Top-level Accounts navigation always returns to the list. Opening a
     // specific account uses openAccount, which sets selectedAccountId first.
     if (pageId === "accounts") {
@@ -239,10 +241,10 @@ function App() {
           <SettingsPage />
         </WorkspaceLazy>
       )}
-      {activePageId === "historical-overview" && <WorkspaceLazy><HistoricalOverviewPage key={historicalDate ?? "default"} initialDate={historicalDate} onExit={() => {
+      {retained("historical-overview") && <div hidden={activePageId !== "historical-overview"}><WorkspaceLazy><HistoricalOverviewPage key={historicalRequest} initialDate={historicalDate} initialContext={historicalContext} isActive={activePageId === "historical-overview"} onExit={() => {
         if (trail.length > 0) back();
         else { restorePosition.current = { scroll: 0, focus: null, focusId: "open-historical-overview" }; handleNavigate("overview"); }
-      }} /></WorkspaceLazy>}
+      }} /></WorkspaceLazy></div>}
       {activePageId === "history" && (
         <WorkspaceLazy>
           <HistoryPage navigationFilters={historyFilters} />

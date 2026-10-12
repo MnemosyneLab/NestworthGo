@@ -28,13 +28,13 @@ function state(date: string, amount: string): HistoricalOverviewState {
 function account(key: string, delta: string): HistoricalOverviewRow {
   const cell = (value: string) => ({ status: "active", included: true, complete: true, currency: "CNY",
     nativeAmount: value, baseAmount: value, quantity: null, assetClass: "cash", manual: false,
-    valueSourceAt: "", valueSourceId: "", price: null, fx: null, missing: [] });
-  return { key, parentKey: "", kind: "account", name: "Duplicate", role: "asset", left: cell("100"), right: cell(delta === "10" ? "110" : "120"),
+    valueSourceAt: "", valueSourceId: "", price: null, fx: null, missing: [], missingDetails: [] });
+  return { key, accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: "Duplicate", role: "asset", left: cell("100"), right: cell(delta === "10" ? "110" : "120"),
     baseChange: delta, nativeChange: delta, quantityChange: null, changed: true };
 }
 
 function result(right: HistoricalOverviewState | null): HistoricalOverviewResult {
-  return { timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-09", capturedAt: "2026-08-10T12:00:00Z",
+  return { categories: [], timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-09", capturedAt: "2026-08-10T12:00:00Z",
     inputGeneration: 1, resolverPolicy: "market-date-daily-summary-v3", left: state("2026-08-01", "10"), right,
     change: right ? { assets: "10", liabilities: "0", netWorth: "10" } : null,
     rows: [account("first", "10"), account("second", "20")] };
