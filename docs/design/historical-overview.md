@@ -86,7 +86,10 @@ projected identities and an ordered date range. For current comparisons that
 range ends at the last closed day, with a visible explanation that the capture
 can also contain today's activity. A historical source retained on the App's
 Back trail keeps its immutable query session, dates, filters, selected detail
-and scroll/focus position. Its Sheet is closed while inactive. Returning does
+and scroll/focus position. The default A is resolved once when the household
+origin becomes available; crossing a household month boundary does not change
+that selection or recapture on Back. Explicitly cleared input remains invalid.
+Its Sheet is closed while inactive. Returning does
 not recapture. A top-level exit removes the retained session; an explicit new
 panorama navigation creates a new session. No saved database snapshots,
 providers, schema changes, trend/attribution series or automatic repairs are

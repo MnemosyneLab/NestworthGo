@@ -211,8 +211,8 @@ it("preserves sub-cent decimal strings in read-only detail", async () => {
   expect(within(dialog).getByText(new RegExp(i18n.t("historicalOverview.original")))).toHaveTextContent("0.00012 CNY");
 });
 
-it("keeps a cleared date invalid instead of silently selecting the default", async () => {
-  show();
+it("keeps a cleared date invalid across a month boundary instead of selecting a default", async () => {
+  const { client, rerender } = show();
   await screen.findByRole("button", { name: "Bank" });
   const calls = read.mock.calls.length;
   fireEvent.change(screen.getByLabelText("Historical date"), { target: { value: "" } });
@@ -221,7 +221,21 @@ it("keeps a cleared date invalid instead of silently selecting the default", asy
   expect(screen.queryByRole("button", { name: "Bank" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Previous day" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Next day" })).toBeDisabled();
+  vi.setSystemTime(new Date("2026-09-01T00:00:30Z"));
+  rerender(<QueryClientProvider client={client}><HistoricalOverviewPage isActive={false} onExit={vi.fn()} /></QueryClientProvider>);
+  rerender(<QueryClientProvider client={client}><HistoricalOverviewPage isActive onExit={vi.fn()} /></QueryClientProvider>);
+  expect(screen.getByLabelText("Historical date")).toHaveValue("");
+  expect(screen.getByLabelText("Historical date")).toHaveAttribute("aria-invalid", "true");
   expect(read).toHaveBeenCalledTimes(calls);
+});
+
+it("keeps an explicit empty initial date invalid after the origin loads", async () => {
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="" onExit={vi.fn()} /></QueryClientProvider>);
+  const input = await screen.findByLabelText("Historical date");
+  expect(input).toHaveValue("");
+  expect(input).toHaveAttribute("aria-invalid", "true");
+  expect(read).not.toHaveBeenCalled();
 });
 
 it("keeps an empty comparison date invalid and does not drop comparison silently", async () => {

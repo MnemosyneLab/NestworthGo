@@ -138,7 +138,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const origin = useHistoryOrigin();
   const navigation = useObjectNavigation();
   // null means not chosen yet; an explicitly cleared date must remain empty.
-  const [chosenDate, setChosenDate] = useState<string | null>(initialDate || null);
+  const [chosenDate, setChosenDate] = useState<string | null>(initialDate ?? null);
   const [comparison, setComparison] = useState(initialContext?.compareTo ? initialContext.compareTo === "current" ? "current" : "date" : "none");
   const [comparisonDate, setComparisonDate] = useState<string | null>(initialContext?.compareTo && initialContext.compareTo !== "current" ? initialContext.compareTo : null);
   const [changesOnly, setChangesOnly] = useState(initialContext?.changesOnly ?? false);
@@ -160,6 +160,10 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const lastDate = shiftCivilDate(today, -1);
   const defaultDate = previousMonthEnd(today);
   const initialDefault = defaultDate < firstDate ? firstDate : defaultDate;
+  // Resolve the default once after the household origin is available. The
+  // retained session must not select a new A when the clock crosses a month.
+  // A cleared date is "", so it never enters this initialization branch.
+  if (chosenDate === null && origin.data) setChosenDate(initialDefault);
   const date = chosenDate ?? initialDefault;
   const compareDate = comparisonDate ?? lastDate;
   const compareTo = comparison === "none" ? "" : comparison === "current" ? "current" : compareDate;
