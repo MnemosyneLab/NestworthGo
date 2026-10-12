@@ -96,6 +96,11 @@ func (v *ValuationService) Account(ctx context.Context, id domain.AccountID) (do
 	}
 	for _, item := range valued {
 		if item.model.Account.ID == id {
+			composition, err := projectAccountComposition(item.model, compositionInstruments(snapshot), snapshot.Household.BaseCurrency)
+			if err != nil {
+				return domain.AccountValuation{}, err
+			}
+			item.model.Composition = &composition
 			return item.model, nil
 		}
 	}

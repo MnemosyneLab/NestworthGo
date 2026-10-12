@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { displayEnum } from "@/lib/display";
-import type { HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState, HistoricalSeriesPoint } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { accountChanges, alignedAllocations, allocationMode, comparableStatuses, geometry, isZero, missingAssetLeaves } from "./historicalChartModel";
 import { formatHistoricalAmount as amount } from "./historicalAmount";
 
@@ -17,7 +17,7 @@ function stateLabel(state: HistoricalOverviewState, side: Side, current: string)
   return `${side === "left" ? "A" : "B"} · ${state.current ? current : state.date}`;
 }
 
-export function HistoricalMetricCards({ data }: { data: HistoricalOverviewResult }) {
+export function HistoricalMetricCards({ data, seriesPoints }: { data: HistoricalOverviewResult; seriesPoints?: HistoricalSeriesPoint[] | null }) {
   const { t } = useTranslation();
   const { left, right, change } = data;
   const mismatch = Boolean(right && left.currency !== right.currency);
@@ -28,12 +28,15 @@ export function HistoricalMetricCards({ data }: { data: HistoricalOverviewResult
         <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3">
           {(["left", "right"] as const).filter(side => side === "left" || right).map(side => {
             const state = side === "left" ? left : right!;
+            const point = seriesPoints?.find(point => point.date === state.date);
+            const subtotalKey = key === "assets" ? "knownAssets" : "knownLiabilities";
+            const known = point ? point[subtotalKey] : state[subtotalKey];
             return <div key={side} className="min-w-0">
               <dt className="text-xs text-muted-foreground">{stateLabel(state, side, t("historicalOverview.current"))}</dt>
               <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-1 overflow-x-auto text-lg font-semibold focus-visible:outline-primary">
                 <span className="num whitespace-nowrap" title={state[key] == null ? undefined : `${state[key]} ${state.currency}`}>{amount(state[key], state.currency) ?? t("historicalOverview.unknown")}</span>
               </dd>
-              {state[key] == null && key !== "netWorth" && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(key === "assets" ? state.knownAssets : state.knownLiabilities, state.currency)}</p>}
+              {state[key] == null && key !== "netWorth" && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(known, state.currency) ?? t("historicalOverview.unknown")}</p>}
             </div>;
           })}
           {right && <div className="min-w-0">

@@ -1134,7 +1134,7 @@ func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFi
 	if err != nil {
 		return nil, err
 	}
-	valuations, _, err := s.valuation.ValueAccounts(snapshot)
+	valuations, _, err := s.valuation.ValueAccountCompositions(snapshot)
 	return valuations, err
 }
 

@@ -25,8 +25,8 @@ and never labels stale totals with a new selection.
 
 This milestone adds no new API, schema, provider, trend or attribution path.
 Category amount/percentage-point deltas and richer price/FX evidence are now
-provided by the P1 projection below. Same-basis trends and attribution still
-require separate backend contracts. The P0 DOM,
+provided by the P1 projection below. Bounded trends now use the separate P2a
+contract below; attribution still requires a new backend contract. The P0 DOM,
 financial and server-tag regressions are automated; native wide/narrow/zoom
 screenshots and first-open Sheet visual acceptance remain pending on a GTK4 and
 WebKitGTK capable host with a synthetic profile.
@@ -315,3 +315,96 @@ checks before marking native UI acceptance complete:
 - Compare captured current state, refresh twice quickly, and verify both sides
   update together. Exercise a failed read and retry; old totals must not remain
   visible as a successful fresh read.
+
+## Historical panorama P2a: bounded local civil-day series
+
+`HistoricalOverviewSeries(ctx, from, to)` is a separate read-only application
+contract and Wails method. It returns an `overview` with full P1 endpoint rows
+and `points` with summary data for every civil date in the inclusive range.
+Endpoints must be closed, forward dates on or after the household history
+origin. One through 31 labels are accepted; reverse/current/longer comparisons
+remain available through P1, without implicitly requesting a series. A skipped
+civil date inside a range remains an explicit unavailable point and breaks the
+line; an unavailable endpoint is rejected. Cutoffs use the existing household
+civil-day function and market-date resolver, including retained late close
+observations. This is current retained evidence/current metadata reconstruction,
+not an as-known historical archive.
+
+The optional repository port performs preflight and hydration in **one read-only
+transaction**. It first reads origin metadata and validates the authoritative
+closed-date window/endpoints before budget scanning or financial hydration; no
+second financial batch is read. Before financial decoding it scans at most 100,001 retained rows
+and accepts at most 100,000 facts, 1,000 possible component leaves and 32 MiB of
+serialized column payload. The cap conservatively counts the whole retained
+profile, including archived facts, corrected activity effects and product
+metadata. Unrelated retained facts can therefore reject a small selected range;
+there is no hidden truncation or retry through the unbounded P1 loader. Counts
+include preflight/hydration SQL but exclude transaction begin/commit. Fixed
+schema identifiers are used; snapshots/items and app configuration are never
+loaded. Activity hydration uses bounded 256-activity SQL parameter batches,
+then replays money effects once over the complete ordered activity set.
+
+One capture timestamp, input generation, FX provider preference and quote TTL
+apply to every point and both endpoints. Instrument facts, FX pairs, coverage
+and source activities are indexed once. Selected observations are resolved
+once per instrument/pair per date. Middle points only value included component
+leaves; full account/evidence rows and category comparisons are built for the
+two endpoints. The public overview, AnalysisService, snapshot ensuring or
+rebuilding and provider calls are not used. No schema or provider is added.
+P1 and the account-compositions contract retain their existing implementations.
+
+Each point exposes nullable exact decimal strings for assets/liabilities/net
+worth, separate nullable known subtotals, independent role completeness/counts,
+and stable missing leaf keys/reasons. A subtotal is null when all included
+amounts are unknown; an empty role or observed zero is a known zero. Missing
+liabilities do not erase a complete asset series. Parent rows are never added
+to their component leaves. Unknown values are not substituted into the line.
+Scope and source/binding/native/base-currency basis changes conservatively break
+connections. An available empty portfolio has a valid empty scope; entering or
+leaving that scope breaks connections too. A missing civil date resets preceding
+point availability without comparing scope/basis across the gap. Selected price
+and FX evidence supply their actual source/key, observation kind, currency/pair,
+price/timestamp basis, source policy and price binding revision alongside saved
+preferences. Agent observations that supplement manual/provider preferences
+therefore break connections when their selected source/basis changes. Quote
+identity, dates, ordinary values, quote revisions and freshness do not change
+the basis signature. A known-zero exposure with no applied price/FX evidence is
+neutral: comparison state retains each included leaf's last actual semantic
+source across contiguous known-zero points, then compares actual evidence when
+exposure resumes. The first actual source after an initial zero has no earlier
+actual source to differ from. Scope removal, unknown evidence on nonzero
+exposure and nonexistent-date gaps clear the relevant comparison memory.
+Durable scope/preferences/binding/currency checks still apply at zero. This is
+capture-local comparison state, never invented valuation evidence or amounts.
+Endpoint totals and rows use the P1 conventions and retained provenance.
+Series endpoint cards take nullable known subtotals from the same series points,
+so an all-unknown subtotal is shown as unknown, while observed zero stays zero;
+the P1 result shape and its legacy subtotal strings remain compatible. Decimal
+parse failures during endpoint allocation accumulation are returned explicitly,
+even though current valuation output guarantees valid exact strings.
+
+The application imposes a 10-second deadline. Context cancellation is checked
+through SQL, effect replay, historical replay, indexing, date iteration and
+valuation entry/account loops. Budget/deadline errors return no partial bundle;
+explicit caller cancellation remains cancellation. The serialized-input cap
+is **not** a hard heap/RSS cap. See the measured memory and dense-history timing
+in [P2a acceptance](../testing/historical-panorama-p2a.md).
+
+The trend tab is enabled explicitly with a new whole-range capture. During
+loading/failure no old financial data is labelled with the new range. Switching
+metrics/tabs, selecting a point or inspecting the complete source table stays
+local. Every chart point has a keyboard-accessible table control. Set-as-A/B
+recaptures the whole new range; Open-day visibly leaves the series for a new P1
+single-day capture. Ordinary date/mode controls also exit series mode. Obsolete
+range queries cancel their Wails promise; stale completions cannot replace the
+active capture. Focus/reconnect do not reread. History Back retains the bundle,
+metric, selected point, tabs, filters, detail, focus and scroll position.
+
+The existing shared ECharts wrapper renders unsmoothed isolated segments with
+backend connectivity flags and explicit A/B/selection symbols. There is no
+MarkLine registration assumption, interpolation, downsampling, frontend
+financial arithmetic, share/subtotal replacement, contribution/return claim or
+attribution widget. Exact strings remain in tooltips and the complete visible
+source table. One-point ranges are labelled as one observation. Rendering uses
+the existing light/dark theme and en/zh-CN/zh-TW strings. Native visual/keyboard
+acceptance remains pending on the reviewed immutable head.

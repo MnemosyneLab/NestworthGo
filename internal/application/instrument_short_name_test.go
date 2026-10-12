@@ -58,6 +58,30 @@ func TestShortNameEditsPreserveIdentityAndProjections(t *testing.T) {
 		if !reflect.DeepEqual(before.BaseValue, after.BaseValue) {
 			t.Fatal("alias changed money")
 		}
+		if before.Composition == nil || after.Composition == nil || before.Composition.TotalExact != after.Composition.TotalExact {
+			t.Fatal("alias edit lost account composition or changed its exact total")
+		}
+		compositionFound := false
+		for _, detail := range after.Composition.Details {
+			if detail.Key == "account-composition:holding:"+holding.ID.String() {
+				compositionFound = true
+				if detail.Label != aliases[idx] {
+					t.Fatalf("composition alias %q", detail.Label)
+				}
+				if detail.IdentityLabel != updated.SelectionLabel() || !strings.Contains(detail.IdentityLabel, code) || !strings.Contains(detail.IdentityLabel, original.Name) {
+					t.Fatalf("composition lost full instrument identity: %q", detail.IdentityLabel)
+				}
+				for _, old := range before.Composition.Details {
+					if old.Key == detail.Key && (old.BaseAmountExact != detail.BaseAmountExact || old.ShareBPS != detail.ShareBPS || old.TypeKey != detail.TypeKey || !reflect.DeepEqual(old.DetailRefs, detail.DetailRefs)) {
+						t.Fatal("alias edit changed composition amount, share, type or references")
+					}
+				}
+			}
+		}
+		if !compositionFound {
+			t.Fatal("holding identity missing from account composition")
+		}
+
 		found := false
 		for _, c := range after.Components {
 			if c.InstrumentID != nil && *c.InstrumentID == i.ID {

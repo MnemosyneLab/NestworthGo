@@ -3,10 +3,13 @@ import { addCanonical, isPositiveCanonical, sortByCanonicalDesc } from "@/lib/mo
 export interface ChartCategory {
   key: string;
   label: string;
+  identityLabel?: string;
   amount: string;
   shareBps: number;
   nativeAmount?: string;
   nativeCurrency?: string;
+  available?: boolean;
+  missingCount?: number;
 }
 
 /**

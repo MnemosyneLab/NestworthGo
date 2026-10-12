@@ -31,6 +31,13 @@ export interface CompositionChartProps {
   height?: number;
   missingCount?: number;
   complete?: boolean;
+  /** Opt in only for authoritative account composition projections. */
+  precomputedCategories?: boolean;
+  legendItems?: ChartCategory[];
+  dataTableItems?: ChartCategory[];
+  /** Account-only identity routing and interaction reset; omitted by other consumers. */
+  legendSliceKeys?: Readonly<Record<string, string>>;
+  interactionResetKey?: string;
 }
 
 export function CompositionChart({
@@ -45,20 +52,42 @@ export function CompositionChart({
   height = 280,
   missingCount = 0,
   complete = true,
+  precomputedCategories = false,
+  legendItems,
+  dataTableItems,
+  legendSliceKeys,
+  interactionResetKey,
 }: CompositionChartProps) {
   const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [previousResetKey, setPreviousResetKey] = useState(interactionResetKey);
+  // Adjust local state before committing a changed account list. Keep the
+  // chart/table mounted so only interactions reset, not the open source table.
+  if (previousResetKey !== interactionResetKey) {
+    setPreviousResetKey(interactionResetKey);
+    setSelectedKey(null);
+    setHoveredKey(null);
+    setFocusedKey(null);
+  }
   useThemeVersion();
   const sliceGap = cssColor("--color-card", "#ffffff");
   const themePalette = chartTheme().palette;
   const themePaletteKey = themePalette.join("\u0000");
-  const slices = useMemo(() => collapseChartCategories(items).map((item) => (
+  const slices = useMemo(() => precomputedCategories ? items : collapseChartCategories(items).map((item) => (
     item.key === "other" ? { ...item, label: t("charts.otherCategory") } : item
-  )), [items, t]);
-  const showNative = slices.some((slice) => distinctNative(slice, currency));
+  )), [items, precomputedCategories, t]);
+  const rows = legendItems ?? slices;
+  const sourceRows = dataTableItems ?? slices;
+  const amountLabel = (slice: ChartCategory) => slice.available === false ? t("accounts.noValue") : formatAmount(slice.amount, currency);
+  const shareLabel = (slice: ChartCategory) => slice.available === false ? "—" : formatPercent(slice.shareBps);
+  const showNative = sourceRows.some((slice) => distinctNative(slice, currency));
   const activeKey = hoveredKey ?? focusedKey ?? selectedKey;
+  const controlledInteraction = legendSliceKeys !== undefined || interactionResetKey !== undefined;
+  const sliceKeyForRow = (key: string | null) => key ? legendSliceKeys?.[key] ?? key : null;
+  const selectedSliceKey = controlledInteraction ? sliceKeyForRow(selectedKey) : undefined;
+  const highlightedSliceKey = controlledInteraction ? sliceKeyForRow(activeKey) : undefined;
 
   const option: EChartsOption = useMemo(() => {
     const palette = themePaletteKey.split("\u0000");
@@ -73,7 +102,7 @@ export function CompositionChart({
           if (!slice) {
             return "";
           }
-          return joinTooltipLines([slice.label, sliceTooltipAmount(slice, currency)]);
+          return joinTooltipLines([slice.label, slice.available === false ? t("accounts.noValue") : sliceTooltipAmount(slice, currency), ...(slice.missingCount ? [t("charts.partialValued", { count: slice.missingCount })] : [])]);
         },
       },
       series: [
@@ -88,6 +117,7 @@ export function CompositionChart({
             name: slice.key,
             value: chartNumber(slice.amount) ?? 0,
             itemStyle: { color: palette[index % palette.length] },
+            ...(selectedSliceKey === undefined ? {} : { selected: selectedSliceKey === slice.key }),
           })),
           label: { show: false },
           emphasis: { scale: true, scaleSize: 4 },
@@ -95,7 +125,7 @@ export function CompositionChart({
         },
       ],
     };
-  }, [currency, slices, themePaletteKey, sliceGap, title]);
+  }, [currency, slices, themePaletteKey, sliceGap, title, t, selectedSliceKey]);
 
   if (slices.length === 0) {
     return null;
@@ -108,25 +138,27 @@ export function CompositionChart({
       <EChart
           option={option}
           height={height}
+          highlightedName={highlightedSliceKey}
+          selectedName={selectedSliceKey}
           ariaLabel={ariaLabel}
           summary={summary}
           dataTableLabel={t("charts.viewDataTable")}
           dataTableColumns={showNative
             ? [t("charts.category"), t("accounts.nativeAmount"), t("accounts.householdAmount"), t("charts.share")]
             : [t("charts.category"), t("charts.amount"), t("charts.share")]}
-          dataTableRows={slices.map((item) => showNative
+          dataTableRows={sourceRows.map((item) => showNative
             ? [
-              item.label,
+              item.identityLabel || item.label,
               distinctNative(item, currency) && item.nativeAmount && item.nativeCurrency
                 ? formatAmount(item.nativeAmount, item.nativeCurrency)
-                : formatAmount(item.amount, currency),
-              formatAmount(item.amount, currency),
-              formatPercent(item.shareBps),
+                : amountLabel(item),
+              amountLabel(item),
+              shareLabel(item),
             ]
-            : [item.label, formatAmount(item.amount, currency), formatPercent(item.shareBps)])}
+            : [item.identityLabel || item.label, amountLabel(item), shareLabel(item)])}
           onSelectName={(name) => {
             const key = keyFromChartName(name);
-            setSelectedKey((current) => (key && current === key ? null : key));
+            setSelectedKey((current) => (key && sliceKeyForRow(current) === key ? null : key));
           }}
           onHoverName={(name) => setHoveredKey(keyFromChartName(name))}
           center={(
@@ -142,15 +174,16 @@ export function CompositionChart({
             {t("charts.partialValued", { count: missingCount })}
           </p>
         )}
-        {slices.map((slice) => (
+        {rows.map((slice) => (
           <button
             type="button"
             key={slice.key}
             data-testid={`composition-slice-${slice.key}`}
-            aria-pressed={activeKey === slice.key}
+            aria-pressed={controlledInteraction ? selectedKey === slice.key : activeKey === slice.key}
             className={cn(
               "flex items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
               activeKey === slice.key && "bg-muted ring-2 ring-primary/40",
+              precomputedCategories && "min-w-0",
             )}
             onClick={() => setSelectedKey((current) => (current === slice.key ? null : slice.key))}
             onMouseEnter={() => setHoveredKey(slice.key)}
@@ -158,15 +191,15 @@ export function CompositionChart({
             onFocus={() => setFocusedKey(slice.key)}
             onBlur={() => setFocusedKey(null)}
           >
-            <span className="text-foreground">{slice.label}</span>
-            <span className="num flex items-center gap-2 text-muted-foreground">
+            <span className={cn("text-foreground", precomputedCategories && "min-w-0 break-words [overflow-wrap:anywhere]")}>{slice.label}{Boolean(slice.missingCount) && <span className="block text-xs text-warning-foreground">{t("charts.partialValued", { count: slice.missingCount })}</span>}</span>
+            <span className={cn("num flex items-center gap-2 text-muted-foreground", precomputedCategories && "ml-2 min-w-0 flex-wrap justify-end [overflow-wrap:anywhere]")}>
               <span className="flex flex-col items-end">
                 {distinctNative(slice, currency) && slice.nativeAmount && slice.nativeCurrency && (
                   <span data-testid={`composition-native-${slice.key}`}>{formatAmount(slice.nativeAmount, slice.nativeCurrency)}</span>
                 )}
-                <span>{formatAmount(slice.amount, currency)}</span>
+                <span>{amountLabel(slice)}</span>
               </span>
-              <Badge variant="secondary">{formatPercent(slice.shareBps)}</Badge>
+              <Badge variant="secondary">{shareLabel(slice)}</Badge>
             </span>
           </button>
         ))}

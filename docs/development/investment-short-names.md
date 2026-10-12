@@ -1,8 +1,28 @@
 # Optional investment short names
 
 Base: verified main `c84910971e3bf30c110e1e88f74686679172e3a0`.
-This change uses a separate branch. It does not include account-composition PR
-#56 or the P2a trend work.
+This change uses a separate branch. After PR #56 and PR #57 merged, the branch
+integrates main `74778dbc2f93f253be54ec65c0115112f4b489f9` with a merge commit.
+The feature diff against that main remains focused on optional short names.
+
+## Integration with account composition and historical series
+
+The only textual conflict was `frontend/src/features/accounts/accountComposition.ts`.
+Main's backend account-composition projection and frontend panel replace the old
+client-side donut builder. The resolution preserves that replacement and applies
+the universal display helper to the backend's instrument detail labels. Canonical
+type grouping, exact totals, basis-point allocation, stable detail references,
+top-ten/remainder behavior and chart interaction fixes stay intact. The alias-edit
+regression checks unchanged totals, amounts, shares, types and detail references.
+Detail projections also carry optional full identity text into the data table,
+so duplicate aliases remain distinguishable without replacing the primary label.
+The shared chart changes only those optional table cells; renderer selection,
+hover, reset behavior and category calculations are unchanged.
+
+Main's historical-series and dense-entry changes merged cleanly. Their bounded,
+read-only snapshot paths, chunked activity hydration and civil-day replay remain
+intact; the shared instrument query includes the new alias column. Bindings are
+regenerated from the combined Go model and services.
 
 ## Display and identity contract
 
@@ -158,10 +178,10 @@ in the repository task, because the environment's parent Git mount prevents
 automatic VCS stamping. Focused race tests keep CGO enabled.
 
 ```sh
-GOFLAGS='-mod=readonly -tags=server' CGO_ENABLED=0 go test ./...
+GOFLAGS='-mod=readonly -tags=server' CGO_ENABLED=0 go test -p 1 ./...
 GOFLAGS='-mod=readonly -tags=server' CGO_ENABLED=0 go vet ./...
 GOFLAGS='-mod=readonly -tags=server' CGO_ENABLED=0 go build -buildvcs=false ./cmd/nestworth
-go test -race ./internal/domain ./internal/application ./internal/infrastructure/sqlite ./internal/infrastructure/backup ./internal/infrastructure/continuousbackup ./internal/mcpserver ./internal/wailsapi/instrument -run 'ShortName|V15|UniversalDisplay|SupportedManifest|StreamIdentity' -count=1
+go test -race -p 1 -parallel 4 ./internal/domain ./internal/application ./internal/infrastructure/sqlite ./internal/infrastructure/backup ./internal/infrastructure/continuousbackup ./internal/mcpserver ./internal/wailsapi/instrument ./internal/wailsapi/wire -run 'ShortName|V15|UniversalDisplay|SupportedManifest|StreamIdentity|AccountComposition|HistoricalSeries|HistoricalOverviewDense|HistoricalOverviewHydration|HistoricalActivityHydration|StandaloneActivitiesUntil' -count=1
 cd frontend
 CGO_ENABLED=0 pnpm run test --maxWorkers=2
 CGO_ENABLED=0 pnpm run typecheck
@@ -178,14 +198,14 @@ parent-coordinated review. Directory flush failures fail closed; native checks
 must verify support on each target platform rather than skipping that safety
 step silently.
 
-Validation on 2026-10-12:
+Combined validation against integrated main on 2026-10-12:
 
 | Check | Result |
 | --- | --- |
 | Full Go suite in server/headless mode | Passed; 37 tested packages |
 | Go vet and gofmt | Passed |
-| Focused race suites for aliases, v15 upgrade/recovery, manifests and stream identity | Passed across all seven listed packages |
-| Frontend suite with two workers | 94 files / 955 tests passed |
+| Relevant race suites for aliases, v15 upgrade/recovery, manifests, stream identity, composition, series and activity hydration | Passed across all eight listed packages; application 343.135s |
+| Frontend suite with two workers | 100 files / 990 tests passed |
 | TypeScript, ESLint and generated-binding consistency | Passed |
 | Production frontend and headless server builds | Passed; existing ECharts chunk-size warning |
 | Native packaged build and visual/mobile acceptance | Pending parent review; native dependencies absent |
@@ -195,6 +215,12 @@ completed runs use bounded frontend workers and avoid overlapping the full Go
 performance suite with race instrumentation. An actual equal-primary-label
 sorting regression was fixed with full-name/ID tie-breakers and verified by
 `InstrumentHoldingsTable` tests. Subsequent full frontend and Go runs pass.
+
+The combined normal suite retains main's mandatory 1,000-leaf/25,000-activity
+dense-entry regression. The race run retains main's existing 20-leaf/8,300-activity
+representative, SQLite parameter-boundary coverage and unchanged runtime-deadline
+criteria. No new skips or relaxed deadlines were introduced. The original schema
+fixture still has Git blob `f0c7bd99fae589368b1ad94d6bf2670a46824ae9`.
 
 ## Native QA checklist (pending parent acceptance)
 
@@ -212,6 +238,7 @@ copies. Never point the app at the user's financial database.
 - [ ] Keyboard Tab order, input focus, submit/error focus, screen-reader labels,
   and clearing to fallback work; 320/375px mobile layouts do not overflow.
 - [ ] Duplicate aliases, two share classes, archived records, selectors/details,
+  account-composition detail tables,
   alias/code/ISIN search, account navigation, insight filters, overview, history,
   data health, historical rows and sync progress identify the intended ID.
 - [ ] Managed-product contract editing changes the one shared instrument alias;

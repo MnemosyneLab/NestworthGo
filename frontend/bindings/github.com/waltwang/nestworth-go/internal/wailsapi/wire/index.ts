@@ -3,6 +3,8 @@
 
 export type {
     AccountCashValueDTO,
+    AccountCompositionDTO,
+    AccountCompositionItemDTO,
     AccountDTO,
     AccountRecordDTO,
     AccountValuationDTO,

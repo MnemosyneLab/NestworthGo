@@ -283,7 +283,22 @@ func listActivityPageQuery(ctx context.Context, db queryer, householdID domain.H
 }
 
 func (r *Repository) ListActivitiesUntil(ctx context.Context, householdID domain.HouseholdID, cutoff time.Time) ([]domain.Activity, error) {
-	return listActivitiesUntilQuery(ctx, r.database.SQL, householdID, cutoff)
+	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	activities, err := listActivitiesUntilQuery(ctx, tx, householdID, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return activities, nil
 }
 
 func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.Activity, error) {
@@ -294,6 +309,9 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		activity, scanErr := activityFromScanner(rows)
 		if scanErr != nil {
 			return nil, scanErr
@@ -306,7 +324,7 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	if err := hydrateActivities(ctx, query, activities); err != nil {
+	if err := hydrateHistoricalActivities(ctx, query, activities); err != nil {
 		return nil, err
 	}
 	// Use the same adjusted balance deltas for snapshots and analysis.
@@ -322,7 +340,7 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err != nil {
 		return nil, err
 	}
-	return domain.ReplayMoneyEffects(activities, components)
+	return domain.ReplayMoneyEffectsContext(ctx, activities, components)
 }
 
 func hydrateActivities(ctx context.Context, query queryer, activities []domain.Activity) error {

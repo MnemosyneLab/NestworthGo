@@ -21,6 +21,10 @@ export function HistoricalOverview(date: string, compareTo: string): $Cancellabl
     return $Call.ByID(1841438157, date, compareTo);
 }
 
+export function HistoricalOverviewSeries($from: string, to: string): $CancellablePromise<application$0.HistoricalOverviewSeriesResult> {
+    return $Call.ByID(3250854632, $from, to);
+}
+
 export function InstrumentHoldings(): $CancellablePromise<$models.InstrumentHoldingsDTO[] | null> {
     return $Call.ByID(4105309295);
 }

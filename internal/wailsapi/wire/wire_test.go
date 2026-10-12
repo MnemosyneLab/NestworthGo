@@ -216,3 +216,28 @@ func TestAccountWirePreservesInheritanceAndExplicitIcons(t *testing.T) {
 		t.Fatalf("inherited icon replaced by %q", got)
 	}
 }
+
+func TestAccountCompositionWirePreservesExactAndMissing(t *testing.T) {
+	value := domain.AccountValuation{Composition: &domain.AccountComposition{Currency: "USD", TotalExact: "0.0001", Status: "partial", ValuedCount: 2, MissingCount: 1, Details: []domain.AccountCompositionItem{
+		{Key: "holding:first", TypeKey: "etf", Label: "Shared alias", IdentityLabel: "Shared alias · Class A · CODE-A · ISIN-A", DetailRefs: []string{"holding:first"}, BaseAmount: &domain.MoneyView{Amount: "0", Currency: "USD"}, BaseAmountExact: "0.00005", ShareBPS: 5000, NativeAmount: "0.00005", NativeCurrency: "USD", ValuedCount: 1},
+		{Key: "holding:missing", TypeKey: "unknown", DetailRefs: []string{"holding:missing"}, MissingCount: 1},
+	}}}
+	encoded, err := json.Marshal(FromAccountValuation(value))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded AccountValuationDTO
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	composition := decoded.Composition
+	if composition.TotalExact != "0.0001" || composition.Details[0].BaseAmountExact != "0.00005" || composition.Details[0].BaseAmount.Amount != "0" || composition.Details[0].ShareBPS != 5000 || composition.Details[1].BaseAmount != nil || composition.Details[1].BaseAmountExact != "" || composition.Details[1].TypeKey != "unknown" {
+		t.Fatalf("composition JSON=%s", encoded)
+	}
+	if composition.Types == nil || composition.DetailSlices == nil {
+		t.Fatalf("array fields must remain arrays: %s", encoded)
+	}
+	if composition.Details[0].Label != "Shared alias" || composition.Details[0].IdentityLabel != value.Composition.Details[0].IdentityLabel || composition.Details[1].IdentityLabel != "" {
+		t.Fatalf("composition identity JSON=%s", encoded)
+	}
+}

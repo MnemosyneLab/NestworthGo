@@ -31,6 +31,24 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	return batch, nil
 }
 
+// Bound the historical child queries (the resulting-endpoint union repeats
+// every ID four times). Reuse the caller's queryer and original slice order;
+// the caller is responsible for supplying a consistent read transaction.
+// economic replay must still run once over all hydrated activities afterwards.
+func hydrateHistoricalActivities(ctx context.Context, query queryer, activities []domain.Activity) error {
+	const batchSize = 256
+	for start := 0; start < len(activities); start += batchSize {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		end := min(start+batchSize, len(activities))
+		if err := hydrateActivities(ctx, query, activities[start:end]); err != nil {
+			return err
+		}
+	}
+	return ctx.Err()
+}
+
 func loadHistoricalSnapshotBatchQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) (domain.HistoricalSnapshotBatch, error) {
 	var origin domain.HistoryOrigin
 	if _, err := scanHistoryOrigin(query.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String()), &origin); err != nil {

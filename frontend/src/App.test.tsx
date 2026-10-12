@@ -1,5 +1,5 @@
 import { upcomingData, upcomingItem } from "@/test/upcomingActions";
-vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), HistoricalOverview: (...args: unknown[]) => historicalRead(...args) } }));
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), HistoricalOverview: (...args: unknown[]) => historicalRead(...args), HistoricalOverviewSeries: (...args: unknown[]) => seriesRead(...args) } }));
 /* default historical fixture */
 const defaultHistorical = { capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] };
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +10,8 @@ import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { useUiStore } from "./stores/ui";
 
-const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead } = vi.hoisted(() => ({
+  seriesRead: vi.fn(),
   historyOrigin: vi.fn(),
   historicalRead: vi.fn(),
   upcomingRead: vi.fn(),
@@ -233,6 +234,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidit
 beforeEach(() => {
   queryClient.clear();
   historicalRead.mockReset().mockResolvedValue(defaultHistorical);
+  seriesRead.mockReset();
   historyOrigin.mockReset().mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
   scanHealth.mockReset().mockResolvedValue({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] });
   upcomingRead.mockReset().mockResolvedValue(upcomingData([upcomingItem()]));
@@ -566,48 +568,68 @@ vi.mock("@/features/history/HistoryPage", () => ({ HistoryPage: ({ navigationFil
 afterEach(() => vi.useRealTimers());
 
 it.each([
-  ["UTC", "2026-10-31T23:59:30Z", "2026-11-01T00:00:30Z"],
-  ["Asia/Shanghai", "2026-10-31T15:59:30Z", "2026-10-31T16:00:30Z"],
-])("returns from transaction history across a household month boundary with the same capture, dates, detail and position (%s)", async (timezone, before, after) => {
+  ["UTC", "2026-10-31T23:59:30Z", "2026-11-01T00:00:30Z", false],
+  ["UTC", "2026-10-31T23:59:30Z", "2026-11-01T00:00:30Z", true],
+  ["Asia/Shanghai", "2026-10-31T15:59:30Z", "2026-10-31T16:00:30Z", false],
+  ["Asia/Shanghai", "2026-10-31T15:59:30Z", "2026-10-31T16:00:30Z", true],
+])("returns from transaction history across a household month boundary with the same capture, dates, detail and position (%s)", async (timezone, before, after, trendEnabled) => {
   vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(before));
+  vi.setSystemTime(new Date(before as string));
   historyOrigin.mockResolvedValue({ id: "origin-1", timezone, startedAt: "2026-01-01T00:00:00Z" });
   await i18n.changeLanguage("en");
   const cell = { status: "active", included: true, complete: true, currency: "USD", nativeAmount: "10", baseAmount: "10", assetClass: "cash", manual: false, missing: [], missingDetails: [] };
   const state = { ...defaultHistorical.left, date: "2026-09-30", knownAssets: "10", knownLiabilities: "0" };
   historicalRead.mockImplementation((date: string, compareTo: string) => Promise.resolve({ ...defaultHistorical, capturedAt: new Date().toISOString(), categories: [], timezone, originDate: "2026-01-01", lastClosedDate: "2026-10-11", inputGeneration: 7, resolverPolicy: "policy", left: { ...state, date }, right: compareTo ? { ...state, date: compareTo, current: compareTo === "current" } : null, rows: [{ key: "account", accountId: "explicit-account", kind: "account", name: "Synthetic retained bank", role: "asset", parentKey: "", left: cell, right: compareTo ? cell : null, changed: false }, { key: "leaf", accountId: "explicit-account", kind: "balance", name: "USD", role: "asset", parentKey: "account", left: cell, right: compareTo ? cell : null, changed: false }] }));
+  seriesRead.mockImplementation(async (from: string, to: string) => {
+    const overview = await historicalRead(from, to);
+    return { overview, from, to, work: { leaves: 1, candidateFacts: 1, candidateBytes: 1, queries: 1 }, points: [from, to].map((date, index) => ({ date, cutoffAt: `${date}T23:59:59Z`, available: true, gapReason: "", assets: "10", liabilities: "0", netWorth: "10", knownAssets: "10", knownLiabilities: "0", assetsComplete: true, liabilitiesComplete: true, assetCoverage: { included: 1, known: 1, missing: 0 }, liabilityCoverage: { included: 0, known: 0, missing: 0 }, missing: [], scopeChanged: false, basisChanged: false, connectAssets: index > 0, connectLiabilities: index > 0, connectNetWorth: index > 0 })) };
+  });
   render(<AppProviders><App /></AppProviders>);
   await screen.findByTestId("overview-net-worth");
   const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
   await userEvent.click(within(nav).getByRole("button", { name: "Historical overview" }));
   await screen.findByLabelText("Historical date");
   await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
+  if (trendEnabled) {
+    await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+    await userEvent.click(screen.getByRole("button", { name: "Enable trend · New capture" }));
+    const trend = await screen.findByRole("region", { name: "Time trend" });
+    await userEvent.click(within(trend).getByRole("button", { name: "Assets" }));
+    await userEvent.click(within(trend).getByRole("button", { name: "2026-09-30" }));
+  }
   await userEvent.click(await screen.findByRole("tab", { name: "Account details" }));
   await userEvent.click(await screen.findByRole("button", { name: "Synthetic retained bank" }));
   const dialog = await screen.findByRole("dialog");
   const sourceButton = within(dialog).getByRole("button", { name: "Leave panorama · View transaction history" });
   const main = document.getElementById("main-content")!; main.scrollTop = 210;
-  const capturedReads = historicalRead.mock.calls.length;
-  const capturedAt = new Date(before).toISOString();
+  const capturedReads = historicalRead.mock.calls.length; const seriesReads = seriesRead.mock.calls.length;
+  const capturedAt = new Date(before as string).toISOString();
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-09-30");
   expect(screen.getAllByTitle(capturedAt).length).toBeGreaterThan(0);
   await userEvent.click(sourceButton);
   const history = await screen.findByRole("region", { name: "Synthetic transaction history" });
   expect(history).toHaveTextContent('"accountId":"explicit-account"');
-  expect(history).toHaveTextContent('"from":"2026-09-30"'); expect(history).toHaveTextContent('"to":"2026-10-11"');
+  expect(history).toHaveTextContent('"from":"2026-09-30"'); expect(history).toHaveTextContent(trendEnabled ? '"to":"2026-10-30"' : '"to":"2026-10-11"');
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  vi.setSystemTime(new Date(after));
+  vi.setSystemTime(new Date(after as string));
   await userEvent.click(screen.getByRole("button", { name: "← Back to Historical overview" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toHaveTextContent("Synthetic retained bank"));
-  expect(screen.getByLabelText("Compare with")).toHaveValue("current");
+  expect(screen.getByLabelText("Compare with")).toHaveValue(trendEnabled ? "date" : "current");
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-09-30");
   expect(screen.getAllByTitle(capturedAt).length).toBeGreaterThan(0);
   expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveTextContent("Account details");
   expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveAttribute("aria-selected", "true");
   await waitFor(() => expect(main.scrollTop).toBe(210));
   await waitFor(() => expect(screen.getByRole("button", { name: "Leave panorama · View transaction history" })).toHaveFocus());
-  expect(historicalRead).toHaveBeenCalledTimes(capturedReads);
+  expect(historicalRead).toHaveBeenCalledTimes(capturedReads); expect(seriesRead).toHaveBeenCalledTimes(seriesReads);
   await userEvent.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(screen.getByRole("button", { name: "Synthetic retained bank" })).toHaveFocus();
+  if (trendEnabled) {
+    await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
+    const trend = screen.getByRole("region", { name: "Time trend" });
+    expect(within(trend).getByRole("button", { name: "Assets" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(trend).getByRole("button", { name: "2026-09-30" })).toHaveAttribute("aria-pressed", "true");
+    expect(seriesRead).toHaveBeenCalledTimes(seriesReads);
+  }
 });

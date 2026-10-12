@@ -14,6 +14,7 @@
 export type ErrorCodeCatalog = Record<string, string>;
 
 export const errorCodesEn: ErrorCodeCatalog = {
+  historical_series_budget: "The local historical trend input or computation budget was exceeded. Comparison views remain available.",
   validation: "Check this field and try again.",
   not_found: "This could not be found.",
   conflict: "This could not be completed because of a conflict.",
@@ -67,6 +68,7 @@ export const errorCodesEn: ErrorCodeCatalog = {
 };
 
 export const errorCodesZhCN: ErrorCodeCatalog = {
+  historical_series_budget: "本地历史走势输入或计算超过预算，仍可使用比较视图。",
   validation: "请检查此字段后重试。",
   not_found: "未找到。",
   conflict: "因存在冲突，操作未能完成。",
@@ -120,6 +122,7 @@ export const errorCodesZhCN: ErrorCodeCatalog = {
 };
 
 export const errorCodesZhTW: ErrorCodeCatalog = {
+  historical_series_budget: "本地歷史走勢輸入或計算超過預算，仍可使用比較視圖。",
   validation: "請檢查此欄位後重試。",
   not_found: "找不到。",
   conflict: "因存在衝突，操作未能完成。",
