@@ -56,6 +56,8 @@
       "bankProducts": "Investment products & term deposits",
       "unknownType": "Unknown type",
       "remainder": "Remaining {{count}} items",
+      "remainder_one": "Remaining {{count}} item",
+      "remainder_other": "Remaining {{count}} items",
       "expand": "Show all {{count}} items",
       "collapse": "Show top 10",
       "hint": "Shares use the valued subtotal in household currency. The data table includes every original item; missing values are not zero.",

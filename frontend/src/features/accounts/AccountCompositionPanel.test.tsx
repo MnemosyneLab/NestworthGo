@@ -20,9 +20,35 @@ function projection(count = 1): CompositionFixture {
 describe("account composition panel", () => {
   it("defaults to type and shows a single-category 100% chart", () => {
     render(<AccountCompositionPanel composition={projection()} />);
-    expect(screen.getByRole("button", { name: "By type" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: "By type" })).toBeChecked();
     expect(screen.getByTestId("composition-slice-account-composition:type:stock")).toHaveTextContent("100.0%");
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
+  });
+
+  it("uses one native radio tab stop and arrow-key selection for grouping", async () => {
+    const user = userEvent.setup();
+    render(<AccountCompositionPanel composition={projection(11)} />);
+    const group = screen.getByRole("radiogroup", { name: "Composition grouping" });
+    const type = within(group).getByRole("radio", { name: "By type" });
+    const detail = within(group).getByRole("radio", { name: "By detail" });
+    expect(type).toBeChecked();
+    expect(detail).not.toBeChecked();
+    await user.tab();
+    expect(type).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+    expect(detail).toHaveFocus();
+    expect(detail).toBeChecked();
+    expect(type).not.toBeChecked();
+    expect(screen.getByTestId("composition-slice-account-composition:remainder")).toHaveTextContent("Remaining 1 item");
+    expect(screen.getByTestId("composition-slice-account-composition:remainder")).not.toHaveTextContent("Remaining 1 items");
+    await user.tab();
+    expect(type).not.toHaveFocus();
+    expect(detail).not.toHaveFocus();
+    detail.focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(type).toHaveFocus();
+    expect(type).toBeChecked();
+    expect(detail).not.toBeChecked();
   });
 
   it("shows every present type without generic top-five collapsing", () => {
@@ -42,11 +68,11 @@ describe("account composition panel", () => {
     const user = userEvent.setup();
     const composition = projection(count);
     render(<AccountCompositionPanel composition={composition} />);
-    await user.click(screen.getByRole("button", { name: "By detail" }));
+    await user.click(screen.getByRole("radio", { name: "By detail" }));
     if (!count) { expect(screen.getByRole("status")).toHaveTextContent("No positive valued balance"); return; }
     expect(screen.getAllByTestId(/^composition-slice-/)).toHaveLength(count > 10 ? 11 : count);
     if (count > 10) {
-      expect(screen.getByTestId("composition-slice-account-composition:remainder")).toHaveTextContent(`Remaining ${count - 10} items`);
+      expect(screen.getByTestId("composition-slice-account-composition:remainder")).toHaveTextContent(`Remaining ${count - 10} ${count === 11 ? "item" : "items"}`);
       const expand = screen.getByRole("button", { name: `Show all ${count} items` });
       expect(expand).toHaveAttribute("aria-expanded", "false");
       await user.click(expand);
@@ -66,18 +92,18 @@ describe("account composition panel", () => {
     const user = userEvent.setup();
     const composition = projection(20);
     const { rerender } = render(<AccountCompositionPanel key="first" composition={composition} updatedAt={1} />);
-    const detailToggle = screen.getByRole("button", { name: "By detail" });
+    const detailToggle = screen.getByRole("radio", { name: "By detail" });
     detailToggle.focus();
-    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
     const slice = screen.getByTestId("composition-slice-detail-0");
     await user.click(slice);
     await user.hover(slice);
     expect(slice).toHaveAttribute("aria-pressed", "true");
     rerender(<AccountCompositionPanel key="first" composition={{ ...composition }} updatedAt={2} />);
-    expect(screen.getByRole("button", { name: "By detail" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: "By detail" })).toBeChecked();
     expect(screen.getByTestId("composition-slice-detail-0")).toHaveAttribute("aria-pressed", "false");
     rerender(<AccountCompositionPanel key="second" composition={composition} updatedAt={2} />);
-    expect(screen.getByRole("button", { name: "By type" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: "By type" })).toBeChecked();
     expect(screen.queryByRole("button", { name: "Show top 10" })).not.toBeInTheDocument();
   });
 
@@ -116,7 +142,7 @@ describe("account composition panel", () => {
     composition.detailSlices = composition.detailSlices.map(missing);
     render(<AccountCompositionPanel composition={composition} />);
     expect(screen.getByTestId("account-composition-row-account-composition:type:stock")).toHaveTextContent("Stock");
-    await userEvent.click(screen.getByRole("button", { name: "By detail" }));
+    await userEvent.click(screen.getByRole("radio", { name: "By detail" }));
     expect(screen.getAllByTestId(/^account-composition-row-/)).toHaveLength(11);
     await userEvent.click(screen.getByRole("button", { name: "Show all 20 items" }));
     expect(screen.getAllByTestId(/^account-composition-row-/)).toHaveLength(20);
@@ -130,7 +156,7 @@ describe("account composition panel", () => {
     composition.detailSlices = composition.details;
     composition.types = [item("account-composition:type:etf", "etf", "0.0001")];
     render(<AccountCompositionPanel composition={composition} />);
-    await userEvent.click(screen.getByRole("button", { name: "By detail" }));
+    await userEvent.click(screen.getByRole("radio", { name: "By detail" }));
     expect(screen.getByTestId("composition-slice-a")).toHaveTextContent("50.0%");
     expect(screen.getByTestId("composition-slice-b")).toHaveTextContent("50.0%");
   });

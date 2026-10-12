@@ -21,7 +21,7 @@ vi.mock("@/components/charts/EChart", async (importOriginal) => {
 it("keeps tied original shares identical across collapse, expansion, source table and tooltip", async () => {
   const user = userEvent.setup();
   render(<AccountCompositionPanel composition={fixture} />);
-  await user.click(screen.getByRole("button", { name: "By detail" }));
+  await user.click(screen.getByRole("radio", { name: "By detail" }));
   const firstTie = "account-composition:holding:item-01";
   const secondTie = "account-composition:holding:item-02";
   const remainder = "account-composition:remainder";

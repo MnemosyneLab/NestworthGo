@@ -116,31 +116,29 @@ func projectAccountComposition(account domain.AccountValuation, instruments map[
 	}
 	sortCompositionItems(result.Types)
 	sortCompositionItems(result.Details)
-	// Allocate displayed shares once for original details. Grouped views add
-	// those assigned basis points so expansion cannot change a holding's share.
+	// Types are a different partition and must be allocated from their exact
+	// totals; adding rounded leaf shares would bias groups with many holdings.
+	// Details are allocated once. DetailSlices copy the unchanged top ten and
+	// add the remainder's assigned shares without reallocating any originals.
 	if !invalid && total.IsPositive() {
-		values := make(map[string]decimal.Decimal, len(result.Details))
-		for _, detail := range result.Details {
-			if detail.BaseAmountExact != "" {
-				values[detail.Key], _ = decimal.NewFromString(detail.BaseAmountExact)
+		for _, rows := range [][]domain.AccountCompositionItem{result.Types, result.Details} {
+			values := make(map[string]decimal.Decimal, len(rows))
+			for _, row := range rows {
+				if row.BaseAmountExact != "" {
+					values[row.Key], _ = decimal.NewFromString(row.BaseAmountExact)
+				}
 			}
-		}
-		allocations, err := makeAllocations(values, nil, total, currency)
-		if err != nil {
-			return result, err
-		}
-		shares := make(map[string]int, len(allocations))
-		for _, allocation := range allocations {
-			shares[allocation.Key] = allocation.ShareBPS
-		}
-		sharesByType := make(map[string]int, len(result.Types))
-		for i := range result.Details {
-			detail := &result.Details[i]
-			detail.ShareBPS = shares[detail.Key]
-			sharesByType[detail.TypeKey] += detail.ShareBPS
-		}
-		for i := range result.Types {
-			result.Types[i].ShareBPS = sharesByType[result.Types[i].TypeKey]
+			allocations, err := makeAllocations(values, nil, total, currency)
+			if err != nil {
+				return result, err
+			}
+			shares := make(map[string]int, len(allocations))
+			for _, allocation := range allocations {
+				shares[allocation.Key] = allocation.ShareBPS
+			}
+			for i := range rows {
+				rows[i].ShareBPS = shares[rows[i].Key]
+			}
 		}
 	}
 	result.DetailSlices = append(result.DetailSlices, result.Details...)

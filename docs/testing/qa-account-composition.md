@@ -30,9 +30,14 @@ currencies must never be added together.
 
 Amounts are summed before rounding. Shares use the same exact valued total;
 backend largest-remainder allocation assigns the displayed basis points once
-per original detail, breaking ties by stable detail key. Types and the collapsed
-remainder add those assigned shares; unchanged details keep the same percentages
-in the collapsed list, expanded list, source table, and tooltip.
+per original detail, breaking ties by stable detail key. The collapsed remainder
+adds those assigned detail shares; unchanged details keep the same percentages
+in the collapsed list, expanded list, source table, and tooltip. Types are a
+different partition: their shares are allocated from exact aggregated amounts,
+not rounded leaf shares. Each partition totals 10,000 BPS; type rounding can
+differ from the sum of individually rounded detail percentages. Equal 30/30 or
+600/600 type totals remain 50%/50%, even when leaf rounding sums to 50.1%/49.9%
+or 52%/48%.
 The ring uses the exact amount strings converted to numbers only for drawing.
 Frontend code does not recompute financial totals or shares. In particular,
 two `0.00005` components remain two 50% details and a `0.0001` type total even
@@ -50,6 +55,12 @@ projection and full source table.
 The grouping mode survives a valuation refresh and resets to type for a new
 account. Refresh and mode changes clear chart hover, selection, and focus state.
 Grouping and expansion are local presentation state and request no quotes.
+The grouping selector uses native single-choice radios with one tab stop and
+arrow-key navigation, matching existing account controls. Expanded original
+rows retain their detail identities; tail hover/focus/selection highlights the
+remainder wedge. Expanding/collapsing clears account-chart interactions while
+leaving the source table open. Other chart consumers do not opt into this
+interaction mapping. English remainder labels use singular/plural forms.
 
 ## Automated checks
 

@@ -56,6 +56,8 @@
       "bankProducts": "理財及定期",
       "unknownType": "類型未知",
       "remainder": "其餘 {{count}} 項",
+      "remainder_one": "其餘 {{count}} 項",
+      "remainder_other": "其餘 {{count}} 項",
       "expand": "展開全部 {{count}} 項",
       "collapse": "收起至前 10 項",
       "hint": "占比使用家庭本位幣的已估值小計。資料表包含所有原始明細；缺失值不按零計入。",

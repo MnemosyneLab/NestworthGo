@@ -52,6 +52,8 @@ export interface EChartProps {
   onSelectName?: (name: string | null) => void;
   onHoverName?: (name: string | null) => void;
   center?: React.ReactNode;
+  /** Opt-in account legend highlighting; undefined preserves existing behavior. */
+  highlightedName?: string | null;
 }
 
 /**
@@ -71,6 +73,7 @@ export function EChart({
   onSelectName,
   onHoverName,
   center,
+  highlightedName,
 }: EChartProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<echarts.ECharts | null>(null);
@@ -147,6 +150,18 @@ export function EChart({
       // Drawing is optional; the data table remains the accessible source.
     }
   }, [option]);
+
+  React.useEffect(() => {
+    if (highlightedName === undefined) return;
+    try {
+      chartRef.current?.dispatchAction({ type: "downplay", seriesIndex: 0 });
+      if (highlightedName) {
+        chartRef.current?.dispatchAction({ type: "highlight", seriesIndex: 0, name: highlightedName });
+      }
+    } catch {
+      // The original rows and data table remain usable without canvas drawing.
+    }
+  }, [highlightedName, option]);
 
   return (
     <figure className="flex min-w-0 w-full max-w-full flex-col gap-3">

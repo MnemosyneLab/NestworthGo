@@ -35,6 +35,9 @@ export interface CompositionChartProps {
   precomputedCategories?: boolean;
   legendItems?: ChartCategory[];
   dataTableItems?: ChartCategory[];
+  /** Account-only identity routing and interaction reset; omitted by other consumers. */
+  legendSliceKeys?: Readonly<Record<string, string>>;
+  interactionResetKey?: string;
 }
 
 export function CompositionChart({
@@ -52,11 +55,22 @@ export function CompositionChart({
   precomputedCategories = false,
   legendItems,
   dataTableItems,
+  legendSliceKeys,
+  interactionResetKey,
 }: CompositionChartProps) {
   const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [previousResetKey, setPreviousResetKey] = useState(interactionResetKey);
+  // Adjust local state before committing a changed account list. Keep the
+  // chart/table mounted so only interactions reset, not the open source table.
+  if (previousResetKey !== interactionResetKey) {
+    setPreviousResetKey(interactionResetKey);
+    setSelectedKey(null);
+    setHoveredKey(null);
+    setFocusedKey(null);
+  }
   useThemeVersion();
   const sliceGap = cssColor("--color-card", "#ffffff");
   const themePalette = chartTheme().palette;
@@ -70,6 +84,10 @@ export function CompositionChart({
   const shareLabel = (slice: ChartCategory) => slice.available === false ? "—" : formatPercent(slice.shareBps);
   const showNative = sourceRows.some((slice) => distinctNative(slice, currency));
   const activeKey = hoveredKey ?? focusedKey ?? selectedKey;
+  const controlledInteraction = legendSliceKeys !== undefined || interactionResetKey !== undefined;
+  const sliceKeyForRow = (key: string | null) => key ? legendSliceKeys?.[key] ?? key : null;
+  const selectedSliceKey = controlledInteraction ? sliceKeyForRow(selectedKey) : undefined;
+  const highlightedSliceKey = controlledInteraction ? sliceKeyForRow(activeKey) : undefined;
 
   const option: EChartsOption = useMemo(() => {
     const palette = themePaletteKey.split("\u0000");
@@ -99,6 +117,7 @@ export function CompositionChart({
             name: slice.key,
             value: chartNumber(slice.amount) ?? 0,
             itemStyle: { color: palette[index % palette.length] },
+            ...(selectedSliceKey === undefined ? {} : { selected: selectedSliceKey === slice.key }),
           })),
           label: { show: false },
           emphasis: { scale: true, scaleSize: 4 },
@@ -106,7 +125,7 @@ export function CompositionChart({
         },
       ],
     };
-  }, [currency, slices, themePaletteKey, sliceGap, title, t]);
+  }, [currency, slices, themePaletteKey, sliceGap, title, t, selectedSliceKey]);
 
   if (slices.length === 0) {
     return null;
@@ -119,6 +138,7 @@ export function CompositionChart({
       <EChart
           option={option}
           height={height}
+          highlightedName={highlightedSliceKey}
           ariaLabel={ariaLabel}
           summary={summary}
           dataTableLabel={t("charts.viewDataTable")}
@@ -137,7 +157,7 @@ export function CompositionChart({
             : [item.label, amountLabel(item), shareLabel(item)])}
           onSelectName={(name) => {
             const key = keyFromChartName(name);
-            setSelectedKey((current) => (key && current === key ? null : key));
+            setSelectedKey((current) => (key && sliceKeyForRow(current) === key ? null : key));
           }}
           onHoverName={(name) => setHoveredKey(keyFromChartName(name))}
           center={(
@@ -158,7 +178,7 @@ export function CompositionChart({
             type="button"
             key={slice.key}
             data-testid={`composition-slice-${slice.key}`}
-            aria-pressed={activeKey === slice.key}
+            aria-pressed={controlledInteraction ? selectedKey === slice.key : activeKey === slice.key}
             className={cn(
               "flex items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
               activeKey === slice.key && "bg-muted ring-2 ring-primary/40",

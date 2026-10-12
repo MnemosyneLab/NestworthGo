@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import type { ChartCategory } from "@/components/charts/collapseCategories";
@@ -11,6 +11,7 @@ export function AccountCompositionPanel({ composition, updatedAt }: { compositio
   const { t } = useTranslation();
   const [mode, setMode] = useState<"type" | "detail">("type");
   const [expanded, setExpanded] = useState(false);
+  const modeName = useId();
   if (composition.status === "unsupported") return null;
 
   const details = composition.details ?? [];
@@ -32,17 +33,23 @@ export function AccountCompositionPanel({ composition, updatedAt }: { compositio
   const source = details.map((item) => category(item));
   const slices = mode === "type" ? types.map((item) => category(item, true)) : detailSlices.map((item) => category(item));
   const remainderCount = detailSlices.find((item) => item.key === "account-composition:remainder")?.detailRefs?.length ?? 0;
+  const legendSliceKeys = mode === "detail" ? Object.fromEntries(detailSlices.flatMap((slice) =>
+    (slice.detailRefs ?? []).map((ref) => [ref, slice.key]),
+  )) : undefined;
   const canChart = composition.status === "ready" || composition.status === "partial";
 
   return (
     <Card data-testid="account-composition-panel">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
         <CardTitle>{t("accounts.composition")}</CardTitle>
-        <div role="group" aria-label={t("accounts.compositionView.grouping")} className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+        <div role="radiogroup" aria-label={t("accounts.compositionView.grouping")} className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
           {(["type", "detail"] as const).map((value) => (
-            <Button key={value} type="button" size="sm" variant={mode === value ? "soft" : "ghost"} aria-pressed={mode === value} onClick={() => { setMode(value); setExpanded(false); }}>
-              {t(`accounts.compositionView.${value}`)}
-            </Button>
+            <label key={value} className="relative cursor-pointer">
+              <input className="peer sr-only" type="radio" name={modeName} value={value} checked={mode === value} onChange={() => { setMode(value); setExpanded(false); }} />
+              <span className="inline-flex h-9 items-center justify-center rounded-lg px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-card peer-checked:text-primary peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">
+                {t(`accounts.compositionView.${value}`)}
+              </span>
+            </label>
           ))}
         </div>
       </CardHeader>
@@ -55,6 +62,8 @@ export function AccountCompositionPanel({ composition, updatedAt }: { compositio
             legendItems={mode === "detail" && expanded ? source : slices}
             dataTableItems={source}
             precomputedCategories
+            legendSliceKeys={legendSliceKeys}
+            interactionResetKey={expanded ? "expanded" : "collapsed"}
             currency={composition.currency}
             centerValue={composition.totalExact || "0"}
             centerCaption={t("charts.valuedSubtotal")}

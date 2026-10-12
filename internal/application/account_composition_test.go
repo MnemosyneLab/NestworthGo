@@ -34,7 +34,7 @@ func assertCompositionSums(t *testing.T, result domain.AccountComposition) {
 	for _, detail := range result.Details {
 		detailShares[detail.Key] = detail.ShareBPS
 	}
-	for _, rows := range [][]domain.AccountCompositionItem{result.Types, result.Details, result.DetailSlices} {
+	for partition, rows := range [][]domain.AccountCompositionItem{result.Types, result.Details, result.DetailSlices} {
 		total, shares := decimal.Zero, 0
 		refs := map[string]bool{}
 		for _, row := range rows {
@@ -46,7 +46,7 @@ func assertCompositionSums(t *testing.T, result domain.AccountComposition) {
 			for _, ref := range row.DetailRefs {
 				originalShare += detailShares[ref]
 			}
-			if row.ShareBPS != originalShare {
+			if partition != 0 && row.ShareBPS != originalShare {
 				t.Fatalf("row %s share=%d, original share sum=%d", row.Key, row.ShareBPS, originalShare)
 			}
 			for _, ref := range row.DetailRefs {
@@ -266,7 +266,7 @@ func TestAccountCompositionSnapshotFXAndPartial(t *testing.T) {
 
 // Independent rounding of slices used to change an unchanged top-ten item's
 // displayed percentage on expansion. Detail shares must be the sole allocation
-// and every grouped view must be an additive partition of that allocation.
+// and the collapsed detail view must be an additive partition of that allocation.
 func TestAccountCompositionShareAllocationStableAcrossViewsAndTies(t *testing.T) {
 	account := compositionFixture()
 	instruments := map[domain.InstrumentID]domain.Instrument{}
@@ -314,19 +314,6 @@ func TestAccountCompositionShareAllocationStableAcrossViewsAndTies(t *testing.T)
 	if remainder.BaseAmountExact != "40" || remainder.ShareBPS != 297 {
 		t.Fatalf("remainder=%+v", remainder)
 	}
-	detailsByRef := map[string]domain.AccountCompositionItem{}
-	for _, detail := range result.Details {
-		detailsByRef[detail.Key] = detail
-	}
-	for _, group := range result.Types {
-		share := 0
-		for _, ref := range group.DetailRefs {
-			share += detailsByRef[ref].ShareBPS
-		}
-		if group.ShareBPS != share {
-			t.Fatalf("type %s share=%d, original sum=%d", group.TypeKey, group.ShareBPS, share)
-		}
-	}
 	// Equal amounts and fractional remainders are resolved by stable detail key,
 	// independent of input order and whether one is visible or in the remainder.
 	for i, j := 0, len(account.Components)-1; i < j; i, j = i+1, j-1 {
@@ -338,5 +325,53 @@ func TestAccountCompositionShareAllocationStableAcrossViewsAndTies(t *testing.T)
 	}
 	if !reflect.DeepEqual(result, reversed) {
 		t.Fatal("tie allocation depends on input order")
+	}
+}
+
+func TestAccountCompositionTypesUseExactPartitionInsteadOfRoundedDetailShares(t *testing.T) {
+	for _, count := range []int{60, 1200} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			account := compositionFixture()
+			instruments := map[domain.InstrumentID]domain.Instrument{}
+			for i := 0; i < count; i++ {
+				component := compositionComponent(fmt.Sprintf("item-%04d", i), "1")
+				account.Components = append(account.Components, component)
+				kind := domain.InstrumentStock
+				if i >= count/2 {
+					kind = domain.InstrumentETF
+				}
+				instruments[*component.InstrumentID] = domain.Instrument{ID: *component.InstrumentID, Type: kind}
+			}
+			result, err := projectAccountComposition(account, instruments, "USD")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, group := range result.Types {
+				if group.BaseAmountExact != fmt.Sprint(count/2) || group.ShareBPS != 5000 {
+					t.Fatalf("%s exact partition=%s, displayed share=%d; want equal 5000 BPS", group.TypeKey, group.BaseAmountExact, group.ShareBPS)
+				}
+			}
+			assertCompositionSums(t, result)
+			for i := 0; i < 10; i++ {
+				if result.DetailSlices[i].ShareBPS != result.Details[i].ShareBPS {
+					t.Fatal("unchanged detail was reallocated")
+				}
+			}
+			// Leaf rounding is deliberately a different partition. Its stock sum is
+			// 5010/5200 BPS, but it must not distort the exact 30/30 or 600/600 types.
+			leafStock := 0
+			for _, detail := range result.Details {
+				if detail.TypeKey == "stock" {
+					leafStock += detail.ShareBPS
+				}
+			}
+			expectedLeafStock := 5010
+			if count == 1200 {
+				expectedLeafStock = 5200
+			}
+			if leafStock != expectedLeafStock {
+				t.Fatalf("leaf fixture sum=%d, want %d", leafStock, expectedLeafStock)
+			}
+		})
 	}
 }

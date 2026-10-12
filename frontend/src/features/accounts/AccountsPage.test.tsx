@@ -672,8 +672,8 @@ describe("AccountsPage", () => {
     expect(screen.getByText("$2,450.00", { selector: ".text-2xl" })).toHaveClass("text-2xl");
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
     const fetchCounts = [accountValuations.mock.calls.length, currentInstrumentQuote.mock.calls.length, listInstruments.mock.calls.length, holdingsByAccounts.mock.calls.length];
-    expect(screen.getByRole("button", { name: "By type" })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(screen.getByRole("button", { name: "By detail" }));
+    expect(screen.getByRole("radio", { name: "By type" })).toBeChecked();
+    await userEvent.click(screen.getByRole("radio", { name: "By detail" }));
     expect([accountValuations.mock.calls.length, currentInstrumentQuote.mock.calls.length, listInstruments.mock.calls.length, holdingsByAccounts.mock.calls.length]).toEqual(fetchCounts);
     const slices = ["h1", "cash-USD", "cash-SGD"].map((key) => screen.getByTestId(`composition-slice-${key}`));
     expect(slices[0]).toHaveTextContent("NVIDIA");
@@ -819,7 +819,7 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Travel cash/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
     expect(screen.getByTestId("composition-slice-account-composition:type:cash")).toHaveTextContent("100.0%");
-    await userEvent.click(screen.getByRole("button", { name: "By detail" }));
+    await userEvent.click(screen.getByRole("radio", { name: "By detail" }));
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
     expect(screen.getByTestId("composition-slice-cash-SGD")).toHaveTextContent("SGD");
