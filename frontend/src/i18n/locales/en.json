@@ -1427,7 +1427,7 @@
     },
     "zeroAvailableCategories": "Available category amounts are zero; unavailable sides remain unknown.",
     "categoryComparisonBasis": "By current classification. Shares use the selected asset or liability total; partial shares describe only their known subtotal.",
-    "detailCategoryScope": "The account amounts include all retained components. Matching and other components are grouped separately below; the category filter does not recalculate these amounts.",
+    "detailCategoryScope": "The captured account amounts are unchanged by this category filter. Matching and other retained components are grouped separately below.",
     "outsideCategoryFilter": "Outside the active category filter",
     "matchingComponents": "Components matching the category filter",
     "otherAccountComponents": "Other retained account components",

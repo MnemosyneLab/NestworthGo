@@ -85,8 +85,9 @@ the dimension, asset/debt choice, position and keyboard trigger. Account detail
 provides child/parent navigation, including in narrow card layouts. With a
 category filter active, the complete account context remains available in
 explicit matching/other component groups. A scope note says the captured account
-amounts include all components, and navigating to another component labels it
-as outside the active filter. Navigation can initialize A/B, view, filter, expansion and table preferences explicitly.
+amounts are unchanged by the category filter. Existing component eligibility
+and archive rules still apply. Navigating to another component labels it as
+outside the active filter. Navigation can initialize A/B, view, filter, expansion and table preferences explicitly.
 
 The explicit transaction-history action leaves the read-only panorama and uses
 projected identities and an ordered date range. For current comparisons that

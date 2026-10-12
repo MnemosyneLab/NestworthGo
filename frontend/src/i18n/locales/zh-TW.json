@@ -1427,7 +1427,7 @@
     },
     "zeroAvailableCategories": "可用分類金額為零；不可用的一側仍保留為未知。",
     "categoryComparisonBasis": "按目前分類彙總。占比使用所選資產或負債總額；部分占比僅表示各側已知小計。",
-    "detailCategoryScope": "帳戶金額包括全部保留的子項。下方分別列出匹配及其餘子項；類別篩選不會重新計算這些金額。",
+    "detailCategoryScope": "類別篩選不會改變已捕獲的帳戶金額。下方分別列出匹配及其餘保留子項。",
     "outsideCategoryFilter": "不屬於目前類別篩選",
     "matchingComponents": "匹配類別篩選的子項",
     "otherAccountComponents": "帳戶其餘保留子項",

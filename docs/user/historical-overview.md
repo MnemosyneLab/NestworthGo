@@ -38,8 +38,9 @@ Use **Back to categories** to restore your position and selection. Account
 details default to all accounts; **Only changed rows** is an explicit filter. Open
 an account's read-only detail, then select its cash/holding child or return to
 the parent. When a category filter is active, details group matching and other
-retained components explicitly. Account amounts still include the full captured
-account; opening an other component labels it outside the filter. The source
+retained components explicitly. The category filter leaves captured account amounts unchanged; archived and
+excluded components retain their existing status and counting rules. Opening
+an other component labels it outside the filter. The source
 table names missing components with stable identities alongside them. Details show exact values and the applied price/FX observation's
 available source, date, rate direction and valuation basis. Missing inputs say
 which currency or instrument is affected. Missing provenance is left blank;
