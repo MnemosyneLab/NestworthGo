@@ -34,3 +34,11 @@ it("renders mixed partial, full provisional and unknown rows truthfully while on
   expect(chartData()).toEqual([210, 220]);
  expect(((harness.charts[harness.charts.length-1] as echarts.ECharts).getOption().series as unknown[])).toHaveLength(2);
 });
+
+it.each(["USD", ""])("uses declared/subtotal native currency for an all-partial series in a CNY household (%s)", async declared => {
+  harness.data = { ...harness.data, available: false, points: [point("2026-10-12", { ...partial, currency: declared, knownSubtotal: { amount: "200", currency: "USD" } })] };
+  render(<AssetTrendTab session={useAnalysisStore.getState()} />);
+  expect(screen.getByRole("heading", { name: /USD/ })).not.toHaveTextContent("CNY");
+  await userEvent.click(screen.getByText("View data table"));
+  expect(screen.getByRole("table")).toHaveTextContent("$200.00");
+});

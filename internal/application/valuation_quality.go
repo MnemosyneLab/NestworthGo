@@ -227,7 +227,17 @@ func currentPortfolioDisplay(accounts []domain.AccountValuation, p domain.Portfo
 	return a.amount(p.Household.BaseCurrency, false)
 }
 
+type balanceDisplayKey struct {
+	currency  domain.CurrencyCode
+	amount    string
+	liability bool
+}
+type balanceDisplayValue struct {
+	view  domain.ValuationAmount
+	exact decimal.Decimal
+}
 type snapshotDisplayEvidence struct {
+	balances            map[balanceDisplayKey]balanceDisplayValue
 	priceBasis, fxBasis map[string][]string
 	prices, fx          map[string]domain.QuoteEvidenceView
 	liabilities         map[domain.AccountID]bool

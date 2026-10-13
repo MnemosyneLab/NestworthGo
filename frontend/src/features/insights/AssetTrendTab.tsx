@@ -50,7 +50,8 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   const hasLevelDisplay = isLevel && (data?.points ?? []).some(point => hasDisplay(point.displayValuation));
   const dates = useMemo(() => (data?.points ?? []).map((point) => point.period), [data?.points]);
   const values = useMemo(() => (data?.points ?? []).map((point) => metric === "return_rate" ? point.rate : isLevel ? fullDisplayAmount(point.displayValuation,point.value?.amount) : point.value?.amount ?? null), [data?.points, metric, isLevel]);
-  const currency = data?.summary?.currency ?? data?.points?.find((point) => point.displayValuation?.total?.currency)?.displayValuation?.total?.currency ?? data?.points?.find((point) => point.value?.currency)?.value?.currency ?? settings.data?.currency ?? "";
+  const display = isLevel ? data?.points?.find(point => point.displayValuation?.currency || point.displayValuation?.total?.currency || point.displayValuation?.knownSubtotal?.currency)?.displayValuation : undefined;
+  const currency = data?.summary?.currency || display?.currency || display?.total?.currency || display?.knownSubtotal?.currency || data?.points?.find(point => point.value?.currency)?.value?.currency || settings.data?.currency || "";
 
   if (context.origin.isLoading) return <LoadingState label={t("insights.loading")} />;
   if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;

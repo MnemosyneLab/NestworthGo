@@ -88,6 +88,8 @@ type HistoricalMissingDetail struct {
 }
 
 type HistoricalOverviewCell struct {
+	displayScope     string
+	displayBasis     string
 	DisplayValuation domain.ValuationAmount      `json:"displayValuation,omitempty"`
 	Status           string                      `json:"status"`
 	Included         bool                        `json:"included"`
@@ -656,7 +658,7 @@ func alignHistoricalOverview(left, right []HistoricalOverviewRow, comparing bool
 		if row.Left != nil && row.Right != nil {
 			a, b := row.Left.DisplayValuation.Total, row.Right.DisplayValuation.Total
 			statuses := row.Left.Status == row.Right.Status || ((row.Left.Status == "active" || row.Left.Status == "zero") && (row.Right.Status == "active" || row.Right.Status == "zero"))
-			if statuses && row.Left.Included && row.Right.Included && a != nil && b != nil && a.Currency == b.Currency {
+			if statuses && row.Left.Included && row.Right.Included && a != nil && b != nil && a.Currency == b.Currency && row.Left.displayScope != "" && row.Left.displayScope == row.Right.displayScope && row.Left.displayBasis == row.Right.displayBasis {
 				row.EstimatedBaseChange = historicalDifference(&a.Amount, &b.Amount)
 			}
 			if row.Left.Complete && row.Right.Complete {

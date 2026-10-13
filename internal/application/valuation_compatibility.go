@@ -23,6 +23,8 @@ func fxCompatibility(q domain.FXQuote) []string {
 }
 func historicalValuationCompatibility(rows []HistoricalOverviewRow, p domain.PortfolioSnapshot) (string, string) {
 	var scope, basis [][]string
+	type accountRecords struct{ scope, basis [][]string }
+	parents := map[string]*accountRecords{}
 	instruments := map[domain.InstrumentID]domain.Instrument{}
 	for _, i := range p.Instruments {
 		instruments[i.ID] = i
@@ -39,7 +41,8 @@ func historicalValuationCompatibility(rows []HistoricalOverviewRow, p domain.Por
 		if row.Kind == "account" || c == nil || !c.Included {
 			continue
 		}
-		scope = append(scope, []string{row.Key, row.Role, row.InstrumentID, c.Currency})
+		identity := []string{row.Key, row.Role, row.InstrumentID, c.Currency}
+		scope = append(scope, identity)
 		b := []string{row.Key, c.Currency, c.AssetClass}
 		if i, ok := instruments[domain.InstrumentID(row.InstrumentID)]; ok {
 			b = append(b, string(i.Type), i.QuantityUnit, i.QuoteCurrency.String(), string(i.QuoteSource), strconv.Itoa(i.ProviderBindingRevision))
@@ -51,6 +54,26 @@ func historicalValuationCompatibility(rows []HistoricalOverviewRow, p domain.Por
 			b = append(b, fxCompatibility(fx[c.FX.ID])...)
 		}
 		basis = append(basis, b)
+		c.displayScope, c.displayBasis = compatibilityKeys([][]string{identity}, [][]string{b})
+		if row.ParentKey != "" {
+			group := parents[row.ParentKey]
+			if group == nil {
+				group = &accountRecords{}
+				parents[row.ParentKey] = group
+			}
+			group.scope = append(group.scope, identity)
+			group.basis = append(group.basis, b)
+		}
+	}
+	for _, row := range rows {
+		if row.Kind != "account" || row.Left == nil {
+			continue
+		}
+		group := parents[row.Key]
+		if group == nil {
+			group = &accountRecords{}
+		}
+		row.Left.displayScope, row.Left.displayBasis = compatibilityKeys(group.scope, group.basis)
 	}
 	return compatibilityKeys(scope, basis)
 }

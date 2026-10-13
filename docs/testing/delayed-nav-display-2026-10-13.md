@@ -107,3 +107,31 @@ assertions, and pinned binding freshness passed. New estimated-basis tests also
 ensure ordinary conversion price/rate/date updates do not become basis changes.
 The existing skill check remains passing. New-head CI and final independent
 parent review remain required before merger; this agent does not merge PR83.
+
+### Row-level compatibility follow-up
+
+Leaf and account display cells now retain the same private scope/basis records
+used by aggregate estimated changes. Account keys aggregate included children;
+no per-row database reads or wire evidence expansion is added. A manual-source
+A to carried agent-NAV B regression checks full/provisional B, no leaf/account
+estimated differences, and unchanged strict BaseChange. A same-basis provisional
+comparison retains estimates. Verified source changes also retain strict
+BaseChange without granting a new estimate. The new-quality UI uses guarded
+estimated row changes authoritatively; legacy projections retain their fallback.
+
+The residual revision also prefers declared/known-subtotal native currency for
+all-partial Asset Trend headings (USD regressions use CNY household settings).
+CI run 38427640126 failed only the cold 3Y/500-component wall-clock budget at
+10.42s versus 10s; all race jobs passed. Analysis now memoizes complete unquoted
+balance display projections within one capture, preserving exact decimals,
+liability sign and copy isolation. Quoted/provisional evidence remains on its
+normal date-dependent path. The unchanged local performance test passed in
+3.36s alongside the targeted precision/coverage regressions; no budget was raised.
+
+This revision rebases without conflicts onto merged main
+`eed6362c2ecc9ac512f1f3b4707e853b7b69de5a`, preserving PR84's MCP changes.
+
+Final residual local verification on the merged MCP base passed server Go
+aggregate test/vet/build and frontend lint/typecheck/build, 112 files / 1,206
+assertions, pinned binding freshness and the merged skill's 69 JSON examples.
+New-head CI is checked separately; native Mac verification remains unrun.

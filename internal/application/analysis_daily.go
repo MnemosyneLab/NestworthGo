@@ -37,6 +37,7 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 		return domain.PeriodAnalysisResult{}, err
 	}
 	universe.displayEvidence = newSnapshotDisplayEvidence(domain.HistoricalSnapshotBatch{Portfolio: input.Portfolio, InstrumentQuoteFacts: input.InstrumentQuotes, FXQuoteFacts: input.FXQuotes}, time.Time{}, 12*time.Hour)
+	universe.displayEvidence.balances = make(map[balanceDisplayKey]balanceDisplayValue)
 	valuationComponents := universe.context.Universe.Components
 	if investmentOnly {
 		valuationComponents = universe.context.InvestmentUniverse.Components
@@ -908,6 +909,24 @@ func inferredQuantity(item domain.DailyValuationSnapshotItem, quote *domain.Inst
 }
 
 func analysisDisplayEnding(item domain.DailyValuationSnapshotItem, present bool, account domain.Account, input AnalysisInputs, query domain.AnalysisQuery, e snapshotDisplayEvidence, date string) (domain.ValuationAmount, *decimal.Decimal, error) {
+	// Unquoted complete balances have no date-dependent market quality. Reuse
+	// their immutable projection within this capture instead of parsing, rounding
+	// and allocating the same value for every component/day. Quoted and
+	// provisional values retain the normal selected-evidence path.
+	cacheable := present && item.AccountID != "" && item.Complete && item.QuoteID == nil && item.FXQuoteID == nil && e.balances != nil
+	var key balanceDisplayKey
+	if cacheable {
+		amount := snapshotItemBaseAmountString(item)
+		if query.Valuation == domain.ValuationNative {
+			amount = item.NativeAmount
+		}
+		cacheable = amount != ""
+		key = balanceDisplayKey{currency: valueCurrency(item, query.Valuation, input.Portfolio.Household.BaseCurrency), amount: amount, liability: account.IsLiability()}
+		if cached, ok := e.balances[key]; ok {
+			exact := cached.exact
+			return cached.view, &exact, nil
+		}
+	}
 	c, missing, uncertain := snapshotDisplayItem(item, e)
 	if !present || item.AccountID == "" {
 		c.Available = false
@@ -947,5 +966,8 @@ func analysisDisplayEnding(item domain.DailyValuationSnapshotItem, present bool,
 		return value, nil, nil
 	}
 	exact := a.sum
+	if cacheable {
+		e.balances[key] = balanceDisplayValue{view: value, exact: exact}
+	}
 	return value, &exact, nil
 }

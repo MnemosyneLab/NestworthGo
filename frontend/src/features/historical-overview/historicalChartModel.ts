@@ -1,4 +1,4 @@
-import { fullDisplayAmount } from "@/components/valuation/valuationQuality";
+import { fullDisplayAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { compareCanonical } from "@/lib/money";
 import { chartNumber } from "@/components/charts/chartTheme";
 import type { HistoricalOverviewAllocation, HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
@@ -51,9 +51,16 @@ export function alignedAllocations(left: HistoricalOverviewAllocation[], right: 
   }).map(key => ({ key, left: a.get(key), right: b.get(key) }));
 }
 
+/** New display amounts use the backend's guarded estimate. Strict legacy
+ * differences remain available only to legacy projections without quality. */
+export function historicalRowChange(row: HistoricalOverviewRow): string | null {
+  return hasDisplay(row.left?.displayValuation) && hasDisplay(row.right?.displayValuation)
+    ? row.estimatedBaseChange ?? null : row.baseChange ?? null;
+}
+
 export function comparableAccount(row: HistoricalOverviewRow): boolean {
   return row.kind === "account" && Boolean(row.left && row.right && comparableStatuses(row.left.status, row.right.status) && row.left.included && row.right.included &&
-    fullDisplayAmount(row.left.displayValuation,row.left.complete ? row.left.baseAmount : null) != null && fullDisplayAmount(row.right.displayValuation,row.right.complete ? row.right.baseAmount : null) != null && (row.estimatedBaseChange ?? row.baseChange) != null);
+    fullDisplayAmount(row.left.displayValuation,row.left.complete ? row.left.baseAmount : null) != null && fullDisplayAmount(row.right.displayValuation,row.right.complete ? row.right.baseAmount : null) != null && historicalRowChange(row) != null);
 }
 
 export function comparableStatuses(left: string, right: string): boolean {
@@ -63,7 +70,7 @@ export function comparableStatuses(left: string, right: string): boolean {
 export function accountChanges(rows: HistoricalOverviewRow[], role: "asset" | "liability") {
   const accounts = rows.filter(row => row.kind === "account" && row.role === role);
   const comparable = accounts.filter(row => row.changed && comparableAccount(row)).sort((x, y) =>
-    compareCanonical(magnitude((y.estimatedBaseChange ?? y.baseChange)!), magnitude((x.estimatedBaseChange ?? x.baseChange)!)) || x.key.localeCompare(y.key),
+    compareCanonical(magnitude(historicalRowChange(y)!), magnitude(historicalRowChange(x)!)) || x.key.localeCompare(y.key),
   );
   return { comparable, separate: accounts.filter(row => !comparableAccount(row)) };
 }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { displayEnum } from "@/lib/display";
 import type { HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState, HistoricalSeriesPoint } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
-import { accountChanges, alignedAllocations, allocationMode, comparableStatuses, geometry, isZero, missingAssetLeaves } from "./historicalChartModel";
+import { historicalRowChange, accountChanges, alignedAllocations, allocationMode, comparableStatuses, geometry, isZero, missingAssetLeaves } from "./historicalChartModel";
 import { historicalDisplayAmount, formatHistoricalAmount as amount } from "./historicalAmount";
 
 type Dimension = "byClass" | "byCurrency";
@@ -168,12 +168,12 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
   const comparable = mismatch ? [] : classified.comparable;
   const separate = mismatch ? [...classified.comparable, ...classified.separate] : classified.separate;
   const visible = all ? comparable : comparable.slice(0, 10);
-  const safe = !mismatch && visible.every(row => geometry(row.estimatedBaseChange ?? row.baseChange) !== null);
+  const safe = !mismatch && visible.every(row => geometry(historicalRowChange(row)) !== null);
   const option: EChartsOption = {
     grid: { left: 12, right: 24, top: 15, bottom: 28, containLabel: true },
     xAxis: { type: "value", scale: false, axisLine: { onZero: true, lineStyle: { color: theme.border } }, axisLabel: { color: theme.muted }, splitLine: { lineStyle: { color: theme.border } } },
     yAxis: { type: "category", data: visible.map(row => row.name), inverse: true, axisLabel: { color: theme.foreground, width: 110, overflow: "truncate" } },
-    series: [{ id: "historical-account-delta", type: "bar", barMaxWidth: 23, itemStyle: { color: theme.primary }, data: visible.map(row => ({ name: row.key, value: geometry(row.estimatedBaseChange ?? row.baseChange)! })) }],
+    series: [{ id: "historical-account-delta", type: "bar", barMaxWidth: 23, itemStyle: { color: theme.primary }, data: visible.map(row => ({ name: row.key, value: geometry(historicalRowChange(row))! })) }],
   };
   const rowView = (row: HistoricalOverviewRow) => <li key={row.key} className="min-w-0 rounded-lg border border-border p-3">
     {row.estimatedBaseChange != null && (row.left?.displayValuation?.quality?.coverage !== "verified" || row.right?.displayValuation?.quality?.coverage !== "verified") && <p className="text-xs">{t("valuation.estimatedChange")}</p>}
@@ -181,7 +181,7 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     <dl className="mt-1 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-1 text-sm">
       <div><dt className="text-xs text-muted-foreground">A</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.left ? historicalDisplayAmount(t,row.left.displayValuation,row.left.baseAmount==null ? null : {amount:row.left.baseAmount,currency:data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
       <div><dt className="text-xs text-muted-foreground">B</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.right ? historicalDisplayAmount(t,row.right.displayValuation,row.right.baseAmount==null ? null : {amount:row.right.baseAmount,currency:data.right?.currency ?? data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
-      <div><dt className="text-xs text-muted-foreground">{t("historicalOverview.deltaBA")}</dt><dd className="num overflow-x-auto whitespace-nowrap">{mismatch ? t("historicalOverview.notComparable") : amount(row.estimatedBaseChange ?? row.baseChange, data.left.currency, true) ?? t("historicalOverview.notComparable")}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t("historicalOverview.deltaBA")}</dt><dd className="num overflow-x-auto whitespace-nowrap">{mismatch ? t("historicalOverview.notComparable") : amount(historicalRowChange(row), data.left.currency, true) ?? t("historicalOverview.notComparable")}</dd></div>
     </dl>
     {!row.left || !row.right ? <p className="text-xs text-muted-foreground">{t("historicalOverview.notPresent")}</p> : null}
     {row.left && row.right && row.left.included !== row.right.included && <Badge variant="warning">{t("historicalOverview.scopeChanged")}</Badge>}
@@ -198,6 +198,6 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     {comparable.length > 10 && <Button variant="outline" size="sm" onClick={() => setAll(!all)}>{t(all ? "historicalOverview.topTen" : "historicalOverview.expandAll")}</Button>}
     <ul className="mt-3 grid gap-2 sm:grid-cols-2">{visible.map(rowView)}</ul>
     {separate.length > 0 && <div className="mt-4"><h3 className="mb-2 text-sm font-semibold">{t("historicalOverview.separateReview")}</h3><ul className="grid gap-2 sm:grid-cols-2">{separate.map(rowView)}</ul></div>}
-    <details className="mt-3"><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t("historicalOverview.account")}</th><th scope="col">A · {data.left.currency}</th><th scope="col">B · {data.right?.currency}</th><th scope="col">{t("historicalOverview.deltaBA")}</th></tr></thead><tbody>{[...comparable, ...separate].map(row => <tr key={row.key}><th scope="row">{row.name}</th><td>{row.left ? row.left.baseAmount ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{row.right ? row.right.baseAmount ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{mismatch ? t("historicalOverview.notComparable") : row.estimatedBaseChange ?? row.baseChange ?? t("historicalOverview.notComparable")}</td></tr>)}</tbody></table></div></details>
+    <details className="mt-3"><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t("historicalOverview.account")}</th><th scope="col">A · {data.left.currency}</th><th scope="col">B · {data.right?.currency}</th><th scope="col">{t("historicalOverview.deltaBA")}</th></tr></thead><tbody>{[...comparable, ...separate].map(row => <tr key={row.key}><th scope="row">{row.name}</th><td>{row.left ? row.left.baseAmount ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{row.right ? row.right.baseAmount ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{mismatch ? t("historicalOverview.notComparable") : historicalRowChange(row) ?? t("historicalOverview.notComparable")}</td></tr>)}</tbody></table></div></details>
   </section>;
 }

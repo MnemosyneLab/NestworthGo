@@ -244,3 +244,91 @@ func TestEstimatedBasisIgnoresEconomicConversionValuesAndDates(t *testing.T) {
 		t.Fatal("conversion policy change ignored")
 	}
 }
+
+func TestEstimatedRowsAndAccountsRejectProvisionalSourceBasisChange(t *testing.T) {
+	t.Parallel()
+	s, _, _, _ := seriesAgentSelectionFixture(t, "nav", "2026-08-03")
+	for _, series := range []bool{false, true} {
+		var out HistoricalOverviewResult
+		var err error
+		if series {
+			r, e := s.HistoricalOverviewSeries(t.Context(), "2026-08-01", "2026-08-04")
+			out, err = r.Overview, e
+		} else {
+			out, err = s.HistoricalOverview(t.Context(), "2026-08-01", "2026-08-04")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		sawHolding, sawAccount := false, false
+		for _, r := range out.Rows {
+			if r.Left == nil || r.Right == nil || !r.Left.Included || !r.Right.Included {
+				continue
+			}
+			if r.Kind != "holding" && r.Kind != "account" {
+				continue
+			}
+			if r.Left.DisplayValuation.Total == nil || r.Right.DisplayValuation.Total == nil || r.Right.DisplayValuation.Quality.Coverage != domain.CoverageProvisional {
+				t.Fatalf("fixture lacks full provisional values %+v", r)
+			}
+			if r.EstimatedBaseChange != nil || r.BaseChange != nil {
+				t.Fatalf("source/basis estimate escaped guard: %+v", r)
+			}
+			sawHolding = sawHolding || r.Kind == "holding"
+			sawAccount = sawAccount || r.Kind == "account"
+		}
+		if !sawHolding || !sawAccount || out.EstimatedChange != nil {
+			t.Fatalf("missing row/account guarded projection %+v", out)
+		}
+	}
+	// Same selected source/basis still permits estimates for both leaf and parent.
+	out, err := s.HistoricalOverview(t.Context(), "2026-08-03", "2026-08-04")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range out.Rows {
+		if r.Kind == "holding" || r.Kind == "account" {
+			if r.EstimatedBaseChange == nil || *r.EstimatedBaseChange != "0" || r.BaseChange != nil {
+				t.Fatalf("compatible provisional estimate lost %+v", r)
+			}
+		}
+	}
+	// Verified source changes preserve strict differences without granting new estimates.
+	verified, err := s.HistoricalOverview(t.Context(), "2026-08-01", "2026-08-03")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range verified.Rows {
+		if r.Kind == "holding" || r.Kind == "account" {
+			if r.EstimatedBaseChange != nil || r.BaseChange == nil || *r.BaseChange != "0" {
+				t.Fatalf("strict BaseChange changed %+v", r)
+			}
+		}
+	}
+}
+
+func TestAnalysisBalanceDisplayMemoRetainsExactAndIsolatesCopies(t *testing.T) {
+	t.Parallel()
+	a := analysisAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)
+	p := domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "CNY"}}
+	e := snapshotDisplayEvidence{balances: map[balanceDisplayKey]balanceDisplayValue{}}
+	item := domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeCurrency: "CNY", NativeAmount: "0.00006", BaseAmountExact: "0.00006", Complete: true}
+	first, exact, err := analysisDisplayEnding(item, true, a, AnalysisInputs{Portfolio: p}, domain.AnalysisQuery{Valuation: domain.ValuationBase}, e, "2026-10-12")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.Total = nil
+	first.Quality.Coverage = domain.CoverageProvisional
+	next, nextExact, err := analysisDisplayEnding(item, true, a, AnalysisInputs{Portfolio: p}, domain.AnalysisQuery{Valuation: domain.ValuationBase}, e, "2026-10-13")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(e.balances) != 1 || next.Total == nil || next.Quality.Coverage != domain.CoverageVerified || exact.String() != "0.00006" || nextExact.String() != "0.00006" {
+		t.Fatalf("memo lost exact value or leaked mutation: %+v %v %v", next, exact, nextExact)
+	}
+	a.BalanceSheetRole = domain.RoleLiability
+	liability, signed, err := analysisDisplayEnding(item, true, a, AnalysisInputs{Portfolio: p}, domain.AnalysisQuery{Valuation: domain.ValuationBase}, e, "2026-10-13")
+	if err != nil || len(e.balances) != 2 || liability.Total.Amount != "-0.0001" || signed.String() != "-0.00006" {
+		t.Fatalf("memo leaked sign: %+v %v", liability, err)
+	}
+}
