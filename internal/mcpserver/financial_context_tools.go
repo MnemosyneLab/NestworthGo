@@ -411,9 +411,23 @@ func isFinancialContextTool(name string) bool {
 	return name == "get_financial_context" || name == "get_financial_context_page" || name == "get_financial_context_item" || name == "compare_financial_context" || name == "compare_financial_attribution" || name == "get_financial_comparison_page"
 }
 
+func isFeatureTool(name string) bool {
+	switch name {
+	case "get_investment_reviews", "get_upcoming_actions", "get_historical_overview", "get_historical_overview_series",
+		"save_investment_review_policy", "acknowledge_investment_review", "set_investment_review_enrollment", "set_investment_review_snooze":
+		return true
+	default:
+		return false
+	}
+}
+
+func isBoundedTool(name string) bool {
+	return isFinancialContextTool(name) || isProductTool(name) || isFeatureTool(name)
+}
+
 // The SDK does not expose IDs to tool handlers and may return input-schema
 // errors before those handlers run. Bound IDs and the final JSON response for
-// these context, comparison and product tools. The server uses stateless JSONResponse mode; retaining
+// these context, comparison, product and feature tools. The server uses stateless JSONResponse mode; retaining
 // at most 64 KiB until ServeHTTP completes also covers SDK validation errors.
 // Legacy SDK protocols accept batches, so reject batches containing any
 // bounded tool before dispatch, independently of the supplied protocol header.
@@ -431,14 +445,14 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 			if decodeFinancialContextJSON(raw, &batch) == nil {
 				for _, element := range batch {
 					request, err := decodeFinancialContextHTTPCall(element)
-					if err == nil && (isFinancialContextTool(request.Params.Name) || isProductTool(request.Params.Name)) {
+					if err == nil && isBoundedTool(request.Params.Name) {
 						http.Error(w, "bounded MCP tools require a single JSON-RPC request", http.StatusBadRequest)
 						return
 					}
 				}
 			}
 			request, err := decodeFinancialContextHTTPCall(raw)
-			if err == nil && (isFinancialContextTool(request.Params.Name) || isProductTool(request.Params.Name)) {
+			if err == nil && isBoundedTool(request.Params.Name) {
 				if len(request.ID) > 512 {
 					http.Error(w, "MCP request ID exceeds wire budget", http.StatusBadRequest)
 					return
@@ -451,6 +465,9 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 				if !buffer.oversized && isProductTool(request.Params.Name) {
 					scrubSchemaError(buffer, request.ID, "invalid product request; inspect the tool schema")
 				}
+				if !buffer.oversized && isFeatureTool(request.Params.Name) {
+					scrubSchemaError(buffer, request.ID, "invalid feature request; inspect the tool schema")
+				}
 				if buffer.oversized {
 					// Replace the entire result; never truncate JSON or echo the
 					// offending property/value. Keep the original bounded RPC ID.
@@ -458,6 +475,8 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 					message := "financial context response exceeds the MCP wire budget"
 					if isProductTool(request.Params.Name) {
 						message = "product response exceeds the MCP wire budget; use the GUI to view the complete result"
+					} else if isFeatureTool(request.Params.Name) {
+						message = "feature response exceeds the MCP wire budget; narrow the requested data"
 					}
 					result.SetError(fail("too_large", message))
 					w.Header().Set("Content-Type", "application/json")

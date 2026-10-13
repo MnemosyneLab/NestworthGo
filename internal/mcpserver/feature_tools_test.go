@@ -73,6 +73,14 @@ func TestFeatureToolDiscoverySchemasAndPermissions(t *testing.T) {
 	t.Parallel()
 	readTools := []string{"get_investment_reviews", "get_upcoming_actions", "get_historical_overview", "get_historical_overview_series"}
 	writeTools := []string{"save_investment_review_policy", "acknowledge_investment_review", "set_investment_review_enrollment", "set_investment_review_snooze"}
+	if len(featureHTTPTools) != len(readTools)+len(writeTools) {
+		t.Fatalf("HTTP guard coverage has %d feature tools; discovery has %d", len(featureHTTPTools), len(readTools)+len(writeTools))
+	}
+	for _, name := range append(append([]string{}, readTools...), writeTools...) {
+		if !isFeatureTool(name) {
+			t.Fatalf("registered feature %s is missing from the HTTP guard allowlist", name)
+		}
+	}
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, _, _ := fixture(t)
