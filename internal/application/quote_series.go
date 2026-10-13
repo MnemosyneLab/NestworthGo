@@ -27,24 +27,7 @@ func (s *Service) InstrumentQuoteSeries(ctx context.Context, id domain.Instrumen
 	if err != nil {
 		return domain.QuoteSeries{}, err
 	}
-	observations := make([]domain.QuoteSeriesPoint, 0, len(quotes))
-	for _, quote := range quotes {
-		observations = append(observations, domain.QuoteSeriesPoint{
-			ID:              quote.ID.String(),
-			Revision:        quote.Revision,
-			ConversionJSON:  quote.ConversionJSON,
-			ObservationKind: quote.ObservationKind,
-			EffectiveDate:   quote.EffectiveDate,
-			PriceBasis:      quote.PriceBasis,
-			TimestampBasis:  quote.TimestampBasis,
-			QuotedAt:        quote.QuotedAt,
-			CreatedAt:       quote.CreatedAt,
-			Value:           quote.UnitPrice.Canonical(),
-			SourceKind:      quote.SourceKind,
-			SourceKey:       quote.SourceKey,
-			Delayed:         quote.Delayed,
-		})
-	}
+	observations := instrumentSeriesObservations(quotes)
 	outsideRange, err := s.instrumentQuotesOutsideRange(ctx, id, trendRange, sourceFilter, location, len(observations))
 	if err != nil {
 		return domain.QuoteSeries{}, err
@@ -76,26 +59,7 @@ func (s *Service) FXQuoteSeries(ctx context.Context, currencyA, currencyB domain
 	if err != nil {
 		return domain.QuoteSeries{}, err
 	}
-	observations := make([]domain.QuoteSeriesPoint, 0, len(quotes))
-	for _, quote := range quotes {
-		value, orientErr := fxRateInDirection(quote, base, quoteCurrency)
-		if orientErr != nil {
-			continue
-		}
-		observations = append(observations, domain.QuoteSeriesPoint{
-			ID:              quote.ID.String(),
-			ObservationKind: quote.ObservationKind,
-			EffectiveDate:   quote.EffectiveDate,
-			TimestampBasis:  quote.TimestampBasis,
-			QuotedAt:        quote.QuotedAt,
-			CreatedAt:       quote.CreatedAt,
-			Value:           value,
-			SourceKind:      quote.SourceKind,
-			SourceKey:       quote.SourceKey,
-			Delayed:         quote.Delayed,
-		})
-	}
-	sortQuoteSeriesNewestFirst(observations)
+	observations := fxSeriesObservations(quotes, base, quoteCurrency)
 	outsideRange, err := s.fxQuotesOutsideRange(ctx, base, quoteCurrency, trendRange, sourceFilter, location, len(observations))
 	if err != nil {
 		return domain.QuoteSeries{}, err
@@ -140,36 +104,7 @@ func fxRateInDirection(quote domain.FXQuote, base, quoteCurrency domain.Currency
 }
 
 func quoteHistoryQuery(trendRange domain.TrendRange, sourceFilter domain.QuoteSourceFilter, now time.Time, location *time.Location, currencyA, currencyB domain.CurrencyCode) QuoteHistoryQuery {
-	query := QuoteHistoryQuery{SourceKind: sourceFilter.SourceKind(), CurrencyA: currencyA, CurrencyB: currencyB}
-	if location == nil {
-		location = time.UTC
-	}
-	if fromDate, toDate, ok := trendRange.DateBounds(); ok {
-		from, _ := time.ParseInLocation("2006-01-02", fromDate, location)
-		to, _ := time.ParseInLocation("2006-01-02", toDate, location)
-		to = to.AddDate(0, 0, 1).Add(-time.Nanosecond)
-		query.From, query.To = &from, &to
-		query.FromDate, query.ToDate = fromDate, toDate
-		return query
-	}
-	localNow := now.In(location)
-	year, month, day := localNow.Date()
-	today := time.Date(year, month, day, 0, 0, 0, 0, location)
-	switch trendRange {
-	case domain.Trend30Days:
-		from := today.AddDate(0, 0, -29)
-		query.From = &from
-		query.FromDate = from.Format(time.DateOnly)
-	case domain.TrendYearToDate:
-		from := time.Date(today.Year(), time.January, 1, 0, 0, 0, 0, location)
-		query.From = &from
-		query.FromDate = from.Format(time.DateOnly)
-	case domain.TrendOneYear:
-		from := today.AddDate(0, 0, -364)
-		query.From = &from
-		query.FromDate = from.Format(time.DateOnly)
-	}
-	return query
+	return domain.NewQuoteReadWindow(trendRange, sourceFilter, now, location, currencyA, currencyB)
 }
 
 func (s *Service) instrumentQuotesOutsideRange(ctx context.Context, id domain.InstrumentID, trendRange domain.TrendRange, sourceFilter domain.QuoteSourceFilter, location *time.Location, inRangeCount int) (bool, error) {

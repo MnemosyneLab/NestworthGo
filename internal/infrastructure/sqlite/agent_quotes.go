@@ -475,6 +475,11 @@ func (r *Repository) ListAgentQuoteRecords(ctx context.Context, householdID doma
 		return nil, err
 	}
 	defer tx.Rollback()
+	if domain.IsBoundedRead(ctx) {
+		if err := checkReadTableBudget(ctx, tx, "agent_quote_records", "household_id = ?", householdID.String()); err != nil {
+			return nil, err
+		}
+	}
 	rows, err := tx.QueryContext(ctx, `SELECT id, target_type, operation, quote_id, target_quote_id, source_title, source_url, created_at
 		FROM agent_quote_records WHERE household_id = ? ORDER BY rowid`, householdID.String())
 	if err != nil {

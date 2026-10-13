@@ -37,18 +37,7 @@ type InstrumentInput struct {
 
 // QuoteHistoryQuery keeps local quote-history reads bounded and deterministic
 // without exposing repository SQL details to the UI.
-type QuoteHistoryQuery struct {
-	From *time.Time
-	To   *time.Time
-	// Civil-date bounds apply to daily observations; intraday data keeps From/To.
-	FromDate   string
-	ToDate     string
-	SourceKind *domain.QuoteSourceKind
-	CurrencyA  domain.CurrencyCode
-	CurrencyB  domain.CurrencyCode
-	Limit      int
-	Ascending  bool
-}
+type QuoteHistoryQuery = domain.QuoteReadWindow
 
 func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (domain.Instrument, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)

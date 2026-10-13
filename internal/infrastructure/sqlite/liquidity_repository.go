@@ -15,6 +15,13 @@ func (r *Repository) ReadLiquiditySnapshot(ctx context.Context) (domain.Liquidit
 		return domain.LiquiditySnapshot{}, err
 	}
 	defer tx.Rollback()
+	if domain.IsBoundedRead(ctx) {
+		for _, table := range []string{"accounts", "holdings", "instruments", "members", "institutions", "account_groups", "account_ownership", "account_cash_values", "fx_preferences", "liquidity_policies", "liquidity_reservations", "product_contracts"} {
+			if err := checkReadTableBudget(ctx, tx, table, "1=1"); err != nil {
+				return domain.LiquiditySnapshot{}, err
+			}
+		}
+	}
 	portfolio, err := readPortfolioSnapshotQuery(ctx, tx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return domain.LiquiditySnapshot{}, err

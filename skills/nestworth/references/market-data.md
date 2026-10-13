@@ -75,3 +75,24 @@ quotes and health. A `pending` derived update needs repair; a completed rebuild
 does not prove data completeness. Retraction restores eligible fallback facts;
 metal prices dependent on FX are repriced, or unavailable without fallback FX.
 App-managed product quotes require the App's own product workflow.
+
+## Multi-target frozen market reads
+
+Use `get_market_data_batch` after discovery; see [paging and batches](paging-and-batches.md).
+Supply 1–100 distinct instrument IDs or complete oriented currency pairs. current
+is default and omits history; coverage returns first/last, observation/selected
+point counts, outsideRange and gapAssessment=not_evaluated, without claiming
+trading-day or NAV completeness. history separates points/observations per
+returned target section; its paged target summary carries the lazy page entries.
+Follow each cursor. USD/SGD and SGD/USD are distinct.
+Use range 30d/ytd/1y/all and sourceFilter from the actual schema. Targets sort by
+targetKey or displayName; historySort can select quotedAt/effectiveDate and
+asc/desc. Missing/not-found targets remain visible with status/reasons.
+
+Paged `list_agent_market_data` filters instrumentIds, oriented fxPairs,
+operations append/correct/retract, nullable active, observationKinds, civil
+fromDate/toDate and RFC3339 createdFrom/createdTo. Observation date differs from
+creation time. Retractions resolve their targeted observation identity before
+filtering; active means not corrected/retracted, not currently selected. Sort
+createdAt (default desc), observationDate or operation, recordId asc ties.
+Legacy offset cannot be combined with paged mode.

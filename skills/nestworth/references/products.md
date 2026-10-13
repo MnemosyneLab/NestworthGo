@@ -149,9 +149,10 @@ interest 50. Replace dates, currency, complete terms/policy and amounts with the
 user's actual contract; do not infer rates, costs, cash confirmation or fees.
 
 Responses are capped at 64 KiB including the MCP envelope; send one JSON-RPC
-object per call. A `too_large` list may be narrowed by account. An oversized
-single product or household overview requires the GUI; do not omit evidence or
-reservations and present an incomplete result as complete. Invalid fields/types
+object per call. Retry large list, detail and overview reads with responseMode=paged and follow
+every cursor. Product reservations are separately paged; full detail is available
+from the same capture. A truly oversized summary or single item still fails
+explicitly; do not omit evidence or present an incomplete result as complete. Invalid fields/types
 are rejected without echoing their contents.
 
 <!-- example: product-open -->
@@ -347,3 +348,31 @@ GUI `undo.allowed` never grants MCP write permission or reservation-restoration
 support. Dedicated MCP preview/commit tools require ledger_write and retain their
 stricter reservation restrictions. Always obtain a fresh supported preview and
 confirm it; preview and commit independently revalidate current facts.
+
+## Scalable liquidity and product reads
+
+See [paging and batches](paging-and-batches.md). Liquidity source filters support
+accountIds, typed sourceRefs, sourceKinds, instrumentIds, actual instrumentTypes,
+accessKinds, policyOrigins, nullable hasRule/excluded, earlyKinds, currencies and
+query. Cash/value sources have null instrument identity/type; never invent cash
+as an instrument type. hasRule means saved explicit or contract policy, not any
+effective default. assumed=false, explicit/contract=true; unresolved policy facts
+are null, including excluded rows whose policy cannot be resolved. Exclusion and
+saved-rule origin are independent. policyEditable is business eligibility, not
+MCP write permission. Managed contracts require product terms. Copy complete
+policy/revision/sourceRef for ordinary full-replacement previews.
+
+Sort liquidity by sourceKey (default asc), displayName, instrumentType,
+accessKind, policyOrigin, normalReceiptOn, currentValueBase, or availableBase.
+The latter requires sort.horizonOn from captured buckets. Amount keys use exact
+same-capture base-currency values; unknowns remain null-last. Household bucket
+totals do not change with source filters. Unresolved reservations are household
+scope and a separate section, never hidden by source filters.
+
+Paged products retain accountId/includeClosed, filter.productKinds/states/query;
+sort startOn (default desc), maturityOn, displayName or state, productId asc ties.
+Rows are explicit compact summaries with reservationCount. `get_read_item`
+section products returns full ProductDTO/actions/reasons from that capture;
+reservations/<productId> pages sort createdAt asc then reservationId asc.
+`get_product` also supports responseMode=paged. Do not substitute summary rows
+for complete revisioned terms or change live product-operation-history semantics.

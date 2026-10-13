@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -352,7 +351,7 @@ func TestBatchToolsRequireLedgerWrite(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, tool := range listed.Tools {
-			if strings.HasSuffix(tool.Name, "_batch") {
+			if tool.Name == "preview_batch" || tool.Name == "commit_batch" {
 				t.Fatalf("%s exposed %s", mode, tool.Name)
 			}
 		}

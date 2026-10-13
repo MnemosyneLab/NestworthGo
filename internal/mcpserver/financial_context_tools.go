@@ -108,7 +108,13 @@ func (c *financialContextCache) active(g uint64) bool {
 // RevokeForRestore is deliberately independent of mu/operationMu. Restore
 // already owns application write locks; draining an MCP write here deadlocks.
 // The HTTP generation fence rejects further requests without reading SQLite.
-func (s *Service) RevokeForRestore(context.Context) error { s.contexts.revoke(); return nil }
+func (s *Service) RevokeForRestore(context.Context) error {
+	s.contexts.revoke()
+	if s.reads != nil {
+		s.reads.revoke()
+	}
+	return nil
+}
 
 func (s *Service) financialContextTools(server *mcp.Server, generation uint64) {
 	readTool(server, "get_financial_context_item", "Drill into one account, position or evidence ref in its exact frozen financial context. Inherit its already selected minimal or named disclosure; return only its related disclosed subset, without identity remapping. Optional section positions/gaps/evidence starts a related section; continue with its matching cursor. Default limit 50, maximum 100; initial response has at most one row per section. Account target is a rollup: never add it to its child amounts. Evidence returns direct users, never their siblings. No transactions, identity lookup, refresh, disclosure upgrade or DB reads. Aliases are package-local; keep contextId and ref together, never reuse aliases across captures. Fixed TTL, hash and capture are unchanged. Send one JSON-RPC object, never a batch.", func(ctx context.Context, in FinancialContextItemInput) (any, error) {
@@ -375,7 +381,8 @@ func (c *financialContextCache) pageInfo(id, section string, g uint64, start, re
 type financialContextHTTPCall struct {
 	ID     json.RawMessage `json:"id"`
 	Params struct {
-		Name string `json:"name"`
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments"`
 	} `json:"params"`
 }
 
@@ -422,7 +429,25 @@ func isFeatureTool(name string) bool {
 }
 
 func isBoundedTool(name string) bool {
-	return isFinancialContextTool(name) || isProductTool(name) || isFeatureTool(name)
+	return isFinancialContextTool(name) || isProductTool(name) || isFeatureTool(name) || isReadScaleTool(name)
+}
+
+func isBoundedHTTPCall(request financialContextHTTPCall) bool {
+	if isBoundedTool(request.Params.Name) {
+		return true
+	}
+	if request.Params.Name != "list_instruments" && request.Params.Name != "list_agent_market_data" {
+		return false
+	}
+	var options struct {
+		ResponseMode string          `json:"responseMode"`
+		Filter       json.RawMessage `json:"filter"`
+		Sort         json.RawMessage `json:"sort"`
+	}
+	if decodeFinancialContextJSON(request.Params.Arguments, &options) != nil {
+		return false
+	}
+	return options.ResponseMode != "" || len(options.Filter) > 0 || len(options.Sort) > 0
 }
 
 // The SDK does not expose IDs to tool handlers and may return input-schema
@@ -445,14 +470,14 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 			if decodeFinancialContextJSON(raw, &batch) == nil {
 				for _, element := range batch {
 					request, err := decodeFinancialContextHTTPCall(element)
-					if err == nil && isBoundedTool(request.Params.Name) {
+					if err == nil && isBoundedHTTPCall(request) {
 						http.Error(w, "bounded MCP tools require a single JSON-RPC request", http.StatusBadRequest)
 						return
 					}
 				}
 			}
 			request, err := decodeFinancialContextHTTPCall(raw)
-			if err == nil && isBoundedTool(request.Params.Name) {
+			if err == nil && isBoundedHTTPCall(request) {
 				if len(request.ID) > 512 {
 					http.Error(w, "MCP request ID exceeds wire budget", http.StatusBadRequest)
 					return
@@ -461,6 +486,9 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 				next.ServeHTTP(buffer, r)
 				if !buffer.oversized && request.Params.Name == "compare_financial_attribution" {
 					scrubAttributionSchemaError(buffer, request.ID)
+				}
+				if !buffer.oversized && (isReadScaleTool(request.Params.Name) || request.Params.Name == "list_instruments" || request.Params.Name == "list_agent_market_data") {
+					scrubSchemaError(buffer, request.ID, "invalid bounded read or batch request; inspect tool schema")
 				}
 				if !buffer.oversized && isProductTool(request.Params.Name) {
 					scrubSchemaError(buffer, request.ID, "invalid product request; inspect the tool schema")
@@ -474,9 +502,9 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 					result := &mcp.CallToolResult{}
 					message := "financial context response exceeds the MCP wire budget"
 					if isProductTool(request.Params.Name) {
-						message = "product response exceeds the MCP wire budget; use the GUI to view the complete result"
+						message = "product response exceeds the MCP wire budget; retry " + request.Params.Name + " with responseMode=\"paged\", then follow every nextCursor; use the GUI to view the complete result if a single item is oversized"
 					} else if isFeatureTool(request.Params.Name) {
-						message = "feature response exceeds the MCP wire budget; narrow the requested data"
+						message = "feature response exceeds the MCP wire budget; retry paged reviews/upcoming reads and follow every nextCursor; narrow the requested data for other tools"
 					}
 					result.SetError(fail("too_large", message))
 					w.Header().Set("Content-Type", "application/json")

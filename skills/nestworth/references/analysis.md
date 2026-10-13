@@ -542,3 +542,26 @@ no financial facts, refreshes no providers and adds no token permissions. Run it
 before ledger previews. `compare_financial_context` remains the strictly no-write
 choice for differences alone. A repository skill update does not install or
 update the user's App, client skill or MCP connection.
+
+## Frozen review and upcoming pages
+
+See [paging and batches](paging-and-batches.md). `get_investment_reviews` paged
+mode preserves policy, revision, asOf/localDate/timezone; filter instrumentIds,
+monitored/snoozed/acknowledged and statuses. Sort instrumentId (default asc),
+displayName, latestOn, ageDays, annualizedPercent or periodPercent with exact
+percentages and null-last ties. Settings revision is CAS; captureId is frozen
+read identity and changes independently with quote evidence.
+
+Review enrollment, snooze/resume and acknowledgement batch tools require
+ledger_write and one expectedRevision. Validate all instrument IDs/current
+eligible episode IDs, then send 1–100 items atomically. Snooze days is 0/7/30
+from one household local date. A changed batch advances revision once; all no-op
+preserves revision. Ack does not replace snooze, snooze does not change enrollment,
+and none changes global policy. Short receipts require a separate fresh read.
+
+Upcoming paged mode keeps global counts/completeness/warnings and the shared
+30-civil-day window, with independent items/dataChecks sections. Filter actions
+by accountIds/productIds/kinds/groups; dataChecks use accountIds/productIds only.
+Sort priority (default desc, then sortOn asc), sortOn or displayName, id asc ties.
+An extreme single action with many targets may still exceed one page; report
+that explicit error instead of omitting links or inventing posted cash.

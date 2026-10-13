@@ -864,7 +864,7 @@ func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID d
  AND newer.selection_kind = q.selection_kind AND newer.selection_group = q.selection_group
  AND (` + currentQuoteCandidateLaterSQL + `))
  ORDER BY q.instrument_id, q.source_kind, q.currency, q.quoted_at DESC, q.created_at DESC, q.id DESC`
-	rows, err := query.QueryContext(ctx, statement, householdID.String())
+	rows, err := checkedReadQuery(ctx, query, statement, "512+length(CAST(source_key AS BLOB))+COALESCE(length(CAST(conversion_json AS BLOB)),0)", householdID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +898,7 @@ func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID dom
  AND newer.selection_kind = q.selection_kind AND newer.selection_group = q.selection_group
  AND (` + currentQuoteCandidateLaterSQL + `))
  ORDER BY q.currency_a, q.currency_b, q.source_kind, q.quoted_at DESC, q.created_at DESC, q.id DESC`
-	rows, err := query.QueryContext(ctx, statement, householdID.String())
+	rows, err := checkedReadQuery(ctx, query, statement, "512+length(CAST(source_key AS BLOB))", householdID.String())
 	if err != nil {
 		return nil, err
 	}

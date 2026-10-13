@@ -53,6 +53,10 @@ Read only the references needed for this request:
 | Period investment returns, income/expense, asset-change drivers | [Analysis](references/analysis.md) |
 | Expired previews, unknown outcomes, interrupted operations | [Recovery](references/recovery.md) |
 
+For large management reads and multiple metadata/review changes, follow
+[paging and batches](references/paging-and-batches.md). Prefer server filters/sort,
+finish every cursor, and verify versions before atomic writes.
+
 ## Shared operating rules
 
 - Resolve existing IDs before creating entities. Confirm ambiguous account,
