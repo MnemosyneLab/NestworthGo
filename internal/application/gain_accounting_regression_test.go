@@ -22,6 +22,11 @@ type accountingGainFixture struct {
 
 func newAccountingGainFixture(t *testing.T, quantity, cost string) *accountingGainFixture {
 	t.Helper()
+	return newAccountingGainFixtureCurrency(t, quantity, cost, "CNY")
+}
+
+func newAccountingGainFixtureCurrency(t *testing.T, quantity, cost, quoteCurrency string) *accountingGainFixture {
+	t.Helper()
 	db, err := sqlite.Open(t.TempDir() + "/accounting.db")
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +43,7 @@ func newAccountingGainFixture(t *testing.T, quantity, cost string) *accountingGa
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.instrument, err = f.service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	f.instrument, err = f.service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: quoteCurrency, QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,12 +62,20 @@ func newAccountingGainFixture(t *testing.T, quantity, cost string) *accountingGa
 			t.Fatal(err)
 		}
 		f.holdings = append(f.holdings, holding)
-		if _, err := f.service.AppendAccountCashValue(ctx, account.Account.ID, "1000000000", "CNY", "2026-09-25"); err != nil {
+		if _, err := f.service.AppendAccountCashValue(ctx, account.Account.ID, "1000000000", quoteCurrency, "2026-09-25"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if _, err := f.service.AppendManualInstrumentQuote(ctx, f.instrument.ID, cost, "2026-09-25T12:00:00Z", false); err != nil {
 		t.Fatal(err)
+	}
+	if quoteCurrency != "CNY" {
+		if _, err := f.service.AppendManualFXQuote(ctx, quoteCurrency, "CNY", "6", "2026-09-25T12:00:00Z"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.service.SetFXPreference(ctx, quoteCurrency, "CNY", "manual"); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if _, err := f.service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
