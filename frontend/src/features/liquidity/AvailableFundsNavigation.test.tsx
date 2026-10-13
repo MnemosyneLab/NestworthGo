@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { LiquidityOverviewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import { upcomingData } from "@/test/upcomingActions";
 import { AvailableFundsPage } from "./AvailableFundsPage";
+vi.mock("@/features/investment-review/InvestmentReviewPanel", () => ({ InvestmentReviewSummary: () => null }));
 const mocks = vi.hoisted(() => ({ refetch: vi.fn(), manager: vi.fn(), overviewState: { data: undefined as LiquidityOverviewDTO | undefined, isError: false } }));
 vi.mock("@/queries/accounts", () => ({ useAccounts: () => ({ data: [] }) }));
 vi.mock("@/queries/liquidity", () => ({ useLiquidityOverview: () => ({ ...mocks.overviewState, refetch: mocks.refetch }), useUpcomingActions: () => ({ data: upcomingData(), refetch: vi.fn() }) }));

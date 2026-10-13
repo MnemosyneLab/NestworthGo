@@ -59,4 +59,5 @@ in progress, planned, or deferred. Store durable decisions in the product,
 architecture, or release document that owns them; standalone prototypes are
 not product contracts.
 
+- [Investment review](investment-review.md) — Opt-in unit NAV review episodes, estimated annualization, conservative data guards and synthetic Mac acceptance.
 - [Upcoming actions](upcoming-actions.md) — Implemented read-only normal-route projection and App entry points; native acceptance pending.

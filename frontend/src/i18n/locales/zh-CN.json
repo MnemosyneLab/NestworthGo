@@ -1470,5 +1470,65 @@
       "enable": "启用走势 · 新捕获",
       "budgetError": "本地走势输入或计算超过预算。仍可使用双期比较，不会替换为截断序列。"
     }
+  },
+  "investmentReview": {
+    "title": "投资复核",
+    "view": "复核投资",
+    "foreground": "仅在此视图打开或估值刷新后评估。应用关闭时不会监控。",
+    "scope": "逐项启用提醒。使用当前持有的基金和银行投资持仓的实际日期单位净值；阈值由你自行设定。",
+    "refresh": "刷新复核",
+    "error": "无法加载投资复核。",
+    "staleRead": "更新失败。显示上次成功读取的结果；操作已禁用。",
+    "writeError": "无法保存。请重新加载复核后重试。",
+    "evaluated": "评估日期 {{date}} · {{timezone}}",
+    "disabled": "复核提醒已暂停。",
+    "empty": "此范围内没有当前持有的基金或银行投资持仓。",
+    "missing": "缺失",
+    "dates": "实际净值：{{baseline}} → {{latest}} · 选择窗口 {{window}} 天 · 实际跨度 {{days}} 天 · 数据已过去 {{age}} 天",
+    "target": "基准目标日期：{{date}}（最多提前 7 天）",
+    "estimated": "估算年化收益率：{{value}}%",
+    "period": "单位净值价格收益率：{{value}}%",
+    "observations": "{{count}} 个不同日期观测 · {{missing}} 个日历日期没有观测",
+    "priceOnly": "简单年化：价格收益率 × 365 ÷ 实际日历天数。不含现金流、交易费用或个人持仓收益。已知分配或单位变更会使窗口不可用。",
+    "checkNav": "检查净值 · {{name}}",
+    "acknowledge": "确认复核 · {{name}}",
+    "enroll": "启用复核提醒 · {{name}}",
+    "settings": "复核偏好",
+    "enable": "启用已选择投资的提醒",
+    "window": "复核窗口",
+    "windowDays": "{{days}} 天",
+    "policyNote": "低收益和亏损提醒均须在确认期间内有至少两个不同的窗口终点。阈值用于提示复核，并非卖出规则。 确认会保留在当前复核阶段；修改偏好不会清除确认。临时忽略是独立操作，会保留已启用的投资。",
+    "saved": "复核偏好已保存。",
+    "fields": {
+      "lowAnnualizedPercent": "低估算年化收益率阈值（%）",
+      "lossPercent": "窗口亏损阈值（%）",
+      "sustainDays": "确认期间（天）",
+      "maxAgeDays": "提醒允许的最长净值数据年龄（天）"
+    },
+    "status": {
+      "unavailable": "数据不足或不支持",
+      "healthy": "未触及复核阈值",
+      "confirming": "等待持续证据",
+      "stale": "净值数据太旧，无法提醒",
+      "low_yield": "估算收益持续偏低：请复核投资和数据",
+      "loss": "价格持续亏损：请复核投资和数据",
+      "acknowledged": "此复核阶段已确认",
+      "not_enabled": "此投资的提醒已禁用，须手动重新启用",
+      "paused": "复核提醒已暂停",
+      "snoozed": "暂时忽略复核提醒"
+    },
+    "reason": {
+      "unit_nav_required": "需要可比较、正值、有明确日期的单位净值观测。不推断旧数据、手动价格、调整后数值、币种或绑定版本。",
+      "missing_baseline": "所选目标日期或之前没有实际基准观测。",
+      "baseline_too_old": "最近的基准早于目标日期超过 7 天，覆盖不足。",
+      "distribution_or_unit_change": "窗口内存在已知分配、拆分或含义不明的数量调整，无法推断可比较的价格收益。"
+    },
+    "summary_one": "{{count}} 条尚未确认的复核提醒",
+    "summary_other": "{{count}} 条尚未确认的复核提醒",
+    "noDates": "没有实际日期净值观测 · 选择窗口 {{window}} 天",
+    "snooze": "忽略 {{days}} 天 · {{name}}",
+    "resumeDate": "临时忽略于 {{date}} 结束 · {{timezone}}。此视图下次评估时将检查当前证据。",
+    "resumeNow": "立即恢复 · {{name}}",
+    "ignoreIndefinitely": "无限期忽略 · {{name}}"
   }
 }
