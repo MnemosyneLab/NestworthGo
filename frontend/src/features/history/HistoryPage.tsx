@@ -3,6 +3,7 @@ import { originLocalDate } from "@/features/insights/analysisRequest";
 import { ymdInTimeZone } from "@/features/insights/calendar";
 import { useMarketDataHealth } from "@/queries/marketdata";
 import { useState } from "react";
+import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -81,11 +82,11 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
     limit: 50,
   });
 
-  if (activities.isLoading || accounts.isLoading || instruments.isLoading || holdings.isLoading) {
+  if (!hasUnresolvedSheetConfirmation() && (activities.isLoading || accounts.isLoading || instruments.isLoading || holdings.isLoading)) {
     return <LoadingState label={t("history.loading")} />;
   }
 
-  if (activities.isError || accounts.isError || instruments.isError || holdings.isError) {
+  if (!hasUnresolvedSheetConfirmation() && (activities.isError || accounts.isError || instruments.isError || holdings.isError)) {
     return (
       <ErrorState
         title={t("history.loadError")}
@@ -376,7 +377,7 @@ export function HistoryPage({ navigationFilters }: { navigationFilters?: History
         />
       )}
       {!origin.isLoading && !origin.isError && !origin.data && <StartHistoryForm />}
-      {!origin.isLoading && !origin.isError && origin.data && (
+      {origin.data && (!origin.isError || hasUnresolvedSheetConfirmation()) && (
         <>
           <p className="text-sm text-muted-foreground" data-testid="history-origin-timezone">
             {t("history.originTimezone", { timezone: origin.data.timezone })}

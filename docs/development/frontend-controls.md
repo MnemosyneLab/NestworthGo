@@ -62,3 +62,22 @@ chart range presets and day/month navigation also remain appropriate. Specialize
 interactive rows, chart buttons and read-only connection text areas may keep
 semantic HTML with existing focus and theme styles. Any new exception needs a
 narrow documented rationale and focused coverage, not a blanket lint disable.
+
+## Confirmation recovery
+
+Repeat and cash-balance confirmations register their immutable plan identity
+and reviewed payload with the owning Sheet before dispatch. While confirmation
+is pending or its outcome is uncertain, the Sheet guards Escape, Close and
+outside presses, and application navigation and failed background reads preserve the mounted review.
+Fields and Back to draft remain disabled; retry uses the same plan and receipt.
+Success closes once. A proven backend refusal releases the guard and permits
+a fresh preview or draft cancellation. `stale_preview` with `previewToken`
+means a proven refusal; `planId` means the in-memory plan is unavailable and
+cannot prove whether an earlier confirmation committed. No-field legacy
+`stale_preview` responses are treated conservatively as unavailable plans.
+
+This is in-session recovery, not persistence across process restart. Desktop
+plans are held in memory; if a plan has actually disappeared, retry cannot
+resolve its receipt through the current desktop API. Keep the review guarded
+rather than silently assigning a new identity. Native window/process close and
+restart recovery require separate backend/product work and acceptance.

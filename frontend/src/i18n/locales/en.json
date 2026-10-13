@@ -467,10 +467,10 @@
     "repeatAccountUnavailable": "The original account is unavailable. Choose an active account before previewing.",
     "repeatCurrencyUnavailable": "{{currency}} is unavailable. Choose a supported currency before previewing.",
     "repeatRetryConfirm": "Retry same confirmation",
-    "repeatRetryHelp": "Retry this retained confirmation first if the outcome is uncertain. Creating a fresh preview would be a new operation; check History before doing that.",
+    "repeatRetryHelp": "Retry this retained confirmation first if the outcome is uncertain. Keep this review open until the outcome is resolved.",
     "repeatUncertainEditedHelp": "The earlier confirmation's outcome is uncertain. Check History before creating a fresh preview.",
     "repeatFreshPreviewHelp": "This confirmation was rejected without recording. Review a fresh preview if the source is still eligible.",
-    "repeatPlanUnavailableHelp": "This confirmation plan is unavailable and its outcome may be unknown. Check History before creating a fresh preview; a new confirmation would be a new operation.",
+    "repeatPlanUnavailableHelp": "This confirmation is unavailable and its outcome may be unknown. This review stays locked to prevent a duplicate. If retries remain unavailable, restart and check History before recording another change.",
     "repeatSourceRejectedHelp": "The source can no longer be repeated. Close this draft and choose another eligible activity.",
     "repeatReason": {
       "reversed": "This activity was undone. Repeat is unavailable.",

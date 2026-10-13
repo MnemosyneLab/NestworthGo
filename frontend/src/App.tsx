@@ -14,6 +14,7 @@ import { setLanguage } from "@/i18n";
 import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus, type HistoricalNavigationContext } from "@/app/navigation";
 import { useAnalysisStore } from "@/stores/analysis";
 import { Button } from "@/components/ui/button";
+import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { NavigationContext } from "@/app/NavigationContext";
 import type { HealthFocus, AccountListFocus } from "@/app/navigation";
 import { AgentWorkspaceObserver } from "@/queries/agent";
@@ -95,13 +96,14 @@ function App() {
   const workspaceReady = startup.data?.available === true && Boolean(settings.data);
   const bootstrap = useBootstrap({ enabled: workspaceReady });
 
+  const confirmationUnresolved = hasUnresolvedSheetConfirmation();
   if (startup.isLoading) {
     return <StartupLoadingPage label={t("startup.loading")} />;
   }
-  if (startup.isError || (startup.data && !startup.data.available)) {
+  if (!confirmationUnresolved && (startup.isError || (startup.data && !startup.data.available))) {
     return <BlockedStartupPage startup={startup.data} failure={startup.error} />;
   }
-  if (settings.isError) {
+  if (settings.isError && !confirmationUnresolved) {
     return <BlockedStartupPage failure={settings.error} />;
   }
   if (settings.isLoading || !settings.data) {
@@ -110,16 +112,17 @@ function App() {
   if (bootstrap.isLoading) {
     return <StartupLoadingPage label={t("ui.state.loadingWorkspace")} />;
   }
-  if (bootstrap.isError) {
+  if (bootstrap.isError && !confirmationUnresolved) {
     return <BlockedStartupPage failure={bootstrap.error} />;
   }
 
-  if (bootstrap.data && !bootstrap.data.household) {
+  if (bootstrap.data && !bootstrap.data.household && !confirmationUnresolved) {
     return <OnboardingPage onCompleted={() => setActivePageId("accounts")} />;
   }
 
   const openAccount = (accountId: string) => open({ page: "accounts", accountId });
   const handleNavigate = (target: NavigationTarget | PageId, retainSource = false) => {
+    if (hasUnresolvedSheetConfirmation()) return;
     if (!retainSource) setTrail([]);
     const navigation = typeof target === "string" ? targetForPage(target) : target;
     const pageId = navigation.page;
@@ -153,6 +156,7 @@ function App() {
   };
 
   const open = (target: NavigationTarget) => {
+    if (hasUnresolvedSheetConfirmation()) return;
     if (target.page === "available-funds" && target.page === activePageId) { handleNavigate(target, true); return; }
     setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
@@ -166,6 +170,7 @@ function App() {
     else open({ page: "data-health", focus });
   };
   const back = () => {
+    if (hasUnresolvedSheetConfirmation()) return;
     const previous = trail[trail.length - 1];
     if (!previous) return;
     restorePosition.current = previous;

@@ -8,7 +8,9 @@ import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
+import { queryKeys } from "./queries/keys";
 import { useUiStore } from "./stores/ui";
+import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
 
 const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
@@ -631,5 +633,61 @@ it.each([
     expect(within(trend).getByRole("button", { name: "Assets" })).toHaveAttribute("aria-pressed", "true");
     expect(within(trend).getByRole("button", { name: "2026-09-30" })).toHaveAttribute("aria-pressed", "true");
     expect(seriesRead).toHaveBeenCalledTimes(seriesReads);
+  }
+});
+
+
+it("blocks top-level and object navigation while a sheet confirmation is unresolved", async () => {
+  await i18n.changeLanguage("en");
+  listAccounts.mockResolvedValue([checkingAccount]);
+  accountValuations.mockResolvedValue([checkingValuation]);
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+    expect(screen.getByTestId("overview-net-worth")).toBeVisible();
+    await userEvent.click(document.getElementById("open-historical-overview")!);
+    expect(screen.getByTestId("overview-net-worth")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "← Back to Overview" })).not.toBeInTheDocument();
+  } finally { resolveSheetConfirmation(owner); }
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await screen.findByTestId("account-detail");
+  await userEvent.click(screen.getByRole("button", { name: "Return analysis" }));
+  const back = await screen.findByRole("button", { name: "← Back to Accounts" });
+  registerSheetConfirmation(owner);
+  try {
+    await userEvent.click(back);
+    expect(back).toBeVisible();
+    expect(screen.getByTestId("account-detail")).not.toBeVisible();
+  } finally { resolveSheetConfirmation(owner); }
+  await userEvent.click(back);
+  expect(screen.getByTestId("account-detail")).toBeVisible();
+});
+
+
+it.each(["startup", "settings", "bootstrap"])("keeps the workspace through a failed %s refresh while confirmation is unresolved", async read => {
+  await i18n.changeLanguage("en");
+  render(<AppProviders><App /></AppProviders>);
+  const original = await screen.findByTestId("overview-net-worth");
+  const key = read === "startup" ? queryKeys.app.startup : read === "settings" ? queryKeys.settings.all : queryKeys.household.bootstrap;
+  const query = queryClient.getQueryCache().find({ queryKey: key })!;
+  const originalFn = query.options.queryFn;
+  // Inject a read failure at the actual query boundary without changing data.
+  query.setOptions({ ...query.options, retry: false, queryFn: async () => { throw new Error("read unavailable"); } });
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await queryClient.refetchQueries({ queryKey: key });
+    await waitFor(() => expect(query.state.status).toBe("error"));
+    expect(screen.getByTestId("overview-net-worth")).toBe(original);
+    expect(screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") })).toBeVisible();
+  } finally {
+    resolveSheetConfirmation(owner);
+    query.setOptions({ ...query.options, queryFn: originalFn });
+    await queryClient.refetchQueries({ queryKey: key });
   }
 });

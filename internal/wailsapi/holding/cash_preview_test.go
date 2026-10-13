@@ -82,8 +82,12 @@ func TestCashPreviewConfirmation(t *testing.T) {
 			}
 			_, err = s.ConfirmCashBalance(ctx, stale.PlanID)
 			var wire *apierror.WireError
-			if !errors.As(err, &wire) || wire.Code != "stale_preview" {
+			if !errors.As(err, &wire) || wire.Code != "stale_preview" || wire.Field != "previewToken" {
 				t.Fatalf("stale: %v", err)
+			}
+			_, err = s.ConfirmCashBalance(ctx, "missing-plan")
+			if !errors.As(err, &wire) || wire.Code != "stale_preview" || wire.Field != "planId" {
+				t.Fatalf("missing plan: %v", err)
 			}
 			fresh, err := s.PreviewCashBalance(ctx, fx.accountID, "120", "USD", nil)
 			if err != nil {
