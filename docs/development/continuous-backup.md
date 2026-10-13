@@ -72,6 +72,15 @@ close continues touching SQLite. A failed drain during configuration change
 or restore pause retains the old configuration, resumes its worker, and shows
 retrying instead of a stale confirmation. Shutdown does not resume a worker.
 
+After a successful worker join, application drain, final remote TXID
+confirmation, store close and durable stream seal, the manager reclaims only
+that stream's local `.nestworth-replication/<backup UUID>/<stream UUID>`
+metadata. It verifies the exact current stream path and pins nonsymlink
+ancestors before deletion. It preserves metadata when draining, confirmation,
+close or sealing fails. Deletion is best effort and a generic warning records
+failure without preventing disable or restore. This does not scan old orphan
+streams, remove database/safety copies, or change remote retention/history.
+
 Shutdown first permanently fences/drains application write permits, cancels
 and joins market-data workers, then closes/drains MCP. This uses the central
 write coordinator without holding `changeMu` or the SQLite pool slot while
@@ -94,6 +103,13 @@ swap, rollback and startup-journal recovery path. Both local and cloud restore
 pause replication and persist backup disabled before installation. Restart and
 explicit re-enable produce a fresh isolated stream. Failed operations never
 turn into an automatic restore of a valid local database.
+Once restore attempts its quiesce hook or database close, any installation
+failure requires restart and retains the application's exclusive write fence.
+The quiesce hook can permanently revoke MCP access; a checkpoint or journal
+failure cannot safely undo those partial effects. Backup stays disabled after
+a successful pause, including failures before close, and can be deliberately
+re-enabled after restart. Failures before quiescing or closing retain the live
+session's normal write availability.
 
 ## Optional history retention (phase one)
 

@@ -179,10 +179,20 @@ func (r *Recovery) ConfirmRestore(ctx context.Context, input RestoreConfirmInput
 		return RestoreResult{}, &domain.Error{Code: domain.ErrBackupChecksumFailed, Message: "restore preview expired"}
 	}
 	classes := RestoreClasses{Chrome: input.RestoreChrome, Format: input.RestoreFormat, Routing: input.RestoreRouting}
+	quiesceAttempted := false
+	quiesce := func(ctx context.Context) error {
+		if r.beforeRestore != nil {
+			// Quiescing can permanently revoke external writers, even if a
+			// later hook fails. Its partial effects cannot safely be undone.
+			quiesceAttempted = true
+			return r.beforeRestore(ctx)
+		}
+		return nil
+	}
 	if r.app == nil {
-		err := r.backup.InstallRestore(ctx, r.liveDBPath, pkg, RestoreHooks{Quiesce: r.beforeRestore}, classes, r.clock())
+		err := r.backup.InstallRestore(ctx, r.liveDBPath, pkg, RestoreHooks{Quiesce: quiesce}, classes, r.clock())
 		if err != nil {
-			return RestoreResult{}, err
+			return RestoreResult{RestartRequired: quiesceAttempted}, err
 		}
 		return RestoreResult{RestartRequired: true}, nil
 	}
@@ -195,26 +205,19 @@ func (r *Recovery) ConfirmRestore(ctx context.Context, input RestoreConfirmInput
 				unlocked = true
 			}
 		}
-		sessionClosed := false
+		closeAttempted := false
 		hooks := RestoreHooks{}
 		r.app.LockWrites()
-		hooks.Quiesce = func(ctx context.Context) error {
-			if r.beforeRestore != nil {
-				return r.beforeRestore(ctx)
-			}
-			return nil
-		}
+		hooks.Quiesce = quiesce
 		hooks.Checkpoint = r.app.CheckpointWAL
 		hooks.Close = func() error {
-			closeErr := r.app.CloseDatabase()
-			if closeErr == nil {
-				sessionClosed = true
-			}
-			return closeErr
+			// A failed Close can still have partially closed the session.
+			closeAttempted = true
+			return r.app.CloseDatabase()
 		}
 		installErr := r.backup.InstallRestore(ctx, r.liveDBPath, pkg, hooks, classes, r.clock())
 		if installErr != nil {
-			if sessionClosed {
+			if quiesceAttempted || closeAttempted {
 				result = RestoreResult{RestartRequired: true, KeepExclusive: true}
 				return true, installErr
 			}
