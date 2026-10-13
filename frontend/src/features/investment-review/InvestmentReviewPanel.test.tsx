@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   save: { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false },
   acknowledge: { mutate: vi.fn(), isPending: false, isError: false },
   enroll: { mutate: vi.fn(), isPending: false, isError: false },
+  snooze: { mutate: vi.fn(), isPending: false, isError: false },
 }));
 vi.mock("@/queries/investmentReview", () => ({ useInvestmentReviews: () => state.query, useInvestmentReviewActions: () => state }));
 const open = vi.fn();
@@ -18,15 +19,15 @@ function fixture(): InvestmentReviewReport {
   return {
     schemaVersion: "investment-review/1", asOf: "2026-10-13T12:00:00Z", localDate: "2026-10-13", timezone: "Asia/Shanghai", revision: 1,
     policy: { enabled: true, windowDays: 30, lowAnnualizedPercent: "1", lossPercent: "-1", sustainDays: 7, maxAgeDays: 7 },
-    items: [{ instrumentId: "synthetic-id", displayName: "Synthetic fund", status: "low_yield", baselineOn: "2026-09-07", latestOn: "2026-10-09", targetOn: "2026-09-09", elapsedDays: 32, ageDays: 4, missingDays: 20, observationCount: 13, annualizedPercent: "0.25", periodPercent: "0.0219178082", episodeId: "episode-one", reason: "", acknowledged: false, monitored: true }],
+    items: [{ instrumentId: "synthetic-id", displayName: "Synthetic fund", status: "low_yield", baselineOn: "2026-09-07", latestOn: "2026-10-09", targetOn: "2026-09-09", elapsedDays: 32, ageDays: 4, missingDays: 20, observationCount: 13, annualizedPercent: "0.25", periodPercent: "0.0219178082", episodeId: "episode-one", reason: "", acknowledged: false, monitored: true, snoozed: false, snoozedUntilOn: "" }],
   };
 }
-function mount(element: React.ReactNode = <InvestmentReviewPanel />) { return render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}>{element}</NavigationContext.Provider>); }
+function mount(element: React.ReactNode = <InvestmentReviewPanel />) { return render(element, { wrapper: ({ children }) => <NavigationContext.Provider value={{ open, openHealth: vi.fn() }}>{children}</NavigationContext.Provider> }); }
 beforeEach(async () => {
   vi.clearAllMocks(); await i18n.changeLanguage("en"); state.query.data = fixture();
   state.query.isError = state.query.isPending = state.query.isFetching = false;
   state.save.isError = state.save.isPending = state.save.isSuccess = false;
-  state.acknowledge.isError = state.acknowledge.isPending = state.enroll.isError = state.enroll.isPending = false;
+  state.acknowledge.isError = state.acknowledge.isPending = state.enroll.isError = state.enroll.isPending = state.snooze.isError = state.snooze.isPending = false;
 });
 describe("investment review UI", () => {
   it.each(["en", "zh-CN", "zh-TW"])("discloses estimated return, actual coverage and foreground scope in %s", async language => {
@@ -89,8 +90,61 @@ describe("investment review UI", () => {
     state.query.data!.items![0].monitored = false; state.query.data!.items![0].episodeId = "";
     state.save.isError = state.acknowledge.isError = true;
     mount();
-    expect(screen.getByText("Reminders not enabled for this investment")).toBeInTheDocument();
+    expect(screen.getByText("Reminders disabled until re-enabled for this investment")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Acknowledge review/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole("alert")).toHaveLength(2);
   });
+  it.each(["en", "zh-CN", "zh-TW"])("shows localized temporary ignore, resume date and keyboard actions in %s", async language => {
+    await i18n.changeLanguage(language); const view = mount(); const user = userEvent.setup();
+    const week = screen.getByRole("button", { name: i18n.t("investmentReview.snooze", { days: 7, name: "Synthetic fund" }) });
+    week.focus(); await user.keyboard("{Enter}");
+    expect(state.snooze.mutate).toHaveBeenCalledWith({ instrumentId: "synthetic-id", days: 7, expectedRevision: 1 });
+    await user.click(screen.getByRole("button", { name: i18n.t("investmentReview.snooze", { days: 30, name: "Synthetic fund" }) }));
+    expect(state.snooze.mutate).toHaveBeenLastCalledWith({ instrumentId: "synthetic-id", days: 30, expectedRevision: 1 });
+    state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20"; state.query.data!.items![0].episodeId = "";
+    view.rerender(<InvestmentReviewPanel />);
+    expect(screen.getByText(i18n.t("investmentReview.resumeDate", { date: "2026-10-20", timezone: "Asia/Shanghai" }))).toBeInTheDocument();
+    expect(screen.getByText(i18n.t("investmentReview.estimated", { value: "0.25" }))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: i18n.t("investmentReview.acknowledge", { name: "Synthetic fund" }) })).not.toBeInTheDocument();
+    const resume = screen.getByRole("button", { name: i18n.t("investmentReview.resumeNow", { name: "Synthetic fund" }) });
+    resume.focus(); await user.keyboard("{Enter}");
+    expect(state.snooze.mutate).toHaveBeenLastCalledWith({ instrumentId: "synthetic-id", days: 0, expectedRevision: 1 });
+  });
+  it("keeps snoozed episodes out of pending counts and exposes indefinite ignore/re-enable", async () => {
+    state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20";
+    const view = mount(<InvestmentReviewSummary />);
+    expect(screen.getByText("0 unacknowledged review reminders")).toBeInTheDocument();
+    view.rerender(<InvestmentReviewPanel />);
+    await userEvent.click(screen.getByRole("button", { name: "Ignore indefinitely · Synthetic fund" }));
+    expect(state.enroll.mutate).toHaveBeenCalledWith({ instrumentId: "synthetic-id", enabled: false, expectedRevision: 1 });
+    state.query.data!.items![0].monitored = false; state.query.data!.items![0].episodeId = "";
+    view.rerender(<InvestmentReviewPanel />);
+    expect(screen.getByText("Reminders disabled until re-enabled for this investment")).toBeInTheDocument();
+    expect(screen.getByText("Estimated annualized return: 0.25%")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Enable review reminders · Synthetic fund" }));
+    expect(state.enroll.mutate).toHaveBeenLastCalledWith({ instrumentId: "synthetic-id", enabled: true, expectedRevision: 1 });
+  });
+  it("disables temporary ignore and resume on stale reads or pending writes", () => {
+    state.query.isError = true; state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20";
+    const view = mount();
+    expect(screen.getByRole("button", { name: "Ignore for 7 days · Synthetic fund" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Resume now · Synthetic fund" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Ignore indefinitely · Synthetic fund" })).toBeDisabled();
+    state.query.isError = false; state.snooze.isPending = true; view.rerender(<InvestmentReviewPanel />);
+    expect(screen.getByRole("button", { name: "Ignore for 30 days · Synthetic fund" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Enable review reminders · Synthetic fund" })).toBeDisabled();
+  });
+
+  it("preserves unsaved preferences through an unrelated ignore revision", async () => {
+    const view = mount(); const user = userEvent.setup();
+    await user.click(screen.getByText("Review preferences"));
+    const low = screen.getByRole("spinbutton", { name: "Low estimated annualized return threshold (%)" });
+    await user.clear(low); await user.type(low, "2.5");
+    state.query.data!.revision = 2; state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20";
+    view.rerender(<InvestmentReviewPanel />);
+    expect(screen.getByRole("spinbutton", { name: "Low estimated annualized return threshold (%)" })).toHaveValue(2.5);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(state.save.mutate).toHaveBeenCalledWith({ expectedRevision: 2, policy: { ...fixture().policy, lowAnnualizedPercent: "2.5" } });
+  });
+
 });

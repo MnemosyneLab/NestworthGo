@@ -10,7 +10,7 @@ export function InvestmentReviewSummary({ isActive = true }: { isActive?: boolea
   const { t } = useTranslation();
   const query = useInvestmentReviews(isActive);
   const navigation = useObjectNavigation();
-  const count = (query.data?.items ?? []).filter(item => item.episodeId && !item.acknowledged).length;
+  const count = (query.data?.items ?? []).filter(item => item.episodeId && !item.acknowledged && !item.snoozed).length;
   return <section aria-label={t("investmentReview.title")} className="border-t pt-3 space-y-2">
     <h3 className="font-medium">{t("investmentReview.title")}</h3>
     {query.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
@@ -24,7 +24,7 @@ export function InvestmentReviewSummary({ isActive = true }: { isActive?: boolea
 export function InvestmentReviewPanel({ isActive = true }: { isActive?: boolean }) {
   const { t } = useTranslation();
   const query = useInvestmentReviews(isActive);
-  const { acknowledge, enroll } = useInvestmentReviewActions();
+  const { acknowledge, enroll, snooze } = useInvestmentReviewActions();
   const navigation = useObjectNavigation();
   const data = query.data;
   return <section aria-label={t("investmentReview.title")} className="rounded-xl border p-4 space-y-3" aria-busy={query.isFetching}>
@@ -35,16 +35,17 @@ export function InvestmentReviewPanel({ isActive = true }: { isActive?: boolean 
     <Button variant="outline" disabled={query.isFetching} onClick={() => { void query.refetch(); }}>{t("investmentReview.refresh")}</Button>
     {!data && query.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
     {query.isError && <p role="alert">{t(data ? "investmentReview.staleRead" : "investmentReview.error")}</p>}
-    {(acknowledge.isError || enroll.isError) && <p role="alert">{t("investmentReview.writeError")}</p>}
+    {(acknowledge.isError || enroll.isError || snooze.isError) && <p role="alert">{t("investmentReview.writeError")}</p>}
     {data && <>
       <p className="text-xs">{t("investmentReview.evaluated", { date: data.localDate, timezone: data.timezone })}</p>
-      <ReviewPolicyForm key={data.revision} policy={data.policy} revision={data.revision} disabled={query.isError || query.isFetching} />
+      <ReviewPolicyForm key={JSON.stringify(data.policy)} policy={data.policy} revision={data.revision} disabled={query.isError || query.isFetching || snooze.isPending || enroll.isPending} />
       {!data.policy.enabled && <p>{t("investmentReview.disabled")}</p>}
       {(data.items ?? []).length === 0 && <p>{t("investmentReview.empty")}</p>}
       <ul className="space-y-3">{(data.items ?? []).map(item => <li key={item.instrumentId} className="rounded-lg border p-3 space-y-2">
         <h4 className="font-medium">{item.displayName}</h4>
-        <label className="flex gap-2"><input type="checkbox" checked={item.monitored} disabled={query.isError || query.isFetching || enroll.isPending} onChange={event => enroll.mutate({ instrumentId: item.instrumentId, enabled: event.target.checked, expectedRevision: data.revision })} />{t("investmentReview.enroll", { name: item.displayName })}</label>
-        <p>{t(`investmentReview.status.${!data.policy.enabled ? "paused" : !item.monitored ? "not_enabled" : item.acknowledged && item.episodeId ? "acknowledged" : item.status}`)}</p>
+        <label className="flex gap-2"><input type="checkbox" checked={item.monitored} disabled={query.isError || query.isFetching || enroll.isPending || snooze.isPending} onChange={event => enroll.mutate({ instrumentId: item.instrumentId, enabled: event.target.checked, expectedRevision: data.revision })} />{t("investmentReview.enroll", { name: item.displayName })}</label>
+        <p>{t(`investmentReview.status.${!item.monitored ? "not_enabled" : item.snoozed ? "snoozed" : !data.policy.enabled ? "paused" : item.acknowledged && item.episodeId ? "acknowledged" : item.status}`)}</p>
+        {item.snoozed && <p>{t("investmentReview.resumeDate", { date: item.snoozedUntilOn, timezone: data.timezone })}</p>}
         {item.latestOn && <p>{t("investmentReview.dates", { latest: item.latestOn, baseline: item.baselineOn || t("investmentReview.missing"), window: data.policy.windowDays, days: item.baselineOn ? item.elapsedDays : t("investmentReview.missing"), age: item.ageDays })}</p>}
         {!item.latestOn && <p>{t("investmentReview.noDates", { window: data.policy.windowDays })}</p>}
         {item.targetOn && <p className="text-xs">{t("investmentReview.target", { date: item.targetOn })}</p>}
@@ -56,7 +57,10 @@ export function InvestmentReviewPanel({ isActive = true }: { isActive?: boolean 
         {item.reason && <p>{t(`investmentReview.reason.${item.reason}`)}</p>}
         <div className="flex flex-wrap gap-2">
           {navigation && <Button variant="outline" onClick={() => navigation.open({ page: "market-data", focus: { instrumentId: item.instrumentId, label: item.displayName } })}>{t("investmentReview.checkNav", { name: item.displayName })}</Button>}
-          {item.episodeId && !item.acknowledged && <Button disabled={query.isError || query.isFetching || acknowledge.isPending} onClick={() => acknowledge.mutate(item.episodeId)}>{t("investmentReview.acknowledge", { name: item.displayName })}</Button>}
+          {item.episodeId && !item.acknowledged && !item.snoozed && <Button disabled={query.isError || query.isFetching || acknowledge.isPending} onClick={() => acknowledge.mutate(item.episodeId)}>{t("investmentReview.acknowledge", { name: item.displayName })}</Button>}
+          {item.monitored && [7, 30].map(days => <Button key={days} variant="outline" disabled={query.isError || query.isFetching || snooze.isPending || enroll.isPending} onClick={() => snooze.mutate({ instrumentId: item.instrumentId, days, expectedRevision: data.revision })}>{t("investmentReview.snooze", { days, name: item.displayName })}</Button>)}
+          {item.snoozed && <Button variant="outline" disabled={query.isError || query.isFetching || snooze.isPending || enroll.isPending} onClick={() => snooze.mutate({ instrumentId: item.instrumentId, days: 0, expectedRevision: data.revision })}>{t("investmentReview.resumeNow", { name: item.displayName })}</Button>}
+          {item.monitored && <Button variant="outline" disabled={query.isError || query.isFetching || enroll.isPending || snooze.isPending} onClick={() => enroll.mutate({ instrumentId: item.instrumentId, enabled: false, expectedRevision: data.revision })}>{t("investmentReview.ignoreIndefinitely", { name: item.displayName })}</Button>}
         </div>
       </li>)}</ul>
     </>}

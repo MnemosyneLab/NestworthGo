@@ -39,3 +39,14 @@ func (s *Service) SetInvestmentReviewEnrollment(ctx context.Context, request Set
 	report, err := s.app.SetInvestmentReviewEnrollment(ctx, request.InstrumentID, request.Enabled, request.ExpectedRevision)
 	return report, apierror.Wrap(err)
 }
+
+type SetInvestmentReviewSnoozeRequest struct {
+	InstrumentID     string `json:"instrumentId"`
+	Days             int    `json:"days"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
+func (s *Service) SetInvestmentReviewSnooze(ctx context.Context, request SetInvestmentReviewSnoozeRequest) (application.InvestmentReviewReport, error) {
+	report, err := s.app.SetInvestmentReviewSnooze(ctx, request.InstrumentID, request.Days, request.ExpectedRevision)
+	return report, apierror.Wrap(err)
+}

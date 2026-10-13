@@ -236,3 +236,29 @@ func TestInvestmentReviewThresholdEquality(t *testing.T) {
 		t.Fatal("unbounded precision accepted")
 	}
 }
+
+func TestInvestmentReviewEpisodeAliasesStopAtSupportedRecovery(t *testing.T) {
+	s, i := reviewFixture(t)
+	p := DefaultInvestmentReviewPolicy()
+	s.Gain.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 39, "1")
+	original := onlyReview(t, s, p, "2026-10-09")
+	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-08-31", "1"))
+	enriched := onlyReview(t, s, p, "2026-10-09")
+	contains := func(aliases []string, id string) bool {
+		for _, alias := range aliases {
+			if alias == id {
+				return true
+			}
+		}
+		return false
+	}
+	if original.EpisodeID == enriched.EpisodeID || !contains(enriched.EpisodeAliases, original.EpisodeID) {
+		t.Fatalf("acknowledgement lineage lost: %+v", enriched)
+	}
+	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-10-10", "1.01"))
+	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, dailyReviewQuotes(t, i, "2026-10-11", 8, "0.98")...)
+	next := onlyReview(t, s, p, "2026-10-18")
+	if next.EpisodeID == "" || contains(next.EpisodeAliases, original.EpisodeID) {
+		t.Fatalf("recovered episode still aliases old acknowledgement: %+v", next)
+	}
+}

@@ -56,3 +56,32 @@ func TestInvestmentReviewWireEmptyArrayAndErrors(t *testing.T) {
 		t.Fatalf("unwrapped error %v", err)
 	}
 }
+
+func TestInvestmentReviewEpisodeAliasesStayInternal(t *testing.T) {
+	raw, err := json.Marshal(domain.InvestmentReviewItem{EpisodeID: "current", EpisodeAliases: []string{"old-acknowledgement"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err = json.Unmarshal(raw, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := wire["EpisodeAliases"]; exists {
+		t.Fatalf("internal lineage crossed wire %s", raw)
+	}
+	for _, value := range wire {
+		if value == "old-acknowledgement" {
+			t.Fatalf("internal identity crossed wire %s", raw)
+		}
+	}
+}
+
+func TestInvestmentReviewSnoozeWireValidation(t *testing.T) {
+	app := application.NewService(reviewWireRepository{})
+	app.SetInvestmentReviewConfiguration(reviewWireStore{})
+	_, err := NewService(app).SetInvestmentReviewSnooze(t.Context(), SetInvestmentReviewSnoozeRequest{Days: 14})
+	var wire *apierror.WireError
+	if !errors.As(err, &wire) || wire.Code != string(domain.ErrValidation) {
+		t.Fatalf("snooze validation crossed wire incorrectly %v", err)
+	}
+}

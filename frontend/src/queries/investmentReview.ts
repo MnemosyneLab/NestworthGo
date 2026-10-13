@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity";
-import type { SaveInvestmentReviewPolicyRequest, SetInvestmentReviewEnrollmentRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
+import type { SaveInvestmentReviewPolicyRequest, SetInvestmentReviewEnrollmentRequest, SetInvestmentReviewSnoozeRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "./keys";
 
@@ -33,5 +33,9 @@ export function useInvestmentReviewActions() {
     mutationFn: (request: SetInvestmentReviewEnrollmentRequest) => callService(() => Service.SetInvestmentReviewEnrollment(request)),
     onSuccess: updated,
   });
-  return { save, acknowledge, enroll };
+  const snooze = useMutation({
+    mutationFn: (request: SetInvestmentReviewSnoozeRequest) => callService(() => Service.SetInvestmentReviewSnooze(request)),
+    onSuccess: updated,
+  });
+  return { save, acknowledge, enroll, snooze };
 }

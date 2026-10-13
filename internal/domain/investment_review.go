@@ -39,28 +39,33 @@ type InvestmentReviewSnapshot struct {
 	Gain GainSnapshot
 }
 type InvestmentReviewItem struct {
-	Monitored         bool    `json:"monitored"`
-	InstrumentID      string  `json:"instrumentId"`
-	DisplayName       string  `json:"displayName"`
-	Status            string  `json:"status"`
-	BaselineOn        string  `json:"baselineOn"`
-	LatestOn          string  `json:"latestOn"`
-	TargetOn          string  `json:"targetOn"`
-	ElapsedDays       int     `json:"elapsedDays"`
-	AgeDays           int     `json:"ageDays"`
-	MissingDays       int     `json:"missingDays"`
-	ObservationCount  int     `json:"observationCount"`
-	PeriodPercent     *string `json:"periodPercent"`
-	AnnualizedPercent *string `json:"annualizedPercent"`
-	EpisodeID         string  `json:"episodeId"`
-	Reason            string  `json:"reason"`
-	Acknowledged      bool    `json:"acknowledged"`
+	// EpisodeAliases are internal identities whose anchors still belong to this
+	// breach run. Earlier coverage may move its first breach without ending it.
+	EpisodeAliases    []string `json:"-"`
+	Snoozed           bool     `json:"snoozed"`
+	SnoozedUntilOn    string   `json:"snoozedUntilOn"`
+	Monitored         bool     `json:"monitored"`
+	InstrumentID      string   `json:"instrumentId"`
+	DisplayName       string   `json:"displayName"`
+	Status            string   `json:"status"`
+	BaselineOn        string   `json:"baselineOn"`
+	LatestOn          string   `json:"latestOn"`
+	TargetOn          string   `json:"targetOn"`
+	ElapsedDays       int      `json:"elapsedDays"`
+	AgeDays           int      `json:"ageDays"`
+	MissingDays       int      `json:"missingDays"`
+	ObservationCount  int      `json:"observationCount"`
+	PeriodPercent     *string  `json:"periodPercent"`
+	AnnualizedPercent *string  `json:"annualizedPercent"`
+	EpisodeID         string   `json:"episodeId"`
+	Reason            string   `json:"reason"`
+	Acknowledged      bool     `json:"acknowledged"`
 }
 
 // ProjectInvestmentReviews measures unit NAV price change, never a holding's
 // balance or cash flows. Unsupported economic adjustments fail closed. Dates
 // are civil source labels, so DST never changes the elapsed-day denominator.
-func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReviewPolicy, today string) []InvestmentReviewItem {
+func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReviewPolicy, today string, priorPolicies ...InvestmentReviewPolicy) []InvestmentReviewItem {
 	snapshot := input.Gain.Portfolio
 	unsafeDates := reviewUnsafeDates(input.Gain)
 	lowThreshold := decimal.RequireFromString(p.LowAnnualizedPercent)
@@ -87,23 +92,32 @@ func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReview
 			continue
 		}
 		points := reviewDailyQuotes(quotes[i.ID])
+		profiles := append([]InvestmentReviewPolicy{p}, priorPolicies...)
 		item := InvestmentReviewItem{InstrumentID: i.ID.String(), DisplayName: i.Name, Status: "unavailable", Reason: "unit_nav_required"}
 		if len(points) > 0 {
 			var firstBreach, episodeStart string
 			var previousBreach string
+			var episodeAnchors []string
 			for index := range points {
 				current := reviewWindow(unsafeDates[i.ID], i, points, index, p, today)
 				if current.Status == "unavailable" {
 					firstBreach, previousBreach = "", ""
+					if episodeStart == "" {
+						episodeAnchors = nil
+					}
 				} else {
 					period := decimal.RequireFromString(*current.PeriodPercent)
 					annual := decimal.RequireFromString(*current.AnnualizedPercent)
 					breach := period.LessThanOrEqual(lossThreshold) || annual.LessThan(lowThreshold)
 					if !breach {
 						firstBreach, previousBreach, episodeStart = "", "", ""
+						episodeAnchors = nil
 					} else {
 						if previousBreach != "" && reviewDays(previousBreach, current.LatestOn) > 7 {
 							firstBreach, previousBreach = "", ""
+							if episodeStart == "" {
+								episodeAnchors = nil
+							}
 						}
 						if firstBreach == "" {
 							firstBreach = current.LatestOn
@@ -113,14 +127,15 @@ func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReview
 							episodeStart = firstBreach
 						}
 						previousBreach = current.LatestOn
+						episodeAnchors = append(episodeAnchors, current.LatestOn)
 						if episodeStart != "" && current.AgeDays <= p.MaxAgeDays && p.Enabled {
 							current.Status = "low_yield"
 							if period.LessThanOrEqual(lossThreshold) {
 								current.Status = "loss"
 							}
-							// Changing policy is an explicit new review context; neither revisions
-							// nor refresh timestamps create an episode.
-							current.EpisodeID = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("investment-review/1|%s|%s|%+v|%s", snapshot.Household.ID, i.ID, p, episodeStart))))
+							// Identity follows the observed run, so preferences and
+							// refresh timestamps do not independently create an episode.
+							current.EpisodeID = reviewEpisodeID(snapshot.Household.ID, i.ID, episodeStart)
 						} else if breach {
 							current.Status = "confirming"
 						}
@@ -130,6 +145,15 @@ func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReview
 					}
 				}
 				item = current
+			}
+			if item.EpisodeID != "" {
+				for _, anchor := range episodeAnchors {
+					item.EpisodeAliases = append(item.EpisodeAliases, reviewEpisodeID(snapshot.Household.ID, i.ID, anchor))
+					// Read initial-MVP acknowledgements without rewriting configuration.
+					for _, profile := range profiles {
+						item.EpisodeAliases = append(item.EpisodeAliases, legacyReviewEpisodeID(snapshot.Household.ID, i.ID, profile, anchor))
+					}
+				}
 			}
 		}
 		result = append(result, item)
@@ -188,7 +212,7 @@ func reviewWindow(unsafeDates []string, i Instrument, points []InstrumentQuote, 
 		return r
 	}
 	for _, q := range points[base : end+1] {
-		if q.SourceKind != QuoteSourceAgent || q.PriceBasis != "agent_unit_nav_v1" || q.TimestampBasis != "date_label" || q.Currency != i.QuoteCurrency || q.BindingRevision != i.ProviderBindingRevision || !q.UnitPrice.Decimal().IsPositive() || reviewDays(q.EffectiveDate, q.EffectiveDate) < 0 {
+		if q.SourceKind != QuoteSourceAgent || q.PriceBasis != "agent_unit_nav_v1" || (q.TimestampBasis != "date_label" && q.TimestampBasis != "source_timestamp") || q.Currency != i.QuoteCurrency || q.BindingRevision != i.ProviderBindingRevision || !q.UnitPrice.Decimal().IsPositive() || reviewDays(q.EffectiveDate, q.EffectiveDate) < 0 {
 			r.Reason = "unit_nav_required"
 			return r
 		}
@@ -275,4 +299,13 @@ func reviewUnsafeDates(gain GainSnapshot) map[InstrumentID][]string {
 		sort.Strings(dates[id])
 	}
 	return dates
+}
+
+func legacyReviewEpisodeID(household HouseholdID, instrument InstrumentID, p InvestmentReviewPolicy, anchor string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("investment-review/1|%s|%s|%+v|%s", household, instrument, p, anchor))))
+}
+
+// Current episode identity follows evidence runs, independently of preferences.
+func reviewEpisodeID(household HouseholdID, instrument InstrumentID, anchor string) string {
+	return "ir2/" + fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("investment-review/2|%s|%s|%s", household, instrument, anchor))))
 }

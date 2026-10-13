@@ -1497,7 +1497,7 @@
     "enable": "Enable reminders for selected investments",
     "window": "Review window",
     "windowDays": "{{days}} days",
-    "policyNote": "Both low yield and loss prompts need at least two distinct window endpoints across the confirmation period. Thresholds are review prompts, not sell rules. Changing preferences creates a new review context.",
+    "policyNote": "Both low yield and loss prompts need at least two distinct window endpoints across the confirmation period. Thresholds are review prompts, not sell rules. Acknowledgement stays with the ongoing episode; preference edits do not clear it. Temporary ignore is separate and preserves enrollment.",
     "saved": "Review preferences saved.",
     "fields": {
       "lowAnnualizedPercent": "Low estimated annualized return threshold (%)",
@@ -1513,8 +1513,9 @@
       "low_yield": "Sustained low estimated return: review investment and data",
       "loss": "Sustained price loss: review investment and data",
       "acknowledged": "This review episode is acknowledged",
-      "not_enabled": "Reminders not enabled for this investment",
-      "paused": "Review reminders are paused"
+      "not_enabled": "Reminders disabled until re-enabled for this investment",
+      "paused": "Review reminders are paused",
+      "snoozed": "Review reminders are temporarily ignored"
     },
     "reason": {
       "unit_nav_required": "Comparable, positive, explicitly dated unit NAV observations are required. Legacy/manual prices, adjusted values, currencies and binding revisions are not inferred.",
@@ -1524,6 +1525,10 @@
     },
     "summary_one": "{{count}} unacknowledged review reminder",
     "summary_other": "{{count}} unacknowledged review reminders",
-    "noDates": "No actual dated NAV observations · selected window {{window}} days"
+    "noDates": "No actual dated NAV observations · selected window {{window}} days",
+    "snooze": "Ignore for {{days}} days · {{name}}",
+    "resumeDate": "Temporary ignore ends on {{date}} · {{timezone}}. Current evidence will be checked when this view next evaluates.",
+    "resumeNow": "Resume now · {{name}}",
+    "ignoreIndefinitely": "Ignore indefinitely · {{name}}"
   }
 }

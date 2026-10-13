@@ -19,7 +19,8 @@ Managed contracts with total-value observations, balance accounts, stocks and
 other unsupported instruments are outside this MVP. Account portfolio/net-worth
 inclusion does not change whether an owned fund may be enrolled.
 
-Only existing, positive `agent_unit_nav_v1`, `close`, `date_label` quote facts
+Only existing, positive `agent_unit_nav_v1`, `close` quote facts with `date_label` or validated
+`source_timestamp` evidence
 with matching currency and current binding revision are comparable. Manual,
 legacy, realtime, cumulative/adjusted NAV, and unknown provider price bases are
 not inferred. This deliberately accepts the existing explicitly typed NAV import
@@ -45,7 +46,10 @@ For supported windows:
 This is simple annualization, explicitly estimated. Go uses decimal division
 (24 fractional places for the ratio, 12 for annualization), never binary floats.
 The UI displays authoritative decimal strings. Calendar-day subtraction uses
-source date labels without DST-hour effects. Age is the household civil date
+source date labels without DST-hour effects. The existing import path validates
+an optional actual timestamp against its supplied observation date/timezone;
+that richer evidence remains eligible, including mixed timestamped/date-only
+windows. The actual timestamp does not change the calendar-day denominator. Age is the household civil date
 minus the source date, with UTC used before History Origin exists. Future dated
 observations cannot become the anchor.
 
@@ -82,25 +86,60 @@ must also breach; an observed healthy window resets the run. Gaps over seven
 days or unsupported windows break new confirmation. An established episode
 survives an unsupported interruption until a supported healthy window proves
 recovery; unavailable/stale latest windows do not show a reminder. Escalation
-from low yield to loss remains the same episode. Identity combines household,
-instrument, canonical preference values and first breach date of the run.
+from low yield to loss remains the same episode. A candidate identity combines household,
+instrument and first breach date of the run, independently of preferences. A
+persisted acknowledgement whose date anchor still lies within that ongoing run
+retains its original episode identity, even when earlier-history enrichment
+moves the reconstructed first breach. A supported healthy window clears those
+aliases, so a later breach run can produce a new episode. This resolution is
+read-only and also honors acknowledgements already stored by the initial MVP.
 
 One persistent App reminder row represents an episode. Acknowledgement suppresses
 its pending count and button, survives refresh/relaunch, and never alters NAV or
 ledger facts. A supported recovery followed by another sustained breach opens a
-new episode. Explicit preference changes create a new review context; material
-historical corrections/withdrawals may change reconstructed episode identity.
+new episode. Preference edits do not clear an acknowledgement while its anchor
+still belongs to the ongoing breach run under the selected criteria. Material
+historical corrections/withdrawals or a supported healthy window can change the
+reconstructed run. Initial-draft acknowledgement hashes remain readable; prior
+canonical preference profiles are retained privately only for that compatibility.
 There are no toasts, OS notifications, timers when closed, or promised background
 monitoring. Active foreground views evaluate on mount/focus and every 60 seconds;
 existing valuation/import/activity invalidation re-evaluates the shared query.
 Hidden retained views do not poll. No external automation or outreach is used.
 
-Policy, enrollment and acknowledgement live in the existing household SQLite
+## Temporary and indefinite ignore
+
+Each visible investment offers **Ignore for 7 days**, **Ignore for 30 days**,
+**Resume now** while temporarily ignored, and **Ignore indefinitely** while
+enrolled. Thirty days means thirty calendar days, not a calendar month. Indefinite
+ignore uses enrollment off; estimates and NAV navigation remain visible, and the
+explicit enrollment checkbox re-enables reminders. Expiry never re-enables an
+indefinitely ignored investment or overrides the master pause.
+
+A temporary ignore preserves enrollment, estimates, preferences and episode
+acknowledgements. From household civil date D, store the resume label D+7 or D+30.
+The ignore is active exactly while the current household date is before that
+label; it expires at that household day's start, including timezone/DST edges.
+The UI shows the resume date and household timezone. At expiry, the next ordinary
+foreground evaluation uses current actual evidence: only fresh, supported,
+confirmed, unacknowledged criteria can create a pending action. No closed-app
+notification or timer is introduced.
+
+Refresh, quote backfill, episode reconstruction and preference edits never change
+the stored resume date. A supported recovery during ignore suppresses the old
+episode at expiry; a genuinely new sustained breach can later remind. Resume now
+only removes the temporary ignore, so an existing acknowledgement, indefinite
+opt-out or master pause still applies. Temporary ignore does not acknowledge the
+episode. All ignore/enrollment/preferences edits use the same optimistic revision
+and exclusive-write guards; stale UI reads disable the controls.
+
+Policy, enrollment, temporary-ignore dates and acknowledgement live in the existing household SQLite
 `app_configuration` table under `investment_review/{householdID}`. Evaluation
 uses one coherent read transaction and does not write, including on read-only
 DBs. Configuration mutations use the normal write/exclusive gate and policy/
 enrollment revision checks. They are serialized with evaluations. Backups retain
-configuration; there is no database migration or generated-binding commit.
+configuration, including ignore dates and compatibility profiles; there is no
+database migration or generated-binding commit.
 Invalid configuration/read/write failures remain explicit, and stale UI results
 disable configuration and acknowledgement actions.
 
@@ -124,16 +163,49 @@ MCP disabled. Use no real household or provider data.
 2. Refresh repeatedly, acknowledge each, quit/relaunch, and verify no repeat
    prompt/count. NAV values/history remain unchanged. Check NAV opens the correct
    existing Market Data focus. No review receives a due date.
-3. Enable missing, distribution and stale funds. Verify reason/stale labels and
+3. Ignore the flat fund for 7 and 30 days. Verify the explicit date/timezone,
+   zero pending action while estimates remain visible, and persistence across
+   restart, backfill and preference edits. Resume now must not acknowledge the
+   episode. Ignore indefinitely and re-enable explicitly; expiry must not turn
+   indefinite ignore or the master pause back on.
+4. Enable missing, distribution and stale funds. Verify reason/stale labels and
    absence of a reminder, with no fabricated zero return. Toggle 30/7 days and
    threshold/age/master controls; validate persisted settings and pause behavior.
-4. Check Overview/Available Funds summary and Upcoming actions at narrow/normal
+5. Check Overview/Available Funds summary and Upcoming actions at narrow/normal
    widths in English, Simplified and Traditional Chinese. Keyboard-test summary,
    preferences, enrollment, refresh, acknowledgement, NAV navigation and Back;
    check focus and VoiceOver labels. Close the app and verify no monitoring claim.
 
 Automated tests additionally verify healthy recovery/new episodes, decimal
 boundaries, actual elapsed days, revision collapse, withdrawal handling,
-read-only SQLite, concurrent enrollment, exclusive-write rejection, stale-read
+read-only SQLite, concurrent edits, snooze expiry/DST/backup, recovery during
+ignore, legacy acknowledgement/backfill compatibility, exclusive-write rejection,
+stale-read
 UI and invalidation/foreground query behavior. Native layout, accessibility,
 packaging and live-provider acceptance are not established by those tests.
+
+
+## Deterministic regression coverage
+
+Tests use synthetic SQLite households and injected clocks, with no live feeds:
+
+| Test | Contract checked |
+| --- | --- |
+| `TestInvestmentReviewAcknowledgementSurvivesEarlierHistoryEnrichment` | Sep 1–Oct 9 flat NAV, acknowledge, Aug 31 backfill, restart/refresh retain identity; actual recovery/new breach renews it |
+| `TestInvestmentReviewLegacyAcknowledgementSurvivesBackfillAndPreferences` | Initial draft's persisted acknowledgement remains readable without read-time writes, including after a preference edit |
+| `TestInvestmentReviewDatedNAVTimestampVariants` | Date-only, timestamped, mixed and cross-UTC-date timezone NAV windows produce 0.3% / 3.65% over 30 civil days |
+| `TestInvestmentReviewEpisodeAliasesStopAtSupportedRecovery` | Recovery excludes prior episode identities from the new breach run |
+| `TestInvestmentReviewSnoozeExpiryAndFreshness` | Seven-day boundary, restart, enrolment/estimate preservation, unacknowledged expiry and stale suppression |
+| `TestInvestmentReviewThirtyDaySnoozeAndBackupPersistence` | Exactly 30 civil days, backup/restore, before-boundary suppression and fresh-evidence expiry |
+| `TestInvestmentReviewSnoozeUsesHouseholdCivilDateAcrossDST` | New York date differs from UTC; DST change does not move local expiry |
+| `TestInvestmentReviewSnoozePreservesAcknowledgementBackfillAndPreferences` | Backfill, window/threshold changes, restart, expiry and manual resume preserve an existing acknowledgement |
+| `TestInvestmentReviewSnoozeSurvivesPreferenceEditsWithoutAcknowledging` | Temporary ignore survives backfill/master/window edits; resume leaves the master pause and unacknowledged state intact |
+| `TestInvestmentReviewRecoveryAndUnsupportedDataDuringSnooze` | Recovery and known distributions suppress expiry; a later confirmed breach can remind |
+| `TestInvestmentReviewManualResumePermanentIgnoreAndConcurrentEdits` | Manual resume, indefinite disable/re-enable, revision conflict, exclusive-write rejection and invalid duration |
+| `TestInvestmentReviewEpisodeAliasesStayInternal` / `TestInvestmentReviewSnoozeWireValidation` | Replay-only identities stay off the wire; invalid duration is wrapped in the stable error contract |
+
+`InvestmentReviewPanel.test.tsx` covers all three locales, keyboard snooze/resume,
+visible resume date and estimates, pending-count suppression, indefinite ignore/
+re-enable, stale/pending controls and unsaved preferences across unrelated edits.
+`investmentReview.test.tsx` covers exact guarded mutation payloads and invalidation,
+as well as shared foreground-only evaluation.
