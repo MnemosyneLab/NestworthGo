@@ -60,3 +60,16 @@ checksums and same-revision fact comparisons detect inconsistent local evidence,
 but are not authentication against coordinated rewriting of a SQLite database.
 Later revisions retain the original recorded result rather than substituting
 current terms, policy, quote or value.
+
+## Frozen capture and batch recovery
+
+See [paging and batches](paging-and-batches.md). read_expired/read_revoked means
+restart every section from a new initial capture; discard old pages. validation
+on a cursor means preserve the original matching capture/section, never guess
+an offset. too_large summary/single_item/capture requires an explicit narrower
+workflow or a documented limitation, never silently omit financial evidence.
+
+Atomic business batches still have a conservative outer-receipt crash window.
+Pending/unknown requires `get_operation` plus fresh IDs/version/revision/state
+before another intended write. Identical successful retries retain their short
+receipt, which does not establish today's metadata, review state or coverage.

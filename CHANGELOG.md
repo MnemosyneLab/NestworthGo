@@ -2,6 +2,15 @@
 
 All notable changes to Nestworth are recorded here.
 
+## Unreleased
+
+- Add opt-in frozen MCP management pages with server filters, stable sorting,
+  independent product reservations, and bounded multi-target market reads.
+- Add atomic instrument metadata and review enrollment/snooze/ack batches with
+  version checks and short recoverable execution receipts.
+- Update the portable Nestworth skill to 1.9.0 with complete-page workflows;
+  existing legacy response shapes and financial-context disclosure are retained.
+
 ## [0.3.7] — 2026-10-09
 
 Published as [v0.3.7](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.7)

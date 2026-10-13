@@ -112,3 +112,13 @@ its policy, enrollment, snooze/resume and acknowledgement tools require
 ledger_write. These update review preferences/episodes, not financial facts.
 Discover each actual pair; an older App may expose only a subset. Skill updates
 do not install/update the connected App or client.
+
+## Scale capabilities and permissions
+
+See [paging and batches](paging-and-batches.md). Discover bounded_read,
+instrument_paging and market_data_batch. `get_read_page`/`get_read_item` and
+paged modes are available in every permission mode. instrument_metadata_batch
+and `update_instruments_batch` require directory_write or ledger_write;
+investment_review_batch and the three review batch tools require ledger_write.
+Older Apps keep legacy paths; missing tools do not authorize filesystem/provider
+workarounds. Repository bundle updates do not install or enable a real client.

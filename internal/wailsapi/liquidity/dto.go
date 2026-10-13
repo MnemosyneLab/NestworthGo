@@ -568,3 +568,6 @@ type ProductValuationReceiptDTO struct {
 func FromProductValuationReceipt(value application.ProductValuationReceipt) ProductValuationReceiptDTO {
 	return ProductValuationReceiptDTO{OperationID: value.OperationID.String(), ProductID: value.ProductID.String(), QuoteID: value.QuoteID.String(), Amount: wire.FromMoney(value.Amount), ObservedAt: wire.FormatTime(value.ObservedAt), RecordedAt: wire.FormatTime(value.RecordedAt), Replayed: value.Replayed}
 }
+
+// FromOverview adapts a captured application result without another DB read.
+func FromOverview(value domain.LiquidityOverview) LiquidityOverviewDTO { return fromOverview(value) }

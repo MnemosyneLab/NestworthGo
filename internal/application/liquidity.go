@@ -111,6 +111,13 @@ func liquiditySourceFromComponent(account domain.AccountValuation, component dom
 		Liability: account.Account.IsLiability(), AccountType: account.Account.AccountType, TrackingMode: account.Account.TrackingMode,
 		PriceEvidence: component.PriceEvidence, FXEvidence: component.FXEvidence,
 	}
+	if component.BaseAmountExact != "" {
+		value, err := decimal.NewFromString(component.BaseAmountExact)
+		if err != nil {
+			return domain.LiquiditySource{}, err
+		}
+		source.CurrentBaseValue = &value
+	}
 	if component.NativeAmount != "" {
 		money, err := displayNativeValuation(component.NativeAmount, component.NativeCurrency)
 		if err != nil {

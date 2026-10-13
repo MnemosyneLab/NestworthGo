@@ -302,3 +302,40 @@ archive changes can change eligibility without appending a history row.
 ledger_write or provide MCP reservation restoration. Existing MCP lifecycle
 restrictions and all preview/commit validation, reservation CAS, receipt retries
 and atomic writes still apply. See [the App history contract](product-operation-history.md).
+
+## Scalable product and liquidity reads
+
+Use responseMode=paged on list_products, get_product and get_liquidity_overview.
+Legacy responses retain their current full shape. New filters/sort/limit require
+explicit paged mode. The complete envelope, cache/cursor/byte contracts and
+permission matrix are specified in [MCP integration](mcp.md#scalable-management-reads-and-batches-mcp-read1).
+
+Product filters are productKinds/states/query, with accountId/includeClosed.
+Sort startOn (default desc), maturityOn, displayName or state, productId asc ties.
+Compact rows omit long terms/policy/note and reservations, retaining identity,
+principal/value/cost, state/revision and reservationCount. get_read_item
+{captureId,section:"products",id} returns full same-capture ProductDTO and action
+reasons plus reservations/<productId> cursor. get_product paged mode creates a
+single-product capture; reservations sort createdAt asc then reservationId asc.
+List captures advertise reservations lazily through item detail so their header
+does not grow with every product. No lifecycle/terms/valuation/history changes.
+
+Liquidity preserves household buckets and unresolved reservations independently
+of source filtering. Filters combine accountIds, typed sourceRefs/sourceKinds,
+instrumentIds/actual instrumentTypes, accessKinds/policyOrigins, nullable
+hasRule/excluded, earlyKinds/currencies/query. Amount sorts use same-capture exact
+base-currency values; availableBase needs a captured horizonOn. Policy facts are
+resolved from the captured source even when the old projection excluded a row.
+Saved explicit/contract rules mean hasRule=true, assumed defaults false;
+unavailable facts stay null and match neither boolean. Exclusion is independent
+of origin. policyEditable is business eligibility, not MCP permission. Managed
+policy edits still require product terms. Preserve every source's complete
+policy/revision/evidence/routes/buckets and reservation facts for ordinary
+full-replacement policy preview. Do not infer missing saved rules from a null
+policy on an excluded legacy row.
+
+Follow every nonempty cursor before claiming completeness. All row strings and
+links remain intact; a genuinely oversized single source/summary fails explicitly.
+Ordinary policy batching and extreme nested upcoming target sectioning remain
+outside this change. Bundle version 1.9.0 documents these workflows without
+installing into a real client.

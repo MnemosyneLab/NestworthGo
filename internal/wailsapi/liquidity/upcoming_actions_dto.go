@@ -153,3 +153,8 @@ func fromUpcomingActions(v domain.UpcomingActions) UpcomingActionsDTO {
 	}
 	return out
 }
+
+// FromUpcomingActions adapts an already frozen projection without another read.
+func FromUpcomingActions(value domain.UpcomingActions) UpcomingActionsDTO {
+	return fromUpcomingActions(value)
+}

@@ -754,3 +754,148 @@ full replacement and reset defaults, exact route/GUI parity, no ledger or reserv
 changes, validation, CAS, stale/expired/wrong-family plans, operation retries and
 unknown outcomes, plus continued atomic managed-terms compatibility. No native
 UI, external client, provider, credentials or real financial data is required.
+
+## Scalable management reads and batches (mcp-read/1)
+
+Legacy no-option results keep their original shapes. Explicit responseMode=paged
+is required for new filter/sort/limit options on get_liquidity_overview,
+list_products, get_product, get_investment_reviews, get_upcoming_actions and
+list_instruments. list_agent_market_data keeps its original offset/limit path;
+filter/sort require paged mode and offset cannot be combined with it.
+
+The initial envelope includes schemaVersion=mcp-read/1, captureId/captureKind,
+capturedAt/expiresAt, contentHash/summaryHash, normalized query, summary and
+sections. Each section has items and page {total,returned,hasMore,nextCursor};
+nextCursor is null on completion, arrays are always arrays. A zero-row deferred
+section with a cursor is not empty. get_read_page takes captureId,section,cursor,
+limit? and returns the same capture metadata/hash, section, items and page.
+Filter and sort cannot change during continuation. get_read_item takes
+captureId,section=products,id and returns the same capture metadata, full product,
+permittedActions/disabledReasons and reservations/<productId> page entry.
+
+Default limit 25, maximum 100; a page may return fewer rows because final SDK
+text/structuredContent and JSON-RPC output must fit 65,536 bytes. Captures are
+memory-only: fixed five-minute TTL, 4 MiB each, 16 MiB/eight entries total,
+two concurrent builders, ten-second build deadline. SQL preflights row/payload
+limits before expansion. Captures bind connection generation, capture type,
+canonical query/hash and section identity. Section names encode reservation
+parent or market target identity; signed cursors include version/generation/hash,
+section and offset. Disable, mode change, restore and restart revoke both caches.
+No financial content is logged or persisted. read_expired covers expiry/eviction;
+read_revoked covers revocation; validation covers invalid or mismatched cursors.
+Restart all sections from a fresh capture, never combine captures. too_large
+messages distinguish summary, single_item and capture; rows are never skipped
+or truncated. JSON-RPC arrays and IDs over 512 bytes are rejected for bounded
+calls. The final guard also scrubs schema errors. Unbounded legacy instrument,
+Agent or market reads receive no new output cap without opting into the new path.
+
+### Filter and sorting matrix
+
+Within an array values are OR; different fields are AND. Empty arrays impose no
+constraint; duplicates normalize away. ID arrays accept at most 100 UUIDs, query
+at most 200 Unicode characters. Unknown enums, dates, currencies and fields are
+validation errors. Nullable booleans distinguish omitted from false. All sorts
+are global before pages and null-last in both directions, with identity asc ties.
+Names compare trimmed case-insensitive text, not locale. Exact decimals compare
+money/percentages, never float values or different native currencies.
+
+| Read | Filters | Sort (default) | Sections |
+| --- | --- | --- | --- |
+| Liquidity | accountIds, sourceRefs, sourceKinds, instrumentIds, instrumentTypes, accessKinds, policyOrigins, hasRule, earlyKinds, currencies, excluded, query | sourceKey asc; displayName, instrumentType, accessKind, policyOrigin, normalReceiptOn, currentValueBase, availableBase | sources, unresolvedReservations |
+| Products | accountId/includeClosed; productKinds, states, query | startOn desc; maturityOn, displayName, state | products; reservations/<productId> via item |
+| Instruments | includeArchived; types, ids, query | displayName asc; name, type, updatedAt, id | instruments |
+| Reviews | instrumentIds, monitored, snoozed, acknowledged, statuses | instrumentId asc; displayName, latestOn, ageDays, annualizedPercent, periodPercent | items |
+| Upcoming | accountIds, productIds, kinds, groups | priority desc then sortOn asc; sortOn, displayName | items; dataChecks filtered only by accountIds/productIds |
+| Agent records | instrumentIds, oriented fxPairs, operations, active, observationKinds, fromDate/toDate, createdFrom/createdTo | createdAt desc; observationDate, operation | records |
+
+Liquidity summaries retain household bucket totals and unresolved reservations;
+source filters do not produce selected subtotals. Scope/count fields distinguish
+total/matched/filtered-out sources. availableBase requires sort.horizonOn from
+captured buckets and uses domain NetBase. currentValueBase uses the same
+valuation/FX capture's unrounded BaseAmountExact. Source rows preserve full
+policy/revision/routes/bucket/evidence/reservation data and add instrumentId/type,
+nullable productKind/hasRule/policyEditable. productKind comes from the captured
+managed contract and is separate from instrumentType; cash/value sources have
+null instrument identity and productKind.
+Saved explicit/contract rules mean hasRule=true; defaults mean false. Excluded
+rows resolve policy facts from the same source snapshot; unavailable facts stay
+null and do not match either boolean. policyEditable is eligibility, not token
+permission. Managed rules still require dedicated product terms.
+
+Product compact rows include identity, kind/name/shortName/symbol, currency,
+principal/value/cost, state/displayState, revision and reservationCount. Full
+terms/long notes/policy remain in same-capture detail; reservations sort createdAt
+asc then reservationId asc. Product live history and global undo are unchanged.
+Review revision remains settings CAS rather than capture identity. Upcoming
+keeps shared projection counts, completeness, window and scopeWarnings. An
+extreme action's nested targets can still exceed a single item and fail safely.
+
+### Multi-target market protocol
+
+get_market_data_batch takes targets (1–100 distinct instrumentId OR complete
+oriented baseCurrency/quoteCurrency), view=current|coverage|history (current
+default), range=30d|ytd|1y|all (30d default), sourceFilter=all|manual|provider|agent,
+sort={field:targetKey|displayName,direction:asc|desc} and limit. Optional
+historySort chooses quotedAt/effectiveDate and direction; points default
+quotedAt asc, observations quotedAt desc, then createdAt/quoteId asc.
+
+All metadata/preferences/current/history facts come from one read-only transaction
+with a frozen clock/provider choice. Existing selectors, active correction
+predicates, range and oriented FX/chart-point logic are reused. current returns
+no historical arrays. coverage includes first/last, observations/selected-points
+counts, outsideRange and gapAssessment=not_evaluated; it does not invent trading
+day completeness. history returns paged target summaries with lazy entries for independent
+<targetKey>/points and <targetKey>/observations sections. Unknown instrument IDs
+remain per-target not_found; missing quotes remain missing with reasons. A target
+cursor cannot be used for another target. No provider/network/configuration,
+quote import, snapshot rebuild or repair occurs. Agent audit retractions retain
+target observation identity for filters; active means not corrected/retracted,
+independent of valuation selection. Civil observation bounds differ from RFC3339
+creation timestamps.
+
+### Atomic mutation protocol
+
+All four new writes take {operationId,input} as one business call, 1–100 distinct
+items. No best-effort mode or generic arbitrary executor. Before a business write,
+validate all target IDs, changes, protections, versions/revision and worst-case
+short receipt wire budget. Success returns an ordinary durable outer execution
+receipt; pending/unknown is conservative and never automatically replayed.
+Identical successful operationId/input retries return the original receipt;
+changed input conflicts. Verify get_operation and fresh state after an unknown.
+
+update_instruments_batch requires directory_write or ledger_write. Items are
+{id,expectedMetadataVersion,changes:{name?,shortName?,note?}}. Omission preserves;
+empty shortName clears; note=null clears; name cannot be empty/null. No other
+fields or empty changes are accepted. The version hashes id/name/shortName/note
+and archived/managed protection. The transaction rechecks all versions and
+protections, then executes metadata-only SQL for all changed items. Other
+instrument fields, source preferences, quotes and ledger facts are retained.
+Managed/archived targets reject every item. The short result has requestedCount,
+changedCount and items {id,changed,metadataVersion}.
+
+Review batches require ledger_write:
+
+- set_investment_review_enrollment_batch input {expectedRevision,items:[{instrumentId,enabled}]}.
+- set_investment_review_snooze_batch input {expectedRevision,items:[{instrumentId,days}]} with days 0/7/30.
+- acknowledge_investment_reviews_batch input {expectedRevision,items:[{instrumentId,episodeId}]}.
+
+One shared write permit/review lock, current report/state, expectedRevision check
+and atomic configuration Save cover every item. One changed batch increments
+revision once; all no-op skips Save/revision increment. Ack revalidates current
+eligible episodes; snooze uses one household civil date and does not alter
+policy/enrollment/ack. The short result contains previousRevision,revision,
+requestedCount,changedCount and item identities/change flags. Existing single
+writes preserve their contracts. Native App/real-client acceptance and real
+ledger writes are separate and are not implied by synthetic tests or skill
+bundle packaging.
+
+### Remaining scale boundaries
+
+Data health/repair issues/targets/jobs, account/directory/holding/valuation reads,
+historical bridge details, activity/contribution/return-driver details and extreme
+nested upcoming targets still need targeted bounded alternatives. Their legacy
+behavior is retained; they are not blanket-capped. Existing financial-context
+aliases/disclosure, activity/contribution pagination, live product-operation
+history, ledger batches/reconciliation and market imports remain their own
+contracts. Ordinary liquidity policy batching and arbitrary detail batching are
+outside this change.

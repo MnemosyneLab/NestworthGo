@@ -52,6 +52,7 @@ type Connection struct {
 
 type Service struct {
 	contexts          *financialContextCache
+	reads             *boundedReadCache
 	contextGeneration uint64
 	mu                sync.Mutex
 	operationMu       sync.Mutex
@@ -74,7 +75,7 @@ func Directory(settingsPath, databasePath string) string {
 	return filepath.Join(filepath.Dir(settingsPath), "agent", hex.EncodeToString(hash[:8]))
 }
 func New(app *application.Service, directory string, changed func(), repositories ...settings.ConfigurationRepository) *Service {
-	s := &Service{contexts: newFinancialContextCache(), app: app, dir: directory, changed: changed, config: Config{Mode: ReadOnly}}
+	s := &Service{contexts: newFinancialContextCache(), reads: newBoundedReadCache(), app: app, dir: directory, changed: changed, config: Config{Mode: ReadOnly}}
 	if len(repositories) > 0 {
 		s.repository = repositories[0]
 	}
@@ -159,6 +160,7 @@ func (s *Service) startLocked() error {
 	}
 	endpoint := "http://" + listener.Addr().String() + "/mcp"
 	s.contextGeneration = s.contexts.activate()
+	s.reads.activate(s.contextGeneration)
 	generation := s.contextGeneration
 	server := s.tools(s.config.Mode)
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
@@ -207,6 +209,9 @@ func (s *Service) Disable() (Status, error) {
 func (s *Service) Close() { s.mu.Lock(); defer s.mu.Unlock(); s.closeLocked() }
 func (s *Service) closeLocked() {
 	s.contexts.revoke()
+	if s.reads != nil {
+		s.reads.revoke()
+	}
 	// Close can race the Serve goroutine before net/http has registered its
 	// listener. Own and close it explicitly to make immediate restarts reliable.
 	if s.listener != nil {

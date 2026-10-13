@@ -88,3 +88,15 @@ value edits. Renewal and reservation creation/edit/release remain App workflows.
 Never use generic trades, reconciliation or quote tools to bypass managed
 holdings/quote guards, even if a similarly named ordinary instrument could be
 created. See [products.md](products.md) for supported actions and boundaries.
+
+## Frozen discovery and metadata batches
+
+See [paging and batches](paging-and-batches.md). Paged `list_instruments` supports
+filter.types/ids/query, includeArchived and displayName (default asc), name,
+type, updatedAt or id sorting. Each row has metadataVersion and managed status.
+Resolve exact IDs and versions before `update_instruments_batch`. Only name,
+shortName and note are accepted. Omission preserves; empty shortName clears;
+note=null clears; name cannot be empty/null. Duplicate aliases are allowed,
+duplicate targets are rejected. One stale/managed/archived target rejects every
+change. Managed identities require product terms. No quotes, positions, source
+preferences or ledger facts change. directory_write or ledger_write is required.

@@ -15,7 +15,8 @@ type LiquiditySource struct {
 	DisplayName         string
 	NativeCurrency      CurrencyCode
 	CurrentNativeValue  *Money
-	CurrentNativeAmount string // Exact valuation; CurrentNativeValue is its display projection.
+	CurrentBaseValue    *decimal.Decimal // Exact current valuation from the same FX capture.
+	CurrentNativeAmount string           // Exact valuation; CurrentNativeValue is its display projection.
 	ValueAsOf           *time.Time
 	PriceEvidence       *QuoteEvidenceView
 	FXEvidence          *QuoteEvidenceView

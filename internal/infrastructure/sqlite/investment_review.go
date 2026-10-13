@@ -16,6 +16,13 @@ func (r *Repository) ReadInvestmentReviewSnapshot(ctx context.Context) (domain.I
 		return domain.InvestmentReviewSnapshot{}, err
 	}
 	defer tx.Rollback()
+	if domain.IsBoundedRead(ctx) {
+		for _, table := range []string{"accounts", "holdings", "instruments", "instrument_quotes", "fx_quotes", "activities", "activity_effects", "activity_trade_details", "activity_dividend_details", "history_origin_components"} {
+			if err := checkReadTableBudget(ctx, tx, table, "1=1"); err != nil {
+				return domain.InvestmentReviewSnapshot{}, err
+			}
+		}
+	}
 	gain, err := readGainSnapshotQuery(ctx, tx)
 	if err != nil {
 		return domain.InvestmentReviewSnapshot{}, err

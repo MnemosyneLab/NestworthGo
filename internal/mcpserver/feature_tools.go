@@ -45,7 +45,11 @@ type SetInvestmentReviewSnoozeInput struct {
 // receipt file.
 func ledgerWriteTool[I any](s *Service, server *mcp.Server, name, description string, fn func(context.Context, I) (any, error)) {
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description + " Requires ledger_write. Read the current report first. Supply a new operationId for each intended change and reuse the exact same ID and input when retrying; an unknown outcome is never replayed automatically. Read get_operation and current review state before another intentional change.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[I]) (*mcp.CallToolResult, Response, error) {
+	tool := &mcp.Tool{Name: name, Description: description + " Requires ledger_write. Read the current report first. Supply a new operationId for each intended change and reuse the exact same ID and input when retrying; an unknown outcome is never replayed automatically. Read get_operation and current review state before another intentional change.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}
+	if schema := reviewBatchSchema[I](name); schema != nil {
+		tool.InputSchema = schema
+	}
+	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[I]) (*mcp.CallToolResult, Response, error) {
 		value, err := s.execute(ctx, in.OperationID, name, in.Input, func(ctx context.Context) (any, error) { return fn(ctx, in.Input) })
 		if err != nil {
 			return nil, Response{}, safeError(err)
@@ -55,10 +59,23 @@ func ledgerWriteTool[I any](s *Service, server *mcp.Server, name, description st
 }
 
 func (s *Service) featureTools(server *mcp.Server, mode string) {
-	readTool(server, "get_investment_reviews", "Read opt-in investment review episodes and policy. Uses the same exact unit-NAV history, eligibility, freshness, household civil-date and stale-source safeguards as the App; this is not a sell recommendation and it never writes ledger facts.", func(ctx context.Context, _ Empty) (any, error) {
+	generation := s.contextGeneration
+	readTool(server, "get_investment_reviews", "Read opt-in investment review episodes and policy. responseMode=paged keeps report header/policy/revision and pages filtered globally sorted items; follow every cursor. Uses the same exact unit-NAV history, eligibility, freshness, household civil-date and stale-source safeguards as the App; this is not a sell recommendation and it never writes ledger facts.", func(ctx context.Context, in ReviewReadInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Filter != nil || in.Sort != nil || in.Limit != 0); err != nil {
+			return nil, err
+		}
+		if in.ResponseMode == "paged" {
+			return s.pagedReviews(ctx, generation, in)
+		}
 		return s.app.InvestmentReviews(ctx)
 	})
-	readTool(server, "get_upcoming_actions", "Read the GUI's aggregated upcoming product, reservation, receipt, eligibility and data-check actions for the next 30 household-local civil dates. Returns the shared upcoming-actions/1 projection, exact reasons, source evidence, timezone, capture time and completeness; do not reconstruct it from product lists or treat estimates as posted facts.", func(ctx context.Context, _ Empty) (any, error) {
+	readTool(server, "get_upcoming_actions", "Read the GUI's aggregated upcoming product, reservation, receipt, eligibility and data-check actions for the next 30 household-local civil dates. responseMode=paged independently pages filtered globally sorted items and dataChecks while retaining household header/counts. Follow every cursor. Returns the shared upcoming-actions/1 projection, exact reasons, source evidence, timezone, capture time and completeness; do not reconstruct it from product lists or treat estimates as posted facts.", func(ctx context.Context, in UpcomingReadInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Filter != nil || in.Sort != nil || in.Limit != 0); err != nil {
+			return nil, err
+		}
+		if in.ResponseMode == "paged" {
+			return s.pagedUpcoming(ctx, generation, in)
+		}
 		return liquidity.NewService(s.app).UpcomingActions(ctx)
 	})
 	readTool(server, "get_historical_overview", "Read the same immutable historical overview as the App, including exact endpoint_bridge/1 reconciliation when comparing two endpoints. Closed civil dates use the household history timezone; preserve completeness, capturedAt, source timestamp basis, later-endpoint FX convention, reasons and nil unknowns. No snapshots are written, providers refreshed or ledger facts changed. This explains endpoint movement; it is not return attribution.", func(ctx context.Context, in HistoricalOverviewInput) (any, error) {
