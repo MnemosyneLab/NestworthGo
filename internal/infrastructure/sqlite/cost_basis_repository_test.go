@@ -80,7 +80,7 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 	if len(events) != 3 {
 		t.Fatalf("cost-basis events = %d, want sell, transfer-out, and Fix replacement buy", len(events))
 	}
-	if events[1].Kind != domain.CostBasisSell || events[1].UnitPrice == nil || events[1].UnitPrice.Canonical() != "130" || events[1].Fee == nil || events[1].Fee.CanonicalAmount() != "1" {
+	if events[1].Kind != domain.CostBasisSell || events[1].Gross == nil || events[1].Gross.CanonicalAmount() != "130" || events[1].UnitPrice == nil || events[1].UnitPrice.Canonical() != "130" || events[1].Fee == nil || events[1].Fee.CanonicalAmount() != "1" {
 		t.Fatalf("sell event = %+v", events[1])
 	}
 	if events[2].Kind != domain.CostBasisTransferOut || events[2].Quantity.Canonical() != "1" {

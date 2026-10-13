@@ -12,7 +12,7 @@ import (
 const costBasisEventsSelect = `
 		SELECT e.activity_id, a.effective_at, a.created_at, a.ordering_id, e.sequence, a.kind, a.reason,
 		       e.direction, e.role, e.classification, e.quantity, e.cost_unit_price,
-		       t.side, t.unit_price, t.gross_currency, t.fee_amount, t.fee_currency,
+		       t.side, t.unit_price, t.gross_amount, t.gross_currency, t.fee_amount, t.fee_currency,
 		       source_effect.holding_id
 		FROM activity_effects e
 		JOIN economic_activities a ON a.id = e.activity_id
@@ -68,8 +68,8 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	var activityID, effectiveAt, createdAt, orderingID, activityKind, reason string
 	var sequence int
 	var direction, role, classification, quantity, costUnitPrice sql.NullString
-	var side, unitPrice, grossCurrency, feeAmount, feeCurrency, sourceHoldingID sql.NullString
-	if err := scanner.Scan(&activityID, &effectiveAt, &createdAt, &orderingID, &sequence, &activityKind, &reason, &direction, &role, &classification, &quantity, &costUnitPrice, &side, &unitPrice, &grossCurrency, &feeAmount, &feeCurrency, &sourceHoldingID); err != nil {
+	var side, unitPrice, grossAmount, grossCurrency, feeAmount, feeCurrency, sourceHoldingID sql.NullString
+	if err := scanner.Scan(&activityID, &effectiveAt, &createdAt, &orderingID, &sequence, &activityKind, &reason, &direction, &role, &classification, &quantity, &costUnitPrice, &side, &unitPrice, &grossAmount, &grossCurrency, &feeAmount, &feeCurrency, &sourceHoldingID); err != nil {
 		return domain.CostBasisEvent{}, err
 	}
 	parsedActivityID, err := domain.ParseActivityID(activityID)
@@ -119,7 +119,7 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 		}
 		event.Kind = domain.CostBasisCostAdjustment
 	case string(domain.ActivityBuy), string(domain.ActivitySell):
-		if !side.Valid || !unitPrice.Valid || !grossCurrency.Valid {
+		if !side.Valid || !unitPrice.Valid || !grossAmount.Valid || !grossCurrency.Valid {
 			return domain.CostBasisEvent{}, &domain.Error{Code: domain.ErrIntegrity, Message: "trade cost-basis event is missing its Trade detail"}
 		}
 		parsedPrice, parseErr := domain.ParseUnitPrice(unitPrice.String)
@@ -132,6 +132,11 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 		}
 		event.UnitPrice = &parsedPrice
 		event.Currency = currency
+		gross, grossErr := domain.ParseMoney(grossAmount.String, currency)
+		if grossErr != nil {
+			return domain.CostBasisEvent{}, grossErr
+		}
+		event.Gross = &gross
 		if feeAmount.Valid != feeCurrency.Valid {
 			return domain.CostBasisEvent{}, &domain.Error{Code: domain.ErrIntegrity, Message: "trade fee amount and currency must appear together"}
 		}
