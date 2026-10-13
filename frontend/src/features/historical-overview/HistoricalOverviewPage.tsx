@@ -17,6 +17,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { HistoricalReconciliationView } from "./HistoricalReconciliation";
 import { HistoricalAccountDeltaView, HistoricalAllocationView, HistoricalCoverage, HistoricalMetricCards } from "./HistoricalPanorama";
 import { HistoricalCategoryComparisonView } from "./HistoricalCategoryComparison";
 import { useObjectNavigation } from "@/app/NavigationContext";
@@ -298,6 +299,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
         <p className="text-xs text-muted-foreground">{t("historicalOverview.captureTime")}: <ObservationTime value={data.capturedAt} timezone={data.timezone} /> · {t("historicalOverview.refreshHint")}</p>
         {data.right?.current && <p className="text-xs text-muted-foreground">{t("historicalOverview.capturedCurrent")}</p>}
         <section aria-label={t("historicalOverview.totalChange")}><HistoricalMetricCards data={data} seriesPoints={series?.points} />{data.right && <p className="mt-2 text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>}</section>
+        <HistoricalReconciliationView data={data} />
         <HistoricalCoverage data={data} onDetails={() => { setCategoryFilter(null); setChangesOnly(false); setView("accounts"); }} />
         {data.right && <>
           {data.right.date === data.left.date && !data.right.current && <p role="status" className="text-sm text-muted-foreground">{t("historicalOverview.sameDate")}</p>}

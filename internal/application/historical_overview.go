@@ -24,6 +24,7 @@ type HistoricalOverviewResult struct {
 	Change          *HistoricalOverviewTotalsChange `json:"change"`
 	Rows            []HistoricalOverviewRow         `json:"rows"`
 	Categories      []HistoricalCategoryComparison  `json:"categories"`
+	Reconciliation  *HistoricalReconciliation       `json:"reconciliation,omitempty"`
 }
 
 // HistoricalOverviewTotalsChange is right minus left, not return attribution.
@@ -205,6 +206,10 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 		return HistoricalOverviewResult{}, err
 	}
 	result.Categories = historicalCategoryComparisons(result)
+	result.Reconciliation, err = historicalReconciliation(ctx, &batch, result)
+	if err != nil {
+		return HistoricalOverviewResult{}, err
+	}
 	if err := ctx.Err(); err != nil {
 		return HistoricalOverviewResult{}, err
 	}

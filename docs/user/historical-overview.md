@@ -1,6 +1,6 @@
 # Historical panorama
 
-Owner: Historical panorama maintainers. Status: implemented P0/P1/P2a behavior;
+Owner: Historical panorama maintainers. Status: implemented P0/P1/P2a and endpoint reconciliation behavior;
 automated contracts are tested, native visual acceptance is pending.
 
 Historical panorama reconstructs retained balances at the end of a household
@@ -57,6 +57,53 @@ range stops at the last closed day; today's activity may also affect the
 capture. Use the App's **Back to Historical overview** action to recover the
 same frozen capture, dates, filters, open detail and position. Exit through the
 page's return action or main navigation to end that session.
+
+## Explain net worth change
+
+A two-closed-date comparison also shows **Explain net worth change**:
+
+`B − A = supported contributions + unexplained residual`.
+
+Expand **How these amounts reconcile** for exact category values and evidence
+limits. This uses the same captured ledger, base currency and inclusion rules
+as the endpoint totals, with no extra database queries, snapshot writes or
+provider fetches. Unknown endpoint totals produce unknown attribution and
+residual, including on the same day. A complete same-day comparison is zero.
+Reverse comparisons negate the same chronological bridge. Current B retains
+its ordinary comparison but attribution requires two closed dates.
+
+Recorded monetary contributions cover external flows, income/gifts, spending,
+dividends/interest, fees/taxes, recorded remeasurement adjustments and liability
+impact according to the existing ledger classifications. Positive debt changes
+reduce net worth. Internal principal transfers and debt repayment/draw do not
+create wealth within the included scope.
+
+This first iteration is an **endpoint bridge**, not investment return or an
+event-time cash-flow report. Money movements convert at the chronologically
+later endpoint's FX rate. Opening balances contribute the FX rate change;
+unchanged holding quantities with comparable quotes contribute price change
+at the later FX rate. A change between date-label and actual source-timestamp
+price observations breaks comparability and leaves the holding movement in the
+residual with a quote-basis reason. These contributions do not overlap. Arithmetic uses exact
+decimal strings and the existing decimal FX division precision, with no hidden
+rounding of small residuals. The source table preserves full decimal amounts.
+
+Trades, transfers or other activity touching a holding quantity defer its
+price/FX path attribution, even when the ending quantity matches the beginning.
+Foreign internal/trading exposure changes defer opening-only FX attribution.
+Missing evidence, changed scope/state, incompatible quote basis and unsupported
+activities remain visible as reasons. Any remaining amount stays explicitly
+**unexplained**; it is never called investment profit. A zero residual can still
+have uncertainty reasons (for example offsetting unsupported movements).
+A later correction or reversal changes a new capture through the same economic
+replay used by the endpoint values, without modifying immutable ledger facts.
+
+Additional reconciliation work has a 100,000-entry budget counting retained
+accounts/rows, activities/effects and state/preference/binding observations, and a ten
+second computation bound. Budget rejection leaves the ordinary comparison
+available and reports attribution unavailable. Cancellation abandons the whole
+capture. Intermediate daily prices are not reconstructed: endpoint price
+coverage and quote authority remain those of the existing valuation resolver.
 
 ## Bounded time trend
 
