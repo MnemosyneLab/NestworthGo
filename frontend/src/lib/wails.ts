@@ -95,3 +95,37 @@ export async function callService<T>(call: () => Promise<T>): Promise<T> {
     throw translated;
   }
 }
+
+/** Keep the native cancellation handle before awaiting/normalizing a binding.
+ * Only an aborted observer is an expected cancellation; live failures still
+ * use the regular wire-error contract. Never wait for cancellation delivery
+ * before starting the replacement request.
+ */
+export async function callCancellableService<T>(
+  signal: AbortSignal,
+  call: () => Promise<T> & { cancel?: () => unknown },
+): Promise<T> {
+  const checkAborted = () => {
+    // Early macOS 12 WebKit has AbortSignal but not throwIfAborted/reason.
+    if (signal.aborted) throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
+  };
+  checkAborted();
+  let abort: (() => void) | undefined;
+  try {
+    const pending = call();
+    abort = () => {
+      try { void Promise.resolve(pending.cancel?.()).catch(() => {}); }
+      catch { /* Cancellation delivery must not block the replacement query. */ }
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+    const result = await pending;
+    checkAborted();
+    return result;
+  } catch (error) {
+    checkAborted();
+    return await callService(() => Promise.reject(error));
+  } finally {
+    if (abort) signal.removeEventListener("abort", abort);
+  }
+}

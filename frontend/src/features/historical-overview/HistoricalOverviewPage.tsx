@@ -184,8 +184,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const valid = Boolean(origin.data && validDate && validComparison);
   const spanValid = (from: string, to: string) => isClosedDate(from, firstDate, lastDate) && isClosedDate(to, firstDate, lastDate) && from <= to && to <= shiftCivilDate(from, 30);
   const validCapture = valid && (!seriesMode || spanValid(date, compareTo));
-  const overviewQuery = useHistoricalOverview(date, compareTo, validCapture && !seriesMode, captureRequest);
-  const seriesQuery = useHistoricalSeries(date, compareTo, validCapture && seriesMode, captureRequest);
+  const overviewQuery = useHistoricalOverview(date, compareTo, isActive && validCapture && !seriesMode, captureRequest);
+  const seriesQuery = useHistoricalSeries(date, compareTo, isActive && validCapture && seriesMode, captureRequest);
   const query = seriesMode ? seriesQuery : overviewQuery;
   const budgetExceeded = (query.error as (Error & { wireError?: { code: string } }) | null)?.wireError?.code === "historical_series_budget";
   const data = validCapture && !query.isFetching && !query.isError ? seriesMode ? seriesQuery.data?.overview : overviewQuery.data : undefined;

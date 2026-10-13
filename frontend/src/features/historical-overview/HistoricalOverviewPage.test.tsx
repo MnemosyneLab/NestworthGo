@@ -455,6 +455,48 @@ it("ignores a late read after exit and reopening with the same query client", as
   expect(read).toHaveBeenCalledTimes(2);
 });
 
+it.each(["inactive", "invalid", "unmount"])("cancels a pending comparison when the page becomes %s and ignores late replies", async action => {
+  let resolveOld!: (data: HistoricalOverviewResult) => void;
+  const cancel = vi.fn();
+  const pending = Object.assign(new Promise<HistoricalOverviewResult>(done => { resolveOld = done; }), { cancel });
+  read.mockReturnValueOnce(pending);
+  const client = createTestQueryClient();
+  const view = render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ compareTo: "current", view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
+  await waitFor(() => expect(read).toHaveBeenCalledOnce());
+  if (action === "inactive") view.rerender(<QueryClientProvider client={client}><HistoricalOverviewPage isActive={false} onExit={vi.fn()} /></QueryClientProvider>);
+  else if (action === "invalid") fireEvent.change(screen.getByLabelText(i18n.t("historicalOverview.baselineDate")), { target: { value: "" } });
+  else view.unmount();
+  await waitFor(() => expect(cancel).toHaveBeenCalledOnce());
+  await act(async () => resolveOld(result("2026-08-01", "current")));
+  expect(screen.queryByRole("button", { name: "Bank" })).not.toBeInTheDocument();
+  expect(read).toHaveBeenCalledOnce();
+  if (action === "inactive") {
+    view.rerender(<QueryClientProvider client={client}><HistoricalOverviewPage isActive onExit={vi.fn()} /></QueryClientProvider>);
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    await screen.findByRole("button", { name: "Bank" });
+  }
+});
+
+it("keeps account/category scope changes local to the successful final capture after rapid dates", async () => {
+  let resolveOld!: (data: HistoricalOverviewResult) => void;
+  const cancel = vi.fn();
+  read.mockReturnValueOnce(Object.assign(new Promise<HistoricalOverviewResult>(done => { resolveOld = done; }), { cancel }));
+  show(true);
+  await waitFor(() => expect(read).toHaveBeenCalledOnce());
+  fireEvent.change(screen.getByLabelText("Historical date"), { target: { value: "2026-08-02" } });
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await waitFor(() => expect(cancel).toHaveBeenCalledOnce());
+  await act(async () => resolveOld(result()));
+  await userEvent.click(document.getElementById("historical-category-asset-byClass-cash")!);
+  await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
+  expect(await screen.findByRole("dialog")).toHaveTextContent("2026-08-02");
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: "Clear category filter" }));
+  await userEvent.click(screen.getByRole("button", { name: "Unchanged" }));
+  expect(await screen.findByRole("dialog")).toHaveTextContent("2026-08-02");
+  expect(read).toHaveBeenCalledTimes(2);
+});
+
 it("shows source time in the household zone and retains the exact UTC instant", async () => {
   origin.mockResolvedValue({ id: "origin", startedAt: "2026-08-01T12:00:00Z", timezone: "Asia/Singapore" });
   const data = result();
