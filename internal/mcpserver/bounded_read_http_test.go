@@ -87,3 +87,24 @@ func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestBoundedReadPagedOptionPresenceAndLegacyAgentLimit(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	for _, name := range []string{"get_liquidity_overview", "list_products", "get_investment_reviews", "get_upcoming_actions", "list_instruments"} {
+		for _, option := range []string{"filter", "sort", "limit"} {
+			value := any(nil)
+			if option == "limit" {
+				value = 0
+			}
+			call(t, c, name, map[string]any{option: value}, true)
+		}
+	}
+	call(t, c, "list_agent_market_data", map[string]any{"limit": 0, "offset": 0}, false)
+	call(t, c, "list_agent_market_data", map[string]any{"filter": nil}, true)
+	payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "list_instruments", "arguments": map[string]any{"limit": strings.Repeat("private", 12000)}}}
+	status, wire := productHTTP(t, fx.service, payload, "")
+	if status != 200 || len(wire) > contextWireLimit || strings.Contains(string(wire), "privateprivate") {
+		t.Fatal("paging option schema error not bounded")
+	}
+}

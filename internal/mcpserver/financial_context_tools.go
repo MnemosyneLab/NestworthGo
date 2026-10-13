@@ -443,11 +443,12 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 		ResponseMode string          `json:"responseMode"`
 		Filter       json.RawMessage `json:"filter"`
 		Sort         json.RawMessage `json:"sort"`
+		Limit        json.RawMessage `json:"limit"`
 	}
 	if decodeFinancialContextJSON(request.Params.Arguments, &options) != nil {
 		return false
 	}
-	return options.ResponseMode != "" || len(options.Filter) > 0 || len(options.Sort) > 0
+	return options.ResponseMode != "" || len(options.Filter) > 0 || len(options.Sort) > 0 || (request.Params.Name == "list_instruments" && len(options.Limit) > 0)
 }
 
 // The SDK does not expose IDs to tool handlers and may return input-schema

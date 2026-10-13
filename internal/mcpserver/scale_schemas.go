@@ -35,6 +35,22 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 			setSchemaEnum(v, []string{"asc", "desc"})
 		}
 	}
+	pagingOptions := []string{"filter", "sort", "limit"}
+	if name == "list_agent_market_data" {
+		pagingOptions = []string{"filter", "sort"}
+	}
+	if schema.Properties["responseMode"] != nil {
+		conditions := []*jsonschema.Schema{}
+		for _, field := range pagingOptions {
+			if schema.Properties[field] != nil {
+				conditions = append(conditions, &jsonschema.Schema{Required: []string{field}})
+			}
+		}
+		if len(conditions) > 0 {
+			schema.If = &jsonschema.Schema{AnyOf: conditions}
+			schema.Then = &jsonschema.Schema{Required: []string{"responseMode"}}
+		}
+	}
 	walkScaleSchema(schema)
 	if name == "list_instruments" {
 		schema.Properties["query"].MaxLength = nil
