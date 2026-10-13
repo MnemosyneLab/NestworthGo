@@ -29,7 +29,7 @@ describe("upcoming UI", () => {
     query.data = upcomingData([upcomingItem()]); view.rerender(<OverviewUpcomingActionsCard />);
     expect(screen.getByRole("alert")).toHaveTextContent("last successfully read");
     expect(screen.getByText("Synthetic deposit")).toBeInTheDocument();
-    query.isError = false; query.data = upcomingData(); query.data.completeness = "partial"; query.data.counts.dataChecks = 1; view.rerender(<OverviewUpcomingActionsCard />);
+    query.isError = false; query.data = upcomingData(); query.data.completeness = "partial"; query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard /></NavigationContext.Provider>);
     expect(screen.getByText(/information needed to assess/)).toBeInTheDocument();
   });
   it("pages in fifty-item increments and keeps eligible items collapsed", async () => {
@@ -72,7 +72,8 @@ describe("upcoming UI", () => {
   it.each(["en", "zh-CN", "zh-TW"])("shows dates and actionable labels in %s", async language => {
     await i18n.changeLanguage(language); mount(<OverviewUpcomingActionsCard />);
     expect(screen.getByRole("button", { name: `${i18n.t("upcomingActions.verifyReceipt")} · Synthetic deposit` })).toBeInTheDocument();
-    expect(screen.getByText(/2026-10-11.*Asia\/Shanghai/)).toBeInTheDocument();
+    expect(screen.getByText("2026-10-11 → 2026-11-10")).toBeInTheDocument();
+    expect(screen.getByText(/Asia\/Shanghai/)).toBeInTheDocument();
     expect(screen.queryByText(/upcomingActions\./)).not.toBeInTheDocument();
   });
 });
@@ -111,7 +112,7 @@ it("keeps scheduled access visible with no attention and routes merged terms and
   query.data = upcomingData([upcomingItem({ id: "scheduled", group: "scheduled", phase: "upcoming", displayName: "Later deposit", targets: [{ kind: "reservations", sourceRef, productId: null, reservationId: null }] })]);
   const view = mount(<OverviewUpcomingActionsCard />);
   expect(screen.getByText("0 need attention · 1 schedule")).toBeInTheDocument();
-  expect(screen.queryByText("Later deposit")).not.toBeInTheDocument();
+  expect(screen.getByText("Later deposit")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "View all 1 action" }));
   expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
   view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><UpcomingActionsPage /></NavigationContext.Provider>);
@@ -192,3 +193,16 @@ it("mounts large disclosure lists independently, unmounts on close, and reopens 
   expect(screen.getAllByText("Live eligible")).toHaveLength(250);
   expect(screen.getAllByText("Live check")).toHaveLength(250);
 }, 20000);
+
+
+it.each(["en", "zh-CN", "zh-TW"])("compresses homepage empty results and preserves data-check access in %s", async language => {
+  await i18n.changeLanguage(language); query.data = upcomingData();
+  const view = mount(<OverviewUpcomingActionsCard />);
+  expect(screen.getByText(i18n.t("homepage.noScheduledActions"))).toBeVisible();
+  expect(screen.queryByRole("button", { name: i18n.t("upcomingActions.viewAll", { count: 0 }) })).not.toBeInTheDocument();
+  expect(screen.queryByText(i18n.t("upcomingActions.overviewCounts", { attentionText: i18n.t("upcomingActions.attentionCount", { count: 0 }), schedules: i18n.t("upcomingActions.scheduleCount", { count: 0 }) }))).not.toBeInTheDocument();
+  query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard /></NavigationContext.Provider>);
+  const action = screen.getByRole("button", { name: i18n.t("homepage.reviewActionDetails") });
+  action.focus(); await userEvent.keyboard("{Enter}");
+  expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
+});

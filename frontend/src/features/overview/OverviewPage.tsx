@@ -14,7 +14,7 @@ import { ShareBar } from "@/components/ui/share-bar";
 import { TONE_CLASSES, toneForKey, type Tone } from "@/lib/tone";
 import { activityStyle } from "@/lib/activityStyle";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, TrendingUp, TrendingDown, ArrowLeftRight, Wallet, History, PencilLine, HeartPulse, CircleDollarSign, type LucideIcon } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowLeftRight, Wallet, History, PencilLine, HeartPulse, CircleDollarSign, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatAmount, formatPercent, isPositiveCanonical } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
@@ -26,6 +26,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
+import { InvestmentReviewSummary } from "@/features/investment-review/InvestmentReviewPanel";
 import { OverviewUpcomingActionsCard } from "@/features/upcoming-actions/OverviewUpcomingActionsCard";
 import { OverviewLiquidityCard } from "@/features/liquidity/OverviewLiquidityCard";
 import { healthIssueLabel } from "@/features/data-health/healthIssueLabel";
@@ -113,15 +114,15 @@ function BreakdownList({
 }
 
 /** One actionable line in the merged to-do card. */
-function TodoRow({ icon, tone, text, actionLabel, onAction }: { icon: LucideIcon; tone: Tone; text: React.ReactNode; actionLabel?: string; onAction?: () => void }) {
+function TodoRow({ icon, tone, text, severity, actionLabel, onAction }: { icon: LucideIcon; tone: Tone; text: React.ReactNode; severity?: { kind: string; label: string }; actionLabel?: string; onAction?: () => void }) {
   return (
     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <span className="flex min-w-0 items-center gap-3">
         <IconTile icon={icon} tone={tone} size="sm" />
-        <span className="text-sm text-foreground">{text}</span>
+        <span className="min-w-0 break-words text-sm text-foreground">{text}{severity && <Badge className="ml-2 max-w-full whitespace-normal" variant={severity.kind === "blocking" ? "destructive" : severity.kind === "warning" ? "warning" : "outline"}>{severity.label}</Badge>}</span>
       </span>
       {actionLabel && onAction && (
-        <Button type="button" size="sm" variant="soft" className="shrink-0 self-start sm:self-auto" onClick={onAction}>
+        <Button type="button" size="sm" variant="soft" className="h-auto min-h-8 max-w-full shrink-0 whitespace-normal self-start sm:self-auto" onClick={onAction}>
           {actionLabel}
         </Button>
       )}
@@ -173,7 +174,7 @@ export function OverviewPage({
   const health = useMarketDataHealth();
   const healthKnown = Boolean(health.data) && !health.isError && !health.isPending;
   const healthIssueCount = health.data?.issueCount ?? 0;
-  const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} actions={navigation && <Button id="open-historical-overview" variant="outline" onClick={() => navigation.open({ page: "historical-overview" })}>{t("historicalOverview.title")}</Button>} />;
+  const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} actions={navigation && <Button id="open-historical-overview" className="min-[960px]:hidden" variant="outline" onClick={() => navigation.open({ page: "historical-overview" })}>{t("historicalOverview.title")}</Button>} />;
 
   if (overview.isLoading) {
     return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
@@ -270,11 +271,11 @@ export function OverviewPage({
         actionLabel={health.isError ? t("common.retryAction") : undefined} onAction={() => void health.refetch()} />,
     );
   }
-  const listedIssues = navigation ? (health.data?.issues ?? []).filter((issue) => !issue.collapsed).slice(0, 3) : [];
+  const listedIssues = healthKnown && navigation ? (health.data?.issues ?? []).filter((issue) => !issue.collapsed).slice(0, 3) : [];
   const accountNameRecord = Object.fromEntries(accountNames);
   listedIssues.forEach((issue) => {
     todoRows.push(
-      <TodoRow key={issue.id} icon={HeartPulse} tone={3} text={`${healthIssueLabel(t, issue, accountNameRecord)} · ${displayEnum(t, "dataHealth.kind", issue.kind)}`}
+      <TodoRow key={issue.id} icon={HeartPulse} tone={issue.severity === "blocking" ? 3 : issue.severity === "warning" ? 4 : 1} severity={{ kind: issue.severity, label: t(`homepage.severity.${issue.severity}`, { defaultValue: issue.severity }) }} text={`${healthIssueLabel(t, issue, accountNameRecord)} · ${displayEnum(t, "dataHealth.kind", issue.kind)}`}
         actionLabel={t("connections.viewGap")} onAction={() => navigation?.openHealth(issue)} />,
     );
   });
@@ -321,7 +322,7 @@ export function OverviewPage({
       {pageChrome}
       <PageIntro description={t("overview.description")} status={headerStatus} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row">
         <Card className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")}</CardTitle>
@@ -357,34 +358,22 @@ export function OverviewPage({
         </Card>
 
         <OverviewLiquidityCard isActive={isActive} />
-        <OverviewUpcomingActionsCard isActive={isActive} />
       </div>
 
-      {data.complete && noNextSteps ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-success/25 bg-success/10 px-5 py-4 text-sm">
-          <CheckCircle2 className="size-5 text-success" aria-hidden="true" />
-          <p className="font-semibold text-foreground">{t("overview.dataHealthComplete")}</p>
-          <p className="text-muted-foreground">{t("overview.noNextSteps")}</p>
-        </div>
-      ) : (
-        <Card>
+      <div className="grid items-start gap-4 lg:grid-cols-2" data-testid="overview-action-row">
+        <Card className="min-w-0" data-testid="overview-attention-card">
           <CardHeader>
-            <CardTitle>{t("overview.nextStepsTitle")}</CardTitle>
+            <CardTitle>{t("upcomingActions.attentionTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {data.complete ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
-                {t("overview.dataHealthComplete")}
-              </p>
-            ) : (
+            {!data.complete && (
               <div role="alert" className="flex flex-col gap-3 rounded-xl bg-warning/12 p-4 text-sm">
                 <p className="font-semibold text-warning-foreground">{t("overview.dataHealthIncomplete", { count: missing.length })}</p>
                 {missing.length > 0 && (
                   <ul className="list-inside list-disc text-muted-foreground">
                     {missing.map((item, index) => (
                       <li key={`${item.kind}-${item.accountId}-${index}`}>
-                        {navigation ? <Button variant="link" className="h-auto p-0 text-left" onClick={() => navigation.openHealth(missingFocus(item))}>{missingItemLabel(t, item, accountNames)} · {displayEnum(t, "overview.missingKind", item.kind)}</Button> : t("overview.missingInput", {
+                        {navigation ? <Button variant="link" className="h-auto max-w-full whitespace-normal p-0 text-left" onClick={() => navigation.openHealth(missingFocus(item))}>{missingItemLabel(t, item, accountNames)} · {displayEnum(t, "overview.missingKind", item.kind)}</Button> : t("overview.missingInput", {
                           label: `${missingItemLabel(t, item, accountNames)} (${displayEnum(t, "overview.missingKind", item.kind)})`,
                         })}
                       </li>
@@ -399,7 +388,7 @@ export function OverviewPage({
               </div>
             )}
             {noNextSteps ? (
-              <p className="text-sm text-muted-foreground">{t("overview.noNextSteps")}</p>
+              <p className="text-sm text-muted-foreground">{t("homepage.noDataActions")}</p>
             ) : todoRows.length > 0 ? (
               <ul className="flex flex-col gap-3">{todoRows}</ul>
             ) : null}
@@ -409,9 +398,11 @@ export function OverviewPage({
                 {healthIssueCount > listedIssues.length && <span className="num text-muted-foreground">({healthIssueCount})</span>}
               </Button>
             )}
+            <InvestmentReviewSummary isActive={isActive} compact />
           </CardContent>
         </Card>
-      )}
+        <OverviewUpcomingActionsCard isActive={isActive} />
+      </div>
 
       <NetWorthTrendCard />
 

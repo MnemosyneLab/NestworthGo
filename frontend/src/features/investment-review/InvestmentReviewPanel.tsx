@@ -2,6 +2,7 @@ import { Component, createRef, useId, useRef, useState, type ReactNode } from "r
 import { useTranslation } from "react-i18next";
 import type { InvestmentReviewItem, InvestmentReviewPolicy } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { useInvestmentReviewActions, useInvestmentReviews } from "@/queries/investmentReview";
+import { upcomingReadLabel } from "@/features/upcoming-actions/upcomingActionPresentation";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,12 +78,43 @@ class ReviewRows extends Component<ReviewRowsProps, { announcement: string }, Re
   }
 }
 
-export function InvestmentReviewSummary({ isActive = true }: { isActive?: boolean }) {
-  const { t } = useTranslation();
+export function InvestmentReviewSummary({ isActive = true, compact = false }: { isActive?: boolean; compact?: boolean }) {
+  const { t, i18n } = useTranslation();
   const query = useInvestmentReviews(isActive);
   const navigation = useObjectNavigation();
   const items = query.data?.items ?? [];
   const count = items.filter(isPendingReview).length;
+  if (compact) {
+    const data = query.data;
+    const pending = items.filter(isPendingReview).sort(comparePending);
+    const monitored = items.filter(item => item.monitored);
+    const summaryKey = !data?.policy.enabled ? "investmentReview.disabled"
+      : items.length === 0 ? "investmentReview.empty"
+      : monitored.length === 0 ? "homepage.monitoringOff"
+      : monitored.some(item => item.status === "unavailable" || item.status === "stale") ? "homepage.monitoringInsufficient"
+      : "homepage.monitoringNoAlerts";
+    return <section aria-label={t("investmentReview.title")} className="min-w-0 space-y-2 border-t border-border pt-4" aria-busy={query.isFetching}>
+      <h4 className="text-sm font-semibold">{t("investmentReview.title")}</h4>
+      {!data && query.isPending && <p role="status" className="text-sm text-muted-foreground">{t("ui.state.loadingPage")}</p>}
+      {query.isError && <div role="alert" className="space-y-2 text-sm">
+        <p>{t(data ? "investmentReview.staleRead" : "investmentReview.error")}</p>
+        <Button size="sm" variant="outline" onClick={() => void query.refetch()}>{t("common.retryAction")}</Button>
+      </div>}
+      {data && <>
+        <p className="text-sm">{count > 0 ? t("investmentReview.summary", { count }) : t(summaryKey)}</p>
+        {count > 0 && !data.policy.enabled && <p className="text-sm text-muted-foreground">{t("investmentReview.disabled")}</p>}
+        {pending.length > 0 && <ul className="space-y-2">
+          {pending.slice(0, 3).map(item => <li key={item.instrumentId} className="min-w-0 space-y-1 break-words text-sm">
+            <p className="font-medium">{item.displayName}</p>
+            <Badge className="max-w-full whitespace-normal" variant={item.status === "loss" ? "destructive" : item.status === "low_yield" || item.status === "stale" ? "warning" : "outline"}>{t(`investmentReview.status.${item.status}`)}</Badge>
+          </li>)}
+        </ul>}
+        <p className="break-words text-xs text-muted-foreground">{upcomingReadLabel(t, data.asOf, data.timezone, i18n.language)}</p>
+      </>}
+      <p className="text-xs text-muted-foreground">{t("homepage.monitoringScope")}</p>
+      {navigation && <Button className={actionClass + " p-0"} variant="link" onClick={() => navigation.open({ page: "upcoming-actions" })}>{t("investmentReview.view")}</Button>}
+    </section>;
+  }
   return <section aria-label={t("investmentReview.title")} className="border-t pt-3 space-y-2">
     <h3 className="font-medium">{t("investmentReview.title")}</h3>
     {query.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
