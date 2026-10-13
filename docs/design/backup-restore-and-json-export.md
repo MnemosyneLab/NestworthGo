@@ -1,7 +1,7 @@
 # Backup, Restore, and JSON Export
 
 - Status: **Implemented**
-- Database: SQLite schema `15`
+- Database: SQLite schema `16`; verified v15 is the sole supported additive upgrade
 - Platform: Wails v3
 - Companion: [JSON export format](json-export-format.md)
 
@@ -57,10 +57,10 @@ The manifest includes at least:
   "format_version": 1,
   "backup_kind": "full",
   "app_name": "Nestworth",
-  "app_version": "0.3.5",
-  "app_build": "6",
-  "schema_version": 15,
-  "created_at": "2026-09-30T00:00:00Z",
+  "app_version": "0.3.7",
+  "app_build": "8",
+  "schema_version": 16,
+  "created_at": "2026-10-13T00:00:00Z",
   "members": {
     "database.sqlite": {"sha256": "...", "size_bytes": 0},
     "settings.json": {"sha256": "...", "size_bytes": 0}
@@ -95,8 +95,11 @@ Currency, timezone, provider configuration, API keys, and MCP connection state
 and receipts are stored in SQLite and always follow the restored database.
 The preference categories default to preserving current values and are merged
 only after the restored database verifies. A rollback leaves preferences intact.
-Only current-schema packages are readable. Older, unversioned, and future
-database schemas are rejected without upgrading the extracted copy or replacing
+Verified v15/v16 packages are readable when manifest and database versions match.
+Read-only inspection does not upgrade the extracted copy or modify the source
+package. The installed v15 copy upgrades on normal open; see the
+[narrow storage upgrade](../development/investment-short-names.md#narrow-storage-upgrade).
+Other older, unversioned, future, or invalid schemas are rejected before replacing
 the live database.
 
 ### Restore during first launch
@@ -140,8 +143,8 @@ or modifies schema constraints. The verifier checks, in order:
 1. The container can be read and has the fixed member set.
 2. `format_version` is supported.
 3. Manifest fields, checksums, sizes, and member order match the payload.
-4. The database is schema `15` and passes current table, column, index, and
-   constraint verification.
+4. The database is supported schema `15` or `16`, matches its manifest version,
+   and passes that version's table, column, index, and constraint verification.
 5. `foreign_key_check`, `integrity_check`, and required domain invariants pass.
 6. The database can be reopened read-only and representative Household,
    Account, Holding, Activity, quote, FX, and snapshot data can be read.
@@ -270,7 +273,8 @@ policy remains unchanged.
 
 Settings also offers opt-in app-running SQLite backup to Cloudflare R2, plus
 explicit stream/recovery-point selection. Cloud recovery downloads a separate
-candidate, verifies schema 15 and all current requirements, then feeds the
+candidate, verifies supported v15/v16 and checks its version against the stream
+identity without changing the staged file or source metadata, then feeds the
 existing preview/confirmation/journal installation described above. It keeps
 an original safety copy and pauses backup until restart and explicit re-enable.
 Cloud recovery does not restore separate local UI preferences or R2 credentials.
