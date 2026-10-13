@@ -35,6 +35,7 @@ __pycache__/
 .vscode/
 
 # Local data and secrets
+/.local-private/
 *.db
 *.db-shm
 *.db-wal
