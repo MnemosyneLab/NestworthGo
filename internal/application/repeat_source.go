@@ -64,19 +64,43 @@ func (s *Service) RepeatSourceStatuses(ctx context.Context, activities []domain.
 		return nil, err
 	}
 	defer unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	statuses := make(map[domain.ActivityID]string, len(activities))
+	byHousehold := make(map[domain.HouseholdID][]domain.ActivityID)
+	seen := make(map[domain.HouseholdID]map[domain.ActivityID]bool)
+	for _, a := range activities {
+		statuses[a.ID] = repeatSourceReason(a)
+		if statuses[a.ID] != "eligible" {
+			continue
+		}
+		if seen[a.HouseholdID] == nil {
+			seen[a.HouseholdID] = make(map[domain.ActivityID]bool)
+		}
+		if !seen[a.HouseholdID][a.ID] {
+			seen[a.HouseholdID][a.ID] = true
+			byHousehold[a.HouseholdID] = append(byHousehold[a.HouseholdID], a.ID)
+		}
+	}
+	reversals := make(map[domain.HouseholdID]map[domain.ActivityID]bool)
+	for household, ids := range byHousehold {
+		reversed, err := s.repository.ActivitiesWithReversals(ctx, household, ids)
+		if err != nil {
+			return nil, err
+		}
+		reversals[household] = reversed
+	}
+	// Apply in input order to preserve status precedence for duplicate rows.
 	for _, a := range activities {
 		status := repeatSourceReason(a)
-		if status == "eligible" {
-			reversed, err := s.repository.ActivityHasReversal(ctx, a.HouseholdID, a.ID)
-			if err != nil {
-				return nil, err
-			}
-			if reversed {
-				status = "reversed"
-			}
+		if status == "eligible" && reversals[a.HouseholdID][a.ID] {
+			status = "reversed"
 		}
 		statuses[a.ID] = status
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return statuses, nil
 }

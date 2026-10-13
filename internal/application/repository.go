@@ -120,6 +120,8 @@ type HistoryRepository interface {
 	LookupActivityMutation(context.Context, domain.HouseholdID, domain.MutationID) (*domain.ActivityMutationRecord, error)
 	Activity(context.Context, domain.HouseholdID, domain.ActivityID) (domain.Activity, error)
 	ActivityEffects(context.Context, domain.ActivityID) ([]domain.ActivityEffect, error)
+	// ActivitiesWithReversals reads full-ledger lifecycle state within one household.
+	ActivitiesWithReversals(context.Context, domain.HouseholdID, []domain.ActivityID) (map[domain.ActivityID]bool, error)
 	ActivityHasReversal(context.Context, domain.HouseholdID, domain.ActivityID) (bool, error)
 	ListActivities(context.Context, domain.HouseholdID, int) ([]domain.Activity, error)
 	ListActivityPage(context.Context, domain.HouseholdID, domain.ActivityQuery) (domain.ActivityPage, error)
