@@ -185,17 +185,17 @@ export function AccountsPage({
                   const valuation = valuationByAccountId.get(record.account.id);
                   const displayMoney = accountDisplayMoney(record, valuation);
                   const value = displayMoney.primary
-                    ? formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)
-                    : displayMoney.pendingConversion && !valuations.isLoading
-                      ? t("accounts.pendingConversion")
+                    ? `${formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)}${displayMoney.primaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`
+                    : displayMoney.unavailableCurrency && !valuations.isLoading
+                      ? t("accounts.currencyUnavailable", { currency: displayMoney.unavailableCurrency })
                       : t("accounts.noValue");
                   const secondary = displayMoney.secondary
-                    ? formatAmount(displayMoney.secondary.amount, displayMoney.secondary.currency)
+                    ? `${formatAmount(displayMoney.secondary.amount, displayMoney.secondary.currency)}${displayMoney.secondaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`
                     : displayMoney.primary && displayMoney.pendingConversion && !valuations.isLoading
                       ? t("accounts.pendingConversion")
                     : undefined;
                   const completeness = valuation
-                    ? valuation.complete
+                    ? valuation.complete && (valuation.displayValue?.complete ?? true)
                       ? t("accounts.completeValuation")
                       : t("accounts.partialValuation")
                     : valuations.isLoading

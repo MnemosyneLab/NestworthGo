@@ -110,3 +110,49 @@ On the reviewed commit, check:
   main update. No real household profile is needed.
 
 No merge, release, tag, packaging, or publication is authorized by this task.
+
+## Account total display currencies
+
+The account list and detail header show the account's configured
+`defaultCurrency` first, with household `baseCurrency` below in smaller type.
+Identical currencies use one amount line. Account type, bank name, country and
+the first holding never select the display currency. Holding rows continue to
+show the asset's native currency. Known native values remain visible when only
+household FX is missing; they are not mislabeled as missing prices.
+
+`AccountValuation.displayValue` is an additional accounts-only backend
+projection, attached by `ValueAccountCompositions` and `ValuationService.Account`.
+It has its own currency, exact total, rounded MoneyView, completeness,
+valued/missing counts, missing inputs and selected FX evidence. It includes all
+cash and holding components, including managed products. Balance/manual-value
+accounts also convert a latest recorded value whose currency differs from the
+configured account currency. Missing native values never become zero. Known
+zero and same-currency components need no FX; an empty holdings account is zero.
+Partial account or household amounts are explicitly labeled “Valued subtotal”.
+An unavailable account total keeps an account-currency unavailable label in the
+primary position; an available household amount stays secondary.
+
+Conversion uses persisted direct or inverse observations under the existing
+pair source preference, configured provider and deterministic observation
+ordering. If no eligible pair quote exists, and no explicit preference exists
+for that pair, the only fallback is a two-leg bridge through household currency.
+Each leg honors its own source preference and provider selection. An explicit
+pair preference never falls back to another source/path. No arbitrary currency
+graph traversal, network refresh, inference from institution metadata, or
+reverse conversion of rounded household values occurs. Native decimals and FX
+intermediates use the existing decimal arithmetic; components are summed before
+the existing four-decimal MoneyView boundary and localized currency formatting.
+Non-terminating inverse division retains the existing decimal division precision.
+
+`BaseValue`, household completeness and missing inputs are not overwritten.
+Overview, Portfolio, historical valuation and ledger facts retain their existing
+semantics. Institution grouping, ordering and displayed group totals continue to
+use household values. Composition charts and their shares remain household-based
+and now state that currency explicitly. The existing group subtotal behavior for
+partial household values is outside this display-currency change.
+
+Focused checks: `TestAccountDisplayValue*`,
+`TestAccountDisplayValueWireIndependentCompleteness`, `accountDisplayMoney`,
+`AccountsPage`, `AccountCompositionPanel`, `accountGroups` and locale coverage.
+Native macOS layout/accessibility acceptance remains a separate manual gate;
+jsdom checks do not establish native rendering or keyboard geometry.

@@ -6,6 +6,9 @@
     "version": "版本 %s · 构建 %s"
   },
   "accounts": {
+    "displaySubtotal": "已估值小计",
+    "currencyUnavailable": "{{currency}} 合计暂不可用",
+    "compositionHouseholdCurrency": "资产结构与占比按家庭本位币（{{currency}}）计算",
     "amount": "初始金额",
     "amountNotUsed": "持仓模式不使用",
     "accountType": "账户类型",

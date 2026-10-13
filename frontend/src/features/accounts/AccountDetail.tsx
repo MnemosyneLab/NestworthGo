@@ -196,17 +196,17 @@ export function AccountDetail({
 
   const displayMoney = accountDisplayMoney(record, valuation);
   const titleAmount = displayMoney.primary
-    ? formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)
-    : displayMoney.pendingConversion
-      ? t("accounts.pendingConversion")
+    ? `${formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)}${displayMoney.primaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`
+    : displayMoney.unavailableCurrency
+      ? t("accounts.currencyUnavailable", { currency: displayMoney.unavailableCurrency })
       : t("accounts.noValue");
   const titleSecondary = displayMoney.secondary
-    ? formatAmount(displayMoney.secondary.amount, displayMoney.secondary.currency)
+    ? `${formatAmount(displayMoney.secondary.amount, displayMoney.secondary.currency)}${displayMoney.secondaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`
     : displayMoney.primary && displayMoney.pendingConversion
       ? t("accounts.pendingConversion")
       : undefined;
   const completeness = valuation
-    ? valuation.complete
+    ? valuation.complete && (valuation.displayValue?.complete ?? true)
       ? t("accounts.completeValuation")
       : t("accounts.partialValuation")
     : t("accounts.noValue");
@@ -255,9 +255,11 @@ export function AccountDetail({
         description={`${institutionLabel} · ${displayEnum(t, "enum", record.account.accountType)}`}
         status={
           <>
-            <MoneyText size="lg" className="tracking-tight">{titleAmount}</MoneyText>
-            {titleSecondary && <p className="text-sm text-muted-foreground">{titleSecondary}</p>}
-            <Badge variant={valuation?.complete ? "success" : "warning"}>{completeness}</Badge>
+            <div className="flex flex-col items-end gap-1">
+              <MoneyText size="lg" className="tracking-tight">{titleAmount}</MoneyText>
+              {titleSecondary && <p className="text-sm text-muted-foreground">{titleSecondary}</p>}
+            </div>
+            <Badge variant={valuation?.complete && (valuation.displayValue?.complete ?? true) ? "success" : "warning"}>{completeness}</Badge>
             {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
             {record.account.balanceSheetRole === "liability" && <Badge variant="outline">{t("accounts.liability")}</Badge>}
             {asOf && <p className="text-sm text-muted-foreground">{asOf}</p>}
@@ -361,7 +363,7 @@ export function AccountDetail({
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
                         <td className="num py-2 text-right">{row.instrumentType === "bank_investment_product" ? `${formatAmount(row.holding.quantity)} ${t("common.units")}` : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>
                         <td className="py-2 text-right">
-                          {row.component?.available && row.component.nativeAmount ? (
+                          {row.component?.nativeAmount ? (
                             <ComponentAmounts
                               component={row.component}
                               householdCurrency={householdCurrency}

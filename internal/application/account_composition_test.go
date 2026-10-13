@@ -229,6 +229,9 @@ func TestAccountCompositionManagedProductsShareCanonicalType(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := valuation.Composition
+	if valuation.DisplayValue == nil || valuation.DisplayValue.TotalExact != "20000" || valuation.DisplayValue.ValuedCount != 3 || !valuation.DisplayValue.Complete {
+		t.Fatalf("managed products omitted from account display: %+v", valuation.DisplayValue)
+	}
 	if len(result.Types) != 2 || result.TotalExact != "20000" || result.Types[1].TypeKey != "bank_investment_product" || result.Types[1].BaseAmountExact != "2000" || len(result.Types[1].DetailRefs) != 2 {
 		t.Fatal(result)
 	}

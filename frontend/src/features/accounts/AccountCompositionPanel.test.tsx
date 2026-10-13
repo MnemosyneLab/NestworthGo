@@ -183,3 +183,8 @@ describe("account composition panel", () => {
     expect(screen.getByTestId("composition-slice-b")).toHaveTextContent("50.0%");
   });
 });
+
+it("explicitly labels the household currency basis", () => {
+  render(<AccountCompositionPanel composition={projection()} />);
+  expect(screen.getByText("Composition and shares use household currency (USD)")).toBeInTheDocument();
+});

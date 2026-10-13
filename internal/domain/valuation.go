@@ -112,7 +112,21 @@ type ValuationComponent struct {
 	Available                 bool
 }
 
+// AccountDisplayValue is an accounts-only presentation projection. Complete and
+// Value describe account currency, independently of household BaseValue.
+type AccountDisplayValue struct {
+	Currency      CurrencyCode
+	Value         *MoneyView
+	TotalExact    string
+	Complete      bool
+	ValuedCount   int
+	MissingCount  int
+	MissingInputs []MissingInputView
+	FXEvidence    []QuoteEvidenceView
+}
+
 type AccountValuation struct {
+	DisplayValue    *AccountDisplayValue
 	Composition     *AccountComposition
 	Account         Account
 	Ownership       Ownership
