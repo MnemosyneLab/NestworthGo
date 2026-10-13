@@ -1669,3 +1669,63 @@ it.each(["accounts", "origin", "activities"])("keeps pending and uncertain Repea
   await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
   expect(confirmRepeat.mock.calls.map(([id]) => id)).toEqual(["repeat-plan", "repeat-plan"]);
 });
+
+
+it.each(["", "2.00000001"])("previews a new same-currency cash transfer using the read-only received amount (fee %s)", async fee => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([
+    { account: { id: "bank", name: "Synthetic Bank", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "CNY" } },
+    { account: { id: "savings", name: "Synthetic Savings", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "CNY" } },
+    { account: { id: "usd", name: "Synthetic USD", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "USD" } },
+  ]);
+  previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+  recordChange.mockResolvedValue({});
+  renderPage();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await user.click(within(form).getByRole("radio", { name: "Cash transfer" }));
+  await user.selectOptions(within(form).getByLabelText("From account"), "bank");
+  await user.selectOptions(within(form).getByLabelText("To account"), "savings");
+  const preview = within(form).getByRole("button", { name: "Preview" });
+  expect(preview).toBeDisabled();
+  await user.type(within(form).getByLabelText("Sent"), "100.00000001");
+  expect(within(form).getByLabelText("Received")).toHaveValue("100.00000001");
+  expect(within(form).getByLabelText("Received")).toHaveAttribute("readonly");
+  if (fee) await user.type(within(form).getByLabelText("Fee (optional)"), fee);
+  await waitFor(() => expect(preview).toBeEnabled());
+  await user.click(preview);
+  await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({
+    fromAccountId: "bank", toAccountId: "savings", sent: "100.00000001", received: "100.00000001",
+    sentCurrency: "CNY", receivedCurrency: "CNY", ...(fee ? { fee } : {}), feeCurrency: "CNY",
+  })));
+  await user.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(recordChange).toHaveBeenCalledWith(expect.objectContaining(previewChange.mock.calls[0][0])));
+});
+
+
+it("requires explicit received input for cross-currency cash transfer", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([
+    { account: { id: "bank", name: "Bank", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "CNY" } },
+    { account: { id: "usd", name: "USD", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "USD" } },
+  ]);
+  previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+  renderPage();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await user.click(within(form).getByRole("radio", { name: "Cash transfer" }));
+  await user.selectOptions(within(form).getByLabelText("From account"), "bank");
+  await user.selectOptions(within(form).getByLabelText("To account"), "usd");
+  await user.type(within(form).getByLabelText("Sent"), "100.00000001");
+  const preview = within(form).getByRole("button", { name: "Preview" });
+  expect(preview).toBeDisabled();
+  expect(within(form).getByLabelText("Received")).not.toHaveAttribute("readonly");
+  await user.type(within(form).getByLabelText("Received"), "14.00000001");
+  await waitFor(() => expect(preview).toBeEnabled());
+  await user.click(preview);
+  await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({
+    sent: "100.00000001", received: "14.00000001", sentCurrency: "CNY", receivedCurrency: "USD",
+  })));
+});

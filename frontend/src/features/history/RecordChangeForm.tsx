@@ -648,6 +648,8 @@ function RecordChangeFormReady({
       (request.note ?? "") === (initial.note ?? ""),
   );
 
+  const sameCurrencyTransfer = Boolean(request.sentCurrency && request.sentCurrency === request.receivedCurrency);
+
   const hasRequiredFields = (() => {
     switch (kind) {
       case ChangeCommandKind.ChangeMoneyAdded:
@@ -656,7 +658,7 @@ function RecordChangeFormReady({
       case ChangeCommandKind.ChangeCashDividend:
         return Boolean(request.holdingId && request.amount?.trim() && request.currency);
       case ChangeCommandKind.ChangeCashTransfer:
-        return Boolean(request.fromAccountId && request.toAccountId && request.fromAccountId !== request.toAccountId && request.sent?.trim() && request.received?.trim() && request.sentCurrency && request.receivedCurrency);
+        return Boolean(request.fromAccountId && request.toAccountId && request.fromAccountId !== request.toAccountId && request.sent?.trim() && (sameCurrencyTransfer || request.received?.trim()) && request.sentCurrency && request.receivedCurrency);
       case ChangeCommandKind.ChangeFXConversion:
         return Boolean(request.accountId && request.sold?.trim() && request.bought?.trim() && request.soldCurrency && request.boughtCurrency && request.soldCurrency !== request.boughtCurrency);
       case ChangeCommandKind.ChangePositionTransfer:
@@ -683,8 +685,7 @@ function RecordChangeFormReady({
   const canPreview = (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
-    const sameCurrencyTransfer =
-      kind === ChangeCommandKind.ChangeCashTransfer && Boolean(request.sentCurrency) && request.sentCurrency === request.receivedCurrency;
+    const normalizeTransfer = kind === ChangeCommandKind.ChangeCashTransfer && sameCurrencyTransfer;
     return {
       ...request,
       ...(kind === ChangeCommandKind.ChangePositionTransfer
@@ -692,8 +693,8 @@ function RecordChangeFormReady({
           ? { toAccountId: "", toHoldingId: transferTargetHoldingId }
           : { toAccountId: transferTargetAccountId, toHoldingId: "" }
         : {}),
-      received: sameCurrencyTransfer ? request.sent : request.received,
-      receivedCurrency: sameCurrencyTransfer ? request.sentCurrency : request.receivedCurrency,
+      received: normalizeTransfer ? request.sent : request.received,
+      receivedCurrency: normalizeTransfer ? request.sentCurrency : request.receivedCurrency,
       feeCurrency: request.feeCurrency || request.soldCurrency || request.grossCurrency || request.sentCurrency,
       interestOrFeeCurrency: request.interestOrFeeCurrency || request.principalCurrency,
       effectiveLocalDate: fixActivityId || exactTime ? "" : request.effectiveLocalDate,
@@ -834,7 +835,6 @@ function RecordChangeFormReady({
   };
 
   const transferPairReady = Boolean(request.sentCurrency && request.receivedCurrency && request.sentCurrency !== request.receivedCurrency);
-  const sameCurrencyTransfer = Boolean(request.sentCurrency && request.sentCurrency === request.receivedCurrency);
 
   const updateTransferFX = () => {
     if (!transferPairReady) {
