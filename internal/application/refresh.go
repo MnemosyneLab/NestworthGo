@@ -414,7 +414,10 @@ func refreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarge
 			continue
 		}
 		instrument, ok := instruments[holding.InstrumentID]
-		if ok && instrument.ArchivedAt == nil {
+		// Archived instruments retain active nonzero holdings and their stored
+		// prices. Their FX dependencies remain required; instrumentRefreshTarget
+		// still independently skips archived instrument-price requests.
+		if ok && (instrument.ArchivedAt == nil || !holding.Quantity.IsZero()) {
 			addRequiredFX(instrument.QuoteCurrency)
 			if !holding.Quantity.IsZero() {
 				addAccountDisplayFX(account.Account, instrument.QuoteCurrency)
