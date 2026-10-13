@@ -1551,6 +1551,8 @@
     "all": "All investments / setup · {{count}}",
     "other": "Other eligible investments",
     "insufficient": "No pending reviews. Some monitored investments have missing, unsupported or stale NAV data. Open all investments to check their data.",
-    "noPending": "No pending reviews for monitored investments. Acknowledged or ignored reviews do not mean the NAV condition has recovered; check all investments for their current condition."
+    "noPending": "No pending reviews for monitored investments. Acknowledged or ignored reviews do not mean the NAV condition has recovered; check all investments for their current condition.",
+    "moved": "{{name}} · {{group}}",
+    "removed": "{{name}} is no longer in pending reviews."
   }
 }

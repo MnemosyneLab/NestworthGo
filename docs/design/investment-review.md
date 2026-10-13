@@ -51,7 +51,12 @@ have explicit copy.
 resume and disable actions use guarded buttons inside Reminder controls; exact
 source dates, actual span, observation counts, price return and the unit-NAV
 formula/caveats remain in Calculation basis. Both disclosures use native details
-and summary controls. Unsaved preferences survive unrelated report revisions.
+and summary controls. Report-driven group changes retain logical keyboard focus
+on the equivalent row control or its named heading; when the row leaves the
+pending view, focus returns to the pending filter. A polite announcement names
+the changed group. Focus is captured at the DOM commit, so a later refetch cannot
+reclaim focus after the user moves elsewhere or the view becomes inactive.
+Unsaved preferences survive unrelated report revisions.
 This changes presentation only: calculations, eligibility, thresholds,
 confirmation, acknowledgement, snooze precedence, persistence and MCP contracts
 are unchanged.
