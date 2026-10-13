@@ -215,6 +215,7 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 			if err != nil {
 				return HistoricalOverviewSeriesResult{}, err
 			}
+			state.displayScope, state.displayBasis = historicalValuationCompatibility(rows, selected.PortfolioSnapshot)
 			// Assets-only allocations retain exactly the P1 sum/share convention.
 			classes, currencies := map[string]decimal.Decimal{}, map[string]decimal.Decimal{}
 			for _, row := range rows {

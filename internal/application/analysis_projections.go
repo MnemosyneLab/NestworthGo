@@ -1295,9 +1295,17 @@ func foldDisplayAssetLevels(result domain.PeriodAnalysisResult, forced string, g
 		}
 		l.a.uncertain = l.a.uncertain || (q.Availability != domain.ValuationFull && q.UnpricedCount == 0)
 		if v.KnownSubtotal != nil {
-			value, err := decimal.NewFromString(v.KnownSubtotal.Amount)
-			if err != nil {
-				return AssetTrendResult{}, err
+			var value decimal.Decimal
+			if day.DisplayEndingExact != nil {
+				value = *day.DisplayEndingExact
+			} else {
+				// Compatibility for manually constructed kernel results; production leaves
+				// retain their exact source decimal separately from the rounded view.
+				var err error
+				value, err = decimal.NewFromString(v.KnownSubtotal.Amount)
+				if err != nil {
+					return AssetTrendResult{}, err
+				}
 			}
 			if metric == TrendLiabilities {
 				value = value.Neg()

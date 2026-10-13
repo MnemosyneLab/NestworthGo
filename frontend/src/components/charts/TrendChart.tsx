@@ -227,6 +227,7 @@ export function TrendChart({
   return (
     <EChart
       option={option}
+      replaceSeries
       height={height}
       ariaLabel={ariaLabel}
       summary={summary}

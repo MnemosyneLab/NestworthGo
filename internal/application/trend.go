@@ -17,6 +17,8 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 		return domain.NetWorthTrend{Range: trendRange}, nil
 	}
 	points := make([]domain.NetWorthTrendPoint, 0, len(window.snapshots)+1)
+	var firstScope, firstBasis, lastScope, lastBasis string
+	compatible := true
 	for _, snapshot := range window.snapshots {
 		if snapshot.LocalDate >= window.todayKey {
 			continue
@@ -41,6 +43,13 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 		if err != nil {
 			return domain.NetWorthTrend{}, err
 		}
+		scope, basis := snapshotValuationCompatibility(snapshot, window.evidence)
+		if len(points) == 0 {
+			firstScope, firstBasis = scope, basis
+		} else if lastScope != scope || lastBasis != basis {
+			compatible = false
+		}
+		lastScope, lastBasis = scope, basis
 		points = append(points, domain.NetWorthTrendPoint{
 			DisplayValuation: display,
 			LocalDate:        snapshot.LocalDate,
@@ -80,6 +89,12 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 			point.Liabilities = &liabilities
 			point.Status = domain.TrendPointComplete
 		}
+		if len(points) > 0 {
+			compatible = compatible && lastScope == current.DisplayScopeKey && lastBasis == current.DisplayBasisKey
+		} else {
+			firstScope, firstBasis = current.DisplayScopeKey, current.DisplayBasisKey
+		}
+		lastScope, lastBasis = current.DisplayScopeKey, current.DisplayBasisKey
 		points = append(points, point)
 	}
 	if len(points) == 0 {
@@ -104,7 +119,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	var estimated *domain.SignedMoney
 	if len(points) > 1 {
 		first, last := points[0].DisplayValuation.NetWorth.Total, points[len(points)-1].DisplayValuation.NetWorth.Total
-		if first != nil && last != nil && first.Currency == last.Currency {
+		if compatible && firstScope == lastScope && firstBasis == lastBasis && first != nil && last != nil && first.Currency == last.Currency {
 			a, e1 := decimal.NewFromString(first.Amount)
 			b, e2 := decimal.NewFromString(last.Amount)
 			if e1 != nil || e2 != nil {
@@ -238,6 +253,9 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if custom && customTo < last.Format("2006-01-02") {
 		last, _ = time.Parse("2006-01-02", customTo)
 	}
+	if first.After(last) {
+		return window, nil
+	}
 	if err := s.ensureClosedDaySnapshots(ctx, first.Format("2006-01-02"), last.Format("2006-01-02")); err != nil {
 		return nil, err
 	}
@@ -252,13 +270,15 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if err != nil {
 		return nil, err
 	}
-	// Reuse the existing bounded immutable reader once for selected evidence.
-	if reader, ok := s.repository.(historicalSeriesRepository); ok {
-		batch, _, err := reader.LoadHistoricalOverviewSeriesBatch(ctx, s.clock(), historicalSeriesLimits, nil)
-		if err != nil {
-			return nil, err
+	// Hydrate only selected immutable evidence, without panorama profile limits.
+	if len(snapshots) > 0 {
+		if reader, ok := s.repository.(snapshotQuoteEvidenceRepository); ok {
+			facts, err := reader.ReadSnapshotQuoteEvidence(ctx, bootstrap.Household.ID, snapshots)
+			if err != nil {
+				return nil, err
+			}
+			window.evidence = newSnapshotDisplayEvidence(domain.HistoricalSnapshotBatch{Portfolio: facts, InstrumentQuoteFacts: facts.InstrumentQuotes, FXQuoteFacts: facts.FXQuotes}, s.clock(), s.QuoteCacheTTL())
 		}
-		window.evidence = newSnapshotDisplayEvidence(batch, s.clock(), s.QuoteCacheTTL())
 	}
 	generationAfter, err := s.repository.DailySnapshotState(ctx, bootstrap.Household.ID)
 	if err != nil {
@@ -386,4 +406,8 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, endDa
 		}
 		return s.ensureSnapshotCoverage(ctx, household.ID, startDate, endDate)
 	})
+}
+
+type snapshotQuoteEvidenceRepository interface {
+	ReadSnapshotQuoteEvidence(context.Context, domain.HouseholdID, []domain.DailyValuationSnapshot) (domain.PortfolioSnapshot, error)
 }

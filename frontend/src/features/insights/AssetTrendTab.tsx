@@ -1,4 +1,4 @@
-import { fullDisplayAmount, valuationDetails } from "@/components/valuation/valuationQuality";
+import { fullDisplayAmount, valuationDetails, valuationTableAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { AssetValueSummary } from "./AssetValueSummary";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -46,8 +46,10 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   const context = useAnalysisProjectionContext(session);
   const trend = useAssetTrend(context.request, granularity, metric, context.enabled);
   const data = trend.data;
+  const isLevel = ["net_worth","assets","liabilities"].includes(metric);
+  const hasLevelDisplay = isLevel && (data?.points ?? []).some(point => hasDisplay(point.displayValuation));
   const dates = useMemo(() => (data?.points ?? []).map((point) => point.period), [data?.points]);
-  const values = useMemo(() => (data?.points ?? []).map((point) => metric === "return_rate" ? point.rate : fullDisplayAmount(point.displayValuation,point.value?.amount)), [data?.points, metric]);
+  const values = useMemo(() => (data?.points ?? []).map((point) => metric === "return_rate" ? point.rate : isLevel ? fullDisplayAmount(point.displayValuation,point.value?.amount) : point.value?.amount ?? null), [data?.points, metric, isLevel]);
   const currency = data?.summary?.currency ?? data?.points?.find((point) => point.displayValuation?.total?.currency)?.displayValuation?.total?.currency ?? data?.points?.find((point) => point.value?.currency)?.value?.currency ?? settings.data?.currency ?? "";
 
   if (context.origin.isLoading) return <LoadingState label={t("insights.loading")} />;
@@ -66,7 +68,7 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   let results;
   if (trend.isLoading) results = <LoadingState label={t("insights.loading")} />;
   else if (trend.isError) results = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => trend.refetch()} retryLabel={t("common.retryAction")} />;
-  else if (!data?.available) results = trendEmpty(data, t);
+  else if (!data || (!data.available && !hasLevelDisplay)) results = trendEmpty(data, t);
   else results = (
     <>
       {data.valueChange && <Card><CardContent className="pt-5"><AssetValueSummary summary={data.valueChange} /></CardContent></Card>}
@@ -75,7 +77,7 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
           <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
         </CardHeader>
-        <CardContent>{dates.length === 0 || values.every((value) => value == null) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:point.displayValuation?.quality?.coverage === "provisional",qualityLabel:valuationDetails(t,point.displayValuation)})) }]} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
+        <CardContent>{dates.length === 0 || (values.every((value) => value == null) && !hasLevelDisplay) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:isLevel && point.displayValuation?.quality?.coverage === "provisional",qualityLabel:isLevel ? valuationDetails(t,point.displayValuation) : ""})) }]} extraTableColumns={[t("charts.date"),metricLabel(t,metric),t("connections.coverage")]} extraTableRows={(data.points ?? []).map(point=>[point.period,metric === "return_rate" ? rateText(point.rate) : valuationTableAmount(t,isLevel ? point.displayValuation : null,point.value,metric === "net_worth"),(isLevel ? valuationDetails(t,point.displayValuation) : "") || point.missingReason || point.status])} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
       </Card>
       {!data.valueChange && <Card>
         <CardContent className="pt-6">
@@ -88,5 +90,5 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
       </Card>}
     </>
   );
-  return <div className="flex flex-col gap-4" data-testid="asset-trend">{!data?.available && toolbar}{results}</div>;
+  return <div className="flex flex-col gap-4" data-testid="asset-trend">{!data?.available && !hasLevelDisplay && toolbar}{results}</div>;
 }

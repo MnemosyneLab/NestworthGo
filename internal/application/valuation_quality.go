@@ -228,13 +228,14 @@ func currentPortfolioDisplay(accounts []domain.AccountValuation, p domain.Portfo
 }
 
 type snapshotDisplayEvidence struct {
-	prices, fx  map[string]domain.QuoteEvidenceView
-	liabilities map[domain.AccountID]bool
-	instruments map[domain.InstrumentID]domain.InstrumentType
+	priceBasis, fxBasis map[string][]string
+	prices, fx          map[string]domain.QuoteEvidenceView
+	liabilities         map[domain.AccountID]bool
+	instruments         map[domain.InstrumentID]domain.InstrumentType
 }
 
 func newSnapshotDisplayEvidence(b domain.HistoricalSnapshotBatch, now time.Time, ttl time.Duration) snapshotDisplayEvidence {
-	e := snapshotDisplayEvidence{prices: map[string]domain.QuoteEvidenceView{}, fx: map[string]domain.QuoteEvidenceView{}, liabilities: map[domain.AccountID]bool{}, instruments: map[domain.InstrumentID]domain.InstrumentType{}}
+	e := snapshotDisplayEvidence{priceBasis: map[string][]string{}, fxBasis: map[string][]string{}, prices: map[string]domain.QuoteEvidenceView{}, fx: map[string]domain.QuoteEvidenceView{}, liabilities: map[domain.AccountID]bool{}, instruments: map[domain.InstrumentID]domain.InstrumentType{}}
 	for _, i := range b.Portfolio.Instruments {
 		e.instruments[i.ID] = i.Type
 	}
@@ -247,6 +248,7 @@ func newSnapshotDisplayEvidence(b domain.HistoricalSnapshotBatch, now time.Time,
 		v.ValueEffectiveAt = q.ValueEffectiveAt
 		v.FetchedAt = q.FetchedAt
 		e.prices[q.ID.String()] = v
+		e.priceBasis[q.ID.String()] = priceCompatibility(q)
 	}
 	for _, q := range b.FXQuoteFacts {
 		v := quoteEvidence(q.ID.String(), q.SourceKind, q.SourceKey, q.QuotedAt, q.Delayed, now, ttl)
@@ -254,6 +256,7 @@ func newSnapshotDisplayEvidence(b domain.HistoricalSnapshotBatch, now time.Time,
 		v.ValueEffectiveAt = q.ValueEffectiveAt
 		v.FetchedAt = q.FetchedAt
 		e.fx[q.ID.String()] = v
+		e.fxBasis[q.ID.String()] = fxCompatibility(q)
 	}
 	return e
 }
@@ -295,7 +298,11 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 	if item.NativeAmount != "" {
 		kind = domain.MissingFXRate
 	}
-	return c, []domain.MissingInputView{{Kind: kind}}, false
+	missing := []domain.MissingInputView{{Kind: kind}}
+	if item.MissingReason != nil && *item.MissingReason == "historical market-data coverage is unverified" {
+		missing = append(missing, domain.MissingInputView{Kind: domain.MissingHistoryCoverage})
+	}
+	return c, missing, false
 }
 func snapshotDisplay(snapshot domain.DailyValuationSnapshot, e snapshotDisplayEvidence) (domain.HouseholdDisplayValuation, domain.ValuationAmount, error) {
 	var a, l, p displayAccumulator

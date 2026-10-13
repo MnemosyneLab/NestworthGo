@@ -188,11 +188,12 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		}
 	}
 	// Independent level projection precedes the unchanged strict-return guard.
-	display, displayErr := analysisDisplayEnding(current, hasCurrent, account, input, query, universe.displayEvidence, date)
+	display, displayExact, displayErr := analysisDisplayEnding(current, hasCurrent, account, input, query, universe.displayEvidence, date)
 	if displayErr != nil {
 		return domain.ComponentDay{}, displayErr
 	}
 	day.DisplayEnding = &display
+	day.DisplayEndingExact = displayExact
 	day.DisplayLiability = account.IsLiability()
 	if !hasPrevious || !hasCurrent || !previous.Complete || !current.Complete {
 		day.Status = domain.CompletenessUnavailable
@@ -906,7 +907,7 @@ func inferredQuantity(item domain.DailyValuationSnapshotItem, quote *domain.Inst
 	return value.Div(quote.UnitPrice.Decimal()), nil
 }
 
-func analysisDisplayEnding(item domain.DailyValuationSnapshotItem, present bool, account domain.Account, input AnalysisInputs, query domain.AnalysisQuery, e snapshotDisplayEvidence, date string) (domain.ValuationAmount, error) {
+func analysisDisplayEnding(item domain.DailyValuationSnapshotItem, present bool, account domain.Account, input AnalysisInputs, query domain.AnalysisQuery, e snapshotDisplayEvidence, date string) (domain.ValuationAmount, *decimal.Decimal, error) {
 	c, missing, uncertain := snapshotDisplayItem(item, e)
 	if !present || item.AccountID == "" {
 		c.Available = false
@@ -929,14 +930,22 @@ func analysisDisplayEnding(item domain.DailyValuationSnapshotItem, present bool,
 	if c.BaseAmountExact != "" && account.IsLiability() {
 		value, err := decimal.NewFromString(c.BaseAmountExact)
 		if err != nil {
-			return domain.ValuationAmount{}, err
+			return domain.ValuationAmount{}, nil, err
 		}
 		c.BaseAmountExact = value.Neg().String()
 	}
 	var a displayAccumulator
 	a.uncertain = uncertain
 	if err := a.add(c, missing, date, false); err != nil {
-		return domain.ValuationAmount{}, err
+		return domain.ValuationAmount{}, nil, err
 	}
-	return a.amount(currency, true)
+	value, err := a.amount(currency, true)
+	if err != nil {
+		return value, nil, err
+	}
+	if value.KnownSubtotal == nil {
+		return value, nil, nil
+	}
+	exact := a.sum
+	return value, &exact, nil
 }

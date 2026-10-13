@@ -770,6 +770,8 @@ type OverviewHoldingRef struct {
 }
 
 type OverviewResult struct {
+	DisplayScopeKey   string `json:"-"`
+	DisplayBasisKey   string `json:"-"`
 	DisplayValuation  HouseholdDisplayValuation
 	Currency          CurrencyCode
 	AccountCount      int

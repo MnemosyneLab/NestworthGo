@@ -37,6 +37,8 @@ type HistoricalOverviewTotalsChange struct {
 }
 
 type HistoricalOverviewState struct {
+	displayScope     string
+	displayBasis     string
 	DisplayValuation domain.HouseholdDisplayValuation `json:"displayValuation,omitempty"`
 	Date             string                           `json:"date"`
 	CutoffAt         string                           `json:"cutoffAt"`
@@ -483,6 +485,7 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 	if state.Complete {
 		state.NetWorth = historicalString(assets.Sub(debts).String())
 	}
+	state.displayScope, state.displayBasis = historicalValuationCompatibility(rows, portfolio)
 	state.ByClass, state.ByCurrency = historicalAllocations(classes, assets), historicalAllocations(currencies, assets)
 	return state, rows, nil
 }
@@ -742,7 +745,7 @@ func currentBalanceSource(portfolio domain.PortfolioSnapshot, id domain.AccountI
 }
 
 func estimatedHistoricalChange(a, b HistoricalOverviewState) *HistoricalOverviewTotalsChange {
-	if a.Currency != b.Currency {
+	if a.Currency != b.Currency || a.displayScope != b.displayScope || a.displayBasis != b.displayBasis {
 		return nil
 	}
 	diff := func(x, y domain.ValuationAmount) *string {

@@ -67,3 +67,43 @@ an oversized synthetic ten-date capture with explicit `too_large`; a narrower
 three-date capture matches the GUI exactly. Dates are never silently truncated.
 New paging/batch infrastructure remains owned by the concurrent MCP scalability
 task. This branch only adds display semantics and keeps budgets/read-only rules.
+
+
+## PR83 review revision
+
+Confirmed review findings were fixed without editing the PR description:
+
+- Real ECharts models now lose obsolete provisional segments on refetch; a
+  many-segment provisional chart becomes one revised verified series on the
+  same instance, with true gaps retained. Zoom and legend state survive. This
+  is an opt-in series replacement policy; other consumers keep their policy.
+- Production Asset Trend leaves retain exact signed decimals separately from
+  rounded display views. Two 0.00006 leaves aggregate to 0.00012 and display as
+  0.0001 across current overview, snapshot trend, panorama and day/week/month
+  level projection. Strict return calculations are not fed display values.
+- Selected snapshot evidence uses scoped 256-ID batches in one read transaction,
+  rather than the whole-profile panorama reader. A synthetic profile with 1,100
+  unrelated archived accounts still serves ready and current-only trends; the
+  current-only window performs no evidence/history read. Panorama limits remain.
+- New estimated changes omit incompatible included scopes and selected quote
+  basis/source changes. Actual overview/series/trend regressions retain the
+  original strict +100 inclusion change and zero source-change difference.
+- A USD NAV dated 10-09 used on 10-12 remains full/provisional in native USD even
+  without CNY FX. The base valuation remains unavailable; absent FX does not
+  erase unverified price coverage.
+- All-partial and mixed partial/full/unknown Asset Trend levels keep exact known
+  contribution, quality and market-date text in the actual keyboard-accessible
+  source table. Partial amounts never become full-total chart points.
+
+New-head aggregate validation and CI are reported separately from the first
+head's successful CI. Native Mac gates remain unrun; parent review remains the
+readiness gate.
+
+The review revision was rebased without conflicts onto merged main
+`f13dbfacc21bad0439848cbe1df64ad9ad1f1823`, retaining the latest homepage and
+Available Funds standard-review behavior. Final integrated server Go aggregate
+(test/vet/build), frontend lint/typecheck/build, 112 frontend files / 1,203
+assertions, and pinned binding freshness passed. New estimated-basis tests also
+ensure ordinary conversion price/rate/date updates do not become basis changes.
+The existing skill check remains passing. New-head CI and final independent
+parent review remain required before merger; this agent does not merge PR83.

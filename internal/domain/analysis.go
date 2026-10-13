@@ -207,11 +207,12 @@ type Residual struct {
 }
 
 type ComponentDay struct {
-	DisplayEnding    *ValuationAmount
-	DisplayLiability bool
-	Date             LocalDate
-	Component        ComponentID
-	AssetBuckets     map[AttributionBucket]SignedMoney
+	DisplayEnding      *ValuationAmount
+	DisplayEndingExact *decimal.Decimal `json:"-"`
+	DisplayLiability   bool
+	Date               LocalDate
+	Component          ComponentID
+	AssetBuckets       map[AttributionBucket]SignedMoney
 	// AssetBucketExact preserves the pre-serialization attribution values for
 	// projections that aggregate several days. AssetBuckets remains the
 	// four-decimal public/domain view; aggregating that rounded view can create

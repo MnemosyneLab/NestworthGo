@@ -6,9 +6,11 @@ strict valuation. Current, trend, panorama, series, level analytics and MCP
 summary projections share that vocabulary. Existing strict selectors,
 completeness, source preferences, snapshot revisions and return guards remain.
 
-Snapshot trends hydrate evidence with one existing bounded capture, using its
-1,000-leaf/100,000-fact/32 MiB input budget; changed input generation rejects the
-read for retry. Unknown legacy evidence permits a labeled subtotal but does not
+Snapshot trends hydrate only referenced account, instrument and quote identities
+from selected ready snapshots in one read transaction, using bounded 256-ID
+queries. Unrelated profile history and panorama limits do not affect trends;
+current-only windows skip historical reads. Changed input generation rejects
+the read for retry. Unknown legacy evidence permits a labeled subtotal but does not
 prove full availability. No schema migration or provider calendar is added.
 Additive quality increases serialized response size. The existing MCP wire
 budget is unchanged: captures exceeding it fail with deterministic `too_large`
@@ -32,3 +34,13 @@ query cancellation, DST/skipped-date and read-budget regression coverage.
 
 Linux server-profile builds and synthetic browser checks do not establish
 native macOS/Wails, VoiceOver, packaging, signing or release acceptance.
+
+
+Review follow-up regressions preserve exact per-leaf decimals until the Asset
+Trend aggregate boundary, retain unverified NAV coverage independently of
+missing FX, and require compatible included identities/selected quote basis for
+new estimated changes. Existing strict change fields remain unchanged.
+Dynamic TrendChart series opt into replacement of series only, preserving the
+chart instance and other component state. Real ECharts update tests cover fewer
+segments after NAV revision, gaps, zoom and legend state. Partial level values
+remain in the accessible source table even when no full-total line is available.
