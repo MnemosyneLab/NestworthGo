@@ -1,3 +1,4 @@
+import { InvestmentReviewPanel } from "@/features/investment-review/InvestmentReviewPanel";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -27,6 +28,7 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
   return <div className="space-y-5" aria-busy={query.isFetching}>
     <PageChrome pageId="upcoming-actions" title={t("upcomingActions.title")} actions={<Button variant="outline" disabled={query.isFetching} onClick={() => { void query.refetch(); }}>{t("upcomingActions.refresh")}</Button>} />
     <h2 id="upcoming-actions-heading" tabIndex={-1} className="text-xl font-semibold">{t("upcomingActions.title")}</h2>
+    <InvestmentReviewPanel isActive={isActive} />
     {!data && query.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
     {query.isError && <p role="alert">{t(data ? "upcomingActions.stale" : "upcomingActions.loadError")}</p>}
     {data && <>

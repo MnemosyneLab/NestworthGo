@@ -1470,5 +1470,60 @@
       "enable": "啟用走勢 · 新捕獲",
       "budgetError": "本地走勢輸入或計算超過預算。仍可使用雙期比較，不會替換為截斷序列。"
     }
+  },
+  "investmentReview": {
+    "title": "投資複核",
+    "view": "複核投資",
+    "foreground": "僅在此視圖開啟或估值重新整理後評估。應用程式關閉時不會監控。",
+    "scope": "逐項啟用提醒。使用目前持有的基金和銀行投資持倉的實際日期單位淨值；門檻由你自行設定。",
+    "refresh": "重新整理複核",
+    "error": "無法載入投資複核。",
+    "staleRead": "更新失敗。顯示上次成功讀取的結果；操作已停用。",
+    "writeError": "無法儲存。請重新載入複核後再試。",
+    "evaluated": "評估日期 {{date}} · {{timezone}}",
+    "disabled": "複核提醒已暫停。",
+    "empty": "此範圍內沒有目前持有的基金或銀行投資持倉。",
+    "missing": "缺少",
+    "dates": "實際淨值：{{baseline}} → {{latest}} · 選擇視窗 {{window}} 天 · 實際跨度 {{days}} 天 · 資料已過去 {{age}} 天",
+    "target": "基準目標日期：{{date}}（最多提前 7 天）",
+    "estimated": "估算年化報酬率：{{value}}%",
+    "period": "單位淨值價格報酬率：{{value}}%",
+    "observations": "{{count}} 個不同日期觀測 · {{missing}} 個日曆日期沒有觀測",
+    "priceOnly": "簡單年化：價格報酬率 × 365 ÷ 實際日曆天數。不含現金流、交易費用或個人持倉報酬。已知分配或單位變更會使視窗無法使用。",
+    "checkNav": "檢查淨值 · {{name}}",
+    "acknowledge": "確認複核 · {{name}}",
+    "enroll": "啟用複核提醒 · {{name}}",
+    "settings": "複核偏好",
+    "enable": "啟用已選擇投資的提醒",
+    "window": "複核視窗",
+    "windowDays": "{{days}} 天",
+    "policyNote": "低報酬和虧損提醒均須在確認期間內有至少兩個不同的視窗終點。門檻用於提示複核，並非賣出規則。修改偏好會建立新的複核情境。",
+    "saved": "複核偏好已儲存。",
+    "fields": {
+      "lowAnnualizedPercent": "低估算年化報酬率門檻（%）",
+      "lossPercent": "視窗虧損門檻（%）",
+      "sustainDays": "確認期間（天）",
+      "maxAgeDays": "提醒允許的最長淨值資料年齡（天）"
+    },
+    "status": {
+      "unavailable": "資料不足或不支援",
+      "healthy": "未觸及複核門檻",
+      "confirming": "等待持續證據",
+      "stale": "淨值資料太舊，無法提醒",
+      "low_yield": "估算報酬持續偏低：請複核投資和資料",
+      "loss": "價格持續虧損：請複核投資和資料",
+      "acknowledged": "此複核階段已確認",
+      "not_enabled": "未為此投資啟用提醒",
+      "paused": "複核提醒已暫停"
+    },
+    "reason": {
+      "unit_nav_required": "需要可比較、正值、有明確日期的單位淨值觀測。不推斷舊資料、手動價格、調整後數值、幣別或綁定版本。",
+      "missing_baseline": "所選目標日期或之前沒有實際基準觀測。",
+      "baseline_too_old": "最近的基準早於目標日期超過 7 天，涵蓋不足。",
+      "distribution_or_unit_change": "視窗內存在已知分配、分割或含義不明的數量調整，無法推斷可比較的價格報酬。"
+    },
+    "summary_one": "{{count}} 條尚未確認的複核提醒",
+    "summary_other": "{{count}} 條尚未確認的複核提醒",
+    "noDates": "沒有實際日期淨值觀測 · 選擇視窗 {{window}} 天"
   }
 }

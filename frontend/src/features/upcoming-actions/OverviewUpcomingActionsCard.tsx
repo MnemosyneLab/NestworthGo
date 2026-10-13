@@ -1,3 +1,4 @@
+import { InvestmentReviewSummary } from "@/features/investment-review/InvestmentReviewPanel";
 import { upcomingCountLabels, upcomingReadLabel } from "./upcomingActionPresentation";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export function OverviewUpcomingActionsCard({ isActive = true, context = "overvi
         {data.completeness === "partial" && <p className="text-sm text-warning-foreground">{t("upcomingActions.partial")}</p>}
       </>}
       {navigation && data && <Button variant="link" onClick={() => navigation.open({ page: "upcoming-actions" })}>{t("upcomingActions.viewAll", { count: data.counts.total })}</Button>}
+      <InvestmentReviewSummary isActive={isActive} />
     </CardContent>
   </Card>;
 }

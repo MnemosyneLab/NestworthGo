@@ -1470,5 +1470,60 @@
       "enable": "Enable trend · New capture",
       "budgetError": "The local trend input/computation budget was exceeded. Date comparisons remain available; no partial series was substituted."
     }
+  },
+  "investmentReview": {
+    "title": "Investment review",
+    "view": "Review investments",
+    "foreground": "Evaluated while this view is open or after valuation refresh. No monitoring when the app is closed.",
+    "scope": "Opt in per investment. Uses dated unit NAV for actively held funds and bank investment holdings; thresholds are your review preferences.",
+    "refresh": "Refresh reviews",
+    "error": "Unable to load investment reviews.",
+    "staleRead": "Update failed. Showing the last successfully read reviews; actions are disabled.",
+    "writeError": "Unable to save. Reload reviews and try again.",
+    "evaluated": "Evaluated on {{date}} · {{timezone}}",
+    "disabled": "Review reminders are paused.",
+    "empty": "No active fund or bank investment holdings in this scope.",
+    "missing": "Missing",
+    "dates": "Actual NAV: {{baseline}} → {{latest}} · selected window {{window}} days · actual span {{days}} days · data age {{age}} days",
+    "target": "Baseline target: {{date}} (at most 7 days earlier)",
+    "estimated": "Estimated annualized return: {{value}}%",
+    "period": "Unit NAV price return: {{value}}%",
+    "observations": "{{count}} distinct dated observations · {{missing}} calendar dates without observations",
+    "priceOnly": "Simple annualization: price return × 365 ÷ actual calendar days. Excludes cash flows, trade fees and personal holding returns. Known distributions or unit changes make the window unavailable.",
+    "checkNav": "Check NAV · {{name}}",
+    "acknowledge": "Acknowledge review · {{name}}",
+    "enroll": "Enable review reminders · {{name}}",
+    "settings": "Review preferences",
+    "enable": "Enable reminders for selected investments",
+    "window": "Review window",
+    "windowDays": "{{days}} days",
+    "policyNote": "Both low yield and loss prompts need at least two distinct window endpoints across the confirmation period. Thresholds are review prompts, not sell rules. Changing preferences creates a new review context.",
+    "saved": "Review preferences saved.",
+    "fields": {
+      "lowAnnualizedPercent": "Low estimated annualized return threshold (%)",
+      "lossPercent": "Window loss threshold (%)",
+      "sustainDays": "Confirmation period (days)",
+      "maxAgeDays": "Maximum NAV age for reminders (days)"
+    },
+    "status": {
+      "unavailable": "Insufficient or unsupported data",
+      "healthy": "No review threshold reached",
+      "confirming": "Awaiting sustained evidence",
+      "stale": "NAV is too old for a reminder",
+      "low_yield": "Sustained low estimated return: review investment and data",
+      "loss": "Sustained price loss: review investment and data",
+      "acknowledged": "This review episode is acknowledged",
+      "not_enabled": "Reminders not enabled for this investment",
+      "paused": "Review reminders are paused"
+    },
+    "reason": {
+      "unit_nav_required": "Comparable, positive, explicitly dated unit NAV observations are required. Legacy/manual prices, adjusted values, currencies and binding revisions are not inferred.",
+      "missing_baseline": "No actual baseline observation on or before the selected target date.",
+      "baseline_too_old": "The nearest baseline is more than 7 days before the target; coverage is insufficient.",
+      "distribution_or_unit_change": "Known distribution, split or ambiguous quantity adjustment in the window. A comparable price return cannot be inferred."
+    },
+    "summary_one": "{{count}} unacknowledged review reminder",
+    "summary_other": "{{count}} unacknowledged review reminders",
+    "noDates": "No actual dated NAV observations · selected window {{window}} days"
   }
 }

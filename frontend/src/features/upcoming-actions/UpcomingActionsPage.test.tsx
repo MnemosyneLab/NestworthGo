@@ -6,6 +6,7 @@ import { OverviewUpcomingActionsCard } from "./OverviewUpcomingActionsCard";
 import { upcomingData, upcomingItem } from "@/test/upcomingActions";
 import { NavigationContext } from "@/app/NavigationContext";
 import i18n from "@/i18n";
+vi.mock("@/features/investment-review/InvestmentReviewPanel", () => ({ InvestmentReviewPanel: () => null, InvestmentReviewSummary: () => null }));
 const query = vi.hoisted(() => ({ data: undefined as ReturnType<typeof upcomingData> | undefined, isPending: false, isError: false, isFetching: false, refetch: vi.fn() }));
 vi.mock("@/queries/liquidity", () => ({ useUpcomingActions: () => query }));
 beforeEach(async () => { await i18n.changeLanguage("en"); query.data = upcomingData([upcomingItem()]); query.isError = false; query.isPending = false; });

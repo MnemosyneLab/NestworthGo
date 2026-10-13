@@ -6,6 +6,11 @@ Baseline: `319ce0ba55244e769d454c5d0fe3d854aebe5438` (also current main when
 implementation began). The independently reviewed Astra v2 source artifact has
 SHA-256 `0915de6c56cb8d4f70be46817940fe15cf41a9e22dbcadb6386ac5cdde9f37c8`.
 
+The App now also hosts a separate [investment review](investment-review.md)
+panel and pending count. These opt-in, undated episodes do not alter the scheduled
+action projection or its counts. Review preferences and acknowledgement use
+separate explicit configuration mutations.
+
 ## Financial and date contract
 
 `application.Service.UpcomingActions` captures the clock once, reads one
