@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -674,5 +675,70 @@ func TestInvestmentReviewSnoozeSurvivesPreferenceEditsWithoutAcknowledging(t *te
 	report, err = s.SaveInvestmentReviewPolicy(ctx, policy, report.Revision)
 	if err != nil || report.Items[0].EpisodeID == "" || report.Items[0].Acknowledged {
 		t.Fatalf("resume silently acknowledged %+v %v", report, err)
+	}
+}
+
+func TestInvestmentReviewAliasEditsPreserveEnrollmentAcknowledgementAndSnooze(t *testing.T) {
+	s, db, i, _ := reviewIntegrationFixture(t)
+	ctx := t.Context()
+	day := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	items := []AgentMarketDataItem{}
+	for n := 0; n < 39; n++ {
+		items = append(items, agentNAV(i, "1", day.AddDate(0, 0, n).Format(time.DateOnly)))
+	}
+	if _, err := s.ImportAgentMarketData(ctx, uuid.NewString(), AgentMarketDataInput{Items: items}); err != nil {
+		t.Fatal(err)
+	}
+	counts := reviewTableCounts(t, db)
+	report, err := s.InvestmentReviews(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []string{"unenrolled", "enrolled", "acknowledged", "snoozed"} {
+		switch state {
+		case "enrolled":
+			report, err = s.SetInvestmentReviewEnrollment(ctx, i.ID.String(), true, report.Revision)
+		case "acknowledged":
+			report, err = s.AcknowledgeInvestmentReview(ctx, report.Items[0].EpisodeID)
+		case "snoozed":
+			report, err = s.SetInvestmentReviewSnooze(ctx, i.ID.String(), 7, report.Revision)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		original := report
+		original.Items = append([]domain.InvestmentReviewItem(nil), report.Items...)
+		store := sqlite.NewConfigurationRepository(db)
+		configBefore, err := store.ListConfiguration("investment_review/")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, alias := range []string{"Family fund", "", "家用基金", ""} {
+			if _, err := s.UpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: &alias, Symbol: "000001"}); err != nil {
+				t.Fatal(err)
+			}
+			report, err = s.InvestmentReviews(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := alias
+			if want == "" {
+				want = "000001"
+			}
+			if report.Items[0].DisplayName != want {
+				t.Fatalf("%s label: %+v", state, report)
+			}
+			report.Items[0].DisplayName = original.Items[0].DisplayName
+			if !reflect.DeepEqual(report, original) {
+				t.Fatalf("%s state changed: %+v / %+v", state, report, original)
+			}
+			configAfter, err := store.ListConfiguration("investment_review/")
+			if err != nil || !reflect.DeepEqual(configAfter, configBefore) {
+				t.Fatalf("alias changed review configuration: %v", err)
+			}
+		}
+	}
+	if !reflect.DeepEqual(reviewTableCounts(t, db), counts) {
+		t.Fatal("alias edits changed financial rows")
 	}
 }

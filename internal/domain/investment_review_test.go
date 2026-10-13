@@ -2,6 +2,7 @@ package domain
 
 import (
 	"github.com/shopspring/decimal"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -260,5 +261,89 @@ func TestInvestmentReviewEpisodeAliasesStopAtSupportedRecovery(t *testing.T) {
 	next := onlyReview(t, s, p, "2026-10-18")
 	if next.EpisodeID == "" || contains(next.EpisodeAliases, original.EpisodeID) {
 		t.Fatalf("recovered episode still aliases old acknowledgement: %+v", next)
+	}
+}
+
+// Renaming affects only presentation, across both unavailable and evaluated rows.
+func TestInvestmentReviewDisplayLabelsPreserveProjection(t *testing.T) {
+	for _, state := range []string{"no_quotes", "missing_baseline", "baseline_too_old", "unsafe_nav", "distribution", "confirming", "healthy", "low_yield", "loss", "stale", "disabled"} {
+		t.Run(state, func(t *testing.T) {
+			s, i := reviewFixture(t)
+			p := DefaultInvestmentReviewPolicy()
+			today := "2026-10-09"
+			s.Gain.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 39, "1")
+			status, reason := "low_yield", ""
+			switch state {
+			case "no_quotes":
+				s.Gain.Portfolio.InstrumentQuotes = nil
+				status, reason = "unavailable", "unit_nav_required"
+			case "missing_baseline":
+				s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, today, "1")}
+				status, reason = "unavailable", "missing_baseline"
+			case "baseline_too_old":
+				s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, today, "1")}
+				status, reason = "unavailable", "baseline_too_old"
+			case "unsafe_nav":
+				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1].PriceBasis = "cumulative_nav"
+				status, reason = "unavailable", "unit_nav_required"
+			case "distribution":
+				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1].DividendCash = "0.01"
+				status, reason = "unavailable", "distribution_or_unit_change"
+			case "confirming":
+				s.Gain.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 31, "1")
+				today = "2026-10-01"
+				status = "confirming"
+			case "healthy":
+				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1] = reviewQuote(t, i, today, "1.01")
+				status = "healthy"
+			case "loss":
+				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1] = reviewQuote(t, i, today, "0.98")
+				status = "loss"
+			case "stale":
+				today = "2026-10-17"
+				status = "stale"
+			case "disabled":
+				p.Enabled = false
+				status = "confirming"
+			}
+			original := onlyReview(t, s, p, today)
+			if original.Status != status || original.Reason != reason {
+				t.Fatalf("fixture: %+v", original)
+			}
+			for _, label := range []struct{ alias, code, want string }{
+				{"Family fund", "000001", "Family fund"},
+				{"", "000001", "000001"},
+				{"\u0085\u2003\ufeff", "\u00a0000001\u2003", "000001"},
+				{"\ufeff\u2003家用基金\u0085", "000001", "家用基金"},
+				{"", "\u0085\ufeff", "Synthetic fund"},
+			} {
+				s.Gain.Portfolio.Instruments[0].ShortName = label.alias
+				s.Gain.Portfolio.Instruments[0].Symbol = &label.code
+				got := onlyReview(t, s, p, today)
+				if got.DisplayName != label.want {
+					t.Errorf("label = %q, want %q", got.DisplayName, label.want)
+				}
+				got.DisplayName = original.DisplayName
+				if !reflect.DeepEqual(got, original) {
+					t.Fatalf("label changed financial projection: %+v / %+v", got, original)
+				}
+			}
+		})
+	}
+}
+
+func TestInvestmentReviewDuplicateDisplayAliasesKeepDistinctIDs(t *testing.T) {
+	s, i := reviewFixture(t)
+	s.Gain.Portfolio.Instruments[0].ShortName = "Family fund"
+	other := i
+	other.ID = NewInstrumentID()
+	other.ShortName = "Family fund"
+	s.Gain.Portfolio.Instruments = append(s.Gain.Portfolio.Instruments, other)
+	holding := s.Gain.Portfolio.Holdings[0]
+	holding.ID, holding.InstrumentID = NewHoldingID(), other.ID
+	s.Gain.Portfolio.Holdings = append(s.Gain.Portfolio.Holdings, holding)
+	rows := ProjectInvestmentReviews(s, DefaultInvestmentReviewPolicy(), "2026-10-09")
+	if len(rows) != 2 || rows[0].DisplayName != "Family fund" || rows[1].DisplayName != "Family fund" || rows[0].InstrumentID == rows[1].InstrumentID {
+		t.Fatalf("duplicate aliases: %+v", rows)
 	}
 }
