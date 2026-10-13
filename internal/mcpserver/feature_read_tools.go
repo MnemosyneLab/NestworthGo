@@ -70,7 +70,7 @@ func readSummary(v any, remove ...string) (map[string]any, error) {
 		return nil, err
 	}
 	out := map[string]any{}
-	if err = json.Unmarshal(b, &out); err != nil {
+	if err = decodeReadValue(b, &out); err != nil {
 		return nil, err
 	}
 	for _, k := range remove {

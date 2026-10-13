@@ -138,3 +138,22 @@ func TestBoundedReadInflightRevocationAndAdmission(t *testing.T) {
 		<-s.reads.builds
 	}
 }
+
+func TestBoundedReadKeepsLargeRevisionIntegersExact(t *testing.T) {
+	c := newBoundedReadCache()
+	c.activate(1)
+	revision := int64(9007199254740993)
+	r, err := c.store(1, readCapture{Kind: "test", Summary: map[string]any{"revision": revision}, Details: map[string]any{"item": map[string]any{"revision": revision}}, Sections: map[string][]json.RawMessage{"items": {}}}, 25)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(r.Summary)
+	if string(b) != `{"revision":9007199254740993}` {
+		t.Fatalf("revision rounded: %s", b)
+	}
+	e := c.entries[r.CaptureID]
+	b, _ = json.Marshal(e.Details["item"])
+	if string(b) != `{"revision":9007199254740993}` {
+		t.Fatalf("detail revision rounded: %s", b)
+	}
+}

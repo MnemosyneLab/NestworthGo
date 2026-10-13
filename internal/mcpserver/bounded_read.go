@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
@@ -249,7 +250,7 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 		return ReadEnvelope{}, fail("too_large", "capture exceeds read budget; narrow query")
 	}
 	// Own immutable bytes rather than the caller's mutable slices/maps.
-	if err := json.Unmarshal(b, &e); err != nil {
+	if err := decodeReadValue(b, &e); err != nil {
 		return ReadEnvelope{}, err
 	}
 	h := sha256.Sum256(b)
@@ -403,7 +404,7 @@ func normalizeFrozenQuery(v any) any {
 		return v
 	}
 	var out any
-	if json.Unmarshal(b, &out) != nil {
+	if decodeReadValue(b, &out) != nil {
 		return v
 	}
 	return normalizeFrozenValue(out, "")
@@ -451,7 +452,7 @@ func (c *boundedReadCache) outputRows(id string, e readCapture, section string, 
 	out := make([]json.RawMessage, 0, len(rows))
 	for _, raw := range rows {
 		var v map[string]any
-		if json.Unmarshal(raw, &v) != nil {
+		if decodeReadValue(raw, &v) != nil {
 			out = append(out, raw)
 			continue
 		}
@@ -468,4 +469,12 @@ func (c *boundedReadCache) outputRows(id string, e readCapture, section string, 
 		out = append(out, b)
 	}
 	return out
+}
+
+// Keep revision/CAS integers exact when freezing heterogeneous DTO envelopes.
+// Financial amounts remain their existing decimal-string projections.
+func decodeReadValue(raw []byte, value any) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	return decoder.Decode(value)
 }
