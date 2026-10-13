@@ -150,8 +150,10 @@ explicit 10-minute test budget, `-parallel 4` for the split packages, and
 `-p 1`; each race job has a 30-minute outer bound including setup. Sequential
 fault-injection and performance tests remain sequential. Matrix regression
 checks require every part exactly once and a complete, disjoint name union.
-There are no automatic test retries. Seven-day `race-<package>-<part>` artifacts
-retain Go JSON results (including elapsed times and failures) for diagnosis.
+There are no automatic test retries. Seven-day
+`race-<package>-<part>-attempt-<attempt>` artifacts retain Go JSON results
+(including elapsed times and failures) for diagnosis, with distinct names
+so a manual rerun cannot collide with an earlier attempt.
 
 The four application parts address repeated cumulative timeouts, not reported
 data races. Reviewed runs:
