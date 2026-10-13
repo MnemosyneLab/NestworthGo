@@ -82,7 +82,9 @@ This first iteration is an **endpoint bridge**, not investment return or an
 event-time cash-flow report. Money movements convert at the chronologically
 later endpoint's FX rate. Opening balances contribute the FX rate change;
 unchanged holding quantities with comparable quotes contribute price change
-at the later FX rate. These contributions do not overlap. Arithmetic uses exact
+at the later FX rate. A change between date-label and actual source-timestamp
+price observations breaks comparability and leaves the holding movement in the
+residual with a quote-basis reason. These contributions do not overlap. Arithmetic uses exact
 decimal strings and the existing decimal FX division precision, with no hidden
 rounding of small residuals. The source table preserves full decimal amounts.
 

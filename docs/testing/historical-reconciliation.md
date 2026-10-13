@@ -54,3 +54,23 @@ Native macOS GUI, VoiceOver, window focus and visual acceptance were **not
 observed** in this cloud Linux session. jsdom interaction tests are synthetic
 and are not native or browser visual verification. No packaging, release,
 merge, real financial data or external agent contact was performed.
+
+## Timestamp continuity regression (review follow-up)
+
+At initial PR head `13a4c9560c7c40a2a758453293b9b015957cedb0`, supported Agent
+`close` imports for an unchanged two-unit CNY holding (10 to 12 per unit)
+reproduced a gap in both `date_label` → `source_timestamp` and the reverse basis
+transition. Comparison reported supported price 4, residual 0, `reconciled`,
+while the unchanged trend reported `BasisChanged=true`, `ConnectNetWorth=false`.
+Source, source key, currency, observation kind, price policy and quantity stayed
+constant; no preference or inclusion/state change explains the difference.
+
+The timestamp authority is intentionally distinct: the Agent import contract
+in `docs/development/mcp.md` states that a date-label anchor is not an asserted
+midnight market quote. Price comparison now requires identical timestamp basis,
+as FX comparison and the trend already do. The integration regression uses
+actual Agent import APIs and isolated SQLite, then enables `query_only`. It
+checks partial attribution with supported 0, residual 4 and `basis_changed`,
+ordinary/trend-bundle agreement, reversed residual −4 and exact identity.
+Same-basis controls retain price contribution 4, residual 0 and connected trend.
+No trend, valuation, ledger, provider, frontend or binding contract is weakened.

@@ -26,6 +26,9 @@ return. For stable components, opening native amount × (later rate − earlier
 rate) is FX. An unchanged holding quantity with comparable price evidence uses
 quantity × (later price − earlier price) × later FX for price, and opening
 native value × rate change for FX. These terms do not overlap.
+Price continuity includes timestamp basis: an Agent date-label anchor and an
+actual source timestamp are different authorities. A switch leaves the affected
+holding movement in residual with `basis_changed`, matching the trend contract.
 
 Require included, complete same-currency components at both ends and no relevant
 intermediate scope or preference changes. Ignore parent rows to avoid duplicate

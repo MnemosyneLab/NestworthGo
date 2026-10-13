@@ -431,7 +431,7 @@ func reconciliationConvert(value decimal.Decimal, cell *HistoricalOverviewCell, 
 	return decimal.Zero, false
 }
 func reconciliationPriceCompatible(a, b *HistoricalOverviewEvidence) bool {
-	return a != nil && b != nil && a.Value != nil && b.Value != nil && a.Currency == b.Currency && a.Source == b.Source && a.PriceBasis == b.PriceBasis && a.ObservationKind == b.ObservationKind && a.SourcePolicyVersion == b.SourcePolicyVersion
+	return a != nil && b != nil && a.Value != nil && b.Value != nil && a.Currency == b.Currency && a.Source == b.Source && a.PriceBasis == b.PriceBasis && a.ObservationKind == b.ObservationKind && a.TimestampBasis == b.TimestampBasis && a.SourcePolicyVersion == b.SourcePolicyVersion
 }
 
 func reconciliationFXCompatible(a, b *HistoricalOverviewEvidence) bool {

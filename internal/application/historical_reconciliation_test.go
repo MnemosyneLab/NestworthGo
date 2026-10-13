@@ -332,3 +332,112 @@ func TestHistoricalReconciliationSQLiteMultiCurrencyTransfer(t *testing.T) {
 	}
 	assertReconciliation(t, reverse, "0", "-20")
 }
+
+// Use supported Agent imports, not hand-constructed quote metadata: adding or
+// omitting a daily source time changes timestamp authority without changing
+// preference, scope, source, observation kind or price policy.
+func TestHistoricalReconciliationAgentCloseTimestampContinuity(t *testing.T) {
+	for _, tc := range []struct {
+		name                     string
+		openingTime, closingTime bool
+	}{
+		{"date_label_to_source_timestamp", false, true},
+		{"source_timestamp_to_date_label", true, false},
+		{"unchanged_date_label", false, false},
+		{"unchanged_source_timestamp", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			s, db, owner, now := overviewFixture(t)
+			broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
+			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic Agent close", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "agent"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			importClose := func(date, value string, sourceTime bool) {
+				t.Helper()
+				item := AgentMarketDataItem{InstrumentID: instrument.ID.String(), Currency: "CNY", Value: value, Kind: "close", Date: date, Timezone: "UTC", SourceTitle: "Synthetic source"}
+				if sourceTime {
+					item.QuotedAt = date + "T12:00:00Z"
+				}
+				if _, err := s.ImportAgentMarketData(ctx, domain.NewActivityID().String(), AgentMarketDataInput{Items: []AgentMarketDataItem{item}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			importClose("2026-08-01", "10", tc.openingTime)
+			if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "10"}); err != nil {
+				t.Fatal(err)
+			}
+			*now = now.AddDate(0, 0, 1)
+			importClose("2026-08-02", "12", tc.closingTime)
+			*now = now.AddDate(0, 0, 1)
+			if _, err := db.SQL.Exec("PRAGMA query_only=ON"); err != nil {
+				t.Fatal(err)
+			}
+			overview, err := s.HistoricalOverview(ctx, "2026-08-01", "2026-08-02")
+			if err != nil {
+				t.Fatal(err)
+			}
+			row := overviewRow(t, overview, broker.Account.ID.String()+":holding:"+holding.ID.String())
+			wantBasis := func(sourceTime bool) string {
+				if sourceTime {
+					return "source_timestamp"
+				}
+				return "date_label"
+			}
+			a, b := row.Left.Price, row.Right.Price
+			if a == nil || b == nil || a.TimestampBasis != wantBasis(tc.openingTime) || b.TimestampBasis != wantBasis(tc.closingTime) {
+				t.Fatalf("supported quote basis transition lost: %+v / %+v", a, b)
+			}
+			if a.Source != "agent" || a.Source != b.Source || a.SourceKey != b.SourceKey || a.Currency != b.Currency || a.PriceBasis != b.PriceBasis || a.ObservationKind != b.ObservationKind || a.SourcePolicyVersion != b.SourcePolicyVersion {
+				t.Fatalf("changed more than timestamp basis: %+v / %+v", a, b)
+			}
+			wantOverviewAmount(t, row.QuantityChange, "0")
+			wantOverviewAmount(t, overview.Change.NetWorth, "4")
+			changed := tc.openingTime != tc.closingTime
+			series, err := s.HistoricalOverviewSeries(ctx, "2026-08-01", "2026-08-02")
+			if err != nil {
+				t.Fatal(err)
+			}
+			point := series.Points[1]
+			if point.ScopeChanged || point.BasisChanged != changed || point.ConnectNetWorth == changed {
+				t.Fatalf("trend continuity: %+v", point)
+			}
+			t.Logf("timestamp %s -> %s; trend basis_changed=%t connect_net_worth=%t", a.TimestampBasis, b.TimestampBasis, point.BasisChanged, point.ConnectNetWorth)
+			supported, residual := "4", "0"
+			status := "reconciled"
+			if changed {
+				supported, residual, status = "0", "4", "partial"
+			}
+			rec := overview.Reconciliation
+			if rec.Status != status {
+				t.Errorf("timestamp continuity: status=%s supported=%s price=%s residual=%s reasons=%v; want %s", rec.Status, *rec.Supported, reconciliationBucket(rec, "price_change"), *rec.Residual, rec.Reasons, status)
+			}
+			assertReconciliation(t, overview, supported, residual)
+			if slices.Contains(rec.Reasons, "basis_changed") != changed {
+				t.Fatal("timestamp basis uncertainty mismatch", rec)
+			}
+			bundled := assertReconciliation(t, series.Overview, supported, residual)
+			if bundled.Status != status || !slices.Equal(bundled.Reasons, rec.Reasons) {
+				t.Fatalf("comparison/trend attribution disagree: %+v / %+v", rec, bundled)
+			}
+			reverse, err := s.HistoricalOverview(ctx, "2026-08-02", "2026-08-01")
+			if err != nil {
+				t.Fatal(err)
+			}
+			reversedSupported, reversedResidual := "-4", "0"
+			if changed {
+				reversedSupported, reversedResidual = "0", "-4"
+			}
+			reversed := assertReconciliation(t, reverse, reversedSupported, reversedResidual)
+			if reversed.Status != status || !slices.Equal(reversed.Reasons, rec.Reasons) {
+				t.Fatal("reverse continuity differs", reversed)
+			}
+		})
+	}
+}
