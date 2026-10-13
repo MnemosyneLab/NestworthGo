@@ -715,7 +715,7 @@ func main() {
 	// fixed fixture end date. A missing-price/FX scenario omits the dependency
 	// through day 22; the normal rebuild must produce the incomplete snapshot.
 	startDate := localDate(originAt)
-	endDate := localDate(day(quoteHorizon))
+	endDate := closedFixtureEnd(day(quoteHorizon), time.Now(), sgt)
 	cursor, _ := time.Parse("2006-01-02", startDate)
 	endT, _ := time.Parse("2006-01-02", endDate)
 	totalSnap := 0
@@ -925,4 +925,16 @@ func main() {
 	add(report, settingsName, "PASS", fmt.Sprintf("wrote %s currency=%s", settingsPath, householdBase))
 
 	finishSeed(report)
+}
+
+// Quote fixtures may include today or future labels. Daily snapshots may only
+// cover closed household dates; calendar subtraction must use UTC labels.
+func closedFixtureEnd(requested, now time.Time, location *time.Location) string {
+	today, _ := time.Parse("2006-01-02", now.In(location).Format("2006-01-02"))
+	lastClosed := today.AddDate(0, 0, -1).Format("2006-01-02")
+	end := requested.In(location).Format("2006-01-02")
+	if end > lastClosed {
+		return lastClosed
+	}
+	return end
 }

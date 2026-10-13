@@ -178,7 +178,9 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	}
 	nowLocal := s.clock().In(location)
 	year, month, day := nowLocal.Date()
-	today := time.Date(year, month, day, 0, 0, 0, 0, location)
+	// Calendar arithmetic uses UTC labels, never household midnight instants.
+	// Missing midnight can normalize backward; a skipped day can stall AddDate.
+	today := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 	window.todayKey = today.Format("2006-01-02")
 	customFrom, customTo, custom := trendRange.DateBounds()
 	if custom {
@@ -188,20 +190,18 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if originDate >= window.todayKey {
 		return window, nil
 	}
-	since, err := trendSince(trendRange, today, origin.StartedAt.In(location))
+	originLabel, _ := time.Parse("2006-01-02", originDate)
+	since, err := trendSince(trendRange, today, originLabel)
 	if err != nil {
 		return nil, err
 	}
-	originLocal := origin.StartedAt.In(location)
-	originMidnight := time.Date(originLocal.Year(), originLocal.Month(), originLocal.Day(), 0, 0, 0, 0, location)
-	if since.Before(originMidnight) {
-		since = originMidnight
+	if since.Before(originLabel) {
+		since = originLabel
 	}
-	first := since.In(location)
-	first = time.Date(first.Year(), first.Month(), first.Day(), 0, 0, 0, 0, location)
+	first := since
 	last := today.AddDate(0, 0, -1)
 	if custom && customTo < last.Format("2006-01-02") {
-		last, _ = time.ParseInLocation("2006-01-02", customTo, location)
+		last, _ = time.Parse("2006-01-02", customTo)
 	}
 	if err := s.ensureClosedDaySnapshots(ctx, first.Format("2006-01-02"), last.Format("2006-01-02")); err != nil {
 		return nil, err

@@ -20,6 +20,26 @@ func TestParseAnchorUTC(t *testing.T) {
 	}
 }
 
+func TestClosedFixtureEndCapsTodayAndFutureInHouseholdTimezone(t *testing.T) {
+	for _, tc := range []struct{ zone, requested, now, want string }{
+		{"Asia/Singapore", "2026-10-13T00:00:00Z", "2026-10-13T12:00:00Z", "2026-10-12"},
+		{"UTC", "2026-10-20T00:00:00Z", "2026-10-13T12:00:00Z", "2026-10-12"},
+		{"UTC", "2026-10-10T00:00:00Z", "2026-10-13T12:00:00Z", "2026-10-10"},
+		{"America/Santiago", "2026-09-06T12:00:00Z", "2026-09-06T12:00:00Z", "2026-09-05"},
+		{"America/Havana", "2026-11-01T12:00:00Z", "2026-11-01T12:00:00Z", "2026-10-31"},
+	} {
+		loc, err := time.LoadLocation(tc.zone)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requested, _ := time.Parse(time.RFC3339, tc.requested)
+		now, _ := time.Parse(time.RFC3339, tc.now)
+		if got := closedFixtureEnd(requested, now, loc); got != tc.want {
+			t.Errorf("%s got %s want %s", tc.zone, got, tc.want)
+		}
+	}
+}
+
 func TestPathWithin(t *testing.T) {
 	base := filepath.Join(t.TempDir(), "qa")
 	inside := filepath.Join(base, "data", "nestworth.db")

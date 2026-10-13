@@ -217,40 +217,7 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 // This is intentionally separate from transaction-time resolution, which must
 // continue to reject ambiguous or nonexistent user-entered wall times.
 func historicalOverviewDayCutoff(day time.Time, location *time.Location) (time.Time, error) {
-	nextDay := day.AddDate(0, 0, 1)
-	// IANA UTC offsets fit inside this window, including date-line changes.
-	windowEnd := nextDay.Add(48 * time.Hour)
-	var lastEnd time.Time
-	for cursor := day.Add(-48 * time.Hour); cursor.Before(windowEnd); {
-		local := cursor.In(location)
-		_, offset := local.Zone()
-		_, zoneEnd := local.ZoneBounds()
-		if zoneEnd.IsZero() || zoneEnd.After(windowEnd) {
-			zoneEnd = windowEnd
-		}
-		// Some runtime/tzdata combinations do not advance at a future POSIX
-		// year boundary. Never loop forever or invent an offset across it.
-		if !zoneEnd.After(cursor) {
-			return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "timezone", Message: "cannot resolve the day boundary: timezone interval did not advance"}
-		}
-		// Intersect this constant-offset interval with the requested wall date.
-		start := day.Add(-time.Duration(offset) * time.Second)
-		end := nextDay.Add(-time.Duration(offset) * time.Second)
-		if start.Before(cursor) {
-			start = cursor
-		}
-		if end.After(zoneEnd) {
-			end = zoneEnd
-		}
-		if start.Before(end) && end.After(lastEnd) {
-			lastEnd = end
-		}
-		cursor = zoneEnd
-	}
-	if lastEnd.IsZero() {
-		return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "localDate", Message: "the selected civil date does not exist in the household timezone"}
-	}
-	return lastEnd.Add(-time.Millisecond), nil
+	return domain.ResolveCivilDateCutoff(day, location)
 }
 
 func (s *Service) historicalOverviewSide(ctx context.Context, batch *domain.HistoricalSnapshotBatch, date string, cutoff time.Time, current bool, fxProvider string, ttl time.Duration) (HistoricalOverviewState, []HistoricalOverviewRow, error) {
