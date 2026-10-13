@@ -1476,7 +1476,7 @@
   },
   "investmentReview": {
     "title": "投資複核",
-    "view": "複核投資",
+    "view": "投資複核與設定",
     "foreground": "僅在此視圖開啟或估值重新整理後評估。應用程式關閉時不會監控。",
     "scope": "逐項啟用提醒。使用目前持有的基金和銀行投資持倉的實際日期單位淨值；門檻由你自行設定。",
     "refresh": "重新整理複核",
@@ -1493,8 +1493,8 @@
     "period": "單位淨值價格報酬率：{{value}}%",
     "observations": "{{count}} 個不同日期觀測 · {{missing}} 個日曆日期沒有觀測",
     "priceOnly": "簡單年化：價格報酬率 × 365 ÷ 實際日曆天數。不含現金流、交易費用或個人持倉報酬。已知分配或單位變更會使視窗無法使用。",
-    "checkNav": "檢查淨值 · {{name}}",
-    "acknowledge": "確認複核 · {{name}}",
+    "checkNav": "查看淨值 · {{name}}",
+    "acknowledge": "已複核 · {{name}}",
     "enroll": "啟用複核提醒 · {{name}}",
     "settings": "複核偏好",
     "enable": "啟用已選擇投資的提醒",
@@ -1518,7 +1518,8 @@
       "acknowledged": "此複核階段已確認",
       "not_enabled": "此投資的提醒已停用，須手動重新啟用",
       "paused": "複核提醒已暫停",
-      "snoozed": "暫時忽略複核提醒"
+      "snoozed": "暫時忽略複核提醒",
+      "monitoring": "已啟用監測"
     },
     "reason": {
       "unit_nav_required": "需要可比較、正值、有明確日期的單位淨值觀測。不推斷舊資料、手動價格、調整後數值、幣別或綁定版本。",
@@ -1532,6 +1533,24 @@
     "snooze": "忽略 {{days}} 天 · {{name}}",
     "resumeDate": "暫時忽略於 {{date}} 結束 · {{timezone}}。此視圖下次評估時將檢查目前證據。",
     "resumeNow": "立即恢復 · {{name}}",
-    "ignoreIndefinitely": "無限期忽略 · {{name}}"
+    "ignoreIndefinitely": "停用提醒 · {{name}}",
+    "setup": "選擇要監測的符合條件的投資。不會自動加入監測；請為每項選定的投資個別啟用提醒。",
+    "choose": "選擇投資",
+    "condition": "淨值狀況",
+    "handling": "提醒處理狀態",
+    "navAction": "查看淨值",
+    "reviewedAction": "已複核",
+    "controls": "提醒控制 · {{name}}",
+    "calculation": "計算依據 · {{name}}",
+    "snoozeAction": "忽略 {{days}} 天",
+    "resumeAction": "立即恢復",
+    "disableAction": "停用提醒",
+    "currentPolicy": "目前規則：{{window}} 天視窗 · 估算年化低於 {{low}}% 或價格損失達到或低於 {{loss}}% · 持續 {{sustain}} 天確認 · 淨值最多可落後 {{age}} 天。",
+    "listView": "投資複核檢視",
+    "pending": "待複核 · {{count}}",
+    "all": "全部投資 / 設定 · {{count}}",
+    "other": "其他符合條件的投資",
+    "insufficient": "暫無待複核提醒。部分已監測投資的淨值資料缺失、不受支援或過期。開啟全部投資以檢查資料。",
+    "noPending": "已監測投資暫無待複核提醒。已確認或已忽略不表示淨值狀況已恢復；請在全部投資中查看目前狀況。"
   }
 }

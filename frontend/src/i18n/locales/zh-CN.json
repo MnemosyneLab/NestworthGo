@@ -1476,7 +1476,7 @@
   },
   "investmentReview": {
     "title": "投资复核",
-    "view": "复核投资",
+    "view": "投资复核与设置",
     "foreground": "仅在此视图打开或估值刷新后评估。应用关闭时不会监控。",
     "scope": "逐项启用提醒。使用当前持有的基金和银行投资持仓的实际日期单位净值；阈值由你自行设定。",
     "refresh": "刷新复核",
@@ -1493,8 +1493,8 @@
     "period": "单位净值价格收益率：{{value}}%",
     "observations": "{{count}} 个不同日期观测 · {{missing}} 个日历日期没有观测",
     "priceOnly": "简单年化：价格收益率 × 365 ÷ 实际日历天数。不含现金流、交易费用或个人持仓收益。已知分配或单位变更会使窗口不可用。",
-    "checkNav": "检查净值 · {{name}}",
-    "acknowledge": "确认复核 · {{name}}",
+    "checkNav": "查看净值 · {{name}}",
+    "acknowledge": "已复核 · {{name}}",
     "enroll": "启用复核提醒 · {{name}}",
     "settings": "复核偏好",
     "enable": "启用已选择投资的提醒",
@@ -1518,7 +1518,8 @@
       "acknowledged": "此复核阶段已确认",
       "not_enabled": "此投资的提醒已禁用，须手动重新启用",
       "paused": "复核提醒已暂停",
-      "snoozed": "暂时忽略复核提醒"
+      "snoozed": "暂时忽略复核提醒",
+      "monitoring": "已启用监测"
     },
     "reason": {
       "unit_nav_required": "需要可比较、正值、有明确日期的单位净值观测。不推断旧数据、手动价格、调整后数值、币种或绑定版本。",
@@ -1532,6 +1533,24 @@
     "snooze": "忽略 {{days}} 天 · {{name}}",
     "resumeDate": "临时忽略于 {{date}} 结束 · {{timezone}}。此视图下次评估时将检查当前证据。",
     "resumeNow": "立即恢复 · {{name}}",
-    "ignoreIndefinitely": "无限期忽略 · {{name}}"
+    "ignoreIndefinitely": "停用提醒 · {{name}}",
+    "setup": "选择要监测的符合条件的投资。不会自动加入监测；请为每项选定的投资单独启用提醒。",
+    "choose": "选择投资",
+    "condition": "净值状况",
+    "handling": "提醒处理状态",
+    "navAction": "查看净值",
+    "reviewedAction": "已复核",
+    "controls": "提醒控制 · {{name}}",
+    "calculation": "计算依据 · {{name}}",
+    "snoozeAction": "忽略 {{days}} 天",
+    "resumeAction": "立即恢复",
+    "disableAction": "停用提醒",
+    "currentPolicy": "当前规则：{{window}} 天窗口 · 估算年化低于 {{low}}% 或价格损失达到或低于 {{loss}}% · 持续 {{sustain}} 天确认 · 净值最多可滞后 {{age}} 天。",
+    "listView": "投资复核视图",
+    "pending": "待复核 · {{count}}",
+    "all": "全部投资 / 设置 · {{count}}",
+    "other": "其他符合条件的投资",
+    "insufficient": "暂无待复核提醒。部分已监测投资的净值数据缺失、不受支持或过期。打开全部投资以检查数据。",
+    "noPending": "已监测投资暂无待复核提醒。已确认或已忽略不表示净值状况已恢复；请在全部投资中查看当前状况。"
   }
 }
