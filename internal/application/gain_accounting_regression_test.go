@@ -31,19 +31,19 @@ func newAccountingGainFixture(t *testing.T, quantity, cost string) *accountingGa
 	f.service = NewService(f.repo)
 	f.service.setClock(func() time.Time { return f.now })
 	ctx := context.Background()
-	if err := f.service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic accounting", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := f.service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic accounting", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	f.boot, err = f.service.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.instrument, err = f.service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	f.instrument, err = f.service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"A", "B", "C"} {
-		account, err := f.service.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{f.boot.Members[0].ID}})
+		account, err := f.service.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{f.boot.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,7 +57,7 @@ func newAccountingGainFixture(t *testing.T, quantity, cost string) *accountingGa
 			t.Fatal(err)
 		}
 		f.holdings = append(f.holdings, holding)
-		if _, err := f.service.AppendAccountCashValue(ctx, account.Account.ID, "1000000000", "USD", "2026-09-25"); err != nil {
+		if _, err := f.service.AppendAccountCashValue(ctx, account.Account.ID, "1000000000", "CNY", "2026-09-25"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -96,6 +96,7 @@ func TestAccountingFullTransferSourceBoundary(t *testing.T) {
 	f := newAccountingGainFixture(t, "3", "10")
 	f.transfer(t, 0, 1, "3", f.now)
 	f.requireCost(t, 1, "3", "30")
+	f.requireInstrumentCost(t, "3", "30")
 }
 
 func TestAccountingPartialTransferExcludesLaterSameTimeCostAdjustment(t *testing.T) {
@@ -110,6 +111,7 @@ func TestAccountingPartialTransferExcludesLaterSameTimeCostAdjustment(t *testing
 	}
 	f.requireCost(t, 1, "1", "10")
 	f.requireCost(t, 0, "2", "40")
+	f.requireInstrumentCost(t, "3", "50")
 }
 
 func TestAccountingSameTimeTransferChainRoundTripAndMemoBoundaries(t *testing.T) {
@@ -124,6 +126,7 @@ func TestAccountingSameTimeTransferChainRoundTripAndMemoBoundaries(t *testing.T)
 	f.requireCost(t, 0, "3", "30")
 	f.requireCost(t, 1, "0", "0")
 	f.requireCost(t, 2, "0", "0")
+	f.requireInstrumentCost(t, "3", "30")
 	// The second transfer from A shares an effective timestamp with the first,
 	// but must resolve a distinct historical average in the same replay context.
 	f.now = f.now.Add(time.Minute)
@@ -134,20 +137,14 @@ func TestAccountingSameTimeTransferChainRoundTripAndMemoBoundaries(t *testing.T)
 	f.transfer(t, 0, 1, "1", effective)
 	f.requireCost(t, 0, "2", "40")
 	f.requireCost(t, 1, "1", "20")
-	groups, err := f.service.InstrumentHoldings(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(groups) != 1 {
-		t.Fatalf("instrument groups=%+v", groups)
-	}
+	f.requireInstrumentCost(t, "3", "60")
 }
 
 func TestAccountingEarlierSameTimeBuyAndCorrectedTransfer(t *testing.T) {
 	t.Parallel()
 	f := newAccountingGainFixture(t, "0", "10")
 	effective := f.now
-	buy := domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeBuy, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "3"), Gross: mustMoney(t, "30", "USD"), EffectiveAt: effective}
+	buy := domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeBuy, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "3"), Gross: mustMoney(t, "30", "CNY"), EffectiveAt: effective}
 	original, err := f.service.RecordChange(t.Context(), buy)
 	if err != nil {
 		t.Fatal(err)
@@ -156,7 +153,7 @@ func TestAccountingEarlierSameTimeBuyAndCorrectedTransfer(t *testing.T) {
 	transfer := f.transfer(t, 0, 1, "3", effective)
 	f.requireCost(t, 1, "3", "30")
 	f.now = f.now.Add(time.Minute)
-	buy.Gross = mustMoney(t, "60", "USD")
+	buy.Gross = mustMoney(t, "60", "CNY")
 	fixed, err := f.service.FixChange(t.Context(), original.Activity.ID, buy)
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +161,7 @@ func TestAccountingEarlierSameTimeBuyAndCorrectedTransfer(t *testing.T) {
 	f.requireCost(t, 1, "3", "60")
 	// A correction of a correction keeps the root economic position.
 	f.now = f.now.Add(time.Minute)
-	buy.Gross = mustMoney(t, "90", "USD")
+	buy.Gross = mustMoney(t, "90", "CNY")
 	if _, err := f.service.FixChange(t.Context(), fixed.Activity.ID, buy); err != nil {
 		t.Fatal(err)
 	}
@@ -195,4 +192,15 @@ func TestAccountingTransferCorrectionRetainsSourceBoundary(t *testing.T) {
 	}
 	f.requireCost(t, 1, "2", "20")
 	f.requireCost(t, 0, "1", "20")
+}
+
+func (f *accountingGainFixture) requireInstrumentCost(t *testing.T, quantity, cost string) {
+	t.Helper()
+	groups, err := f.service.InstrumentHoldings(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groups) != 1 || groups[0].Amounts.Quantity != quantity || groups[0].Amounts.TotalCost == nil || groups[0].Amounts.TotalCost.Amount != cost {
+		t.Fatalf("instrument aggregate=%+v want quantity=%s cost=%s", groups, quantity, cost)
+	}
 }

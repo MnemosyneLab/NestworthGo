@@ -9,7 +9,7 @@ import (
 func TestAccountingLargeSellUsesPersistedGross(t *testing.T) {
 	t.Parallel()
 	f := newAccountingGainFixture(t, "100000000", "1")
-	if _, err := f.service.RecordChange(t.Context(), domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeSell, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "100000000"), Gross: mustMoney(t, "100000000.49", "USD"), EffectiveAt: f.now}); err != nil {
+	if _, err := f.service.RecordChange(t.Context(), domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeSell, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "100000000"), Gross: mustMoney(t, "100000000.49", "CNY"), EffectiveAt: f.now}); err != nil {
 		t.Fatal(err)
 	}
 	gain, err := f.service.HoldingGain(t.Context(), f.holdings[0].ID)
@@ -24,8 +24,8 @@ func TestAccountingLargeSellUsesPersistedGross(t *testing.T) {
 func TestAccountingLargePartialSalesFeesLossAndPeriodAggregate(t *testing.T) {
 	t.Parallel()
 	f := newAccountingGainFixture(t, "100000000", "1")
-	fee := mustMoney(t, "0.1", "USD")
-	sell := domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeSell, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "50000000"), Gross: mustMoney(t, "50000000.24", "USD"), Fee: &fee, EffectiveAt: f.now}
+	fee := mustMoney(t, "0.1", "CNY")
+	sell := domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeSell, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "50000000"), Gross: mustMoney(t, "50000000.24", "CNY"), Fee: &fee, EffectiveAt: f.now}
 	if _, err := f.service.RecordChange(t.Context(), sell); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestAccountingLargePartialSalesFeesLossAndPeriodAggregate(t *testing.T) {
 		t.Fatalf("partial gain=%+v err=%v", gain, err)
 	}
 	f.now = f.now.Add(time.Minute)
-	sell.Gross, sell.EffectiveAt = mustMoney(t, "49999999.76", "USD"), f.now
+	sell.Gross, sell.EffectiveAt = mustMoney(t, "49999999.76", "CNY"), f.now
 	if _, err := f.service.RecordChange(t.Context(), sell); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestAccountingLargePartialSalesFeesLossAndPeriodAggregate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !period.Available || len(period.ByAccount) != 1 || period.ByAccount[0].Gain.Amount != "-0.2" || len(period.ByInstrument) != 1 || period.ByInstrument[0].Gain.Amount != "-0.2" {
+	if !period.Available || period.Total == nil || period.Total.Amount != "-0.2" || len(period.ByAccount) != 1 || period.ByAccount[0].Gain.Amount != "-0.2" || len(period.ByInstrument) != 1 || period.ByInstrument[0].Gain.Amount != "-0.2" {
 		t.Fatalf("period aggregate=%+v", period)
 	}
 }
@@ -54,8 +54,8 @@ func TestAccountingLargePartialSalesFeesLossAndPeriodAggregate(t *testing.T) {
 func TestAccountingBuyUsesGrossPlusFeeBeforeRounding(t *testing.T) {
 	t.Parallel()
 	f := newAccountingGainFixture(t, "0", "1")
-	fee := mustMoney(t, "0.02", "USD")
-	buy := domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeBuy, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "100000000"), Gross: mustMoney(t, "100000000.49", "USD"), Fee: &fee, EffectiveAt: f.now}
+	fee := mustMoney(t, "0.02", "CNY")
+	buy := domain.TradeInput{HouseholdID: f.boot.Household.ID, Side: domain.TradeBuy, SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID, InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "100000000"), Gross: mustMoney(t, "100000000.49", "CNY"), Fee: &fee, EffectiveAt: f.now}
 	posted, err := f.service.RecordChange(t.Context(), buy)
 	if err != nil {
 		t.Fatal(err)
@@ -77,9 +77,17 @@ func TestAccountingBuyUsesGrossPlusFeeBeforeRounding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	foundCash := false
 	for _, cash := range snapshot.Portfolio.CashValues {
-		if cash.AccountID == f.accounts[0].Account.ID && cash.Amount.CanonicalAmount() != "899999999.49" {
-			t.Fatalf("buy cash=%+v", cash)
+		if cash.AccountID == f.accounts[0].Account.ID {
+			foundCash = true
+			if cash.Amount.CanonicalAmount() != "899999999.49" {
+				t.Fatalf("buy cash=%+v", cash)
+			}
 		}
+	}
+
+	if !foundCash {
+		t.Fatal("buy cash missing from snapshot")
 	}
 }
