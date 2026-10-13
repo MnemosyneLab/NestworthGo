@@ -95,7 +95,9 @@ Currency, timezone, provider configuration, API keys, and MCP connection state
 and receipts are stored in SQLite and always follow the restored database.
 The preference categories default to preserving current values and are merged
 only after the restored database verifies. A rollback leaves preferences intact.
-Verified v15/v16 packages are readable when manifest and database versions match.
+Package inspection accepts supported v15/v16 manifest versions and independently
+verifies the extracted database. Installation additionally requires the manifest
+and database versions to match.
 Read-only inspection does not upgrade the extracted copy or modify the source
 package. The installed v15 copy upgrades on normal open; see the
 [narrow storage upgrade](../development/investment-short-names.md#narrow-storage-upgrade).
@@ -142,14 +144,22 @@ or modifies schema constraints. The verifier checks, in order:
 
 1. The container can be read and has the fixed member set.
 2. `format_version` is supported.
-3. Manifest fields, checksums, sizes, and member order match the payload.
-4. The database is supported schema `15` or `16`, matches its manifest version,
+3. The manifest schema version is supported, and member checksums and sizes
+   match the payload.
+4. The extracted database independently uses supported schema `15` or `16`
    and passes that version's table, column, index, and constraint verification.
 5. `foreign_key_check`, `integrity_check`, and required domain invariants pass.
 6. The database can be reopened read-only and representative Household,
    Account, Holding, Activity, quote, FX, and snapshot data can be read.
 7. Settings can be parsed. An unrecoverable preference warns in the preview but
    does not invalidate otherwise valid business data.
+
+`InspectBackup` reports the manifest's `schema_version` in the preview; it does
+not compare that value with the extracted database's version. Supported but
+mismatched versions can therefore pass inspection. After explicit confirmation,
+`InstallRestore` verifies the staging database and compares its version with
+the manifest before invoking quiesce, checkpoint or close hooks, or replacing
+live files. A mismatch fails installation at that stage.
 
 A blocking failure shows the reason, a repair suggestion, and an explicit
 statement that the current file is unchanged. It never creates a database,
