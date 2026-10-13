@@ -1,7 +1,24 @@
-import { expect, it, vi } from "vitest";
+import { beforeAll, expect, it, vi } from "vitest";
 import { Call, CancelledRejectionError, CancellablePromise, objectNames, setTransport } from "@wailsio/runtime";
 import { Service } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics";
-import { callCancellableService } from "./wails";
+import { callCancellableService } from "./wailsCancellation";
+
+// The real beta.28 barrel starts a 50ms DOM/environment poll at import time.
+// Own that startup clock before static imports run, and let the SDK stop its
+// own poll while jsdom is alive. Cancellation tests below use real timers.
+vi.hoisted(() => { vi.useFakeTimers(); });
+
+beforeAll(async () => {
+  try {
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    await vi.advanceTimersByTimeAsync(50);
+    // Regression: no SDK callback can outlive this suite's DOM. Do not clear
+    // timers or filter uncaught errors: a new/non-terminating poll must fail.
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 it("uses the installed Wails cancellable promise and keeps cancellation out of the wire-error contract", async () => {
   const controller = new AbortController();

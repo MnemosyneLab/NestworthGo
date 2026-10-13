@@ -1,4 +1,5 @@
 """Narrow checks for the race-shard selector. No race suite, no ledger."""
+import re
 import subprocess
 import unittest
 from pathlib import Path
@@ -81,6 +82,45 @@ class RaceShardSelectTests(unittest.TestCase):
 
         covered = {prefix for name in union for prefix in ("Test", "Example", "Fuzz") if name.startswith(prefix)}
         self.assertEqual(covered, {"Test", "Example", "Fuzz"})
+
+    def test_workflow_split_parts_cover_every_name_once(self):
+        workflow = WORKFLOW.read_text()
+        entries = re.findall(
+            r"- shard: (application|mcpserver)\s+part: (\d+)\s+parts: (\d+)\s+label: ([^\n]+)",
+            workflow,
+        )
+        # Exercise the actual matrix, including missing/duplicate parts and
+        # inconsistent denominators, rather than another hardcoded 2-part run.
+        listing = LISTING + "".join(f"TestGenerated{i}\n" for i in range(80))
+        expected = RUNNABLE + [f"TestGenerated{i}" for i in range(80)]
+        for shard, total in (("application", 4), ("mcpserver", 2)):
+            parts = [(int(part), int(count), label) for kind, part, count, label in entries if kind == shard]
+            self.assertEqual(sorted(part for part, _, _ in parts), list(range(total)))
+            union = []
+            for part, count, label in parts:
+                self.assertEqual(count, total)
+                self.assertEqual(label, f"{shard} {part + 1}/{total}")
+                result = self.run_select("--names", part, count, stdin=listing)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                union.extend(self.names_from_regex(result.stdout.strip()))
+            self.assertCountEqual(union, expected)
+            self.assertEqual(len(union), len(set(union)))
+
+    def test_workflow_keeps_bounded_race_execution_and_fail_closed_aggregate(self):
+        workflow = WORKFLOW.read_text()
+        self.assertIn("timeout-minutes: 30", workflow)
+        self.assertIn("fail-fast: false", workflow)
+        self.assertIn("set -euo pipefail", workflow)
+        self.assertIn("go test -race -count=1 -json -timeout 10m -p 1", workflow)
+        self.assertIn('go list ./... > "$RUNNER_TEMP/race-packages.txt"', workflow)
+        self.assertNotIn("< <(go list", workflow)
+        self.assertIn("actions/upload-artifact@v4", workflow)
+        aggregate = workflow.split("\n  race:\n", 1)[1]
+        self.assertIn("needs: race-shard", aggregate)
+        self.assertIn("if: always()", aggregate)
+        self.assertIn('if [ "${{ needs.race-shard.result }}" != "success" ]; then', aggregate)
+        self.assertIn("exit 1", aggregate)
+        self.assertNotIn("continue-on-error", workflow)
 
     def test_successful_enumeration_uses_the_same_selection(self):
         result = self.run_select(

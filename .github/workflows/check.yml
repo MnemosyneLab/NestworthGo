@@ -65,31 +65,37 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
-  # PR #44 integration race job 113326922058 timed out the application
-  # package at 600.030s. MCP passed that run at 577.280s. Each of those
-  # packages is therefore split into two go test processes, each with its own
-  # default 10m timeout, and up to 4 tests run at once. The other four tests
-  # stay sequential inside whichever part contains them: three write
-  # process-global product fault injection, and TestAnalysisPerformanceBudgets
-  # asserts uncontended wall-clock budgets. Packages in a shard stay at -p 1.
-  # Split packages are listed with `go test -race -list` (same race build as
-  # the run). Test, Example, and Fuzz names are partitioned. A failed list
-  # exits the shard; it is not swallowed by process substitution.
+  # Application 2/2 repeatedly exhausted Go's cumulative 10m test budget
+  # (PR #60, main, PR #61); no assertion or race detector failure preceded it.
+  # Four application parts reduce work per runner without increasing in-process
+  # concurrency or skipping tests. MCP remains two parts. Keep the 10m bound
+  # explicit and retain per-test JSON evidence for future distribution reviews.
+  # Test/Example/Fuzz names come from the same race build as the run. Fault
+  # injection and uncontended performance tests retain their sequential status.
   race-shard:
     name: race (${{ matrix.label }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - shard: application
             part: 0
-            parts: 2
-            label: application 1/2
+            parts: 4
+            label: application 1/4
           - shard: application
             part: 1
-            parts: 2
-            label: application 2/2
+            parts: 4
+            label: application 2/4
+          - shard: application
+            part: 2
+            parts: 4
+            label: application 3/4
+          - shard: application
+            part: 3
+            parts: 4
+            label: application 4/4
           - shard: mcpserver
             part: 0
             parts: 2
@@ -136,7 +142,10 @@ jobs:
               pkgs=(./internal/infrastructure/...)
               ;;
             remainder)
-              mapfile -t pkgs < <(go list ./... | grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure($|/))')
+              # Check enumeration before filtering; process substitution hides
+              # a failed go list and can silently drop packages.
+              go list ./... > "$RUNNER_TEMP/race-packages.txt"
+              mapfile -t pkgs < <(grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure($|/))' "$RUNNER_TEMP/race-packages.txt")
               ;;
             *)
               echo "unknown race shard: $shard" >&2
@@ -166,7 +175,15 @@ jobs:
           fi
           printf 'shard %s packages:\n' "$shard"
           printf '  %s\n' "${pkgs[@]}"
-          go test -race -p 1 "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}"
+          go test -race -count=1 -json -timeout 10m -p 1 "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/race-results.jsonl"
+      - name: Retain race test timings and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: race-${{ matrix.shard }}-${{ matrix.part }}
+          path: ${{ runner.temp }}/race-results.jsonl
+          if-no-files-found: error
+          retention-days: 7
 
   race:
     needs: race-shard

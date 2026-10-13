@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { callCancellableService } from "@/lib/wails";
+import { callCancellableService } from "@/lib/wailsCancellation";
 
 /** A capture belongs to this page session. Key changes/unmount consume the
  * query signal; disabling a retained observer needs explicit cancellation too.
