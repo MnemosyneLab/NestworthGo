@@ -17,6 +17,8 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 		return domain.NetWorthTrend{Range: trendRange}, nil
 	}
 	points := make([]domain.NetWorthTrendPoint, 0, len(window.snapshots)+1)
+	var firstScope, firstBasis, lastScope, lastBasis string
+	compatible := true
 	for _, snapshot := range window.snapshots {
 		if snapshot.LocalDate >= window.todayKey {
 			continue
@@ -34,14 +36,29 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 			liabilities = snapshot.LiabilitiesAmount
 			status = domain.TrendPointComplete
 		}
+		if snapshot.Currency == "" {
+			snapshot.Currency = window.currency
+		}
+		display, _, err := snapshotDisplay(snapshot, window.evidence)
+		if err != nil {
+			return domain.NetWorthTrend{}, err
+		}
+		scope, basis := snapshotValuationCompatibility(snapshot, window.evidence)
+		if len(points) == 0 {
+			firstScope, firstBasis = scope, basis
+		} else if lastScope != scope || lastBasis != basis {
+			compatible = false
+		}
+		lastScope, lastBasis = scope, basis
 		points = append(points, domain.NetWorthTrendPoint{
-			LocalDate:    snapshot.LocalDate,
-			NetWorth:     netWorth,
-			Assets:       assets,
-			Liabilities:  liabilities,
-			Status:       status,
-			Complete:     snapshot.Complete,
-			MissingCount: snapshot.MissingCount,
+			DisplayValuation: display,
+			LocalDate:        snapshot.LocalDate,
+			NetWorth:         netWorth,
+			Assets:           assets,
+			Liabilities:      liabilities,
+			Status:           status,
+			Complete:         snapshot.Complete,
+			MissingCount:     snapshot.MissingCount,
 		})
 	}
 	if window.todayKey != "" && window.includeCurrent {
@@ -50,7 +67,8 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 			return domain.NetWorthTrend{}, err
 		}
 		point := domain.NetWorthTrendPoint{
-			LocalDate: window.todayKey, Complete: current.Complete, Current: true,
+			Current: true, DisplayValuation: current.DisplayValuation,
+			LocalDate: window.todayKey, Complete: current.Complete,
 			MissingCount: len(current.MissingInputs), Status: domain.TrendPointIncomplete,
 		}
 		if current.Complete {
@@ -71,6 +89,12 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 			point.Liabilities = &liabilities
 			point.Status = domain.TrendPointComplete
 		}
+		if len(points) > 0 {
+			compatible = compatible && lastScope == current.DisplayScopeKey && lastBasis == current.DisplayBasisKey
+		} else {
+			firstScope, firstBasis = current.DisplayScopeKey, current.DisplayBasisKey
+		}
+		lastScope, lastBasis = current.DisplayScopeKey, current.DisplayBasisKey
 		points = append(points, point)
 	}
 	if len(points) == 0 {
@@ -92,7 +116,23 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	} else if start == nil || end == nil {
 		reason = "missing_boundary"
 	}
-	return domain.NetWorthTrend{Range: trendRange, Currency: window.currency, Points: points, Start: start, End: end, Change: change,
+	var estimated *domain.SignedMoney
+	if len(points) > 1 {
+		first, last := points[0].DisplayValuation.NetWorth.Total, points[len(points)-1].DisplayValuation.NetWorth.Total
+		if compatible && firstScope == lastScope && firstBasis == lastBasis && first != nil && last != nil && first.Currency == last.Currency {
+			a, e1 := decimal.NewFromString(first.Amount)
+			b, e2 := decimal.NewFromString(last.Amount)
+			if e1 != nil || e2 != nil {
+				return domain.NetWorthTrend{}, &domain.Error{Code: domain.ErrIntegrity, Message: "invalid display endpoint"}
+			}
+			v, e := domain.NewSignedMoney(b.Sub(a), window.currency)
+			if e != nil {
+				return domain.NetWorthTrend{}, e
+			}
+			estimated = &v
+		}
+	}
+	return domain.NetWorthTrend{EstimatedChange: estimated, Range: trendRange, Currency: window.currency, Points: points, Start: start, End: end, Change: change,
 		StartDate: points[0].LocalDate, EndDate: points[len(points)-1].LocalDate, Complete: complete, SummaryReason: reason}, nil
 }
 
@@ -114,6 +154,14 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRan
 			return domain.PortfolioTrend{}, err
 		}
 		if include {
+			if snapshot.Currency == "" {
+				snapshot.Currency = window.currency
+			}
+			_, display, err := snapshotDisplay(snapshot, window.evidence)
+			if err != nil {
+				return domain.PortfolioTrend{}, err
+			}
+			point.DisplayValuation = display
 			points = append(points, point)
 		}
 	}
@@ -131,6 +179,7 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRan
 			valued = &money
 		}
 		points = append(points, domain.PortfolioTrendPoint{
+			Current: true, DisplayValuation: current.DisplayValuation,
 			LocalDate:      window.todayKey,
 			ValuedSubtotal: valued,
 			Status: func() domain.TrendPointStatus {
@@ -150,6 +199,7 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRan
 }
 
 type closedTrendWindow struct {
+	evidence       snapshotDisplayEvidence
 	includeCurrent bool
 	currency       domain.CurrencyCode
 	todayKey       string
@@ -203,15 +253,39 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if custom && customTo < last.Format("2006-01-02") {
 		last, _ = time.Parse("2006-01-02", customTo)
 	}
+	if first.After(last) {
+		return window, nil
+	}
 	if err := s.ensureClosedDaySnapshots(ctx, first.Format("2006-01-02"), last.Format("2006-01-02")); err != nil {
 		return nil, err
 	}
 	// The repository filters local-date labels, independently of UTC offsets.
 	sinceDate, _ := time.Parse("2006-01-02", first.Format("2006-01-02"))
 	untilDate, _ := time.Parse("2006-01-02", last.Format("2006-01-02"))
+	generationBefore, err := s.repository.DailySnapshotState(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return nil, err
+	}
 	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, sinceDate, untilDate)
 	if err != nil {
 		return nil, err
+	}
+	// Hydrate only selected immutable evidence, without panorama profile limits.
+	if len(snapshots) > 0 {
+		if reader, ok := s.repository.(snapshotQuoteEvidenceRepository); ok {
+			facts, err := reader.ReadSnapshotQuoteEvidence(ctx, bootstrap.Household.ID, snapshots)
+			if err != nil {
+				return nil, err
+			}
+			window.evidence = newSnapshotDisplayEvidence(domain.HistoricalSnapshotBatch{Portfolio: facts, InstrumentQuoteFacts: facts.InstrumentQuotes, FXQuoteFacts: facts.FXQuotes}, s.clock(), s.QuoteCacheTTL())
+		}
+	}
+	generationAfter, err := s.repository.DailySnapshotState(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return nil, err
+	}
+	if generationBefore.InputGeneration != generationAfter.InputGeneration {
+		return nil, &domain.Error{Code: domain.ErrConflict, Message: "historical valuation inputs changed; retry the read"}
 	}
 	byDate := make(map[string]domain.DailyValuationSnapshot, len(snapshots))
 	for _, snapshot := range snapshots {
@@ -224,7 +298,7 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 			continue
 		}
 		// A missing day is a first-class gap, never a zero-valued snapshot.
-		window.snapshots = append(window.snapshots, domain.DailyValuationSnapshot{LocalDate: key, MissingCount: 1})
+		window.snapshots = append(window.snapshots, domain.DailyValuationSnapshot{LocalDate: key, Currency: window.currency, MissingCount: 1})
 	}
 	return window, nil
 }
@@ -332,4 +406,8 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, endDa
 		}
 		return s.ensureSnapshotCoverage(ctx, household.ID, startDate, endDate)
 	})
+}
+
+type snapshotQuoteEvidenceRepository interface {
+	ReadSnapshotQuoteEvidence(context.Context, domain.HouseholdID, []domain.DailyValuationSnapshot) (domain.PortfolioSnapshot, error)
 }

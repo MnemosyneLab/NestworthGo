@@ -383,3 +383,18 @@ available, including the account-type choices.
 
 See [bundled bank logos](../development/bank-logos.md) for source provenance,
 security screening, rendering and verification.
+
+### Display valuation availability
+
+`displayValuation` projects the same selected components and exact sums as strict
+valuation. `availability` is full, partial or none; `coverage` is verified,
+provisional or unavailable. A full provisional estimate is displayable without
+making `Complete` true or granting return eligibility. `total` exists only for
+full availability. `knownSubtotal` exists for at least one valued leaf, or a
+provably empty universe (known zero). Missing input is never a zero leaf.
+Counts refer to distinct leaves; carried price/FX and freshness are independent
+of coverage. Bounds describe actual economic market dates, never fetch dates.
+The signed net subtotal is a known net contribution, not a lower bound: missing
+liabilities can overstate wealth. Assets and liabilities retain separate quality.
+Asset Trend level metrics may use display values at the final requested day;
+return, rate, attribution, capital and waterfall continue using strict inputs.

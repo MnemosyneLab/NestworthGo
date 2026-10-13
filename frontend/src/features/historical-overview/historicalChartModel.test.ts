@@ -81,3 +81,19 @@ it("keeps ordinary zero-to-active and active-to-zero balances comparable", () =>
   expect(accountChanges(rows, "liability").comparable.map(item => item.key)).toEqual(["paid-down"]);
   expect(accountChanges(rows, "asset").separate.map(item => item.key)).toEqual(["archived"]);
 });
+
+it("uses guarded display differences without falling back to strict values across an incompatible basis", () => {
+  const amount = { amount: "100", currency: "CNY" };
+  const quality = { availability: "full", coverage: "verified", includedCount: 1, valuedCount: 1, unpricedCount: 0, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: [] };
+  const left = cell("100", { displayValuation: { currency: "CNY", total: amount, knownSubtotal: amount, quality } });
+  const right = cell(null, { displayValuation: { currency: "CNY", total: amount, knownSubtotal: amount, quality: { ...quality, coverage: "provisional" } } });
+  const blocked = row("source-change", "asset", null, { left, right, estimatedBaseChange: undefined });
+  expect(comparableAccount(blocked)).toBe(false);
+  expect(accountChanges([blocked], "asset").comparable).toEqual([]);
+  const compatible = { ...blocked, estimatedBaseChange: "0" };
+  expect(comparableAccount(compatible)).toBe(true);
+  // The legacy strict field is intentionally retained, but isn't proof of a
+  // compatible new display estimate when both sides provide quality.
+  const verifiedBlocked = { ...blocked, baseChange: "5", right: cell("105", { displayValuation: { currency: "CNY", total: amount, knownSubtotal: amount, quality } }) };
+  expect(comparableAccount(verifiedBlocked)).toBe(false);
+});

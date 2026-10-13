@@ -183,7 +183,7 @@ it("opens a closed day, expands using keyboard and repeatedly dismisses read-onl
   expect(exit).toHaveBeenCalledOnce();
 });
 
-it("compares aligned rows, filters changes and freezes current until an explicit refresh", async () => {
+it("compares aligned rows, filters changes and refreshes current after invalidation", async () => {
   const user = userEvent.setup();
   const { client } = show();
   await screen.findByRole("button", { name: "Bank" });
@@ -194,9 +194,9 @@ it("compares aligned rows, filters changes and freezes current until an explicit
   expect(screen.queryByRole("button", { name: "Unchanged" })).not.toBeInTheDocument();
   const reads = read.mock.calls.length;
   await act(async () => { await client.invalidateQueries(); });
-  expect(read).toHaveBeenCalledTimes(reads);
+  expect(read).toHaveBeenCalledTimes(reads + 1);
   await user.click(screen.getByRole("button", { name: "Refresh both dates" }));
-  await waitFor(() => expect(read).toHaveBeenCalledTimes(reads + 1));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(reads + 2));
 });
 
 it("ignores late responses after changing date and clears an open detail on comparison changes", async () => {
@@ -421,7 +421,8 @@ it("deduplicates repeated refresh clicks and replaces both captured sides togeth
   const before = read.mock.calls.length;
   await userEvent.dblClick(screen.getByRole("button", { name: "Refresh both dates" }));
   expect(read).toHaveBeenCalledTimes(before + 1);
-  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(screen.getByRole("table")).toBeInTheDocument();
+ expect(screen.getByText("Updating valuation")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Refresh both dates" })).toBeDisabled();
   const updated = result("2026-08-01", "current");
   updated.capturedAt = "2026-08-10T12:30:00Z";
@@ -432,14 +433,15 @@ it("deduplicates repeated refresh clicks and replaces both captured sides togeth
   expect(screen.queryByTitle("2026-08-10T12:00:00Z")).not.toBeInTheDocument();
 });
 
-it("hides a failed refresh's old totals and permits an explicit retry", async () => {
+it("retains a failed refresh's prior totals with an explicit error and retry", async () => {
   show();
   await screen.findByRole("button", { name: "Bank" });
   read.mockRejectedValueOnce(new Error("refresh failed"));
   await userEvent.click(screen.getByRole("button", { name: "Refresh date" }));
   await screen.findByRole("alert");
-  expect(screen.queryByRole("table")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Bank" })).not.toBeInTheDocument();
+  expect(screen.getByRole("table")).toBeInTheDocument();
+ expect(screen.getByRole("alert")).toHaveTextContent("Prior result; refresh failed");
+  expect(screen.getByRole("button", { name: "Bank" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
   await screen.findByRole("button", { name: "Bank" });
 });
@@ -965,10 +967,10 @@ it("atomically enables a new series capture and keeps metric, dates and tabs loc
   expect(within(screen.getByRole("region", { name: "Time trend" })).getByRole("button", { name: "Assets" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "2026-08-03" })).toHaveAttribute("aria-pressed", "true");
   await act(async () => client.invalidateQueries());
-  expect(seriesRead).toHaveBeenCalledTimes(1); expect(read).toHaveBeenCalledTimes(originalReads);
+  expect(seriesRead).toHaveBeenCalledTimes(2); expect(read).toHaveBeenCalledTimes(originalReads);
   const row = screen.getByRole("button", { name: "2026-08-03" }).closest("tr")!;
   await userEvent.click(within(row).getByRole("button", { name: "Set as A · Recapture range" }));
-  await waitFor(() => expect(seriesRead).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(seriesRead).toHaveBeenCalledTimes(3));
   expect(seriesRead).toHaveBeenLastCalledWith("2026-08-03", "2026-08-09");
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-08-03");
   await userEvent.click(within(screen.getByRole("button", { name: "2026-08-03" }).closest("tr")!).getByRole("button", { name: "Open day · New capture" }));

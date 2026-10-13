@@ -24,6 +24,7 @@ const (
 	HealthKindMissingAccountValue      = "missing_account_value"
 	HealthKindIncompleteValuation      = "incomplete_valuation"
 	HealthKindHistoryPending           = "history_pending"
+	HealthKindValuationProvisional     = "valuation_provisional"
 	HealthKindSnapshotIncomplete       = "snapshot_incomplete"
 	HealthKindSnapshotMissing          = "snapshot_missing"
 	HealthKindSnapshotOutdated         = "snapshot_outdated"
@@ -190,6 +191,18 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 		return MarketDataHealthReport{}, err
 	}
 	for _, issue := range storedIssues {
+		duplicate := false
+		if issue.Code == "valuation_coverage_pending" {
+			for _, existing := range issues {
+				if existing.Code == issue.Code && existing.TargetKey == issue.TargetKey && existing.RangeStart <= issue.RangeStart && existing.RangeEnd >= issue.RangeEnd {
+					duplicate = true
+					break
+				}
+			}
+		}
+		if duplicate {
+			continue
+		}
 		// Keep the precise snapshot date, and retain existing actionable root causes.
 		for _, existing := range issues {
 			if issue.Kind == HealthKindSnapshotIncomplete && issue.InstrumentID != "" && existing.InstrumentID == issue.InstrumentID && existing.RangeStart <= issue.RangeStart && existing.RangeEnd >= issue.RangeEnd && existing.Severity == HealthSeverityBlocking {
@@ -425,6 +438,7 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 				return nil, dateErr
 			}
 			missing := make([]string, 0)
+			pending := make([]string, 0)
 			var selected *domain.InstrumentQuote
 			cursor := 0
 			for _, date := range required {
@@ -433,9 +447,14 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 					selected = &quote
 					cursor++
 				}
-				if selected == nil || !agentInstrumentCarryComplete(*selected, closure, string(date)) {
+				if selected == nil {
 					missing = append(missing, date)
+				} else if !agentInstrumentCarryComplete(*selected, closure, string(date)) {
+					pending = append(pending, date)
 				}
+			}
+			for _, r := range dateRangesFromDates(pending) {
+				issues = append(issues, HealthIssue{ID: "agent-pending-" + instrument.ID.String() + "-" + string(r.Start), Kind: HealthKindValuationProvisional, Severity: HealthSeverityInfo, GroupKey: instrumentTargetKey(instrument.ID), TargetKey: instrumentTargetKey(instrument.ID), Label: instrument.DisplayLabel(), InstrumentID: instrument.ID.String(), RangeStart: string(r.Start), RangeEnd: string(r.End), RangeCount: 1, Code: "valuation_coverage_pending", Reason: "valuation_coverage_pending", Action: HealthActionNone})
 			}
 			if len(missing) == 0 {
 				continue
@@ -507,12 +526,6 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 		pair := fxPairKey(preference.CurrencyA, preference.CurrencyB)
 		label := pair
 		if preference.SourceKind == domain.QuoteSourceAgent {
-			agentDates := make(map[string]struct{})
-			for _, quote := range quotes {
-				if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(FXObservationDailyReference) && fxPairKey(quote.BaseCurrency, quote.QuoteCurrency) == pair && quote.EffectiveDate != "" {
-					agentDates[quote.EffectiveDate] = struct{}{}
-				}
-			}
 			if plan.YesterdayLocal < plan.OriginLocalDate {
 				continue
 			}
@@ -520,12 +533,26 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 			if dateErr != nil {
 				return nil, covered, dateErr
 			}
+
 			missing := make([]string, 0)
+			pending := make([]string, 0)
 			for _, date := range required {
-				if _, ok := agentDates[date]; !ok {
+				labelDate, _ := time.Parse("2006-01-02", date)
+				cutoff, err := historicalOverviewDayCutoff(labelDate, location)
+				if err != nil {
+					return nil, covered, err
+				}
+				q := selectHistoricalFXQuoteAtMarketDate(preference, quotes, preference.CurrencyA, preference.CurrencyB, providerKey, date, cutoff)
+				if q == nil {
 					missing = append(missing, date)
+				} else if !historicalFXCoverageCompleteAtMarketDate(domain.PortfolioSnapshot{FXHistoryCoverage: coverage}, *q, date) {
+					pending = append(pending, date)
 				}
 			}
+			for _, r := range dateRangesFromDates(pending) {
+				issues = append(issues, HealthIssue{ID: "agent-fx-pending-" + pair + "-" + string(r.Start), Kind: HealthKindValuationProvisional, Severity: HealthSeverityInfo, GroupKey: pair, TargetKey: pair, Label: label, CurrencyA: preference.CurrencyA.String(), CurrencyB: preference.CurrencyB.String(), RangeStart: string(r.Start), RangeEnd: string(r.End), RangeCount: 1, Code: "valuation_coverage_pending", Reason: "valuation_coverage_pending", Action: HealthActionNone})
+			}
+
 			if len(missing) == 0 {
 				continue
 			}

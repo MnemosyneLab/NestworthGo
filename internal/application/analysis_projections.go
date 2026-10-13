@@ -108,10 +108,11 @@ const (
 )
 
 type AssetTrendPoint struct {
-	Period   string
-	Value    *domain.SignedMoney
-	Rate     *decimal.Decimal
-	Coverage domain.RateCoverage
+	DisplayValuation *domain.ValuationAmount
+	Period           string
+	Value            *domain.SignedMoney
+	Rate             *decimal.Decimal
+	Coverage         domain.RateCoverage
 	AnalysisAvailability
 }
 
@@ -554,6 +555,13 @@ func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granulari
 	}
 	if !validTrendMetric(metric) {
 		return AssetTrendResult{}, &domain.Error{Code: domain.ErrValidation, Field: "metric", Message: "asset trend metric is invalid"}
+	}
+	if isTrendLevel(metric) {
+		for _, day := range result.Days {
+			if day.DisplayEnding != nil {
+				return foldDisplayAssetLevels(result, forced, granularity, metric)
+			}
+		}
 	}
 	if metric == TrendReturnRate {
 		return foldAssetTrendRates(result, forced, granularity)
@@ -1233,4 +1241,124 @@ func assetLevelSummary(result domain.PeriodAnalysisResult, metric AssetTrendMetr
 		summary.ChangeRate = &rate
 	}
 	return summary
+}
+
+// Levels use the actual final requested day of each bucket. Missing final
+// endpoints never cause a search inward for a more convenient complete date.
+func foldDisplayAssetLevels(result domain.PeriodAnalysisResult, forced string, granularity AssetTrendGranularity, metric AssetTrendMetric) (AssetTrendResult, error) {
+	type level struct {
+		a        displayAccumulator
+		currency domain.CurrencyCode
+		strict   decimal.Decimal
+		complete bool
+	}
+	dates := map[string]*level{}
+	lastByPeriod := map[string]string{}
+	for _, day := range result.Days {
+		date := string(day.Date)
+		period, err := assetTrendPeriod(day.Date, result.AnalysisDayTimezone, granularity)
+		if err != nil {
+			return AssetTrendResult{}, err
+		}
+		if date > lastByPeriod[period] {
+			lastByPeriod[period] = date
+		}
+		l := dates[date]
+		if l == nil {
+			l = &level{complete: true}
+			dates[date] = l
+		}
+		if metric == TrendAssets && day.DisplayLiability || metric == TrendLiabilities && !day.DisplayLiability {
+			continue
+		}
+		v := day.DisplayEnding
+		if v == nil {
+			l.complete = false
+			continue
+		}
+		l.currency = v.Currency
+		q := v.Quality
+		l.a.quality.IncludedCount += q.IncludedCount
+		l.a.quality.ValuedCount += q.ValuedCount
+		l.a.quality.UnpricedCount += q.UnpricedCount
+		l.a.quality.ProvisionalCount += q.ProvisionalCount
+		l.a.quality.CarriedCount += q.CarriedCount
+		l.a.quality.StaleCount += q.StaleCount
+		for _, r := range q.Reasons {
+			l.a.reason(r)
+		}
+		if q.OldestMarketDate != nil && (l.a.quality.OldestMarketDate == nil || *q.OldestMarketDate < *l.a.quality.OldestMarketDate) {
+			l.a.quality.OldestMarketDate = q.OldestMarketDate
+		}
+		if q.NewestMarketDate != nil && (l.a.quality.NewestMarketDate == nil || *q.NewestMarketDate > *l.a.quality.NewestMarketDate) {
+			l.a.quality.NewestMarketDate = q.NewestMarketDate
+		}
+		l.a.uncertain = l.a.uncertain || (q.Availability != domain.ValuationFull && q.UnpricedCount == 0)
+		if v.KnownSubtotal != nil {
+			var value decimal.Decimal
+			if day.DisplayEndingExact != nil {
+				value = *day.DisplayEndingExact
+			} else {
+				// Compatibility for manually constructed kernel results; production leaves
+				// retain their exact source decimal separately from the rounded view.
+				var err error
+				value, err = decimal.NewFromString(v.KnownSubtotal.Amount)
+				if err != nil {
+					return AssetTrendResult{}, err
+				}
+			}
+			if metric == TrendLiabilities {
+				value = value.Neg()
+			}
+			l.a.sum = l.a.sum.Add(value)
+			l.currency = v.KnownSubtotal.Currency
+		}
+		l.complete = l.complete && day.Status == domain.CompletenessOK
+		if strict, ok := trendDayValue(day, metric); ok {
+			l.strict = l.strict.Add(strict.Amount())
+			if l.currency == "" {
+				l.currency = strict.Currency()
+			}
+		}
+	}
+	periods := make([]string, 0, len(lastByPeriod))
+	for p := range lastByPeriod {
+		periods = append(periods, p)
+	}
+	sort.Strings(periods)
+	view := AssetTrendResult{AnalysisAvailability: availability(result, forced), Coverage: result.Coverage, Points: []AssetTrendPoint{}}
+	for _, p := range periods {
+		l := dates[lastByPeriod[p]]
+		if l.currency == "" {
+			for _, d := range result.Days {
+				if d.DisplayEnding != nil && d.DisplayEnding.KnownSubtotal != nil {
+					l.currency = d.DisplayEnding.KnownSubtotal.Currency
+					break
+				}
+			}
+		}
+		v, err := l.a.amount(l.currency, true)
+		if err != nil {
+			return view, err
+		}
+		point := AssetTrendPoint{Period: p, DisplayValuation: &v, AnalysisAvailability: AnalysisAvailability{Available: v.KnownSubtotal != nil, Status: domain.CompletenessPartial, ValuationForced: forcedPointer(forced)}}
+		if l.complete {
+			point.Status = domain.CompletenessOK
+			point.Value = signedPointer(l.strict, l.currency)
+		}
+		if v.Quality.Coverage != domain.CoverageVerified {
+			point.MissingReason = "valuation available; return pending"
+		}
+		view.Available = view.Available || point.Available
+		view.Points = append(view.Points, point)
+		view.Summary = point.Value
+	}
+	// Endpoint change remains the existing strict financial projection.
+	currency := domain.CurrencyCode("")
+	if view.Summary != nil {
+		currency = view.Summary.Currency()
+	}
+	change := assetLevelSummary(result, metric, currency)
+	view.ValueChange = &change
+	return view, nil
 }

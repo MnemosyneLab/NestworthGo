@@ -13,6 +13,7 @@ import (
 // HistoricalOverviewResult is a presentation read model, not a saved snapshot.
 // Amounts are exact decimal strings. Nil means unknown, never zero.
 type HistoricalOverviewResult struct {
+	EstimatedChange *HistoricalOverviewTotalsChange `json:"estimatedChange,omitempty"`
 	Timezone        string                          `json:"timezone"`
 	OriginDate      string                          `json:"originDate"`
 	LastClosedDate  string                          `json:"lastClosedDate"`
@@ -36,18 +37,21 @@ type HistoricalOverviewTotalsChange struct {
 }
 
 type HistoricalOverviewState struct {
-	Date             string                         `json:"date"`
-	CutoffAt         string                         `json:"cutoffAt"`
-	Current          bool                           `json:"current"`
-	Currency         string                         `json:"currency"`
-	Complete         bool                           `json:"complete"`
-	Assets           *string                        `json:"assets"`
-	Liabilities      *string                        `json:"liabilities"`
-	NetWorth         *string                        `json:"netWorth"`
-	KnownAssets      string                         `json:"knownAssets"`
-	KnownLiabilities string                         `json:"knownLiabilities"`
-	ByClass          []HistoricalOverviewAllocation `json:"byClass"`
-	ByCurrency       []HistoricalOverviewAllocation `json:"byCurrency"`
+	displayScope     string
+	displayBasis     string
+	DisplayValuation domain.HouseholdDisplayValuation `json:"displayValuation,omitempty"`
+	Date             string                           `json:"date"`
+	CutoffAt         string                           `json:"cutoffAt"`
+	Current          bool                             `json:"current"`
+	Currency         string                           `json:"currency"`
+	Complete         bool                             `json:"complete"`
+	Assets           *string                          `json:"assets"`
+	Liabilities      *string                          `json:"liabilities"`
+	NetWorth         *string                          `json:"netWorth"`
+	KnownAssets      string                           `json:"knownAssets"`
+	KnownLiabilities string                           `json:"knownLiabilities"`
+	ByClass          []HistoricalOverviewAllocation   `json:"byClass"`
+	ByCurrency       []HistoricalOverviewAllocation   `json:"byCurrency"`
 }
 
 type HistoricalOverviewAllocation struct {
@@ -57,6 +61,7 @@ type HistoricalOverviewAllocation struct {
 }
 
 type HistoricalOverviewEvidence struct {
+	FetchedAt           *string `json:"fetchedAt,omitempty"`
 	ID                  string  `json:"id"`
 	Source              string  `json:"source"`
 	EffectiveAt         string  `json:"effectiveAt"`
@@ -83,38 +88,42 @@ type HistoricalMissingDetail struct {
 }
 
 type HistoricalOverviewCell struct {
-	Status         string                      `json:"status"`
-	Included       bool                        `json:"included"`
-	Complete       bool                        `json:"complete"`
-	Currency       string                      `json:"currency"`
-	NativeAmount   *string                     `json:"nativeAmount"`
-	BaseAmount     *string                     `json:"baseAmount"`
-	Quantity       *string                     `json:"quantity"`
-	AssetClass     string                      `json:"assetClass"`
-	Manual         bool                        `json:"manual"`
-	ValueSourceAt  string                      `json:"valueSourceAt"`
-	ValueSourceID  string                      `json:"valueSourceId"`
-	Price          *HistoricalOverviewEvidence `json:"price"`
-	FX             *HistoricalOverviewEvidence `json:"fx"`
-	Missing        []string                    `json:"missing"`
-	MissingDetails []HistoricalMissingDetail   `json:"missingDetails"`
+	displayScope     string
+	displayBasis     string
+	DisplayValuation domain.ValuationAmount      `json:"displayValuation,omitempty"`
+	Status           string                      `json:"status"`
+	Included         bool                        `json:"included"`
+	Complete         bool                        `json:"complete"`
+	Currency         string                      `json:"currency"`
+	NativeAmount     *string                     `json:"nativeAmount"`
+	BaseAmount       *string                     `json:"baseAmount"`
+	Quantity         *string                     `json:"quantity"`
+	AssetClass       string                      `json:"assetClass"`
+	Manual           bool                        `json:"manual"`
+	ValueSourceAt    string                      `json:"valueSourceAt"`
+	ValueSourceID    string                      `json:"valueSourceId"`
+	Price            *HistoricalOverviewEvidence `json:"price"`
+	FX               *HistoricalOverviewEvidence `json:"fx"`
+	Missing          []string                    `json:"missing"`
+	MissingDetails   []HistoricalMissingDetail   `json:"missingDetails"`
 }
 
 type HistoricalOverviewRow struct {
-	Key            string                  `json:"key"`
-	AccountID      string                  `json:"accountId"`
-	HoldingID      string                  `json:"holdingId"`
-	InstrumentID   string                  `json:"instrumentId"`
-	ParentKey      string                  `json:"parentKey"`
-	Kind           string                  `json:"kind"`
-	Name           string                  `json:"name"`
-	Role           string                  `json:"role"`
-	Left           *HistoricalOverviewCell `json:"left"`
-	Right          *HistoricalOverviewCell `json:"right"`
-	BaseChange     *string                 `json:"baseChange"`
-	NativeChange   *string                 `json:"nativeChange"`
-	QuantityChange *string                 `json:"quantityChange"`
-	Changed        bool                    `json:"changed"`
+	EstimatedBaseChange *string                 `json:"estimatedBaseChange,omitempty"`
+	Key                 string                  `json:"key"`
+	AccountID           string                  `json:"accountId"`
+	HoldingID           string                  `json:"holdingId"`
+	InstrumentID        string                  `json:"instrumentId"`
+	ParentKey           string                  `json:"parentKey"`
+	Kind                string                  `json:"kind"`
+	Name                string                  `json:"name"`
+	Role                string                  `json:"role"`
+	Left                *HistoricalOverviewCell `json:"left"`
+	Right               *HistoricalOverviewCell `json:"right"`
+	BaseChange          *string                 `json:"baseChange"`
+	NativeChange        *string                 `json:"nativeChange"`
+	QuantityChange      *string                 `json:"quantityChange"`
+	Changed             bool                    `json:"changed"`
 }
 
 // HistoricalOverview uses one repository read transaction for both sides. It
@@ -201,6 +210,9 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 			NetWorth:    historicalDifference(left.NetWorth, right.NetWorth),
 		}
 	}
+	if result.Right != nil {
+		result.EstimatedChange = estimatedHistoricalChange(result.Left, *result.Right)
+	}
 	result.Rows = alignHistoricalOverview(leftRows, rightRows, result.Right != nil)
 	if err := ctx.Err(); err != nil {
 		return HistoricalOverviewResult{}, err
@@ -285,6 +297,7 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 		instruments[i.ID] = i
 	}
 	state := HistoricalOverviewState{Date: date, CutoffAt: cutoff.UTC().Format(time.RFC3339Nano), Current: current, Currency: portfolio.Household.BaseCurrency.String(), Complete: true}
+	var displayAssets, displayDebts displayAccumulator
 	assets, debts := decimal.Zero, decimal.Zero
 	assetComplete, debtComplete := true, true
 	classes, currencies := map[string]decimal.Decimal{}, map[string]decimal.Decimal{}
@@ -304,6 +317,7 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 		}
 		parentIndex := len(rows)
 		rows = append(rows, HistoricalOverviewRow{Key: parentKey, AccountID: parentKey, Kind: "account", Name: a.Name, Role: string(a.BalanceSheetRole)})
+		var displayAccount displayAccumulator
 		accountSum := decimal.Zero
 		for componentIndex, component := range account.Components {
 			if err := ctx.Err(); err != nil {
@@ -358,6 +372,28 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 				cell.MissingDetails = append(cell.MissingDetails, detail)
 			}
 			cell.Complete = cell.Complete && len(cell.Missing) == 0
+			var displayLeaf displayAccumulator
+			if err := displayLeaf.add(component, valuedAccount.componentMissing[componentIndex], date, current); err != nil {
+				return HistoricalOverviewState{}, nil, err
+			}
+			cell.DisplayValuation, err = displayLeaf.amount(portfolio.Household.BaseCurrency, false)
+			if err != nil {
+				return HistoricalOverviewState{}, nil, err
+			}
+			if !componentArchived && a.ArchivedAt == nil {
+				if err := displayAccount.add(component, valuedAccount.componentMissing[componentIndex], date, current); err != nil {
+					return HistoricalOverviewState{}, nil, err
+				}
+				if included {
+					target := &displayAssets
+					if a.IsLiability() {
+						target = &displayDebts
+					}
+					if err := target.add(component, valuedAccount.componentMissing[componentIndex], date, current); err != nil {
+						return HistoricalOverviewState{}, nil, err
+					}
+				}
+			}
 			if cell.NativeAmount == nil && cell.Status == "active" {
 				cell.Status = "unknown"
 			}
@@ -414,10 +450,14 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 				parent.ValueSourceAt, parent.ValueSourceID = cell.ValueSourceAt, cell.ValueSourceID
 			}
 		}
+		parent.DisplayValuation, err = displayAccount.amount(portfolio.Household.BaseCurrency, false)
+		if err != nil {
+			return HistoricalOverviewState{}, nil, err
+		}
 		if parent.Complete {
 			parent.BaseAmount = historicalString(accountSum.String())
 		}
-		if parent.Status == "active" && !parent.Complete {
+		if parent.Status == "active" && parent.DisplayValuation.Quality.Availability == domain.ValuationNone {
 			parent.Status = "unknown"
 		}
 		if parent.Status == "active" && accountSum.IsZero() {
@@ -432,6 +472,10 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 			}
 		}
 	}
+	state.DisplayValuation, err = householdDisplay(displayAssets, displayDebts, portfolio.Household.BaseCurrency)
+	if err != nil {
+		return HistoricalOverviewState{}, nil, err
+	}
 	state.KnownAssets, state.KnownLiabilities = assets.String(), debts.String()
 	if assetComplete {
 		state.Assets = historicalString(assets.String())
@@ -443,6 +487,7 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 	if state.Complete {
 		state.NetWorth = historicalString(assets.Sub(debts).String())
 	}
+	state.displayScope, state.displayBasis = historicalValuationCompatibility(rows, portfolio)
 	state.ByClass, state.ByCurrency = historicalAllocations(classes, assets), historicalAllocations(currencies, assets)
 	return state, rows, nil
 }
@@ -544,6 +589,9 @@ func historicalPriceEvidence(e *domain.QuoteEvidenceView, quotes []domain.Instru
 				at = q.QuotedAt
 			}
 			r.EffectiveAt, r.MarketDate = at.UTC().Format(time.RFC3339Nano), q.EffectiveDate
+			if !q.FetchedAt.IsZero() {
+				r.FetchedAt = historicalString(q.FetchedAt.UTC().Format(time.RFC3339Nano))
+			}
 			// Historical close revisions may have been fetched later. Freshness
 			// describes the effective observation, never its later ingestion time.
 			if historical {
@@ -574,6 +622,9 @@ func historicalFXEvidence(e *domain.QuoteEvidenceView, quotes []domain.FXQuote, 
 				at = q.QuotedAt
 			}
 			r.EffectiveAt, r.MarketDate = at.UTC().Format(time.RFC3339Nano), q.EffectiveDate
+			if !q.FetchedAt.IsZero() {
+				r.FetchedAt = historicalString(q.FetchedAt.UTC().Format(time.RFC3339Nano))
+			}
 			if historical {
 				evidenceCutoff := cutoff
 				if at.After(cutoff) && q.EffectiveDate != "" && q.SourceKind != domain.QuoteSourceManual {
@@ -605,6 +656,11 @@ func alignHistoricalOverview(left, right []HistoricalOverviewRow, comparing bool
 	for key, row := range byKey {
 		row.Changed = comparing && !historicalCellsEqual(row.Left, row.Right)
 		if row.Left != nil && row.Right != nil {
+			a, b := row.Left.DisplayValuation.Total, row.Right.DisplayValuation.Total
+			statuses := row.Left.Status == row.Right.Status || ((row.Left.Status == "active" || row.Left.Status == "zero") && (row.Right.Status == "active" || row.Right.Status == "zero"))
+			if statuses && row.Left.Included && row.Right.Included && a != nil && b != nil && a.Currency == b.Currency && row.Left.displayScope != "" && row.Left.displayScope == row.Right.displayScope && row.Left.displayBasis == row.Right.displayBasis {
+				row.EstimatedBaseChange = historicalDifference(&a.Amount, &b.Amount)
+			}
 			if row.Left.Complete && row.Right.Complete {
 				row.BaseChange = historicalDifference(row.Left.BaseAmount, row.Right.BaseAmount)
 			}
@@ -688,4 +744,25 @@ func currentBalanceSource(portfolio domain.PortfolioSnapshot, id domain.AccountI
 		}
 	}
 	return "", ""
+}
+
+func estimatedHistoricalChange(a, b HistoricalOverviewState) *HistoricalOverviewTotalsChange {
+	if a.Currency != b.Currency || a.displayScope != b.displayScope || a.displayBasis != b.displayBasis {
+		return nil
+	}
+	diff := func(x, y domain.ValuationAmount) *string {
+		if x.Total == nil || y.Total == nil {
+			return nil
+		}
+		v, err := decimal.NewFromString(x.Total.Amount)
+		if err != nil {
+			return nil
+		}
+		w, err := decimal.NewFromString(y.Total.Amount)
+		if err != nil {
+			return nil
+		}
+		return historicalString(w.Sub(v).String())
+	}
+	return &HistoricalOverviewTotalsChange{Assets: diff(a.DisplayValuation.Assets, b.DisplayValuation.Assets), Liabilities: diff(a.DisplayValuation.Liabilities, b.DisplayValuation.Liabilities), NetWorth: diff(a.DisplayValuation.NetWorth, b.DisplayValuation.NetWorth)}
 }

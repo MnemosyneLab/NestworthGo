@@ -270,7 +270,12 @@ func fromAssetTrend(value application.AssetTrendResult) AssetTrendDTO {
 		result.ValueChange = &summary
 	}
 	for _, point := range value.Points {
-		result.Points = append(result.Points, AssetTrendPointDTO{Period: point.Period, Value: wire.FromSignedMoneyPtr(point.Value), Rate: decimalStringPtr(point.Rate), RatedDays: point.Coverage.RatedDays, TotalDays: point.Coverage.TotalDays, Available: point.Available, Status: string(point.Status), MissingReason: point.MissingReason, ValuationForced: point.ValuationForced})
+		var display *wire.ValuationAmountDTO
+		if point.DisplayValuation != nil {
+			v := wire.FromValuationAmount(*point.DisplayValuation)
+			display = &v
+		}
+		result.Points = append(result.Points, AssetTrendPointDTO{DisplayValuation: display, Period: point.Period, Value: wire.FromSignedMoneyPtr(point.Value), Rate: decimalStringPtr(point.Rate), RatedDays: point.Coverage.RatedDays, TotalDays: point.Coverage.TotalDays, Available: point.Available, Status: string(point.Status), MissingReason: point.MissingReason, ValuationForced: point.ValuationForced})
 	}
 	return result
 }

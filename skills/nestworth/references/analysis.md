@@ -18,6 +18,21 @@ identify the collapsed detail keys. Liability or non-holdings accounts can be
 `unsupported` for composition while their ordinary account valuation remains
 available.
 
+## Display estimates and strict returns
+
+Read additive `displayValuation` independently of strict completeness. A full
+provisional estimate is usable valuation, not confirmed return. A partial known
+net contribution is not complete wealth or a lower bound. Pending coverage
+differs from absent price/FX/account value; informational waiting notices do not
+request repair. Effective NAV dates differ from retrieval time; never turn a
+late download into a gain on its fetch date or invent publication deadlines or
+target-date observations. `estimatedChange` includes flows and is not return.
+Use existing detail routes for evidence rather than expanding every trend point.
+Quality is additive to strict fields and increases response size. A valid 1–31
+date range can exceed the unchanged MCP wire budget; an explicit `too_large`
+error returns no truncated data. Request a narrower range. Paging infrastructure
+belongs to the separate MCP scalability change, not this display correction.
+
 ## Historical endpoint view and reconciliation
 
 For one or two historical states, use `get_historical_overview`; for a bounded

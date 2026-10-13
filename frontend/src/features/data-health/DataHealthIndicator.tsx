@@ -15,7 +15,8 @@ export function DataHealthIndicator({
     return null;
   }
   const count = health.data.issueCount;
-  const label = health.isError ? t("review.healthFailed") : count === 0 ? t("dataHealth.indicatorHealthy") : t("dataHealth.indicatorIssues", { count });
+  const provisional = health.data.issues?.some(issue => issue.kind === "valuation_provisional");
+ const label = health.isError ? t("review.healthFailed") : count === 0 ? `${t("dataHealth.indicatorHealthy")}${provisional ? ` · ${t("valuation.awaitingUpdate")}` : ""}` : t("dataHealth.indicatorIssues", { count });
   if (!onOpen) {
     return (
       <p className="text-sm text-muted-foreground" data-testid={testId}>

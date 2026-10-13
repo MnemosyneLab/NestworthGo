@@ -98,7 +98,8 @@ function healthIssueActionLabel(t: (key: string, options?: Record<string, unknow
     return t("dataHealth.agentEntry");
   }
   const action = displayEnum(t, "dataHealth.action", issue.action);
-  if (issue.action !== "none" || !issue.reason) {
+  if (issue.code === "valuation_coverage_pending") return t("valuation.returnPending") + " · " + t("valuation.awaitingUpdate");
+ if (issue.action !== "none" || !issue.reason) {
     return action;
   }
   const reason = displayEnum(t, "dataHealth.reason", issue.reason);

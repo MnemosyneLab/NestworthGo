@@ -41,6 +41,8 @@ export function invalidateCurrentValuation(queryClient: QueryClient, _accountIds
   invalidate(queryClient, queryKeys.overview.all);
   invalidate(queryClient, queryKeys.portfolio.all);
   invalidate(queryClient, queryKeys.analytics.netWorthTrendPrefix);
+ invalidate(queryClient, ["historical-overview"]);
+ invalidate(queryClient, ["historical-series"]);
   invalidate(queryClient, queryKeys.analysis.all);
   invalidateAccountReads(queryClient);
   invalidate(queryClient, queryKeys.analytics.accountGains.all);

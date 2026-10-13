@@ -1259,6 +1259,11 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	}
 	sortMissing(result.MissingInputs)
 	result.MissingInputs = deduplicateMissing(result.MissingInputs)
+	result.DisplayScopeKey, result.DisplayBasisKey = currentValuationCompatibility(valuations, snapshot)
+	result.DisplayValuation, err = currentHouseholdDisplay(valuations, snapshot, s.clock())
+	if err != nil {
+		return domain.OverviewResult{}, err
+	}
 	result.NetWorth = result.Assets.Sub(result.Liabilities)
 	result.AssetsByType = makeBreakdown(assetsByType, result.Assets)
 	result.LiabilitiesByType = makeBreakdown(liabilitiesByType, result.Liabilities)

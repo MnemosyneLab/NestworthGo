@@ -1,3 +1,5 @@
+import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
+import { fullDisplayAmount, valuationDetails, valuationTableAmount, valuationLabel, hasDisplay } from "@/components/valuation/valuationQuality";
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { HoldingsTab } from "@/features/investments/HoldingsTab";
@@ -34,7 +36,7 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
   if (portfolio.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
   }
-  if (portfolio.isError || !portfolio.data) {
+  if (!portfolio.data) {
     return (
       <ErrorState
         title={t("portfolio.loadError")}
@@ -47,7 +49,7 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
 
   const data = portfolio.data;
   const currency = data.currency || "USD";
-  const total = data.valuedSubtotal ? formatAmount(data.valuedSubtotal.amount, data.valuedSubtotal.currency) : t("accounts.noValue");
+  const total = valuationTableAmount(t,data.displayValuation,data.valuedSubtotal);
   const accounts = sortByCanonicalDesc(
     data.accounts ?? [],
     (valuation) => valuation.baseValue?.amount,
@@ -60,6 +62,8 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio-page">
       <PageIntro description={t("review.portfolioScope")} />
+ {portfolio.isFetching && <p role="status">{t("valuation.updating")}</p>}
+ {portfolio.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void portfolio.refetch()}>{t("common.retryAction")}</Button></p>}
       <p className="text-sm text-muted-foreground">{t("portfolio.holdingsOnlyNote")}</p>
       {accounts.length === 0 ? (
         <EmptyState title={t("portfolio.emptyTitle")} description={t("portfolio.emptyDescription")} />
@@ -68,15 +72,16 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-3">
               <CardTitle>{t("charts.valuedSubtotal")}</CardTitle>
-              <Badge variant={data.complete ? "success" : "warning"}>
-                {data.complete ? t("overview.healthy") : t("overview.needsAttention")}
+              <Badge variant={hasDisplay(data.displayValuation) ? "secondary" : data.complete ? "success" : "warning"}>
+                {hasDisplay(data.displayValuation) ? valuationLabel(t,data.displayValuation,true) : data.complete ? t("overview.healthy") : t("overview.needsAttention")}
               </Badge>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-semibold tracking-tight" data-testid="portfolio-total">
                 {total}
               </p>
-              {!data.complete && (
+              <ValuationQualitySummary value={data.displayValuation} current />
+ {!data.complete && (
                 <p className="mt-2 text-sm text-warning-foreground">
                   {t("overview.totalsExcludeMissing")} {t("portfolio.missingQuotes", { count: missingCount })}
                 </p>
@@ -117,7 +122,9 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <DateRangeControl {...range} />
-              {trend.isError ? (
+ {trend.isFetching && trend.data && <p role="status">{t("valuation.updating")}</p>}
+ {trend.isError && trend.data && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void trend.refetch()}>{t("common.retryAction")}</Button></p>}
+              {trend.isError && !trend.data ? (
                 <ErrorState
                   title={t("portfolio.loadError")}
                   description={t("ui.state.errorDescription")}
@@ -135,9 +142,12 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
                     key: "valuedSubtotal",
                     name: t("charts.valuedSubtotal"),
                     color: theme.primary,
-                    values: trendPoints.map((point) => point.valuedSubtotal?.amount),
+                    values: trendPoints.map((point) => fullDisplayAmount(point.displayValuation,point.complete ? point.valuedSubtotal?.amount : null)),
+ pointMeta: trendPoints.map(point => ({provisional:point.current || point.displayValuation?.quality?.coverage === "provisional",qualityLabel:valuationDetails(t,point.displayValuation,point.current)})),
                   }]}
-                  currency={trend.data?.currency || currency}
+                  extraTableColumns={[t("charts.date"),t("charts.valuedSubtotal"),t("valuation.knownSubtotal"),t("connections.coverage")]}
+ extraTableRows={trendPoints.map(point=>[point.localDate,valuationTableAmount(t,point.displayValuation,point.valuedSubtotal),point.displayValuation?.knownSubtotal ? formatAmount(point.displayValuation.knownSubtotal.amount,point.displayValuation.knownSubtotal.currency) : t("accounts.noValue"),valuationDetails(t,point.displayValuation,point.current)])}
+ currency={trend.data?.currency || currency}
                   height={320}
                   emptyTitle={t("charts.insufficientHistory")}
                 />

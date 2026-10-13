@@ -1,3 +1,6 @@
+import { useValuationDateGeneration } from "@/queries/useValuationDayBoundary";
+import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
+import { hasDisplay } from "@/components/valuation/valuationQuality";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -61,7 +64,8 @@ function CellValue({ cell, currency }: { cell?: HistoricalOverviewCell | null; c
   const { t } = useTranslation();
   if (!cell) return <span className="text-sm text-muted-foreground">{t("historicalOverview.notPresent")}</span>;
   return <div className="flex flex-col items-end gap-1">
-    <span className="whitespace-nowrap"><Amount value={cell.baseAmount} currency={currency} /></span>
+    <span className="whitespace-nowrap"><Amount value={hasDisplay(cell.displayValuation) ? cell.displayValuation.total?.amount ?? cell.displayValuation.knownSubtotal?.amount : cell.baseAmount} currency={currency} />
+ <ValuationQualitySummary value={cell.displayValuation} /></span>
     {cell.nativeAmount != null && cell.currency && cell.currency !== currency && (
       <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={cell.nativeAmount} currency={cell.currency} /></span>
     )}
@@ -99,6 +103,7 @@ function Evidence({ title, value, timezone }: { title: string; value?: Historica
       </div>
       <div><dt className="text-muted-foreground">{t("historicalOverview.effectiveAt")}</dt>
         <dd><ObservationTime value={value.effectiveAt} timezone={timezone} /></dd>
+ {value.fetchedAt && <><dt>{t("valuation.retrievedAt")}</dt><dd><ObservationTime value={value.fetchedAt} timezone={timezone} /></dd></>}
       </div>
       {value.sourceKey && <div><dt className="text-muted-foreground">{t("historicalOverview.sourceKey")}</dt><dd>{value.sourceKey}</dd></div>}
       {value.id && <div><dt className="text-muted-foreground">{t("historicalOverview.observationId")}</dt><dd>{value.id}</dd></div>}
@@ -170,6 +175,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const detailTrigger = useRef<HTMLButtonElement | null>(null);
   const timezone = origin.data?.timezone ?? "UTC";
   const firstDate = origin.data ? ymdInTimeZone(new Date(origin.data.startedAt), timezone) : "";
+  useValuationDateGeneration();
   const today = ymdInTimeZone(new Date(), timezone);
   const lastDate = shiftCivilDate(today, -1);
   const defaultDate = previousMonthEnd(today);
@@ -190,7 +196,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const seriesQuery = useHistoricalSeries(date, compareTo, isActive && validCapture && seriesMode, captureRequest);
   const query = seriesMode ? seriesQuery : overviewQuery;
   const budgetExceeded = (query.error as (Error & { wireError?: { code: string } }) | null)?.wireError?.code === "historical_series_budget";
-  const data = validCapture && !query.isFetching && !query.isError ? seriesMode ? seriesQuery.data?.overview : overviewQuery.data : undefined;
+  const data = validCapture ? seriesMode ? seriesQuery.data?.overview : overviewQuery.data : undefined;
   const series = data && seriesMode ? seriesQuery.data : undefined;
   const draftFrom = trendFrom ?? date;
   const draftTo = trendTo ?? (comparison === "date" ? compareDate : lastDate);
@@ -293,9 +299,11 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     <p id="historical-date-range" className="text-xs text-muted-foreground">{t("historicalOverview.dateRange", { first: firstDate, last: lastDate, timezone })}</p>
     <p className="text-xs text-muted-foreground">{t("historicalOverview.cutoffNote")}</p>
     {!validCapture ? <EmptyState title={t("historicalOverview.invalidDate")} description={t(seriesMode ? "historicalOverview.trend.rangeHint" : "historicalOverview.invalidDateHint")} />
-      : query.isFetching ? <div role="status" aria-live="polite" className="space-y-4" aria-label={t("historicalOverview.loading")}><div className="grid gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">{[0, 1, 2].map(index => <div key={index} className="h-36 animate-pulse rounded-xl bg-muted" />)}</div><div className="h-72 animate-pulse rounded-xl bg-muted" /></div>
-      : query.isError ? <ErrorState title={t("historicalOverview.error")} description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")} onRetry={() => void query.refetch()} retryLabel={t("common.retryAction")} />
+      : query.isFetching && !data ? <div role="status" aria-live="polite" className="space-y-4" aria-label={t("historicalOverview.loading")}><div className="grid gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">{[0, 1, 2].map(index => <div key={index} className="h-36 animate-pulse rounded-xl bg-muted" />)}</div><div className="h-72 animate-pulse rounded-xl bg-muted" /></div>
+      : query.isError && !data ? <ErrorState title={t("historicalOverview.error")} description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")} onRetry={() => void query.refetch()} retryLabel={t("common.retryAction")} />
       : data && <>
+ {query.isFetching && <p role="status">{t("valuation.updating")}</p>}
+ {query.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void query.refetch()}>{t("common.retryAction")}</Button></p>}
         <p className="text-xs text-muted-foreground">{t("historicalOverview.captureTime")}: <ObservationTime value={data.capturedAt} timezone={data.timezone} /> · {t("historicalOverview.refreshHint")}</p>
         {data.right?.current && <p className="text-xs text-muted-foreground">{t("historicalOverview.capturedCurrent")}</p>}
         <section aria-label={t("historicalOverview.totalChange")}><HistoricalMetricCards data={data} seriesPoints={series?.points} />{data.right && <p className="mt-2 text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>}</section>

@@ -81,6 +81,8 @@ export interface EChartProps {
   highlightedName?: string | null;
   /** Undefined preserves native selection for other chart consumers. */
   selectedName?: string | null;
+  /** Replace authoritative dynamic series while retaining axes/zoom/legend. */
+  replaceSeries?: boolean;
 }
 
 /**
@@ -102,6 +104,7 @@ export function EChart({
   center,
   highlightedName,
   selectedName,
+  replaceSeries = false,
 }: EChartProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<echarts.ECharts | null>(null);
@@ -172,12 +175,12 @@ export function EChart({
       // labels are rendered as richText so they cannot inject HTML.
       chartRef.current?.setOption(
         applyChartPolicy(option, reducedMotion),
-        { notMerge: false, lazyUpdate: true },
+        { notMerge: false, lazyUpdate: true, ...(replaceSeries ? { replaceMerge: ["series"] } : {}) },
       );
     } catch {
       // Drawing is optional; the data table remains the accessible source.
     }
-  }, [option]);
+  }, [option, replaceSeries]);
 
   React.useEffect(() => {
     if (selectedName === undefined || !chartRef.current) return;

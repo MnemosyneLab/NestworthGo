@@ -115,9 +115,11 @@ remain available with the usual comparison controls; they do not create a
 trend.
 
 Choose net worth, assets or liabilities. The line shows complete totals only:
-unknown values and skipped civil dates leave gaps, and changes in included
-components or valuation basis break connections. Complete assets can still be
-shown when liabilities are missing. Known subtotals are labelled separately in
+unknown full totals and skipped civil dates leave gaps; usable provisional
+valuations remain visible with dashed segments and quality disclosure, and changes in included
+components or valuation basis break connections. Fully valued assets can still be
+shown when liabilities are missing. Net known contribution is labeled separately
+and is not a lower bound. Known subtotals are labelled separately in
 the full source table and are never drawn as complete totals. Each table row
 shows its exact values, component coverage and missing identities/reasons.
 
@@ -133,6 +135,7 @@ The first local trend has an input/computation budget. A profile with more than
 input, or a computation exceeding ten seconds is rejected explicitly. This
 counts the whole retained profile, including archived facts; shortening the
 range may not remove an input-budget rejection. No dates or facts are silently
-removed. Ordinary historical comparisons remain available. A later correction
-or backfill can change the next explicit capture; this view is reconstructed
+removed. Ordinary historical comparisons remain available. A quote/activity/source change or ledger-day rollover invalidates affected
+captures. Refresh retains the same-date prior result with updating/error labels.
+A later correction or backfill can change the next capture; this view is reconstructed
 from retained facts and current metadata, not what was known at that past time.
