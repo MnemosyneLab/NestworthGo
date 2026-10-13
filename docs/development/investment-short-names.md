@@ -121,10 +121,18 @@ backup/restore uses the SQLite backup package or the cloud database snapshot.
 
 ## Review follow-up
 
-- Holding selectors, starting-point unit-cost inputs and preview endpoints keep
-  the universal primary label first and append code, legal name and available
-  ISIN/market/currency/unit/provider identity. Regression cases use duplicate
-  aliases in the same account with equal quantities and verify selected IDs.
+- Saved-instrument selectors (Buy/Record/Fix, position import, holdings, History
+  and analysis filters) show the trimmed short name and code, or code alone,
+  without repeating identical text. Missing both uses the existing full-name
+  fallback. Exact label collisions between IDs append only the shortest single
+  market/currency/unit/provider/ISIN field that distinguishes the group; if none
+  suffices, a shortest unique ID prefix is shown. Literal aliases colliding with
+  decorated labels receive full IDs. Selection values remain IDs. Holding choices
+  retain account and quantity context. General full-name subtitles, provider
+  discovery, reservation source labels and preview endpoints keep their identity
+  detail. Searchable analysis choices retain the detailed identity as hidden
+  search keywords while rendering only the compact label. No saved instrument
+  data changes.
 - Reservation source selection also resolves the instrument identity through
   existing local queries; colliding source descriptions retain source IDs.
 - MCP `list_instruments` query matching covers alias, legal name and code,

@@ -21,7 +21,7 @@ import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nes
 import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { formatExactTimestamp } from "@/lib/time";
 import { displayError } from "@/lib/display";
-import { instrumentSelectionLabel } from "@/lib/instrumentDisplay";
+import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
 import { toast } from "sonner";
 import { QuoteHint } from "@/features/history/QuoteHint";
 import { currencyFractionDigits, formatAmount, sameCanonicalDecimal } from "@/lib/money";
@@ -244,6 +244,7 @@ function CashBalanceForm({
 function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; onDone: () => void }) {
   const { t } = useTranslation();
   const instruments = useInstruments();
+  const selectionLabels = instrumentSelectionLabels(instruments.data ?? []);
   const createHolding = useCreateHolding();
   const createInstrument = useCreateInstrument();
   const refreshInstrument = useRefreshInstrument();
@@ -316,7 +317,7 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
               <option value="">{t("history.selectEmpty")}</option>
               {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => (
                 <option key={instrument.id} value={instrument.id}>
-                  {instrumentSelectionLabel(instrument, instrument.name)}
+                  {selectionLabels.get(instrument.id) ?? instrument.name}
                 </option>
               ))}
             </NativeSelect>

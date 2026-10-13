@@ -1,20 +1,21 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AnalysisFilterBar } from "./AnalysisFilterBar";
 import { useAnalysisStore } from "@/stores/analysis";
 
-const { household } = vi.hoisted(() => ({ household: vi.fn() }));
+const { household, instruments } = vi.hoisted(() => ({ household: vi.fn(), instruments: vi.fn() }));
 vi.mock("@/queries/household", () => ({ useBootstrap: () => household() }));
 vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { currency: "CNY" } }) }));
 vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: { timezone: "UTC", startedAt: "2026-09-01T00:00:00Z" } }) }));
 vi.mock("@/queries/accounts", () => ({ useAccounts: () => ({ data: [{ account: { id: "a1", name: "Brokerage" } }] }) }));
-vi.mock("@/queries/investments", () => ({ useInstruments: () => ({ data: [] }) }));
+vi.mock("@/queries/investments", () => ({ useInstruments: () => instruments() }));
 vi.mock("@/queries/directory", () => ({ useMembers: () => ({ data: [] }) }));
 vi.mock("@/queries/catalog", () => ({ useCatalog: () => ({ data: { currencies: ["AUD", "CNY"], instrumentTypes: ["stock"] } }) }));
 
 beforeEach(() => {
   useAnalysisStore.getState().reset();
+  instruments.mockReturnValue({ data: [] });
   household.mockReturnValue({ data: { household: { baseCurrency: "AUD" } } });
 });
 
@@ -72,4 +73,32 @@ it("shows the effective date range when no custom dates were selected", () => {
  render(<AnalysisFilterBar session={useAnalysisStore.getState()} resolvedRange={{ from: "2026-09-02", to: "2026-09-10" }} onChange={vi.fn()} onReset={vi.fn()} />);
  expect(screen.getByRole("button", { name: "From" })).not.toHaveTextContent("Select");
  expect(screen.getByRole("button", { name: "To" })).not.toHaveTextContent("Select");
+});
+
+
+it.each(["scope", "filter"] as const)("keeps full instrument identity searchable with compact %s choices", async (mode) => {
+  const instrument = {
+    id: "synthetic-instrument", shortName: "Family fund", symbol: "ABC",
+    name: "Synthetic exceptionally long legal investment name", isin: "TEST-ISIN-123",
+    marketCode: "TEST-MARKET", quoteCurrency: "USD", quantityUnit: "troy_oz",
+    providerKey: "synthetic-provider", providerSymbol: "provider-code-xyz",
+  };
+  instruments.mockReturnValue({ data: [instrument, { id: "other", shortName: "Other", symbol: "XYZ" }] });
+  const onChange = vi.fn();
+  const session = { ...useAnalysisStore.getState(), scope: mode === "scope" ? "instrument" as const : "portfolio" as const };
+  const view = render(<AnalysisFilterBar session={session} onChange={onChange} onReset={vi.fn()} />);
+  const user = userEvent.setup();
+  if (mode === "filter") await user.click(screen.getByText("More filters", { exact: false, selector: "summary" }));
+  const input = screen.getByRole("combobox", { name: mode === "scope" ? "Select scope" : "Instrument" });
+  for (const query of [instrument.name, "abc", "family fund", instrument.isin, instrument.providerKey, instrument.providerSymbol, instrument.marketCode, "usd", instrument.quantityUnit, instrument.id]) {
+    await user.clear(input);
+    await user.type(input, query);
+    const option = screen.getByRole("option", { name: "Family fund · ABC" });
+    expect(option).toHaveTextContent(/^Family fund · ABC$/);
+    expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(1);
+    await user.keyboard("{Enter}");
+    expect(onChange).toHaveBeenLastCalledWith(mode === "scope" ? { scopeId: instrument.id } : { moreFilters: { instrumentId: instrument.id } });
+  }
+  view.rerender(<AnalysisFilterBar session={{ ...session, ...(mode === "scope" ? { scopeId: instrument.id } : { moreFilters: { instrumentId: instrument.id } }) }} onChange={onChange} onReset={vi.fn()} />);
+  expect(input).toHaveValue("Family fund · ABC");
 });

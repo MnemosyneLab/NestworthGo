@@ -17,7 +17,7 @@ import {
 } from "@/queries/investments";
 import { useInstrumentHoldings } from "@/queries/analytics";
 import { displayError } from "@/lib/display";
-import { instrumentSelectionLabel } from "@/lib/instrumentDisplay";
+import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
 import { InstrumentHoldingsTable } from "./InstrumentHoldingsTable";
 import { useProducts } from "@/queries/liquidity";
 
@@ -39,6 +39,8 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
   );
   const holdings = useInstrumentHoldings();
   const products = useProducts({ includeClosed: true });
+  const selectableInstruments = (instruments.data ?? []).filter((instrument) => !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id));
+  const selectionLabels = instrumentSelectionLabels(selectableInstruments);
 
   if (accounts.isLoading || instruments.isLoading || holdings.isLoading || origin.isLoading || products.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
@@ -120,9 +122,9 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
                   <Label htmlFor="holding-instrument">{t("history.instrument")}</Label>
                   <NativeSelect id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)}>
                     <option value="">{t("history.selectInstrument")}</option>
-                    {(instruments.data ?? []).filter((instrument) => !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id)).map((instrument) => (
+                    {selectableInstruments.map((instrument) => (
                       <option key={instrument.id} value={instrument.id}>
-                        {instrumentSelectionLabel(instrument, instrument.name)}
+                        {selectionLabels.get(instrument.id) ?? instrument.name}
                       </option>
                     ))}
                   </NativeSelect>

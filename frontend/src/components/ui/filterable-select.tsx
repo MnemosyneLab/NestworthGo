@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 export type FilterableSelectOption = {
   value: string;
   label: string;
+  /** Additional searchable identity text; never rendered in the option. */
+  searchKeywords?: string;
   disabled?: boolean;
 };
 
@@ -54,7 +56,7 @@ export function FilterableSelect({
 
   const filtered = options.filter((option) => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
-    return !normalizedQuery || `${option.label} ${option.value}`.toLocaleLowerCase().includes(normalizedQuery);
+    return !normalizedQuery || `${option.label} ${option.value} ${option.searchKeywords ?? ""}`.toLocaleLowerCase().includes(normalizedQuery);
   });
 
   const choose = (option: FilterableSelectOption | undefined) => {

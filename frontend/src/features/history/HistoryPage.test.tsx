@@ -11,6 +11,7 @@ import { queryKeys } from "@/queries/keys";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { paginateActivityPage } from "@/test/activityPage";
 import { HistoryPage } from "./HistoryPage";
+import { AccountActionSheet } from "@/features/accounts/AccountActionSheets";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import i18n from "@/i18n";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
@@ -260,7 +261,7 @@ describe("HistoryPage", () => {
       expect(account).toHaveValue(filters.accountId);
       expect(instrument).toHaveValue(filters.instrumentId);
       expect(within(account).getByRole("option", { name: `Old brokerage · ${t("common.archived")}` })).toHaveProperty("selected", true);
-      expect(within(instrument).getByRole("option", { name: `Family fund · 000001 · Full old fund · ${t("common.archived")}` })).toHaveProperty("selected", true);
+      expect(within(instrument).getByRole("option", { name: `Family fund · 000001 · ${t("common.archived")}` })).toHaveProperty("selected", true);
       expect(within(account).queryByText("Hidden archive")).not.toBeInTheDocument();
       expect(within(instrument).queryByText(/Hidden fund/)).not.toBeInTheDocument();
       await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining(filters)));
@@ -564,6 +565,52 @@ describe("HistoryPage", () => {
     expect(within(holdingSelect).getByRole("option", { name: /Apple/ })).toBeInTheDocument();
     expect(within(holdingSelect).queryByRole("option", { name: /NVIDIA/ })).not.toBeInTheDocument();
     expect(within(holdingSelect).queryByRole("option", { name: /holding-gone/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps compact Buy choices distinct and submits the selected instrument ID", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([
+      { account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
+    ]);
+    const metadata = { name: "Synthetic exceptionally long full legal instrument name", quoteCurrency: "USD", quoteSource: "manual", providerKey: "synthetic-provider", providerSymbol: "long-provider-symbol" };
+    listInstruments.mockResolvedValue([
+      { ...metadata, id: "instrument-1", shortName: "Fund", symbol: "ABC", marketCode: "X1" },
+      { ...metadata, id: "instrument-2", shortName: "Fund", symbol: "ABC", marketCode: "X2" },
+      { ...metadata, id: "instrument-3", shortName: "", symbol: "CODE" },
+      { ...metadata, id: "instrument-4", shortName: "SAME", symbol: "SAME" },
+    ]);
+    holdingsByAccounts.mockResolvedValue({ "brokerage-1": [] });
+    previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <AccountActionSheet action="buy" historyStarted record={{
+          account: {
+            id: "brokerage-1", householdId: "h1", name: "Brokerage", trackingMode: "holdings",
+            accountType: "brokerage", balanceSheetRole: "asset", defaultCurrency: "USD", iconKey: "",
+            includeInNetWorth: true, includeInPortfolio: true, includeInLiquidAssets: false,
+            sortOrder: 0, createdAt: "", updatedAt: "",
+          }, ownership: [],
+        }} onClose={vi.fn()} onRecorded={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await within(form).findByRole("option", { name: "Fund · ABC [X1]" });
+    const select = within(form).getByLabelText("Instrument");
+    expect(select.tagName).toBe("SELECT");
+    expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      i18n.t("history.selectEmpty"), "Fund · ABC [X1]", "Fund · ABC [X2]", "CODE", "SAME",
+    ]);
+    select.focus();
+    expect(select).toHaveFocus();
+    await user.selectOptions(select, "instrument-2");
+    expect(select).toHaveValue("instrument-2");
+    await user.tab();
+    expect(select).not.toHaveFocus();
+    await user.type(within(form).getByLabelText("Quantity"), "2");
+    await user.type(within(form).getByLabelText("Gross total"), "20");
+    await user.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ instrumentId: "instrument-2" }));
   });
 
   it("previews a trade with visible currencies and the existing matching holding", async () => {
@@ -1620,10 +1667,10 @@ it.each(["sell", "dividend", "adjust", "transfer"] as const)("distinguishes equa
     await user.selectOptions(within(form).getByLabelText("Side"), "sell");
   }
   const selector = within(form).getByLabelText(flow === "sell" ? "Instrument" : flow === "transfer" ? "From holding" : "Holding");
-  const a = await within(selector).findByRole("option", { name: /^Family fund · 000001 · Share class A/ });
-  const b = within(selector).getByRole("option", { name: /^Family fund · 000002 · Share class B/ });
-  expect(a).toHaveTextContent("ISIN-A");
-  expect(b).toHaveTextContent("ISIN-B");
+  const a = await within(selector).findByRole("option", { name: /^Family fund · 000001 · Brokerage/ });
+  const b = within(selector).getByRole("option", { name: /^Family fund · 000002 · Brokerage/ });
+  expect(a).not.toHaveTextContent("ISIN-A");
+  expect(b).not.toHaveTextContent("ISIN-B");
   expect(a).toHaveTextContent("Brokerage · 10");
   expect(b).toHaveTextContent("Brokerage · 10");
   expect(a.textContent).not.toBe(b.textContent);
