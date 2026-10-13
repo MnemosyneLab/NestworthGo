@@ -165,8 +165,15 @@ they do not create a synthetic trade or a mutable cost column on the Holding.
 remaining quantity across reductions, and emits signed realized gain events
 for sells. Trade `UnitPrice` stays price-only (`gross / quantity`). Buy fees
 increase acquisition basis as `(gross + fee) / quantity`. Sell realized gain
-is proceeds minus remaining basis minus the sell fee. Transfers resolve the
-sending Holding's average cost at the transfer time. `GainService` derives
+uses persisted gross minus remaining basis minus the sell fee; rounded trade
+unit prices are display evidence and are never multiplied back into proceeds.
+Buy acquisition basis likewise uses persisted gross plus the fee before the
+eight-decimal unit-cost rounding. Transfers resolve the
+sending Holding's average cost strictly before the transfer's economic activity
+position (effective time, creation time, and stable root ordering ID). Earlier
+activities at the same effective time participate; the transfer itself and
+later same-time activities do not. Correction replacements retain the original
+position, including correction chains. `GainService` derives
 native and base-currency cost/value/gain views plus the exact two-part
 Instrument/currency decomposition. These results are recomputed on reads and
 are never stored as financial facts. FIFO lots, unknown-basis declarations,

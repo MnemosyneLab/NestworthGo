@@ -2,6 +2,8 @@ package domain
 
 import (
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 // CostBasisEventKind identifies one cost-bearing or quantity-reducing fact.
@@ -28,18 +30,46 @@ const (
 // serialized form and is otherwise used for TransferIn/AdjustmentIn,
 // CostAdjustment, and a fee-adjusted Buy acquisition cost. UnitPrice is the
 // price-only trade price. Currency is required for a Sell so a signed realized
-// amount can retain its settlement currency.
+// amount can retain its settlement currency. Gross carries the persisted trade
+// amount; UnitPrice is only a fallback for existing in-memory callers.
 type CostBasisEvent struct {
 	ActivityID         ActivityID
 	EffectiveAt        time.Time
+	CreatedAt          time.Time
+	OrderingID         ActivityID
+	Sequence           int
 	Kind               CostBasisEventKind
 	Quantity           Quantity
 	UnitPrice          *UnitPrice
 	UnitCost           *UnitPrice
 	SourceHoldingID    *HoldingID
+	Gross              *Money
 	Fee                *Money
 	Currency           CurrencyCode
 	ReversesActivityID *ActivityID
+}
+
+// CostBasisBoundary is the exclusive economic activity position for source
+// replay. Corrections retain the root activity's time, creation time and ID.
+// All effects of the transfer itself are excluded, regardless of sequence.
+type CostBasisBoundary struct {
+	EffectiveAt time.Time
+	CreatedAt   time.Time
+	OrderingID  ActivityID
+}
+
+func (e CostBasisEvent) Boundary() CostBasisBoundary {
+	return CostBasisBoundary{EffectiveAt: e.EffectiveAt.UTC(), CreatedAt: e.CreatedAt.UTC(), OrderingID: e.OrderingID}
+}
+
+func (e CostBasisEvent) Before(boundary CostBasisBoundary) bool {
+	if !e.EffectiveAt.Equal(boundary.EffectiveAt) {
+		return e.EffectiveAt.Before(boundary.EffectiveAt)
+	}
+	if !e.CreatedAt.Equal(boundary.CreatedAt) {
+		return e.CreatedAt.Before(boundary.CreatedAt)
+	}
+	return e.OrderingID.String() < boundary.OrderingID.String()
 }
 
 // CostLot is the current quantity and its average per-unit cost.
@@ -155,7 +185,16 @@ func ReplayCostBasis(startingCost *UnitPrice, events []CostBasisEvent) (CostBasi
 			if event.Fee != nil && event.Fee.Currency() != currency {
 				return CostBasisResult{}, invalidCostBasis("fee", "Sell fee currency must match settlement currency")
 			}
+			// Keep the established unit-price-only replay contract: only the
+			// signed result is a Money boundary for these in-memory callers.
 			gainValue := proceeds.Decimal().Sub(result.Current.AverageUnitCost.Decimal()).Mul(event.Quantity.Decimal())
+			if event.Gross != nil {
+				gross, grossErr := eventTradeGross(event)
+				if grossErr != nil {
+					return CostBasisResult{}, grossErr
+				}
+				gainValue = gross.Sub(result.Current.AverageUnitCost.Decimal().Mul(event.Quantity.Decimal()))
+			}
 			if event.Fee != nil {
 				gainValue = gainValue.Sub(event.Fee.Amount())
 			}
@@ -217,7 +256,11 @@ func eventUnitCost(event CostBasisEvent) (*UnitPrice, error) {
 		if event.UnitPrice == nil {
 			return nil, invalidCostBasis("unitPrice", "Buy requires a unit price")
 		}
-		cost, err := BuyAcquisitionUnitCost(event.Quantity, *event.UnitPrice, event.Fee)
+		gross, err := eventTradeGross(event)
+		if err != nil {
+			return nil, err
+		}
+		cost, err := buyAcquisitionUnitCostFromGross(event.Quantity, gross, event.Fee)
 		if err != nil {
 			return nil, err
 		}
@@ -232,6 +275,22 @@ func eventUnitCost(event CostBasisEvent) (*UnitPrice, error) {
 	}
 }
 
+func eventTradeGross(event CostBasisEvent) (decimal.Decimal, error) {
+	if event.Gross != nil {
+		if event.Gross.Currency() != event.Currency {
+			return decimal.Zero, invalidCostBasis("gross", "trade gross currency must match settlement currency")
+		}
+		if event.Fee != nil && event.Fee.Currency() != event.Gross.Currency() {
+			return decimal.Zero, invalidCostBasis("fee", "trade fee currency must match settlement currency")
+		}
+		return event.Gross.Amount(), nil
+	}
+	if event.UnitPrice == nil {
+		return decimal.Zero, invalidCostBasis("unitPrice", "trade requires a unit price")
+	}
+	return event.Quantity.Multiply(*event.UnitPrice)
+}
+
 // BuyAcquisitionUnitCost is the fee-adjusted per-unit basis used by average
 // cost. Trade UnitPrice remains price-only (gross / quantity); a buy fee is
 // added to acquisition basis as (gross + fee) / quantity.
@@ -243,11 +302,27 @@ func BuyAcquisitionUnitCost(quantity Quantity, unitPrice UnitPrice, fee *Money) 
 	if err != nil {
 		return UnitPrice{}, err
 	}
+	return buyAcquisitionUnitCostFromGross(quantity, gross, fee)
+}
+
+func buyAcquisitionUnitCostFromGross(quantity Quantity, gross decimal.Decimal, fee *Money) (UnitPrice, error) {
+	if quantity.IsZero() {
+		return UnitPrice{}, invalidCostBasis("quantity", "cost-basis event quantity must be greater than zero")
+	}
 	total := gross
 	if fee != nil {
 		total = total.Add(fee.Amount())
 	}
-	return UnitPriceFromExact(total.Div(quantity.Decimal()))
+	// Divide at the supported scale using the exact remainder so an
+	// intermediate decimal division cannot round a near-half value into a tie.
+	divisor := quantity.Decimal()
+	quotient, remainder := total.QuoRem(divisor, 8)
+	step := decimal.New(1, -8)
+	comparison := remainder.Mul(decimal.NewFromInt(2)).Cmp(divisor.Mul(step))
+	if comparison > 0 || (comparison == 0 && quotient.Shift(8).BigInt().Bit(0) == 1) {
+		quotient = quotient.Add(step)
+	}
+	return NewUnitPrice(quotient)
 }
 
 func blendCost(current CostLot, incoming *UnitPrice, incomingQuantity Quantity, hasCost bool) (CostLot, error) {
