@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -52,7 +53,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
 	}
-	parsedDate, err := time.ParseInLocation("2006-01-02", localDate, location)
+	parsedDate, err := time.Parse("2006-01-02", localDate)
 	if err != nil || parsedDate.Format("2006-01-02") != localDate {
 		return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrValidation, Field: "localDate", Message: "local date must use YYYY-MM-DD"}
 	}
@@ -63,12 +64,10 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	if localDate < originDate {
 		return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "localDate", Message: "snapshot date precedes the Starting point"}
 	}
-	nextLocal := parsedDate.AddDate(0, 0, 1).Format("2006-01-02")
-	nextMidnight, err := domain.ResolveLocalDateTime(nextLocal, "00:00", origin.Timezone)
+	cutoff, err := historicalOverviewDayCutoff(parsedDate, location)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
-	cutoff := nextMidnight.Add(-time.Millisecond)
 	snapshot, err := s.valueHistoricalSnapshot(ctx, origin, cutoff, localDate)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
@@ -198,9 +197,9 @@ func (s *Service) historicalPortfolioSnapshot(ctx context.Context, origin *domai
 	return HistoricalReplay{repository: s.repository, batch: batch, quotes: quotes}.Snapshot(ctx, origin, cutoff)
 }
 
-// v3 replays corrections at the original transaction time. Older snapshots
-// are rebuilt append-only so existing erroneous daily gains do not survive.
-const snapshotContentHashVersion = "v3"
+// v4 resolves civil date labels across missing/repeated midnight and skipped
+// days. Older snapshots are rebuilt append-only; ledger facts are unchanged.
+const snapshotContentHashVersion = "v4"
 
 func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities domain.Money, netWorth domain.SignedMoney, items []domain.DailyValuationSnapshotItem) string {
 	sort.Slice(items, func(i, j int) bool {
@@ -342,15 +341,31 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 	if err != nil {
 		return 0, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
 	}
-	endLocal, err := time.ParseInLocation("2006-01-02", endDate, location)
-	if err != nil {
-		return 0, &domain.Error{Code: domain.ErrValidation, Field: "dateRange", Message: "snapshot date range is invalid"}
+	if startDate < origin.StartedAt.In(location).Format("2006-01-02") || endDate >= s.clock().In(location).Format("2006-01-02") {
+		return 0, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "dateRange", Message: "snapshot range must contain closed dates on or after the Starting point"}
 	}
-	nextMidnight, err := domain.ResolveLocalDateTime(endLocal.AddDate(0, 0, 1).Format("2006-01-02"), "00:00", origin.Timezone)
-	if err != nil {
-		return 0, err
+	// Preflight every UTC label before writing. A date-line jump leaves a gap;
+	// resolving local midnights would normalize it into a different date.
+	dates := make([]string, 0, 31)
+	var cutoff time.Time
+	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+		resolved, resolveErr := historicalOverviewDayCutoff(day, location)
+		if nonexistentHistoricalCivilDate(resolveErr) {
+			continue
+		}
+		if resolveErr != nil {
+			return 0, resolveErr
+		}
+		cutoff = resolved
+		dates = append(dates, day.Format("2006-01-02"))
 	}
-	batch, err := s.repository.LoadHistoricalSnapshotBatch(ctx, origin.HouseholdID, nextMidnight.Add(-time.Millisecond))
+	if len(dates) == 0 {
+		return 0, nil
+	}
+	batch, err := s.repository.LoadHistoricalSnapshotBatch(ctx, origin.HouseholdID, cutoff)
 	if err != nil {
 		return 0, err
 	}
@@ -361,11 +376,11 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 	ctx = context.WithValue(ctx, historicalQuoteCacheKey{}, quoteCache)
 	ctx = context.WithValue(ctx, historicalSnapshotBatchKey{}, &batch)
 	appended := 0
-	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+	for _, date := range dates {
 		if err := ctx.Err(); err != nil {
 			return appended, err
 		}
-		_, changed, buildErr := s.BuildDailyValuationSnapshot(ctx, date.Format("2006-01-02"))
+		_, changed, buildErr := s.BuildDailyValuationSnapshot(ctx, date)
 		if buildErr != nil {
 			return appended, buildErr
 		}
@@ -374,6 +389,11 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 		}
 	}
 	return appended, nil
+}
+
+func nonexistentHistoricalCivilDate(err error) bool {
+	var problem *domain.Error
+	return errors.As(err, &problem) && problem.Code == domain.ErrInvalidChangeTime && problem.Field == "localDate"
 }
 
 func (s *Service) CompleteDailySnapshotRange(ctx context.Context, householdID domain.HouseholdID, targetDate string) error {

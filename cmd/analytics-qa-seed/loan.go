@@ -225,7 +225,7 @@ func runLoanFC07(base, dbPath string, cfg loanConfig) {
 	}
 
 	startDate := localDate(anchor)
-	endDate := localDate(day(loanQuoteHorizon))
+	endDate := closedFixtureEnd(day(loanQuoteHorizon), time.Now(), loc)
 	cursor, _ := time.Parse("2006-01-02", startDate)
 	endT, _ := time.Parse("2006-01-02", endDate)
 	totalSnap := 0

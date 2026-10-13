@@ -85,11 +85,14 @@ func (s *Service) RebuildDerivedData(ctx context.Context) (DerivedDataRebuildRes
 			return DerivedDataRebuildResult{}, err
 		}
 		date := day.Format("2006-01-02")
-		midnight, err := domain.ResolveLocalDateTime(day.AddDate(0, 0, 1).Format("2006-01-02"), "00:00", origin.Timezone)
+		cutoff, err := historicalOverviewDayCutoff(day, location)
+		if nonexistentHistoricalCivilDate(err) {
+			continue
+		}
 		if err != nil {
 			return DerivedDataRebuildResult{}, err
 		}
-		snapshot, err := s.valueHistoricalSnapshot(ctx, origin, midnight.Add(-time.Millisecond), date)
+		snapshot, err := s.valueHistoricalSnapshot(ctx, origin, cutoff, date)
 		if err != nil {
 			return DerivedDataRebuildResult{}, err
 		}

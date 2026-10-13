@@ -342,6 +342,20 @@ checks before marking native UI acceptance complete:
 
 ## Historical panorama P2a: bounded local civil-day series
 
+Saved daily snapshots, ranged snapshot rebuilds, derived-data snapshot staging,
+and wealth/portfolio trend iteration use the same UTC civil labels and tested
+day-end resolver as panorama. Missing or repeated midnight is a valid date;
+a completely skipped date has no saved snapshot and remains a trend gap.
+Direct snapshot requests still reject nonexistent labels and current dates.
+Ranges are checked before publication and contain at most 31 closed labels.
+
+Resolver policy `market-date-daily-summary-v4` invalidates older derived
+snapshot completeness on database open, marks coverage dirty from the origin,
+and increments the input generation once. Snapshot hash version `v4` triggers
+append-only replacement through the existing generation-guarded rebuild.
+Repeated rebuilds and reopening are idempotent. Ledger activities and source
+observations are preserved; the schema and public API are unchanged.
+
 `HistoricalOverviewSeries(ctx, from, to)` is a separate read-only application
 contract and Wails method. It returns an `overview` with full P1 endpoint rows
 and `points` with summary data for every civil date in the inclusive range.

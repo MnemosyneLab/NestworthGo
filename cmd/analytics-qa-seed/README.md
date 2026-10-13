@@ -33,6 +33,10 @@ done
 
 `seed-results.json` records `fixture_version`, scenario, IDs, and per-step PASS/FAIL.
 
+Daily snapshot rebuilds cap the fixture horizon at yesterday's household civil
+date. Quote fixtures may include today or future dates, but current-day daily
+snapshots remain prohibited. This also applies to the loan scenarios.
+
 §5 base currency (real onboarded DBs, default AUD `complete` unchanged):
 
 ```bash

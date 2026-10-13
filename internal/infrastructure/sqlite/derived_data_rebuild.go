@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -86,6 +87,19 @@ func validateRebuildDatesTx(ctx context.Context, tx *sql.Tx, rebuild domain.Deri
 		return err
 	}
 	for index, snapshot := range rebuild.Snapshots {
+		// Only nonexistent civil labels may be absent from staged coverage.
+		// Never weaken the guard for an omitted existing date or reordered row.
+		for date.Format("2006-01-02") < snapshot.LocalDate {
+			_, cutoffErr := domain.ResolveCivilDateCutoff(date, location)
+			var problem *domain.Error
+			if !errors.As(cutoffErr, &problem) || problem.Code != domain.ErrInvalidChangeTime || problem.Field != "localDate" {
+				return &domain.Error{Code: domain.ErrIntegrity, Message: "staged snapshots omit an existing closed day"}
+			}
+			date = date.AddDate(0, 0, 1)
+		}
+		if _, err := domain.ResolveCivilDateCutoff(date, location); err != nil {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "staged snapshot civil date does not exist"}
+		}
 		if snapshot.HouseholdID != rebuild.HouseholdID || snapshot.LocalDate != date.Format("2006-01-02") || snapshot.InputGeneration != 0 && snapshot.InputGeneration != rebuild.InputGeneration {
 			return &domain.Error{Code: domain.ErrIntegrity, Message: "staged snapshots do not cover every closed day in order"}
 		}

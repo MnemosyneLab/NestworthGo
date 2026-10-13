@@ -19,6 +19,33 @@ component tests and builds do not establish visual acceptance.
 | UI capture/navigation | Whole-bundle enable/Set-A/open-day, failure/retry, local metrics/table/tab switches; UTC/Shanghai month-boundary History Back with series metric/selection | Keyboard chart equivalents, detail Escape/focus, original scroll restored |
 | Locale/theme/shared UI | Trend three locales plus existing historical light/dark, shared charts and Sheet suites | Light/dark, en/zh-CN/zh-TW; wide/390/320px and 200% zoom |
 
+## Agent closure selection regression (Q05)
+
+The synthetic query-only reproduction failed on base
+`788faf1eedf3c7e41e5eb214555da800d57829cc`: one US-equity unit, CNY 100,
+history starting August 1, retained Agent closes on August 3 and August 5,
+capture on August 6. August 4's ordinary panorama was complete at CNY 100.
+The one-day series instead returned null assets/net worth, known assets 100,
+and `history_coverage`. Selecting the quote from the full fact index inferred
+the bounded closure, but resolving that selected quote again after account
+projection lost the later close used as closure evidence.
+
+Series valuation now carries each day's immutable instrument selection,
+including its coverage decision and an explicitly absent quote, through both
+point aggregation and endpoint rows. The carrier is private to application
+reads; the resolver policy, exported DTOs, input budgets and cancellation
+contract remain unchanged. A fresh capture resolves again from its retained
+facts rather than reusing a previous capture's decisions.
+
+`historical_series_selection_test.go` checks exact-date Agent observations,
+bounded weekday closure, unbounded weekday tails, equity weekends, weekday and
+weekend NAV carry, and correction/retraction recaptures. Each boundary compares
+the point with ordinary panorama and deep-compares the complete endpoint
+bundle, including quote identity, missing details and provenance. Query-only
+reads and unchanged SQLite total changes establish the read-only contract;
+withdrawing the later bounding close restores incomplete coverage. Existing
+series budget, single-capture and cancellation regressions remain required.
+
 ## Synthetic benchmarks, saved cloud host
 
 Measured on initial PR #57 head `36661f69bac215ca355f46ea8907b5f7c8c561fa`;

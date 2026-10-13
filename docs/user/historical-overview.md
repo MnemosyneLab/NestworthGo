@@ -13,6 +13,11 @@ for a two-date view. Every difference is B minus A. Reverse comparisons are
 allowed. Current is available only for B and is fixed at the displayed capture
 time. Use **Refresh both dates** to capture both sides together.
 
+The view tabs have one stop in the keyboard Tab order. Use Left/Right arrows
+to select an adjacent view, or Home/End for the first/last view. Tab moves into
+the selected panel, which is labelled by its view. Changing views uses the
+current capture without reading the dates again.
+
 Net worth, assets and liabilities each show their own A/B values and difference.
 A balance difference is not investment return or an explanation of what caused
 the change. Unknown values remain unknown, including for same-date comparisons.
