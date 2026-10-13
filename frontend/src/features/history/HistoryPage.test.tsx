@@ -1572,3 +1572,22 @@ it("keeps duplicate-alias starting-point cost inputs distinct and submits each h
   await user.click(screen.getByRole("button", { name: "Start history" }));
   await waitFor(() => expect(startHistoryOnDate).toHaveBeenCalledWith(expect.any(String), expect.any(String), { "holding-a": "12.34", "holding-b": "56.78" }));
 });
+
+
+it("offers only cash assets for ordinary transfer endpoints", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([
+    { account: { id: "bank", name: "Bank", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "USD" } },
+    { account: { id: "broker", name: "Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "USD" } },
+    { account: { id: "loan", name: "Loan", trackingMode: "balance", balanceSheetRole: "liability", defaultCurrency: "USD" } },
+    { account: { id: "house", name: "House", trackingMode: "manual_value", balanceSheetRole: "asset", defaultCurrency: "USD" } },
+  ]);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("radio", { name: "Cash transfer" }));
+  for (const label of [i18n.t("history.fromAccount"), i18n.t("history.toAccount")]) {
+    const select = within(form).getByLabelText(label);
+    expect(within(select).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["", "bank", "broker"]);
+  }
+});

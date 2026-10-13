@@ -973,8 +973,8 @@ function RecordChangeFormReady({
 
       {kind === ChangeCommandKind.ChangeCashTransfer && (
         <>
-          {!lock?.accountId && <AccountSelect id="change-from-account" label={t("history.fromAccount")} value={request.fromAccountId ?? ""} onChange={(fromAccountId) => handleTransferAccount("fromAccountId", "sentCurrency", fromAccountId)} accounts={accountOptions} />}
-          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={request.toAccountId ?? ""} onChange={(toAccountId) => handleTransferAccount("toAccountId", "receivedCurrency", toAccountId)} accounts={accountOptions} />
+          {!lock?.accountId && <AccountSelect id="change-from-account" label={t("history.fromAccount")} value={request.fromAccountId ?? ""} onChange={(fromAccountId) => handleTransferAccount("fromAccountId", "sentCurrency", fromAccountId)} accounts={cashAccountOptions} />}
+          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={request.toAccountId ?? ""} onChange={(toAccountId) => handleTransferAccount("toAccountId", "receivedCurrency", toAccountId)} accounts={cashAccountOptions} />
           <MoneyFields prefix="change-sent" label={t("history.sent")} amount={request.sent ?? ""} currency={request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(sent) => patch({ sent })} onCurrency={(sentCurrency) => patch({ sentCurrency })} disabledCurrency />
           {sameCurrencyTransfer ? (
             <MoneyFields prefix="change-received" label={t("history.received")} amount={request.sent ?? ""} currency={request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={() => undefined} disabledCurrency readOnly />
