@@ -28,7 +28,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { displayError } from "@/lib/display";
-import { instrumentSelectionLabel, instrumentDisplayLabels } from "@/lib/instrumentDisplay";
+import { instrumentSelectionLabels, instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -73,6 +73,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
   const [kindFilter, setKindFilter] = useState(navigationFilters?.kinds?.[0] ?? "");
   const [accountFilter, setAccountFilter] = useState(navigationFilters?.accountId ?? "");
   const [instrumentFilter, setInstrumentFilter] = useState(navigationFilters?.instrumentId ?? "");
+  const selectionLabels = instrumentSelectionLabels((instruments.data ?? []).filter((instrument) => !instrument.archivedAt || instrument.id === instrumentFilter));
   const [fromLocalDate, setFromLocalDate] = useState(navigationFilters?.from ?? "");
   const [toLocalDate, setToLocalDate] = useState(navigationFilters?.to ?? "");
   const today = ymdInTimeZone(new Date(), origin.data?.timezone);
@@ -158,7 +159,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
             <Label htmlFor="history-filter-instrument">{t("history.filterInstrument")}</Label>
             <NativeSelect id="history-filter-instrument" value={instrumentFilter} onChange={(event) => setInstrumentFilter(event.target.value)}>
               <option value="">{t("history.filterAll")}</option>
-              {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt || instrument.id === instrumentFilter).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrumentSelectionLabel(instrument, instrument.name)}{instrument.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
+              {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt || instrument.id === instrumentFilter).map((instrument) => <option key={instrument.id} value={instrument.id}>{selectionLabels.get(instrument.id) ?? instrument.name}{instrument.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
             </NativeSelect>
           </div>
         </div>

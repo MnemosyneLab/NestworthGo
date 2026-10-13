@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { instrumentDisplayLabel, instrumentDisplayLabels, instrumentSecondaryName, instrumentSelectionLabel } from "./instrumentDisplay";
+import { instrumentDisplayLabel, instrumentDisplayLabels, instrumentSecondaryName, instrumentSelectionLabel, instrumentSelectionLabels } from "./instrumentDisplay";
 
 describe("instrumentDisplayLabel", () => {
   it("prefers the ticker over a long legal name", () => {
@@ -67,4 +67,42 @@ it("retains unit and provider identity in selectors without changing the primary
   expect(instrumentDisplayLabel({ ...common, quantityUnit: "g" })).toBe("Family gold");
   expect(instrumentSelectionLabel({ ...common, quantityUnit: "g" })).toBe("Family gold · XAU · Gold · USD · g · yahoo_finance · GC=F");
   expect(instrumentSelectionLabel({ ...common, quantityUnit: "troy_oz" })).toContain("troy_oz");
+});
+
+
+describe("compact selection labels", () => {
+  it("shows only trimmed short name and code, without repeating identical text", () => {
+    const metadata = { name: "An exceptionally long legal name", marketCode: "EXCHANGE", quoteCurrency: "USD", providerKey: "long-provider", providerSymbol: "provider-code" };
+    expect(instrumentSelectionLabels([
+      { ...metadata, id: "a", shortName: " Alias ", symbol: " ABC " },
+      { ...metadata, id: "b", shortName: " ", symbol: "XYZ" },
+      { ...metadata, id: "c", shortName: "SAME", symbol: "SAME" },
+    ])).toEqual(new Map([["a", "Alias · ABC"], ["b", "XYZ"], ["c", "SAME"]]));
+  });
+  it("adds only the shortest distinguishing field to exact collisions", () => {
+    expect(instrumentSelectionLabels([
+      { id: "a", shortName: "Fund", symbol: "ABC", marketCode: "LONG-MARKET-A", quoteCurrency: "USD", providerKey: "provider-a" },
+      { id: "b", shortName: "Fund", symbol: "ABC", marketCode: "LONG-MARKET-B", quoteCurrency: "EUR", providerKey: "provider-b" },
+      { id: "c", shortName: "Other", symbol: "ABC" },
+    ])).toEqual(new Map([["a", "Fund · ABC [USD]"], ["b", "Fund · ABC [EUR]"], ["c", "Other · ABC"]]));
+  });
+  it("preserves distinct IDs even when all identity metadata matches", () => {
+    const labels = instrumentSelectionLabels([
+      { id: "same-1-long", symbol: "ABC", name: "Same" },
+      { id: "same-2-long", symbol: "ABC", name: "Same" },
+    ]);
+    expect(labels).toEqual(new Map([["same-1-long", "ABC [ID same-1]"], ["same-2-long", "ABC [ID same-2]"]]));
+  });
+  it("handles missing codes with the existing primary fallback", () => {
+    expect(instrumentSelectionLabels([{ id: "a", name: "Manual fund" }, { id: "b" }], "Unknown"))
+      .toEqual(new Map([["a", "Manual fund"], ["b", "Unknown"]]));
+  });
+  it("disambiguates a literal alias matching a decorated label", () => {
+    const labels = instrumentSelectionLabels([
+      { id: "a", symbol: "ABC", quoteCurrency: "USD" },
+      { id: "b", symbol: "ABC", quoteCurrency: "EUR" },
+      { id: "c", shortName: "ABC [USD]" },
+    ]);
+    expect(new Set(labels.values()).size).toBe(3);
+  });
 });
