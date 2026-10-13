@@ -126,28 +126,33 @@ func (s *Service) pagedAgentRecords(ctx context.Context, g uint64, in AgentDataL
 			}
 			rows = append(rows, v)
 		}
-		sort.SliceStable(rows, func(i, j int) bool {
-			a, b := rows[i], rows[j]
-			if order.Field == "createdAt" {
-				av, bv := created[a.RecordID], created[b.RecordID]
-				if !av.Equal(bv) {
-					if order.Direction == "desc" {
-						return av.After(bv)
-					}
-					return av.Before(bv)
-				}
-			}
-			av, bv := a.Date, b.Date
-			if order.Field == "operation" {
-				av, bv = a.Operation, b.Operation
-			}
-			cmp := compareReadText(av, bv, order.Direction)
-			if cmp == 0 {
-				return a.RecordID < b.RecordID
-			}
-			return cmp < 0
-		})
+		sortAgentReadRecords(rows, created, order)
 		raw, err := readRows(rows)
 		return readCapture{Kind: "agent_market_data", Query: map[string]any{"filter": f, "sort": order}, Summary: map[string]any{"totalRecordCount": len(records), "matchedRecordCount": len(rows), "activeBasis": "not corrected or retracted; independent of current valuation selection"}, Sections: map[string][]json.RawMessage{"records": raw}}, err
+	})
+}
+
+func sortAgentReadRecords(rows []AgentDataRecordDTO, created map[string]time.Time, order ReadSort) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if order.Field == "createdAt" {
+			av, bv := created[a.RecordID], created[b.RecordID]
+			if !av.Equal(bv) {
+				if order.Direction == "desc" {
+					return av.After(bv)
+				}
+				return av.Before(bv)
+			}
+			return a.RecordID < b.RecordID
+		}
+		av, bv := a.Date, b.Date
+		if order.Field == "operation" {
+			av, bv = a.Operation, b.Operation
+		}
+		cmp := compareReadText(av, bv, order.Direction)
+		if cmp == 0 {
+			return a.RecordID < b.RecordID
+		}
+		return cmp < 0
 	})
 }

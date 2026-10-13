@@ -37,6 +37,17 @@ func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
 		}
 	}
 }
+func TestBoundedReadLegacyOmittedArgumentsRemainUncapped(t *testing.T) {
+	for _, name := range []string{"list_instruments", "list_agent_market_data"} {
+		b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name}})
+		w := httptest.NewRecorder()
+		financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(strings.Repeat("x", contextWireLimit+1))) })).ServeHTTP(w, httptest.NewRequest("POST", "/mcp", strings.NewReader(string(b))))
+		if w.Body.Len() != contextWireLimit+1 {
+			t.Fatalf("legacy omitted arguments capped %s", name)
+		}
+	}
+}
+
 func TestBoundedReadEvictionFixedTTLAndImmutableInput(t *testing.T) {
 	c := newBoundedReadCache()
 	c.activate(1)
@@ -102,9 +113,11 @@ func TestBoundedReadPagedOptionPresenceAndLegacyAgentLimit(t *testing.T) {
 	}
 	call(t, c, "list_agent_market_data", map[string]any{"limit": 0, "offset": 0}, false)
 	call(t, c, "list_agent_market_data", map[string]any{"filter": nil}, true)
-	payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "list_instruments", "arguments": map[string]any{"limit": strings.Repeat("private", 12000)}}}
-	status, wire := productHTTP(t, fx.service, payload, "")
-	if status != 200 || len(wire) > contextWireLimit || strings.Contains(string(wire), "privateprivate") {
-		t.Fatal("paging option schema error not bounded")
+	for _, field := range []string{"limit", "responseMode"} {
+		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "list_instruments", "arguments": map[string]any{field: map[string]any{"private": strings.Repeat("private", 12000)}}}}
+		status, wire := productHTTP(t, fx.service, payload, "")
+		if status != 200 || len(wire) > contextWireLimit || strings.Contains(string(wire), "privateprivate") {
+			t.Fatalf("paging option %s schema error not bounded", field)
+		}
 	}
 }
