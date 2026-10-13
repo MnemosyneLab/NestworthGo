@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -158,5 +159,36 @@ func TestCostBasisRepositoryExcludesArchivedHoldingUnlessRequested(t *testing.T)
 	}
 	if historicalCost == nil || historicalCost.Canonical() != "720" {
 		t.Fatalf("archived Holding historical cost = %v, want 720", historicalCost)
+	}
+}
+
+func TestCostBasisEventsRetainCorrectionRootAndEffectOrder(t *testing.T) {
+	database := seedCurrentGainFixture(t, filepath.Join(t.TempDir(), "order.db"))
+	repo := NewRepository(database)
+	events, err := repo.ListCostBasisEvents(t.Context(), domain.HoldingID("00000000-0000-4000-8000-000000000050"), domain.CostBasisReadFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range events {
+		var effective, created, ordering string
+		var sequence int
+		if err := database.SQL.QueryRowContext(t.Context(), correctedActivityCTE+`SELECT a.effective_at, a.created_at, a.ordering_id, e.sequence FROM economic_activities a JOIN activity_effects e ON e.activity_id=a.id WHERE a.id=? AND e.holding_id=?`, event.ActivityID.String(), "00000000-0000-4000-8000-000000000050").Scan(&effective, &created, &ordering, &sequence); err != nil {
+			t.Fatal(err)
+		}
+		effectiveTime, err := time.Parse(time.RFC3339Nano, effective)
+		if err != nil {
+			t.Fatal(err)
+		}
+		createdTime, err := time.Parse(time.RFC3339Nano, created)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !event.EffectiveAt.Equal(effectiveTime) || !event.CreatedAt.Equal(createdTime) || event.OrderingID.String() != ordering || event.Sequence != sequence {
+			t.Fatalf("economic order lost: %+v", event)
+		}
+	}
+	// The first event is the fixture's corrected buy, with a different audit ID.
+	if events[0].OrderingID == events[0].ActivityID {
+		t.Fatal("corrected buy lost its root ordering ID")
 	}
 }

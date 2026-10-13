@@ -350,3 +350,27 @@ func instrumentIDPointer(value string) *InstrumentID {
 	result := InstrumentID(value)
 	return &result
 }
+
+func TestCostBasisBoundaryUsesStableEconomicActivityOrder(t *testing.T) {
+	at := time.Date(2026, 9, 25, 13, 0, 0, 0, time.UTC)
+	root := ActivityID("00000000-0000-4000-8000-000000000010")
+	transfer := CostBasisEvent{EffectiveAt: at, CreatedAt: at, OrderingID: root, Sequence: 1}
+	for _, tc := range []struct {
+		name  string
+		event CostBasisEvent
+		want  bool
+	}{
+		{"earlier effective", CostBasisEvent{EffectiveAt: at.Add(-time.Hour), CreatedAt: at.Add(time.Hour)}, true},
+		{"earlier created", CostBasisEvent{EffectiveAt: at, CreatedAt: at.Add(-time.Second)}, true},
+		{"earlier stable root", CostBasisEvent{EffectiveAt: at, CreatedAt: at, OrderingID: ActivityID("00000000-0000-4000-8000-000000000009")}, true},
+		{"source effect of transfer", CostBasisEvent{EffectiveAt: at, CreatedAt: at, OrderingID: root, Sequence: 0}, false},
+		{"later stable root", CostBasisEvent{EffectiveAt: at, CreatedAt: at, OrderingID: ActivityID("00000000-0000-4000-8000-000000000011")}, false},
+		{"later created", CostBasisEvent{EffectiveAt: at, CreatedAt: at.Add(time.Second)}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.event.Before(transfer.Boundary()); got != tc.want {
+				t.Fatalf("Before=%v want %v", got, tc.want)
+			}
+		})
+	}
+}

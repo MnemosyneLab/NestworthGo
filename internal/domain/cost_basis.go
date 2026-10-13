@@ -32,6 +32,9 @@ const (
 type CostBasisEvent struct {
 	ActivityID         ActivityID
 	EffectiveAt        time.Time
+	CreatedAt          time.Time
+	OrderingID         ActivityID
+	Sequence           int
 	Kind               CostBasisEventKind
 	Quantity           Quantity
 	UnitPrice          *UnitPrice
@@ -40,6 +43,29 @@ type CostBasisEvent struct {
 	Fee                *Money
 	Currency           CurrencyCode
 	ReversesActivityID *ActivityID
+}
+
+// CostBasisBoundary is the exclusive economic activity position for source
+// replay. Corrections retain the root activity's time, creation time and ID.
+// All effects of the transfer itself are excluded, regardless of sequence.
+type CostBasisBoundary struct {
+	EffectiveAt time.Time
+	CreatedAt   time.Time
+	OrderingID  ActivityID
+}
+
+func (e CostBasisEvent) Boundary() CostBasisBoundary {
+	return CostBasisBoundary{EffectiveAt: e.EffectiveAt.UTC(), CreatedAt: e.CreatedAt.UTC(), OrderingID: e.OrderingID}
+}
+
+func (e CostBasisEvent) Before(boundary CostBasisBoundary) bool {
+	if !e.EffectiveAt.Equal(boundary.EffectiveAt) {
+		return e.EffectiveAt.Before(boundary.EffectiveAt)
+	}
+	if !e.CreatedAt.Equal(boundary.CreatedAt) {
+		return e.CreatedAt.Before(boundary.CreatedAt)
+	}
+	return e.OrderingID.String() < boundary.OrderingID.String()
 }
 
 // CostLot is the current quantity and its average per-unit cost.

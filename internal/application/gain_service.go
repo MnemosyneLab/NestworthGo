@@ -690,7 +690,7 @@ func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.Por
 			rate := decimal.Zero
 			ok := false
 			if event.SourceHoldingID != nil {
-				cutoff := event.EffectiveAt
+				cutoff := event.Boundary()
 				starting, sourceEvents, err := replay.preparedEvents(ctx, *event.SourceHoldingID, &cutoff)
 				if err != nil {
 					return decimal.Zero, false
@@ -887,7 +887,7 @@ func signedMoneyView(value decimal.Decimal, currency domain.CurrencyCode) (domai
 
 type replayMemoKey struct {
 	holdingID domain.HoldingID
-	cutoff    time.Time
+	cutoff    domain.CostBasisBoundary
 	hasCutoff bool
 }
 
@@ -921,10 +921,10 @@ func newCostBasisReplayContext(repository Repository, holdings ...[]domain.Holdi
 	return &costBasisReplayContext{repository: repository, quantities: quantities, events: make(map[domain.HoldingID][]domain.CostBasisEvent), starting: make(map[domain.HoldingID]*domain.UnitPrice), results: make(map[replayMemoKey]domain.CostBasisResult), active: make(map[replayMemoKey]bool)}
 }
 
-func (c *costBasisReplayContext) replay(ctx context.Context, holdingID domain.HoldingID, cutoff *time.Time) (domain.CostBasisResult, error) {
+func (c *costBasisReplayContext) replay(ctx context.Context, holdingID domain.HoldingID, cutoff *domain.CostBasisBoundary) (domain.CostBasisResult, error) {
 	key := replayMemoKey{holdingID: holdingID}
 	if cutoff != nil {
-		key.cutoff, key.hasCutoff = cutoff.UTC(), true
+		key.cutoff, key.hasCutoff = *cutoff, true
 	}
 	if result, ok := c.results[key]; ok {
 		return result, nil
@@ -946,7 +946,7 @@ func (c *costBasisReplayContext) replay(ctx context.Context, holdingID domain.Ho
 	return result, nil
 }
 
-func (c *costBasisReplayContext) preparedEvents(ctx context.Context, holdingID domain.HoldingID, cutoff *time.Time) (*domain.UnitPrice, []domain.CostBasisEvent, error) {
+func (c *costBasisReplayContext) preparedEvents(ctx context.Context, holdingID domain.HoldingID, cutoff *domain.CostBasisBoundary) (*domain.UnitPrice, []domain.CostBasisEvent, error) {
 	if _, ok := c.events[holdingID]; !ok {
 		if c.repository == nil {
 			return nil, nil, &domain.Error{Code: domain.ErrIntegrity, Message: "cost events are missing from gain snapshot"}
@@ -971,7 +971,7 @@ func (c *costBasisReplayContext) preparedEvents(ctx context.Context, holdingID d
 	if cutoff != nil {
 		filtered := make([]domain.CostBasisEvent, 0, len(events))
 		for _, event := range events {
-			if !event.EffectiveAt.After(*cutoff) {
+			if event.Before(*cutoff) {
 				filtered = append(filtered, event)
 			}
 		}
@@ -1004,7 +1004,8 @@ func (c *costBasisReplayContext) preparedEvents(ctx context.Context, holdingID d
 		if event.Kind != domain.CostBasisTransferIn || event.UnitCost != nil || event.SourceHoldingID == nil {
 			continue
 		}
-		resolved, err := c.replay(ctx, *event.SourceHoldingID, &event.EffectiveAt)
+		boundary := event.Boundary()
+		resolved, err := c.replay(ctx, *event.SourceHoldingID, &boundary)
 		if err != nil {
 			return nil, nil, err
 		}
