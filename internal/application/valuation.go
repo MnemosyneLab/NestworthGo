@@ -105,6 +105,11 @@ func (v *ValuationService) Account(ctx context.Context, id domain.AccountID) (do
 				return domain.AccountValuation{}, err
 			}
 			item.model.Composition = &composition
+			display, err := v.projectAccountDisplayValue(snapshot, item.model)
+			if err != nil {
+				return domain.AccountValuation{}, err
+			}
+			item.model.DisplayValue = &display
 			return item.model, nil
 		}
 	}
@@ -506,13 +511,18 @@ func (v *ValuationService) valueNative(snapshot domain.PortfolioSnapshot, accoun
 }
 
 func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, native decimal.Decimal, currency domain.CurrencyCode) (decimal.Decimal, *domain.QuoteEvidenceView, *domain.MissingInputView, error) {
-	baseCurrency := snapshot.Household.BaseCurrency
+	return v.convertTo(snapshot, accountID, native, currency, snapshot.Household.BaseCurrency)
+}
+
+// convertTo reuses the authoritative pair selector with an explicit target.
+// Historical callers retain their original target and resolver semantics.
+func (v *ValuationService) convertTo(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, native decimal.Decimal, currency, baseCurrency domain.CurrencyCode) (decimal.Decimal, *domain.QuoteEvidenceView, *domain.MissingInputView, error) {
 	if currency == baseCurrency {
 		return native, nil, nil, nil
 	}
-	quote := v.selectFXQuote(snapshot, snapshot.FXQuotes, currency, nil)
+	quote := v.selectFXQuoteTo(snapshot, snapshot.FXQuotes, currency, baseCurrency, nil)
 	if quote == nil {
-		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, QuoteSource: implicitFXPreference(snapshot, currency).SourceKind, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
+		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, QuoteSource: implicitFXPreferenceTo(snapshot, currency, baseCurrency).SourceKind, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
 	var converted decimal.Decimal
 	var err error
@@ -543,16 +553,20 @@ func (v *ValuationService) selectFXQuote(snapshot domain.PortfolioSnapshot, quot
 	if snapshot.Household == nil {
 		return nil
 	}
-	preference := implicitFXPreference(snapshot, native)
+	return v.selectFXQuoteTo(snapshot, quotes, native, snapshot.Household.BaseCurrency, cutoff)
+}
+
+func (v *ValuationService) selectFXQuoteTo(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native, target domain.CurrencyCode, cutoff *time.Time) *domain.FXQuote {
+	preference := implicitFXPreferenceTo(snapshot, native, target)
 	if v.historical {
 		marketDate := v.historicalDate()
 		when := v.now()
 		if cutoff != nil {
 			when = *cutoff
 		}
-		return selectHistoricalFXQuoteAtMarketDate(preference, quotes, native, snapshot.Household.BaseCurrency, v.providerKey(), marketDate, when)
+		return selectHistoricalFXQuoteAtMarketDate(preference, quotes, native, target, v.providerKey(), marketDate, when)
 	}
-	return selectFXQuote(preference, quotes, native, snapshot.Household.BaseCurrency, v.providerKey(), cutoff)
+	return selectFXQuote(preference, quotes, native, target, v.providerKey(), cutoff)
 }
 
 func (v *ValuationService) fxRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
@@ -566,7 +580,10 @@ func (v *ValuationService) fxRateAtOrBefore(snapshot domain.PortfolioSnapshot, q
 }
 
 func implicitFXPreference(snapshot domain.PortfolioSnapshot, native domain.CurrencyCode) domain.FXPreference {
-	base := snapshot.Household.BaseCurrency
+	return implicitFXPreferenceTo(snapshot, native, snapshot.Household.BaseCurrency)
+}
+
+func implicitFXPreferenceTo(snapshot domain.PortfolioSnapshot, native, base domain.CurrencyCode) domain.FXPreference {
 	if preference := findFXPreference(snapshot.FXPreferences, native, base); preference != nil {
 		return *preference
 	}

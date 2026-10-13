@@ -6,6 +6,9 @@
     "version": "版本 %s · 建置 %s"
   },
   "accounts": {
+    "displaySubtotal": "已估值小計",
+    "currencyUnavailable": "{{currency}} 合計暫不可用",
+    "compositionHouseholdCurrency": "資產結構與占比按家庭本位幣（{{currency}}）計算",
     "amount": "初始金額",
     "amountNotUsed": "持倉模式不使用",
     "archive": "封存",

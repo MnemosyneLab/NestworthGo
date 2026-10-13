@@ -473,8 +473,32 @@ func FromMissingInputs(values []domain.MissingInputView) []MissingInputDTO {
 	return result
 }
 
+// AccountDisplayValueDTO exposes account-currency completeness independently.
+type AccountDisplayValueDTO struct {
+	Currency      string             `json:"currency"`
+	Value         *MoneyView         `json:"value,omitempty"`
+	TotalExact    string             `json:"totalExact,omitempty"`
+	Complete      bool               `json:"complete"`
+	ValuedCount   int                `json:"valuedCount"`
+	MissingCount  int                `json:"missingCount"`
+	MissingInputs []MissingInputDTO  `json:"missingInputs"`
+	FXEvidence    []QuoteEvidenceDTO `json:"fxEvidence"`
+}
+
+func FromAccountDisplayValue(value *domain.AccountDisplayValue) *AccountDisplayValueDTO {
+	if value == nil {
+		return nil
+	}
+	evidence := make([]QuoteEvidenceDTO, 0, len(value.FXEvidence))
+	for _, item := range value.FXEvidence {
+		evidence = append(evidence, *FromQuoteEvidence(&item))
+	}
+	return &AccountDisplayValueDTO{Currency: value.Currency.String(), Value: FromMoneyView(value.Value), TotalExact: value.TotalExact, Complete: value.Complete, ValuedCount: value.ValuedCount, MissingCount: value.MissingCount, MissingInputs: FromMissingInputs(value.MissingInputs), FXEvidence: evidence}
+}
+
 // AccountValuationDTO mirrors domain.AccountValuation.
 type AccountValuationDTO struct {
+	DisplayValue    *AccountDisplayValueDTO `json:"displayValue,omitempty"`
 	Composition     *AccountCompositionDTO  `json:"composition,omitempty"`
 	Account         AccountDTO              `json:"account"`
 	Ownership       []OwnershipShareDTO     `json:"ownership"`
@@ -490,6 +514,7 @@ func FromAccountValuation(value domain.AccountValuation) AccountValuationDTO {
 	return AccountValuationDTO{
 		Account: FromAccount(value.Account), Ownership: FromOwnershipShares(value.Ownership.Shares()),
 		Composition:     FromAccountComposition(value.Composition),
+		DisplayValue:    FromAccountDisplayValue(value.DisplayValue),
 		InstitutionName: value.InstitutionName, GroupName: value.GroupName, BaseValue: FromMoneyView(value.BaseValue),
 		Complete: value.Complete, Components: FromValuationComponents(value.Components), MissingInputs: FromMissingInputs(value.MissingInputs),
 	}

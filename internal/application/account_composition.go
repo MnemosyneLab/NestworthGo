@@ -27,6 +27,11 @@ func (v *ValuationService) ValueAccountCompositions(snapshot domain.PortfolioSna
 			return nil, nil, err
 		}
 		accounts[i].Composition = &composition
+		display, err := v.projectAccountDisplayValue(snapshot, accounts[i])
+		if err != nil {
+			return nil, nil, err
+		}
+		accounts[i].DisplayValue = &display
 	}
 	return accounts, missing, nil
 }

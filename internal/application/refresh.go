@@ -369,22 +369,41 @@ func refreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarge
 		targetsByKey[target.key] = target
 	}
 	requiredFX := make(map[string]refreshTarget)
-	addRequiredFX := func(currency domain.CurrencyCode) {
-		if currency == "" || currency == snapshot.Household.BaseCurrency {
+	addRequiredFXPair := func(currency, target domain.CurrencyCode) {
+		if currency == "" || target == "" || currency == target {
 			return
 		}
-		a, b, err := domain.NormalizeFXPair(currency, snapshot.Household.BaseCurrency)
+		a, b, err := domain.NormalizeFXPair(currency, target)
 		if err != nil {
 			return
 		}
 		key := fxPairKey(a, b)
-		requiredFX[key] = refreshTarget{key: "fx:" + key, kind: RefreshFXTarget, baseCurrency: currency, quoteCurrency: snapshot.Household.BaseCurrency, householdID: snapshot.Household.ID}
+		requiredFX[key] = refreshTarget{key: "fx:" + key, kind: RefreshFXTarget, baseCurrency: currency, quoteCurrency: target, householdID: snapshot.Household.ID}
+	}
+	addRequiredFX := func(currency domain.CurrencyCode) {
+		addRequiredFXPair(currency, snapshot.Household.BaseCurrency)
+	}
+	// Account display can need a currency absent from every native component.
+	// Match its explicit-pair preference or its household-only bridge policy;
+	// keep these dependencies in the required group for every refresh entrypoint.
+	addAccountDisplayFX := func(account domain.Account, native domain.CurrencyCode) {
+		if native == "" || native == account.DefaultCurrency {
+			return
+		}
+		if findFXPreference(snapshot.FXPreferences, native, account.DefaultCurrency) != nil {
+			addRequiredFXPair(native, account.DefaultCurrency)
+			return
+		}
+		addRequiredFX(account.DefaultCurrency)
 	}
 	for _, record := range snapshot.Accounts {
 		if record.Account.ArchivedAt != nil || record.LatestValue == nil {
 			continue
 		}
 		addRequiredFX(record.LatestValue.Amount.Currency())
+		if !record.LatestValue.Amount.IsZero() {
+			addAccountDisplayFX(record.Account, record.LatestValue.Amount.Currency())
+		}
 	}
 	for _, holding := range snapshot.Holdings {
 		if holding.ArchivedAt != nil {
@@ -395,14 +414,23 @@ func refreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarge
 			continue
 		}
 		instrument, ok := instruments[holding.InstrumentID]
-		if ok && instrument.ArchivedAt == nil {
+		// Archived instruments retain active nonzero holdings and their stored
+		// prices. Their FX dependencies remain required; instrumentRefreshTarget
+		// still independently skips archived instrument-price requests.
+		if ok && (instrument.ArchivedAt == nil || !holding.Quantity.IsZero()) {
 			addRequiredFX(instrument.QuoteCurrency)
+			if !holding.Quantity.IsZero() {
+				addAccountDisplayFX(account.Account, instrument.QuoteCurrency)
+			}
 		}
 	}
 	for _, cash := range snapshot.CashValues {
 		account, ok := accounts[cash.AccountID]
 		if ok && account.Account.ArchivedAt == nil && account.Account.TrackingMode == domain.TrackingHoldings {
 			addRequiredFX(cash.Amount.Currency())
+			if !cash.Amount.IsZero() {
+				addAccountDisplayFX(account.Account, cash.Amount.Currency())
+			}
 		}
 	}
 	for _, instrument := range snapshot.Instruments {
