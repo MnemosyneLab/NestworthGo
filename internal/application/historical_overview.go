@@ -119,7 +119,17 @@ type HistoricalOverviewRow struct {
 // HistoricalOverview uses one repository read transaction for both sides. It
 // deliberately bypasses snapshot ensuring, provider refresh, and write services.
 // Empty date chooses the last month end within the retained history window.
-func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string) (HistoricalOverviewResult, error) {
+func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string) (out HistoricalOverviewResult, err error) {
+	// Normalize SQL interruption/transaction-close races only when this request
+	// was actually abandoned. Live infrastructure errors retain their identity.
+	defer func() {
+		if ctx.Err() != nil {
+			out, err = HistoricalOverviewResult{}, ctx.Err()
+		}
+	}()
+	if err := ctx.Err(); err != nil {
+		return HistoricalOverviewResult{}, err
+	}
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
 		return HistoricalOverviewResult{}, err
@@ -130,6 +140,9 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 	now := s.clock()
 	batch, err := s.repository.LoadHistoricalSnapshotBatch(ctx, origin.HouseholdID, now)
 	if err != nil {
+		return HistoricalOverviewResult{}, err
+	}
+	if err := ctx.Err(); err != nil {
 		return HistoricalOverviewResult{}, err
 	}
 	location, err := time.LoadLocation(batch.Origin.Timezone)
@@ -188,7 +201,13 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 		}
 	}
 	result.Rows = alignHistoricalOverview(leftRows, rightRows, result.Right != nil)
+	if err := ctx.Err(); err != nil {
+		return HistoricalOverviewResult{}, err
+	}
 	result.Categories = historicalCategoryComparisons(result)
+	if err := ctx.Err(); err != nil {
+		return HistoricalOverviewResult{}, err
+	}
 	return result, nil
 }
 
@@ -235,6 +254,9 @@ func historicalOverviewDayCutoff(day time.Time, location *time.Location) (time.T
 }
 
 func (s *Service) historicalOverviewSide(ctx context.Context, batch *domain.HistoricalSnapshotBatch, date string, cutoff time.Time, current bool, fxProvider string, ttl time.Duration) (HistoricalOverviewState, []HistoricalOverviewRow, error) {
+	if err := ctx.Err(); err != nil {
+		return HistoricalOverviewState{}, nil, err
+	}
 	portfolio := batch.Portfolio
 	var err error
 	if !current {
@@ -305,6 +327,9 @@ func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain
 		rows = append(rows, HistoricalOverviewRow{Key: parentKey, AccountID: parentKey, Kind: "account", Name: a.Name, Role: string(a.BalanceSheetRole)})
 		accountSum := decimal.Zero
 		for componentIndex, component := range account.Components {
+			if err := ctx.Err(); err != nil {
+				return HistoricalOverviewState{}, nil, err
+			}
 			cell := HistoricalOverviewCell{MissingDetails: []HistoricalMissingDetail{}, Status: "active", Included: included, Complete: component.Available, Currency: component.NativeCurrency.String(), NativeAmount: historicalString(component.NativeAmount), BaseAmount: historicalString(component.BaseAmountExact), Missing: []string{}}
 			kind, name, key := "balance", a.Name, parentKey+":balance"
 			componentArchived := false
