@@ -22,7 +22,8 @@ func associationFixture(sourceCount, reservationCount int) (LiquidityQuery, []Li
 	}
 	reservations := make([]LiquidityReservation, reservationCount)
 	for i := range reservations {
-		// Half missing, half matching near the end: exercise full legacy scans.
+		// Half missing; matches cycle through S-2, S-4, ..., 0 for even S.
+		// Missing keys scan all sources; matches scan about half on average.
 		ref := sources[sourceCount-1-i%sourceCount].Ref
 		if i%2 == 0 {
 			account, _ := ParseAccountID("ffffffff-ffff-4fff-8fff-ffffffffffff")
@@ -49,10 +50,7 @@ func TestLiquidityReservationAssociationParity(t *testing.T) {
 			v, _ := ParseMoney("0", "USD")
 			(*s)[0].CurrentNativeValue = &v
 		}},
-		{"negative", func(q *LiquidityQuery, s *[]LiquiditySource, r *[]LiquidityReservation) {
-			v, _ := ParseMoney("-1", "USD")
-			(*s)[0].CurrentNativeValue = &v
-		}},
+
 		{"exact positive rounded zero", func(q *LiquidityQuery, s *[]LiquiditySource, r *[]LiquidityReservation) {
 			v, _ := ParseMoney("0", "USD")
 			(*s)[0].CurrentNativeValue = &v
@@ -61,9 +59,7 @@ func TestLiquidityReservationAssociationParity(t *testing.T) {
 		{"exact zero overrides positive", func(q *LiquidityQuery, s *[]LiquiditySource, r *[]LiquidityReservation) {
 			(*s)[0].CurrentNativeAmount = "0"
 		}},
-		{"exact negative overrides positive", func(q *LiquidityQuery, s *[]LiquiditySource, r *[]LiquidityReservation) {
-			(*s)[0].CurrentNativeAmount = "-0.000001"
-		}},
+
 		{"duplicate qualifying first", func(q *LiquidityQuery, s *[]LiquiditySource, r *[]LiquidityReservation) {
 			bad := (*s)[0]
 			bad.Archived = true
@@ -128,6 +124,25 @@ func TestLiquidityReservationAssociationParity(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Negative amounts fail domain parsing before reservation association.
+func TestLiquidityReservationAssociationRejectsNegativeNativeAmount(t *testing.T) {
+	if _, err := ParseMoney("-1", "USD"); err == nil {
+		t.Fatal("negative Money must be rejected")
+	}
+	_, expectedErr := ParseNativeAmount("-0.000001")
+	if expectedErr == nil {
+		t.Fatal("negative native amount must be rejected")
+	}
+	q, sources, reservations := associationFixture(2, 8)
+	sources[0].CurrentNativeAmount = "-0.000001"
+	got, err := EvaluateLiquidity(q, sources, reservations, nil)
+	want, legacyErr := evaluateLiquidityLegacyAssociation(q, sources, reservations, nil)
+	if !reflect.DeepEqual(err, expectedErr) || !reflect.DeepEqual(legacyErr, expectedErr) ||
+		!reflect.DeepEqual(got, LiquidityOverview{}) || !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected native parser error and empty overview: got %v, legacy %v, expected %v", err, legacyErr, expectedErr)
 	}
 }
 
