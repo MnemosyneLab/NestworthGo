@@ -72,6 +72,15 @@ close continues touching SQLite. A failed drain during configuration change
 or restore pause retains the old configuration, resumes its worker, and shows
 retrying instead of a stale confirmation. Shutdown does not resume a worker.
 
+After a successful worker join, application drain, final remote TXID
+confirmation, store close and durable stream seal, the manager reclaims only
+that stream's local `.nestworth-replication/<backup UUID>/<stream UUID>`
+metadata. It verifies the exact current stream path and pins nonsymlink
+ancestors before deletion. It preserves metadata when draining, confirmation,
+close or sealing fails. Deletion is best effort and a generic warning records
+failure without preventing disable or restore. This does not scan old orphan
+streams, remove database/safety copies, or change remote retention/history.
+
 Shutdown first permanently fences/drains application write permits, cancels
 and joins market-data workers, then closes/drains MCP. This uses the central
 write coordinator without holding `changeMu` or the SQLite pool slot while

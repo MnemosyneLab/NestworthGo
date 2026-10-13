@@ -3,6 +3,7 @@ package continuousbackup
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -35,7 +36,7 @@ type Manager struct {
 	workerCancel      context.CancelFunc
 	workerDone        chan struct{}
 	replicaDB         *litestream.DB
-	replicaStore      *litestream.Store
+	replicaStore      interface{ Close(context.Context) error }
 	initialized       bool
 	lastSyncSucceeded bool
 	identity          streamIdentity
@@ -241,6 +242,7 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 	// Cleanup is synchronous. A timed-out goroutine is never left accessing
 	// SQLite. All operations are stopped before reserving/closing the pool slot.
 	closedHandles := false
+	metadataPath := m.replicaDB.MetaPath()
 	var confirmed time.Time
 	var finalTXID string
 	closeStore := func() error {
@@ -291,7 +293,15 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 	// Closure errors (even cancellation) never create a seal. A failed ledger
 	// write also leaves the stream protected; it must not break shutdown.
 	if !confirmed.IsZero() {
-		_ = m.store.seal(m.replicaConfig, m.identity, finalTXID, confirmed)
+		if err := m.store.seal(m.replicaConfig, m.identity, finalTXID, confirmed); err == nil {
+			// Only this joined, drained, confirmed and successfully closed stream
+			// is disposable. Failed seals preserve local recovery evidence too.
+			if err := m.removeStreamMetadata(metadataPath); err != nil {
+				// Reclamation is best effort; do not undo a safe disable/restore
+				// or disclose filesystem paths in diagnostics.
+				slog.Warn("continuous backup local metadata reclamation was incomplete")
+			}
+		}
 	}
 	m.replicaDB = nil
 	m.replicaStore = nil
