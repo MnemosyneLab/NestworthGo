@@ -55,6 +55,7 @@ export function AccountCompositionPanel({ composition, updatedAt }: { compositio
         </div>
       </CardHeader>
       <CardContent className="min-w-0">
+        <p className="mb-3 text-xs text-muted-foreground">{t("accounts.compositionHouseholdCurrency", { currency: composition.currency })}</p>
         {canChart ? (
           <CompositionChart
             key={`${mode}:${updatedAt ?? ""}:${JSON.stringify(composition)}`}

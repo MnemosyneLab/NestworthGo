@@ -241,3 +241,24 @@ func TestAccountCompositionWirePreservesExactAndMissing(t *testing.T) {
 		t.Fatalf("composition identity JSON=%s", encoded)
 	}
 }
+
+func TestAccountDisplayValueWireIndependentCompleteness(t *testing.T) {
+	value := domain.AccountValuation{Complete: false, DisplayValue: &domain.AccountDisplayValue{
+		Currency: "USD", Value: &domain.MoneyView{Amount: "10", Currency: "USD"}, TotalExact: "10.0000000000000001", Complete: true, ValuedCount: 1,
+		FXEvidence: []domain.QuoteEvidenceView{{ObservationID: "synthetic-fx", Source: domain.QuoteSourceManual}},
+	}}
+	encoded, err := json.Marshal(FromAccountValuation(value))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded AccountValuationDTO
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.DisplayValue == nil || !decoded.DisplayValue.Complete || decoded.Complete || decoded.DisplayValue.TotalExact != "10.0000000000000001" || decoded.DisplayValue.Value.Currency != "USD" || len(decoded.DisplayValue.FXEvidence) != 1 {
+		t.Fatalf("lost display projection: %s", encoded)
+	}
+	if FromAccountValuation(domain.AccountValuation{}).DisplayValue != nil {
+		t.Fatal("non-account consumer acquired a projection")
+	}
+}

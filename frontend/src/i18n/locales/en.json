@@ -6,6 +6,9 @@
     "version": "Version %s · Build %s"
   },
   "accounts": {
+    "displaySubtotal": "Valued subtotal",
+    "currencyUnavailable": "{{currency}} total unavailable",
+    "compositionHouseholdCurrency": "Composition and shares use household currency ({{currency}})",
     "amount": "Initial value",
     "amountNotUsed": "Not used for Holdings",
     "accountType": "Account type",

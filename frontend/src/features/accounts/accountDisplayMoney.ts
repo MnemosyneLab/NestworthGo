@@ -2,27 +2,26 @@ import type { AccountRecordDTO, AccountValuationDTO } from "../../../bindings/gi
 
 type DisplayMoney = { amount: string; currency: string };
 
-/**
- * Composite accounts can contain several cash and holding currencies, so only
- * the backend's baseValue is an authoritative account total. Simple accounts
- * retain their recorded native value as the primary amount.
- */
+/** Display only authoritative totals; never add or convert money in the UI. */
 export function accountDisplayMoney(
   record?: AccountRecordDTO,
   valuation?: AccountValuationDTO,
-): { primary?: DisplayMoney; secondary?: DisplayMoney; pendingConversion: boolean } {
+): { primary?: DisplayMoney; secondary?: DisplayMoney; pendingConversion: boolean; primaryPartial: boolean; secondaryPartial: boolean; unavailableCurrency?: string } {
+  const currency = record?.account.defaultCurrency ?? valuation?.account?.defaultCurrency;
+  const display = valuation?.displayValue;
   const base = valuation?.baseValue ?? undefined;
-  if (record?.account.trackingMode === "holdings") {
-    return {
-      primary: base,
-      pendingConversion: !base && (valuation?.components ?? []).some((component) => component.nativeAmount),
-    };
-  }
-
-  const native = record?.latestValue?.amount ?? undefined;
+  // Before the projection arrives, a recorded simple value already in the
+  // account currency is safe. A household total is safe only in that currency.
+  const recorded = record?.account.trackingMode !== "holdings" ? record?.latestValue?.amount : undefined;
+  const fallback = recorded?.currency === currency ? recorded : base?.currency === currency ? base : undefined;
+  const primary = display ? display.value ?? undefined : fallback;
+  const secondary = base && base.currency !== currency ? base : undefined;
   return {
-    primary: native ?? base,
-    secondary: native && base && native.currency !== base.currency ? base : undefined,
-    pendingConversion: Boolean(native && !base),
+    primary,
+    secondary,
+    pendingConversion: Boolean(primary && !base && valuation && valuation.missingInputs?.some((input) => input.kind === "fx_rate" && input.baseCurrency !== currency)),
+    primaryPartial: Boolean(primary && (display ? !display.complete : primary === base && valuation && !valuation.complete)),
+    secondaryPartial: Boolean(secondary && valuation && !valuation.complete),
+    unavailableCurrency: !primary && valuation ? currency : undefined,
   };
 }

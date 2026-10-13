@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { queryKeys } from "@/queries/keys";
 import { AccountsPage } from "./AccountsPage";
+import i18n from "@/i18n";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 
 const listAccounts = vi.fn();
@@ -307,7 +308,7 @@ describe("AccountsPage", () => {
     renderPage();
     expect(await screen.findByText("Checking")).toBeInTheDocument();
     expect(screen.getByText("$1,000.00")).toBeInTheDocument();
-    expect(screen.getByText("Pending conversion")).toBeInTheDocument();
+    expect(screen.queryByText("Pending conversion")).not.toBeInTheDocument();
     expect(screen.getAllByText("No current value").length).toBeGreaterThan(0);
     expect(screen.queryByText("Complete")).not.toBeInTheDocument();
   });
@@ -669,7 +670,7 @@ describe("AccountsPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
-    expect(screen.getByText("$2,450.00", { selector: ".text-2xl" })).toHaveClass("text-2xl");
+    expect(screen.getByText("$2,450.00 · Valued subtotal", { selector: ".text-2xl" })).toHaveClass("text-2xl");
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
     const fetchCounts = [accountValuations.mock.calls.length, currentInstrumentQuote.mock.calls.length, listInstruments.mock.calls.length, holdingsByAccounts.mock.calls.length];
     expect(screen.getByRole("radio", { name: "By type" })).toBeChecked();
@@ -1636,4 +1637,65 @@ it.each(["success", "uncertain"])("retains deferred cash confirmation across all
   await userEvent.click(trigger);
   expect(await screen.findByLabelText("Resulting balance")).toHaveValue("");
   await userEvent.keyboard("{Escape}");
+});
+
+it.each(["holdings", "balance", "manual_value"])("renders account currency primary in list and detail for %s", async (trackingMode) => {
+  const record = { ...emptyAccount, account: { ...emptyAccount.account, trackingMode, defaultCurrency: "USD" } };
+  listAccounts.mockResolvedValue([record]);
+  accountValuations.mockResolvedValue([{
+    account: record.account, ownership: record.ownership, complete: true, components: [], missingInputs: [],
+    baseValue: { amount: "710", currency: "CNY" },
+    displayValue: { currency: "USD", value: { amount: "100", currency: "USD" }, totalExact: "100", complete: true, valuedCount: 1, missingCount: 0, missingInputs: [], fxEvidence: [] },
+  }]);
+  render(<QueryClientProvider client={createTestQueryClient()}><AccountsPage /></QueryClientProvider>);
+  const row = await screen.findByRole("button", { name: /Checking.*100\.00.*710\.00/ });
+  expect(row.textContent!.indexOf("100.00")).toBeLessThan(row.textContent!.indexOf("710.00"));
+  await userEvent.click(row);
+  const detail = await screen.findByTestId("account-detail");
+  const primary = within(detail).getByText("$100.00", { exact: true });
+  const secondary = within(detail).getByText(/710\.00/);
+  expect(primary.parentElement).toContainElement(secondary);
+  expect(secondary.className).toContain("text-sm");
+});
+
+it.each([
+  ["en", "USD total unavailable", "Valued subtotal"],
+  ["zh-CN", "USD 合计暂不可用", "已估值小计"],
+  ["zh-TW", "USD 合計暫不可用", "已估值小計"],
+])("labels missing account FX and household partial amounts in %s", async (language, unavailable, subtotal) => {
+  await i18n.changeLanguage(language);
+  try {
+    const record = { ...brokerageAccount, account: { ...brokerageAccount.account, defaultCurrency: "USD" } };
+    listAccounts.mockResolvedValue([record]);
+    accountValuations.mockResolvedValue([{
+      account: record.account, ownership: record.ownership, complete: false, components: [], missingInputs: [],
+      baseValue: { amount: "710", currency: "CNY" },
+      displayValue: { currency: "USD", complete: false, valuedCount: 0, missingCount: 1, missingInputs: [], fxEvidence: [] },
+    }]);
+    renderPage();
+    const row = await screen.findByRole("button", { name: /MooMoo.*710\.00/ });
+    expect(within(row).getByText(unavailable)).toBeInTheDocument();
+    expect(within(row).getByText(new RegExp(`710\\.00.*${subtotal}`))).toHaveClass("text-xs");
+    await userEvent.click(row);
+    const detail = await screen.findByTestId("account-detail");
+    expect(within(detail).getByText(unavailable)).toHaveClass("text-2xl");
+    expect(within(detail).getByText(new RegExp(`710\\.00.*${subtotal}`))).toHaveClass("text-sm");
+  } finally { await i18n.changeLanguage("en"); }
+});
+
+it("keeps a priced holding's native amount visible when household FX is missing", async () => {
+  listAccounts.mockResolvedValue([brokerageAccount]);
+  accountValuations.mockResolvedValue([{
+    account: brokerageAccount.account, ownership: brokerageAccount.ownership, complete: false,
+    components: [{ holdingId: "native-holding", instrumentId: "native-instrument", instrumentName: "Native holding", nativeCurrency: "SGD", nativeAmount: "123", available: false }],
+    missingInputs: [{ kind: "fx_rate", accountId: brokerageAccount.account.id, quoteCurrency: "SGD", baseCurrency: "USD" }],
+    displayValue: { currency: "USD", complete: false, valuedCount: 0, missingCount: 1, missingInputs: [], fxEvidence: [] },
+  }]);
+  holdingsByAccounts.mockResolvedValue({ [brokerageAccount.account.id]: [{ id: "native-holding", accountId: brokerageAccount.account.id, instrumentId: "native-instrument", quantity: "1" }] });
+  listInstruments.mockResolvedValue([{ id: "native-instrument", name: "Native holding", type: "stock", quoteCurrency: "SGD" }]);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+  const row = await screen.findByRole("row", { name: /Native holding/ });
+  expect(row).toHaveTextContent(/SGD\s*123\.00/);
+  expect(row).not.toHaveTextContent("Missing price");
 });
