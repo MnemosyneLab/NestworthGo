@@ -107,3 +107,11 @@ Reconciled-head checks:
   reconciled main passed **104 files / 1,026 tests** with two workers. The
   additional arrow-key/Enter test also passes independently (8 shared date/time
   tests).
+
+Follow-up guard review: reproduced four bypasses for dialog/alertdialog roles
+written as single- or double-quoted JSX string expressions. Added the matching
+role-expression selector. All 19 guard tests pass, including both roles in
+quoted/expression forms, wrapper/test exceptions, non-dialog roles and the
+explicitly documented dynamic-alias limitation. Full lint, regenerated-binding
+typecheck and diff whitespace checks pass. No application runtime changes in
+this follow-up; prior frontend/build/browser evidence remains applicable.

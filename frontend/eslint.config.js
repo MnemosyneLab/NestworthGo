@@ -36,6 +36,7 @@ export default tseslint.config(
         { selector: 'JSXAttribute[name.name="type"] > JSXExpressionContainer > Literal[value=/^(date|datetime-local|time|month|week)$/]', message: "Use DatePicker/TimePicker with civil-date bounds, not native temporal inputs." },
         { selector: 'JSXOpeningElement[name.name=/^(select|dialog)$/]', message: "Use NativeSelect, Sheet or AlertDialog from components/ui." },
         { selector: 'JSXAttribute[name.name="role"][value.value=/^(dialog|alertdialog)$/]', message: "Use Sheet or AlertDialog to retain focus, Escape and dismissal behavior." },
+        { selector: 'JSXAttribute[name.name="role"] > JSXExpressionContainer > Literal[value=/^(dialog|alertdialog)$/]', message: "Use Sheet or AlertDialog to retain focus, Escape and dismissal behavior." },
       ],
     },
   },

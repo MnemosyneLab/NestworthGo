@@ -48,9 +48,11 @@ long translated labels, light/dark themes and financial-value readability.
 
 ESLint rejects native temporal inputs, raw select/dialog elements, raw dialog
 roles, direct Base UI/day-picker imports and direct Calendar imports outside
-components/ui. Literal JSX expressions are checked as well as quoted values.
-This is a lightweight boundary, not proof against arbitrary dynamic aliases;
-review dynamically supplied types and imports explicitly.
+components/ui. For temporal types and dialog roles, quoted JSX values and
+string-literal JSX expressions (single or double quotes) are checked equally.
+This is a lightweight boundary, not constant evaluation: templates, computed
+expressions, spreads and dynamic aliases require explicit review, including
+supplied types, roles and imports.
 
 Shared wrapper internals and test fixtures are excluded. Native checkboxes,
 radios and file inputs remain valid (there is no canonical checkbox wrapper).
