@@ -29,6 +29,38 @@ and correction/withdrawal audit records are never changed by this feature.
 Same-day revisions collapse to one actual dated observation; the active latest
 Agent revision wins. Forward-filled daily valuations are never read as NAV facts.
 
+## GUI review and setup
+
+Upcoming actions remains the review home. The Overview/Available Funds summary
+always offers **Review investments and settings**, including with zero pending
+reviews. Eligible holdings with no enrollment show an explanation and **Choose
+investments**; the all-investment view exposes each instrument's explicit opt-in
+checkbox. The current policy is visible before enrollment, and the master policy
+editor remains under Review preferences.
+
+The default list contains pending application-reported episodes, ordered by loss
+before low yield, then display name and instrument ID. **All investments / setup**
+keeps that pending group first and exposes other eligible holdings, including
+acknowledged, ignored, stale and unavailable results. Separate badges show the
+application's NAV condition and reminder handling. Acknowledgement suppresses the
+action but does not imply healthy NAV or change episode identity or escalation.
+No-eligible, none-enrolled, no-pending, insufficient-data and master-pause states
+have explicit copy.
+
+**View NAV** and **Reviewed** remain visible on actionable rows. Temporary-ignore,
+resume and disable actions use guarded buttons inside Reminder controls; exact
+source dates, actual span, observation counts, price return and the unit-NAV
+formula/caveats remain in Calculation basis. Both disclosures use native details
+and summary controls. Report-driven group changes retain logical keyboard focus
+on the equivalent row control or its named heading; when the row leaves the
+pending view, focus returns to the pending filter. A polite announcement names
+the changed group. Focus is captured at the DOM commit, so a later refetch cannot
+reclaim focus after the user moves elsewhere or the view becomes inactive.
+Unsaved preferences survive unrelated report revisions.
+This changes presentation only: calculations, eligibility, thresholds,
+confirmation, acknowledgement, snooze precedence, persistence and MCP contracts
+are unchanged.
+
 ## Calculation and coverage
 
 The default selected window is 30 days; 7 days is optional. Anchor at the latest
@@ -109,8 +141,8 @@ Hidden retained views do not poll. No external automation or outreach is used.
 
 ## Temporary and indefinite ignore
 
-Each visible investment offers **Ignore for 7 days**, **Ignore for 30 days**,
-**Resume now** while temporarily ignored, and **Ignore indefinitely** while
+Reminder controls offers **Ignore for 7 days**, **Ignore for 30 days**,
+**Resume now** while temporarily ignored, and **Disable reminders** while
 enrolled. Thirty days means thirty calendar days, not a calendar month. Indefinite
 ignore uses enrollment off; estimates and NAV navigation remain visible, and the
 explicit enrollment checkbox re-enables reminders. Expiry never re-enables an
@@ -158,22 +190,23 @@ Keep the acceptance launch near that date. Launch the exact reviewed build with
 MCP disabled. Use no real household or provider data.
 
 1. In Upcoming actions, verify all funds start unmonitored and the pending review
-   count is zero. Enable the flat and loss funds; both produce one sustained
-   episode with actual dates, span, age, missing dates and estimated wording.
-2. Refresh repeatedly, acknowledge each, quit/relaunch, and verify no repeat
-   prompt/count. NAV values/history remain unchanged. Check NAV opens the correct
+   count is zero. Choose investments to open all holdings, then explicitly enable
+   the flat and loss funds; both produce one sustained episode with actual
+   dates, span, age, missing dates and estimated wording.
+2. Refresh repeatedly, mark each Reviewed, quit/relaunch, and verify no repeat
+   prompt/count. NAV values/history remain unchanged. View NAV opens the correct
    existing Market Data focus. No review receives a due date.
 3. Ignore the flat fund for 7 and 30 days. Verify the explicit date/timezone,
    zero pending action while estimates remain visible, and persistence across
    restart, backfill and preference edits. Resume now must not acknowledge the
-   episode. Ignore indefinitely and re-enable explicitly; expiry must not turn
+   episode. Disable reminders and re-enable explicitly; expiry must not turn
    indefinite ignore or the master pause back on.
 4. Enable missing, distribution and stale funds. Verify reason/stale labels and
    absence of a reminder, with no fabricated zero return. Toggle 30/7 days and
    threshold/age/master controls; validate persisted settings and pause behavior.
 5. Check Overview/Available Funds summary and Upcoming actions at narrow/normal
    widths in English, Simplified and Traditional Chinese. Keyboard-test summary,
-   preferences, enrollment, refresh, acknowledgement, NAV navigation and Back;
+   preferences, enrollment, refresh, Reviewed, NAV navigation and Back;
    check focus and VoiceOver labels. Close the app and verify no monitoring claim.
 
 Automated tests additionally verify healthy recovery/new episodes, decimal

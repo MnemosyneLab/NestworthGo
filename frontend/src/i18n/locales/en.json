@@ -1479,7 +1479,7 @@
   },
   "investmentReview": {
     "title": "Investment review",
-    "view": "Review investments",
+    "view": "Review investments and settings",
     "foreground": "Evaluated while this view is open or after valuation refresh. No monitoring when the app is closed.",
     "scope": "Opt in per investment. Uses dated unit NAV for actively held funds and bank investment holdings; thresholds are your review preferences.",
     "refresh": "Refresh reviews",
@@ -1496,8 +1496,8 @@
     "period": "Unit NAV price return: {{value}}%",
     "observations": "{{count}} distinct dated observations · {{missing}} calendar dates without observations",
     "priceOnly": "Simple annualization: price return × 365 ÷ actual calendar days. Excludes cash flows, trade fees and personal holding returns. Known distributions or unit changes make the window unavailable.",
-    "checkNav": "Check NAV · {{name}}",
-    "acknowledge": "Acknowledge review · {{name}}",
+    "checkNav": "View NAV · {{name}}",
+    "acknowledge": "Reviewed · {{name}}",
     "enroll": "Enable review reminders · {{name}}",
     "settings": "Review preferences",
     "enable": "Enable reminders for selected investments",
@@ -1521,7 +1521,8 @@
       "acknowledged": "This review episode is acknowledged",
       "not_enabled": "Reminders disabled until re-enabled for this investment",
       "paused": "Review reminders are paused",
-      "snoozed": "Review reminders are temporarily ignored"
+      "snoozed": "Review reminders are temporarily ignored",
+      "monitoring": "Monitoring enabled"
     },
     "reason": {
       "unit_nav_required": "Comparable, positive, explicitly dated unit NAV observations are required. Legacy/manual prices, adjusted values, currencies and binding revisions are not inferred.",
@@ -1535,6 +1536,26 @@
     "snooze": "Ignore for {{days}} days · {{name}}",
     "resumeDate": "Temporary ignore ends on {{date}} · {{timezone}}. Current evidence will be checked when this view next evaluates.",
     "resumeNow": "Resume now · {{name}}",
-    "ignoreIndefinitely": "Ignore indefinitely · {{name}}"
+    "ignoreIndefinitely": "Disable reminders · {{name}}",
+    "setup": "Choose which eligible investments to monitor. Nothing is enrolled automatically; enable reminders for each investment you choose.",
+    "choose": "Choose investments",
+    "condition": "NAV condition",
+    "handling": "Reminder handling",
+    "navAction": "View NAV",
+    "reviewedAction": "Reviewed",
+    "controls": "Reminder controls · {{name}}",
+    "calculation": "Calculation basis · {{name}}",
+    "snoozeAction": "Ignore for {{days}} days",
+    "resumeAction": "Resume now",
+    "disableAction": "Disable reminders",
+    "currentPolicy": "Current policy: {{window}}-day window · annualized below {{low}}% or price loss at/below {{loss}}% · {{sustain}}-day confirmation · NAV age up to {{age}} days.",
+    "listView": "Investment review view",
+    "pending": "Pending reviews · {{count}}",
+    "all": "All investments / setup · {{count}}",
+    "other": "Other eligible investments",
+    "insufficient": "No pending reviews. Some monitored investments have missing, unsupported or stale NAV data. Open all investments to check their data.",
+    "noPending": "No pending reviews for monitored investments. Acknowledged or ignored reviews do not mean the NAV condition has recovered; check all investments for their current condition.",
+    "moved": "{{name}} · {{group}}",
+    "removed": "{{name}} is no longer in pending reviews."
   }
 }

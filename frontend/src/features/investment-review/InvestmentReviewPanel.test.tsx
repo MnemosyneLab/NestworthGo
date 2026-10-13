@@ -30,121 +30,166 @@ beforeEach(async () => {
   state.acknowledge.isError = state.acknowledge.isPending = state.enroll.isError = state.enroll.isPending = state.snooze.isError = state.snooze.isPending = false;
 });
 describe("investment review UI", () => {
-  it.each(["en", "zh-CN", "zh-TW"])("discloses estimated return, actual coverage and foreground scope in %s", async language => {
-    await i18n.changeLanguage(language); mount();
-    expect(screen.getByText(i18n.t("investmentReview.estimated", { value: "0.25" }))).toBeInTheDocument();
-    expect(screen.getByText(i18n.t("investmentReview.dates", { latest: "2026-10-09", baseline: "2026-09-07", window: 30, days: 32, age: 4 }))).toBeInTheDocument();
-    expect(screen.getByText(i18n.t("investmentReview.observations", { count: 13, missing: 20 }))).toBeInTheDocument();
-    expect(screen.getByText(i18n.t("investmentReview.foreground"))).toBeInTheDocument();
-    expect(screen.getByText(i18n.t("investmentReview.priceOnly"))).toBeInTheDocument();
+  async function allInvestments() {
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("investmentReview.all", { count: state.query.data!.items!.length }) }));
+  }
+  async function controls() {
+    await userEvent.click(screen.getByText(i18n.t("investmentReview.controls", { name: "Synthetic fund" })));
+  }
+  it.each(["en", "zh-CN", "zh-TW"])("keeps exact estimates and accessible calculation details in %s", async language => {
+    await i18n.changeLanguage(language); mount(); const user = userEvent.setup();
+    expect(screen.getByText(i18n.t("investmentReview.estimated", { value: "0.25" }))).toBeVisible();
+    const summary = screen.getByText(i18n.t("investmentReview.calculation", { name: "Synthetic fund" }));
+    const dates = screen.getByText(i18n.t("investmentReview.dates", { latest: "2026-10-09", baseline: "2026-09-07", window: 30, days: 32, age: 4 }));
+    expect(dates).not.toBeVisible();
+    summary.focus(); await user.click(summary);
+    expect(summary.closest("details")).toHaveAttribute("open"); expect(summary).toHaveFocus();
+    expect(dates).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.period", { value: "0.0219178082" }))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.target", { date: "2026-09-09" }))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.observations", { count: 13, missing: 20 }))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.foreground"))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.priceOnly"))).toBeVisible();
+    await user.click(summary); expect(dates).not.toBeVisible(); expect(summary).toHaveFocus();
     expect(screen.queryByText(/investmentReview\./)).not.toBeInTheDocument();
   });
-  it("allows opt-in and durable acknowledgement, with safe NAV navigation", async () => {
-    mount(); const user = userEvent.setup();
-    await user.click(screen.getByRole("checkbox", { name: "Enable review reminders · Synthetic fund" }));
-    expect(state.enroll.mutate).toHaveBeenCalledWith({ instrumentId: "synthetic-id", enabled: false, expectedRevision: 1 });
-    await user.click(screen.getByRole("button", { name: "Acknowledge review · Synthetic fund" }));
-    expect(state.acknowledge.mutate).toHaveBeenCalledWith("episode-one");
-    await user.click(screen.getByRole("button", { name: "Check NAV · Synthetic fund" }));
-    expect(open).toHaveBeenCalledWith({ page: "market-data", focus: { instrumentId: "synthetic-id", label: "Synthetic fund" } });
+  it("orders pending loss before low yield with stable name and ID ties, keeping other holdings accessible", async () => {
+    const item = fixture().items![0];
+    state.query.data!.items = [
+      { ...item, instrumentId: "yield", displayName: "A yield" },
+      { ...item, instrumentId: "z-loss", displayName: "Same loss", status: "loss" },
+      { ...item, instrumentId: "stale", displayName: "A stale", status: "stale", episodeId: "" },
+      { ...item, instrumentId: "a-loss", displayName: "Same loss", status: "loss" },
+      { ...item, instrumentId: "first-loss", displayName: "B loss", status: "loss" },
+      { ...item, instrumentId: "off", displayName: "B off", monitored: false, episodeId: "" },
+    ];
+    const view = mount();
+    expect(screen.getAllByRole("heading", { level: 5 }).map(node => node.textContent)).toEqual(["B loss", "Same loss", "Same loss", "A yield"]);
+    for (const button of screen.getAllByRole("button", { name: /View NAV/ })) await userEvent.click(button);
+    expect(open.mock.calls.map(([destination]) => destination.focus.instrumentId)).toEqual(["first-loss", "a-loss", "z-loss", "yield"]);
+    state.query.data!.items!.reverse(); view.rerender(<InvestmentReviewPanel />);
+    expect(screen.getAllByRole("heading", { level: 5 }).map(node => node.textContent)).toEqual(["B loss", "Same loss", "Same loss", "A yield"]);
+    await allInvestments();
+    expect(screen.getAllByRole("heading", { level: 5 }).map(node => node.textContent)).toEqual(["B loss", "Same loss", "Same loss", "A yield", "A stale", "B off"]);
   });
-  it("lets a keyboard user configure a 7-day window and explicit percent thresholds", async () => {
-    mount(); const user = userEvent.setup();
-    await user.tab(); expect(screen.getByRole("button", { name: "Refresh reviews" })).toHaveFocus();
-    await user.tab(); expect(screen.getByText("Review preferences")).toHaveFocus();
-    await user.keyboard("{Enter}");
+  it.each(["low_yield", "loss"])("keeps %s visible beside acknowledgement without a new action", async status => {
+    state.query.data!.items![0].status = status; state.query.data!.items![0].acknowledged = true;
+    mount(); expect(screen.getByText(i18n.t("investmentReview.noPending"))).toBeVisible();
+    await allInvestments();
+    expect(screen.getByText(i18n.t(`investmentReview.status.${status}`))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.status.acknowledged"))).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Reviewed/ })).not.toBeInTheDocument();
+  });
+  it.each(["en", "zh-CN", "zh-TW"])("offers explicit setup and per-investment opt-in without auto-enrollment in %s", async language => {
+    await i18n.changeLanguage(language);
+    state.query.data!.items![0].monitored = false; state.query.data!.items![0].episodeId = "";
+    mount(); expect(screen.getByText(i18n.t("investmentReview.setup"))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.currentPolicy", { window: 30, low: "1", loss: "-1", sustain: 7, age: 7 }))).toBeVisible();
+    expect(screen.queryByRole("checkbox", { name: i18n.t("investmentReview.enroll", { name: "Synthetic fund" }) })).not.toBeInTheDocument(); expect(state.enroll.mutate).not.toHaveBeenCalled();
+    const user = userEvent.setup(); const choose = screen.getByRole("button", { name: i18n.t("investmentReview.choose") });
+    choose.focus(); await user.keyboard("{Enter}");
+    expect(screen.getByRole("button", { name: i18n.t("investmentReview.all", { count: 1 }) })).toHaveFocus();
+    const checkbox = screen.getByRole("checkbox", { name: i18n.t("investmentReview.enroll", { name: "Synthetic fund" }) });
+    expect(checkbox).not.toBeChecked(); expect(state.enroll.mutate).not.toHaveBeenCalled();
+    checkbox.focus(); await user.keyboard(" ");
+    expect(state.enroll.mutate).toHaveBeenCalledWith({ instrumentId: "synthetic-id", enabled: true, expectedRevision: 1 });
+  });
+  it("keeps NAV and reviewed actions prominent with exact application payloads", async () => {
+    mount();
+    await userEvent.click(screen.getByRole("button", { name: "Reviewed · Synthetic fund" }));
+    expect(state.acknowledge.mutate).toHaveBeenCalledWith("episode-one");
+    await userEvent.click(screen.getByRole("button", { name: "View NAV · Synthetic fund" }));
+    expect(open).toHaveBeenCalledWith({ page: "market-data", focus: { instrumentId: "synthetic-id", label: "Synthetic fund" } });
+    await controls(); await userEvent.click(screen.getByRole("checkbox", { name: "Enable review reminders · Synthetic fund" }));
+    expect(state.enroll.mutate).toHaveBeenCalledWith({ instrumentId: "synthetic-id", enabled: false, expectedRevision: 1 });
+  });
+  it("lets a keyboard user edit preferences and preserves them across unrelated revisions and view changes", async () => {
+    const view = mount(); const user = userEvent.setup();
+    const preferences = screen.getByText("Review preferences"); preferences.focus(); await user.keyboard("{Enter}");
+    expect(preferences).toHaveFocus();
     await user.selectOptions(screen.getByRole("combobox", { name: "Review window" }), "7");
     const low = screen.getByRole("spinbutton", { name: "Low estimated annualized return threshold (%)" });
     await user.clear(low); await user.type(low, "2.5");
+    await allInvestments();
+    state.query.data = { ...fixture(), revision: 2, policy: { ...fixture().policy }, items: [{ ...fixture().items![0], snoozed: true, episodeId: "", snoozedUntilOn: "2026-10-20" }] };
+    view.rerender(<InvestmentReviewPanel />);
+    expect(low).toHaveValue(2.5); expect(screen.getByRole("combobox", { name: "Review window" })).toHaveValue("7");
     await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(state.save.mutate).toHaveBeenCalledWith({ expectedRevision: 1, policy: { ...fixture().policy, windowDays: 7, lowAnnualizedPercent: "2.5" } });
+    expect(state.save.mutate).toHaveBeenCalledWith({ expectedRevision: 2, policy: { ...fixture().policy, windowDays: 7, lowAnnualizedPercent: "2.5" } });
   });
-  it("distinguishes pending, error, stale-read, empty and unsafe coverage states", () => {
+  it("distinguishes loading, failed reads, cached stale reads and write failures", async () => {
     state.query.data = undefined; state.query.isPending = true;
-    const view = mount(); expect(screen.getByRole("status")).toBeInTheDocument();
+    const view = mount(); expect(screen.getByRole("status")).toBeVisible();
     state.query.isPending = false; state.query.isError = true; view.rerender(<InvestmentReviewPanel />);
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to load");
     state.query.data = fixture(); view.rerender(<InvestmentReviewPanel />);
     expect(screen.getByRole("alert")).toHaveTextContent("last successfully read");
-    expect(screen.getByRole("button", { name: "Acknowledge review · Synthetic fund" })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: "Enable review reminders · Synthetic fund" })).toBeDisabled();
-    state.query.isError = false; state.query.data.items = [{ ...fixture().items![0], status: "unavailable", reason: "baseline_too_old", episodeId: "", annualizedPercent: null, periodPercent: null }];
-    view.rerender(<InvestmentReviewPanel />);
-    expect(screen.getByText(/coverage is insufficient/)).toBeInTheDocument();
-    expect(screen.queryByText(/Estimated annualized return:/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Acknowledge review/ })).not.toBeInTheDocument();
-    state.query.data.items = []; view.rerender(<InvestmentReviewPanel />);
-    expect(screen.getByText(/No active fund/)).toBeInTheDocument();
-  });
-  it("keeps an acknowledged episode out of the summary and does not add refresh prompts", () => {
-    const view = mount(<InvestmentReviewSummary />);
-    expect(screen.getByText("1 unacknowledged review reminder")).toBeInTheDocument();
-    state.query.data!.items![0].acknowledged = true;
-    view.rerender(<InvestmentReviewSummary />);
-    expect(screen.getByText("0 unacknowledged review reminders")).toBeInTheDocument();
-    view.rerender(<InvestmentReviewPanel />);
-    expect(screen.getByText("This review episode is acknowledged")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Acknowledge review/ })).not.toBeInTheDocument();
-  });
-  it("shows unmonitored data without reminding and handles write failures", () => {
-    state.query.data!.items![0].monitored = false; state.query.data!.items![0].episodeId = "";
-    state.save.isError = state.acknowledge.isError = true;
-    mount();
-    expect(screen.getByText("Reminders disabled until re-enabled for this investment")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Acknowledge review/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reviewed/ })).toBeDisabled();
+    await controls(); expect(screen.getByRole("checkbox", { name: /Enable review reminders/ })).toBeDisabled();
+    state.query.isError = false; state.save.isError = state.acknowledge.isError = true; view.rerender(<InvestmentReviewPanel />);
     expect(screen.getAllByRole("alert")).toHaveLength(2);
   });
-  it.each(["en", "zh-CN", "zh-TW"])("shows localized temporary ignore, resume date and keyboard actions in %s", async language => {
+  it("distinguishes no eligible holdings, no pending monitored reviews, insufficient data and master pause", async () => {
+    state.query.data!.items = []; const view = mount(); expect(screen.getByText(i18n.t("investmentReview.empty"))).toBeVisible();
+    expect(screen.getByText("Review preferences")).toBeVisible();
+    state.query.data = fixture(); state.query.data.items![0].status = "healthy"; state.query.data.items![0].episodeId = "";
+    view.rerender(<InvestmentReviewPanel />); expect(screen.getByText(i18n.t("investmentReview.noPending"))).toBeVisible();
+    state.query.data.items = [{ ...fixture().items![0], status: "unavailable", reason: "baseline_too_old", episodeId: "", annualizedPercent: null, periodPercent: null }];
+    view.rerender(<InvestmentReviewPanel />); expect(screen.getByText(i18n.t("investmentReview.insufficient"))).toBeVisible();
+    await allInvestments(); expect(screen.getByText(/coverage is insufficient/)).toBeVisible();
+    expect(screen.queryByText(/Estimated annualized return:/)).not.toBeInTheDocument();
+    state.query.data.items![0].status = "stale"; state.query.data.items![0].annualizedPercent = "0.25";
+    view.rerender(<InvestmentReviewPanel />); expect(screen.getByText(i18n.t("investmentReview.insufficient"))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.status.stale"))).toBeVisible();
+    state.query.data.policy.enabled = false; view.rerender(<InvestmentReviewPanel />);
+    expect(screen.getByRole("status")).toHaveTextContent(i18n.t("investmentReview.disabled"));
+    expect(screen.getByText(i18n.t("investmentReview.status.paused"))).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Reviewed/ })).not.toBeInTheDocument();
+  });
+  it.each(["en", "zh-CN", "zh-TW"])("keeps the zero-pending summary entry and routes to Upcoming actions in %s", async language => {
+    await i18n.changeLanguage(language); state.query.data!.items![0].acknowledged = true;
+    const view = mount(<InvestmentReviewSummary />);
+    expect(screen.getByText(i18n.t("investmentReview.summary", { count: 0 }))).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("investmentReview.view") }));
+    expect(open).toHaveBeenCalledWith({ page: "upcoming-actions" });
+    state.query.data!.items![0].monitored = false; view.rerender(<InvestmentReviewSummary />);
+    expect(screen.getByText(i18n.t("investmentReview.setup"))).toBeVisible();
+  });
+  it.each(["en", "zh-CN", "zh-TW"])("keeps localized snooze/resume/off controls and original handling priority in %s", async language => {
     await i18n.changeLanguage(language); const view = mount(); const user = userEvent.setup();
-    const week = screen.getByRole("button", { name: i18n.t("investmentReview.snooze", { days: 7, name: "Synthetic fund" }) });
-    week.focus(); await user.keyboard("{Enter}");
-    expect(state.snooze.mutate).toHaveBeenCalledWith({ instrumentId: "synthetic-id", days: 7, expectedRevision: 1 });
-    await user.click(screen.getByRole("button", { name: i18n.t("investmentReview.snooze", { days: 30, name: "Synthetic fund" }) }));
-    expect(state.snooze.mutate).toHaveBeenLastCalledWith({ instrumentId: "synthetic-id", days: 30, expectedRevision: 1 });
-    state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20"; state.query.data!.items![0].episodeId = "";
+    const summary = screen.getByText(i18n.t("investmentReview.controls", { name: "Synthetic fund" }));
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    summary.focus(); await user.click(summary); expect(summary).toHaveFocus();
+    for (const days of [7, 30]) {
+      await user.click(screen.getByRole("button", { name: i18n.t("investmentReview.snooze", { days, name: "Synthetic fund" }) }));
+      expect(state.snooze.mutate).toHaveBeenLastCalledWith({ instrumentId: "synthetic-id", days, expectedRevision: 1 });
+    }
+    await allInvestments();
+    state.query.data!.policy.enabled = false;
+    state.query.data!.items![0] = { ...fixture().items![0], snoozed: true, snoozedUntilOn: "2026-10-20", episodeId: "" };
     view.rerender(<InvestmentReviewPanel />);
-    expect(screen.getByText(i18n.t("investmentReview.resumeDate", { date: "2026-10-20", timezone: "Asia/Shanghai" }))).toBeInTheDocument();
-    expect(screen.getByText(i18n.t("investmentReview.estimated", { value: "0.25" }))).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: i18n.t("investmentReview.acknowledge", { name: "Synthetic fund" }) })).not.toBeInTheDocument();
+    expect(screen.getByText(i18n.t("investmentReview.status.snoozed"))).toBeVisible();
+    expect(screen.queryByText(i18n.t("investmentReview.status.paused"))).not.toBeInTheDocument();
+    expect(screen.getByText(i18n.t("investmentReview.status.low_yield"))).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.resumeDate", { date: "2026-10-20", timezone: "Asia/Shanghai" }))).toBeVisible();
+    await controls();
     const resume = screen.getByRole("button", { name: i18n.t("investmentReview.resumeNow", { name: "Synthetic fund" }) });
     resume.focus(); await user.keyboard("{Enter}");
     expect(state.snooze.mutate).toHaveBeenLastCalledWith({ instrumentId: "synthetic-id", days: 0, expectedRevision: 1 });
-  });
-  it("keeps snoozed episodes out of pending counts and exposes indefinite ignore/re-enable", async () => {
-    state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20";
-    const view = mount(<InvestmentReviewSummary />);
-    expect(screen.getByText("0 unacknowledged review reminders")).toBeInTheDocument();
-    view.rerender(<InvestmentReviewPanel />);
-    await userEvent.click(screen.getByRole("button", { name: "Ignore indefinitely · Synthetic fund" }));
+    await user.click(screen.getByRole("button", { name: i18n.t("investmentReview.ignoreIndefinitely", { name: "Synthetic fund" }) }));
     expect(state.enroll.mutate).toHaveBeenCalledWith({ instrumentId: "synthetic-id", enabled: false, expectedRevision: 1 });
-    state.query.data!.items![0].monitored = false; state.query.data!.items![0].episodeId = "";
-    view.rerender(<InvestmentReviewPanel />);
-    expect(screen.getByText("Reminders disabled until re-enabled for this investment")).toBeInTheDocument();
-    expect(screen.getByText("Estimated annualized return: 0.25%")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("checkbox", { name: "Enable review reminders · Synthetic fund" }));
-    expect(state.enroll.mutate).toHaveBeenLastCalledWith({ instrumentId: "synthetic-id", enabled: true, expectedRevision: 1 });
+    state.query.data!.items![0].monitored = false; view.rerender(<InvestmentReviewPanel />);
+    expect(screen.getByText(i18n.t("investmentReview.status.not_enabled"))).toBeVisible();
   });
-  it("disables temporary ignore and resume on stale reads or pending writes", () => {
-    state.query.isError = true; state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20";
-    const view = mount();
-    expect(screen.getByRole("button", { name: "Ignore for 7 days · Synthetic fund" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Resume now · Synthetic fund" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Ignore indefinitely · Synthetic fund" })).toBeDisabled();
-    state.query.isError = false; state.snooze.isPending = true; view.rerender(<InvestmentReviewPanel />);
-    expect(screen.getByRole("button", { name: "Ignore for 30 days · Synthetic fund" })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: "Enable review reminders · Synthetic fund" })).toBeDisabled();
+  it.each(["stale", "fetching", "snooze", "enroll", "acknowledge"])("guards all writes during %s, preserving NAV inspection", async guard => {
+    state.query.data!.items![0].snoozed = true; state.query.data!.items![0].episodeId = "";
+    if (guard === "stale") state.query.isError = true;
+    else if (guard === "fetching") state.query.isFetching = true;
+    else state[guard as "snooze" | "enroll" | "acknowledge"].isPending = true;
+    mount(); await allInvestments(); await controls(); await userEvent.click(screen.getByText("Review preferences"));
+    for (const name of [/Ignore for 7/, /Ignore for 30/, /Resume now/, /Disable reminders/, /^Save$/]) expect(screen.getByRole("button", { name })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Enable review reminders/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /View NAV/ })).toBeEnabled();
+    expect(state.snooze.mutate).not.toHaveBeenCalled(); expect(state.enroll.mutate).not.toHaveBeenCalled();
   });
-
-  it("preserves unsaved preferences through an unrelated ignore revision", async () => {
-    const view = mount(); const user = userEvent.setup();
-    await user.click(screen.getByText("Review preferences"));
-    const low = screen.getByRole("spinbutton", { name: "Low estimated annualized return threshold (%)" });
-    await user.clear(low); await user.type(low, "2.5");
-    state.query.data!.revision = 2; state.query.data!.items![0].snoozed = true; state.query.data!.items![0].snoozedUntilOn = "2026-10-20";
-    view.rerender(<InvestmentReviewPanel />);
-    expect(screen.getByRole("spinbutton", { name: "Low estimated annualized return threshold (%)" })).toHaveValue(2.5);
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(state.save.mutate).toHaveBeenCalledWith({ expectedRevision: 2, policy: { ...fixture().policy, lowAnnualizedPercent: "2.5" } });
-  });
-
 });
