@@ -239,8 +239,15 @@ func (s *Service) historicalOverviewSide(ctx context.Context, batch *domain.Hist
 // projects accounts only after complete replay; source evidence for current
 // state comes from the actual current observations, never replay baselines.
 func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain.HistoricalSnapshotBatch, portfolio domain.PortfolioSnapshot, date string, cutoff time.Time, current bool, fxProvider string, ttl time.Duration) (HistoricalOverviewState, []HistoricalOverviewRow, error) {
+	return s.historicalOverviewPortfolioWithSelections(ctx, batch, portfolio, date, cutoff, current, fxProvider, ttl, nil)
+}
+
+// Series endpoints consume the same capture-local selections as their points.
+// Other overview callers resolve directly from the complete portfolio facts.
+func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context, batch *domain.HistoricalSnapshotBatch, portfolio domain.PortfolioSnapshot, date string, cutoff time.Time, current bool, fxProvider string, ttl time.Duration, selections map[domain.InstrumentID]historicalInstrumentSelection) (HistoricalOverviewState, []HistoricalOverviewRow, error) {
 	valuation := NewValuationService(s.repository, func() time.Time { return cutoff })
 	valuation.readContext = ctx
+	valuation.historicalInstrumentSelections = selections
 	valuation.SetFXProviderKey(func() string { return fxProvider })
 	valuation.SetQuoteCacheTTL(func() time.Duration { return ttl })
 	valuation.SetHistorical(!current)

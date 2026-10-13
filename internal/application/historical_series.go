@@ -68,6 +68,14 @@ type seriesIndex struct {
 	coverage   map[domain.InstrumentID][]domain.InstrumentHistoryCoverage
 }
 
+// Immutable per-day result of resolving against the full capture. Account
+// projections retain the selected quote and its original closure/coverage
+// decision, including an explicitly absent quote.
+type historicalSeriesPortfolio struct {
+	domain.PortfolioSnapshot
+	instrumentSelections map[domain.InstrumentID]historicalInstrumentSelection
+}
+
 func indexHistoricalSeries(ctx context.Context, b *domain.HistoricalSnapshotBatch) (seriesIndex, error) {
 	index := seriesIndex{quotes: &historicalQuoteCache{instrumentQuotes: map[domain.InstrumentID][]domain.InstrumentQuote{}, fxQuotes: b.FXQuoteFacts}, activities: map[domain.AccountID][]domain.Activity{}, fxPairs: map[string][]domain.FXQuote{}, coverage: map[domain.InstrumentID][]domain.InstrumentHistoryCoverage{}}
 	for _, q := range b.InstrumentQuoteFacts {
@@ -260,11 +268,13 @@ func historicalSeriesDateWindow(origin domain.HistoryOrigin, now, from, to time.
 
 // Resolve each instrument/pair once per day from the one prebuilt fact index.
 // Account valuation then sees only the selected immutable observations.
-func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioSnapshot, index seriesIndex, date string, cutoff time.Time, provider string, ttl time.Duration, evidenceMemory seriesEvidenceMemory) (HistoricalSeriesPoint, HistoricalOverviewState, string, string, domain.PortfolioSnapshot, error) {
+func (s *Service) historicalSeriesPoint(ctx context.Context, portfolio domain.PortfolioSnapshot, index seriesIndex, date string, cutoff time.Time, provider string, ttl time.Duration, evidenceMemory seriesEvidenceMemory) (HistoricalSeriesPoint, HistoricalOverviewState, string, string, historicalSeriesPortfolio, error) {
+	p := historicalSeriesPortfolio{PortfolioSnapshot: portfolio, instrumentSelections: make(map[domain.InstrumentID]historicalInstrumentSelection, len(portfolio.Instruments))}
 	point := HistoricalSeriesPoint{Date: date, CutoffAt: cutoff.UTC().Format(time.RFC3339Nano), Available: true, Missing: []HistoricalSeriesMissing{}}
 	state := HistoricalOverviewState{Date: date, CutoffAt: point.CutoffAt, Currency: p.Household.BaseCurrency.String(), ByClass: []HistoricalOverviewAllocation{}, ByCurrency: []HistoricalOverviewAllocation{}}
 	v := NewValuationService(s.repository, func() time.Time { return cutoff })
 	v.readContext = ctx
+	v.historicalInstrumentSelections = p.instrumentSelections
 	v.SetHistorical(true)
 	v.SetHistoricalMarketDate(date)
 	v.SetFXProviderKey(func() string { return provider })
@@ -281,6 +291,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 		}
 		instruments[i.ID] = i
 		selection := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(i, index.quotes.instrumentQuotes[i.ID], index.coverage[i.ID], date, cutoff)
+		p.instrumentSelections[i.ID] = selection
 		if selection.quote != nil {
 			quote := *selection.quote
 			p.InstrumentQuotes = append(p.InstrumentQuotes, quote)
@@ -308,7 +319,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 		if currency == p.Household.BaseCurrency {
 			continue
 		}
-		if q := v.selectFXQuote(p, index.fxPairs[seriesFXPair(currency, p.Household.BaseCurrency)], currency, nil); q != nil {
+		if q := v.selectFXQuote(p.PortfolioSnapshot, index.fxPairs[seriesFXPair(currency, p.Household.BaseCurrency)], currency, nil); q != nil {
 			fx = append(fx, *q)
 			selectedFXBasis[q.ID.String()] = []string{q.BaseCurrency.String(), q.QuoteCurrency.String(), q.ObservationKind, q.TimestampBasis, q.SourcePolicyVersion}
 		}
@@ -330,7 +341,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 			continue
 		}
 		scope = append(scope, "account:"+a.Account.ID.String())
-		accountSnapshot := seriesAccountPortfolio(p, a, holdings[a.Account.ID], cash[a.Account.ID])
+		accountSnapshot := seriesAccountPortfolio(p.PortfolioSnapshot, a, holdings[a.Account.ID], cash[a.Account.ID])
 		item, err := v.valueAccount(accountSnapshot, a, instruments, append([]domain.Holding{}, holdings[a.Account.ID]...), cash[a.Account.ID])
 		if err != nil {
 			return point, state, "", "", p, err
@@ -358,7 +369,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, p domain.PortfolioS
 				}
 				basis = append(basis, key+":"+string(i.QuoteSource)+":"+binding+":"+i.QuoteCurrency.String()+":"+strconv.Itoa(i.ProviderBindingRevision))
 			}
-			preference := implicitFXPreference(p, c.NativeCurrency)
+			preference := implicitFXPreference(p.PortfolioSnapshot, c.NativeCurrency)
 			basis = append(basis, key+":fx:"+string(preference.SourceKind))
 			missing := item.componentMissing[n]
 			knownZero := c.Available && len(missing) == 0 && c.NativeAmount == "0" && c.BaseAmountExact == "0"
@@ -468,7 +479,7 @@ func seriesAccountPortfolio(p domain.PortfolioSnapshot, a domain.AccountRecord, 
 	p.InstrumentQuotes = quotes
 	return p
 }
-func (s *Service) historicalSeriesEndpoint(ctx context.Context, b *domain.HistoricalSnapshotBatch, p domain.PortfolioSnapshot, index seriesIndex, date string, cutoff time.Time, provider string, ttl time.Duration) ([]HistoricalOverviewRow, error) {
+func (s *Service) historicalSeriesEndpoint(ctx context.Context, b *domain.HistoricalSnapshotBatch, p historicalSeriesPortfolio, index seriesIndex, date string, cutoff time.Time, provider string, ttl time.Duration) ([]HistoricalOverviewRow, error) {
 	rows := []HistoricalOverviewRow{}
 	holdings := map[domain.AccountID][]domain.Holding{}
 	cash := map[domain.AccountID][]domain.AccountCashValue{}
@@ -484,7 +495,7 @@ func (s *Service) historicalSeriesEndpoint(ctx context.Context, b *domain.Histor
 		}
 		part := *b
 		part.Activities = index.activities[a.Account.ID]
-		_, accountRows, err := s.historicalOverviewPortfolio(ctx, &part, seriesAccountPortfolio(p, a, holdings[a.Account.ID], cash[a.Account.ID]), date, cutoff, false, provider, ttl)
+		_, accountRows, err := s.historicalOverviewPortfolioWithSelections(ctx, &part, seriesAccountPortfolio(p.PortfolioSnapshot, a, holdings[a.Account.ID], cash[a.Account.ID]), date, cutoff, false, provider, ttl, p.instrumentSelections)
 		if err != nil {
 			return nil, err
 		}

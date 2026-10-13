@@ -21,6 +21,10 @@ type ValuationService struct {
 	quoteCacheTTL        func() time.Duration
 	historical           bool
 	historicalMarketDate string
+	// A bounded series resolves each instrument once from its complete fact
+	// index. Keep that selection's coverage decision when valuing reduced
+	// account snapshots, which no longer contain all closure evidence.
+	historicalInstrumentSelections map[domain.InstrumentID]historicalInstrumentSelection
 }
 
 func NewValuationService(repository Repository, clocks ...func() time.Time) *ValuationService {
@@ -410,12 +414,17 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 			BaseAmountExact:         "0", Available: true,
 		}, nil, nil
 	}
-	quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
+	var quote *domain.InstrumentQuote
 	historyCoverageComplete := true
 	if v.historical {
-		selection := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, snapshot.InstrumentQuotes, snapshot.InstrumentHistoryCoverage, v.historicalDate(), v.now())
+		selection := v.historicalInstrumentSelections[instrument.ID]
+		if v.historicalInstrumentSelections == nil {
+			selection = selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, snapshot.InstrumentQuotes, snapshot.InstrumentHistoryCoverage, v.historicalDate(), v.now())
+		}
 		quote = selection.quote
 		historyCoverageComplete = selection.coverageComplete
+	} else {
+		quote = selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
 	}
 	if !v.historical && convertedMetalRequiresFX(instrument, quote) {
 		preference := findFXPreference(snapshot.FXPreferences, "USD", instrument.QuoteCurrency)
