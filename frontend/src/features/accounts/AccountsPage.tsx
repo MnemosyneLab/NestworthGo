@@ -1,5 +1,6 @@
+import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import type { AccountListFocus } from "@/app/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export function AccountsPage({
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
   const selectedId = onSelectAccount ? (selectedAccountId ?? null) : internalSelectedId;
   const setSelectedId = (id: string | null) => {
+    if (hasUnresolvedSheetConfirmation()) return;
     if (onSelectAccount) {
       onSelectAccount(id);
       return;
@@ -59,7 +61,15 @@ export function AccountsPage({
     () => new Map((valuations.data ?? []).map((valuation) => [valuation.account.id, valuation])),
     [valuations.data],
   );
-  const selectedRecord = (accounts.data ?? []).find((record) => record.account.id === selectedId) ?? null;
+  const candidateRecord = (accounts.data ?? []).find((record) => record.account.id === selectedId) ?? null;
+  const [retainedRecord, setRetainedRecord] = useState(candidateRecord);
+  useEffect(() => {
+    // Background data may update the detail only while it has no submission.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!hasUnresolvedSheetConfirmation()) setRetainedRecord(candidateRecord);
+  }, [candidateRecord]);
+  // Keep the detail/Sheet owner through a failed or empty background read.
+  const selectedRecord = hasUnresolvedSheetConfirmation() ? retainedRecord ?? candidateRecord : candidateRecord;
   const grouped = useMemo(
     () => groupAccounts((accounts.data ?? []).filter(record => !navigationFilter || navigationFilter.value !== "unassigned" || (navigationFilter.dimension === "institutionId" ? !record.account.institutionId : navigationFilter.dimension === "groupId" ? !record.account.groupId : true)), valuations.data ?? []),
     [accounts.data, valuations.data, navigationFilter],

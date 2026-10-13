@@ -1,5 +1,7 @@
 import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/queries/keys";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useSheetConfirmation } from "@/components/ui/sheet-confirmation";
@@ -100,7 +102,37 @@ function repeatSourceRefused(error: unknown): boolean {
   return wire?.code === "already_undone" || wire?.field === "sourceActivityId";
 }
 
-type ReviewedChange = { key: string; command: ChangeCommandRequest; planId?: string; resulting: EndpointViewDTO[] };
+type ReviewedChange = { key: string; command: ChangeCommandRequest; planId?: string; resulting: readonly EndpointViewDTO[] };
+
+type SubmissionScope = { session: object; householdId: string | undefined; family: "record" | "fix" | "repeat"; sourceActivityId?: string };
+type SubmittedChange = {
+  type: "ordinary-change";
+  family: "record" | "fix";
+  sourceActivityId?: string;
+  scope: SubmissionScope;
+  // The live consumer scope is separate from the immutable submitted intent.
+  currentScope: SubmissionScope;
+  defaultCurrency: string;
+  review: ReviewedChange;
+  phase: "pending" | "unknown";
+  error?: unknown;
+};
+
+function ordinarySubmission(value: unknown): SubmittedChange | null {
+  return (value as SubmittedChange | null)?.type === "ordinary-change" ? value as SubmittedChange : null;
+}
+
+function provenOrdinaryRefusal(family: SubmittedChange["family"], error: unknown): boolean {
+  const wire = (error as { wireError?: WireError } | null)?.wireError;
+  if (!wire) return false;
+  // These Record business refusals follow durable same-ID lookup and precede
+  // its atomic financial write. Conflict/mutationId can describe a stored write.
+  if (family === "record") return ["invalid_change", "no_change", "insufficient_balance", "insufficient_quantity", "managed_position_conflict"].includes(wire.code);
+  // Fix rebuilds snapshots AFTER commit, including during receipt replay.
+  // Generic validation/conflict/decimal/history errors cannot prove refusal.
+  // cannot_fix_change is produced only by the precommit correction plan.
+  return wire.code === "cannot_fix_change";
+}
 
 type NamedOption = { id: string; name: string };
 
@@ -275,12 +307,14 @@ export function RecordChangeForm({
 }) {
   const { t } = useTranslation();
   const bootstrap = useBootstrap();
+  const confirmation = useSheetConfirmation();
+  const retained = ordinarySubmission(confirmation?.recovery);
   const currencies = useSupportedCurrencies();
   const fromInitial = currencyFromRequest(initial);
-  if (!fromInitial && !bootstrap.isFetched) {
+  if (!retained && !fromInitial && !bootstrap.isFetched) {
     return <LoadingState label={t("history.loading")} />;
   }
-  const resolvedCurrency = fromInitial || bootstrap.data?.household?.baseCurrency || currencies.data?.[0];
+  const resolvedCurrency = retained?.defaultCurrency || fromInitial || bootstrap.data?.household?.baseCurrency || currencies.data?.[0];
   if (!resolvedCurrency) {
     return <LoadingState label={t("history.loading")} />;
   }
@@ -338,6 +372,21 @@ function RecordChangeFormReady({
   const repeatConfirm = useConfirmRepeatChange();
   const confirmBusy = useRef(false);
   const sheetConfirmation = useSheetConfirmation();
+  const queryClient = useQueryClient();
+  const bootstrap = useBootstrap();
+  const submitted = ordinarySubmission(sheetConfirmation?.recovery);
+  const scope = useMemo<SubmissionScope>(() => ({ session: queryClient, householdId: bootstrap.data?.household?.id, family: repeat ? "repeat" : fixActivityId ? "fix" : "record", sourceActivityId: fixActivityId ?? repeatSourceId }), [queryClient, bootstrap.data?.household?.id, repeat, fixActivityId, repeatSourceId]);
+  useLayoutEffect(() => {
+    const active = sheetConfirmation?.read();
+    const submission = ordinarySubmission(active?.recovery);
+    if (!active || !submission) return;
+    const current = submission.currentScope;
+    if (current.session !== queryClient || current.householdId !== bootstrap.data?.household?.id || current.family !== scope.family || current.sourceActivityId !== scope.sourceActivityId) {
+      sheetConfirmation?.update(active.identity, { ...submission, currentScope: scope });
+    }
+  }, [sheetConfirmation, queryClient, bootstrap.data?.household?.id, scope]);
+  const scopeMatches = !submitted || (submitted.scope.session === queryClient && submitted.scope.householdId === scope.householdId);
+  const intentMatches = !submitted || (submitted.family === (fixActivityId ? "fix" : "record") && submitted.sourceActivityId === fixActivityId && !repeat);
   const previewFix = usePreviewFixChange();
   const record = useRecordChange();
   const fix = useFixChange();
@@ -363,7 +412,7 @@ function RecordChangeFormReady({
           : base.fromAccountId,
     };
   })();
-  const retainedReview = sheetConfirmation?.recovery as ReviewedChange | null;
+  const retainedReview = submitted?.review ?? sheetConfirmation?.recovery as ReviewedChange | null;
   const [request, setRequest] = useState<ChangeCommandRequest>(retainedReview?.command ?? initialRequest);
   const autoValues = useRef<Record<string, string>>(
     initial && fixActivityId
@@ -376,7 +425,7 @@ function RecordChangeFormReady({
   );
   const [reviewed, setReviewed] = useState<ReviewedChange | null>(retainedReview);
   const [repeatRecovery, setRepeatRecovery] = useState<RepeatConfirmDisposition | null>(sheetConfirmation?.identity ? "uncertain" : null);
-  const recoveryLocked = repeat && (repeatRecovery === "uncertain" || repeatRecovery === "plan_unavailable");
+  const recoveryLocked = Boolean(submitted) || (repeat && (repeatRecovery === "uncertain" || repeatRecovery === "plan_unavailable"));
   const previewSequence = useRef(0);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; previewSequence.current += 1; }; }, []);
@@ -415,7 +464,8 @@ function RecordChangeFormReady({
     if (fix.isError) fix.reset();
   };
 
-  const setAutomatic = (field: keyof ChangeCommandRequest, value: string) => {
+  const setAutomatic = useCallback((field: keyof ChangeCommandRequest, value: string) => {
+    if (sheetConfirmation?.read() || confirmBusy.current) return;
     if (!value) {
       return;
     }
@@ -428,7 +478,7 @@ function RecordChangeFormReady({
       autoValues.current[field] = value;
       return { ...current, [field]: value };
     });
-  };
+  }, [sheetConfirmation]);
 
   const resetAutomaticTracking = (next: ChangeCommandRequest) => {
     autoValues.current = {};
@@ -556,9 +606,10 @@ function RecordChangeFormReady({
       return;
     }
     setAutomatic("newValue", displayedCurrentValue.amount);
-  }, [displayedCurrentValue, fixActivityId, kind, request.newValue]);
+  }, [displayedCurrentValue, fixActivityId, kind, request.newValue, setAutomatic]);
 
   useEffect(() => {
+    if (sheetConfirmation?.read() || confirmBusy.current) return;
     if (kind === ChangeCommandKind.ChangeFXConversion && request.feeCurrency !== request.soldCurrency) {
       // Keep the locked fee currency aligned with the editable source currency.
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -573,17 +624,19 @@ function RecordChangeFormReady({
     if (kind === ChangeCommandKind.ChangeCashTransfer && request.feeCurrency !== request.sentCurrency) {
       setRequest((current) => ({ ...current, feeCurrency: current.sentCurrency ?? "" }));
     }
-  }, [kind, request.feeCurrency, request.grossCurrency, request.interestOrFeeCurrency, request.principalCurrency, request.sentCurrency, request.soldCurrency]);
+  }, [kind, request.feeCurrency, request.grossCurrency, request.interestOrFeeCurrency, request.principalCurrency, request.sentCurrency, request.soldCurrency, sheetConfirmation]);
 
   useEffect(() => {
+    if (sheetConfirmation?.read() || confirmBusy.current) return;
     if (kind === ChangeCommandKind.ChangeTrade && request.side === "sell" && request.holdingId && !positiveSettlementHoldings.some((holding) => holding.id === request.holdingId)) {
       // A refreshed holdings list can invalidate a previously selected settlement holding.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRequest((current) => ({ ...current, holdingId: "", instrumentId: "" }));
     }
-  }, [kind, positiveSettlementHoldings, request.holdingId, request.side]);
+  }, [kind, positiveSettlementHoldings, request.holdingId, request.side, sheetConfirmation]);
 
   useEffect(() => {
+    if (sheetConfirmation?.read() || confirmBusy.current) return;
     if (fixActivityId || request.effectiveLocalDate || request.effectiveLocalTime || !effectiveOrigin) {
       return;
     }
@@ -595,7 +648,7 @@ function RecordChangeFormReady({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRequest((current) => current.effectiveLocalDate || current.effectiveLocalTime ? current : ({ ...current, effectiveLocalDate: local.date, effectiveLocalTime: local.time, effectiveAt: captured.toISOString() }));
     }
-  }, [effectiveOrigin, fixActivityId, request.effectiveAt, request.effectiveLocalDate, request.effectiveLocalTime]);
+  }, [effectiveOrigin, fixActivityId, request.effectiveAt, request.effectiveLocalDate, request.effectiveLocalTime, sheetConfirmation]);
 
   const originZone = resolvedTimeZone(effectiveOrigin?.timezone || settings.data?.timezone);
   const originLocal = effectiveOrigin ? localDateTimeInTimeZone(originZone, new Date(effectiveOrigin.startedAt)) : undefined;
@@ -704,7 +757,7 @@ function RecordChangeFormReady({
   };
 
   const commandKey = JSON.stringify(buildRequest());
-  const currentReview = reviewed?.key === commandKey ? reviewed : null;
+  const currentReview = submitted?.review ?? (reviewed?.key === commandKey ? reviewed : null);
   const previewResult = currentReview?.resulting ?? null;
 
   const runPreview = () => {
@@ -733,7 +786,7 @@ function RecordChangeFormReady({
   };
 
   const runConfirm = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (repeat && event.detail > 1) return;
+    if (event.detail > 1) return;
     if (!currentReview || confirmBusy.current || record.isPending || fix.isPending || repeatConfirm.isPending) return;
     if (repeat) {
       if (!currentReview.planId) return;
@@ -742,7 +795,7 @@ function RecordChangeFormReady({
       sheetConfirmation?.begin(planId, currentReview);
       repeatConfirm.mutate(planId, {
         onSuccess: () => {
-          if (sheetConfirmation && !sheetConfirmation.resolve()) return;
+          if (sheetConfirmation && !sheetConfirmation.resolve(planId)) return;
           if (alive.current) { clearPreview(); onRecorded(); }
         },
         onError: (cause) => {
@@ -750,7 +803,7 @@ function RecordChangeFormReady({
           const disposition = repeatConfirmDisposition(cause);
           setRepeatRecovery(disposition);
           if (disposition !== "uncertain" && disposition !== "plan_unavailable") {
-            sheetConfirmation?.resolve();
+            sheetConfirmation?.resolve(planId);
             clearPreview();
           }
         },
@@ -758,32 +811,58 @@ function RecordChangeFormReady({
       });
       return;
     }
-    // Confirm the immutable command that produced the visible preview.
-    const command = currentReview.command;
-    if (fixActivityId) {
-      fix.mutate(
-        { activityId: fixActivityId, replacement: command },
-        {
-          onSuccess: () => {
-            clearPreview();
-            onRecorded();
-          },
-        },
-      );
-      return;
-    }
-    record.mutate(command, {
-      onSuccess: () => {
-        clearPreview();
-        setRequest(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, defaultCurrency));
-        onRecorded();
-      },
+    if (!sheetConfirmation || !scope.householdId || !scopeMatches || !intentMatches) return;
+    const retained = ordinarySubmission(sheetConfirmation.read()?.recovery);
+    if (retained?.phase === "pending") return;
+    const submission: SubmittedChange = retained ?? Object.freeze({
+      type: "ordinary-change", family: fixActivityId ? "fix" : "record", sourceActivityId: fixActivityId,
+      scope: Object.freeze(scope), currentScope: scope, defaultCurrency,
+      review: Object.freeze({ ...currentReview,
+        command: Object.freeze({ ...currentReview.command, mutationId: crypto.randomUUID() }),
+        resulting: Object.freeze(currentReview.resulting.map(endpoint => Object.freeze({ ...endpoint }))),
+      }),
+      phase: "pending",
     });
+    const id = submission.review.command.mutationId!;
+    if (retained) {
+      if (!sheetConfirmation.update(id, { ...submission, phase: "pending", error: undefined })) return;
+    } else if (!sheetConfirmation.begin(id, submission)) return;
+    confirmBusy.current = true;
+    const ownsScope = () => {
+      const active = sheetConfirmation.read();
+      const current = ordinarySubmission(active?.recovery)?.currentScope;
+      return active?.identity === id && current?.session === submission.scope.session &&
+        current.householdId === submission.scope.householdId && current.family === submission.family &&
+        current.sourceActivityId === submission.sourceActivityId &&
+        queryClient.getQueryData<{ household?: { id: string } | null }>(queryKeys.household.bootstrap)?.household?.id === submission.scope.householdId;
+    };
+    // mutateAsync handlers survive a child remount; only the still-current Sheet
+    // identity may settle. Retry never rebuilds a command from current defaults.
+    const operation = submission.family === "fix"
+      ? fix.mutateAsync({ activityId: submission.sourceActivityId!, replacement: submission.review.command })
+      : record.mutateAsync(submission.review.command);
+    void operation.then(() => {
+      if (!ownsScope()) {
+        const current = ordinarySubmission(sheetConfirmation.read()?.recovery);
+        if (current) sheetConfirmation.update(id, { ...current, phase: "unknown" });
+        return;
+      }
+      if (!sheetConfirmation.resolve(id)) return;
+      if (alive.current) clearPreview();
+      onRecorded();
+    }, cause => {
+      if (ownsScope() && provenOrdinaryRefusal(submission.family, cause)) {
+        if (sheetConfirmation.resolve(id) && alive.current) clearPreview();
+      } else {
+        const current = ordinarySubmission(sheetConfirmation.read()?.recovery);
+        if (current) sheetConfirmation.update(id, { ...current, phase: "unknown", error: cause });
+      }
+    }).finally(() => { confirmBusy.current = false; });
   };
 
-  const error = repeatPreview.error ?? repeatConfirm.error ?? preview.error ?? previewFix.error ?? record.error ?? fix.error;
+  const error = submitted?.error ?? repeatPreview.error ?? repeatConfirm.error ?? preview.error ?? previewFix.error ?? record.error ?? fix.error;
   const previewPending = repeat ? repeatPreview.isPending : fixActivityId ? previewFix.isPending : preview.isPending;
-  const confirmPending = repeat ? repeatConfirm.isPending : fixActivityId ? fix.isPending : record.isPending;
+  const confirmPending = submitted?.phase === "pending" || (repeat ? repeatConfirm.isPending : fixActivityId ? fix.isPending : record.isPending);
   const selectedValueCurrency = accountById.get(request.accountId ?? "")?.account.defaultCurrency ?? displayedCurrentValue?.currency ?? defaultCurrency;
   const selectedCashAccountCurrency = accountById.get(request.cashAccountId ?? "")?.account.defaultCurrency ?? defaultCurrency;
   const fxPairReady = Boolean(request.soldCurrency && request.boughtCurrency && request.soldCurrency !== request.boughtCurrency);
@@ -926,6 +1005,7 @@ function RecordChangeFormReady({
             return { value, label: t(`history.kind.${value}`), icon: style.icon, tone: style.tone };
           })}
           onChange={(value) => {
+            if (sheetConfirmation?.read() || confirmBusy.current) return;
             const nextKind = value as ChangeCommandKind;
             const next = emptyChangeRequest(nextKind, defaultCurrency);
             const locked = {
@@ -1217,13 +1297,14 @@ function RecordChangeFormReady({
       {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
       <FieldError className="text-sm">{error ? displayError(error, t("history.actionError")) : undefined}</FieldError>
       {repeat && repeatConfirmResult && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : repeatConfirmResult === "plan_unavailable" ? "history.repeatPlanUnavailableHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
+      {submitted?.phase === "unknown" && <p role="status" className="text-sm text-muted-foreground">{t(scopeMatches && intentMatches ? "history.submissionRetryHelp" : "history.submissionOwnerChangedHelp")}</p>}
 
       {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 
       </fieldset>
       <div className="flex gap-2">
         {repeat && previewResult && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirmPending || recoveryLocked}>{t("common.backToDraft")}</Button>}
-        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : repeat && recoveryLocked ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
+        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending || recoveryLocked}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending || !scopeMatches || !intentMatches}>{confirmPending ? t("common.pending") : submitted ? t("history.submissionRetryConfirm") : repeat && recoveryLocked ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
       </div>
     </div>
   );

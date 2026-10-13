@@ -1,3 +1,4 @@
+import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { metalUnitLabel } from "@/lib/preciousMetals";
 import { useMemo, useRef, useState } from "react";
@@ -167,10 +168,12 @@ export function AccountDetail({
   const productsQuery = useProducts({ accountId: record.account.id, includeClosed: true }, canHoldProducts(record.account));
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
-  const [action, setAction] = useState<AccountAction>(updateValue && !record.account.archivedAt ? record.account.trackingMode === "holdings" ? "cash" : "simple" : null);
+  const [action, setActionState] = useState<AccountAction>(updateValue && !record.account.archivedAt ? record.account.trackingMode === "holdings" ? "cash" : "simple" : null);
   const cashActionTrigger = useRef<HTMLButtonElement>(null);
   const backTrigger = useRef<HTMLButtonElement>(null);
-  const [actionHoldingId, setActionHoldingId] = useState<string>();
+  const [actionHoldingId, setActionHoldingIdState] = useState<string>();
+  const setAction = (next: AccountAction) => { if (!hasUnresolvedSheetConfirmation()) setActionState(next); };
+  const setActionHoldingId = (next: string | undefined) => { if (!hasUnresolvedSheetConfirmation()) setActionHoldingIdState(next); };
   const [settingsCanSubmit, setSettingsCanSubmit] = useState(false);
   const [settingsError, setSettingsError] = useState<string | undefined>();
   const archived = Boolean(record.account.archivedAt);
@@ -242,7 +245,7 @@ export function AccountDetail({
         actions={
           <>
             <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />
-            <Button ref={backTrigger} type="button" variant="outline" size="sm" onClick={onBack}>
+            <Button ref={backTrigger} type="button" variant="outline" size="sm" onClick={() => { if (!hasUnresolvedSheetConfirmation()) onBack(); }}>
               <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => { setSettingsError(undefined); setAction("settings"); }}>

@@ -3,8 +3,10 @@ import { createContext, useContext } from "react";
 export type SheetConfirmation = {
   identity: string | null;
   recovery: unknown;
-  begin: (identity: string, recovery: unknown) => void;
-  resolve: () => boolean;
+  begin: (identity: string, recovery: unknown) => boolean;
+  read: () => { identity: string; recovery: unknown } | null;
+  update: (identity: string, recovery: unknown) => boolean;
+  resolve: (identity?: string) => boolean;
 };
 
 export const SheetConfirmationContext = createContext<SheetConfirmation | null>(null);

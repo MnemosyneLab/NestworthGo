@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { tabbable } from "tabbable";
-import { SheetConfirmationContext, registerSheetConfirmation, resolveSheetConfirmation, useSheetConfirmation } from "./sheet-confirmation";
+import { SheetConfirmationContext, hasUnresolvedSheetConfirmation, registerSheetConfirmation, resolveSheetConfirmation, useSheetConfirmation } from "./sheet-confirmation";
 
 // Sheet is a side panel built on Base UI's Dialog primitive (Base UI does
 // not ship a lightweight desktop side-panel primitive separate from its
@@ -13,20 +13,33 @@ import { SheetConfirmationContext, registerSheetConfirmation, resolveSheetConfir
 function Sheet({ onOpenChange, ...props }: React.ComponentProps<typeof BaseDialog.Root>) {
   const owner = React.useRef({});
   const identityRef = React.useRef<string | null>(null);
+  const recoveryRef = React.useRef<unknown>(null);
+  const mounted = React.useRef(true);
   const [recovery, setRecovery] = React.useState<unknown>(null);
   const [identity, setIdentity] = React.useState<string | null>(null);
   const confirmation = React.useMemo(() => ({
     identity,
     recovery,
     begin: (planId: string, snapshot: unknown) => {
+      if (!mounted.current || identityRef.current !== null) return false;
       identityRef.current = planId;
+      recoveryRef.current = snapshot;
       registerSheetConfirmation(owner.current);
       setIdentity(planId);
       setRecovery(snapshot);
+      return true;
     },
-    resolve: () => {
-      if (identityRef.current === null) return false;
+    read: () => mounted.current && identityRef.current !== null ? { identity: identityRef.current, recovery: recoveryRef.current } : null,
+    update: (expectedIdentity: string, snapshot: unknown) => {
+      if (!mounted.current || identityRef.current !== expectedIdentity) return false;
+      recoveryRef.current = snapshot;
+      setRecovery(snapshot);
+      return true;
+    },
+    resolve: (expectedIdentity?: string) => {
+      if (!mounted.current || identityRef.current === null || (expectedIdentity !== undefined && identityRef.current !== expectedIdentity)) return false;
       identityRef.current = null;
+      recoveryRef.current = null;
       resolveSheetConfirmation(owner.current);
       setIdentity(null);
       setRecovery(null);
@@ -34,11 +47,13 @@ function Sheet({ onOpenChange, ...props }: React.ComponentProps<typeof BaseDialo
     },
   }), [identity, recovery]);
   React.useEffect(() => {
+    mounted.current = true;
     const currentOwner = owner.current;
-    return () => resolveSheetConfirmation(currentOwner);
+    return () => { mounted.current = false; resolveSheetConfirmation(currentOwner); };
   }, []);
   return <SheetConfirmationContext.Provider value={confirmation}>
     <BaseDialog.Root {...props} onOpenChange={(open, details) => {
+      if (open && identityRef.current === null && hasUnresolvedSheetConfirmation()) { details.cancel(); return; }
       if (!open && identityRef.current !== null) { details.cancel(); return; }
       onOpenChange?.(open, details);
     }} />

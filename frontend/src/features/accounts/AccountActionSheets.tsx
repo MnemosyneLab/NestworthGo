@@ -2,7 +2,7 @@ import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { useSheetConfirmation } from "@/components/ui/sheet-confirmation";
+import { hasUnresolvedSheetConfirmation, useSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -71,7 +71,7 @@ export function AccountActionSheet({
   const [startedOrigin, setStartedOrigin] = useState<HistoryOriginDTO>();
   const needsHistory = actionNeedsHistory(action);
   const historyReady = historyStarted || Boolean(origin.data) || startedInSheet;
-  const waitingForHistory = needsHistory && !historyReady;
+  const waitingForHistory = needsHistory && !historyReady && !hasUnresolvedSheetConfirmation();
   const title =
     action === "cash"
       ? historyStarted
@@ -451,6 +451,7 @@ function LockedChangeForm({
   originOverride?: HistoryOriginDTO;
 }) {
   const { t } = useTranslation();
+  const confirmation = useSheetConfirmation();
   const currency = record.account.defaultCurrency;
   const isMoney = action === "deposit" || action === "withdraw";
   const [moneyKind, setMoneyKind] = useState(
@@ -491,7 +492,8 @@ function LockedChangeForm({
               type="radio"
               name="money-direction"
               checked={moneyKind === ChangeCommandKind.ChangeMoneyAdded}
-              onChange={() => setMoneyKind(ChangeCommandKind.ChangeMoneyAdded)}
+              disabled={Boolean(confirmation?.identity)}
+              onChange={() => { if (!confirmation?.read()) setMoneyKind(ChangeCommandKind.ChangeMoneyAdded); }}
             />
             {t("history.kind.money_added")}
           </label>
@@ -500,7 +502,8 @@ function LockedChangeForm({
               type="radio"
               name="money-direction"
               checked={moneyKind === ChangeCommandKind.ChangeMoneyRemoved}
-              onChange={() => setMoneyKind(ChangeCommandKind.ChangeMoneyRemoved)}
+              disabled={Boolean(confirmation?.identity)}
+              onChange={() => { if (!confirmation?.read()) setMoneyKind(ChangeCommandKind.ChangeMoneyRemoved); }}
             />
             {t("history.kind.money_removed")}
           </label>
