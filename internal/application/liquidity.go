@@ -367,6 +367,18 @@ func (s *Service) SaveLiquidityPolicy(ctx context.Context, input SavePolicyInput
 		return domain.LiquidityPolicy{}, err
 	}
 	defer unlock()
+	policy, err := s.prepareLiquidityPolicy(ctx, input)
+	if err != nil {
+		return domain.LiquidityPolicy{}, err
+	}
+	if err := s.repository.SaveLiquidityPolicy(ctx, policy); err != nil {
+		return domain.LiquidityPolicy{}, err
+	}
+	return policy, nil
+}
+
+// prepareLiquidityPolicy is shared by GUI save and MCP preview. It has no writes.
+func (s *Service) prepareLiquidityPolicy(ctx context.Context, input SavePolicyInput) (domain.LiquidityPolicy, error) {
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.LiquidityPolicy{}, err
@@ -397,9 +409,6 @@ func (s *Service) SaveLiquidityPolicy(ctx context.Context, input SavePolicyInput
 		if input.ExpectedRevision != 0 {
 			return domain.LiquidityPolicy{}, &domain.Error{Code: domain.ErrRevisionConflict, Field: "expectedRevision", Message: "policy does not exist"}
 		}
-		if err := s.repository.SaveLiquidityPolicy(ctx, policy); err != nil {
-			return domain.LiquidityPolicy{}, err
-		}
 		return policy, nil
 	}
 	if input.ExpectedRevision != existing.Revision {
@@ -408,9 +417,6 @@ func (s *Service) SaveLiquidityPolicy(ctx context.Context, input SavePolicyInput
 	policy.ID = existing.ID
 	policy.CreatedAt = existing.CreatedAt
 	policy.Revision = existing.Revision + 1
-	if err := s.repository.SaveLiquidityPolicy(ctx, policy); err != nil {
-		return domain.LiquidityPolicy{}, err
-	}
 	return policy, nil
 }
 
@@ -420,28 +426,36 @@ func (s *Service) ResetLiquidityPolicy(ctx context.Context, source domain.Liquid
 		return err
 	}
 	defer unlock()
-	household, err := s.requireHousehold(ctx)
+	existing, err := s.prepareLiquidityPolicyReset(ctx, source, expectedRevision)
 	if err != nil {
 		return err
 	}
+	return s.repository.DeleteLiquidityPolicy(ctx, existing.ID, expectedRevision)
+}
+
+func (s *Service) prepareLiquidityPolicyReset(ctx context.Context, source domain.LiquiditySourceRef, expectedRevision int) (domain.LiquidityPolicy, error) {
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return domain.LiquidityPolicy{}, err
+	}
 	if source.HoldingID != nil {
 		if product, err := s.repository.ProductByHolding(ctx, *source.HoldingID); err != nil {
-			return err
+			return domain.LiquidityPolicy{}, err
 		} else if product != nil {
-			return &domain.Error{Code: domain.ErrManagedPosition, Field: "source", Message: "managed product policy cannot be reset"}
+			return domain.LiquidityPolicy{}, &domain.Error{Code: domain.ErrManagedPosition, Field: "source", Message: "managed product policy cannot be reset"}
 		}
 	}
 	existing, err := s.policyBySource(ctx, household.ID, source)
 	if err != nil {
-		return err
+		return domain.LiquidityPolicy{}, err
 	}
 	if existing == nil {
-		return &domain.Error{Code: domain.ErrNotFound, Field: "source", Message: "policy was not found"}
+		return domain.LiquidityPolicy{}, &domain.Error{Code: domain.ErrNotFound, Field: "source", Message: "policy was not found"}
 	}
 	if expectedRevision != existing.Revision {
-		return &domain.Error{Code: domain.ErrRevisionConflict, Field: "expectedRevision", Message: "policy revision does not match"}
+		return domain.LiquidityPolicy{}, &domain.Error{Code: domain.ErrRevisionConflict, Field: "expectedRevision", Message: "policy revision does not match"}
 	}
-	return s.repository.DeleteLiquidityPolicy(ctx, existing.ID, expectedRevision)
+	return *existing, nil
 }
 
 func (s *Service) SaveLiquidityReservation(ctx context.Context, input SaveReservationInput) (domain.LiquidityReservation, error) {

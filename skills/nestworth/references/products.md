@@ -228,3 +228,78 @@ not require reposting. The ordinary managed trade/quote-import guards remain.
 ```json
 {"operationId":"${operationId}","input":{"planId":"${planId}"}}
 ```
+
+## Edit ordinary access and withdrawal rules
+
+Read `get_liquidity_overview` and copy the exact `sourceRef` from a source row.
+Rules belong to an account value, one account/currency cash source, or one
+holding, never a global instrument. With `ledger_write`, discover
+`preview_save_liquidity_policy` / `commit_save_liquidity_policy` and
+`preview_reset_liquidity_policy` / `commit_reset_liquidity_policy`. Neither pair
+is available with directory permission. For `policyOrigin: "assumed"`, create
+with expectedRevision 0; for an explicit policy, use its current revision.
+Managed term_deposit/locked_product rules still use the complete
+`preview_product_terms` / `commit_product_terms` workflow; ordinary writes
+return managed_position_conflict.
+
+Save is a full replacement. Supply every policy field, using null to clear or
+represent unknown. Omission never preserves old values; the discovery schema
+may require an explicit null. Fees/caps/gross amounts are exact decimal strings
+with up to four fractional digits in the source currency. Zero fee is known;
+null fee is unknown. Settlement counts are 0–365. Calendar counts every day;
+weekdays excludes weekends, without a public-holiday promise. Dates are civil
+YYYY-MM-DD. Early allowed requires settlement count/basis, fee and amount mode;
+fixed_gross additionally requires its gross amount. These rules change liquidity
+forecasts; they do not record withdrawals, income, trades or bank instructions.
+
+Example creation for one account-value source (synthetic values):
+
+<!-- example: liquidity-policy-save -->
+```json
+{
+  "sourceRef": {"kind":"account_value","accountId":"${accountId}"},
+  "expectedRevision": 0,
+  "policy": {
+    "accessKind":"on_date", "unlockOn":"2026-10-02",
+    "settlementDays":3, "dayBasis":"weekdays",
+    "receiptOnOverride":"2026-10-08", "accessibleAmountCap":"123.1234",
+    "normalExitFee":"1.0001", "earlyKind":"allowed",
+    "earlySettlementDays":2, "earlyDayBasis":"calendar", "earlyFee":"2.0002",
+    "earlyAmountMode":"fixed_gross", "earlyGrossAmount":"100.0003",
+    "note":"Synthetic withdrawal rules"
+  }
+}
+```
+
+For cash, use `{"kind":"account_cash","accountId":"<account UUID>","currency":"USD"}`.
+For a holding, use `{"kind":"holding","accountId":"<owning account UUID>","holdingId":"<holding UUID>"}`.
+Copy these identities from the overview rather than inventing them. Only active
+asset sources are accepted; archived, liability and unavailable identities fail.
+Inspect effective before/after policies and origins, then commit the exact plan:
+
+<!-- example: liquidity-policy-commit -->
+```json
+{"operationId":"${operationId}","input":{"planId":"${planId}"}}
+```
+
+Use commit_save_liquidity_policy for save plans, commit_reset_liquidity_policy
+for reset plans. Ten-minute expiry and concurrent writes/restart/restore require
+a fresh preview. A successful same-operation/input retry returns the original
+receipt; changed input conflicts. A used plan with another operationId is stale.
+Unlike managed product business receipts, a pending/unknown ordinary policy
+receipt is never automatically replayed. Inspect `get_operation` and current
+`get_liquidity_overview` before a new intentional preview; changing the operation
+UUID is not a retry strategy. Report recorded-time receipts separately from
+current policy. No reservation changes or releases are exposed.
+
+Reset removes the explicit policy and restores the same assumed defaults as
+the GUI, without persisting a default row. Use the current explicit revision:
+
+<!-- example: liquidity-policy-reset -->
+```json
+{"sourceRef":{"kind":"account_value","accountId":"${accountId}"},"expectedRevision":1}
+```
+
+The reset preview shows effective defaults with afterOrigin assumed and revision
+zero; its committed result is the GUI's revision-zero acknowledgement. Read the
+overview again for current defaults, evaluated routes and reservation evidence.

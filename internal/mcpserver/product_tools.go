@@ -62,7 +62,7 @@ func isProductReadTool(name string) bool {
 
 func isProductTool(name string) bool {
 	switch name {
-	case "preview_product_operation", "commit_product_operation", "preview_product_terms", "commit_product_terms", "preview_product_valuation", "commit_product_valuation":
+	case "preview_save_liquidity_policy", "commit_save_liquidity_policy", "preview_reset_liquidity_policy", "commit_reset_liquidity_policy", "preview_product_operation", "commit_product_operation", "preview_product_terms", "commit_product_terms", "preview_product_valuation", "commit_product_valuation":
 		return true
 	default:
 		return isProductReadTool(name)

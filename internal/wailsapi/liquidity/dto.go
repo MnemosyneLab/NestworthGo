@@ -331,6 +331,8 @@ func fromSourceRef(value domain.LiquiditySourceRef) SourceRefDTO {
 	return dto
 }
 
+func FromPolicy(value domain.LiquidityPolicy) PolicyDTO { return fromPolicy(value) }
+
 func fromPolicy(value domain.LiquidityPolicy) PolicyDTO {
 	dto := PolicyDTO{
 		ID: value.ID.String(), SourceRef: fromSourceRef(value.Source), AccessKind: string(value.AccessKind),

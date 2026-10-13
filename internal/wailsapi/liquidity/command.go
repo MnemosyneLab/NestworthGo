@@ -145,6 +145,9 @@ func (r SourceRefDTO) toDomain() (domain.LiquiditySourceRef, error) {
 	return ref, nil
 }
 
+// ToDomain shares GUI source identity parsing with the local MCP adapter.
+func (r SourceRefDTO) ToDomain() (domain.LiquiditySourceRef, error) { return r.toDomain() }
+
 type SavePolicyRequest struct {
 	Source           SourceRefDTO                   `json:"sourceRef"`
 	ExpectedRevision int                            `json:"expectedRevision"`
