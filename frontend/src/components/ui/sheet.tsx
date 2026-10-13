@@ -4,12 +4,46 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { tabbable } from "tabbable";
+import { SheetConfirmationContext, registerSheetConfirmation, resolveSheetConfirmation, useSheetConfirmation } from "./sheet-confirmation";
 
 // Sheet is a side panel built on Base UI's Dialog primitive (Base UI does
 // not ship a lightweight desktop side-panel primitive separate from its
 // gesture-driven mobile Drawer). It shares Root/Trigger/Close and only
 // changes the popup's position and enter/exit animation.
-const Sheet = BaseDialog.Root;
+function Sheet({ onOpenChange, ...props }: React.ComponentProps<typeof BaseDialog.Root>) {
+  const owner = React.useRef({});
+  const identityRef = React.useRef<string | null>(null);
+  const [recovery, setRecovery] = React.useState<unknown>(null);
+  const [identity, setIdentity] = React.useState<string | null>(null);
+  const confirmation = React.useMemo(() => ({
+    identity,
+    recovery,
+    begin: (planId: string, snapshot: unknown) => {
+      identityRef.current = planId;
+      registerSheetConfirmation(owner.current);
+      setIdentity(planId);
+      setRecovery(snapshot);
+    },
+    resolve: () => {
+      if (identityRef.current === null) return false;
+      identityRef.current = null;
+      resolveSheetConfirmation(owner.current);
+      setIdentity(null);
+      setRecovery(null);
+      return true;
+    },
+  }), [identity, recovery]);
+  React.useEffect(() => {
+    const currentOwner = owner.current;
+    return () => resolveSheetConfirmation(currentOwner);
+  }, []);
+  return <SheetConfirmationContext.Provider value={confirmation}>
+    <BaseDialog.Root {...props} onOpenChange={(open, details) => {
+      if (!open && identityRef.current !== null) { details.cancel(); return; }
+      onOpenChange?.(open, details);
+    }} />
+  </SheetConfirmationContext.Provider>;
+}
 const SheetTrigger = BaseDialog.Trigger;
 const SheetCloseDisabledContext = React.createContext(false);
 
@@ -70,6 +104,7 @@ const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithou
   initialFocus,
   ...props
 }, forwardedRef) {
+  const confirmation = useSheetConfirmation();
   const popupRef = React.useRef<HTMLDivElement | null>(null);
   const setPopupRef = React.useCallback((node: HTMLDivElement | null) => {
     popupRef.current = node;
@@ -99,7 +134,7 @@ const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithou
           )}
           {...props}
         >
-          <SheetCloseDisabledContext.Provider value={closeDisabled}>
+          <SheetCloseDisabledContext.Provider value={closeDisabled || Boolean(confirmation?.identity)}>
             {children}
           </SheetCloseDisabledContext.Provider>
         </BaseDialog.Popup>

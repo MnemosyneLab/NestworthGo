@@ -1560,7 +1560,7 @@ it("cash review supports back, edits, stale failure and cancel/reopen without wr
   await userEvent.type(within(form).getByLabelText("Resulting balance"), "0");
   expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
-  confirmCash.mockRejectedValueOnce(new Error(JSON.stringify({ code: "stale_preview", message: "fresh preview required" })));
+  confirmCash.mockRejectedValueOnce(new Error(JSON.stringify({ code: "stale_preview", field: "previewToken", message: "fresh preview required" })));
   await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
   await within(form).findByRole("alert");
   expect(within(form).getByRole("button", { name: "Preview" })).toBeInTheDocument();
@@ -1595,4 +1595,45 @@ it("cash review shows origin-local time and exact sub-minor-unit values alongsid
   expect(review).toHaveTextContent("00:30:00.000 (Asia/Shanghai)");
   expect(review).not.toHaveTextContent("2026-10-10T16:30:00Z");
   expect(confirmCash).not.toHaveBeenCalled();
+});
+
+it.each(["success", "uncertain"])("retains deferred cash confirmation across all dismissal routes (%s)", async outcome => {
+  listAccounts.mockResolvedValue([brokerageAccount]);
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  let resolve!: (value: object) => void;
+  let reject!: (error: Error) => void;
+  confirmCash.mockImplementationOnce(() => new Promise((done, fail) => { resolve = done; reject = fail; }));
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+  const trigger = await screen.findByRole("button", { name: "Reconcile balance" });
+  await userEvent.click(trigger);
+  const form = await screen.findByRole("form", { name: "Add cash balance" });
+  await userEvent.type(within(form).getByLabelText("Resulting balance"), "900");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(confirmCash).toHaveBeenCalledWith("cash-plan"));
+  expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await userEvent.click(screen.getByRole("dialog").parentElement!.previousElementSibling!);
+  expect(screen.getByRole("form", { name: "Add cash balance" })).toBe(form);
+  if (outcome === "uncertain") {
+    await act(async () => { reject(new Error("IPC outcome unknown")); });
+    await within(form).findByRole("alert");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await userEvent.click(screen.getByRole("dialog").parentElement!.previousElementSibling!);
+    expect(screen.getByRole("form", { name: "Add cash balance" })).toBe(form);
+    expect(within(form).getByLabelText("Resulting balance")).toBeDisabled();
+    expect(within(form).getByRole("button", { name: "Back to draft" })).toBeDisabled();
+    expect(previewCash).toHaveBeenCalledTimes(1);
+    await userEvent.click(within(form).getByRole("button", { name: "Retry same confirmation" }));
+    expect(confirmCash.mock.calls.map(([id]) => id)).toEqual(["cash-plan", "cash-plan"]);
+  } else { await act(async () => { resolve({}); }); }
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Add cash balance" })).not.toBeInTheDocument());
+  expect(confirmCash).toHaveBeenCalledTimes(outcome === "uncertain" ? 2 : 1);
+  await waitFor(() => expect(trigger).toHaveFocus());
+  await userEvent.click(trigger);
+  expect(await screen.findByLabelText("Resulting balance")).toHaveValue("");
+  await userEvent.keyboard("{Escape}");
 });

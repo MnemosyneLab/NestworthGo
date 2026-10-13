@@ -2,6 +2,7 @@ import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { useSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -98,6 +99,8 @@ function repeatSourceRefused(error: unknown): boolean {
   const wire = (error as { wireError?: WireError } | null)?.wireError;
   return wire?.code === "already_undone" || wire?.field === "sourceActivityId";
 }
+
+type ReviewedChange = { key: string; command: ChangeCommandRequest; planId?: string; resulting: EndpointViewDTO[] };
 
 type NamedOption = { id: string; name: string };
 
@@ -334,6 +337,7 @@ function RecordChangeFormReady({
   const repeatPreview = usePreviewRepeatChange();
   const repeatConfirm = useConfirmRepeatChange();
   const confirmBusy = useRef(false);
+  const sheetConfirmation = useSheetConfirmation();
   const previewFix = usePreviewFixChange();
   const record = useRecordChange();
   const fix = useFixChange();
@@ -359,7 +363,8 @@ function RecordChangeFormReady({
           : base.fromAccountId,
     };
   })();
-  const [request, setRequest] = useState<ChangeCommandRequest>(initialRequest);
+  const retainedReview = sheetConfirmation?.recovery as ReviewedChange | null;
+  const [request, setRequest] = useState<ChangeCommandRequest>(retainedReview?.command ?? initialRequest);
   const autoValues = useRef<Record<string, string>>(
     initial && fixActivityId
       ? Object.fromEntries(
@@ -369,8 +374,9 @@ function RecordChangeFormReady({
         )
       : {},
   );
-  const [reviewed, setReviewed] = useState<{ key: string; command: ChangeCommandRequest; planId?: string; resulting: EndpointViewDTO[] } | null>(null);
-  const [repeatRecovery, setRepeatRecovery] = useState<RepeatConfirmDisposition | null>(null);
+  const [reviewed, setReviewed] = useState<ReviewedChange | null>(retainedReview);
+  const [repeatRecovery, setRepeatRecovery] = useState<RepeatConfirmDisposition | null>(sheetConfirmation?.identity ? "uncertain" : null);
+  const recoveryLocked = repeat && (repeatRecovery === "uncertain" || repeatRecovery === "plan_unavailable");
   const previewSequence = useRef(0);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; previewSequence.current += 1; }; }, []);
@@ -385,7 +391,7 @@ function RecordChangeFormReady({
   };
 
   const patch = (next: Partial<ChangeCommandRequest>, automaticFields: string[] = []) => {
-    if (record.isPending || fix.isPending || repeatConfirm.isPending) return;
+    if (record.isPending || fix.isPending || repeatConfirm.isPending || recoveryLocked || confirmBusy.current) return;
     setRequest((current) => {
       markAutomaticFields(current, automaticFields);
       Object.keys(next).forEach((field) => {
@@ -701,7 +707,7 @@ function RecordChangeFormReady({
   const previewResult = currentReview?.resulting ?? null;
 
   const runPreview = () => {
-    if (!canPreview) {
+    if (!canPreview || recoveryLocked || confirmBusy.current) {
       return;
     }
     const command = Object.freeze(buildRequest());
@@ -731,7 +737,24 @@ function RecordChangeFormReady({
     if (repeat) {
       if (!currentReview.planId) return;
       confirmBusy.current = true;
-      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { if (alive.current) { clearPreview(); onRecorded(); } }, onError: (cause) => { if (alive.current) { const disposition = repeatConfirmDisposition(cause); setRepeatRecovery(disposition); if (disposition !== "uncertain") clearPreview(); } }, onSettled: () => { confirmBusy.current = false; } });
+      const planId = sheetConfirmation?.identity ?? currentReview.planId;
+      sheetConfirmation?.begin(planId, currentReview);
+      repeatConfirm.mutate(planId, {
+        onSuccess: () => {
+          if (sheetConfirmation && !sheetConfirmation.resolve()) return;
+          if (alive.current) { clearPreview(); onRecorded(); }
+        },
+        onError: (cause) => {
+          if (!alive.current) return;
+          const disposition = repeatConfirmDisposition(cause);
+          setRepeatRecovery(disposition);
+          if (disposition !== "uncertain" && disposition !== "plan_unavailable") {
+            sheetConfirmation?.resolve();
+            clearPreview();
+          }
+        },
+        onSettled: () => { confirmBusy.current = false; },
+      });
       return;
     }
     // Confirm the immutable command that produced the visible preview.
@@ -893,7 +916,7 @@ function RecordChangeFormReady({
 
   return (
     <div role="form" aria-label={t("history.formLabel")}>
-      <fieldset className="flex min-w-0 flex-col gap-4" disabled={confirmPending}>
+      <fieldset className="flex min-w-0 flex-col gap-4" disabled={confirmPending || recoveryLocked}>
       {!lock?.hideKind && (
         <ChoiceGrid
           label={t("history.changeType")}
@@ -973,8 +996,8 @@ function RecordChangeFormReady({
 
       {kind === ChangeCommandKind.ChangeCashTransfer && (
         <>
-          {!lock?.accountId && <AccountSelect id="change-from-account" label={t("history.fromAccount")} value={request.fromAccountId ?? ""} onChange={(fromAccountId) => handleTransferAccount("fromAccountId", "sentCurrency", fromAccountId)} accounts={accountOptions} />}
-          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={request.toAccountId ?? ""} onChange={(toAccountId) => handleTransferAccount("toAccountId", "receivedCurrency", toAccountId)} accounts={accountOptions} />
+          {!lock?.accountId && <AccountSelect id="change-from-account" label={t("history.fromAccount")} value={request.fromAccountId ?? ""} onChange={(fromAccountId) => handleTransferAccount("fromAccountId", "sentCurrency", fromAccountId)} accounts={cashAccountOptions} />}
+          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={request.toAccountId ?? ""} onChange={(toAccountId) => handleTransferAccount("toAccountId", "receivedCurrency", toAccountId)} accounts={cashAccountOptions} />
           <MoneyFields prefix="change-sent" label={t("history.sent")} amount={request.sent ?? ""} currency={request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(sent) => patch({ sent })} onCurrency={(sentCurrency) => patch({ sentCurrency })} disabledCurrency />
           {sameCurrencyTransfer ? (
             <MoneyFields prefix="change-received" label={t("history.received")} amount={request.sent ?? ""} currency={request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={() => undefined} disabledCurrency readOnly />
@@ -1197,11 +1220,11 @@ function RecordChangeFormReady({
 
       {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 
-      <div className="flex gap-2">
-        {repeat && previewResult && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirmPending}>{t("common.backToDraft")}</Button>}
-        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : repeat && repeatConfirmResult === "uncertain" ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
-      </div>
       </fieldset>
+      <div className="flex gap-2">
+        {repeat && previewResult && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirmPending || recoveryLocked}>{t("common.backToDraft")}</Button>}
+        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : repeat && recoveryLocked ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
+      </div>
     </div>
   );
 }

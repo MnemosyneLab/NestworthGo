@@ -52,5 +52,5 @@ func (s *Store[T]) Get(id string) (T, error) {
 		return item.value, nil
 	}
 	var zero T
-	return zero, &domain.Error{Code: domain.ErrStalePreview, Message: "request a fresh preview"}
+	return zero, &domain.Error{Code: domain.ErrStalePreview, Field: "planId", Message: "request a fresh preview"}
 }

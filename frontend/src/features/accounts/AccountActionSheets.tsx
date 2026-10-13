@@ -2,6 +2,7 @@ import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { useSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -150,20 +151,24 @@ function CashBalanceForm({
   const currencies = useSupportedCurrencies();
   const preview = usePreviewCashBalance();
   const confirm = useConfirmCashBalance(record.account.id);
-  const [reviewed, setReviewed] = useState<import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding/models").CashBalancePreviewDTO | null>(null);
-  const [reason, setReason] = useState("");
+  const sheetConfirmation = useSheetConfirmation();
+  const [uncertain, setUncertain] = useState(Boolean(sheetConfirmation?.identity));
+  const [planUnavailable, setPlanUnavailable] = useState(false);
+  const retainedReview = sheetConfirmation?.recovery as import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding/models").CashBalancePreviewDTO | null;
+  const [reviewed, setReviewed] = useState<import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding/models").CashBalancePreviewDTO | null>(retainedReview);
+  const [reason, setReason] = useState(retainedReview?.reason ?? "");
   const sequence = useRef(0);
   const busy = useRef(false);
   const clearPreview = () => { sequence.current += 1; setReviewed(null); };
   useEffect(() => () => { sequence.current += 1; }, []);
-  const [currency, setCurrency] = useState(record.account.defaultCurrency);
-  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState(retainedReview?.currency ?? record.account.defaultCurrency);
+  const [amount, setAmount] = useState(retainedReview?.target ?? "");
   const [error, setError] = useState<string | undefined>();
   const options = currencies.data ?? [record.account.defaultCurrency];
   const currentCash = (valuation?.components ?? []).find((component) => !component.instrumentId && component.nativeCurrency === currency);
 
   const submit = () => {
-    if (busy.current || !amount.trim()) return;
+    if (busy.current || uncertain || !amount.trim()) return;
     busy.current = true;
     setError(undefined);
     const current = ++sequence.current;
@@ -177,9 +182,22 @@ function CashBalanceForm({
     if (event.detail > 1) return;
     if (!reviewed || busy.current) return;
     busy.current = true;
-    confirm.mutate(reviewed.planId, {
-      onSuccess: () => { toast.success(t("common.saved")); onDone(); },
-      onError: (cause) => { setError(displayError(cause, t("accounts.saveError"))); if (["stale_preview", "cash_balance_time_conflict"].includes((cause as Error & { wireError?: { code: string } }).wireError?.code ?? "")) clearPreview(); },
+    const planId = sheetConfirmation?.identity ?? reviewed.planId;
+    sheetConfirmation?.begin(planId, reviewed);
+    confirm.mutate(planId, {
+      onSuccess: () => { if (sheetConfirmation && !sheetConfirmation.resolve()) return; toast.success(t("common.saved")); onDone(); },
+      onError: (cause) => {
+        setError(displayError(cause, t("accounts.saveError")));
+        const wire = (cause as { wireError?: { code: string; field?: string } } | null)?.wireError;
+        // Missing desktop plans cannot reach durable receipt lookup. Keep the
+        // identity after transport/storage failures; only proven refusal unlocks.
+        const refused = wire && (wire.code === "cash_balance_time_conflict" ||
+          (wire.code === "stale_preview" && wire.field === "previewToken") ||
+          ["validation", "invalid_change", "invalid_change_time", "insufficient_balance", "not_found", "conflict", "no_change"].includes(wire.code));
+        setUncertain(!refused);
+        setPlanUnavailable(wire?.code === "stale_preview" && !refused);
+        if (refused) { sheetConfirmation?.resolve(); clearPreview(); }
+      },
       onSettled: () => { busy.current = false; },
     });
   };
@@ -189,7 +207,7 @@ function CashBalanceForm({
       <p className="text-sm text-muted-foreground">{historyStarted ? t("accounts.cashReconcileHint") : t("accounts.openingCashHint")}</p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="cash-currency">{t("accounts.cashCurrency")}</Label>
-        <NativeSelect id="cash-currency" value={currency} disabled={confirm.isPending} onChange={(event) => { setCurrency(event.target.value); clearPreview(); }}>
+        <NativeSelect id="cash-currency" value={currency} disabled={confirm.isPending || uncertain} onChange={(event) => { setCurrency(event.target.value); clearPreview(); }}>
           {options.map((code) => (
             <option key={code} value={code}>
               {code}
@@ -202,9 +220,9 @@ function CashBalanceForm({
       </p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="cash-amount">{t("accounts.resultingBalance")}</Label>
-        <Input id="cash-amount" inputMode="decimal" value={amount} disabled={confirm.isPending} onChange={(event) => { setAmount(event.target.value); clearPreview(); }} autoFocus />
+        <Input id="cash-amount" inputMode="decimal" value={amount} disabled={confirm.isPending || uncertain} onChange={(event) => { setAmount(event.target.value); clearPreview(); }} autoFocus />
       </div>
-      {historyStarted && <div className="flex flex-col gap-1.5"><Label htmlFor="cash-reason">{t("accounts.adjustmentReason")}</Label><Input id="cash-reason" value={reason} disabled={confirm.isPending} onChange={(event) => { setReason(event.target.value); clearPreview(); }} /></div>}
+      {historyStarted && <div className="flex flex-col gap-1.5"><Label htmlFor="cash-reason">{t("accounts.adjustmentReason")}</Label><Input id="cash-reason" value={reason} disabled={confirm.isPending || uncertain} onChange={(event) => { setReason(event.target.value); clearPreview(); }} /></div>}
       {reviewed && <div role="status" className="rounded-xl border border-border bg-muted p-3 text-sm">
         <p>{t("history.previewDescription")}</p>
         <dl>{([ ["accounts.balanceBefore", reviewedCashAmount(reviewed.current, reviewed.currency)], ["accounts.resultingBalance", reviewedCashAmount(reviewed.target, reviewed.currency)], ["accounts.adjustmentDelta", reviewedCashAmount(reviewed.delta, reviewed.currency, true)], ["history.currency", reviewed.currency], ["history.effectiveAt", `${formatExactTimestamp(reviewed.effectiveAt, reviewed.timezone || "UTC")} (${reviewed.timezone || "UTC"})`], ...(reviewed.reason ? [["accounts.adjustmentReason", reviewed.reason]] : []) ]).map(([label, value]) => <div key={label}><dt className="font-medium">{t(label)}</dt><dd>{value}</dd></div>)}</dl>
@@ -214,9 +232,10 @@ function CashBalanceForm({
           {error}
         </p>
       )}
+      {uncertain && <p className="text-sm text-muted-foreground">{t(planUnavailable ? "history.repeatPlanUnavailableHelp" : "history.repeatRetryHelp")}</p>}
       <div className="flex gap-2">
-        <Button type="button" onClick={reviewed ? commit : submit} disabled={preview.isPending || confirm.isPending || !amount.trim()}>{preview.isPending || confirm.isPending ? t("common.pending") : reviewed ? t("common.confirm") : t("common.preview")}</Button>
-        {reviewed && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirm.isPending}>{t("common.backToDraft")}</Button>}
+        <Button type="button" onClick={reviewed ? commit : submit} disabled={preview.isPending || confirm.isPending || !amount.trim()}>{preview.isPending || confirm.isPending ? t("common.pending") : reviewed ? uncertain ? t("history.repeatRetryConfirm") : t("common.confirm") : t("common.preview")}</Button>
+        {reviewed && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirm.isPending || uncertain}>{t("common.backToDraft")}</Button>}
       </div>
     </div>
   );

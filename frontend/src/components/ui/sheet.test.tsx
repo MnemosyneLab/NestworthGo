@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { useSheetConfirmation, hasUnresolvedSheetConfirmation } from "./sheet-confirmation";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "./sheet";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -218,4 +219,42 @@ it("keeps touch opening focused on the popup instead of opening a field keyboard
   </SheetContent></Sheet>);
   await userEvent.pointer([{ keys: "[TouchA>]", target: screen.getByRole("button", { name: "Open form" }) }, { keys: "[/TouchA]" }]);
   await waitFor(() => expect(screen.getByRole("dialog")).toHaveFocus());
+});
+
+
+function RecoveryForm() {
+  const confirmation = useSheetConfirmation()!;
+  return <>
+    <output aria-label="Recovery identity">{confirmation.identity ?? "draft"}</output>
+    <output aria-label="Retained review">{JSON.stringify(confirmation.recovery)}</output>
+    <button onClick={() => confirmation.begin("immutable-plan", { amount: "100", currency: "USD" })}>Dispatch confirmation</button>
+    <button onClick={confirmation.resolve}>Resolve confirmation</button>
+  </>;
+}
+
+it("owns confirmation recovery above the form and guards every dismissal until resolved", async () => {
+  const onOpenChange = vi.fn();
+  const example = (key: string) => <Sheet onOpenChange={onOpenChange}>
+    <SheetTrigger>Open review</SheetTrigger>
+    <SheetContent><SheetHeader><SheetTitle>Review</SheetTitle></SheetHeader><RecoveryForm key={key} /></SheetContent>
+  </Sheet>;
+  const view = render(example("first"));
+  const trigger = screen.getByRole("button", { name: "Open review" });
+  await userEvent.click(trigger);
+  await userEvent.click(screen.getByRole("button", { name: "Dispatch confirmation" }));
+  expect(hasUnresolvedSheetConfirmation()).toBe(true);
+  view.rerender(example("remounted"));
+  expect(screen.getByLabelText("Recovery identity")).toHaveTextContent("immutable-plan");
+  expect(screen.getByLabelText("Retained review")).toHaveTextContent('"amount":"100"');
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await userEvent.click(screen.getByRole("dialog").parentElement!.previousElementSibling!);
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  expect(onOpenChange.mock.calls.map(([open]) => open)).toEqual([true]);
+  await userEvent.click(screen.getByRole("button", { name: "Resolve confirmation" }));
+  expect(hasUnresolvedSheetConfirmation()).toBe(false);
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(trigger).toHaveFocus());
+  expect(onOpenChange.mock.calls.map(([open]) => open)).toEqual([true, false]);
 });

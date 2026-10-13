@@ -1075,6 +1075,12 @@ func buildCashTransfer(state ChangeState, input CashTransferInput) (ChangePrevie
 	if err != nil {
 		return ChangePreview{}, err
 	}
+	if from.Liability {
+		return ChangePreview{}, changeError(ErrInvalidChange, "fromAccountId", "cash transfer source must be a non-liability Account; use a debt draw or payment for debt principal")
+	}
+	if to.Liability {
+		return ChangePreview{}, changeError(ErrInvalidChange, "toAccountId", "cash transfer destination must be a non-liability Account; use a debt draw or payment for debt principal")
+	}
 	if input.Sent.IsZero() || input.Received.IsZero() {
 		return ChangePreview{}, changeError(ErrTransferMismatch, "amount", "sent and received amounts must be greater than zero")
 	}

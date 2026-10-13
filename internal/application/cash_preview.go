@@ -116,7 +116,7 @@ func (s *Service) PreviewCashBalance(ctx context.Context, accountID domain.Accou
 
 func (s *Service) ConfirmCashBalance(ctx context.Context, plan *CashBalancePlan) (domain.AccountCashValue, error) {
 	if plan == nil {
-		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrStalePreview, Message: "request a fresh preview"}
+		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrStalePreview, Field: "planId", Message: "request a fresh preview"}
 	}
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
@@ -157,7 +157,7 @@ func (s *Service) ConfirmCashBalance(ctx context.Context, plan *CashBalancePlan)
 		}
 	}
 	if token != s.writes.previewToken() {
-		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrStalePreview, Message: "preview is stale; request a fresh preview"}
+		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken", Message: "preview is stale; request a fresh preview"}
 	}
 	value := plan.value
 	// Freeze the reviewed effective time, while retaining the baseline path's
