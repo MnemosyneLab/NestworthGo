@@ -316,6 +316,16 @@ frozen at preview. Historical entries use the existing replay path, including
 validation of later balances and quantities. Fields irrelevant to the selected
 kind and incomplete amount/currency fee pairs are rejected.
 
+`cash_transfer` accepts only non-liability source and destination accounts.
+The shared domain builder rejects liability endpoints with `invalid_change`
+and `fromAccountId` or `toAccountId`, including batch and fix replacements.
+Same-currency principal conserves its amount; a separate fee reduces source cash.
+Cross-currency transfers retain actual sent/received amounts and their derived
+settlement rate. Borrowing and repayment use `debt_draw` and `debt_payment`
+because liabilities hold positive owed principal. Existing transfer records
+remain readable and can be reversed or fixed to a valid command; this validation
+does not rewrite their immutable effects or migrate stored history.
+
 Plans expire after ten minutes. Their command is stored server-side and cannot
 be replaced at commit. Application write permits (including failed writes,
 snapshot materialization, and exclusive backup/restore work) conservatively

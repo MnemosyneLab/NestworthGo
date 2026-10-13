@@ -10,7 +10,7 @@ All examples below are arguments for `preview_change`; inspect effects and use
 | Spending | `money_removed`, reason `expense` |
 | Interest credited | `money_added`, reason `interest` |
 | Money added from outside the tracked household | `money_added` with the evidenced catalog reason, often `contribution` |
-| Moving money between tracked own accounts | `cash_transfer`, not income/expense |
+| Moving money between tracked own non-liability accounts | `cash_transfer`, not income/expense |
 | Correcting a known target balance | Reconciliation, not invented income/spending |
 | Updating a manual valuation of a property/other asset | Reconciliation with the actual target value; not a cash deposit |
 
@@ -39,6 +39,10 @@ not establish how much cash is available to spend. Query after each commit.
 `received`, `receivedCurrency` and an optional separate `fee`/`feeCurrency`.
 It supports same-currency and cross-currency actual transfers. Obtain the actual
 amounts on both sides; an estimated current FX rate does not establish settlement.
+Both endpoints must be non-liability accounts. For borrowing or repayment with
+a liability endpoint, use `debt_draw` or `debt_payment`; a cash transfer cannot
+represent debt principal. Same-currency principal amounts must match; separate
+fees reduce source cash in addition to principal.
 
 “账户内用 100 美元换成 90 欧元，另付 1 美元手续费”:
 
