@@ -222,24 +222,30 @@ func (s *Service) productDetailSnapshot(ctx context.Context) (domain.LiquiditySn
 }
 
 func (s *Service) ListProductOperations(ctx context.Context, productID domain.ProductContractID, cursor string, limit int) (ProductOperationPage, error) {
-	household, err := s.requireHousehold(ctx)
+	unlock, err := s.beginPreviewRead(ctx)
 	if err != nil {
 		return ProductOperationPage{}, err
 	}
+	defer unlock()
+
 	if limit <= 0 {
 		limit = 25
 	}
 	if limit > 100 {
 		limit = 100
 	}
-	operations, err := s.repository.ListProductOperations(ctx, household.ID, productID, limit+1, cursor)
+	operations, err := s.repository.ReadProductOperationHistorySnapshot(ctx, productID, limit+1, cursor)
 	if err != nil {
 		return ProductOperationPage{}, err
 	}
-	page := ProductOperationPage{Operations: operations}
-	if len(operations) > limit {
-		page.Operations = operations[:limit]
-		next := encodeProductOperationCursor(operations[limit-1])
+	page := ProductOperationPage{Operations: operations.Rows, LatestRecordedOperationID: operations.LatestRecordedOperationID}
+	page.Undo, err = s.productUndoAvailability(operations)
+	if err != nil {
+		return ProductOperationPage{}, err
+	}
+	if len(operations.Rows) > limit {
+		page.Operations = operations.Rows[:limit]
+		next := encodeProductOperationCursor(operations.Rows[limit-1].ProductOperation)
 		page.Next = &next
 	}
 	return page, nil

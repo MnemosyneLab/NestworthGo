@@ -52,6 +52,7 @@ func TestProductRegressionUndoRejectsEditedReservation(t *testing.T) {
 	if e == nil {
 		t.Fatal("undo accepts later reservation edit; reservation revision is never checked")
 	}
+	assertHistoryUndo(t, s, ctx, p.Contract.ID, settled.OperationID, UndoReservationChanged)
 }
 
 func TestProductRegressionNonUSDPolicyRoundTrip(t *testing.T) {

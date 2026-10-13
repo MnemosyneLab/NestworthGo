@@ -186,6 +186,8 @@ type ProductRepository interface {
 	Product(context.Context, domain.HouseholdID, domain.ProductContractID) (domain.ProductContract, error)
 	ListProducts(context.Context, domain.HouseholdID, *domain.AccountID, bool) ([]domain.ProductContract, error)
 	ListProductOperations(context.Context, domain.HouseholdID, domain.ProductContractID, int, string) ([]domain.ProductOperation, error)
+	ReadProductOperationHistorySnapshot(context.Context, domain.ProductContractID, int, string) (domain.ProductOperationHistorySnapshot, error)
+	ReadProductUndoEvidence(context.Context, domain.HouseholdID, domain.ProductOperationID) (domain.ProductUndoEvidence, error)
 	ProductByHolding(context.Context, domain.HoldingID) (*domain.ProductContract, error)
 	ProductByInstrument(context.Context, domain.InstrumentID) (*domain.ProductContract, error)
 	ProductActivityContext(context.Context, domain.ActivityID) (*domain.ProductActivityContext, error)

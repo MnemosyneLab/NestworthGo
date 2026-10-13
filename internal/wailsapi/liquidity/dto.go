@@ -203,16 +203,31 @@ type ProductOperationReceiptDTO struct {
 }
 
 type ProductOperationDTO struct {
-	ID                  string  `json:"id"`
-	Kind                string  `json:"kind"`
-	EffectiveAt         string  `json:"effectiveAt"`
-	CreatedAt           string  `json:"createdAt"`
-	ReversesOperationID *string `json:"reversesOperationId"`
+	ID                    string  `json:"id"`
+	Kind                  string  `json:"kind"`
+	EffectiveAt           string  `json:"effectiveAt"`
+	CreatedAt             string  `json:"createdAt"`
+	ReversesOperationID   *string `json:"reversesOperationId"`
+	ReversedByOperationID *string `json:"reversedByOperationId"`
 }
 
 type ProductOperationPageDTO struct {
-	Operations []ProductOperationDTO `json:"operations"`
-	Next       *string               `json:"next"`
+	Operations                []ProductOperationDTO      `json:"operations"`
+	Next                      *string                    `json:"next"`
+	LatestRecordedOperationID *string                    `json:"latestRecordedOperationId"`
+	Undo                      ProductUndoAvailabilityDTO `json:"undo"`
+}
+
+type ProductUndoOperationDTO struct {
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	EffectiveAt string `json:"effectiveAt"`
+	CreatedAt   string `json:"createdAt"`
+}
+type ProductUndoAvailabilityDTO struct {
+	Operation *ProductUndoOperationDTO               `json:"operation"`
+	Allowed   bool                                   `json:"allowed"`
+	Reason    *application.ProductUndoDisabledReason `json:"reason"`
 }
 
 func fromOverview(value domain.LiquidityOverview) LiquidityOverviewDTO {

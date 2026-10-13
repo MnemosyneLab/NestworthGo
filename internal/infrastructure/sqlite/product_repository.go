@@ -24,7 +24,11 @@ func (r *Repository) LookupProductOperation(ctx context.Context, householdID dom
 }
 
 func (r *Repository) ProductOperationEvidence(ctx context.Context, householdID domain.HouseholdID, id domain.ProductOperationID) (domain.ProductOperationEvidence, error) {
-	operation, err := r.LookupProductOperation(ctx, householdID, id)
+	return productOperationEvidenceQuery(ctx, r.database.SQL, householdID, id)
+}
+
+func productOperationEvidenceQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, id domain.ProductOperationID) (domain.ProductOperationEvidence, error) {
+	operation, err := lookupProductOperationQuery(ctx, query, householdID, id)
 	if err != nil {
 		return domain.ProductOperationEvidence{}, err
 	}
@@ -32,7 +36,7 @@ func (r *Repository) ProductOperationEvidence(ctx context.Context, householdID d
 		return domain.ProductOperationEvidence{}, &domain.Error{Code: domain.ErrNotFound, Message: "product operation was not found"}
 	}
 	evidence := domain.ProductOperationEvidence{Operation: *operation}
-	productRows, err := r.database.SQL.QueryContext(ctx, `SELECT operation_id, product_id, role FROM product_operation_products WHERE operation_id = ? ORDER BY product_id, role`, id.String())
+	productRows, err := query.QueryContext(ctx, `SELECT operation_id, product_id, role FROM product_operation_products WHERE operation_id = ? ORDER BY product_id, role`, id.String())
 	if err != nil {
 		return domain.ProductOperationEvidence{}, err
 	}
@@ -59,7 +63,10 @@ func (r *Repository) ProductOperationEvidence(ctx context.Context, householdID d
 	if err := productRows.Err(); err != nil {
 		return domain.ProductOperationEvidence{}, err
 	}
-	activityRows, err := r.database.SQL.QueryContext(ctx, `SELECT operation_id, activity_id, sequence, purpose, product_id FROM product_operation_activities WHERE operation_id = ? ORDER BY sequence, activity_id`, id.String())
+	if err := productRows.Close(); err != nil {
+		return domain.ProductOperationEvidence{}, err
+	}
+	activityRows, err := query.QueryContext(ctx, `SELECT operation_id, activity_id, sequence, purpose, product_id FROM product_operation_activities WHERE operation_id = ? ORDER BY sequence, activity_id`, id.String())
 	if err != nil {
 		return domain.ProductOperationEvidence{}, err
 	}
@@ -91,7 +98,10 @@ func (r *Repository) ProductOperationEvidence(ctx context.Context, householdID d
 	if err := activityRows.Err(); err != nil {
 		return domain.ProductOperationEvidence{}, err
 	}
-	reservationRows, err := r.database.SQL.QueryContext(ctx, `SELECT operation_id, reservation_id, previous_released_at, resulting_released_at, resulting_revision FROM product_operation_reservations WHERE operation_id = ? ORDER BY reservation_id`, id.String())
+	if err := activityRows.Close(); err != nil {
+		return domain.ProductOperationEvidence{}, err
+	}
+	reservationRows, err := query.QueryContext(ctx, `SELECT operation_id, reservation_id, previous_released_at, resulting_released_at, resulting_revision FROM product_operation_reservations WHERE operation_id = ? ORDER BY reservation_id`, id.String())
 	if err != nil {
 		return domain.ProductOperationEvidence{}, err
 	}

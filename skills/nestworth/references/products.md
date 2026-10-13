@@ -325,3 +325,25 @@ the GUI, without persisting a default row. Use the current explicit revision:
 The reset preview shows effective defaults with afterOrigin assumed and revision
 zero; its committed result is the GUI's revision-zero acknowledgement. Read the
 overview again for current defaults, evaluated routes and reservation evidence.
+
+### Global undo availability on history pages
+
+Each row includes `reversedByOperationId`, even when its inverse is off-page.
+`undo.operation` is the product-global latest active target, independent of the
+requested page. It includes kind and timestamps for an off-page target. A latest
+valuation remains the candidate and blocks lifecycle undo. Use `undo.allowed`
+and the typed `undo.reason` to explain current GUI availability; do not infer
+eligibility by scanning only the loaded rows. No candidate has a null operation,
+false and `no_active_operation`; an allowed target has a null reason.
+
+`latestRecordedOperationId` is a live history-head change hint. It is not a frozen
+capture, financial-state version, preview or authorization. Restart from the
+first page after changes or a changed head, retaining the same productId with a
+cursor. Reservation, contract, cash and archive edits can change eligibility
+without changing the head. The GUI opens one 25-row page and uses explicit Load
+more. Reads create no plans/receipts and return no private receipt evidence.
+
+GUI `undo.allowed` never grants MCP write permission or reservation-restoration
+support. Dedicated MCP preview/commit tools require ledger_write and retain their
+stricter reservation restrictions. Always obtain a fresh supported preview and
+confirm it; preview and commit independently revalidate current facts.

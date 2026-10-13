@@ -125,5 +125,6 @@ export const queryKeys = {
       ["liquidity", "products", { accountId, includeClosed }] as const,
     product: (productId: string) => ["liquidity", "product", productId] as const,
     operations: (productId: string) => ["liquidity", "operations", productId] as const,
+    operationSession: (productId: string, owner: string, revision: number) => ["liquidity", "operations", productId, owner, revision] as const,
   },
 } as const;

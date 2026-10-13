@@ -7,6 +7,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 type Service struct {
@@ -69,8 +70,22 @@ func (s *Service) ListOperations(ctx context.Context, request ListOperationsRequ
 		return ProductOperationPageDTO{}, apierror.Wrap(err)
 	}
 	dto := ProductOperationPageDTO{Operations: make([]ProductOperationDTO, 0, len(page.Operations)), Next: page.Next}
+	if page.LatestRecordedOperationID != nil {
+		id := page.LatestRecordedOperationID.String()
+		dto.LatestRecordedOperationID = &id
+	}
+	dto.Undo = ProductUndoAvailabilityDTO{Allowed: page.Undo.Allowed, Reason: page.Undo.Reason}
+	if target := page.Undo.Operation; target != nil {
+		dto.Undo.Operation = &ProductUndoOperationDTO{ID: target.ID.String(), Kind: string(target.Kind), EffectiveAt: wire.FormatTime(target.EffectiveAt), CreatedAt: wire.FormatTime(target.CreatedAt)}
+	}
+
 	for _, operation := range page.Operations {
-		dto.Operations = append(dto.Operations, fromOperation(operation))
+		row := fromOperation(operation.ProductOperation)
+		if operation.ReversedByOperationID != nil {
+			id := operation.ReversedByOperationID.String()
+			row.ReversedByOperationID = &id
+		}
+		dto.Operations = append(dto.Operations, row)
 	}
 	return dto, nil
 }

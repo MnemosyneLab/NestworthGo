@@ -32,17 +32,12 @@ func (s *Service) productTools(server *mcp.Server) {
 	readTool(server, "get_product", "Read one App-managed product by id from list_products. Same contract, policy, decimal money, active reservations, revisions and GUI action reasons as the App. GUI actions do not grant MCP write permission. due_unconfirmed means maturity needs confirmation: it does not record cash, forecast interest as net worth, or settle the contract. No provider refresh or snapshot writes. For liquidity routes use get_liquidity_overview; use preview_product_operation/commit_product_operation for lifecycle with ledger_write, and the dedicated terms/valuation preview/commit pairs with ledger_write.", func(ctx context.Context, in IDInput) (any, error) {
 		return products.Product(ctx, in.ID)
 	})
-	readTool(server, "list_product_operations", "Page a managed product's actual operation history. productId is a committed contract UUID. Default limit 25, maximum 100; pass next as cursor with the same productId. Newest createdAt then id first; pages read live state, not a frozen capture. Returns operation UUIDs, kinds, effective/creation timestamps and reversal links, never private request/result JSON. Read get_activity for ledger effects and get_operation for an MCP execution receipt when available; their IDs are different authorities. No lifecycle or reservation writes.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
+	readTool(server, "list_product_operations", "Page a managed product's actual operation history. productId is a committed contract UUID. Default limit 25, maximum 100; pass next as cursor with the same productId. Newest createdAt then id first; pages read live state, not a frozen capture. Returns operation UUIDs, kinds, effective/creation timestamps, global reversedByOperationId links, latestRecordedOperationId head hint and page-independent undo target/typed reasons, never private request/result JSON. Refresh from the first page after changes or a changed head; the hint is not a frozen version or authorization token. undo.allowed is current GUI availability, not MCP write permission, a stored preview or reservation-restoration support. Preview and commit independently revalidate. Read get_activity for ledger effects and get_operation for an MCP execution receipt when available; their IDs are different authorities. No lifecycle or reservation writes.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
 		if in.Limit < 0 || in.Limit > 100 {
 			return nil, fail("validation", "limit must be 1 to 100, or omitted/zero for 25")
 		}
 		if len(in.Cursor) > 128 {
 			return nil, fail("validation", "cursor must come from this product's operation page")
-		}
-		// The history query itself accepts a nonexistent UUID as an empty page.
-		// Resolve the contract first so an empty page never proves it exists.
-		if _, err := products.Product(ctx, in.ProductID); err != nil {
-			return nil, err
 		}
 		return products.ListOperations(ctx, in)
 	})

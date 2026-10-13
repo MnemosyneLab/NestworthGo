@@ -174,6 +174,11 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 			t.Fatal(err)
 		}
 		productJSONEqual(t, page, expected)
+		summary := page["undo"].(map[string]any)
+		if summary["operation"] == nil || summary["allowed"] != true || summary["reason"] != nil || page["latestRecordedOperationId"] == nil {
+			t.Fatal("missing global availability", page)
+		}
+
 		for _, raw := range page["operations"].([]any) {
 			op := raw.(map[string]any)
 			opID := op["id"].(string)
@@ -184,6 +189,10 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 			if opID == undo.OperationID && op["reversesOperationId"] != settled.OperationID {
 				t.Fatal("missing reversal link", op)
 			}
+			if opID == settled.OperationID && op["reversedByOperationId"] != undo.OperationID {
+				t.Fatal("off-page inverse missing", op)
+			}
+
 		}
 		if page["next"] == nil {
 			break

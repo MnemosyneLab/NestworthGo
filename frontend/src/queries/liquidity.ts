@@ -1,11 +1,12 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Service as LiquidityService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity";
 import type {
   AppendProductValuationRequest,
   ListProductsRequest,
   OverviewRequest,
   ProductCommandRequest,
+  ProductOperationPageDTO,
   RecordProductOperationRequest,
   ReleaseReservationRequest,
   ResetPolicyRequest,
@@ -14,6 +15,7 @@ import type {
   UpdateProductTermsRequest,
 } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import { callService } from "@/lib/wails";
+import { callCancellableService } from "@/lib/wailsCancellation";
 import { queryKeys } from "@/queries/keys";
 import { invalidateActivityChange, invalidateLiquidityReads, invalidateInstrumentChange } from "@/queries/invalidation";
 
@@ -61,23 +63,52 @@ export function useProduct(productId: string, enabled = true) {
   });
 }
 
+// Each observer owns its page chain. Invalidation and reopening begin at one page;
+// static queries prevent TanStack from automatically refetching every loaded page.
 export function useProductOperations(productId: string, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.liquidity.operations(productId),
-    queryFn: async () => {
-      const first = await callService(() => LiquidityService.ListOperations({ productId, limit: 25 }));
-      const operations = [...(first.operations ?? [])];
-      let cursor = first.next;
-      while (cursor) {
-        const nextCursor = cursor;
-        const page = await callService(() => LiquidityService.ListOperations({ productId, limit: 25, cursor: nextCursor }));
-        operations.push(...(page.operations ?? []));
-        cursor = page.next;
+  const client = useQueryClient();
+  const owner = useId();
+  const [session, setSession] = useState({ productId, enabled, revision: 0 });
+  if (session.productId !== productId || session.enabled !== enabled) {
+    setSession({ productId, enabled, revision: session.revision + 1 });
+  }
+  const queryKey = useMemo(() => queryKeys.liquidity.operationSession(productId, owner, session.revision), [productId, owner, session.revision]);
+  const refresh = useCallback(() => setSession(current => ({ ...current, revision: current.revision + 1 })), []);
+  useEffect(() => {
+    const unsubscribe = client.getQueryCache().subscribe(event => {
+      if (event.type === "updated" && event.action.type === "invalidate" && event.query === client.getQueryCache().find({ queryKey, exact: true })) refresh();
+    });
+    if (!enabled) void client.cancelQueries({ queryKey, exact: true });
+    return () => { unsubscribe(); void client.cancelQueries({ queryKey, exact: true }); };
+  }, [client, enabled, queryKey, refresh]);
+  const query = useInfiniteQuery({
+    queryKey,
+    queryFn: async ({ pageParam, signal }) => {
+      const page = await callCancellableService(signal, () => LiquidityService.ListOperations({ productId, limit: 25, ...(pageParam ? { cursor: pageParam } : {}) }));
+      const first = client.getQueryData<{ pages: ProductOperationPageDTO[] }>(queryKey)?.pages[0];
+      if (pageParam && first && page.latestRecordedOperationId !== first.latestRecordedOperationId) {
+        refresh();
+        throw new Error("Product history changed; refresh the first page");
       }
-      return { ...first, operations, next: null };
+      return page;
     },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: page => page.next ?? undefined,
     enabled: enabled && Boolean(productId),
+    staleTime: "static",
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
+  const nextPending = useRef<typeof queryKey | null>(null);
+  const loadMore = async () => {
+    if (nextPending.current === queryKey || query.isFetching || !query.hasNextPage) return;
+    nextPending.current = queryKey;
+    try { await query.fetchNextPage({ cancelRefetch: false }); }
+    finally { if (nextPending.current === queryKey) nextPending.current = null; }
+  };
+  return { ...query, refresh, loadMore, sessionKey: queryKey };
 }
 
 export function useSavePolicy() {

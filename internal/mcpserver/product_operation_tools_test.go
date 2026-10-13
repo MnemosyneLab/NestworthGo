@@ -258,6 +258,11 @@ func TestProductHTTPPlanSafetyAndReservations(t *testing.T) {
 	}
 	// A GUI settlement can release explicitly. MCP undo must not restore it implicitly.
 	guiSettle := guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "settle", Settle: &application.SettleProductCommand{ProductID: productID, ReturnedPrincipal: productString("1000"), Interest: productString("49"), ReleaseReservationIDs: []string{reserve.ID.String()}}})
+
+	historyPage := call(t, c, "list_product_operations", map[string]any{"productId": productID, "limit": 1}, false)["data"].(map[string]any)
+	if historyPage["undo"].(map[string]any)["allowed"] != true {
+		t.Fatal("GUI reservation restoration eligibility lost", historyPage)
+	}
 	if code := ledgerErrorCode(t, c, "preview_product_operation", ProductOperationInput{Kind: "undo", Undo: &application.UndoProductCommand{OperationID: guiSettle.OperationID}}); code != "unresolved_reservation_release" {
 		t.Fatal(code)
 	}

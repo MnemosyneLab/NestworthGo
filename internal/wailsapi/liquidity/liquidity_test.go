@@ -88,6 +88,21 @@ func TestLiquidityOverviewAndProductLifecycle(t *testing.T) {
 	if detail.Product.CurrentValue == nil || detail.Product.CurrentValue.Amount != "100000" {
 		t.Fatalf("product = %+v", detail.Product)
 	}
+	page, err := service.ListOperations(ctx, liquidity.ListOperationsRequest{ProductID: receipt.ProductIDs[0]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Operations) != 1 || page.LatestRecordedOperationID == nil || *page.LatestRecordedOperationID != receipt.OperationID || !page.Undo.Allowed || page.Undo.Reason != nil || page.Undo.Operation == nil || page.Undo.Operation.ID != receipt.OperationID || page.Undo.Operation.Kind != "open" || page.Undo.Operation.CreatedAt == "" {
+		t.Fatalf("page metadata=%+v", page)
+	}
+	exhausted, err := service.ListOperations(ctx, liquidity.ListOperationsRequest{ProductID: receipt.ProductIDs[0], Cursor: "2000-01-01T00:00:00Z|" + domain.NewProductOperationID().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exhausted.Operations == nil || len(exhausted.Operations) != 0 || exhausted.Next != nil || !exhausted.Undo.Allowed || exhausted.Undo.Operation.ID != receipt.OperationID {
+		t.Fatalf("exhausted metadata=%+v", exhausted)
+	}
+
 	if _, err := service.PreviewProductOperation(ctx, liquidity.ProductCommandRequest{Kind: "open"}); err == nil {
 		t.Fatal("empty union accepted")
 	}
