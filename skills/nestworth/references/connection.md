@@ -49,9 +49,9 @@ rather than changing disclosure or bypassing request validation.
 
 | Mode | Available operations |
 | --- | --- |
-| `read_only` | Financial context and frozen pages, current valuation, managed products/history and liquidity reads, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
+| `read_only` | Financial context and frozen pages, current valuation, managed products/history, liquidity and upcoming-action reads, investment review reads, historical overview/series, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
-| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, managed lifecycle/terms/value pairs and starting data repair |
+| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, investment review policy/enrollment/snooze/acknowledgement, managed lifecycle/terms/value pairs and starting data repair |
 
 Discover the actual tools before choosing a workflow. An absent tool may reflect
 permissions or an older App. Explain the specific needed setting/update; do not
@@ -78,7 +78,9 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; corresponding institution/group tools; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
-| Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview` |
+| Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
+| Opt-in investment review | `get_investment_reviews`; ledger_write: `save_investment_review_policy`, `acknowledge_investment_review`, `set_investment_review_enrollment`, `set_investment_review_snooze` |
+| Read-only historical view | `get_historical_overview`, `get_historical_overview_series` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
 | Ordinary access/withdrawal rules (ledger_write) | `preview_save_liquidity_policy` / `commit_save_liquidity_policy`, `preview_reset_liquidity_policy` / `commit_reset_liquidity_policy` |
@@ -105,5 +107,8 @@ not provisional IDs in a preview.
 
 Managed capabilities are managed_product_read, liquidity_read and, only with
 ledger_write, managed_product_lifecycle, managed_product_terms and
-managed_product_valuation. Discover each actual pair; an older App may expose
-only a subset. Skill 1.6.0 does not install/update the connected App or client.
+managed_product_valuation. Investment review reads are available in all modes;
+its policy, enrollment, snooze/resume and acknowledgement tools require
+ledger_write. These update review preferences/episodes, not financial facts.
+Discover each actual pair; an older App may expose only a subset. Skill updates
+do not install/update the connected App or client.

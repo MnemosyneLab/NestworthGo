@@ -82,6 +82,27 @@ reviewed command and uses atomic immutable business receipts for recovery.
 Renewal and reservation mutations remain App workflows. See the portable
 [product workflow](../../skills/nestworth/references/products.md).
 
+## Recent GUI read parity
+
+All permission modes expose `get_upcoming_actions`, using the App's
+`upcoming-actions/1` aggregation and DTO so dates, timezone, capture freshness,
+coverage and reason codes are not reconstructed from product lists. All modes
+also expose `get_historical_overview` and `get_historical_overview_series` as
+read-only application service calls. The overview preserves the App's immutable
+history result and PR68 `endpoint_bridge/1` convention, including exact values,
+completeness, timestamp basis, later-endpoint FX and no-write behavior. It does
+not replace closed-period `compare_financial_attribution`.
+
+`get_investment_reviews` exposes the App's opt-in unit-NAV reminder report in all
+modes. `ledger_write` additionally exposes policy save, episode acknowledgement,
+instrument enrollment and snooze/resume. The application retains revision,
+eligibility, stale-evidence and household civil-date checks. These changes are
+preferences/reminder state, never sell recommendations or financial facts. MCP
+operation receipts use conservative same-operation retry behavior; unknown
+setting-write outcomes are not replayed automatically. Short-name and PR70
+liquidity-policy tool contracts remain unchanged. Repeat-change confirmation,
+backup/restore and broad SQL/write surfaces stay outside MCP.
+
 `cmd/nestworth` owns the MCP service and passes the same `application.Service`
 instance used by the desktop bindings. `internal/mcpserver` registers an explicit
 allowlist of typed tools using the official Go SDK. It reuses the runtime-free

@@ -42,8 +42,8 @@ financial-context captures.
 
 The server advertises managed_product_read and liquidity_read capabilities.
 Discovery and schemas remain authoritative; GUI permittedActions are not MCP
-permission or proof of an exposed write tool. The portable skill version is
-1.6.0; updating repository files does not install it in a user client.
+permission or proof of an exposed write tool. The current source skill version is
+1.7.0; updating repository files does not install it in a user client.
 
 History pages retain newest-created-time/UUID ordering. The MCP checks that the
 contract exists before returning history, accepts default/zero limit 25, rejects

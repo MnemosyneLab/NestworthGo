@@ -46,29 +46,30 @@ bash nestworth-skill/install.sh --version latest
 ```
 
 Pin a published **App release tag** instead with `--version vX.Y.Z`. This selects
-the GitHub release, not the skill's own `VERSION` (currently `1.6.0`). Each release
-must include the two named assets. If the latest App release lacks them, use a
-release that includes them or a local bundle; there is no fallback to unreleased
-main-branch content. The published v0.3.7 release includes skill 1.6.0 and both
-required skill assets.
+the GitHub release, not the skill's own `VERSION` (source is now `1.7.0`; the
+published v0.3.7 release still includes skill 1.6.0). Each release must include
+the two named assets. If the latest App release lacks them, use a release that
+includes them or a local bundle; there is no fallback to unreleased main-branch
+content.
 
-### Current skill: 1.6.0
+### Current repository skill: 1.7.0
 
-Skill 1.6.0 documents frozen one-state financial context and detail/item reads,
-two-state comparisons and coherent comparison-to-attribution links, plus
-managed product/liquidity reads and guarded lifecycle, terms and valuation
-workflows. Its MCP examples are synthetic and executable by repository tests;
-that does not prove external Codex discovery, client reasoning or live Mac
-acceptance. The App and skill are separate components. An older App does not
-gain tools by installing a newer skill. The published v0.3.7 release bundles
-skill 1.6.0. Running the installer with `--version latest` or `--version
-v0.3.7` selects that published bundle.
+Skill 1.7.0 adds upcoming action aggregation, opt-in investment review controls,
+and read-only historical endpoint overview/series guidance. It also documents
+current account composition and the existing managed lifecycle boundaries. Its
+MCP examples are synthetic and executable by repository tests; that does not
+prove external Codex discovery, client reasoning or live Mac acceptance. The App
+and skill are separate components. An older App does not gain tools by installing
+a newer skill. The published v0.3.7 release still bundles skill 1.6.0. Running
+the installer with `--version latest` or `--version v0.3.7` selects that
+published bundle; 1.7.0 is source content until a later release publishes it.
 
 Existing clients do **not** update their installed skill automatically when the
-App or repository changes. Rerun the trusted installer (or use the published
-v0.3.7 bundle), check `--status` for `1.6.0`, and reopen the chat if discovery
-is stale. A locally built archive is not a published release asset unless it
-is uploaded as part of a release.
+App or repository changes. The published v0.3.7 bundle still installs skill
+1.6.0; use a later release or an explicitly supplied local 1.7.0 bundle once
+the matching App features are available. Check `--status` for the intended skill
+version and reopen the chat if discovery is stale. A locally built archive is
+not a published release asset unless it is uploaded as part of a release.
 
 For Inspector CLI 2.10.0, the shipped connection reference includes a separate
 configuration example with explicit `"type": "http"`; preserve the App's endpoint
