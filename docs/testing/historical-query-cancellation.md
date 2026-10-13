@@ -24,8 +24,10 @@ captures during replay/valuation/projection or after batch loading. The
 application returns `context.Canceled`. The abandoned IPC call completes with an
 empty result and no error: Wails has already rejected its cancelled JavaScript
 promise with `CancelError`, and beta.28 would report a second native rejection
-as an unhandled `CancelledRejectionError`. Live errors retain their normal wire
-codes and retry UI. Expected cancellation is not logged as an internal error.
+as an unhandled `CancelledRejectionError`. An already returned/in-transit native
+error requires the additional scoped frontend handling described below. Live
+errors retain their normal wire codes and retry UI. Expected cancellation is
+not logged as an internal error.
 
 New tests exercise ten repeated dates in single/date/current-comparison modes;
 mode switches with unchanged date keys; invalid/inactive selection; unmount and
@@ -116,8 +118,8 @@ The final PR records the exact commit. Final stable-tree checks:
 | --- | --- |
 | Server-mode `go test -p 1 ./...` | Passed; 37 tested packages |
 | Supported race packages | Passed; every application test and all other internal packages; repository root and both analytics QA commands |
-| Frontend full suite | Passed; 102 files, 1,010 tests |
-| Final targeted frontend suite (runtime/hooks/page/App navigation) | Passed; 105 tests |
+| Frontend full suite | Passed after late-error follow-up; 102 files, 1,011 tests |
+| Final targeted frontend suite (runtime/hooks/page/App navigation) | Passed after late-error follow-up; 106 tests |
 | Lint, typecheck, generate/check bindings, production frontend build | Passed; existing bundle-size warning |
 | Server `go vet` and `go build ./cmd/nestworth` | Passed |
 | Skill validator and Python tool tests | Passed; 51 Python tests |
@@ -140,6 +142,60 @@ compilation is unavailable on this host because GTK4/WebKitGTK development
 packages are missing. Supported server builds and tests use `-tags=server`;
 frontend binding generation uses `CGO_ENABLED=0`. Mac packaging and GUI
 acceptance are pending independent parent verification.
+
+## Late native-error ordering regression
+
+The first implementation at `87840379c31d2bd2b99e11364be558b370c45c5a`
+quieted a Go completion when its request context was already cancelled. That
+cannot cover a live native error already returned or in transit when the user
+abandons the frontend selection. The installed beta.28 runtime forwards this
+transport rejection into the cancelled original promise and creates a separate
+orphan `Promise.reject(new CancelledRejectionError(...))`. Catching the original
+promise does not catch that orphan.
+
+This was reproduced before choosing the fix: the generated binding and real
+installed runtime used `setTransport` with separate resolve/reject controls;
+after abort and after awaiting the helper's rejection, the original Call
+transport rejected with `Call.RuntimeError`. Vitest reported one unhandled
+`CancelledRejectionError` despite both ordinary test assertions passing.
+[Before-fix reproduction output](historical-query-cancellation-late-error-reproduction.txt)
+retains the failure. This demonstrates rejection/log noise; it does not
+demonstrate stale data or a crash.
+
+The follow-up handles only this duplicate report. Before cancelling, the helper
+records the exact abandoned original promise in a `WeakSet`. One lazily installed
+browser `unhandledrejection` listener calls `preventDefault()` only when the
+reason is an actual SDK `CancelledRejectionError`, its original promise is in
+that set, its cause is an actual SDK `Call.RuntimeError`, and its info prefix
+identifies beta.28's late promise rejection. The marker survives helper cleanup
+without a strong promise reference and is deleted when the duplicate is handled.
+There is no global unhandled-rejection setting or Node rejection handler in
+production. This matcher depends on the pinned SDK's public wrapper shape and
+specific late-rejection prefix; a runtime upgrade must rerun these tests.
+
+The real-runtime test exercises both late success and late native rejection,
+checks the orphan's original promise identity, verifies a live native error
+retains wire code `unavailable`, and leaves another actual runtime call's
+unhandled rejection reportable after cancellation outside the historical helper.
+Ordinary errors, lookalikes, programming errors and cancellation-callback
+exceptions/rejections also remain reportable, including those referencing the
+same abandoned promise.
+
+jsdom runs its promises on Node's host, which does not dispatch browser
+`unhandledrejection` events. The regression test therefore observes the actual
+orphan created by the unchanged installed SDK's `Promise.reject`, attaches a
+test-only rejection observer, and delivers its real reason/identity through the
+browser event contract. Explicit `defaultPrevented` assertions distinguish the
+handled historical orphan from the reportable unrelated/callback errors. The
+original reproduction ran without this host shim and failed as recorded above.
+
+Follow-up aggregate checks passed: the full 1,011-test frontend suite, 106 affected
+tests, lint, typecheck, production frontend build, generated binding verification,
+all 37 server-mode Go test packages, vet/server build, skill validation and all
+51 Python tests. Go code, database queries and financial/cancellation contracts
+are unchanged by this follow-up; the prior supported race and dense benchmark
+evidence applies to that identical Go tree. Native browser/Mac GUI verification
+remains pending.
 
 ## Mac GUI acceptance
 

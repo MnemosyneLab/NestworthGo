@@ -118,6 +118,14 @@ returns `context.Canceled`. It is an expected request outcome, while a live
 validation, budget or infrastructure error keeps its normal error/retry handling. Account and category
 filters remain local to a successful frozen household capture.
 
+A live native error may already be in transit when the frontend abandons a
+selection. beta.28 then creates a separate unhandled `CancelledRejectionError`
+outside the original promise's catch. The helper records the exact abandoned
+promise weakly and consumes only the SDK's late-native-error report associated
+with that promise. Live errors, other runtime calls, programming errors and
+cancellation-callback failures retain their normal reporting. The pinned-runtime
+regression test covers both late resolve and reject orderings.
+
 Automated acceptance and native checks are recorded in
 [Historical panorama P1 acceptance](../testing/historical-panorama-p1.md) and
 [query cancellation evidence](../testing/historical-query-cancellation.md).
