@@ -22,6 +22,9 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	}
 	defer tx.Rollback()
 	batch, err := loadHistoricalSnapshotBatchQuery(ctx, tx, householdID, cutoff)
+	if cancelErr := ctx.Err(); cancelErr != nil {
+		return domain.HistoricalSnapshotBatch{}, cancelErr
+	}
 	if err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}

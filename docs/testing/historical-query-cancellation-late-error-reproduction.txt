@@ -1,0 +1,30 @@
+
+ RUN  v4.1.11 /workspace/NestworthGo/frontend
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+CancelledRejectionError: Unhandled rejection in cancelled promise. Reason: RuntimeError: {"code":"unavailable","message":"native error already in transit"}
+ ❯ Object.reject node_modules/.pnpm/@wailsio+runtime@3.0.0-beta.28/node_modules/@wailsio/runtime/dist/cancellable.js:688:33
+ ❯ node_modules/.pnpm/@wailsio+runtime@3.0.0-beta.28/node_modules/@wailsio/runtime/dist/calls.js:64:16
+ ❯ processTicksAndRejections node:internal/process/task_queues:104:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { promise: 'Promise' }
+This error originated in "src/lib/wailsCancellation.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+Caused by: RuntimeError: {"code":"unavailable","message":"native error already in transit"}
+ ❯ src/lib/wailsCancellation.test.ts:95:23
+ ❯ processTicksAndRejections node:internal/process/task_queues:104:5
+ ❯ node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 8 skipped (10)
+     Errors  1 error
+   Start at  01:46:17
+   Duration  1.75s (transform 382ms, setup 633ms, import 59ms, tests 10ms, environment 835ms)

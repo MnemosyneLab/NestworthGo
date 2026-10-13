@@ -96,15 +96,39 @@ can also contain today's activity. A historical source retained on the App's
 Back trail keeps its immutable query session, dates, filters, selected detail
 and scroll/focus position. The default A is resolved once when the household
 origin becomes available; crossing a household month boundary does not change
-that selection or recapture on Back. Explicitly cleared input remains invalid.
-Its Sheet is closed while inactive. Returning does
-not recapture. A top-level exit removes the retained session; an explicit new
+that selection or recapture a completed capture on Back. Explicitly cleared input remains invalid.
+Its Sheet is closed while inactive. Returning to a settled capture does
+not recapture. An unfinished read is cancelled while inactive and a return
+starts a fresh capture of the same selection. A top-level exit removes the
+retained session; an explicit new
 panorama navigation creates a new session. No saved database snapshots,
 providers, schema changes, trend/attribution series or automatic repairs are
 added by P1.
 
+Single-date, comparison and trend observers forward their abort signal to the
+original Wails cancellable promise. Date/key changes, mode changes, invalid
+selections, inactive pages and unmounts abandon pending work. Both comparison
+sides still use one read-only SQLite transaction; activity hydration retains
+256-activity chunks and one economic replay. Cancellation closes that
+transaction and propagates through replay/valuation without returning a partial
+capture. The cancelled Wails call completes quietly with an empty result because
+its JavaScript promise has already rejected with `CancelError`; a second native
+rejection would be reported as unhandled by beta.28. The application layer still
+returns `context.Canceled`. It is an expected request outcome, while a live
+validation, budget or infrastructure error keeps its normal error/retry handling. Account and category
+filters remain local to a successful frozen household capture.
+
+A live native error may already be in transit when the frontend abandons a
+selection. beta.28 then creates a separate unhandled `CancelledRejectionError`
+outside the original promise's catch. The helper records the exact abandoned
+promise weakly and consumes only the SDK's late-native-error report associated
+with that promise. Live errors, other runtime calls, programming errors and
+cancellation-callback failures retain their normal reporting. The pinned-runtime
+regression test covers both late resolve and reject orderings.
+
 Automated acceptance and native checks are recorded in
-[Historical panorama P1 acceptance](../testing/historical-panorama-p1.md).
+[Historical panorama P1 acceptance](../testing/historical-panorama-p1.md) and
+[query cancellation evidence](../testing/historical-query-cancellation.md).
 
 ## Meaning and scope
 
