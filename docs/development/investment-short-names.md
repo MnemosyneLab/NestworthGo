@@ -130,7 +130,9 @@ backup/restore uses the SQLite backup package or the cloud database snapshot.
   decorated labels receive full IDs. Selection values remain IDs. Holding choices
   retain account and quantity context. General full-name subtitles, provider
   discovery, reservation source labels and preview endpoints keep their identity
-  detail. No saved instrument data changes.
+  detail. Searchable analysis choices retain the detailed identity as hidden
+  search keywords while rendering only the compact label. No saved instrument
+  data changes.
 - Reservation source selection also resolves the instrument identity through
   existing local queries; colliding source descriptions retain source IDs.
 - MCP `list_instruments` query matching covers alias, legal name and code,
