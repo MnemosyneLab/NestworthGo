@@ -228,6 +228,79 @@ describe("HistoryPage", () => {
     }));
   });
 
+  it.each(["en", "zh-CN", "zh-TW"])("keeps only selected archived filters visible and updates rows when cleared or changed (%s)", async (locale) => {
+    await i18n.changeLanguage(locale);
+    const t = i18n.t.bind(i18n);
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([
+      { account: { id: "archived-account", name: "Old brokerage", archivedAt: "2026-01-01" }, ownership: [] },
+      { account: { id: "other-archived-account", name: "Hidden archive", archivedAt: "2026-01-01" }, ownership: [] },
+      { account: { id: "active-account", name: "Current brokerage", archivedAt: null }, ownership: [] },
+    ]);
+    listInstruments.mockResolvedValue([
+      { id: "archived-instrument", name: "Full old fund", symbol: "000001", shortName: "Family fund", archivedAt: "2026-01-01" },
+      { id: "other-archived-instrument", name: "Hidden fund", shortName: "Family fund", archivedAt: "2026-01-01" },
+      { id: "active-instrument", name: "Full new fund", symbol: "000002", shortName: "Family fund", archivedAt: null },
+    ]);
+    listActivityPage.mockImplementation(async (request: { accountId?: string; instrumentId?: string }) => ({
+      activities: [{ id: "synthetic-row", kind: "buy", effectiveLocalDate: "2026-01-01",
+        tradeDetail: { instrumentId: request.instrumentId ?? "active-instrument", quantity: "2", gross: { amount: "20", currency: "USD" } },
+        effects: [{ accountId: request.accountId ?? "active-account", role: "principal", money: { amount: "20", currency: "USD" } }],
+      }], hasMore: false,
+    }));
+    const filters = { accountId: "archived-account", instrumentId: "archived-instrument" };
+    let view = renderPage(filters);
+    try {
+      let account = await screen.findByRole("combobox", { name: t("history.filterAccount") });
+      let instrument = screen.getByRole("combobox", { name: t("history.filterInstrument") });
+      expect(account).toHaveValue(filters.accountId);
+      expect(instrument).toHaveValue(filters.instrumentId);
+      expect(within(account).getByRole("option", { name: `Old brokerage · ${t("common.archived")}` })).toHaveProperty("selected", true);
+      expect(within(instrument).getByRole("option", { name: `Family fund · 000001 · Full old fund · ${t("common.archived")}` })).toHaveProperty("selected", true);
+      expect(within(account).queryByText("Hidden archive")).not.toBeInTheDocument();
+      expect(within(instrument).queryByText(/Hidden fund/)).not.toBeInTheDocument();
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining(filters)));
+      expect(screen.getByRole("list")).toHaveTextContent("Family fund");
+      expect(screen.getByRole("list")).toHaveTextContent("Old brokerage");
+
+      await userEvent.selectOptions(account, "active-account");
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "active-account", instrumentId: filters.instrumentId })));
+      account = await screen.findByRole("combobox", { name: t("history.filterAccount") });
+      expect(within(account).queryByText(/Old brokerage/)).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole("list")).toHaveTextContent("Current brokerage"));
+      instrument = screen.getByRole("combobox", { name: t("history.filterInstrument") });
+      await userEvent.selectOptions(instrument, "active-instrument");
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "active-account", instrumentId: "active-instrument" })));
+      instrument = await screen.findByRole("combobox", { name: t("history.filterInstrument") });
+      expect(within(instrument).queryByText(/Full old fund/)).not.toBeInTheDocument();
+      expect(instrument).toHaveValue("active-instrument");
+
+      account = screen.getByRole("combobox", { name: t("history.filterAccount") });
+      await userEvent.selectOptions(account, "");
+      instrument = await screen.findByRole("combobox", { name: t("history.filterInstrument") });
+      await userEvent.selectOptions(instrument, "");
+      await waitFor(() => {
+        const request = listActivityPage.mock.lastCall?.[0];
+        expect(request?.accountId).toBeUndefined();
+        expect(request?.instrumentId).toBeUndefined();
+      });
+      account = await screen.findByRole("combobox", { name: t("history.filterAccount") });
+      instrument = screen.getByRole("combobox", { name: t("history.filterInstrument") });
+      expect(account).toHaveValue(""); expect(instrument).toHaveValue("");
+      // App navigation unmounts History; returning reconstructs its saved filters.
+      view.unmount();
+      view = renderPage(filters);
+      expect(await screen.findByRole("combobox", { name: t("history.filterAccount") })).toHaveValue(filters.accountId);
+      expect(screen.getByRole("combobox", { name: t("history.filterInstrument") })).toHaveValue(filters.instrumentId);
+      await waitFor(() => expect(screen.getByRole("list")).toHaveTextContent("Old brokerage"));
+      expect(listAccounts).toHaveBeenCalledWith({ includeArchived: true });
+      expect(listInstruments).toHaveBeenCalledWith(true);
+    } finally {
+      view.unmount();
+      await i18n.changeLanguage("en");
+    }
+  });
+
   it("treats an empty kinds payload as all activity kinds", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listInstruments.mockResolvedValue([{ id: "instrument-1", name: "ETF", archivedAt: null }]);

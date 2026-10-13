@@ -389,10 +389,11 @@ erroneous historical trade, use the historical fix workflow instead.
 
 Generic undo/fix is not offered for a cost-adjustment record; submit a new target
 cost to correct it again. The frontend displays its cost effect in activity
-history. Schema 15 is the current and only supported schema for existing
-databases. Existing files are probed read-only and rejected without modification
-if they are not schema 15; this includes the schema-11 database from v0.3.4,
-older, unversioned, and future schemas. There is no automatic schema migration.
+history. Current schema is 16. Existing files are probed read-only; verified
+v15 receives the single additive short-name upgrade after a verified recovery
+copy is retained. Other older schemas, including schema 11 from v0.3.4,
+unversioned, future, and invalid schemas remain blocked. There is no general
+migration chain; see the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade).
 This cost-adjustment event is preserved in full SQLite backups and versioned
 household JSON exports.
 
@@ -488,10 +489,11 @@ rejected: this operation does not add to or reconcile an existing quantity.
 Archived and managed-product instruments are also rejected. It can be used with
 single preview/commit or inside an atomic batch.
 
-Batch retries use the `change_batch_mutation_keys` table in supported schema-15
-databases. Existing databases must already use schema 15: older databases and
-backup files, including schema-v13 files, are rejected without adding a table
-or changing the file. Full SQLite backups preserve batch receipts;
+Batch retries use the `change_batch_mutation_keys` table in schema-16 databases;
+the supported v15 upgrade preserves that existing table and its receipts.
+Unsupported older databases and backup files, including schema-v13 files, are
+rejected without adding a table or changing the file. Backup inspection accepts
+verified v15/v16; an installed v15 copy upgrades on normal open. Full SQLite backups preserve batch receipts;
 credential-free household JSON exports exclude retry bookkeeping.
 
 ## Historical queries

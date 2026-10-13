@@ -7,10 +7,13 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The current `0.3.5` line owns one complete SQLite schema
-`15`. Only newly initialized or validated current-schema databases are accepted.
-Older, unversioned, and future databases are rejected without persistent writes,
-migration, deletion, or recreation. UI code
+and query results. Current main uses complete SQLite schema `16`. New databases
+initialize v16; existing v16 databases must pass verification. Verified v15 is
+the only supported predecessor and receives the additive instrument short-name
+upgrade. Other older, unversioned, future, or invalid schemas remain blocked.
+The [narrow storage upgrade](../development/investment-short-names.md#narrow-storage-upgrade)
+defines recovery-copy and transaction guarantees; there is no general migration
+chain. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
 The repository contains the Go implementation of the Household balance-sheet,
@@ -34,14 +37,16 @@ recreate a user's database after an open failure.
 | --- | --- |
 | Database absent | Create the current schema, verify it, then initialize settings |
 | Supported and current | Open and verify it |
-| Any older or unversioned generation | Block startup without writes; tell the user to create a new database |
+| Verified v15 | Retain a verified read-only recovery copy, then add the short-name column and verify v16 in one transaction |
+| Other older or unversioned generation | Block startup without writes; tell the user to create a new database |
 | Newer than supported | Block startup without writes with a safe error |
 | Integrity failure | Block startup; preserve the original database |
 | Path/open failure | Show an unavailable-database state |
 
 Existing files are checked through a read-only connection before writable open.
-The version is rechecked before schema or business writes. Older and unsupported
-future databases receive zero persistent application writes.
+The version is rechecked before schema or business writes. Unsupported older and
+future databases receive zero persistent application writes. The v15 upgrade
+rechecks the original generation and verifies v15 before its additive transaction.
 
 ## Persistence responsibilities
 
@@ -76,9 +81,9 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current supported schema is `15`.
-Every other schema generation is blocked
-before business or settings writes.
+documented here without duplicating SQL. The current schema is `16`; verified
+v15 is the sole supported additive upgrade. Every other schema generation is
+blocked before business or settings writes.
 
 ## Transaction guarantees
 
@@ -328,9 +333,11 @@ lead-in and bounded opening-anchor fallback. Normal repair reuses fresh checks;
 force recheck remains explicit. Repair estimates may differ from actual requests
 because of batching, caches, retries, and conversion dependencies.
 
-Backup restore validates the current schema. Older, unversioned, and future
-backup databases are rejected before replacing the live database. There is no
-archive upgrade path.
+Backup inspection validates v15/v16 without modifying the inspected database.
+Local restore requires matching manifest and database versions; an installed v15
+copy upgrades on normal open, while the source package stays unchanged. Other
+older, unversioned, future, or invalid backup databases are rejected before
+replacing the live database. This does not provide a general archive upgrade path.
 
 
 ## Available-funds product contracts
@@ -430,7 +437,10 @@ quantity invalid fails without writing the entry.
 
 ## Continuous backup configuration and status
 
-Business schema stays at 15; old, unversioned and future backups are rejected.
+Business schema is 16. Cloud recovery recognizes verified v15/v16 stream
+identities and requires the staged database version to match the stream.
+Inspection preserves staged v15 files and source metadata; new streams use v16.
+Other older, unversioned, future, or invalid backups remain blocked.
 The separate private `backup_config.db` is excluded from business backup and
 exports. R2 credential updates save the complete pair with configuration
 atomically; blank means keep, removal is explicit. Outbound DTOs contain a

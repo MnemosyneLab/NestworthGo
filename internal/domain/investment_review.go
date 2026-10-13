@@ -93,7 +93,7 @@ func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReview
 		}
 		points := reviewDailyQuotes(quotes[i.ID])
 		profiles := append([]InvestmentReviewPolicy{p}, priorPolicies...)
-		item := InvestmentReviewItem{InstrumentID: i.ID.String(), DisplayName: i.Name, Status: "unavailable", Reason: "unit_nav_required"}
+		item := InvestmentReviewItem{InstrumentID: i.ID.String(), DisplayName: i.DisplayLabel(), Status: "unavailable", Reason: "unit_nav_required"}
 		if len(points) > 0 {
 			var firstBreach, episodeStart string
 			var previousBreach string
@@ -191,7 +191,7 @@ func reviewDays(from, to string) int {
 }
 func reviewWindow(unsafeDates []string, i Instrument, points []InstrumentQuote, end int, p InvestmentReviewPolicy, today string) InvestmentReviewItem {
 	latest := points[end]
-	r := InvestmentReviewItem{InstrumentID: i.ID.String(), DisplayName: i.Name, Status: "unavailable", Reason: "missing_baseline", LatestOn: latest.EffectiveDate, AgeDays: reviewDays(latest.EffectiveDate, today)}
+	r := InvestmentReviewItem{InstrumentID: i.ID.String(), DisplayName: i.DisplayLabel(), Status: "unavailable", Reason: "missing_baseline", LatestOn: latest.EffectiveDate, AgeDays: reviewDays(latest.EffectiveDate, today)}
 	anchor, err := time.Parse(time.DateOnly, latest.EffectiveDate)
 	if err != nil {
 		r.Reason = "unit_nav_required"

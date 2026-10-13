@@ -146,14 +146,14 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
             <Label htmlFor="history-filter-account">{t("history.filterAccount")}</Label>
             <NativeSelect id="history-filter-account" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
               <option value="">{t("history.filterAll")}</option>
-              {(accounts.data ?? []).filter((record) => !record.account.archivedAt).map((record) => <option key={record.account.id} value={record.account.id}>{record.account.name}</option>)}
+              {(accounts.data ?? []).filter((record) => !record.account.archivedAt || record.account.id === accountFilter).map((record) => <option key={record.account.id} value={record.account.id}>{record.account.name}{record.account.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
             </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="history-filter-instrument">{t("history.filterInstrument")}</Label>
             <NativeSelect id="history-filter-instrument" value={instrumentFilter} onChange={(event) => setInstrumentFilter(event.target.value)}>
               <option value="">{t("history.filterAll")}</option>
-              {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrumentSelectionLabel(instrument, instrument.name)}</option>)}
+              {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt || instrument.id === instrumentFilter).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrumentSelectionLabel(instrument, instrument.name)}{instrument.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
             </NativeSelect>
           </div>
         </div>
