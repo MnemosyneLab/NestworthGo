@@ -1,6 +1,8 @@
 package application
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -102,5 +104,92 @@ func TestRepeatSourceClosedReasonMatrix(t *testing.T) {
 	dividend := domain.Activity{Kind: domain.ActivityCashDividend, Reason: domain.ReasonIncome, DividendDetail: &domain.DividendDetail{HoldingID: holding}, Effects: []domain.ActivityEffect{{AccountID: &account, Money: &money}}}
 	if repeatSourceReason(dividend) != "specialized" {
 		t.Fatalf("cash dividend reason = %q", repeatSourceReason(dividend))
+	}
+}
+
+type repeatStatusSpy struct {
+	Repository
+	calls    map[domain.HouseholdID][]domain.ActivityID
+	reversed map[domain.ActivityID]bool
+	err      error
+	cancel   context.CancelFunc
+}
+
+func (r *repeatStatusSpy) ActivitiesWithReversals(ctx context.Context, h domain.HouseholdID, ids []domain.ActivityID) (map[domain.ActivityID]bool, error) {
+	r.calls[h] = append(r.calls[h], ids...)
+	if r.cancel != nil {
+		r.cancel()
+	}
+	return r.reversed, r.err
+}
+func (r *repeatStatusSpy) ActivityHasReversal(context.Context, domain.HouseholdID, domain.ActivityID) (bool, error) {
+	panic("list hints must use batch reads")
+}
+func TestRepeatSourceStatusesBatch(t *testing.T) {
+	account := domain.NewAccountID()
+	money, _ := domain.ParseMoney("1", "USD")
+	h := domain.NewHouseholdID()
+	activities := make([]domain.Activity, 100)
+	for i := range activities {
+		activities[i] = domain.Activity{ID: domain.NewActivityID(), HouseholdID: h, Kind: domain.ActivityCashIn, Reason: domain.ReasonIncome, Effects: []domain.ActivityEffect{{AccountID: &account, Money: &money}}}
+	}
+	spy := &repeatStatusSpy{calls: make(map[domain.HouseholdID][]domain.ActivityID), reversed: map[domain.ActivityID]bool{activities[0].ID: true}}
+	s := NewService(spy)
+	got, err := s.RepeatSourceStatuses(t.Context(), append(activities, activities[0]))
+	if err != nil || len(spy.calls) != 1 || len(spy.calls[h]) != 100 || got[activities[0].ID] != "reversed" || got[activities[1].ID] != "eligible" {
+		t.Fatalf("batch: %v %v calls=%v", got, err, spy.calls)
+	}
+	other := activities[1]
+	other.ID = domain.NewActivityID()
+	other.HouseholdID = domain.NewHouseholdID()
+	spy.calls = make(map[domain.HouseholdID][]domain.ActivityID)
+	_, err = s.RepeatSourceStatuses(t.Context(), []domain.Activity{activities[1], other})
+	if err != nil || len(spy.calls) != 2 {
+		t.Fatalf("household grouping: %v %v", spy.calls, err)
+	}
+	excluded := []domain.Activity{}
+	for _, reason := range []string{"corrected", "product", "specialized", "unsupported_reason", "holding_attribution", "not_single_account"} {
+		a := activities[1]
+		a.ID = domain.NewActivityID()
+		switch reason {
+		case "corrected":
+			id := domain.NewActivityCorrectionGroupID()
+			a.CorrectionGroupID = &id
+		case "product":
+			a.ProductContext = &domain.ProductActivityContext{}
+		case "specialized":
+			a.TradeDetail = &domain.TradeDetail{}
+		case "unsupported_reason":
+			a.Reason = domain.ReasonReconciliation
+		case "holding_attribution":
+			id := domain.NewHoldingID()
+			a.Effects = append([]domain.ActivityEffect{}, a.Effects...)
+			a.Effects[0].HoldingID = &id
+		case "not_single_account":
+			a.Effects = nil
+		}
+		excluded = append(excluded, a)
+	}
+	spy.calls = make(map[domain.HouseholdID][]domain.ActivityID)
+	got, err = s.RepeatSourceStatuses(t.Context(), excluded)
+	if err != nil || len(spy.calls) != 0 {
+		t.Fatalf("excluded reads: %v %v", spy.calls, err)
+	}
+	for _, a := range excluded {
+		if got[a.ID] != repeatSourceReason(a) {
+			t.Fatalf("status changed: %v", got)
+		}
+	}
+	spy.err = errors.New("synthetic repository failure")
+	got, err = s.RepeatSourceStatuses(t.Context(), activities)
+	if err == nil || got != nil {
+		t.Fatalf("error: %v %v", got, err)
+	}
+	spy.err = nil
+	ctx, cancel := context.WithCancel(t.Context())
+	spy.cancel = cancel
+	got, err = s.RepeatSourceStatuses(ctx, activities)
+	if !errors.Is(err, context.Canceled) || got != nil {
+		t.Fatalf("cancel: %v %v", got, err)
 	}
 }

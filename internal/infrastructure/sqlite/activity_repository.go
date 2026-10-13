@@ -88,6 +88,63 @@ func (r *Repository) ActivityHasReversal(ctx context.Context, householdID domain
 	return count > 0, nil
 }
 
+// reversalReadChunkSize keeps each query below SQLite's historical 999-bound-
+// parameter limit, including the household parameter. A 100-row page uses one.
+const reversalReadChunkSize = 500
+
+func (r *Repository) ActivitiesWithReversals(ctx context.Context, householdID domain.HouseholdID, ids []domain.ActivityID) (map[domain.ActivityID]bool, error) {
+	return activitiesWithReversals(ctx, r.database.SQL, householdID, ids)
+}
+
+func activitiesWithReversals(ctx context.Context, query queryer, householdID domain.HouseholdID, ids []domain.ActivityID) (map[domain.ActivityID]bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	result := make(map[domain.ActivityID]bool)
+	unique := make([]string, 0, len(ids))
+	seen := make(map[domain.ActivityID]bool, len(ids))
+	for _, id := range ids {
+		if !seen[id] {
+			seen[id] = true
+			unique = append(unique, id.String())
+		}
+	}
+	for start := 0; start < len(unique); start += reversalReadChunkSize {
+		end := min(start+reversalReadChunkSize, len(unique))
+		placeholders, args := sqlInArgs(unique[start:end])
+		args = append([]any{householdID.String()}, args...)
+		rows, err := query.QueryContext(ctx, `SELECT DISTINCT reverses_activity_id FROM activities WHERE household_id = ? AND reverses_activity_id IN (`+placeholders+`)`, args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var value string
+			if err := rows.Scan(&value); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			id, err := domain.ParseActivityID(value)
+			if err != nil {
+				rows.Close()
+				return nil, err
+			}
+			result[id] = true
+		}
+		err = rows.Err()
+		closeErr := rows.Close()
+		if err != nil {
+			return nil, err
+		}
+		if closeErr != nil {
+			return nil, closeErr
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (r *Repository) activityEffects(ctx context.Context, activityID domain.ActivityID) ([]domain.ActivityEffect, error) {
 	return activityEffectsQuery(ctx, r.database.SQL, activityID)
 }
