@@ -163,6 +163,13 @@ func EvaluateLiquidity(query LiquidityQuery, sources []LiquiditySource, reservat
 			}
 		}
 	}
+	// Membership is existential: a qualifying duplicate must never be overwritten.
+	eligibleSourceKeys := make(map[string]struct{}, len(sources))
+	for _, source := range sources {
+		if !source.Archived && !source.Liability && !source.QuantityZero && liquiditySourcePositiveOrUnknown(source) {
+			eligibleSourceKeys[source.Ref.Key()] = struct{}{}
+		}
+	}
 	activeBySource := map[string]Money{}
 	for _, reservation := range reservations {
 		if err := reservation.Validate(); err != nil {
@@ -172,13 +179,7 @@ func EvaluateLiquidity(query LiquidityQuery, sources []LiquiditySource, reservat
 			continue
 		}
 		key := reservation.Source.Key()
-		found := false
-		for _, source := range sources {
-			if source.Ref.Key() == key && !source.Archived && !source.Liability && !source.QuantityZero && liquiditySourcePositiveOrUnknown(source) {
-				found = true
-				break
-			}
-		}
+		_, found := eligibleSourceKeys[key]
 		if !found {
 			overview.UnresolvedReservations = append(overview.UnresolvedReservations, UnresolvedReservation{Reservation: reservation, Reason: "source is missing, archived, or no longer positive"})
 			continue
