@@ -82,6 +82,9 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 		t.Fatal("detail recaptured")
 	}
 	one := scaleCapture(t, c, "get_product", map[string]any{"responseMode": "paged", "id": id, "limit": 1})
+	if one["query"].(map[string]any)["id"] != id {
+		t.Fatal("standalone product query identity missing")
+	}
 	if len(scaleSection(t, c, one, "reservations/"+id)) != 91 {
 		t.Fatal("standalone reservations")
 	}
@@ -90,6 +93,9 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 		t.Fatal(err)
 	}
 	liq := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "limit": 1})
+	if liq["query"].(map[string]any)["includeEarlyWithdrawal"] != false {
+		t.Fatal("liquidity request basis missing from frozen query")
+	}
 	sources := scaleSection(t, c, liq, "sources")
 	if len(sources) != len(overview.Sources) {
 		t.Fatalf("source union %d/%d", len(sources), len(overview.Sources))

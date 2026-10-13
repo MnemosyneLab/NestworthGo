@@ -203,6 +203,6 @@ func (s *Service) pagedLiquidity(ctx context.Context, generation uint64, in Liqu
 		}
 		summary := map[string]any{"asOf": dto.AsOf, "localDate": dto.LocalDate, "timezone": dto.Timezone, "baseCurrency": dto.BaseCurrency, "assumptions": dto.Assumptions, "buckets": dto.Buckets, "totalsScope": "household", "sourcesScope": "filtered", "unresolvedReservationsScope": "household", "totalSourceCount": total, "matchedSourceCount": len(rows), "filteredOutSourceCount": total - len(rows), "unresolvedReservationCount": len(reserveRows), "sortBasis": "same_capture_exact_base_currency", "sortHorizonOn": sort.HorizonOn}
 		f.Query = strings.ToLower(strings.TrimSpace(f.Query))
-		return readCapture{Kind: "liquidity", CapturedAt: overview.AsOf, Query: map[string]any{"filter": f, "sort": sort}, Summary: summary, Sections: map[string][]json.RawMessage{"sources": sourceRows, "unresolvedReservations": reserveRows}}, nil
+		return readCapture{Kind: "liquidity", CapturedAt: overview.AsOf, Query: map[string]any{"filter": f, "sort": sort, "customHorizonOn": in.CustomHorizonOn, "includeEarlyWithdrawal": in.IncludeEarlyWithdrawal}, Summary: summary, Sections: map[string][]json.RawMessage{"sources": sourceRows, "unresolvedReservations": reserveRows}}, nil
 	})
 }

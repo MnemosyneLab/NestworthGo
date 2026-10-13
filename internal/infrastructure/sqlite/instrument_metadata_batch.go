@@ -78,11 +78,16 @@ func (r *Repository) ReadInstrumentMetadataFiltered(ctx context.Context, q domai
 	managed := map[string]bool{}
 	managedPredicate := "household_id=?"
 	managedArgs := []any{h.ID.String()}
-	if len(q.IDs) > 0 {
-		marks, values := sqlInArgs(q.IDs)
-		managedPredicate += " AND instrument_id IN (" + marks + ")"
-		managedArgs = append(managedArgs, values...)
+	if len(items) == 0 {
+		return empty, tx.Commit()
 	}
+	selectedIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		selectedIDs = append(selectedIDs, item.ID.String())
+	}
+	marks, values := sqlInArgs(selectedIDs)
+	managedPredicate += " AND instrument_id IN (" + marks + ")"
+	managedArgs = append(managedArgs, values...)
 	rows, err := tx.QueryContext(ctx, `SELECT instrument_id FROM product_contracts WHERE `+managedPredicate, managedArgs...)
 	if err != nil {
 		return empty, err

@@ -166,6 +166,6 @@ func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductListInp
 		if id != "" {
 			initial = append(initial, "reservations/"+id)
 		}
-		return readCapture{InitialSections: initial, Kind: "products", Query: map[string]any{"accountId": in.AccountID, "includeClosed": in.IncludeClosed, "filter": f, "sort": order}, Summary: summary, Sections: sections, Details: details}, nil
+		return readCapture{InitialSections: initial, Kind: "products", Query: map[string]any{"accountId": in.AccountID, "includeClosed": in.IncludeClosed, "filter": f, "sort": order, "id": id}, Summary: summary, Sections: sections, Details: details}, nil
 	})
 }
