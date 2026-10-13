@@ -156,3 +156,16 @@ Focused checks: `TestAccountDisplayValue*`,
 `AccountsPage`, `AccountCompositionPanel`, `accountGroups` and locale coverage.
 Native macOS layout/accessibility acceptance remains a separate manual gate;
 jsdom checks do not establish native rendering or keyboard geometry.
+
+### Refresh dependencies for account display
+
+The shared required-refresh collector includes account display FX dependencies
+for nonzero current native components. An explicit native/account-currency pair
+preference makes that pair required; non-provider preferences remain skipped.
+Without that preference, the collector adds the account/household bridge leg to
+the existing native/household target. All three ordinary refresh entrypoints
+(All, Missing or stale, and Required FX) share these targets and existing cache,
+provider selection and rate-limit handling. Empty accounts and same-currency
+native components do not add a new display dependency. Reads remain network-free.
+`TestAccountDisplayRefreshTargets` and `TestAccountDisplayRefreshToValuation`
+cover collection, preferences and the refresh-to-display integration.
