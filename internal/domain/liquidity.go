@@ -240,11 +240,8 @@ func (p LiquidityPolicy) Validate(managed bool) error {
 		if p.UnlockOn == nil {
 			return validation("unlockOn", "is required for on_date access")
 		}
-		if _, err := ParseCivilDate("unlockOn", *p.UnlockOn); err != nil {
-			return err
-		}
 	}
-	if p.UnlockOn != nil && access != AccessOnDate && access != AccessOnRequest {
+	if p.UnlockOn != nil {
 		if _, err := ParseCivilDate("unlockOn", *p.UnlockOn); err != nil {
 			return err
 		}

@@ -666,3 +666,68 @@ Analysis can write derived snapshots without changing financial facts. According
 readOnlyHint=false/destructiveHint=false; all remain in existing permission modes.
 `compare_financial_context` and frozen page tools retain strictly read-only hints.
 Updating these repository skill files does not install them into a client.
+
+## Ordinary liquidity policy parity
+
+Available-funds access/withdrawal rules use the GUI's full policy inputs and
+shared application preparation. All modes read `sources[].sourceRef`, `policy`
+and `policyOrigin` through `get_liquidity_overview`. `ledger_write` additionally
+advertises `liquidity_policy_write` and registers:
+
+| Preview | Commit | Effect |
+| --- | --- | --- |
+| preview_save_liquidity_policy | commit_save_liquidity_policy | Create with expectedRevision 0 or fully replace the explicit revision |
+| preview_reset_liquidity_policy | commit_reset_liquidity_policy | Remove the explicit revision and restore GUI assumed defaults |
+
+Both previews and commits are absent from read_only and directory_write.
+Preview inputs are the GUI SavePolicyRequest/ResetPolicyRequest. Commit input
+is only `{"operationId":"<UUID>","input":{"planId":"<preview UUID>"}}`.
+Copy source identity from the overview: account_value uses accountId;
+account_cash additionally uses currency; holding additionally uses holdingId.
+A rule is never an instrument setting. Only active asset sources in that GUI
+read model are accepted; invalid ownership/currency and archived/liability
+sources fail before mutation. Managed positions retain managed_position_conflict
+and must use atomic full terms+policy preview_product_terms/commit_product_terms.
+No reservation or investment-review writes are exposed.
+
+Save uses full replacement, not a patch. Every nullable field clears with null;
+omission never means preserve (required schema fields must be supplied). The
+complete form includes accessibleAmountCap, accessKind, unlockOn,
+settlementDays, dayBasis, receiptOnOverride, normalExitFee, earlyKind,
+earlySettlementDays, earlyDayBasis, earlyFee, earlyAmountMode, earlyGrossAmount
+and note. Shared validation retains civil dates, 0–365 settlement counts,
+calendar/weekdays, exact nonnegative decimal strings with up to four fractional
+digits, unknown nullable fees versus known zero, early completeness and amount
+modes. All non-null unlock dates are validated, including optional on_request
+locks. No implicit rounding, percentage fee, bank withdrawal or ledger record
+is introduced. See [executable examples](../../skills/nestworth/references/products.md#edit-ordinary-access-and-withdrawal-rules).
+
+Previews serialize with all application writes and backup/restore, showing
+effective before/after policies and origins. Assumed preview policies use the
+sourceRef and revision zero to distinguish them from persisted explicit rows.
+IDs/confirmation metadata are provisional. Commit validates the frozen full
+command, expected revision, expiry and coordinator version inside the shared
+write permit. Every attempted application write invalidates the version;
+restart and exclusive restore also invalidate it. This prevents stale revision
+and reset/recreate ABA overwrites. Wrong-family commits fail before the permit.
+Reset commits return the same revision-zero acknowledgement as GUI ResetPolicy;
+read the overview for evaluated defaults. Forecast availability can change;
+ledger facts, current values, reservations and actual returns remain unchanged.
+
+Ordinary policy writes deliberately use the established conservative operation
+receipt contract, rather than managed-product atomic business receipts. Same
+operationId/tool/input success returns the original recorded-time result;
+changed arguments conflict. Pending/unknown receipts are not automatically
+replayed. Inspect get_operation and current overview before a new intentional
+preview. A used plan with a new operationId is stale and cannot write again;
+there is no cross-operation business replay. Policies and outer receipts are
+separate SQLite writes, so a crash after mutation but before receipt persistence
+may remain unknown. This is a recoverability limitation, not permission to
+repost. Production plans/receipts retain the restored database authority.
+Successful writes emit the existing agent.data.changed event.
+
+Synthetic Streamable HTTP tests cover discovery/permissions, every source kind,
+full replacement and reset defaults, exact route/GUI parity, no ledger or reserve
+changes, validation, CAS, stale/expired/wrong-family plans, operation retries and
+unknown outcomes, plus continued atomic managed-terms compatibility. No native
+UI, external client, provider, credentials or real financial data is required.

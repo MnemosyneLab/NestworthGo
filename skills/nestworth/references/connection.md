@@ -81,6 +81,7 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
+| Ordinary access/withdrawal rules (ledger_write) | `preview_save_liquidity_policy` / `commit_save_liquidity_policy`, `preview_reset_liquidity_policy` / `commit_reset_liquidity_policy` |
 | Managed terms/policy (ledger_write) | `preview_product_terms` / `commit_product_terms` |
 | Actual locked-product value (ledger_write) | `preview_product_valuation` / `commit_product_valuation` |
 | Single/batch ledger records | `preview_change` / `commit_change`, `preview_batch` / `commit_batch` |
