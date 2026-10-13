@@ -3,8 +3,8 @@ import type { ProductCommandRequest, ProductOperationPreviewDTO } from "../../..
 
 // A response belongs to the command that requested it, even if the form changes
 // while the request is in flight. Never enable confirmation for another command.
-export function useReviewedCommand(command: ProductCommandRequest | null) {
-  const key = JSON.stringify(command);
+export function useReviewedCommand(command: ProductCommandRequest | null, context = "") {
+  const key = JSON.stringify(command) + context;
   const [result, setResult] = useState<{ key: string; preview: ProductOperationPreviewDTO } | null>(null);
   const clearReviewed = useCallback(() => setResult(null), []);
   return {

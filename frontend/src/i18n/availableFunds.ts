@@ -1,4 +1,19 @@
 export const availableFundsEn = {
+  loadMoreHistory: "Load more",
+  refreshHistory: "Refresh history",
+  loadingHistory: "Loading operations…",
+  historyComplete: "All operations loaded.",
+  historyChanged: "History changed. Review the current undo target again.",
+  undoReason_valuation_requires_correction: "The latest entry is a valuation update. Correct it by updating the valuation.",
+  undoReason_later_product_operation: "A later operation on a linked product blocks undo.",
+  undoReason_contract_changed: "Later contract or policy edits block undo.",
+  undoReason_active_reservation: "Release active reservations before undoing this opening.",
+  undoReason_reservation_changed: "Later reservation edits block undo.",
+  undoReason_archived_target: "An account, holding or instrument needed for undo is archived.",
+  undoReason_insufficient_balance: "There is not enough cash to undo this operation.",
+  undoReason_insufficient_quantity: "There is not enough quantity to undo this operation.",
+  undoReason_unsafe_undo: "This operation cannot currently be undone.",
+
   entryMethod: "Entry method",
   productType: "Product type",
   ledgerDetails: "View ledger details",
@@ -266,6 +281,21 @@ export const availableFundsEn = {
 };
 
 export const availableFundsZhCN = {
+  loadMoreHistory: "加载更多",
+  refreshHistory: "刷新操作记录",
+  loadingHistory: "正在加载操作记录…",
+  historyComplete: "已加载全部操作记录。",
+  historyChanged: "操作记录已变更，请重新核对当前撤销目标。",
+  undoReason_valuation_requires_correction: "最近一笔是估值更新，请通过更新估值进行更正。",
+  undoReason_later_product_operation: "关联产品有后续操作，无法撤销。",
+  undoReason_contract_changed: "合同或流动性规则的后续修改阻止了撤销。",
+  undoReason_active_reservation: "撤销开立前，请先释放有效预留。",
+  undoReason_reservation_changed: "预留的后续修改阻止了撤销。",
+  undoReason_archived_target: "撤销所需的账户、持仓或投资标的已归档。",
+  undoReason_insufficient_balance: "现金余额不足，无法撤销此操作。",
+  undoReason_insufficient_quantity: "持仓数量不足，无法撤销此操作。",
+  undoReason_unsafe_undo: "当前无法撤销此操作。",
+
   entryMethod: "录入方式",
   productType: "产品类型",
   ledgerDetails: "查看记账明细",
@@ -533,6 +563,21 @@ export const availableFundsZhCN = {
 };
 
 export const availableFundsZhTW = {
+  loadMoreHistory: "載入更多",
+  refreshHistory: "重新整理操作記錄",
+  loadingHistory: "正在載入操作記錄…",
+  historyComplete: "已載入全部操作記錄。",
+  historyChanged: "操作記錄已變更，請重新核對目前撤銷目標。",
+  undoReason_valuation_requires_correction: "最近一筆是估值更新，請透過更新估值進行更正。",
+  undoReason_later_product_operation: "關聯產品有後續操作，無法撤銷。",
+  undoReason_contract_changed: "合約或流動性規則的後續修改阻止了撤銷。",
+  undoReason_active_reservation: "撤銷開立前，請先釋放有效預留。",
+  undoReason_reservation_changed: "預留的後續修改阻止了撤銷。",
+  undoReason_archived_target: "撤銷所需的帳戶、持倉或投資標的已封存。",
+  undoReason_insufficient_balance: "現金餘額不足，無法撤銷此操作。",
+  undoReason_insufficient_quantity: "持倉數量不足，無法撤銷此操作。",
+  undoReason_unsafe_undo: "目前無法撤銷此操作。",
+
   entryMethod: "輸入方式",
   productType: "產品類型",
   ledgerDetails: "查看記帳明細",

@@ -223,7 +223,7 @@ direct minimal after discovery without directory pre-reads, explicit named
 selection, all three page sections, zero-row deferral, expiry/restart with an
 unchanged semantic hash, and row-kind/FX/time-provenance semantics. Standalone
 bundle tests verify those examples and Inspector-specific HTTP configuration
-survive packaging and installation. The current source skill version is 1.7.0;
+survive packaging and installation. The current source skill version is 1.8.0;
 installed clients require an explicit update. The published v0.3.7 bundle remains
 skill 1.6.0 until a later release. The release contract separately tracks real
 external-client acceptance and does not imply publication.

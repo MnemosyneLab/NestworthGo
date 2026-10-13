@@ -142,8 +142,10 @@ type ProductOperationReceipt struct {
 }
 
 type ProductOperationPage struct {
-	Operations []domain.ProductOperation
-	Next       *string
+	Operations                []domain.ProductOperationHistoryRow
+	Next                      *string
+	LatestRecordedOperationID *domain.ProductOperationID
+	Undo                      ProductUndoAvailability
 }
 
 type ProductDetail struct {

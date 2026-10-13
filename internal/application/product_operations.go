@@ -735,12 +735,24 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	if err != nil {
 		return productPlan{}, err
 	}
-	evidence, err := s.repository.ProductOperationEvidence(ctx, origin.HouseholdID, targetID)
+	loaded, err := s.repository.ReadProductUndoEvidence(ctx, origin.HouseholdID, targetID)
 	if err != nil {
 		return productPlan{}, err
 	}
+	plan, err := planUndoEvidence(origin, state, loaded, operationID, now, effectiveAt, reviewedAt != "")
+	if refusal, ok := err.(*productUndoRefusal); ok {
+		return plan, refusal.cause
+	}
+	return plan, err
+}
+
+// planUndoEvidence is shared by current GUI availability, preview and final revalidation.
+// Its complete evidence is materialized before entry; it never performs repository reads.
+func planUndoEvidence(origin *domain.HistoryOrigin, state domain.ChangeState, loaded domain.ProductUndoEvidence, operationID domain.ProductOperationID, now, effectiveAt time.Time, guarded bool) (productPlan, error) {
+	evidence := loaded.Operation
+	targetID := evidence.Operation.ID
 	if evidence.Operation.Kind == domain.ProductOpValueObservation {
-		return productPlan{}, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "operationId", Message: "valuation observations are corrected through quote supersession"}
+		return productPlan{}, undoRefusal(UndoValuationRequiresCorrection, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "operationId", Message: "valuation observations are corrected through quote supersession"})
 	}
 	if evidence.Operation.ReversesOperationID != nil {
 		return productPlan{}, &domain.Error{Code: domain.ErrAlreadyUndone, Message: "a reversal cannot be undone again"}
@@ -751,20 +763,21 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	}
 	currentContracts := []domain.ProductContract{}
 	for _, productID := range uniqueProductIDs(evidence.Products) {
-		ops, err := s.productOperationHistory(ctx, origin.HouseholdID, productID)
-		if err != nil {
-			return productPlan{}, err
-		}
+		ops := loaded.Histories[productID]
 		if !isLatestActiveOperation(ops, targetID) {
-			return productPlan{}, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "operationId", Message: "only the latest operation for each product can be undone"}
+			return productPlan{}, undoRefusal(UndoLaterProductOperation, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "operationId", Message: "only the latest operation for each product can be undone"})
 		}
-		current, err := s.repository.Product(ctx, origin.HouseholdID, productID)
-		if err != nil {
-			return productPlan{}, err
+		current, ok := loaded.Contracts[productID]
+		if !ok {
+			return productPlan{}, &domain.Error{Code: domain.ErrIntegrity, Message: "undo contract evidence is missing"}
 		}
 		currentContracts = append(currentContracts, current)
-		if !revisionMatchesAfterReversals(stored.AfterContracts, current, ops) {
-			return productPlan{}, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "productId", Message: "later contract or policy edits block undo"}
+		matches, err := revisionMatchesAfterReversals(stored.AfterContracts, current, ops)
+		if err != nil {
+			return productPlan{}, err
+		}
+		if !matches {
+			return productPlan{}, undoRefusal(UndoContractChanged, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "productId", Message: "later contract or policy edits block undo"})
 		}
 	}
 	previews := []domain.ChangePreview{}
@@ -772,16 +785,13 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	working := state
 	for index := len(evidence.Activities) - 1; index >= 0; index-- {
 		link := evidence.Activities[index]
-		activity, err := s.repository.Activity(ctx, origin.HouseholdID, link.ActivityID)
-		if err != nil {
-			return productPlan{}, err
+		activity, ok := loaded.Activities[link.ActivityID]
+		if !ok {
+			return productPlan{}, &domain.Error{Code: domain.ErrIntegrity, Message: "undo activity evidence is missing"}
 		}
 		effects := activity.Effects
-		if len(effects) == 0 {
-			effects, err = s.repository.ActivityEffects(ctx, link.ActivityID)
-			if err != nil {
-				return productPlan{}, err
-			}
+		if err := validateProductUndoTargets(working, effects); err != nil {
+			return productPlan{}, err
 		}
 		inverse, err := domain.InverseChangeAt(working, activity, effects, effectiveAt)
 		if err != nil {
@@ -797,15 +807,12 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 			Purpose: domain.ProductPurposeReversal, ProductID: link.ProductID,
 		})
 	}
-	restored, err := s.contractsAfterUndo(ctx, origin.HouseholdID, stored, operationID, now, reviewedAt != "")
+	restored, err := contractsAfterUndo(stored, loaded.Contracts, loaded.Reservations, operationID, now, guarded)
 	if err != nil {
 		return productPlan{}, err
 	}
 	reservationLinks := make([]domain.ProductOperationReservation, 0, len(evidence.Reservations))
-	reservations, err := s.repository.ListLiquidityReservations(ctx, origin.HouseholdID, true)
-	if err != nil {
-		return productPlan{}, err
-	}
+	reservations := loaded.Reservations
 	byID := make(map[domain.LiquidityReservationID]domain.LiquidityReservation, len(reservations))
 	for _, reservation := range reservations {
 		byID[reservation.ID] = reservation
@@ -813,7 +820,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	for _, link := range evidence.Reservations {
 		current, ok := byID[link.ReservationID]
 		if !ok || current.Revision != link.ResultingRevision || !sameOptionalTime(current.ReleasedAt, link.ResultingReleasedAt) {
-			return productPlan{}, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "reservationId", Message: "later reservation edits block undo"}
+			return productPlan{}, undoRefusal(UndoReservationChanged, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "reservationId", Message: "later reservation edits block undo"})
 		}
 		reservationLinks = append(reservationLinks, domain.ProductOperationReservation{
 			OperationID: operationID, ReservationID: link.ReservationID,
@@ -832,7 +839,6 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 		}
 		productLinks = append(productLinks, domain.ProductOperationProduct{OperationID: operationID, ProductID: link.ProductID, Role: role})
 	}
-	_ = snapshot
 	return productPlan{
 		state: working, previews: previews, contracts: restored, productLinks: productLinks, activityLinks: activityLinks,
 		reservationLinks: reservationLinks, productIDs: uniqueProductIDs(evidence.Products),
@@ -840,7 +846,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	}, nil
 }
 
-func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.HouseholdID, stored productReceiptEvidence, operationID domain.ProductOperationID, now time.Time, guarded bool) ([]domain.ProductContract, error) {
+func contractsAfterUndo(stored productReceiptEvidence, contracts map[domain.ProductContractID]domain.ProductContract, reservations []domain.LiquidityReservation, operationID domain.ProductOperationID, now time.Time, guarded bool) ([]domain.ProductContract, error) {
 	beforeByID := map[domain.ProductContractID]domain.ProductContract{}
 	for _, contract := range stored.BeforeContracts {
 		beforeByID[contract.ID] = contract
@@ -848,9 +854,9 @@ func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.Hou
 	restored := make([]domain.ProductContract, 0, len(stored.BeforeContracts)+len(stored.AfterContracts))
 	seen := map[domain.ProductContractID]struct{}{}
 	for _, before := range stored.BeforeContracts {
-		current, err := s.repository.Product(ctx, householdID, before.ID)
-		if err != nil {
-			return nil, err
+		current, ok := contracts[before.ID]
+		if !ok {
+			return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "undo contract evidence is missing"}
 		}
 		next := before
 		next.UpdatedAt = now
@@ -871,12 +877,18 @@ func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.Hou
 		if _, ok := seen[created.ID]; ok {
 			continue
 		}
-		current, err := s.repository.Product(ctx, householdID, created.ID)
-		if err != nil {
-			return nil, err
+		current, ok := contracts[created.ID]
+		if !ok {
+			return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "undo contract evidence is missing"}
 		}
-		if err := s.rejectActiveReservations(ctx, householdID, current, guarded); err != nil {
-			return nil, err
+		sourceKey := domain.HoldingSourceRef(current.AccountID, current.HoldingID).Key()
+		for _, reservation := range reservations {
+			if reservation.Source.Key() == sourceKey && reservation.Active() {
+				if guarded {
+					return nil, productReservationGUIError()
+				}
+				return nil, undoRefusal(UndoActiveReservation, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "reservationId", Message: "release active reservations before undoing the opening"})
+			}
 		}
 		next := current
 		next.State = domain.ProductStateCancelled
@@ -1206,14 +1218,14 @@ func sameOptionalTime(left, right *time.Time) bool {
 
 // Follow only recorded restoration edges. An intervening edit has no edge,
 // even if it happens to leave the same business values, and still blocks undo.
-func revisionMatchesAfterReversals(after []domain.ProductContract, current domain.ProductContract, ops []domain.ProductOperation) bool {
+func revisionMatchesAfterReversals(after []domain.ProductContract, current domain.ProductContract, ops []domain.ProductOperation) (bool, error) {
 	byID := make(map[domain.ProductOperationID]domain.ProductOperation, len(ops))
 	for _, op := range ops {
 		byID[op.ID] = op
 	}
 	for attempts := 0; attempts <= len(ops); attempts++ {
 		if revisionMatches(after, current) {
-			return true
+			return true, nil
 		}
 		advanced := false
 		for _, op := range ops {
@@ -1221,16 +1233,19 @@ func revisionMatchesAfterReversals(after []domain.ProductContract, current domai
 				continue
 			}
 			restored, err := receiptEvidenceJSON(op.ResultJSON)
-			if err != nil || !revisionMatches(restored.AfterContracts, current) {
+			if err != nil {
+				return false, err
+			}
+			if !revisionMatches(restored.AfterContracts, current) {
 				continue
 			}
 			original, ok := byID[*op.ReversesOperationID]
 			if !ok {
-				return false
+				return false, &domain.Error{Code: domain.ErrIntegrity, Message: "undo restoration evidence is missing its original operation"}
 			}
 			before, err := receiptEvidenceJSON(original.ResultJSON)
 			if err != nil {
-				return false
+				return false, err
 			}
 			for _, contract := range before.BeforeContracts {
 				if contract.ID == current.ID && contract.Revision < current.Revision {
@@ -1244,10 +1259,10 @@ func revisionMatchesAfterReversals(after []domain.ProductContract, current domai
 			}
 		}
 		if !advanced {
-			return false
+			return false, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func (s *Service) productOperationHistory(ctx context.Context, householdID domain.HouseholdID, productID domain.ProductContractID) ([]domain.ProductOperation, error) {

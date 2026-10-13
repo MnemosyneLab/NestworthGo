@@ -45,7 +45,7 @@ const preview: ProductOperationPreviewDTO = { effectiveAt: "2026-09-20T04:00:00Z
 beforeEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset());
   api.Product.mockResolvedValue({ product: product(), reservations: [], permittedActions: ["settle", "renew", "receive_interest"], disabledReasons: {} });
-  api.ListOperations.mockResolvedValue({ operations: [], next: null });
+  api.ListOperations.mockResolvedValue({ operations: [], next: null, latestRecordedOperationId: null, undo: { operation: null, allowed: false, reason: "no_active_operation" } });
   api.PreviewProductOperation.mockResolvedValue(preview);
   api.RecordProductOperation.mockResolvedValue({ operationId: "recorded" });
   api.UpdateProductTerms.mockResolvedValue({ product: product() });
@@ -258,12 +258,13 @@ describe("product P2 regression flows", () => {
   });
 });
 
-it("previews the previous active operation after the latest one was reversed, including older pages", async () => {
-  api.ListOperations.mockResolvedValueOnce({ operations: [{id:"undo-income",kind:"undo",reversesOperationId:"income"},{id:"income",kind:"receive_interest",reversesOperationId:null}], next:"older" })
-    .mockResolvedValueOnce({ operations:[{id:"opening",kind:"open",reversesOperationId:null}], next:null });
+it("previews an off-page opening without fetching older pages", async () => {
+  api.ListOperations.mockResolvedValue({ operations: [{id:"income",kind:"receive_interest",reversedByOperationId:"off-page-inverse"}], next:"older", latestRecordedOperationId:"head", undo:{operation:{id:"opening",kind:"open",effectiveAt:"2026-01-01T04:00:00Z"},allowed:true,reason:null} });
   show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
-  await waitFor(() => expect(api.ListOperations).toHaveBeenCalledTimes(2));
   await userEvent.click(await screen.findByRole("button", { name: "Grouped undo" }));
+  expect(api.ListOperations).toHaveBeenCalledTimes(1);
+  expect(api.ListOperations).toHaveBeenCalledWith({ productId:"product", limit:25 });
+  expect(screen.getByText("Reversed")).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   await waitFor(() => expect(api.PreviewProductOperation).toHaveBeenCalled());
   expect(api.PreviewProductOperation.mock.calls[0][0]).toMatchObject({ kind:"undo", undo:{operationId:"opening"} });
@@ -444,9 +445,9 @@ it("preserves an existing deposit's early withdrawal rules when toggled off and 
 it("shows the exact undo target and marks reversed operations in history", async () => {
   api.ListOperations.mockResolvedValue({ operations: [
     { id: "undo-income", kind: "undo", effectiveAt: "2026-09-21T04:00:00Z", reversesOperationId: "income" },
-    { id: "income", kind: "receive_interest", effectiveAt: "2026-09-20T04:00:00Z", reversesOperationId: null },
+    { id: "income", kind: "receive_interest", effectiveAt: "2026-09-20T04:00:00Z", reversesOperationId: null, reversedByOperationId:"undo-income" },
     { id: "opening", kind: "open", effectiveAt: "2026-01-01T04:00:00Z", reversesOperationId: null },
-  ], next: null });
+  ], next: null, latestRecordedOperationId:"head", undo:{operation:{id:"opening",kind:"open",effectiveAt:"2026-01-01T04:00:00Z"},allowed:true,reason:null} });
   show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
   await userEvent.click(await screen.findByRole("button", { name: "Grouped undo" }));
   expect(screen.getByText("Reversed")).toBeVisible();
@@ -461,7 +462,7 @@ it("offers valuation correction instead of an undo that the backend cannot perfo
   api.ListOperations.mockResolvedValue({ operations: [
     { id: "valuation", kind: "value_observation", effectiveAt: "2026-09-20T04:00:00Z", reversesOperationId: null },
     { id: "opening", kind: "open", effectiveAt: "2026-01-01T04:00:00Z", reversesOperationId: null },
-  ], next: null });
+  ], next: null, latestRecordedOperationId:"valuation", undo:{operation:{id:"valuation",kind:"value_observation"},allowed:false,reason:"valuation_requires_correction"} });
   show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
   expect(await screen.findByText("The latest entry is a valuation update. Correct it by updating the valuation.")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Grouped undo" })).not.toBeInTheDocument();
@@ -625,4 +626,118 @@ it("retains an explicitly entered paid-through date across interest mode switche
   await user.click(screen.getByRole("button", { name: "Save policy" }));
   await waitFor(() => expect(api.UpdateProductTerms).toHaveBeenCalledOnce());
   expect(api.UpdateProductTerms.mock.calls[0][0].terms).toMatchObject({ interestMode: "simple_act_360", interestPaidThroughOn: "2026-02-01" });
+});
+
+const operationPage = (head = "head", next: string | null = "older", allowed = true, target = "opening") => ({ operations: [{ id: head, kind: "receive_interest", effectiveAt: "2026-09-20T04:00:00Z", reversedByOperationId: "off-page-inverse" }], next, latestRecordedOperationId: head, undo: { operation: { id: target, kind: "open", effectiveAt: "2026-01-01T04:00:00Z" }, allowed, reason: allowed ? null : "contract_changed" } });
+
+it("keeps history rows after Load more failure and retries with keyboard", async () => {
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockRejectedValueOnce(new Error("next failed")).mockResolvedValueOnce({ ...operationPage("head", null), operations: [] });
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  const more = await screen.findByRole("button", { name: "Load more" });
+  more.focus(); await userEvent.keyboard("{Enter}");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not load");
+  expect(screen.getByText("Reversed")).toBeVisible();
+  expect(screen.queryByText("No operations yet.")).not.toBeInTheDocument();
+  const retry = screen.getByRole("button", { name: "Retry" });
+  retry.focus(); await userEvent.keyboard("{Enter}");
+  await screen.findByText("All operations loaded.");
+  expect(api.ListOperations.mock.calls.slice(1).map(([r]) => r.cursor)).toEqual(["older", "older"]);
+});
+
+it("retains Load more focus for another page and deliberately focuses completion at the end", async () => {
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockResolvedValueOnce({ ...operationPage(), operations: [{ id: "second", kind: "receive_interest", effectiveAt: "2026-09-20T04:00:00Z" }] }).mockResolvedValueOnce({ ...operationPage("head", null), operations: [{ id: "last", kind: "receive_interest", effectiveAt: "2026-09-20T04:00:00Z" }] });
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  const more = await screen.findByRole("button", { name: "Load more" }); more.focus();
+  await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(api.ListOperations).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(more).toBeEnabled()); expect(more).toHaveFocus();
+  await userEvent.keyboard("{Enter}");
+  expect(await screen.findByText("All operations loaded.")).toHaveFocus();
+});
+
+it("does not steal completion focus after the user moves elsewhere", async () => {
+  let finish!: (value: ReturnType<typeof operationPage>) => void;
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  const more = await screen.findByRole("button", { name: "Load more" }); more.focus();
+  await userEvent.keyboard("{Enter}");
+  const edit = screen.getByRole("button", { name: "Edit terms and rules" }); edit.focus();
+  await act(async () => finish({ ...operationPage("head", null), operations: [] }));
+  await screen.findByText("All operations loaded."); expect(edit).toHaveFocus();
+});
+
+it("uses a newest-page refusal and never silently retargets a reviewed undo", async () => {
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockResolvedValueOnce({ ...operationPage("head", null, false, "different"), operations: [] });
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Grouped undo" }));
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Confirm" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+  expect(await screen.findByText("Later contract or policy edits block undo.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  expect(screen.getByText("History changed. Review the current undo target again.")).toBeVisible();
+  expect(api.RecordProductOperation).not.toHaveBeenCalled();
+});
+
+it("distinguishes initial loading, empty and refresh failure and preserves product details", async () => {
+  let finish!: (value: ReturnType<typeof operationPage>) => void;
+  api.ListOperations.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockRejectedValueOnce(new Error("refresh failed"));
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  await screen.findByText("Original terms");
+  expect(screen.queryByText("No operations yet.")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Grouped undo" })).not.toBeInTheDocument();
+  await act(async () => finish({ ...operationPage("head", null, false), operations: [], undo: { operation: null, allowed: false, reason: "no_active_operation" } } as unknown as ReturnType<typeof operationPage>));
+  expect(await screen.findByText("No operations yet.")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Refresh history" }));
+  await screen.findByRole("alert");
+  expect(screen.getByText("Original terms")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+});
+
+it("ignores an undo preview from before refresh even when the fresh target is unchanged", async () => {
+  let finish!: (value: ProductOperationPreviewDTO) => void;
+  api.ListOperations.mockResolvedValue(operationPage());
+  api.PreviewProductOperation.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Grouped undo" }));
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  await userEvent.click(screen.getByRole("button", { name: "Refresh history" }));
+  await waitFor(() => expect(api.ListOperations).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Grouped undo" })).toBeEnabled());
+  await act(async () => finish(preview));
+  expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+  expect(api.RecordProductOperation).not.toHaveBeenCalled();
+});
+
+it.each(["older-again", null])("restores keyboard retry focus after success with next cursor %s", async next => {
+  let finish!: (value: ReturnType<typeof operationPage>) => void;
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockRejectedValueOnce(new Error("next failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  const more = await screen.findByRole("button", { name: "Load more" }); more.focus();
+  await userEvent.keyboard("{Enter}");
+  const retry = await screen.findByRole("button", { name: "Retry" }); retry.focus();
+  await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(api.ListOperations).toHaveBeenCalledTimes(3));
+  await act(async () => finish({ ...operationPage("head", next), operations: [] }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument());
+  if (next) expect(screen.getByRole("button", { name: "Load more" })).toHaveFocus();
+  else expect(screen.getByText("All operations loaded.")).toHaveFocus();
+  expect(api.ListOperations.mock.calls.slice(1).map(([r]) => r.cursor)).toEqual(["older", "older"]);
+});
+
+it.each(["older-again", null])("does not steal focus on delayed retry success with next cursor %s", async next => {
+  let finish!: (value: ReturnType<typeof operationPage>) => void;
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockRejectedValueOnce(new Error("next failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  const more = await screen.findByRole("button", { name: "Load more" }); more.focus();
+  await userEvent.keyboard("{Enter}");
+  const retry = await screen.findByRole("button", { name: "Retry" }); retry.focus();
+  await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(api.ListOperations).toHaveBeenCalledTimes(3));
+  const edit = screen.getByRole("button", { name: "Edit terms and rules" }); edit.focus();
+  await act(async () => finish({ ...operationPage("head", next), operations: [] }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument());
+  expect(edit).toHaveFocus();
 });

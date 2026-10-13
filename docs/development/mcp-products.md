@@ -43,9 +43,9 @@ financial-context captures.
 The server advertises managed_product_read and liquidity_read capabilities.
 Discovery and schemas remain authoritative; GUI permittedActions are not MCP
 permission or proof of an exposed write tool. The current source skill version is
-1.7.0; updating repository files does not install it in a user client.
+1.8.0; updating repository files does not install it in a user client.
 
-History pages retain newest-created-time/UUID ordering. The MCP checks that the
+History pages retain newest-created-time/UUID ordering. The shared application snapshot checks that the
 contract exists before returning history, accepts default/zero limit 25, rejects
 negative limits or limits above 100, and limits cursor length to 128 bytes.
 The cursor is the application cursor, not an authenticated frozen-package
@@ -272,3 +272,33 @@ external Dietz capital flows. Isolated interest-then-undo is performance rather
 than capital in every scope. A managed product currently has no historical fix
 path: handle mistaken records using the GUI's supported options; generic fixes
 must not bypass managed-product protection.
+
+## Product history pagination and undo metadata
+
+The App requests one 25-row page on opening product detail; older rows are loaded
+only by **Load more**. `list_product_operations` returns the same bounded page.
+`reversedByOperationId` is resolved against the complete household-scoped history,
+so a row's inverse need not be on its page. `undo.operation` identifies the global
+latest active operation by creation time and UUID, including an off-page target
+or a valuation that blocks older lifecycle undo. `undo.allowed` and typed `reason`
+come from the same evaluator as GUI preview and final revalidation. No candidate
+returns a null operation, false and `no_active_operation`; allowed always has a
+target and a null reason. Empty successful pages return an empty array.
+
+Page, head, candidate and required financial/revision/reservation facts come from
+one SQLite read transaction. Candidate-linked history and effects are batched;
+complete restoration evidence is never capped or serialized. This read creates
+no persistent plan, receipt, cache, quote, snapshot or token change. Private
+request/result JSON and receipt evidence remain excluded, and the existing 64 KiB
+whole-response budget fails closed without truncating metadata or rows.
+
+`latestRecordedOperationId` is an optional change hint, not a financial version,
+preview, cursor, authorization token or frozen snapshot guarantee. Keep productId
+with next/cursor. Refresh from the first page after relevant changes; the App
+restarts when loading more detects a changed head. Terms, cash, reservation and
+archive changes can change eligibility without appending a history row.
+
+**GUI availability is not MCP permission.** `undo.allowed` does not grant
+ledger_write or provide MCP reservation restoration. Existing MCP lifecycle
+restrictions and all preview/commit validation, reservation CAS, receipt retries
+and atomic writes still apply. See [the App history contract](product-operation-history.md).

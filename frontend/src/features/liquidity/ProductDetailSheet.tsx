@@ -16,7 +16,7 @@ import {
   useRecordProductOperation,
   useReleaseReservation
 } from "@/queries/liquidity";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SettleProductCommand } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { ProductCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
@@ -27,7 +27,12 @@ import { ProductTimeFields, type ProductLocalTime } from "./ProductTimeFields";
 import { useReviewedCommand } from "./useReviewedCommand";
 
 
-export function ProductDetailSheet({
+type ProductDetailSheetProps = { productId: string | null; receiptRequestId?: number; open: boolean; onOpenChange: (open: boolean) => void };
+export function ProductDetailSheet(props: ProductDetailSheetProps) {
+  return <ProductDetailSession key={`${props.productId}:${props.open}`} {...props} />;
+}
+
+function ProductDetailSession({
   productId,
   receiptRequestId,
   open,
@@ -65,10 +70,29 @@ export function ProductDetailSheet({
   const product = detail.data?.product;
   const today = history.data?.timezone ? localDateTimeInTimeZone(history.data.timezone)?.date : undefined;
   const paidThroughMax = [today, product?.maturityOn].filter((date): date is string => Boolean(date)).sort()[0];
-  const operationHistory = operations.data?.operations ?? [];
-  const reversedOperationIds = new Set(operationHistory.map((operation) => operation.reversesOperationId).filter(Boolean));
-  const latestOperation = operationHistory.find((operation) => !operation.reversesOperationId && !reversedOperationIds.has(operation.id));
-  const undoTarget = latestOperation?.kind === "value_observation" ? undefined : latestOperation;
+  const operationHistory = operations.data?.pages.flatMap(page => page.operations ?? []) ?? [];
+  const undo = operations.data?.pages[operations.data.pages.length - 1]?.undo;
+  const undoFresh = operations.isSuccess && !operations.isFetching && !operations.isError;
+  const undoTarget = undo?.operation;
+  const [selectedUndoId, setSelectedUndoId] = useState<string | null>(null);
+  const loadMoreRef = useRef<HTMLButtonElement>(null);
+  const historyStatusRef = useRef<HTMLParagraphElement>(null);
+  const loadingTrigger = useRef<HTMLButtonElement | null>(null);
+  const loadMore = async (trigger: HTMLButtonElement) => {
+    loadingTrigger.current = document.activeElement === trigger ? trigger : null;
+    await operations.loadMore();
+  };
+  useLayoutEffect(() => {
+    const trigger = loadingTrigger.current;
+    if (!operations.isFetching && trigger) {
+      if (document.activeElement === trigger || document.activeElement === document.body) {
+        if (trigger.isConnected) trigger.focus();
+        else if (loadMoreRef.current) loadMoreRef.current.focus();
+        else historyStatusRef.current?.focus();
+      }
+      loadingTrigger.current = null;
+    }
+  }, [operations.isFetching, operations.hasNextPage]);
   const releaseIds = useMemo(
     () => (detail.data?.reservations ?? []).filter((reservation) => !reservation.releasedAt).map((reservation) => reservation.id),
     [detail.data?.reservations],
@@ -87,14 +111,20 @@ export function ProductDetailSheet({
       return { kind: "receive_interest", receiveInterest: { productId: product.id, amount, effectiveAt: "", ...localTime, interestPaidThroughOn: paidThrough || null, remainingInterest: remainingInterest || null } };
     }
     if (action === "undo") {
-      if (!undoTarget) {
+      if (!undoTarget || selectedUndoId !== undoTarget.id || !undo?.allowed || !undoFresh) {
         return null;
       }
       return { kind: "undo", undo: { operationId: undoTarget.id } };
     }
     return null;
-  }, [action, amount, fee, interest, localTime, paidThrough, product, releaseIds, remainingInterest, undoTarget]);
-  const { reviewed, setReviewed, clearReviewed } = useReviewedCommand(command);
+  }, [action, amount, fee, interest, localTime, paidThrough, product, releaseIds, remainingInterest, undoTarget, selectedUndoId, undo?.allowed, undoFresh]);
+  const { reviewed, setReviewed, clearReviewed } = useReviewedCommand(command, action === "undo"
+    ? JSON.stringify([operations.sessionKey, operations.dataUpdatedAt, operations.data?.pages.length, undoFresh])
+    : "");
+  useEffect(() => {
+    if (action === "undo") clearReviewed();
+  }, [action, undo?.operation?.id, undo?.allowed, undoFresh, clearReviewed]);
+
   const initializeDraft = useCallback((next: typeof action, sourceProduct: typeof product) => {
     setAction(next);
     clearReviewed();
@@ -110,8 +140,9 @@ export function ProductDetailSheet({
     receiptIntentEpoch.current += 1;
     setReceiptLoadError(false);
     setReceiptMessage(undefined);
+    setSelectedUndoId(next === "undo" ? undoTarget?.id ?? null : null);
     initializeDraft(next, product);
-  }, [initializeDraft, product]);
+  }, [initializeDraft, product, undoTarget?.id]);
   useEffect(() => {
     const requestKey = `${receiptRequestId}:${receiptRetry}`;
     const handled = handledReceiptRequests.current;
@@ -173,7 +204,7 @@ export function ProductDetailSheet({
               {(detail.data?.permittedActions ?? []).includes("settle") && <Button type="button" onClick={() => { beginAction("settle"); }}>{t("availableFunds.confirmReceipt")}</Button>}
               {(detail.data?.permittedActions ?? []).includes("receive_interest") && <Button type="button" variant="outline" onClick={() => { beginAction("interest"); }}>{t("availableFunds.receiveInterest")}</Button>}
               {product.kind === "locked_product" && product.state === "open" && <Button type="button" variant="outline" onClick={() => { beginAction("value"); }}>{t("availableFunds.updateValuation")}</Button>}
-              {undoTarget && !operations.isError && <Button type="button" variant="ghost" disabled={operations.isFetching} onClick={() => { beginAction("undo"); }}>{t("availableFunds.groupedUndo")}</Button>}
+              {undoTarget && undo?.allowed && !operations.isError && <Button type="button" variant="ghost" disabled={!undoFresh} onClick={() => { beginAction("undo"); }}>{t("availableFunds.groupedUndo")}</Button>}
             </fieldset>
             {action && <fieldset disabled={isSaving} className="flex min-w-0 flex-col gap-3 rounded-lg border border-border p-4">
               <h3 className="font-medium">{t(action === "settle" ? "availableFunds.confirmReceipt" : action === "interest" ? "availableFunds.receiveInterest" : action === "value" ? "availableFunds.updateValuation" : "availableFunds.groupedUndo")}</h3>
@@ -222,7 +253,11 @@ export function ProductDetailSheet({
                 <Input id="new-value" inputMode="decimal" placeholder={product.currentValue?.amount} value={amount} onChange={(event) => setAmount(event.target.value)} />
               </>
             )}
-            {action === "undo" && undoTarget && <>
+            {action === "undo" && !command && <>
+              <p role="status">{t("availableFunds.historyChanged")}</p>
+              <Button type="button" variant="ghost" onClick={() => beginAction(null)}>{t("availableFunds.cancel")}</Button>
+            </>}
+            {action === "undo" && command && undoTarget && <>
               <p>{t("availableFunds.undoTarget", { operation: displayEnum(t, "availableFunds", undoTarget.kind), date: formatTimestamp(undoTarget.effectiveAt, history.data?.timezone) })}</p>
               <p className="text-xs text-muted-foreground">{t("availableFunds.undoHelp")}</p>
             </>}
@@ -231,11 +266,11 @@ export function ProductDetailSheet({
             {(action === "settle" || action === "interest" || action === "undo") && command && (
               <div className="flex flex-wrap justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => beginAction(null)}>{t("availableFunds.cancel")}</Button>
-                <Button type="button" variant="outline" disabled={preview.isPending || record.isPending} onClick={() => {
+                <Button type="button" variant="outline" disabled={preview.isPending || record.isPending || (action === "undo" && !undoFresh)} onClick={() => {
                   setError(undefined);
                   void preview.mutateAsync(command).then(setReviewed).catch((cause) => setError(displayError(cause, t("availableFunds.loadError"))));
                 }}>{t("availableFunds.preview")}</Button>
-                <Button type="button" disabled={!reviewed || record.isPending} onClick={() => {
+                <Button type="button" disabled={!reviewed || record.isPending || (action === "undo" && !undoFresh)} onClick={() => {
                   if (!reviewed || record.isPending) {
                     return;
                   }
@@ -266,14 +301,19 @@ export function ProductDetailSheet({
             ))}
             <h3 className="font-medium">{t("availableFunds.history")}</h3>
             {operations.isLoading && <p className="text-muted-foreground">{t("ui.state.loadingPage")}</p>}
-            {operations.isError && <div role="alert" className="flex items-center justify-between gap-2 text-destructive"><span>{t("availableFunds.loadError")}</span><Button type="button" variant="outline" onClick={() => { void operations.refetch(); }}>{t("common.retry")}</Button></div>}
+            {operations.isError && <div role="alert" className="flex items-center justify-between gap-2 text-destructive"><span>{t("availableFunds.loadError")}</span><Button type="button" variant="outline" onClick={(event) => { if (operations.isFetchNextPageError) void loadMore(event.currentTarget); else operations.refresh(); }}>{t("common.retry")}</Button></div>}
             {operations.isSuccess && operationHistory.length === 0 && <p className="text-muted-foreground">{t("availableFunds.noOperations")}</p>}
-            {latestOperation?.kind === "value_observation" && <p className="text-xs text-muted-foreground">{t("availableFunds.undoAfterValuation")}</p>}
+            {undo?.reason && undo.reason !== "no_active_operation" && <p className="text-xs text-muted-foreground">{t(`availableFunds.undoReason_${undo.reason}`, { defaultValue: t("availableFunds.undoReason_unsafe_undo") })}</p>}
+            <Button type="button" variant="ghost" disabled={operations.isFetching || isSaving} onClick={operations.refresh}>{t("availableFunds.refreshHistory")}</Button>
             <ul className="divide-y divide-border">
               {operationHistory.map((operation) => (
-                <li key={operation.id} className="flex flex-col gap-1 py-3"><div className="flex items-center justify-between gap-2"><span>{displayEnum(t, "availableFunds", operation.kind)}</span>{reversedOperationIds.has(operation.id) && <span className="text-xs text-muted-foreground">{t("availableFunds.operationReversed")}</span>}</div><span className="text-xs text-muted-foreground">{formatTimestamp(operation.effectiveAt, history.data?.timezone)}</span></li>
+                <li key={operation.id} className="flex flex-col gap-1 py-3"><div className="flex items-center justify-between gap-2"><span>{displayEnum(t, "availableFunds", operation.kind)}</span>{operation.reversedByOperationId && <span className="text-xs text-muted-foreground">{t("availableFunds.operationReversed")}</span>}</div><span className="text-xs text-muted-foreground">{formatTimestamp(operation.effectiveAt, history.data?.timezone)}</span></li>
               ))}
             </ul>
+            <p ref={historyStatusRef} tabIndex={-1} aria-live="polite" className="text-xs text-muted-foreground">
+              {operations.isFetching ? t("availableFunds.loadingHistory") : operations.isSuccess && !operations.hasNextPage && operationHistory.length > 0 ? t("availableFunds.historyComplete") : ""}
+            </p>
+            {operations.hasNextPage && <Button ref={loadMoreRef} type="button" variant="outline" disabled={operations.isFetching || isSaving} onClick={(event) => { void loadMore(event.currentTarget); }}>{t("availableFunds.loadMoreHistory")}</Button>}
           </div>
         )}
       </SheetContent>
