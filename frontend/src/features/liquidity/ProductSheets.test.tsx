@@ -708,3 +708,36 @@ it("ignores an undo preview from before refresh even when the fresh target is un
   expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
   expect(api.RecordProductOperation).not.toHaveBeenCalled();
 });
+
+it.each(["older-again", null])("restores keyboard retry focus after success with next cursor %s", async next => {
+  let finish!: (value: ReturnType<typeof operationPage>) => void;
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockRejectedValueOnce(new Error("next failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  const more = await screen.findByRole("button", { name: "Load more" }); more.focus();
+  await userEvent.keyboard("{Enter}");
+  const retry = await screen.findByRole("button", { name: "Retry" }); retry.focus();
+  await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(api.ListOperations).toHaveBeenCalledTimes(3));
+  await act(async () => finish({ ...operationPage("head", next), operations: [] }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument());
+  if (next) expect(screen.getByRole("button", { name: "Load more" })).toHaveFocus();
+  else expect(screen.getByText("All operations loaded.")).toHaveFocus();
+  expect(api.ListOperations.mock.calls.slice(1).map(([r]) => r.cursor)).toEqual(["older", "older"]);
+});
+
+it.each(["older-again", null])("does not steal focus on delayed retry success with next cursor %s", async next => {
+  let finish!: (value: ReturnType<typeof operationPage>) => void;
+  api.ListOperations.mockResolvedValueOnce(operationPage()).mockRejectedValueOnce(new Error("next failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  const more = await screen.findByRole("button", { name: "Load more" }); more.focus();
+  await userEvent.keyboard("{Enter}");
+  const retry = await screen.findByRole("button", { name: "Retry" }); retry.focus();
+  await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(api.ListOperations).toHaveBeenCalledTimes(3));
+  const edit = screen.getByRole("button", { name: "Edit terms and rules" }); edit.focus();
+  await act(async () => finish({ ...operationPage("head", next), operations: [] }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument());
+  expect(edit).toHaveFocus();
+});

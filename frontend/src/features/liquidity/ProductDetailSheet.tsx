@@ -78,15 +78,16 @@ function ProductDetailSession({
   const loadMoreRef = useRef<HTMLButtonElement>(null);
   const historyStatusRef = useRef<HTMLParagraphElement>(null);
   const loadingTrigger = useRef<HTMLButtonElement | null>(null);
-  const loadMore = async () => {
-    loadingTrigger.current = document.activeElement === loadMoreRef.current ? loadMoreRef.current : null;
+  const loadMore = async (trigger: HTMLButtonElement) => {
+    loadingTrigger.current = document.activeElement === trigger ? trigger : null;
     await operations.loadMore();
   };
   useLayoutEffect(() => {
     const trigger = loadingTrigger.current;
     if (!operations.isFetching && trigger) {
-      if (document.activeElement === document.body) {
+      if (document.activeElement === trigger || document.activeElement === document.body) {
         if (trigger.isConnected) trigger.focus();
+        else if (loadMoreRef.current) loadMoreRef.current.focus();
         else historyStatusRef.current?.focus();
       }
       loadingTrigger.current = null;
@@ -300,7 +301,7 @@ function ProductDetailSession({
             ))}
             <h3 className="font-medium">{t("availableFunds.history")}</h3>
             {operations.isLoading && <p className="text-muted-foreground">{t("ui.state.loadingPage")}</p>}
-            {operations.isError && <div role="alert" className="flex items-center justify-between gap-2 text-destructive"><span>{t("availableFunds.loadError")}</span><Button type="button" variant="outline" onClick={() => { if (operations.isFetchNextPageError) void loadMore(); else operations.refresh(); }}>{t("common.retry")}</Button></div>}
+            {operations.isError && <div role="alert" className="flex items-center justify-between gap-2 text-destructive"><span>{t("availableFunds.loadError")}</span><Button type="button" variant="outline" onClick={(event) => { if (operations.isFetchNextPageError) void loadMore(event.currentTarget); else operations.refresh(); }}>{t("common.retry")}</Button></div>}
             {operations.isSuccess && operationHistory.length === 0 && <p className="text-muted-foreground">{t("availableFunds.noOperations")}</p>}
             {undo?.reason && undo.reason !== "no_active_operation" && <p className="text-xs text-muted-foreground">{t(`availableFunds.undoReason_${undo.reason}`, { defaultValue: t("availableFunds.undoReason_unsafe_undo") })}</p>}
             <Button type="button" variant="ghost" disabled={operations.isFetching || isSaving} onClick={operations.refresh}>{t("availableFunds.refreshHistory")}</Button>
@@ -312,7 +313,7 @@ function ProductDetailSession({
             <p ref={historyStatusRef} tabIndex={-1} aria-live="polite" className="text-xs text-muted-foreground">
               {operations.isFetching ? t("availableFunds.loadingHistory") : operations.isSuccess && !operations.hasNextPage && operationHistory.length > 0 ? t("availableFunds.historyComplete") : ""}
             </p>
-            {operations.hasNextPage && <Button ref={loadMoreRef} type="button" variant="outline" disabled={operations.isFetching || isSaving} onClick={() => { void loadMore(); }}>{t("availableFunds.loadMoreHistory")}</Button>}
+            {operations.hasNextPage && <Button ref={loadMoreRef} type="button" variant="outline" disabled={operations.isFetching || isSaving} onClick={(event) => { void loadMore(event.currentTarget); }}>{t("availableFunds.loadMoreHistory")}</Button>}
           </div>
         )}
       </SheetContent>
