@@ -107,6 +107,9 @@ results to stable wire DTOs without embedding business rules.
 
 ## Frontend rules
 
+See the [shared-control contract](frontend-controls.md) for component discovery,
+date semantics, interaction conventions, enforced boundaries and exceptions.
+
 - Pages call generated Wails services through the query/mutation helpers.
 - Pages do not open SQLite, construct SQL, call providers, or recalculate
   financial totals.

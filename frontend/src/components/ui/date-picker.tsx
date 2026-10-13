@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { format, isValid } from "date-fns";
 import { enUS, zhCN, zhTW, type Locale } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
@@ -28,8 +28,10 @@ function parseYmd(value: string | undefined): Date | undefined {
   if (!match) {
     return undefined;
   }
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return isValid(date) ? date : undefined;
+  const date = new Date(0);
+  date.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  date.setHours(0, 0, 0, 0);
+  return isValid(date) && formatYmd(date) === value.trim() ? date : undefined;
 }
 
 function formatYmd(date: Date): string {
@@ -49,7 +51,18 @@ function displayDate(date: Date, dateFormat: string | undefined, language: strin
   }
 }
 
-export function DatePicker({
+export const DatePicker = forwardRef<HTMLButtonElement, {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  min?: string;
+  max?: string;
+  disabled?: boolean;
+  placeholder?: string;
+  allowFuture?: boolean;
+  clearable?: boolean;
+  autoFocus?: boolean;
+} & Pick<AriaAttributes, "aria-invalid" | "aria-describedby" | "aria-label" | "aria-labelledby">>(function DatePicker({
   id,
   value,
   onChange,
@@ -60,17 +73,7 @@ export function DatePicker({
   allowFuture = false,
   clearable = false,
   ...aria
-}: {
-  id?: string;
-  value: string;
-  onChange: (value: string) => void;
-  min?: string;
-  max?: string;
-  disabled?: boolean;
-  placeholder?: string;
-  allowFuture?: boolean;
-  clearable?: boolean;
-} & Pick<AriaAttributes, "aria-invalid" | "aria-describedby">) {
+}, ref) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const [open, setOpen] = useState(false);
@@ -85,7 +88,7 @@ export function DatePicker({
     const before = min ? parseYmd(min) : undefined;
     const after = max ? parseYmd(max) : undefined;
     if (before && after) {
-      return { before, after };
+      return [{ before }, { after }];
     }
     if (before) {
       return { before };
@@ -99,6 +102,7 @@ export function DatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
+        ref={ref}
         id={id}
         type="button"
         disabled={disabled}
@@ -138,4 +142,4 @@ export function DatePicker({
       </PopoverContent>
     </Popover>
   );
-}
+});

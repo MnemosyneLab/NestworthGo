@@ -12,6 +12,17 @@ import { formatAmount } from "@/lib/money";
 import { formatHistoricalAmount } from "./historicalAmount";
 import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
+// Page orchestration tests deliberately inject invalid/empty values. Real picker
+// interaction is covered separately in HistoricalDatePicker.test.tsx.
+vi.mock("@/components/ui/date-picker", async () => {
+  const { forwardRef } = await import("react");
+  return { DatePicker: forwardRef<HTMLInputElement, import("react").ComponentProps<typeof import("@/components/ui/date-picker").DatePicker>>(
+    function PickerStub({ onChange, clearable: _clearable, allowFuture: _future, ...props }, ref) {
+      return <input {...props} ref={ref as import("react").Ref<HTMLInputElement>} type="date" onChange={event => onChange(event.target.value)} />;
+    }),
+  };
+});
+
 const { read, origin, seriesRead } = vi.hoisted(() => ({ read: vi.fn(), origin: vi.fn(), seriesRead: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { HistoricalOverview: read, HistoricalOverviewSeries: seriesRead } }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: origin } }));
