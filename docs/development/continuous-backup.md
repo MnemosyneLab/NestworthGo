@@ -103,6 +103,13 @@ swap, rollback and startup-journal recovery path. Both local and cloud restore
 pause replication and persist backup disabled before installation. Restart and
 explicit re-enable produce a fresh isolated stream. Failed operations never
 turn into an automatic restore of a valid local database.
+Once restore attempts its quiesce hook or database close, any installation
+failure requires restart and retains the application's exclusive write fence.
+The quiesce hook can permanently revoke MCP access; a checkpoint or journal
+failure cannot safely undo those partial effects. Backup stays disabled after
+a successful pause, including failures before close, and can be deliberately
+re-enabled after restart. Failures before quiescing or closing retain the live
+session's normal write availability.
 
 ## Optional history retention (phase one)
 
