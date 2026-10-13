@@ -185,11 +185,16 @@ func ReplayCostBasis(startingCost *UnitPrice, events []CostBasisEvent) (CostBasi
 			if event.Fee != nil && event.Fee.Currency() != currency {
 				return CostBasisResult{}, invalidCostBasis("fee", "Sell fee currency must match settlement currency")
 			}
-			gross, grossErr := eventTradeGross(event)
-			if grossErr != nil {
-				return CostBasisResult{}, grossErr
+			// Keep the established unit-price-only replay contract: only the
+			// signed result is a Money boundary for these in-memory callers.
+			gainValue := proceeds.Decimal().Sub(result.Current.AverageUnitCost.Decimal()).Mul(event.Quantity.Decimal())
+			if event.Gross != nil {
+				gross, grossErr := eventTradeGross(event)
+				if grossErr != nil {
+					return CostBasisResult{}, grossErr
+				}
+				gainValue = gross.Sub(result.Current.AverageUnitCost.Decimal().Mul(event.Quantity.Decimal()))
 			}
-			gainValue := gross.Sub(result.Current.AverageUnitCost.Decimal().Mul(event.Quantity.Decimal()))
 			if event.Fee != nil {
 				gainValue = gainValue.Sub(event.Fee.Amount())
 			}

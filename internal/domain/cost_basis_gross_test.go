@@ -66,3 +66,22 @@ func TestReplayCostBasisRejectsMismatchedGrossAndFeeCurrency(t *testing.T) {
 		}
 	}
 }
+
+func TestReplayCostBasisLegacyUnitPriceOnlySellKeepsLargeZeroGain(t *testing.T) {
+	// This pure replay input was supported before persisted-gross replay. It
+	// cannot be persisted as a trade because its gross exceeds Money's cap.
+	cost := mustUnitPrice(t, "1000")
+	result, err := ReplayCostBasis(&cost, []CostBasisEvent{
+		{Kind: CostBasisStartingPoint, Quantity: mustQuantity(t, "1000000000")},
+		{Kind: CostBasisSell, Quantity: mustQuantity(t, "1000000000"), UnitPrice: unitPricePointer(t, "1000"), Currency: "CNY"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Current.Quantity.IsZero() || result.Realized[0].RealizedGain.CanonicalAmount() != "0" {
+		t.Fatalf("legacy replay=%+v", result)
+	}
+	if _, err := ParseMoney("1000000000000", "CNY"); err == nil {
+		t.Fatal("persisted gross cap was weakened")
+	}
+}
