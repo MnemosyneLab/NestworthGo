@@ -128,11 +128,12 @@ function commandPayloadKey(request: ChangeCommandRequest): string {
   return JSON.stringify({ ...request, mutationId: "" });
 }
 
-function withClientMutationID(request: ChangeCommandRequest, slot: { current: clientMutationSlot | null }): ChangeCommandRequest {
-  const payload = commandPayloadKey(request);
+function withClientMutationID(request: ChangeCommandRequest, slot: { current: clientMutationSlot | null }, family = "record", activityId = ""): ChangeCommandRequest {
+  // Owner-retained submissions carry their ID explicitly across hook remounts.
+  if (request.mutationId?.trim()) return request;
+  const payload = JSON.stringify([family, activityId, commandPayloadKey(request)]);
   if (slot.current == null || slot.current.payload !== payload) {
-    const existing = request.mutationId?.trim();
-    slot.current = { payload, id: existing || crypto.randomUUID() };
+    slot.current = { payload, id: crypto.randomUUID() };
   }
   return { ...request, mutationId: slot.current.id };
 }
@@ -141,6 +142,7 @@ export function useRecordChange() {
   const queryClient = useQueryClient();
   const mutationSlot = useRef<clientMutationSlot | null>(null);
   return useMutation({
+    retry: false,
     mutationFn: (request: ChangeCommandRequest) =>
       callService(() => HistoryService.RecordChange(withClientMutationID(request, mutationSlot))),
     onSuccess: (_data, variables) => {
@@ -162,8 +164,9 @@ export function useFixChange() {
   const queryClient = useQueryClient();
   const mutationSlot = useRef<clientMutationSlot | null>(null);
   return useMutation({
+    retry: false,
     mutationFn: ({ activityId, replacement }: { activityId: string; replacement: ChangeCommandRequest }) =>
-      callService(() => HistoryService.FixChange(activityId, withClientMutationID(replacement, mutationSlot))),
+      callService(() => HistoryService.FixChange(activityId, withClientMutationID(replacement, mutationSlot, "fix", activityId))),
     onSuccess: (_data, variables) => {
       mutationSlot.current = null;
       invalidateActivityChange(queryClient, affectedAccountIds(variables.replacement));

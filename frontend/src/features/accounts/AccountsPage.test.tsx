@@ -1699,3 +1699,40 @@ it("keeps a priced holding's native amount visible when household FX is missing"
   expect(row).toHaveTextContent(/SGD\s*123\.00/);
   expect(row).not.toHaveTextContent("Missing price");
 });
+
+
+it.each(["deposit", "simple"])("retains ordinary account %s submission through child replacement and read failure", async entry => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([entry === "deposit" ? brokerageAccount : emptyAccount]);
+  previewChange.mockResolvedValue({ resulting: [{ name: "Synthetic account", amount: "1125", currency: "USD" }] });
+  let reject!: (error: Error) => void;
+  recordChange.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; })).mockResolvedValue({});
+  const { queryClient } = renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: entry === "deposit" ? /MooMoo/ : /Checking.*Bank account/ }));
+  await userEvent.click(await screen.findByRole("button", { name: entry === "deposit" ? "Deposit or withdraw" : "Update balance" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  const amount = within(form).getByLabelText(entry === "deposit" ? "Amount" : "New value");
+  await userEvent.click(amount); await userEvent.keyboard("{Control>}a{/Control}1125");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(recordChange).toHaveBeenCalledTimes(1));
+  const original = recordChange.mock.calls[0][0];
+  if (entry === "deposit") {
+    const removed = screen.getByRole("radio", { name: "Money removed" });
+    expect(removed).toBeDisabled(); await userEvent.click(removed);
+    expect(screen.getByRole("radio", { name: "Money added" })).toBeChecked();
+  }
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(screen.getByRole("form", { name: "Record change" })).toBe(form);
+  listAccounts.mockRejectedValue(new Error("background account read unavailable"));
+  await act(async () => { await queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all }); });
+  expect(screen.getByRole("form", { name: "Record change" })).toBe(form);
+  await act(async () => { reject(new Error("transport outcome unknown")); });
+  const retry = await within(form).findByRole("button", { name: "Retry same submission" });
+  expect(amount).toHaveValue("1125"); expect(amount).toBeDisabled();
+  await userEvent.click(retry);
+  await waitFor(() => expect(recordChange).toHaveBeenCalledTimes(2));
+  expect(recordChange.mock.calls[1][0]).toEqual(original);
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
+});

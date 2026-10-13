@@ -3,7 +3,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytic
 /* default historical fixture */
 const defaultHistorical = { capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] };
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { AppProviders, queryClient } from "./app/providers";
@@ -12,8 +12,9 @@ import { queryKeys } from "./queries/keys";
 import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
 
-const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
+  ordinaryRecord: vi.fn(),
   historyOrigin: vi.fn(),
   historicalRead: vi.fn(),
   upcomingRead: vi.fn(),
@@ -161,6 +162,9 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
     HistoryOrigin: historyOrigin,
+    HistoryMutationAllowed: () => Promise.resolve({}),
+    PreviewChange: () => Promise.resolve({ resulting: [{ name: "Synthetic checking", amount: "1125", currency: "USD" }] }),
+    RecordChange: (...args: unknown[]) => ordinaryRecord(...args),
   },
 }));
 
@@ -185,6 +189,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", 
   Service: {
     InstrumentQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
     FXQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
+    ListFXPreferences: () => Promise.resolve([]),
   },
 }));
 
@@ -250,6 +255,7 @@ beforeEach(() => {
   listAccounts.mockResolvedValue([]);
   accountValuations.mockReset();
   accountValuations.mockResolvedValue([]);
+  ordinaryRecord.mockReset();
   portfolio.mockReset();
   portfolio.mockResolvedValue({ ...emptyPortfolio });
   holdingsByAccounts.mockReset();
@@ -690,4 +696,40 @@ it.each(["startup", "settings", "bootstrap"])("keeps the workspace through a fai
     query.setOptions({ ...query.options, queryFn: originalFn });
     await queryClient.refetchQueries({ queryKey: key });
   }
+});
+
+
+it("blocks App and object navigation during an actual ordinary submission and its unknown recovery", async () => {
+  await i18n.changeLanguage("en");
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([checkingAccount]); accountValuations.mockResolvedValue([checkingValuation]);
+  let reject!: (error: Error) => void;
+  ordinaryRecord.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; })).mockResolvedValue({});
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  const overviewNav = within(nav).getByRole("button", { name: "Overview" });
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  const detail = await screen.findByTestId("account-detail");
+  const analysis = screen.getByRole("button", { name: "Return analysis" });
+  await userEvent.click(screen.getByRole("button", { name: "Update balance" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  const value = within(form).getByLabelText("New value");
+  await userEvent.click(value); await userEvent.keyboard("{Control>}a{/Control}1125");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(ordinaryRecord).toHaveBeenCalledTimes(1));
+  await userEvent.click(overviewNav); await userEvent.click(analysis);
+  expect(detail).toBeVisible(); expect(screen.getByRole("form", { name: "Record change" })).toBe(form);
+  await act(async () => { reject(new Error("outcome unknown")); });
+  const retry = await within(form).findByRole("button", { name: "Retry same submission" });
+  await userEvent.click(overviewNav); await userEvent.click(analysis);
+  expect(detail).toBeVisible(); expect(screen.getByRole("form", { name: "Record change" })).toBe(form);
+  expect(ordinaryRecord).toHaveBeenCalledTimes(1);
+  await userEvent.click(retry);
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
+  expect(ordinaryRecord.mock.calls[1]).toEqual(ordinaryRecord.mock.calls[0]);
+  await userEvent.click(overviewNav);
+  expect(screen.getByTestId("overview-net-worth")).toBeVisible();
 });

@@ -76,6 +76,41 @@ means a proven refusal; `planId` means the in-memory plan is unavailable and
 cannot prove whether an earlier confirmation committed. No-field legacy
 `stale_preview` responses are treated conservatively as unavailable plans.
 
+Ordinary Record and Fix submissions also register with the owning Sheet
+synchronously before dispatch. The owner retains the immutable reviewed command,
+original client mutation ID, Record/Fix family, Fix source Activity, reviewed
+resulting values, household and QueryClient session. Pending and unknown outcomes
+block edits, new previews, dismissal, application navigation and target
+replacement, including the account-action deposit/withdraw toggle. A surviving
+Sheet restores this submission after a child form remount. Failed background
+reads preserve the owner and review.
+
+| Outcome | In-session behavior |
+| --- | --- |
+| Pending | Retain identity and review; prevent a second dispatch |
+| Unknown | Keep the guard; offer explicit **Retry same submission** |
+| Confirmed success | Resolve only the current owner/ID and notify/close once |
+| Proven precommit refusal | Release the guard and return to preview/edit |
+| Changed household, session or Fix source | Keep recovery; block dispatch and stale completion |
+
+Retry sends the saved request and mutation ID, plus the original Fix source;
+it never reconstructs a request from refreshed defaults. Record's audited
+business refusals (`invalid_change`, `no_change`, `insufficient_balance`,
+`insufficient_quantity`, `managed_position_conflict`) precede its atomic write
+and follow durable receipt lookup. Other errors remain unknown. Fix commits its
+inverse/replacement before snapshot maintenance, and same-ID replay reruns that
+maintenance. Generic domain errors such as validation, conflict, decimal overflow
+and history errors therefore remain unknown for Fix; only `cannot_fix_change`,
+which originates in its precommit correction plan, releases its guard. A
+mutation-ID conflict is not proof that no prior write exists.
+
+This scope covers History Record/Fix and account-action Record forms (deposit,
+withdraw, FX, transfer, buy, sell, dividend and history-started value updates).
+Pre-history direct value writes, position import, Undo and other mutation
+families keep their existing behavior. The backend request hash, schema and MCP
+plan/receipt behavior are unchanged; the frontend binds family and Fix source
+separately because they are absent from the ordinary request hash.
+
 This is in-session recovery, not persistence across process restart. Desktop
 plans are held in memory; if a plan has actually disappeared, retry cannot
 resolve its receipt through the current desktop API. Keep the review guarded

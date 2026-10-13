@@ -228,7 +228,7 @@ function RecoveryForm() {
     <output aria-label="Recovery identity">{confirmation.identity ?? "draft"}</output>
     <output aria-label="Retained review">{JSON.stringify(confirmation.recovery)}</output>
     <button onClick={() => confirmation.begin("immutable-plan", { amount: "100", currency: "USD" })}>Dispatch confirmation</button>
-    <button onClick={confirmation.resolve}>Resolve confirmation</button>
+    <button onClick={() => confirmation.resolve()}>Resolve confirmation</button>
   </>;
 }
 

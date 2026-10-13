@@ -1,5 +1,9 @@
+import { RecordChangeForm } from "./RecordChangeForm";
+import { emptyChangeRequest } from "./activityToCommand";
+import { useFixChange } from "@/queries/history";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -1801,4 +1805,204 @@ it("requires explicit received input for cross-currency cash transfer", async ()
   await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({
     sent: "100.00000001", received: "14.00000001", sentCurrency: "CNY", receivedCurrency: "USD",
   })));
+});
+
+
+async function openOrdinaryRecoveryForm(family: "record" | "fix") {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  previewChange.mockResolvedValue({ resulting: [{ name: "Synthetic Checking", amount: "1125", currency: "USD" }] });
+  previewFixChange.mockResolvedValue({ resulting: [{ name: "Synthetic Checking", amount: "1025", currency: "USD" }] });
+  if (family === "fix") listActivities.mockResolvedValue([{ id: "source-1", kind: "cash_in", reason: "income", effectiveAt: "2026-01-02T12:00:00Z", effectiveLocalDate: "2026-01-02", effects: [{ role: "amount", direction: "added", target: "account_value", accountId: "acc-1", money: { amount: "100", currency: "USD" } }] }]);
+  const view = renderPage();
+  if (family === "record") await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  else {
+    await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Fix" }));
+  }
+  const form = await screen.findByRole("form", { name: "Record change" });
+  if (family === "record") await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+  await userEvent.clear(within(form).getByLabelText("Amount"));
+  await userEvent.type(within(form).getByLabelText("Amount"), "125");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await within(form).findByRole("button", { name: "Confirm" });
+  return { ...view, form };
+}
+
+it.each(["record", "fix"] as const)("synchronously guards ordinary %s, retains unknown intent and explicitly retries the same ID", async family => {
+  const mutation = family === "record" ? recordChange : fixChange;
+  let reject!: (error: Error) => void;
+  mutation.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+  mutation.mockResolvedValue({});
+  const { form } = await openOrdinaryRecoveryForm(family);
+  const confirm = within(form).getByRole("button", { name: "Confirm" });
+  act(() => {
+    confirm.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    expect(hasUnresolvedSheetConfirmation()).toBe(true);
+    confirm.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    fireEvent.change(within(form).getByLabelText("Amount"), { target: { value: "999" } });
+    fireEvent.keyDown(document, { key: "Escape" });
+  });
+  await waitFor(() => expect(mutation).toHaveBeenCalledTimes(1));
+  const submitted = mutation.mock.calls[0];
+  const command = submitted[family === "record" ? 0 : 1];
+  expect(command).toMatchObject({ amount: "125", mutationId: expect.any(String) });
+  if (family === "fix") expect(submitted[0]).toBe("source-1");
+  expect(within(form).getByLabelText("Amount")).toHaveValue("125");
+  expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("dialog").parentElement!.previousElementSibling!);
+  expect(screen.getByRole("form", { name: "Record change" })).toBe(form);
+  await act(async () => { reject(new Error("transport lost the outcome")); });
+  const retry = await within(form).findByRole("button", { name: "Retry same submission" });
+  expect(within(form).getByLabelText("Amount")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.getByRole("form", { name: "Record change" })).toBe(form);
+  expect(mutation).toHaveBeenCalledTimes(1);
+  await userEvent.click(retry);
+  await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
+  expect(mutation.mock.calls[1]).toEqual(submitted);
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
+});
+
+it.each(["record", "fix"] as const)("releases ordinary %s only for an audited precommit refusal", async family => {
+  const mutation = family === "record" ? recordChange : fixChange;
+  mutation.mockRejectedValueOnce(new Error(JSON.stringify({ code: family === "record" ? "insufficient_balance" : "cannot_fix_change", message: "precommit refusal" })));
+  const { form } = await openOrdinaryRecoveryForm(family);
+  await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+  await within(form).findByRole("button", { name: "Preview" });
+  expect(hasUnresolvedSheetConfirmation()).toBe(false);
+  expect(within(form).getByLabelText("Amount")).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Close" })).toBeEnabled();
+  await userEvent.keyboard("{Escape}");
+});
+
+it.each([
+  { code: "conflict", field: "inputGeneration" },
+  { code: "validation", field: "localDate" },
+  { code: "decimal_overflow" },
+  { code: "history_not_started" },
+])("keeps postcommit-shaped Fix failure $code recoverable with the original source and ID", async error => {
+  fixChange.mockRejectedValueOnce(new Error(JSON.stringify({ ...error, message: "snapshot rebuild failed after financial commit" }))).mockResolvedValue({});
+  const { form } = await openOrdinaryRecoveryForm("fix");
+  await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+  const retry = await within(form).findByRole("button", { name: "Retry same submission" });
+  expect(hasUnresolvedSheetConfirmation()).toBe(true);
+  expect(within(form).getByLabelText("Amount")).toBeDisabled();
+  expect(within(form).getByText(i18n.t("history.submissionRetryHelp"))).toBeInTheDocument();
+  const original = fixChange.mock.calls[0];
+  await userEvent.click(retry);
+  await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
+  expect(fixChange.mock.calls[1]).toEqual(original);
+  expect(previewFixChange).toHaveBeenCalledTimes(1);
+});
+
+it.each(["record", "fix"] as const)("preserves ordinary %s ownership through failed background reads", async family => {
+  const mutation = family === "record" ? recordChange : fixChange;
+  let reject!: (error: Error) => void;
+  mutation.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; })).mockResolvedValue({});
+  const { form, queryClient } = await openOrdinaryRecoveryForm(family);
+  await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+  listAccounts.mockRejectedValue(new Error("read unavailable"));
+  historyOrigin.mockRejectedValue(new Error("origin unavailable"));
+  listActivityPage.mockRejectedValue(new Error("history unavailable"));
+  await act(async () => { await queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all }); await queryClient.invalidateQueries({ queryKey: queryKeys.history.origin }); await queryClient.invalidateQueries({ queryKey: ["history", "activityPage"] }); });
+  expect(screen.getByRole("form", { name: "Record change" })).toBe(form);
+  expect(hasUnresolvedSheetConfirmation()).toBe(true);
+  await act(async () => { reject(new Error("outcome unknown")); });
+  expect(await within(form).findByRole("button", { name: "Retry same submission" })).toBeEnabled();
+  expect(mutation).toHaveBeenCalledTimes(1);
+  await userEvent.click(within(form).getByRole("button", { name: "Retry same submission" }));
+  await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
+  expect(mutation.mock.calls[1]).toEqual(mutation.mock.calls[0]);
+});
+
+function recoveryHarness(client: ReturnType<typeof createTestQueryClient>, childKey: string, onRecorded: () => void, source?: string, ownerKey = "owner") {
+  return <QueryClientProvider client={client}><Sheet key={ownerKey} open><SheetContent><SheetHeader><SheetTitle>Synthetic recovery</SheetTitle></SheetHeader>
+    <RecordChangeForm key={childKey} initial={{ ...emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "USD"), accountId: "acc-1", amount: "125" }} fixActivityId={source} onRecorded={onRecorded} />
+  </SheetContent></Sheet></QueryClientProvider>;
+}
+
+it.each(["record", "fix"] as const)("restores pending and unknown ordinary %s after a child remount", async family => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  previewChange.mockResolvedValue({ resulting: [{ name: "Saved review", amount: "1125", currency: "USD" }] });
+  previewFixChange.mockResolvedValue({ resulting: [{ name: "Saved review", amount: "1025", currency: "USD" }] });
+  const mutation = family === "record" ? recordChange : fixChange;
+  let reject!: (error: Error) => void;
+  mutation.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; })).mockResolvedValue({});
+  const client = createTestQueryClient(); const onRecorded = vi.fn(); const source = family === "fix" ? "source-1" : undefined;
+  const view = render(recoveryHarness(client, "first", onRecorded, source));
+  await userEvent.click(await screen.findByRole("button", { name: "Preview" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(mutation).toHaveBeenCalledTimes(1));
+  const original = mutation.mock.calls[0];
+  view.rerender(recoveryHarness(client, "pending-remount", onRecorded, source));
+  expect(screen.getByRole("button", { name: i18n.t("common.pending") })).toBeDisabled();
+  expect(screen.getByLabelText("Amount")).toHaveValue("125");
+  await act(async () => { reject(new Error("lost IPC result")); });
+  await screen.findByRole("button", { name: "Retry same submission" });
+  view.rerender(recoveryHarness(client, "unknown-remount", onRecorded, source));
+  expect(screen.getByText(/Saved review:/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Retry same submission" }));
+  await waitFor(() => expect(onRecorded).toHaveBeenCalledTimes(1));
+  expect(mutation.mock.calls[1]).toEqual(original);
+  expect(hasUnresolvedSheetConfirmation()).toBe(false);
+});
+
+it("does not let a detached ordinary submission close a newer Sheet owner", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  previewChange.mockResolvedValue({ resulting: [] });
+  let finishOld!: (value: object) => void;
+  recordChange.mockImplementationOnce(() => new Promise(done => { finishOld = done; })).mockImplementationOnce(() => new Promise(() => {}));
+  const client = createTestQueryClient(); const oldDone = vi.fn(); const newDone = vi.fn();
+  const view = render(recoveryHarness(client, "first", oldDone));
+  await userEvent.click(await screen.findByRole("button", { name: "Preview" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(recordChange).toHaveBeenCalledTimes(1));
+  view.rerender(recoveryHarness(client, "second", newDone, undefined, "new-owner"));
+  await userEvent.click(await screen.findByRole("button", { name: "Preview" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(recordChange).toHaveBeenCalledTimes(2));
+  await act(async () => { finishOld({}); });
+  expect(oldDone).not.toHaveBeenCalled(); expect(newDone).not.toHaveBeenCalled();
+  expect(hasUnresolvedSheetConfirmation()).toBe(true);
+  expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+});
+
+it.each(["household", "session", "fix-source"])("blocks recovery dispatch and stale success after a changed %s", async change => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  previewFixChange.mockResolvedValue({ resulting: [] });
+  let finish!: (value: object) => void;
+  fixChange.mockImplementationOnce(() => new Promise(done => { finish = done; }));
+  const client = createTestQueryClient(); const onRecorded = vi.fn();
+  const view = render(recoveryHarness(client, "first", onRecorded, "source-1"));
+  await userEvent.click(await screen.findByRole("button", { name: "Preview" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(fixChange).toHaveBeenCalledTimes(1));
+  if (change === "household") await act(async () => { client.setQueryData(queryKeys.household.bootstrap, { household: { id: "other", baseCurrency: "USD" } }); });
+  if (change === "session") {
+    const otherClient = createTestQueryClient();
+    otherClient.setQueryData(queryKeys.household.bootstrap, client.getQueryData(queryKeys.household.bootstrap));
+    view.rerender(recoveryHarness(otherClient, "new-session", onRecorded, "source-1"));
+  }
+  if (change === "fix-source") view.rerender(recoveryHarness(client, "new-source", onRecorded, "source-2"));
+  await act(async () => { finish({}); });
+  expect(onRecorded).not.toHaveBeenCalled();
+  expect(hasUnresolvedSheetConfirmation()).toBe(true);
+  const retry = await screen.findByRole("button", { name: "Retry same submission" });
+  expect(retry).toBeDisabled();
+  fireEvent.click(retry);
+  expect(fixChange).toHaveBeenCalledTimes(1);
+});
+
+it("assigns distinct hook intents to identical Fix payloads for different sources and prevents automatic retry", async () => {
+  fixChange.mockRejectedValueOnce(new Error("unknown first outcome")).mockResolvedValue({});
+  const client = createTestQueryClient();
+  client.setDefaultOptions({ queries: { retry: false }, mutations: { retry: 2 } });
+  const { result } = renderHook(() => useFixChange(), { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> });
+  const replacement = { ...emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "USD"), accountId: "acc-1", amount: "125" };
+  await act(async () => { await expect(result.current.mutateAsync({ activityId: "source-1", replacement })).rejects.toThrow(); });
+  await act(async () => { await result.current.mutateAsync({ activityId: "source-2", replacement }); });
+  expect(fixChange).toHaveBeenCalledTimes(2);
+  expect(fixChange.mock.calls[0][1].mutationId).not.toBe(fixChange.mock.calls[1][1].mutationId);
 });
