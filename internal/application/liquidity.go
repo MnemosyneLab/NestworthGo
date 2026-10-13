@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -149,35 +150,75 @@ func liquiditySourceFromComponent(account domain.AccountValuation, component dom
 }
 
 func (s *Service) Product(ctx context.Context, productID domain.ProductContractID) (ProductDetail, error) {
-	household, err := s.requireHousehold(ctx)
+	snapshot, err := s.productDetailSnapshot(ctx)
 	if err != nil {
 		return ProductDetail{}, err
 	}
-	contract, err := s.repository.Product(ctx, household.ID, productID)
-	if err != nil {
-		return ProductDetail{}, err
+	for _, contract := range snapshot.Contracts {
+		if contract.ID == productID {
+			materialized, err := s.materializeProductDetails(ctx, snapshot, s.clock())
+			if err != nil {
+				return ProductDetail{}, err
+			}
+			return materialized.detail(contract)
+		}
 	}
-	return s.productDetail(ctx, household.ID, contract)
+	return ProductDetail{}, &domain.Error{Code: domain.ErrNotFound, Message: "product was not found"}
 }
 
 func (s *Service) ListProducts(ctx context.Context, accountID *domain.AccountID, includeClosed bool) ([]ProductDetail, error) {
-	household, err := s.requireHousehold(ctx)
+	snapshot, err := s.productDetailSnapshot(ctx)
 	if err != nil {
 		return nil, err
 	}
-	contracts, err := s.repository.ListProducts(ctx, household.ID, accountID, includeClosed)
-	if err != nil {
-		return nil, err
+	contracts := make([]domain.ProductContract, 0, len(snapshot.Contracts))
+	for _, contract := range snapshot.Contracts {
+		if accountID != nil && contract.AccountID != *accountID {
+			continue
+		}
+		if !includeClosed && contract.State != domain.ProductStateOpen {
+			continue
+		}
+		contracts = append(contracts, contract)
 	}
+	// Preserve the repository list's public ordering; the snapshot is ordered for replay.
+	sort.Slice(contracts, func(i, j int) bool {
+		a, b := contracts[i], contracts[j]
+		if a.StartOn != b.StartOn {
+			return a.StartOn > b.StartOn
+		}
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			return a.CreatedAt.After(b.CreatedAt)
+		}
+		return a.ID.String() > b.ID.String()
+	})
 	details := make([]ProductDetail, 0, len(contracts))
+	if len(contracts) == 0 {
+		return details, nil
+	}
+	materialized, err := s.materializeProductDetails(ctx, snapshot, s.clock())
+	if err != nil {
+		return nil, err
+	}
 	for _, contract := range contracts {
-		detail, err := s.productDetail(ctx, household.ID, contract)
+		detail, err := materialized.detail(contract)
 		if err != nil {
 			return nil, err
 		}
 		details = append(details, detail)
 	}
 	return details, nil
+}
+
+func (s *Service) productDetailSnapshot(ctx context.Context) (domain.LiquiditySnapshot, error) {
+	snapshot, err := s.repository.ReadLiquiditySnapshot(ctx)
+	if err != nil {
+		return snapshot, err
+	}
+	if snapshot.Portfolio.Household == nil {
+		return snapshot, onboardingRequired()
+	}
+	return snapshot, nil
 }
 
 func (s *Service) ListProductOperations(ctx context.Context, productID domain.ProductContractID, cursor string, limit int) (ProductOperationPage, error) {
@@ -209,53 +250,91 @@ func encodeProductOperationCursor(operation domain.ProductOperation) string {
 }
 
 func (s *Service) productDetail(ctx context.Context, householdID domain.HouseholdID, contract domain.ProductContract) (ProductDetail, error) {
-	policies, err := s.repository.ListLiquidityPolicies(ctx, householdID)
+	snapshot, err := s.productDetailSnapshot(ctx)
 	if err != nil {
 		return ProductDetail{}, err
 	}
-	var policy domain.LiquidityPolicy
-	key := domain.HoldingSourceRef(contract.AccountID, contract.HoldingID).Key()
-	for _, candidate := range policies {
-		if candidate.Source.Key() == key {
-			policy = candidate
-			break
-		}
+	if snapshot.Portfolio.Household.ID != householdID {
+		return ProductDetail{}, &domain.Error{Code: domain.ErrNotFound, Message: "product was not found"}
 	}
-	reservations, err := s.repository.ListLiquidityReservations(ctx, householdID, false)
+	materialized, err := s.materializeProductDetails(ctx, snapshot, s.clock())
 	if err != nil {
 		return ProductDetail{}, err
 	}
-	active := []domain.LiquidityReservation{}
-	for _, reservation := range reservations {
-		if reservation.Source.Key() == key && reservation.Active() {
-			active = append(active, reservation)
-		}
+	return materialized.detail(contract)
+}
+
+// productDetailMaterialization lives only for one response. All facts come from
+// the same repository transaction, and valuation runs once with fixed read settings.
+type productDetailMaterialization struct {
+	policies     map[string]domain.LiquidityPolicy
+	reservations map[string][]domain.LiquidityReservation
+	components   map[domain.HoldingID]domain.ValuationComponent
+	symbols      map[domain.InstrumentID]string
+	localDate    string
+}
+
+func (s *Service) materializeProductDetails(ctx context.Context, snapshot domain.LiquiditySnapshot, asOf time.Time) (productDetailMaterialization, error) {
+	result := productDetailMaterialization{
+		policies:     make(map[string]domain.LiquidityPolicy, len(snapshot.Policies)),
+		reservations: make(map[string][]domain.LiquidityReservation),
+		components:   make(map[domain.HoldingID]domain.ValuationComponent, len(snapshot.Portfolio.Holdings)),
+		symbols:      make(map[domain.InstrumentID]string, len(snapshot.Portfolio.Instruments)),
 	}
-	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	valuation := *s.valuation
+	valuation.now = func() time.Time { return asOf }
+	valuation.readContext = ctx
+	provider, ttl := valuation.providerKey(), valuation.quoteTTL()
+	valuation.fxProviderKey = func() string { return provider }
+	valuation.quoteCacheTTL = func() time.Duration { return ttl }
+	valued, _, err := valuation.ValueAccounts(snapshot.Portfolio)
 	if err != nil {
-		return ProductDetail{}, err
+		return result, err
 	}
-	valued, _, err := s.valuation.ValueAccounts(snapshot)
-	if err != nil {
-		return ProductDetail{}, err
-	}
-	var current *domain.Money
 	for _, account := range valued {
 		for _, component := range account.Components {
-			if component.HoldingID != nil && *component.HoldingID == contract.HoldingID && component.NativeAmount != "" {
-				money, err := displayNativeValuation(component.NativeAmount, component.NativeCurrency)
-				if err != nil {
-					return ProductDetail{}, err
-				}
-				current = &money
+			if component.HoldingID != nil && component.NativeAmount != "" {
+				result.components[*component.HoldingID] = component
 			}
 		}
 	}
-	localDate, _, err := domain.LocalCivilDate(s.clock(), timezoneOrUTC(snapshot.Origin))
-	if err != nil {
-		return ProductDetail{}, err
+	for _, policy := range snapshot.Policies {
+		key := policy.Source.Key()
+		if _, exists := result.policies[key]; !exists {
+			result.policies[key] = policy
+		}
 	}
-	display, err := domain.ProductAvailabilityState(contract, policy, localDate)
+	for _, reservation := range snapshot.Reservations {
+		if reservation.Active() {
+			key := reservation.Source.Key()
+			result.reservations[key] = append(result.reservations[key], reservation)
+		}
+	}
+	for _, instrument := range snapshot.Portfolio.Instruments {
+		if _, exists := result.symbols[instrument.ID]; !exists {
+			result.symbols[instrument.ID] = pointerText(instrument.Symbol)
+		}
+	}
+	result.localDate, _, err = domain.LocalCivilDate(asOf, timezoneOrUTC(snapshot.Portfolio.Origin))
+	return result, err
+}
+
+func (m productDetailMaterialization) detail(contract domain.ProductContract) (ProductDetail, error) {
+	key := domain.HoldingSourceRef(contract.AccountID, contract.HoldingID).Key()
+	policy := m.policies[key]
+	active := m.reservations[key]
+	if active == nil {
+		active = []domain.LiquidityReservation{}
+	}
+	var current *domain.Money
+	if component, ok := m.components[contract.HoldingID]; ok {
+		money, err := displayNativeValuation(component.NativeAmount, component.NativeCurrency)
+		if err != nil {
+			return ProductDetail{}, err
+		}
+		current = &money
+	}
+	display, err := domain.ProductAvailabilityState(contract, policy, m.localDate)
 	if err != nil {
 		return ProductDetail{}, err
 	}
@@ -269,15 +348,8 @@ func (s *Service) productDetail(ctx context.Context, householdID domain.Househol
 	} else {
 		disabled["settle"] = "the contract is not open"
 	}
-	symbol := ""
-	for _, instrument := range snapshot.Instruments {
-		if instrument.ID == contract.InstrumentID {
-			symbol = pointerText(instrument.Symbol)
-			break
-		}
-	}
 	return ProductDetail{
-		Symbol: symbol, Contract: contract, Policy: policy, CurrentValue: current, DisplayState: display,
+		Symbol: m.symbols[contract.InstrumentID], Contract: contract, Policy: policy, CurrentValue: current, DisplayState: display,
 		Reservations: active, PredecessorID: contract.RenewedFromID, PermittedActions: actions, DisabledReasons: disabled,
 	}, nil
 }
