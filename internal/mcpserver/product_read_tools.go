@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -54,7 +55,14 @@ func compareReadText(a, b string, direction string) int {
 	return v
 }
 func normalizedReadName(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
-func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductListInput, id string) (ReadEnvelope, error) {
+func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductListInput, id *domain.ProductContractID) (ReadEnvelope, error) {
+	if id != nil {
+		normalized, err := domain.ParseProductContractID(id.String())
+		if err != nil {
+			return ReadEnvelope{}, err
+		}
+		id = &normalized
+	}
 	f := ProductReadFilter{}
 	if in.Filter != nil {
 		f = *in.Filter
@@ -81,8 +89,8 @@ func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductListInp
 	return s.buildRead(ctx, g, in.Limit, func(ctx context.Context) (readCapture, error) {
 		adapter := liquidity.NewService(s.app)
 		var products []liquidity.ProductDetailDTO
-		if id != "" {
-			v, err := adapter.Product(ctx, id)
+		if id != nil {
+			v, err := adapter.Product(ctx, id.String())
 			if err != nil {
 				return readCapture{}, err
 			}
@@ -159,12 +167,12 @@ func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductListInp
 		}
 		sections["products"] = raw
 		summary := map[string]any{"totalProductCount": total, "matchedProductCount": len(rows), "productsScope": "filtered", "details": "get_read_item returns full detail from this capture; reservations are separate sections"}
-		if id != "" {
-			summary["detail"] = details[id]
+		if id != nil {
+			summary["detail"] = details[id.String()]
 		}
 		initial := []string{"products"}
-		if id != "" {
-			initial = append(initial, "reservations/"+id)
+		if id != nil {
+			initial = append(initial, "reservations/"+id.String())
 		}
 		return readCapture{InitialSections: initial, Kind: "products", Query: map[string]any{"accountId": in.AccountID, "includeClosed": in.IncludeClosed, "filter": f, "sort": order, "id": id}, Summary: summary, Sections: sections, Details: details}, nil
 	})

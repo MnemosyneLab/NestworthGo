@@ -18,6 +18,10 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	if err != nil {
 		panic(err)
 	}
+	if name == "get_product" {
+		minimum := 1
+		schema.Properties["id"].MinLength = &minimum
+	}
 	if p := schema.Properties["responseMode"]; p != nil {
 		p.Enum = []any{"paged"}
 	}

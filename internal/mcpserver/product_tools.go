@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -40,7 +41,7 @@ func (s *Service) productTools(server *mcp.Server) {
 			return nil, err
 		}
 		if in.ResponseMode == "paged" {
-			return s.pagedProducts(ctx, generation, in, "")
+			return s.pagedProducts(ctx, generation, in, nil)
 		}
 		return products.ListProducts(ctx, liquidity.ListProductsRequest{AccountID: in.AccountID, IncludeClosed: in.IncludeClosed})
 	})
@@ -49,7 +50,11 @@ func (s *Service) productTools(server *mcp.Server) {
 			return nil, err
 		}
 		if in.ResponseMode == "paged" {
-			return s.pagedProducts(ctx, generation, ProductListInput{Limit: in.Limit}, in.ID)
+			id, err := domain.ParseProductContractID(in.ID)
+			if err != nil {
+				return nil, err
+			}
+			return s.pagedProducts(ctx, generation, ProductListInput{Limit: in.Limit}, &id)
 		}
 		return products.Product(ctx, in.ID)
 	})

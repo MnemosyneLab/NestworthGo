@@ -814,7 +814,9 @@ total/matched/filtered-out sources. availableBase requires sort.horizonOn from
 captured buckets and uses domain NetBase. currentValueBase uses the same
 valuation/FX capture's unrounded BaseAmountExact. Source rows preserve full
 policy/revision/routes/bucket/evidence/reservation data and add instrumentId/type,
-nullable hasRule/policyEditable. Cash/value sources have null instrument identity.
+nullable productKind/hasRule/policyEditable. productKind comes from the captured
+managed contract and is separate from instrumentType; cash/value sources have
+null instrument identity and productKind.
 Saved explicit/contract rules mean hasRule=true; defaults mean false. Excluded
 rows resolve policy facts from the same source snapshot; unavailable facts stay
 null and do not match either boolean. policyEditable is eligibility, not token

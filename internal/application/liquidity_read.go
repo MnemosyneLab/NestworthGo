@@ -15,6 +15,7 @@ type LiquidityReadSource struct {
 	Result           domain.LiquiditySourceResult
 	InstrumentID     *string
 	InstrumentType   *string
+	ProductKind      *string
 	HasRule          *bool
 	PolicyEditable   *bool
 	CurrentValueBase *decimal.Decimal
@@ -47,6 +48,10 @@ func (s *Service) LiquidityRead(ctx context.Context, q LiquidityOverviewQuery) (
 	for _, r := range overview.Sources {
 		source := byKey[r.SourceKey]
 		row := LiquidityReadSource{Result: r, SearchText: r.DisplayName}
+		if source.Contract != nil {
+			kind := string(source.Contract.Kind)
+			row.ProductKind = &kind
+		}
 		if source.Ref.HoldingID != nil {
 			if h, ok := holdings[*source.Ref.HoldingID]; ok {
 				if i, ok := instruments[h.InstrumentID]; ok {

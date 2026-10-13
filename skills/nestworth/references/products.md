@@ -354,7 +354,9 @@ confirm it; preview and commit independently revalidate current facts.
 See [paging and batches](paging-and-batches.md). Liquidity source filters support
 accountIds, typed sourceRefs, sourceKinds, instrumentIds, actual instrumentTypes,
 accessKinds, policyOrigins, nullable hasRule/excluded, earlyKinds, currencies and
-query. Cash/value sources have null instrument identity/type; never invent cash
+query. Managed sources also expose nullable productKind from the same contract capture;
+it remains separate from the actual instrumentType. Cash/value sources have
+null instrument identity/type/productKind; never invent cash
 as an instrument type. hasRule means saved explicit or contract policy, not any
 effective default. assumed=false, explicit/contract=true; unresolved policy facts
 are null, including excluded rows whose policy cannot be resolved. Exclusion and

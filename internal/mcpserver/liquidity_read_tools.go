@@ -35,6 +35,7 @@ type liquidityReadRow struct {
 	liquidity.LiquiditySourceDTO
 	InstrumentID   *string `json:"instrumentId"`
 	InstrumentType *string `json:"instrumentType"`
+	ProductKind    *string `json:"productKind"`
 	HasRule        *bool   `json:"hasRule"`
 	PolicyEditable *bool   `json:"policyEditable"`
 	PolicyReason   string  `json:"policyReason,omitempty"`
@@ -191,7 +192,7 @@ func (s *Service) pagedLiquidity(ctx context.Context, generation uint64, in Liqu
 		dto := liquidity.FromOverview(overview)
 		rows := make([]liquidityReadRow, 0, len(matched))
 		for i, v := range matched {
-			rows = append(rows, liquidityReadRow{dto.Sources[i], v.InstrumentID, v.InstrumentType, v.HasRule, v.PolicyEditable, v.PolicyReason})
+			rows = append(rows, liquidityReadRow{dto.Sources[i], v.InstrumentID, v.InstrumentType, v.ProductKind, v.HasRule, v.PolicyEditable, v.PolicyReason})
 		}
 		sourceRows, err := readRows(rows)
 		if err != nil {

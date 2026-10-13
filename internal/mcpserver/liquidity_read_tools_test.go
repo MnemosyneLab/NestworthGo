@@ -6,6 +6,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
 func TestScaleLiquidityInstrumentTypesPolicyAndSortMatrix(t *testing.T) {
@@ -71,5 +72,37 @@ func TestScaleLiquidityInstrumentTypesPolicyAndSortMatrix(t *testing.T) {
 		if len(rows) != tc.expected {
 			t.Fatalf("filter %v count %d", tc.filter, len(rows))
 		}
+	}
+}
+
+func TestScaleLiquidityManagedProductKindsRemainDistinct(t *testing.T) {
+	fx := newLedgerFixture(t)
+	for _, kind := range []string{"term_deposit", "locked_product"} {
+		terms := application.ProductTermsInput{Kind: kind, Name: kind, StartOn: "2026-09-01", InterestMode: "none"}
+		policy := application.ProductPolicyInput{AccessKind: "unknown", EarlyKind: "unknown"}
+		if kind == "term_deposit" {
+			terms.MaturityOn = productString("2026-12-01")
+			policy = productPolicy("2026-12-01")
+		}
+		guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "record_existing", RecordExisting: &application.RecordExistingProductCommand{AccountID: fx.brokerage, Currency: "USD", Principal: "100", TotalCostBasis: "100", CurrentValue: "100", CashExcludesProduct: true, Terms: terms, Policy: policy}})
+	}
+	c := ledgerSession(t, fx)
+	cap := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "limit": 1})
+	seen := map[string]bool{}
+	for _, r := range scaleSection(t, c, cap, "sources") {
+		row := r.(map[string]any)
+		if row["productId"] != nil {
+			if row["instrumentType"] != "bank_investment_product" {
+				t.Fatal(row)
+			}
+			seen[row["productKind"].(string)] = true
+		} else if row["sourceRef"].(map[string]any)["kind"] != "holding" {
+			if row["productKind"] != nil || row["instrumentType"] != nil || row["instrumentId"] != nil {
+				t.Fatal("account source gained instrument/product classification")
+			}
+		}
+	}
+	if !seen["term_deposit"] || !seen["locked_product"] {
+		t.Fatal(seen)
 	}
 }
