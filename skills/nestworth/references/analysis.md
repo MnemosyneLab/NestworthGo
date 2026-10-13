@@ -5,6 +5,103 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
 
+`get_account_valuations` also returns per-account `composition`: `types` groups
+components by instrument type/cash, `details` contains the full ranked detail
+list, and `detailSlices` retains its first ten rows plus an exact grouped
+remainder when there are more than ten. `totalExact` and each
+`baseAmountExact` are decimal strings; `baseAmount` is a presentation money
+view and may be rounded. Read `status`, `complete`, `valuedCount` and
+`missingCount` before describing a total. Unknown components have no exact
+amount, never zero. `shareBps` uses the exact positive total; sum either the type
+partition or detail partition, not both. A synthetic remainder's `detailRefs`
+identify the collapsed detail keys. Liability or non-holdings accounts can be
+`unsupported` for composition while their ordinary account valuation remains
+available.
+
+## Historical endpoint view and reconciliation
+
+For one or two historical states, use `get_historical_overview`; for a bounded
+daily trend with its endpoint views from the same capture, use
+`get_historical_overview_series`. Dates are closed `YYYY-MM-DD` civil labels in
+the household history timezone. Overview accepts an optional second closed date
+or `current`; series accepts 1–31 forward closed dates. The output retains the
+GUI's exact amounts, rows, categories, coverage, `capturedAt`, source evidence,
+timestamp basis and reason codes. These reads do not materialize snapshots,
+refresh providers or modify ledger facts.
+
+When two compatible closed-date endpoints support reconciliation, preserve the
+returned basis `endpoint_bridge/1; later_endpoint_fx; opening_exposure_fx; unchanged_quantity_price; retained_corrected_facts` and exact identity:
+
+`B net worth − A net worth = supported contributions + unexplained residual`.
+
+<!-- example: historical-overview -->
+```json
+{"date":"2026-10-01","compareTo":"2026-10-10"}
+```
+
+<!-- example: historical-overview-series -->
+```json
+{"from":"2026-10-01","to":"2026-10-10"}
+```
+
+The bridge uses the later endpoint's FX rate, not event-time FX or investment
+return. For stable holdings, opening native exposure supports FX; price movement
+uses unchanged quantity and comparable price evidence. Completeness, scope,
+timestamp/source basis and intermediate changes can leave amounts in residual
+or make the bridge unavailable; retain its `status`, `reasons`, nullable totals
+and exact contribution amounts. Same-day complete endpoints have zero movement;
+reverse-date comparisons negate contributions and residual. A current right
+endpoint is unavailable for bridge attribution. Do not interpret a zero
+residual as proof there were no evidence gaps.
+
+This answers how endpoint values reconcile. `compare_financial_attribution`
+answers a different question using its closed-period analysis and derived
+snapshots. Neither replaces the other; do not substitute one result or its FX
+convention for the other.
+
+## Opt-in investment review reminders
+
+`get_investment_reviews` reads the App's unit-NAV review projection for held
+mutual funds and ordinary NAV-priced wealth products. It returns the household
+`localDate` and `timezone`, a policy `revision`, full policy thresholds and
+per-instrument status/reasons. It uses source civil-date labels, exact NAV
+history and App eligibility/freshness safeguards. Missing or stale NAV and
+unsupported distributions/adjustments stay unavailable; do not substitute
+holding balances, guess a sell, or turn a reminder into investment advice. The
+review read is available in all permission modes and never writes ledger facts.
+
+Only with `ledger_write` are these preference/episode changes available:
+
+- `save_investment_review_policy` replaces the full master policy using the
+  current report's `revision`; thresholds are exact percentage values and the
+  window is 7 or 30 days.
+- `set_investment_review_enrollment` enables or disables monitoring for one
+  returned instrument and requires the current revision. Monitoring is opt-in.
+- `acknowledge_investment_review` accepts only a current `episodeId`; stale
+  episodes are rejected.
+- `set_investment_review_snooze` uses 7 or 30 household civil days; `days: 0`
+  resumes immediately without acknowledging or changing enrollment.
+
+These tools use durable MCP operation receipts: retain the `operationId` and
+exact input on retry. If the outcome is unknown, inspect `get_operation` and
+the current review report before starting a new intentional change. Revision
+conflicts require a fresh report; do not repeat a stale save. These edits change
+review settings only, not holdings, quotes or financial records.
+
+<!-- example: investment-review-read -->
+```json
+{}
+```
+
+<!-- example: investment-review-policy-save -->
+```json
+{"operationId":"${operationId}","input":{"policy":{"enabled":true,"windowDays":30,"lowAnnualizedPercent":"1","lossPercent":"-1","sustainDays":7,"maxAgeDays":7},"expectedRevision":0}}
+```
+
+Replace `expectedRevision` with the latest report revision and supply a fresh
+operation UUID for this intentional settings change. To disable enrollment,
+send `enabled:false`; to resume a snoozed instrument, send `days:0`.
+
 For investment returns, income/expense or an inclusive period report, call
 `analyze_period`. For two-state value differences use `compare_financial_context`;
 for “why did two closed-date states change; was that profit?”, use

@@ -44,6 +44,7 @@ Read only the references needed for this request:
 | Record owned investments, buys/sells, dividends, position transfers, statement batches | [Positions and trades](references/positions-and-trades.md) |
 | Income, spending, interest, cash transfers, currency exchange, borrowing/repayment | [Cash and debt](references/cash-and-debt.md) |
 | Managed deposits/locked contracts, lifecycle, terms/value edits and liquidity | [Products and liquidity](references/products.md) |
+| Upcoming product actions, opt-in investment reviews, or historical endpoint comparison | [Analysis](references/analysis.md) and [Products and liquidity](references/products.md) |
 | Reconcile balances/quantities/costs, fix a historical mistake, undo a record | [Reconciliation and corrections](references/reconciliation-and-corrections.md) |
 | Read/import/correct/withdraw prices, fund NAV or FX | [Market data](references/market-data.md) |
 | Diagnose missing data and track a repair | [Data health](references/data-health.md) |
@@ -94,7 +95,9 @@ Read only the references needed for this request:
 Use the App for setup, history starting-point changes, backups/restores, renewal
 and reservation mutations. Managed lifecycle, terms and locked-product value
 facts use their respective dedicated preview/commit with ledger_write; contract/history
-and liquidity reads use [products.md](references/products.md).
+and liquidity reads use [products.md](references/products.md). Investment review
+preferences and reminders use their dedicated ledger_write tools and never create
+sell recommendations or ledger entries.
 Ordinary NAV-priced fund/wealth-product holdings use
 the documented instrument/holding path only when they are not App-managed
 products. Do not substitute general trades for a managed product operation.

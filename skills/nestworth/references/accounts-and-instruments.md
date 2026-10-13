@@ -81,7 +81,10 @@ and instrument icons use updates. Archive/restore uses `archive_*` with
 `archived:true/false` and preserves history; it does not delete references.
 
 App-managed term deposits and locked/closed wealth products have specialized
-cash, maturity, reservation and redemption rules. Current MCP does not expose
-their full lifecycle or permit generic edits to their managed holdings/quotes.
-Guide the user to the product workflow in the App, even if a similarly named
-ordinary instrument could be created.
+cash, maturity, reservation and redemption rules. MCP exposes dedicated
+`preview_product_operation` / `commit_product_operation` tools for supported
+completed lifecycle facts, plus dedicated revisioned terms and actual locked
+value edits. Renewal and reservation creation/edit/release remain App workflows.
+Never use generic trades, reconciliation or quote tools to bypass managed
+holdings/quote guards, even if a similarly named ordinary instrument could be
+created. See [products.md](products.md) for supported actions and boundaries.

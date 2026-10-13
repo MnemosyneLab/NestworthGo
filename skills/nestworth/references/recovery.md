@@ -11,6 +11,7 @@ balances; after restore they may refer to changes no longer present.
 | Single/batch/reconciliation/correction/product lifecycle/terms/value commit may already have posted | Retry the exact original operation/input/plan; atomic ledger mutation recovery prevents duplicate posting even after expiry/restart |
 | A successful receipt exists | Read the affected current state; do not repost merely because today's state differs |
 | Agent quote import was interrupted | Reuse the same operation UUID and exact input; durable import batch identity returns original quote IDs; then inspect derived statuses/current quotes/health |
+| Investment review setting/episode write outcome is unknown | Inspect `get_operation` and `get_investment_reviews`; do not replay an unknown receipt automatically or change input under the same UUID |
 | Directory create/update/archive outcome is unknown | Inspect operation receipt and actual definitions before a new operation; directory writes are not automatically replayed |
 | Repair submission outcome is unknown or job disappeared after restart | Rescan health and inspect the App before a new intentional submission; do not replay blindly |
 | Same operation UUID with changed input | Conflict; do not modify the old request to repurpose its UUID |
@@ -29,8 +30,13 @@ after facts commit. Recover the original operation first, then inspect health;
 do not repost the financial record to repair derived data.
 
 After backup restore, an intentionally reapplied missing change is a new intent
-with a new UUID, after checking the restored facts. Backups/restores themselves
-are App workflows, not MCP tools.
+with a new UUID, after checking the restored facts. Backup and restore are App
+workflows, not MCP tools; MCP mutation receipts are operation records, not
+backup/restore commands or proof that restored data still contains the change.
+The outer MCP execution receipt is a separate record from the business receipt
+or plan, and the connected App's SQLite backup may include both. Neither receipt
+proves that restored ledger facts still contain the change. Check the actual
+restored facts before deciding whether to reapply an operation.
 
 Managed product/history and liquidity reads do not create plans or receipts.
 Re-query actual contracts, operations, cash and reservation evidence after GUI
