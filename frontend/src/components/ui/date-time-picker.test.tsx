@@ -96,3 +96,31 @@ describe("DatePicker and TimePicker", () => {
     expect(onChange).toHaveBeenCalledWith("23:00");
   });
 });
+
+it("does not normalize impossible civil dates or lose an early year", () => {
+  const client = createTestQueryClient();
+  client.setQueryData(settingsQueryKey, { dateFormat: "iso" });
+  const { rerender } = render(<QueryClientProvider client={client}><DatePicker value="2026-02-31" onChange={() => {}} aria-label="Civil date" /></QueryClientProvider>);
+  expect(screen.getByRole("button", { name: "Civil date" })).toHaveTextContent("Select a date");
+  rerender(<QueryClientProvider client={client}><DatePicker value="0099-01-01" onChange={() => {}} aria-label="Civil date" /></QueryClientProvider>);
+  expect(screen.getByRole("button", { name: "Civil date" })).toHaveTextContent("0099-01-01");
+});
+
+it("exposes the selected time and forwards accessible error context", async () => {
+  render(<TimePicker value="12:30" onChange={() => {}} aria-label="Settlement time" aria-invalid aria-describedby="time-error" />);
+  const trigger = screen.getByRole("button", { name: "Settlement time" });
+  expect(trigger).toHaveAttribute("aria-invalid", "true");
+  expect(trigger).toHaveAttribute("aria-describedby", "time-error");
+  await userEvent.click(trigger);
+  expect(screen.getByRole("button", { name: "12", pressed: true })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "30", pressed: true })).toBeInTheDocument();
+});
+
+it("keeps calendar arrow-key navigation and Enter selection on civil days", async () => {
+  const { onChange } = renderDatePicker({ weekStart: "monday", dateFormat: "iso" });
+  await userEvent.click(screen.getByRole("button", { name: "2026-08-15" }));
+  const grid = await screen.findByRole("grid");
+  (grid.querySelector('[data-day="2026-08-15"] button') as HTMLElement).focus();
+  await userEvent.keyboard("{ArrowRight}{Enter}");
+  expect(onChange).toHaveBeenCalledWith("2026-08-16");
+});

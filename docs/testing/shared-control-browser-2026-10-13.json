@@ -1,0 +1,10 @@
+[
+  {
+    "timezone": "America/Los_Angeles",
+    "checks": "bounds, civil day, keyboard open, clear, Escape, return focus, nested sheet, selected time, dark render passed"
+  },
+  {
+    "timezone": "Pacific/Kiritimati",
+    "checks": "bounds, civil day, keyboard open, clear, Escape, return focus, nested sheet, selected time, dark render passed"
+  }
+]

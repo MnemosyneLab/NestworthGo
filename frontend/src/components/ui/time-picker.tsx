@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type AriaAttributes, useState } from "react";
 import { Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,13 +19,14 @@ export function TimePicker({
   onChange,
   disabled = false,
   clearable = false,
+  ...aria
 }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   clearable?: boolean;
-}) {
+} & Pick<AriaAttributes, "aria-label" | "aria-labelledby" | "aria-invalid" | "aria-describedby">) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { hour, minute } = splitTime(value);
@@ -40,6 +41,7 @@ export function TimePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
+        {...aria}
         id={id}
         type="button"
         disabled={disabled}
@@ -54,6 +56,7 @@ export function TimePicker({
             {HOURS.map((option) => (
               <li key={option}>
                 <Button
+                  aria-pressed={option === hour}
                   type="button"
                   variant={option === hour ? "default" : "ghost"}
                   size="sm"
@@ -69,6 +72,7 @@ export function TimePicker({
             {MINUTES.map((option) => (
               <li key={option}>
                 <Button
+                  aria-pressed={option === minute}
                   type="button"
                   variant={option === minute ? "default" : "ghost"}
                   size="sm"

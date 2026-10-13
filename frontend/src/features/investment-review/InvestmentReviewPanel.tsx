@@ -5,6 +5,7 @@ import { useInvestmentReviewActions, useInvestmentReviews } from "@/queries/inve
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/select";
 
 export function InvestmentReviewSummary({ isActive = true }: { isActive?: boolean }) {
   const { t } = useTranslation();
@@ -78,9 +79,9 @@ function ReviewPolicyForm({ policy, revision, disabled }: { policy: InvestmentRe
       <fieldset disabled={disabled || save.isPending} className="space-y-3">
         <label className="flex gap-2"><input type="checkbox" checked={value.enabled} onChange={event => setValue({ ...value, enabled: event.target.checked })} />{t("investmentReview.enable")}</label>
         <label htmlFor={`${id}-window`}>{t("investmentReview.window")}</label>
-        <select id={`${id}-window`} value={value.windowDays} onChange={event => setValue({ ...value, windowDays: Number(event.target.value) })} className="block rounded border p-2 bg-card">
+        <NativeSelect className="block" id={`${id}-window`} value={value.windowDays} onChange={event => setValue({ ...value, windowDays: Number(event.target.value) })}>
           {[30, 7].map(days => <option key={days} value={days}>{t("investmentReview.windowDays", { days })}</option>)}
-        </select>
+        </NativeSelect>
         {fields.map(field => <div key={field}>
           <label htmlFor={`${id}-${field}`}>{t(`investmentReview.fields.${field}`)}</label>
           <Input id={`${id}-${field}`} required type="number" step={field.endsWith("Percent") ? "0.00000001" : "1"} min={field === "lossPercent" ? -50 : field === "sustainDays" ? 2 : field === "maxAgeDays" ? 1 : 0} max={field === "lossPercent" ? -0.00000001 : field === "lowAnnualizedPercent" ? 10 : 30} value={value[field]} onChange={event => setValue({ ...value, [field]: field.endsWith("Percent") ? event.target.value : Number(event.target.value) })} />

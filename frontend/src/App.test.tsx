@@ -604,7 +604,7 @@ it.each([
   const main = document.getElementById("main-content")!; main.scrollTop = 210;
   const capturedReads = historicalRead.mock.calls.length; const seriesReads = seriesRead.mock.calls.length;
   const capturedAt = new Date(before as string).toISOString();
-  expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-09-30");
+  expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveTextContent("2026-09-30");
   expect(screen.getAllByTitle(capturedAt).length).toBeGreaterThan(0);
   await userEvent.click(sourceButton);
   const history = await screen.findByRole("region", { name: "Synthetic transaction history" });
@@ -615,7 +615,7 @@ it.each([
   await userEvent.click(screen.getByRole("button", { name: "← Back to Historical overview" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toHaveTextContent("Synthetic retained bank"));
   expect(screen.getByLabelText("Compare with")).toHaveValue(trendEnabled ? "date" : "current");
-  expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-09-30");
+  expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveTextContent("2026-09-30");
   expect(screen.getAllByTitle(capturedAt).length).toBeGreaterThan(0);
   expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveTextContent("Account details");
   expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveAttribute("aria-selected", "true");
