@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { HistoricalAccountDeltaView, HistoricalAllocationView, HistoricalCoverage, HistoricalMetricCards } from "./HistoricalPanorama";
 import { HistoricalCategoryComparisonView } from "./HistoricalCategoryComparison";
@@ -301,14 +302,19 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
         {data.right && <>
           {data.right.date === data.left.date && !data.right.current && <p role="status" className="text-sm text-muted-foreground">{t("historicalOverview.sameDate")}</p>}
         </>}
-        <div role="tablist" aria-label={t("historicalOverview.views")} className="flex flex-wrap gap-2">
-          {(data.right ? ["delta", "allocation", "accounts", "trend"] as const : ["allocation", "accounts", "trend"] as const).map(value => <Button key={value} ref={value === "accounts" ? accountsTab : undefined} role="tab" aria-controls="historical-view-panel" aria-selected={view === value} variant={view === value ? "default" : "outline"} onClick={() => setView(value)}>{t(data.right && value === "allocation" ? "historicalOverview.categoryCompare" : `historicalOverview.view.${value}`)}</Button>)}
-        </div>
-        <div id="historical-view-panel" role="tabpanel" className="min-w-0">
-        {view === "trend" && (series ? <HistoricalTrend capture={series} metric={trendMetric} selectedDate={trendSelection} onMetric={setTrendMetric} onSelect={setTrendSelection} onEndpoint={(side, pointDate) => enableSeries(side === "A" ? pointDate : date, side === "B" ? pointDate : compareTo)} onOpenDay={pointDate => { exitSeriesSelection(); setChosenDate(pointDate); setComparison("none"); setCategoryFilter(null); setSelectedKey(null); setView("accounts"); }} /> : <section className="rounded-xl border border-border bg-card p-4" aria-label={t("historicalOverview.trend.title")}><h2 className="font-semibold">{t("historicalOverview.trend.title")}</h2><p className="my-2 text-sm">{t("historicalOverview.trend.rangeHint")}</p><p className="my-2 text-xs text-muted-foreground">{t("historicalOverview.trend.enableNote")}</p><div className="flex flex-wrap gap-3"><label>A<DatePicker clearable value={draftFrom} min={firstDate} max={lastDate} aria-label={t("historicalOverview.trend.from")} onChange={setTrendFrom} /></label><label>B<DatePicker clearable value={draftTo} min={firstDate} max={lastDate} aria-label={t("historicalOverview.trend.to")} onChange={setTrendTo} /></label><Button disabled={!spanValid(draftFrom, draftTo)} onClick={() => enableSeries(draftFrom, draftTo)}>{t("historicalOverview.trend.enable")}</Button></div></section>)}
-        {view === "delta" && data.right && <HistoricalAccountDeltaView data={data} onOpen={openDetail} />}
-        {view === "allocation" && (data.right ? <HistoricalCategoryComparisonView data={data} role={categoryRole} dimension={dimension} onRole={setCategoryRole} onDimension={setDimension} onFilter={(filter, trigger) => filterCategory(filter, trigger)} /> : <HistoricalAllocationView data={data} selectedDimension={dimension} onDimension={setDimension} onFilter={(dimension, key, trigger) => filterCategory({ role: "asset", dimension, key }, trigger)} />)}
-        {view === "accounts" && <section aria-label={t("historicalOverview.table")}>
+        <Tabs value={view} onValueChange={value => setView(value as typeof view)} className="min-w-0">
+        <TabsList aria-label={t("historicalOverview.views")} activateOnFocus className="flex h-auto w-fit max-w-full flex-wrap gap-2">
+          {(data.right ? ["delta", "allocation", "accounts", "trend"] as const : ["allocation", "accounts", "trend"] as const).map(value => <TabsTrigger key={value} value={value} ref={value === "accounts" ? accountsTab : undefined}>{t(data.right && value === "allocation" ? "historicalOverview.categoryCompare" : `historicalOverview.view.${value}`)}</TabsTrigger>)}
+        </TabsList>
+        <TabsContent value="trend" className="min-w-0">
+        {series ? <HistoricalTrend capture={series} metric={trendMetric} selectedDate={trendSelection} onMetric={setTrendMetric} onSelect={setTrendSelection} onEndpoint={(side, pointDate) => enableSeries(side === "A" ? pointDate : date, side === "B" ? pointDate : compareTo)} onOpenDay={pointDate => { exitSeriesSelection(); setChosenDate(pointDate); setComparison("none"); setCategoryFilter(null); setSelectedKey(null); setView("accounts"); }} /> : <section className="rounded-xl border border-border bg-card p-4" aria-label={t("historicalOverview.trend.title")}><h2 className="font-semibold">{t("historicalOverview.trend.title")}</h2><p className="my-2 text-sm">{t("historicalOverview.trend.rangeHint")}</p><p className="my-2 text-xs text-muted-foreground">{t("historicalOverview.trend.enableNote")}</p><div className="flex flex-wrap gap-3"><label>A<DatePicker clearable value={draftFrom} min={firstDate} max={lastDate} aria-label={t("historicalOverview.trend.from")} onChange={setTrendFrom} /></label><label>B<DatePicker clearable value={draftTo} min={firstDate} max={lastDate} aria-label={t("historicalOverview.trend.to")} onChange={setTrendTo} /></label><Button disabled={!spanValid(draftFrom, draftTo)} onClick={() => enableSeries(draftFrom, draftTo)}>{t("historicalOverview.trend.enable")}</Button></div></section>}
+        </TabsContent>
+        {data.right && <TabsContent value="delta" className="min-w-0"><HistoricalAccountDeltaView data={data} onOpen={openDetail} /></TabsContent>}
+        <TabsContent value="allocation" className="min-w-0">
+        {data.right ? <HistoricalCategoryComparisonView data={data} role={categoryRole} dimension={dimension} onRole={setCategoryRole} onDimension={setDimension} onFilter={(filter, trigger) => filterCategory(filter, trigger)} /> : <HistoricalAllocationView data={data} selectedDimension={dimension} onDimension={setDimension} onFilter={(dimension, key, trigger) => filterCategory({ role: "asset", dimension, key }, trigger)} />}
+        </TabsContent>
+        <TabsContent value="accounts" className="min-w-0">
+        <section aria-label={t("historicalOverview.table")}>
         {categoryFilter && <div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant="outline">{t("historicalOverview.filteredCategory", { category: categoryFilterLabel })}</Badge><Button ref={clearFilterButton} size="sm" variant="outline" onClick={() => { accountsTab.current?.focus(); setCategoryFilter(null); }}>{t("historicalOverview.clearFilter")}</Button><Button size="sm" variant="outline" onClick={returnToCategories}>{t("historicalOverview.returnToCategories")}</Button></div>}
         {data.right && <><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={changesOnly} onChange={event => setChangesOnly(event.target.checked)} />{t("historicalOverview.changesOnly")}</label><p className="text-xs text-muted-foreground">{t("historicalOverview.changesOnlyCount", { shown: accounts.length, total: (data.rows ?? []).filter(row => row.kind === "account").length })} · {t("historicalOverview.changesOnlyHint")}</p></>}
         {accounts.length === 0
@@ -360,8 +366,9 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
             </ComparisonScroll>
             </div>
           </>}
-        </section>}
-        </div>
+        </section>
+        </TabsContent>
+        </Tabs>
         <Sheet open={Boolean(selected) && isActive} onOpenChange={open => { if (!open) setSelectedKey(null); }}>
           <SheetContent finalFocus={() => detailTrigger.current?.isConnected ? detailTrigger.current : dateInput.current}>
             <SheetHeader>

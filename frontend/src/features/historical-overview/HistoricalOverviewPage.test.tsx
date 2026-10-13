@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HistoricalOverviewPage } from "./HistoricalOverviewPage";
@@ -106,6 +107,55 @@ function show(primaryView = false) {
   }).catch(() => {});
   return { ...view, client, exit };
 }
+
+it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => [false, true].map(compare => ({ locale, compare }))))(
+  "provides one keyboard tab stop and named panels for historical views ($locale, compare=$compare)", async ({ locale, compare }) => {
+    await i18n.changeLanguage(locale);
+    const user = userEvent.setup();
+    show(true);
+    await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.allocation") });
+    if (compare) {
+      await user.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "date");
+      await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.delta") });
+    }
+    const tablist = screen.getByRole("tablist", { name: i18n.t("historicalOverview.views") });
+    const tabs = within(tablist).getAllByRole("tab");
+    const reads = read.mock.calls.length;
+    const checkSelection = (tab: HTMLElement) => {
+      expect(tab).toHaveAttribute("aria-selected", "true");
+      expect(tabs.filter(item => item.tabIndex === 0)).toEqual([tab]);
+      const panel = screen.getByRole("tabpanel", { name: tab.textContent! });
+      expect(panel).toHaveAttribute("aria-labelledby", tab.id);
+      expect(tab).toHaveAttribute("aria-controls", panel.id);
+    };
+    checkSelection(tabs[0]);
+    tabs[0].focus();
+    await user.keyboard("{ArrowRight}");
+    expect(tabs[1]).toHaveFocus();
+    checkSelection(tabs[1]);
+    await user.keyboard("{End}");
+    expect(tabs[tabs.length - 1]).toHaveFocus();
+    checkSelection(tabs[tabs.length - 1]);
+    await user.keyboard("{Home}");
+    expect(tabs[0]).toHaveFocus();
+    checkSelection(tabs[0]);
+    await user.tab();
+    expect(screen.getByRole("tabpanel", { name: tabs[0].textContent! })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(tabs[0]).toHaveFocus();
+    await user.keyboard("{ArrowLeft}");
+    expect(tabs[tabs.length - 1]).toHaveFocus();
+    checkSelection(tabs[tabs.length - 1]);
+    expect(read).toHaveBeenCalledTimes(reads);
+    if (compare) {
+      await user.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "none");
+      const allocation = await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.allocation") });
+      expect(screen.queryByRole("tab", { name: i18n.t("historicalOverview.view.delta") })).not.toBeInTheDocument();
+      expect(within(screen.getByRole("tablist")).getAllByRole("tab").filter(tab => tab.tabIndex === 0)).toEqual([allocation]);
+      expect(screen.getByRole("tabpanel", { name: allocation.textContent! })).toBeInTheDocument();
+    }
+  },
+);
 
 it("opens a closed day, expands using keyboard and repeatedly dismisses read-only details", async () => {
   const user = userEvent.setup();
@@ -488,6 +538,54 @@ it.each(["inactive", "invalid", "unmount"])("cancels a pending comparison when t
   }
 });
 
+it.each(["resolve", "reject"])("resumes an unfinished capture after History Back and ignores its late %s", async lateReply => {
+  let resolveOld!: (data: HistoricalOverviewResult) => void;
+  let rejectOld!: (error: Error) => void;
+  const cancel = vi.fn();
+  const pending = Object.assign(new Promise<HistoricalOverviewResult>((resolve, reject) => {
+    resolveOld = resolve; rejectOld = reject;
+  }), { cancel });
+  const fresh = result("2026-08-03", "current");
+  fresh.rows![0].name = "Resumed capture";
+  read.mockReturnValueOnce(pending).mockResolvedValue(fresh);
+  const client = createTestQueryClient();
+  function HistoryBackHarness() {
+    const [history, setHistory] = useState(false);
+    const navigation = { open: () => setHistory(true), openHealth: vi.fn() };
+    return <QueryClientProvider client={client}><NavigationContext.Provider value={navigation}>
+      <div hidden={history}>
+        {/* A pending page hides its History links. The harness supplies a
+            navigation race while retaining the page exactly as App does. */}
+        <button onClick={() => navigation.open()}>Navigate to synthetic History</button>
+        <HistoricalOverviewPage initialDate="2026-08-03" initialContext={{ compareTo: "current", view: "accounts" }} isActive={!history} onExit={vi.fn()} />
+      </div>
+      {history && <section aria-label="Synthetic History"><button onClick={() => setHistory(false)}>Back to panorama</button></section>}
+    </NavigationContext.Provider></QueryClientProvider>;
+  }
+  render(<HistoryBackHarness />);
+  await waitFor(() => expect(read).toHaveBeenCalledOnce());
+  expect(screen.getByRole("status", { name: i18n.t("historicalOverview.loading") })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Navigate to synthetic History" }));
+  await screen.findByRole("region", { name: "Synthetic History" });
+  await waitFor(() => expect(cancel).toHaveBeenCalledOnce());
+  await userEvent.click(screen.getByRole("button", { name: "Back to panorama" }));
+  await screen.findByRole("button", { name: "Resumed capture" });
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(read).toHaveBeenLastCalledWith("2026-08-03", "current");
+  await act(async () => {
+    if (lateReply === "resolve") resolveOld(result("2026-08-03", "current"));
+    else rejectOld(new Error("Synthetic late abandoned read failure"));
+  });
+  expect(screen.getByRole("button", { name: "Resumed capture" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Bank" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-08-03");
+  expect(screen.getByLabelText(i18n.t("historicalOverview.compare"))).toHaveValue("current");
+  expect(screen.getByRole("tab", { name: i18n.t("historicalOverview.view.accounts") })).toHaveAttribute("aria-selected", "true");
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(read).toHaveBeenCalledTimes(2);
+});
+
 it("keeps account/category scope changes local to the successful final capture after rapid dates", async () => {
   let resolveOld!: (data: HistoricalOverviewResult) => void;
   const cancel = vi.fn();
@@ -708,7 +806,8 @@ it.each(["en", "zh-CN", "zh-TW"])("keeps negative sub-cent values exact in cards
 });
 
 
-it("restores category role, dimension, position and keyboard focus after drilling into account leaves", async () => {
+it.each(["en", "zh-CN", "zh-TW"])("restores category role, dimension, position and keyboard focus after drilling into account leaves (%s)", async locale => {
+  await i18n.changeLanguage(locale);
   const data = result("2026-08-01", "2026-08-09");
   data.categories = [{ role: "asset", dimension: "byCurrency", key: "CNY", left: { status: "complete", amount: "200", knownAmount: "200", share: "100", shareBasis: "total", includedCount: 1, missingRowKeys: [] }, right: { status: "complete", amount: "220", knownAmount: "220", share: "100", shareBasis: "total", includedCount: 1, missingRowKeys: [] }, amountChange: "20", shareChangePp: "0", amountReasons: [], shareReasons: [] }];
   read.mockResolvedValue(data);
@@ -717,13 +816,17 @@ it("restores category role, dimension, position and keyboard focus after drillin
   const category = await screen.findByRole("button", { name: "CNY" });
   const main = document.getElementById("main-content")!; main.scrollTop = 180;
   category.focus(); await userEvent.keyboard("{Enter}");
-  expect(await screen.findByRole("button", { name: "Clear category filter" })).toHaveFocus();
+  expect(await screen.findByRole("button", { name: i18n.t("historicalOverview.clearFilter") })).toHaveFocus();
+  expect(screen.getByRole("tabpanel", { name: i18n.t("historicalOverview.view.accounts") })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: i18n.t("historicalOverview.view.accounts") })).toHaveAttribute("tabindex", "0");
   const count = read.mock.calls.length;
-  await userEvent.click(screen.getByRole("button", { name: "Back to categories" }));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.returnToCategories") }));
   await waitFor(() => expect(screen.getByRole("button", { name: "CNY" })).toHaveFocus());
+  expect(screen.getByRole("tabpanel", { name: i18n.t("historicalOverview.categoryCompare") })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: i18n.t("historicalOverview.categoryCompare") })).toHaveAttribute("tabindex", "0");
   expect(main.scrollTop).toBe(180);
-  expect(screen.getByRole("button", { name: "Original currency" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByLabelText("Comparison date")).toHaveValue("2026-08-09");
+  expect(screen.getByRole("button", { name: i18n.t("historicalOverview.byCurrency") })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByLabelText(i18n.t("historicalOverview.compareDate"))).toHaveValue("2026-08-09");
   expect(read).toHaveBeenCalledTimes(count);
 });
 
