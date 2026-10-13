@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseWailsError, translateWailsError } from "./wails";
 import "@/i18n";
+
+// Pure wire-error helpers must not initialize desktop DOM handlers/timers.
+vi.mock("@wailsio/runtime", () => { throw new Error("wire helpers loaded the desktop SDK"); });
 
 describe("parseWailsError", () => {
   it("parses a valid WireError JSON message", () => {
