@@ -1,7 +1,7 @@
 import type { ObjectNavigation } from "@/app/NavigationContext";
 import { upcomingData } from "@/test/upcomingActions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -307,6 +307,8 @@ it("pairs attention and upcoming cards below the financial row, preserving healt
   const row = await screen.findByTestId("overview-action-row");
   expect(row).toContainElement(screen.getByTestId("overview-attention-card"));
   expect(row).toContainElement(screen.getByTestId("overview-upcoming-actions-card"));
+  expect(screen.getAllByRole("region", { name: "Investment review" })).toHaveLength(1);
+  expect(within(screen.getByTestId("overview-upcoming-actions-card")).queryByRole("region", { name: "Investment review" })).not.toBeInTheDocument();
   const financial = screen.getByTestId("overview-financial-row");
   expect(financial).not.toContainElement(row);
   expect(financial).toContainElement(screen.getByTestId("overview-net-worth"));

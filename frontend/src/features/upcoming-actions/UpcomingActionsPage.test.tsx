@@ -15,21 +15,21 @@ function mount(component: React.ReactNode) { return render(<NavigationContext.Pr
 describe("upcoming UI", () => {
   it("limits summary to three while showing the full count and safe navigation", async () => {
     query.data = upcomingData(Array.from({ length: 5 }, (_, i) => upcomingItem({ id: `item-${i}`, displayName: `Deposit ${i}` })));
-    mount(<OverviewUpcomingActionsCard />);
+    mount(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.getAllByRole("button", { name: /Verify receipt/ })).toHaveLength(3);
     await userEvent.click(screen.getByRole("button", { name: "View all 5 actions" }));
     expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
   });
   it("distinguishes initial error, stale data, loading and incomplete empty results", () => {
     query.data = undefined; query.isPending = true;
-    const view = mount(<OverviewUpcomingActionsCard />);
+    const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.queryByText(/0 receipts/)).not.toBeInTheDocument();
-    query.isPending = false; query.isError = true; view.rerender(<OverviewUpcomingActionsCard />);
+    query.isPending = false; query.isError = true; view.rerender(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to load");
-    query.data = upcomingData([upcomingItem()]); view.rerender(<OverviewUpcomingActionsCard />);
+    query.data = upcomingData([upcomingItem()]); view.rerender(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.getByRole("alert")).toHaveTextContent("last successfully read");
     expect(screen.getByText("Synthetic deposit")).toBeInTheDocument();
-    query.isError = false; query.data = upcomingData(); query.data.completeness = "partial"; query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard /></NavigationContext.Provider>);
+    query.isError = false; query.data = upcomingData(); query.data.completeness = "partial"; query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard presentation="homepage" /></NavigationContext.Provider>);
     expect(screen.getByText(/information needed to assess/)).toBeInTheDocument();
   });
   it("pages in fifty-item increments and keeps eligible items collapsed", async () => {
@@ -70,7 +70,7 @@ describe("upcoming UI", () => {
     expect(screen.queryByRole("button", { name: "Show 50 more" })).not.toBeInTheDocument();
   });
   it.each(["en", "zh-CN", "zh-TW"])("shows dates and actionable labels in %s", async language => {
-    await i18n.changeLanguage(language); mount(<OverviewUpcomingActionsCard />);
+    await i18n.changeLanguage(language); mount(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.getByRole("button", { name: `${i18n.t("upcomingActions.verifyReceipt")} · Synthetic deposit` })).toBeInTheDocument();
     expect(screen.getByText("2026-10-11 → 2026-11-10")).toBeInTheDocument();
     expect(screen.getByText(/Asia\/Shanghai/)).toBeInTheDocument();
@@ -86,7 +86,7 @@ it.each(["en", "zh-CN", "zh-TW"])("shows the same human household timestamp in c
   query.data.asOf = precise;
   const formatted = new Intl.DateTimeFormat(language, { timeZone: query.data.timezone, dateStyle: "medium", timeStyle: "short" }).format(new Date(precise));
   const expected = i18n.t("upcomingActions.asOf", { asOf: formatted, timezone: query.data.timezone });
-  const view = mount(<OverviewUpcomingActionsCard />);
+  const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
   expect(screen.getByText(expected)).toBeInTheDocument();
   expect(screen.queryByText(precise)).not.toBeInTheDocument();
   view.rerender(<UpcomingActionsPage />);
@@ -97,7 +97,7 @@ it.each(["en", "zh-CN", "zh-TW"])("shows the same human household timestamp in c
 it("renders unavailable timestamps and singular counts without changing their values", () => {
   query.data = upcomingData([upcomingItem()]);
   query.data.asOf = "invalid-time";
-  const view = mount(<OverviewUpcomingActionsCard />);
+  const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
   expect(screen.getByText("Read time unavailable")).toBeInTheDocument();
   expect(screen.getByText("1 needs attention · 0 schedules")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "View all 1 action" })).toBeInTheDocument();
@@ -110,7 +110,7 @@ it("renders unavailable timestamps and singular counts without changing their va
 it("keeps scheduled access visible with no attention and routes merged terms and reservations separately", async () => {
   const sourceRef = { kind: "holding", accountId: "account-1", holdingId: "holding-1" };
   query.data = upcomingData([upcomingItem({ id: "scheduled", group: "scheduled", phase: "upcoming", displayName: "Later deposit", targets: [{ kind: "reservations", sourceRef, productId: null, reservationId: null }] })]);
-  const view = mount(<OverviewUpcomingActionsCard />);
+  const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
   expect(screen.getByText("0 need attention · 1 schedule")).toBeInTheDocument();
   expect(screen.getByText("Later deposit")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "View all 1 action" }));
@@ -197,11 +197,11 @@ it("mounts large disclosure lists independently, unmounts on close, and reopens 
 
 it.each(["en", "zh-CN", "zh-TW"])("compresses homepage empty results and preserves data-check access in %s", async language => {
   await i18n.changeLanguage(language); query.data = upcomingData();
-  const view = mount(<OverviewUpcomingActionsCard />);
+  const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
   expect(screen.getByText(i18n.t("homepage.noScheduledActions"))).toBeVisible();
   expect(screen.queryByRole("button", { name: i18n.t("upcomingActions.viewAll", { count: 0 }) })).not.toBeInTheDocument();
   expect(screen.queryByText(i18n.t("upcomingActions.overviewCounts", { attentionText: i18n.t("upcomingActions.attentionCount", { count: 0 }), schedules: i18n.t("upcomingActions.scheduleCount", { count: 0 }) }))).not.toBeInTheDocument();
-  query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard /></NavigationContext.Provider>);
+  query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard presentation="homepage" /></NavigationContext.Provider>);
   const action = screen.getByRole("button", { name: i18n.t("homepage.reviewActionDetails") });
   action.focus(); await userEvent.keyboard("{Enter}");
   expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });

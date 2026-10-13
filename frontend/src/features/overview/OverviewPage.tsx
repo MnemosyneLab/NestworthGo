@@ -401,7 +401,7 @@ export function OverviewPage({
             <InvestmentReviewSummary isActive={isActive} compact />
           </CardContent>
         </Card>
-        <OverviewUpcomingActionsCard isActive={isActive} />
+        <OverviewUpcomingActionsCard isActive={isActive} presentation="homepage" />
       </div>
 
       <NetWorthTrendCard />

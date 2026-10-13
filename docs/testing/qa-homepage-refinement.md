@@ -67,3 +67,20 @@ Completed automated evidence:
   synthetic installer tests; these did not install native dependencies).
 - Local race detection, native GUI accessibility and macOS packaging were not
   run. They remain CI/manual gates.
+
+## Review follow-up: shared Available Funds entry
+
+The upcoming card defaults to its standard presentation, retaining Available
+Funds' investment-review query, summary and setup/navigation entry. Overview
+explicitly opts into the homepage presentation and renders one compact review
+block in Needs attention. Standard callers also retain their original heading,
+window text and attention preview.
+
+Follow-up validation passed: 92 targeted tests across Available Funds,
+Available Funds navigation, Overview, upcoming actions and investment review;
+frontend lint, typecheck and build; and the same synthetic Chromium matrix and
+first-row geometry comparison. New Available Funds regressions cover empty
+upcoming results with paused, not-enrolled, enabled and alerting review states
+in all three locales, including keyboard access to review settings. The 1173-test
+full-suite result above belongs to the initial implementation; this follow-up
+reran the affected suites.
