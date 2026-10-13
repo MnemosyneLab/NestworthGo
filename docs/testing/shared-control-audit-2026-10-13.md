@@ -1,6 +1,7 @@
 # Shared-control audit — 2026-10-13
 
-Initial base: `041abd6`; reconciled onto latest main `c257a05` after PR59 merged. Dedicated branch:
+Initial base: `041abd6`; rebased onto `c257a05` after PR59 merged, then
+merged main `c779e2e` after PR60 merged. Dedicated branch:
 `fix/shared-control-consistency`. The supplied Library PNG was materialized
 locally and its actual pixels inspected: it shows Historical Overview's native
 baseline calendar. No screenshot-specific inference was made before inspection.
@@ -73,8 +74,8 @@ updates App.test assertions from input values to button text.
 PR59 merged into main as `c257a05`; this branch was rebased onto that main
 without conflict. Its panel/upcoming-action work was inspected and its policy
 select now uses NativeSelect. This is an additional affected screen.
-Neither draft branch was edited, checked out or cherry-picked. PR60 remains
-separate (reported head `fab683d0db1b2f9c6dcffb61a6c166ef6d40d5a5`).
+Neither draft branch was edited, checked out or cherry-picked. PR60 was subsequently merged by its owner and integrated through main as
+described below.
 
 ## Verification
 
@@ -115,3 +116,25 @@ quoted/expression forms, wrapper/test exceptions, non-dialog roles and the
 explicitly documented dynamic-alias limitation. Full lint, regenerated-binding
 typecheck and diff whitespace checks pass. No application runtime changes in
 this follow-up; prior frontend/build/browser evidence remains applicable.
+
+## Combined cancellation integration
+
+Merged main `c779e2e5b3b1fc3e145a98ae0f5a4a03db05c66d` (PR60) into
+this branch with a normal merge, without force-pushing or changing its owner
+branch. Both Historical Overview files merged cleanly. The combined page keeps
+`isActive && validCapture` on overview and series queries, cancellation/late
+reply tests, all four shared DatePicker controls and the button focus fallback.
+Combined validation passed: 134 frontend tests across seven files (Historical
+Overview orchestration, real picker integration, App navigation, capture and
+Wails cancellation, date/time keyboard behavior and guard contracts); full lint;
+regenerated-binding typecheck; and targeted Go cancellation tests in
+`internal/application` and `internal/wailsapi/analytics` using the headless
+server environment (`CGO_ENABLED=0`). `git diff --check` also passes.
+
+Nonblocking preexisting follow-up: `components/ui/filterable-select.tsx`
+tracks keyboard `activeIndex` and highlights options, but options have no stable
+DOM IDs and the focused combobox has no `aria-activedescendant` pointing to the
+active option. Thus arrow-key highlight changes are not exposed through that
+accessibility relationship. Address this in a separate focused accessibility
+change with option-ID/active-descendant, filtering and keyboard regression
+coverage; no broad redesign is included here.
