@@ -1,3 +1,4 @@
+import { useValuationDateGeneration } from "@/queries/useValuationDayBoundary";
 import { useState } from "react";
 import { useHistoryOrigin } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
@@ -6,6 +7,7 @@ import { ymdInTimeZone } from "@/features/insights/calendar";
 import { presetRange, type DateRange } from "./dateRanges";
 
 export function useTrendDateRange(initial?: DateRange, marketData = false) {
+  useValuationDateGeneration();
   const origin = useHistoryOrigin();
   const settings = useSettings();
   const timezone = origin.data?.timezone || (settings.data?.timezone === "system" ? undefined : settings.data?.timezone);

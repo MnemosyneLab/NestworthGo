@@ -5,6 +5,8 @@ import { EmptyState } from "@/components/layout/PageState";
 import { formatAmount } from "@/lib/money";
 
 export interface TrendPointMeta {
+ provisional?: boolean;
+ qualityLabel?: string;
   sourceLabel?: string;
   observationLabel?: string;
   observationKind?: string;
@@ -96,6 +98,24 @@ export function trendLegendLabel(name: string, item: TrendSeries, mixedSources: 
   return parts.join(" · ");
 }
 
+// Split only geometry: any edge touching an estimate is dashed. True gaps
+// remain gaps, and each rendered datum retains its original tooltip index.
+export function trendQualitySegments(item: TrendSeries): Array<{ indices: number[]; provisional: boolean }> {
+  if (!(item.pointMeta ?? []).some(meta => meta?.provisional)) return [{ indices: item.values.map((_, index) => index), provisional: false }];
+  const segments: Array<{ indices: number[]; provisional: boolean }> = [];
+  let last = -1;
+  let active: { indices: number[]; provisional: boolean } | undefined;
+  item.values.forEach((value, index) => {
+    if (value == null) { last = -1; active = undefined; return; }
+    const provisional = Boolean(item.pointMeta?.[index]?.provisional || (last >= 0 && item.pointMeta?.[last]?.provisional));
+    if (!active || active.provisional !== provisional) {
+      active = { indices: last >= 0 ? [last, index] : [index], provisional }; segments.push(active);
+    } else active.indices.push(index);
+    last = index;
+  });
+  return segments;
+}
+
 export function TrendChart({
   ariaLabel,
   summary,
@@ -141,13 +161,15 @@ export function TrendChart({
         const items = Array.isArray(params) ? params : [params];
         const date = formatTrendChartDate((items[0] as { axisValue?: string | number }).axisValue ?? "", i18n.language);
         const lines = items.flatMap((item) => {
-          const point = item as { seriesName?: string; dataIndex?: number; seriesIndex?: number };
-          const seriesItem = series[point.seriesIndex ?? 0];
-          const raw = seriesItem?.values[point.dataIndex ?? -1];
-          const meta = seriesItem?.pointMeta?.[point.dataIndex ?? -1];
+          const point = item as { seriesName?: string; dataIndex?: number; seriesIndex?: number; data?: { originalIndex?: number } };
+ const seriesItem = series.find(entry => entry.name === point.seriesName) ?? series[point.seriesIndex ?? 0];
+ const index = point.data?.originalIndex ?? point.dataIndex ?? -1;
+ const raw = seriesItem?.values[index];
+ const meta = seriesItem?.pointMeta?.[index];
           return [
             `${point.seriesName}: ${formatValue(raw)}`,
             meta?.observationLabel,
+ meta?.qualityLabel,
             meta?.effectiveDate ? `${t("quoteDetails.effectiveDate")}: ${meta.effectiveDate}` : null,
             meta?.sourceLabel ? `${t("charts.source")}: ${meta.sourceLabel}` : null,
             meta?.delayed == null ? null : (meta.delayed ? t("charts.delayed") : t("charts.onTime")),
@@ -166,16 +188,19 @@ export function TrendChart({
       },
     },
     yAxis: { type: "value", scale: true, axisLabel: { color: theme.muted, ...(axisValueFormatter ? { formatter: axisValueFormatter } : {}) }, splitLine: { lineStyle: { color: theme.border } } },
-    series: series.map((item) => {
-      const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed);
+    series: series.flatMap((item) => trendQualitySegments(item).map((segment, segmentIndex) => {
+      const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed || meta?.provisional);
       return {
         type: "line" as const,
         name: item.name,
-        data: item.values.map((value, index) => {
+ id: `${item.key}-${segmentIndex}`,
+ data: segment.indices.map((index) => {
+ const value = item.values[index];
           const meta = item.pointMeta?.[index];
           return {
-            value: [trendChartTimestamp(dates[index]), chartNumber(value)],
-            symbol: meta?.observationKind === "close" || meta?.observationKind === "daily_reference" ? "rect" : meta?.observationKind === "manual" || meta?.delayed ? "diamond" : "circle",
+            originalIndex:index,
+ value: [trendChartTimestamp(dates[index]), chartNumber(value)],
+            symbol: meta?.provisional ? "diamond" : meta?.observationKind === "close" || meta?.observationKind === "daily_reference" ? "rect" : meta?.observationKind === "manual" || meta?.delayed ? "diamond" : "circle",
             itemStyle: { color: meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : resolveSeriesColor(item.color) },
           };
         }),
@@ -189,11 +214,11 @@ export function TrendChart({
         },
         connectNulls: false,
         showSymbol: dates.length < 24 || showSourceMarks,
-        lineStyle: { color: resolveSeriesColor(item.color), width: 2.5 },
+        lineStyle: { color: resolveSeriesColor(item.color), width: 2.5, type: segment.provisional ? "dashed" as const : "solid" as const },
         ...(series.length === 1 ? { areaStyle: { color: resolveSeriesColor(item.color), opacity: 0.1 } } : {}),
         itemStyle: { color: resolveSeriesColor(item.color) },
       };
-    }),
+    })),
   };
 
   const columns = extraTableColumns ?? [t("charts.date"), ...series.map((item) => item.name)];

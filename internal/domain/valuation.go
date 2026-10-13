@@ -54,17 +54,21 @@ func QuoteFreshness(source QuoteSourceKind, delayed bool, quotedAt, now time.Tim
 }
 
 type MoneyView struct {
-	Amount   string
-	Currency CurrencyCode
+	Amount   string       `json:"amount"`
+	Currency CurrencyCode `json:"currency"`
 }
 
 type QuoteEvidenceView struct {
-	ObservationID string
-	Source        QuoteSourceKind
-	SourceKey     string
-	QuotedAt      time.Time
-	Freshness     Freshness
-	Delayed       bool
+	EffectiveDate    string
+	ValueEffectiveAt time.Time
+	FetchedAt        time.Time
+	Carried          bool
+	ObservationID    string
+	Source           QuoteSourceKind
+	SourceKey        string
+	QuotedAt         time.Time
+	Freshness        Freshness
+	Delayed          bool
 }
 
 type MissingInputKind string
@@ -94,6 +98,8 @@ type MissingInputView struct {
 // returned Money view. The application owns the authoritative calculation;
 // UI layers consume this vocabulary only.
 type ValuationComponent struct {
+	InstrumentType            InstrumentType
+	MissingInputs             []MissingInputView
 	AccountID                 AccountID
 	HoldingID                 *HoldingID
 	InstrumentID              *InstrumentID
@@ -146,6 +152,7 @@ type AllocationView struct {
 }
 
 type PortfolioValuation struct {
+	DisplayValuation ValuationAmount
 	Currency         CurrencyCode
 	ValuedSubtotal   *MoneyView
 	Complete         bool

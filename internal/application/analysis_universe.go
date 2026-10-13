@@ -22,6 +22,7 @@ type AnalysisInputs struct {
 }
 
 type analysisUniverse struct {
+	displayEvidence         snapshotDisplayEvidence
 	context                 domain.ResolvedAnalysisContext
 	accounts                map[domain.AccountID]domain.Account
 	ownership               map[domain.AccountID]domain.Ownership

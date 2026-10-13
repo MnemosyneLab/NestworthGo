@@ -23,24 +23,25 @@ func NewService(app *application.Service) *Service {
 
 // OverviewDTO mirrors domain.OverviewResult.
 type OverviewDTO struct {
-	Currency          string                       `json:"currency"`
-	AccountCount      int                          `json:"accountCount"`
-	Complete          bool                         `json:"complete"`
-	MissingInputs     []wire.MissingInputDTO       `json:"missingInputs"`
-	Assets            string                       `json:"assets"`
-	Liabilities       string                       `json:"liabilities"`
-	NetWorth          string                       `json:"netWorth"`
-	AssetsByType      []wire.BreakdownDTO          `json:"assetsByType"`
-	LiabilitiesByType []wire.BreakdownDTO          `json:"liabilitiesByType"`
-	ByMember          []wire.BreakdownDTO          `json:"byMember"`
-	ByInstitution     []wire.BreakdownDTO          `json:"byInstitution"`
-	ByGroup           []wire.BreakdownDTO          `json:"byGroup"`
-	ByAccountType     []wire.BreakdownDTO          `json:"byAccountType"`
-	HistoryStarted    bool                         `json:"historyStarted"`
-	RecentActivities  []wire.ActivityDTO           `json:"recentActivities"`
-	AccountLabels     []OverviewNamedDTO           `json:"accountLabels"`
-	InstrumentLabels  []OverviewInstrumentLabelDTO `json:"instrumentLabels"`
-	HoldingLabels     []OverviewHoldingLabelDTO    `json:"holdingLabels"`
+	DisplayValuation  wire.HouseholdDisplayValuationDTO `json:"displayValuation,omitempty"`
+	Currency          string                            `json:"currency"`
+	AccountCount      int                               `json:"accountCount"`
+	Complete          bool                              `json:"complete"`
+	MissingInputs     []wire.MissingInputDTO            `json:"missingInputs"`
+	Assets            string                            `json:"assets"`
+	Liabilities       string                            `json:"liabilities"`
+	NetWorth          string                            `json:"netWorth"`
+	AssetsByType      []wire.BreakdownDTO               `json:"assetsByType"`
+	LiabilitiesByType []wire.BreakdownDTO               `json:"liabilitiesByType"`
+	ByMember          []wire.BreakdownDTO               `json:"byMember"`
+	ByInstitution     []wire.BreakdownDTO               `json:"byInstitution"`
+	ByGroup           []wire.BreakdownDTO               `json:"byGroup"`
+	ByAccountType     []wire.BreakdownDTO               `json:"byAccountType"`
+	HistoryStarted    bool                              `json:"historyStarted"`
+	RecentActivities  []wire.ActivityDTO                `json:"recentActivities"`
+	AccountLabels     []OverviewNamedDTO                `json:"accountLabels"`
+	InstrumentLabels  []OverviewInstrumentLabelDTO      `json:"instrumentLabels"`
+	HoldingLabels     []OverviewHoldingLabelDTO         `json:"holdingLabels"`
 }
 
 type OverviewNamedDTO struct {
@@ -87,7 +88,8 @@ func fromOverview(value domain.OverviewResult) OverviewDTO {
 		holdingLabels = append(holdingLabels, OverviewHoldingLabelDTO{ID: label.ID, AccountID: label.AccountID, InstrumentID: label.InstrumentID, Name: label.Name})
 	}
 	return OverviewDTO{
-		Currency: value.Currency.String(), AccountCount: value.AccountCount, Complete: value.Complete,
+		DisplayValuation: wire.FromHouseholdDisplay(value.DisplayValuation),
+		Currency:         value.Currency.String(), AccountCount: value.AccountCount, Complete: value.Complete,
 		MissingInputs: wire.FromMissingInputs(value.MissingInputs),
 		Assets:        assets, Liabilities: liabilities, NetWorth: netWorth,
 		AssetsByType: wire.FromBreakdowns(value.AssetsByType), LiabilitiesByType: wire.FromBreakdowns(value.LiabilitiesByType), ByMember: wire.FromBreakdowns(value.ByMember),
@@ -112,6 +114,7 @@ func (s *Service) Overview(ctx context.Context, request account.AccountFilterReq
 
 // PortfolioDTO mirrors domain.PortfolioValuation.
 type PortfolioDTO struct {
+	DisplayValuation wire.ValuationAmountDTO    `json:"displayValuation,omitempty"`
 	Currency         string                     `json:"currency"`
 	ValuedSubtotal   *wire.MoneyView            `json:"valuedSubtotal,omitempty"`
 	Complete         bool                       `json:"complete"`
@@ -124,7 +127,8 @@ type PortfolioDTO struct {
 
 func fromPortfolio(value domain.PortfolioValuation) PortfolioDTO {
 	return PortfolioDTO{
-		Currency: value.Currency.String(), ValuedSubtotal: wire.FromMoneyView(value.ValuedSubtotal), Complete: value.Complete,
+		DisplayValuation: wire.FromValuationAmount(value.DisplayValuation),
+		Currency:         value.Currency.String(), ValuedSubtotal: wire.FromMoneyView(value.ValuedSubtotal), Complete: value.Complete,
 		Accounts: wire.FromAccountValuations(value.Accounts), MissingInputs: wire.FromMissingInputs(value.MissingInputs),
 		ByCurrency: wire.FromAllocations(value.ByCurrency), ByCountry: wire.FromAllocations(value.ByCountry),
 		ByInstrumentType: wire.FromAllocations(value.ByInstrumentType),
@@ -145,42 +149,45 @@ func (s *Service) Portfolio(ctx context.Context, request account.AccountFilterRe
 
 // NetWorthTrendPointDTO mirrors domain.NetWorthTrendPoint.
 type NetWorthTrendPointDTO struct {
-	Current      bool                  `json:"current"`
-	LocalDate    string                `json:"localDate"`
-	NetWorth     *wire.SignedMoneyView `json:"netWorth,omitempty"`
-	Assets       *wire.MoneyView       `json:"assets,omitempty"`
-	Liabilities  *wire.MoneyView       `json:"liabilities,omitempty"`
-	Status       string                `json:"status"`
-	Complete     bool                  `json:"complete"`
-	MissingCount int                   `json:"missingCount"`
+	DisplayValuation wire.HouseholdDisplayValuationDTO `json:"displayValuation,omitempty"`
+	Current          bool                              `json:"current"`
+	LocalDate        string                            `json:"localDate"`
+	NetWorth         *wire.SignedMoneyView             `json:"netWorth,omitempty"`
+	Assets           *wire.MoneyView                   `json:"assets,omitempty"`
+	Liabilities      *wire.MoneyView                   `json:"liabilities,omitempty"`
+	Status           string                            `json:"status"`
+	Complete         bool                              `json:"complete"`
+	MissingCount     int                               `json:"missingCount"`
 }
 
 // NetWorthTrendDTO mirrors domain.NetWorthTrend.
 type NetWorthTrendDTO struct {
-	StartDate     string                  `json:"startDate"`
-	EndDate       string                  `json:"endDate"`
-	Complete      bool                    `json:"complete"`
-	SummaryReason string                  `json:"summaryReason,omitempty"`
-	Range         string                  `json:"range"`
-	Currency      string                  `json:"currency"`
-	Points        []NetWorthTrendPointDTO `json:"points"`
-	Start         *wire.SignedMoneyView   `json:"start,omitempty"`
-	End           *wire.SignedMoneyView   `json:"end,omitempty"`
-	Change        *wire.SignedMoneyView   `json:"change,omitempty"`
+	EstimatedChange *wire.SignedMoneyView   `json:"estimatedChange,omitempty"`
+	StartDate       string                  `json:"startDate"`
+	EndDate         string                  `json:"endDate"`
+	Complete        bool                    `json:"complete"`
+	SummaryReason   string                  `json:"summaryReason,omitempty"`
+	Range           string                  `json:"range"`
+	Currency        string                  `json:"currency"`
+	Points          []NetWorthTrendPointDTO `json:"points"`
+	Start           *wire.SignedMoneyView   `json:"start,omitempty"`
+	End             *wire.SignedMoneyView   `json:"end,omitempty"`
+	Change          *wire.SignedMoneyView   `json:"change,omitempty"`
 }
 
 func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
 	points := make([]NetWorthTrendPointDTO, 0, len(result.Points))
 	for _, point := range result.Points {
 		points = append(points, NetWorthTrendPointDTO{
-			LocalDate:    point.LocalDate,
-			Current:      point.Current,
-			NetWorth:     wire.FromSignedMoneyPtr(point.NetWorth),
-			Assets:       wire.FromMoneyPtr(point.Assets),
-			Liabilities:  wire.FromMoneyPtr(point.Liabilities),
-			Status:       string(point.Status),
-			Complete:     point.Complete,
-			MissingCount: point.MissingCount,
+			DisplayValuation: wire.FromHouseholdDisplay(point.DisplayValuation),
+			LocalDate:        point.LocalDate,
+			Current:          point.Current,
+			NetWorth:         wire.FromSignedMoneyPtr(point.NetWorth),
+			Assets:           wire.FromMoneyPtr(point.Assets),
+			Liabilities:      wire.FromMoneyPtr(point.Liabilities),
+			Status:           string(point.Status),
+			Complete:         point.Complete,
+			MissingCount:     point.MissingCount,
 		})
 	}
 	var change *wire.SignedMoneyView
@@ -189,7 +196,8 @@ func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
 		change = &view
 	}
 	return NetWorthTrendDTO{
-		Range: string(result.Range), Currency: result.Currency.String(), Points: points,
+		EstimatedChange: wire.FromSignedMoneyPtr(result.EstimatedChange),
+		Range:           string(result.Range), Currency: result.Currency.String(), Points: points,
 		StartDate: result.StartDate, EndDate: result.EndDate, Complete: result.Complete, SummaryReason: result.SummaryReason,
 		Start: wire.FromSignedMoneyPtr(result.Start), End: wire.FromSignedMoneyPtr(result.End), Change: change,
 	}
@@ -209,11 +217,13 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange string) (NetWort
 
 // PortfolioTrendPointDTO mirrors domain.PortfolioTrendPoint.
 type PortfolioTrendPointDTO struct {
-	LocalDate      string          `json:"localDate"`
-	ValuedSubtotal *wire.MoneyView `json:"valuedSubtotal,omitempty"`
-	Status         string          `json:"status"`
-	Complete       bool            `json:"complete"`
-	MissingCount   int             `json:"missingCount"`
+	Current          bool                    `json:"current,omitempty"`
+	DisplayValuation wire.ValuationAmountDTO `json:"displayValuation,omitempty"`
+	LocalDate        string                  `json:"localDate"`
+	ValuedSubtotal   *wire.MoneyView         `json:"valuedSubtotal,omitempty"`
+	Status           string                  `json:"status"`
+	Complete         bool                    `json:"complete"`
+	MissingCount     int                     `json:"missingCount"`
 }
 
 // PortfolioTrendDTO mirrors domain.PortfolioTrend.
@@ -235,6 +245,7 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange string) (Portfo
 	points := make([]PortfolioTrendPointDTO, 0, len(result.Points))
 	for _, point := range result.Points {
 		points = append(points, PortfolioTrendPointDTO{
+			Current: point.Current, DisplayValuation: wire.FromValuationAmount(point.DisplayValuation),
 			LocalDate:      point.LocalDate,
 			ValuedSubtotal: wire.FromMoneyPtr(point.ValuedSubtotal),
 			Status:         string(point.Status),

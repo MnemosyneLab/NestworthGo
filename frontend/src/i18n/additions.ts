@@ -8,6 +8,7 @@ import { availableFundsEn, availableFundsZhCN, availableFundsZhTW } from "./avai
  * not silently drop them.
  */
 export const additionsEn = {
+ valuation: {"currentEstimate": "Current estimate", "estimated": "Estimated valuation", "verified": "Coverage verified", "latestNAV": "Using latest available NAV", "latestMarketValue": "Using latest available market value", "awaitingUpdate": "Awaiting update", "awaitingPublication": "Awaiting publication", "knownSubtotal": "Known subtotal", "knownNetContribution": "Known net contribution", "unpriced": "{{count}} items have no usable valuation", "navDate": "NAV date", "retrievedAt": "Retrieved at", "returnPending": "Valuation is available; return is not yet confirmed", "estimatedChange": "Estimated net-worth change, including cash flows", "updating": "Updating valuation", "priorResult": "Prior result; refresh failed"},
   historicalReconciliation: historicalReconciliationEn,
   "diagnosticsSettings": {
     "level": "Application file logging",
@@ -1157,6 +1158,7 @@ export const additionsEn = {
 };
 
 export const additionsZhCN = {
+ valuation: {"currentEstimate": "当前估值", "estimated": "暂估价值", "verified": "覆盖已验证", "latestNAV": "沿用最近净值", "latestMarketValue": "沿用最近市场数据", "awaitingUpdate": "待更新", "awaitingPublication": "待披露", "knownSubtotal": "已估值部分", "knownNetContribution": "已知净贡献", "unpriced": "{{count}} 项暂无法估值", "navDate": "净值日期", "retrievedAt": "获取时间", "returnPending": "可显示估值，收益尚未确认", "estimatedChange": "净资产暂估变化，含资金流入流出", "updating": "正在更新估值", "priorResult": "上次结果；更新失败"},
   historicalReconciliation: historicalReconciliationZhCN,
   "diagnosticsSettings": {
     "level": "应用文件日志",
@@ -2290,6 +2292,7 @@ export const additionsZhCN = {
 };
 
 export const additionsZhTW = {
+ valuation: {"currentEstimate": "目前估值", "estimated": "暫估價值", "verified": "覆蓋已驗證", "latestNAV": "沿用最近淨值", "latestMarketValue": "沿用最近市場資料", "awaitingUpdate": "待更新", "awaitingPublication": "待公布", "knownSubtotal": "已估值部分", "knownNetContribution": "已知淨貢獻", "unpriced": "{{count}} 項暫無法估值", "navDate": "淨值日期", "retrievedAt": "取得時間", "returnPending": "可顯示估值，收益尚未確認", "estimatedChange": "淨資產暫估變化，含資金流入流出", "updating": "正在更新估值", "priorResult": "上次結果；更新失敗"},
   historicalReconciliation: historicalReconciliationZhTW,
   "diagnosticsSettings": {
     "level": "應用程式檔案日誌",

@@ -365,35 +365,39 @@ const (
 )
 
 type NetWorthTrendPoint struct {
-	Current      bool
-	LocalDate    string
-	NetWorth     *SignedMoney
-	Assets       *Money
-	Liabilities  *Money
-	Status       TrendPointStatus
-	Complete     bool
-	MissingCount int
+	DisplayValuation HouseholdDisplayValuation
+	Current          bool
+	LocalDate        string
+	NetWorth         *SignedMoney
+	Assets           *Money
+	Liabilities      *Money
+	Status           TrendPointStatus
+	Complete         bool
+	MissingCount     int
 }
 
 type NetWorthTrend struct {
-	StartDate     string
-	EndDate       string
-	Complete      bool
-	SummaryReason string
-	Range         TrendRange
-	Currency      CurrencyCode
-	Points        []NetWorthTrendPoint
-	Start         *SignedMoney
-	End           *SignedMoney
-	Change        *SignedMoney
+	EstimatedChange *SignedMoney
+	StartDate       string
+	EndDate         string
+	Complete        bool
+	SummaryReason   string
+	Range           TrendRange
+	Currency        CurrencyCode
+	Points          []NetWorthTrendPoint
+	Start           *SignedMoney
+	End             *SignedMoney
+	Change          *SignedMoney
 }
 
 type PortfolioTrendPoint struct {
-	LocalDate      string
-	ValuedSubtotal *Money
-	Status         TrendPointStatus
-	Complete       bool
-	MissingCount   int
+	Current          bool
+	DisplayValuation ValuationAmount
+	LocalDate        string
+	ValuedSubtotal   *Money
+	Status           TrendPointStatus
+	Complete         bool
+	MissingCount     int
 }
 
 type PortfolioTrend struct {

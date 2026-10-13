@@ -221,6 +221,10 @@ func (v *ValuationService) PortfolioSnapshot(snapshot domain.PortfolioSnapshot) 
 			hasValue = true
 		}
 	}
+	portfolio.DisplayValuation, err = currentPortfolioDisplay(portfolio.Accounts, snapshot, v.now())
+	if err != nil {
+		return domain.PortfolioValuation{}, err
+	}
 	portfolio.MissingInputs = missingForAccounts(portfolio.Accounts)
 	if hasValue {
 		view, err := moneyView(total, snapshot.Household.BaseCurrency)
@@ -326,6 +330,7 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 	baseTotal := decimal.Zero
 	hasBase := false
 	add := func(component domain.ValuationComponent, missing []domain.MissingInputView) {
+		component.MissingInputs = append([]domain.MissingInputView{}, missing...)
 		component.StateObservationID = record.StateObservationID
 		model.Components = append(model.Components, component)
 		componentMissing = append(componentMissing, missing)
@@ -448,10 +453,17 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 		return domain.ValuationComponent{}, nil, err
 	}
 	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now(), v.quoteTTL())
+	evidence.EffectiveDate, evidence.ValueEffectiveAt, evidence.FetchedAt = quote.EffectiveDate, quote.ValueEffectiveAt, quote.FetchedAt
+	targetDate := v.historicalDate()
+	if !v.historical {
+		targetDate = displayDate(snapshot, v.now())
+	}
+	evidence.Carried = quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
 	component, missing, err := v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
 	}
+	component.InstrumentType = instrument.Type
 	component.InstrumentName = name
 	component.InstrumentShortName = instrument.ShortName
 	component.InstrumentSymbol = symbol
@@ -535,6 +547,12 @@ func (v *ValuationService) convertTo(snapshot domain.PortfolioSnapshot, accountI
 		return decimal.Zero, nil, nil, err
 	}
 	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now(), v.quoteTTL())
+	evidence.EffectiveDate, evidence.ValueEffectiveAt, evidence.FetchedAt = quote.EffectiveDate, quote.ValueEffectiveAt, quote.FetchedAt
+	targetDate := v.historicalDate()
+	if !v.historical {
+		targetDate = displayDate(snapshot, v.now())
+	}
+	evidence.Carried = quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
 	return converted, &evidence, nil, nil
 }
 

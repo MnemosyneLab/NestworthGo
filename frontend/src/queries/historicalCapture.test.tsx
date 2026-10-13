@@ -48,7 +48,7 @@ it.each(["", "2026-08-31", "current"])("cancels ten rapid repeated selections an
   expect(view.result.current.data).toEqual(final);
   expect(view.result.current.isError).toBe(false);
   await act(async () => client.invalidateQueries());
-  expect(read).toHaveBeenCalledTimes(11);
+  expect(read).toHaveBeenCalledTimes(12);
   view.unmount();
   expect(calls[10].cancel).not.toHaveBeenCalled();
 });

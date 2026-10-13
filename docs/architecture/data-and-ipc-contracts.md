@@ -189,7 +189,10 @@ compatibility belongs in a migration, not in a frontend dual-read.
 
 Daily snapshot and trend data carries an explicit `status`: `complete`,
 `incomplete`, or `missing`. Incomplete and missing points have nullable
-valuation fields and are rendered as chart gaps. A partial or absent
+strict valuation fields. The additive `displayValuation` fields project the
+same exact components: full provisional estimates render with dashed segments
+and textual quality; partial known subtotals remain separately labeled in
+tables. True unavailable/partial totals leave gaps. A partial or absent
 valuation is never represented as zero.
 
 ### Canonical mutations and analytics scope
@@ -452,3 +455,25 @@ recovery listing, staged preview and explicit confirmation. Last attempt and
 last successful remote-confirmed backup are distinct; a captured LTX equality
 is not a claim that later business writes have been scanned. These operations
 are not exposed through MCP. See [continuous backup](../development/continuous-backup.md).
+
+
+### Additive display valuation contract
+
+Overview/trend household amounts expose assets, liabilities and signed net worth
+as `ValuationAmount`; portfolio/row/Asset Trend level amounts expose one amount.
+Each contains nullable `total` and `knownSubtotal`, currency and typed quality.
+Legacy strict fields retain their existing meanings. Estimated endpoint changes
+use exactly the requested full boundaries, include flows and are not returns.
+Historical overview/series and financial-context summaries expose this additive
+projection through existing read-only MCP serialization and response budgets.
+Quote evidence retains effective NAV/reference date, value-effective timestamp
+and retrieval timestamp separately. No observation is synthesized for carry.
+Coverage-only valuation notices are informational and do not inflate actionable
+health counts. Supported provider finalization rules retain their existing dates;
+unknown publication schedules receive no guessed deadline.
+
+The mounted ledger clock checks local civil date on timer/focus/resume and
+invalidates valuation captures when it changes. Quote/activity/source changes
+also invalidate historical captures; focus/reconnect alone do not. A refetch
+retains the same date's successful data with an updating indicator, or a prior
+result/error/retry label. Navigation has no cross-date placeholder.

@@ -184,13 +184,24 @@ func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 	}
 
 	seriesArgs := skillExample(t, "analysis", "historical-overview-series", nil)
+	expanded, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_historical_overview_series", Arguments: seriesArgs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, _ := json.Marshal(expanded)
+	if !expanded.IsError || !strings.Contains(string(encoded), "too_large") {
+		t.Fatalf("oversized quality capture must fail explicitly, never truncate: %+v", expanded)
+	}
+	// Added quality increases payload cost. Preserve the wire budget; parity
+	// uses an explicitly narrower capture rather than truncating returned dates.
+	seriesArgs["to"] = "2026-10-03"
 	series := call(t, c, "get_historical_overview_series", seriesArgs, false)["data"]
 	guiSeries, err := analytics.NewService(fx.app).HistoricalOverviewSeries(t.Context(), seriesArgs["from"].(string), seriesArgs["to"].(string))
 	if err != nil {
 		t.Fatal(err)
 	}
 	featureJSONEqual(t, series, guiSeries)
-	if len(series.(map[string]any)["points"].([]any)) != 10 {
+	if len(series.(map[string]any)["points"].([]any)) != 3 {
 		t.Fatal("historical series did not preserve the requested closed dates")
 	}
 }

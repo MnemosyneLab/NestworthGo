@@ -36,6 +36,7 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
+	universe.displayEvidence = newSnapshotDisplayEvidence(domain.HistoricalSnapshotBatch{Portfolio: input.Portfolio, InstrumentQuoteFacts: input.InstrumentQuotes, FXQuoteFacts: input.FXQuotes}, time.Time{}, 12*time.Hour)
 	valuationComponents := universe.context.Universe.Components
 	if investmentOnly {
 		valuationComponents = universe.context.InvestmentUniverse.Components
@@ -106,6 +107,12 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 			}
 			if day.Status == domain.CompletenessOK && (universe.hasUnknownAccount(localDate) || universe.hasUnknownAccount(previousDate)) {
 				day.Status = domain.CompletenessPartial
+			}
+			if universe.hasUnknownAccount(localDate) && day.DisplayEnding != nil {
+				day.DisplayEnding.Total = nil
+				day.DisplayEnding.Quality.Availability = domain.ValuationPartial
+				day.DisplayEnding.Quality.Coverage = domain.CoverageProvisional
+				day.DisplayEnding.Quality.Reasons = append(day.DisplayEnding.Quality.Reasons, domain.ReasonEvidenceUnavailable)
 			}
 			result.Days = append(result.Days, day)
 		}
@@ -180,6 +187,13 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 			hasPrevious, hasCurrent = true, true
 		}
 	}
+	// Independent level projection precedes the unchanged strict-return guard.
+	display, displayErr := analysisDisplayEnding(current, hasCurrent, account, input, query, universe.displayEvidence, date)
+	if displayErr != nil {
+		return domain.ComponentDay{}, displayErr
+	}
+	day.DisplayEnding = &display
+	day.DisplayLiability = account.IsLiability()
 	if !hasPrevious || !hasCurrent || !previous.Complete || !current.Complete {
 		day.Status = domain.CompletenessUnavailable
 		if hasPrevious && hasCurrent && (previous.Complete || current.Complete) {
@@ -890,4 +904,39 @@ func inferredQuantity(item domain.DailyValuationSnapshotItem, quote *domain.Inst
 		return decimal.Zero, err
 	}
 	return value.Div(quote.UnitPrice.Decimal()), nil
+}
+
+func analysisDisplayEnding(item domain.DailyValuationSnapshotItem, present bool, account domain.Account, input AnalysisInputs, query domain.AnalysisQuery, e snapshotDisplayEvidence, date string) (domain.ValuationAmount, error) {
+	c, missing, uncertain := snapshotDisplayItem(item, e)
+	if !present || item.AccountID == "" {
+		c.Available = false
+		c.BaseAmountExact = ""
+		missing = []domain.MissingInputView{{Kind: domain.MissingAccountValue}}
+	}
+	currency := valueCurrency(item, query.Valuation, input.Portfolio.Household.BaseCurrency)
+	if query.Valuation == domain.ValuationNative {
+		c.BaseAmountExact = item.NativeAmount
+		c.Available = present && item.AccountID != "" && item.NativeAmount != ""
+		c.FXEvidence = nil
+		filtered := []domain.MissingInputView{}
+		for _, m := range missing {
+			if m.Kind != domain.MissingFXRate {
+				filtered = append(filtered, m)
+			}
+		}
+		missing = filtered
+	}
+	if c.BaseAmountExact != "" && account.IsLiability() {
+		value, err := decimal.NewFromString(c.BaseAmountExact)
+		if err != nil {
+			return domain.ValuationAmount{}, err
+		}
+		c.BaseAmountExact = value.Neg().String()
+	}
+	var a displayAccumulator
+	a.uncertain = uncertain
+	if err := a.add(c, missing, date, false); err != nil {
+		return domain.ValuationAmount{}, err
+	}
+	return a.amount(currency, true)
 }

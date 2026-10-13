@@ -55,8 +55,8 @@ func TestIncompleteMetalSnapshotHealthLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Healthy {
-		t.Fatal("incomplete snapshot incorrectly reported healthy")
+	if !report.Healthy {
+		t.Fatal("coverage-only pending valuation should not require repair")
 	}
 	var pending *HealthIssue
 	for i := range report.Issues {

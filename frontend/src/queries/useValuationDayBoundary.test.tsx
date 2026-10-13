@@ -1,0 +1,20 @@
+import { act, renderHook } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { afterEach, expect, it, vi } from "vitest";
+import { createTestQueryClient } from "@/test/queryClient";
+import { useValuationDateGeneration, useValuationDayBoundary } from "./useValuationDayBoundary";
+vi.mock("./history",()=>({useHistoryOrigin:()=>({data:{timezone:"Asia/Shanghai"}})}));
+vi.mock("./settings",()=>({useSettings:()=>({data:{timezone:"system"}})}));
+afterEach(()=>{vi.useRealTimers()});
+it("invalidates once on ledger midnight and resume using local clock checks",()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-12T15:59:59Z"));
+ const client=createTestQueryClient();const invalidate=vi.spyOn(client,"invalidateQueries");
+ const wrapper=({children}:{children:ReactNode})=><QueryClientProvider client={client}>{children}</QueryClientProvider>;
+ const hook=renderHook(()=>{useValuationDayBoundary();return useValuationDateGeneration()},{wrapper});const initial=hook.result.current;
+ act(()=>vi.advanceTimersByTime(30_000));expect(hook.result.current).toBe(initial+1);
+ expect(invalidate).toHaveBeenCalledWith({queryKey:["historical-overview"]});expect(invalidate).toHaveBeenCalledWith({queryKey:["historical-series"]});
+ const count=invalidate.mock.calls.length;act(()=>window.dispatchEvent(new Event("focus")));expect(invalidate).toHaveBeenCalledTimes(count);
+ vi.setSystemTime(new Date("2026-10-14T00:00:00Z"));act(()=>document.dispatchEvent(new Event("visibilitychange")));expect(hook.result.current).toBe(initial+2);
+ hook.unmount();expect(vi.getTimerCount()).toBe(0);
+});

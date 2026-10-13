@@ -770,6 +770,7 @@ type OverviewHoldingRef struct {
 }
 
 type OverviewResult struct {
+	DisplayValuation  HouseholdDisplayValuation
 	Currency          CurrencyCode
 	AccountCount      int
 	Complete          bool

@@ -1,3 +1,4 @@
+import { fullDisplayAmount, valuationDetails } from "@/components/valuation/valuationQuality";
 import { AssetValueSummary } from "./AssetValueSummary";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -46,8 +47,8 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   const trend = useAssetTrend(context.request, granularity, metric, context.enabled);
   const data = trend.data;
   const dates = useMemo(() => (data?.points ?? []).map((point) => point.period), [data?.points]);
-  const values = useMemo(() => (data?.points ?? []).map((point) => metric === "return_rate" ? point.rate : point.value?.amount ?? null), [data?.points, metric]);
-  const currency = data?.summary?.currency ?? data?.points?.find((point) => point.value?.currency)?.value?.currency ?? settings.data?.currency ?? "";
+  const values = useMemo(() => (data?.points ?? []).map((point) => metric === "return_rate" ? point.rate : fullDisplayAmount(point.displayValuation,point.value?.amount)), [data?.points, metric]);
+  const currency = data?.summary?.currency ?? data?.points?.find((point) => point.displayValuation?.total?.currency)?.displayValuation?.total?.currency ?? data?.points?.find((point) => point.value?.currency)?.value?.currency ?? settings.data?.currency ?? "";
 
   if (context.origin.isLoading) return <LoadingState label={t("insights.loading")} />;
   if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;
@@ -74,7 +75,7 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
           <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
         </CardHeader>
-        <CardContent>{dates.length === 0 || values.every((value) => value == null) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values }]} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
+        <CardContent>{dates.length === 0 || values.every((value) => value == null) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:point.displayValuation?.quality?.coverage === "provisional",qualityLabel:valuationDetails(t,point.displayValuation)})) }]} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
       </Card>
       {!data.valueChange && <Card>
         <CardContent className="pt-6">

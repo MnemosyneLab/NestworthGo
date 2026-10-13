@@ -376,12 +376,16 @@ func FromAccountRecords(values []domain.AccountRecord) []AccountRecordDTO {
 
 // QuoteEvidenceDTO mirrors domain.QuoteEvidenceView.
 type QuoteEvidenceDTO struct {
-	ObservationID string `json:"observationId"`
-	Source        string `json:"source"`
-	SourceKey     string `json:"sourceKey"`
-	QuotedAt      string `json:"quotedAt"`
-	Freshness     string `json:"freshness"`
-	Delayed       bool   `json:"delayed"`
+	EffectiveDate    *string `json:"effectiveDate"`
+	ValueEffectiveAt *string `json:"valueEffectiveAt"`
+	FetchedAt        *string `json:"fetchedAt"`
+	Carried          bool    `json:"carried"`
+	ObservationID    string  `json:"observationId"`
+	Source           string  `json:"source"`
+	SourceKey        string  `json:"sourceKey"`
+	QuotedAt         string  `json:"quotedAt"`
+	Freshness        string  `json:"freshness"`
+	Delayed          bool    `json:"delayed"`
 }
 
 func FromQuoteEvidence(value *domain.QuoteEvidenceView) *QuoteEvidenceDTO {
@@ -389,6 +393,7 @@ func FromQuoteEvidence(value *domain.QuoteEvidenceView) *QuoteEvidenceDTO {
 		return nil
 	}
 	return &QuoteEvidenceDTO{
+		EffectiveDate: optionalEvidenceString(value.EffectiveDate), ValueEffectiveAt: optionalEvidenceTime(value.ValueEffectiveAt), FetchedAt: optionalEvidenceTime(value.FetchedAt), Carried: value.Carried,
 		ObservationID: value.ObservationID, Source: string(value.Source), SourceKey: value.SourceKey,
 		QuotedAt: FormatTime(value.QuotedAt), Freshness: string(value.Freshness), Delayed: value.Delayed,
 	}
@@ -1070,4 +1075,17 @@ type ActivityPageDTO struct {
 
 func FromActivityPage(value domain.ActivityPage) ActivityPageDTO {
 	return ActivityPageDTO{Activities: FromActivities(value.Activities), Next: FromActivityCursor(value.Next), HasMore: value.HasMore}
+}
+
+func optionalEvidenceString(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
+}
+func optionalEvidenceTime(v time.Time) *string {
+	if v.IsZero() {
+		return nil
+	}
+	return optionalEvidenceString(FormatTime(v))
 }

@@ -33,25 +33,26 @@ type HistoricalSeriesMissing struct {
 	Reasons []string `json:"reasons"`
 }
 type HistoricalSeriesPoint struct {
-	Date                string                    `json:"date"`
-	CutoffAt            string                    `json:"cutoffAt"`
-	Available           bool                      `json:"available"`
-	GapReason           string                    `json:"gapReason"`
-	Assets              *string                   `json:"assets"`
-	Liabilities         *string                   `json:"liabilities"`
-	NetWorth            *string                   `json:"netWorth"`
-	KnownAssets         *string                   `json:"knownAssets"`
-	KnownLiabilities    *string                   `json:"knownLiabilities"`
-	AssetsComplete      bool                      `json:"assetsComplete"`
-	LiabilitiesComplete bool                      `json:"liabilitiesComplete"`
-	AssetCoverage       HistoricalSeriesCoverage  `json:"assetCoverage"`
-	LiabilityCoverage   HistoricalSeriesCoverage  `json:"liabilityCoverage"`
-	Missing             []HistoricalSeriesMissing `json:"missing"`
-	ScopeChanged        bool                      `json:"scopeChanged"`
-	BasisChanged        bool                      `json:"basisChanged"`
-	ConnectAssets       bool                      `json:"connectAssets"`
-	ConnectLiabilities  bool                      `json:"connectLiabilities"`
-	ConnectNetWorth     bool                      `json:"connectNetWorth"`
+	DisplayValuation    domain.HouseholdDisplayValuation `json:"displayValuation,omitempty"`
+	Date                string                           `json:"date"`
+	CutoffAt            string                           `json:"cutoffAt"`
+	Available           bool                             `json:"available"`
+	GapReason           string                           `json:"gapReason"`
+	Assets              *string                          `json:"assets"`
+	Liabilities         *string                          `json:"liabilities"`
+	NetWorth            *string                          `json:"netWorth"`
+	KnownAssets         *string                          `json:"knownAssets"`
+	KnownLiabilities    *string                          `json:"knownLiabilities"`
+	AssetsComplete      bool                             `json:"assetsComplete"`
+	LiabilitiesComplete bool                             `json:"liabilitiesComplete"`
+	AssetCoverage       HistoricalSeriesCoverage         `json:"assetCoverage"`
+	LiabilityCoverage   HistoricalSeriesCoverage         `json:"liabilityCoverage"`
+	Missing             []HistoricalSeriesMissing        `json:"missing"`
+	ScopeChanged        bool                             `json:"scopeChanged"`
+	BasisChanged        bool                             `json:"basisChanged"`
+	ConnectAssets       bool                             `json:"connectAssets"`
+	ConnectLiabilities  bool                             `json:"connectLiabilities"`
+	ConnectNetWorth     bool                             `json:"connectNetWorth"`
 }
 type HistoricalOverviewSeriesResult struct {
 	Overview HistoricalOverviewResult    `json:"overview"`
@@ -202,9 +203,9 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 		if len(out.Points) > 0 {
 			prev := out.Points[len(out.Points)-1]
 			same := previousAvailable && !point.ScopeChanged && !point.BasisChanged
-			point.ConnectAssets = same && prev.Assets != nil && point.Assets != nil
-			point.ConnectLiabilities = same && prev.Liabilities != nil && point.Liabilities != nil
-			point.ConnectNetWorth = same && prev.NetWorth != nil && point.NetWorth != nil
+			point.ConnectAssets = same && prev.DisplayValuation.Assets.Total != nil && point.DisplayValuation.Assets.Total != nil
+			point.ConnectLiabilities = same && prev.DisplayValuation.Liabilities.Total != nil && point.DisplayValuation.Liabilities.Total != nil
+			point.ConnectNetWorth = same && prev.DisplayValuation.NetWorth.Total != nil && point.DisplayValuation.NetWorth.Total != nil
 		}
 		out.Points = append(out.Points, point)
 		previousScope, previousBasis = scope, basis
@@ -242,6 +243,9 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 		}
 	}
 	out.Overview.Change = &HistoricalOverviewTotalsChange{Assets: historicalDifference(out.Overview.Left.Assets, out.Overview.Right.Assets), Liabilities: historicalDifference(out.Overview.Left.Liabilities, out.Overview.Right.Liabilities), NetWorth: historicalDifference(out.Overview.Left.NetWorth, out.Overview.Right.NetWorth)}
+	if out.Overview.Right != nil {
+		out.Overview.EstimatedChange = estimatedHistoricalChange(out.Overview.Left, *out.Overview.Right)
+	}
 	out.Overview.Rows = alignHistoricalOverview(leftRows, rightRows, true)
 	out.Overview.Categories = historicalCategoryComparisons(out.Overview)
 	out.Overview.Reconciliation, err = historicalReconciliation(ctx, &batch, out.Overview)
@@ -336,6 +340,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, portfolio domain.Po
 	for _, c := range p.CashValues {
 		cash[c.AccountID] = append(cash[c.AccountID], c)
 	}
+	var displayAssets, displayDebts displayAccumulator
 	assets, debts := decimal.Zero, decimal.Zero
 	for _, a := range p.Accounts {
 		if err := ctx.Err(); err != nil {
@@ -376,6 +381,13 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, portfolio domain.Po
 			preference := implicitFXPreference(p.PortfolioSnapshot, c.NativeCurrency)
 			basis = append(basis, key+":fx:"+string(preference.SourceKind))
 			missing := item.componentMissing[n]
+			target := &displayAssets
+			if a.Account.IsLiability() {
+				target = &displayDebts
+			}
+			if err := target.add(c, missing, date, false); err != nil {
+				return point, state, "", "", p, err
+			}
 			knownZero := c.Available && len(missing) == 0 && c.NativeAmount == "0" && c.BaseAmountExact == "0"
 			priceKey, fxKey := key+":"+role+":price", key+":"+role+":fx"
 			evidenceKeys[priceKey], evidenceKeys[fxKey] = true, true
@@ -411,6 +423,12 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, portfolio domain.Po
 			delete(evidenceMemory, key)
 		}
 	}
+	display, err := householdDisplay(displayAssets, displayDebts, p.Household.BaseCurrency)
+	if err != nil {
+		return point, state, "", "", p, err
+	}
+	point.DisplayValuation = display
+	state.DisplayValuation = display
 	point.AssetsComplete = point.AssetCoverage.Missing == 0
 	point.LiabilitiesComplete = point.LiabilityCoverage.Missing == 0
 	state.KnownAssets, state.KnownLiabilities = assets.String(), debts.String()

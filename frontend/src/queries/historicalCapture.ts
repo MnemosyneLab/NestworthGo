@@ -21,7 +21,7 @@ export function useHistoricalCapture<T>(
     queryKey,
     queryFn: ({ signal }) => callCancellableService(signal, call),
     enabled,
-    staleTime: "static",
+    staleTime: Infinity,
     gcTime: 0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

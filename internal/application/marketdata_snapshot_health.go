@@ -83,6 +83,16 @@ func (s *Service) incompleteSnapshotHealth(ctx context.Context, origin *domain.H
 					issue.NextCheckAt = eligible.Add(time.Millisecond).In(location).Format(time.RFC3339)
 				}
 			}
+			if coverageOnlySnapshotItem(item) {
+				if issue.Kind != HealthKindHistoryPending {
+					issue.Kind = HealthKindValuationProvisional
+					issue.Code = "valuation_coverage_pending"
+					issue.Reason = "valuation_coverage_pending"
+				}
+				issue.Severity = HealthSeverityInfo
+				issue.Action = HealthActionNone
+				issue.Executable = false
+			}
 			issues = append(issues, issue)
 		}
 		if len(issues) == before {

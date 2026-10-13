@@ -1,3 +1,4 @@
+import { useValuationDayBoundary } from "@/queries/useValuationDayBoundary";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor } from "lucide-react";
@@ -97,6 +98,7 @@ export interface AppShellProps {
  * DEFAULT_PAGE_ID ("overview") is the product's default landing page.
  */
 export function AppShell({ activePageId, onNavigate, settings, children }: AppShellProps) {
+ useValuationDayBoundary();
   const { t } = useTranslation();
   useTheme();
   const storedCollapsed = useUiStore((state) => state.sidebarCollapsed);

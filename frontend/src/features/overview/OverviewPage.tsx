@@ -1,3 +1,5 @@
+import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
+import { valuationTableAmount, type DisplayValuation } from "@/components/valuation/valuationQuality";
 import type * as React from "react";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import type { HealthFocus } from "@/app/navigation";
@@ -38,6 +40,7 @@ type OverviewInstrumentLabel = OverviewLabel & { quoteSource?: string; symbol?: 
 type OverviewHoldingLabel = OverviewLabel & { accountId: string; instrumentId: string };
 
 type OverviewReadModel = {
+ displayValuation?: {assets:DisplayValuation;liabilities:DisplayValuation;netWorth:DisplayValuation};
   currency: string;
   accountCount: number;
   complete: boolean;
@@ -179,7 +182,7 @@ export function OverviewPage({
   if (overview.isLoading) {
     return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
   }
-  if (overview.isError || !overview.data) {
+  if (!overview.data) {
     return (
       <>
         {pageChrome}
@@ -320,18 +323,20 @@ export function OverviewPage({
   return (
     <div className="flex flex-col gap-6" data-testid="overview-page">
       {pageChrome}
+ {overview.isFetching && <p role="status">{t("valuation.updating")}</p>}
+ {overview.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void overview.refetch()}>{t("common.retryAction")}</Button></p>}
       <PageIntro description={t("overview.description")} status={headerStatus} />
 
       <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row">
         <Card className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")}</CardTitle>
+            <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")} <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net /></CardTitle>
           </CardHeader>
           <CardContent className="@container">
             <p className="num text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl" data-testid="overview-net-worth">
-              {formatAmount(data.netWorth, currency)}
+              {valuationTableAmount(t,data.displayValuation?.netWorth,{amount:data.netWorth,currency},true,false)}
             </p>
-            {!data.complete && (
+ {!data.complete && (
               <p className="mt-2 text-sm text-warning-foreground">{t("overview.totalsExcludeMissing")}</p>
             )}
             <div className="mt-6 grid grid-cols-1 gap-3 @md:grid-cols-2">
@@ -340,7 +345,7 @@ export function OverviewPage({
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">{t("overview.assets")}</p>
                   <p className="num truncate text-lg font-bold text-success" data-testid="overview-assets">
-                    {formatAmount(data.assets, currency)}
+                    {valuationTableAmount(t,data.displayValuation?.assets,{amount:data.assets,currency})}
                   </p>
                 </div>
               </div>
@@ -349,7 +354,7 @@ export function OverviewPage({
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">{t("overview.liabilities")}</p>
                   <p className={cn("num truncate text-lg font-bold", hasLiabilities ? "text-destructive" : "text-foreground")} data-testid="overview-liabilities">
-                    {formatAmount(data.liabilities, currency)}
+                    {valuationTableAmount(t,data.displayValuation?.liabilities,{amount:data.liabilities,currency})}
                   </p>
                 </div>
               </div>

@@ -65,11 +65,12 @@ type FinancialContextAmount struct {
 	Status   string  `json:"status"`
 }
 type FinancialContextSummary struct {
-	Assets           FinancialContextAmount `json:"assets"`
-	Liabilities      FinancialContextAmount `json:"liabilities"`
-	NetWorth         FinancialContextAmount `json:"netWorth"`
-	KnownAssets      string                 `json:"knownAssets"`
-	KnownLiabilities string                 `json:"knownLiabilities"`
+	DisplayValuation domain.HouseholdDisplayValuation `json:"displayValuation"`
+	Assets           FinancialContextAmount           `json:"assets"`
+	Liabilities      FinancialContextAmount           `json:"liabilities"`
+	NetWorth         FinancialContextAmount           `json:"netWorth"`
+	KnownAssets      string                           `json:"knownAssets"`
+	KnownLiabilities string                           `json:"knownLiabilities"`
 }
 type FinancialContextCoverage struct {
 	IncludedComponents int      `json:"includedComponents"`
@@ -336,7 +337,7 @@ func projectFinancialContext(ctx context.Context, in FinancialContextRequest, si
 	content := FinancialContextContent{SchemaVersion: "financial-context/1", CalculationVersion: "valuation-context/1", ResolverPolicy: domain.MarketDataResolverPolicy, Disclosure: in.Disclosure, AsOf: asOf,
 		Scope:    FinancialContextScope{Kind: in.Scope.Kind, AccountRefs: []string{}, InclusionRule: "includeInNetWorth && active; active components only"},
 		Basis:    FinancialContextBasis{BaseCurrency: state.Currency, Valuation: "existing_deterministic_engine", HistoryEvidence: "current_database_state", MetadataBasis: "current", QuoteTTLSeconds: int64(ttl / time.Second)},
-		Summary:  FinancialContextSummary{Assets: contextAmount(state.Assets, state.Currency), Liabilities: contextAmount(state.Liabilities, state.Currency), NetWorth: contextAmount(state.NetWorth, state.Currency), KnownAssets: state.KnownAssets, KnownLiabilities: state.KnownLiabilities},
+		Summary:  FinancialContextSummary{DisplayValuation: state.DisplayValuation, Assets: contextAmount(state.Assets, state.Currency), Liabilities: contextAmount(state.Liabilities, state.Currency), NetWorth: contextAmount(state.NetWorth, state.Currency), KnownAssets: state.KnownAssets, KnownLiabilities: state.KnownLiabilities},
 		Coverage: FinancialContextCoverage{ValuationComplete: state.Complete, SnapshotHealth: "not_assessed", NotAssessed: []string{"persistent_snapshots", "full_history_health", "provider_configuration", "real_world_ledger_completeness", "period_returns"}},
 		DataAsOf: FinancialContextDataAsOf{Basis: "mixed_scope_local_observations"}, Positions: []FinancialContextPosition{}, Gaps: []FinancialContextGap{}, Evidence: []FinancialContextEvidence{}}
 	if in.AsOf != "current" {
