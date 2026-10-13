@@ -115,3 +115,12 @@ it("exposes the selected time and forwards accessible error context", async () =
   expect(screen.getByRole("button", { name: "12", pressed: true })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "30", pressed: true })).toBeInTheDocument();
 });
+
+it("keeps calendar arrow-key navigation and Enter selection on civil days", async () => {
+  const { onChange } = renderDatePicker({ weekStart: "monday", dateFormat: "iso" });
+  await userEvent.click(screen.getByRole("button", { name: "2026-08-15" }));
+  const grid = await screen.findByRole("grid");
+  (grid.querySelector('[data-day="2026-08-15"] button') as HTMLElement).focus();
+  await userEvent.keyboard("{ArrowRight}{Enter}");
+  expect(onChange).toHaveBeenCalledWith("2026-08-16");
+});

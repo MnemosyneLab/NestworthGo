@@ -1,6 +1,6 @@
 # Shared-control audit — 2026-10-13
 
-Base: `041abd6` (latest fetched main). Dedicated branch:
+Initial base: `041abd6`; reconciled onto latest main `c257a05` after PR59 merged. Dedicated branch:
 `fix/shared-control-consistency`. The supplied Library PNG was materialized
 locally and its actual pixels inspected: it shows Historical Overview's native
 baseline calendar. No screenshot-specific inference was made before inspection.
@@ -24,6 +24,7 @@ baseline calendar. No screenshot-specific inference was made before inspection.
 | ProductTimeFields | Effective day/time used by product actions: already shared pickers, household timezone and disabled state retained |
 | SimplePolicyFields | Explicit unlock date: already DatePicker, future/clear/null retained |
 | AvailableFundsPage | Custom horizon: already DatePicker, local-date minimum and future/clear retained |
+| InvestmentReviewPanel (merged PR59) | No custom date entry; 7/30-day snooze presets preserved. Policy window raw select replaced with NativeSelect, preserving numeric conversion and fieldset disabling |
 | UpcomingActionsPage / OverviewUpcomingActionsCard | Date labels/horizon navigation and action entry points; no independent date-entry picker on main; underlying product sheets covered above |
 | ReturnCalendarTab | Return-data calendar/year visualization and drilldown: deliberate visualization exception |
 | DateRangeControl / RangeToggle | Presets and bounded previous/next navigation, not arbitrary date-entry controls; retained |
@@ -44,7 +45,8 @@ Test-only date/time inputs are deliberate stubs used to inject invalid state.
 - TimePicker selected hour/minute was conveyed only by button styling. It now
   exposes aria-pressed and supports accessible names/error context like DatePicker.
 - Existing NativeSelect/FilterableSelect, Sheet/AlertDialog/Popover, Button and
-  PageState conventions were reviewed. No competing production raw select,
+  PageState conventions were reviewed. The merged InvestmentReview policy-window raw select was consolidated onto
+  NativeSelect. No remaining competing production raw select,
   dialog/alertdialog role, Base UI or day-picker import was found outside UI.
 - Existing native checkboxes/radios lack a single canonical styled wrapper;
   spacing/accent differences remain a separate design-system follow-up. Creating
@@ -68,9 +70,11 @@ PR60 (`fix/historical-query-cancellation`) overlaps
 Preserve its cancellation changes when integrating: this branch only replaces
 controls and adapts control testing, not capture cancellation. This branch also
 updates App.test assertions from input values to button text.
-PR59 (`feat/investment-review-reminders`) had no direct file overlap at audit
-capture; its new panel/upcoming-action work must obey the shared-control guard.
-Neither branch was edited, checked out, merged or cherry-picked.
+PR59 merged into main as `c257a05`; this branch was rebased onto that main
+without conflict. Its panel/upcoming-action work was inspected and its policy
+select now uses NativeSelect. This is an additional affected screen.
+Neither draft branch was edited, checked out or cherry-picked. PR60 remains
+separate (reported head `fab683d0db1b2f9c6dcffb61a6c166ef6d40d5a5`).
 
 ## Verification
 
@@ -80,3 +84,26 @@ real financial data. Historical Overview interaction also has a real-component
 jsdom integration test; broader orchestration tests retain input stubs for
 invalid-value injection. Native macOS WebKit, VoiceOver, magnification, native
 select dropdown appearance and packaged-app smoke remain manual gates.
+
+Reconciled-head checks:
+
+- `CGO_ENABLED=0 pnpm run typecheck`: passed, including fresh Wails bindings.
+- `pnpm run lint`: passed after replacing Investment Review's raw select.
+- `CGO_ENABLED=0 pnpm run build`: passed; Vite reports >500 kB ECharts and
+  invalidation chunks (bundle optimization deferred).
+- `CGO_ENABLED=0 go build -p 1 -o /tmp/nestworth-date-headless ./cmd/nestworth`
+  with the environment's `-tags=server`: passed; this is a headless server build.
+- Chromium fixture checks passed in America/Los_Angeles and Pacific/Kiritimati;
+  see `shared-control-browser-2026-10-13.json`. Actual dark-render pixels were
+  inspected. Covers bounds, selection/clearing, Enter/Escape, return focus,
+  nested sheet dismissal and time selection semantics.
+- Standard native Go build/vet/test attempts are blocked by missing GTK4,
+  WebKitGTK, libsoup and gio development packages. The broad Go test attempt
+  was stopped after native compilation failures; do not interpret it as a Go
+  suite pass. No Go production code is modified.
+- The first frontend run exposed four old input-value assertions and two
+  timeouts under competing Go work. Assertions were adapted; the subsequent
+  complete pre-rebase run passed 102 files / 1,005 tests. The final full run on
+  reconciled main passed **104 files / 1,026 tests** with two workers. The
+  additional arrow-key/Enter test also passes independently (8 shared date/time
+  tests).
