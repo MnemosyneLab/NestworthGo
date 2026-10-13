@@ -1,3 +1,4 @@
+import { historicalReconciliationEn, historicalReconciliationZhCN, historicalReconciliationZhTW } from "./historicalReconciliation";
 import { availableFundsEn, availableFundsZhCN, availableFundsZhTW } from "./availableFunds";
 
 /**
@@ -7,6 +8,7 @@ import { availableFundsEn, availableFundsZhCN, availableFundsZhTW } from "./avai
  * not silently drop them.
  */
 export const additionsEn = {
+  historicalReconciliation: historicalReconciliationEn,
   "diagnosticsSettings": {
     "level": "Application file logging",
     "path": "Log file",
@@ -1155,6 +1157,7 @@ export const additionsEn = {
 };
 
 export const additionsZhCN = {
+  historicalReconciliation: historicalReconciliationZhCN,
   "diagnosticsSettings": {
     "level": "应用文件日志",
     "path": "日志文件",
@@ -2287,6 +2290,7 @@ export const additionsZhCN = {
 };
 
 export const additionsZhTW = {
+  historicalReconciliation: historicalReconciliationZhTW,
   "diagnosticsSettings": {
     "level": "應用程式檔案日誌",
     "path": "日誌檔案",

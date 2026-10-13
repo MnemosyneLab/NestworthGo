@@ -244,6 +244,10 @@ func (s *Service) HistoricalOverviewSeries(ctx context.Context, from, to string)
 	out.Overview.Change = &HistoricalOverviewTotalsChange{Assets: historicalDifference(out.Overview.Left.Assets, out.Overview.Right.Assets), Liabilities: historicalDifference(out.Overview.Left.Liabilities, out.Overview.Right.Liabilities), NetWorth: historicalDifference(out.Overview.Left.NetWorth, out.Overview.Right.NetWorth)}
 	out.Overview.Rows = alignHistoricalOverview(leftRows, rightRows, true)
 	out.Overview.Categories = historicalCategoryComparisons(out.Overview)
+	out.Overview.Reconciliation, err = historicalReconciliation(ctx, &batch, out.Overview)
+	if err != nil {
+		return HistoricalOverviewSeriesResult{}, err
+	}
 	if err := ctx.Err(); err != nil {
 		return HistoricalOverviewSeriesResult{}, err
 	}
