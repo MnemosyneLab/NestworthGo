@@ -1,6 +1,7 @@
+import type { ObjectNavigation } from "@/app/NavigationContext";
 import { upcomingData } from "@/test/upcomingActions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -20,6 +21,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
+    InvestmentReviews: () => Promise.resolve({ items: [], policy: { enabled: true }, asOf: "2026-10-11T04:00:00Z", timezone: "Asia/Shanghai" }),
     UpcomingActions: () => Promise.resolve(upcomingData()),
     Overview: () => Promise.resolve({
       asOf: "",
@@ -61,17 +63,18 @@ const defaultHeadlines = {
 // Each test needs a different mocked Overview() response, so the binding
 // is re-mocked per test with vi.doMock + a fresh dynamic import, rather
 // than one hoisted vi.mock factory shared by the whole file.
-async function renderWithMockedOverview(response: unknown, props: { onOpenDataHealth?: () => void } = {}) {
+async function renderWithMockedOverview(response: unknown, props: { onOpenDataHealth?: () => void } = {}, navigation?: ObjectNavigation) {
   vi.doMock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
     Service: { Overview: () => Promise.resolve(response) },
   }));
   vi.resetModules();
   const { OverviewPage: FreshOverviewPage }: { OverviewPage: typeof OverviewPageComponent } = await import("./OverviewPage");
 
+  const { NavigationContext } = await import("@/app/NavigationContext");
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <FreshOverviewPage {...props} />
+      <NavigationContext.Provider value={navigation ?? null}><FreshOverviewPage {...props} /></NavigationContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -289,4 +292,32 @@ it.each(["loading", "failed"])("does not claim all clear while health is %s", as
   const message = state === "loading" ? "Checking historical data health…" : "Historical data health could not be checked.";
   expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);
   expect(screen.queryByText("Nothing needs attention right now.")).not.toBeInTheDocument();
+});
+
+
+it("pairs attention and upcoming cards below the financial row, preserving health severity and keyboard actions", async () => {
+  const navigation = { open: vi.fn(), openHealth: vi.fn() };
+  const issues = [
+    { id: "blocking", severity: "blocking", kind: "snapshot_outdated", label: "Synthetic history", collapsed: false },
+    { id: "warning", severity: "warning", kind: "history_pending", label: "Synthetic pending", collapsed: false },
+    { id: "info", severity: "info", kind: "snapshot_incomplete", label: "Synthetic information", collapsed: false },
+  ];
+  scanHealth.mockResolvedValue({ healthy: false, issueCount: 3, issues });
+  await renderWithMockedOverview(completeOverview, {}, navigation);
+  const row = await screen.findByTestId("overview-action-row");
+  expect(row).toContainElement(screen.getByTestId("overview-attention-card"));
+  expect(row).toContainElement(screen.getByTestId("overview-upcoming-actions-card"));
+  expect(screen.getAllByRole("region", { name: "Investment review" })).toHaveLength(1);
+  expect(within(screen.getByTestId("overview-upcoming-actions-card")).queryByRole("region", { name: "Investment review" })).not.toBeInTheDocument();
+  const financial = screen.getByTestId("overview-financial-row");
+  expect(financial).not.toContainElement(row);
+  expect(financial).toContainElement(screen.getByTestId("overview-net-worth"));
+  expect(financial).toContainElement(screen.getByTestId("overview-liquidity-card"));
+  expect(screen.getByText("Blocking")).toHaveClass("text-destructive");
+  expect(screen.getByText("Warning")).toHaveClass("text-warning-foreground");
+  expect(screen.getByText("Information")).toHaveClass("text-foreground");
+  expect(screen.queryByText("The balance sheet is complete.")).not.toBeInTheDocument();
+  const action = screen.getAllByRole("button", { name: "View gap" })[0];
+  action.focus(); await userEvent.keyboard("{Enter}");
+  expect(navigation.openHealth).toHaveBeenCalledWith(issues[0]);
 });

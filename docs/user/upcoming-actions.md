@@ -1,10 +1,19 @@
 # Upcoming actions
 
-Overview shows how many items need attention and how many are scheduled in the
-current 30-day view. It lists the first three attention items; **View all** opens
-both bands even when the attention band is empty. A past blocked product belongs
-to attention. The total counts each item once. Eligible items and data checks
-are shown separately, so they do not inflate the two main bands.
+Overview pairs **Needs attention** with **Next 30 days** below the net-worth
+and available-funds cards. Data-health issues retain their severity, and
+investment reviews retain their NAV condition. Current valuation completeness,
+liquidity completeness and historical data health are separate statuses.
+The next-30-days card previews up to three attention or scheduled items;
+**View all** opens both bands when there are items. Empty results use a short
+message without a zero-count link; eligible items and data checks keep a
+separate review link. Monitoring setup, paused reminders, insufficient NAV data
+and enabled monitoring without pending reminders are distinct states. Each
+report retains its own source read time and timezone.
+
+A past blocked product belongs to attention. The total counts each item once.
+Eligible items and data checks are shown separately, so they do not inflate
+the two main bands.
 Each band initially shows up to 50 items. **Show 50 more** expands both bands,
 and **Schedules** opens the scheduled items directly.
 

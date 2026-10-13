@@ -193,3 +193,49 @@ describe("investment review UI", () => {
     expect(state.snooze.mutate).not.toHaveBeenCalled(); expect(state.enroll.mutate).not.toHaveBeenCalled();
   });
 });
+
+
+describe("compact homepage investment review", () => {
+  it.each(["en", "zh-CN", "zh-TW"])("distinguishes opt-in from monitoring without pending alerts in %s", async language => {
+    await i18n.changeLanguage(language);
+    state.query.data!.items![0].episodeId = "";
+    state.query.data!.items![0].status = "healthy";
+    state.query.data!.items![0].monitored = false;
+    const view = mount(<InvestmentReviewSummary compact />);
+    expect(screen.getByText(i18n.t("homepage.monitoringOff"))).toBeVisible();
+    expect(screen.queryByText(i18n.t("investmentReview.summary", { count: 0 }))).not.toBeInTheDocument();
+    state.query.data!.items![0].monitored = true;
+    view.rerender(<InvestmentReviewSummary compact />);
+    expect(screen.getByText(i18n.t("homepage.monitoringNoAlerts"))).toBeVisible();
+    state.query.data!.items![0].status = "stale";
+    view.rerender(<InvestmentReviewSummary compact />);
+    expect(screen.getByText(i18n.t("homepage.monitoringInsufficient"))).toBeVisible();
+    state.query.data!.policy.enabled = false;
+    view.rerender(<InvestmentReviewSummary compact />);
+    expect(screen.getByText(i18n.t("investmentReview.disabled"))).toBeVisible();
+    const action = screen.getByRole("button", { name: i18n.t("investmentReview.view") });
+    action.focus(); await userEvent.keyboard("{Enter}");
+    expect(open).toHaveBeenCalledWith({ page: "upcoming-actions" });
+  });
+  it("shows real reminders with the original condition and source as-of zone", () => {
+    state.query.data!.items!.push({ ...state.query.data!.items![0], instrumentId: "loss", displayName: "Synthetic loss", status: "loss" });
+    mount(<InvestmentReviewSummary compact />);
+    expect(screen.getByText("Synthetic loss")).toBeVisible();
+    expect(screen.getByText(i18n.t("investmentReview.status.loss"))).toHaveClass("text-destructive");
+    expect(screen.getByText(i18n.t("investmentReview.status.low_yield"))).toBeVisible();
+    expect(screen.getByText(/Asia\/Shanghai/)).toBeVisible();
+  });
+  it("keeps loading, error, stale and retry distinct", async () => {
+    state.query.data = undefined; state.query.isPending = true;
+    const view = mount(<InvestmentReviewSummary compact />);
+    expect(screen.getByRole("status")).toBeVisible();
+    state.query.isPending = false; state.query.isError = true;
+    view.rerender(<InvestmentReviewSummary compact />);
+    expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("investmentReview.error"));
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
+    expect(state.query.refetch).toHaveBeenCalledOnce();
+    state.query.data = fixture(); view.rerender(<InvestmentReviewSummary compact />);
+    expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("investmentReview.staleRead"));
+    expect(screen.getByText("Synthetic fund")).toBeVisible();
+  });
+});

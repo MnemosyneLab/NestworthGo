@@ -1,3 +1,5 @@
+import { NavigationContext, type ObjectNavigation } from "@/app/NavigationContext";
+import i18n from "@/i18n";
 import { upcomingData } from "@/test/upcomingActions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
@@ -7,12 +9,14 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AvailableFundsPage } from "./AvailableFundsPage";
 import type { LiquidityOverviewDTO, LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
+const investmentReviews = vi.fn(() => Promise.resolve(reviewFixture("enabled")));
 const overview = vi.fn();
 const listProducts = vi.fn();
 const listAccounts = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
+    InvestmentReviews: () => investmentReviews(),
     UpcomingActions: () => Promise.resolve(upcomingData()),
     Overview: (...args: unknown[]) => overview(...args),
     ListProducts: (...args: unknown[]) => listProducts(...args),
@@ -98,11 +102,11 @@ function fixtureOverview(overrides: Partial<LiquidityOverviewDTO> = {}): Liquidi
   };
 }
 
-function renderPage() {
+function renderPage(navigation: ObjectNavigation | null = null) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <AvailableFundsPage />
+      <NavigationContext.Provider value={navigation}><AvailableFundsPage /></NavigationContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -307,4 +311,44 @@ it("shows a known future lock clearly and keeps the normal route when early acce
   expect(within(row).getByText("$8,000.00")).toBeVisible();
   await userEvent.click(screen.getByRole("button", {name: "Locked"}));
   expect(screen.getByText("No sources match this filter.")).toBeVisible();
+});
+
+
+type ReviewState = "paused" | "optin" | "enabled" | "alerts";
+function reviewFixture(state: ReviewState) {
+  return {
+    schemaVersion: "investment-review/1", asOf: "2026-10-13T12:00:00Z", localDate: "2026-10-13", timezone: "Asia/Singapore", revision: 1,
+    policy: { enabled: state !== "paused", windowDays: 30, lowAnnualizedPercent: "1", lossPercent: "-1", sustainDays: 7, maxAgeDays: 7 },
+    items: [{ instrumentId: "synthetic-fund", displayName: "Synthetic fund", monitored: state !== "optin", status: state === "alerts" ? "loss" : "healthy", episodeId: state === "alerts" ? "synthetic-episode" : "", acknowledged: false, snoozed: false }],
+  };
+}
+
+describe("Available Funds investment-review entry", () => {
+  beforeEach(() => {
+    investmentReviews.mockClear();
+    overview.mockResolvedValue(fixtureOverview({ sources: [] }));
+    listProducts.mockResolvedValue([]);
+    listAccounts.mockResolvedValue([]);
+  });
+  it.each(["en", "zh-CN", "zh-TW"].flatMap(language => (["paused", "optin", "enabled", "alerts"] as const).map(state => ({ language, state }))))("keeps the review query/status/setup entry with empty upcoming actions ($language, $state)", async ({ language, state }) => {
+    await i18n.changeLanguage(language);
+    investmentReviews.mockResolvedValue(reviewFixture(state));
+    const navigation = { open: vi.fn(), openHealth: vi.fn() };
+    renderPage(navigation);
+    const card = await screen.findByTestId("overview-upcoming-actions-card");
+    expect(await within(card).findByText(i18n.t("upcomingActions.empty"))).toBeVisible();
+    expect(within(card).getByRole("heading", { name: i18n.t("upcomingActions.title") })).toBeVisible();
+    const summary = within(card).getByRole("region", { name: i18n.t("investmentReview.title") });
+    expect(await within(summary).findByText(i18n.t("investmentReview.summary", { count: state === "alerts" ? 1 : 0 }))).toBeVisible();
+    expect(investmentReviews).toHaveBeenCalledOnce();
+    if (state === "paused") expect(within(summary).getByText(i18n.t("investmentReview.disabled"))).toBeVisible();
+    if (state === "optin") expect(within(summary).getByText(i18n.t("investmentReview.setup"))).toBeVisible();
+    if (state === "enabled") {
+      expect(within(summary).queryByText(i18n.t("investmentReview.disabled"))).not.toBeInTheDocument();
+      expect(within(summary).queryByText(i18n.t("investmentReview.setup"))).not.toBeInTheDocument();
+    }
+    const action = within(summary).getByRole("button", { name: i18n.t("investmentReview.view") });
+    action.focus(); await userEvent.keyboard("{Enter}");
+    expect(navigation.open).toHaveBeenCalledWith({ page: "upcoming-actions" });
+  });
 });
