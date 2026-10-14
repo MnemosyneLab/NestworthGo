@@ -2,11 +2,17 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.8] — Candidate (unpublished)
+## [0.3.8] — 2026-10-14
 
-Prepared as v0.3.8 / build 9 from the 36-commit range after v0.3.7. This
-candidate is not published. Its release contract records completed source
-checks separately from pending native Mac, MCP-client, and distribution gates.
+Published as [v0.3.8](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8)
+(build 9) from source `fc1b3a9f562f03afd88b169c5cf751efe54e4731`. The release
+includes Apple Silicon arm64 DMG/ZIP packages, `SHA256SUMS`, and the standalone
+skill 1.9.0 archive with its checksum file. Package metadata, signatures,
+archive payload contents, and checksums were verified without launching the
+app. The app is ad-hoc signed, not Developer ID signed or notarized. Native
+GUI/functional, archive-launch, schema recovery, and external-client acceptance
+were owner-deferred; they are not claimed as passed. See the [release record](docs/releases/v0.3.8.md)
+and [dated package QA](docs/qa/v0.3.8-release-package-2026-10-14.md).
 
 ### Added and changed
 
@@ -42,10 +48,10 @@ checks separately from pending native Mac, MCP-client, and distribution gates.
   Forecast interest is not posted income; maturity does not prove receipt;
   unknown values remain unknown. MCP remains local loopback. Enrollment is off
   by default, and market refresh is not automatic.
-- Candidate source begins at `c8f3dba34571446951d5d4e5ff478efe1fbc792d`,
-  whose exact-main Linux CI run 38434031121 passed. That evidence predates the
-  release metadata change and does not replace candidate CI or native Mac
-  acceptance. See the [v0.3.8 contract](docs/releases/v0.3.8.md).
+- Exact source `fc1b3a9f562f03afd88b169c5cf751efe54e4731` passed main CI run
+  38493787534. Native GUI/functional, archive-launch/household, schema recovery,
+  test-ledger, and external-client acceptance remain owner-deferred; see the
+  [release record](docs/releases/v0.3.8.md).
 
 ## [0.3.7] — 2026-10-09
 
