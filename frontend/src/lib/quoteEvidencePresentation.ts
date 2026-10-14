@@ -7,6 +7,8 @@ export function quoteObservationLabel(t: TFunction, point: { observationKind?: s
   return t(`quoteDetails.kinds.${kind}`, { defaultValue: t("quoteDetails.kinds.unknown") });
 }
 export function quoteSourceLabel(t: TFunction, kind: string, key?: string) {
-  const provider = key && ["tiingo", "coingecko", "frankfurter", "goldapi"].includes(key) ? key : "";
+  const provider = key === "yahoo_finance"
+    ? t("settings.provider.yahoo_finance")
+    : key && ["tiingo", "coingecko", "frankfurter", "goldapi"].includes(key) ? key : "";
   return [t(`portfolio.${kind}`, { defaultValue: t("quoteDetails.kinds.unknown") }), provider].filter(Boolean).join(" · ");
 }
