@@ -1,23 +1,36 @@
 # Release Documents
 
-The latest published release remains v0.3.7 / build 8. The current candidate
-is v0.3.8 / build 9; its contract records preparation status, schema
-compatibility, and pending native GUI/distribution gates.
+The latest published release is [v0.3.8 / build 9](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8),
+published 2026-10-14. Its Apple Silicon arm64 DMG/ZIP, checksums, and
+standalone skill 1.9.0 bundle are available on GitHub Releases. Package
+metadata, signatures, payload contents, and checksums were verified without
+launching the app. Native GUI/functional, archive-launch/household, schema
+recovery, test-ledger, and external-client acceptance remain owner-deferred and
+are not claimed as passed. The app is ad-hoc signed and not notarized.
 
-## Current candidate
+## Current published release
 
-- [v0.3.8 release contract](v0.3.8.md) — preparation checklist, source status,
-  exact Mac handoff, and native/distribution gates.
-- [v0.3.8 release notes](v0.3.8-notes.md) — candidate product summary and
-  upgrade guidance; not yet published.
+- [v0.3.8 release record](v0.3.8.md) — published scope, exact source/tag
+  identity, package verification, and deferred acceptance boundaries.
+- [v0.3.8 release notes](v0.3.8-notes.md) — published product summary and
+  upgrade guidance.
+- [v0.3.8 Mac package QA](../qa/v0.3.8-release-package-2026-10-14.md) — exact
+  toolchain, non-interactive verification, five asset hashes, signature status,
+  and owner-deferred acceptance.
 
-## Latest published release
+## Previous published release
 
 - [v0.3.7 release contract](v0.3.7.md) — published scope, acceptance evidence,
   and remaining GUI/signing boundaries.
 - [v0.3.7 release notes](v0.3.7-notes.md) — release summary.
 
 ## Published history
+
+- [v0.3.8 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8)
+  — published 2026-10-14 at source `fc1b3a9` (build 9), with arm64 DMG/ZIP,
+  checksums, and skill 1.9.0 assets. Package and acceptance boundaries are
+  recorded in the [release record](v0.3.8.md) and
+  [dated QA report](../qa/v0.3.8-release-package-2026-10-14.md).
 
 - [v0.3.7 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.7)
   — published 2026-10-09 at `4d72b3d` (build 8), with arm64 DMG/ZIP, checksums,

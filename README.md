@@ -2,8 +2,8 @@
 
 Nestworth is a local-first personal finance desktop application for building
 and maintaining a personal or household balance sheet. The current release
-candidate is `0.3.8` (build `9`); `0.3.7` (build `8`) remains the latest
-published release. Nestworth is a Wails v3 desktop shell
+is [v0.3.8](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8)
+(build `9`), published 2026-10-14. Nestworth is a Wails v3 desktop shell
 with a Go backend and a React + TypeScript frontend.
 
 ## Current scope
@@ -34,13 +34,14 @@ place brokerage orders. Multi-device synchronization, direct bank/brokerage
 integrations and automatic market-data refresh remain outside this release.
 Continuous backup and whole-stream history cleanup are off by default. Optional
 30/90-day cleanup protects the current stream and two verified sealed survivors;
-it does not bound storage for a long-running stream. The current v0.3.8
-candidate adds Upcoming actions, Historical Panorama, investment reviews, and
-expanded local MCP workflows. Its Mac acceptance and native packages remain
-pending; see the [v0.3.8 candidate contract](docs/releases/v0.3.8.md).
-
-The current candidate is not published. v0.3.7 remains the latest published
-release until the v0.3.8 package and release gates are completed.
+it does not bound storage for a long-running stream. v0.3.8 adds Upcoming
+actions, Historical Panorama, investment reviews, and expanded local MCP
+workflows. Its Apple Silicon arm64 DMG/ZIP and skill 1.9.0 bundle are published.
+Package metadata, archive payloads, signatures and checksums were verified
+without launching the app. Native GUI/functional, archive-launch/household,
+schema recovery, test-ledger, and external-client acceptance were owner-deferred
+and are not claimed as passed. See the [v0.3.8 release record](docs/releases/v0.3.8.md) and
+[dated Mac package QA](docs/qa/v0.3.8-release-package-2026-10-14.md).
 
 ## Run locally
 
@@ -76,8 +77,11 @@ The default outputs are `dist/macos/Nestworth.app`,
 `dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
 ad-hoc signed for local launch. Developer ID signing, notarization, artifact
 retention, and full GUI/accessibility regression remain separate distribution
-gates. The latest published release remains v0.3.7. The v0.3.8 candidate
-contract records its unrun native acceptance and packaging gates.
+gates. The public [v0.3.8 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8)
+contains the verified package assets. The app is ad-hoc signed and is not
+notarized; macOS may warn or block it. Native GUI and functional acceptance
+remain owner-deferred. See the [release record](docs/releases/v0.3.8.md) for
+the full gate status.
 
 ## Technology
 
