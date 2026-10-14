@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { formatAmount } from "@/lib/money";
+import { formatQuotePrice } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
 
@@ -17,7 +17,7 @@ export function MetalConversionDetails({ evidence }: { evidence?: string }) {
   return <details className="text-xs text-muted-foreground">
     <summary className="cursor-pointer">{t("metals.conversion")}</summary>
     <div className="mt-1 flex flex-col gap-1">
-      <span>{t("metals.original")}: {formatAmount(value.rawPrice, "USD")} / oz t</span>
+      <span>{t("metals.original")}: {formatQuotePrice(value.rawPrice, "USD")} / oz t</span>
       <span>{t("metals.exchangeRate")}: 1 USD = {value.fxRate} {value.currency}</span>
       {typeof value.rawQuotedAt === "string" && <span>{t("metals.rawTime")}: {formatTimestamp(value.rawQuotedAt, settings.data?.timezone, i18n.language)}</span>}
       {typeof value.fxQuotedAt === "string" && <span>{t("metals.fxTime")}: {formatTimestamp(value.fxQuotedAt, settings.data?.timezone, i18n.language)}</span>}

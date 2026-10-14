@@ -1,3 +1,4 @@
+import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,7 +34,7 @@ import { activityStyle } from "@/lib/activityStyle";
 import { FieldError } from "@/components/ui/field-error";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
-import { formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
+import { formatQuotePrice, formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
 import type { WireError } from "@/lib/wails";
 import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
@@ -358,7 +359,8 @@ function RecordChangeFormReady({
   const { t } = useTranslation();
   const accounts = useAccounts({});
   const valuations = useAccountValuations({});
-  const instruments = useInstruments();
+  const inventory = useInstruments();
+  const instruments = { ...inventory, data: inventory.data?.filter(ordinaryInstrument) };
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
   const settings = useSettings();
@@ -366,7 +368,9 @@ function RecordChangeFormReady({
   const mutationAllowed = useHistoryMutationAllowed();
   const effectiveOrigin = originOverride ?? origin.data;
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
-  const holdings = useAllHoldingsFlat(allAccountIds);
+  const allHoldings = useAllHoldingsFlat(allAccountIds);
+  const eligibleIds = new Set((instruments.data ?? []).map(item => item.id));
+  const holdings = { ...allHoldings, data: allHoldings.data.filter(item => eligibleIds.has(item.instrumentId)) };
   const preview = usePreviewChange();
   const repeatPreview = usePreviewRepeatChange();
   const repeatConfirm = useConfirmRepeatChange();
@@ -738,7 +742,9 @@ function RecordChangeFormReady({
   // Source eligibility belongs to this source draft, not the editable form.
   // Mutation.reset() after a field edit must not turn a refused source back on.
   const repeatConfirmResult = repeat ? repeatRecovery : null;
-  const canPreview = (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
+  const ordinarySelection = (!request.instrumentId || eligibleIds.has(request.instrumentId)) && [request.holdingId, request.fromHoldingId, request.toHoldingId].every(id => !id || holdings.data.some(item => item.id === id));
+  const needsOrdinaryEligibility = [ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment].includes(kind) || Boolean(request.instrumentId || request.holdingId || request.fromHoldingId || request.toHoldingId);
+  const canPreview = (!needsOrdinaryEligibility || (ordinarySelection && !instruments.isError && !holdings.isError)) && (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const normalizeTransfer = kind === ChangeCommandKind.ChangeCashTransfer && sameCurrencyTransfer;
@@ -998,6 +1004,8 @@ function RecordChangeFormReady({
 
   return (
     <div role="form" aria-label={t("history.formLabel")}>
+      {needsOrdinaryEligibility && (inventory.isError || allHoldings.isError) && <div role="alert" className="text-sm text-destructive">{t("portfolio.loadError")} <Button type="button" variant="outline" onClick={() => { void inventory.refetch(); void allHoldings.refetch(); }}>{t("common.retryAction")}</Button></div>}
+      {needsOrdinaryEligibility && !inventory.isLoading && !inventory.isError && !ordinarySelection && <p role="status" className="text-sm text-muted-foreground">{t("history.selectInstrument")}</p>}
       <fieldset className="flex min-w-0 flex-col gap-4" disabled={confirmPending || recoveryLocked}>
       {!lock?.hideKind && (
         <ChoiceGrid
@@ -1228,7 +1236,7 @@ function RecordChangeFormReady({
             <CalculateAmounts
               onCalculate={runTradeCalculate}
               quoteHint={
-                <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} sourceKind={selectedInstrument.quoteSource} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />
+                <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatQuotePrice(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} sourceKind={selectedInstrument.quoteSource} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />
               }
             />
           )}

@@ -116,3 +116,44 @@ plans are held in memory; if a plan has actually disappeared, retry cannot
 resolve its receipt through the current desktop API. Keep the review guarded
 rather than silently assigning a new identity. Native window/process close and
 restart recovery require separate backend/product work and acceptance.
+
+## Financial display and identities
+
+Ordinary money (including JPY/KRW) uses two display decimals through
+`formatAmount(value, currency)`; use `formatMoney` for currencyless money.
+`currencyFractionDigits` remains the ISO command-calculation scale. Never round
+DTOs, persisted decimals, inputs, or submitted/retried payloads for presentation.
+`formatQuotePrice` preserves unit-price/NAV precision; currencyless
+`formatAmount` preserves quantities and FX rates. Charts use canonical strings
+for tooltips/tables and numbers only for geometry. Known zero is money, missing
+is unavailable, and a known subtotal is never a fabricated full total. Rounded
+nonzero sub-cent values carry a direction/size hint without a signed zero;
+explicit exact audit/confirmation detail retains the canonical value.
+
+GUI labels use business instrument/account/source/date information. UUIDs,
+observation IDs, internal row keys and protocol/version tokens stay in backend,
+MCP and internal control values. Unknown metadata uses localized unavailable
+copy. Exact collisions use business metadata or stable session ordinals; never
+merge identities or expose UUID suffixes. Historical warning tooltips are
+bounded summaries; a keyboard-accessible disclosure retains the full list.
+
+Product ownership in the enriched GUI inventory comes from every ProductContract
+state. Ordinary management and mutation consumers use `ordinaryInstrument`;
+wealth/history/analytics keep the complete inventory. Failed ownership reads
+must not enable ordinary actions, and preselected IDs must be validated before
+preview or submission. Backend product guards remain authoritative.
+
+Holding detail hosts mount the shared `HoldingDetailPanel` only for expanded,
+active rows. Query keys share instrument price history/performance, while money
+uses the correct account/aggregate scope and one cost replay. No per-row polling,
+provider refresh or investment-review state writes. Descriptive 7/30-day metrics
+end at the latest real valid observation; use the nearest baseline on/before
+the target, actual civil days, and explicit dates. Insufficient history hides
+that metric. Do not inherit alert freshness/baseline-gap cutoffs, fabricate
+prices, or infer returns from whole-position values/constant income-fund NAV.
+
+NativeSelect and FilterableSelect share `selectFieldClass`, retaining native
+select semantics. A combobox search session starts empty, commits only an
+explicit option, and cancels on Escape/Tab/blur. IME composition never confirms
+an option or submits the outer form. Preserve disabled, error and active-option
+accessibility semantics; test reopening while already focused.

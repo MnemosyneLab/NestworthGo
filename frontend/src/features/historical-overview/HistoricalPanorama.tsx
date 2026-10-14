@@ -37,7 +37,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
             return <div key={side} className="min-w-0">
               <dt className="text-xs text-muted-foreground">{stateLabel(state, side, t("historicalOverview.current"))}</dt>
               <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-1 overflow-x-auto text-lg font-semibold focus-visible:outline-primary">
-                <span className="num whitespace-nowrap" title={state[key] == null ? undefined : `${state[key]} ${state.currency}`}>{historicalDisplayAmount(t,state.displayValuation?.[key],state[key]==null ? null : {amount:state[key],currency:state.currency},key==="netWorth")}</span>
+                <span className="num whitespace-nowrap" title={state[key] == null ? undefined : amount(state[key], state.currency) ?? undefined}>{historicalDisplayAmount(t,state.displayValuation?.[key],state[key]==null ? null : {amount:state[key],currency:state.currency},key==="netWorth")}</span>
               </dd>
               <ValuationQualitySummary value={state.displayValuation?.[key]} current={state.current} />
  {fullDisplayAmount(state.displayValuation?.[key],state[key]) == null && !state.displayValuation && key !== "netWorth" && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(known, state.currency) ?? t("historicalOverview.unknown")}</p>}
@@ -46,7 +46,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
           {right && <div className="min-w-0">
             <dt className="text-xs text-muted-foreground">{data.estimatedChange ? t("valuation.estimatedChange") : t("historicalOverview.deltaBA")}</dt>
             <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-1 overflow-x-auto text-lg font-semibold focus-visible:outline-primary">
-              <span className="num whitespace-nowrap" title={mismatch || change?.[key] == null ? undefined : `${change[key]} ${left.currency}`}>
+              <span className="num whitespace-nowrap" title={mismatch || change?.[key] == null ? undefined : amount(change[key], left.currency, true) ?? undefined}>
                 {mismatch ? t("historicalOverview.currencyMismatch") : amount(change?.[key], left.currency, true) ?? t("historicalOverview.unknown")}
               </span>
             </dd>
@@ -119,7 +119,7 @@ export function HistoricalAllocationView({ data, onFilter, selectedDimension, on
         const item = data.right ? paired.find(entry => entry.key === key)?.[side] : left.find(entry => entry.key === key);
         const state = side === "right" ? data.right! : data.left;
         const sideLabel = data.right ? `${stateLabel(state, side, t("historicalOverview.current"))}${state.current ? ` · ${data.capturedAt}` : ""}` : state.date;
-        return joinTooltipLines([`${label(key)} · ${sideLabel}`, item ? `${item.amount} ${state.currency} · ${item.share}%` : t("historicalOverview.notReturned")]);
+        return joinTooltipLines([`${label(key)} · ${sideLabel}`, item ? `${amount(item.amount, state.currency)} · ${item.share}%` : t("historicalOverview.notReturned")]);
       } },
       xAxis: { type: "value", scale: false, axisLine: { onZero: true, lineStyle: { color: theme.border } }, axisLabel: { color: theme.muted }, splitLine: { lineStyle: { color: theme.border } } },
       yAxis: { type: "category", data: items.map(label), inverse: true, axisLabel: { color: theme.foreground, width: 110, overflow: "truncate" } },
@@ -129,8 +129,8 @@ export function HistoricalAllocationView({ data, onFilter, selectedDimension, on
       ] : [{ id: "historical-single", type: "bar", barMaxWidth: 22, itemStyle: { color: theme.primary }, data: left.map(item => ({ name: item.key, value: geometry(item.amount)! })) }],
     };
   }
-  const rows = data.right ? paired.map(item => [label(item.key), item.left?.amount ?? t("historicalOverview.notReturned"), item.left?.share == null ? "—" : `${item.left.share}%`, item.right?.amount ?? t("historicalOverview.notReturned"), item.right?.share == null ? "—" : `${item.right.share}%`])
-    : left.map(item => [label(item.key), item.amount, `${item.share}%`]);
+  const rows = data.right ? paired.map(item => [label(item.key), (item.left ? amount(item.left.amount, data.left.currency) : null) ?? t("historicalOverview.notReturned"), item.left?.share == null ? "—" : `${item.left.share}%`, (item.right ? amount(item.right.amount, data.right!.currency) : null) ?? t("historicalOverview.notReturned"), item.right?.share == null ? "—" : `${item.right.share}%`])
+    : left.map(item => [label(item.key), amount(item.amount, currency)!, `${item.share}%`]);
   return <section aria-label={t(data.right ? "historicalOverview.allocationCompare" : "historicalOverview.allocation")} className="min-w-0 rounded-xl border border-border bg-card p-4">
     <h2 className="font-semibold">{t(data.right ? "historicalOverview.allocationCompare" : "historicalOverview.allocation")}</h2>
     <p className="mt-1 text-xs text-muted-foreground">{t("historicalOverview.allocationBasis")} · {t("historicalOverview.assetOnly")} · {currency}</p>
@@ -198,6 +198,6 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     {comparable.length > 10 && <Button variant="outline" size="sm" onClick={() => setAll(!all)}>{t(all ? "historicalOverview.topTen" : "historicalOverview.expandAll")}</Button>}
     <ul className="mt-3 grid gap-2 sm:grid-cols-2">{visible.map(rowView)}</ul>
     {separate.length > 0 && <div className="mt-4"><h3 className="mb-2 text-sm font-semibold">{t("historicalOverview.separateReview")}</h3><ul className="grid gap-2 sm:grid-cols-2">{separate.map(rowView)}</ul></div>}
-    <details className="mt-3"><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t("historicalOverview.account")}</th><th scope="col">A · {data.left.currency}</th><th scope="col">B · {data.right?.currency}</th><th scope="col">{t("historicalOverview.deltaBA")}</th></tr></thead><tbody>{[...comparable, ...separate].map(row => <tr key={row.key}><th scope="row">{row.name}</th><td>{row.left ? row.left.baseAmount ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{row.right ? row.right.baseAmount ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{mismatch ? t("historicalOverview.notComparable") : historicalRowChange(row) ?? t("historicalOverview.notComparable")}</td></tr>)}</tbody></table></div></details>
+    <details className="mt-3"><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t("historicalOverview.account")}</th><th scope="col">A · {data.left.currency}</th><th scope="col">B · {data.right?.currency}</th><th scope="col">{t("historicalOverview.deltaBA")}</th></tr></thead><tbody>{[...comparable, ...separate].map(row => <tr key={row.key}><th scope="row">{row.name}</th><td>{row.left ? amount(row.left.baseAmount, data.left.currency) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{row.right ? amount(row.right.baseAmount, data.right!.currency) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{mismatch ? t("historicalOverview.notComparable") : amount(historicalRowChange(row), data.left.currency, true) ?? t("historicalOverview.notComparable")}</td></tr>)}</tbody></table></div></details>
   </section>;
 }

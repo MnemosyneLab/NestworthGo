@@ -1,3 +1,4 @@
+import { HoldingDetailPanel } from "./LazyHoldingDetailPanel";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +15,7 @@ import type { HoldingAmountsDTO, InstrumentHoldingsDTO } from "../../../bindings
 type SortKey = "name" | "account" | "quantity" | "totalCost" | "currentValue" | "unrealizedGain";
 type Row = { id: string; group: InstrumentHoldingsDTO; amounts: HoldingAmountsDTO; accountId?: string; accountName?: string };
 
-export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrumentIds }: { groups: InstrumentHoldingsDTO[]; onOpenAccount?: (id: string) => void; managedInstrumentIds?: ReadonlySet<string> }) {
+export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrumentIds, active = true }: { groups: InstrumentHoldingsDTO[]; active?: boolean; onOpenAccount?: (id: string) => void; managedInstrumentIds?: ReadonlySet<string> }) {
   const { t, i18n } = useTranslation();
   const [view, setView] = useState("instrument");
   const [showZero, setShowZero] = useState(false);
@@ -22,8 +23,8 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "name", desc: false });
   const visible = groups.map(group => ({ ...group, holdings: (group.holdings ?? []).filter(member => showZero || compareCanonical(member.amounts.quantity, "0") !== 0) })).filter(group => group.holdings.length > 0);
   const rows: Row[] = view === "instrument"
-    ? visible.map(group => ({ id: group.instrumentId, group, amounts: group.amounts }))
-    : visible.flatMap(group => group.holdings.map(member => ({ id: member.holdingId, group, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName })));
+    ? visible.map(group => ({ id: `instrument:${group.instrumentId}`, group, amounts: group.amounts }))
+    : visible.flatMap(group => group.holdings.map(member => ({ id: `holding:${member.holdingId}`, group, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName })));
   rows.sort((a, b) => {
     let cmp = 0;
     if (sort.key === "name") cmp = instrumentDisplayLabel(a.group).localeCompare(instrumentDisplayLabel(b.group), i18n.language);
@@ -52,7 +53,7 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
   const cells = (row: Row, child = false) => <>
     <td className={`px-3 py-3 ${child ? "pl-10" : ""}`}>
       <div className="flex items-center gap-2">
-        {view === "instrument" && !child && <button type="button" aria-label={t("holdingsSummary.toggleAccounts", { name: row.group.name })} aria-expanded={expanded.has(row.id)} onClick={() => setExpanded(previous => { const next = new Set(previous); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        {!child && <button type="button" aria-label={t("holdingDetail.toggle", { name: row.group.name })} aria-expanded={expanded.has(row.id)} aria-controls={`holding-details-${view}-${row.id}`} onClick={() => setExpanded(previous => { const next = new Set(previous); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           {expanded.has(row.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </button>}
         <InstrumentLabel shortName={row.group.shortName} name={row.group.name} symbol={row.group.symbol} fallback={row.group.name} />
@@ -61,7 +62,7 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
       </div>
     </td>
     <td className="px-3 py-3">{row.accountId ? <button type="button" className="text-primary underline-offset-4 hover:underline focus-visible:underline" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</button> : t("holdingsSummary.accountCount", { count: new Set((row.group.holdings ?? []).map(member => member.accountId)).size })}</td>
-    <td className="num px-3 py-3 text-right whitespace-nowrap">{managedInstrumentIds?.has(row.group.instrumentId) ? t("availableFunds.contractQuantity") : `${formatAmount(row.amounts.quantity)} ${metalUnitLabel(row.group.quantityUnit, t) || row.group.quantityUnit}`}</td>
+    <td className="num px-3 py-3 text-right whitespace-nowrap">{managedInstrumentIds?.has(row.group.instrumentId) ? t("availableFunds.contractQuantity", { quantity: formatAmount(row.amounts.quantity) }) : `${formatAmount(row.amounts.quantity)} ${metalUnitLabel(row.group.quantityUnit, t) || row.group.quantityUnit}`}</td>
     <td className="num px-3 py-3 text-right whitespace-nowrap">{money(row.amounts, "totalCost")}</td>
     <td className="num px-3 py-3 text-right whitespace-nowrap">{money(row.amounts, "currentValue")}</td>
     <td className="num px-3 py-3 text-right whitespace-nowrap">{money(row.amounts, "unrealizedGain")}</td>
@@ -71,7 +72,7 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
     { key: "quantity", label: t("portfolio.quantity") }, { key: "totalCost", label: t("portfolio.cost") },
     { key: "currentValue", label: t("portfolio.currentValue") }, { key: "unrealizedGain", label: t("portfolio.unrealizedGain") },
   ];
-  return <div className="flex flex-col gap-3">
+  return <div className="flex min-w-0 flex-col gap-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div role="group" aria-label={t("holdingsSummary.view")} className="flex gap-2">
         <Button size="sm" variant={view === "instrument" ? "default" : "outline"} aria-pressed={view === "instrument"} onClick={() => setView("instrument")}>{t("holdingsSummary.byInstrument")}</Button>
@@ -87,7 +88,8 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
         </th>)}</tr></thead>
         <tbody>{rows.map(row => <Fragment key={row.id}>
           <tr className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">{cells(row)}</tr>
-          {view === "instrument" && expanded.has(row.id) && (row.group.holdings ?? []).map(member => <tr key={member.holdingId} className="border-b border-border bg-muted/20 last:border-0">{cells({ id: member.holdingId, group: row.group, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName }, true)}</tr>)}
+          {active && expanded.has(row.id) && <tr id={`holding-details-${view}-${row.id}`}><td colSpan={6}><HoldingDetailPanel instrumentId={row.group.instrumentId} amounts={row.amounts} scope={row.accountName ?? t("holdingDetail.allAccounts")} /></td></tr>}
+          {view === "instrument" && expanded.has(row.id) && (row.group.holdings ?? []).map(member => <tr key={member.holdingId} className="border-b border-border bg-muted/20 last:border-0">{cells({ id: `holding:${member.holdingId}`, group: row.group, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName }, true)}</tr>)}
         </Fragment>)}</tbody>
       </table>
     </div>}

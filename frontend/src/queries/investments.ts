@@ -1,3 +1,4 @@
+import { callCancellableService } from "@/lib/wailsCancellation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRefreshInstrument } from "@/queries/marketdata";
 import { useAccounts } from "@/queries/accounts";
@@ -20,6 +21,7 @@ export function useInstruments(includeArchived = false) {
   const normalizedIncludeArchived = Boolean(includeArchived);
   return useQuery({
     queryKey: queryKeys.instruments.list(normalizedIncludeArchived),
+    staleTime: 60_000,
     queryFn: () => callService(() => InstrumentService.ListInstruments(normalizedIncludeArchived)),
   });
 }
@@ -129,8 +131,9 @@ export function useCurrentFXQuote(currencyA: string, currencyB: string) {
 export function useInstrumentQuoteSeries(instrumentId: string, trendRange: string, sourceFilter: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.quote.instrument.series(instrumentId, trendRange, sourceFilter),
-    queryFn: () => callService(() => QuoteService.InstrumentQuoteSeries(instrumentId, trendRange, sourceFilter)),
+    queryFn: ({ signal }) => callCancellableService(signal, () => QuoteService.InstrumentQuoteSeries(instrumentId, trendRange, sourceFilter)),
     enabled: enabled && Boolean(instrumentId),
+    staleTime: 60_000,
   });
 }
 
@@ -177,5 +180,13 @@ export function useAppendManualFXQuote() {
     mutationFn: ({ baseCurrency, quoteCurrency, rate, quotedAt }: { baseCurrency: string; quoteCurrency: string; rate: string; quotedAt: string }) =>
       callService(() => QuoteService.AppendManualFXQuote(baseCurrency, quoteCurrency, rate, quotedAt)),
     onSuccess: () => invalidateRequiredFX(queryClient),
+  });
+}
+
+export function useQuotePerformance(instrumentId: string) {
+  return useQuery({
+    queryKey: [...queryKeys.quote.instrument.current(instrumentId), "performance"],
+    queryFn: ({ signal }) => callCancellableService(signal, () => QuoteService.InstrumentQuotePerformance(instrumentId)),
+    enabled: Boolean(instrumentId), staleTime: 60_000,
   });
 }

@@ -1,3 +1,4 @@
+import { formatAmount } from "@/lib/money";
 import { useRef, useState } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -76,8 +77,8 @@ it("labels paired bars with both dates and returns the exact same-source tooltip
   const option = chart.options[chart.options.length - 1] as { tooltip: { formatter: (point: unknown) => string };
     series: Array<{ data: Array<{ name: string }> }> };
   expect(option.series[0].data[0].name).toBe("cash");
-  expect(option.tooltip.formatter({ name: "cash", data: { name: "cash" }, seriesName: "A" })).toContain("10 CNY · 100%");
-  expect(option.tooltip.formatter({ name: "cash", data: { name: "cash" }, seriesName: "B" })).toContain("20 CNY · 100%");
+  expect(option.tooltip.formatter({ name: "cash", data: { name: "cash" }, seriesName: "A" })).toContain(`${formatAmount("10", "CNY")} · 100%`);
+  expect(option.tooltip.formatter({ name: "cash", data: { name: "cash" }, seriesName: "B" })).toContain(`${formatAmount("20", "CNY")} · 100%`);
   expect(within(comparison).getByText("Full source data table")).toBeInTheDocument();
 });
 
@@ -105,5 +106,5 @@ it("keeps negative sub-cent allocation tooltip values exact", () => {
   data.left = { ...state("2026-08-01", "-0.00012"), byClass: [{ key: "cash", amount: "-0.00012", share: "-100" }] };
   render(<HistoricalAllocationView data={data} onFilter={vi.fn()} />);
   const option = chart.options[chart.options.length - 1] as { tooltip: { formatter: (point: unknown) => string } };
-  expect(option.tooltip.formatter({ name: "cash", data: { name: "cash" } })).toContain("-0.00012 CNY");
+  expect(option.tooltip.formatter({ name: "cash", data: { name: "cash" } })).toContain(formatAmount("-0.00012", "CNY"));
 });

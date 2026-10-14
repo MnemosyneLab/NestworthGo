@@ -16,7 +16,7 @@ export function FundsComparison({ horizons, selected, onSelect, sources, baseCur
   const unknown = t("availableFunds.unknownAmount");
   const nativeCurrencies = [...new Set(horizons.flatMap(({ bucket }) => (bucket.nativeCurrencyGroups ?? []).map(group => group.currency)))].sort();
   const selectedHorizon = horizons.find(({ bucket }) => bucket.horizonOn === selected);
-  const amount = (value: MoneyView | null | undefined, dashZero = false) => !value ? unknown : dashZero && /^0(?:\.0+)?$/.test(value.amount) ? "—" : formatAmount(value.amount, value.currency);
+  const amount = (value: MoneyView | null | undefined) => !value ? unknown : formatAmount(value.amount, value.currency);
   const spendable = (total: Total | undefined) => <>
     <span className="font-semibold tabular-nums">{amount(total?.fullUnreserved ?? total?.knownUnreservedSubtotal)}</span>
     {!total?.fullUnreserved && <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("availableFunds.incompleteAmount")}</span>}
@@ -30,9 +30,8 @@ export function FundsComparison({ horizons, selected, onSelect, sources, baseCur
       const total = bucket.nativeCurrencyGroups?.find(group => group.currency === currency);
       const matchingSources = sources.filter(source => source.nativeCurrency === currency);
       const parts = cashVersusProceeds(matchingSources, selected, unknown, currency, "native");
-      const zero = formatAmount("0", currency);
       // Missing currency groups remain unknown, even if no source was returned.
-      const values = [total ? parts.cash === zero ? "—" : parts.cash : unknown, total ? parts.proceeds === zero ? "—" : parts.proceeds : unknown, amount(total?.appliedReserveSubtotal, true), spendable(total)];
+      const values = [total ? parts.cash : unknown, total ? parts.proceeds : unknown, amount(total?.appliedReserveSubtotal), spendable(total)];
       return { currency, values };
     });
     return <>

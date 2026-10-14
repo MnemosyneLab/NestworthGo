@@ -582,27 +582,28 @@ func FromBreakdowns(values []domain.BreakdownItem) []BreakdownDTO {
 // InstrumentDTO mirrors domain.Instrument. Shared by the instrument,
 // holding, quote, analytics, and history services.
 type InstrumentDTO struct {
-	ID             string  `json:"id"`
-	HouseholdID    string  `json:"householdId"`
-	Name           string  `json:"name"`
-	ShortName      string  `json:"shortName,omitempty"`
-	Type           string  `json:"type"`
-	MetalTemplate  string  `json:"metalTemplate,omitempty"`
-	QuantityUnit   string  `json:"quantityUnit,omitempty"`
-	QuoteCurrency  string  `json:"quoteCurrency"`
-	Symbol         *string `json:"symbol,omitempty"`
-	MarketCode     *string `json:"marketCode,omitempty"`
-	CountryCode    *string `json:"countryCode,omitempty"`
-	ISIN           *string `json:"isin,omitempty"`
-	Note           *string `json:"note,omitempty"`
-	IconKey        string  `json:"iconKey"`
-	SortOrder      int     `json:"sortOrder"`
-	QuoteSource    string  `json:"quoteSource"`
-	ProviderKey    *string `json:"providerKey,omitempty"`
-	ProviderSymbol *string `json:"providerSymbol,omitempty"`
-	CreatedAt      string  `json:"createdAt"`
-	UpdatedAt      string  `json:"updatedAt"`
-	ArchivedAt     *string `json:"archivedAt,omitempty"`
+	ManagedProductID string  `json:"managedProductId,omitempty"`
+	ID               string  `json:"id"`
+	HouseholdID      string  `json:"householdId"`
+	Name             string  `json:"name"`
+	ShortName        string  `json:"shortName,omitempty"`
+	Type             string  `json:"type"`
+	MetalTemplate    string  `json:"metalTemplate,omitempty"`
+	QuantityUnit     string  `json:"quantityUnit,omitempty"`
+	QuoteCurrency    string  `json:"quoteCurrency"`
+	Symbol           *string `json:"symbol,omitempty"`
+	MarketCode       *string `json:"marketCode,omitempty"`
+	CountryCode      *string `json:"countryCode,omitempty"`
+	ISIN             *string `json:"isin,omitempty"`
+	Note             *string `json:"note,omitempty"`
+	IconKey          string  `json:"iconKey"`
+	SortOrder        int     `json:"sortOrder"`
+	QuoteSource      string  `json:"quoteSource"`
+	ProviderKey      *string `json:"providerKey,omitempty"`
+	ProviderSymbol   *string `json:"providerSymbol,omitempty"`
+	CreatedAt        string  `json:"createdAt"`
+	UpdatedAt        string  `json:"updatedAt"`
+	ArchivedAt       *string `json:"archivedAt,omitempty"`
 }
 
 func FromInstrument(value domain.Instrument) InstrumentDTO {

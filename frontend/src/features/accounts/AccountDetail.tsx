@@ -1,3 +1,6 @@
+import { Fragment } from "react";
+import { HoldingDetailPanel } from "@/features/investments/LazyHoldingDetailPanel";
+import { useInstrumentHoldings } from "@/queries/analytics";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { metalUnitLabel } from "@/lib/preciousMetals";
@@ -78,7 +81,8 @@ function cashChangeLabel(value: AccountCashValueDTO): string {
 function holdingRows(
   holdings: HoldingDTO[],
   valuation: AccountValuationDTO | undefined,
-  instruments: { id: string; name: string; shortName?: string; type: string; symbol?: string | null }[],
+  instruments: { id: string; name: string; shortName?: string; type: string; symbol?: string | null; archivedAt?: string | null }[],
+  fallbackName: string,
 ): {
   holding: HoldingDTO;
   instrumentShortName?: string;
@@ -99,10 +103,10 @@ function holdingRows(
       return {
         holding,
         instrumentShortName: component?.instrumentShortName || instrument?.shortName,
-        instrumentName: component?.instrumentName || instrument?.name || holding.instrumentId,
+        instrumentName: component?.instrumentName || instrument?.name || fallbackName,
         instrumentSymbol: component?.instrumentSymbol || instrument?.symbol || undefined,
         instrumentType: instrument?.type ?? "",
-        instrumentActive: Boolean(instrument),
+        instrumentActive: Boolean(instrument && !instrument.archivedAt),
         component,
       };
     });
@@ -163,8 +167,9 @@ export function AccountDetail({
   const { t, i18n } = useTranslation();
   const origin = useHistoryOrigin();
   const settings = useSettings();
+  const [expandedHoldings, setExpandedHoldings] = useState<Set<string>>(new Set());
   const holdingsQuery = useHoldingsByAccounts([record.account.id]);
-  const instruments = useInstruments();
+  const instruments = useInstruments(true);
   const productsQuery = useProducts({ accountId: record.account.id, includeClosed: true }, canHoldProducts(record.account));
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
@@ -184,15 +189,16 @@ export function AccountDetail({
   const readOnly = archived;
   const cash = useMemo(() => cashComponents(valuation), [valuation]);
   const rows = useMemo(
-    () => holdingRows(holdingsQuery.data?.[record.account.id] ?? [], valuation, instruments.data ?? []),
-    [holdingsQuery.data, record.account.id, valuation, instruments.data],
+    () => holdingRows(holdingsQuery.data?.[record.account.id] ?? [], valuation, instruments.data ?? [], t("portfolio.unknownInstrument")),
+    [holdingsQuery.data, record.account.id, valuation, instruments.data, t],
   );
   const managedHoldingIds = useMemo(
     () => new Set((productsQuery.data ?? []).map((detail) => detail.product.holdingId)),
     [productsQuery.data],
   );
-  const investmentHoldings = rows.filter((row) => !managedHoldingIds.has(row.holding.id));
+  const investmentHoldings = rows.filter((row) => !instruments.isError && !instruments.isLoading && instruments.data?.some(item => item.id === row.holding.instrumentId && !item.managedProductId) && !managedHoldingIds.has(row.holding.id));
   const investmentRows = investmentHoldings.filter((row) => compareCanonical(row.holding.quantity, "0") !== 0);
+  const holdingDetails = useInstrumentHoldings(investmentRows.some(row => expandedHoldings.has(row.holding.id)), record.account.id);
   const dividendHoldingsAvailable = investmentHoldings.some((row) => row.instrumentActive);
   const householdCurrency = valuation?.baseValue?.currency ?? "";
 
@@ -238,7 +244,7 @@ export function AccountDetail({
   );
 
   return (
-    <div className="flex flex-col gap-6" data-testid="account-detail">
+    <div className="flex min-w-0 flex-col gap-6" data-testid="account-detail">
       <PageChrome
         pageId="accounts"
         title={<span className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-8 shrink-0 text-primary" />{record.account.name}</span>}
@@ -285,8 +291,8 @@ export function AccountDetail({
       )}
 
       {composite && !cashOnly && (holdingsQuery.isLoading || instruments.isLoading) && <LoadingState label={t("ui.state.loadingPage")} />}
-      {composite && !cashOnly && holdingsQuery.isError && (
-        <ErrorState title={t("accounts.loadError")} description={t("ui.state.errorDescription")} onRetry={() => holdingsQuery.refetch()} retryLabel={t("common.retryAction")} />
+      {composite && !cashOnly && (holdingsQuery.isError || instruments.isError) && (
+        <ErrorState title={t("accounts.loadError")} description={t("ui.state.errorDescription")} onRetry={() => { void holdingsQuery.refetch(); void instruments.refetch(); }} retryLabel={t("common.retryAction")} />
       )}
 
       {composite && record.account.balanceSheetRole !== "liability" && valuation?.composition && (
@@ -294,8 +300,8 @@ export function AccountDetail({
       )}
 
       {composite && (cashOnly || (!holdingsQuery.isLoading && !holdingsQuery.isError)) && (
-        <div data-testid="account-cash-holdings-layout" className={cn("grid gap-4", !cashOnly && "2xl:grid-cols-2")}>
-          <Card>
+        <div data-testid="account-cash-holdings-layout" className="grid min-w-0 grid-cols-1 items-start gap-4">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>{t("accounts.cash")}</CardTitle>
             </CardHeader>
@@ -338,7 +344,7 @@ export function AccountDetail({
               )}
             </CardContent>
           </Card>
-          {!cashOnly && <Card>
+          {!cashOnly && <Card className="min-w-0">
             <CardHeader>
               <CardTitle>{t("accounts.investments")}</CardTitle>
             </CardHeader>
@@ -346,7 +352,7 @@ export function AccountDetail({
               {investmentRows.length === 0 ? (
                 <EmptyState title={t("accounts.noHoldings")} description={t("accounts.buyInvestment")} />
               ) : (
-                <table className="w-full text-left text-sm">
+                <div className="min-w-0 overflow-x-auto"><table className="w-full text-left text-sm">
                   <caption className="sr-only">{t("accounts.investments")}</caption>
                   <thead>
                     <tr className="border-b border-border text-muted-foreground">
@@ -359,8 +365,9 @@ export function AccountDetail({
                   </thead>
                   <tbody>
                     {investmentRows.map((row) => (
-                      <tr key={row.holding.id} className="border-b border-border last:border-0">
+                      <Fragment key={row.holding.id}><tr className="border-b border-border last:border-0">
                         <td className="py-2">
+                          <button type="button" className="mr-2 rounded p-1 focus-visible:ring-2 focus-visible:ring-primary" aria-expanded={expandedHoldings.has(row.holding.id)} aria-controls={`account-holding-details-${row.holding.id}`} aria-label={t("holdingDetail.toggle", { name: row.instrumentName })} onClick={() => setExpandedHoldings(previous => { const next = new Set(previous); if (next.has(row.holding.id)) next.delete(row.holding.id); else next.add(row.holding.id); return next; })}>{expandedHoldings.has(row.holding.id) ? "▾" : "▸"}</button>
                           <InstrumentLabel shortName={row.instrumentShortName} name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
@@ -385,9 +392,11 @@ export function AccountDetail({
                           />
                         </td>
                       </tr>
+                      {expandedHoldings.has(row.holding.id) && <tr id={`account-holding-details-${row.holding.id}`}><td colSpan={5}><HoldingDetailPanel instrumentId={row.holding.instrumentId} scope={record.account.name} amounts={holdingDetails.data?.flatMap(group => group.holdings ?? []).find(member => member.holdingId === row.holding.id)?.amounts} amountsLoading={holdingDetails.isLoading} amountsError={holdingDetails.isError} onRetry={() => void holdingDetails.refetch()} /></td></tr>}
+                      </Fragment>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               )}
               {!readOnly && (
                 <div className="flex flex-wrap gap-2">
@@ -431,7 +440,7 @@ export function AccountDetail({
           <CardHeader><CardTitle>{t("accounts.cashHistory")}</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <div className="min-w-0 overflow-x-auto"><table className="w-full text-left text-sm">
                 <caption className="sr-only">{t("accounts.cashHistory")}</caption>
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
@@ -465,14 +474,14 @@ export function AccountDetail({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </CardContent>
         </Card>
       )}
 
       {!composite && (
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>{displayEnum(t, "enum", record.account.accountType)}</CardTitle>
           </CardHeader>

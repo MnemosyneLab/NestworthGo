@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { applyChartPolicy } from "@/components/charts/EChart";
-import { TrendChart, trendChartTimestamp, trendLegendLabel } from "@/components/charts/TrendChart";
+import { TrendChart, trendQualitySegments, trendChartTimestamp, trendLegendLabel } from "@/components/charts/TrendChart";
 import { escapeChartText, joinTooltipLines, prefersReducedMotion } from "@/components/charts/chartTheme";
 
 describe("chartTheme helpers", () => {
@@ -162,4 +162,10 @@ describe("chart interactions", () => {
     expect(applyChartPolicy({ series: [] }).animation).toBe(false);
     window.matchMedia = original;
   });
+});
+
+
+it("never connects observations across an explicit price-basis boundary", () => {
+  const segments = trendQualitySegments({ key: "price", name: "Price", color: "blue", values: ["1", "100", "101"], pointMeta: [{}, { breakBefore: true }, {}] });
+  expect(segments.map(segment => segment.indices)).toEqual([[0], [1, 2]]);
 });

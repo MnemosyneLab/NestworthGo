@@ -158,7 +158,7 @@ describe("AssetChangesPage", () => {
 
     await user.click(within(screen.getByRole("region", { name: "Change attribution" })).getByRole("button", { name: /Unexplained difference/ }));
     expect(await screen.findByText("Component / day")).toBeInTheDocument();
-    expect(screen.getByText("account-1/holding:h1/instrument:instrument-1")).toBeInTheDocument();
+    expect(screen.queryByText("account-1/holding:h1/instrument:instrument-1")).not.toBeInTheDocument();
     expect(screen.getByText("2026-09-02")).toBeInTheDocument();
     expect(await screen.findByText("Brokerage · QQQ")).toBeInTheDocument();
     expect(assetDriverDetail).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-01", to: "2026-09-06" }), "residual");

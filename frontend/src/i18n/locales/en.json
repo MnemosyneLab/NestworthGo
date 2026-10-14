@@ -1291,7 +1291,7 @@
     "price": "Price evidence",
     "fx": "Exchange-rate evidence",
     "original": "Original amount",
-    "exactBase": "Exact base amount",
+    "exactBase": "Base currency amount",
     "nativeChange": "Original-currency change",
     "noClosedDays": "No closed history day yet",
     "noClosedDaysHint": "Return after the first household day has ended. Current state is available in Overview.",
@@ -1557,5 +1557,35 @@
     "noPending": "No pending reviews for monitored investments. Acknowledged or ignored reviews do not mean the NAV condition has recovered; check all investments for their current condition.",
     "moved": "{{name}} · {{group}}",
     "removed": "{{name}} is no longer in pending reviews."
+  },
+  "moneyDisplay": {
+    "tiny": "{{direction}} nonzero, below 0.01",
+    "missingCount": "{{count}} items need attention"
+  },
+  "holdingDetail": {
+    "performance": "Historical price / NAV performance",
+    "priceDisclaimer": "Price or unit NAV change, excluding dividends and unadjusted for corporate actions. This is not your holding return. Simple annualization is historical, not an expected or guaranteed yield.",
+    "window": "{{days}}-day target",
+    "days": "{{days}} actual days",
+    "asOf": "As of {{date}}",
+    "annualized": "Simple annualized NAV change",
+    "priceChange": "Price / NAV change",
+    "allAccounts": "All included accounts",
+    "toggle": "Show details for {{name}}",
+    "otherCurrencies": "Historical observations in other currencies remain available in the data table; the chart shows this instrument’s current currency."
+  },
+  "syncReasons": {
+    "unavailable": "Local data or provider access is unavailable. Review the connection and retry.",
+    "coingecko_history_limit_365_days": "The provider only offers the most recent 365 days of history.",
+    "snapshot_incomplete": "Historical valuation is incomplete.",
+    "snapshot_verification_failed": "Historical valuation could not be verified.",
+    "provider_not_configured": "Configure a provider connection.",
+    "rate_limited": "Provider rate limit reached; retry later.",
+    "fx_preferences": "Review the currency rate source.",
+    "fx_coverage": "Currency rate history is incomplete.",
+    "agent_fx_coverage": "Agent currency rate history is incomplete.",
+    "invalid_origin": "Review the history start date.",
+    "invalid_range": "Review the requested date range.",
+    "sync_failed": "Refresh failed; check the connection and retry."
   }
 }

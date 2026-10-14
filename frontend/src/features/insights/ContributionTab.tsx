@@ -31,7 +31,7 @@ const returnComponentKeys: Record<string, string> = {
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
   const formatted = formatAmount(value.amount, value.currency);
-  return value.amount.startsWith("-") || value.amount === "0" ? formatted : `+${formatted}`;
+  return compareCanonical(value.amount, "0.005") <= 0 ? formatted : `+${formatted}`;
 }
 
 function rateText(value: string | null | undefined): string {
@@ -91,9 +91,9 @@ function ContributionRow({ row, rows, label, showRate, onSelect }: { row: Contri
 
 function compositionLabel(t: (key: string) => string, item: NonNullable<ContributionItemDTO["components"]>[number], accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
   if (returnComponentKeys[item.key]) return componentLabel(t, item.key);
-  if (item.instrumentId) return instrumentNames.get(item.instrumentId) ?? item.key;
-  if (item.accountId) return accountNames.get(item.accountId) ?? item.key;
-  return item.key === "cash" ? t("insights.cash") : item.key;
+  if (item.instrumentId) return instrumentNames.get(item.instrumentId) ?? t("history.unknownInstrument");
+  if (item.accountId) return accountNames.get(item.accountId) ?? t("history.unknownAccount");
+  return item.key === "cash" ? t("insights.cash") : t("insights.unattributedResidual");
 }
 
 function ItemDetail({ data, returnType, accountNames, instrumentNames, onOpenHistory }: { data: ContributionItemDTO; returnType: string; accountNames: Map<string, string>; instrumentNames: Map<string, string>; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
@@ -104,7 +104,7 @@ function ItemDetail({ data, returnType, accountNames, instrumentNames, onOpenHis
     onOpenHistory({ from: data.historyHint.from, to: data.historyHint.to, accountId: data.historyHint.accountId || undefined, instrumentId: data.historyHint.instrumentId || undefined, kinds: data.historyHint.kinds && data.historyHint.kinds.length > 0 ? data.historyHint.kinds : undefined });
   };
   const historyNarrowed = Boolean(data.historyHint.accountId || data.historyHint.instrumentId);
-  return <div className="flex flex-col gap-5 overflow-y-auto"><div><p className="text-sm text-muted-foreground">{t("insights.contribution")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.amount)}</p>{showRate && <p className="text-sm text-muted-foreground">{rateText(data.rate)}{coverageMark(data.ratedDays, data.totalDays)}</p>}</div>{data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}{data.status === "partial" && <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{analysisReason(t, data.missingReason) ?? t("insights.partial")}</p>}<p className="text-sm text-muted-foreground">{t("insights.contributionIndependent")}</p><DetailList title={t("insights.composition")} values={data.components} labelFor={(item) => compositionLabel(t, item, accountNames, instrumentNames)} /><DetailList title={t("insights.byAccount")} values={data.byAccount} labelFor={(item) => accountNames.get(item.accountId || item.key) ?? (item.key === "cash" ? t("insights.cash") : item.key)} />{onOpenHistory && <div className="flex flex-col gap-2">{!historyNarrowed && (data.byAccount?.length ?? 0) > 1 && <p className="text-sm text-muted-foreground">{t("insights.historyRangeWider")}</p>}<Button type="button" variant="outline" onClick={openHistory}>{t("insights.viewInHistory")}</Button></div>}</div>;
+  return <div className="flex flex-col gap-5 overflow-y-auto"><div><p className="text-sm text-muted-foreground">{t("insights.contribution")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.amount)}</p>{showRate && <p className="text-sm text-muted-foreground">{rateText(data.rate)}{coverageMark(data.ratedDays, data.totalDays)}</p>}</div>{data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}{data.status === "partial" && <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{analysisReason(t, data.missingReason) ?? t("insights.partial")}</p>}<p className="text-sm text-muted-foreground">{t("insights.contributionIndependent")}</p><DetailList title={t("insights.composition")} values={data.components} labelFor={(item) => compositionLabel(t, item, accountNames, instrumentNames)} /><DetailList title={t("insights.byAccount")} values={data.byAccount} labelFor={(item) => accountNames.get(item.accountId || item.key) ?? (item.key === "cash" ? t("insights.cash") : t("insights.unattributedResidual"))} />{onOpenHistory && <div className="flex flex-col gap-2">{!historyNarrowed && (data.byAccount?.length ?? 0) > 1 && <p className="text-sm text-muted-foreground">{t("insights.historyRangeWider")}</p>}<Button type="button" variant="outline" onClick={openHistory}>{t("insights.viewInHistory")}</Button></div>}</div>;
 }
 
 function DetailList({ title, values, labelFor }: { title: string; values: ContributionItemDTO["components"]; labelFor: (item: NonNullable<ContributionItemDTO["components"]>[number]) => string }) {

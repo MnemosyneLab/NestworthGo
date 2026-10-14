@@ -232,9 +232,7 @@ func reviewWindow(unsafeDates []string, i Instrument, points []InstrumentQuote, 
 		return r
 	}
 	// Simple annualization, not compounding or a forward yield projection.
-	period := latest.UnitPrice.Decimal().DivRound(points[base].UnitPrice.Decimal(), 24).Sub(decimal.NewFromInt(1)).Mul(decimal.NewFromInt(100))
-	annual := period.Mul(decimal.NewFromInt(365)).DivRound(decimal.NewFromInt(int64(r.ElapsedDays)), 12)
-	periodText, annualText := period.String(), annual.String()
+	periodText, annualText := priceWindowPercent(points[base].UnitPrice.Decimal(), latest.UnitPrice.Decimal(), r.ElapsedDays)
 	r.PeriodPercent, r.AnnualizedPercent = &periodText, &annualText
 	r.Status, r.Reason = "healthy", ""
 	return r

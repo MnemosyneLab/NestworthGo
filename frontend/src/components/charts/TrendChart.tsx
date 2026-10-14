@@ -5,6 +5,8 @@ import { EmptyState } from "@/components/layout/PageState";
 import { formatAmount } from "@/lib/money";
 
 export interface TrendPointMeta {
+ /** A semantic boundary supplied by the owning read model. */
+ breakBefore?: boolean;
  provisional?: boolean;
  qualityLabel?: string;
   sourceLabel?: string;
@@ -101,11 +103,12 @@ export function trendLegendLabel(name: string, item: TrendSeries, mixedSources: 
 // Split only geometry: any edge touching an estimate is dashed. True gaps
 // remain gaps, and each rendered datum retains its original tooltip index.
 export function trendQualitySegments(item: TrendSeries): Array<{ indices: number[]; provisional: boolean }> {
-  if (!(item.pointMeta ?? []).some(meta => meta?.provisional)) return [{ indices: item.values.map((_, index) => index), provisional: false }];
+  if (!(item.pointMeta ?? []).some(meta => meta?.provisional || meta?.breakBefore)) return [{ indices: item.values.map((_, index) => index), provisional: false }];
   const segments: Array<{ indices: number[]; provisional: boolean }> = [];
   let last = -1;
   let active: { indices: number[]; provisional: boolean } | undefined;
   item.values.forEach((value, index) => {
+    if (item.pointMeta?.[index]?.breakBefore) { last = -1; active = undefined; }
     if (value == null) { last = -1; active = undefined; return; }
     const provisional = Boolean(item.pointMeta?.[index]?.provisional || (last >= 0 && item.pointMeta?.[last]?.provisional));
     if (!active || active.provisional !== provisional) {

@@ -1,3 +1,4 @@
+import { formatAmount } from "@/lib/money";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
@@ -25,17 +26,17 @@ it.each(["en", "zh-CN", "zh-TW"])("keeps exact source values, local selection an
  await i18n.changeLanguage(locale); const select = vi.fn(); const endpoint = vi.fn(); const open = vi.fn(); const metric = vi.fn();
  render(<HistoricalTrend capture={capture([point("2026-08-01")])} metric="netWorth" selectedDate={null} onMetric={metric} onSelect={select} onEndpoint={endpoint} onOpenDay={open} />);
  expect(screen.getByText(i18n.t("historicalOverview.trend.onePoint"))).toBeInTheDocument();
- const table = screen.getByRole("table"); expect(table).toHaveTextContent("-0.00012 CNY");
+ const table = screen.getByRole("table"); expect(table).toHaveTextContent(formatAmount("-0.00012", "CNY"));
  await userEvent.click(within(table).getByRole("button", { name: "2026-08-01" })); expect(select).toHaveBeenCalledWith("2026-08-01");
  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.trend.setA") })); expect(endpoint).toHaveBeenCalledWith("A", "2026-08-01");
  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.trend.openDay") })); expect(open).toHaveBeenCalledWith("2026-08-01");
  await userEvent.click(screen.getByRole("button", { name: i18n.t("overview.assets") })); expect(metric).toHaveBeenCalledWith("assets");
  const option = chart.options[chart.options.length - 1] as { tooltip: { formatter: (p: unknown) => string }; series: Array<{connectNulls: boolean}> };
- expect(option.tooltip.formatter({name:"2026-08-01"})).toContain("-0.00012 CNY"); expect(option.series[0].connectNulls).toBe(false);
+ expect(option.tooltip.formatter({name:"2026-08-01"})).toContain(formatAmount("-0.00012", "CNY")); expect(option.series[0].connectNulls).toBe(false);
 });
 it("provides an exact table fallback for numerical overflow and explicit skipped-day gaps", async () => {
  await i18n.changeLanguage("en");
  render(<HistoricalTrend capture={capture([point("2026-08-01", "9".repeat(400)), point("2026-08-02", null, { available: false, gapReason: "nonexistent_civil_date", assets: null, liabilities: null })])} metric="netWorth" selectedDate={null} onMetric={vi.fn()} onSelect={vi.fn()} onEndpoint={vi.fn()} onOpenDay={vi.fn()} />);
- expect(screen.queryByRole("img")).not.toBeInTheDocument(); expect(screen.getByRole("table")).toHaveTextContent("9".repeat(400));
+ expect(screen.queryByRole("img")).not.toBeInTheDocument(); expect(screen.getByRole("table")).toHaveTextContent(formatAmount("9".repeat(400), "CNY"));
  expect(screen.getByText(i18n.t("historicalOverview.trend.skippedDate"))).toBeInTheDocument();
 });

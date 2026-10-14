@@ -1016,3 +1016,24 @@ func notFound(entity string) error {
 	return &domain.Error{Code: domain.ErrNotFound, Message: entity + " was not found"}
 }
 func normalizeNow(value time.Time) time.Time { return value.UTC().Truncate(time.Millisecond) }
+
+// InstrumentProductOwnership is a lightweight identity join across every contract
+// state. A failed read must fail the GUI inventory rather than classify as ordinary.
+func (s *Service) InstrumentProductOwnership(ctx context.Context) (map[string]string, error) {
+	b, err := s.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]string{}
+	if b.Household == nil {
+		return result, nil
+	}
+	products, err := s.repository.ListProducts(ctx, b.Household.ID, nil, true)
+	if err != nil {
+		return nil, err
+	}
+	for _, product := range products {
+		result[product.InstrumentID.String()] = product.ID.String()
+	}
+	return result, nil
+}

@@ -99,7 +99,7 @@ export function ProductFormSheet({
         <NativeSelect id="product-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
           {[...new Set([defaultCurrency, ...(currencies.data ?? []), ...cash.map((item) => item.nativeCurrency)])].sort().map((code) => <option key={code} value={code}>{code}</option>)}
         </NativeSelect>
-        <p className="text-sm">{t("availableFunds.targetAccount")}: {accountValue?.account.name ?? accountName ?? accountId}</p>
+        <p className="text-sm">{t("availableFunds.targetAccount")}: {accountValue?.account.name ?? accountName ?? t("history.unknownAccount")}</p>
         <p className="text-sm">{t("availableFunds.cashAvailable", { currency, amount: selectedCash === undefined ? t("availableFunds.unknownAmount") : formatAmount(selectedCash, currency) })}</p>
         <Label htmlFor="product-mode">{t("availableFunds.entryMethod")}</Label>
         <NativeSelect id="product-mode" value={mode} onChange={(event) => setMode(event.target.value as "open" | "record_existing")}>

@@ -1,3 +1,4 @@
+import { callCancellableService } from "@/lib/wailsCancellation";
 import { useQuery } from "@tanstack/react-query";
 import { Service as AnalyticsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics";
 import { Service as PortfolioService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio";
@@ -22,9 +23,10 @@ export function useNetWorthTrend(range: AnalyticsRange) {
   });
 }
 
-export function useInstrumentHoldings() {
+export function useInstrumentHoldings(enabled = true, accountId = "") {
   return useQuery({
-    queryKey: queryKeys.analytics.instrumentHoldings,
-    queryFn: () => callService(() => AnalyticsService.InstrumentHoldings()),
+    queryKey: accountId ? [...queryKeys.analytics.instrumentHoldings, accountId] : queryKeys.analytics.instrumentHoldings,
+    enabled, staleTime: 60_000,
+    queryFn: ({ signal }) => callCancellableService(signal, () => accountId ? AnalyticsService.AccountHoldingDetails(accountId) : AnalyticsService.InstrumentHoldings()),
   });
 }

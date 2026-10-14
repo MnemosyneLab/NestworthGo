@@ -77,7 +77,15 @@ func (s *Service) ListInstruments(ctx context.Context, includeArchived bool) ([]
 	if err != nil {
 		return nil, apierror.Wrap(err)
 	}
-	return wire.FromInstruments(instruments), nil
+	ownership, err := s.app.InstrumentProductOwnership(ctx)
+	if err != nil {
+		return nil, apierror.Wrap(err)
+	}
+	result := wire.FromInstruments(instruments)
+	for n := range result {
+		result[n].ManagedProductID = ownership[result[n].ID]
+	}
+	return result, nil
 }
 
 func (s *Service) ArchiveInstrument(ctx context.Context, id string, archived bool) error {

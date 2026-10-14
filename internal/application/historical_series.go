@@ -415,7 +415,11 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, portfolio domain.Po
 				if len(reasons) == 0 {
 					reasons = append(reasons, "account_value")
 				}
-				point.Missing = append(point.Missing, HistoricalSeriesMissing{Key: key, Name: a.Account.Name, Role: role, Reasons: reasons})
+				label := a.Account.Name + " · " + c.NativeCurrency.String()
+				if c.InstrumentID != nil {
+					label = a.Account.Name + " · " + instruments[*c.InstrumentID].DisplayLabel()
+				}
+				point.Missing = append(point.Missing, HistoricalSeriesMissing{Key: key, Name: label, Role: role, Reasons: reasons})
 			}
 		}
 	}

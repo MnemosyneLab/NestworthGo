@@ -1,3 +1,4 @@
+import { SyncBlockerText } from "@/features/marketdata/SyncBlockerText";
 import { SnapshotRepair } from "./SnapshotRepair";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import type { HealthFocus } from "@/app/navigation";
@@ -272,7 +273,7 @@ export function DataHealthPage({
               <p className="text-sm font-medium">{t("marketData.previewUnresolved")}</p>
               <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
                 {(sync.preview.data?.unresolved ?? []).map((item) => (
-                  <li key={`${item.targetKey}-${item.code}`}>{t("marketData.blocker", { target: item.targetKey, reason: item.reason || item.code })}</li>
+                  <li key={`${item.targetKey}-${item.code}`}><SyncBlockerText item={item} /></li>
                 ))}
               </ul>
             </div>

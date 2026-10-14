@@ -324,7 +324,7 @@ export function currencyFractionDigits(currency: string, locale = i18n.language 
  * only to discover locale presentation tokens and currency placement, never
  * to parse the financial value through a binary floating-point Number.
  * When a currency code is supplied, the amount is rounded to that
- * currency's ISO 4217 fraction digits (2 for CNY/SGD, 0 for JPY/KRW).
+ * display scale of two. ISO calculation scales remain separate.
  */
 export function formatAmount(amount: string, currency?: string): string {
   if (!CANONICAL_DECIMAL.test(amount)) {
@@ -345,7 +345,7 @@ export function formatAmount(amount: string, currency?: string): string {
 
   if (currency) {
     try {
-      const fractionDigits = currencyFractionDigits(currency, locale);
+      const fractionDigits = 2;
       const [integerPart, fractionPart] = roundDecimal(rawInteger, rawFraction, fractionDigits);
       const currencyFormatter = new Intl.NumberFormat(locale, {
         style: "currency",
@@ -353,9 +353,9 @@ export function formatAmount(amount: string, currency?: string): string {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
       });
-      const affixes = numericAffixes(currencyFormatter, negative ? -1234.5 : 1234.5);
+      const affixes = numericAffixes(currencyFormatter, negative && /[1-9]/.test(integerPart + fractionPart) ? -1234.5 : 1234.5);
       const currencyNumber = `${groupInteger(integerPart, groupingSeparator)}${fractionPart ? decimalSeparator + fractionPart : ""}`;
-      return `${affixes.prefix}${currencyNumber}${affixes.suffix}`;
+      return `${affixes.prefix}${currencyNumber}${affixes.suffix}${!/[1-9]/.test(integerPart + fractionPart) && /[1-9]/.test(rawInteger + rawFraction) ? ` · ${i18n.t("moneyDisplay.tiny", { direction: negative ? "−" : "+" })}` : ""}`;
     } catch {
       // An unrecognized ISO code (should not happen; domain.CurrencyCode
       // already validates it) falls back to a plain number instead of
@@ -368,12 +368,39 @@ export function formatAmount(amount: string, currency?: string): string {
 
 /** Keep the ledger's canonical decimal visible when currency rounding hides digits. */
 export function formatAuditMoney(amount: string, currency: string): string {
-  const rounded = formatAmount(amount, currency);
+  const rounded = formatMoney(amount, currency);
   const fraction = amount.split(".")[1] ?? "";
-  if (!/[1-9]/.test(fraction.slice(currencyFractionDigits(currency)))) return rounded;
+  if (!/[1-9]/.test(fraction.slice(2))) return rounded;
   return `${rounded} (${amount} ${currency})`;
 }
 
 export function formatPercent(shareBps: number): string {
   return `${(shareBps / 100).toFixed(1)}%`;
+}
+
+/** Unit prices, NAV, quantities and rates retain their canonical precision. */
+export function formatQuotePrice(value: string, currency?: string): string {
+  if (!currency || !CANONICAL_DECIMAL.test(value)) return formatAmount(value);
+  const parts = parseCanonicalParts(value)!;
+  const number = formatAmount(`${parts.integer}.${parts.fraction.padEnd(2, "0")}`);
+  try {
+    const formatter = new Intl.NumberFormat(i18n.language || "en", { style: "currency", currency });
+    const affixes = numericAffixes(formatter, parts.negative && canonicalDecimal(value) !== "0" ? -1234.5 : 1234.5);
+    return `${affixes.prefix}${number}${affixes.suffix}`;
+  } catch { return `${number} ${currency}`; }
+}
+/** Ordinary money even when no currency is available. */
+export function formatMoney(value: string, currency?: string): string {
+  if (currency) return formatAmount(value, currency);
+  const parts = parseCanonicalParts(value);
+  if (!parts) return value;
+  const [integer, fraction] = roundDecimal(parts.integer, parts.fraction, 2);
+  const roundedZero = !/[1-9]/.test(integer + fraction);
+  const hint = roundedZero && /[1-9]/.test(parts.integer + parts.fraction)
+    ? ` · ${i18n.t("moneyDisplay.tiny", { direction: parts.negative ? "−" : "+" })}` : "";
+  return formatAmount(`${parts.negative && !roundedZero ? "-" : ""}${integer}.${fraction}`) + hint;
+}
+
+export function formatSignedMoney(value: string, currency: string): string {
+  return `${compareCanonical(value, "0.005") > 0 ? "+" : ""}${formatAmount(value, currency)}`;
 }

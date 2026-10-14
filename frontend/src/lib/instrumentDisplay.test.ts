@@ -91,7 +91,7 @@ describe("compact selection labels", () => {
       { id: "same-1-long", symbol: "ABC", name: "Same" },
       { id: "same-2-long", symbol: "ABC", name: "Same" },
     ]);
-    expect(labels).toEqual(new Map([["same-1-long", "ABC [ID same-1]"], ["same-2-long", "ABC [ID same-2]"]]));
+    expect(labels).toEqual(new Map([["same-1-long", "ABC [#1]"], ["same-2-long", "ABC [#2]"]]));
   });
   it("handles missing codes with the existing primary fallback", () => {
     expect(instrumentSelectionLabels([{ id: "a", name: "Manual fund" }, { id: "b" }], "Unknown"))

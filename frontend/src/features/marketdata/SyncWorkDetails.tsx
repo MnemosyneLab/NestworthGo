@@ -11,11 +11,11 @@ export function SyncWorkDetails({ items = [], current }: { items?: SyncItemDTO[]
       <ul className="max-h-80 space-y-2 overflow-y-auto" aria-live="polite">
         {rows.map((item, index) => (
           <li key={`${item.targetKey}-${item.kind}-${item.startDate}-${index}`} className="rounded-md border p-3">
-            <p className="font-medium">{item.label || item.symbol || item.targetKey}{item.symbol && item.symbol !== item.label ? ` · ${item.symbol}` : ""}</p>
+            <p className="font-medium">{item.label || item.symbol || t("portfolio.unknownInstrument")}{item.symbol && item.symbol !== item.label ? ` · ${item.symbol}` : ""}</p>
             <p>{t(`marketData.work.${item.kind === "instrument" || item.kind === "fx" ? `${item.startDate ? "history" : "latest"}_${item.kind}` : item.kind}`, { defaultValue: item.kind })} · {t(`marketData.work.${item.status}`, { defaultValue: item.status })}</p>
             {item.provider && <p className="text-muted-foreground">{item.provider}</p>}
             {item.startDate && <p>{item.startDate} → {item.endDate}</p>}
-            {item.detail && <p className="text-muted-foreground">{t(`marketData.work.${item.detail}`, { defaultValue: item.detail })}</p>}
+            {item.detail && <p className="text-muted-foreground">{t(`marketData.work.${item.detail}`, { defaultValue: t("syncReasons.unavailable") })}</p>}
           </li>
         ))}
       </ul>

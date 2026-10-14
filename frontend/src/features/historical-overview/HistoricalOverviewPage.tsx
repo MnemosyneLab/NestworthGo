@@ -1,3 +1,4 @@
+import { quoteObservationLabel } from "@/lib/quoteEvidencePresentation";
 import { useValuationDateGeneration } from "@/queries/useValuationDayBoundary";
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
 import { hasDisplay } from "@/components/valuation/valuationQuality";
@@ -32,13 +33,13 @@ import type {
   HistoricalOverviewState,
 } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
-function Amount({ value, currency, signed = false, exact = false }: {
-  value?: string | null; currency: string; signed?: boolean; exact?: boolean;
+function Amount({ value, currency, signed = false }: {
+  value?: string | null; currency: string; signed?: boolean;
 }) {
   const { t } = useTranslation();
   if (value == null) return <span>{t("historicalOverview.unknown")}</span>;
-  return <span className="num whitespace-nowrap" title={`${value} ${currency}`}>
-    {formatHistoricalAmount(value, currency, signed, exact)}
+  return <span className="num whitespace-nowrap" title={formatHistoricalAmount(value, currency, signed) ?? undefined}>
+    {formatHistoricalAmount(value, currency, signed)}
   </span>;
 }
 
@@ -80,13 +81,13 @@ function CellValue({ cell, currency }: { cell?: HistoricalOverviewCell | null; c
   </div>;
 }
 
-function RowChanges({ row, currency, exact = false }: { row: HistoricalOverviewRow; currency: string; exact?: boolean }) {
+function RowChanges({ row, currency }: { row: HistoricalOverviewRow; currency: string }) {
   const { t } = useTranslation();
   if (!row.left || !row.right) return <span className="text-xs text-muted-foreground">{t("historicalOverview.notComparable")}</span>;
   return <div className="flex flex-col gap-1 text-right">
-    <span className="whitespace-nowrap"><Amount value={row.baseChange} currency={currency} signed exact={exact} /></span>
+    <span className="whitespace-nowrap"><Amount value={row.baseChange} currency={currency} signed /></span>
     {row.nativeChange != null && row.left.currency && row.left.currency !== currency && (
-      <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={row.nativeChange} currency={row.left.currency} signed exact={exact} /></span>
+      <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={row.nativeChange} currency={row.left.currency} signed /></span>
     )}
     {row.quantityChange != null && <span className="num text-xs">{t("historicalOverview.quantityChange", { value: row.quantityChange })}</span>}
   </div>;
@@ -99,20 +100,15 @@ function Evidence({ title, value, timezone }: { title: string; value?: Historica
     <h4 className="text-sm font-medium">{title}</h4>
     <dl className="mt-2 space-y-2 break-words text-xs">
       <div><dt className="text-muted-foreground">{t("historicalOverview.source")}</dt>
-        <dd>{t(`historicalOverview.sourceKind.${value.source}`, { defaultValue: value.source })} · {t(`historicalOverview.freshness.${value.freshness}`, { defaultValue: value.freshness })}</dd>
+        <dd>{t(`historicalOverview.sourceKind.${value.source}`, { defaultValue: t("quoteDetails.kinds.unknown") })} · {t(`historicalOverview.freshness.${value.freshness}`, { defaultValue: t("quoteDetails.kinds.unknown") })}</dd>
       </div>
       <div><dt className="text-muted-foreground">{t("historicalOverview.effectiveAt")}</dt>
         <dd><ObservationTime value={value.effectiveAt} timezone={timezone} /></dd>
  {value.fetchedAt && <><dt>{t("valuation.retrievedAt")}</dt><dd><ObservationTime value={value.fetchedAt} timezone={timezone} /></dd></>}
       </div>
-      {value.sourceKey && <div><dt className="text-muted-foreground">{t("historicalOverview.sourceKey")}</dt><dd>{value.sourceKey}</dd></div>}
-      {value.id && <div><dt className="text-muted-foreground">{t("historicalOverview.observationId")}</dt><dd>{value.id}</dd></div>}
       {value.value != null && <div><dt className="text-muted-foreground">{t(value.baseCurrency ? "historicalOverview.usedRate" : "historicalOverview.usedPrice")}</dt><dd className="num">{value.baseCurrency ? `1 ${value.baseCurrency} = ${value.value} ${value.quoteCurrency}` : `${value.value} ${value.currency}`}</dd></div>}
       {value.operation && <div><dd>{t(`historicalOverview.fxOperation.${value.operation}`)}</dd></div>}
-      {value.observationKind && <div><dt className="text-muted-foreground">{t("historicalOverview.observationKind")}</dt><dd>{t(`historicalOverview.observationKinds.${value.observationKind}`, { defaultValue: value.observationKind })}</dd></div>}
-      {value.priceBasis && <div><dt className="text-muted-foreground">{t("historicalOverview.priceBasis")}</dt><dd>{value.priceBasis}</dd></div>}
-      {value.timestampBasis && <div><dt className="text-muted-foreground">{t("historicalOverview.timestampBasis")}</dt><dd>{value.timestampBasis}</dd></div>}
-      {value.sourcePolicyVersion && <div><dt className="text-muted-foreground">{t("historicalOverview.sourcePolicy")}</dt><dd>{value.sourcePolicyVersion}</dd></div>}
+      {value.observationKind && <div><dt className="text-muted-foreground">{t("historicalOverview.observationKind")}</dt><dd>{quoteObservationLabel(t, { ...value, sourceKind: value.source })}</dd></div>}
       {value.marketDate && <div><dt className="text-muted-foreground">{t("historicalOverview.marketDate")}</dt><dd>{value.marketDate}</dd></div>}
     </dl>
   </div>;
@@ -127,12 +123,12 @@ function CellDetail({ cell, state, timezone }: { cell?: HistoricalOverviewCell |
     </p>
     <CellValue cell={cell} currency={state.currency} />
     {cell && <>
-      {cell.nativeAmount != null && cell.currency && <p className="text-sm">{t("historicalOverview.original")}: <Amount value={cell.nativeAmount} currency={cell.currency} exact /></p>}
-      {cell.baseAmount != null && <p className="text-sm">{t("historicalOverview.exactBase")}: <Amount value={cell.baseAmount} currency={state.currency} exact /></p>}
+      {cell.nativeAmount != null && cell.currency && <p className="text-sm">{t("historicalOverview.original")}: <Amount value={cell.nativeAmount} currency={cell.currency} /></p>}
+      {cell.baseAmount != null && <p className="text-sm">{t("historicalOverview.exactBase")}: <Amount value={cell.baseAmount} currency={state.currency} /></p>}
       {cell.valueSourceAt && <p className="text-sm">{t("historicalOverview.balanceSource")}: <ObservationTime value={cell.valueSourceAt} timezone={timezone} /></p>}
       {cell.manual && cell.nativeAmount != null && <p className="text-xs text-muted-foreground">{t("historicalOverview.manualNote")}</p>}
       {(cell.missing ?? []).length > 0 && <ul className="text-sm text-warning-foreground">
-        {(cell.missingDetails ?? []).length > 0 ? (cell.missingDetails ?? []).map((missing, index) => <li key={index}>{t(`historicalOverview.missing.${missing.kind}`)} · {state.current ? t("historicalOverview.capturedCurrent") : state.date}{missing.baseCurrency && missing.quoteCurrency ? ` · ${missing.quoteCurrency} ↔ ${missing.baseCurrency}` : missing.quoteCurrency ? ` · ${missing.quoteCurrency}` : ""}{missing.source && ` · ${t(`historicalOverview.sourceKind.${missing.source}`, { defaultValue: missing.source })}`}{missing.instrumentId && ` · ${missing.instrumentId}`}</li>) : [...new Set(cell.missing ?? [])].map(reason => <li key={reason}>{t(`historicalOverview.missing.${reason}`)}</li>)}
+        {(cell.missingDetails ?? []).length > 0 ? (cell.missingDetails ?? []).map((missing, index) => <li key={index}>{t(`historicalOverview.missing.${missing.kind}`)} · {state.current ? t("historicalOverview.capturedCurrent") : state.date}{missing.baseCurrency && missing.quoteCurrency ? ` · ${missing.quoteCurrency} ↔ ${missing.baseCurrency}` : missing.quoteCurrency ? ` · ${missing.quoteCurrency}` : ""}{missing.source && ` · ${t(`historicalOverview.sourceKind.${missing.source}`, { defaultValue: missing.source })}`}</li>) : [...new Set(cell.missing ?? [])].map(reason => <li key={reason}>{t(`historicalOverview.missing.${reason}`)}</li>)}
       </ul>}
       {!cell.included && <p className="text-sm">{t(cell.status === "archived" ? "historicalOverview.archivedExplanation" : "historicalOverview.excludedExplanation")}</p>}
       {cell.quantity === "0" && !cell.price && <p className="text-xs text-muted-foreground">{t("historicalOverview.zeroPositionEvidence")}</p>}
@@ -408,7 +404,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                   {(!selected.left || !selected.right) && <p className="text-sm text-warning-foreground">{t("historicalOverview.categoryReason.absent")}</p>}
                   {selected.left && selected.right && selected.left.included !== selected.right.included && <p className="text-sm text-warning-foreground">{t("historicalOverview.categoryReason.scope_changed")} · {t("historicalOverview.rawBalanceDelta")}</p>}
                   {selected.left && selected.right && (!selected.left.complete || !selected.right.complete) && <p className="text-sm text-warning-foreground">{t("historicalOverview.categoryReason.partial")}</p>}
-                  {data.left.currency === data.right.currency ? <RowChanges row={selected} currency={data.left.currency} exact /> : t("historicalOverview.notComparable")}
+                  {data.left.currency === data.right.currency ? <RowChanges row={selected} currency={data.left.currency} /> : t("historicalOverview.notComparable")}
                 </section>
               </>}
               <details className="mt-4 border-t border-border pt-4"><summary className="cursor-pointer text-sm">{t("historicalOverview.captureBasis")}</summary><dl className="mt-2 space-y-2 break-words text-xs"><div><dt>{t("historicalOverview.captureTime")}</dt><dd><ObservationTime value={data.capturedAt} timezone={data.timezone} /></dd></div><div><dt>{t("historicalOverview.resolverPolicy")}</dt><dd>{data.resolverPolicy}</dd></div><div><dt>{t("historicalOverview.inputGeneration")}</dt><dd>{data.inputGeneration}</dd></div></dl><p className="mt-2 text-xs">{t("historicalOverview.cutoffNote")} {t("historicalOverview.metadataNote")}</p></details>

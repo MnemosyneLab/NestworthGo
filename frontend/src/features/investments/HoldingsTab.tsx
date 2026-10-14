@@ -1,3 +1,4 @@
+import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -39,14 +40,14 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
   );
   const holdings = useInstrumentHoldings();
   const products = useProducts({ includeClosed: true });
-  const selectableInstruments = (instruments.data ?? []).filter((instrument) => !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id));
+  const selectableInstruments = (instruments.data ?? []).filter((instrument) => ordinaryInstrument(instrument) && !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id));
   const selectionLabels = instrumentSelectionLabels(selectableInstruments);
 
   if (accounts.isLoading || instruments.isLoading || holdings.isLoading || origin.isLoading || products.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
   }
 
-  if (accounts.isError || instruments.isError || holdings.isError || origin.isError) {
+  if (accounts.isError || instruments.isError || holdings.isError || origin.isError || products.isError) {
     return (
       <ErrorState
         title={t("portfolio.loadError")}
@@ -70,7 +71,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
   }
 
   const submit = () => {
-    if (!accountId || !instrumentId || !quantity.trim()) {
+    if (!accountId || !selectableInstruments.some(item => item.id === instrumentId) || !quantity.trim()) {
       setFormError(t("portfolio.holdingRequired"));
       return;
     }
@@ -157,7 +158,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
       {allHoldings.length === 0 ? (
         <EmptyState title={t("portfolio.noHoldings")} description={t("portfolio.noHoldingsDescription")} />
       ) : (
-        <InstrumentHoldingsTable groups={allHoldings} onOpenAccount={onOpenAccount} managedInstrumentIds={new Set((products.data ?? []).map((detail) => detail.product.instrumentId))} />
+        <InstrumentHoldingsTable active={active} groups={allHoldings} onOpenAccount={onOpenAccount} managedInstrumentIds={new Set((products.data ?? []).map((detail) => detail.product.instrumentId))} />
       )}
     </div>
   );

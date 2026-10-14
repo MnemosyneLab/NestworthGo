@@ -684,7 +684,7 @@ describe("AccountsPage", () => {
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getAllByText("Investments").length).toBeGreaterThan(0);
     const cashHoldingsLayout = screen.getByTestId("account-cash-holdings-layout");
-    expect(cashHoldingsLayout).toHaveClass("2xl:grid-cols-2");
+    expect(cashHoldingsLayout).toHaveClass("grid-cols-1");
     expect(cashHoldingsLayout).not.toHaveClass("lg:grid-cols-2");
     expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/SGD\s*200\.00/).length).toBeGreaterThan(0);
@@ -766,10 +766,10 @@ describe("AccountsPage", () => {
     expect(within(history).getByText("Salary")).toBeInTheDocument();
     expect(within(history).getByText("Broker fee")).toBeInTheDocument();
     expect(history.textContent).toContain("+SGD");
-    expect(history.textContent).toContain("−SGD");
+    expect(history.textContent).toContain("− nonzero");
     expect(history.textContent).toContain("100.0001 SGD");
     expect(history.textContent).toContain("200.0001 SGD");
-    expect(history.textContent).toMatch(/−SGD\s*0\.00 \(-0\.0001 SGD\)/);
+    expect(history.textContent).toMatch(/SGD\s*0\.00 · − nonzero, below 0\.01 \(-0\.0001 SGD\)/);
     expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
       "2026-09-15T03:00:00.000Z",
       "2026-09-15T03:05:00.000Z",
@@ -1591,7 +1591,7 @@ it("cash review shows origin-local time and exact sub-minor-unit values alongsid
   const review = await within(form).findByRole("status");
   expect(review).toHaveTextContent("CN¥10.00");
   expect(review).toHaveTextContent("10.0001 CNY");
-  expect(review).toHaveTextContent("+CN¥0.00 (+0.0001 CNY)");
+  expect(review).toHaveTextContent("CN¥0.00 · + nonzero, below 0.01 (0.0001 CNY)");
   expect(review).toHaveTextContent("Oct 11, 2026");
   expect(review).toHaveTextContent("00:30:00.000 (Asia/Shanghai)");
   expect(review).not.toHaveTextContent("2026-10-10T16:30:00Z");

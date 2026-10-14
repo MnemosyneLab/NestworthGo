@@ -8,7 +8,7 @@ export function HistoricalReconciliationView({ data }: { data: HistoricalOvervie
   const { t } = useTranslation();
   const explanationId = useId();
   const [expanded, setExpanded] = useState(false);
-  const amount = (value: string | null, currency: string, signed: boolean) => formatHistoricalAmount(value, currency, signed, true);
+  const amount = (value: string | null, currency: string, signed: boolean) => formatHistoricalAmount(value, currency, signed);
   const reconciliation = data.reconciliation;
   if (!data.right || !reconciliation) return null;
   const { currency, total, supported, residual, contributions, reasons, status } = reconciliation;

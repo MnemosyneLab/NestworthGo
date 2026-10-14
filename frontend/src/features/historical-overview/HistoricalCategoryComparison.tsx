@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartTheme, joinTooltipLines, useThemeVersion } from "@/components/charts/chartTheme";
 import { displayEnum } from "@/lib/display";
-import { compareCanonical } from "@/lib/money";
+import { formatAmount, compareCanonical } from "@/lib/money";
 import { geometry, isZero, missingAssetLeaves } from "./historicalChartModel";
 import type { HistoricalCategoryCell, HistoricalCategoryComparison, HistoricalOverviewResult } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { HistoricalCategoryFilter } from "@/app/navigation";
@@ -32,7 +32,7 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
   const safe = !mismatch && knownValues.every(value => geometry(value) !== null);
   const allKnownZero = knownValues.length > 0 && knownValues.every(isZero);
   const zero = allKnownZero && items.every(item => item.left.amount != null && item.right.amount != null);
-  const money = (value: string | null, signed = false, unit = currency) => value == null ? t("historicalOverview.notComparable") : `${signed && compareCanonical(value, "0") > 0 ? "+" : ""}${value} ${unit}`;
+  const money = (value: string | null, signed = false, unit = currency) => value == null ? t("historicalOverview.notComparable") : `${signed && compareCanonical(value, "0.005") > 0 ? "+" : ""}${formatAmount(value, unit)}`;
   const points = (value: string | null) => value == null ? t("historicalOverview.notComparable") : t("historicalOverview.percentagePoints", { value: `${compareCanonical(value, "0") > 0 ? "+" : ""}${value}` });
   const reason = (value: string) => t(`historicalOverview.categoryReason.${value}`);
   const cellText = (cell: HistoricalCategoryCell, side: "left" | "right") => cell.amount == null ? reason(cell.status) : money(cell.amount, false, data[side]?.currency ?? currency);
@@ -41,7 +41,7 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
     const row = rowsByKey.get(key);
     const parent = rowsByKey.get(row?.parentKey ?? "");
     const name = row?.kind === "cash" ? t("historicalOverview.cashCurrency", { currency: row.name }) : row?.name;
-    return <li key={key} data-row-key={key} title={key}>{parent?.name && parent.name !== name ? `${parent.name} · ` : ""}{name || key}{name && <span className="ml-1 text-xs text-muted-foreground">({key})</span>}</li>;
+    return <li key={key} data-row-key={key}>{parent?.name && parent.name !== name ? `${parent.name} · ` : ""}{name || t("portfolio.unknownInstrument")}</li>;
   });
   const shareText = (cell: HistoricalCategoryCell) => cell.share == null ? "—" : `${cell.share}% · ${t(`historicalOverview.shareBasis.${cell.shareBasis}`)}`;
   const openCategory = (item: HistoricalCategoryComparison, trigger: HTMLButtonElement) => onFilter({ role, dimension, key: item.key }, trigger);

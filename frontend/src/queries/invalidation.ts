@@ -66,6 +66,7 @@ export function invalidateHoldingChange(queryClient: QueryClient, accountId?: st
 
 export function invalidateActivityChange(queryClient: QueryClient, accountIds?: readonly string[]) {
   invalidateHistoryReads(queryClient);
+  invalidate(queryClient, queryKeys.quote.instrument.all);
   invalidateHoldingReads(queryClient);
   invalidateCurrentValuation(queryClient, accountIds);
   invalidate(queryClient, ["analytics", "realizedGain"]);
