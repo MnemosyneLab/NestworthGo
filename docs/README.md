@@ -1,7 +1,8 @@
 # Nestworth Documentation
 
-This directory is the maintained documentation surface for the published
-release `0.3.7` (build 8). It describes the current Wails v3 application and
+This directory is the maintained documentation surface for the current
+release candidate `0.3.8` (build 9); v0.3.7 (build 8) remains the latest
+published release. It describes the current Wails v3 application and
 its product contracts; it does not preserve obsolete implementation branches
 or visual prototype bundles.
 
@@ -29,7 +30,9 @@ or visual prototype bundles.
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
-| Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
+| Release | [Release Index](releases/README.md) | Candidate preparation, published release contracts, and closeout evidence |
+| Release | [v0.3.8 Candidate Contract](releases/v0.3.8.md) | Candidate scope, preparation evidence, exact Mac handoff, and pending gates |
+| Release | [v0.3.8 Candidate Notes](releases/v0.3.8-notes.md) | Candidate release summary and upgrade guidance; not published |
 | Release | [v0.3.7 Contract](releases/v0.3.7.md) | Published release scope, acceptance evidence, and remaining GUI/distribution boundaries |
 | Release | [v0.3.7 Release Notes](releases/v0.3.7-notes.md) | Published release summary |
 | Release | [v0.3.6 Contract](releases/v0.3.6.md) | Historical scope, acceptance, and release gates for v0.3.6 |

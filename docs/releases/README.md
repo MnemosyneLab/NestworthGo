@@ -1,10 +1,17 @@
 # Release Documents
 
-The latest published release is v0.3.7 / build 8. The release contract below
-records its scope, schema compatibility, release evidence, and remaining native
-GUI/distribution boundaries.
+The latest published release remains v0.3.7 / build 8. The current candidate
+is v0.3.8 / build 9; its contract records preparation status, schema
+compatibility, and pending native GUI/distribution gates.
 
-## Latest release
+## Current candidate
+
+- [v0.3.8 release contract](v0.3.8.md) — preparation checklist, source status,
+  exact Mac handoff, and native/distribution gates.
+- [v0.3.8 release notes](v0.3.8-notes.md) — candidate product summary and
+  upgrade guidance; not yet published.
+
+## Latest published release
 
 - [v0.3.7 release contract](v0.3.7.md) — published scope, acceptance evidence,
   and remaining GUI/signing boundaries.
@@ -16,6 +23,7 @@ GUI/distribution boundaries.
   — published 2026-10-09 at `4d72b3d` (build 8), with arm64 DMG/ZIP, checksums,
   and skill 1.6.0 assets. Preparation and package acceptance evidence is in
   the [release contract](v0.3.7.md).
+
 - [v0.3.6 release contract](v0.3.6.md) — published 2026-10-03 with Apple
   Silicon DMG/ZIP, checksums, and standalone skill assets; preparation-time
   evidence is retained in the contract. The archived

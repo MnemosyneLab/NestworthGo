@@ -2,14 +2,50 @@
 
 All notable changes to Nestworth are recorded here.
 
-## Unreleased
+## [0.3.8] — Candidate (unpublished)
 
-- Add opt-in frozen MCP management pages with server filters, stable sorting,
-  independent product reservations, and bounded multi-target market reads.
-- Add atomic instrument metadata and review enrollment/snooze/ack batches with
-  version checks and short recoverable execution receipts.
-- Update the portable Nestworth skill to 1.9.0 with complete-page workflows;
-  existing legacy response shapes and financial-context disclosure are retained.
+Prepared as v0.3.8 / build 9 from the 36-commit range after v0.3.7. This
+candidate is not published. Its release contract records completed source
+checks separately from pending native Mac, MCP-client, and distribution gates.
+
+### Added and changed
+
+- Added Upcoming actions for today through D+30, clearer home-page attention
+  sections, Historical Panorama comparisons and bounded trends, account
+  composition/currency displays, investment short names, and compact saved
+  instrument selectors.
+- Added opt-in dated unit-NAV investment reviews with distinct reviewed,
+  temporarily ignored, disabled, and paused states. Added cash-balance review
+  previews and eligible ordinary-activity Repeat drafts with confirmation and
+  retry recovery.
+- Expanded local MCP reads for Upcoming actions, reviews, History, and
+  permission-checked Available Funds withdrawal-policy plans. Added opt-in
+  frozen management pages, separately paged product reservations, bounded
+  market reads, atomic metadata/review batches, version checks, and recoverable
+  receipts. Updated the independently versioned portable skill to 1.9.0.
+- Schema 16 adds only the optional investment short-name field. A verified
+  schema-15 database has a narrow additive upgrade after a verified private,
+  read-only recovery copy is retained; there is no general migration chain.
+
+### Reliability and boundaries
+
+- Corrected transferred-position cost boundaries, same-time ordering, exact
+  persisted trade proceeds, liability/same-currency transfer previews, and
+  in-session Record/Fix retry identity.
+- Kept delayed-NAV estimates visible across day rollover with explicit quality
+  labels. Improved bounded product-operation history and authoritative undo
+  availability, historical date/coverage handling, cancellation of obsolete
+  queries, and local backup cleanup/restore write fencing.
+- Reduced selected product, reversal, upcoming-detail, and reservation-source
+  work. These scoped changes are not measured whole-app or Mac startup claims.
+- NAV changes are not personal investment returns or sell recommendations.
+  Forecast interest is not posted income; maturity does not prove receipt;
+  unknown values remain unknown. MCP remains local loopback. Enrollment is off
+  by default, and market refresh is not automatic.
+- Candidate source begins at `c8f3dba34571446951d5d4e5ff478efe1fbc792d`,
+  whose exact-main Linux CI run 38434031121 passed. That evidence predates the
+  release metadata change and does not replace candidate CI or native Mac
+  acceptance. See the [v0.3.8 contract](docs/releases/v0.3.8.md).
 
 ## [0.3.7] — 2026-10-09
 

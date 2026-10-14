@@ -275,11 +275,11 @@ standalone skill bundle/checksum, then builds the app and arm64 DMG/ZIP on macOS
     git rev-parse HEAD
     wails3 task package:release
 
-Default outputs:
+For the current v0.3.8/build 9 candidate, default outputs are:
 
     dist/macos/Nestworth.app
-    dist/macos/Nestworth-0.3.7-arm64.dmg
-    dist/macos/Nestworth-0.3.7-arm64.zip
+    dist/macos/Nestworth-0.3.8-arm64.dmg
+    dist/macos/Nestworth-0.3.8-arm64.zip
     dist/macos/SHA256SUMS
     dist/skills/nestworth-skill.tar.gz
     dist/skills/nestworth-skill.tar.gz.sha256
@@ -304,11 +304,11 @@ read-only DMG payload with `ditto` before detaching, and extract the ZIP with
 of either archive's payload.
 
     set -e
-    SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nestworth-v0.3.7.XXXXXX")"
+    SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nestworth-v0.3.8.XXXXXX")"
     mkdir -p "$SMOKE_ROOT/mount" "$SMOKE_ROOT/dmg" "$SMOKE_ROOT/zip" "$SMOKE_ROOT/dmg-data" "$SMOKE_ROOT/zip-data"
     APP="dist/macos/Nestworth.app"
-    DMG="dist/macos/Nestworth-0.3.7-arm64.dmg"
-    ZIP="dist/macos/Nestworth-0.3.7-arm64.zip"
+    DMG="dist/macos/Nestworth-0.3.8-arm64.dmg"
+    ZIP="dist/macos/Nestworth-0.3.8-arm64.zip"
     hdiutil attach -readonly -nobrowse -mountpoint "$SMOKE_ROOT/mount" "$DMG"
     codesign --verify --deep --strict "$SMOKE_ROOT/mount/Nestworth.app"
     /usr/bin/ditto --rsrc --extattr --acl "$SMOKE_ROOT/mount/Nestworth.app" "$SMOKE_ROOT/dmg/Nestworth.app"
@@ -323,8 +323,8 @@ performed by `wails3 task darwin:verify:package`:
       test -d "$ARCHIVE_APP"
       test ! -L "$ARCHIVE_APP"
       test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$ARCHIVE_APP/Contents/Info.plist")" = "com.nestworth.app"
-      test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ARCHIVE_APP/Contents/Info.plist")" = "0.3.7"
-      test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ARCHIVE_APP/Contents/Info.plist")" = "8"
+      test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ARCHIVE_APP/Contents/Info.plist")" = "0.3.8"
+      test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ARCHIVE_APP/Contents/Info.plist")" = "9"
       test "$(lipo -archs "$ARCHIVE_APP/Contents/MacOS/Nestworth")" = "arm64"
       for PAYLOAD in Contents/MacOS/Nestworth Contents/Info.plist Contents/Resources/icon.icns; do
         test ! -L "$ARCHIVE_APP/$PAYLOAD"
@@ -387,18 +387,19 @@ again. Do not rerun `wails3 task package:release` or
 apply an ad-hoc signature. The archive-only sequence is to copy the final app
 to both `bin/Nestworth.app` and `dist/macos/Nestworth.app`, run
 `wails3 task darwin:create:dmg`, copy `bin/Nestworth.dmg` to
-`dist/macos/Nestworth-0.3.7-arm64.dmg`, recreate the ZIP with
-`/usr/bin/ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.7-arm64.zip`,
+`dist/macos/Nestworth-0.3.8-arm64.dmg`, recreate the ZIP with
+`/usr/bin/ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.8-arm64.zip`,
 regenerate the manifest, and run `wails3 task darwin:verify:package`. Replace
 only the task-generated app bundle paths, and ensure they are not symlinks.
 Both app copies must come from the same signed/stapled bundle. Regenerate
-`SHA256SUMS` with `shasum -a 256 Nestworth-0.3.7-arm64.dmg
-Nestworth-0.3.7-arm64.zip > SHA256SUMS` from `dist/macos`, then verify it. The package task's usual ad-hoc
+`SHA256SUMS` with `shasum -a 256 Nestworth-0.3.8-arm64.dmg
+Nestworth-0.3.8-arm64.zip > SHA256SUMS` from `dist/macos`, then verify it. The
+package task's usual ad-hoc
 signature is for local launch only. Capture the exact source SHA and artifact
 checksums; build and publish from one unchanged source commit. A successful
 task does not establish accessibility, Gatekeeper, live provider, or minimum
 macOS version acceptance.
 
-See the [current release contract](../releases/v0.3.7.md) for the release
+See the [current release contract](../releases/v0.3.8.md) for the release
 checklist and evidence status. Historical v0.3.6 closeout evidence remains in
 the [v0.3.6 contract](../releases/v0.3.6.md).

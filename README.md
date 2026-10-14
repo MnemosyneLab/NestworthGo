@@ -1,9 +1,10 @@
 # Nestworth
 
 Nestworth is a local-first personal finance desktop application for building
-and maintaining a personal or household balance sheet. The latest release is
-`0.3.7` (build `8`): a Wails v3 desktop shell with a Go backend and a
-React + TypeScript frontend.
+and maintaining a personal or household balance sheet. The current release
+candidate is `0.3.8` (build `9`); `0.3.7` (build `8`) remains the latest
+published release. Nestworth is a Wails v3 desktop shell
+with a Go backend and a React + TypeScript frontend.
 
 ## Current scope
 
@@ -33,18 +34,13 @@ place brokerage orders. Multi-device synchronization, direct bank/brokerage
 integrations and automatic market-data refresh remain outside this release.
 Continuous backup and whole-stream history cleanup are off by default. Optional
 30/90-day cleanup protects the current stream and two verified sealed survivors;
-it does not bound storage for a long-running stream. v0.3.7 adds
-financial-context/comparison and managed-product MCP workflows. The delegated
-Mac Codex/MCP/skill acceptance task, reviewed by Saul, records a scoped pass
-against source `2cad89e`; the delegated release task records synthetic
-onboarding and quit/restart/persistence checks for the published package. Full
-GUI regression remains deferred. See the
-[v0.3.7 release contract](docs/releases/v0.3.7.md).
+it does not bound storage for a long-running stream. The current v0.3.8
+candidate adds Upcoming actions, Historical Panorama, investment reviews, and
+expanded local MCP workflows. Its Mac acceptance and native packages remain
+pending; see the [v0.3.8 candidate contract](docs/releases/v0.3.8.md).
 
-The development branch adds [Upcoming actions](docs/design/upcoming-actions.md):
-a read-only Overview summary and full list for today through D+30, persistent
-receipt verification and source-specific reservation issues. Native acceptance
-is pending; this does not change the published v0.3.7 release.
+The current candidate is not published. v0.3.7 remains the latest published
+release until the v0.3.8 package and release gates are completed.
 
 ## Run locally
 
@@ -75,13 +71,13 @@ wails3 task package:release
 ```
 
 The default outputs are `dist/macos/Nestworth.app`,
-`dist/macos/Nestworth-0.3.7-arm64.dmg`,
-`dist/macos/Nestworth-0.3.7-arm64.zip`, `dist/macos/SHA256SUMS`,
+`dist/macos/Nestworth-0.3.8-arm64.dmg`,
+`dist/macos/Nestworth-0.3.8-arm64.zip`, `dist/macos/SHA256SUMS`,
 `dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
 ad-hoc signed for local launch. Developer ID signing, notarization, artifact
 retention, and full GUI/accessibility regression remain separate distribution
-gates. The published release's limited synthetic packaged-app acceptance is
-recorded in the [v0.3.7 release contract](docs/releases/v0.3.7.md).
+gates. The latest published release remains v0.3.7. The v0.3.8 candidate
+contract records its unrun native acceptance and packaging gates.
 
 ## Technology
 
