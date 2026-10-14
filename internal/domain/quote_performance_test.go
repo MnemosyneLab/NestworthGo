@@ -132,3 +132,59 @@ func TestDescriptiveLatestEndpointAndZeroBaseline(t *testing.T) {
 		t.Fatalf("zero NAV latest fell back %+v", got)
 	}
 }
+
+func TestDescriptiveAgentEquityPerformance(t *testing.T) {
+	for _, kind := range []InstrumentType{InstrumentStock, InstrumentETF} {
+		t.Run(string(kind), func(t *testing.T) {
+			_, i := reviewFixture(t)
+			i.Type = kind
+			i.ProviderBindingRevision = 3
+			points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "100"), reviewQuote(t, i, "2026-10-09", "105")}
+			for n := range points {
+				points[n].PriceBasis = "agent_raw_close_v1"
+				points[n].BindingRevision = i.ProviderBindingRevision
+				points[n].SplitFactor = "1"
+			}
+			got := ProjectQuotePerformance(i, points, nil)
+			if len(got) != 1 || got[0].WindowDays != 7 || got[0].PeriodPercent != "5" || got[0].ElapsedDays != 8 || got[0].BaselineOn != "2026-10-01" || got[0].LatestOn != "2026-10-09" || got[0].AnnualizedPercent != nil {
+				t.Fatalf("Agent performance %+v", got)
+			}
+			for _, mismatch := range []string{"source_kind", "source_key", "price_basis", "timestamp_basis", "binding", "currency", "date", "split", "zero_baseline", "unsafe"} {
+				t.Run(mismatch, func(t *testing.T) {
+					changed := append([]InstrumentQuote(nil), points...)
+					var unsafe []string
+					switch mismatch {
+					case "source_kind":
+						changed[0].SourceKind = QuoteSourceProvider
+					case "source_key":
+						changed[0].SourceKey = "other"
+					case "price_basis":
+						changed[0].PriceBasis = YahooRawClosePriceBasis
+					case "timestamp_basis":
+						changed[0].TimestampBasis = "source_timestamp"
+					case "binding":
+						changed[0].BindingRevision++
+					case "currency":
+						changed[0].Currency = "CNY"
+					case "date":
+						changed[0].EffectiveDate = "invalid"
+					case "split":
+						changed[1].SplitFactor = "2"
+					case "zero_baseline":
+						changed[0].UnitPrice, _ = ParseUnitPrice("0")
+					case "unsafe":
+						unsafe = []string{"2026-10-04"}
+					}
+					if got := ProjectQuotePerformance(i, changed, unsafe); len(got) != 0 {
+						t.Fatalf("incomparable Agent performance %+v", got)
+					}
+				})
+			}
+			points[1].UnitPrice, _ = ParseUnitPrice("0")
+			got = ProjectQuotePerformance(i, points, nil)
+			if len(got) != 1 || got[0].PeriodPercent != "-100" || got[0].ElapsedDays != 8 || got[0].LatestOn != "2026-10-09" {
+				t.Fatalf("Agent zero endpoint %+v", got)
+			}
+		})
+	}
+}

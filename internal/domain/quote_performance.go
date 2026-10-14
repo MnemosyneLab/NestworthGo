@@ -62,7 +62,7 @@ func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote, unsafeDates
 				comparable = comparable && q.UnitPrice.Decimal().IsPositive() && q.PriceBasis == "agent_unit_nav_v1" && q.SourceKind == QuoteSourceAgent && (q.TimestampBasis == "date_label" || q.TimestampBasis == "source_timestamp") && !reviewNonzero(q.DividendCash) && !reviewNonzero(q.SplitFactor)
 			}
 			if stock {
-				comparable = comparable && !q.UnitPrice.Decimal().IsNegative() && (q.PriceBasis == TiingoRawClosePriceBasis || q.PriceBasis == YahooRawClosePriceBasis) && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
+				comparable = comparable && !q.UnitPrice.Decimal().IsNegative() && (q.PriceBasis == TiingoRawClosePriceBasis || q.PriceBasis == YahooRawClosePriceBasis || q.PriceBasis == "agent_raw_close_v1") && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
 			}
 		}
 		for _, date := range unsafeDates {

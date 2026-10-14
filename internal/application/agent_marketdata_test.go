@@ -160,3 +160,44 @@ func TestAgentMarketDataReplaySurvivesInstrumentArchive(t *testing.T) {
 		t.Fatalf("archiving a target broke durable retry: %+v, %v", replayed, err)
 	}
 }
+
+func TestAgentMarketDataEquityClosePerformance(t *testing.T) {
+	for _, kind := range []string{"stock", "etf"} {
+		t.Run(kind, func(t *testing.T) {
+			for _, endpoint := range []string{"105", "0"} {
+				t.Run(endpoint, func(t *testing.T) {
+					service, ctx, _, setClock := newOnboardedService(t, "agent-close-performance", []string{"Owner"})
+					setClock(time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC))
+					instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic equity", Type: kind, QuoteCurrency: "USD", QuoteSource: "agent"})
+					if err != nil {
+						t.Fatal(err)
+					}
+					items := []AgentMarketDataItem{
+						{InstrumentID: instrument.ID.String(), Currency: "USD", Value: "100", Kind: "close", Date: "2026-10-01", Timezone: "America/New_York", SourceTitle: "Synthetic exchange close"},
+						{InstrumentID: instrument.ID.String(), Currency: "USD", Value: endpoint, Kind: "close", Date: "2026-10-09", Timezone: "America/New_York", SourceTitle: "Synthetic exchange close"},
+					}
+					if _, err := service.ImportAgentMarketData(ctx, uuid.NewString(), AgentMarketDataInput{Items: items}); err != nil {
+						t.Fatal(err)
+					}
+					quotes, unsafe, err := service.repository.(quotePerformanceReader).ReadQuotePerformanceEvidence(ctx, instrument, "2026-10-14")
+					if err != nil || len(quotes) != 2 || len(unsafe) != 0 {
+						t.Fatalf("imported evidence %+v, unsafe %v, error %v", quotes, unsafe, err)
+					}
+					for _, q := range quotes {
+						if q.SourceKind != domain.QuoteSourceAgent || q.SourceKey != "agent" || q.PriceBasis != "agent_raw_close_v1" || q.TimestampBasis != "date_label" || q.ObservationKind != "close" || q.BindingRevision != instrument.ProviderBindingRevision || q.Currency != instrument.QuoteCurrency {
+							t.Fatalf("imported Agent metadata %+v", q)
+						}
+					}
+					got, err := service.InstrumentQuotePerformance(ctx, instrument.ID)
+					want := "5"
+					if endpoint == "0" {
+						want = "-100"
+					}
+					if err != nil || len(got) != 1 || got[0].WindowDays != 7 || got[0].PeriodPercent != want || got[0].ElapsedDays != 8 || got[0].BaselineOn != "2026-10-01" || got[0].LatestOn != "2026-10-09" || got[0].AnnualizedPercent != nil {
+						t.Fatalf("imported Agent performance %+v, error %v", got, err)
+					}
+				})
+			}
+		})
+	}
+}
