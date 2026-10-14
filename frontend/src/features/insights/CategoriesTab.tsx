@@ -15,13 +15,12 @@ import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
 import { analysisReason } from "@/features/insights/analysisText";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
-import { formatAmount } from "@/lib/money";
+import { formatSignedMoney } from "@/lib/money";
 import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
-  const formatted = formatAmount(value.amount, value.currency);
-  return value.amount.startsWith("-") || value.amount === "0" ? formatted : `+${formatted}`;
+  return formatSignedMoney(value.amount, value.currency);
 }
 
 function typeLabel(t: (key: string) => string, value: string): string {

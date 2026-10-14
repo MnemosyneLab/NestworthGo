@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { QuoteHistoryContent } from "@/features/marketdata/QuoteHistorySheet";
 import { useInstruments, useQuotePerformance } from "@/queries/investments";
-import { formatSignedMoney, formatAmount } from "@/lib/money";
+import { formatSignedMoney, formatAmount, formatDecimalPercent } from "@/lib/money";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { displayEnum } from "@/lib/display";
 import type { HoldingAmountsDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics/models";
@@ -23,7 +23,7 @@ function PricePerformance({ instrumentId }: { instrumentId: string }) {
         {performance.data.map(item => (
           <div key={item.windowDays} className="rounded-lg border border-border p-3">
             <p>{t("holdingDetail.window", { days: item.windowDays })} · {t(item.annualizedPercent ? "holdingDetail.annualized" : "holdingDetail.priceChange")}</p>
-            <p className="num">{formatAmount(item.annualizedPercent ?? item.periodPercent)}%</p>
+            <p className="num">{formatDecimalPercent(item.annualizedPercent ?? item.periodPercent)}</p>
             <p className="text-xs">{item.baselineOn} → {item.latestOn} · {t("holdingDetail.days", { days: item.elapsedDays })}</p>
             <p className="text-xs">{t("holdingDetail.asOf", { date: item.latestOn })}</p>
           </div>

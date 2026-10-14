@@ -14,7 +14,7 @@ const amounts={quantity:"2",totalCost:{amount:"100.00012",currency:"USD"},curren
 const group={instrumentId:"i",name:"Synthetic fund",symbol:"SYN",quoteCurrency:"USD",quantityUnit:"",archived:false,amounts,holdings:[{holdingId:"h1",accountId:"a",accountName:"Account A",amounts},{holdingId:"h2",accountId:"b",accountName:"Account B",amounts:{...amounts,totalCost:{amount:"90",currency:"USD"}}}]} as InstrumentHoldingsDTO;
 beforeEach(()=>{
  api.history.mockReset().mockResolvedValue({points:[],observations:[],outsideRange:false});
- api.performance.mockReset().mockResolvedValue([{windowDays:7,baselineOn:"2026-10-05",latestOn:"2026-10-14",elapsedDays:9,periodPercent:"1.2345"}]);
+ api.performance.mockReset().mockResolvedValue([{windowDays:7,baselineOn:"2026-10-05",latestOn:"2026-10-14",elapsedDays:9,periodPercent:"33.3333333333333333333333"}]);
  api.instruments.mockReset().mockResolvedValue([{id:"i",name:"Synthetic fund",type:"mutual_fund",quoteCurrency:"USD",countryCode:"US",symbol:"SYN",quoteSource:"agent"}]);
 });
 it("loads only expanded active details, shares history across accounts, and reuses cache after collapse",async()=>{
@@ -23,6 +23,7 @@ it("loads only expanded active details, shares history across accounts, and reus
  await userEvent.click(screen.getByRole("button",{name:"Account details"}));
  const buttons=screen.getAllByRole("button",{name:"Show details for Synthetic fund"});
  await userEvent.click(buttons[0]);await screen.findByText("2026-10-05 → 2026-10-14 · 9 actual days", {}, { timeout: 3000 });
+ expect(screen.getByText("33.33%")).toBeInTheDocument();
  await userEvent.click(buttons[1]);await waitFor(()=>expect(screen.getAllByText("As of 2026-10-14")).toHaveLength(2));
  expect(api.history).toHaveBeenCalledTimes(1);expect(api.performance).toHaveBeenCalledTimes(1);expect(api.instruments).toHaveBeenCalledTimes(1);
  expect(screen.getAllByText("$90.00")).toHaveLength(2);expect(screen.getAllByText("+\u002410.00")).toHaveLength(2);

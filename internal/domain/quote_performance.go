@@ -37,7 +37,7 @@ func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote, unsafeDates
 		if _, err := time.Parse(time.DateOnly, q.EffectiveDate); err != nil {
 			continue
 		}
-		if q.ObservationKind == "close" && q.UnitPrice.Decimal().IsPositive() {
+		if q.ObservationKind == "close" {
 			valid = append(valid, q)
 		}
 	}
@@ -55,20 +55,15 @@ func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote, unsafeDates
 		}
 		first := points[base]
 		elapsed := reviewDays(first.EffectiveDate, latest.EffectiveDate)
-		comparable, changed := elapsed > 0, false
+		comparable := elapsed > 0 && first.UnitPrice.Decimal().IsPositive()
 		for _, q := range points[base:] {
 			comparable = comparable && q.Currency == i.QuoteCurrency && q.BindingRevision == i.ProviderBindingRevision && q.SourceKind == latest.SourceKind && q.SourceKey == latest.SourceKey && q.PriceBasis == latest.PriceBasis && q.TimestampBasis == latest.TimestampBasis
 			if nav {
-				comparable = comparable && q.PriceBasis == "agent_unit_nav_v1" && q.SourceKind == QuoteSourceAgent && (q.TimestampBasis == "date_label" || q.TimestampBasis == "source_timestamp") && !reviewNonzero(q.DividendCash) && !reviewNonzero(q.SplitFactor)
+				comparable = comparable && q.UnitPrice.Decimal().IsPositive() && q.PriceBasis == "agent_unit_nav_v1" && q.SourceKind == QuoteSourceAgent && (q.TimestampBasis == "date_label" || q.TimestampBasis == "source_timestamp") && !reviewNonzero(q.DividendCash) && !reviewNonzero(q.SplitFactor)
 			}
 			if stock {
-				comparable = comparable && q.PriceBasis == "tiingo_raw_close_v1" && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
+				comparable = comparable && !q.UnitPrice.Decimal().IsNegative() && (q.PriceBasis == TiingoRawClosePriceBasis || q.PriceBasis == YahooRawClosePriceBasis) && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
 			}
-			changed = changed || !q.UnitPrice.Decimal().Equal(first.UnitPrice.Decimal())
-		}
-		// Flat NAV alone cannot establish the economic return of an income fund.
-		if nav && !changed {
-			comparable = false
 		}
 		for _, date := range unsafeDates {
 			if date >= first.EffectiveDate && date <= latest.EffectiveDate {

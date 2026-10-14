@@ -24,7 +24,7 @@ import { AccountProductsSection } from "@/features/liquidity/AccountProductsSect
 import { canHoldProducts } from "@/features/liquidity/productPolicy";
 import { useProducts } from "@/queries/liquidity";
 import { useHistoryOrigin } from "@/queries/history";
-import { compareCanonical, formatAmount, formatAuditMoney, sortByCanonicalDesc } from "@/lib/money";
+import { compareCanonical, formatAmount, formatSignedMoney, formatAuditMoney, sortByCanonicalDesc } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
 import { AccountCompositionPanel } from "./AccountCompositionPanel";
@@ -74,8 +74,7 @@ function cashChangeLabel(value: AccountCashValueDTO): string {
   if (!value.change) {
     return "—";
   }
-  const formatted = formatAuditMoney(value.change.amount, value.change.currency);
-  return value.change.amount.startsWith("-") ? formatted.replace(/^-/, "−") : `+${formatted}`;
+  return formatSignedMoney(value.change.amount, value.change.currency).replace(/^-/, "−");
 }
 
 function holdingRows(
@@ -299,7 +298,7 @@ export function AccountDetail({
         <AccountCompositionPanel key={record.account.id} composition={valuation.composition} updatedAt={valuationUpdatedAt} />
       )}
 
-      {composite && (cashOnly || (!holdingsQuery.isLoading && !holdingsQuery.isError)) && (
+      {composite && (
         <div data-testid="account-cash-holdings-layout" className="grid min-w-0 grid-cols-1 items-start gap-4">
           <Card className="min-w-0">
             <CardHeader>
@@ -344,7 +343,7 @@ export function AccountDetail({
               )}
             </CardContent>
           </Card>
-          {!cashOnly && <Card className="min-w-0">
+          {!cashOnly && !holdingsQuery.isLoading && !holdingsQuery.isError && !instruments.isLoading && !instruments.isError && <Card className="min-w-0">
             <CardHeader>
               <CardTitle>{t("accounts.investments")}</CardTitle>
             </CardHeader>

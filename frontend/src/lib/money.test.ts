@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAuditMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
+import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAuditMoney, formatDecimalPercent, formatSignedMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
@@ -175,4 +175,12 @@ it("keeps display scales separate from command scales and normalizes negative di
   expect(formatAmount("0.005", "USD")).toContain("$0.00");
   expect(formatAmount("0.015", "USD")).toBe("$0.02");
   expect(formatAmount("9".repeat(400), "USD")).not.toContain("Infinity");
+});
+
+it("keeps percentage presentation concise and signed rounded money zero neutral", () => {
+ expect(formatDecimalPercent("33.3333333333333333333333")).toBe("33.33%");
+ expect(formatDecimalPercent("-0.004")).toBe("0.00%");
+ expect(formatSignedMoney("0.004", "USD")).toBe("$0.00 · + nonzero, below 0.01");
+ expect(formatSignedMoney("-0.004", "USD")).toBe("$0.00 · − nonzero, below 0.01");
+ expect(formatSignedMoney("1.23", "USD")).toBe("+$1.23");
 });

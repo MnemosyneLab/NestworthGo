@@ -14,7 +14,7 @@ import type { AnalysisSessionState } from "@/stores/analysis";
 import { CompletenessBanner } from "@/features/insights/CompletenessBanner";
 import { analysisRequest, currentMonthAwaitingClose, effectiveRange, periodRange } from "@/features/insights/analysisRequest";
 import { addMonths, currentMonth, isFuture, isToday, lastClosedDate, monthDays, monthLabel, yearLabel, yearMonths } from "@/features/insights/calendar";
-import { addCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
+import { addCanonical, formatAmount, formatSignedMoney, multiplyCanonical } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { signToneClass } from "@/components/ui/money-text";
 import { useHistoryOrigin } from "@/queries/history";
@@ -25,8 +25,7 @@ import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 
 function amountText(value?: { amount: string; currency: string } | null): string {
   if (!value) return "—";
-  const formatted = formatAmount(value.amount, value.currency);
-  return value.amount.startsWith("-") || value.amount === "0" ? formatted : `+${formatted}`;
+  return formatSignedMoney(value.amount, value.currency);
 }
 
 function rateText(value: string | null | undefined): string {

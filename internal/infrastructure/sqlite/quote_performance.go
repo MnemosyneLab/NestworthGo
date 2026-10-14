@@ -58,7 +58,7 @@ func (r *Repository) ReadQuotePerformanceEvidence(ctx context.Context, i domain.
 	if len(quotes) > 20000 {
 		return nil, nil, &domain.Error{Code: "too_large", Message: "local price interval exceeds read budget"}
 	}
-	events, err := tx.QueryContext(ctx, `SELECT DISTINCT a.effective_local_date FROM activities a JOIN activity_effects e ON e.activity_id=a.id LEFT JOIN activity_dividend_details d ON d.activity_id=a.id WHERE (e.instrument_id=? OR d.instrument_id=?) AND a.effective_local_date>=? AND a.effective_local_date<=? AND ((a.kind='position_transfer' AND (a.reason='reconciliation' OR e.classification='remeasurement')) OR (a.kind='cash_dividend' AND ?)) AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.reverses_activity_id=a.id)`, i.ID.String(), i.ID.String(), earliest, latest.String, i.Type != domain.InstrumentStock && i.Type != domain.InstrumentETF)
+	events, err := tx.QueryContext(ctx, correctedActivityCTE+`SELECT DISTINCT a.effective_local_date FROM economic_activities a JOIN activity_effects e ON e.activity_id=a.id LEFT JOIN activity_dividend_details d ON d.activity_id=a.id WHERE (e.instrument_id=? OR d.instrument_id=?) AND a.effective_local_date>=? AND a.effective_local_date<=? AND ((a.kind='position_transfer' AND (a.reason='reconciliation' OR e.classification='remeasurement')) OR (a.kind='cash_dividend' AND ?)) AND NOT EXISTS(SELECT 1 FROM activities r WHERE r.reverses_activity_id=a.id)`, i.ID.String(), i.ID.String(), earliest, latest.String, i.Type != domain.InstrumentStock && i.Type != domain.InstrumentETF)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -150,7 +150,7 @@ provider refresh or investment-review state writes. Descriptive 7/30-day metrics
 end at the latest real valid observation; use the nearest baseline on/before
 the target, actual civil days, and explicit dates. Insufficient history hides
 that metric. Do not inherit alert freshness/baseline-gap cutoffs, fabricate
-prices, or infer returns from whole-position values/constant income-fund NAV.
+prices, or infer returns from whole-position values or income-distributing money-fund NAV without income evidence. Flat ordinary unit NAV can show 0% NAV change; never infer money-fund status from flatness. Derived percentages use concise two-decimal presentation; signed money uses `formatSignedMoney`, including neutral rounded zero and its tiny-value hint.
 
 NativeSelect and FilterableSelect share `selectFieldClass`, retaining native
 select semantics. A combobox search session starts empty, commits only an
