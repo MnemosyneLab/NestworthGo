@@ -24,7 +24,7 @@ import { AccountProductsSection } from "@/features/liquidity/AccountProductsSect
 import { canHoldProducts } from "@/features/liquidity/productPolicy";
 import { useProducts } from "@/queries/liquidity";
 import { useHistoryOrigin } from "@/queries/history";
-import { compareCanonical, formatAmount, formatSignedMoney, formatAuditMoney, sortByCanonicalDesc } from "@/lib/money";
+import { compareCanonical, formatAmount, formatSignedMoney, sortByCanonicalDesc } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
 import { AccountCompositionPanel } from "./AccountCompositionPanel";
@@ -462,7 +462,7 @@ export function AccountDetail({
                         </div>
                       </td>
                       <td className="num py-2 pr-4 font-medium">{cashChangeLabel(value)}</td>
-                      <td className="num py-2 pr-4 font-medium">{formatAuditMoney(value.amount.amount, value.amount.currency)}</td>
+                      <td className="num py-2 pr-4 font-medium">{formatAmount(value.amount.amount, value.amount.currency)}</td>
                       <td className="hidden py-2 pr-4 md:table-cell">{value.amount.currency}</td>
                       <td className="py-2 pr-4">
                         <time dateTime={value.effectiveAt}>{formatTimestamp(value.effectiveAt, settings.data?.timezone, i18n.language)}</time>

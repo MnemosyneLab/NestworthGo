@@ -731,7 +731,7 @@ describe("AccountsPage", () => {
     expect(layout.getByRole("button", { name: "Cash dividend" })).toBeEnabled();
   });
 
-  it("shows complete cash history fields", async () => {
+  it("shows complete cash history fields with two-decimal money and no raw suffix", async () => {
     listAccounts.mockResolvedValue([brokerageAccount]);
     accountValuations.mockResolvedValue([{
       account: brokerageAccount.account,
@@ -744,7 +744,7 @@ describe("AccountsPage", () => {
     listAccountCashValues.mockResolvedValue([{
       id: "cash-1",
       accountId: "brk-1",
-      amount: { amount: "200.0001", currency: "SGD" },
+      amount: { amount: "12345.6789", currency: "CNY" },
       effectiveAt: "2026-09-15T03:00:00.000Z",
       createdAt: "2026-09-15T03:05:00.000Z",
       observationKind: "event",
@@ -757,7 +757,7 @@ describe("AccountsPage", () => {
     }, {
       id: "cash-2",
       accountId: "brk-1",
-      amount: { amount: "200", currency: "SGD" },
+      amount: { amount: "-0.0001", currency: "SGD" },
       effectiveAt: "2026-09-15T03:00:00.000Z",
       createdAt: "2026-09-15T03:05:00.000Z",
       observationKind: "event",
@@ -787,7 +787,12 @@ describe("AccountsPage", () => {
     expect(history.textContent).not.toContain("+SGD");
     expect(history.textContent).toContain("+ nonzero, below 0.01");
     expect(history.textContent).toContain("− nonzero");
-    expect(history.textContent).toContain("200.0001 SGD");
+    const rows = within(history).getAllByRole("row").slice(1);
+    expect(within(rows[0]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · \+ nonzero, below 0\.01$/);
+    expect(within(rows[0]).getAllByRole("cell")[2]).toHaveTextContent(/^CN¥12,345\.68$/);
+    expect(within(rows[1]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below 0\.01$/);
+    expect(within(rows[1]).getAllByRole("cell")[2]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below 0\.01$/);
+    expect(history.textContent).not.toMatch(/12345\.6789|0\.004|0\.0001|\([^)]*(?:CNY|SGD)\)/);
     expect(history.textContent).toMatch(/SGD\s*0\.00 · − nonzero, below 0\.01/);
     expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
       "2026-09-15T03:00:00.000Z",
