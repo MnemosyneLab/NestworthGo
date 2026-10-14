@@ -46,7 +46,7 @@ export function ReservationForm({ source, sources = [], accountNames = {}, reser
     // A source ID remains explicit if identity is unavailable or descriptions still collide.
     const label = [accountNames[item.accountId], identity, instrument ? undefined : item.nativeCurrency].filter(Boolean).join(" · ");
     const sameDescription = eligibleSources.filter(other => other.accountId === item.accountId && other.nativeCurrency === item.nativeCurrency && other.displayName === item.displayName).length > 1;
-    return sameDescription ? `${label} · ${item.sourceRef.holdingId ?? item.sourceKey}` : label;
+    return sameDescription ? `${label} · #${[...eligibleSources].sort((a,b) => a.sourceKey.localeCompare(b.sourceKey)).findIndex(other => other.sourceKey === item.sourceKey) + 1}` : label;
   };
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {

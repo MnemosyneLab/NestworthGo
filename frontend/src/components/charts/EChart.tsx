@@ -45,7 +45,11 @@ export function applyChartPolicy(option: EChartsOption, reducedMotion = prefersR
         "z-index: 10000",
         "opacity: 1",
         "pointer-events: none",
-        "white-space: nowrap",
+        "white-space: normal",
+        "overflow-wrap: anywhere",
+        "max-width: min(28rem, calc(100vw - 24px))",
+        "max-height: min(24rem, calc(100vh - 24px))",
+        "overflow: hidden",
       ].filter(Boolean).join(";"),
     }
     : option.tooltip;

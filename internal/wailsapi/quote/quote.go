@@ -64,6 +64,7 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB strin
 // QuoteSeriesPointDTO is one local observation in the requested display
 // direction. Value is a canonical decimal string.
 type QuoteSeriesPointDTO struct {
+	Currency        string `json:"currency,omitempty"`
 	ObservationKind string `json:"observationKind,omitempty"`
 	EffectiveDate   string `json:"effectiveDate,omitempty"`
 	PriceBasis      string `json:"priceBasis,omitempty"`
@@ -104,6 +105,7 @@ func fromQuoteSeriesPoints(values []domain.QuoteSeriesPoint) []QuoteSeriesPointD
 	result := make([]QuoteSeriesPointDTO, 0, len(values))
 	for _, point := range values {
 		result = append(result, QuoteSeriesPointDTO{
+			Currency:        point.Currency.String(),
 			QuotedAt:        wire.FormatTime(point.QuotedAt),
 			ObservationKind: point.ObservationKind,
 			EffectiveDate:   point.EffectiveDate,
@@ -176,4 +178,14 @@ func (s *Service) ListFXPreferences(ctx context.Context) ([]wire.FXPreferenceDTO
 		return nil, apierror.Wrap(err)
 	}
 	return wire.FromFXPreferences(preferences), nil
+}
+
+// InstrumentQuotePerformance is a read-only descriptive price history projection.
+func (s *Service) InstrumentQuotePerformance(ctx context.Context, instrumentID string) ([]domain.QuotePerformance, error) {
+	id, err := domain.ParseInstrumentID(instrumentID)
+	if err != nil {
+		return nil, apierror.Wrap(err)
+	}
+	result, err := s.app.InstrumentQuotePerformance(ctx, id)
+	return result, apierror.Wrap(err)
 }

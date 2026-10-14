@@ -17,7 +17,7 @@ import type {
 import { callService } from "@/lib/wails";
 import { callCancellableService } from "@/lib/wailsCancellation";
 import { queryKeys } from "@/queries/keys";
-import { invalidateActivityChange, invalidateLiquidityReads, invalidateInstrumentChange } from "@/queries/invalidation";
+import { invalidateActivityChange, invalidateLiquidityReads, invalidateInstrumentReads, invalidateInstrumentChange } from "@/queries/invalidation";
 
 export function useLiquidityOverview(request: OverviewRequest, enabled = true) {
   const customHorizonOn = request.customHorizonOn ?? "";
@@ -194,6 +194,7 @@ export function useRecordProductOperation() {
       slot.current = null;
       invalidateActivityChange(queryClient);
       invalidateLiquidityReads(queryClient);
+      invalidateInstrumentReads(queryClient);
     },
   });
 }

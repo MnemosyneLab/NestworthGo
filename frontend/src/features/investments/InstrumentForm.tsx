@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Service as MarketDataService } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
 import * as InstrumentService from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/service";
 import { callService } from "@/lib/wails";
-import { formatAmount } from "@/lib/money";
+import { formatQuotePrice } from "@/lib/money";
 import { metalUnitLabel } from "@/lib/preciousMetals";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -361,7 +361,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       )}
       {metalTemplate && <div className="rounded-md bg-muted p-3 text-sm" aria-live="polite">
         {quoteSource === "provider" && <>
-          <p className="font-medium">{metalPreview.isFetching ? t("metals.loading") : metalPreview.data ? `${formatAmount(metalPreview.data.unitPrice, metalPreview.data.currency)} / ${metalUnitLabel(quantityUnit, t)}` : t("metals.previewUnavailable")}</p>
+          <p className="font-medium">{metalPreview.isFetching ? t("metals.loading") : metalPreview.data ? `${formatQuotePrice(metalPreview.data.unitPrice, metalPreview.data.currency)} / ${metalUnitLabel(quantityUnit, t)}` : t("metals.previewUnavailable")}</p>
           <p className="mt-1 text-xs text-muted-foreground">Yahoo · {metalTemplate === "gold" ? "GC=F" : "SI=F"} · USD / oz t</p>
           {metalPreview.data && <MetalConversionDetails evidence={metalPreview.data.conversionJSON} />}
           {metalPreview.isError && <Button type="button" size="sm" variant="ghost" onClick={() => void metalPreview.refetch()}>{t("metals.retry")}</Button>}

@@ -37,7 +37,7 @@ func TestInstrumentQuoteSeriesClipsRangeAndKeepsDeterministicPoints(t *testing.T
 	if series.DisplayCurrency != domain.CurrencyCode("USD") {
 		t.Fatalf("DisplayCurrency = %q, want USD", series.DisplayCurrency)
 	}
-	if len(series.Observations) != 3 {
+	if len(series.Observations) != 3 || series.Observations[0].Currency != "USD" {
 		t.Fatalf("30d observations = %d, want 3 (July quote is outside the window)", len(series.Observations))
 	}
 	if len(series.Points) != 2 {

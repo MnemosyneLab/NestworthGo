@@ -106,6 +106,7 @@ func (filter QuoteSourceFilter) SourceKind() *QuoteSourceKind {
 // QuoteSeriesPoint is one locally stored observation projected for a chart or
 // data table. Value is already canonical; the frontend must not invert FX.
 type QuoteSeriesPoint struct {
+	Currency CurrencyCode
 	// Local selection metadata; the chart DTO does not expose conversion evidence.
 	ConversionJSON  string
 	Revision        int

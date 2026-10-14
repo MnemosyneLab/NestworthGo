@@ -10,7 +10,7 @@ import (
 
 // InstrumentHoldings reads one snapshot and shares the cost replay across all
 // members, including transfer sources outside the visible account scope.
-func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.InstrumentHoldingsView, error) {
+func (g *GainService) InstrumentHoldings(ctx context.Context, accountIDs ...domain.AccountID) ([]domain.InstrumentHoldingsView, error) {
 	inputs, err := g.repository.ReadGainSnapshot(ctx)
 	snapshot := inputs.Portfolio
 	if err != nil {
@@ -23,7 +23,11 @@ func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.Instrume
 	accounts := map[domain.AccountID]string{}
 	for _, record := range snapshot.Accounts {
 		a := record.Account
-		if a.ArchivedAt == nil && a.TrackingMode == "holdings" && a.AccountType != "cash_on_hand" {
+		included := len(accountIDs) == 0 && a.ArchivedAt == nil
+		for _, id := range accountIDs {
+			included = included || a.ID == id
+		}
+		if included && a.TrackingMode == "holdings" && a.AccountType != "cash_on_hand" {
 			accounts[a.ID] = a.Name
 		}
 	}
@@ -156,6 +160,10 @@ func aggregateHoldingAmounts(members []domain.InstrumentHoldingMember, currency 
 		result.UnrealizedGain = &amount
 	}
 	return result, nil
+}
+
+func (s *Service) AccountHoldingDetails(ctx context.Context, accountIDs ...domain.AccountID) ([]domain.InstrumentHoldingsView, error) {
+	return s.gain.InstrumentHoldings(ctx, accountIDs...)
 }
 
 func (s *Service) InstrumentHoldings(ctx context.Context) ([]domain.InstrumentHoldingsView, error) {

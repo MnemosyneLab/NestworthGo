@@ -84,9 +84,8 @@ export function instrumentSelectionLabels<T extends { id: string } & InstrumentI
       .sort((a, b) => a.reduce((sum, value) => sum + value.length, 0) - b.reduce((sum, value) => sum + value.length, 0));
     let discriminators = candidates[0];
     if (!discriminators) {
-      let length = 1;
-      while (new Set(group.map((item) => item.id.slice(0, length))).size < group.length) length++;
-      discriminators = group.map((item) => `ID ${item.id.slice(0, length)}`);
+      const ordered = [...group].sort((a,b) => a.id.localeCompare(b.id));
+      discriminators = group.map(item => `#${ordered.findIndex(other => other.id === item.id) + 1}`);
     }
     group.forEach((item, index) => labels.set(item.id, `${label} [${discriminators[index]}]`));
   }
@@ -96,7 +95,7 @@ export function instrumentSelectionLabels<T extends { id: string } & InstrumentI
     for (const label of labels.values()) counts.set(label, (counts.get(label) ?? 0) + 1);
     const duplicates = [...labels].filter(([, label]) => (counts.get(label) ?? 0) > 1);
     if (!duplicates.length) break;
-    for (const [id, label] of duplicates) labels.set(id, `${label} [ID ${id}]`);
+    duplicates.sort(([a],[b]) => a.localeCompare(b)).forEach(([id, label], index) => labels.set(id, `${label} [#${index + 1}]`));
   }
   return labels;
 }

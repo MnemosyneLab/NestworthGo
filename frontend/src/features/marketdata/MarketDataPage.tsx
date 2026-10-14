@@ -29,7 +29,7 @@ import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useOverview } from "@/queries/portfolio";
 import { displayEnum, displayError } from "@/lib/display";
-import { formatAmount } from "@/lib/money";
+import { formatQuotePrice, formatAmount } from "@/lib/money";
 import { formatQuoteAsOf, formatTimestamp } from "@/lib/time";
 import { sortFxPairs } from "@/lib/groupByInstrumentType";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
@@ -153,7 +153,7 @@ function InstrumentRefreshRow({
         <Badge variant={STATUS_VARIANT[item.status] ?? "secondary"}>{displayEnum(t, "marketData.status", item.status)}</Badge>
       </div>
       <p className="text-muted-foreground">
-        {quote.data ? t("marketData.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) }) : t("marketData.noQuoteYet")}
+        {quote.data ? t("marketData.latestPrice", { value: formatQuotePrice(quote.data.unitPrice, quote.data.currency) }) : t("marketData.noQuoteYet")}
       </p>
       {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuoteAsOf(quote.data, settings.data?.timezone, i18n.language) })}</p>}
       {item.status === "skipped" && <p className="text-xs text-muted-foreground">{skipReasonText(t, item, "instrument")}</p>}
@@ -319,7 +319,7 @@ function SavedFXRow({
             <span className="flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
               {quote.data.delayed ? <Badge variant="warning">{t("charts.delayed")}</Badge> : null}
               {quote.data.sourceKind ? <span>{displayEnum(t, "portfolio", quote.data.sourceKind)}</span> : null}
-              {quote.data.sourceKey && quote.data.sourceKey !== quote.data.sourceKind ? <span>· {quote.data.sourceKey}</span> : null}
+              {quote.data.sourceKey && !quote.data.sourceKey.startsWith("agent_") && quote.data.sourceKey !== quote.data.sourceKind ? <span>· {quote.data.sourceKey}</span> : null}
             </span>
           </>
         ) : (
@@ -566,7 +566,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
         status={<DataHealthIndicator onOpen={onOpenDataHealth} />}
       />
       {focus && <section className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4" aria-label={t("connections.viewGap")}>
-        <p className="font-medium">{focus.label || focus.instrumentId || `${focus.currencyA}/${focus.currencyB}`}</p>
+        <p className="font-medium">{focus.label || (focus.instrumentId ? t("portfolio.unknownInstrument") : `${focus.currencyA}/${focus.currencyB}`)}</p>
         <p className="text-sm">{focus.rangeStart} {focus.rangeEnd && `– ${focus.rangeEnd}`} {focus.reason && displayEnum(t, "dataHealth.reason", focus.reason)}</p>
         <p className="text-sm text-muted-foreground">{t("connections.currentVsHistory")}</p>
         {(focus.kind === "missing_agent_price" || focus.kind === "missing_agent_fx") && <p className="text-sm text-muted-foreground">{t("dataHealth.agentEntry")}</p>}

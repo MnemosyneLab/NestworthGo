@@ -5,11 +5,12 @@ import { QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { upcomingData } from "@/test/upcomingActions";
 import { queryKeys } from "./keys";
-import { useUpcomingActions, useProductOperations } from "./liquidity";
+import { useRecordProductOperation, useUpcomingActions, useProductOperations } from "./liquidity";
 import { invalidateAccountChange, invalidateActivityChange, invalidateHoldingChange, invalidateInstrumentQuoteChange, invalidateLiquidityReads, invalidateRequiredFX } from "./invalidation";
 const read = vi.hoisted(() => vi.fn());
 const operationRead = vi.hoisted(() => vi.fn());
-vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({ Service: { UpcomingActions: read, ListOperations: operationRead } }));
+const recordProduct = vi.hoisted(() => vi.fn());
+vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({ Service: { UpcomingActions: read, ListOperations: operationRead, RecordProductOperation: recordProduct } }));
 afterEach(() => { vi.useRealTimers(); read.mockReset(); operationRead.mockReset(); focusManager.setFocused(undefined); });
 function harness() { const client = createTestQueryClient({ retry: false }); const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children); return { client, wrapper }; }
 describe("upcoming query", () => {
@@ -125,4 +126,14 @@ it("allows Load more in a replacement session while an abandoned native next pag
   await act(async () => { await hook.result.current.loadMore(); });
   await waitFor(() => expect(hook.result.current.data?.pages).toHaveLength(2));
   expect(operationRead).toHaveBeenCalledTimes(4);
+});
+
+
+it("invalidates cached instrument ownership after creating or renewing a product", async () => {
+ const {client,wrapper}=harness();
+ client.setQueryData(queryKeys.instruments.list(true),[{id:"existing",name:"Synthetic instrument"}]);
+ recordProduct.mockResolvedValue({productIds:["new-product"],operationId:"synthetic-operation"});
+ const hook=renderHook(()=>useRecordProductOperation(),{wrapper});
+ await act(async()=>{await hook.result.current.mutateAsync({mutationId:"synthetic-mutation",command:{kind:"open"}} as never);});
+ expect(client.getQueryState(queryKeys.instruments.list(true))?.isInvalidated).toBe(true);
 });

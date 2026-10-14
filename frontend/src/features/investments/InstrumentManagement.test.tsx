@@ -556,3 +556,18 @@ it("validates short names by Unicode code points and keeps an invalid form edita
   await user.click(within(form).getByRole("button", { name: "Add instrument" }));
   await waitFor(() => expect(createInstrument).toHaveBeenCalledWith(expect.objectContaining({ shortName: "🌿".repeat(120) })));
 });
+
+it("excludes every product-owned instrument but retains an ordinary manual bank investment", async () => {
+  listInstruments.mockResolvedValue([
+    {id:"ordinary",name:"Ordinary NAV",type:"bank_investment_product",quoteSource:"manual",quoteCurrency:"USD"},
+    ...["open","settled","cancelled"].map(state=>({id:state,name:`Managed ${state}`,type:"bank_investment_product",quoteSource:"manual",quoteCurrency:"USD",managedProductId:`product-${state}`})),
+  ]);
+  renderManagement();
+  expect(await screen.findByText("Ordinary NAV")).toBeInTheDocument();
+  expect(screen.queryByText(/Managed /)).not.toBeInTheDocument();
+});
+it("fails closed when the enriched ownership inventory cannot be loaded", async () => {
+  listInstruments.mockRejectedValue(new Error("ownership unavailable"));renderManagement();
+  expect(await screen.findByRole("button",{name:"Try again"}, { timeout: 3000 })).toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"Edit"})).not.toBeInTheDocument();
+});

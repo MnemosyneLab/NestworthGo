@@ -193,8 +193,8 @@ it("distinguishes reservation sources with duplicate aliases in the same account
   const user = userEvent.setup();
   show(<ReservationManager source={null} sources={[a, b]} accountNames={{ account: "Brokerage" }} open onOpenChange={vi.fn()} />);
   await user.click(screen.getByRole("button", { name: "Add reservation" }));
-  const option = await screen.findByRole("option", { name: /Family fund · 000002 · Share class B.*ISIN-B.*h-b/ });
-  expect(screen.getByRole("option", { name: /Family fund · 000001 · Share class A.*ISIN-A.*h-a/ })).toBeInTheDocument();
+  const option = await screen.findByRole("option", { name: /Family fund · 000002 · Share class B.*ISIN-B.*#2/ });
+  expect(screen.getByRole("option", { name: /Family fund · 000001 · Share class A.*ISIN-A.*#1/ })).toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("Reservation source"), option);
   change("Purpose", "Selected B"); change("Amount", "1.25");
   await user.click(screen.getByRole("button", { name: "Confirm" }));

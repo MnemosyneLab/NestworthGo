@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAuditMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
+import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAuditMoney, formatDecimalPercent, formatSignedMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
@@ -52,12 +52,12 @@ describe("formatAmount", () => {
     expect(formatAmount(amount, currency)).toMatch(pattern);
   });
 
-  it.each(["JPY", "KRW"])("hides fraction digits for zero-scale %s", async (currency) => {
+  it.each(["JPY", "KRW"])("keeps two display digits for zero-scale %s", async (currency) => {
     await i18n.changeLanguage("en");
     const formatted = formatAmount("1234.56", currency);
-    expect(formatted).toMatch(/1,235/);
-    expect(formatted).not.toMatch(/\.56/);
-    expect(formatAmount("1234.00", currency)).not.toMatch(/\.00/);
+    expect(formatted).toMatch(/1,234\.56/);
+    expect(formatted).toMatch(/\.56/);
+    expect(formatAmount("1234.00", currency)).toMatch(/\.00/);
   });
 
   it("keeps zero and invalid values stable", () => {
@@ -79,7 +79,7 @@ describe("formatAmount", () => {
     await i18n.changeLanguage("en");
     expect(canonicalDigits(formatAmount("1234.56", "USD"), "en")).toBe("1234.56");
     expect(canonicalDigits(formatAmount("1234.567", "USD"), "en")).toBe("1234.57");
-    expect(canonicalDigits(formatAmount("1234.56", "JPY"), "en")).toBe("1235");
+    expect(canonicalDigits(formatAmount("1234.56", "JPY"), "en")).toBe("1234.56");
   });
 });
 
@@ -161,3 +161,26 @@ function canonicalDigits(formatted: string, language: string): string {
   const unsigned = fraction ? `${integer}.${fraction}` : integer;
   return negative && unsigned !== "0" ? `-${unsigned}` : unsigned;
 }
+
+it("keeps display scales separate from command scales and normalizes negative display zero", async () => {
+  const { currencyFractionDigits, formatQuotePrice, formatMoney } = await import("./money");
+  await i18n.changeLanguage("en");
+  expect(currencyFractionDigits("JPY")).toBe(0);
+  expect(formatAmount("12.3456", "JPY")).toContain("12.35");
+  expect(formatQuotePrice("1.1066", "USD")).toBe("$1.1066");
+  expect(formatQuotePrice("0.0000000012", "USD")).toBe("$0.0000000012");
+  expect(formatMoney("12.3456")).toBe("12.35");
+  expect(formatAmount("-0.004", "USD")).toBe("$0.00 · − nonzero, below 0.01");
+  expect(formatAmount("-0.00", "USD")).toBe("$0.00");
+  expect(formatAmount("0.005", "USD")).toContain("$0.00");
+  expect(formatAmount("0.015", "USD")).toBe("$0.02");
+  expect(formatAmount("9".repeat(400), "USD")).not.toContain("Infinity");
+});
+
+it("keeps percentage presentation concise and signed rounded money zero neutral", () => {
+ expect(formatDecimalPercent("33.3333333333333333333333")).toBe("33.33%");
+ expect(formatDecimalPercent("-0.004")).toBe("0.00%");
+ expect(formatSignedMoney("0.004", "USD")).toBe("$0.00 · + nonzero, below 0.01");
+ expect(formatSignedMoney("-0.004", "USD")).toBe("$0.00 · − nonzero, below 0.01");
+ expect(formatSignedMoney("1.23", "USD")).toBe("+$1.23");
+});

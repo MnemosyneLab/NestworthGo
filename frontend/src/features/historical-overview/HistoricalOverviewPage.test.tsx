@@ -75,7 +75,7 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["light", "dark"].map(theme =
       show();
       await screen.findByRole("button", { name: "Bank" });
       const checkAmount = (value: string, signed = false) => {
-        const amount = screen.getByTitle(`${value} CNY`);
+        const amount = screen.getByTitle(`${signed ? "+" : ""}${formatAmount(value, "CNY")}`);
         expect(amount.textContent).toBe(`${signed ? "+" : ""}${formatAmount(value, "CNY")}`);
         // DOM guards against the original break-words/three-fixed-columns
         // contract. Native retest, not jsdom, establishes pixel-level fit.
@@ -282,8 +282,8 @@ it("preserves sub-cent decimal strings in read-only detail", async () => {
   show();
   await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
   const dialog = await screen.findByRole("dialog");
-  expect(within(dialog).getByText(/Exact base amount/)).toHaveTextContent("0.00012 CNY");
-  expect(within(dialog).getByText(new RegExp(i18n.t("historicalOverview.original")))).toHaveTextContent("0.00012 CNY");
+  expect(within(dialog).getByText(/Base currency amount/)).toHaveTextContent(formatAmount("0.00012", "CNY"));
+  expect(within(dialog).getByText(new RegExp(i18n.t("historicalOverview.original")))).toHaveTextContent(formatAmount("0.00012", "CNY"));
 });
 
 it("keeps a cleared date invalid across a month boundary instead of selecting a default", async () => {
@@ -382,7 +382,7 @@ it("shows authoritative total deltas and keeps unknown distinct from zero", asyn
   await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
   const change = await screen.findByRole("region", { name: "Total change (right minus left)" });
   expect(within(change).getAllByText("Unknown")).toHaveLength(2);
-  expect(within(change).getAllByTitle("0 CNY").length).toBeGreaterThan(0);
+  expect(within(change).getAllByTitle(formatAmount("0", "CNY")).length).toBeGreaterThan(0);
   expect(change).toHaveTextContent("Balance changes are not investment returns");
 });
 
@@ -403,11 +403,11 @@ it("shows known native changes when FX is missing and never compares absence as 
   await screen.findByRole("button", { name: "Bank" });
   await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
   const table = await screen.findByRole("table", { name: "Historical account and holding comparison" });
-  expect(within(table).getByTitle("2 USD")).toHaveTextContent("+");
+  expect(within(table).getByTitle("+" + formatAmount("2", "USD"))).toHaveTextContent("+");
   expect(within(table).getByText("Not comparable")).toBeInTheDocument();
   await userEvent.click(within(table).getByRole("button", { name: "Bank" }));
   const detail = await screen.findByRole("dialog");
-  expect(within(detail).getByText("+2 USD")).toBeInTheDocument();
+  expect(within(detail).getByText("+" + formatAmount("2", "USD"))).toBeInTheDocument();
   expect(within(detail).getAllByText("Exchange rate is missing")).toHaveLength(2);
 });
 
@@ -657,7 +657,7 @@ it("links an asset category to the all-account view without changing the metric 
   await userEvent.click(within(allocation).getByRole("button", { name: "CNY" }));
   expect(screen.getByText("Category: CNY")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Clear category filter" })).toHaveFocus();
-  expect(screen.getAllByTitle("200 CNY").length).toBeGreaterThan(0);
+  expect(screen.getAllByTitle(formatAmount("200", "CNY")).length).toBeGreaterThan(0);
   expect(read).toHaveBeenCalledTimes(before);
   await userEvent.click(screen.getByRole("button", { name: "Clear category filter" }));
   expect(screen.getByRole("tab", { name: "Account details" })).toHaveFocus();
@@ -797,14 +797,14 @@ it.each(["en", "zh-CN", "zh-TW"])("keeps negative sub-cent values exact in cards
   show(true);
   await screen.findByRole("region", { name: i18n.t("historicalOverview.allocation") });
   const metrics = screen.getByRole("region", { name: i18n.t("historicalOverview.totalChange") });
-  expect(within(metrics).getAllByTitle("-0.00012 CNY")[0]).toHaveTextContent("-0.00012 CNY");
+  expect(within(metrics).getAllByTitle(formatAmount("-0.00012", "CNY"))[0]).toHaveTextContent(formatAmount("-0.00012", "CNY"));
   await userEvent.click(screen.getByRole("tab", { name: i18n.t("historicalOverview.view.accounts") }));
   const accounts = screen.getByRole("region", { name: i18n.t("historicalOverview.table") });
-  expect(within(accounts).getAllByTitle("-0.00012 CNY")[0]).toHaveTextContent("-0.00012 CNY");
+  expect(within(accounts).getAllByTitle(formatAmount("-0.00012", "CNY"))[0]).toHaveTextContent(formatAmount("-0.00012", "CNY"));
   await userEvent.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "date");
   await userEvent.click(await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.delta") }));
   const changes = await screen.findByRole("region", { name: i18n.t("historicalOverview.accountDeltaTitle") });
-  expect(changes).toHaveTextContent("-0.00012 CNY");
+  expect(changes).toHaveTextContent(formatAmount("-0.00012", "CNY"));
 });
 
 
@@ -844,9 +844,9 @@ it.each(["en", "zh-CN", "zh-TW"])("shows applied evidence and concrete side-spec
   await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
   const dialog = await screen.findByRole("dialog");
   expect(dialog).toHaveTextContent("0.0000012 USD"); expect(dialog).toHaveTextContent("1 CNY = 0.125 USD");
-  expect(dialog).toHaveTextContent("recorded-provider"); expect(dialog).toHaveTextContent("quote-id"); expect(dialog).toHaveTextContent("raw_close");
+  expect(dialog).not.toHaveTextContent("recorded-provider"); expect(dialog).not.toHaveTextContent("quote-id"); expect(dialog).not.toHaveTextContent("raw_close");
   expect(dialog).toHaveTextContent(i18n.t("historicalOverview.fxOperation.divide"));
-  expect(dialog).toHaveTextContent("USD ↔ CNY"); expect(dialog).toHaveTextContent("instrument-id");
+  expect(dialog).toHaveTextContent("USD ↔ CNY"); expect(dialog).not.toHaveTextContent("instrument-id");
   expect(read).toHaveBeenCalledTimes(1);
 });
 

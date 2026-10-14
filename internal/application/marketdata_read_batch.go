@@ -174,7 +174,7 @@ func (s *Service) ReadMarketDataBatch(ctx context.Context, in MarketReadRequest)
 func instrumentSeriesObservations(quotes []domain.InstrumentQuote) []domain.QuoteSeriesPoint {
 	out := make([]domain.QuoteSeriesPoint, 0, len(quotes))
 	for _, q := range quotes {
-		out = append(out, domain.QuoteSeriesPoint{ID: q.ID.String(), Revision: q.Revision, ConversionJSON: q.ConversionJSON, ObservationKind: q.ObservationKind, EffectiveDate: q.EffectiveDate, PriceBasis: q.PriceBasis, TimestampBasis: q.TimestampBasis, QuotedAt: q.QuotedAt, CreatedAt: q.CreatedAt, Value: q.UnitPrice.Canonical(), SourceKind: q.SourceKind, SourceKey: q.SourceKey, Delayed: q.Delayed})
+		out = append(out, domain.QuoteSeriesPoint{Currency: q.Currency, ID: q.ID.String(), Revision: q.Revision, ConversionJSON: q.ConversionJSON, ObservationKind: q.ObservationKind, EffectiveDate: q.EffectiveDate, PriceBasis: q.PriceBasis, TimestampBasis: q.TimestampBasis, QuotedAt: q.QuotedAt, CreatedAt: q.CreatedAt, Value: q.UnitPrice.Canonical(), SourceKind: q.SourceKind, SourceKey: q.SourceKey, Delayed: q.Delayed})
 	}
 	return out
 }

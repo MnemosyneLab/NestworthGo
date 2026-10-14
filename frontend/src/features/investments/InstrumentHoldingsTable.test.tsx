@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { InstrumentHoldingsTable } from "./InstrumentHoldingsTable";
 import type { InstrumentHoldingsDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics/models";
 
+vi.mock("./HoldingDetailPanel", () => ({ HoldingDetailPanel: () => <div>Holding details</div> }));
+
 const amounts = (quantity: string, value: string, currency = "USD") => ({ quantity, totalCost: { amount: "100", currency }, currentValue: { amount: value, currency }, unrealizedGain: { amount: "-10", currency } });
 function fixture(): InstrumentHoldingsDTO {
   return { instrumentId: "i1", name: "Apple", symbol: "AAPL", quoteCurrency: "USD", quantityUnit: "", archived: false,
@@ -20,7 +22,7 @@ describe("InstrumentHoldingsTable", () => {
     expect(screen.getByRole("button", { name: "By instrument" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("2 accounts")).toBeInTheDocument();
     expect(screen.getByText("$900.00")).toBeInTheDocument();
-    const expand = screen.getByRole("button", { name: "Show accounts for Apple" });
+    const expand = screen.getByRole("button", { name: "Show details for Apple" });
     expand.focus();
     await userEvent.keyboard("{Enter}");
     expect(expand).toHaveAttribute("aria-expanded", "true");
@@ -34,7 +36,7 @@ describe("InstrumentHoldingsTable", () => {
     expect(screen.getByRole("button", { name: "Closed account position" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "By instrument" }));
     expect(screen.getByText("3 accounts")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show accounts for Apple" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Show details for Apple" })).toHaveAttribute("aria-expanded", "true");
   });
   it("keeps an all-zero group accessible through the filter and labels archived metal units", async () => {
     const group = fixture(); group.name = "Gold"; group.archived = true; group.quantityUnit = "g";
@@ -51,7 +53,7 @@ describe("InstrumentHoldingsTable", () => {
     render(<InstrumentHoldingsTable groups={[group]} />);
     expect(screen.getByText("$200.00")).toBeInTheDocument();
     expect(screen.getAllByText("No current price")).toHaveLength(2);
-    await userEvent.click(screen.getByRole("button", { name: "Show accounts for Apple" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show details for Apple" }));
     expect(screen.getByText("$300.00")).toBeInTheDocument();
   });
   it("sorts amounts within currencies, keeps missing last, and does not merge identical names", async () => {
@@ -77,6 +79,14 @@ describe("InstrumentHoldingsTable", () => {
     group.name = "Term deposit";
     group.amounts = amounts("1", "100000");
     render(<InstrumentHoldingsTable groups={[group]} managedInstrumentIds={new Set(["product-1"])} />);
-    expect(screen.getByTestId("holdings-table")).toHaveTextContent("1 contract");
+    expect(screen.getByTestId("holdings-table")).toHaveTextContent("Contracts: 1");
   });
+});
+
+
+it("shows an authoritative zero contract quantity without hiding the record", async () => {
+ const group=fixture();group.amounts=amounts("0","0");group.holdings=[{holdingId:"closed",accountId:"a",accountName:"Closed",amounts:group.amounts}];
+ render(<InstrumentHoldingsTable groups={[group]} managedInstrumentIds={new Set([group.instrumentId])} />);
+ await userEvent.click(screen.getByRole("checkbox"));
+ expect(screen.getByTestId("holdings-table")).toHaveTextContent("Contracts: 0");
 });

@@ -1291,7 +1291,7 @@
     "price": "價格依據",
     "fx": "匯率依據",
     "original": "原幣金額",
-    "exactBase": "本位幣精確金額",
+    "exactBase": "本位幣金額",
     "nativeChange": "原幣變化",
     "noClosedDays": "尚無已結束的歷史日期",
     "noClosedDaysHint": "家庭時區的第一天結束後即可查看；目前狀態可在概覽中查看。",
@@ -1557,5 +1557,35 @@
     "noPending": "已監測投資暫無待複核提醒。已確認或已忽略不表示淨值狀況已恢復；請在全部投資中查看目前狀況。",
     "moved": "{{name}} · {{group}}",
     "removed": "{{name}} 已不在待複核清單中。"
+  },
+  "moneyDisplay": {
+    "tiny": "{{direction}} 非零，小於 0.01",
+    "missingCount": "{{count}} 項需要關注"
+  },
+  "holdingDetail": {
+    "performance": "歷史價格 / 單位淨值表現",
+    "priceDisclaimer": "價格或單位淨值漲跌，不含分紅、未復權，並非個人持倉收益。歷史簡單年化並非預期或保證收益。",
+    "window": "近 {{days}} 日目標",
+    "days": "實際 {{days}} 天",
+    "asOf": "截至 {{date}}",
+    "annualized": "單位淨值簡單年化",
+    "priceChange": "價格 / 淨值漲跌",
+    "allAccounts": "全部納入帳戶合計",
+    "toggle": "查看 {{name}} 詳情",
+    "otherCurrencies": "其他幣種的歷史觀測保留在資料表中；圖表僅顯示標的目前計價幣種。"
+  },
+  "syncReasons": {
+    "unavailable": "本地資料或行情連線不可用，請檢查連線並重試。",
+    "coingecko_history_limit_365_days": "供應商僅提供最近 365 天歷史。",
+    "snapshot_incomplete": "歷史估值不完整。",
+    "snapshot_verification_failed": "歷史估值未能驗證。",
+    "provider_not_configured": "請設定行情連線。",
+    "rate_limited": "已達供應商請求限制，請稍後重試。",
+    "fx_preferences": "本地資料或行情連線不可用，請檢查連線並重試。",
+    "fx_coverage": "本地資料或行情連線不可用，請檢查連線並重試。",
+    "agent_fx_coverage": "本地資料或行情連線不可用，請檢查連線並重試。",
+    "invalid_origin": "本地資料或行情連線不可用，請檢查連線並重試。",
+    "invalid_range": "本地資料或行情連線不可用，請檢查連線並重試。",
+    "sync_failed": "本地資料或行情連線不可用，請檢查連線並重試。"
   }
 }

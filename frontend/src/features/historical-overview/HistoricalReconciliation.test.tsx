@@ -1,3 +1,4 @@
+import { formatAmount } from "@/lib/money";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -20,7 +21,7 @@ it.each(["en", "zh-CN", "zh-TW"])("shows exact amounts and keyboard-accessible l
   await i18n.changeLanguage(locale);
   render(<HistoricalReconciliationView data={data()} />);
   const section = screen.getByRole("region", { name: i18n.t("historicalReconciliation.title") });
-  expect(section).toHaveTextContent("-1.00012 CNY"); expect(section).toHaveTextContent("-0.00002 CNY");
+  expect(section).toHaveTextContent(formatAmount("-1.00012", "CNY")); expect(section).toHaveTextContent(formatAmount("-0.00002", "CNY"));
   const disclosure = within(section).getByText(i18n.t("historicalReconciliation.explanation"));
   disclosure.focus(); await userEvent.keyboard("{Enter}");
   expect(within(section).getByRole("table")).toBeVisible();
@@ -63,8 +64,8 @@ it("publishes the reconciliation from the final rapid date selection and ignores
     expect(calls[index - 1].promise.cancel).toHaveBeenCalledOnce();
   }
   await act(async () => calls[3].resolve(data("3", "2", "1")));
-  await waitFor(() => expect(screen.getByRole("region")).toHaveTextContent("+3 CNY"));
+  await waitFor(() => expect(screen.getByRole("region")).toHaveTextContent(("+" + formatAmount("3", "CNY"))));
   await act(async () => calls.slice(0, 3).forEach(call => call.resolve(data("999", "999", "0"))));
-  expect(screen.getByRole("region")).toHaveTextContent("+3 CNY"); expect(screen.queryByText(/999/)).not.toBeInTheDocument();
+  expect(screen.getByRole("region")).toHaveTextContent(("+" + formatAmount("3", "CNY"))); expect(screen.queryByText(/999/)).not.toBeInTheDocument();
   view.unmount(); client.clear();
 });

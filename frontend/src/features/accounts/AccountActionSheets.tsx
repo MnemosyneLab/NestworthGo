@@ -1,3 +1,5 @@
+import { ordinaryInstrument } from "@/lib/instrumentEligibility";
+import { formatQuotePrice } from "@/lib/money";
 import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,7 +26,7 @@ import { displayError } from "@/lib/display";
 import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
 import { toast } from "sonner";
 import { QuoteHint } from "@/features/history/QuoteHint";
-import { currencyFractionDigits, formatAmount, sameCanonicalDecimal } from "@/lib/money";
+import { compareCanonical, formatAuditMoney, formatAmount, sameCanonicalDecimal } from "@/lib/money";
 
 export type AccountAction =
   | "cash"
@@ -128,12 +130,8 @@ export function AccountActionSheet({
 }
 
 function reviewedCashAmount(amount: string, currency: string, signed = false): string {
-  const sign = signed && !amount.startsWith("-") ? "+" : "";
-  const standard = `${sign}${formatAmount(amount, currency)}`;
-  const places = amount.split(".")[1]?.length ?? 0;
-  return places > currencyFractionDigits(currency)
-    ? `${standard} (${sign}${amount} ${currency})`
-    : standard;
+  const sign = signed && compareCanonical(amount, "0.005") > 0 ? "+" : "";
+  return `${sign}${formatAuditMoney(amount, currency)}`;
 }
 
 function CashBalanceForm({
@@ -243,7 +241,8 @@ function CashBalanceForm({
 
 function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; onDone: () => void }) {
   const { t } = useTranslation();
-  const instruments = useInstruments();
+  const instrumentInventory = useInstruments();
+  const instruments = { ...instrumentInventory, data: instrumentInventory.data?.filter(ordinaryInstrument) };
   const selectionLabels = instrumentSelectionLabels(instruments.data ?? []);
   const createHolding = useCreateHolding();
   const createInstrument = useCreateInstrument();
@@ -276,7 +275,7 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
   })();
 
   const submit = () => {
-    if (!instrumentId || !quantityPositive) {
+    if (instruments.isLoading || instruments.isError || !instruments.data?.some(item => item.id === instrumentId) || !quantityPositive) {
       setError(t("accounts.quantityRequired"));
       return;
     }
@@ -295,6 +294,7 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
 
   return (
     <div className="flex flex-col gap-4" role="form" aria-label={t("accounts.recordPosition")}>
+      {instruments.isError && <div role="alert" className="text-sm text-destructive">{t("portfolio.loadError")} <Button type="button" variant="outline" onClick={() => void instrumentInventory.refetch()}>{t("common.retryAction")}</Button></div>}
       <p className="text-sm text-muted-foreground">{t("accounts.recordPositionHelp")}</p>
       {creatingInstrument ? (
         <InstrumentForm
@@ -322,7 +322,7 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
               ))}
             </NativeSelect>
           </div>
-          {selectedInstrument && <QuoteHint quote={quote.data} quoteLabel={quote.data ? t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} sourceKind={selectedInstrument.quoteSource} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={quote.isLoading} error={refreshInstrument.error} />}
+          {selectedInstrument && <QuoteHint quote={quote.data} quoteLabel={quote.data ? t("portfolio.latestPrice", { value: formatQuotePrice(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} sourceKind={selectedInstrument.quoteSource} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={quote.isLoading} error={refreshInstrument.error} />}
           <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>
             {t("accounts.createInstrument")}
           </Button>

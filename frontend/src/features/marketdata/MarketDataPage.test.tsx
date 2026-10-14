@@ -577,3 +577,18 @@ describe("MarketDataPage", () => {
   });
 
 });
+
+
+it("retains original-currency prices in the history table without treating them as current-currency prices", async () => {
+  listInstruments.mockResolvedValue([{ id: "i1", name: "Synthetic fund", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "agent" }]);
+  const point={ quotedAt: "2026-09-28T00:00:00Z", effectiveDate: "2026-09-28", timestampBasis: "date_label", observationKind: "close", priceBasis: "agent_unit_nav_v1", value: "1.1066", currency: "USD", sourceKind: "agent", sourceKey: "agent", delayed: false };
+  const old={...point,quotedAt:"2026-09-01T00:00:00Z",effectiveDate:"2026-09-01",value:"123.456",currency:"JPY"};
+  instrumentQuoteSeries.mockResolvedValue({range:"all",points:[old,point],observations:[point,old],outsideRange:false});
+  renderPage();
+  await userEvent.click(await screen.findByRole("button",{name:"Edit"}));
+  await userEvent.click(await screen.findByRole("button",{name:"View history"}));
+  expect(await screen.findByText(/Historical observations in other currencies/)).toBeInTheDocument();
+  await userEvent.click(screen.getByText("View data table"));
+  expect(screen.getByText("$1.1066")).toBeInTheDocument();
+  expect(screen.getByText("¥123.456")).toBeInTheDocument();
+});

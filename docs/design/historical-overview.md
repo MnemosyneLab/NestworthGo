@@ -64,22 +64,22 @@ points are explicitly labelled, rather than presented as growth or return.
 There is no frontend financial arithmetic, Other sum, debt sign inversion or
 optional balance growth-rate projection.
 
-Evidence adds the selected observation's exact price/rate, recorded source key,
-quote ID, observation type, effective date/time, stored price/timestamp basis and
-source policy when present. FX includes the recorded pair and applied multiply
-or divide operation; reciprocal rates are not invented. Fields absent from the
-retained observation stay absent. Manual values show their original source date;
-provider observations are not universally labelled same-day close. This is not
-a reconstruction of provider fetches or of what was known on that historical
-date. A concrete missing-input projection carries kind, applicable currency
-pair, selected source kind and instrument ID, alongside the retained generic
-missing reasons. Zero quantity needs no price and same-currency values need no
-FX; these explanations do not synthesize an observation.
+Evidence presents the selected observation's exact unit price/rate, human source
+and observation labels, effective date/time and quality. FX retains its recorded
+pair and multiply/divide direction. Observation IDs, policy versions, protocol
+keys and row identities remain internal, including missing-input identifiers.
+Manual values retain their source date; unknown observation types use localized
+unavailable copy. Zero quantity needs no price and same-currency values need no
+FX. Ordinary native/base amounts, comparisons, trend tables and tooltips use the
+shared two-decimal money policy; canonical values remain authoritative and
+price/NAV/rate precision is preserved.
 
-Rows now carry explicit account/holding/instrument IDs. Category controls drill
-into both sides' matching leaves, including retained excluded and incomplete
-items. The source table presents missing account/component names with their
-stable row keys as supplemental identity. Category filters leave household
+Rows carry explicit account/holding/instrument IDs for navigation. Category
+controls drill into both sides' matching leaves, including retained excluded and
+incomplete items. Missing entries show account/component business names. Trend
+warnings show a count and at most three tooltip summaries, with a keyboard
+accessible full list in each date row. Tooltip geometry wraps within the viewport.
+Category filters leave household
 totals unchanged. Returning to categories restores
 the dimension, asset/debt choice, position and keyboard trigger. Account detail
 provides child/parent navigation, including in narrow card layouts. With a

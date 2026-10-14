@@ -42,6 +42,10 @@ func (s *Service) InstrumentHoldings(ctx context.Context) ([]InstrumentHoldingsD
 	if err != nil {
 		return nil, apierror.Wrap(err)
 	}
+	return instrumentHoldingsDTO(groups), nil
+}
+
+func instrumentHoldingsDTO(groups []domain.InstrumentHoldingsView) []InstrumentHoldingsDTO {
 	result := make([]InstrumentHoldingsDTO, 0, len(groups))
 	for _, g := range groups {
 		members := make([]InstrumentHoldingMemberDTO, 0, len(g.Holdings))
@@ -50,5 +54,19 @@ func (s *Service) InstrumentHoldings(ctx context.Context) ([]InstrumentHoldingsD
 		}
 		result = append(result, InstrumentHoldingsDTO{InstrumentID: g.InstrumentID.String(), Name: g.Name, ShortName: g.ShortName, Symbol: g.Symbol, QuoteCurrency: g.QuoteCurrency.String(), QuantityUnit: g.QuantityUnit, Archived: g.Archived, Amounts: holdingAmountsDTO(g.Amounts), Holdings: members})
 	}
-	return result, nil
+	return result
+}
+
+// AccountHoldingDetails explicitly includes an archived account without changing
+// the Portfolio default scope. Cost replay remains one capture for all members.
+func (s *Service) AccountHoldingDetails(ctx context.Context, accountID string) ([]InstrumentHoldingsDTO, error) {
+	id, err := domain.ParseAccountID(accountID)
+	if err != nil {
+		return nil, apierror.Wrap(err)
+	}
+	groups, err := s.app.AccountHoldingDetails(ctx, id)
+	if err != nil {
+		return nil, apierror.Wrap(err)
+	}
+	return instrumentHoldingsDTO(groups), nil
 }

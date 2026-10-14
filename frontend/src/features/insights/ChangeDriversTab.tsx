@@ -1,3 +1,4 @@
+import { compareCanonical } from "@/lib/money";
 import { AnalysisHealthLink } from "./AnalysisHealthLink";
 import { AssetValueSummary } from "./AssetValueSummary";
 import { useState } from "react";
@@ -33,7 +34,7 @@ function isReturnDriver(bucket?: string): boolean {
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
   const formatted = formatAmount(value.amount, value.currency);
-  return value.amount.startsWith("-") || value.amount === "0" ? formatted : `+${formatted}`;
+  return compareCanonical(value.amount, "0.005") <= 0 ? formatted : `+${formatted}`;
 }
 
 function driverLabel(t: (key: string) => string, bucket: string, fallback: string): string {
@@ -116,8 +117,8 @@ function DimensionList({ title, rows, labelFor }: { title: string; rows: AssetDr
 
 function residualLabel(t: (key: string) => string, item: NonNullable<AssetDriverDetailDTO["residualDetails"]>[number], accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
   const dimensions = [
-    item.accountId ? accountNames.get(item.accountId) ?? item.accountId : "",
-    item.instrumentId ? instrumentNames.get(item.instrumentId) ?? item.instrumentId : "",
+    item.accountId ? accountNames.get(item.accountId) ?? t("history.unknownAccount") : "",
+    item.instrumentId ? instrumentNames.get(item.instrumentId) ?? t("history.unknownInstrument") : "",
   ].filter(Boolean);
   return dimensions.length > 0 ? dimensions.join(" · ") : t("insights.unattributedResidual");
 }
@@ -155,7 +156,7 @@ function DriverDetailContent({ data, request, session, selected, isResidual, acc
       {isResidual && data.residualDetails && data.residualDetails.length > 0 ? (
         <div className="flex flex-col gap-2">
           <h3 className="text-sm font-medium">{t("insights.componentDays")}</h3>
-          <ul className="flex flex-col gap-2 text-sm">{data.residualDetails.map((item) => <li key={`${item.date}-${item.componentKey}`} className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2"><div className="flex justify-between gap-3"><span className="truncate">{residualLabel(t, item, accountNames, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></div><p className="mt-1 text-xs text-muted-foreground">{item.date}</p><details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">{t("insights.internalReference")}</summary><code className="mt-1 block break-all">{item.componentKey}</code></details>{onOpenHistory && <Button type="button" variant="link" size="sm" className="mt-1 h-auto px-0" onClick={() => onOpenHistory({ from: item.date, to: item.date, accountId: item.accountId || undefined, instrumentId: item.instrumentId || undefined })}>{t("insights.viewInHistory")}</Button>}</li>)}</ul>
+          <ul className="flex flex-col gap-2 text-sm">{data.residualDetails.map((item) => <li key={`${item.date}-${item.componentKey}`} className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2"><div className="flex justify-between gap-3"><span className="truncate">{residualLabel(t, item, accountNames, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></div><p className="mt-1 text-xs text-muted-foreground">{item.date}</p>{onOpenHistory && <Button type="button" variant="link" size="sm" className="mt-1 h-auto px-0" onClick={() => onOpenHistory({ from: item.date, to: item.date, accountId: item.accountId || undefined, instrumentId: item.instrumentId || undefined })}>{t("insights.viewInHistory")}</Button>}</li>)}</ul>
         </div>
       ) : null}
       <DimensionList title={t("insights.byInstrument")} rows={data.byInstrument} labelFor={(row) => row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : analysisCashLabel(t, row.key) ?? row.label} />

@@ -1,6 +1,6 @@
 import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
-import { formatAmount, formatAuditMoney } from "@/lib/money";
+import { formatMoney, compareCanonical, formatQuotePrice, formatAmount, formatAuditMoney } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ const SPECIALIZED_KINDS = new Set([
 ]);
 
 function moneyText(amount?: string, currency?: string): string {
-  return amount ? (currency ? formatAuditMoney(amount, currency) : formatAmount(amount)) : "";
+  return amount ? (currency ? formatAuditMoney(amount, currency) : formatMoney(amount)) : "";
 }
 
 function valueUpdateDelta(effect?: ActivityEffectDTO): string {
@@ -24,10 +24,9 @@ function valueUpdateDelta(effect?: ActivityEffectDTO): string {
   const { amount, currency } = effect.money;
   const magnitude = amount.replace(/^[+-]/, "");
   const sign = effect.direction === "removed" ? "-" : effect.direction === "added" ? "+" : amount.startsWith("-") ? "-" : "+";
-  const rounded = formatAmount(magnitude, currency);
-  return formatAuditMoney(magnitude, currency) === rounded
-    ? `${sign}${rounded}`
-    : `${sign}${rounded} (${sign}${magnitude} ${currency})`;
+  const signed = sign === "-" ? `-${magnitude}` : magnitude;
+  const display = formatAuditMoney(signed, currency);
+  return compareCanonical(signed, "0.005") > 0 ? `+${display}` : display;
 }
 
 function effectLine(
@@ -114,7 +113,7 @@ function ActivityDetailBody({
           <p>{t("history.detailInstrument")}: {(detail?.instrumentId ? instruments.get(detail.instrumentId) : undefined) ?? t("history.unknownInstrument")}</p>
           <p>{t("history.detailSide")}: {displayEnum(t, "history", detail?.side ?? activity.kind)}</p>
           {detail?.quantity && <p>{t("history.detailQuantity")}: {formatAmount(detail.quantity)}</p>}
-          {detail?.unitPrice && <p>{t("history.detailUnitPrice")}: {detail.gross?.currency ? formatAuditMoney(detail.unitPrice, detail.gross.currency) : formatAmount(detail.unitPrice)}</p>}
+          {detail?.unitPrice && <p>{t("history.detailUnitPrice")}: {detail.gross?.currency ? formatQuotePrice(detail.unitPrice, detail.gross.currency) : formatAmount(detail.unitPrice)}</p>}
           {detail?.gross && <p>{t("history.detailGross")}: {moneyText(detail.gross.amount, detail.gross.currency)}</p>}
           {detail?.fee && <p>{t("history.fee")}: {moneyText(detail.fee.amount, detail.fee.currency)}</p>}
         </div>

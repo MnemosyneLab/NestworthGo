@@ -246,6 +246,25 @@ beforeEach(() => {
 });
 
 describe("AccountsPage", () => {
+  it.each(["loading", "error"])("keeps instrument %s separate from genuine empty holdings and retries", async (state) => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    listInstruments.mockImplementation(() => state === "loading" ? new Promise(() => {}) : Promise.reject(new Error("instrument read failed")));
+    const { queryClient } = renderPage();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    const detail = within(await screen.findByTestId("account-detail"));
+    expect(detail.queryByText(i18n.t("accounts.noHoldings"))).not.toBeInTheDocument();
+    expect(detail.queryByRole("button", { name: i18n.t("accounts.buyInvestment") })).not.toBeInTheDocument();
+    expect(detail.getByText(i18n.t("accounts.cash"), { selector: "h3" })).toBeInTheDocument();
+    if (state === "error") {
+      await detail.findByText(i18n.t("accounts.loadError"));
+      listInstruments.mockResolvedValue([]);
+      await userEvent.click(detail.getByRole("button", { name: i18n.t("common.retryAction") }));
+      expect(await detail.findByText(i18n.t("accounts.noHoldings"))).toBeInTheDocument();
+      expect(detail.getByRole("button", { name: i18n.t("accounts.buyInvestment") })).toBeInTheDocument();
+    }
+  });
+
   it("renders the empty state when there are no accounts", async () => {
     listAccounts.mockResolvedValue([]);
     renderPage();
@@ -684,7 +703,7 @@ describe("AccountsPage", () => {
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getAllByText("Investments").length).toBeGreaterThan(0);
     const cashHoldingsLayout = screen.getByTestId("account-cash-holdings-layout");
-    expect(cashHoldingsLayout).toHaveClass("2xl:grid-cols-2");
+    expect(cashHoldingsLayout).toHaveClass("grid-cols-1");
     expect(cashHoldingsLayout).not.toHaveClass("lg:grid-cols-2");
     expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/SGD\s*200\.00/).length).toBeGreaterThan(0);
@@ -712,7 +731,7 @@ describe("AccountsPage", () => {
     expect(layout.getByRole("button", { name: "Cash dividend" })).toBeEnabled();
   });
 
-  it("shows complete cash history fields", async () => {
+  it("shows complete cash history fields with two-decimal money and no raw suffix", async () => {
     listAccounts.mockResolvedValue([brokerageAccount]);
     accountValuations.mockResolvedValue([{
       account: brokerageAccount.account,
@@ -725,7 +744,7 @@ describe("AccountsPage", () => {
     listAccountCashValues.mockResolvedValue([{
       id: "cash-1",
       accountId: "brk-1",
-      amount: { amount: "200.0001", currency: "SGD" },
+      amount: { amount: "12345.6789", currency: "CNY" },
       effectiveAt: "2026-09-15T03:00:00.000Z",
       createdAt: "2026-09-15T03:05:00.000Z",
       observationKind: "event",
@@ -734,11 +753,11 @@ describe("AccountsPage", () => {
       activityKind: "cash_in",
       activityReason: "income",
       activityNote: "Salary",
-      change: { amount: "100.0001", currency: "SGD" },
+      change: { amount: "0.004", currency: "SGD" },
     }, {
       id: "cash-2",
       accountId: "brk-1",
-      amount: { amount: "200", currency: "SGD" },
+      amount: { amount: "-0.0001", currency: "SGD" },
       effectiveAt: "2026-09-15T03:00:00.000Z",
       createdAt: "2026-09-15T03:05:00.000Z",
       observationKind: "event",
@@ -765,11 +784,16 @@ describe("AccountsPage", () => {
     expect(within(history).getByText("Money removed")).toBeInTheDocument();
     expect(within(history).getByText("Salary")).toBeInTheDocument();
     expect(within(history).getByText("Broker fee")).toBeInTheDocument();
-    expect(history.textContent).toContain("+SGD");
-    expect(history.textContent).toContain("−SGD");
-    expect(history.textContent).toContain("100.0001 SGD");
-    expect(history.textContent).toContain("200.0001 SGD");
-    expect(history.textContent).toMatch(/−SGD\s*0\.00 \(-0\.0001 SGD\)/);
+    expect(history.textContent).not.toContain("+SGD");
+    expect(history.textContent).toContain("+ nonzero, below 0.01");
+    expect(history.textContent).toContain("− nonzero");
+    const rows = within(history).getAllByRole("row").slice(1);
+    expect(within(rows[0]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · \+ nonzero, below 0\.01$/);
+    expect(within(rows[0]).getAllByRole("cell")[2]).toHaveTextContent(/^CN¥12,345\.68$/);
+    expect(within(rows[1]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below 0\.01$/);
+    expect(within(rows[1]).getAllByRole("cell")[2]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below 0\.01$/);
+    expect(history.textContent).not.toMatch(/12345\.6789|0\.004|0\.0001|\([^)]*(?:CNY|SGD)\)/);
+    expect(history.textContent).toMatch(/SGD\s*0\.00 · − nonzero, below 0\.01/);
     expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
       "2026-09-15T03:00:00.000Z",
       "2026-09-15T03:05:00.000Z",
@@ -1591,7 +1615,7 @@ it("cash review shows origin-local time and exact sub-minor-unit values alongsid
   const review = await within(form).findByRole("status");
   expect(review).toHaveTextContent("CN¥10.00");
   expect(review).toHaveTextContent("10.0001 CNY");
-  expect(review).toHaveTextContent("+CN¥0.00 (+0.0001 CNY)");
+  expect(review).toHaveTextContent("CN¥0.00 · + nonzero, below 0.01 (0.0001 CNY)");
   expect(review).toHaveTextContent("Oct 11, 2026");
   expect(review).toHaveTextContent("00:30:00.000 (Asia/Shanghai)");
   expect(review).not.toHaveTextContent("2026-10-10T16:30:00Z");

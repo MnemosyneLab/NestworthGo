@@ -1,3 +1,4 @@
+import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import type { HealthFocus } from "@/app/navigation";
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { metalPriceSuffix } from "@/lib/preciousMetals";
@@ -27,7 +28,7 @@ import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { trimInstrumentText } from "@/lib/instrumentDisplay";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { displayEnum, displayError } from "@/lib/display";
-import { formatAmount } from "@/lib/money";
+import { formatQuotePrice } from "@/lib/money";
 import { formatQuoteAsOf } from "@/lib/time";
 import { groupByInstrumentType } from "@/lib/groupByInstrumentType";
 import { cn } from "@/lib/utils";
@@ -164,7 +165,7 @@ function InstrumentRow({
         ) : quote.data ? (
           <>
             <span>
-              <span className="font-medium">{t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(instrument, t) })}</span>
+              <span className="font-medium">{t("portfolio.latestPrice", { value: formatQuotePrice(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(instrument, t) })}</span>
               {quote.data.quotedAt && (
                 <span className="ml-2 text-xs text-muted-foreground">
                   {t("portfolio.quotedAsOf", {
@@ -228,7 +229,7 @@ export function InstrumentManagement({
   const managedProduct = editTarget ? productByInstrument.get(editTarget.id) : undefined;
 
   const filtered = useMemo(() => {
-    const items = (instruments.data ?? []).filter(item => !focus?.instrumentId || item.id === focus.instrumentId);
+    const items = (instruments.data ?? []).filter(item => ordinaryInstrument(item) && (!focus?.instrumentId || item.id === focus.instrumentId));
     const needle = trimInstrumentText(query).toLowerCase();
     if (!needle) {
       return items;
@@ -239,16 +240,16 @@ export function InstrumentManagement({
     });
   }, [instruments.data, query, focus]);
 
-  if (instruments.isLoading) {
+  if (instruments.isLoading || products.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
   }
 
-  if (instruments.isError) {
+  if (instruments.isError || products.isError) {
     return (
       <ErrorState
         title={t("portfolio.loadError")}
         description={t("ui.state.errorDescription")}
-        onRetry={() => instruments.refetch()}
+        onRetry={() => { void instruments.refetch(); void products.refetch(); }}
         retryLabel={t("common.retryAction")}
       />
     );
@@ -347,12 +348,12 @@ export function InstrumentManagement({
                   {t("charts.viewHistory")}
                 </Button>
               )}
-              {onSyncInstrument && editTarget.quoteSource === "provider" && !editTarget.archivedAt && !managedProduct && (
+              {onSyncInstrument && editTarget.quoteSource === "provider" && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && (
                 <Button type="button" variant="outline" size="sm" onClick={() => onSyncInstrument(editTarget)} disabled={syncingInstrumentId === editTarget.id}>
                   {syncingInstrumentId === editTarget.id ? t("marketData.syncingInstrument") : t("marketData.syncInstrument")}
                 </Button>
               )}
-              <AlertDialog>
+              {!managedProduct && !editTarget.managedProductId && <AlertDialog>
                 <AlertDialogTrigger disabled={archiveInstrument.isPending} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                   {editTarget.archivedAt ? t("common.active") : t("common.archive")}
                 </AlertDialogTrigger>
@@ -378,7 +379,7 @@ export function InstrumentManagement({
                     )}>{editTarget.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
-              </AlertDialog>
+              </AlertDialog>}
             </div>
           )}
           {editTarget && !editTarget.archivedAt && managedProduct && (
@@ -393,7 +394,7 @@ export function InstrumentManagement({
               )}
             </div>
           )}
-          {editTarget && !editTarget.archivedAt && !managedProduct && (
+          {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && (
             <InstrumentForm
               key={editTarget.id}
               instrument={editTarget}
@@ -414,7 +415,7 @@ export function InstrumentManagement({
               }
             />
           )}
-          {editTarget && !editTarget.archivedAt && !managedProduct && editTarget.quoteSource !== "agent" && (
+          {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && editTarget.quoteSource !== "agent" && (
             <div className="mt-5 border-t border-border pt-5">
               <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
                 {t("portfolio.setPrice")}

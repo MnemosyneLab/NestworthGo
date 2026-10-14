@@ -1,3 +1,4 @@
+import { compareCanonical } from "@/lib/money";
 import { addDays } from "date-fns";
 import { parseYmd, ymd } from "./calendar";
 import { AnalysisHealthLink } from "./AnalysisHealthLink";
@@ -20,7 +21,7 @@ import { signToneClass } from "@/components/ui/money-text";
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
   const formatted = formatAmount(value.amount, value.currency);
-  return value.amount.startsWith("-") || value.amount === "0" ? formatted : `+${formatted}`;
+  return compareCanonical(value.amount, "0.005") <= 0 ? formatted : `+${formatted}`;
 }
 
 function rateText(value: string | null | undefined): string {

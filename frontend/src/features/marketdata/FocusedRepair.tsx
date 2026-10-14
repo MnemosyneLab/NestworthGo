@@ -1,3 +1,4 @@
+import { SyncBlockerText } from "@/features/marketdata/SyncBlockerText";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -23,7 +24,7 @@ export function FocusedRepair({ focus }: { focus: HealthFocus }) {
       <p className="text-sm">{t("connections.repairScope")}</p>
       <p>{t("marketData.previewRequests", { count: sync.preview.data?.estimatedRequestCount ?? 0 })}</p>
       <SyncWorkDetails items={sync.preview.data?.items} />
-      {(sync.preview.data?.unresolved ?? []).map(item => <p key={`${item.targetKey}-${item.code}`} className="text-sm">{t("marketData.blocker", { target: item.targetKey, reason: item.reason || item.code })}</p>)}
+      {(sync.preview.data?.unresolved ?? []).map(item => <p key={`${item.targetKey}-${item.code}`} className="text-sm"><SyncBlockerText item={item} /></p>)}
       {!executable && <p role="status">{t("connections.noExecutableWork")}</p>}
       <Button disabled={!executable || sync.start.isPending || sync.running} onClick={() => { setOpen(false); sync.startScope(request); }}>{t("dataHealth.confirmRepair")}</Button>
     </SheetContent></Sheet>

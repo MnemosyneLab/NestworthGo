@@ -1,3 +1,4 @@
+import { formatAmount } from "@/lib/money";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
@@ -33,14 +34,14 @@ function show(data: HistoricalOverviewResult, role: "asset" | "liability" = "ass
 it.each(["en", "zh-CN", "zh-TW"])("renders backend monetary and percentage-point deltas and keyboard navigation (%s)", async locale => {
   await i18n.changeLanguage(locale);
   const onFilter = show(result([category({ amountChange: "0.00012", shareChangePp: "-25" })]));
-  expect(screen.getAllByText("+0.00012 CNY")[0]).toBeInTheDocument();
+  expect(screen.getAllByText(formatAmount("0.00012", "CNY"))[0]).toBeInTheDocument();
   expect(screen.getAllByText(i18n.t("historicalOverview.percentagePoints", { value: "-25" }))[0]).toBeInTheDocument();
   const button = screen.getByRole("button", { name: i18n.t("enum.cash") });
   button.focus(); await userEvent.keyboard("{Enter}");
   expect(onFilter).toHaveBeenCalledWith({ role: "asset", dimension: "byClass", key: "cash" }, button);
   await userEvent.click(screen.getByText(i18n.t("historicalOverview.fullChartData")));
   const table = screen.getByRole("table");
-  expect(table).toHaveTextContent("+0.00012 CNY");
+  expect(table).toHaveTextContent(formatAmount("0.00012", "CNY"));
   expect(table).toHaveTextContent(i18n.t("historicalOverview.percentagePoints", { value: "-25" }));
   expect(table.querySelectorAll("tbody td")).toHaveLength(7);
 });
@@ -54,7 +55,7 @@ it("does not fill absent categories with zero and retains partial and excluded r
   ]));
   const option = chart.options[chart.options.length - 1] as { series: Array<{ data: unknown[] }> };
   expect(option.series[0].data).toEqual([null, null, null]);
-  expect(screen.getAllByText(/1.00012 CNY/)[0]).toBeInTheDocument();
+  expect(screen.getAllByText((text) => text.includes(formatAmount("1.00012", "CNY")))[0]).toBeInTheDocument();
   expect(screen.getAllByText(/A\/B|retained member set/)[0]).toBeInTheDocument();
   expect(screen.getAllByText(/of known subtotal only/)[0]).toBeInTheDocument();
   expect(screen.getAllByText(/Inclusion scope changed/).length).toBeGreaterThan(0);
@@ -78,7 +79,7 @@ it("uses a table for zero or unrenderable values and suppresses incompatible-cur
   const data = result([category({ amountChange: "999", shareChangePp: "999" })]); data.right!.currency = "USD";
   show(data);
   expect(screen.queryByRole("img")).not.toBeInTheDocument(); expect(screen.queryByText(/999/)).not.toBeInTheDocument();
-  expect(screen.getAllByText("100 USD")[0]).toBeInTheDocument();
+  expect(screen.getAllByText(formatAmount("100", "USD"))[0]).toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "Category comparison" })).getAllByText(i18n.t("historicalOverview.currencyMismatch"))[0]).toBeInTheDocument();
 });
 
@@ -106,7 +107,7 @@ it.each(["en", "zh-CN", "zh-TW"])("keeps stable category identity in actual inst
     expect(option.yAxis.data[0]).toBe(i18n.t("enum.cash"));
     expect(point.name).toBe("cash");
     expect(point.data).toMatchObject({ name: "cash" });
-    expect(option.tooltip.formatter(point)).toContain("100 CNY");
+    expect(option.tooltip.formatter(point)).toContain(formatAmount("100", "CNY"));
     act(() => chart.select?.(point.name));
     expect(onFilter.mock.calls[0][0]).toEqual({ role: "asset", dimension: "byClass", key: "cash" });
   } finally {
@@ -120,9 +121,9 @@ it("shows readable missing account/component names with supplemental stable iden
   data.rows = [{ key: "parent", parentKey: "", name: "Synthetic brokerage", kind: "account" }, { key: "holding-a", parentKey: "parent", name: "Unpriced ETF", kind: "holding" }] as typeof data.rows;
   show(data);
   await userEvent.click(screen.getByText("Full source data table"));
-  const entry = within(screen.getByRole("table")).getByTitle("holding-a");
+  const entry = within(screen.getByRole("table")).getByText("Synthetic brokerage · Unpriced ETF");
   expect(entry).toHaveTextContent("Synthetic brokerage · Unpriced ETF");
-  expect(entry).toHaveTextContent("(holding-a)");
+  expect(entry).not.toHaveTextContent("holding-a");
   expect(entry).toHaveAttribute("data-row-key", "holding-a");
   expect(screen.getByRole("table")).toHaveTextContent(`${i18n.t("historicalOverview.knownSubtotal")}: ${i18n.t("historicalOverview.unknown")}`);
 });
