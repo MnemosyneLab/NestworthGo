@@ -9,7 +9,7 @@
 		<key>CFBundleIconFile</key>
 		<string>icon</string>
 		<key>CFBundleIdentifier</key>
-		<string>com.nestworth.app</string>
+		<string>com.nestworth.dev</string>
 		<key>CFBundleName</key>
 		<string>Nestworth</string>
 		<key>CFBundleDisplayName</key>
@@ -17,9 +17,9 @@
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
-		<string>0.3.7</string>
+		<string>0.3.8</string>
 		<key>CFBundleVersion</key>
-		<string>8</string>
+		<string>9</string>
 		<key>LSMinimumSystemVersion</key>
 		<string>12.0.0</string>
 		<key>NSAppTransportSecurity</key>
