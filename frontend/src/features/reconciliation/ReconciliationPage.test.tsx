@@ -614,3 +614,13 @@ it("shows holding quantities without quote currency in completed checkpoints, at
   expect(within(review).getByText("100", { selector: "p" })).toBeInTheDocument();
   expect(review).not.toHaveTextContent(/100 USD|·\s*·/);
 });
+
+
+it("preserves the canonical cash amount in the reviewed checkpoint", async () => {
+  const item = q.session!.accounts![0].items![0];
+  Object.assign(item, { checkedAt: "2026-09-01T12:00:00Z", source: { reference: "Synthetic statement", asOfDate: "2026-09-01" }, outcome: "confirmed" });
+  mount("session-one");
+  await userEvent.click(screen.getAllByRole("button", { name: "Review check" })[0]);
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(await screen.findByText("100.001 USD", { selector: "p" })).toBeInTheDocument();
+});

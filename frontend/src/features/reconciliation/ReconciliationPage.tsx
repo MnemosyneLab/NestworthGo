@@ -491,7 +491,7 @@ export function ReconciliationPage({
                             </summary>
                             {item.attempts.map((attempt, i) => (
                               <p key={i} className="break-words text-sm">
-                                {[formatTimestamp(attempt.checkedAt), t(`reconciliation.${attempt.outcome}`), checkpointValue(t, attempt), sourceText(attempt.source), attempt.note].filter(Boolean).join(" · ")}
+                                {[formatTimestamp(attempt.checkedAt), t(`reconciliation.${attempt.outcome}`), checkpointValue(t, attempt, true), sourceText(attempt.source), attempt.note].filter(Boolean).join(" · ")}
                               </p>
                             ))}
                           </details>
@@ -1045,7 +1045,7 @@ function CommitReview({
                     · {t(`reconciliation.${item.outcome}`)}
                   </p>
                   <p>
-                    {[checkpointValue(t, item), item.referenceValue].filter(Boolean).join(" · ")}
+                    {[checkpointValue(t, item, true), item.referenceValue].filter(Boolean).join(" · ")}
                   </p>
                   <p>
                     {sourceText(item.source)}
@@ -1208,7 +1208,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
                   : before?.label}
               </h4>
               <p>
-                {t("reconciliation.reviewedBefore")}: {before && checkpointValue(t, before)}{" "}
+                {t("reconciliation.reviewedBefore")}: {before && checkpointValue(t, before, true)}{" "}
                 {before?.cost &&
                   `${t("reconciliation.unitCost")}: ${before.cost}`}
               </p>
