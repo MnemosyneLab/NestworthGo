@@ -109,7 +109,7 @@ ledger_write. GUI permittedActions describe GUI options; tool discovery and
 permission govern MCP. These tools record facts already completed, never bank
 instructions. Open, record_existing, receive_interest, whole-contract settle
 and the latest safe group undo are supported. Separate terms/value pairs below
-complete those edits. Renewal and reservation creation/edit/release still require the App. Generic trades,
+complete those edits. Reservation creation/edit/release still require the App. Renewal without reservation changes uses the lifecycle preview. Generic trades,
 corrections, reconciliation or quote imports cannot substitute for a managed
 operation. Never fill releaseReservationIds or silently release/restore reserves.
 
@@ -378,3 +378,16 @@ section products returns full ProductDTO/actions/reasons from that capture;
 reservations/<productId> pages sort createdAt asc then reservationId asc.
 `get_product` also supports responseMode=paged. Do not substitute summary rows
 for complete revisioned terms or change live product-operation-history semantics.
+
+For a reconciliation session, the product lifecycle, terms and valuation previews
+accept optional reconciliationLink. Copy the current session/account/item and
+financial revisions. The link is part of the immutable command and request hash,
+and commits in the financial transaction. A correction never confirms a product
+check. Reread its terms, principal, lifecycle and current evidence first. Due or
+matured is not proof of actual receipt. See [session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).
+
+Stored product lifecycle previews also support renew when no reservation release
+is required. Supply the actual settlement facts and the complete new principal,
+opening fee, terms and policy. The preview shows the atomic predecessor closure
+and successor opening. Do not assume a maturity date implies renewal or receipt.
+Reservation-affecting renewal remains a GUI workflow.

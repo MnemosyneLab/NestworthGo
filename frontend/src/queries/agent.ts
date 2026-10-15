@@ -16,5 +16,6 @@ export function useAgentOperations(active = true) {
 export function AgentWorkspaceObserver() {
   const client = useQueryClient();
   useEffect(() => Events.On("agent.data.changed", () => { void client.invalidateQueries(); }), [client]);
+  useEffect(() => Events.On("agent.reconciliation.changed", () => { void client.invalidateQueries({queryKey:["reconciliation"]}); }), [client]);
   return null;
 }

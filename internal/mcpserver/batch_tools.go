@@ -11,15 +11,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 type BatchChangeInput struct {
+	Link     *domain.ReconciliationLink     `json:"reconciliationLink,omitempty"`
 	Commands []history.ChangeCommandRequest `json:"commands" jsonschema:"One to 100 ledger commands in nondecreasing effective-time order. Same-time commands execute in array order. Omitted times share one frozen instant. No per-command mutationId."`
 }
 
 type batchPlan struct {
+	Link      *domain.ReconciliationLink     `json:"reconciliationLink,omitempty"`
 	Type      string                         `json:"type"`
 	ID        string                         `json:"id"`
 	Commands  []history.ChangeCommandRequest `json:"commands"`
@@ -28,6 +31,7 @@ type batchPlan struct {
 }
 
 type BatchPlanPreview struct {
+	Link      *domain.ReconciliationLink     `json:"reconciliationLink,omitempty"`
 	PlanID    string                         `json:"planId"`
 	ExpiresAt string                         `json:"expiresAt"`
 	Commands  []history.ChangeCommandRequest `json:"commands"`
@@ -68,21 +72,34 @@ func (s *Service) previewBatch(ctx context.Context, in BatchChangeInput) (any, e
 	// Do not mutate the caller's command slice while freezing implicit times.
 	commands := make([]history.ChangeCommandRequest, len(in.Commands))
 	for i, command := range in.Commands {
+		if command.ReconciliationLink != nil {
+			return nil, batchInputError(i, fail("validation", "use the batch-level reconciliationLink, not a per-command link"))
+		}
 		var err error
 		commands[i], err = normalizeChangeRequest(command, now)
 		if err != nil {
 			return nil, batchInputError(i, err)
 		}
 	}
-	previews, version, err := s.app.PreviewChangesGuardedWith(ctx, func(ctx context.Context) ([]any, error) { return s.batchCommands(ctx, commands) })
+	var resolved []any
+	previews, version, err := s.app.PreviewChangesGuardedWith(ctx, func(ctx context.Context) ([]any, error) {
+		var err error
+		resolved, err = s.batchCommands(ctx, commands)
+		return resolved, err
+	})
 	if err != nil {
 		return nil, err
 	}
-	plan := batchPlan{Type: "batch", ID: uuid.NewString(), Commands: commands, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
+	for i, p := range previews {
+		if err := s.app.ValidateReconciliationCommandLink(ctx, in.Link, resolved[i], p); err != nil {
+			return nil, batchInputError(i, err)
+		}
+	}
+	plan := batchPlan{Link: in.Link, Type: "batch", ID: uuid.NewString(), Commands: commands, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
 	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
 		return nil, err
 	}
-	result := BatchPlanPreview{PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Commands: commands, Previews: make([]wire.ChangePreviewDTO, len(previews))}
+	result := BatchPlanPreview{Link: in.Link, PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Commands: commands, Previews: make([]wire.ChangePreviewDTO, len(previews))}
 	for i, preview := range previews {
 		result.Previews[i] = wire.FromChangePreview(preview)
 	}
@@ -131,7 +148,7 @@ func (s *Service) commitBatch(ctx context.Context, in CommitChangeInput) (any, e
 		if !time.Now().Before(plan.ExpiresAt) {
 			version = "expired"
 		}
-		previews, err := s.app.RecordChangesGuarded(ctx, commands, plan.ID, hex.EncodeToString(digest[:]), version)
+		previews, err := s.app.RecordChangesGuarded(domain.WithReconciliationLink(ctx, plan.Link), commands, plan.ID, hex.EncodeToString(digest[:]), version)
 		if err != nil {
 			return err
 		}

@@ -14,9 +14,10 @@ import (
 )
 
 type ProductValuationInput struct {
-	ProductID  string `json:"productId"`
-	Amount     string `json:"amount"`
-	ObservedAt string `json:"observedAt" jsonschema:"Actual RFC3339 observation timestamp; preview freezes UTC milliseconds, truncating submillisecond precision; empty uses App now"`
+	ReconciliationLink *domain.ReconciliationLink `json:"reconciliationLink,omitempty"`
+	ProductID          string                     `json:"productId"`
+	Amount             string                     `json:"amount"`
+	ObservedAt         string                     `json:"observedAt" jsonschema:"Actual RFC3339 observation timestamp; preview freezes UTC milliseconds, truncating submillisecond precision; empty uses App now"`
 }
 
 type productTermsPlan struct {
@@ -77,7 +78,7 @@ func (s *Service) previewProductTerms(ctx context.Context, in liquidity.UpdatePr
 	if err != nil {
 		return nil, err
 	}
-	input := application.UpdateProductTermsInput{ProductID: id, ExpectedRevision: in.ExpectedRevision, Terms: in.Terms, Policy: in.Policy}
+	input := application.UpdateProductTermsInput{ReconciliationLink: in.ReconciliationLink, ProductID: id, ExpectedRevision: in.ExpectedRevision, Terms: in.Terms, Policy: in.Policy}
 	preview, version, err := s.app.PreviewProductTermsGuarded(ctx, input)
 	if err != nil {
 		return nil, err
@@ -123,7 +124,7 @@ func (s *Service) previewProductValuation(ctx context.Context, in ProductValuati
 	if err != nil {
 		return nil, err
 	}
-	preview, version, err := s.app.PreviewProductValuationGuarded(ctx, application.ProductValuationCommand{ProductID: id, Amount: in.Amount, ObservedAt: in.ObservedAt})
+	preview, version, err := s.app.PreviewProductValuationGuarded(ctx, application.ProductValuationCommand{ReconciliationLink: in.ReconciliationLink, ProductID: id, Amount: in.Amount, ObservedAt: in.ObservedAt})
 	if err != nil {
 		return nil, err
 	}

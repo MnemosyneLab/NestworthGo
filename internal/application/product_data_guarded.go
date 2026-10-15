@@ -16,9 +16,10 @@ type ProductTermsPreview struct {
 }
 
 type ProductValuationCommand struct {
-	ProductID  domain.ProductContractID `json:"productId"`
-	Amount     string                   `json:"amount"`
-	ObservedAt string                   `json:"observedAt"`
+	ReconciliationLink *domain.ReconciliationLink `json:"reconciliationLink,omitempty"`
+	ProductID          domain.ProductContractID   `json:"productId"`
+	Amount             string                     `json:"amount"`
+	ObservedAt         string                     `json:"observedAt"`
 }
 
 type ProductValuationPreview struct {
@@ -54,8 +55,10 @@ func (s *Service) productDataStateHash(ctx context.Context, contract domain.Prod
 	return s.reviewedStateHash(ctx, snapshot, ProductCommand{}, digest, date, productPlan{beforeContracts: []domain.ProductContract{contract}})
 }
 
-func staleProductData() error {
-	return &domain.Error{Code: domain.ErrStalePreview, Message: "preview expired or facts changed; request a new preview"}
+// Product commits supply a named field only after durable receipt lookup,
+// before any write. Ordinary liquidity policies retain their unscoped error.
+func staleProductData(field string) error {
+	return &domain.Error{Code: domain.ErrStalePreview, Field: field, Message: "preview expired or facts changed; request a new preview"}
 }
 
 func (s *Service) termsDetails(ctx context.Context, prepared preparedProductTerms, now time.Time) (ProductDetail, ProductDetail, error) {
@@ -96,6 +99,9 @@ func (s *Service) PreviewProductTermsGuarded(ctx context.Context, input UpdatePr
 	if err != nil {
 		return ProductTermsPreview{}, "", err
 	}
+	if err := s.validateProductReconciliationLink(ctx, input.ReconciliationLink, input.ProductID); err != nil {
+		return ProductTermsPreview{}, "", err
+	}
 	digest, err := productDataDigest(input)
 	if err != nil {
 		return ProductTermsPreview{}, "", err
@@ -105,6 +111,7 @@ func (s *Service) PreviewProductTermsGuarded(ctx context.Context, input UpdatePr
 }
 
 func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdateProductTermsInput, mutationID, stateHash, token string) (domain.ProductTermsReceipt, error) {
+	ctx = domain.WithReconciliationLink(ctx, input.ReconciliationLink)
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.ProductTermsReceipt{}, err
@@ -135,7 +142,7 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 		return receipt, nil
 	}
 	if token != s.writes.previewToken() {
-		return domain.ProductTermsReceipt{}, staleProductData()
+		return domain.ProductTermsReceipt{}, staleProductData("previewToken")
 	}
 	now := normalizeNow(s.clock())
 	prepared, err := s.prepareProductTerms(ctx, input, now)
@@ -147,7 +154,7 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 		return domain.ProductTermsReceipt{}, err
 	}
 	if stateHash == "" || stateHash != currentHash {
-		return domain.ProductTermsReceipt{}, staleProductData()
+		return domain.ProductTermsReceipt{}, staleProductData("reviewedStateHash")
 	}
 	_, after, err := s.termsDetails(ctx, prepared, now)
 	if err != nil {
@@ -159,6 +166,10 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 		return domain.ProductTermsReceipt{}, err
 	}
 	m, err := domain.NewProductTermsMutation(id, household.ID, commandJSON, receipt, now)
+	if err != nil {
+		return domain.ProductTermsReceipt{}, err
+	}
+	ctx, err = s.reconciliationCommitContext(ctx)
 	if err != nil {
 		return domain.ProductTermsReceipt{}, err
 	}
@@ -184,6 +195,9 @@ func (s *Service) PreviewProductValuationGuarded(ctx context.Context, command Pr
 		return ProductValuationPreview{}, "", err
 	}
 	command.ObservedAt = prepared.observedAt.UTC().Format(time.RFC3339Nano)
+	if err := s.validateProductReconciliationLink(ctx, command.ReconciliationLink, command.ProductID); err != nil {
+		return ProductValuationPreview{}, "", err
+	}
 	digest, err := productDataDigest(command)
 	if err != nil {
 		return ProductValuationPreview{}, "", err
@@ -205,6 +219,7 @@ func (s *Service) PreviewProductValuationGuarded(ctx context.Context, command Pr
 }
 
 func (s *Service) CommitProductValuationGuarded(ctx context.Context, command ProductValuationCommand, mutationID, stateHash, token string) (ProductValuationReceipt, error) {
+	ctx = domain.WithReconciliationLink(ctx, command.ReconciliationLink)
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return ProductValuationReceipt{}, err
@@ -244,7 +259,7 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 		return r, nil
 	}
 	if token != s.writes.previewToken() {
-		return ProductValuationReceipt{}, staleProductData()
+		return ProductValuationReceipt{}, staleProductData("previewToken")
 	}
 	if strings.TrimSpace(command.ObservedAt) == "" {
 		return ProductValuationReceipt{}, productReviewedTimeError()
@@ -259,7 +274,7 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 		return ProductValuationReceipt{}, err
 	}
 	if stateHash == "" || stateHash != currentHash {
-		return ProductValuationReceipt{}, staleProductData()
+		return ProductValuationReceipt{}, staleProductData("reviewedStateHash")
 	}
 	now = normalizeNow(now)
 	receipt := ProductValuationReceipt{OperationID: id, ProductID: command.ProductID, QuoteID: prepared.quote.ID, Amount: prepared.amount, ObservedAt: prepared.observedAt, RecordedAt: now}
@@ -278,6 +293,10 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 		return ProductValuationReceipt{}, err
 	}
 	op := domain.ProductOperation{ID: id, HouseholdID: household.ID, Kind: domain.ProductOpValueObservation, PayloadSHA256: digest, RequestVersion: domain.ProductRequestVersion, RequestJSON: string(requestJSON), ResultJSON: string(resultJSON), EffectiveAt: prepared.observedAt, CreatedAt: now}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return ProductValuationReceipt{}, err
+	}
 	if err := s.repository.CommitProductBundle(ctx, domain.ProductBundle{AsOf: now, Operation: op, Quotes: []domain.InstrumentQuote{prepared.quote}, ProductLinks: []domain.ProductOperationProduct{{OperationID: id, ProductID: command.ProductID, Role: domain.ProductRoleValued}}}); err != nil {
 		return ProductValuationReceipt{}, err
 	}

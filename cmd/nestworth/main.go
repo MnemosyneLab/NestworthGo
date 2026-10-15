@@ -46,12 +46,14 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 	wailsportfolio "github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	wailsquote "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
+	wailsreconciliation "github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 	wailsrecovery "github.com/waltwang/nestworth-go/internal/wailsapi/recovery"
 	wailssettings "github.com/waltwang/nestworth-go/internal/wailsapi/settings"
 )
 
 func init() {
 	application.RegisterEvent[bool](mcpserver.ChangedEvent)
+	application.RegisterEvent[bool](mcpserver.ReconciliationChangedEvent)
 	application.RegisterEvent[wailsmarketdata.RefreshCompletedPayload](wailsmarketdata.RefreshCompletedEvent)
 	application.RegisterEvent[wailsmarketdata.RefreshProgressPayload]("marketdata.refresh.progress")
 	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncStartedEvent)
@@ -237,6 +239,7 @@ func run() error {
 	registered = append(registered, application.NewService(wailsbackup.NewService(cloudBackup, service, recoveryUseCase, recoveryService)))
 	if service != nil {
 		agentServer = mcpserver.New(service, mcpserver.Directory(store.Path, databasePath), func() { emitter.Emit(mcpserver.ChangedEvent, true) }, sqlite.NewConfigurationRepository(database))
+		agentServer.SetReconciliationChanged(func() { emitter.Emit(mcpserver.ReconciliationChangedEvent, true) })
 		defer agentServer.Close()
 		recoveryUseCase.SetBeforeRestore(func(ctx context.Context) error {
 			// Keep replication shutdown and fence MCP without draining operations
@@ -337,6 +340,7 @@ func services(service *nestworthapp.Service, store *settings.Store, recovery *wa
 		application.NewService(wailsanalytics.NewService(service)),
 		application.NewService(wailsanalysis.NewService(service)),
 		application.NewService(wailshistory.NewService(service)),
+		application.NewService(wailsreconciliation.NewService(service)),
 		application.NewService(wailsliquidity.NewService(service)),
 		application.NewService(marketdataService),
 		application.NewService(wailssettings.NewService(store, service)),

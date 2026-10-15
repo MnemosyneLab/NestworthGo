@@ -96,6 +96,7 @@ type UndoProductCommand struct {
 }
 
 type ProductCommand struct {
+	ReconciliationLink *domain.ReconciliationLink `json:"reconciliationLink,omitempty"`
 	// ReviewedAt is server-owned, accepted only by guarded stored-plan entry points.
 	ReviewedAt      string                        `json:"reviewedAt,omitempty"`
 	Kind            domain.ProductOperationKind   `json:"kind"`
@@ -182,10 +183,11 @@ type SaveReservationInput struct {
 }
 
 type UpdateProductTermsInput struct {
-	ProductID        domain.ProductContractID `json:"productId"`
-	ExpectedRevision int                      `json:"expectedRevision"`
-	Terms            ProductTermsInput        `json:"terms"`
-	Policy           ProductPolicyInput       `json:"policy"`
+	ReconciliationLink *domain.ReconciliationLink `json:"reconciliationLink,omitempty"`
+	ProductID          domain.ProductContractID   `json:"productId"`
+	ExpectedRevision   int                        `json:"expectedRevision"`
+	Terms              ProductTermsInput          `json:"terms"`
+	Policy             ProductPolicyInput         `json:"policy"`
 }
 
 type AppendProductValuationInput struct {

@@ -164,8 +164,8 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 		}
 		op.Status = "succeeded"
 	}
-	if callErr == nil && s.changed != nil {
-		s.changed()
+	if callErr == nil {
+		s.notifyChanged(tool)
 	}
 	if err = s.writePrivate(path, op); err != nil {
 		return nil, fail("operation_outcome_unknown", "Write outcome could not be saved; inspect current data before retrying")

@@ -30,7 +30,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 				c := ledgerSession(t, fx)
 				id, _ := productDataSeed(t, fx, c, "locked_product")
 				tool := "valuation"
-				input := any(ProductValuationInput{id, "1100", ""})
+				input := any(ProductValuationInput{nil, id, "1100", ""})
 				observed := base
 				if kind == "terms" {
 					tool = "terms"
@@ -41,7 +41,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 					if kind == "valuation_explicit_offset" {
 						location = time.FixedZone("UTC+08", 8*60*60)
 					}
-					input = ProductValuationInput{id, "1100", observed.In(location).Format(time.RFC3339Nano)}
+					input = ProductValuationInput{nil, id, "1100", observed.In(location).Format(time.RFC3339Nano)}
 				}
 				p := productDataPreviewHTTP(t, c, "preview_product_"+tool, input)
 				plan := p["planId"].(string)
@@ -117,7 +117,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 				expected["replayed"] = true
 				productJSONEqual(t, productDataCommitHTTP(t, c, "commit_product_"+tool, plan, uuid.NewString()), expected)
 				// A later revision / quote must not replace the original result.
-				input = ProductValuationInput{id, "1200", ""}
+				input = ProductValuationInput{nil, id, "1200", ""}
 				if tool == "terms" {
 					in := productTermsInput(id, 2, "locked_product")
 					in.Terms.Name = "Later timestamp revision"
@@ -178,7 +178,7 @@ func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
 			fx, db, _ := newPersistentProductFixture(t, func() time.Time { return now })
 			c := ledgerSession(t, fx)
 			id, _ := productDataSeed(t, fx, c, "locked_product")
-			input := any(ProductValuationInput{id, "1100", ""})
+			input := any(ProductValuationInput{nil, id, "1100", ""})
 			if tool == "terms" {
 				input = productTermsInput(id, 1, "locked_product")
 			}
@@ -298,7 +298,7 @@ func TestProductHTTPValuationRejectsFutureSubmillisecond(t *testing.T) {
 	fx, _, _ := newPersistentProductFixture(t, func() time.Time { return now })
 	c := ledgerSession(t, fx)
 	id, _ := productDataSeed(t, fx, c, "locked_product")
-	input := ProductValuationInput{id, "1100", now.Add(time.Nanosecond).Format(time.RFC3339Nano)}
+	input := ProductValuationInput{nil, id, "1100", now.Add(time.Nanosecond).Format(time.RFC3339Nano)}
 	if code := ledgerErrorCode(t, c, "preview_product_valuation", input); code != string(domain.ErrInvalidChangeTime) {
 		t.Fatal("normalization admitted a future instant:", code)
 	}

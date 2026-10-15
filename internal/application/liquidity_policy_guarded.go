@@ -97,7 +97,7 @@ func (s *Service) CommitLiquidityPolicyGuarded(ctx context.Context, input SavePo
 	}
 	defer unlock()
 	if token != s.writes.previewToken() {
-		return domain.LiquidityPolicy{}, staleProductData()
+		return domain.LiquidityPolicy{}, staleProductData("")
 	}
 	if _, err := s.prepareOrdinaryPolicy(ctx, input, reset); err != nil {
 		return domain.LiquidityPolicy{}, err

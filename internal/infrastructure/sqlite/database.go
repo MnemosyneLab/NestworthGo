@@ -16,10 +16,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql
+//go:embed schema.sql reconciliation_schema.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 16
+const CurrentSchemaVersion = 17
 
 type BootstrapStatus string
 
@@ -88,7 +88,7 @@ type DB struct {
 }
 
 func Open(path string) (*DB, error) {
-	if isV15RecoveryCopy(path) {
+	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -111,8 +111,8 @@ func Open(path string) (*DB, error) {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
 		found, readErr := readVersion(probe)
-		if readErr == nil && found == 15 {
-			readErr = verifySchemaVersion(context.Background(), probe, 15)
+		if readErr == nil && (found == 15 || found == 16) {
+			readErr = verifySchemaVersion(context.Background(), probe, found)
 			if readErr != nil {
 				probe.Close()
 				return nil, &BootstrapError{Status: StatusIntegrityFailed, Found: found, Supported: CurrentSchemaVersion, Path: path, Err: readErr}
@@ -122,7 +122,7 @@ func Open(path string) (*DB, error) {
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion && found != 15 {
+		if found != CurrentSchemaVersion && found != 15 && found != 16 {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -151,6 +151,12 @@ func Open(path string) (*DB, error) {
 	}
 	if found == 15 && existed {
 		if err := upgradeV15(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 16
+	}
+	if found == 16 && existed {
+		if err := upgradeV16(context.Background(), database, path); err != nil {
 			return closeOnError(StatusUnavailable, found, err)
 		}
 		found = CurrentSchemaVersion
@@ -229,9 +235,22 @@ func (db *DB) WithTx(ctx context.Context, fn func(*sql.Tx) error) error {
 	if err != nil {
 		return err
 	}
+	if err := validateReconciliationLinkTx(ctx, tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	linkCount, err := reconciliationLinkCountTx(ctx, tx)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
 	if err := fn(tx); err != nil {
 		_ = tx.Rollback()
 		return mapSQLiteError(err)
+	}
+	if err := finishReconciliationLinkTx(ctx, tx, linkCount); err != nil {
+		_ = tx.Rollback()
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return mapSQLiteError(err)

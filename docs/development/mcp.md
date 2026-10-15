@@ -903,3 +903,18 @@ aliases/disclosure, activity/contribution pagination, live product-operation
 history, ledger batches/reconciliation and market imports remain their own
 contracts. Ordinary liquidity policy batching and arbitrary detail batching are
 outside this change.
+
+## Account reconciliation sessions
+
+See [the session architecture](account-reconciliation.md) and
+[the user workflow](../user/account-reconciliation.md). Session evidence reads
+are available in all permission modes; attestations require ledger_write.
+Headers and pageable account/item/attempt/change/link evidence are separate.
+All reads are bounded at 25 default/50 maximum rows and a 96 KiB response budget,
+with explicit stale_cursor/response_too_large handling. Session writes retain
+preview/commit, durable receipt-first recovery and user-provided provenance.
+Existing financial target reconciliation keeps its original meaning. Optional
+reconciliationLink on ledger target/change and managed-product previews is part
+of the immutable request hash and owning financial transaction. A correction
+never confirms a check. Maintained Skill 1.10.0 documents both routes, partial
+completion, source precision and same-operation recovery.

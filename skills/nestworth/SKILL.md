@@ -45,7 +45,7 @@ Read only the references needed for this request:
 | Income, spending, interest, cash transfers, currency exchange, borrowing/repayment | [Cash and debt](references/cash-and-debt.md) |
 | Managed deposits/locked contracts, lifecycle, terms/value edits and liquidity | [Products and liquidity](references/products.md) |
 | Upcoming product actions, opt-in investment reviews, or historical endpoint comparison | [Analysis](references/analysis.md) and [Products and liquidity](references/products.md) |
-| Reconcile balances/quantities/costs, fix a historical mistake, undo a record | [Reconciliation and corrections](references/reconciliation-and-corrections.md) |
+| Account reconciliation sessions, target adjustments, historical fix/undo | [Reconciliation and corrections](references/reconciliation-and-corrections.md) |
 | Read/import/correct/withdraw prices, fund NAV or FX | [Market data](references/market-data.md) |
 | Diagnose missing data and track a repair | [Data health](references/data-health.md) |
 | Consistent one-date financial summary and data gaps, with minimal disclosure | [Financial context](references/analysis.md#financial-context-for-an-external-assistant) |
@@ -80,6 +80,7 @@ finish every cursor, and verify versions before atomic writes.
 - Generate one new UUID per intended mutation. Retain the exact ID and input
   across retries. Resolve interruptions using [recovery.md](references/recovery.md)
   rather than submitting a fresh operation and risking duplicate records.
+- Never fabricate reconciliation evidence or infer confirmation from corrections.
 - After posting, read the affected account/holding/market data. A successful
   receipt describes execution, not today's state or complete historical data.
   Report committed changes, unresolved inputs and repair status separately.
@@ -96,7 +97,7 @@ finish every cursor, and verify versions before atomic writes.
 - “补入这只中国基金昨天公布的单位净值，再检查数据健康。”
 - “解释上个月资产为什么上涨，并列出主要收益贡献。”
 
-Use the App for setup, history starting-point changes, backups/restores, renewal
+Use the App for setup, history starting-point changes, backups/restores
 and reservation mutations. Managed lifecycle, terms and locked-product value
 facts use their respective dedicated preview/commit with ledger_write; contract/history
 and liquidity reads use [products.md](references/products.md). Investment review

@@ -1,3 +1,4 @@
+import { AccountReconciliation } from "@/features/reconciliation/AccountReconciliation";
 import { Fragment } from "react";
 import { HoldingDetailPanel } from "@/features/investments/LazyHoldingDetailPanel";
 import { useInstrumentHoldings } from "@/queries/analytics";
@@ -283,6 +284,7 @@ export function AccountDetail({
           {t("accounts.archivedReadOnly")}
         </p>
       )}
+      <AccountReconciliation accountId={record.account.id} />
       {valuation && !valuation.complete && missingReasons.length > 0 && (
         <p role="status" className="text-sm text-warning-foreground">
           {t("overview.totalsExcludeMissing")} {missingReasons.join(" · ")}

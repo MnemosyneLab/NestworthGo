@@ -72,6 +72,9 @@ func (s *Service) previewCorrection(ctx context.Context, in CorrectionInput) (an
 		if request.EffectiveAt != "" || request.EffectiveLocalDate != "" || request.EffectiveLocalTime != "" {
 			return nil, fail("validation", "fix preserves the original effective time; omit replacement timestamps")
 		}
+		if request.ReconciliationLink != nil {
+			return nil, fail("validation", "a historical replacement cannot carry reconciliationLink; use linked ledger recording or current target correction")
+		}
 		if request.Kind == "position_import" {
 			return nil, fail("validation", "position_import is not a correction replacement")
 		}

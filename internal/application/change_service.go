@@ -157,6 +157,9 @@ func (s *Service) recordChangeWithMutationChecked(ctx context.Context, command a
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
+	if domain.ReconciliationLinkFrom(ctx) != nil && key == nil {
+		return domain.ChangePreview{}, reconciliationError("mutationId", "linked writes require an immutable mutation identity")
+	}
 	if replay, err := s.replayActivityMutation(ctx, key); err != nil {
 		return domain.ChangePreview{}, err
 	} else if replay != nil {
@@ -177,6 +180,10 @@ func (s *Service) recordChangeWithMutationChecked(ctx context.Context, command a
 		if err := check(ctx); err != nil {
 			return domain.ChangePreview{}, err
 		}
+	}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
 	}
 	if err := s.rejectManagedCommand(ctx, command); err != nil {
 		return domain.ChangePreview{}, err

@@ -59,6 +59,14 @@ func (r *Repository) CommitProductTermsMutation(ctx context.Context, contract do
 		return err
 	}
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if l := domain.ReconciliationLinkFrom(ctx); l != nil {
+			if l.AccountID != contract.AccountID.String() {
+				return reconciliationConflict("reconciliationLink")
+			}
+			if err := saveReconciliationLinkTx(ctx, tx, m.ID.String(), "product_terms", m.Receipt); err != nil {
+				return err
+			}
+		}
 		if err := saveProductTermsTx(ctx, tx, contract, policy, expectedPolicyRevision); err != nil {
 			return err
 		}

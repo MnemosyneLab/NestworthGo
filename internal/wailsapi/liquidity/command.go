@@ -10,13 +10,14 @@ import (
 // ProductCommandRequest is the tagged union the frontend submits for every
 // product lifecycle action. Exactly one payload must match Kind.
 type ProductCommandRequest struct {
-	Kind            string                                    `json:"kind"`
-	Open            *application.OpenProductCommand           `json:"open,omitempty"`
-	RecordExisting  *application.RecordExistingProductCommand `json:"recordExisting,omitempty"`
-	ReceiveInterest *application.ReceiveInterestCommand       `json:"receiveInterest,omitempty"`
-	Settle          *application.SettleProductCommand         `json:"settle,omitempty"`
-	Renew           *application.RenewProductCommand          `json:"renew,omitempty"`
-	Undo            *application.UndoProductCommand           `json:"undo,omitempty"`
+	ReconciliationLink *domain.ReconciliationLink                `json:"reconciliationLink,omitempty"`
+	Kind               string                                    `json:"kind"`
+	Open               *application.OpenProductCommand           `json:"open,omitempty"`
+	RecordExisting     *application.RecordExistingProductCommand `json:"recordExisting,omitempty"`
+	ReceiveInterest    *application.ReceiveInterestCommand       `json:"receiveInterest,omitempty"`
+	Settle             *application.SettleProductCommand         `json:"settle,omitempty"`
+	Renew              *application.RenewProductCommand          `json:"renew,omitempty"`
+	Undo               *application.UndoProductCommand           `json:"undo,omitempty"`
 }
 
 func (r ProductCommandRequest) toApplication() (application.ProductCommand, error) {
@@ -24,7 +25,7 @@ func (r ProductCommandRequest) toApplication() (application.ProductCommand, erro
 	if err != nil {
 		return application.ProductCommand{}, err
 	}
-	command := application.ProductCommand{Kind: kind}
+	command := application.ProductCommand{Kind: kind, ReconciliationLink: r.ReconciliationLink}
 	filled := 0
 	switch kind {
 	case domain.ProductOpOpen:
@@ -173,10 +174,11 @@ type ReleaseReservationRequest struct {
 }
 
 type UpdateProductTermsRequest struct {
-	ProductID        string                         `json:"productId"`
-	ExpectedRevision int                            `json:"expectedRevision"`
-	Terms            application.ProductTermsInput  `json:"terms"`
-	Policy           application.ProductPolicyInput `json:"policy"`
+	ReconciliationLink *domain.ReconciliationLink     `json:"reconciliationLink,omitempty"`
+	ProductID          string                         `json:"productId"`
+	ExpectedRevision   int                            `json:"expectedRevision"`
+	Terms              application.ProductTermsInput  `json:"terms"`
+	Policy             application.ProductPolicyInput `json:"policy"`
 }
 
 type AppendProductValuationRequest struct {

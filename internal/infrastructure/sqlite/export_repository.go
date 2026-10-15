@@ -10,6 +10,10 @@ import (
 // Version 1's explicit projection is intentionally independent of schema discovery.
 // Adding a database column must never silently extend the public export contract.
 var exportQueries = []struct{ section, name, query string }{
+	{"history", "reconciliationSessions", `SELECT id, household_id AS householdId, status, revision, started_at AS startedAt, completed_at AS completedAt, note, partial FROM reconciliation_sessions ORDER BY started_at,id`},
+	{"history", "reconciliationAccounts", `SELECT session_id AS sessionId, account_id AS accountId, evidence AS reconciliationEvidence FROM reconciliation_accounts ORDER BY session_id,account_id`},
+	{"history", "reconciliationItems", `SELECT session_id AS sessionId, account_id AS accountId, id, evidence AS reconciliationEvidence FROM reconciliation_items ORDER BY session_id,account_id,id`},
+	{"history", "reconciliationLinks", `SELECT session_id AS sessionId, account_id AS accountId, item_id AS itemId, operation_id AS operationId, family, evidence AS reconciliationEvidence FROM reconciliation_links ORDER BY session_id,account_id,operation_id`},
 	{"directory", "households", `SELECT id AS id, name AS name, base_currency AS baseCurrency, created_at AS createdAt, updated_at AS updatedAt FROM households ORDER BY 1, 2, 3, 4, 5`},
 	{"directory", "members", `SELECT id AS id, household_id AS householdId, name AS name, note AS note, sort_order AS sortOrder, created_at AS createdAt, updated_at AS updatedAt, archived_at AS archivedAt FROM members ORDER BY 1, 2, 3, 4, 5, 6, 7, 8`},
 	{"directory", "institutions", `SELECT id AS id, household_id AS householdId, name AS name, institution_type AS institutionType, country_code AS countryCode, website AS website, note AS note, sort_order AS sortOrder, created_at AS createdAt, updated_at AS updatedAt, archived_at AS archivedAt FROM institutions ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11`},
@@ -141,6 +145,14 @@ func readExportRecords(ctx context.Context, tx *sql.Tx, query string) ([]domain.
 				value = string(bytes)
 			}
 			switch name {
+			case "reconciliationEvidence":
+				if value != nil {
+					var evidence any
+					if err := json.Unmarshal([]byte(value.(string)), &evidence); err != nil {
+						return nil, err
+					}
+					value = evidence
+				}
 			case "conversion":
 				if value != nil && value != "" {
 					var conversion domain.ExportConversion
@@ -152,7 +164,7 @@ func readExportRecords(ctx context.Context, tx *sql.Tx, query string) ([]domain.
 					value = nil
 				}
 
-			case "includeInNetWorth", "includeInPortfolio", "includeInLiquidAssets", "enabled", "delayed":
+			case "partial", "includeInNetWorth", "includeInPortfolio", "includeInLiquidAssets", "enabled", "delayed":
 				if value != nil {
 					value = value == int64(1)
 				}
