@@ -83,7 +83,7 @@ outside this feature.
 
 ## Upcoming actions
 
-The former seven-day reminder display is replaced by the shared read-only
-[Upcoming actions](upcoming-actions.md) summary and full-list entry. Its fixed
-normal-route D+30 reservation comparison does not change this page’s
-Today/7/30/custom or early-route estimates.
+[Upcoming actions](upcoming-actions.md) and investment review are reached from
+the sidebar or Overview. Available Funds has no reminder panel, teaser or entry. The shared
+read-only projection’s fixed normal-route D+30 reservation comparison does not
+change this page’s Today/7/30/custom or early-route estimates.

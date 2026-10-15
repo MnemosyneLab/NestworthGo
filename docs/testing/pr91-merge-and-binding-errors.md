@@ -2,7 +2,9 @@
 
 Date: 2026-10-15. Scope: PR91 (`feat/holdings-grouped-redesign`) after merging
 main `3f3d73f` (PR89 reconciliation) into PR head `1c600e1` with normal merge
-commit `713452b`. All data used here is synthetic in disposable SQLite databases
+commit `713452b`. A final pre-push fetch found main had advanced to `2de0fd6`
+(PR92's standalone actions page); that update was also merged normally without
+conflicts. All data used here is synthetic in disposable SQLite databases
 and jsdom. No user Mac, private database, provider network data, release, or PR
 merge is involved.
 
@@ -61,6 +63,13 @@ cancels two more calls while retaining the instrument's returns query. Replaceme
 reads succeed. A live native `internal` failure remains an error and succeeds on
 explicit retry. This establishes a feasible cancellation path; it does not
 reproduce a native macOS IPC session.
+
+The delegating thread also reports an independent Atlas native Linux dev-WebView
+check at the original PR head `1c600e1`: Account and Portfolio initial expansion,
+remount, instrument switching, rapid period changes and collapse rendered synthetic
+charts and seven-day returns without reproducing a binding error. That check
+was reported by Atlas, was not executed in this workspace, and does not verify
+the final merged build or a macOS session.
 
 ## What remains unknown
 
@@ -137,7 +146,22 @@ frontend deadlines while initial native compilation and multiple test processes
 shared the runner. Repeat validation bounds package/worker concurrency without
 changing budgets, assertions or application behavior. The overlapping frontend
 run was stopped after the timing failures. The complete Go repeat passed,
-including the same performance-budget tests. The frontend repeat passed all
+including the same performance-budget tests. Before the final PR92 refresh, the frontend repeat passed all
 1,316 tests across 129 files; the focused expanded-holding component run passed
 all 19 tests. Targeted race checks, binding freshness, typecheck, lint, production
 build, formatting/whitespace checks and all 53 tooling tests passed as well.
+
+After merging PR92 (`2de0fd6`), the final serial frontend run passed 1,314 tests
+and found one deterministic stale assertion in main's `src/app/navigation.test.ts`.
+That test still required Upcoming actions to be absent from the sidebar, while
+PR92 intentionally adds it. The assertion now requires the Activity ordering
+`upcoming-actions`, `history`, `reconciliation`, preserving both PR92 and PR89.
+All four navigation tests passed after this test-only correction; the other
+128 files passed in the complete serial run. No product behavior was changed
+for this correction. The refreshed typecheck, production build, affected-file
+lint, Linux Go build and `go test ./cmd/nestworth` also passed.
+
+Concurrent frontend repeats hit existing account/history/instrument interaction
+deadlines and were stopped. Limits and production behavior were not changed;
+all 61 account-page tests passed in isolation, and the subsequent serial full
+run had no timing failures. CI must run independently on the pushed head.

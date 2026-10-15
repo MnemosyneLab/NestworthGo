@@ -30,9 +30,10 @@ describe("available funds navigation", () => {
 });
 
 
-it("keeps Upcoming actions outside the sidebar and accepts existing and focused liquidity targets", () => {
+it("places Upcoming actions before History and Reconciliation and accepts existing and focused liquidity targets", () => {
   expect(targetForPage("upcoming-actions")).toEqual({ page: "upcoming-actions" });
-  expect(NAV_GROUPS.flatMap(group => group.items).some(item => item.id === "upcoming-actions")).toBe(false);
+  const activity = NAV_GROUPS.find(group => group.id === "activity");
+  expect(activity?.items.map(item => item.id)).toEqual(["upcoming-actions", "history", "reconciliation"]);
   const legacy: NavigationTarget = { page: "available-funds", productId: "synthetic", accountId: "bank" };
   const focus: NavigationTarget = { page: "available-funds", focus: { kind: "reservations", reservationId: "released" } };
   expect(legacy.productId).toBe("synthetic");

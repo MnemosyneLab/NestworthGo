@@ -25,7 +25,6 @@ import {
   sourceStateLabel,
   type SourceFilter,
 } from "@/features/liquidity/liquidityDisplay";
-import { OverviewUpcomingActionsCard } from "@/features/upcoming-actions/OverviewUpcomingActionsCard";
 import type { LiquidityFocus } from "@/app/navigation";
 import type { LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
@@ -183,7 +182,6 @@ export function AvailableFundsPage({
         }
       />
 
-      <OverviewUpcomingActionsCard context="available-funds-upcoming-actions" isActive={isActive} />
       {sources.length === 0 ? (
         <EmptyState title={t("availableFunds.emptyTitle")} description={t("availableFunds.emptyDescription")} />
       ) : (

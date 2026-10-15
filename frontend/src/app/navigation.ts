@@ -129,7 +129,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: "activity",
     translationKey: "navGroups.activity",
-    items: [{ id: "history", translationKey: "nav.history", icon: History }, { id: "reconciliation", translationKey: "nav.reconciliation", icon: GitCompareArrows }],
+    items: [{ id: "upcoming-actions", translationKey: "nav.upcomingActions", icon: Banknote }, { id: "history", translationKey: "nav.history", icon: History }, { id: "reconciliation", translationKey: "nav.reconciliation", icon: GitCompareArrows }],
   },
   {
     id: "insights",
