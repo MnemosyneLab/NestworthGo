@@ -1480,7 +1480,15 @@
       "to": "走势 B · 最后结日",
       "enable": "启用走势 · 新捕获",
       "budgetError": "本地走势输入或计算超过预算。仍可使用双期比较，不会替换为截断序列。"
-    }
+    },
+    "controls": "日期选择",
+    "modeCurrent": "日期对比当前",
+    "aboutPage": "关于此页面",
+    "aboutChange": "关于此变化",
+    "debtShort": "负债余额",
+    "noOrigin": "历史记录尚未开始",
+    "noOriginHint": "家庭历史记录开始后即可使用历史全景。",
+    "estimatedShort": "暂估"
   },
   "investmentReview": {
     "title": "投资复核",

@@ -1,5 +1,5 @@
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
-import { fullDisplayAmount } from "@/components/valuation/valuationQuality";
+import { fullDisplayAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
@@ -7,6 +7,10 @@ import { chartTheme, joinTooltipLines, useThemeVersion } from "@/components/char
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { InfoPopover } from "@/components/ui/info-popover";
+import { cn } from "@/lib/utils";
+import { CheckCircle2, TriangleAlert } from "lucide-react";
+import { SignedChange } from "./SignedChange";
 import { displayEnum } from "@/lib/display";
 import type { HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState, HistoricalSeriesPoint } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { historicalRowChange, accountChanges, alignedAllocations, allocationMode, comparableStatuses, geometry, isZero, missingAssetLeaves } from "./historicalChartModel";
@@ -22,54 +26,81 @@ function stateLabel(state: HistoricalOverviewState, side: Side, current: string)
 export function HistoricalMetricCards({ data, seriesPoints }: { data: HistoricalOverviewResult; seriesPoints?: HistoricalSeriesPoint[] | null }) {
   const { t } = useTranslation();
   const { left, right } = data;
- const change = data.estimatedChange ?? data.change;
+  const change = data.estimatedChange ?? data.change;
   const mismatch = Boolean(right && left.currency !== right.currency);
+  const estimated = (key: "netWorth" | "assets" | "liabilities") => Boolean(data.estimatedChange) || [left, right].some(state => {
+    const display = state?.displayValuation?.[key];
+    return hasDisplay(display) && display.quality.coverage !== "verified";
+  });
   return <div className="grid min-w-0 gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">
-    {(["netWorth", "assets", "liabilities"] as const).map(key => <Card key={key} className="min-w-0">
-      <CardHeader><CardTitle>{t(`overview.${key}`)}</CardTitle></CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3">
-          {(["left", "right"] as const).filter(side => side === "left" || right).map(side => {
-            const state = side === "left" ? left : right!;
-            const point = seriesPoints?.find(point => point.date === state.date);
-            const subtotalKey = key === "assets" ? "knownAssets" : "knownLiabilities";
-            const known = point ? point[subtotalKey] : state[subtotalKey];
-            return <div key={side} className="min-w-0">
-              <dt className="text-xs text-muted-foreground">{stateLabel(state, side, t("historicalOverview.current"))}</dt>
-              <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-1 overflow-x-auto text-lg font-semibold focus-visible:outline-primary">
-                <span className="num whitespace-nowrap" title={state[key] == null ? undefined : amount(state[key], state.currency) ?? undefined}>{historicalDisplayAmount(t,state.displayValuation?.[key],state[key]==null ? null : {amount:state[key],currency:state.currency},key==="netWorth")}</span>
+    {(["netWorth", "assets", "liabilities"] as const).map(key => {
+      const subtotalKey = key === "assets" ? "knownAssets" : "knownLiabilities";
+      const side = (which: Side) => {
+        const state = which === "left" ? left : right!;
+        const point = seriesPoints?.find(point => point.date === state.date);
+        const known = point ? point[subtotalKey] : state[subtotalKey];
+        return { state, known };
+      };
+      const headline = side(right ? "right" : "left");
+      const baseline = right ? side("left") : null;
+      const changeValue = change?.[key];
+      const showKnown = (which: { state: HistoricalOverviewState; known: string | null }) => fullDisplayAmount(which.state.displayValuation?.[key], which.state[key]) == null && !which.state.displayValuation && key !== "netWorth";
+      return <Card key={key} className="min-w-0">
+        <CardHeader className="flex-row items-center justify-between gap-2 p-4 pb-1">
+          <CardTitle className="text-sm text-muted-foreground">{t(`overview.${key}`)}</CardTitle>
+          {mismatch && <Badge variant="warning">{t("historicalOverview.currencyMismatch")}</Badge>}
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-1">
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{stateLabel(headline.state, right ? "right" : "left", t("historicalOverview.current"))}</dt>
+              <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-0.5 overflow-x-auto text-2xl font-bold tracking-tight focus-visible:outline-primary">
+                <span className="num whitespace-nowrap" title={headline.state[key] == null ? undefined : amount(headline.state[key], headline.state.currency) ?? undefined}>{historicalDisplayAmount(t, headline.state.displayValuation?.[key], headline.state[key] == null ? null : { amount: headline.state[key], currency: headline.state.currency }, key === "netWorth")}</span>
               </dd>
-              <ValuationQualitySummary value={state.displayValuation?.[key]} current={state.current} />
- {fullDisplayAmount(state.displayValuation?.[key],state[key]) == null && !state.displayValuation && key !== "netWorth" && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(known, state.currency) ?? t("historicalOverview.unknown")}</p>}
-            </div>;
-          })}
-          {right && <div className="min-w-0">
-            <dt className="text-xs text-muted-foreground">{data.estimatedChange ? t("valuation.estimatedChange") : t("historicalOverview.deltaBA")}</dt>
-            <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-1 overflow-x-auto text-lg font-semibold focus-visible:outline-primary">
-              <span className="num whitespace-nowrap" title={mismatch || change?.[key] == null ? undefined : amount(change[key], left.currency, true) ?? undefined}>
-                {mismatch ? t("historicalOverview.currencyMismatch") : amount(change?.[key], left.currency, true) ?? t("historicalOverview.unknown")}
-              </span>
-            </dd>
-          </div>}
-        </dl>
-        {key === "liabilities" && right && <p className="mt-2 text-xs text-muted-foreground">{t("historicalOverview.debtBalanceNote")}</p>}
-      </CardContent>
-    </Card>)}
+              <ValuationQualitySummary value={headline.state.displayValuation?.[key]} current={headline.state.current} compact />
+              {showKnown(headline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(headline.known, headline.state.currency) ?? t("historicalOverview.unknown")}</p>}
+            </div>
+            {right && !mismatch && <div className="min-w-0">
+              <dt className="sr-only">{data.estimatedChange ? t("valuation.estimatedChange") : t("historicalOverview.deltaBA")}</dt>
+              <dd tabIndex={0} className="flex items-center gap-2 overflow-x-auto text-base font-semibold focus-visible:outline-primary">
+                {changeValue == null ? <span className="text-sm font-normal text-muted-foreground">{t("historicalOverview.unknown")}</span>
+                  : <SignedChange value={changeValue} currency={left.currency} neutral={key === "liabilities"} />}
+                {changeValue != null && estimated(key) && <Badge variant="warning" title={t("valuation.estimatedChange")}>{t("historicalOverview.estimatedShort")}</Badge>}
+              </dd>
+            </div>}
+            {baseline && <div className="min-w-0 border-t border-border pt-1.5">
+              <dt className="text-xs text-muted-foreground">{stateLabel(baseline.state, "left", t("historicalOverview.current"))}</dt>
+              <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="overflow-x-auto text-sm font-medium focus-visible:outline-primary">
+                <span className="num whitespace-nowrap" title={baseline.state[key] == null ? undefined : amount(baseline.state[key], baseline.state.currency) ?? undefined}>{historicalDisplayAmount(t, baseline.state.displayValuation?.[key], baseline.state[key] == null ? null : { amount: baseline.state[key], currency: baseline.state.currency }, key === "netWorth")}</span>
+              </dd>
+              <ValuationQualitySummary value={baseline.state.displayValuation?.[key]} current={baseline.state.current} compact />
+              {showKnown(baseline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(baseline.known, baseline.state.currency) ?? t("historicalOverview.unknown")}</p>}
+            </div>}
+          </dl>
+          {key === "liabilities" && right && <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">{t("historicalOverview.debtShort")}<InfoPopover label={t("historicalOverview.aboutChange")}>{t("historicalOverview.debtBalanceNote")}</InfoPopover></p>}
+        </CardContent>
+      </Card>;
+    })}
   </div>;
 }
 
-export function HistoricalCoverage({ data, onDetails }: { data: HistoricalOverviewResult; onDetails: () => void }) {
+export function HistoricalCoverage({ data, onDetails }: { data: HistoricalOverviewResult; onDetails: (trigger: HTMLButtonElement) => void }) {
   const { t } = useTranslation();
   const sides: Side[] = data.right ? ["left", "right"] : ["left"];
-  return <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-3 text-sm">
-    <div className="flex flex-wrap gap-2">{sides.map(side => {
-      const state = data[side]!;
-      const count = missingAssetLeaves(data, side);
-      return <span key={side}>{stateLabel(state, side, t("historicalOverview.current"))}: {state.complete ? t("historicalOverview.coverageComplete") : t("historicalOverview.coveragePartial")}
-        {count > 0 && ` · ${t("historicalOverview.missingAssetLeaves", { count })}`}
-      </span>;
-    })}{data.right && data.left.currency !== data.right.currency && <Badge variant="warning">{t("historicalOverview.currencyMismatch")}</Badge>}</div>
-    <Button variant="link" onClick={onDetails}>{t("historicalOverview.viewEvidence")}</Button>
+  const complete = sides.every(side => data[side]!.complete) && !(data.right && data.left.currency !== data.right.currency);
+  return <div role="status" className={cn("flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm", complete ? "border-border bg-card text-muted-foreground" : "border-warning/40 bg-warning/12 text-warning-foreground")}>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {complete ? <CheckCircle2 className="size-4 text-success" aria-hidden="true" /> : <TriangleAlert className="size-4" aria-hidden="true" />}
+      {sides.map(side => {
+        const state = data[side]!;
+        const count = missingAssetLeaves(data, side);
+        return <span key={side}>{stateLabel(state, side, t("historicalOverview.current"))}: {state.complete ? t("historicalOverview.coverageComplete") : t("historicalOverview.coveragePartial")}
+          {count > 0 && ` · ${t("historicalOverview.missingAssetLeaves", { count })}`}
+        </span>;
+      })}
+      {data.right && data.left.currency !== data.right.currency && <Badge variant="warning">{t("historicalOverview.currencyMismatch")}</Badge>}
+    </div>
+    <Button variant={complete ? "link" : "outline"} size="sm" onClick={event => onDetails(event.currentTarget)}>{t("historicalOverview.viewEvidence")}</Button>
   </div>;
 }
 
@@ -173,7 +204,11 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     grid: { left: 12, right: 24, top: 15, bottom: 28, containLabel: true },
     xAxis: { type: "value", scale: false, axisLine: { onZero: true, lineStyle: { color: theme.border } }, axisLabel: { color: theme.muted }, splitLine: { lineStyle: { color: theme.border } } },
     yAxis: { type: "category", data: visible.map(row => row.name), inverse: true, axisLabel: { color: theme.foreground, width: 110, overflow: "truncate" } },
-    series: [{ id: "historical-account-delta", type: "bar", barMaxWidth: 23, itemStyle: { color: theme.primary }, data: visible.map(row => ({ name: row.key, value: geometry(historicalRowChange(row))! })) }],
+    series: [{ id: "historical-account-delta", type: "bar", barMaxWidth: 23, itemStyle: { color: theme.primary }, data: visible.map(row => {
+      const value = geometry(historicalRowChange(row))!;
+      // Debt balance changes are not returns, so only asset bars carry gain/loss color.
+      return { name: row.key, value, ...(role === "asset" ? { itemStyle: { color: value < 0 ? theme.gainNegative : theme.gainPositive } } : {}) };
+    }) }],
   };
   const rowView = (row: HistoricalOverviewRow) => <li key={row.key} className="min-w-0 rounded-lg border border-border p-3">
     {row.estimatedBaseChange != null && (row.left?.displayValuation?.quality?.coverage !== "verified" || row.right?.displayValuation?.quality?.coverage !== "verified") && <p className="text-xs">{t("valuation.estimatedChange")}</p>}
@@ -181,7 +216,7 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     <dl className="mt-1 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-1 text-sm">
       <div><dt className="text-xs text-muted-foreground">A</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.left ? historicalDisplayAmount(t,row.left.displayValuation,row.left.baseAmount==null ? null : {amount:row.left.baseAmount,currency:data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
       <div><dt className="text-xs text-muted-foreground">B</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.right ? historicalDisplayAmount(t,row.right.displayValuation,row.right.baseAmount==null ? null : {amount:row.right.baseAmount,currency:data.right?.currency ?? data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
-      <div><dt className="text-xs text-muted-foreground">{t("historicalOverview.deltaBA")}</dt><dd className="num overflow-x-auto whitespace-nowrap">{mismatch ? t("historicalOverview.notComparable") : amount(historicalRowChange(row), data.left.currency, true) ?? t("historicalOverview.notComparable")}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t("historicalOverview.deltaBA")}</dt><dd className="num overflow-x-auto whitespace-nowrap font-semibold">{mismatch || historicalRowChange(row) == null ? t("historicalOverview.notComparable") : <SignedChange value={historicalRowChange(row)} currency={data.left.currency} neutral={row.role === "liability"} />}</dd></div>
     </dl>
     {!row.left || !row.right ? <p className="text-xs text-muted-foreground">{t("historicalOverview.notPresent")}</p> : null}
     {row.left && row.right && row.left.included !== row.right.included && <Badge variant="warning">{t("historicalOverview.scopeChanged")}</Badge>}

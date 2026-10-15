@@ -5,7 +5,7 @@ import { hasDisplay } from "@/components/valuation/valuationQuality";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ChevronDown, ChevronRight, History } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, History, RefreshCw } from "lucide-react";
 import { useHistoryOrigin } from "@/queries/history";
 import { useHistoricalSeries } from "@/queries/historicalSeries";
 import { HistoricalTrend, type HistoricalTrendMetric } from "./HistoricalTrend";
@@ -18,7 +18,8 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
-import { NativeSelect } from "@/components/ui/select";
+import { InfoPopover } from "@/components/ui/info-popover";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { HistoricalReconciliationView } from "./HistoricalReconciliation";
@@ -28,6 +29,7 @@ import { useObjectNavigation } from "@/app/NavigationContext";
 import type { HistoricalCategoryFilter, HistoricalNavigationContext } from "@/app/navigation";
 import { displayEnum } from "@/lib/display";
 import { formatHistoricalAmount } from "./historicalAmount";
+import { SignedChange } from "./SignedChange";
 import type {
   HistoricalOverviewCell, HistoricalOverviewEvidence, HistoricalOverviewRow,
   HistoricalOverviewState,
@@ -85,7 +87,9 @@ function RowChanges({ row, currency }: { row: HistoricalOverviewRow; currency: s
   const { t } = useTranslation();
   if (!row.left || !row.right) return <span className="text-xs text-muted-foreground">{t("historicalOverview.notComparable")}</span>;
   return <div className="flex flex-col gap-1 text-right">
-    <span className="whitespace-nowrap"><Amount value={row.baseChange} currency={currency} signed /></span>
+    <span className="whitespace-nowrap font-medium">{row.baseChange == null
+      ? <Amount value={row.baseChange} currency={currency} signed />
+      : <SignedChange value={row.baseChange} currency={currency} neutral={row.role === "liability"} />}</span>
     {row.nativeChange != null && row.left.currency && row.left.currency !== currency && (
       <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={row.nativeChange} currency={row.left.currency} signed /></span>
     )}
@@ -224,6 +228,11 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   };
   const chooseDate = (value: string) => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setChosenDate(value); };
   const openDetail = (key: string, trigger: HTMLButtonElement) => { detailTrigger.current = trigger; setSelectedKey(key); };
+  const showEvidence = (trigger: HTMLButtonElement) => {
+    const incomplete = data?.rows?.find(row => [row.left, row.right].some(cell => cell && !cell.complete));
+    if (incomplete) { openDetail(incomplete.key, trigger); return; }
+    setCategoryFilter(null); setChangesOnly(false); setView("accounts");
+  };
   const toggleAccount = (key: string) => setExpanded(previous => {
     const next = new Set(previous);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -243,57 +252,68 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   } />;
   if (origin.isLoading) return <>{chrome}<LoadingState label={t("historicalOverview.loading")} /></>;
   if (origin.isError) return <>{chrome}<ErrorState title={t("historicalOverview.error")} description={t("historicalOverview.errorHint")} onRetry={() => void origin.refetch()} retryLabel={t("common.retryAction")} /></>;
-  if (!origin.data) return <>{chrome}<EmptyState title={t("insights.noOrigin")} description={t("insights.noOriginHint")} /></>;
+  if (!origin.data) return <>{chrome}<EmptyState title={t("historicalOverview.noOrigin")} description={t("historicalOverview.noOriginHint")} /></>;
   if (firstDate > lastDate) return <>{chrome}<EmptyState title={t("historicalOverview.noClosedDays")} description={t("historicalOverview.noClosedDaysHint")} /></>;
 
   return <div className="flex min-w-0 flex-col gap-4">
     {chrome}
-    <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <History className="size-4" aria-hidden="true" /><strong>{date || t("historicalOverview.date")}</strong>
-        <Badge variant="outline">{t("historicalOverview.readOnly")}</Badge><span className="text-sm">{timezone}</span>
+    <section aria-label={t("historicalOverview.controls")} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SegmentedControl size="md" label={t("historicalOverview.mode")} value={comparison} onChange={chooseComparison} options={[
+          { value: "none", label: t("historicalOverview.singleMode") },
+          { value: "date", label: t("historicalOverview.compareMode") },
+          { value: "current", label: t("historicalOverview.modeCurrent") },
+        ]} />
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <History className="size-3.5" aria-hidden="true" />
+          <Badge variant="outline">{t("historicalOverview.readOnly")}</Badge>
+          <span>{timezone}</span>
+          <InfoPopover label={t("historicalOverview.aboutPage")}>
+            <p>{t("historicalOverview.reconstructed")}</p>
+            <p className="mt-2">{t("historicalOverview.metadataNote")}</p>
+            <p className="mt-2">{t("historicalOverview.cutoffNote")}</p>
+          </InfoPopover>
+        </div>
       </div>
-      <p className="mt-2 text-sm">{t("historicalOverview.reconstructed")}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{t("historicalOverview.metadataNote")}</p>
-    </div>
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="flex gap-2 self-end" role="group" aria-label={t("historicalOverview.mode")}>
-        <Button size="sm" variant={comparison === "none" ? "default" : "outline"} aria-pressed={comparison === "none"} onClick={() => chooseComparison("none")}>{t("historicalOverview.singleMode")}</Button>
-        <Button size="sm" variant={comparison !== "none" ? "default" : "outline"} aria-pressed={comparison !== "none"} onClick={() => chooseComparison("date")}>{t("historicalOverview.compareMode")}</Button>
+      <div className="flex flex-wrap items-end gap-x-3 gap-y-3">
+        <div className="flex items-end gap-1">
+          <Button variant="outline" size="icon" aria-label={t("historicalOverview.previous")} title={t("historicalOverview.previous")} disabled={!validDate || date <= firstDate} onClick={() => chooseDate(shiftCivilDate(date, -1))}><ChevronLeft aria-hidden="true" /></Button>
+          <label className="flex min-w-0 flex-col gap-1 text-sm font-medium">
+            {comparison === "none" ? t("historicalOverview.date") : t("historicalOverview.baselineDate")}
+            <DatePicker ref={dateInput} autoFocus clearable value={date} min={firstDate} max={lastDate} aria-invalid={!validDate} aria-describedby="historical-date-range" onChange={chooseDate} />
+          </label>
+          <Button variant="outline" size="icon" aria-label={t("historicalOverview.next")} title={t("historicalOverview.next")} disabled={!validDate || date >= lastDate} onClick={() => chooseDate(shiftCivilDate(date, 1))}><ChevronRight aria-hidden="true" /></Button>
+        </div>
+        {comparison !== "none" && <ArrowRight className="mb-2.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+        {comparison === "date" && <label className="flex min-w-0 flex-col gap-1 text-sm font-medium">
+          {t("historicalOverview.comparisonDateB")}
+          <DatePicker clearable value={compareDate} min={firstDate} max={lastDate} aria-label={t("historicalOverview.compareDate")} aria-invalid={!validComparison} aria-describedby="historical-date-range" onChange={value => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setComparisonDate(value); }} />
+        </label>}
+        {comparison === "current" && <div className="flex flex-col gap-1 text-sm font-medium">
+          {t("historicalOverview.comparisonDateB")}
+          <Badge variant="secondary" className="h-9 px-3 text-sm">{t("historicalOverview.compareOptions.current")}</Badge>
+        </div>}
+        <div className="ml-auto flex items-center gap-1">
+          {comparison === "date" && <Button variant="outline" size="icon" aria-label={t("historicalOverview.swap")} title={t("historicalOverview.swap")} disabled={!validDate || !validComparison} onClick={() => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setChosenDate(compareDate); setComparisonDate(date); }}><ArrowLeftRight aria-hidden="true" /></Button>}
+          {comparison === "current" && <Button variant="outline" size="icon" aria-label={t("historicalOverview.swap")} disabled title={t("historicalOverview.swapCurrentHint")}><ArrowLeftRight aria-hidden="true" /></Button>}
+          <Button variant="outline" size="icon" aria-label={t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")} title={t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")} disabled={!validCapture || query.isFetching} onClick={() => { setSelectedKey(null); void query.refetch(); }}>
+            <RefreshCw className={query.isFetching ? "animate-spin" : undefined} aria-hidden="true" />
+          </Button>
+        </div>
       </div>
-      <label className="flex min-w-0 flex-col gap-1 text-sm">
-        {comparison === "none" ? t("historicalOverview.date") : t("historicalOverview.baselineDate")}
-        <DatePicker ref={dateInput} autoFocus clearable value={date} min={firstDate} max={lastDate} aria-invalid={!validDate} aria-describedby="historical-date-range" onChange={chooseDate} />
-      </label>
-      <Button variant="outline" disabled={!validDate || date <= firstDate} onClick={() => chooseDate(shiftCivilDate(date, -1))}>{t("historicalOverview.previous")}</Button>
-      <Button variant="outline" disabled={!validDate || date >= lastDate} onClick={() => chooseDate(shiftCivilDate(date, 1))}>{t("historicalOverview.next")}</Button>
-      <label className="flex min-w-0 flex-col gap-1 text-sm">
-        {t("historicalOverview.compare")}
-        <NativeSelect value={comparison} onChange={event => chooseComparison(event.target.value)}>
-          {["none", "current", "date"].map(value => <option key={value} value={value}>{t(`historicalOverview.compareOptions.${value}`)}</option>)}
-        </NativeSelect>
-      </label>
-      {comparison === "date" && <label className="flex min-w-0 flex-col gap-1 text-sm">
-        {t("historicalOverview.comparisonDateB")}
-        <DatePicker clearable value={compareDate} min={firstDate} max={lastDate} aria-label={t("historicalOverview.compareDate")} aria-invalid={!validComparison} aria-describedby="historical-date-range" onChange={value => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setComparisonDate(value); }} />
-      </label>}
-      {comparison === "date" && <Button variant="outline" disabled={!validDate || !validComparison} onClick={() => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setChosenDate(compareDate); setComparisonDate(date); }}>{t("historicalOverview.swap")}</Button>}
-      {comparison === "current" && <Button variant="outline" disabled title={t("historicalOverview.swapCurrentHint")}>{t("historicalOverview.swap")}</Button>}
-      <Button variant="outline" disabled={!validCapture || query.isFetching} onClick={() => { setSelectedKey(null); void query.refetch(); }}>
-        {t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")}
-      </Button>
-    </div>
-    <div className="flex flex-wrap gap-2">
-      <Button variant="ghost" size="sm" disabled={!isClosedDate(defaultDate, firstDate, lastDate) || date === defaultDate} onClick={() => chooseDate(defaultDate)}>{t("historicalOverview.lastMonth")}</Button>
-      <Button variant="ghost" size="sm" disabled={date === lastDate} onClick={() => chooseDate(lastDate)}>{t("historicalOverview.latestClosed")}</Button>
-      <Button variant="ghost" size="sm" disabled={date === firstDate} onClick={() => chooseDate(firstDate)}>{t("historicalOverview.startingPoint")}</Button>
-      {comparison !== "none" && <Button variant="ghost" size="sm" disabled={!isClosedDate(defaultDate, firstDate, lastDate)} onClick={() => { chooseDate(defaultDate); setComparisonDate(lastDate); setComparison("date"); }}>{t("historicalOverview.monthToLatest")}</Button>}
-      {comparison !== "none" && <Button variant="ghost" size="sm" onClick={() => chooseComparison("current")}>{t("historicalOverview.baselineToCurrent")}</Button>}
-    </div>
-    {comparison !== "none" && <p className="text-sm font-medium">{t("historicalOverview.baselineDate", { date })}: {date} → {t("historicalOverview.comparisonDateB")}: {comparison === "current" ? t("historicalOverview.capturedCurrent") : compareDate} · {t("historicalOverview.deltaBA")}</p>}
-    {comparison === "date" && valid && compareDate < date && <p className="text-xs text-muted-foreground">{t("historicalOverview.reverseComparison")}</p>}
-    <p id="historical-date-range" className="text-xs text-muted-foreground">{t("historicalOverview.dateRange", { first: firstDate, last: lastDate, timezone })}</p>
-    <p className="text-xs text-muted-foreground">{t("historicalOverview.cutoffNote")}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button variant="soft" size="sm" disabled={!isClosedDate(defaultDate, firstDate, lastDate) || date === defaultDate} onClick={() => chooseDate(defaultDate)}>{t("historicalOverview.lastMonth")}</Button>
+        <Button variant="soft" size="sm" disabled={date === lastDate} onClick={() => chooseDate(lastDate)}>{t("historicalOverview.latestClosed")}</Button>
+        <Button variant="soft" size="sm" disabled={date === firstDate} onClick={() => chooseDate(firstDate)}>{t("historicalOverview.startingPoint")}</Button>
+        {comparison !== "none" && <Button variant="soft" size="sm" disabled={!isClosedDate(defaultDate, firstDate, lastDate)} onClick={() => { chooseDate(defaultDate); setComparisonDate(lastDate); setComparison("date"); }}>{t("historicalOverview.monthToLatest")}</Button>}
+        {comparison !== "none" && <Button variant="soft" size="sm" onClick={() => chooseComparison("current")}>{t("historicalOverview.baselineToCurrent")}</Button>}
+      </div>
+      <p id="historical-date-range" className="text-xs text-muted-foreground">
+        {t("historicalOverview.dateRange", { first: firstDate, last: lastDate, timezone })}
+        {comparison !== "none" && <> · {t("historicalOverview.deltaBA")}</>}
+      </p>
+      {comparison === "date" && valid && compareDate < date && <p className="text-xs text-muted-foreground">{t("historicalOverview.reverseComparison")}</p>}
+    </section>
     {!validCapture ? <EmptyState title={t("historicalOverview.invalidDate")} description={t(seriesMode ? "historicalOverview.trend.rangeHint" : "historicalOverview.invalidDateHint")} />
       : query.isFetching && !data ? <div role="status" aria-live="polite" className="space-y-4" aria-label={t("historicalOverview.loading")}><div className="grid gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">{[0, 1, 2].map(index => <div key={index} className="h-36 animate-pulse rounded-xl bg-muted" />)}</div><div className="h-72 animate-pulse rounded-xl bg-muted" /></div>
       : query.isError && !data ? <ErrorState title={t("historicalOverview.error")} description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")} onRetry={() => void query.refetch()} retryLabel={t("common.retryAction")} />
@@ -304,7 +324,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
         {data.right?.current && <p className="text-xs text-muted-foreground">{t("historicalOverview.capturedCurrent")}</p>}
         <section aria-label={t("historicalOverview.totalChange")}><HistoricalMetricCards data={data} seriesPoints={series?.points} />{data.right && <p className="mt-2 text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>}</section>
         <HistoricalReconciliationView data={data} />
-        <HistoricalCoverage data={data} onDetails={() => { setCategoryFilter(null); setChangesOnly(false); setView("accounts"); }} />
+        <HistoricalCoverage data={data} onDetails={showEvidence} />
         {data.right && <>
           {data.right.date === data.left.date && !data.right.current && <p role="status" className="text-sm text-muted-foreground">{t("historicalOverview.sameDate")}</p>}
         </>}
@@ -340,13 +360,13 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
               <table className={`w-full text-sm ${data.right ? "min-w-[48rem]" : "min-w-[32rem]"}`}>
                 <caption className="sr-only">{t("historicalOverview.table")}</caption>
                 <thead className="bg-muted/60"><tr>
-                  <th scope="col" data-account-column className="sticky left-0 z-10 w-52 max-w-52 bg-card p-3 text-left">{t("historicalOverview.account")}</th>
+                  <th scope="col" data-account-column className="sticky left-0 z-10 w-60 max-w-60 bg-card p-3 text-left">{t("historicalOverview.account")}</th>
                   <th scope="col" className="p-3 text-right">{data.left.date}</th>
                   {data.right && <><th scope="col" className="p-3 text-right">{data.right.current ? t("historicalOverview.current") : data.right.date}</th><th scope="col" className="p-3 text-right">{t("historicalOverview.change")}</th></>}
                 </tr></thead>
                 <tbody>{accounts.map(account => <Fragment key={account.key}>
                   <tr className="border-t border-border bg-card">
-                    <th scope="row" data-account-column className="sticky left-0 z-10 max-w-52 bg-card p-3 text-left">
+                    <th scope="row" data-account-column className="sticky left-0 z-10 max-w-60 bg-card p-3 text-left">
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="icon" aria-label={t(expanded.has(account.key) ? "historicalOverview.collapse" : "historicalOverview.expand", { name: account.name })} aria-expanded={expanded.has(account.key)} onClick={() => toggleAccount(account.key)}>
                           {expanded.has(account.key) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
@@ -361,7 +381,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                   {expanded.has(account.key) && (childrenByParent.get(account.key) ?? []).filter(row =>
                     (!changesOnly || !data.right || row.changed) && matchesCategory(row),
                   ).map(row => <tr key={row.key} className="border-t border-border/60">
-                    <th scope="row" data-account-column className="sticky left-0 z-10 max-w-52 bg-card py-3 pl-12 pr-3 text-left font-normal">
+                    <th scope="row" data-account-column className="sticky left-0 z-10 max-w-60 bg-card py-3 pl-12 pr-3 text-left font-normal">
                       <Button variant="link" className="h-auto whitespace-normal [overflow-wrap:anywhere] p-0 text-left" onClick={event => openDetail(row.key, event.currentTarget)}>{rowLabel(row, t)}</Button>
                     </th>
                     <td className="p-3"><CellValue cell={row.left} currency={data.left.currency} /></td>

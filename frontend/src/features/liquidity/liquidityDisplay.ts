@@ -1,5 +1,5 @@
 import { displayEnum } from "@/lib/display";
-import { addCanonical, formatAmount } from "@/lib/money";
+import { addCanonical, compareCanonical, formatAmount } from "@/lib/money";
 import type {
   BucketResultDTO,
   LiquidityBucketDTO,
@@ -156,4 +156,35 @@ export function cashVersusProceeds(
 
 export function moneyText(value: MoneyView | null | undefined, unknown: string): string {
   return formatKnownOrUnknown(value, unknown);
+}
+
+export type SourceTone = "success" | "secondary" | "warning" | "outline";
+
+/** Badge tone for a source's state; presentation only. */
+export function sourceStateTone(source: LiquiditySourceDTO): SourceTone {
+  if (source.excluded) return "outline";
+  if (source.dueUnconfirmed || source.displayState === "needs_info" || source.displayState === "due_unconfirmed") return "warning";
+  if (source.displayState === "locked") return "secondary";
+  return "success";
+}
+
+export function routeIsEarly(route: { kind?: string } | null | undefined): boolean {
+  return route?.kind === "early";
+}
+
+/** True when any included source reaches this horizon only through its early-withdrawal route. */
+export function horizonUsesEarly(sources: LiquiditySourceDTO[], horizonOn: string): boolean {
+  return sources.some((source) => !source.excluded && routeIsEarly(resultForHorizon(source, horizonOn)?.selectedRoute));
+}
+
+export function sourceFilterCounts(sources: LiquiditySourceDTO[], horizonOn: string): Record<SourceFilter, number> {
+  const filters: SourceFilter[] = ["all", "available", "locked", "needs_info", "excluded"];
+  return Object.fromEntries(filters.map((filter) => [filter, sources.filter((source) => sourceMatchesFilter(source, horizonOn, filter)).length])) as Record<SourceFilter, number>;
+}
+
+/** Direction of a horizon total relative to an earlier one. Equal strings never imply a change. */
+export function compareHorizonTotals(current: MoneyView | null | undefined, previous: MoneyView | null | undefined): "up" | "down" | "flat" | null {
+  if (!current || !previous || current.currency !== previous.currency) return null;
+  const order = compareCanonical(current.amount, previous.amount);
+  return order > 0 ? "up" : order < 0 ? "down" : "flat";
 }

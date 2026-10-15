@@ -1480,7 +1480,15 @@
       "to": "Trend B · Last closed date",
       "enable": "Enable trend · New capture",
       "budgetError": "The local trend input/computation budget was exceeded. Date comparisons remain available; no partial series was substituted."
-    }
+    },
+    "controls": "Date selection",
+    "modeCurrent": "Date vs. now",
+    "aboutPage": "About this page",
+    "aboutChange": "About this change",
+    "debtShort": "Debt balance",
+    "noOrigin": "History has not started yet",
+    "noOriginHint": "Historical overview becomes available after the household history begins.",
+    "estimatedShort": "Estimated"
   },
   "investmentReview": {
     "title": "Investment review",
