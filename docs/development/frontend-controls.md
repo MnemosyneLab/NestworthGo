@@ -160,10 +160,17 @@ starts with `PricePerformancePanel`, then compact metadata and a collapsed note.
 Query keys share instrument price history/performance across rows, and
 there is no per-row polling, provider refresh or investment-review state write.
 The panel shows one large period change with its baseline-to-latest dates, a
-single 1W/1M/3M/6M/1Y/All selector (backend `InstrumentQuotePeriods`, windows
-7/30/90/180/365 days and all history), a direction-tinted `TrendChart`
-`variant="minimal"`, an info popover for explanations, a tucked-away source filter
-and an unobtrusive data table. Period changes end at the latest real valid
+single 1W/1M/3M/6M/1Y/All selector, a direction-tinted `TrendChart`
+`variant="minimal"`, an info popover for explanations and an unobtrusive data
+table. The headline and the chart come from one backend read
+(`InstrumentQuotePerformanceSeries`, windows 7/30/90/180/365 days and all
+history), so both cover the same interval, including sparse or delayed data.
+The chart is daily-only: intraday and realtime quotes are excluded before any
+selection, so there is no source filter. A separate `PerformanceReturns` section
+(backend `InstrumentQuoteReturns`) lists only the available 7/30/90/180/365-day
+returns with their real calculation dates and annualized value where applicable;
+windows without enough history are hidden and all-history is a chart period only.
+Period changes end at the latest real valid
 observation; use the nearest baseline on/before the target, actual civil days,
 and explicit dates. Insufficient history shows a dash and a short localized
 reason (details in the popover). Performance accepts comparable dated daily

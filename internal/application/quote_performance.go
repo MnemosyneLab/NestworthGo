@@ -20,10 +20,54 @@ func (s *Service) InstrumentQuotePerformance(ctx context.Context, id domain.Inst
 	return s.instrumentQuotePerformance(ctx, id, domain.QuotePerformanceWindows)
 }
 
-// InstrumentQuotePeriods projects every selector period (1W, 1M, 3M, 6M, 1Y and
-// all history) with the same evidence rules as InstrumentQuotePerformance.
-func (s *Service) InstrumentQuotePeriods(ctx context.Context, id domain.InstrumentID) (domain.QuotePerformanceReport, error) {
-	return s.instrumentQuotePerformance(ctx, id, domain.QuotePeriodWindows)
+// InstrumentQuoteReturns projects the returns section: the 7-, 30-, 90-, 180-
+// and 365-day windows with the same evidence rules as InstrumentQuotePerformance.
+// Windows without enough comparable history are omitted; all history is not one.
+func (s *Service) InstrumentQuoteReturns(ctx context.Context, id domain.InstrumentID) (domain.QuotePerformanceReport, error) {
+	return s.instrumentQuotePerformance(ctx, id, domain.QuoteReturnWindows)
+}
+
+type quoteSeriesEvidenceReader interface {
+	ReadQuotePerformanceSeriesEvidence(context.Context, domain.Instrument, string, int) ([]domain.InstrumentQuote, error)
+}
+
+// InstrumentQuotePerformanceSeries returns the daily chart and headline of one
+// selector period (windowDays 0 is all history). Both come from one evidence
+// read and one daily selection, so the chart spans the headline's own dates.
+func (s *Service) InstrumentQuotePerformanceSeries(ctx context.Context, id domain.InstrumentID, windowDays int) (domain.QuotePerformanceSeries, error) {
+	if !domain.ValidQuotePeriodWindow(windowDays) {
+		return domain.QuotePerformanceSeries{}, &domain.Error{Code: domain.ErrValidation, Field: "windowDays", Message: "unsupported performance period"}
+	}
+	empty := func(reason string) domain.QuotePerformanceSeries {
+		return domain.QuotePerformanceSeries{WindowDays: windowDays, Points: []domain.QuotePerformancePoint{}, UnavailableReason: reason}
+	}
+	household, err := s.repository.Household(ctx)
+	if err != nil {
+		return domain.QuotePerformanceSeries{}, err
+	}
+	if household == nil {
+		return empty("insufficient_daily_history"), nil
+	}
+	i, err := s.repository.Instrument(ctx, household.ID, id)
+	if err != nil {
+		return domain.QuotePerformanceSeries{}, err
+	}
+	product, err := s.repository.ProductByInstrument(ctx, id)
+	if err != nil {
+		return domain.QuotePerformanceSeries{}, err
+	}
+	if product != nil {
+		return empty("unsupported_instrument"), nil
+	}
+	reader, ok := s.repository.(quoteSeriesEvidenceReader)
+	if !ok {
+		return domain.QuotePerformanceSeries{}, &domain.Error{Code: domain.ErrUnavailable, Message: "local price history is unavailable"}
+	}
+	quotes, err := reader.ReadQuotePerformanceSeriesEvidence(ctx, i, s.clock().UTC().Format(time.DateOnly), windowDays)
+	if err != nil {
+		return domain.QuotePerformanceSeries{}, err
+	}
+	return domain.ProjectQuotePerformanceSeries(i, quotes, windowDays), nil
 }
 
 func (s *Service) instrumentQuotePerformance(ctx context.Context, id domain.InstrumentID, windows []int) (domain.QuotePerformanceReport, error) {

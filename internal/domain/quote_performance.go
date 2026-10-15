@@ -68,6 +68,20 @@ var QuotePerformanceWindows = []int{7, 30}
 // selector (1W, 1M, 3M, 6M, 1Y and All). Zero is the whole comparable history.
 var QuotePeriodWindows = []int{7, 30, 90, 180, 365, 0}
 
+// QuoteReturnWindows are the fixed lookbacks of the returns section. All
+// history is a chart period only and is never listed as a return.
+var QuoteReturnWindows = []int{7, 30, 90, 180, 365}
+
+// ValidQuotePeriodWindow reports whether days is a selector period.
+func ValidQuotePeriodWindow(days int) bool {
+	for _, window := range QuotePeriodWindows {
+		if window == days {
+			return true
+		}
+	}
+	return false
+}
+
 type quotePerformanceKind int
 
 const (
@@ -122,16 +136,7 @@ func ProjectQuotePerformanceWindows(i Instrument, quotes []InstrumentQuote, wind
 	if !supported {
 		return result
 	}
-	valid := []InstrumentQuote{}
-	for _, q := range quotes {
-		if _, err := time.Parse(time.DateOnly, q.EffectiveDate); err != nil {
-			continue
-		}
-		if q.ObservationKind == "close" {
-			valid = append(valid, q)
-		}
-	}
-	points := reviewDailyQuotes(valid)
+	points := dailyPerformanceQuotes(quotes)
 	if len(points) < 2 {
 		return result
 	}
@@ -195,4 +200,108 @@ func performanceTimestamp(t InstrumentType, basis string) bool {
 func splitFactorOne(text string) bool {
 	value, err := decimal.NewFromString(text)
 	return err == nil && value.Equal(decimal.NewFromInt(1))
+}
+
+// dailyPerformanceQuotes is the single daily selection rule behind every
+// performance figure and the performance chart: dated daily closes only, with
+// one observation per civil date chosen by source rank. Intraday and realtime
+// facts never enter, so they cannot be aggregated or downsampled into a day.
+func dailyPerformanceQuotes(quotes []InstrumentQuote) []InstrumentQuote {
+	valid := make([]InstrumentQuote, 0, len(quotes))
+	for _, q := range quotes {
+		if _, err := time.Parse(time.DateOnly, q.EffectiveDate); err != nil {
+			continue
+		}
+		if q.ObservationKind == "close" {
+			valid = append(valid, q)
+		}
+	}
+	return reviewDailyQuotes(valid)
+}
+
+// QuotePerformancePoint is one daily observation of the performance chart.
+// BreakBefore marks a genuine price-basis discontinuity: the line must not be
+// drawn between this point and the previous one.
+type QuotePerformancePoint struct {
+	Currency        CurrencyCode
+	ObservationKind string
+	EffectiveDate   string
+	PriceBasis      string
+	TimestampBasis  string
+	QuotedAt        time.Time
+	Value           string
+	SourceKind      QuoteSourceKind
+	SourceKey       string
+	Delayed         bool
+	BreakBefore     bool
+}
+
+// QuotePerformanceSeries is the chart and headline of one selected period. From
+// and To are the dates the headline is calculated between, so the chart always
+// covers exactly the interval of the figure, whatever the data density.
+type QuotePerformanceSeries struct {
+	WindowDays        int
+	From              string
+	To                string
+	Item              *QuotePerformance
+	UnavailableReason string
+	Points            []QuotePerformancePoint
+}
+
+// ProjectQuotePerformanceSeries selects daily points with the same rules as the
+// performance figures. The interval starts at the nearest observation on or
+// before the lookback target (or at the first observation inside it when none
+// exists) and ends at the latest daily observation, never at today.
+func ProjectQuotePerformanceSeries(i Instrument, quotes []InstrumentQuote, window int) QuotePerformanceSeries {
+	result := QuotePerformanceSeries{WindowDays: window, Points: []QuotePerformancePoint{}}
+	mode, supported := quotePerformanceMode(i.Type)
+	if !supported {
+		result.UnavailableReason = "unsupported_instrument"
+		return result
+	}
+	points := dailyPerformanceQuotes(quotes)
+	if len(points) == 0 {
+		result.UnavailableReason = "insufficient_daily_history"
+		return result
+	}
+	latest := points[len(points)-1]
+	start, covered := 0, true
+	if window > 0 {
+		anchor, _ := time.Parse(time.DateOnly, latest.EffectiveDate)
+		target := anchor.AddDate(0, 0, -window).Format(time.DateOnly)
+		base := sort.Search(len(points), func(n int) bool { return points[n].EffectiveDate > target }) - 1
+		start, covered = max(base, 0), base >= 0
+	}
+	if items := ProjectQuotePerformanceWindows(i, quotes, []int{window}); len(items) > 0 {
+		result.Item = &items[0]
+	}
+	switch {
+	case result.Item != nil:
+	case len(points) < 2 || !covered:
+		result.UnavailableReason = "insufficient_daily_history"
+	default:
+		result.UnavailableReason = "incomparable_daily_prices"
+	}
+	selected := points[start:]
+	result.From, result.To = selected[0].EffectiveDate, latest.EffectiveDate
+	for n, q := range selected {
+		point := QuotePerformancePoint{
+			Currency: q.Currency, ObservationKind: q.ObservationKind, EffectiveDate: q.EffectiveDate,
+			PriceBasis: q.PriceBasis, TimestampBasis: q.TimestampBasis, QuotedAt: q.QuotedAt,
+			Value: q.UnitPrice.Canonical(), SourceKind: q.SourceKind, SourceKey: q.SourceKey, Delayed: q.Delayed,
+		}
+		point.BreakBefore = n > 0 && !sameDailyPriceUnit(i.Type, mode, selected[n-1].PriceBasis, q.PriceBasis)
+		result.Points = append(result.Points, point)
+	}
+	return result
+}
+
+// sameDailyPriceUnit reports whether two daily price bases measure one unit.
+// Identical bases always do; different raw-close bases do when the performance
+// rules accept both, while NAV only ever compares the Agent unit-NAV basis.
+func sameDailyPriceUnit(t InstrumentType, mode quotePerformanceKind, previous, current string) bool {
+	if previous == current {
+		return true
+	}
+	return mode == quotePerformancePrice && performancePriceBasis(t, previous) && performancePriceBasis(t, current)
 }

@@ -1624,9 +1624,7 @@
     },
     "annualized": "年化 {{percent}}",
     "info": "關於此數字",
-    "infoBody": "所選區間內每日收盤價或單位淨值的漲跌幅。不含日內報價，不含股息，也未依公司行動調整，因此並非個人持倉報酬。年化數字僅基於歷史，並非預期或保證報酬。",
-    "source": "資料來源",
-    "sourceActive": "資料來源：{{source}}",
+    "infoBody": "所示日期之間每日收盤價或單位淨值的漲跌幅。不含日內報價，不含股息，也未依公司行動調整，因此並非個人持倉報酬。年化數字僅基於歷史，並非預期或保證報酬。",
     "reason": {
       "insufficient_daily_history": "此區間歷史資料不足",
       "incomparable_daily_prices": "此區間價格無法比較",
@@ -1640,7 +1638,12 @@
     "loading": "正在載入價格歷史",
     "empty": "尚無價格歷史",
     "emptyHint": "記錄或同步價格後會顯示在這裡。",
-    "emptyRange": "此區間沒有價格紀錄",
-    "chartLabel": "{{name}} 的價格歷史"
+    "chartLabel": "{{name}} 的價格歷史",
+    "returns": {
+      "label": "各區間報酬",
+      "title": "報酬",
+      "window": "{{count}}天",
+      "loadError": "無法載入報酬"
+    }
   }
 }

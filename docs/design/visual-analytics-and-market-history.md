@@ -247,9 +247,21 @@ fill-forward facts or total-return claims are introduced. If no metric
 qualifies, a short localized reason is shown (insufficient daily history,
 incomparable prices or unsupported instrument type) with detail in an info
 popover. The read-only Wails `InstrumentQuotePerformance` (7/30 days) and
-`InstrumentQuotePeriods` (all period windows) responses are reports containing
-items and an optional unavailableReason; consumers render localized reasons,
-not raw tokens.
+`InstrumentQuoteReturns` (the fixed 7/30/90/180/365-day windows) responses are
+reports containing items and an optional unavailableReason; consumers render
+localized reasons, not raw tokens.
+
+The holding chart is daily-only and shares the figures' evidence. The read-only
+`InstrumentQuotePerformanceSeries(instrumentId, windowDays)` returns the headline
+item and the dated daily points that produced it from one selection
+(`dailyPerformanceQuotes`, the same rules as the figures: dated `close` facts,
+one per civil date, Agent over manual over provider). Intraday and realtime
+quotes are excluded before any aggregation or downsampling. The window anchors to
+the latest daily point, so the chart and headline cover the same
+baseline-to-latest interval even with sparse or delayed data. Genuine
+price-basis discontinuities are flagged (`breakBefore`) so the chart does not
+draw a line across them. Market Data's raw quote history is a separate path and
+is unchanged. The returns section never includes all-history metrics.
 
 Every instrument type that stores daily price or NAV history supports the
 panel: stock, ETF and bond (raw close), mutual fund and bank wealth product (unit

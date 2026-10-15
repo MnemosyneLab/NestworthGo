@@ -1624,9 +1624,7 @@
     },
     "annualized": "年化 {{percent}}",
     "info": "关于此数字",
-    "infoBody": "所选区间内每日收盘价或单位净值的涨跌幅。不含日内报价，不含分红，也未按公司行为复权，因此并非个人持仓收益。年化数字仅基于历史，并非预期或保证收益。",
-    "source": "数据来源",
-    "sourceActive": "数据来源：{{source}}",
+    "infoBody": "所示日期之间每日收盘价或单位净值的涨跌幅。不含日内报价，不含分红，也未按公司行为复权，因此并非个人持仓收益。年化数字仅基于历史，并非预期或保证收益。",
     "reason": {
       "insufficient_daily_history": "此区间历史数据不足",
       "incomparable_daily_prices": "此区间价格无法比较",
@@ -1640,7 +1638,12 @@
     "loading": "正在加载价格历史",
     "empty": "暂无价格历史",
     "emptyHint": "记录或同步价格后会显示在这里。",
-    "emptyRange": "此区间没有价格记录",
-    "chartLabel": "{{name}} 的价格历史"
+    "chartLabel": "{{name}} 的价格历史",
+    "returns": {
+      "label": "各区间收益",
+      "title": "收益",
+      "window": "{{count}}天",
+      "loadError": "无法加载收益"
+    }
   }
 }

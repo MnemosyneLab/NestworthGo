@@ -157,6 +157,10 @@ export function TrendChart({
   }
 
   const minimal = variant === "minimal";
+  // ECharts reports `seriesIndex` against the flattened segment list, never the
+  // caller's series array, so every segment keeps a pointer to its owner.
+  const segments = series.flatMap((item, itemIndex) => trendQualitySegments(item).map((segment, segmentIndex) => ({ item, itemIndex, segment, segmentIndex })));
+  const owner = (seriesIndex: number | undefined, seriesName?: string) => segments[seriesIndex ?? -1]?.item ?? series.find((entry) => entry.name === seriesName) ?? series[0];
   const stamps = dates.map(trendChartTimestamp).filter(Number.isFinite);
   const longSpan = stamps.length > 1 && Math.max(...stamps) - Math.min(...stamps) > 330 * 86_400_000;
   const option: EChartsOption = {
@@ -182,15 +186,15 @@ export function TrendChart({
         const items = Array.isArray(params) ? params : [params];
         const date = formatTrendChartDate((items[0] as { axisValue?: string | number }).axisValue ?? "", i18n.language);
         if (minimal) {
-          const point = items[0] as { dataIndex?: number; seriesIndex?: number; data?: { originalIndex?: number } };
-          const seriesItem = series[point.seriesIndex ?? 0];
+          const point = items[0] as { seriesName?: string; dataIndex?: number; seriesIndex?: number; data?: { originalIndex?: number } };
+          const seriesItem = owner(point.seriesIndex, point.seriesName);
           const index = point.data?.originalIndex ?? point.dataIndex ?? -1;
           const meta = seriesItem?.pointMeta?.[index];
           return joinTooltipLines([date, formatValue(seriesItem?.values[index]), meta?.delayed ? t("charts.delayed") : null]);
         }
         const lines = items.flatMap((item) => {
           const point = item as { seriesName?: string; dataIndex?: number; seriesIndex?: number; data?: { originalIndex?: number } };
- const seriesItem = series.find(entry => entry.name === point.seriesName) ?? series[point.seriesIndex ?? 0];
+ const seriesItem = owner(point.seriesIndex, point.seriesName);
  const index = point.data?.originalIndex ?? point.dataIndex ?? -1;
  const raw = seriesItem?.values[index];
  const meta = seriesItem?.pointMeta?.[index];
@@ -223,7 +227,7 @@ export function TrendChart({
       axisLabel: { color: theme.muted, ...(minimal ? { fontSize: 11 } : {}), ...(axisValueFormatter ? { formatter: axisValueFormatter } : {}) },
       splitLine: { lineStyle: minimal ? { color: theme.border, opacity: 0.5, type: "dashed" as const } : { color: theme.border } },
     },
-    series: series.flatMap((item) => trendQualitySegments(item).map((segment, segmentIndex) => {
+    series: segments.map(({ item, segment, segmentIndex }) => {
       const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed || meta?.provisional);
       return {
         type: "line" as const,
@@ -248,13 +252,15 @@ export function TrendChart({
           areaStyle: { color: resolveSeriesColor(item.color), opacity: 0.1 },
         },
         connectNulls: false,
-        showSymbol: minimal ? dates.length < 2 : dates.length < 24 || showSourceMarks,
+        // An isolated observation has no line to draw, so its segment always
+        // keeps the marker regardless of how many dates the chart has overall.
+        showSymbol: segment.indices.length === 1 || (!minimal && (dates.length < 24 || showSourceMarks)),
         ...(minimal ? { symbolSize: 7, smooth: 0.15 } : {}),
         lineStyle: { color: resolveSeriesColor(item.color), width: 2.5, type: segment.provisional ? "dashed" as const : "solid" as const },
         ...(series.length === 1 ? { areaStyle: { color: resolveSeriesColor(item.color), opacity: minimal ? 0.14 : 0.1 } } : {}),
         itemStyle: { color: resolveSeriesColor(item.color) },
       };
-    })),
+    }),
   };
 
   const columns = extraTableColumns ?? [t("charts.date"), ...series.map((item) => item.name)];

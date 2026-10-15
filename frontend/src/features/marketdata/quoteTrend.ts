@@ -3,7 +3,11 @@ import type { TrendChartProps } from "@/components/charts/TrendChart";
 import { quoteObservationLabel, quoteSourceLabel } from "@/lib/quoteEvidencePresentation";
 import { formatAmount, formatQuotePrice } from "@/lib/money";
 import { formatQuoteAsOf } from "@/lib/time";
-import type { QuoteSeriesDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote/models";
+import type { QuoteSeriesPointDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote/models";
+
+/** A stored observation; the holding performance read model adds an explicit discontinuity flag. */
+export type QuoteTrendPoint = QuoteSeriesPointDTO & { breakBefore?: boolean };
+export type QuoteTrendSeries = { points: QuoteTrendPoint[] | null; observations: QuoteTrendPoint[] | null };
 
 /**
  * Maps one local quote series to TrendChart props. Both the market-data sheet
@@ -11,8 +15,10 @@ import type { QuoteSeriesDTO } from "../../../bindings/github.com/waltwang/nestw
  * and currency handling cannot drift apart.
  */
 export function quoteTrendProps(input: {
-  series: QuoteSeriesDTO | undefined;
+  series: QuoteTrendSeries | undefined;
   kind: "instrument" | "fx";
+  /** Daily-only series: plot each point on its civil effective date, the date the figures use. */
+  daily?: boolean;
   /** Instrument quote currency; undefined for FX rates. */
   currency?: string;
   priceSuffix?: string;
@@ -21,21 +27,21 @@ export function quoteTrendProps(input: {
   language: string;
   t: TFunction;
 }): Pick<TrendChartProps, "dates" | "series" | "currency" | "valueFormatter" | "extraTableColumns" | "extraTableRows"> {
-  const { series, kind, currency, priceSuffix = "", color, timezone, language, t } = input;
+  const { series, kind, daily = false, currency, priceSuffix = "", color, timezone, language, t } = input;
   const points = series?.points ?? [];
   const observations = series?.observations ?? [];
   const label = kind === "fx" ? t("charts.rate") : t("charts.price");
   const sourceLabel = (sourceKind: string, key?: string) => quoteSourceLabel(t, sourceKind, key);
   const observationLabel = (point: Parameters<typeof quoteObservationLabel>[1]) => quoteObservationLabel(t, point);
   return {
-    dates: points.map((point) => point.timestampBasis === "date_label" && point.effectiveDate ? point.effectiveDate : point.quotedAt),
+    dates: points.map((point) => (daily || point.timestampBasis === "date_label") && point.effectiveDate ? point.effectiveDate : point.quotedAt),
     series: [{
       key: "value",
       name: label,
       color,
       values: points.map((point) => currency && point.currency && point.currency !== currency ? null : point.value),
       pointMeta: points.map((point, index) => ({
-        breakBefore: index > 0 && points[index - 1].priceBasis !== point.priceBasis,
+        breakBefore: point.breakBefore ?? (index > 0 && points[index - 1].priceBasis !== point.priceBasis),
         sourceLabel: sourceLabel(point.sourceKind, point.sourceKey),
         delayed: point.delayed,
         observationLabel: observationLabel(point),

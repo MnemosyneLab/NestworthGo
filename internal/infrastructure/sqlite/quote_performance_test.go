@@ -210,3 +210,52 @@ func TestQuotePerformanceEvidenceReadsPeriodBaselines(t *testing.T) {
 		t.Fatalf("all-history precious metal change %+v", got)
 	}
 }
+
+// A chart period without a baseline on or before its target still reads every
+// daily close inside it, while the figures' own read stays limited to the latest.
+func TestQuotePerformanceSeriesEvidenceReadsUncoveredPeriod(t *testing.T) {
+	database, repository, _, _, i := seedPortfolioRepository(t)
+	i.ID = domain.NewInstrumentID()
+	i.Name = "Synthetic stock"
+	i.Type = domain.InstrumentStock
+	i.QuoteSource = domain.QuoteSourceAgent
+	if err := repository.CreateInstrument(t.Context(), i); err != nil {
+		t.Fatal(err)
+	}
+	insert := func(date, price, kind string) {
+		at, _ := time.Parse(time.DateOnly, date)
+		unit, _ := domain.ParseUnitPrice(price)
+		q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: i.ID, UnitPrice: unit, Currency: i.QuoteCurrency, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: at, EffectiveDate: date, ObservationKind: kind, PriceBasis: "agent_raw_close_v1", TimestampBasis: "date_label", Revision: 1, BindingRevision: i.ProviderBindingRevision}
+		if err := database.WithTx(t.Context(), func(tx *sql.Tx) error { return insertAgentInstrumentQuoteTx(t.Context(), tx, i.HouseholdID, q, "") }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	insert("2026-10-02", "10", "close")
+	insert("2026-10-09", "11", "close")
+	insert("2026-10-14", "12", "close")
+	insert("2026-10-14", "99", "realtime")
+	figures, err := repository.ReadQuotePerformanceEvidenceWindows(t.Context(), i, "2026-10-19", []int{90})
+	if err != nil || len(figures) != 1 {
+		t.Fatalf("figures read %d %v", len(figures), err)
+	}
+	quotes, err := repository.ReadQuotePerformanceSeriesEvidence(t.Context(), i, "2026-10-19", 90)
+	if err != nil || len(quotes) != 3 || quotes[0].EffectiveDate != "2026-10-02" {
+		t.Fatalf("series read %+v %v", quotes, err)
+	}
+	for _, q := range quotes {
+		if q.ObservationKind != "close" {
+			t.Fatalf("non-daily fact read: %+v", q)
+		}
+	}
+	got := domain.ProjectQuotePerformanceSeries(i, quotes, 90)
+	if got.Item != nil || got.UnavailableReason != "insufficient_daily_history" || len(got.Points) != 3 {
+		t.Fatalf("series %+v", got)
+	}
+	week, err := repository.ReadQuotePerformanceSeriesEvidence(t.Context(), i, "2026-10-19", 7)
+	if err != nil || len(week) != 3 {
+		t.Fatalf("week read %+v %v", week, err)
+	}
+	if projected := domain.ProjectQuotePerformanceSeries(i, week, 7); projected.Item == nil || projected.From != "2026-10-02" || projected.To != "2026-10-14" {
+		t.Fatalf("week series %+v", projected)
+	}
+}

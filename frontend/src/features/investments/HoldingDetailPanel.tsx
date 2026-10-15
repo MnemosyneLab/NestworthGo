@@ -6,6 +6,7 @@ import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useInstruments } from "@/queries/investments";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { displayEnum } from "@/lib/display";
+import { PerformanceReturns } from "./PerformanceReturns";
 import { PricePerformancePanel } from "./PricePerformancePanel";
 
 type Props = {
@@ -39,6 +40,7 @@ export function HoldingDetailPanel({ instrumentId, scope }: Props) {
       <h3 id={headingId} className="sr-only">{instrument ? instrumentDisplayLabel(instrument) : t("portfolio.unknownInstrument")} · {scope}</h3>
       {instrument?.managedProductId && navigation && <Button type="button" variant="outline" className="self-start" onClick={() => navigation.open({ page: "available-funds", productId: instrument.managedProductId })}>{t("availableFunds.openPage")}</Button>}
       {instrument && !instrument.managedProductId && <PricePerformancePanel instrument={instrument} />}
+      {instrument && !instrument.managedProductId && <PerformanceReturns instrumentId={instrument.id} />}
       {instruments.isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {instruments.isError ? (
         <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void instruments.refetch()} retryLabel={t("common.retryAction")} />

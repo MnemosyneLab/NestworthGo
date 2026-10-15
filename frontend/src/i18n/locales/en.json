@@ -1624,9 +1624,7 @@
     },
     "annualized": "{{percent}} annualized",
     "info": "About this figure",
-    "infoBody": "Change in the daily closing price or unit NAV over the period. Intraday quotes are excluded, dividends are not included and corporate actions are not adjusted, so this is not your holding return. Annualized figures are historical, not an expected or guaranteed yield.",
-    "source": "Data source",
-    "sourceActive": "Data source: {{source}}",
+    "infoBody": "Change in the daily closing price or unit NAV between the dates shown. Intraday quotes are excluded, dividends are not included and corporate actions are not adjusted, so this is not your holding return. Annualized figures are historical, not an expected or guaranteed yield.",
     "reason": {
       "insufficient_daily_history": "Not enough history for this period",
       "incomparable_daily_prices": "Prices can’t be compared here",
@@ -1640,7 +1638,12 @@
     "loading": "Loading price history",
     "empty": "No price history yet",
     "emptyHint": "Prices appear here once they are recorded or synced.",
-    "emptyRange": "No prices in this period",
-    "chartLabel": "Price history for {{name}}"
+    "chartLabel": "Price history for {{name}}",
+    "returns": {
+      "label": "Returns by period",
+      "title": "Returns",
+      "window": "{{count}}-day",
+      "loadError": "Couldn’t load returns"
+    }
   }
 }

@@ -17,6 +17,17 @@ func (r *Repository) ReadQuotePerformanceEvidence(ctx context.Context, i domain.
 // ReadQuotePerformanceEvidenceWindows is ReadQuotePerformanceEvidence for an
 // explicit set of lookback windows. A window of zero reads the whole history.
 func (r *Repository) ReadQuotePerformanceEvidenceWindows(ctx context.Context, i domain.Instrument, today string, windows []int) ([]domain.InstrumentQuote, error) {
+	return r.readQuotePerformanceEvidence(ctx, i, today, windows, false)
+}
+
+// ReadQuotePerformanceSeriesEvidence reads the daily evidence of one chart
+// period. Unlike the figures, a period without a baseline on or before its
+// target still reads every observation inside it, so the chart can show them.
+func (r *Repository) ReadQuotePerformanceSeriesEvidence(ctx context.Context, i domain.Instrument, today string, window int) ([]domain.InstrumentQuote, error) {
+	return r.readQuotePerformanceEvidence(ctx, i, today, []int{window}, true)
+}
+
+func (r *Repository) readQuotePerformanceEvidence(ctx context.Context, i domain.Instrument, today string, windows []int, includeUncovered bool) ([]domain.InstrumentQuote, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err
@@ -51,6 +62,10 @@ func (r *Repository) ReadQuotePerformanceEvidenceWindows(ctx context.Context, i 
 		}
 		if base.Valid && base.String < earliest {
 			earliest = base.String
+		} else if !base.Valid && includeUncovered && days > 0 {
+			if target := end.AddDate(0, 0, -days).Format(time.DateOnly); target < earliest {
+				earliest = target
+			}
 		}
 	}
 	where += " AND q.effective_date>=?"

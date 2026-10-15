@@ -180,15 +180,64 @@ func (s *Service) ListFXPreferences(ctx context.Context) ([]wire.FXPreferenceDTO
 	return wire.FromFXPreferences(preferences), nil
 }
 
-// InstrumentQuotePeriods is the read-only descriptive change for every history
-// selector period (1W, 1M, 3M, 6M, 1Y; windowDays 0 is all history).
-func (s *Service) InstrumentQuotePeriods(ctx context.Context, instrumentID string) (domain.QuotePerformanceReport, error) {
+// InstrumentQuoteReturns is the read-only descriptive change for the 7-, 30-,
+// 90-, 180- and 365-day windows. Windows without enough history are omitted.
+func (s *Service) InstrumentQuoteReturns(ctx context.Context, instrumentID string) (domain.QuotePerformanceReport, error) {
 	id, err := domain.ParseInstrumentID(instrumentID)
 	if err != nil {
 		return domain.QuotePerformanceReport{}, apierror.Wrap(err)
 	}
-	result, err := s.app.InstrumentQuotePeriods(ctx, id)
+	result, err := s.app.InstrumentQuoteReturns(ctx, id)
 	return result, apierror.Wrap(err)
+}
+
+// PerformancePointDTO is one daily observation of the performance chart.
+// BreakBefore marks a price-basis discontinuity the chart must not bridge.
+type PerformancePointDTO struct {
+	Currency        string `json:"currency,omitempty"`
+	ObservationKind string `json:"observationKind,omitempty"`
+	EffectiveDate   string `json:"effectiveDate,omitempty"`
+	PriceBasis      string `json:"priceBasis,omitempty"`
+	TimestampBasis  string `json:"timestampBasis,omitempty"`
+	QuotedAt        string `json:"quotedAt"`
+	Value           string `json:"value"`
+	SourceKind      string `json:"sourceKind"`
+	SourceKey       string `json:"sourceKey"`
+	Delayed         bool   `json:"delayed"`
+	BreakBefore     bool   `json:"breakBefore"`
+}
+
+// PerformanceSeriesDTO carries the headline and the daily chart of one period.
+// From and To are the dates the headline is calculated between.
+type PerformanceSeriesDTO struct {
+	WindowDays        int                      `json:"windowDays"`
+	From              string                   `json:"from,omitempty"`
+	To                string                   `json:"to,omitempty"`
+	Item              *domain.QuotePerformance `json:"item,omitempty"`
+	UnavailableReason string                   `json:"unavailableReason,omitempty"`
+	Points            []PerformancePointDTO    `json:"points"`
+}
+
+// InstrumentQuotePerformanceSeries is the daily-only chart and headline of one
+// selector period (windowDays 0 is all history). Market Data history is not changed.
+func (s *Service) InstrumentQuotePerformanceSeries(ctx context.Context, instrumentID string, windowDays int) (PerformanceSeriesDTO, error) {
+	id, err := domain.ParseInstrumentID(instrumentID)
+	if err != nil {
+		return PerformanceSeriesDTO{}, apierror.Wrap(err)
+	}
+	result, err := s.app.InstrumentQuotePerformanceSeries(ctx, id, windowDays)
+	if err != nil {
+		return PerformanceSeriesDTO{}, apierror.Wrap(err)
+	}
+	points := make([]PerformancePointDTO, 0, len(result.Points))
+	for _, point := range result.Points {
+		points = append(points, PerformancePointDTO{
+			Currency: point.Currency.String(), ObservationKind: point.ObservationKind, EffectiveDate: point.EffectiveDate,
+			PriceBasis: point.PriceBasis, TimestampBasis: point.TimestampBasis, QuotedAt: wire.FormatTime(point.QuotedAt),
+			Value: point.Value, SourceKind: string(point.SourceKind), SourceKey: point.SourceKey, Delayed: point.Delayed, BreakBefore: point.BreakBefore,
+		})
+	}
+	return PerformanceSeriesDTO{WindowDays: result.WindowDays, From: result.From, To: result.To, Item: result.Item, UnavailableReason: result.UnavailableReason, Points: points}, nil
 }
 
 // InstrumentQuotePerformance is a read-only descriptive price history projection.

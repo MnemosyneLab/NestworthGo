@@ -6,24 +6,30 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { HoldingGroupsList } from "./HoldingGroupsList";
 import { useHoldingGroupStore } from "@/stores/holdings";
 import type { InstrumentHoldingGroupDTO, InstrumentHoldingsDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics/models";
-const api=vi.hoisted(()=>({history:vi.fn(),periods:vi.fn(),instruments:vi.fn()}));
+const api=vi.hoisted(()=>({series:vi.fn(),returns:vi.fn(),instruments:vi.fn()}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument",()=>({Service:{ListInstruments:api.instruments}}));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote",()=>({Service:{InstrumentQuoteSeries:api.history,InstrumentQuotePeriods:api.periods}}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote",()=>({Service:{InstrumentQuotePerformanceSeries:api.series,InstrumentQuoteReturns:api.returns}}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history",()=>({Service:{HistoryOrigin:()=>Promise.resolve(null)}}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings",()=>({Service:{Load:()=>Promise.resolve({timezone:"UTC"})}}));
 const amounts={quantity:"2",totalCost:{amount:"100.00012",currency:"USD"},currentValue:{amount:"110",currency:"USD"},unrealizedGain:{amount:"10",currency:"USD"}};
 const group={instrumentId:"i",type:"mutual_fund",name:"Synthetic fund",symbol:"SYN",quoteCurrency:"USD",quantityUnit:"",archived:false,amounts,holdings:[{holdingId:"h1",accountId:"a",accountName:"Account A",amounts},{holdingId:"h2",accountId:"b",accountName:"Account B",amounts:{...amounts,totalCost:{amount:"90",currency:"USD"}}}]} as InstrumentHoldingsDTO;
 const groups=(item=group,key="fund"):InstrumentHoldingGroupDTO[]=>[{key,instruments:[item],subtotals:[]}];
 const item=(windowDays:number,periodPercent:string,extra:Record<string,string>={})=>({windowDays,baselineOn:"2026-10-05",latestOn:"2026-10-14",elapsedDays:9,periodPercent,...extra});
-const point={quotedAt:"2026-10-14T00:00:00Z",effectiveDate:"2026-10-14",timestampBasis:"date_label",value:"1.5",currency:"USD",sourceKind:"agent",sourceKey:"",priceBasis:"unit_nav",observationKind:"daily_close",delayed:false};
+const point={quotedAt:"2026-10-14T00:00:00Z",effectiveDate:"2026-10-14",timestampBasis:"date_label",value:"1.5",currency:"USD",sourceKind:"agent",sourceKey:"",priceBasis:"unit_nav",observationKind:"close",delayed:false,breakBefore:false};
+const earlier={...point,quotedAt:"2026-10-05T00:00:00Z",effectiveDate:"2026-10-05",value:"1.4"};
+const seriesAnswer=(windowDays:number,extra:Record<string,unknown>={})=>{
+ const found=defaultItems.find(entry=>entry.windowDays===windowDays);
+ return {windowDays,from:"2026-10-05",to:"2026-10-14",item:found??null,unavailableReason:found?"":"insufficient_daily_history",points:[earlier,point],...extra};
+};
+const defaultItems=[item(7,"33.3333333333333333333333"),item(30,"-4.5"),item(365,"12")];
 // Compile the real detail/chart module before timing UI interactions. Rendering
 // still goes through HoldingGroupsList -> React.lazy -> Suspense, and loading
 // code alone must never initiate a service query.
 beforeAll(async () => {
  await import("./HoldingDetailPanel");
  expect(api.instruments).not.toHaveBeenCalled();
- expect(api.history).not.toHaveBeenCalled();
- expect(api.periods).not.toHaveBeenCalled();
+ expect(api.series).not.toHaveBeenCalled();
+ expect(api.returns).not.toHaveBeenCalled();
 });
 const clients: ReturnType<typeof createTestQueryClient>[] = [];
 afterEach(() => {
@@ -31,8 +37,8 @@ afterEach(() => {
 });
 beforeEach(()=>{
  useHoldingGroupStore.getState().reset();
- api.history.mockReset().mockResolvedValue({points:[point],observations:[point],outsideRange:false});
- api.periods.mockReset().mockResolvedValue({items:[item(7,"33.3333333333333333333333"),item(30,"-4.5"),item(365,"12")]});
+ api.series.mockReset().mockImplementation((_id:string,days:number)=>Promise.resolve(seriesAnswer(days)));
+ api.returns.mockReset().mockResolvedValue({items:defaultItems});
  api.instruments.mockReset().mockResolvedValue([{id:"i",name:"Synthetic fund",type:"mutual_fund",quoteCurrency:"USD",countryCode:"US",symbol:"SYN",quoteSource:"agent"}]);
 });
 const mount=(props:Partial<React.ComponentProps<typeof HoldingGroupsList>>={},retry:number|false=1)=>{
@@ -47,26 +53,27 @@ const open=async(name="Show details for Synthetic fund")=>{
  return screen.findByRole("region",{name:/Synthetic fund|SYN/});
 };
 
-it("loads only expanded active details, shares history across accounts, and reuses cache after collapse",async()=>{
+it("loads only expanded active details, shares performance across accounts, and reuses cache after collapse",async()=>{
  const {rerender}=mount();
- expect(api.instruments).not.toHaveBeenCalled();expect(api.history).not.toHaveBeenCalled();expect(api.periods).not.toHaveBeenCalled();
+ expect(api.instruments).not.toHaveBeenCalled();expect(api.series).not.toHaveBeenCalled();expect(api.returns).not.toHaveBeenCalled();
  await userEvent.click(screen.getByRole("button",{name:"Account details"}));
  const buttons=screen.getAllByRole("button",{name:"Show details for Synthetic fund"});
  await userEvent.click(buttons[0]);
  expect(buttons[0]).toHaveAttribute("aria-expanded", "true");
  await act(() => vi.dynamicImportSettled());
  await waitFor(() => expect(api.instruments).toHaveBeenCalledWith(true));
- await waitFor(() => expect(api.periods).toHaveBeenCalledWith("i"));
- await screen.findByText("Oct 5 – 14, 2026");
- await userEvent.click(buttons[1]);await waitFor(()=>expect(screen.getAllByText("Oct 5 – 14, 2026")).toHaveLength(2));
- expect(api.history).toHaveBeenCalledTimes(1);expect(api.periods).toHaveBeenCalledTimes(1);expect(api.instruments).toHaveBeenCalledTimes(1);
- await userEvent.click(buttons[0]);await userEvent.click(buttons[0]);expect(api.history).toHaveBeenCalledTimes(1);
+ await waitFor(() => expect(api.returns).toHaveBeenCalledWith("i"));
+ await waitFor(() => expect(api.series).toHaveBeenCalledWith("i",30));
+ await screen.findAllByText("Oct 5 – 14, 2026");
+ await userEvent.click(buttons[1]);await waitFor(()=>expect(screen.getAllByRole("region",{name:"Price performance"})).toHaveLength(2));
+ expect(api.series).toHaveBeenCalledTimes(1);expect(api.returns).toHaveBeenCalledTimes(1);expect(api.instruments).toHaveBeenCalledTimes(1);
+ await userEvent.click(buttons[0]);await userEvent.click(buttons[0]);expect(api.series).toHaveBeenCalledTimes(1);
  rerender({active:false});
  expect(screen.queryByRole("region",{name:"Price performance"})).not.toBeInTheDocument();
- expect(api.history).toHaveBeenCalledTimes(1);
+ expect(api.series).toHaveBeenCalledTimes(1);
 });
 
-it("shows the selected period as a large signed headline with a quiet date range and no wordy labels",async()=>{
+it("shows the selected period as a large signed headline with the calculation dates and no wordy labels",async()=>{
  mount();
  const detail=within(await open());
  const performance=await detail.findByRole("region",{name:"Price performance"});
@@ -76,26 +83,33 @@ it("shows the selected period as a large signed headline with a quiet date range
  expect(scoped.getByText("-4.50%")).toBeInTheDocument();
  expect(scoped.getByText("Down")).toHaveClass("sr-only");
  expect(performance.querySelector("svg.lucide-arrow-down-right")).not.toBeNull();
- for(const wordy of ["7-day target","Price / NAV change","Historical price / NAV performance","Simple annualized NAV change","Daily close"]) expect(performance).not.toHaveTextContent(wordy);
+ for(const wordy of ["7-day target","Price / NAV change","Historical price / NAV performance","Simple annualized NAV change"]) expect(performance).not.toHaveTextContent(wordy);
  await userEvent.click(scoped.getByRole("button",{name:"1W"}));
  expect(await scoped.findByText("+33.33%")).toBeInTheDocument();
  expect(scoped.getByText("Up")).toHaveClass("sr-only");
  expect(performance.querySelector("svg.lucide-arrow-up-right")).not.toBeNull();
  expect(scoped.getByRole("button",{name:"1W"})).toHaveAttribute("aria-pressed","true");
  expect(scoped.getAllByRole("button").filter(button=>button.hasAttribute("aria-pressed")).map(button=>button.textContent)).toEqual(["1W","1M","3M","6M","1Y","All"]);
- await waitFor(()=>expect(api.history).toHaveBeenLastCalledWith("i",expect.stringMatching(/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/),"all"));
+ await waitFor(()=>expect(api.series).toHaveBeenLastCalledWith("i",7));
  await userEvent.click(scoped.getByRole("button",{name:"All"}));
- await waitFor(()=>expect(api.history).toHaveBeenLastCalledWith("i","all","all"));
+ await waitFor(()=>expect(api.series).toHaveBeenLastCalledWith("i",0));
 });
 
-it("tucks the source filter behind a secondary control and forwards the choice to the chart",async()=>{
+it("takes the headline and the chart from one daily response so both cover the same interval",async()=>{
+ api.series.mockResolvedValue(seriesAnswer(30,{item:item(30,"7.14",{baselineOn:"2026-10-05",latestOn:"2026-10-14"}),points:[earlier,point]}));
  mount();
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
- expect(performance.queryByRole("button",{name:"Provider"})).not.toBeInTheDocument();
- await userEvent.click(performance.getByRole("button",{name:"Data source"}));
- await userEvent.click(await screen.findByRole("button",{name:"Provider"}));
- await waitFor(()=>expect(api.history).toHaveBeenLastCalledWith("i",expect.any(String),"provider"));
- expect(await performance.findByRole("button",{name:"Data source: Provider"})).toBeInTheDocument();
+ expect(await performance.findByText("Oct 5 – 14, 2026")).toBeInTheDocument();
+ // The accessible data table lists the same daily points the headline interval spans.
+ const rows=within(await performance.findByRole("table")).getAllByRole("row").slice(1);
+ expect(rows.map(row=>within(row).getAllByRole("cell")[3].textContent)).toEqual(["2026-10-14","2026-10-05"]);
+});
+
+it("has no source filter because the chart only shows eligible daily closes",async()=>{
+ mount();
+ const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
+ await performance.findByText("Oct 5 – 14, 2026");
+ expect(performance.queryByRole("button",{name:/Data source/})).not.toBeInTheDocument();
 });
 
 it("keeps the explanation in an info popover and the data table unobtrusive",async()=>{
@@ -103,15 +117,17 @@ it("keeps the explanation in an info popover and the data table unobtrusive",asy
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
  expect(performance.queryByText(/not your holding return|Intraday quotes are excluded/)).not.toBeInTheDocument();
  await userEvent.click(performance.getByRole("button",{name:"About this figure"}));
- expect(await screen.findByText(/not your holding return|so this is not your holding return/)).toBeInTheDocument();
+ expect(await screen.findByText(/not your holding return/)).toBeInTheDocument();
  const summary=await performance.findByText("View data table");
  expect(summary).toHaveClass("text-xs");
 });
 
 it("shows a dash with a short reason when the period has no comparable evidence, while keeping the chart",async()=>{
- api.periods.mockResolvedValue({items:[item(7,"1")]});
  mount();
- const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
+ await userEvent.click(screen.getByRole("button",{name:"Show details for Synthetic fund"}));
+ await act(() => vi.dynamicImportSettled());
+ const performance=within(await screen.findByRole("region",{name:"Price performance"}));
+ await userEvent.click(await performance.findByRole("button",{name:"3M"}));
  expect(await performance.findByText("Not enough history for this period")).toBeInTheDocument();
  expect(performance.queryByText(/%/)).not.toBeInTheDocument();
  expect(await performance.findByText("View data table")).toBeInTheDocument();
@@ -123,7 +139,7 @@ it.each([
  ["insufficient_daily_history","Not enough history for this period","start of this period"],
  ["unknown_internal_reason","Not enough history for this period","start of this period"],
 ])("explains %s briefly and never leaks the internal code",async(reason,short,detail)=>{
- api.periods.mockResolvedValue({items:[],unavailableReason:reason});
+ api.series.mockResolvedValue(seriesAnswer(30,{item:null,unavailableReason:reason}));
  mount();
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
  expect(await performance.findByText(short)).toBeInTheDocument();
@@ -135,25 +151,64 @@ it.each([
 it("shows precious-metal performance like any other priced instrument, with the per-unit price suffix",async()=>{
  const gold={...group,instrumentId:"au",type:"precious_metal",name:"Gold",symbol:"XAU",quantityUnit:"g",quoteCurrency:"CNY"};
  api.instruments.mockResolvedValue([{id:"au",name:"Gold",type:"precious_metal",quoteCurrency:"CNY",symbol:"XAU",quantityUnit:"g",metalTemplate:"gold",quoteSource:"yahoo"}]);
- api.periods.mockResolvedValue({items:[item(30,"6.25")]});
+ api.series.mockResolvedValue(seriesAnswer(30,{item:item(30,"6.25")}));
  mount({groups:groups(gold,"precious_metal")});
  await userEvent.click(screen.getByRole("button",{name:"Show details for Gold"}));
  await act(() => vi.dynamicImportSettled());
  const performance=within(await screen.findByRole("region",{name:"Price performance"}));
  expect(await performance.findByText("+6.25%")).toBeInTheDocument();
- expect(api.periods).toHaveBeenCalledWith("au");
+ expect(api.series).toHaveBeenCalledWith("au",30);
+ expect(api.returns).toHaveBeenCalledWith("au");
  await userEvent.click(performance.getByRole("button",{name:"About this figure"}));
  expect(await screen.findByText(/Futures reference valuation/)).toBeInTheDocument();
 });
 
-it("shows annualized change only as a small secondary figure",async()=>{
- api.periods.mockResolvedValue({items:[item(30,"0",{annualizedPercent:"0"})]});
+it("lists available fixed-window returns in a separate section with their real dates and hides the rest",async()=>{
+ api.returns.mockResolvedValue({items:[item(7,"1.5",{baselineOn:"2026-10-07",latestOn:"2026-10-14"}),item(90,"-2",{baselineOn:"2026-07-16",latestOn:"2026-10-14"}),item(365,"12",{baselineOn:"2025-10-14",latestOn:"2026-10-14"})]});
+ mount();
+ const detail=within(await open());
+ const returns=within(await detail.findByRole("region",{name:"Returns by period"}));
+ const entries=returns.getAllByRole("listitem");
+ expect(entries.map(entry=>within(entry).getByText(/-day$/).textContent)).toEqual(["7-day","90-day","365-day"]);
+ expect(entries[0]).toHaveTextContent("+1.50%");
+ expect(entries[0]).toHaveTextContent("Oct 7 – 14, 2026");
+ expect(entries[1]).toHaveTextContent("-2.00%");
+ expect(entries[1]).toHaveTextContent("Jul 16 – Oct 14, 2026");
+ expect(returns.queryByText("30-day")).not.toBeInTheDocument();
+ expect(returns.queryByText("180-day")).not.toBeInTheDocument();
+ expect(returns.queryByText(/All|all history/i)).not.toBeInTheDocument();
+ // It is a sibling section, not part of the chart panel.
+ expect(within(await detail.findByRole("region",{name:"Price performance"})).queryByText("365-day")).not.toBeInTheDocument();
+});
+
+it("never shows an all-history window in the returns section, even if one slips through",async()=>{
+ api.returns.mockResolvedValue({items:[item(0,"50"),item(30,"3")]});
+ mount();
+ const returns=within(await within(await open()).findByRole("region",{name:"Returns by period"}));
+ expect(returns.getAllByRole("listitem")).toHaveLength(1);
+ expect(returns.queryByText("+50.00%")).not.toBeInTheDocument();
+});
+
+it("hides the returns section without sufficient history",async()=>{
+ api.returns.mockResolvedValue({items:[],unavailableReason:"insufficient_daily_history"});
+ mount();
+ const detail=within(await open());
+ await detail.findByRole("region",{name:"Price performance"});
+ await waitFor(()=>expect(api.returns).toHaveBeenCalled());
+ expect(detail.queryByRole("region",{name:"Returns by period"})).not.toBeInTheDocument();
+});
+
+it("shows annualized change only for the window that has one, as a small secondary figure in the returns section",async()=>{
+ api.returns.mockResolvedValue({items:[item(30,"0",{annualizedPercent:"0"}),item(90,"1")]});
  api.instruments.mockResolvedValue([{id:"i",name:"Synthetic fund",type:"bank_investment_product",quoteCurrency:"USD",countryCode:"US",symbol:"SYN",note:"Long synthetic note ".repeat(50)}]);
  mount();
  const detail=within(await open());
+ const returns=within(await detail.findByRole("region",{name:"Returns by period"}));
+ expect(await returns.findByText("0.00% annualized")).toBeInTheDocument();
+ expect(returns.getAllByText(/annualized/)).toHaveLength(1);
+ expect(returns.getByText("Unchanged")).toHaveClass("sr-only");
  const performance=within(await detail.findByRole("region",{name:"Price performance"}));
- expect(await performance.findByText("· 0.00% annualized")).toBeInTheDocument();
- expect(performance.getByText("Unchanged")).toHaveClass("sr-only");
+ expect(performance.queryByText(/annualized/)).not.toBeInTheDocument();
  const region=screen.getByRole("region",{name:/SYN · All included accounts/});
  // The row already shows cost, value and gain, so the panel starts with performance and ends with facts.
  const content=region.textContent!;
@@ -166,27 +221,17 @@ it("shows annualized change only as a small secondary figure",async()=>{
  expect(notes).toHaveAttribute("open");
 });
 
-it("offers a friendly empty state when no prices are stored and a way out when only other periods have data",async()=>{
- api.history.mockResolvedValueOnce({points:[],observations:[],outsideRange:false});
+it("offers a friendly empty state when no daily prices are stored",async()=>{
+ api.series.mockResolvedValue(seriesAnswer(30,{item:null,points:[]}));
  mount();
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
  expect(await performance.findByText("No price history yet")).toBeInTheDocument();
  expect(performance.getByText("Prices appear here once they are recorded or synced.")).toBeInTheDocument();
 });
 
-it("lets the household widen the range when prices exist only outside the period",async()=>{
- api.history.mockImplementation((_id:string,range:string)=>Promise.resolve(range==="all"?{points:[point],observations:[point],outsideRange:false}:{points:[],observations:[],outsideRange:true}));
- mount();
- const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
- expect(await performance.findByText("No prices in this period")).toBeInTheDocument();
- await userEvent.click(performance.getByRole("button",{name:"Show all history"}));
- expect(await performance.findByText("View data table")).toBeInTheDocument();
- expect(performance.getByRole("button",{name:"All"})).toHaveAttribute("aria-pressed","true");
-});
-
-it("shows the loading skeleton until the chart data arrives, then a retryable error",async()=>{
+it("shows the loading skeleton until the performance arrives, then a retryable error",async()=>{
  let reject!:(error:Error)=>void;
- api.history.mockImplementationOnce(()=>new Promise((_,fail)=>{reject=fail;}));
+ api.series.mockImplementationOnce(()=>new Promise((_,fail)=>{reject=fail;}));
  mount({},false);
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
  expect(performance.getByRole("status")).toHaveTextContent("Loading price history");

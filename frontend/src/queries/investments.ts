@@ -191,11 +191,20 @@ export function useQuotePerformance(instrumentId: string) {
   });
 }
 
-/** Period changes (1W to All) for one instrument; the backend owns every figure. */
-export function useQuotePeriods(instrumentId: string, enabled = true) {
+/** The 7-, 30-, 90-, 180- and 365-day returns of one instrument; the backend owns every figure. */
+export function useQuoteReturns(instrumentId: string, enabled = true) {
   return useQuery({
-    queryKey: [...queryKeys.quote.instrument.current(instrumentId), "periods"],
-    queryFn: ({ signal }) => callCancellableService(signal, () => QuoteService.InstrumentQuotePeriods(instrumentId)),
+    queryKey: [...queryKeys.quote.instrument.current(instrumentId), "returns"],
+    queryFn: ({ signal }) => callCancellableService(signal, () => QuoteService.InstrumentQuoteReturns(instrumentId)),
+    enabled: enabled && Boolean(instrumentId), staleTime: 60_000,
+  });
+}
+
+/** Daily-only chart and headline of one period (windowDays 0 is all history), from one backend read. */
+export function usePerformanceSeries(instrumentId: string, windowDays: number, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.quote.instrument.current(instrumentId), "performance-series", windowDays],
+    queryFn: ({ signal }) => callCancellableService(signal, () => QuoteService.InstrumentQuotePerformanceSeries(instrumentId, windowDays)),
     enabled: enabled && Boolean(instrumentId), staleTime: 60_000,
   });
 }

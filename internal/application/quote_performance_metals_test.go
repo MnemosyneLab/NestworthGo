@@ -52,20 +52,60 @@ func TestPreciousMetalSyncedHistoryHasPeriodPerformance(t *testing.T) {
 	if len(requested) == 0 {
 		t.Fatal("metal history was never requested")
 	}
-	report, err := service.InstrumentQuotePeriods(ctx, metal.ID)
+	report, err := service.InstrumentQuoteReturns(ctx, metal.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.UnavailableReason != "" || len(report.Items) == 0 {
-		t.Fatalf("precious metal performance unavailable: %+v (requested %+v)", report, requested)
+	// The fixture only syncs a few days, shorter than the 7-day window, so the
+	// returns are hidden for insufficient history; the type must still be supported.
+	if report.UnavailableReason == "unsupported_instrument" {
+		t.Fatalf("precious metal performance unsupported: %+v (requested %+v)", report, requested)
 	}
-	all := report.Items[len(report.Items)-1]
-	if all.WindowDays != 0 || all.ElapsedDays < 1 || all.PeriodPercent == "" || all.PeriodPercent == "0" {
-		t.Fatalf("all-history change %+v", all)
+	for _, item := range report.Items {
+		if item.WindowDays == 0 || item.ElapsedDays < 1 || item.PeriodPercent == "" || item.PeriodPercent == "0" {
+			t.Fatalf("return %+v", item)
+		}
+	}
+	// All history is a chart period only; it still has a headline and a daily chart.
+	all, err := service.InstrumentQuotePerformanceSeries(ctx, metal.ID, 0)
+	if err != nil || all.Item == nil || all.Item.WindowDays != 0 || len(all.Points) < 2 || all.From != all.Item.BaselineOn || all.To != all.Item.LatestOn {
+		t.Fatalf("all-history series %+v %v", all, err)
+	}
+	if _, err := service.InstrumentQuotePerformanceSeries(ctx, metal.ID, 45); err == nil {
+		t.Fatal("an unsupported period was accepted")
 	}
 	// The series the chart reads is independent of the performance projection.
 	series, err := service.InstrumentQuoteSeries(ctx, metal.ID, domain.TrendAllTime, domain.QuoteSourceFilterAll)
 	if err != nil || len(series.Points) < 2 {
 		t.Fatalf("metal chart series %+v %v", series, err)
+	}
+}
+
+// Market Data history keeps every observation, including non-daily manual
+// quotes, while the holding performance chart only reads eligible daily closes.
+func TestPerformanceSeriesLeavesMarketDataHistoryUnchanged(t *testing.T) {
+	t.Parallel()
+	service, _, _, _ := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
+	ctx := context.Background()
+	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Manual stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, price := range []string{"10", "11"} {
+		if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, price, "", false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	market, err := service.InstrumentQuoteSeries(ctx, stock.ID, domain.TrendAllTime, domain.QuoteSourceFilterAll)
+	if err != nil || len(market.Observations) != 2 {
+		t.Fatalf("market data history changed: %+v %v", market, err)
+	}
+	performance, err := service.InstrumentQuotePerformanceSeries(ctx, stock.ID, 0)
+	if err != nil || len(performance.Points) != 0 || performance.Item != nil || performance.UnavailableReason != "insufficient_daily_history" {
+		t.Fatalf("non-daily quotes reached the performance chart: %+v %v", performance, err)
+	}
+	managed, err := service.InstrumentQuoteReturns(ctx, stock.ID)
+	if err != nil || len(managed.Items) != 0 {
+		t.Fatalf("returns %+v %v", managed, err)
 	}
 }
