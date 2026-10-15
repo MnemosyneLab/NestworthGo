@@ -1673,6 +1673,11 @@
     "newPrincipal": "新本金",
     "openingFee": "开户费用",
     "addProduct": "记录遗漏的托管产品",
-    "reviewedBefore": "变更前已审阅值"
+    "reviewedBefore": "变更前已审阅值",
+    "productState": {
+      "open": "存续中",
+      "settled": "已结清",
+      "cancelled": "已取消"
+    }
   }
 }

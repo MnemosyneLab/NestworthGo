@@ -161,6 +161,11 @@ func TestReconciliationLinkedCorrectionAtomicReceiptAndExplicitRecheck(t *testin
 	link := &domain.ReconciliationLink{SessionID: v.ID, AccountID: aid, ItemID: "balance", ExpectedRevision: v.Revision, FinancialRevision: v.Accounts[0].FinancialRevision}
 	id, _ := domain.ParseAccountID(aid)
 	target, _ := domain.ParseMoney("120", domain.CurrencyCode("USD"))
+	household, _ := s.requireHousehold(ctx)
+	if _, err := s.RecordChange(domain.WithReconciliationLink(ctx, link), domain.MoneyAddedInput{HouseholdID: household.ID, AccountID: id, Amount: target, Reason: domain.ReasonReconciliation, EffectiveAt: s.clock()}); err == nil {
+		t.Fatal("linked write without mutation identity accepted")
+	}
+
 	var commands []any
 	var err error
 	previews, token, err := s.PreviewChangesGuardedWith(ctx, func(ctx context.Context) ([]any, error) {
@@ -384,6 +389,10 @@ func TestReconciliationDatabaseReopenAndCompletedEvidenceVerification(t *testing
 	t.Cleanup(func() { reopened.Close() })
 	next := NewService(sqlite.NewRepository(reopened))
 	next.SetClock(s.clock)
+	headers, err := next.ListReconciliationSessions(ctx)
+	if err != nil || len(headers) != 1 || len(headers[0].AccountIDs) != 1 || headers[0].AccountIDs[0] != aid || headers[0].AccountNames[0] != "Synthetic bank" {
+		t.Fatalf("persisted scope header: %+v %v", headers, err)
+	}
 	current, err := next.GetReconciliationSession(ctx, v.ID)
 	if err != nil || current.Status != "paused" {
 		t.Fatalf("persisted pause: %+v %v", current, err)
@@ -393,6 +402,9 @@ func TestReconciliationDatabaseReopenAndCompletedEvidenceVerification(t *testing
 		current = recAction(t, next, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: current.Revision, AccountID: aid, ItemID: item.ID, FinancialRevision: current.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic reopened statement", AsOfDate: "2026-09-01"}})
 	}
 	current = recAction(t, next, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: current.Revision})
+	if current.Accounts[0].LastSuccessfulAt != current.CompletedAt {
+		t.Fatal("completed account did not advance its successful time")
+	}
 	if err := reopened.Verify(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -407,5 +419,32 @@ func TestReconciliationDatabaseReopenAndCompletedEvidenceVerification(t *testing
 	last, err := NewService(sqlite.NewRepository(finalDB)).ReconciliationLastSuccess(ctx, aid)
 	if err != nil || last == nil || last.ID != current.ID || last.CompletedAt != current.CompletedAt {
 		t.Fatalf("immutable success after reopen: %+v %v", last, err)
+	}
+}
+
+func TestReconciliationCompletionOrderingPreservesFractionalSeconds(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	ctx := context.Background()
+	now := s.clock()
+	s.SetClock(func() time.Time { return now })
+	var ids []string
+	for i := 0; i < 2; i++ {
+		if i == 1 {
+			now = now.Add(100 * time.Millisecond)
+		}
+		v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+		ids = append(ids, v.ID)
+		for _, item := range v.Accounts[0].Items {
+			v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: item.ID, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic precise statement", AsOfDate: "2026-09-01"}})
+		}
+		recAction(t, s, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: v.Revision})
+	}
+	rows, err := s.ListReconciliationSessions(ctx)
+	if err != nil || rows[0].ID != ids[1] {
+		t.Fatalf("start ordering: %+v %v", rows, err)
+	}
+	last, err := s.ReconciliationLastSuccess(ctx, aid)
+	if err != nil || last == nil || last.ID != ids[1] {
+		t.Fatalf("completion ordering: %+v %v", last, err)
 	}
 }

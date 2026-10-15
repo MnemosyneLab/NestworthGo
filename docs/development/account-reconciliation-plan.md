@@ -2,8 +2,11 @@
 
 ## Status and execution contract
 
-**Planning only. Implementation has not been delivered.** The owner stopped
-implementation and will assign development to another agent. Exploratory,
+**Approved plan; implementation is now progressing in the same PR #89.**
+See [the implementation contract](account-reconciliation.md) for delivered
+behavior and the PR for exact commits and validation. The original planning
+handoff below is retained as the approved scope. The owner stopped the earlier
+planning task and reassigned implementation. Exploratory,
 uncommitted implementation edits were removed; this branch changes only this
 plan. All proposed names and schemas below are design decisions for subsequent
 implementation, not existing APIs or passing acceptance claims.

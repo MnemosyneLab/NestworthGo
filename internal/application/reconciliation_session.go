@@ -353,6 +353,7 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 			}
 			if prior != nil {
 				a.LastSuccessfulAt = prior.CompletedAt
+				a.PriorSuccessfulAt = prior.CompletedAt
 				for _, pa := range prior.Accounts {
 					if pa.AccountID == id {
 						a.PriorRevision = pa.FinancialRevision
@@ -455,6 +456,11 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 			session.CompletedAt = plan.At
 			session.Partial = partial
 			session.Note = in.Note
+			for i := range session.Accounts {
+				if session.Accounts[i].Outcome == "confirmed" {
+					session.Accounts[i].LastSuccessfulAt = plan.At
+				}
+			}
 		default:
 			return session, nil, reconciliationError("action", "unsupported reconciliation action")
 		}
@@ -516,7 +522,14 @@ func (s *Service) reconciliationLastSuccess(ctx context.Context, household, acco
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(sessions, func(i, j int) bool { return sessions[i].CompletedAt > sessions[j].CompletedAt })
+	sort.Slice(sessions, func(i, j int) bool {
+		a, _ := time.Parse(time.RFC3339Nano, sessions[i].CompletedAt)
+		b, _ := time.Parse(time.RFC3339Nano, sessions[j].CompletedAt)
+		if a.Equal(b) {
+			return sessions[i].ID > sessions[j].ID
+		}
+		return a.After(b)
+	})
 	for _, header := range sessions {
 		if header.Status != "completed" {
 			continue

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"sort"
+	"time"
 )
 
 func reconciliationConflict(field string) error {
@@ -84,7 +86,7 @@ func (r *Repository) ReconciliationSession(ctx context.Context, household, id st
 	return s, rows.Err()
 }
 func (r *Repository) ReconciliationSessions(ctx context.Context, household string) ([]domain.ReconciliationSession, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, "SELECT id,household_id,status,revision,started_at,COALESCE(completed_at,''),note,partial, (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.pending')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.confirmed')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.skipped')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.unresolved')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id) FROM reconciliation_sessions WHERE household_id=? ORDER BY started_at DESC,id DESC", household)
+	rows, err := r.database.SQL.QueryContext(ctx, "SELECT id,household_id,status,revision,started_at,COALESCE(completed_at,''),note,partial, (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.pending')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.confirmed')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.skipped')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.unresolved')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT json_group_array(account_id) FROM (SELECT account_id FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id ORDER BY account_id)), (SELECT json_group_array(json_extract(evidence,'$.name')) FROM (SELECT evidence FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id ORDER BY account_id)) FROM reconciliation_sessions WHERE household_id=? ORDER BY started_at DESC,id DESC", household)
 	if err != nil {
 		return nil, err
 	}
@@ -92,12 +94,41 @@ func (r *Repository) ReconciliationSessions(ctx context.Context, household strin
 	result := []domain.ReconciliationSession{}
 	for rows.Next() {
 		var s domain.ReconciliationSession
-		if err := rows.Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &s.CompletedAt, &s.Note, &s.Partial, &s.Counts.Pending, &s.Counts.Confirmed, &s.Counts.Skipped, &s.Counts.Unresolved); err != nil {
+		var ids, names string
+		if err := rows.Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &s.CompletedAt, &s.Note, &s.Partial, &s.Counts.Pending, &s.Counts.Confirmed, &s.Counts.Skipped, &s.Counts.Unresolved, &ids, &names); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(ids), &s.AccountIDs); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(names), &s.AccountNames); err != nil {
 			return nil, err
 		}
 		result = append(result, s)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	started := map[string]time.Time{}
+	for _, session := range result {
+		at, err := time.Parse(time.RFC3339Nano, session.StartedAt)
+		if err != nil {
+			return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "reconciliation start time is invalid"}
+		}
+		started[session.ID] = at
+		if session.CompletedAt != "" {
+			if _, err := time.Parse(time.RFC3339Nano, session.CompletedAt); err != nil {
+				return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "reconciliation completion time is invalid"}
+			}
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if started[result[i].ID].Equal(started[result[j].ID]) {
+			return result[i].ID > result[j].ID
+		}
+		return started[result[i].ID].After(started[result[j].ID])
+	})
+	return result, nil
 }
 func (r *Repository) ReconciliationReceipt(ctx context.Context, household, operation, hash string) (*domain.ReconciliationSession, error) {
 	var stored, raw string

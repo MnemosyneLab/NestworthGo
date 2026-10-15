@@ -45,7 +45,7 @@ import {
 import { invalidateActivityChange } from "@/queries/invalidation";
 import { callService } from "@/lib/wails";
 import { displayError } from "@/lib/display";
-import { formatAmount, formatQuotePrice } from "@/lib/money";
+import { formatAmount, formatQuotePrice, multiplyCanonical } from "@/lib/money";
 import { formatTimestamp as timestamp } from "@/lib/time";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
@@ -90,7 +90,7 @@ export function ReconciliationPage({
   const { t } = useTranslation();
   const client = useQueryClient();
   const accounts = useAccounts();
-  const sessions = useReconciliationSessions();
+  const sessions = useReconciliationSessions(accountId);
   const [selected, setSelected] = useState<string[] | null>(
     accountId ? [accountId] : null,
   );
@@ -231,8 +231,8 @@ export function ReconciliationPage({
                   className="h-auto justify-start whitespace-normal py-3 text-left"
                   onClick={() => select(s.id)}
                 >
-                  {formatTimestamp(s.startedAt)} ·{" "}
-                  {t(`reconciliation.${s.status}`)}
+                  {s.accountNames?.join(" · ")} · {formatTimestamp(s.startedAt)}{" "}
+                  · {t(`reconciliation.${s.status}`)}
                   {s.partial ? ` · ${t("reconciliation.partial")}` : ""}
                 </Button>
               ))}
@@ -700,15 +700,57 @@ function ProductEvidence({ detail }: { detail: unknown }) {
     state?: string;
     interestMode?: string;
     annualRate?: string;
+    maturityInterest?: string;
+    interestPaidThroughOn?: string;
+    note?: string;
+    currency?: string;
   };
+  const modeKey = (
+    {
+      none: "interestNone",
+      manual_maturity_amount: "interestManual",
+      simple_act_365: "interestSimple365",
+      simple_act_360: "interestSimple360",
+    } as Record<string, string>
+  )[v?.interestMode ?? ""];
   return (
-    <p className="text-sm">
-      {t("reconciliation.terms")}: {v?.startOn} —{" "}
-      {v?.maturityOn ?? t("reconciliation.unavailable")} · {v?.state} ·{" "}
-      {v?.annualRate}
-    </p>
+    <div className="flex flex-col gap-1 text-sm">
+      <p>
+        {t("availableFunds.startOn")}: {v?.startOn} ·{" "}
+        {t("availableFunds.maturityOn")}:{" "}
+        {v?.maturityOn ?? t("reconciliation.unavailable")} ·{" "}
+        {t(`reconciliation.productState.${v?.state}`, {
+          defaultValue: t("reconciliation.unavailable"),
+        })}
+      </p>
+      <p>
+        {t("availableFunds.interestMode")}:{" "}
+        {modeKey
+          ? t(`availableFunds.${modeKey}`)
+          : t("reconciliation.unavailable")}
+      </p>
+      {v?.annualRate && (
+        <p>
+          {t("availableFunds.annualRatePercent")}:{" "}
+          {formatAmount(multiplyCanonical(v.annualRate, "100"))}%
+        </p>
+      )}
+      {v?.maturityInterest && (
+        <p>
+          {t("availableFunds.maturityInterest")}:{" "}
+          {formatAmount(v.maturityInterest, v.currency)} {v.currency}
+        </p>
+      )}
+      {v?.interestPaidThroughOn && (
+        <p>
+          {t("availableFunds.interestPaidThrough")}: {v.interestPaidThroughOn}
+        </p>
+      )}
+      {v?.note && <p className="whitespace-pre-wrap break-words">{v.note}</p>}
+    </div>
   );
 }
+
 function CheckForm({
   item,
   onPreview,
@@ -977,6 +1019,20 @@ function CommitReview({
       )}
       {review.adjustment?.changes?.map((change, i) => (
         <div key={i}>
+          {change.activity?.note && <p>{change.activity.note}</p>}
+          {change.effects?.map((effect, j) => (
+            <p key={`effect-${j}`}>
+              {t(
+                effect.direction === "added"
+                  ? "history.detailAmountAdded"
+                  : "history.detailAmountRemoved",
+              )}
+              : {effect.money?.amount ?? effect.quantity}{" "}
+              {effect.money?.currency}{" "}
+              {effect.costUnitPrice &&
+                `${t("reconciliation.unitCost")}: ${effect.costUnitPrice}`}
+            </p>
+          ))}
           {change.resulting?.map((v, j) => (
             <p key={j}>
               {v.name} · {v.amount || v.quantity} {v.currency}
@@ -999,6 +1055,22 @@ function CommitReview({
           )}
           {review.product.operation && (
             <ProductOperationReview preview={review.product.operation} />
+          )}
+          {review.product.before && (
+            <details>
+              <summary>{t("reconciliation.reviewedBefore")}</summary>
+              <fieldset disabled className="flex flex-col gap-3">
+                <ProductTermsFields
+                  value={termsFromProduct(review.product.before.product)}
+                  onChange={() => {}}
+                  editing
+                />
+                <ProductPolicyFields
+                  value={policyFromDTO(review.product.before.product.policy)}
+                  onChange={() => {}}
+                />
+              </fieldset>
+            </details>
           )}
           {review.product.after && (
             <fieldset disabled className="flex flex-col gap-3">

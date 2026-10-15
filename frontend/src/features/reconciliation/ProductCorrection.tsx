@@ -186,23 +186,47 @@ function ProductCorrectionForm({
         )}
       </NativeSelect>
       {mode === "terms" ? (
-        <>
-          {product.kind === "term_deposit" ? (
-            <DepositFields
-              terms={terms}
-              policy={policy}
-              principal={product.principal.amount}
-              onTermsChange={setTerms}
-              onPolicyChange={setRules}
-              editing
+        product.state !== "open" ? (
+          <>
+            <p>{t("availableFunds.closedMetadataOnly")}</p>
+            <Label htmlFor="closed-product-name">
+              {t("availableFunds.name")}
+            </Label>
+            <Input
+              id="closed-product-name"
+              value={terms.name}
+              onChange={(e) => setTerms({ ...terms, name: e.target.value })}
             />
-          ) : (
-            <>
-              <ProductTermsFields value={terms} onChange={setTerms} editing />
-              <ProductPolicyFields value={policy} onChange={setRules} />
-            </>
-          )}
-        </>
+            <Label htmlFor="closed-product-note">
+              {t("availableFunds.contractNote")}
+            </Label>
+            <Input
+              id="closed-product-note"
+              value={terms.note ?? ""}
+              onChange={(e) =>
+                setTerms({ ...terms, note: e.target.value || null })
+              }
+            />
+          </>
+        ) : (
+          <>
+            {product.kind === "term_deposit" ? (
+              <DepositFields
+                terms={terms}
+                policy={policy}
+                principal={product.principal.amount}
+                onTermsChange={setTerms}
+                onPolicyChange={setRules}
+                editing
+              />
+            ) : (
+              <>
+                <ProductTermsFields value={terms} onChange={setTerms} editing />
+                <ProductPolicyFields value={policy} onChange={setRules} />
+              </>
+            )}
+          </>
+        )
       ) : (
         <>
           <Label htmlFor="product-correction-amount">

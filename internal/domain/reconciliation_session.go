@@ -14,16 +14,18 @@ type ReconciliationSource struct {
 	Timezone  string `json:"timezone,omitempty"`
 }
 type ReconciliationSession struct {
-	ID          string                  `json:"id"`
-	HouseholdID string                  `json:"householdId"`
-	Status      string                  `json:"status"`
-	Revision    int64                   `json:"revision"`
-	StartedAt   string                  `json:"startedAt"`
-	CompletedAt string                  `json:"completedAt,omitempty"`
-	Note        string                  `json:"note"`
-	Partial     bool                    `json:"partial"`
-	Accounts    []ReconciliationAccount `json:"accounts,omitempty"`
-	Counts      ReconciliationCounts    `json:"counts"`
+	AccountIDs   []string                `json:"accountIds,omitempty"`
+	AccountNames []string                `json:"accountNames,omitempty"`
+	ID           string                  `json:"id"`
+	HouseholdID  string                  `json:"householdId"`
+	Status       string                  `json:"status"`
+	Revision     int64                   `json:"revision"`
+	StartedAt    string                  `json:"startedAt"`
+	CompletedAt  string                  `json:"completedAt,omitempty"`
+	Note         string                  `json:"note"`
+	Partial      bool                    `json:"partial"`
+	Accounts     []ReconciliationAccount `json:"accounts,omitempty"`
+	Counts       ReconciliationCounts    `json:"counts"`
 }
 type ReconciliationCounts struct {
 	Pending    int `json:"pending"`
@@ -32,6 +34,7 @@ type ReconciliationCounts struct {
 	Unresolved int `json:"unresolved"`
 }
 type ReconciliationAccount struct {
+	PriorSuccessfulAt string               `json:"priorSuccessfulAt,omitempty"`
 	AccountID         string               `json:"accountId"`
 	Name              string               `json:"name"`
 	Currency          string               `json:"currency"`

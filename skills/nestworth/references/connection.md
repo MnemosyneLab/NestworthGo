@@ -122,3 +122,8 @@ and `update_instruments_batch` require directory_write or ledger_write;
 investment_review_batch and the three review batch tools require ledger_write.
 Older Apps keep legacy paths; missing tools do not authorize filesystem/provider
 workarounds. Repository bundle updates do not install or enable a real client.
+
+Reconciliation sessions expose reconciliation_session_read in every permission
+mode and reconciliation_session_write only with ledger_write. Directory access
+does not authorize ledger attestations. Discover the actual session tool names
+before following [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).

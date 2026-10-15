@@ -1673,6 +1673,11 @@
     "newPrincipal": "新本金",
     "openingFee": "開立費用",
     "addProduct": "記錄遺漏的託管產品",
-    "reviewedBefore": "變更前已審閱值"
+    "reviewedBefore": "變更前已審閱值",
+    "productState": {
+      "open": "存續中",
+      "settled": "已結清",
+      "cancelled": "已取消"
+    }
   }
 }

@@ -2,10 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Service } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation";
 import { callService } from "@/lib/wails";
 export { Service as ReconciliationService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation";
-export function useReconciliationSessions() {
+export function useReconciliationSessions(accountId?: string) {
   return useQuery({
-    queryKey: ["reconciliation", "sessions"],
-    queryFn: () => callService(() => Service.List()),
+    queryKey: ["reconciliation", "sessions", accountId ?? ""],
+    queryFn: async () => {
+      const rows = await callService(() => Service.List());
+      return accountId
+        ? rows?.filter((row) => row.accountIds?.includes(accountId))
+        : rows;
+    },
   });
 }
 export function useReconciliationSession(id: string) {
@@ -30,4 +35,10 @@ export function useReconciliationLastSuccess(id: string) {
   });
 }
 
-export function useReconciliationChanges(id:string){return useQuery({queryKey:["reconciliation","changes",id],queryFn:()=>callService(()=>Service.Changes(id,"")),enabled:Boolean(id)});}
+export function useReconciliationChanges(id: string) {
+  return useQuery({
+    queryKey: ["reconciliation", "changes", id],
+    queryFn: () => callService(() => Service.Changes(id, "")),
+    enabled: Boolean(id),
+  });
+}

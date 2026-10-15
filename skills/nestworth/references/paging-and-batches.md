@@ -131,3 +131,15 @@ names exactly, including reservations/<productId> or a market target section.
 ```json
 {"responseMode":"paged","filter":{"policyOrigins":["explicit"],"hasRule":false}}
 ```
+
+## Reconciliation evidence
+
+Discover `reconciliation_session_read`. `list_reconciliation_sessions` filters
+status/account/date and sorts asc/desc. `get_reconciliation_session_page` pages
+accounts/items/changes/links/attempts, with account/outcome filters and sort.
+Default 25/max 50; the wire budget is 96 KiB. Reduce limit on response_too_large;
+never treat a rejected response as an empty section. Cursors bind the filters,
+sort, full current evidence and session revision. stale_cursor means restart
+that read, not guess an offset. Item summaries expose attemptCount; full item
+evidence and pageable attempts are separate. Preserve recorded and effective
+dates on changes. First sessions have no prior successful-check watermark.

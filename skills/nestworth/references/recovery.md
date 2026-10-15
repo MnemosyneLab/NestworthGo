@@ -73,3 +73,14 @@ Atomic business batches still have a conservative outer-receipt crash window.
 Pending/unknown requires `get_operation` plus fresh IDs/version/revision/state
 before another intended write. Identical successful retries retain their short
 receipt, which does not establish today's metadata, review state or coverage.
+
+## Reconciliation session recovery
+
+`commit_reconciliation_session` uses the same receipt-first recovery rule as
+financial commits. Retry the original operationId and planId after an unknown
+outcome; never replace a user's confirmation with a new inferred one. After a
+conflict, reread the session header and item financialRevision and request renewed
+review. A completed session is immutable; changed current facts are a separate
+recheck projection. Pause/resume preserves progress across App restart. Desktop
+confirmation plans are in memory; a lost desktop plan remains an unknown outcome
+until the saved session and financial receipts are inspected.

@@ -6,7 +6,10 @@ import { createTestQueryClient } from "@/test/queryClient";
 import i18n from "@/i18n";
 import { ReconciliationPage } from "./ReconciliationPage";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
-import type { ReconciliationSession } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
+import type {
+  ReconciliationSession,
+  ReconciliationItem,
+} from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 const q = vi.hoisted(() => ({
   session: undefined as ReconciliationSession | undefined,
   error: false,
@@ -306,7 +309,32 @@ it.each(["en", "zh-CN", "zh-TW"])(
       partial: true,
       note: "Synthetic outstanding checks",
     };
+    q.session.accounts![0].items!.push({
+      id: "product:frozen",
+      accountId: "one",
+      accountName: "Synthetic bank",
+      kind: "product",
+      label: "Frozen synthetic product",
+      currency: "EUR",
+      value: "1000",
+      financialRevision: 12,
+      outcome: "pending",
+      note: "",
+      source: { reference: "", asOfDate: "" },
+      recheckRequired: false,
+      detail: {
+        startOn: "2026-08-01",
+        maturityOn: "2026-09-01",
+        state: "settled",
+        interestMode: "simple_act_365",
+        annualRate: "0.025",
+        interestPaidThroughOn: "2026-08-20",
+        note: "Frozen product terms",
+      } as unknown as ReconciliationItem["detail"],
+    });
     mount("session-one");
+    expect(screen.getByText("Frozen product terms")).toBeInTheDocument();
+    expect(screen.getByText(/2.5%/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: i18n.t("reconciliation.review") }),
     ).not.toBeInTheDocument();
