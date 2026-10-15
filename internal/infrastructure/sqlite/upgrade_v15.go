@@ -117,5 +117,5 @@ func applyV15Upgrade(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 16"); err != nil {
 		return err
 	}
-	return verifySchema(ctx, tx)
+	return verifySchemaVersion(ctx, tx, 16)
 }

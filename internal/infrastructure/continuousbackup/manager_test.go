@@ -924,6 +924,29 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *testing.T) {
 	m, db, root := fixture(t)
 	ctx := context.Background()
+	rows, err := db.SQL.Query("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'reconciliation_%'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var triggers []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		triggers = append(triggers, name)
+	}
+	rows.Close()
+	for _, name := range triggers {
+		if _, err := db.SQL.Exec("DROP TRIGGER " + name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"reconciliation_links", "reconciliation_receipts", "reconciliation_items", "reconciliation_accounts", "reconciliation_sessions", "account_financial_revisions"} {
+		if _, err := db.SQL.Exec("DROP TABLE " + name); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if _, err := db.SQL.Exec(`ALTER TABLE instruments DROP COLUMN short_name; PRAGMA user_version=15`); err != nil {
 		t.Fatal(err)
 	}

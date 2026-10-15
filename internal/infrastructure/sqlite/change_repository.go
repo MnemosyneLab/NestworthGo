@@ -141,6 +141,9 @@ func (r *Repository) LookupChangeBatch(ctx context.Context, householdID domain.H
 }
 
 func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCommit, asOf time.Time) error {
+	if err := linkReconciliationActivityTx(ctx, tx, commit); err != nil {
+		return err
+	}
 	activity, effects, resulting := commit.Activity, commit.Effects, commit.Resulting
 	if len(effects) == 0 {
 		return &domain.Error{Code: domain.ErrInvalidChange, Field: "effects", Message: "a saved change requires at least one effect"}

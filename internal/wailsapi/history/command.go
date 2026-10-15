@@ -37,7 +37,8 @@ const (
 // own currency field; a field irrelevant to the current Kind is simply left
 // empty.
 type ChangeCommandRequest struct {
-	Kind ChangeCommandKind `json:"kind"`
+	ReconciliationLink *domain.ReconciliationLink `json:"reconciliationLink,omitempty"`
+	Kind               ChangeCommandKind          `json:"kind"`
 
 	AccountID           string `json:"accountId,omitempty"`
 	FromAccountID       string `json:"fromAccountId,omitempty"`

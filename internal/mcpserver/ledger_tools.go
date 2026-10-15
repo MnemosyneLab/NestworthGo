@@ -77,7 +77,7 @@ func validateChangeRequest(in history.ChangeCommandRequest) error {
 		return fail("validation", "unsupported ledger kind; use preview_reconciliation for target balances or quantities")
 	}
 	set := map[string]bool{}
-	for _, field := range strings.Fields("kind effectiveAt effectiveLocalDate effectiveLocalTime note " + allowed) {
+	for _, field := range strings.Fields("kind effectiveAt effectiveLocalDate effectiveLocalTime note reconciliationLink " + allowed) {
 		set[field] = true
 	}
 	raw, err := json.Marshal(in)
@@ -119,6 +119,9 @@ func (s *Service) previewChange(ctx context.Context, in history.ChangeCommandReq
 		return ledgerCommand(in, origin)
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := s.app.ValidateReconciliationLink(ctx, in.ReconciliationLink, []domain.ChangePreview{preview}); err != nil {
 		return nil, err
 	}
 	plan := changePlan{Type: "change", ID: uuid.NewString(), Command: in, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
@@ -173,7 +176,7 @@ func (s *Service) commitChangeLocked(ctx context.Context, plan changePlan) (any,
 	}
 	// Replay is checked before the guard: a successful write is recoverable
 	// after expiry/restart or a crash before its MCP receipt was saved.
-	preview, err := s.app.RecordChangeGuarded(ctx, command, mutationID, hash, version)
+	preview, err := s.app.RecordChangeGuarded(domain.WithReconciliationLink(ctx, plan.Command.ReconciliationLink), command, mutationID, hash, version)
 	if err != nil {
 		return nil, err
 	}
