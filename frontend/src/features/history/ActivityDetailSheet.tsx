@@ -93,7 +93,7 @@ function ActivityDetailBody({
 
   return (
     <div className="num flex flex-col gap-4 text-sm">
-      <p><span className="text-muted-foreground">{t("history.detailKind")}</span><span className="ml-2">{product?.label ?? displayEnum(t, "history.kind", activity.kind)}</span></p>
+      <p><span className="text-muted-foreground">{t("history.detailKind")}</span><span className="ml-2">{product?.label ?? (activity.kind === "position_transfer" && !(from && to) ? t("history.detailPositionAdjustment") : displayEnum(t, "history.kind", activity.kind))}</span></p>
       <p><span className="text-muted-foreground">{t("history.detailLocalDateTime")}</span><span className="ml-2">{formatTimestamp(activity.effectiveAt, timezone)}</span></p>
       {timezone && <p><span className="text-muted-foreground">{t("history.detailTimezone")}</span><span className="ml-2">{timezone}</span></p>}
       <p><span className="text-muted-foreground">{t("history.detailSentence")}</span><span className="ml-2">{sentence}</span></p>
