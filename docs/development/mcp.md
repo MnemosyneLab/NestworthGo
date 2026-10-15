@@ -96,7 +96,11 @@ not replace closed-period `compare_financial_attribution`.
 `get_investment_reviews` exposes the App's opt-in unit-NAV reminder report in all
 modes. `ledger_write` additionally exposes policy save, episode acknowledgement,
 instrument enrollment and snooze/resume. The application retains revision,
-eligibility, stale-evidence and household civil-date checks. These changes are
+eligibility, stale-evidence and household civil-date checks. Unit-NAV rates use
+instrument quotes and metadata only; personal dividends, imports, calibrations
+and trades cannot alter or suppress them. Held positions select review eligibility,
+not rate comparability. Recorded quote distributions/unit changes remain guarded.
+These changes are
 preferences/reminder state, never sell recommendations or financial facts. MCP
 operation receipts use conservative same-operation retry behavior; unknown
 setting-write outcomes are not replayed automatically. Short-name and PR70

@@ -49,10 +49,10 @@ func (s *Service) investmentReviews(ctx context.Context) (InvestmentReviewReport
 	if err != nil {
 		return empty, investmentReviewState{}, "", err
 	}
-	if snapshot.Gain.Portfolio.Household == nil {
+	if snapshot.Portfolio.Household == nil {
 		return empty, investmentReviewState{}, "", nil
 	}
-	key := "investment_review/" + snapshot.Gain.Portfolio.Household.ID.String()
+	key := "investment_review/" + snapshot.Portfolio.Household.ID.String()
 	state := investmentReviewState{Policy: domain.DefaultInvestmentReviewPolicy(), Acknowledged: map[string]bool{}, Enrolled: map[string]bool{}, SnoozedUntil: map[string]string{}}
 	raw, found, err := s.reviewStore.LoadConfiguration(key)
 	if err != nil {
@@ -83,7 +83,7 @@ func (s *Service) investmentReviews(ctx context.Context) (InvestmentReviewReport
 	state.Policy = state.Policy.Canonical()
 	now := s.clock()
 	location := time.UTC
-	if origin := snapshot.Gain.Portfolio.Origin; origin != nil {
+	if origin := snapshot.Portfolio.Origin; origin != nil {
 		location, err = time.LoadLocation(origin.Timezone)
 		if err != nil {
 			return empty, state, key, err

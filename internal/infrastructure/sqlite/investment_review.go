@@ -8,8 +8,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// ReadInvestmentReviewSnapshot captures current positions, corrected dividends,
-// adjustments, and actual (not cached valuation) quote facts in one transaction.
+// ReadInvestmentReviewSnapshot reads positions only to select held instruments.
+// Rate evidence is actual instrument quotes; no cost replay or ledger is read.
 func (r *Repository) ReadInvestmentReviewSnapshot(ctx context.Context) (domain.InvestmentReviewSnapshot, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -17,18 +17,35 @@ func (r *Repository) ReadInvestmentReviewSnapshot(ctx context.Context) (domain.I
 	}
 	defer tx.Rollback()
 	if domain.IsBoundedRead(ctx) {
-		for _, table := range []string{"accounts", "holdings", "instruments", "instrument_quotes", "fx_quotes", "activities", "activity_effects", "activity_trade_details", "activity_dividend_details", "history_origin_components"} {
+		for _, table := range []string{"accounts", "holdings", "instruments", "instrument_quotes"} {
 			if err := checkReadTableBudget(ctx, tx, table, "1=1"); err != nil {
 				return domain.InvestmentReviewSnapshot{}, err
 			}
 		}
 	}
-	gain, err := readGainSnapshotQuery(ctx, tx)
+	household, err := scanHousehold(tx.QueryRowContext(ctx, `SELECT id, name, base_currency, created_at, updated_at FROM households WHERE singleton_key = 1`))
 	if err != nil {
 		return domain.InvestmentReviewSnapshot{}, err
 	}
-	if gain.Portfolio.Household != nil {
-		gain.Portfolio.InstrumentQuotes, err = listAllInstrumentQuotesQuery(ctx, tx, gain.Portfolio.Household.ID, time.Time{})
+	portfolio := domain.PortfolioSnapshot{Household: household}
+	if household != nil {
+		portfolio.Origin, err = historyOriginQuery(ctx, tx, household.ID)
+		if err != nil {
+			return domain.InvestmentReviewSnapshot{}, err
+		}
+		portfolio.Accounts, err = listAccountRecords(ctx, tx, household.ID, domain.AccountFilter{IncludeArchived: true})
+		if err != nil {
+			return domain.InvestmentReviewSnapshot{}, err
+		}
+		portfolio.Holdings, err = listHoldingsQuery(ctx, tx, household.ID, true)
+		if err != nil {
+			return domain.InvestmentReviewSnapshot{}, err
+		}
+		portfolio.Instruments, err = listInstrumentsQuery(ctx, tx, household.ID, true)
+		if err != nil {
+			return domain.InvestmentReviewSnapshot{}, err
+		}
+		portfolio.InstrumentQuotes, err = listAllInstrumentQuotesQuery(ctx, tx, household.ID, time.Time{})
 		if err != nil {
 			return domain.InvestmentReviewSnapshot{}, err
 		}
@@ -36,5 +53,5 @@ func (r *Repository) ReadInvestmentReviewSnapshot(ctx context.Context) (domain.I
 	if err = tx.Commit(); err != nil {
 		return domain.InvestmentReviewSnapshot{}, err
 	}
-	return domain.InvestmentReviewSnapshot{Gain: gain}, nil
+	return domain.InvestmentReviewSnapshot{Portfolio: portfolio}, nil
 }

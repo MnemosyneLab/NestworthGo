@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -25,20 +26,20 @@ func TestQuotePerformanceEvidenceLatestAndNearestEarlierBaselines(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
-	quotes, unsafe, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-19")
+	quotes, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-19")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(quotes) != 4 {
 		t.Fatalf("bounded quotes %+v", quotes)
 	}
-	got := domain.ProjectQuotePerformance(i, quotes, unsafe)
+	got := domain.ProjectQuotePerformance(i, quotes)
 	if len(got) != 2 || got[0].BaselineOn != "2026-10-05" || got[0].ElapsedDays != 9 || got[1].BaselineOn != "2026-09-01" || got[1].LatestOn != "2026-10-14" {
 		t.Fatalf("performance %+v", got)
 	}
 }
 
-func TestQuotePerformanceLegacyCorrectedDividendUsesEconomicDate(t *testing.T) {
+func TestQuotePerformanceIgnoresLegacyCorrectedPersonalDividend(t *testing.T) {
 	database := seedCurrentGainFixture(t, filepath.Join(t.TempDir(), "performance-correction.db"))
 	repository := NewRepository(database)
 	const instrumentID = "00000000-0000-4000-8000-000000000040"
@@ -57,9 +58,9 @@ func TestQuotePerformanceLegacyCorrectedDividendUsesEconomicDate(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	quotes, unsafe, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-21")
-	if err != nil || len(domain.ProjectQuotePerformance(i, quotes, unsafe)) != 1 {
-		t.Fatalf("initial performance %v %v", unsafe, err)
+	quotes, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-21")
+	if err != nil || len(domain.ProjectQuotePerformance(i, quotes)) != 1 {
+		t.Fatalf("initial performance %v", err)
 	}
 	// Legacy replacements retain the recording day in the audit ledger, but
 	// describe a dividend economically paid inside the Oct 1–9 NAV interval.
@@ -73,9 +74,9 @@ func TestQuotePerformanceLegacyCorrectedDividendUsesEconomicDate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	quotes, unsafe, err = repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-21")
-	if err != nil || len(unsafe) != 1 || unsafe[0] != "2026-10-05" || len(domain.ProjectQuotePerformance(i, quotes, unsafe)) != 0 {
-		t.Fatalf("legacy dividend dates %v performance %+v err %v", unsafe, domain.ProjectQuotePerformance(i, quotes, unsafe), err)
+	quotes, err = repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-21")
+	if err != nil || len(domain.ProjectQuotePerformance(i, quotes)) != 1 {
+		t.Fatalf("personal dividend changed instrument performance: %+v err %v", domain.ProjectQuotePerformance(i, quotes), err)
 	}
 }
 
@@ -118,14 +119,54 @@ func TestQuotePerformanceAllSourcesIgnorePreferenceAndExcludeIntraday(t *testing
 					t.Fatal(err)
 				}
 			}
-			quotes, unsafe, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-15")
+			quotes, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-15")
 			if err != nil || len(quotes) != 3 {
 				t.Fatalf("daily read count=%d err=%v", len(quotes), err)
 			}
-			got := domain.ProjectQuotePerformance(i, quotes, unsafe)
+			got := domain.ProjectQuotePerformance(i, quotes)
 			if len(got) != 1 || got[0].LatestOn != "2026-10-14" || got[0].PeriodPercent != "0" || got[0].ElapsedDays != 9 {
 				t.Fatalf("mixed daily %+v", got)
 			}
 		})
+	}
+}
+
+// Removing the synthetic ledger schema proves the evidence reader has no hidden
+// activity/holding dependency (including corrected/reversed ledger paths).
+func TestQuotePerformanceEvidenceWithoutPersonalLedgerTables(t *testing.T) {
+	database, repository, _, _, i := seedPortfolioRepository(t)
+	at, _ := time.Parse(time.DateOnly, "2026-10-01")
+	price, _ := domain.ParseUnitPrice("1")
+	for _, date := range []string{"2026-10-01", "2026-10-14"} {
+		q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: i.ID, UnitPrice: price, Currency: i.QuoteCurrency, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: at, EffectiveDate: date, ObservationKind: "close", PriceBasis: "agent_unit_nav_v1", TimestampBasis: "date_label", Revision: 1, BindingRevision: i.ProviderBindingRevision}
+		if err := database.WithTx(t.Context(), func(tx *sql.Tx) error { return insertAgentInstrumentQuoteTx(t.Context(), tx, i.HouseholdID, q, "") }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	i.Type = domain.InstrumentBankInvestmentProduct
+	read := func() []domain.QuotePerformance {
+		t.Helper()
+		quotes, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-14")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return domain.ProjectQuotePerformance(i, quotes)
+	}
+	before := read()
+	if len(before) != 1 {
+		t.Fatalf("performance %+v", before)
+	}
+	// Schema damage is confined to this disposable fixture and is never passed to
+	// production writers. No personal table may be required by this read.
+	if _, err := database.SQL.Exec("PRAGMA foreign_keys=OFF"); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"activity_correction_groups", "activity_dividend_details", "activity_trade_details", "activity_effects", "activities", "holdings"} {
+		if _, err := database.SQL.Exec("DROP TABLE " + table); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := read(); !reflect.DeepEqual(before, got) {
+		t.Fatalf("ledger schema changed performance %+v", got)
 	}
 }
