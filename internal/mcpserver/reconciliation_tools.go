@@ -30,6 +30,7 @@ type ReconciliationTargetInput struct {
 }
 
 type ReconciliationInput struct {
+	Link    *domain.ReconciliationLink  `json:"reconciliationLink,omitempty"`
 	Targets []ReconciliationTargetInput `json:"targets" jsonschema:"One to 100 current targets. For an account use accountId, targetBalance and currency; for a holding use holdingId and targetQuantity. An increase requires unitCost, or totalCost plus currency for the entire target position. Omit targetQuantity to adjust cost only. Do not combine unitCost and totalCost. Expanded plans have at most 100 commands."`
 }
 
@@ -53,6 +54,7 @@ type reconciliationCommand struct {
 }
 
 type reconciliationPlan struct {
+	Link      *domain.ReconciliationLink  `json:"reconciliationLink,omitempty"`
 	Type      string                      `json:"type"`
 	ID        string                      `json:"id"`
 	Targets   []ReconciliationTargetInput `json:"targets"`
@@ -62,6 +64,7 @@ type reconciliationPlan struct {
 }
 
 type ReconciliationPlanPreview struct {
+	Link      *domain.ReconciliationLink  `json:"reconciliationLink,omitempty"`
 	PlanID    string                      `json:"planId"`
 	ExpiresAt string                      `json:"expiresAt"`
 	Targets   []ReconciliationTargetInput `json:"targets"`
@@ -228,11 +231,14 @@ func (s *Service) previewReconciliation(ctx context.Context, in ReconciliationIn
 	if err != nil {
 		return nil, err
 	}
-	plan := reconciliationPlan{Type: "reconciliation", ID: uuid.NewString(), Targets: in.Targets, Commands: saved, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
+	if err := s.app.ValidateReconciliationLink(ctx, in.Link, previews); err != nil {
+		return nil, err
+	}
+	plan := reconciliationPlan{Link: in.Link, Type: "reconciliation", ID: uuid.NewString(), Targets: in.Targets, Commands: saved, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
 	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
 		return nil, err
 	}
-	result := ReconciliationPlanPreview{PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Targets: in.Targets, Commands: saved, Previews: make([]wire.ChangePreviewDTO, len(previews))}
+	result := ReconciliationPlanPreview{Link: in.Link, PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Targets: in.Targets, Commands: saved, Previews: make([]wire.ChangePreviewDTO, len(previews))}
 	for i, preview := range previews {
 		result.Previews[i] = wire.FromChangePreview(preview)
 	}
@@ -265,6 +271,12 @@ func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput
 			}
 		}
 		payload, err := json.Marshal(plan.Commands)
+		if plan.Link != nil {
+			payload, err = json.Marshal(struct {
+				Commands []reconciliationCommand
+				Link     *domain.ReconciliationLink
+			}{plan.Commands, plan.Link})
+		}
 		if err != nil {
 			return err
 		}
@@ -273,7 +285,7 @@ func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput
 		if !time.Now().Before(plan.ExpiresAt) {
 			version = "expired"
 		}
-		previews, err := s.app.RecordChangesGuarded(ctx, commands, plan.ID, hex.EncodeToString(digest[:]), version)
+		previews, err := s.app.RecordChangesGuarded(domain.WithReconciliationLink(ctx, plan.Link), commands, plan.ID, hex.EncodeToString(digest[:]), version)
 		if err != nil {
 			return err
 		}

@@ -128,7 +128,7 @@ function provenOrdinaryRefusal(family: SubmittedChange["family"], error: unknown
   if (!wire) return false;
   // These Record business refusals follow durable same-ID lookup and precede
   // its atomic financial write. Conflict/mutationId can describe a stored write.
-  if (family === "record") return ["invalid_change", "no_change", "insufficient_balance", "insufficient_quantity", "managed_position_conflict"].includes(wire.code);
+  if (family === "record") return ["invalid_change", "no_change", "insufficient_balance", "insufficient_quantity", "managed_position_conflict"].includes(wire.code) || (wire.code === "conflict" && ["reconciliationLink", "financialRevision", "expectedRevision"].includes(wire.field ?? ""));
   // Fix rebuilds snapshots AFTER commit, including during receipt replay.
   // Generic validation/conflict/decimal/history errors cannot prove refusal.
   // cannot_fix_change is produced only by the precommit correction plan.
@@ -723,6 +723,8 @@ function RecordChangeFormReady({
         return Boolean(request.accountId && request.sold?.trim() && request.bought?.trim() && request.soldCurrency && request.boughtCurrency && request.soldCurrency !== request.boughtCurrency);
       case ChangeCommandKind.ChangePositionTransfer:
         return Boolean(transferSource && transferTargetOptions.some((account) => account.id === transferTargetAccountId) && request.quantity?.trim());
+      case ChangeCommandKind.ChangePositionImport:
+        return Boolean(request.accountId && request.instrumentId && request.quantity?.trim() && request.unitCost?.trim() && request.currency);
       case ChangeCommandKind.ChangePositionAdjustment:
         return Boolean(request.holdingId && request.quantity?.trim());
       case ChangeCommandKind.ChangeTrade:
@@ -737,7 +739,7 @@ function RecordChangeFormReady({
     }
   })();
   // Match domain.ParseUnitPrice without rounding or converting through Number.
-  const unitCostInvalid = kind === ChangeCommandKind.ChangePositionAdjustment && request.added &&
+  const unitCostInvalid = (kind === ChangeCommandKind.ChangePositionImport || (kind === ChangeCommandKind.ChangePositionAdjustment && request.added)) &&
     Boolean(request.unitCost) && !/^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$/.test(request.unitCost ?? "");
   // Source eligibility belongs to this source draft, not the editable form.
   // Mutation.reset() after a field edit must not turn a refused source back on.
@@ -862,6 +864,8 @@ function RecordChangeFormReady({
     }, cause => {
       if (ownsScope() && provenOrdinaryRefusal(submission.family, cause)) {
         if (sheetConfirmation.resolve(id) && alive.current) clearPreview();
+        const wire=(cause as {wireError?:WireError})?.wireError;
+        if(submission.family==="record"&&wire?.code==="conflict"&&["reconciliationLink","financialRevision","expectedRevision"].includes(wire.field??"")) void queryClient.invalidateQueries({queryKey:["reconciliation"]});
       } else {
         const current = ordinarySubmission(sheetConfirmation.read()?.recovery);
         if (current) sheetConfirmation.update(id, { ...current, phase: "unknown", error: cause });
@@ -1021,6 +1025,7 @@ function RecordChangeFormReady({
             const next = emptyChangeRequest(nextKind, defaultCurrency);
             const locked = {
               ...next,
+              reconciliationLink:request.reconciliationLink,
               effectiveAt: request.effectiveAt,
               effectiveLocalDate: request.effectiveLocalDate,
               effectiveLocalTime: request.effectiveLocalTime,
@@ -1177,6 +1182,12 @@ function RecordChangeFormReady({
         </>
       )}
 
+      {kind === ChangeCommandKind.ChangePositionImport && <>
+        {!lock?.accountId&&<AccountSelect id="import-account" label={t("history.account")} value={request.accountId??""} accounts={investmentAccountOptions} onChange={accountId=>patch({accountId})}/>}
+        <OptionSelect id="import-instrument" label={t("history.instrument")} value={request.instrumentId??""} emptyLabel={t("history.selectEmpty")} options={(instruments.data??[]).filter(ordinaryInstrument).map(instrument=>({id:instrument.id,name:selectionLabels.get(instrument.id)??instrument.name}))} onChange={instrumentId=>patch({instrumentId,currency:instruments.data?.find(v=>v.id===instrumentId)?.quoteCurrency??""})}/>
+        <Label htmlFor="import-quantity">{t("history.quantity")}</Label><Input id="import-quantity" inputMode="decimal" value={request.quantity??""} onChange={e=>patch({quantity:e.target.value})}/>
+        <Label htmlFor="import-cost">{t("reconciliation.originalUnitCost")}</Label><Input id="import-cost" inputMode="decimal" value={request.unitCost??""} aria-invalid={Boolean(unitCostInvalid)} onChange={e=>patch({unitCost:e.target.value})}/>
+      </>}
       {kind === ChangeCommandKind.ChangePositionAdjustment && (
         <>
           <OptionSelect id="change-holding" label={t("history.holding")} value={request.holdingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(holdingId) => patch({ holdingId })} />

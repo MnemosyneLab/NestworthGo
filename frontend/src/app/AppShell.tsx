@@ -28,6 +28,7 @@ const PAGE_TONE: Record<PageId, Tone> = {
   "upcoming-actions": 2,
   portfolio: 5,
   history: 6,
+ reconciliation: 6,
   "return-analysis": 7,
   "asset-changes": 3,
   directory: 4,

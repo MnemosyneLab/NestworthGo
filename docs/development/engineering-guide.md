@@ -122,10 +122,11 @@ date semantics, interaction conventions, enforced boundaries and exceptions.
 ## Persistence and settings
 
 The current SQLite schema is verified before business writes. Startup enables
-foreign keys and checks structural integrity. New databases use schema 16.
-Verified v15 databases receive the single additive short-name upgrade after a
-verified read-only recovery copy is retained; there is no general migration
-chain. Other older, unversioned, future, or invalid databases remain blocked.
+foreign keys and checks structural integrity. New databases use schema 17.
+Verified v15 databases receive the additive short-name upgrade to v16; verified
+v16 then receives the additive reconciliation upgrade to v17. Each step retains
+a verified read-only recovery copy. No other legacy migration is supported.
+See [reconciliation storage](account-reconciliation.md#schema-17-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)
 for verification, transaction, recovery-copy and v15/v16 backup boundaries. Missing current tables and old
 constraints fail verification rather than being repaired. Durable settings and

@@ -32,6 +32,7 @@ export function invalidateQuoteReads(queryClient: QueryClient, instrumentId?: st
 }
 
 export function invalidateLiquidityReads(queryClient: QueryClient) {
+  invalidate(queryClient,["reconciliation"]);
   invalidate(queryClient, queryKeys.liquidity.all);
   invalidate(queryClient, queryKeys.overview.all);
 }
@@ -55,16 +56,19 @@ export function invalidateHistoryReads(queryClient: QueryClient) {
 }
 
 export function invalidateAccountChange(queryClient: QueryClient, accountId?: string) {
+  invalidate(queryClient,["reconciliation"]);
   invalidateAccountReads(queryClient);
   invalidateCurrentValuation(queryClient, accountId ? [accountId] : undefined);
 }
 
 export function invalidateHoldingChange(queryClient: QueryClient, accountId?: string) {
+  invalidate(queryClient,["reconciliation"]);
   invalidateHoldingReads(queryClient);
   invalidateCurrentValuation(queryClient, accountId ? [accountId] : undefined);
 }
 
 export function invalidateActivityChange(queryClient: QueryClient, accountIds?: readonly string[]) {
+  invalidate(queryClient,["reconciliation"]);
   invalidateHistoryReads(queryClient);
   invalidate(queryClient, queryKeys.quote.instrument.all);
   invalidateHoldingReads(queryClient);

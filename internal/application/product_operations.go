@@ -105,6 +105,9 @@ func (s *Service) previewProductOperation(ctx context.Context, command ProductCo
 			}
 		}
 	}
+	if err := s.ValidateReconciliationLink(ctx, command.ReconciliationLink, nil); err != nil {
+		return ProductOperationPreview{}, err
+	}
 	return ProductOperationPreview{
 		Kind: command.Kind, NormalizedJSON: normalized, PayloadSHA256: payloadSHA,
 		ReviewedStateHash: reviewed, LocalDate: localDate, Timezone: origin.Timezone,
@@ -122,6 +125,7 @@ func (s *Service) RecordProductOperation(ctx context.Context, command ProductCom
 }
 
 func (s *Service) recordProductOperation(ctx context.Context, command ProductCommand, mutationID, reviewedStateHash string, expectedToken *string) (ProductOperationReceipt, error) {
+	ctx = domain.WithReconciliationLink(ctx, command.ReconciliationLink)
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return ProductOperationReceipt{}, err
@@ -155,7 +159,7 @@ func (s *Service) recordProductOperation(ctx context.Context, command ProductCom
 		return receipt, nil
 	}
 	if expectedToken != nil && *expectedToken != s.writes.previewToken() {
-		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrStalePreview, Message: "preview expired or facts changed; request a new preview"}
+		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken", Message: "preview expired or facts changed; request a new preview"}
 	}
 	origin, snapshot, err := s.loadChangeContext(ctx)
 	if err != nil {
@@ -215,6 +219,10 @@ func (s *Service) recordProductOperation(ctx context.Context, command ProductCom
 	}
 	for _, preview := range plan.previews {
 		commits = append(commits, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting})
+	}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return ProductOperationReceipt{}, err
 	}
 	if err := s.repository.CommitProductBundle(ctx, domain.ProductBundle{
 		AsOf: now, Operation: operation, Instruments: plan.instruments, InstrumentObservations: plan.observations,

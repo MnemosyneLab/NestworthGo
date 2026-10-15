@@ -94,3 +94,9 @@ commit tool):
 ```
 
 See [recovery.md](recovery.md) before retrying an interrupted commit.
+
+Reconciliation sessions can link an ordinary buy/sell/import/transfer via
+reconciliationLink on preview_change, or a target quantity/cost adjustment via
+preview_reconciliation. Preserve the difference between added-unit unitCost and
+whole-position totalCost. No adjustment invents a trade or automatically confirms
+a check. See [session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).

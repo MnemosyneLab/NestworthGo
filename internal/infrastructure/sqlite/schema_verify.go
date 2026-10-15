@@ -72,6 +72,11 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 		return fmt.Errorf("integrity check returned %q", integrity)
 	}
 
+	if expectedVersion >= 17 {
+		if err := verifyReconciliationSchema(ctx, query); err != nil {
+			return err
+		}
+	}
 	tables := expectedSchemaTables()
 	if expectedVersion == 15 {
 		columns := []schemaColumn{}

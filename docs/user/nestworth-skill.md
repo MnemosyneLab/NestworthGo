@@ -166,3 +166,12 @@ effects, not external Codex reasoning, discovery or a live provider. When MCP
 contracts change, update the relevant reference/example and rerun these checks.
 See [Local MCP](https://github.com/MnemosyneLab/NestworthGo/blob/main/docs/development/mcp.md)
 for the implementation contract; the web copy follows the main branch.
+
+The development Skill 1.10.0 adds account reconciliation sessions; this does not
+change the published v0.3.8 release bundle. Discover reconciliation_session_read
+and reconciliation_session_write in the connected App before using it. It can
+start/pause/resume sessions, read paged evidence, link existing direct corrections
+or real missing transactions, explicitly check sourced evidence and finish fully
+or partially. It must never invent a source, value, explanation or confirmation.
+See [account reconciliation](account-reconciliation.md). Private receipts remain
+separate from user-facing completed reconciliation evidence.

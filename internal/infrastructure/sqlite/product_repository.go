@@ -336,6 +336,9 @@ func SetProductCommitFailAfter(stage string) {
 
 func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.ProductBundle) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := linkReconciliationProductTx(ctx, tx, bundle); err != nil {
+			return err
+		}
 		var originTimezone string
 		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, bundle.Operation.HouseholdID.String()).Scan(&originTimezone); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

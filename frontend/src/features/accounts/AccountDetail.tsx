@@ -1,5 +1,6 @@
 import { useInstrumentHoldingGroups } from "@/queries/analytics";
 import { HoldingGroupsList } from "@/features/investments/HoldingGroupsList";
+import { AccountReconciliation } from "@/features/reconciliation/AccountReconciliation";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { useMemo, useRef, useState } from "react";
@@ -223,6 +224,7 @@ export function AccountDetail({
           {t("accounts.archivedReadOnly")}
         </p>
       )}
+      <AccountReconciliation accountId={record.account.id} />
       {valuation && !valuation.complete && missingReasons.length > 0 && (
         <p role="status" className="text-sm text-warning-foreground">
           {t("overview.totalsExcludeMissing")} {missingReasons.join(" · ")}

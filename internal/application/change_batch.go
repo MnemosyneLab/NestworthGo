@@ -94,6 +94,10 @@ func (s *Service) RecordChangesGuarded(ctx context.Context, commands []any, muta
 	if s.writes.previewToken() != expectedToken {
 		return nil, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken", Message: "preview is stale; request a new preview"}
 	}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	previews, holdings, commits, err := s.prepareChangeBatch(ctx, commands)
 	if err != nil {
 		return nil, err

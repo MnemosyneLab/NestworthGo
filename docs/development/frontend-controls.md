@@ -24,6 +24,10 @@ clearability, disabled state, form errors and server-side validation. Explicit
 future contract dates must remain reachable. Do not silently normalize invalid
 dates or replace an intentionally empty selection with today.
 
+For UTF-8 byte bounds, use Input's `maxBytes` counter/field error and
+`utf8ByteLength` to guard submission. HTML `maxLength` counts UTF-16 code units;
+it cannot enforce storage byte budgets. Keep backend validation authoritative.
+
 Provide a localized accessible name, associate errors with aria-describedby,
 and expose aria-invalid. Labels must target the actual interactive trigger.
 Preserve refs and focus restoration when changing an input into a picker.
@@ -75,6 +79,15 @@ a fresh preview or draft cancellation. `stale_preview` with `previewToken`
 means a proven refusal; `planId` means the in-memory plan is unavailable and
 cannot prove whether an earlier confirmation committed. No-field legacy
 `stale_preview` responses are treated conservatively as unavailable plans.
+Reconciliation session commits additionally return `stale_preview` with
+`expiresAt` only after durable receipt lookup proves an expired preview did not
+commit. This definite expiry releases the guard for dismissal and fresh review;
+`planId` and unscoped stale errors retain the original recovery identity.
+Product correction commits likewise check durable receipts before refusing an
+expired/invalidated `previewToken` or changed `reviewedStateHash`, before any
+write. Reconciliation product reviews release their guard for these named stale
+fields, permitting dismissal and a fresh preview. Receipt conflicts remain unknown,
+and retries of committed products still return the receipt before checking expiry.
 
 Ordinary Record and Fix submissions also register with the owning Sheet
 synchronously before dispatch. The owner retains the immutable reviewed command,
@@ -97,7 +110,10 @@ Retry sends the saved request and mutation ID, plus the original Fix source;
 it never reconstructs a request from refreshed defaults. Record's audited
 business refusals (`invalid_change`, `no_change`, `insufficient_balance`,
 `insufficient_quantity`, `managed_position_conflict`) precede its atomic write
-and follow durable receipt lookup. Other errors remain unknown. Fix commits its
+and follow durable receipt lookup. Named Record conflicts on reconciliationLink,
+financialRevision or expectedRevision also follow that receipt lookup and prove
+a precommit refusal; refresh reconciliation evidence before renewed review.
+A mutationId/operationId conflict or an unscoped receipt conflict remains unknown. Other errors remain unknown. Fix commits its
 inverse/replacement before snapshot maintenance, and same-ID replay reruns that
 maintenance. Generic domain errors such as validation, conflict, decimal overflow
 and history errors therefore remain unknown for Fix; only `cannot_fix_change`,

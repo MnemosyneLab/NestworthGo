@@ -1,3 +1,7 @@
+import { ReconciliationService } from "@/queries/reconciliation";
+import { callService } from "@/lib/wails";
+import type { ReconciliationLink } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
+import type { ProductPreview as ReconciliationProductPreview } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation/models";
 import { DepositFields } from "./DepositFields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +35,11 @@ export function ProductFormSheet({
   cashAmount,
   open,
   onOpenChange,
+  reconciliationLink,
+  onReconciliationPreview,
 }: {
+  reconciliationLink?: ReconciliationLink;
+  onReconciliationPreview?: (preview:ReconciliationProductPreview)=>void;
   accountId: string;
   currency: string;
   cashAmount?: string;
@@ -41,6 +49,7 @@ export function ProductFormSheet({
 }) {
   const { t } = useTranslation();
   const preview = usePreviewProductOperation();
+ const [linkedPreviewPending,setLinkedPreviewPending]=useState(false);
   const record = useRecordProductOperation();
   const [currency, setCurrency] = useState(defaultCurrency);
   const currencies = useSupportedCurrencies();
@@ -143,7 +152,7 @@ export function ProductFormSheet({
         {reviewed && <ProductPreview preview={reviewed} />}
         {error && <p id="product-form-error" role="alert" className="text-sm text-destructive">{error}</p>}
         <SheetFooter>
-          <Button type="button" variant="outline" disabled={preview.isPending || record.isPending} onClick={() => {
+          <Button type="button" variant="outline" disabled={preview.isPending || record.isPending || linkedPreviewPending} onClick={() => {
             setError(undefined);
             setInvalidField(undefined);
             const required = [
@@ -162,7 +171,8 @@ export function ProductFormSheet({
               setError(t("availableFunds.confirmCashExcludes"));
               return;
             }
-            void preview.mutateAsync(command).then(setReviewed).catch(formError);
+            if(reconciliationLink){setLinkedPreviewPending(true);void callService(()=>ReconciliationService.PreviewProductOperation({...command,reconciliationLink})).then(value=>onReconciliationPreview?.(value)).catch(formError).finally(()=>setLinkedPreviewPending(false));}
+            else void preview.mutateAsync(command).then(setReviewed).catch(formError);
           }}>{t("availableFunds.preview")}</Button>
           <Button type="button" disabled={!reviewed || record.isPending} onClick={() => {
             if (!reviewed || record.isPending) {

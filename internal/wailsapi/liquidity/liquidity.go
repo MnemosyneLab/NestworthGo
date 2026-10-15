@@ -150,6 +150,9 @@ func (s *Service) ReleaseReservation(ctx context.Context, request ReleaseReserva
 }
 
 func (s *Service) UpdateProductTerms(ctx context.Context, request UpdateProductTermsRequest) (ProductDetailDTO, error) {
+	if request.ReconciliationLink != nil {
+		return ProductDetailDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Field: "reconciliationLink", Message: "linked terms require the reconciliation preview and commit workflow"})
+	}
 	productID, err := domain.ParseProductContractID(strings.TrimSpace(request.ProductID))
 	if err != nil {
 		return ProductDetailDTO{}, apierror.Wrap(err)

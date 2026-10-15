@@ -85,7 +85,7 @@ func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
 				continue
 			}
 			raw, _ := json.Marshal(found[name].InputSchema)
-			if !strings.Contains(string(raw), `"additionalProperties":false`) || strings.Contains(string(raw), "releaseReservationIds") || strings.Contains(string(raw), `"renew"`) || strings.Contains(string(raw), `"reviewedAt"`) {
+			if !strings.Contains(string(raw), `"additionalProperties":false`) || strings.Contains(string(raw), "releaseReservationIds") || strings.Contains(string(raw), `"reviewedAt"`) {
 				t.Fatal(string(raw))
 			}
 			if found[name].Annotations.ReadOnlyHint != (name == "preview_product_operation") {

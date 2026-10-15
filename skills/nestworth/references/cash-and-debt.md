@@ -81,3 +81,8 @@ explaining that reconciliation will not reproduce itemized spending history.
 Keep debt balances in the App's positive owed-principal convention. Inspect the
 preview to ensure cash and debt move in the intended directions. For historical
 records, later repayments/balances must still be valid; the App validates replay.
+
+For an active reconciliation session, choose a direct target adjustment or a
+missing real income/expense/transfer using the user's intent. Attach the current
+reconciliationLink to the existing preview; inspect committed links, reread and
+explicitly check again. See [session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).

@@ -18,6 +18,7 @@ import (
 type ChangeCommandKind string
 
 const (
+	ChangePositionImport     ChangeCommandKind = "position_import"
 	ChangeMoneyAdded         ChangeCommandKind = "money_added"
 	ChangeMoneyRemoved       ChangeCommandKind = "money_removed"
 	ChangeCashDividend       ChangeCommandKind = "cash_dividend"
@@ -37,7 +38,8 @@ const (
 // own currency field; a field irrelevant to the current Kind is simply left
 // empty.
 type ChangeCommandRequest struct {
-	Kind ChangeCommandKind `json:"kind"`
+	ReconciliationLink *domain.ReconciliationLink `json:"reconciliationLink,omitempty"`
+	Kind               ChangeCommandKind          `json:"kind"`
 
 	AccountID           string `json:"accountId,omitempty"`
 	FromAccountID       string `json:"fromAccountId,omitempty"`
@@ -157,6 +159,31 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 		return nil, err
 	}
 	switch r.Kind {
+	case ChangePositionImport:
+		account, err := domain.ParseAccountID(r.AccountID)
+		if err != nil {
+			return nil, err
+		}
+		instrument, err := domain.ParseInstrumentID(r.InstrumentID)
+		if err != nil {
+			return nil, err
+		}
+		quantity, err := domain.ParseQuantity(r.Quantity)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(r.UnitCost) == "" {
+			return nil, &domain.Error{Code: domain.ErrCostBasisRequired, Field: "unitCost", Message: "original unit cost is required"}
+		}
+		cost, err := domain.ParseUnitPrice(r.UnitCost)
+		if err != nil {
+			return nil, err
+		}
+		currency, err := domain.ParseSupportedCurrency(r.Currency)
+		if err != nil {
+			return nil, err
+		}
+		return domain.PositionImportInput{HouseholdID: householdID, AccountID: account, InstrumentID: instrument, Quantity: quantity, UnitCost: &cost, Currency: currency, EffectiveAt: effectiveAt, Note: r.Note}, nil
 	case ChangeMoneyAdded:
 		accountID, err := domain.ParseAccountID(r.AccountID)
 		if err != nil {
