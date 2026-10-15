@@ -571,3 +571,56 @@ it.each(["Asia/Tokyo", "America/Los_Angeles"])("uses configured %s for session a
   render(<QueryClientProvider client={createTestQueryClient()}><AccountReconciliation accountId="one" /></QueryClientProvider>);
   expect(screen.getByText(new RegExp(formatTimestamp(q.session!.completedAt, q.timezone, "en")))).toBeInTheDocument();
 });
+
+it.each(["en", "zh-CN", "zh-TW"])("identifies missing source evidence inline and clears corrected errors in %s", async (language) => {
+  await i18n.changeLanguage(language);
+  q.preview.mockRejectedValueOnce(Object.assign(new Error("Source: Check this field and try again."), { wireError: { code: "validation", field: "source", message: "confirmation requires a user-provided source and as-of date" } }));
+  mount("session-one");
+  await userEvent.click(screen.getAllByRole("button", { name: i18n.t("reconciliation.review") })[0]);
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.preview") }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("reconciliation.validation.source"));
+  const reference = screen.getByLabelText(i18n.t("reconciliation.source"));
+  expect(reference).toHaveAttribute("aria-invalid", "true");
+  expect(reference).toHaveAccessibleDescription(/source|来源|來源/);
+  await userEvent.type(reference, "Synthetic statement");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(reference).not.toHaveAttribute("aria-invalid");
+});
+
+it("identifies partial finish intent and closing explanation and clears stale errors", async () => {
+  q.preview.mockRejectedValueOnce(Object.assign(new Error("Check this field and try again."), { wireError: { code: "validation", field: "allowPartial", message: "partial finish requires explicit intent and a closing explanation" } }));
+  mount("session-one");
+  await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("reconciliation.validation.allowPartial"));
+  const partial = screen.getByRole("checkbox", { name: "Finish partially with outstanding checks" });
+  expect(partial).toHaveAccessibleDescription(i18n.t("reconciliation.validation.allowPartial"));
+  await userEvent.type(screen.getByLabelText("Closing explanation"), "Waiting for statement");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("shows holding quantities without quote currency in completed checkpoints, attempts and previews", async () => {
+  const item = q.session!.accounts![0].items![0];
+  Object.assign(item, { kind: "holding", label: "Synthetic shares", value: "100", cost: "10", detail: { quantityUnit: "" }, checkedAt: "2026-09-01T12:00:00Z", source: { reference: "", asOfDate: "" }, outcome: "skipped" });
+  item.attempts = [{ ...item, value: "100", checkedAt: "2026-09-01T12:00:00Z", note: "Awaiting statement" }];
+  const view = mount("session-one");
+  const article = screen.getByText(/Synthetic shares/).closest("article")!;
+  expect(within(article).getByText("100", { selector: "p" })).toBeInTheDocument();
+  expect(article).not.toHaveTextContent(/100 USD|·\s*·|·\s*Checked at|·\s*$/);
+  view.unmount();
+  mount();
+  await userEvent.click(screen.getByRole("button", { name: "Start reconciliation" }));
+  const review = await screen.findByRole("dialog");
+  expect(within(review).getByText("100", { selector: "p" })).toBeInTheDocument();
+  expect(review).not.toHaveTextContent(/100 USD|·\s*·/);
+});
+
+
+it("preserves the canonical cash amount in the reviewed checkpoint", async () => {
+  const item = q.session!.accounts![0].items![0];
+  Object.assign(item, { checkedAt: "2026-09-01T12:00:00Z", source: { reference: "Synthetic statement", asOfDate: "2026-09-01" }, outcome: "confirmed" });
+  mount("session-one");
+  await userEvent.click(screen.getAllByRole("button", { name: "Review check" })[0]);
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(await screen.findByText("100.001 USD", { selector: "p" })).toBeInTheDocument();
+});

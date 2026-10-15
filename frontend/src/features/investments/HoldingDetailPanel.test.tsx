@@ -225,8 +225,8 @@ it("offers a friendly empty state when no daily prices are stored",async()=>{
  api.series.mockResolvedValue(seriesAnswer(30,{item:null,points:[]}));
  mount();
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
- expect(await performance.findByText("No price history yet")).toBeInTheDocument();
- expect(performance.getByText("Prices appear here once they are recorded or synced.")).toBeInTheDocument();
+ expect(await performance.findByText("No daily price history yet")).toBeInTheDocument();
+ expect(performance.getByText("Record or sync daily closing prices. Timestamped manual prices are available in Market Data.")).toBeInTheDocument();
 });
 
 it("shows the loading skeleton until the performance arrives, then a retryable error",async()=>{
@@ -321,4 +321,16 @@ it.each(["portfolio","account"] as const)("handles expansion, collapse and switc
  expect(await livePerformance.findByRole("table")).toBeInTheDocument();
  expect(await screen.findByText("12.34% annualized")).toBeInTheDocument();
  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+
+it("retains three daily chart points when the monthly return lacks a baseline", async () => {
+ const points=[earlier,{...point,effectiveDate:"2026-10-12",quotedAt:"2026-10-12T00:00:00Z",value:"1.45"},point];
+ api.series.mockResolvedValue(seriesAnswer(30,{item:null,unavailableReason:"insufficient_daily_history",points}));
+ mount();
+ const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
+ expect(await performance.findByText("Not enough history for this period")).toBeInTheDocument();
+ const rows=within(await performance.findByRole("table")).getAllByRole("row").slice(1);
+ expect(rows).toHaveLength(3);
+ expect(performance.queryByText("No daily price history yet")).not.toBeInTheDocument();
 });

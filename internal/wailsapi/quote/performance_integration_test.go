@@ -86,3 +86,53 @@ func TestPerformanceBindingsDailySeriesAndFixedReturns(t *testing.T) {
 		})
 	}
 }
+
+// Reproduce QASPR through the real public writers: timestamped manual prices
+// are not daily closes, whereas three explicit daily facts must remain visible
+// even though they cannot establish a 30-day return.
+func TestPerformanceBindingsSparseDailyAndTimestampedManualPrices(t *testing.T) {
+	app := wailstest.NewService(t)
+	app.SetClock(func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) })
+	ctx := t.Context()
+	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic sparse history", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	i, err := instrument.NewService(app).CreateInstrument(ctx, instrument.InstrumentRequest{Name: "Synthetic QASPR", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := quote.NewService(app)
+	for _, date := range []string{"2026-10-12", "2026-10-13", "2026-10-14"} {
+		if _, err := service.AppendManualInstrumentQuote(ctx, i.ID, "999", date+"T12:00:00Z", false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	empty, err := service.InstrumentQuotePerformanceSeries(ctx, i.ID, 30)
+	if err != nil || len(empty.Points) != 0 || empty.Item != nil {
+		t.Fatalf("timestamped manual prices became daily facts: %+v %v", empty, err)
+	}
+	observations := []application.AgentMarketDataItem{}
+	for n, date := range []string{"2026-10-12", "2026-10-13", "2026-10-14"} {
+		observations = append(observations, application.AgentMarketDataItem{InstrumentID: i.ID, Currency: "USD", Value: strconv.Itoa(100 + n), Kind: "close", Date: date, Timezone: "UTC", SourceTitle: "Synthetic daily source"})
+	}
+	if _, err := app.ImportAgentMarketData(ctx, uuid.NewString(), application.AgentMarketDataInput{Items: observations}); err != nil {
+		t.Fatal(err)
+	}
+	for _, days := range []int{7, 30, 90, 180, 365, 0} {
+		series, err := service.InstrumentQuotePerformanceSeries(ctx, i.ID, days)
+		if err != nil || len(series.Points) != 3 || series.From != "2026-10-12" || series.To != "2026-10-14" {
+			t.Fatalf("sparse series %d: %+v %v", days, series, err)
+		}
+		if days > 0 && (series.Item != nil || series.UnavailableReason != "insufficient_daily_history") {
+			t.Fatalf("invented covered return: %+v", series)
+		}
+		if days == 0 && (series.Item == nil || series.Item.PeriodPercent != "2") {
+			t.Fatalf("all-history return: %+v", series)
+		}
+		for n, point := range series.Points {
+			if point.Value != strconv.Itoa(100+n) || point.ObservationKind != "close" {
+				t.Fatalf("sparse point: %+v", point)
+			}
+		}
+	}
+}

@@ -1,3 +1,5 @@
+import { checkpointValue, sourceText } from "./reconciliationDisplay";
+import { FieldError } from "@/components/ui/field-error";
 import { ProductPreview as ProductOperationReview } from "@/features/liquidity/ProductPreview";
 import {
   ProductTermsFields,
@@ -44,7 +46,7 @@ import {
   ReconciliationService,
 } from "@/queries/reconciliation";
 import { invalidateActivityChange } from "@/queries/invalidation";
-import { callService } from "@/lib/wails";
+import { callService, type WireError } from "@/lib/wails";
 import { displayError } from "@/lib/display";
 import { formatAmount, formatQuotePrice, multiplyCanonical } from "@/lib/money";
 import { useReconciliationTimestamp } from "./useReconciliationTimestamp";
@@ -61,6 +63,8 @@ import type {
   AdjustmentPreview,
   ProductPreview,
 } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation/models";
+
+const validationFields = new Set(["source", "asOfDate", "asOfTime", "allowPartial", "note", "outcome"]);
 
 const reconciliationAction = (
   action: string,
@@ -101,6 +105,8 @@ export function ReconciliationPage({
   const [page, setPage] = useState(0);
   const [review, setReview] = useState<Review>();
   const [error, setError] = useState<string>();
+  const [errorField, setErrorField] = useState<string>();
+  const clearError = () => { setError(undefined); setErrorField(undefined); };
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<{
     account: ReconciliationAccount;
@@ -116,14 +122,17 @@ export function ReconciliationPage({
   };
   const preview = async (action: ReconciliationAction) => {
     setBusy(true);
-    setError(undefined);
+    clearError();
     try {
       const result = await callService(() =>
         ReconciliationService.Preview(action),
       );
       setReview(result);
     } catch (cause) {
-      setError(displayError(cause, t("reconciliation.error")));
+      const wire = (cause as { wireError?: WireError })?.wireError;
+      setErrorField(wire?.field);
+      const key = wire?.code === "validation" && wire.field && validationFields.has(wire.field) ? wire.field : undefined;
+      setError(key ? t(`reconciliation.validation.${key}`) : displayError(cause, t("reconciliation.error")));
     } finally {
       setBusy(false);
     }
@@ -141,7 +150,7 @@ export function ReconciliationPage({
     setActive(id);
     setEditing(undefined);
     setClosing(false);
-    setError(undefined);
+    clearError();
   };
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -149,7 +158,7 @@ export function ReconciliationPage({
       <p className="text-sm text-muted-foreground">
         {t("reconciliation.localOnly")}
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && !editing && !closing && <p role="alert">{error}</p>}
       {!active ? (
         <>
           {accounts.isLoading || sessions.isLoading ? (
@@ -348,15 +357,7 @@ export function ReconciliationPage({
                         </div>
                         {item.kind !== "scope" && (
                           <p className="break-words font-mono">
-                            {item.value
-                              ? formatAmount(
-                                  item.value,
-                                  item.kind === "holding"
-                                    ? undefined
-                                    : item.currency,
-                                )
-                              : t("reconciliation.unavailable")}{" "}
-                            {item.currency}
+                            {checkpointValue(t, item)}
                           </p>
                         )}
                         {item.cost && (
@@ -373,10 +374,7 @@ export function ReconciliationPage({
                         )}
                         {item.checkedAt && (
                           <p className="text-sm">
-                            {item.source.reference} · {item.source.asOfDate}{" "}
-                            {item.source.asOfTime} {item.source.timezone} ·{" "}
-                            {t("reconciliation.checkedAt")}:{" "}
-                            {formatTimestamp(item.checkedAt)}
+                            {[sourceText(item.source), `${t("reconciliation.checkedAt")}: ${formatTimestamp(item.checkedAt)}`].filter(Boolean).join(" · ")}
                           </p>
                         )}
                         {item.referenceValue && (
@@ -493,11 +491,7 @@ export function ReconciliationPage({
                             </summary>
                             {item.attempts.map((attempt, i) => (
                               <p key={i} className="break-words text-sm">
-                                {formatTimestamp(attempt.checkedAt)} ·{" "}
-                                {t(`reconciliation.${attempt.outcome}`)} ·{" "}
-                                {attempt.value} · {attempt.source.reference} ·{" "}
-                                {attempt.source.asOfDate}{" "}
-                                {attempt.source.asOfTime} · {attempt.note}
+                                {[formatTimestamp(attempt.checkedAt), t(`reconciliation.${attempt.outcome}`), checkpointValue(t, attempt, true), sourceText(attempt.source), attempt.note].filter(Boolean).join(" · ")}
                               </p>
                             ))}
                           </details>
@@ -514,21 +508,24 @@ export function ReconciliationPage({
         </>
       )}
       {closing && current && (
-        <Sheet open onOpenChange={(open) => !open && setClosing(false)}>
+        <Sheet open onOpenChange={(open) => { if (!open) { setClosing(false); clearError(); } }}>
           <SheetContent>
             <SheetHeader>
               <SheetTitle>{t("reconciliation.finish")}</SheetTitle>
             </SheetHeader>
             <div className="flex flex-col gap-4">
-              {error && <p role="alert">{error}</p>}
+              {error && errorField !== "allowPartial" && <FieldError>{error}</FieldError>}
               <label className="flex gap-2">
                 <input
                   type="checkbox"
                   checked={partial}
-                  onChange={(e) => setPartial(e.target.checked)}
+                  aria-invalid={errorField === "allowPartial" || undefined}
+                  aria-describedby={errorField === "allowPartial" ? "finish-error" : undefined}
+                  onChange={(e) => { setPartial(e.target.checked); clearError(); }}
                 />
                 {t("reconciliation.allowPartial")}
               </label>
+              <FieldError id="finish-error">{errorField === "allowPartial" ? error : undefined}</FieldError>
               <Label htmlFor="closing-note">
                 {t("reconciliation.closingNote")}
               </Label>
@@ -536,7 +533,9 @@ export function ReconciliationPage({
                 id="closing-note"
                 value={closingNote}
                 maxBytes={2000}
-                onChange={(e) => setClosingNote(e.target.value)}
+                aria-invalid={errorField === "allowPartial" || undefined}
+                aria-describedby={errorField === "allowPartial" ? "finish-error" : undefined}
+                onChange={(e) => { setClosingNote(e.target.value); clearError(); }}
               />
               <Button
                 disabled={busy || utf8ByteLength(closingNote) > 2000}
@@ -555,7 +554,7 @@ export function ReconciliationPage({
         </Sheet>
       )}
       {editing && editing.route !== "newProduct" && current && (
-        <Sheet open onOpenChange={(open) => !open && setEditing(undefined)}>
+        <Sheet open onOpenChange={(open) => { if (!open) { setEditing(undefined); clearError(); } }}>
           <SheetContent size="lg" finalFocus={() => trigger.current}>
             <SheetHeader>
               <SheetTitle>
@@ -568,10 +567,14 @@ export function ReconciliationPage({
                 )}
               </SheetTitle>
             </SheetHeader>
-            {error && <p role="alert">{error}</p>}
+            {error && (editing.route !== "check" || !["source", "asOfDate", "asOfTime", "note", "outcome"].includes(errorField ?? "")) && <FieldError>{error}</FieldError>}
             {editing.route === "check" ? (
               <CheckForm
+                key={editing.item.id}
                 item={editing.item}
+                error={error}
+                errorField={errorField}
+                onEdit={clearError}
                 disabled={busy}
                 onPreview={(fields) =>
                   preview({
@@ -655,7 +658,7 @@ export function ReconciliationPage({
             expectedRevision: current.revision,
             financialRevision: editing.account.financialRevision,
           }}
-          onOpenChange={(open) => !open && setEditing(undefined)}
+          onOpenChange={(open) => { if (!open) { setEditing(undefined); clearError(); } }}
           onReconciliationPreview={(p) =>
             setReview({ planId: p.planId, product: p })
           }
@@ -756,7 +759,11 @@ function CheckForm({
   item,
   onPreview,
   disabled,
+  error, errorField, onEdit,
 }: {
+  error?: string;
+  errorField?: string;
+  onEdit: () => void;
   item: ReconciliationItem;
   onPreview: (fields: Partial<ReconciliationAction>) => Promise<void>;
   disabled: boolean;
@@ -768,13 +775,17 @@ function CheckForm({
   const [time, setTime] = useState(item.source.asOfTime ?? "");
   const [note, setNote] = useState(item.note);
   const [value, setValue] = useState(item.referenceValue ?? "");
+  const invalid = (field: string) => errorField === field;
+  const aria = (field: string) => ({ "aria-invalid": invalid(field) || undefined, "aria-describedby": invalid(field) ? `check-${field}-error` : undefined });
+  const fieldError = (field: string) => <FieldError id={`check-${field}-error`}>{invalid(field) ? error : undefined}</FieldError>;
   return (
     <div className="flex flex-col gap-3">
       <Label htmlFor="check-outcome">{t("reconciliation.outcome")}</Label>
       <NativeSelect
         id="check-outcome"
         value={outcome}
-        onChange={(e) => setOutcome(e.target.value)}
+        {...aria("outcome")}
+        onChange={(e) => { setOutcome(e.target.value); onEdit(); }}
       >
         {["confirmed", "skipped", "unresolved", "pending"].map((s) => (
           <option key={s} value={s}>
@@ -782,31 +793,38 @@ function CheckForm({
           </option>
         ))}
       </NativeSelect>
+      {fieldError("outcome")}
       <Label htmlFor="check-source">{t("reconciliation.source")}</Label>
       <Input
         id="check-source"
         maxBytes={512}
         value={reference}
-        onChange={(e) => setReference(e.target.value)}
+        {...aria("source")}
+        onChange={(e) => { setReference(e.target.value); onEdit(); }}
       />
+      {fieldError("source")}
       <Label htmlFor="check-date">{t("reconciliation.sourceDate")}</Label>
-      <DatePicker id="check-date" value={date} onChange={setDate} clearable />
+      <DatePicker id="check-date" value={date} onChange={(value) => { setDate(value); onEdit(); }} {...aria("asOfDate")} clearable />
+      {fieldError("asOfDate")}
       <Label htmlFor="check-time">{t("reconciliation.sourceTime")}</Label>
-      <TimePicker id="check-time" value={time} onChange={setTime} clearable />
+      <TimePicker id="check-time" value={time} onChange={(value) => { setTime(value); onEdit(); }} {...aria("asOfTime")} clearable />
+      {fieldError("asOfTime")}
       <Label htmlFor="check-value">{t("reconciliation.referenceValue")}</Label>
       <Input
         id="check-value"
         value={value}
         maxBytes={256}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => { setValue(e.target.value); onEdit(); }}
       />
       <Label htmlFor="check-note">{t("reconciliation.note")}</Label>
       <Input
         id="check-note"
         value={note}
         maxBytes={2000}
-        onChange={(e) => setNote(e.target.value)}
+        {...aria("note")}
+        onChange={(e) => { setNote(e.target.value); onEdit(); }}
       />
+      {fieldError("note")}
       <Button
         disabled={
           disabled ||
@@ -1027,11 +1045,10 @@ function CommitReview({
                     · {t(`reconciliation.${item.outcome}`)}
                   </p>
                   <p>
-                    {item.value} {item.currency} · {item.referenceValue}
+                    {[checkpointValue(t, item, true), item.referenceValue].filter(Boolean).join(" · ")}
                   </p>
                   <p>
-                    {item.source.reference} · {item.source.asOfDate}{" "}
-                    {item.source.asOfTime} {item.source.timezone}
+                    {sourceText(item.source)}
                   </p>
                   <p>{item.note}</p>
                 </div>
@@ -1045,9 +1062,9 @@ function CommitReview({
           {change.effects?.map((effect, j) => (
             <p key={`effect-${j}`}>
               {t(
-                effect.direction === "added"
-                  ? "history.detailAmountAdded"
-                  : "history.detailAmountRemoved",
+                effect.money
+                  ? (effect.direction === "added" ? "history.detailAmountAdded" : "history.detailAmountRemoved")
+                  : (effect.direction === "added" ? "history.detailQuantityAdded" : "history.detailQuantityRemoved"),
               )}
               : {effect.money?.amount ?? effect.quantity}{" "}
               {effect.money?.currency}{" "}
@@ -1057,7 +1074,7 @@ function CommitReview({
           ))}
           {change.resulting?.map((v, j) => (
             <p key={j}>
-              {v.name} · {v.amount || v.quantity} {v.currency}
+              {v.name} · {v.amount || v.quantity} {v.amount ? v.currency : ""}
             </p>
           ))}
         </div>
@@ -1125,6 +1142,7 @@ type LinkedAudit = {
     value?: string;
     cost?: string;
     currency?: string;
+    detail?: unknown;
     source?: { reference: string; asOfDate: string; asOfTime?: string };
     note?: string;
   };
@@ -1190,15 +1208,13 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
                   : before?.label}
               </h4>
               <p>
-                {t("reconciliation.reviewedBefore")}: {before?.value}{" "}
-                {before?.currency}{" "}
+                {t("reconciliation.reviewedBefore")}: {before && checkpointValue(t, before, true)}{" "}
                 {before?.cost &&
                   `${t("reconciliation.unitCost")}: ${before.cost}`}
               </p>
-              {before?.source?.reference && (
+              {sourceText(before?.source) && (
                 <p>
-                  {before.source.reference} · {before.source.asOfDate}{" "}
-                  {before.source.asOfTime}
+                  {sourceText(before?.source)}
                 </p>
               )}
               {after?.recordedAt && (
@@ -1216,17 +1232,17 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
               {after?.resulting?.map((value, j) => (
                 <p key={j}>
                   {value.Name}: {value.Amount || value.Quantity}{" "}
-                  {value.Currency}
+                  {value.Amount ? value.Currency : ""}
                 </p>
               ))}
               {after?.effects?.map((effect, j) => (
                 <p key={j}>
                   {t(
-                    effect.direction === "added"
-                      ? "history.detailAmountAdded"
-                      : "history.detailAmountRemoved",
+                    effect.amount != null
+                      ? (effect.direction === "added" ? "history.detailAmountAdded" : "history.detailAmountRemoved")
+                      : (effect.direction === "added" ? "history.detailQuantityAdded" : "history.detailQuantityRemoved"),
                   )}
-                  : {effect.amount ?? effect.quantity} {effect.currency}{" "}
+                  : {effect.amount ?? effect.quantity} {effect.amount ? effect.currency : ""}{" "}
                   {effect.unitCost &&
                     `${t("reconciliation.unitCost")}: ${effect.unitCost}`}
                 </p>
@@ -1287,12 +1303,7 @@ function RecentChanges({ sessionId }: { sessionId: string }) {
           };
           return (
             <p key={i} className="break-words text-sm">
-              {evidence.accountName} · {evidence.productName} ·{" "}
-              {evidence.amount ?? evidence.quantity} {evidence.currency} ·{" "}
-              {t("reconciliation.recordedAt")}:{" "}
-              {formatTimestamp(change.recordedAt)} ·{" "}
-              {t("reconciliation.effectiveAt")}:{" "}
-              {formatTimestamp(change.effectiveAt)}
+              {[evidence.accountName, evidence.productName, [evidence.amount ?? evidence.quantity, evidence.amount ? evidence.currency : ""].filter(Boolean).join(" "), `${t("reconciliation.recordedAt")}: ${formatTimestamp(change.recordedAt)}`, `${t("reconciliation.effectiveAt")}: ${formatTimestamp(change.effectiveAt)}`].filter(Boolean).join(" · ")}
             </p>
           );
         })

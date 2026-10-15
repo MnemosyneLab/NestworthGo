@@ -1488,7 +1488,8 @@
     "debtShort": "Debt balance",
     "noOrigin": "History has not started yet",
     "noOriginHint": "Historical overview becomes available after the household history begins.",
-    "estimatedShort": "Estimated"
+    "estimatedShort": "Estimated",
+    "coverageEstimated": "Complete estimated totals"
   },
   "investmentReview": {
     "title": "Investment review",
@@ -1649,8 +1650,8 @@
       "unsupported_instrument": "Historical price performance is unavailable for this instrument type."
     },
     "loading": "Loading price history",
-    "empty": "No price history yet",
-    "emptyHint": "Prices appear here once they are recorded or synced.",
+    "empty": "No daily price history yet",
+    "emptyHint": "Record or sync daily closing prices. Timestamped manual prices are available in Market Data.",
     "chartLabel": "Price history for {{name}}",
     "returns": {
       "label": "Returns by period",
@@ -1742,6 +1743,14 @@
       "open": "Open",
       "settled": "Settled",
       "cancelled": "Cancelled"
+    },
+    "validation": {
+      "source": "Statement or source reference and source date: provide both to confirm this check.",
+      "asOfDate": "Source date: choose a valid date.",
+      "asOfTime": "Source time: choose a valid time in the ledger timezone.",
+      "allowPartial": "To finish with pending, skipped or unresolved checks, enable partial completion and add a closing explanation.",
+      "note": "Explanation or note: explain why this check is skipped or unresolved.",
+      "outcome": "Outcome: choose confirmed, skipped, unresolved or pending."
     }
   }
 }

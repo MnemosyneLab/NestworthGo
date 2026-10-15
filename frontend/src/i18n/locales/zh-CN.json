@@ -1488,7 +1488,8 @@
     "debtShort": "负债余额",
     "noOrigin": "历史记录尚未开始",
     "noOriginHint": "家庭历史记录开始后即可使用历史全景。",
-    "estimatedShort": "暂估"
+    "estimatedShort": "暂估",
+    "coverageEstimated": "完整暂估总额"
   },
   "investmentReview": {
     "title": "投资复核",
@@ -1649,8 +1650,8 @@
       "unsupported_instrument": "此类投资品暂不支持历史价格表现。"
     },
     "loading": "正在加载价格历史",
-    "empty": "暂无价格历史",
-    "emptyHint": "记录或同步价格后会显示在这里。",
+    "empty": "暂无每日收盘价历史",
+    "emptyHint": "记录或同步每日收盘价。带时间戳的手动价格可在市场数据中查看。",
     "chartLabel": "{{name}} 的价格历史",
     "returns": {
       "label": "各区间收益",
@@ -1742,6 +1743,14 @@
       "open": "存续中",
       "settled": "已结清",
       "cancelled": "已取消"
+    },
+    "validation": {
+      "source": "来源凭证与来源日期：请填写两项后再确认本项核对。",
+      "asOfDate": "来源日期：请选择有效日期。",
+      "asOfTime": "来源时间：请选择账本时区内的有效时间。",
+      "allowPartial": "仍有待核对、跳过或未解决项目时，请勾选“允许部分完成”并填写结束说明。",
+      "note": "说明或备注：请说明跳过或未解决的原因。",
+      "outcome": "核对结果：请选择已确认、跳过、未解决或待核对。"
     }
   }
 }

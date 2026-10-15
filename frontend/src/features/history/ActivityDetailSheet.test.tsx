@@ -136,6 +136,7 @@ describe("ActivityDetailSheet", () => {
       />,
     );
 
+    expect(screen.getByText("Investment transfer")).toBeInTheDocument();
     expect(await screen.findByText("Moved 2 from Brokerage · NVIDIA to Retirement · NVIDIA")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Source holding: Brokerage · NVIDIA")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Destination holding: Retirement · NVIDIA")).toBeInTheDocument();
@@ -154,6 +155,8 @@ describe("ActivityDetailSheet", () => {
 
     render(<ActivityDetailSheet activity={activity} accounts={new Map()} instruments={new Map([["i1", "NVIDIA"]])} holdings={new Map([["holding-1", "Brokerage · NVIDIA"]])} onClose={() => undefined} t={t} />);
 
+    expect(screen.queryByText("Investment transfer")).not.toBeInTheDocument();
+    expect(screen.getByText("Quantity adjustment")).toBeInTheDocument();
     expect(await screen.findByText((_, node) => node?.textContent === "Change type: Quantity adjustment")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Holding: Brokerage · NVIDIA")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Adjustment: Quantity removed")).toBeInTheDocument();

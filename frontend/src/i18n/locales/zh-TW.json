@@ -1488,7 +1488,8 @@
     "debtShort": "負債餘額",
     "noOrigin": "歷史記錄尚未開始",
     "noOriginHint": "家庭歷史記錄開始後即可使用歷史全景。",
-    "estimatedShort": "暫估"
+    "estimatedShort": "暫估",
+    "coverageEstimated": "完整暫估總額"
   },
   "investmentReview": {
     "title": "投資複核",
@@ -1649,8 +1650,8 @@
       "unsupported_instrument": "此類投資標的暫不支援歷史價格表現。"
     },
     "loading": "正在載入價格歷史",
-    "empty": "尚無價格歷史",
-    "emptyHint": "記錄或同步價格後會顯示在這裡。",
+    "empty": "暫無每日收盤價歷史",
+    "emptyHint": "記錄或同步每日收盤價。帶時間戳記的手動價格可在市場資料中查看。",
     "chartLabel": "{{name}} 的價格歷史",
     "returns": {
       "label": "各區間報酬",
@@ -1742,6 +1743,14 @@
       "open": "存續中",
       "settled": "已結清",
       "cancelled": "已取消"
+    },
+    "validation": {
+      "source": "來源憑證與來源日期：請填寫兩項後再確認本項核對。",
+      "asOfDate": "來源日期：請選擇有效日期。",
+      "asOfTime": "來源時間：請選擇帳本時區內的有效時間。",
+      "allowPartial": "仍有待核對、略過或未解決項目時，請勾選「允許部分完成」並填寫結束說明。",
+      "note": "說明或備註：請說明略過或未解決的原因。",
+      "outcome": "核對結果：請選擇已確認、略過、未解決或待核對。"
     }
   }
 }

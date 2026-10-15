@@ -107,8 +107,12 @@ func TestReconciliationSessionEvidenceDurabilityPartialAndImmutable(t *testing.T
 	if err != nil || last != nil {
 		t.Fatalf("partial advanced success: %+v %v", last, err)
 	}
-	if _, err := s.PreviewReconciliationSession(ctx, ReconciliationAction{Action: "resume", SessionID: v.ID, ExpectedRevision: v.Revision}); err == nil {
-		t.Fatal("completed session mutable")
+	for _, revision := range []int64{v.Revision, v.Revision - 1} {
+		_, err := s.PreviewReconciliationSession(ctx, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: revision})
+		var domainErr *domain.Error
+		if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrConflict || domainErr.Field != "expectedRevision" || !strings.Contains(domainErr.Message, "completed and read-only") {
+			t.Fatalf("completed session refusal: %v", err)
+		}
 	}
 }
 func TestReconciliationSessionRevisionAndSuccess(t *testing.T) {

@@ -388,7 +388,10 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 		if err != nil {
 			return session, nil, err
 		}
-		if session.Status == "completed" || session.Revision != in.ExpectedRevision {
+		if session.Status == "completed" {
+			return session, nil, &domain.Error{Code: domain.ErrConflict, Field: "expectedRevision", Message: "session is completed and read-only; start a new reconciliation session"}
+		}
+		if session.Revision != in.ExpectedRevision {
 			return session, nil, reconciliationStale("expectedRevision")
 		}
 		switch in.Action {

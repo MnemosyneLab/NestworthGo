@@ -1,5 +1,5 @@
 import { expect, describe, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -123,4 +123,23 @@ it("keeps calendar arrow-key navigation and Enter selection on civil days", asyn
   (grid.querySelector('[data-day="2026-08-15"] button') as HTMLElement).focus();
   await userEvent.keyboard("{ArrowRight}{Enter}");
   expect(onChange).toHaveBeenCalledWith("2026-08-16");
+});
+
+
+it("navigates adjacent months with real calendar buttons and returns focus after keyboard dismissal", async () => {
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><DatePicker value="2026-08-15" min="2026-01-01" max="2026-12-31" aria-label="Calendar navigation" onChange={() => {}} /></QueryClientProvider>);
+  const trigger = screen.getByRole("button", { name: "Calendar navigation" });
+  await userEvent.click(trigger);
+  const month = await screen.findByRole("combobox", { name: /month/i });
+  expect(month).toHaveValue("7");
+  const next = screen.getByRole("button", { name: /next month/i });
+  expect(next.parentElement).toHaveClass("z-20", "pointer-events-none");
+  expect(next).toHaveClass("pointer-events-auto");
+  await userEvent.click(next);
+  expect(month).toHaveValue("8");
+  await userEvent.click(screen.getByRole("button", { name: /previous month/i }));
+  expect(month).toHaveValue("7");
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(trigger).toHaveFocus());
 });

@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import type { HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { HistoricalAccountDeltaView, HistoricalAllocationView } from "./HistoricalPanorama";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
@@ -98,6 +98,34 @@ it("uses an honest empty chart state for nonempty all-zero asset categories", ()
   expect(within(comparison).queryByRole("img")).not.toBeInTheDocument();
   expect(comparison).toHaveTextContent("Known category amounts are zero on both sides");
   expect(within(comparison).getByRole("table")).toHaveTextContent("0");
+});
+
+it("labels an account delta as estimated from endpoint quality, including carried prices with verified coverage", () => {
+  const amount = (value: string) => ({ amount: value, currency: "CNY" });
+  const quality = (coverage: string, carriedCount = 0) => ({ availability: "full", coverage, includedCount: 1, valuedCount: 1, unpricedCount: 0, provisionalCount: coverage === "provisional" ? 1 : 0, carriedCount, staleCount: 0, oldestMarketDate: carriedCount ? "2026-08-01" : null, newestMarketDate: null, reasons: carriedCount ? ["carried_nav"] : coverage === "provisional" ? ["history_unverified"] : [] });
+  const valued = (value: string, coverage: string, carriedCount = 0) => ({ status: "active", included: true, complete: true, currency: "CNY", nativeAmount: value, baseAmount: value, quantity: null, assetClass: "fund", manual: false, valueSourceAt: "", valueSourceId: "", price: null, fx: null, missing: [], missingDetails: [], displayValuation: { currency: "CNY", total: amount(value), knownSubtotal: amount(value), quality: quality(coverage, carriedCount) } });
+  const row = (leftCoverage: string, carriedCount = 0): HistoricalOverviewRow => ({
+    key: "broker", accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: "Broker", role: "asset",
+    left: valued("100", leftCoverage, carriedCount) as HistoricalOverviewCell, right: valued("120", "verified") as HistoricalOverviewCell,
+    baseChange: "20", nativeChange: "20", quantityChange: null, changed: true, estimatedBaseChange: "20",
+  });
+  const data = (item: HistoricalOverviewRow): HistoricalOverviewResult => ({ ...result(state("2026-08-09", "20")), rows: [item] });
+  const note = "Estimated net-worth change, including cash flows";
+  const shown = (item: HistoricalOverviewRow) => {
+    const view = render(<HistoricalAccountDeltaView data={data(item)} onOpen={vi.fn()} />);
+    return { view, region: screen.getByRole("region", { name: "Account balance changes" }) };
+  };
+  const verified = shown(row("verified"));
+  expect(verified.region).not.toHaveTextContent(note);
+  verified.view.unmount();
+  const carried = shown(row("verified", 1));
+  expect(carried.region).toHaveTextContent(note);
+  carried.view.unmount();
+  const provisional = shown(row("provisional"));
+  expect(provisional.region).toHaveTextContent(note);
+  provisional.view.unmount();
+  const nonContract = shown(row("estimated"));
+  expect(nonContract.region).not.toHaveTextContent(note);
 });
 
 it("keeps negative sub-cent allocation tooltip values exact", () => {

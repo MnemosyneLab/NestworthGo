@@ -11,7 +11,9 @@ import { shiftCivilDate } from "./dates";
 import type { HistoricalOverviewSeriesResult } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { formatAmount } from "@/lib/money";
 import { formatHistoricalAmount } from "./historicalAmount";
-import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import { ValuationAvailability } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
+type MetricValuation = NonNullable<HistoricalOverviewState["displayValuation"]>["assets"];
 
 // Page orchestration tests deliberately inject invalid/empty values. Real picker
 // interaction is covered separately in HistoricalDatePicker.test.tsx.
@@ -1117,23 +1119,43 @@ it("opens the first incomplete component in the evidence sheet from the coverage
   expect(detail).toHaveTextContent("Exchange rate is missing");
 });
 
-function displayState(coverage: "verified" | "estimated", state: { assets: string | null; liabilities: string | null; netWorth: string | null }) {
-  const quality = { availability: "full", coverage, includedCount: 2, valuedCount: 2, unpricedCount: 0, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: [] };
-  const money = (amount: string | null) => ({ total: amount == null ? null : { amount, currency: "CNY" }, quality });
-  return { netWorth: money(state.netWorth), assets: money(state.assets), liabilities: money(state.liabilities) };
+type ContractCoverage = "verified" | "provisional" | "unavailable";
+
+function displayQuality(coverage: ContractCoverage, patch: { carriedCount?: number; reasons?: string[]; oldestMarketDate?: string | null } = {}) {
+  return { availability: coverage === "unavailable" ? "none" : "full", coverage, includedCount: 2, valuedCount: coverage === "unavailable" ? 0 : 2, unpricedCount: 0, provisionalCount: coverage === "provisional" ? 1 : 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: coverage === "provisional" ? ["history_unverified"] : [], ...patch };
 }
 
-function comparedWithCoverage(left: "verified" | "estimated", right: "verified" | "estimated") {
+function displayMetric(amount: string | null, coverage: ContractCoverage, patch?: { carriedCount?: number; reasons?: string[]; oldestMarketDate?: string | null }): MetricValuation {
+  const money = amount == null ? null : { amount, currency: "CNY" };
+  return { currency: "CNY", total: money, knownSubtotal: money, quality: displayQuality(coverage, patch) } as MetricValuation;
+}
+
+function displayState(coverage: ContractCoverage, state: { assets: string | null; liabilities: string | null; netWorth: string | null }, patch?: { carriedCount?: number; reasons?: string[]; oldestMarketDate?: string | null }) {
+  return { netWorth: displayMetric(state.netWorth, coverage, patch), assets: displayMetric(state.assets, coverage, patch), liabilities: displayMetric(state.liabilities, coverage, patch) };
+}
+
+function comparedWithCoverage(left: ContractCoverage, right: ContractCoverage, decorate?: (data: HistoricalOverviewResult) => void) {
   read.mockImplementation((date: string, compare: string) => {
     const data = result(date, compare);
     Object.assign(data.left, { displayValuation: displayState(left, data.left) });
     if (data.right) Object.assign(data.right, { displayValuation: displayState(right, data.right) });
+    if (data.change) data.estimatedChange = { ...data.change };
+    decorate?.(data);
     return Promise.resolve(data);
   });
 }
 
-it("flags the change as estimated when only the A baseline is estimated and shows A's quality", async () => {
-  comparedWithCoverage("estimated", "verified");
+it("flags full estimated A against verified B and retains its evidence path", async () => {
+  comparedWithCoverage("provisional", "verified", data => {
+    data.left.complete = false;
+    data.left.displayValuation = displayState("provisional", data.left, { carriedCount: 1, reasons: ["history_unverified", "carried_nav"], oldestMarketDate: "2026-08-01" });
+    data.rows!.push({
+      key: "broker-fund", accountId: "", holdingId: "", instrumentId: "", parentKey: "bank", kind: "holding", name: "Broker fund", role: "asset",
+      left: cell(null, { complete: false, baseAmount: null, missing: ["history_coverage"], displayValuation: displayMetric(null, "provisional", { carriedCount: 1, reasons: ["history_unverified", "carried_nav"], oldestMarketDate: "2026-08-01" }) }),
+      right: cell("120", { displayValuation: displayMetric("120", "verified") }),
+      baseChange: null, nativeChange: null, quantityChange: null, changed: true, estimatedBaseChange: "20",
+    });
+  });
   show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
   await chooseMode("date", userEvent);
@@ -1141,35 +1163,126 @@ it("flags the change as estimated when only the A baseline is estimated and show
   expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort"))).toHaveLength(3);
   const asset = within(region).getAllByTitle("+" + formatAmount("20", "CNY"))[0].closest("dd")!;
   expect(asset).toHaveTextContent(i18n.t("historicalOverview.estimatedShort"));
-  expect(within(region).getAllByText(i18n.t("valuation.estimated")).length).toBeGreaterThan(0);
-  expect(within(region).getAllByText(i18n.t("valuation.verified")).length).toBeGreaterThan(0);
+  const qualityText = (scope: HTMLElement, key: "estimated" | "verified") => within(scope).getAllByRole("status").filter(item => item.textContent?.includes(i18n.t(`valuation.${key}`)));
+  expect(qualityText(region, "estimated").length).toBeGreaterThan(0);
+  expect(qualityText(region, "verified").length).toBeGreaterThan(0);
+  const banner = screen.getByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }).closest("[role=status]")!;
+  expect(banner).toHaveTextContent(i18n.t("historicalOverview.coverageEstimated"));
+  expect(banner).toHaveTextContent(i18n.t("historicalOverview.coverageComplete"));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }));
+  const detail = await screen.findByRole("dialog");
+  expect(detail).toHaveTextContent("Broker fund");
+  expect(detail).toHaveTextContent(i18n.t("historicalOverview.missing.history_coverage"));
+  expect(detail).toHaveTextContent(i18n.t("valuation.estimated"));
+  expect(detail).toHaveTextContent(i18n.t("valuation.latestNAV"));
 });
 
-it("flags the change as estimated when only B is estimated, and not when both sides are verified", async () => {
-  comparedWithCoverage("verified", "estimated");
+it("flags only the carried metric when coverage stays verified, and not a verified compare that still returns estimatedChange", async () => {
+  comparedWithCoverage("verified", "verified", data => {
+    data.left.displayValuation = {
+      netWorth: displayMetric(data.left.netWorth, "verified"),
+      assets: displayMetric(data.left.assets, "verified", { carriedCount: 1, reasons: ["carried_nav"], oldestMarketDate: "2026-08-01" }),
+      liabilities: displayMetric(data.left.liabilities, "verified"),
+    };
+  });
   const first = show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
   await chooseMode("date", userEvent);
-  const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
-  expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort"))).toHaveLength(3);
+  const carried = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  const metric = (name: string) => within(carried).getByRole("heading", { name }).closest(".rounded-2xl") as HTMLElement;
+  expect(within(metric(i18n.t("overview.netWorth"))).queryByText(i18n.t("historicalOverview.estimatedShort"))).not.toBeInTheDocument();
+  expect(within(metric(i18n.t("overview.assets"))).getByText(i18n.t("historicalOverview.estimatedShort"))).toBeInTheDocument();
+  expect(within(metric(i18n.t("overview.liabilities"))).queryByText(i18n.t("historicalOverview.estimatedShort"))).not.toBeInTheDocument();
+  expect(within(metric(i18n.t("overview.assets"))).getAllByRole("status").some(item => item.textContent?.includes(i18n.t("valuation.estimated")))).toBe(true);
+  const banner = screen.getByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }).closest("[role=status]")!;
+  expect(banner).toHaveTextContent(i18n.t("historicalOverview.coverageComplete"));
+  expect(banner).not.toHaveTextContent(i18n.t("historicalOverview.coveragePartial"));
   first.unmount();
+  comparedWithCoverage("verified", "provisional");
+  const second = show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await chooseMode("date", userEvent);
+  expect(within(await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") })).getAllByText(i18n.t("historicalOverview.estimatedShort"))).toHaveLength(3);
+  second.unmount();
   comparedWithCoverage("verified", "verified");
   show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
   await chooseMode("date", userEvent);
   const verified = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
   await within(verified).findAllByTitle("+" + formatAmount("20", "CNY"));
+  const payload = await read.mock.results[read.mock.results.length - 1]!.value as HistoricalOverviewResult;
+  expect(payload.estimatedChange).toEqual(payload.change);
+  expect(payload.estimatedChange?.netWorth).toBe("20");
   expect(within(verified).queryByText(i18n.t("historicalOverview.estimatedShort"))).not.toBeInTheDocument();
+  expect(within(verified).queryByText(i18n.t("valuation.estimatedMetricChange"))).not.toBeInTheDocument();
+  expect(within(verified).getAllByText(i18n.t("valuation.verified")).length).toBeGreaterThan(0);
 });
 
 it.each(["zh-CN", "zh-TW"])("localizes the estimated change badge (%s)", async language => {
   await i18n.changeLanguage(language);
   expect(i18n.t("historicalOverview.estimatedShort")).not.toBe("Estimated");
   expect(i18n.t("historicalOverview.estimatedShort")).not.toBe("historicalOverview.estimatedShort");
-  comparedWithCoverage("estimated", "verified");
+  comparedWithCoverage("provisional", "verified");
   show(true);
   await screen.findByRole("region", { name: i18n.t("historicalOverview.categoryCompare") }).catch(() => undefined);
   await chooseMode("date", userEvent);
   const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
   expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort")).length).toBeGreaterThan(0);
+});
+
+it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["full", "partial"].map(availability => ({ locale, availability }))))("distinguishes complete estimates from missing totals and keeps the net-worth label readable ($locale, $availability)", async ({ locale, availability }) => {
+  await i18n.changeLanguage(locale);
+  comparedWithCoverage("provisional", "verified", data => {
+    // Backend strict totals can be absent while displayValuation has a full
+    // provisional total; those are separate contracts, not contradictory flags.
+    data.left.complete = false;
+    data.left.assets = null;
+    data.left.netWorth = null;
+    if (availability === "partial") {
+      const metric = data.left.displayValuation!.netWorth;
+      metric.total = null;
+      metric.quality.availability = ValuationAvailability.ValuationPartial;
+      metric.quality.unpricedCount = 1;
+    }
+  });
+  show(true);
+  await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  await chooseMode("current", userEvent);
+  const banner = screen.getByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }).closest("[role=status]")!;
+  expect(banner).toHaveTextContent(i18n.t(availability === "full" ? "historicalOverview.coverageEstimated" : "historicalOverview.coveragePartial"));
+  expect(banner).toHaveClass("border-warning/40");
+  const heading = screen.getByRole("heading", { name: i18n.t("overview.netWorth") });
+  expect(heading).not.toHaveClass("truncate");
+  const card = heading.closest(".rounded-2xl")!;
+  const values = card.querySelectorAll("dd[aria-label]");
+  expect(values.length).toBe(2);
+  for (const value of values) expect(value).not.toHaveTextContent(i18n.t("valuation.knownNetContribution"));
+  if (availability === "partial") expect(within(card as HTMLElement).getByText(i18n.t("valuation.knownNetContribution"))).toBeInTheDocument();
+});
+
+
+it.each([
+  { locale: "en", expected: "Estimated change, including cash flows" },
+  { locale: "zh-CN", expected: "暂估变化，含资金流入流出" },
+  { locale: "zh-TW", expected: "暫估變化，含資金流入流出" },
+])("uses metric-neutral estimated change tooltips and screen-reader labels ($locale)", async ({ locale, expected }) => {
+  await i18n.changeLanguage(locale);
+  comparedWithCoverage("provisional", "verified");
+  show(true);
+  await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  await chooseMode("date", userEvent);
+  const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  const label = i18n.t("valuation.estimatedMetricChange");
+  expect(label).toBe(expected);
+  expect(label).not.toBe(i18n.t("valuation.estimatedChange"));
+  const badges = within(region).getAllByTitle(label);
+  expect(badges).toHaveLength(3);
+  expect(within(region).getAllByText(label)).toHaveLength(3);
+  for (const badge of badges) {
+    const definition = badge.closest("dd")!;
+    expect(definition.previousElementSibling).toHaveClass("sr-only");
+    expect(definition.previousElementSibling).toHaveTextContent(label);
+  }
+  expect(within(region).queryByTitle(i18n.t("valuation.estimatedChange"))).not.toBeInTheDocument();
+  expect(within(region).queryByText(i18n.t("valuation.estimatedChange"))).not.toBeInTheDocument();
 });

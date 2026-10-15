@@ -9,9 +9,9 @@ export function formatHistoricalAmount(value: string | null | undefined, currenc
   const plus = signed && compareCanonical(value, "0.005") > 0 ? "+" : "";
   return plus + display;
 }
-export function historicalDisplayAmount(t: TFunction, value: DisplayValuation | null | undefined, legacy: DisplayMoney | null | undefined, net = false): string {
+export function historicalDisplayAmount(t: TFunction, value: DisplayValuation | null | undefined, legacy: DisplayMoney | null | undefined, net = false, includeSubtotalLabel = true): string {
   const money = hasDisplay(value) ? value.total ?? value.knownSubtotal : legacy;
   if (!money) return t("historicalOverview.unknown");
-  const partial = hasDisplay(value) && !value.total;
+  const partial = includeSubtotalLabel && hasDisplay(value) && !value.total;
   return `${formatMoney(money.amount, money.currency)}${partial ? ` · ${t(net ? "valuation.knownNetContribution" : "valuation.knownSubtotal")}` : ""}`;
 }

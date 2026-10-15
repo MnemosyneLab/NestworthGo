@@ -99,6 +99,16 @@ func TestReconciliationSessionHTTPWorkflowBothCorrectionRoutes(t *testing.T) {
 	if original["completedAt"] != v["completedAt"] {
 		t.Fatal("completed evidence changed")
 	}
+	refused, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "preview_reconciliation_session", Arguments: map[string]any{"action": "check", "sessionId": id, "expectedRevision": v["revision"]}})
+	if err != nil || !refused.IsError {
+		t.Fatalf("completed session check: %+v %v", refused, err)
+	}
+	raw, _ := json.Marshal(refused)
+	for _, want := range []string{"conflict", "expectedRevision", "completed and read-only", "start a new reconciliation session"} {
+		if !strings.Contains(string(raw), want) {
+			t.Fatalf("completed session response missing %q: %s", want, raw)
+		}
+	}
 }
 func TestReconciliationPageBoundsAndWireBudget(t *testing.T) {
 	rows := make([]any, 51)
