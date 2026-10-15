@@ -218,6 +218,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
     UpcomingActions: () => upcomingRead(),
+    InvestmentReviews: () => Promise.resolve({ items: [], policy: { enabled: true, windowDays: 30, lowAnnualizedPercent: "1", lossPercent: "-1", sustainDays: 7, maxAgeDays: 7 }, asOf: "2026-10-15T12:00:00Z", timezone: "UTC" }),
     Overview: () => Promise.resolve({
       asOf: "",
       localDate: "2026-09-20",
@@ -350,6 +351,7 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.availableFunds") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.upcomingActions") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: i18n.t("nav.holdings") })).not.toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") })).toBeInTheDocument();
@@ -527,7 +529,7 @@ vi.mock("@/features/liquidity/ProductSheets", async (importOriginal) => {
   };
 });
 
-it("does not reopen A when Back restores its consumed request after opening B", async () => {
+it("returns through Upcoming actions to open another product and does not reopen it on Back", async () => {
   upcomingRead.mockResolvedValue(upcomingData([
     upcomingItem({ id: "action-a", productId: "product-a", displayName: "Product A", phase: "blocked", primaryTarget: { kind: "product", productId: "product-a", sourceRef: null, reservationId: null } }),
     upcomingItem({ id: "action-b", productId: "product-b", displayName: "Product B", phase: "blocked", primaryTarget: { kind: "product", productId: "product-b", sourceRef: null, reservationId: null } }),
@@ -536,21 +538,20 @@ it("does not reopen A when Back restores its consumed request after opening B", 
   await userEvent.click(await screen.findByRole("button", { name: "View terms · Product A" }));
   await screen.findByRole("dialog", { name: "product-a" });
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
-  await userEvent.click(screen.getByRole("button", { name: "View all 2 actions" }));
+  expect(screen.queryByRole("button", { name: "View all 2 actions" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
+  await userEvent.click(await screen.findByRole("button", { name: "View all 2 actions" }));
   await userEvent.click(await screen.findByRole("button", { name: "View terms · Product B" }));
   await screen.findByRole("dialog", { name: "product-b" });
-  // A genuinely new same-page request must still reopen B, without a trail entry.
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
-  await userEvent.click(screen.getByRole("button", { name: "View terms · Product B" }));
-  await screen.findByRole("dialog", { name: "product-b" });
   await userEvent.click(screen.getByRole("button", { name: "← Back to Upcoming actions" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Available funds" }));
-  await waitFor(() => expect(screen.getByTestId("available-funds-page")).toBeVisible());
-  // Flush the fresh overview request that caused the original erroneous reopening.
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
+  await screen.findByTestId("overview-net-worth");
+  // Flush retained-page reads before checking that no detail sheet reopens.
   await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "← Back to Overview" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "← Back to Overview" })).not.toBeInTheDocument();
 });
 
 
@@ -732,4 +733,21 @@ it("blocks App and object navigation during an actual ordinary submission and it
   expect(ordinaryRecord.mock.calls[1]).toEqual(ordinaryRecord.mock.calls[0]);
   await userEvent.click(overviewNav);
   expect(screen.getByTestId("overview-net-worth")).toBeVisible();
+});
+
+it.each(SUPPORTED_LANGUAGES)("keeps investment review reachable from Overview with no upcoming items in %s", async language => {
+  await i18n.changeLanguage(language);
+  settingsLoad.mockResolvedValue({ ...defaultSettings, language });
+  upcomingRead.mockResolvedValue(upcomingData());
+  render(<AppProviders><App /></AppProviders>);
+  const entry = await screen.findByRole("button", { name: i18n.t("investmentReview.view") });
+  entry.focus();
+  await userEvent.keyboard("{Enter}");
+  expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
+  expect(screen.getByText(i18n.t("upcomingActions.description"))).toBeVisible();
+  expect(await screen.findByText(i18n.t("upcomingActions.empty"))).toBeVisible();
+  const reviewTab = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
+  reviewTab.focus(); await userEvent.keyboard("{Enter}");
+  expect(await screen.findByRole("heading", { name: i18n.t("investmentReview.title") })).toBeVisible();
+  expect(reviewTab).toHaveAttribute("aria-selected", "true");
 });

@@ -9,7 +9,8 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AvailableFundsPage } from "./AvailableFundsPage";
 import type { LiquidityOverviewDTO, LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
-const investmentReviews = vi.fn(() => Promise.resolve(reviewFixture("enabled")));
+const investmentReviews = vi.fn();
+const upcomingActions = vi.fn(() => Promise.resolve(upcomingData()));
 const overview = vi.fn();
 const listProducts = vi.fn();
 const listAccounts = vi.fn();
@@ -17,7 +18,7 @@ const listAccounts = vi.fn();
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
     InvestmentReviews: () => investmentReviews(),
-    UpcomingActions: () => Promise.resolve(upcomingData()),
+    UpcomingActions: () => upcomingActions(),
     Overview: (...args: unknown[]) => overview(...args),
     ListProducts: (...args: unknown[]) => listProducts(...args),
     Product: vi.fn(),
@@ -222,7 +223,7 @@ describe("AvailableFundsPage", () => {
     expect(within(row!).getAllByText("Due, receipt unconfirmed").length).toBeGreaterThan(0);
     expect(within(row!).queryByText("$0.00")).not.toBeInTheDocument();
     expect(screen.queryByText("Due deposit is due. Receipt is unconfirmed.")).not.toBeInTheDocument();
-    expect(screen.getByTestId("overview-upcoming-actions-card")).toBeInTheDocument();
+    expect(screen.queryByTestId("overview-upcoming-actions-card")).not.toBeInTheDocument();
   });
 
   it("retries after a load failure", async () => {
@@ -314,41 +315,25 @@ it("shows a known future lock clearly and keeps the normal route when early acce
 });
 
 
-type ReviewState = "paused" | "optin" | "enabled" | "alerts";
-function reviewFixture(state: ReviewState) {
-  return {
-    schemaVersion: "investment-review/1", asOf: "2026-10-13T12:00:00Z", localDate: "2026-10-13", timezone: "Asia/Singapore", revision: 1,
-    policy: { enabled: state !== "paused", windowDays: 30, lowAnnualizedPercent: "1", lossPercent: "-1", sustainDays: 7, maxAgeDays: 7 },
-    items: [{ instrumentId: "synthetic-fund", displayName: "Synthetic fund", monitored: state !== "optin", status: state === "alerts" ? "loss" : "healthy", episodeId: state === "alerts" ? "synthetic-episode" : "", acknowledged: false, snoozed: false }],
-  };
-}
-
-describe("Available Funds investment-review entry", () => {
-  beforeEach(() => {
+describe("Available Funds scope", () => {
+  it.each(["en", "zh-CN", "zh-TW"])("omits upcoming actions and investment review panels and entries in %s", async language => {
+    await i18n.changeLanguage(language);
     investmentReviews.mockClear();
-    overview.mockResolvedValue(fixtureOverview({ sources: [] }));
+    upcomingActions.mockClear();
+    overview.mockResolvedValue(fixtureOverview());
     listProducts.mockResolvedValue([]);
     listAccounts.mockResolvedValue([]);
-  });
-  it.each(["en", "zh-CN", "zh-TW"].flatMap(language => (["paused", "optin", "enabled", "alerts"] as const).map(state => ({ language, state }))))("keeps the review query/status/setup entry with empty upcoming actions ($language, $state)", async ({ language, state }) => {
-    await i18n.changeLanguage(language);
-    investmentReviews.mockResolvedValue(reviewFixture(state));
-    const navigation = { open: vi.fn(), openHealth: vi.fn() };
-    renderPage(navigation);
-    const card = await screen.findByTestId("overview-upcoming-actions-card");
-    expect(await within(card).findByText(i18n.t("upcomingActions.empty"))).toBeVisible();
-    expect(within(card).getByRole("heading", { name: i18n.t("upcomingActions.title") })).toBeVisible();
-    const summary = within(card).getByRole("region", { name: i18n.t("investmentReview.title") });
-    expect(await within(summary).findByText(i18n.t("investmentReview.summary", { count: state === "alerts" ? 1 : 0 }))).toBeVisible();
-    expect(investmentReviews).toHaveBeenCalledOnce();
-    if (state === "paused") expect(within(summary).getByText(i18n.t("investmentReview.disabled"))).toBeVisible();
-    if (state === "optin") expect(within(summary).getByText(i18n.t("investmentReview.setup"))).toBeVisible();
-    if (state === "enabled") {
-      expect(within(summary).queryByText(i18n.t("investmentReview.disabled"))).not.toBeInTheDocument();
-      expect(within(summary).queryByText(i18n.t("investmentReview.setup"))).not.toBeInTheDocument();
-    }
-    const action = within(summary).getByRole("button", { name: i18n.t("investmentReview.view") });
-    action.focus(); await userEvent.keyboard("{Enter}");
-    expect(navigation.open).toHaveBeenCalledWith({ page: "upcoming-actions" });
+    renderPage({ open: vi.fn(), openHealth: vi.fn() });
+    await screen.findByTestId("available-funds-page");
+    expect(screen.queryByTestId("overview-upcoming-actions-card")).not.toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("upcomingActions.title"))).not.toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("investmentReview.title"))).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: i18n.t("investmentReview.view") })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: i18n.t("upcomingActions.viewAll", { count: 0 }) })).not.toBeInTheDocument();
+    expect(investmentReviews).not.toHaveBeenCalled();
+    expect(upcomingActions).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(i18n.t("availableFunds.customDate"))).toBeVisible();
+    expect(screen.getByTestId("horizon-2026-09-20")).toBeVisible();
+    expect(screen.getAllByText("Bank cash")[0]).toBeVisible();
   });
 });
