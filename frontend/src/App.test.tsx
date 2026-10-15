@@ -598,7 +598,7 @@ it.each([
   const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
   await userEvent.click(within(nav).getByRole("button", { name: "Historical overview" }));
   await screen.findByLabelText("Historical date");
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
+  await userEvent.click(within(screen.getByRole("group", { name: "View mode" })).getByRole("button", { name: "Date vs. now" }));
   if (trendEnabled) {
     await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
     await userEvent.click(screen.getByRole("button", { name: "Enable trend · New capture" }));
@@ -623,7 +623,7 @@ it.each([
   vi.setSystemTime(new Date(after as string));
   await userEvent.click(screen.getByRole("button", { name: "← Back to Historical overview" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toHaveTextContent("Synthetic retained bank"));
-  expect(screen.getByLabelText("Compare with")).toHaveValue(trendEnabled ? "date" : "current");
+  expect(within(screen.getByRole("group", { name: "View mode", hidden: true })).getByRole("button", { name: trendEnabled ? "Compare dates" : "Date vs. now", hidden: true })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveTextContent("2026-09-30");
   expect(screen.getAllByTitle(capturedAt).length).toBeGreaterThan(0);
   expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveTextContent("Account details");

@@ -2,7 +2,10 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import type { HistoricalOverviewResult } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import { Badge } from "@/components/ui/badge";
+import { InfoPopover } from "@/components/ui/info-popover";
 import { formatHistoricalAmount } from "./historicalAmount";
+import { SignedChange } from "./SignedChange";
 
 export function HistoricalReconciliationView({ data }: { data: HistoricalOverviewResult }) {
   const { t } = useTranslation();
@@ -12,16 +15,25 @@ export function HistoricalReconciliationView({ data }: { data: HistoricalOvervie
   const reconciliation = data.reconciliation;
   if (!data.right || !reconciliation) return null;
   const { currency, total, supported, residual, contributions, reasons, status } = reconciliation;
+  const known = (["total", "supported", "residual"] as const).filter(key => ({ total, supported, residual })[key] != null);
+  const tone = status === "reconciled" ? "success" : status === "partial" ? "warning" : "secondary";
   return <section aria-label={t("historicalReconciliation.title")} className="min-w-0 rounded-xl border border-border bg-card p-4">
-    <h2 className="font-semibold">{t("historicalReconciliation.title")}</h2>
-    <p className="mt-1 text-xs text-muted-foreground">{t("historicalReconciliation.identity")}</p>
-    <dl className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3">
-      {(["total", "supported", "residual"] as const).map(key => <div key={key} className="min-w-0">
-        <dt className="text-sm">{t(`historicalReconciliation.${key}`)}</dt>
-        <dd tabIndex={0} className="num mt-1 overflow-x-auto whitespace-nowrap font-semibold focus-visible:outline-primary">{amount(({ total, supported, residual })[key], currency, true) ?? t("historicalOverview.unknown")}</dd>
+    <div className="flex flex-wrap items-center gap-2">
+      <h2 className="font-semibold">{t("historicalReconciliation.title")}</h2>
+      <InfoPopover label={t("historicalOverview.aboutChange")}>{t("historicalReconciliation.identity")}</InfoPopover>
+    </div>
+    {known.length > 0 && <dl className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3">
+      {known.map(key => <div key={key} className="min-w-0">
+        <dt className="text-xs text-muted-foreground">{t(`historicalReconciliation.${key}`)}</dt>
+        <dd tabIndex={0} className="mt-1 overflow-x-auto whitespace-nowrap text-lg font-semibold focus-visible:outline-primary">
+          {key === "total" ? <SignedChange value={total} currency={currency} className="text-xl" /> : <span className="num">{amount(({ total, supported, residual })[key], currency, true)}</span>}
+        </dd>
       </div>)}
-    </dl>
-    <p role="status" className="mt-2 text-sm text-muted-foreground">{t(`historicalReconciliation.status.${status}`)}</p>
+    </dl>}
+    <p role="status" className={`mt-2 flex items-start gap-2 text-sm ${known.length > 0 ? "text-muted-foreground" : ""}`}>
+      <Badge variant={tone} className="shrink-0">{t(`historicalReconciliation.badge.${status}`)}</Badge>
+      <span>{t(`historicalReconciliation.status.${status}`)}</span>
+    </p>
     <Button variant="link" className="mt-3 h-auto max-w-full whitespace-normal p-0 text-left" aria-expanded={expanded} aria-controls={explanationId} onClick={() => setExpanded(!expanded)}>{t("historicalReconciliation.explanation")}</Button>
     <div id={explanationId} hidden={!expanded}>
       <p className="mt-2 text-sm text-muted-foreground">{t("historicalReconciliation.basis")}</p>

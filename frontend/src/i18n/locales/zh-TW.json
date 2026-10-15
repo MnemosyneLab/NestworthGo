@@ -1480,7 +1480,14 @@
       "to": "走勢 B · 最後結日",
       "enable": "啟用走勢 · 新捕獲",
       "budgetError": "本地走勢輸入或計算超過預算。仍可使用雙期比較，不會替換為截斷序列。"
-    }
+    },
+    "controls": "日期選擇",
+    "modeCurrent": "日期對比目前",
+    "aboutPage": "關於此頁面",
+    "aboutChange": "關於此變化",
+    "debtShort": "負債餘額",
+    "noOrigin": "歷史記錄尚未開始",
+    "noOriginHint": "家庭歷史記錄開始後即可使用歷史全景。"
   },
   "investmentReview": {
     "title": "投資複核",

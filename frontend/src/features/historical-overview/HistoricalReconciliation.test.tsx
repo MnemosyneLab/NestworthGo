@@ -28,14 +28,18 @@ it.each(["en", "zh-CN", "zh-TW"])("shows exact amounts and keyboard-accessible l
   expect(within(section).getByText(i18n.t("historicalReconciliation.category.fee"))).toBeVisible();
   expect(within(section).getByText(i18n.t("historicalReconciliation.reason.unexplained_movement"))).toBeVisible();
   expect(section).not.toHaveTextContent("historicalReconciliation.");
+  expect(within(section).getByRole("status")).toHaveTextContent(i18n.t("historicalReconciliation.badge.partial"));
+  expect(i18n.t("historicalReconciliation.badge.partial")).not.toBe("historicalReconciliation.badge.partial");
   await userEvent.keyboard(" "); expect(disclosure).toHaveAttribute("aria-expanded", "false");
 });
 it("keeps unknown residual distinct from zero, and zero uncertainty visible", async () => {
   await i18n.changeLanguage("en");
   const unknown = data("1", null, null); unknown.reconciliation!.status = "unavailable"; unknown.reconciliation!.reasons = ["current_endpoint"]; unknown.reconciliation!.contributions = [];
   const view = render(<HistoricalReconciliationView data={unknown} />);
-  expect(screen.getAllByText(i18n.t("historicalOverview.unknown"))).toHaveLength(3);
+  expect(screen.getAllByText(i18n.t("historicalOverview.unknown"))).toHaveLength(1);
+  expect(screen.getByRole("status")).toHaveTextContent(i18n.t("historicalReconciliation.badge.unavailable"));
   expect(screen.getByRole("status")).toHaveTextContent("unavailable");
+  expect(screen.queryByText(i18n.t("historicalReconciliation.supported"))).not.toBeInTheDocument();
   const zero = data("0", "0", "0"); zero.reconciliation!.reasons = ["quantity_activity"];
   view.rerender(<HistoricalReconciliationView data={zero} />);
   expect(screen.queryByText(i18n.t("historicalOverview.unknown"))).not.toBeInTheDocument();

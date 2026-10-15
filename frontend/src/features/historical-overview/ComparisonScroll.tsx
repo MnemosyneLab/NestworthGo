@@ -48,6 +48,7 @@ export function ComparisonScroll({ children }: { children: ReactNode }) {
         </Button>
       </div>
     </div>}
+    <div className="relative">
     <div ref={viewport} id={id} role="region" aria-label={t("historicalOverview.tableRegion")} tabIndex={0}
       className={`min-w-0 overflow-x-auto rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${bounds.compact ? "[&_[data-account-column]]:static" : ""}`}
       onScroll={measure} onKeyDown={event => {
@@ -58,6 +59,8 @@ export function ComparisonScroll({ children }: { children: ReactNode }) {
         }
       }}>
       {children}
+    </div>
+    {bounds.left < bounds.max - 1 && <div data-scroll-fade aria-hidden="true" className="pointer-events-none absolute inset-y-px right-px w-8 rounded-r-xl bg-gradient-to-l from-card to-transparent" />}
     </div>
   </div>;
 }

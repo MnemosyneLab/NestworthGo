@@ -28,6 +28,12 @@ const { read, origin, seriesRead } = vi.hoisted(() => ({ read: vi.fn(), origin: 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { HistoricalOverview: read, HistoricalOverviewSeries: seriesRead } }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: origin } }));
 
+const MODE_LABEL = { none: "singleMode", date: "compareMode", current: "modeCurrent" } as const;
+async function chooseMode(value: keyof typeof MODE_LABEL, user: Pick<typeof userEvent, "click"> = userEvent) {
+  const group = screen.getByRole("group", { name: i18n.t("historicalOverview.mode") });
+  await user.click(within(group).getByRole("button", { name: i18n.t(`historicalOverview.${MODE_LABEL[value]}`) }));
+}
+
 function cell(value: string | null = "100", patch: Partial<HistoricalOverviewCell> = {}): HistoricalOverviewCell {
   return { status: "active", included: true, complete: true, currency: "CNY", nativeAmount: value, baseAmount: value, quantity: null, assetClass: "cash", manual: false, valueSourceAt: "2026-08-01T12:00:00Z", valueSourceId: "origin", price: null, fx: null, missing: [], missingDetails: [], ...patch };
 }
@@ -87,7 +93,7 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["light", "dark"].map(theme =
         expect(definition.closest("dl")).toHaveClass("grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]");
       };
       checkAmount("1011800");
-      await userEvent.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "current");
+      await chooseMode("current", userEvent);
       await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
       checkAmount("1011800");
       checkAmount("1061940");
@@ -115,7 +121,7 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => [false, true].map(compare => 
     show(true);
     await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.allocation") });
     if (compare) {
-      await user.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "date");
+      await chooseMode("date", user);
       await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.delta") });
     }
     const tablist = screen.getByRole("tablist", { name: i18n.t("historicalOverview.views") });
@@ -148,7 +154,7 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => [false, true].map(compare => 
     checkSelection(tabs[tabs.length - 1]);
     expect(read).toHaveBeenCalledTimes(reads);
     if (compare) {
-      await user.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "none");
+      await chooseMode("none", user);
       const allocation = await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.allocation") });
       expect(screen.queryByRole("tab", { name: i18n.t("historicalOverview.view.delta") })).not.toBeInTheDocument();
       expect(within(screen.getByRole("tablist")).getAllByRole("tab").filter(tab => tab.tabIndex === 0)).toEqual([allocation]);
@@ -187,7 +193,7 @@ it("compares aligned rows, filters changes and refreshes current after invalidat
   const user = userEvent.setup();
   const { client } = show();
   await screen.findByRole("button", { name: "Bank" });
-  await user.selectOptions(screen.getByLabelText("Compare with"), "current");
+  await chooseMode("current", user);
   await waitFor(() => expect(read).toHaveBeenLastCalledWith("2026-08-01", "current"));
   await screen.findByText("Captured current state, not today’s close");
   await user.click(screen.getByLabelText("Only changed rows"));
@@ -215,7 +221,7 @@ it("ignores late responses after changing date and clears an open detail on comp
   const dialog = await screen.findByRole("dialog");
   expect(within(dialog).getByRole("heading", { name: "2026-08-03" })).toBeInTheDocument();
   await user.keyboard("{Escape}");
-  await user.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", user);
   fireEvent.change(screen.getByLabelText("Comparison date"), { target: { value: "2026-08-05" } });
   await waitFor(() => expect(read).toHaveBeenLastCalledWith("2026-08-03", "2026-08-05"));
   await screen.findByRole("columnheader", { name: "2026-08-05" });
@@ -247,7 +253,7 @@ it("shows unknown, zero, absent, archived and manual evidence without fetching c
 it("handles absent history and first open day without requesting a snapshot", async () => {
   origin.mockResolvedValueOnce(null);
   const first = show();
-  await screen.findByText(i18n.t("insights.noOrigin"));
+  await screen.findByText(i18n.t("historicalOverview.noOrigin"));
   expect(read).not.toHaveBeenCalled();
   first.unmount();
   origin.mockResolvedValueOnce({ startedAt: "2026-08-10T00:00:00Z", timezone: "UTC" });
@@ -316,7 +322,7 @@ it("keeps an explicit empty initial date invalid after the origin loads", async 
 it("keeps an empty comparison date invalid and does not drop comparison silently", async () => {
   show();
   await screen.findByRole("button", { name: "Bank" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", userEvent);
   await screen.findByRole("columnheader", { name: "2026-08-09" });
   const calls = read.mock.calls.length;
   fireEvent.change(screen.getByLabelText("Comparison date"), { target: { value: "" } });
@@ -345,9 +351,9 @@ it("recovers from invalid input using bounded date shortcuts", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Last closed day" }));
   await screen.findByRole("columnheader", { name: "2026-08-09" });
   expect(screen.getByRole("button", { name: "Next day" })).toBeDisabled();
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", userEvent);
   expect(screen.getByLabelText("Comparison date")).toHaveValue("2026-08-09");
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "none");
+  await chooseMode("none", userEvent);
   await userEvent.click(screen.getByRole("button", { name: "Starting point" }));
   await screen.findByRole("columnheader", { name: "2026-08-01" });
   expect(screen.getByRole("button", { name: "Previous day" })).toBeDisabled();
@@ -379,7 +385,7 @@ it("shows authoritative total deltas and keeps unknown distinct from zero", asyn
   });
   show();
   await screen.findByRole("button", { name: "Bank" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
+  await chooseMode("current", userEvent);
   const change = await screen.findByRole("region", { name: "Total change (right minus left)" });
   expect(within(change).getAllByText("Unknown")).toHaveLength(2);
   expect(within(change).getAllByTitle(formatAmount("0", "CNY")).length).toBeGreaterThan(0);
@@ -401,7 +407,7 @@ it("shows known native changes when FX is missing and never compares absence as 
   });
   show();
   await screen.findByRole("button", { name: "Bank" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
+  await chooseMode("current", userEvent);
   const table = await screen.findByRole("table", { name: "Historical account and holding comparison" });
   expect(within(table).getByTitle("+" + formatAmount("2", "USD"))).toHaveTextContent("+");
   expect(within(table).getByText("Not comparable")).toBeInTheDocument();
@@ -414,7 +420,7 @@ it("shows known native changes when FX is missing and never compares absence as 
 it("deduplicates repeated refresh clicks and replaces both captured sides together", async () => {
   show();
   await screen.findByRole("button", { name: "Bank" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
+  await chooseMode("current", userEvent);
   await screen.findByText("Captured current state, not today’s close");
   let resolveRefresh!: (data: HistoricalOverviewResult) => void;
   read.mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve; }));
@@ -459,7 +465,7 @@ it("preserves changed children when their account's movements offset", async () 
   });
   show();
   await screen.findByRole("button", { name: "Bank" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "current");
+  await chooseMode("current", userEvent);
   await userEvent.click(await screen.findByRole("checkbox", { name: "Only changed rows" }));
   await userEvent.click(screen.getByRole("button", { name: "Expand Bank" }));
   expect(screen.getByRole("button", { name: "CNY cash" })).toBeInTheDocument();
@@ -481,7 +487,7 @@ it("explains same-date comparisons and recovers from an empty changes-only view"
   });
   show();
   await screen.findByRole("button", { name: "Bank" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", userEvent);
   fireEvent.change(screen.getByLabelText("Comparison date"), { target: { value: "2026-08-01" } });
   await screen.findByText("Both sides show the same closed day. Choose another date to see changes.");
   await userEvent.click(screen.getByRole("checkbox", { name: "Only changed rows" }));
@@ -582,7 +588,7 @@ it.each(["resolve", "reject"])("resumes an unfinished capture after History Back
   expect(screen.queryByRole("button", { name: "Bank" })).not.toBeInTheDocument();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-08-03");
-  expect(screen.getByLabelText(i18n.t("historicalOverview.compare"))).toHaveValue("current");
+  expect(within(screen.getByRole("group", { name: i18n.t("historicalOverview.mode") })).getByRole("button", { name: i18n.t("historicalOverview.modeCurrent") })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("tab", { name: i18n.t("historicalOverview.view.accounts") })).toHaveAttribute("aria-selected", "true");
   expect(cancel).toHaveBeenCalledOnce();
   expect(read).toHaveBeenCalledTimes(2);
@@ -680,7 +686,7 @@ it("shows debt as a separate balance group and expands more than ten comparable 
   });
   show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", userEvent);
   const overview = await screen.findByRole("region", { name: "Account balance changes" });
   expect(within(overview).getByText("Showing 10 of 12 comparable accounts")).toBeInTheDocument();
   await userEvent.click(within(overview).getByRole("button", { name: "Expand all comparable accounts" }));
@@ -698,7 +704,7 @@ it("does not draw a shared amount axis for inconsistent base currencies", async 
   });
   show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", userEvent);
   const overview = await screen.findByRole("region", { name: "Account balance changes" });
   expect(within(overview).queryByRole("img")).not.toBeInTheDocument();
   expect(overview).toHaveTextContent("Base currencies differ");
@@ -749,7 +755,7 @@ it("shows the B valuation warning only when a real B side has missing assets", a
   });
   show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", userEvent);
   await userEvent.click(await screen.findByRole("tab", { name: "Category comparison" }));
   const comparison = await screen.findByRole("region", { name: "Category comparison" });
   expect(comparison).toHaveTextContent("B shows valued assets only; 1 included asset item(s) missing valuation.");
@@ -771,7 +777,7 @@ it("keeps zero-to-active assets and active-to-zero debt in their comparable bala
   });
   show(true);
   await screen.findByRole("region", { name: "Asset allocation" });
-  await userEvent.selectOptions(screen.getByLabelText("Compare with"), "date");
+  await chooseMode("date", userEvent);
   const changes = await screen.findByRole("region", { name: "Account balance changes" });
   expect(within(changes).getByText("Showing 1 of 1 comparable accounts")).toBeInTheDocument();
   expect(within(changes).getByRole("button", { name: "Bank" })).toBeInTheDocument();
@@ -801,7 +807,7 @@ it.each(["en", "zh-CN", "zh-TW"])("keeps negative sub-cent values exact in cards
   await userEvent.click(screen.getByRole("tab", { name: i18n.t("historicalOverview.view.accounts") }));
   const accounts = screen.getByRole("region", { name: i18n.t("historicalOverview.table") });
   expect(within(accounts).getAllByTitle(formatAmount("-0.00012", "CNY"))[0]).toHaveTextContent(formatAmount("-0.00012", "CNY"));
-  await userEvent.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "date");
+  await chooseMode("date", userEvent);
   await userEvent.click(await screen.findByRole("tab", { name: i18n.t("historicalOverview.view.delta") }));
   const changes = await screen.findByRole("region", { name: i18n.t("historicalOverview.accountDeltaTitle") });
   expect(changes).toHaveTextContent(formatAmount("-0.00012", "CNY"));
@@ -975,7 +981,7 @@ it("atomically enables a new series capture and keeps metric, dates and tabs loc
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveValue("2026-08-03");
   await userEvent.click(within(screen.getByRole("button", { name: "2026-08-03" }).closest("tr")!).getByRole("button", { name: "Open day · New capture" }));
   await waitFor(() => expect(read).toHaveBeenLastCalledWith("2026-08-03", ""));
-  expect(screen.getByLabelText("Compare with")).toHaveValue("none");
+  expect(within(screen.getByRole("group", { name: "View mode" })).getByRole("button", { name: "Single date" })).toHaveAttribute("aria-pressed", "true");
 });
 
 it("keeps failed range capture and budget rejection explicit without showing old totals", async () => {
@@ -1049,4 +1055,64 @@ it("allows all 31 civil labels and rejects a 32-label enable without truncation"
   await userEvent.click(enable);
   await waitFor(() => expect(seriesRead).toHaveBeenLastCalledWith("2026-08-01", "2026-08-31"));
   expect(within(await screen.findByRole("region", { name: "Time trend" })).getAllByRole("row")).toHaveLength(32);
+});
+
+it("keeps the read-only and reconstruction notes in one info popover instead of a banner", async () => {
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  expect(screen.getByText(i18n.t("historicalOverview.readOnly"))).toBeInTheDocument();
+  expect(screen.queryByText(i18n.t("historicalOverview.reconstructed"))).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.aboutPage") }));
+  expect(await screen.findByText(i18n.t("historicalOverview.reconstructed"))).toBeInTheDocument();
+  expect(screen.getByText(i18n.t("historicalOverview.cutoffNote"))).toBeInTheDocument();
+});
+
+it("switches modes with a keyboard-operable segmented control", async () => {
+  const user = userEvent.setup();
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  const group = screen.getByRole("group", { name: i18n.t("historicalOverview.mode") });
+  const buttons = within(group).getAllByRole("button");
+  expect(buttons.map(button => button.textContent)).toEqual(["Single date", "Compare dates", "Date vs. now"]);
+  expect(buttons[0]).toHaveAttribute("aria-pressed", "true");
+  buttons[1].focus();
+  await user.keyboard("{Enter}");
+  expect(buttons[1]).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByLabelText(i18n.t("historicalOverview.compareDate"))).toBeInTheDocument();
+  buttons[2].focus();
+  await user.keyboard(" ");
+  expect(buttons[2]).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByLabelText(i18n.t("historicalOverview.compareDate"))).not.toBeInTheDocument();
+});
+
+it("colors asset changes with a gain cue and keeps debt balance changes neutral", async () => {
+  read.mockImplementation((date: string, compare: string) => {
+    const data = result(date, compare);
+    if (compare) data.change = { assets: "20", liabilities: "5", netWorth: "15" };
+    return Promise.resolve(data);
+  });
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await chooseMode("current", userEvent);
+  const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  const direction = i18n.t("holdingPerformance.direction.up");
+  const asset = within(region).getByTitle("+" + formatAmount("20", "CNY")).closest("dd")!;
+  expect(asset).toHaveTextContent(direction);
+  const debt = within(region).getByTitle("+" + formatAmount("5", "CNY")).closest("dd")!;
+  expect(debt).not.toHaveTextContent(direction);
+  expect(debt.querySelector(".text-gain-positive, .text-gain-negative")).toBeNull();
+});
+
+it("opens the first incomplete component in the evidence sheet from the coverage banner", async () => {
+  read.mockImplementation((date: string, compare: string) => {
+    const data = result(date, compare);
+    data.left.complete = false;
+    data.rows![1].left = cell(null, { complete: false, baseAmount: null, missing: ["fx_rate"] });
+    return Promise.resolve(data);
+  });
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await userEvent.click(await screen.findByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }));
+  const detail = await screen.findByRole("dialog");
+  expect(detail).toHaveTextContent("Exchange rate is missing");
 });
