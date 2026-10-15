@@ -971,7 +971,8 @@ function CommitReview({
             "revision",
           ].includes(wire.field ?? "")) ||
         (wire?.code === "stale_preview" &&
-          ["previewToken", "expiresAt"].includes(wire.field ?? "")) ||
+          (["previewToken", "expiresAt"].includes(wire.field ?? "") ||
+            (Boolean(review.product) && wire.field === "reviewedStateHash"))) ||
         (wire?.code === "validation" && Boolean(review.result)) ||
         [
           "invalid_change",

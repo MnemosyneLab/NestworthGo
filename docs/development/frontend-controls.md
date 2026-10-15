@@ -79,6 +79,11 @@ Reconciliation session commits additionally return `stale_preview` with
 `expiresAt` only after durable receipt lookup proves an expired preview did not
 commit. This definite expiry releases the guard for dismissal and fresh review;
 `planId` and unscoped stale errors retain the original recovery identity.
+Product correction commits likewise check durable receipts before refusing an
+expired/invalidated `previewToken` or changed `reviewedStateHash`, before any
+write. Reconciliation product reviews release their guard for these named stale
+fields, permitting dismissal and a fresh preview. Receipt conflicts remain unknown,
+and retries of committed products still return the receipt before checking expiry.
 
 Ordinary Record and Fix submissions also register with the owning Sheet
 synchronously before dispatch. The owner retains the immutable reviewed command,

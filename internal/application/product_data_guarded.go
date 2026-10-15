@@ -55,8 +55,10 @@ func (s *Service) productDataStateHash(ctx context.Context, contract domain.Prod
 	return s.reviewedStateHash(ctx, snapshot, ProductCommand{}, digest, date, productPlan{beforeContracts: []domain.ProductContract{contract}})
 }
 
-func staleProductData() error {
-	return &domain.Error{Code: domain.ErrStalePreview, Message: "preview expired or facts changed; request a new preview"}
+// Product commits supply a named field only after durable receipt lookup,
+// before any write. Ordinary liquidity policies retain their unscoped error.
+func staleProductData(field string) error {
+	return &domain.Error{Code: domain.ErrStalePreview, Field: field, Message: "preview expired or facts changed; request a new preview"}
 }
 
 func (s *Service) termsDetails(ctx context.Context, prepared preparedProductTerms, now time.Time) (ProductDetail, ProductDetail, error) {
@@ -140,7 +142,7 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 		return receipt, nil
 	}
 	if token != s.writes.previewToken() {
-		return domain.ProductTermsReceipt{}, staleProductData()
+		return domain.ProductTermsReceipt{}, staleProductData("previewToken")
 	}
 	now := normalizeNow(s.clock())
 	prepared, err := s.prepareProductTerms(ctx, input, now)
@@ -152,7 +154,7 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 		return domain.ProductTermsReceipt{}, err
 	}
 	if stateHash == "" || stateHash != currentHash {
-		return domain.ProductTermsReceipt{}, staleProductData()
+		return domain.ProductTermsReceipt{}, staleProductData("reviewedStateHash")
 	}
 	_, after, err := s.termsDetails(ctx, prepared, now)
 	if err != nil {
@@ -257,7 +259,7 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 		return r, nil
 	}
 	if token != s.writes.previewToken() {
-		return ProductValuationReceipt{}, staleProductData()
+		return ProductValuationReceipt{}, staleProductData("previewToken")
 	}
 	if strings.TrimSpace(command.ObservedAt) == "" {
 		return ProductValuationReceipt{}, productReviewedTimeError()
@@ -272,7 +274,7 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 		return ProductValuationReceipt{}, err
 	}
 	if stateHash == "" || stateHash != currentHash {
-		return ProductValuationReceipt{}, staleProductData()
+		return ProductValuationReceipt{}, staleProductData("reviewedStateHash")
 	}
 	now = normalizeNow(now)
 	receipt := ProductValuationReceipt{OperationID: id, ProductID: command.ProductID, QuoteID: prepared.quote.ID, Amount: prepared.amount, ObservedAt: prepared.observedAt, RecordedAt: now}

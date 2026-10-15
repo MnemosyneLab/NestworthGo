@@ -159,7 +159,7 @@ func (s *Service) recordProductOperation(ctx context.Context, command ProductCom
 		return receipt, nil
 	}
 	if expectedToken != nil && *expectedToken != s.writes.previewToken() {
-		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrStalePreview, Message: "preview expired or facts changed; request a new preview"}
+		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken", Message: "preview expired or facts changed; request a new preview"}
 	}
 	origin, snapshot, err := s.loadChangeContext(ctx)
 	if err != nil {

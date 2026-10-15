@@ -18,6 +18,8 @@ const q = vi.hoisted(() => ({
   adjust: vi.fn(),
   commitAdjustment: vi.fn(),
   refetch: vi.fn(),
+  productPreview: vi.fn(),
+  commitProduct: vi.fn(),
 }));
 vi.mock("@/queries/reconciliation", () => ({
   useReconciliationSessions: () => ({
@@ -39,6 +41,7 @@ vi.mock("@/queries/reconciliation", () => ({
     Commit: q.commit,
     PreviewAdjustment: q.adjust,
     CommitAdjustment: q.commitAdjustment,
+    CommitProduct: q.commitProduct,
   },
 }));
 vi.mock("@/queries/accounts", () => ({
@@ -64,7 +67,17 @@ vi.mock("@/features/history/RecordChangeForm", () => ({
     <div data-testid="record-form">{JSON.stringify(initial)}</div>
   ),
 }));
-vi.mock("./ProductCorrection", () => ({ ProductCorrection: () => null }));
+vi.mock("./ProductCorrection", () => ({
+  ProductCorrection: ({
+    onPreview,
+  }: {
+    onPreview: (preview: unknown) => void;
+  }) => (
+    <button onClick={() => onPreview(q.productPreview())}>
+      Synthetic product preview
+    </button>
+  ),
+}));
 vi.mock("@/features/liquidity/ProductPreview", () => ({
   ProductPreview: () => null,
 }));
@@ -142,6 +155,7 @@ beforeEach(async () => {
   q.commit.mockResolvedValue(q.session);
   q.adjust.mockResolvedValue({ planId: "adjust-plan", changes: [] });
   q.commitAdjustment.mockResolvedValue([]);
+  q.commitProduct.mockResolvedValue(undefined);
 });
 it("previews a selected subset and commits before entering the pending session", async () => {
   mount();
@@ -314,7 +328,7 @@ it("releases a receipt-checked expired preview for dismissal and fresh review", 
   );
   await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
 });
-it.each(["planId", undefined])(
+it.each(["planId", "reviewedStateHash", undefined])(
   "keeps an unavailable preview guarded when its outcome is unknown (%s)",
   async (field) => {
     q.commit.mockRejectedValueOnce({
@@ -431,3 +445,88 @@ it.each(["mutationId", "operationId", ""])(
     expect(q.commit.mock.calls).toEqual([["review-plan"], ["review-plan"]]);
   },
 );
+
+function mountProductReview(kind: string) {
+  q.session!.accounts![0].items![0] = {
+    ...q.session!.accounts![0].items![0],
+    kind: "product",
+    productId: "synthetic-product",
+  };
+  // The child form supplies the API preview; exercise the real review and Sheet.
+  q.productPreview.mockReturnValue({ planId: `${kind}-plan` });
+  return mount("session-one");
+}
+async function previewProduct() {
+  await userEvent.click(
+    screen.getByRole("button", { name: i18n.t("reconciliation.productRoute") }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Synthetic product preview" }),
+  );
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Commit reviewed result" }),
+  );
+}
+it.each(
+  ["terms", "valuation", "lifecycle"].flatMap((kind) =>
+    ["previewToken", "reviewedStateHash"].map((field) => [kind, field]),
+  ),
+)(
+  "recovers a refused %s correction (%s) with dismissal and fresh review",
+  async (kind, field) => {
+    q.commitProduct.mockRejectedValueOnce({
+      wireError: { code: "stale_preview", field },
+    });
+    mountProductReview(kind);
+    await previewProduct();
+    await screen.findByRole("alert");
+    expect(hasUnresolvedSheetConfirmation()).toBe(false);
+    expect(
+      screen.queryByRole("button", { name: "Retry same submission" }),
+    ).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Commit reviewed result" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Synthetic product preview" }),
+    ).toBeInTheDocument();
+    // Dismissing the review returns to its still-editable correction form.
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    q.productPreview.mockReturnValueOnce({ planId: `${kind}-fresh-plan` });
+    await previewProduct();
+    await waitFor(() =>
+      expect(q.commitProduct.mock.calls).toEqual([
+        [`${kind}-plan`],
+        [`${kind}-fresh-plan`],
+      ]),
+    );
+    await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
+  },
+);
+it.each([
+  ["stale_preview", "planId"],
+  ["stale_preview", undefined],
+  ["conflict", "mutationId"],
+  ["conflict", "operationId"],
+  ["conflict", undefined],
+  ["internal", undefined],
+])("preserves unknown product recovery for %s/%s", async (code, field) => {
+  q.commitProduct.mockRejectedValueOnce({ wireError: { code, field } });
+  mountProductReview("terms");
+  await previewProduct();
+  const retry = await screen.findByRole("button", {
+    name: "Retry same submission",
+  });
+  expect(hasUnresolvedSheetConfirmation()).toBe(true);
+  await userEvent.keyboard("{Escape}");
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  await userEvent.click(retry);
+  await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
+  expect(q.commitProduct.mock.calls).toEqual([["terms-plan"], ["terms-plan"]]);
+});
