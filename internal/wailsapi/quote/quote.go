@@ -180,6 +180,17 @@ func (s *Service) ListFXPreferences(ctx context.Context) ([]wire.FXPreferenceDTO
 	return wire.FromFXPreferences(preferences), nil
 }
 
+// InstrumentQuotePeriods is the read-only descriptive change for every history
+// selector period (1W, 1M, 3M, 6M, 1Y; windowDays 0 is all history).
+func (s *Service) InstrumentQuotePeriods(ctx context.Context, instrumentID string) (domain.QuotePerformanceReport, error) {
+	id, err := domain.ParseInstrumentID(instrumentID)
+	if err != nil {
+		return domain.QuotePerformanceReport{}, apierror.Wrap(err)
+	}
+	result, err := s.app.InstrumentQuotePeriods(ctx, id)
+	return result, apierror.Wrap(err)
+}
+
 // InstrumentQuotePerformance is a read-only descriptive price history projection.
 func (s *Service) InstrumentQuotePerformance(ctx context.Context, instrumentID string) (domain.QuotePerformanceReport, error) {
 	id, err := domain.ParseInstrumentID(instrumentID)

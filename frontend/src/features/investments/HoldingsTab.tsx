@@ -16,10 +16,10 @@ import {
   useInstruments,
   useCreateHolding,
 } from "@/queries/investments";
-import { useInstrumentHoldings } from "@/queries/analytics";
+import { useInstrumentHoldingGroups } from "@/queries/analytics";
 import { displayError } from "@/lib/display";
 import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
-import { InstrumentHoldingsTable } from "./InstrumentHoldingsTable";
+import { HoldingGroupsList } from "./HoldingGroupsList";
 import { useProducts } from "@/queries/liquidity";
 
 export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: (id: string) => void; active?: boolean }) {
@@ -38,7 +38,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
   const holdingsAccounts = (accounts.data ?? []).filter(
     (record) => record.account.trackingMode === "holdings" && record.account.accountType !== "cash_on_hand" && !record.account.archivedAt,
   );
-  const holdings = useInstrumentHoldings();
+  const holdings = useInstrumentHoldingGroups();
   const products = useProducts({ includeClosed: true });
   const selectableInstruments = (instruments.data ?? []).filter((instrument) => ordinaryInstrument(instrument) && !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id));
   const selectionLabels = instrumentSelectionLabels(selectableInstruments);
@@ -158,7 +158,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
       {allHoldings.length === 0 ? (
         <EmptyState title={t("portfolio.noHoldings")} description={t("portfolio.noHoldingsDescription")} />
       ) : (
-        <InstrumentHoldingsTable active={active} groups={allHoldings} onOpenAccount={onOpenAccount} managedInstrumentIds={new Set((products.data ?? []).map((detail) => detail.product.instrumentId))} />
+        <HoldingGroupsList scope="portfolio" active={active} groups={allHoldings} onOpenAccount={onOpenAccount} />
       )}
     </div>
   );

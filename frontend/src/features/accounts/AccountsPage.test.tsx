@@ -1,3 +1,4 @@
+import { useHoldingGroupStore } from "@/stores/holdings";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -131,7 +132,29 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
 }));
 
 vi.mock("@/features/investments/LazyHoldingDetailPanel", () => ({ HoldingDetailPanel: () => <div>Expanded synthetic holding</div> }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { AccountHoldingDetails: () => Promise.resolve([]) } }));
+// The Accounts list reads backend-grouped holdings. These tests keep describing holdings through
+// the lower-level holding and instrument mocks, so the grouped read model is derived from them with
+// fixed synthetic amounts.
+const GROUP_BY_TYPE: Record<string, string> = { stock: "stock", etf: "fund", mutual_fund: "fund", bond: "bond", bank_investment_product: "bank_wealth", precious_metal: "precious_metal", crypto: "crypto" };
+// Per-holding overrides ("*" applies to every holding); reset before each test.
+let groupAmounts: Record<string, Record<string, unknown>> = {};
+async function accountHoldingGroups(accountId: string) {
+  const [holdings, instruments] = await Promise.all([holdingsByAccounts(), listInstruments()]);
+  const groups = new Map<string, unknown[]>();
+  for (const holding of (holdings?.[accountId] ?? []) as Array<{ id: string; instrumentId: string; quantity: string; archivedAt?: string | null }>) {
+    if (holding.archivedAt) continue;
+    const instrument = (instruments as Array<{ id: string; name: string; shortName?: string; symbol?: string; type: string; quoteCurrency: string; quantityUnit?: string; archivedAt?: string | null; managedProductId?: string }>).find((item) => item.id === holding.instrumentId);
+    if (!instrument) continue;
+    const amounts = { quantity: holding.quantity, totalCost: { amount: "100", currency: instrument.quoteCurrency }, currentValue: { amount: "110", currency: instrument.quoteCurrency }, unrealizedGain: { amount: "10", currency: instrument.quoteCurrency }, ...groupAmounts["*"], ...groupAmounts[holding.id] };
+    const key = instrument.managedProductId ? "cash_like" : GROUP_BY_TYPE[instrument.type] ?? "other";
+    groups.set(key, [...(groups.get(key) ?? []), {
+      instrumentId: instrument.id, type: instrument.type, name: instrument.name, shortName: instrument.shortName, symbol: instrument.symbol ?? "", quoteCurrency: instrument.quoteCurrency,
+      quantityUnit: instrument.quantityUnit ?? "", archived: Boolean(instrument.archivedAt), amounts, holdings: [{ holdingId: holding.id, accountId, accountName: "", amounts }],
+    }]);
+  }
+  return [...groups].map(([key, instruments]) => ({ key, instruments, subtotals: [] }));
+}
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { AccountHoldingDetails: () => Promise.resolve([]), AccountHoldingGroups: (accountId: string) => accountHoldingGroups(accountId) } }));
 
 function renderPage() {
   const queryClient = createTestQueryClient();
@@ -200,6 +223,8 @@ beforeEach(() => {
   historyOrigin.mockReset();
   startHistory.mockReset();
   startHistoryOnDate.mockReset();
+  groupAmounts = {};
+  useHoldingGroupStore.getState().reset();
   listInstruments.mockReset();
   createInstrument.mockReset();
   holdingsByAccounts.mockReset();
@@ -711,7 +736,7 @@ describe("AccountsPage", () => {
     expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/SGD\s*200\.00/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("NVIDIA").length).toBeGreaterThan(0);
-    expect(screen.getByText("Stock")).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Stocks" })).toBeInTheDocument();
     expect(screen.getByText("Partial valuation")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Missing FX rate/);
   });
@@ -732,6 +757,31 @@ describe("AccountsPage", () => {
     expect(await layout.findByText("Small position")).toBeInTheDocument();
     expect(layout.queryByText("Closed position")).not.toBeInTheDocument();
     expect(layout.getByRole("button", { name: "Cash dividend" })).toBeEnabled();
+  });
+
+  it("groups account investments by instrument type with the same collapsible headers as Portfolio", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    holdingsByAccounts.mockResolvedValue({ "brk-1": [
+      { id: "h-stock", accountId: "brk-1", instrumentId: "stock", quantity: "2" },
+      { id: "h-gold", accountId: "brk-1", instrumentId: "gold", quantity: "5" },
+      { id: "h-fund", accountId: "brk-1", instrumentId: "fund", quantity: "7" },
+    ] });
+    listInstruments.mockResolvedValue([
+      { id: "stock", name: "Synthetic stock", type: "stock", quoteCurrency: "USD" },
+      { id: "gold", name: "Synthetic gold", type: "precious_metal", quoteCurrency: "USD", quantityUnit: "g" },
+      { id: "fund", name: "Synthetic fund", type: "mutual_fund", quoteCurrency: "USD" },
+    ]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    const layout = within(await screen.findByTestId("account-cash-holdings-layout"));
+    await layout.findByText("Synthetic stock");
+    expect(layout.getAllByRole("listitem").map((item) => item.getAttribute("data-group"))).toEqual(["stock", "fund", "precious_metal"]);
+    expect(layout.getByText("5 g")).toBeInTheDocument();
+    await userEvent.click(layout.getByRole("button", { name: "Collapse Funds & ETFs" }));
+    expect(layout.queryByText("Synthetic fund")).not.toBeInTheDocument();
+    expect(layout.getByText("Synthetic gold")).toBeInTheDocument();
+    await userEvent.click(layout.getByRole("button", { name: "Show details for Synthetic gold" }));
+    expect(layout.getByText("Expanded synthetic holding")).toBeInTheDocument();
   });
 
   it("shows complete cash history fields with two-decimal money and no raw suffix", async () => {
@@ -1082,6 +1132,8 @@ describe("AccountsPage", () => {
     holdingsByAccounts.mockImplementation(async () => holdings);
     historyOrigin.mockResolvedValue(null);
     listInstruments.mockResolvedValue([{ id: "fund-1", name: "XYZ Fund", type: "mutual_fund", quoteCurrency: "CNY" }]);
+    // The new fund has no current price yet.
+    groupAmounts["*"] = { currentValue: undefined, unrealizedGain: undefined, valueMissingReason: "current instrument price is unavailable", gainMissingReason: "current instrument price is unavailable" };
     createAccount.mockImplementation(async (request: { name: string; accountType: string; balanceSheetRole: string; trackingMode: string; defaultCurrency: string; includeInNetWorth: boolean; includeInPortfolio: boolean; includeInLiquidAssets: boolean; institutionId?: string; ownership: unknown[] }) => {
       const record = {
         account: {
@@ -1205,7 +1257,7 @@ describe("AccountsPage", () => {
     expect(screen.queryByText(/CN¥\s*10,000\.00/)).not.toBeInTheDocument();
     expect(screen.getByText("XYZ Fund")).toBeInTheDocument();
     expect(screen.getByText("100")).toBeInTheDocument();
-    expect(screen.getByText("Missing current price")).toBeInTheDocument();
+    expect(screen.getAllByText("No current price").length).toBeGreaterThan(0);
     expect(screen.getByText("Partial valuation")).toBeInTheDocument();
     expect(recordChange.mock.calls[0][0].holdingId ?? "").toBe("");
     expect(createHolding).not.toHaveBeenCalled();
@@ -1720,11 +1772,12 @@ it("keeps a priced holding's native amount visible when household FX is missing"
   }]);
   holdingsByAccounts.mockResolvedValue({ [brokerageAccount.account.id]: [{ id: "native-holding", accountId: brokerageAccount.account.id, instrumentId: "native-instrument", quantity: "1" }] });
   listInstruments.mockResolvedValue([{ id: "native-instrument", name: "Native holding", type: "stock", quoteCurrency: "SGD" }]);
+  groupAmounts["native-holding"] = { currentValue: { amount: "123", currency: "SGD" } };
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
   const row = await screen.findByRole("row", { name: /Native holding/ });
   expect(row).toHaveTextContent(/SGD\s*123\.00/);
-  expect(row).not.toHaveTextContent("Missing price");
+  expect(row).not.toHaveTextContent("No current price");
 });
 
 

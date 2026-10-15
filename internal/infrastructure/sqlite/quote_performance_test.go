@@ -170,3 +170,43 @@ func TestQuotePerformanceEvidenceWithoutPersonalLedgerTables(t *testing.T) {
 		t.Fatalf("ledger schema changed performance %+v", got)
 	}
 }
+
+// The selector periods read back to the earliest baseline each window needs,
+// and a zero window reads the whole comparable history, still bounded to daily
+// closes dated no later than today.
+func TestQuotePerformanceEvidenceReadsPeriodBaselines(t *testing.T) {
+	database, repository, _, _, i := seedPortfolioRepository(t)
+	i.ID = domain.NewInstrumentID()
+	i.Name = "Synthetic gold"
+	i.Type = domain.InstrumentPreciousMetal
+	i.QuoteSource = domain.QuoteSourceAgent
+	if err := repository.CreateInstrument(t.Context(), i); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct{ date, price string }{{"2025-01-01", "10"}, {"2026-01-01", "50"}, {"2026-09-01", "100"}, {"2026-10-14", "110"}, {"2026-10-20", "999"}} {
+		at, _ := time.Parse(time.DateOnly, item.date)
+		price, _ := domain.ParseUnitPrice(item.price)
+		q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: i.ID, UnitPrice: price, Currency: i.QuoteCurrency, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: at, EffectiveDate: item.date, ObservationKind: "close", PriceBasis: "agent_raw_close_v1", TimestampBasis: "date_label", Revision: 1, BindingRevision: i.ProviderBindingRevision}
+		if err := database.WithTx(t.Context(), func(tx *sql.Tx) error { return insertAgentInstrumentQuoteTx(t.Context(), tx, i.HouseholdID, q, "") }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	legacy, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-19")
+	if err != nil || len(legacy) != 2 {
+		t.Fatalf("7/30-day read changed: %d %v", len(legacy), err)
+	}
+	quotes, err := repository.ReadQuotePerformanceEvidenceWindows(t.Context(), i, "2026-10-19", domain.QuotePeriodWindows)
+	if err != nil || len(quotes) != 4 || quotes[0].EffectiveDate != "2025-01-01" || quotes[3].EffectiveDate != "2026-10-14" {
+		t.Fatalf("whole history read %+v %v", quotes, err)
+	}
+	got := domain.ProjectQuotePerformanceWindows(i, quotes, domain.QuotePeriodWindows)
+	var all *domain.QuotePerformance
+	for n := range got {
+		if got[n].WindowDays == 0 {
+			all = &got[n]
+		}
+	}
+	if all == nil || all.BaselineOn != "2025-01-01" || all.PeriodPercent != "1000" {
+		t.Fatalf("all-history precious metal change %+v", got)
+	}
+}

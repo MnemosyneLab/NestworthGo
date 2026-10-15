@@ -11,7 +11,7 @@ const listInstruments = vi.fn();
 const listAccounts = vi.fn();
 const createHolding = vi.fn();
 const holdingsByAccounts = vi.fn();
-const instrumentHoldings = vi.fn();
+const instrumentHoldingGroups = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: {
@@ -28,7 +28,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
-  Service: { InstrumentHoldings: (...args: unknown[]) => instrumentHoldings(...args) },
+  Service: { InstrumentHoldingGroups: (...args: unknown[]) => instrumentHoldingGroups(...args) },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {
@@ -72,13 +72,13 @@ beforeEach(() => {
   listAccounts.mockReset();
   createHolding.mockReset();
   holdingsByAccounts.mockReset();
-  instrumentHoldings.mockReset();
+  instrumentHoldingGroups.mockReset();
   listInstruments.mockResolvedValue([]);
   listAccounts.mockResolvedValue([
     { account: { id: "acc-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
   ]);
   holdingsByAccounts.mockResolvedValue({ "acc-1": [] });
-  instrumentHoldings.mockResolvedValue([]);
+  instrumentHoldingGroups.mockResolvedValue([]);
   createHolding.mockResolvedValue({ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" });
 });
 
@@ -102,7 +102,7 @@ describe("HoldingsTab", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
 
     expect(createHolding).toHaveBeenCalledWith({ accountId: "acc-1", instrumentId: "i1", quantity: "10" });
-    await waitFor(() => expect(instrumentHoldings).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(instrumentHoldingGroups).toHaveBeenCalledTimes(2));
   });
 
   it("accepts an explicit unit cost after history starts", async () => {

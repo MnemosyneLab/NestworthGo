@@ -219,11 +219,14 @@ contracts.
 
 ## Holding detail daily performance
 
-Account and Portfolio holding expansions share a read-only detail body and row
-disclosure. Cost, value and unrealized gain precede historical performance and
-the chart; metadata is compact and long notes are a secondary disclosure.
-The disclosure uses the shared Button and Lucide icons, preserves keyboard focus
-and exposes expanded state without making row action menus toggle the details.
+Account and Portfolio holdings share one grouped list (instrument-type sections
+with per-currency subtotals computed by the backend), one read-only detail body
+and one row disclosure. The detail body leads with the performance panel (large
+signed period change, baseline-to-latest dates, one period selector, tinted
+chart); metadata is compact and long notes are a secondary disclosure. The row
+above already carries quantity, cost, value and gain. The disclosure uses the
+shared Button and Lucide icons, preserves keyboard focus and exposes expanded
+state without making row action menus toggle the details.
 
 Descriptive performance reads dated daily close/unit-NAV facts from Agent,
 manual and provider sources regardless of configured source. Same-day selection
@@ -234,15 +237,27 @@ stays separate from raw, adjusted, cumulative and whole-position values.
 Currency/current binding, correction/withdrawal and corporate-action guards
 remain in force. Intraday realtime quotes cannot move the performance endpoint.
 
-Seven- and thirty-day windows end at the latest actual daily observation, choose
-the nearest baseline on/before the target and use actual calendar days. Missing
-windows are omitted individually. Supported bank-product unit NAV receives
-historical simple annualization; ordinary funds and equities show period change.
-Actual dates and span are visible; no fill-forward facts or total-return claims
-are introduced. If no metric qualifies, explain insufficient daily history,
-incomparable prices or unsupported instrument type. The read-only Wails
-InstrumentQuotePerformance response is now a report containing items and an
-optional unavailableReason; consumers render localized reasons, not raw tokens.
+Period windows (7, 30, 90, 180, 365 days and all history) end at the latest
+actual daily observation, choose the nearest baseline on/before the target and
+use actual calendar days; "all" starts at the earliest comparable observation.
+Missing windows are omitted individually. Supported bank-product unit NAV also
+shows historical simple annualization as a small secondary figure; ordinary
+funds and equities show period change only. Actual dates are visible; no
+fill-forward facts or total-return claims are introduced. If no metric
+qualifies, a short localized reason is shown (insufficient daily history,
+incomparable prices or unsupported instrument type) with detail in an info
+popover. The read-only Wails `InstrumentQuotePerformance` (7/30 days) and
+`InstrumentQuotePeriods` (all period windows) responses are reports containing
+items and an optional unavailableReason; consumers render localized reasons,
+not raw tokens.
+
+Every instrument type that stores daily price or NAV history supports the
+panel: stock, ETF and bond (raw close), mutual fund and bank wealth product (unit
+NAV), precious metal (Yahoo futures close with `policy_derived` timestamps) and
+crypto (CoinGecko daily reference and Yahoo close). Only managed-product
+contracts (valued by contract, no unit price) and unknown types are unsupported;
+an instrument with manual-only prices still shows its chart but no change figure
+when no comparable baseline exists.
 
 Automated coverage uses synthetic facts only. Native macOS and visual acceptance
 remain separate gates from Go tests and jsdom interaction checks.

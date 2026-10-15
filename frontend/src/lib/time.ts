@@ -83,3 +83,19 @@ export function formatQuoteAsOf(
   }
   return formatTimestamp(quote.quotedAt, timezone, language);
 }
+
+/** Formats a civil YYYY-MM-DD range such as "Sep 15 – Oct 14, 2026" without any timezone shift. */
+export function formatCivilDateRange(from: string, to: string, language = i18n.language || "en"): string {
+  const parse = (value: string) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    return match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : undefined;
+  };
+  const start = parse(from), end = parse(to);
+  if (!start || !end) return `${from} – ${to}`;
+  try {
+    const formatter = new Intl.DateTimeFormat(language, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }) as Intl.DateTimeFormat & { formatRange(start: Date, end: Date): string };
+    return from === to ? formatter.format(start) : formatter.formatRange(start, end);
+  } catch {
+    return `${from} – ${to}`;
+  }
+}

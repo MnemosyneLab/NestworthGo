@@ -190,3 +190,12 @@ export function useQuotePerformance(instrumentId: string) {
     enabled: Boolean(instrumentId), staleTime: 60_000,
   });
 }
+
+/** Period changes (1W to All) for one instrument; the backend owns every figure. */
+export function useQuotePeriods(instrumentId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.quote.instrument.current(instrumentId), "periods"],
+    queryFn: ({ signal }) => callCancellableService(signal, () => QuoteService.InstrumentQuotePeriods(instrumentId)),
+    enabled: enabled && Boolean(instrumentId), staleTime: 60_000,
+  });
+}

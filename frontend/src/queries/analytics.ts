@@ -30,3 +30,12 @@ export function useInstrumentHoldings(enabled = true, accountId = "") {
     queryFn: ({ signal }) => callCancellableService(signal, () => accountId ? AnalyticsService.AccountHoldingDetails(accountId) : AnalyticsService.InstrumentHoldings()),
   });
 }
+
+/** Instrument-type holding groups for the household, or for one account when accountId is set. */
+export function useInstrumentHoldingGroups(enabled = true, accountId = "") {
+  return useQuery({
+    queryKey: [...queryKeys.analytics.instrumentHoldings, "groups", accountId],
+    enabled, staleTime: 60_000,
+    queryFn: ({ signal }) => callCancellableService(signal, () => accountId ? AnalyticsService.AccountHoldingGroups(accountId) : AnalyticsService.InstrumentHoldingGroups()),
+  });
+}

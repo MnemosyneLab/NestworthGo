@@ -87,6 +87,8 @@ export interface EChartProps {
   selectedName?: string | null;
   /** Replace authoritative dynamic series while retaining axes/zoom/legend. */
   replaceSeries?: boolean;
+  /** Renders the data-table disclosure as quiet secondary text. */
+  subtleDataTable?: boolean;
 }
 
 /**
@@ -109,6 +111,7 @@ export function EChart({
   highlightedName,
   selectedName,
   replaceSeries = false,
+  subtleDataTable = false,
 }: EChartProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<echarts.ECharts | null>(null);
@@ -224,7 +227,9 @@ export function EChart({
       {summary && <figcaption id={summaryId} className="sr-only">{summary}</figcaption>}
       {dataTableLabel && dataTableColumns && dataTableRows && (
         <details className="relative z-10">
-          <summary className="cursor-pointer rounded-lg text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+          <summary className={subtleDataTable
+            ? "w-fit cursor-pointer rounded-lg text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            : "cursor-pointer rounded-lg text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"}>
             {dataTableLabel}
           </summary>
           <div className="mt-2 overflow-x-auto">

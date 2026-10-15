@@ -1564,18 +1564,6 @@
   },
   "holdingDetail": {
     "collapse": "收起 {{name}} 的详情",
-    "unavailable": {
-      "insufficient_daily_history": "需要至少跨越七个自然日的每日价格记录，不包含日内实时报价。",
-      "incomparable_daily_prices": "此区间的每日价格无法比较。请检查币种、价格口径及分红或份额变动。",
-      "unsupported_instrument": "此类投资品暂不支持历史价格表现。"
-    },
-    "performance": "历史价格 / 单位净值表现",
-    "priceDisclaimer": "价格或单位净值涨跌，不含分红、未复权，并非个人持仓收益。历史简单年化并非预期或保证收益。",
-    "window": "近 {{days}} 日目标",
-    "days": "实际 {{days}} 天",
-    "asOf": "截至 {{date}}",
-    "annualized": "单位净值简单年化",
-    "priceChange": "价格 / 净值涨跌",
     "allAccounts": "全部纳入账户合计",
     "toggle": "查看 {{name}} 详情",
     "otherCurrencies": "其他币种的历史观测保留在数据表中；图表仅显示标的当前计价币种。"
@@ -1593,5 +1581,66 @@
     "invalid_origin": "本地数据或行情连接不可用，请检查连接并重试。",
     "invalid_range": "本地数据或行情连接不可用，请检查连接并重试。",
     "sync_failed": "本地数据或行情连接不可用，请检查连接并重试。"
+  },
+  "holdingGroups": {
+    "label": "按投资品类型分组的持仓",
+    "types": {
+      "stock": "股票",
+      "fund": "基金与 ETF",
+      "bond": "债券",
+      "bank_wealth": "银行理财",
+      "precious_metal": "贵金属",
+      "crypto": "加密资产",
+      "cash_like": "类现金",
+      "other": "其他"
+    },
+    "count_one": "{{count}} 项持仓",
+    "count_other": "{{count}} 项持仓",
+    "expand": "展开{{group}}",
+    "collapse": "收起{{group}}",
+    "expandAll": "全部展开",
+    "collapseAll": "全部收起",
+    "cost": "成本",
+    "value": "现值",
+    "gain": "盈亏",
+    "unknown": "暂无",
+    "empty": "暂无持仓。"
+  },
+  "holdingPerformance": {
+    "label": "价格表现",
+    "periodLabel": "区间",
+    "periods": {
+      "1w": "1周",
+      "1m": "1月",
+      "3m": "3月",
+      "6m": "6月",
+      "1y": "1年",
+      "all": "全部"
+    },
+    "direction": {
+      "up": "上涨",
+      "down": "下跌",
+      "flat": "持平"
+    },
+    "annualized": "年化 {{percent}}",
+    "info": "关于此数字",
+    "infoBody": "所选区间内每日收盘价或单位净值的涨跌幅。不含日内报价，不含分红，也未按公司行为复权，因此并非个人持仓收益。年化数字仅基于历史，并非预期或保证收益。",
+    "source": "数据来源",
+    "sourceActive": "数据来源：{{source}}",
+    "reason": {
+      "insufficient_daily_history": "此区间历史数据不足",
+      "incomparable_daily_prices": "此区间价格无法比较",
+      "unsupported_instrument": "此类投资品暂不支持"
+    },
+    "reasonDetail": {
+      "insufficient_daily_history": "需要覆盖该区间起点的带日期的每日收盘价记录。",
+      "incomparable_daily_prices": "此区间的每日价格无法比较。请检查币种、价格口径及分红或份额变动。",
+      "unsupported_instrument": "此类投资品暂不支持历史价格表现。"
+    },
+    "loading": "正在加载价格历史",
+    "empty": "暂无价格历史",
+    "emptyHint": "记录或同步价格后会显示在这里。",
+    "emptyRange": "此区间没有价格记录",
+    "chartLabel": "{{name}} 的价格历史"
   }
 }
