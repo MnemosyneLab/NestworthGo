@@ -56,6 +56,8 @@ if (typeof HTMLCanvasElement !== "undefined") {
       beginPath: () => undefined,
       moveTo: () => undefined,
       lineTo: () => undefined,
+      bezierCurveTo: () => undefined,
+      quadraticCurveTo: () => undefined,
       closePath: () => undefined,
       stroke: () => undefined,
       translate: () => undefined,

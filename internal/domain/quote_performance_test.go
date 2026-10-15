@@ -289,3 +289,165 @@ func TestDescriptiveUnavailableLongWindowKeepsShortWindow(t *testing.T) {
 		t.Fatalf("independent windows: %+v", report)
 	}
 }
+
+// Every type with dated close history must expose descriptive performance;
+// only an unknown type is unsupported. The accepted bases are explicit.
+func TestDescriptivePerformanceSupportsEveryPricedInstrumentType(t *testing.T) {
+	for _, tc := range []struct {
+		kind      InstrumentType
+		basis     string
+		timestamp string
+	}{
+		{InstrumentStock, TiingoRawClosePriceBasis, "session_close"},
+		{InstrumentETF, YahooRawClosePriceBasis, "session_close"},
+		{InstrumentMutualFund, "agent_unit_nav_v1", "date_label"},
+		{InstrumentBankInvestmentProduct, "agent_unit_nav_v1", "date_label"},
+		{InstrumentPreciousMetal, YahooRawClosePriceBasis, "policy_derived"},
+		{InstrumentPreciousMetal, "agent_raw_close_v1", "date_label"},
+		{InstrumentCrypto, CoinGeckoDailyPriceBasis, "observed_publication"},
+		{InstrumentCrypto, YahooRawClosePriceBasis, "policy_derived"},
+		{InstrumentBond, "agent_raw_close_v1", "date_label"},
+		{InstrumentOther, "agent_raw_close_v1", "date_label"},
+	} {
+		t.Run(string(tc.kind)+"/"+tc.basis+"/"+tc.timestamp, func(t *testing.T) {
+			_, i := reviewFixture(t)
+			i.Type = tc.kind
+			points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "100"), reviewQuote(t, i, "2026-10-09", "110")}
+			for n := range points {
+				points[n].PriceBasis, points[n].TimestampBasis = tc.basis, tc.timestamp
+				points[n].SourceKind = QuoteSourceProvider
+			}
+			report := ProjectQuotePerformanceReport(i, points)
+			if len(report.Items) != 1 || report.Items[0].PeriodPercent != "10" || report.UnavailableReason != "" {
+				t.Fatalf("%s performance %+v", tc.kind, report)
+			}
+		})
+	}
+}
+
+func TestDescriptivePerformanceRejectsIncomparableMetalAndCryptoBases(t *testing.T) {
+	for _, tc := range []struct {
+		kind      InstrumentType
+		basis     string
+		timestamp string
+	}{
+		// Policy-derived and publication labels belong only to the types whose adapters emit them.
+		{InstrumentStock, YahooRawClosePriceBasis, "policy_derived"},
+		{InstrumentPreciousMetal, YahooRawClosePriceBasis, "observed_publication"},
+		{InstrumentPreciousMetal, CoinGeckoDailyPriceBasis, "policy_derived"},
+		{InstrumentPreciousMetal, TiingoRawClosePriceBasis, "session_close"},
+		{InstrumentCrypto, TiingoRawClosePriceBasis, "session_close"},
+		{InstrumentCrypto, "adjusted_close", "policy_derived"},
+		{InstrumentBond, YahooRawClosePriceBasis, "session_close"},
+		{InstrumentOther, "agent_unit_nav_v1", "date_label"},
+	} {
+		t.Run(string(tc.kind)+"/"+tc.basis+"/"+tc.timestamp, func(t *testing.T) {
+			_, i := reviewFixture(t)
+			i.Type = tc.kind
+			points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "100"), reviewQuote(t, i, "2026-10-09", "110")}
+			for n := range points {
+				points[n].PriceBasis, points[n].TimestampBasis = tc.basis, tc.timestamp
+			}
+			if got := ProjectQuotePerformance(i, points); len(got) != 0 {
+				t.Fatalf("unexpected comparable %+v", got)
+			}
+		})
+	}
+	_, i := reviewFixture(t)
+	i.Type = InstrumentPreciousMetal
+	points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "100"), reviewQuote(t, i, "2026-10-09", "110")}
+	for n := range points {
+		points[n].PriceBasis, points[n].TimestampBasis = YahooRawClosePriceBasis, "policy_derived"
+	}
+	points[1].SplitFactor = "2"
+	if got := ProjectQuotePerformance(i, points); len(got) != 0 {
+		t.Fatalf("unit change %+v", got)
+	}
+}
+
+// The period selector reuses the descriptive rules: nearest earlier baseline,
+// actual civil days, and no fabricated change when a period lacks history.
+func TestQuotePeriodWindowsUseNearestEarlierBaselineAndAllHistory(t *testing.T) {
+	_, i := reviewFixture(t)
+	i.Type = InstrumentPreciousMetal
+	var points []InstrumentQuote
+	for _, p := range []struct{ on, price string }{{"2026-04-20", "50"}, {"2026-07-15", "80"}, {"2026-09-20", "90"}, {"2026-10-09", "95"}, {"2026-10-14", "100"}} {
+		q := reviewQuote(t, i, p.on, p.price)
+		q.PriceBasis, q.TimestampBasis = YahooRawClosePriceBasis, "policy_derived"
+		points = append(points, q)
+	}
+	got := ProjectQuotePerformanceWindows(i, points, QuotePeriodWindows)
+	byWindow := map[int]QuotePerformance{}
+	for _, item := range got {
+		byWindow[item.WindowDays] = item
+	}
+	want := map[int]struct {
+		baseline string
+		percent  string
+	}{
+		7:  {"2026-09-20", "11.1111111111111111111111"},
+		30: {"2026-07-15", "25"},
+		90: {"2026-07-15", "25"},
+		0:  {"2026-04-20", "100"},
+	}
+	for window, expectation := range want {
+		item, ok := byWindow[window]
+		if !ok || item.BaselineOn != expectation.baseline || item.LatestOn != "2026-10-14" || item.PeriodPercent != expectation.percent {
+			t.Errorf("window %d = %+v ok=%v, want baseline %s percent %s", window, item, ok, expectation.baseline, expectation.percent)
+		}
+	}
+	for _, window := range []int{180, 365} {
+		if _, ok := byWindow[window]; ok {
+			t.Errorf("a %d-day change was invented without an earlier baseline: %+v", window, byWindow[window])
+		}
+	}
+	// Existing 7/30 callers must be unchanged by the added periods.
+	if legacy := ProjectQuotePerformance(i, points); len(legacy) != 2 || legacy[0].WindowDays != 7 || legacy[1].WindowDays != 30 {
+		t.Errorf("legacy windows %+v", legacy)
+	}
+}
+
+func TestQuotePeriodAllHistoryIsUnavailableAcrossIncomparableObservation(t *testing.T) {
+	_, i := reviewFixture(t)
+	i.Type = InstrumentStock
+	points := []InstrumentQuote{reviewQuote(t, i, "2026-06-01", "100"), reviewQuote(t, i, "2026-08-01", "50"), reviewQuote(t, i, "2026-10-01", "55"), reviewQuote(t, i, "2026-10-14", "60")}
+	for n := range points {
+		points[n].PriceBasis, points[n].TimestampBasis = "agent_raw_close_v1", "date_label"
+	}
+	points[1].SplitFactor = "2"
+	byWindow := map[int]bool{}
+	for _, item := range ProjectQuotePerformanceWindows(i, points, QuotePeriodWindows) {
+		byWindow[item.WindowDays] = true
+	}
+	if byWindow[0] || byWindow[30] || byWindow[90] || !byWindow[7] {
+		t.Fatalf("a split inside a period must make only that period unavailable: %+v", byWindow)
+	}
+}
+
+func TestHoldingGroupClassification(t *testing.T) {
+	for kind, want := range map[InstrumentType]HoldingGroupKey{
+		InstrumentStock: HoldingGroupStock, InstrumentETF: HoldingGroupFund, InstrumentMutualFund: HoldingGroupFund,
+		InstrumentBond: HoldingGroupBond, InstrumentBankInvestmentProduct: HoldingGroupBankWealth,
+		InstrumentPreciousMetal: HoldingGroupMetal, InstrumentCrypto: HoldingGroupCrypto,
+		InstrumentOther: HoldingGroupOther, InstrumentType("future_kind"): HoldingGroupOther,
+	} {
+		if got := HoldingGroupFor(kind, false); got != want {
+			t.Errorf("%s grouped as %s, want %s", kind, got, want)
+		}
+		if got := HoldingGroupFor(kind, true); got != HoldingGroupCashLike {
+			t.Errorf("managed %s grouped as %s", kind, got)
+		}
+	}
+	seen := map[HoldingGroupKey]bool{}
+	for _, key := range HoldingGroupOrder {
+		if seen[key] {
+			t.Errorf("duplicate group %s", key)
+		}
+		seen[key] = true
+	}
+	for _, kind := range []InstrumentType{InstrumentStock, InstrumentETF, InstrumentBond, InstrumentBankInvestmentProduct, InstrumentPreciousMetal, InstrumentCrypto, InstrumentOther} {
+		if !seen[HoldingGroupFor(kind, false)] || !seen[HoldingGroupCashLike] {
+			t.Errorf("group for %s is absent from the display order", kind)
+		}
+	}
+}

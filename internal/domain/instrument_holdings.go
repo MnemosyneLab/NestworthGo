@@ -22,6 +22,7 @@ type InstrumentHoldingMember struct {
 type InstrumentHoldingsView struct {
 	ShortName     string
 	InstrumentID  InstrumentID
+	Type          InstrumentType
 	Name          string
 	Symbol        string
 	QuoteCurrency CurrencyCode

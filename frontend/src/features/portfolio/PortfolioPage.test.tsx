@@ -27,7 +27,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
   Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
-  Service: { InstrumentHoldings: () => Promise.resolve([]) },
+  Service: { InstrumentHoldings: () => Promise.resolve([]), InstrumentHoldingGroups: () => Promise.resolve([]) },
 }));
 
 function renderPage(onOpenAccount?: (id: string) => void) {

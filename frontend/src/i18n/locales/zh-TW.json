@@ -1569,18 +1569,6 @@
   },
   "holdingDetail": {
     "collapse": "收起 {{name}} 的詳情",
-    "unavailable": {
-      "insufficient_daily_history": "需要至少跨越七個曆日的每日價格紀錄，不包含日內即時報價。",
-      "incomparable_daily_prices": "此區間的每日價格無法比較。請檢查幣別、價格口徑及配息或單位變動。",
-      "unsupported_instrument": "此類投資品暫不支援歷史價格表現。"
-    },
-    "performance": "歷史價格 / 單位淨值表現",
-    "priceDisclaimer": "價格或單位淨值漲跌，不含分紅、未復權，並非個人持倉收益。歷史簡單年化並非預期或保證收益。",
-    "window": "近 {{days}} 日目標",
-    "days": "實際 {{days}} 天",
-    "asOf": "截至 {{date}}",
-    "annualized": "單位淨值簡單年化",
-    "priceChange": "價格 / 淨值漲跌",
     "allAccounts": "全部納入帳戶合計",
     "toggle": "查看 {{name}} 詳情",
     "otherCurrencies": "其他幣種的歷史觀測保留在資料表中；圖表僅顯示標的目前計價幣種。"
@@ -1598,6 +1586,70 @@
     "invalid_origin": "本地資料或行情連線不可用，請檢查連線並重試。",
     "invalid_range": "本地資料或行情連線不可用，請檢查連線並重試。",
     "sync_failed": "本地資料或行情連線不可用，請檢查連線並重試。"
+  },
+  "holdingGroups": {
+    "label": "依投資標的類型分組的持倉",
+    "types": {
+      "stock": "股票",
+      "fund": "基金與 ETF",
+      "bond": "債券",
+      "bank_wealth": "銀行理財",
+      "precious_metal": "貴金屬",
+      "crypto": "加密資產",
+      "cash_like": "類現金",
+      "other": "其他"
+    },
+    "count_one": "{{count}} 項持倉",
+    "count_other": "{{count}} 項持倉",
+    "expand": "展開{{group}}",
+    "collapse": "收合{{group}}",
+    "expandAll": "全部展開",
+    "collapseAll": "全部收合",
+    "cost": "成本",
+    "value": "現值",
+    "gain": "損益",
+    "unknown": "暫無",
+    "empty": "尚無持倉。"
+  },
+  "holdingPerformance": {
+    "label": "價格表現",
+    "periodLabel": "區間",
+    "periods": {
+      "1w": "1週",
+      "1m": "1月",
+      "3m": "3月",
+      "6m": "6月",
+      "1y": "1年",
+      "all": "全部"
+    },
+    "direction": {
+      "up": "上漲",
+      "down": "下跌",
+      "flat": "持平"
+    },
+    "annualized": "年化 {{percent}}",
+    "info": "關於此數字",
+    "infoBody": "所示日期之間每日收盤價或單位淨值的漲跌幅。不含日內報價，不含股息，也未依公司行動調整，因此並非個人持倉報酬。年化數字僅基於歷史，並非預期或保證報酬。",
+    "reason": {
+      "insufficient_daily_history": "此區間歷史資料不足",
+      "incomparable_daily_prices": "此區間價格無法比較",
+      "unsupported_instrument": "此類投資標的暫不支援"
+    },
+    "reasonDetail": {
+      "insufficient_daily_history": "需要涵蓋該區間起點、附有日期的每日收盤價紀錄。",
+      "incomparable_daily_prices": "此區間的每日價格無法比較。請檢查幣別、價格基準及股息或單位變動。",
+      "unsupported_instrument": "此類投資標的暫不支援歷史價格表現。"
+    },
+    "loading": "正在載入價格歷史",
+    "empty": "尚無價格歷史",
+    "emptyHint": "記錄或同步價格後會顯示在這裡。",
+    "chartLabel": "{{name}} 的價格歷史",
+    "returns": {
+      "label": "各區間報酬",
+      "title": "報酬",
+      "window": "{{count}}天",
+      "loadError": "無法載入報酬"
+    }
   },
   "reconciliation": {
     "title": "帳戶核對",

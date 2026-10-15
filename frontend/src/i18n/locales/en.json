@@ -1569,18 +1569,6 @@
   },
   "holdingDetail": {
     "collapse": "Hide details for {{name}}",
-    "unavailable": {
-      "insufficient_daily_history": "At least seven calendar days of dated daily prices are needed. Intraday quotes are excluded.",
-      "incomparable_daily_prices": "Daily prices cannot be compared across this window. Check their currency, price basis and any distributions or unit changes.",
-      "unsupported_instrument": "Historical price performance is unavailable for this instrument type."
-    },
-    "performance": "Historical price / NAV performance",
-    "priceDisclaimer": "Price or unit NAV change, excluding dividends and unadjusted for corporate actions. This is not your holding return. Simple annualization is historical, not an expected or guaranteed yield.",
-    "window": "{{days}}-day target",
-    "days": "{{days}} actual days",
-    "asOf": "As of {{date}}",
-    "annualized": "Simple annualized NAV change",
-    "priceChange": "Price / NAV change",
     "allAccounts": "All included accounts",
     "toggle": "Show details for {{name}}",
     "otherCurrencies": "Historical observations in other currencies remain available in the data table; the chart shows this instrument’s current currency."
@@ -1598,6 +1586,70 @@
     "invalid_origin": "Review the history start date.",
     "invalid_range": "Review the requested date range.",
     "sync_failed": "Refresh failed; check the connection and retry."
+  },
+  "holdingGroups": {
+    "label": "Holdings by instrument type",
+    "types": {
+      "stock": "Stocks",
+      "fund": "Funds & ETFs",
+      "bond": "Bonds",
+      "bank_wealth": "Bank wealth products",
+      "precious_metal": "Precious metals",
+      "crypto": "Crypto",
+      "cash_like": "Cash-like",
+      "other": "Other"
+    },
+    "count_one": "{{count}} holding",
+    "count_other": "{{count}} holdings",
+    "expand": "Expand {{group}}",
+    "collapse": "Collapse {{group}}",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "cost": "Cost",
+    "value": "Value",
+    "gain": "Gain / loss",
+    "unknown": "Not available",
+    "empty": "No holdings yet."
+  },
+  "holdingPerformance": {
+    "label": "Price performance",
+    "periodLabel": "Period",
+    "periods": {
+      "1w": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "all": "All"
+    },
+    "direction": {
+      "up": "Up",
+      "down": "Down",
+      "flat": "Unchanged"
+    },
+    "annualized": "{{percent}} annualized",
+    "info": "About this figure",
+    "infoBody": "Change in the daily closing price or unit NAV between the dates shown. Intraday quotes are excluded, dividends are not included and corporate actions are not adjusted, so this is not your holding return. Annualized figures are historical, not an expected or guaranteed yield.",
+    "reason": {
+      "insufficient_daily_history": "Not enough history for this period",
+      "incomparable_daily_prices": "Prices can’t be compared here",
+      "unsupported_instrument": "Not available for this type"
+    },
+    "reasonDetail": {
+      "insufficient_daily_history": "Dated daily closing prices that reach back to the start of this period are needed.",
+      "incomparable_daily_prices": "Daily prices cannot be compared across this period. Check their currency, price basis and any distributions or unit changes.",
+      "unsupported_instrument": "Historical price performance is unavailable for this instrument type."
+    },
+    "loading": "Loading price history",
+    "empty": "No price history yet",
+    "emptyHint": "Prices appear here once they are recorded or synced.",
+    "chartLabel": "Price history for {{name}}",
+    "returns": {
+      "label": "Returns by period",
+      "title": "Returns",
+      "window": "{{count}}-day",
+      "loadError": "Couldn’t load returns"
+    }
   },
   "reconciliation": {
     "title": "Reconciliation",

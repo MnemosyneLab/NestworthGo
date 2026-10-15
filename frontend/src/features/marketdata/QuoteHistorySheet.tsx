@@ -1,4 +1,4 @@
-import { quoteObservationLabel, quoteSourceLabel } from "@/lib/quoteEvidencePresentation";
+import { quoteTrendProps } from "./quoteTrend";
 import type { HealthFocus } from "@/app/navigation";
 import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { type ReactNode, useState } from "react";
@@ -13,8 +13,6 @@ import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
 import { useSettings } from "@/queries/settings";
 import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumentDisplay";
-import { formatQuotePrice, formatAmount } from "@/lib/money";
-import { formatQuoteAsOf } from "@/lib/time";
 import { chartTheme, useThemeVersion } from "@/components/charts/chartTheme";
 import type { InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
@@ -52,14 +50,11 @@ export function QuoteHistoryContent({ target, focus, render }: { target: QuoteHi
     ? t("marketData.instrumentHistory", { name: instrumentDisplayLabel(target.instrument, target.instrument.name) })
     : t("marketData.fxHistory", { base: fxBase, quote: fxQuote });
 
-  const points = series.data?.points ?? [];
   const observations = series.data?.observations ?? [];
   const currency = target.kind === "instrument" ? target.instrument.quoteCurrency : undefined;
   const priceSuffix = target.kind === "instrument" ? metalPriceSuffix(target.instrument, t) : "";
   const emptyRange = !series.isLoading && !series.isError && observations.length === 0;
   const hasFactsOutsideRange = emptyRange && series.data?.outsideRange === true;
-  const sourceLabel = (kind: string, key?: string) => quoteSourceLabel(t, kind, key);
-  const observationLabel = (point: Parameters<typeof quoteObservationLabel>[1]) => quoteObservationLabel(t, point);
 
   const body = (
     <>
@@ -100,34 +95,9 @@ export function QuoteHistoryContent({ target, focus, render }: { target: QuoteHi
             <TrendChart
               ariaLabel={title}
               summary={title}
-              dates={points.map((point) => point.timestampBasis === "date_label" && point.effectiveDate ? point.effectiveDate : point.quotedAt)}
-              series={[{
-                key: "value",
-                name: target.kind === "fx" ? t("charts.rate") : t("charts.price"),
-                color: theme.primary,
-                values: points.map((point) => currency && point.currency && point.currency !== currency ? null : point.value),
-                pointMeta: points.map((point, index) => ({
-                  breakBefore: index > 0 && points[index - 1].priceBasis !== point.priceBasis,
-                  sourceLabel: sourceLabel(point.sourceKind, point.sourceKey),
-                  delayed: point.delayed,
-                  observationLabel: observationLabel(point),
-                  observationKind: point.sourceKind === "manual" ? "manual" : point.observationKind,
-                  effectiveDate: point.effectiveDate,
-                })),
-              }]}
-              currency={currency ?? ""}
+              {...quoteTrendProps({ series: series.data, kind: target.kind, currency, priceSuffix, color: theme.primary, timezone: settings.data?.timezone, language: i18n.language, t })}
               height={300}
               emptyTitle={t("charts.insufficientHistory")}
-              valueFormatter={(value) => (value ? (currency ? formatQuotePrice(value, currency) + priceSuffix : formatAmount(value)) : t("accounts.noValue"))}
-              extraTableColumns={[t("charts.quotedAt"), target.kind === "fx" ? t("charts.rate") : t("charts.price"), t("quoteDetails.type"), t("quoteDetails.effectiveDate"), t("charts.source"), t("charts.delayed")]}
-              extraTableRows={observations.map((item) => [
-                formatQuoteAsOf(item, settings.data?.timezone, i18n.language),
-                currency ? formatQuotePrice(item.value, item.currency || currency) + priceSuffix : formatAmount(item.value),
-                observationLabel(item),
-                item.effectiveDate || "—",
-                sourceLabel(item.sourceKind, item.sourceKey),
-                item.delayed ? t("charts.delayed") : t("charts.onTime"),
-              ])}
             />
           )}
         </div>

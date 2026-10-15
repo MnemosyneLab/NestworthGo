@@ -159,23 +159,47 @@ wealth/history/analytics keep the complete inventory. Failed ownership reads
 must not enable ordinary actions, and preselected IDs must be validated before
 preview or submission. Backend product guards remain authoritative.
 
+Holdings lists (Portfolio and Account detail) render only through the shared
+`HoldingGroupsList`; a static guard in `holdingsSurfaces.guard.test.ts` rejects a
+second copy. The backend (`InstrumentHoldingGroups`/`AccountHoldingGroups`)
+groups instruments by type and returns per-currency subtotals, so the frontend
+filters, orders and formats but never sums or converts. Groups are collapsible
+section cards with a count and cost/value/gain subtotals; collapsed state lives
+in the session `useHoldingGroupStore` (per scope, never backend data) and resets
+at restart. Gain and performance direction always goes through the shared
+`ChangeText` (arrow, sign and spoken direction, never color alone). Account
+detail drops the contract-valued `cash_like` group (shown by products below).
+
 Holding detail hosts mount the shared `HoldingDetailPanel` only for expanded,
-active rows. Query keys share instrument price history/performance, while money
-uses the correct account/aggregate scope and one cost replay. No per-row polling,
-provider refresh or investment-review state writes. Descriptive 7/30-day metrics
-end at the latest real valid observation; use the nearest baseline on/before
-the target, actual civil days, and explicit dates. Insufficient history hides
-that metric. Performance accepts comparable dated daily Agent, manual and provider
-facts independently of the saved source preference. Source identity and valid
-date-only/session/timestamp encodings do not change economic comparability;
-realtime observations remain excluded. Unknown/adjusted price bases, mismatched
-currency/binding and unsafe corporate actions remain unavailable. When no window
-qualifies, show a localized reason rather than silently removing the section.
-Both account and portfolio rows use HoldingDisclosure: canonical ghost icon
+active rows. The row already shows quantity, cost, value and gain, so the panel
+starts with `PricePerformancePanel`, then compact metadata and a collapsed note.
+Query keys share instrument price history/performance across rows, and
+there is no per-row polling, provider refresh or investment-review state write.
+The panel shows one large period change with its baseline-to-latest dates, a
+single 1W/1M/3M/6M/1Y/All selector, a direction-tinted `TrendChart`
+`variant="minimal"`, an info popover for explanations and an unobtrusive data
+table. The headline and the chart come from one backend read
+(`InstrumentQuotePerformanceSeries`, windows 7/30/90/180/365 days and all
+history), so both cover the same interval, including sparse or delayed data.
+The chart is daily-only: intraday and realtime quotes are excluded before any
+selection, so there is no source filter. A separate `PerformanceReturns` section
+(backend `InstrumentQuoteReturns`) lists only the available 7/30/90/180/365-day
+returns with their real calculation dates and annualized value where applicable;
+windows without enough history are hidden and all-history is a chart period only.
+Period changes end at the latest real valid
+observation; use the nearest baseline on/before the target, actual civil days,
+and explicit dates. Insufficient history shows a dash and a short localized
+reason (details in the popover). Performance accepts comparable dated daily
+Agent, manual and provider facts independently of the saved source preference.
+Source identity and valid date-only/session/timestamp encodings do not change
+economic comparability; realtime observations remain excluded. Unknown/adjusted
+price bases, mismatched currency/binding and unsafe corporate actions remain
+unavailable. Every priced instrument type, including precious metals
+(`policy_derived` Yahoo futures timestamps) and crypto, supports the panel;
+managed contracts have no unit price and show the contract link instead.
+Rows use HoldingDisclosure: canonical ghost icon
 Button, Lucide chevrons, horizontal instrument label, localized expand/collapse
-names, aria-expanded/controls and independent sibling action menus. Details put
-scoped cost/value/unrealized gain first, then performance/chart, compact metadata
-and a collapsed full-text note disclosure. Do not inherit alert freshness or
+names, aria-expanded/controls and independent sibling action menus. Do not inherit alert freshness or
 baseline-gap cutoffs, fabricate prices, or infer returns from whole-position
 values or income-distributing money-fund NAV without income evidence. Flat
 ordinary unit NAV can show 0% NAV change; never infer money-fund status from

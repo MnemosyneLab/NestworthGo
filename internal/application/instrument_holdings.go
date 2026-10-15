@@ -11,14 +11,19 @@ import (
 // InstrumentHoldings reads one snapshot and shares the cost replay across all
 // members, including transfer sources outside the visible account scope.
 func (g *GainService) InstrumentHoldings(ctx context.Context, accountIDs ...domain.AccountID) ([]domain.InstrumentHoldingsView, error) {
+	groups, _, err := g.instrumentHoldings(ctx, accountIDs...)
+	return groups, err
+}
+
+func (g *GainService) instrumentHoldings(ctx context.Context, accountIDs ...domain.AccountID) ([]domain.InstrumentHoldingsView, map[domain.HoldingID]*exactHoldingGain, error) {
 	inputs, err := g.repository.ReadGainSnapshot(ctx)
 	snapshot := inputs.Portfolio
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	groups := []domain.InstrumentHoldingsView{}
 	if snapshot.Household == nil {
-		return groups, nil
+		return groups, map[domain.HoldingID]*exactHoldingGain{}, nil
 	}
 	accounts := map[domain.AccountID]string{}
 	for _, record := range snapshot.Accounts {
@@ -47,13 +52,13 @@ func (g *GainService) InstrumentHoldings(ctx context.Context, accountIDs ...doma
 		}
 		instrument, ok := instruments[holding.InstrumentID]
 		if !ok {
-			return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "holding instrument is missing"}
+			return nil, nil, &domain.Error{Code: domain.ErrIntegrity, Message: "holding instrument is missing"}
 		}
 		amountsExact := &exactHoldingGain{}
 		gain, err := g.holdingGain(ctx, snapshot, holding, instrument, replay, fx, origin, amountsExact)
 		exact[holding.ID] = amountsExact
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		// Available also includes base-currency decomposition. Native values remain
 		// valid when FX is missing; only their individual pointers determine availability.
@@ -69,7 +74,7 @@ func (g *GainService) InstrumentHoldings(ctx context.Context, accountIDs ...doma
 			index = len(groups)
 			indices[instrument.ID] = index
 			name, symbol := instrumentIdentity(instrument)
-			groups = append(groups, domain.InstrumentHoldingsView{InstrumentID: instrument.ID, Name: name, ShortName: instrument.ShortName, Symbol: symbol, QuoteCurrency: instrument.QuoteCurrency, QuantityUnit: instrument.QuantityUnit, Archived: instrument.ArchivedAt != nil, Holdings: []domain.InstrumentHoldingMember{}})
+			groups = append(groups, domain.InstrumentHoldingsView{InstrumentID: instrument.ID, Type: instrument.Type, Name: name, ShortName: instrument.ShortName, Symbol: symbol, QuoteCurrency: instrument.QuoteCurrency, QuantityUnit: instrument.QuantityUnit, Archived: instrument.ArchivedAt != nil, Holdings: []domain.InstrumentHoldingMember{}})
 		}
 		groups[index].Holdings = append(groups[index].Holdings, domain.InstrumentHoldingMember{HoldingID: holding.ID, AccountID: holding.AccountID, AccountName: accountName, Amounts: amounts})
 	}
@@ -84,7 +89,7 @@ func (g *GainService) InstrumentHoldings(ctx context.Context, accountIDs ...doma
 		})
 		group.Amounts, err = aggregateHoldingAmounts(group.Holdings, group.QuoteCurrency, exact)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	sort.Slice(groups, func(i, j int) bool {
@@ -93,7 +98,7 @@ func (g *GainService) InstrumentHoldings(ctx context.Context, accountIDs ...doma
 		}
 		return groups[i].InstrumentID.String() < groups[j].InstrumentID.String()
 	})
-	return groups, nil
+	return groups, exact, nil
 }
 
 func aggregateHoldingAmounts(members []domain.InstrumentHoldingMember, currency domain.CurrencyCode, exact map[domain.HoldingID]*exactHoldingGain) (domain.HoldingAmounts, error) {
@@ -168,4 +173,84 @@ func (s *Service) AccountHoldingDetails(ctx context.Context, accountIDs ...domai
 
 func (s *Service) InstrumentHoldings(ctx context.Context) ([]domain.InstrumentHoldingsView, error) {
 	return s.gain.InstrumentHoldings(ctx)
+}
+
+// InstrumentHoldingGroups groups the same read model by instrument type and
+// adds per-currency subtotals. Subtotals add the exact per-holding decimals
+// already produced for each instrument; they do not convert currencies and omit
+// closed (zero-quantity) positions, which cannot contribute value or cost.
+func (g *GainService) InstrumentHoldingGroups(ctx context.Context, managed map[string]string, accountIDs ...domain.AccountID) ([]domain.InstrumentHoldingGroupView, error) {
+	views, exact, err := g.instrumentHoldings(ctx, accountIDs...)
+	if err != nil {
+		return nil, err
+	}
+	return groupInstrumentHoldings(views, exact, managed)
+}
+
+func groupInstrumentHoldings(views []domain.InstrumentHoldingsView, exact map[domain.HoldingID]*exactHoldingGain, managed map[string]string) ([]domain.InstrumentHoldingGroupView, error) {
+	buckets := map[domain.HoldingGroupKey][]domain.InstrumentHoldingsView{}
+	for _, view := range views {
+		_, owned := managed[view.InstrumentID.String()]
+		key := domain.HoldingGroupFor(view.Type, owned)
+		buckets[key] = append(buckets[key], view)
+	}
+	groups := []domain.InstrumentHoldingGroupView{}
+	for _, key := range domain.HoldingGroupOrder {
+		instruments := buckets[key]
+		if len(instruments) == 0 {
+			continue
+		}
+		byCurrency := map[domain.CurrencyCode][]domain.InstrumentHoldingMember{}
+		counted := map[domain.CurrencyCode]map[domain.InstrumentID]struct{}{}
+		for _, instrument := range instruments {
+			for _, member := range instrument.Holdings {
+				quantity, err := decimal.NewFromString(member.Amounts.Quantity)
+				if err != nil {
+					return nil, err
+				}
+				if quantity.IsZero() {
+					continue
+				}
+				byCurrency[instrument.QuoteCurrency] = append(byCurrency[instrument.QuoteCurrency], member)
+				if counted[instrument.QuoteCurrency] == nil {
+					counted[instrument.QuoteCurrency] = map[domain.InstrumentID]struct{}{}
+				}
+				counted[instrument.QuoteCurrency][instrument.InstrumentID] = struct{}{}
+			}
+		}
+		currencies := make([]domain.CurrencyCode, 0, len(byCurrency))
+		for currency := range byCurrency {
+			currencies = append(currencies, currency)
+		}
+		sort.Slice(currencies, func(i, j int) bool { return currencies[i] < currencies[j] })
+		subtotals := make([]domain.HoldingCurrencySubtotal, 0, len(currencies))
+		for _, currency := range currencies {
+			amounts, err := aggregateHoldingAmounts(byCurrency[currency], currency, exact)
+			if err != nil {
+				return nil, err
+			}
+			subtotals = append(subtotals, domain.HoldingCurrencySubtotal{Currency: currency, InstrumentCount: len(counted[currency]), Amounts: amounts})
+		}
+		groups = append(groups, domain.InstrumentHoldingGroupView{Key: key, Instruments: instruments, Subtotals: subtotals})
+	}
+	return groups, nil
+}
+
+// InstrumentHoldingGroups is the type-grouped Portfolio holdings read model.
+func (s *Service) InstrumentHoldingGroups(ctx context.Context) ([]domain.InstrumentHoldingGroupView, error) {
+	managed, err := s.InstrumentProductOwnership(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.gain.InstrumentHoldingGroups(ctx, managed)
+}
+
+// AccountHoldingGroups is the same grouping for one account, including an
+// archived account, matching AccountHoldingDetails scope.
+func (s *Service) AccountHoldingGroups(ctx context.Context, accountID domain.AccountID) ([]domain.InstrumentHoldingGroupView, error) {
+	managed, err := s.InstrumentProductOwnership(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.gain.InstrumentHoldingGroups(ctx, managed, accountID)
 }

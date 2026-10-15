@@ -11,6 +11,23 @@ import (
 // ReadQuotePerformanceEvidence reads latest daily evidence, nearest baselines,
 // and intervening instrument quotes in one transaction, independently of chart range.
 func (r *Repository) ReadQuotePerformanceEvidence(ctx context.Context, i domain.Instrument, today string) ([]domain.InstrumentQuote, error) {
+	return r.ReadQuotePerformanceEvidenceWindows(ctx, i, today, domain.QuotePerformanceWindows)
+}
+
+// ReadQuotePerformanceEvidenceWindows is ReadQuotePerformanceEvidence for an
+// explicit set of lookback windows. A window of zero reads the whole history.
+func (r *Repository) ReadQuotePerformanceEvidenceWindows(ctx context.Context, i domain.Instrument, today string, windows []int) ([]domain.InstrumentQuote, error) {
+	return r.readQuotePerformanceEvidence(ctx, i, today, windows, false)
+}
+
+// ReadQuotePerformanceSeriesEvidence reads the daily evidence of one chart
+// period. Unlike the figures, a period without a baseline on or before its
+// target still reads every observation inside it, so the chart can show them.
+func (r *Repository) ReadQuotePerformanceSeriesEvidence(ctx context.Context, i domain.Instrument, today string, window int) ([]domain.InstrumentQuote, error) {
+	return r.readQuotePerformanceEvidence(ctx, i, today, []int{window}, true)
+}
+
+func (r *Repository) readQuotePerformanceEvidence(ctx context.Context, i domain.Instrument, today string, windows []int, includeUncovered bool) ([]domain.InstrumentQuote, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err
@@ -30,15 +47,25 @@ func (r *Repository) ReadQuotePerformanceEvidence(ctx context.Context, i domain.
 		return nil, err
 	}
 	earliest := latest.String
-	for _, days := range []int{7, 30} {
+	for _, days := range windows {
 		var base sql.NullString
-		target := end.AddDate(0, 0, -days).Format(time.DateOnly)
-		params := append(append([]any{}, args...), target)
-		if err := tx.QueryRowContext(ctx, "SELECT MAX(q.effective_date) FROM instrument_quotes q WHERE "+where+" AND q.effective_date<=?", params...).Scan(&base); err != nil {
-			return nil, err
+		if days <= 0 {
+			if err := tx.QueryRowContext(ctx, "SELECT MIN(q.effective_date) FROM instrument_quotes q WHERE "+where, args...).Scan(&base); err != nil {
+				return nil, err
+			}
+		} else {
+			target := end.AddDate(0, 0, -days).Format(time.DateOnly)
+			params := append(append([]any{}, args...), target)
+			if err := tx.QueryRowContext(ctx, "SELECT MAX(q.effective_date) FROM instrument_quotes q WHERE "+where+" AND q.effective_date<=?", params...).Scan(&base); err != nil {
+				return nil, err
+			}
 		}
 		if base.Valid && base.String < earliest {
 			earliest = base.String
+		} else if !base.Valid && includeUncovered && days > 0 {
+			if target := end.AddDate(0, 0, -days).Format(time.DateOnly); target < earliest {
+				earliest = target
+			}
 		}
 	}
 	where += " AND q.effective_date>=?"
