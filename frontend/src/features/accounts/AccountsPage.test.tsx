@@ -130,6 +130,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
   },
 }));
 
+vi.mock("@/features/investments/LazyHoldingDetailPanel", () => ({ HoldingDetailPanel: () => <div>Expanded synthetic holding</div> }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { AccountHoldingDetails: () => Promise.resolve([]) } }));
+
 function renderPage() {
   const queryClient = createTestQueryClient();
   const rendered = render(
@@ -1759,4 +1762,33 @@ it.each(["deposit", "simple"])("retains ordinary account %s submission through c
   await waitFor(() => expect(recordChange).toHaveBeenCalledTimes(2));
   expect(recordChange.mock.calls[1][0]).toEqual(original);
   await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
+});
+
+
+it("uses the shared aligned holding disclosure and keeps row actions independent", async () => {
+  listAccounts.mockResolvedValue([brokerageAccount]);
+  holdingsByAccounts.mockResolvedValue({ "brk-1": [{id:"synthetic-holding",accountId:"brk-1",instrumentId:"synthetic-instrument",quantity:"1"}] });
+  listInstruments.mockResolvedValue([{id:"synthetic-instrument",name:"Synthetic holding",type:"stock",quoteCurrency:"USD"}]);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", {name:/MooMoo/}));
+  const trigger = await screen.findByRole("button", {name:"Show details for Synthetic holding"});
+  expect(trigger).toHaveClass("size-9");
+  expect(trigger.parentElement).toHaveClass("flex", "items-center");
+  trigger.focus();
+  await userEvent.keyboard("{Enter}");
+  expect(trigger).toHaveAccessibleName("Hide details for Synthetic holding");
+  expect(document.getElementById(trigger.getAttribute("aria-controls")!)!).toHaveTextContent("Expanded synthetic holding");
+  await userEvent.keyboard(" ");
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(trigger).toHaveFocus();
+  expect(screen.queryByText("Expanded synthetic holding")).not.toBeInTheDocument();
+  await userEvent.keyboard("{Enter}");
+  const actions = screen.getByRole("button", {name:"Actions for Synthetic holding"});
+  await userEvent.click(actions);
+  expect(await screen.findByRole("menu")).toBeInTheDocument();
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("menu", { hidden: true })).not.toBeInTheDocument());
+  expect(actions).toHaveFocus();
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
 });

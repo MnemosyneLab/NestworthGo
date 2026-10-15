@@ -2,11 +2,12 @@ import { HoldingDetailPanel } from "./LazyHoldingDetailPanel";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
+import { HoldingDisclosure } from "./HoldingDisclosure";
 import { compareCanonical, formatAmount } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { metalUnitLabel } from "@/lib/preciousMetals";
@@ -53,10 +54,10 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
   const cells = (row: Row, child = false) => <>
     <td className={`px-3 py-3 ${child ? "pl-10" : ""}`}>
       <div className="flex items-center gap-2">
-        {!child && <button type="button" aria-label={t("holdingDetail.toggle", { name: row.group.name })} aria-expanded={expanded.has(row.id)} aria-controls={`holding-details-${view}-${row.id}`} onClick={() => setExpanded(previous => { const next = new Set(previous); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          {expanded.has(row.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        </button>}
-        <InstrumentLabel shortName={row.group.shortName} name={row.group.name} symbol={row.group.symbol} fallback={row.group.name} />
+        {child ? <InstrumentLabel shortName={row.group.shortName} name={row.group.name} symbol={row.group.symbol} fallback={row.group.name} className="flex-1" /> :
+          <HoldingDisclosure name={row.group.name} shortName={row.group.shortName} symbol={row.group.symbol}
+            expanded={expanded.has(row.id)} controls={`holding-details-${view}-${row.id}`}
+            onToggle={() => setExpanded(previous => { const next = new Set(previous); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} />}
         <AnalyzeMenu instrumentId={row.group.instrumentId} accountId={row.accountId} label={instrumentDisplayLabel(row.group)} />
         {row.group.archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
       </div>

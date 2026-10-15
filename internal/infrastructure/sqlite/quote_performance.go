@@ -16,8 +16,8 @@ func (r *Repository) ReadQuotePerformanceEvidence(ctx context.Context, i domain.
 		return nil, nil, err
 	}
 	defer tx.Rollback()
-	where := `q.instrument_id=? AND q.source_kind=? AND COALESCE(q.binding_revision,0)=? AND q.currency=? AND q.observation_kind='close' AND q.effective_date<>'' AND q.effective_date<=? AND NOT EXISTS(SELECT 1 FROM agent_quote_records w WHERE w.target_type='instrument' AND w.target_quote_id=q.id)`
-	args := []any{i.ID.String(), string(i.QuoteSource), i.ProviderBindingRevision, i.QuoteCurrency.String(), today}
+	where := `q.instrument_id=? AND q.source_kind IN ('agent','manual','provider') AND COALESCE(q.binding_revision,0)=? AND q.currency=? AND q.observation_kind='close' AND q.effective_date<>'' AND q.effective_date<=? AND NOT EXISTS(SELECT 1 FROM agent_quote_records w WHERE w.target_type='instrument' AND w.target_quote_id=q.id)`
+	args := []any{i.ID.String(), i.ProviderBindingRevision, i.QuoteCurrency.String(), today}
 	var latest sql.NullString
 	if err := tx.QueryRowContext(ctx, "SELECT MAX(q.effective_date) FROM instrument_quotes q WHERE "+where, args...).Scan(&latest); err != nil {
 		return nil, nil, err
