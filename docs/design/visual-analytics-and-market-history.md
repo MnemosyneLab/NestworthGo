@@ -215,3 +215,34 @@ fetching, including capability declarations, bounded requests, batch
 validation, atomic append-only writes, and rate-limit handling. It must remain
 explicit, local-first, and compatible with the current quote and valuation
 contracts.
+
+
+## Holding detail daily performance
+
+Account and Portfolio holding expansions share a read-only detail body and row
+disclosure. Cost, value and unrealized gain precede historical performance and
+the chart; metadata is compact and long notes are a secondary disclosure.
+The disclosure uses the shared Button and Lucide icons, preserves keyboard focus
+and exposes expanded state without making row action menus toggle the details.
+
+Descriptive performance reads dated daily close/unit-NAV facts from Agent,
+manual and provider sources regardless of configured source. Same-day selection
+is deterministic: Agent before manual before provider, then revision, creation
+time and ID. Source labels and valid timestamp encodings alone do not prevent
+comparison. Explicit raw-close bases are comparable across providers; unit NAV
+stays separate from raw, adjusted, cumulative and whole-position values.
+Currency/current binding, correction/withdrawal and corporate-action guards
+remain in force. Intraday realtime quotes cannot move the performance endpoint.
+
+Seven- and thirty-day windows end at the latest actual daily observation, choose
+the nearest baseline on/before the target and use actual calendar days. Missing
+windows are omitted individually. Supported bank-product unit NAV receives
+historical simple annualization; ordinary funds and equities show period change.
+Actual dates and span are visible; no fill-forward facts or total-return claims
+are introduced. If no metric qualifies, explain insufficient daily history,
+incomparable prices or unsupported instrument type. The read-only Wails
+InstrumentQuotePerformance response is now a report containing items and an
+optional unavailableReason; consumers render localized reasons, not raw tokens.
+
+Automated coverage uses synthetic facts only. Native macOS and visual acceptance
+remain separate gates from Go tests and jsdom interaction checks.

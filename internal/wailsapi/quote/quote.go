@@ -181,10 +181,10 @@ func (s *Service) ListFXPreferences(ctx context.Context) ([]wire.FXPreferenceDTO
 }
 
 // InstrumentQuotePerformance is a read-only descriptive price history projection.
-func (s *Service) InstrumentQuotePerformance(ctx context.Context, instrumentID string) ([]domain.QuotePerformance, error) {
+func (s *Service) InstrumentQuotePerformance(ctx context.Context, instrumentID string) (domain.QuotePerformanceReport, error) {
 	id, err := domain.ParseInstrumentID(instrumentID)
 	if err != nil {
-		return nil, apierror.Wrap(err)
+		return domain.QuotePerformanceReport{}, apierror.Wrap(err)
 	}
 	result, err := s.app.InstrumentQuotePerformance(ctx, id)
 	return result, apierror.Wrap(err)

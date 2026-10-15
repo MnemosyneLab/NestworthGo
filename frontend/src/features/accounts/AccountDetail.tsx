@@ -32,7 +32,7 @@ import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
-import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
+import { HoldingDisclosure } from "@/features/investments/HoldingDisclosure";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { AccountCashValueDTO, AccountRecordDTO, AccountValuationDTO, HoldingDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -366,8 +366,9 @@ export function AccountDetail({
                     {investmentRows.map((row) => (
                       <Fragment key={row.holding.id}><tr className="border-b border-border last:border-0">
                         <td className="py-2">
-                          <button type="button" className="mr-2 rounded p-1 focus-visible:ring-2 focus-visible:ring-primary" aria-expanded={expandedHoldings.has(row.holding.id)} aria-controls={`account-holding-details-${row.holding.id}`} aria-label={t("holdingDetail.toggle", { name: row.instrumentName })} onClick={() => setExpandedHoldings(previous => { const next = new Set(previous); if (next.has(row.holding.id)) next.delete(row.holding.id); else next.add(row.holding.id); return next; })}>{expandedHoldings.has(row.holding.id) ? "▾" : "▸"}</button>
-                          <InstrumentLabel shortName={row.instrumentShortName} name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
+                          <HoldingDisclosure name={row.instrumentName} shortName={row.instrumentShortName} symbol={row.instrumentSymbol}
+                            expanded={expandedHoldings.has(row.holding.id)} controls={`account-holding-details-${row.holding.id}`}
+                            onToggle={() => setExpandedHoldings(previous => { const next = new Set(previous); if (next.has(row.holding.id)) next.delete(row.holding.id); else next.add(row.holding.id); return next; })} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
                         <td className="num py-2 text-right">{row.instrumentType === "bank_investment_product" ? `${formatAmount(row.holding.quantity)} ${t("common.units")}` : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>

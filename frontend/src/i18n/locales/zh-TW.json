@@ -1563,6 +1563,12 @@
     "missingCount": "{{count}} 項需要關注"
   },
   "holdingDetail": {
+    "collapse": "收起 {{name}} 的詳情",
+    "unavailable": {
+      "insufficient_daily_history": "需要至少跨越七個曆日的每日價格紀錄，不包含日內即時報價。",
+      "incomparable_daily_prices": "此區間的每日價格無法比較。請檢查幣別、價格口徑及配息或單位變動。",
+      "unsupported_instrument": "此類投資品暫不支援歷史價格表現。"
+    },
     "performance": "歷史價格 / 單位淨值表現",
     "priceDisclaimer": "價格或單位淨值漲跌，不含分紅、未復權，並非個人持倉收益。歷史簡單年化並非預期或保證收益。",
     "window": "近 {{days}} 日目標",

@@ -1563,6 +1563,12 @@
     "missingCount": "{{count}} items need attention"
   },
   "holdingDetail": {
+    "collapse": "Hide details for {{name}}",
+    "unavailable": {
+      "insufficient_daily_history": "At least seven calendar days of dated daily prices are needed. Intraday quotes are excluded.",
+      "incomparable_daily_prices": "Daily prices cannot be compared across this window. Check their currency, price basis and any distributions or unit changes.",
+      "unsupported_instrument": "Historical price performance is unavailable for this instrument type."
+    },
     "performance": "Historical price / NAV performance",
     "priceDisclaimer": "Price or unit NAV change, excluding dividends and unadjusted for corporate actions. This is not your holding return. Simple annualization is historical, not an expected or guaranteed yield.",
     "window": "{{days}}-day target",

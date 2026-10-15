@@ -149,8 +149,23 @@ uses the correct account/aggregate scope and one cost replay. No per-row polling
 provider refresh or investment-review state writes. Descriptive 7/30-day metrics
 end at the latest real valid observation; use the nearest baseline on/before
 the target, actual civil days, and explicit dates. Insufficient history hides
-that metric. Do not inherit alert freshness/baseline-gap cutoffs, fabricate
-prices, or infer returns from whole-position values or income-distributing money-fund NAV without income evidence. Flat ordinary unit NAV can show 0% NAV change; never infer money-fund status from flatness. Derived percentages use concise two-decimal presentation; signed money uses `formatSignedMoney`, including neutral rounded zero and its tiny-value hint.
+that metric. Performance accepts comparable dated daily Agent, manual and provider
+facts independently of the saved source preference. Source identity and valid
+date-only/session/timestamp encodings do not change economic comparability;
+realtime observations remain excluded. Unknown/adjusted price bases, mismatched
+currency/binding and unsafe corporate actions remain unavailable. When no window
+qualifies, show a localized reason rather than silently removing the section.
+Both account and portfolio rows use HoldingDisclosure: canonical ghost icon
+Button, Lucide chevrons, horizontal instrument label, localized expand/collapse
+names, aria-expanded/controls and independent sibling action menus. Details put
+scoped cost/value/unrealized gain first, then performance/chart, compact metadata
+and a collapsed full-text note disclosure. Do not inherit alert freshness or
+baseline-gap cutoffs, fabricate prices, or infer returns from whole-position
+values or income-distributing money-fund NAV without income evidence. Flat
+ordinary unit NAV can show 0% NAV change; never infer money-fund status from
+flatness. Derived percentages use concise two-decimal presentation; signed
+money uses `formatSignedMoney`, including neutral rounded zero and its tiny-value
+hint.
 
 NativeSelect and FilterableSelect share `selectFieldClass`, retaining native
 select semantics. A combobox search session starts empty, commits only an

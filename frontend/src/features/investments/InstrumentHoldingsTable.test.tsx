@@ -36,7 +36,7 @@ describe("InstrumentHoldingsTable", () => {
     expect(screen.getByRole("button", { name: "Closed account position" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "By instrument" }));
     expect(screen.getByText("3 accounts")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show details for Apple" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Hide details for Apple" })).toHaveAttribute("aria-expanded", "true");
   });
   it("keeps an all-zero group accessible through the filter and labels archived metal units", async () => {
     const group = fixture(); group.name = "Gold"; group.archived = true; group.quantityUnit = "g";

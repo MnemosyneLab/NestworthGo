@@ -78,3 +78,54 @@ func TestQuotePerformanceLegacyCorrectedDividendUsesEconomicDate(t *testing.T) {
 		t.Fatalf("legacy dividend dates %v performance %+v err %v", unsafe, domain.ProjectQuotePerformance(i, quotes, unsafe), err)
 	}
 }
+
+func TestQuotePerformanceAllSourcesIgnorePreferenceAndExcludeIntraday(t *testing.T) {
+	for _, preference := range []domain.QuoteSourceKind{domain.QuoteSourceAgent, domain.QuoteSourceManual, domain.QuoteSourceProvider} {
+		t.Run(string(preference), func(t *testing.T) {
+			database, repository, _, _, i := seedPortfolioRepository(t)
+			i.ID = domain.NewInstrumentID()
+			i.Name = "Synthetic daily prices"
+			i.Type = domain.InstrumentStock
+			i.QuoteSource = preference
+			if preference == domain.QuoteSourceProvider {
+				key, symbol := domain.YahooFinanceProviderKey, "SYN"
+				i.ProviderKey = &key
+				i.Symbol = &symbol
+				i.ProviderSymbol = &symbol
+			}
+			if err := repository.CreateInstrument(t.Context(), i); err != nil {
+				t.Fatal(err)
+			}
+			for n, source := range []domain.QuoteSourceKind{domain.QuoteSourceManual, domain.QuoteSourceProvider, domain.QuoteSourceAgent} {
+				on := []string{"2026-10-05", "2026-10-10", "2026-10-14"}[n]
+				at, _ := time.Parse(time.DateOnly, on)
+				price, _ := domain.ParseUnitPrice("100")
+				q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: i.ID, UnitPrice: price, Currency: i.QuoteCurrency, SourceKind: source, SourceKey: "synthetic", QuotedAt: at, CreatedAt: at, EffectiveDate: on, ObservationKind: "close", PriceBasis: domain.TiingoRawClosePriceBasis, TimestampBasis: "session_close", Revision: 1, BindingRevision: i.ProviderBindingRevision}
+				if err := database.WithTx(t.Context(), func(tx *sql.Tx) error { return insertAgentInstrumentQuoteTx(t.Context(), tx, i.HouseholdID, q, "") }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// A dated realtime quote must not move the daily anchor; nor may a future close.
+			for _, kind := range []string{"realtime", "close"} {
+				on := "2026-10-15"
+				if kind == "close" {
+					on = "2026-10-16"
+				}
+				at, _ := time.Parse(time.DateOnly, on)
+				price, _ := domain.ParseUnitPrice("999")
+				q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: i.ID, UnitPrice: price, Currency: i.QuoteCurrency, SourceKind: domain.QuoteSourceAgent, QuotedAt: at, CreatedAt: at, EffectiveDate: on, ObservationKind: kind, PriceBasis: "agent_raw_close_v1", TimestampBasis: "date_label", Revision: 1, BindingRevision: i.ProviderBindingRevision}
+				if err := database.WithTx(t.Context(), func(tx *sql.Tx) error { return insertAgentInstrumentQuoteTx(t.Context(), tx, i.HouseholdID, q, "") }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			quotes, unsafe, err := repository.ReadQuotePerformanceEvidence(t.Context(), i, "2026-10-15")
+			if err != nil || len(quotes) != 3 {
+				t.Fatalf("daily read count=%d err=%v", len(quotes), err)
+			}
+			got := domain.ProjectQuotePerformance(i, quotes, unsafe)
+			if len(got) != 1 || got[0].LatestOn != "2026-10-14" || got[0].PeriodPercent != "0" || got[0].ElapsedDays != 9 {
+				t.Fatalf("mixed daily %+v", got)
+			}
+		})
+	}
+}
