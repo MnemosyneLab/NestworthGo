@@ -1,4 +1,5 @@
 import { InvestmentReviewPanel } from "@/features/investment-review/InvestmentReviewPanel";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -10,7 +11,8 @@ import { upcomingNavigation, upcomingButton, upcomingCountLabels, upcomingReadLa
 
 export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean }) {
   const { t, i18n } = useTranslation();
-  const query = useUpcomingActions(isActive);
+  const [tab, setTab] = useState("recent");
+  const query = useUpcomingActions(isActive && tab === "recent");
   const navigation = useObjectNavigation();
   const [filter, setFilter] = useState("all");
   const [limit, setLimit] = useState(50);
@@ -30,7 +32,14 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
   return <div className="space-y-5" aria-busy={query.isFetching}>
     <PageChrome pageId="upcoming-actions" title={t("upcomingActions.title")} actions={<Button variant="outline" disabled={query.isFetching} onClick={() => { void query.refetch(); }}>{t("upcomingActions.refresh")}</Button>} />
     <h2 id="upcoming-actions-heading" tabIndex={-1} className="text-xl font-semibold">{t("upcomingActions.title")}</h2>
-    <InvestmentReviewPanel isActive={isActive} />
+    <p className="text-sm text-muted-foreground">{t("upcomingActions.description")}</p>
+    <Tabs value={tab} onValueChange={value => setTab(String(value))}>
+      <TabsList aria-label={t("upcomingActions.description")}>
+        <TabsTrigger value="recent">{t("upcomingActions.title")}</TabsTrigger>
+        <TabsTrigger value="review">{t("investmentReview.title")}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="review"><InvestmentReviewPanel isActive={isActive && tab === "review"} /></TabsContent>
+      <TabsContent value="recent" keepMounted>
     {!data && query.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
     {query.isError && <p role="alert">{t(data ? "upcomingActions.stale" : "upcomingActions.loadError")}</p>}
     {data && <>
@@ -59,5 +68,7 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
       </details>
       <p className="text-sm text-muted-foreground">{t("upcomingActions.normalOnly")}</p>
     </>}
+      </TabsContent>
+    </Tabs>
   </div>;
 }

@@ -1,6 +1,7 @@
 export const upcomingActionsEn = {
   "upcomingActions": {
     "title": "Upcoming actions",
+    "description": "Review receipts, reservations and investment reminders.",
     "window": "Today and the next 30 days · {{date}} · {{timezone}}",
     "asOf": "Read at {{asOf}} · {{timezone}}",
     "asOfUnavailable": "Read time unavailable",
@@ -112,6 +113,7 @@ export const upcomingActionsEn = {
 export const upcomingActionsZhCN = {
   "upcomingActions": {
     "title": "近期事项",
+    "description": "查看到账核实、预留事项和投资复核提醒。",
     "window": "今天及未来 30 天 · {{date}} · {{timezone}}",
     "asOf": "读取于 {{asOf}} · {{timezone}}",
     "asOfUnavailable": "读取时间无法显示",
@@ -223,6 +225,7 @@ export const upcomingActionsZhCN = {
 export const upcomingActionsZhTW = {
   "upcomingActions": {
     "title": "近期事項",
+    "description": "查看到帳核實、預留事項和投資複核提醒。",
     "window": "今天及未來 30 天 · {{date}} · {{timezone}}",
     "asOf": "讀取於 {{asOf}} · {{timezone}}",
     "asOfUnavailable": "讀取時間無法顯示",

@@ -206,3 +206,18 @@ it.each(["en", "zh-CN", "zh-TW"])("compresses homepage empty results and preserv
   action.focus(); await userEvent.keyboard("{Enter}");
   expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
 });
+
+it.each(["en", "zh-CN", "zh-TW"])("switches between the existing actions and review tabs by keyboard in %s", async language => {
+  await i18n.changeLanguage(language);
+  mount(<UpcomingActionsPage />);
+  const recent = screen.getByRole("tab", { name: i18n.t("upcomingActions.title") });
+  const review = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
+  expect(recent).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByText("Synthetic deposit")).toBeVisible();
+  recent.focus(); await userEvent.keyboard("{ArrowRight}{Enter}");
+  expect(review).toHaveAttribute("aria-selected", "true");
+  expect(screen.queryByText("Synthetic deposit")).not.toBeVisible();
+  await userEvent.keyboard("{ArrowLeft}{Enter}");
+  expect(recent).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByText("Synthetic deposit")).toBeVisible();
+});

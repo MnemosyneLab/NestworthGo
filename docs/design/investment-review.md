@@ -5,8 +5,8 @@ acceptance pending. Baseline: main `5e8824a96b992f76ffc048541c5c99851ee71d53`.
 
 ## Scope and assumptions
 
-The App shows a review panel on Upcoming actions and a count beside the upcoming
-summary in Overview and Available Funds. Review episodes have no due dates and
+The App shows a review panel on the Investment review tab of Upcoming actions and a summary in
+Overview’s Needs attention card. Review episodes have no due dates and
 never enter the scheduled liquidity action counts. UpcomingActions remains a
 read-only projection. Reviews invite checking an investment and its NAV data;
 they never execute a financial action or prescribe selling.
@@ -31,7 +31,7 @@ Agent revision wins. Forward-filled daily valuations are never read as NAV facts
 
 ## GUI review and setup
 
-Upcoming actions remains the review home. The Overview/Available Funds summary
+Upcoming actions remains the review home. The Overview summary
 always offers **Review investments and settings**, including with zero pending
 reviews. Eligible holdings with no enrollment show an explanation and **Choose
 investments**; the all-investment view exposes each instrument's explicit opt-in
@@ -206,7 +206,7 @@ MCP disabled. Use no real household or provider data.
 4. Enable missing, distribution and stale funds. Verify reason/stale labels and
    absence of a reminder, with no fabricated zero return. Toggle 30/7 days and
    threshold/age/master controls; validate persisted settings and pause behavior.
-5. Check Overview/Available Funds summary and Upcoming actions at narrow/normal
+5. Check Overview summary and Upcoming actions at narrow/normal
    widths in English, Simplified and Traditional Chinese. Keyboard-test summary,
    preferences, enrollment, refresh, Reviewed, NAV navigation and Back;
    check focus and VoiceOver labels. Close the app and verify no monitoring claim.
