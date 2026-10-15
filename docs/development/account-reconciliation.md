@@ -58,6 +58,8 @@ A changed working account refreshes its current items, retains earlier attempts,
 surfaces removed points and requires renewed explicit review. Other accounts keep
 their progress. Completed rows stay frozen; current revision differences are a
 separate recheck projection. Historical successful timestamps remain available.
+MCP session-only commits emit agent.reconciliation.changed and invalidate only
+reconciliation reads; they do not use the broad agent.data.changed notification.
 Descriptive instrument price/NAV performance remains independent of personal
 ledger/reconciliation inputs, preserving merged PR90. No investment-review
 rule-engine overhaul is part of this feature. The revision is deliberately

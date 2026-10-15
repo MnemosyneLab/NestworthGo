@@ -26,6 +26,7 @@ import (
 )
 
 const ChangedEvent = "agent.data.changed"
+const ReconciliationChangedEvent = "agent.reconciliation.changed"
 const ReadOnly = "read_only"
 const DirectoryWrite = "directory_write"
 const LedgerWrite = "ledger_write"
@@ -51,20 +52,22 @@ type Connection struct {
 }
 
 type Service struct {
-	contexts          *financialContextCache
-	reads             *boundedReadCache
-	contextGeneration uint64
-	mu                sync.Mutex
-	operationMu       sync.Mutex
-	app               *application.Service
-	dir               string
-	repository        settings.ConfigurationRepository
-	config            Config
-	server            *http.Server
-	listener          net.Listener
-	endpoint          string
-	lastError         string
-	changed           func()
+	reconciliationChangedMu sync.RWMutex
+	reconciliationChanged   func()
+	contexts                *financialContextCache
+	reads                   *boundedReadCache
+	contextGeneration       uint64
+	mu                      sync.Mutex
+	operationMu             sync.Mutex
+	app                     *application.Service
+	dir                     string
+	repository              settings.ConfigurationRepository
+	config                  Config
+	server                  *http.Server
+	listener                net.Listener
+	endpoint                string
+	lastError               string
+	changed                 func()
 }
 
 // Directory isolates credentials and receipts for each settings/database pair.
@@ -303,4 +306,26 @@ func writePrivateJSON(path string, value any) error {
 	}
 	defer dir.Close()
 	return dir.Sync()
+}
+
+// SetReconciliationChanged installs a session-only notification. It deliberately
+// does not reuse the broad financial invalidation event for attestations.
+func (s *Service) SetReconciliationChanged(fn func()) {
+	s.reconciliationChangedMu.Lock()
+	s.reconciliationChanged = fn
+	s.reconciliationChangedMu.Unlock()
+}
+func (s *Service) notifyChanged(tool string) {
+	if tool == "commit_reconciliation_session" {
+		s.reconciliationChangedMu.RLock()
+		fn := s.reconciliationChanged
+		s.reconciliationChangedMu.RUnlock()
+		if fn != nil {
+			fn()
+		}
+		return
+	}
+	if s.changed != nil {
+		s.changed()
+	}
 }

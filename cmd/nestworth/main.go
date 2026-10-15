@@ -53,6 +53,7 @@ import (
 
 func init() {
 	application.RegisterEvent[bool](mcpserver.ChangedEvent)
+	application.RegisterEvent[bool](mcpserver.ReconciliationChangedEvent)
 	application.RegisterEvent[wailsmarketdata.RefreshCompletedPayload](wailsmarketdata.RefreshCompletedEvent)
 	application.RegisterEvent[wailsmarketdata.RefreshProgressPayload]("marketdata.refresh.progress")
 	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncStartedEvent)
@@ -238,6 +239,7 @@ func run() error {
 	registered = append(registered, application.NewService(wailsbackup.NewService(cloudBackup, service, recoveryUseCase, recoveryService)))
 	if service != nil {
 		agentServer = mcpserver.New(service, mcpserver.Directory(store.Path, databasePath), func() { emitter.Emit(mcpserver.ChangedEvent, true) }, sqlite.NewConfigurationRepository(database))
+		agentServer.SetReconciliationChanged(func() { emitter.Emit(mcpserver.ReconciliationChangedEvent, true) })
 		defer agentServer.Close()
 		recoveryUseCase.SetBeforeRestore(func(ctx context.Context) error {
 			// Keep replication shutdown and fence MCP without draining operations

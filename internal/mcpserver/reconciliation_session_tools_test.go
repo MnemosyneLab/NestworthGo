@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -139,5 +140,26 @@ func TestReconciliationLinkedBatchUsesOneAtomicScope(t *testing.T) {
 	links := call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "links"}, false)["data"].(map[string]any)
 	if links["total"].(float64) != 2 {
 		t.Fatal(links)
+	}
+}
+
+func TestReconciliationSessionNotificationsDoNotInvalidateFinancialPerformance(t *testing.T) {
+	fx := newLedgerFixture(t)
+	var financial, session atomic.Int32
+	fx.service.changed = func() { financial.Add(1) }
+	fx.service.SetReconciliationChanged(func() { session.Add(1) })
+	c := ledgerSession(t, fx)
+	v := sessionAction(t, c, map[string]any{"action": "start", "accountIds": []string{fx.checking}})
+	if session.Load() != 1 || financial.Load() != 0 {
+		t.Fatalf("session notification counts %d / %d", session.Load(), financial.Load())
+	}
+	p := reconciliationPreview(t, c, map[string]any{"accountId": fx.checking, "targetBalance": "25", "currency": "USD"})
+	reconciliationCommit(t, c, uuid.NewString(), p["planId"].(string))
+	if financial.Load() != 1 || session.Load() != 1 {
+		t.Fatalf("financial notification counts %d / %d", financial.Load(), session.Load())
+	}
+	sessionAction(t, c, map[string]any{"action": "pause", "sessionId": v["id"], "expectedRevision": v["revision"]})
+	if financial.Load() != 1 || session.Load() != 2 {
+		t.Fatal("pause leaked a broad financial invalidation")
 	}
 }
