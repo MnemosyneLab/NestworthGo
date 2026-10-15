@@ -50,13 +50,18 @@ Schema-verified triggers maintain account financial revisions inside owning
 financial transactions. Cash/value facts, holding quantity/scope, cost effects,
 account archive/mode/currency, product contract and product-operation facts advance
 the affected account. Provider prices, ordinary manual quotes, NAV and FX do not.
+Pure managed-product value observations (`value_observation` with a `valued`
+link) also leave the financial revision unchanged; principal, quantity, terms
+and cash mutations retain their existing revision triggers.
 Recorded revision order detects newly recorded backdated activity, rather than
 using its effective date as a watermark. Separate change-log rows retain recorded
 and effective timestamps. There is no prior watermark on a first session.
 
 A changed working account refreshes its current items, retains earlier attempts,
 surfaces removed points and requires renewed explicit review. Other accounts keep
-their progress. Completed rows stay frozen; current revision differences are a
+their progress. All refreshed points, including removed points, use stable-ID
+ordering so unchanged previews and commits compare the same evidence. Completed
+rows stay frozen; current revision differences are a
 separate recheck projection. Historical successful timestamps remain available.
 MCP session-only commits emit agent.reconciliation.changed and invalidate only
 reconciliation reads; they do not use the broad agent.data.changed notification.

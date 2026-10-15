@@ -83,7 +83,8 @@ CREATE TRIGGER reconciliation_instrument_scope AFTER UPDATE OF archived_at, quot
  UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id IN (SELECT account_id FROM holdings WHERE instrument_id=NEW.id);
  INSERT INTO reconciliation_financial_changes SELECT r.account_id,r.revision,'instrument_scope',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',a.name,'instrumentName',NEW.name,'archivedAt',NEW.archived_at,'currency',NEW.quote_currency) FROM account_financial_revisions r JOIN accounts a ON a.id=r.account_id WHERE r.account_id IN (SELECT account_id FROM holdings WHERE instrument_id=NEW.id);
 END;
-CREATE TRIGGER reconciliation_product_facts AFTER INSERT ON product_operation_products BEGIN
+CREATE TRIGGER reconciliation_product_facts AFTER INSERT ON product_operation_products
+ WHEN NOT (NEW.role='valued' AND (SELECT kind FROM product_operations WHERE id=NEW.operation_id)='value_observation') BEGIN
  UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=(SELECT account_id FROM product_contracts WHERE id=NEW.product_id);
  INSERT INTO reconciliation_financial_changes SELECT p.account_id,r.revision,'product_operation',NEW.operation_id,o.created_at,o.effective_at,json_object('accountName',a.name,'productName',p.name,'kind',o.kind,'result',json(o.result_json)) FROM product_contracts p JOIN accounts a ON a.id=p.account_id JOIN account_financial_revisions r ON r.account_id=p.account_id JOIN product_operations o ON o.id=NEW.operation_id WHERE p.id=NEW.product_id;
 END;

@@ -15,6 +15,8 @@ contracts are in [the architecture](../development/account-reconciliation.md).
 | Last successful account completion, including fractional-second ordering | Application success/reopen/time-order tests |
 | Immutable completion with a separate current recheck indicator | Application completion tests and localized GUI history tests |
 | Mixed USD/EUR cash, ordinary holdings, managed contracts and complete scope | Application mixed-account test |
+| Multiple removed holdings retain attempts and deterministic preview/commit order | Application removed-item regression |
+| Guarded product valuation preserves confirmations/finish previews; terms/cash still require recheck | Fresh-schema and verified-v16-upgrade integration regression |
 | Direct targets versus real records; missing instrument/product inventory; atomic renewal | Existing target/cost/trade suite plus linked inventory and MCP workflows |
 | Linked financial facts, working-item capture and receipt rollback/recovery | Injected activity failure, restart replay and scope-refresh tests |
 | Legacy unlinked target-plan receipt hash remains recoverable | MCP legacy receipt compatibility regression |
