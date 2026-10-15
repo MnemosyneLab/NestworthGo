@@ -62,11 +62,11 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
               {showKnown(headline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(headline.known, headline.state.currency) ?? t("historicalOverview.unknown")}</p>}
             </div>
             {right && !mismatch && <div className="min-w-0">
-              <dt className="sr-only">{estimated(key) ? t("valuation.estimatedChange") : t("historicalOverview.deltaBA")}</dt>
+              <dt className="sr-only">{estimated(key) ? t("valuation.estimatedMetricChange") : t("historicalOverview.deltaBA")}</dt>
               <dd tabIndex={0} className="flex items-center gap-2 overflow-x-auto text-base font-semibold focus-visible:outline-primary">
                 {changeValue == null ? <span className="text-sm font-normal text-muted-foreground">{t("historicalOverview.unknown")}</span>
                   : <SignedChange value={changeValue} currency={left.currency} neutral={key === "liabilities"} />}
-                {changeValue != null && estimated(key) && <Badge variant="warning" title={t("valuation.estimatedChange")}>{t("historicalOverview.estimatedShort")}</Badge>}
+                {changeValue != null && estimated(key) && <Badge variant="warning" title={t("valuation.estimatedMetricChange")}>{t("historicalOverview.estimatedShort")}</Badge>}
               </dd>
             </div>}
             {baseline && <div className="min-w-0 border-t border-border pt-1.5">

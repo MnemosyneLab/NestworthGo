@@ -1214,7 +1214,7 @@ it("flags only the carried metric when coverage stays verified, and not a verifi
   expect(payload.estimatedChange).toEqual(payload.change);
   expect(payload.estimatedChange?.netWorth).toBe("20");
   expect(within(verified).queryByText(i18n.t("historicalOverview.estimatedShort"))).not.toBeInTheDocument();
-  expect(within(verified).queryByText(i18n.t("valuation.estimatedChange"))).not.toBeInTheDocument();
+  expect(within(verified).queryByText(i18n.t("valuation.estimatedMetricChange"))).not.toBeInTheDocument();
   expect(within(verified).getAllByText(i18n.t("valuation.verified")).length).toBeGreaterThan(0);
 });
 
@@ -1258,4 +1258,31 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["full", "partial"].map(avail
   expect(values.length).toBe(2);
   for (const value of values) expect(value).not.toHaveTextContent(i18n.t("valuation.knownNetContribution"));
   if (availability === "partial") expect(within(card as HTMLElement).getByText(i18n.t("valuation.knownNetContribution"))).toBeInTheDocument();
+});
+
+
+it.each([
+  { locale: "en", expected: "Estimated change, including cash flows" },
+  { locale: "zh-CN", expected: "暂估变化，含资金流入流出" },
+  { locale: "zh-TW", expected: "暫估變化，含資金流入流出" },
+])("uses metric-neutral estimated change tooltips and screen-reader labels ($locale)", async ({ locale, expected }) => {
+  await i18n.changeLanguage(locale);
+  comparedWithCoverage("provisional", "verified");
+  show(true);
+  await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  await chooseMode("date", userEvent);
+  const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  const label = i18n.t("valuation.estimatedMetricChange");
+  expect(label).toBe(expected);
+  expect(label).not.toBe(i18n.t("valuation.estimatedChange"));
+  const badges = within(region).getAllByTitle(label);
+  expect(badges).toHaveLength(3);
+  expect(within(region).getAllByText(label)).toHaveLength(3);
+  for (const badge of badges) {
+    const definition = badge.closest("dd")!;
+    expect(definition.previousElementSibling).toHaveClass("sr-only");
+    expect(definition.previousElementSibling).toHaveTextContent(label);
+  }
+  expect(within(region).queryByTitle(i18n.t("valuation.estimatedChange"))).not.toBeInTheDocument();
+  expect(within(region).queryByText(i18n.t("valuation.estimatedChange"))).not.toBeInTheDocument();
 });
