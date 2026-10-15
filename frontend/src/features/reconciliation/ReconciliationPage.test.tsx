@@ -276,6 +276,63 @@ it("retains an unknown commit through failed reads, guards Escape and retries th
   expect(q.commit.mock.calls).toEqual([["review-plan"], ["review-plan"]]);
   await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
 });
+it("releases a receipt-checked expired preview for dismissal and fresh review", async () => {
+  q.commit.mockRejectedValueOnce({
+    wireError: { code: "stale_preview", field: "expiresAt" },
+  });
+  mount();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Start reconciliation" }),
+  );
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Commit reviewed result" }),
+  );
+  await screen.findByRole("alert");
+  expect(hasUnresolvedSheetConfirmation()).toBe(false);
+  expect(
+    screen.queryByRole("button", { name: "Retry same submission" }),
+  ).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  q.preview.mockResolvedValueOnce({
+    planId: "fresh-review-plan",
+    result: q.session,
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Start reconciliation" }),
+  );
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Commit reviewed result" }),
+  );
+  await waitFor(() =>
+    expect(q.commit.mock.calls).toEqual([
+      ["review-plan"],
+      ["fresh-review-plan"],
+    ]),
+  );
+  await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
+});
+it.each(["planId", undefined])(
+  "keeps an unavailable preview guarded when its outcome is unknown (%s)",
+  async (field) => {
+    q.commit.mockRejectedValueOnce({
+      wireError: { code: "stale_preview", field },
+    });
+    mount();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start reconciliation" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Commit reviewed result" }),
+    );
+    await screen.findByRole("button", { name: "Retry same submission" });
+    expect(hasUnresolvedSheetConfirmation()).toBe(true);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  },
+);
 it("requires explicit partial intent and preserves the supplied closing explanation in preview", async () => {
   mount("session-one");
   await userEvent.click(screen.getByRole("button", { name: "Finish session" }));

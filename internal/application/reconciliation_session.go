@@ -147,6 +147,7 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 		}
 		for _, item := range old {
 			item.RecheckRequired = true
+			item.FinancialRevision = revisions[a.AccountID]
 			item.Outcome = "pending"
 			item.Kind = "removed"
 			item.CheckedAt = ""
@@ -502,7 +503,9 @@ func (s *Service) CommitReconciliationSession(ctx context.Context, plan Reconcil
 		return *receipt, nil
 	}
 	if time.Now().After(plan.ExpiresAt) {
-		return domain.ReconciliationSession{}, &domain.Error{Code: domain.ErrStalePreview, Field: "planId", Message: "session preview expired"}
+		// Receipt lookup above proved this plan has no committed outcome. Keep
+		// this distinct from an unavailable desktop plan with unknown outcome.
+		return domain.ReconciliationSession{}, &domain.Error{Code: domain.ErrStalePreview, Field: "expiresAt", Message: "session preview expired; request a fresh review"}
 	}
 	result, revisions, err := s.prepareReconciliationSession(ctx, plan)
 	if err != nil {

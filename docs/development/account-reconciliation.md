@@ -32,7 +32,10 @@ compares the result while holding the application write coordinator, then SQLite
 validates session CAS and account financial revisions in the evidence/receipt
 transaction. Same-plan recovery checks the durable receipt first, including after
 expiry and completion. Changed payloads conflict. Uncommitted previews expire in
-ten minutes. Desktop plan stores are in memory; MCP plans use the existing private
+ten minutes. Only after durable receipt lookup proves there was no commit does
+expiry return `stale_preview` with field `expiresAt`, allowing fresh review.
+An unavailable desktop plan (`planId`) or unscoped stale response retains unknown
+outcome recovery. Desktop plan stores are in memory; MCP plans use the existing private
 backup-owned plan store. A lost desktop plan is not proof of a failed commit.
 
 Full success requires every point, including completeness, to be explicitly
@@ -60,7 +63,9 @@ and effective timestamps. There is no prior watermark on a first session.
 A changed working account refreshes its current items, retains earlier attempts,
 surfaces removed points and requires renewed explicit review. Other accounts keep
 their progress. All refreshed points, including removed points, use stable-ID
-ordering so unchanged previews and commits compare the same evidence. Completed
+ordering so unchanged previews and commits compare the same evidence.
+Removed points carry the current financial revision; their retained attempts
+keep the historical revision originally checked. Completed
 rows stay frozen; current revision differences are a
 separate recheck projection. Historical successful timestamps remain available.
 MCP session-only commits emit agent.reconciliation.changed and invalidate only

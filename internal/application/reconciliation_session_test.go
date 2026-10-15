@@ -2,7 +2,10 @@ package application
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -488,7 +491,7 @@ func TestReconciliationRemovedItemsHaveStablePreviewAndCommitOrder(t *testing.T)
 		for _, item := range items {
 			if item.Kind == "removed" {
 				removed++
-				if item.Outcome != "pending" || item.CheckedAt != "" || !item.RecheckRequired || len(item.Attempts) != 1 {
+				if item.Outcome != "pending" || item.CheckedAt != "" || !item.RecheckRequired || len(item.Attempts) != 1 || item.FinancialRevision != current.Accounts[0].FinancialRevision || item.Attempts[0].FinancialRevision >= item.FinancialRevision {
 					t.Fatalf("removed evidence changed semantics: %+v", item)
 				}
 			}
@@ -500,5 +503,42 @@ func TestReconciliationRemovedItemsHaveStablePreviewAndCommitOrder(t *testing.T)
 	v = recAction(t, s, ReconciliationAction{Action: "pause", SessionID: v.ID, ExpectedRevision: v.Revision})
 	if v.Status != "paused" || v.Counts.Pending != 4 {
 		t.Fatalf("unchanged preview did not commit refreshed evidence: %+v", v)
+	}
+}
+
+func TestReconciliationExpiredPreviewRefusalAndReceiptFirstRecovery(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	ctx := context.Background()
+	plan, err := s.PreviewReconciliationSession(ctx, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.ExpiresAt = time.Now().Add(-time.Minute)
+	_, err = s.CommitReconciliationSession(ctx, plan)
+	var refusal *domain.Error
+	if !errors.As(err, &refusal) || refusal.Code != domain.ErrStalePreview || refusal.Field != "expiresAt" {
+		t.Fatalf("expired uncommitted preview did not give a definite refusal: %v", err)
+	}
+	rows, err := s.ListReconciliationSessions(ctx)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("expired preview wrote a session: %+v %v", rows, err)
+	}
+	// Model a durable commit made before this saved plan expired, without a
+	// wall-clock sleep: the original hash and outcome are already persisted.
+	raw, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(raw)
+	repo, err := s.reconciliationRepo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveReconciliation(ctx, plan.Result, 0, plan.Revisions, plan.ID, hex.EncodeToString(sum[:])); err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := s.CommitReconciliationSession(ctx, plan)
+	if err != nil || recovered.ID != plan.Result.ID || recovered.Revision != plan.Result.Revision {
+		t.Fatalf("expiry blocked original durable outcome: %+v %v", recovered, err)
 	}
 }

@@ -75,6 +75,10 @@ a fresh preview or draft cancellation. `stale_preview` with `previewToken`
 means a proven refusal; `planId` means the in-memory plan is unavailable and
 cannot prove whether an earlier confirmation committed. No-field legacy
 `stale_preview` responses are treated conservatively as unavailable plans.
+Reconciliation session commits additionally return `stale_preview` with
+`expiresAt` only after durable receipt lookup proves an expired preview did not
+commit. This definite expiry releases the guard for dismissal and fresh review;
+`planId` and unscoped stale errors retain the original recovery identity.
 
 Ordinary Record and Fix submissions also register with the owning Sheet
 synchronously before dispatch. The owner retains the immutable reviewed command,

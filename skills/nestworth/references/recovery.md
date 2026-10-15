@@ -1,5 +1,10 @@
 # Preview expiry, interrupted writes and receipt recovery
 
+For reconciliation session commits, `stale_preview` with field `expiresAt`
+means durable receipt lookup proved the expired plan did not commit: reread and
+obtain a fresh review. An unavailable `planId` or unscoped stale error does not
+prove the outcome; retain the original operation/plan and inspect saved facts.
+
 Keep the operation UUID, exact arguments, plan type/ID and returned receipt.
 Use `get_operation` with `{"id":"<operation UUID>"}` to inspect execution.
 Receipts can survive restarts, but describe past execution rather than current

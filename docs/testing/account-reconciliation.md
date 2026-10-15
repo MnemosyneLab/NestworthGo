@@ -24,6 +24,7 @@ contracts are in [the architecture](../development/account-reconciliation.md).
 | Read-only/directory/ledger permission dispatch; cursor conflicts and wire budgets | MCP permission and encoded paging tests |
 | Verified v15/v16 upgrades, read-only recovery, rollback/flush failure/retry, backup/restore | SQLite upgrade and backup/continuous-backup suites |
 | Pending/unknown review retains identity and guards Escape/navigation; same-plan retry | Reconciliation GUI tests plus existing Record/Sheet recovery tests |
+| Receipt-checked expiry permits fresh review; missing plans stay guarded; expired committed plans replay receipts | Application expiry/receipt and GUI dismissal/review regressions |
 | Maintained Skill examples and portable bundle/installer behavior | Skill checker and Python tool suite |
 
 MCP summaries default to 25/max 50 rows and reject encoded pages over 96 KiB.
