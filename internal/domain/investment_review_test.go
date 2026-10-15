@@ -13,7 +13,7 @@ func reviewFixture(t *testing.T) (InvestmentReviewSnapshot, Instrument) {
 	instrument := Instrument{ID: NewInstrumentID(), HouseholdID: household.ID, Name: "Synthetic fund", Type: InstrumentMutualFund, QuoteCurrency: "USD", QuoteSource: QuoteSourceAgent}
 	account := Account{ID: NewAccountID(), TrackingMode: TrackingHoldings}
 	quantity, _ := ParseQuantity("10")
-	return InvestmentReviewSnapshot{Gain: GainSnapshot{Portfolio: PortfolioSnapshot{Household: household, Instruments: []Instrument{instrument}, Accounts: []AccountRecord{{Account: account}}, Holdings: []Holding{{ID: NewHoldingID(), AccountID: account.ID, InstrumentID: instrument.ID, Quantity: quantity}}}, CostEvents: map[HoldingID][]CostBasisEvent{}}}, instrument
+	return InvestmentReviewSnapshot{Portfolio: PortfolioSnapshot{Household: household, Instruments: []Instrument{instrument}, Accounts: []AccountRecord{{Account: account}}, Holdings: []Holding{{ID: NewHoldingID(), AccountID: account.ID, InstrumentID: instrument.ID, Quantity: quantity}}}}, instrument
 }
 func reviewQuote(t *testing.T, i Instrument, date, value string) InstrumentQuote {
 	t.Helper()
@@ -49,7 +49,7 @@ func TestInvestmentReviewActualDaysAndLatestObservation(t *testing.T) {
 	} {
 		t.Run(tc.base+tc.latest, func(t *testing.T) {
 			s, i := reviewFixture(t)
-			s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, tc.base, "1"), reviewQuote(t, i, tc.latest, tc.end)}
+			s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, tc.base, "1"), reviewQuote(t, i, tc.latest, tc.end)}
 			p := DefaultInvestmentReviewPolicy()
 			p.WindowDays = tc.window
 			r := onlyReview(t, s, p, tc.today)
@@ -70,7 +70,7 @@ func TestInvestmentReviewBaselineAndAgeBounds(t *testing.T) {
 	} {
 		t.Run(tc.base+tc.today, func(t *testing.T) {
 			s, i := reviewFixture(t)
-			s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, tc.base, "1"), reviewQuote(t, i, "2026-10-09", "1")}
+			s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, tc.base, "1"), reviewQuote(t, i, "2026-10-09", "1")}
 			r := onlyReview(t, s, DefaultInvestmentReviewPolicy(), tc.today)
 			if r.Status != tc.status || r.Reason != tc.reason {
 				t.Fatalf("got %+v want %s/%s", r, tc.status, tc.reason)
@@ -83,27 +83,21 @@ func TestInvestmentReviewBaselineAndAgeBounds(t *testing.T) {
 }
 func TestInvestmentReviewUnsafeWindows(t *testing.T) {
 	cases := map[string]func(*InvestmentReviewSnapshot){
-		"currency":  func(s *InvestmentReviewSnapshot) { s.Gain.Portfolio.InstrumentQuotes[1].Currency = "EUR" },
-		"binding":   func(s *InvestmentReviewSnapshot) { s.Gain.Portfolio.InstrumentQuotes[1].BindingRevision = 1 },
-		"basis":     func(s *InvestmentReviewSnapshot) { s.Gain.Portfolio.InstrumentQuotes[1].PriceBasis = "cumulative_nav" },
-		"manual":    func(s *InvestmentReviewSnapshot) { s.Gain.Portfolio.InstrumentQuotes[1].SourceKind = QuoteSourceManual },
-		"timestamp": func(s *InvestmentReviewSnapshot) { s.Gain.Portfolio.InstrumentQuotes[1].TimestampBasis = "unknown" },
+		"currency":  func(s *InvestmentReviewSnapshot) { s.Portfolio.InstrumentQuotes[1].Currency = "EUR" },
+		"binding":   func(s *InvestmentReviewSnapshot) { s.Portfolio.InstrumentQuotes[1].BindingRevision = 1 },
+		"basis":     func(s *InvestmentReviewSnapshot) { s.Portfolio.InstrumentQuotes[1].PriceBasis = "cumulative_nav" },
+		"manual":    func(s *InvestmentReviewSnapshot) { s.Portfolio.InstrumentQuotes[1].SourceKind = QuoteSourceManual },
+		"timestamp": func(s *InvestmentReviewSnapshot) { s.Portfolio.InstrumentQuotes[1].TimestampBasis = "unknown" },
 		"zero": func(s *InvestmentReviewSnapshot) {
-			s.Gain.Portfolio.InstrumentQuotes[1].UnitPrice, _ = ParseUnitPrice("0")
+			s.Portfolio.InstrumentQuotes[1].UnitPrice, _ = ParseUnitPrice("0")
 		},
-		"split":             func(s *InvestmentReviewSnapshot) { s.Gain.Portfolio.InstrumentQuotes[1].SplitFactor = "2" },
-		"dividend_metadata": func(s *InvestmentReviewSnapshot) { s.Gain.Portfolio.InstrumentQuotes[1].DividendCash = "0.01" },
-		"dividend_ledger": func(s *InvestmentReviewSnapshot) {
-			s.Gain.Dividends = []Activity{{EffectiveLocalDate: "2026-09-15", DividendDetail: &DividendDetail{InstrumentID: s.Gain.Portfolio.Instruments[0].ID}}}
-		},
-		"quantity_adjustment": func(s *InvestmentReviewSnapshot) {
-			s.Gain.CostEvents[s.Gain.Portfolio.Holdings[0].ID] = []CostBasisEvent{{Kind: CostBasisAdjustmentIn, EffectiveAt: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)}}
-		},
+		"split":             func(s *InvestmentReviewSnapshot) { s.Portfolio.InstrumentQuotes[1].SplitFactor = "2" },
+		"dividend_metadata": func(s *InvestmentReviewSnapshot) { s.Portfolio.InstrumentQuotes[1].DividendCash = "0.01" },
 	}
 	for name, edit := range cases {
 		t.Run(name, func(t *testing.T) {
 			s, i := reviewFixture(t)
-			s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, "2026-10-01", "0.98")}
+			s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, "2026-10-01", "0.98")}
 			edit(&s)
 			r := onlyReview(t, s, DefaultInvestmentReviewPolicy(), "2026-10-01")
 			if r.Status != "unavailable" || r.PeriodPercent != nil || r.EpisodeID != "" {
@@ -123,12 +117,12 @@ func dailyReviewQuotes(t *testing.T, i Instrument, start string, days int, value
 func TestInvestmentReviewConfirmationEpisodesAndRecovery(t *testing.T) {
 	s, i := reviewFixture(t)
 	p := DefaultInvestmentReviewPolicy()
-	s.Gain.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 37, "1")
+	s.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 37, "1")
 	r := onlyReview(t, s, p, "2026-10-07")
 	if r.Status != "confirming" || r.EpisodeID != "" {
 		t.Fatalf("premature reminder %+v", r)
 	}
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-10-08", "1"))
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-10-08", "1"))
 	first := onlyReview(t, s, p, "2026-10-08")
 	if first.Status != "low_yield" || first.EpisodeID == "" {
 		t.Fatalf("sustained reminder %+v", first)
@@ -137,7 +131,7 @@ func TestInvestmentReviewConfirmationEpisodesAndRecovery(t *testing.T) {
 	duplicate := reviewQuote(t, i, "2026-10-08", "1")
 	duplicate.Revision = 2
 	duplicate.CreatedAt = duplicate.CreatedAt.Add(time.Hour)
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, duplicate, reviewQuote(t, i, "2026-10-09", "0.98"))
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, duplicate, reviewQuote(t, i, "2026-10-09", "0.98"))
 	loss := onlyReview(t, s, p, "2026-10-09")
 	if loss.Status != "loss" || loss.EpisodeID != first.EpisodeID || loss.ObservationCount != 31 {
 		t.Fatalf("refresh/loss escalation changed episode %+v", loss)
@@ -152,11 +146,11 @@ func TestInvestmentReviewConfirmationEpisodesAndRecovery(t *testing.T) {
 		t.Fatalf("disabled reminder %+v", got)
 	}
 	// A valid healthy window closes the episode; a new sustained run renews it.
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-10-10", "1.01"))
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-10-10", "1.01"))
 	if got := onlyReview(t, s, p, "2026-10-10"); got.Status != "healthy" || got.EpisodeID != "" {
 		t.Fatalf("no recovery %+v", got)
 	}
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, dailyReviewQuotes(t, i, "2026-10-11", 8, "0.98")...)
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, dailyReviewQuotes(t, i, "2026-10-11", 8, "0.98")...)
 	next := onlyReview(t, s, p, "2026-10-18")
 	if next.Status != "loss" || next.EpisodeID == "" || next.EpisodeID == first.EpisodeID {
 		t.Fatalf("no new episode %+v", next)
@@ -165,33 +159,31 @@ func TestInvestmentReviewConfirmationEpisodesAndRecovery(t *testing.T) {
 func TestInvestmentReviewCannotConfirmWithRevisionsOrWideGaps(t *testing.T) {
 	s, i := reviewFixture(t)
 	p := DefaultInvestmentReviewPolicy()
-	s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, "2026-10-01", "1")}
+	s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, "2026-10-01", "1")}
 	for n := 1; n < 12; n++ {
 		q := reviewQuote(t, i, "2026-10-01", "1")
 		q.Revision = n
-		s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, q)
+		s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, q)
 	}
 	r := onlyReview(t, s, p, "2026-10-08")
 	if r.Status != "confirming" || r.ObservationCount != 2 || r.EpisodeID != "" {
 		t.Fatalf("same-day revisions confirmed %+v", r)
 	}
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-09-10", "1"), reviewQuote(t, i, "2026-10-10", "1"))
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-09-10", "1"), reviewQuote(t, i, "2026-10-10", "1"))
 	r = onlyReview(t, s, p, "2026-10-10")
 	if r.EpisodeID != "" {
 		t.Fatalf("wide-gap confirmation %+v", r)
 	}
 }
-func TestInvestmentReviewFlowsFeesAndLargeDecimals(t *testing.T) {
+func TestInvestmentReviewLargeDecimals(t *testing.T) {
 	s, i := reviewFixture(t)
 	price := "9007199254.74099301"
-	s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", price), reviewQuote(t, i, "2026-10-01", price)}
-	fee, _ := ParseMoney("USD", "100")
-	s.Gain.CostEvents[s.Gain.Portfolio.Holdings[0].ID] = []CostBasisEvent{{Kind: CostBasisBuy, Fee: &fee}, {Kind: CostBasisSell, Fee: &fee}, {Kind: CostBasisTransferIn}}
+	s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", price), reviewQuote(t, i, "2026-10-01", price)}
 	r := onlyReview(t, s, DefaultInvestmentReviewPolicy(), "2026-10-01")
 	if r.PeriodPercent == nil || *r.PeriodPercent != "0" || *r.AnnualizedPercent != "0" {
-		t.Fatalf("flows/fees/float corrupted NAV %+v", r)
+		t.Fatalf("decimal precision corrupted NAV %+v", r)
 	}
-	if !decimal.RequireFromString(price).Equal(s.Gain.Portfolio.InstrumentQuotes[0].UnitPrice.Decimal()) {
+	if !decimal.RequireFromString(price).Equal(s.Portfolio.InstrumentQuotes[0].UnitPrice.Decimal()) {
 		t.Fatal("original NAV changed")
 	}
 }
@@ -209,7 +201,7 @@ func TestInvestmentReviewPolicyAndScope(t *testing.T) {
 	}
 	s, _ := reviewFixture(t)
 	archived := time.Now()
-	s.Gain.Portfolio.Holdings[0].ArchivedAt = &archived
+	s.Portfolio.Holdings[0].ArchivedAt = &archived
 	if len(ProjectInvestmentReviews(s, p, "2026-10-01")) != 0 {
 		t.Fatal("archived holding included")
 	}
@@ -218,7 +210,7 @@ func TestInvestmentReviewPolicyAndScope(t *testing.T) {
 func TestInvestmentReviewThresholdEquality(t *testing.T) {
 	s, i := reviewFixture(t)
 	p := DefaultInvestmentReviewPolicy()
-	s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, "2026-10-01", "1.003")}
+	s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, "2026-10-01", "1.003")}
 	p.LowAnnualizedPercent = "3.65"
 	if r := onlyReview(t, s, p, "2026-10-01"); r.Status != "healthy" {
 		t.Fatalf("low threshold equality %+v", r)
@@ -228,7 +220,7 @@ func TestInvestmentReviewThresholdEquality(t *testing.T) {
 		t.Fatalf("strict low threshold %+v", r)
 	}
 	p.LowAnnualizedPercent = "0"
-	s.Gain.Portfolio.InstrumentQuotes[1] = reviewQuote(t, i, "2026-10-01", "0.99")
+	s.Portfolio.InstrumentQuotes[1] = reviewQuote(t, i, "2026-10-01", "0.99")
 	if r := onlyReview(t, s, p, "2026-10-01"); r.Status != "confirming" || *r.PeriodPercent != "-1" {
 		t.Fatalf("loss equality %+v", r)
 	}
@@ -241,9 +233,9 @@ func TestInvestmentReviewThresholdEquality(t *testing.T) {
 func TestInvestmentReviewEpisodeAliasesStopAtSupportedRecovery(t *testing.T) {
 	s, i := reviewFixture(t)
 	p := DefaultInvestmentReviewPolicy()
-	s.Gain.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 39, "1")
+	s.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 39, "1")
 	original := onlyReview(t, s, p, "2026-10-09")
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-08-31", "1"))
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-08-31", "1"))
 	enriched := onlyReview(t, s, p, "2026-10-09")
 	contains := func(aliases []string, id string) bool {
 		for _, alias := range aliases {
@@ -256,8 +248,8 @@ func TestInvestmentReviewEpisodeAliasesStopAtSupportedRecovery(t *testing.T) {
 	if original.EpisodeID == enriched.EpisodeID || !contains(enriched.EpisodeAliases, original.EpisodeID) {
 		t.Fatalf("acknowledgement lineage lost: %+v", enriched)
 	}
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-10-10", "1.01"))
-	s.Gain.Portfolio.InstrumentQuotes = append(s.Gain.Portfolio.InstrumentQuotes, dailyReviewQuotes(t, i, "2026-10-11", 8, "0.98")...)
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, reviewQuote(t, i, "2026-10-10", "1.01"))
+	s.Portfolio.InstrumentQuotes = append(s.Portfolio.InstrumentQuotes, dailyReviewQuotes(t, i, "2026-10-11", 8, "0.98")...)
 	next := onlyReview(t, s, p, "2026-10-18")
 	if next.EpisodeID == "" || contains(next.EpisodeAliases, original.EpisodeID) {
 		t.Fatalf("recovered episode still aliases old acknowledgement: %+v", next)
@@ -271,33 +263,33 @@ func TestInvestmentReviewDisplayLabelsPreserveProjection(t *testing.T) {
 			s, i := reviewFixture(t)
 			p := DefaultInvestmentReviewPolicy()
 			today := "2026-10-09"
-			s.Gain.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 39, "1")
+			s.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 39, "1")
 			status, reason := "low_yield", ""
 			switch state {
 			case "no_quotes":
-				s.Gain.Portfolio.InstrumentQuotes = nil
+				s.Portfolio.InstrumentQuotes = nil
 				status, reason = "unavailable", "unit_nav_required"
 			case "missing_baseline":
-				s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, today, "1")}
+				s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, today, "1")}
 				status, reason = "unavailable", "missing_baseline"
 			case "baseline_too_old":
-				s.Gain.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, today, "1")}
+				s.Portfolio.InstrumentQuotes = []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, today, "1")}
 				status, reason = "unavailable", "baseline_too_old"
 			case "unsafe_nav":
-				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1].PriceBasis = "cumulative_nav"
+				s.Portfolio.InstrumentQuotes[len(s.Portfolio.InstrumentQuotes)-1].PriceBasis = "cumulative_nav"
 				status, reason = "unavailable", "unit_nav_required"
 			case "distribution":
-				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1].DividendCash = "0.01"
+				s.Portfolio.InstrumentQuotes[len(s.Portfolio.InstrumentQuotes)-1].DividendCash = "0.01"
 				status, reason = "unavailable", "distribution_or_unit_change"
 			case "confirming":
-				s.Gain.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 31, "1")
+				s.Portfolio.InstrumentQuotes = dailyReviewQuotes(t, i, "2026-09-01", 31, "1")
 				today = "2026-10-01"
 				status = "confirming"
 			case "healthy":
-				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1] = reviewQuote(t, i, today, "1.01")
+				s.Portfolio.InstrumentQuotes[len(s.Portfolio.InstrumentQuotes)-1] = reviewQuote(t, i, today, "1.01")
 				status = "healthy"
 			case "loss":
-				s.Gain.Portfolio.InstrumentQuotes[len(s.Gain.Portfolio.InstrumentQuotes)-1] = reviewQuote(t, i, today, "0.98")
+				s.Portfolio.InstrumentQuotes[len(s.Portfolio.InstrumentQuotes)-1] = reviewQuote(t, i, today, "0.98")
 				status = "loss"
 			case "stale":
 				today = "2026-10-17"
@@ -317,8 +309,8 @@ func TestInvestmentReviewDisplayLabelsPreserveProjection(t *testing.T) {
 				{"\ufeff\u2003家用基金\u0085", "000001", "家用基金"},
 				{"", "\u0085\ufeff", "Synthetic fund"},
 			} {
-				s.Gain.Portfolio.Instruments[0].ShortName = label.alias
-				s.Gain.Portfolio.Instruments[0].Symbol = &label.code
+				s.Portfolio.Instruments[0].ShortName = label.alias
+				s.Portfolio.Instruments[0].Symbol = &label.code
 				got := onlyReview(t, s, p, today)
 				if got.DisplayName != label.want {
 					t.Errorf("label = %q, want %q", got.DisplayName, label.want)
@@ -334,14 +326,14 @@ func TestInvestmentReviewDisplayLabelsPreserveProjection(t *testing.T) {
 
 func TestInvestmentReviewDuplicateDisplayAliasesKeepDistinctIDs(t *testing.T) {
 	s, i := reviewFixture(t)
-	s.Gain.Portfolio.Instruments[0].ShortName = "Family fund"
+	s.Portfolio.Instruments[0].ShortName = "Family fund"
 	other := i
 	other.ID = NewInstrumentID()
 	other.ShortName = "Family fund"
-	s.Gain.Portfolio.Instruments = append(s.Gain.Portfolio.Instruments, other)
-	holding := s.Gain.Portfolio.Holdings[0]
+	s.Portfolio.Instruments = append(s.Portfolio.Instruments, other)
+	holding := s.Portfolio.Holdings[0]
 	holding.ID, holding.InstrumentID = NewHoldingID(), other.ID
-	s.Gain.Portfolio.Holdings = append(s.Gain.Portfolio.Holdings, holding)
+	s.Portfolio.Holdings = append(s.Portfolio.Holdings, holding)
 	rows := ProjectInvestmentReviews(s, DefaultInvestmentReviewPolicy(), "2026-10-09")
 	if len(rows) != 2 || rows[0].DisplayName != "Family fund" || rows[1].DisplayName != "Family fund" || rows[0].InstrumentID == rows[1].InstrumentID {
 		t.Fatalf("duplicate aliases: %+v", rows)

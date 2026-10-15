@@ -179,9 +179,9 @@ func TestAgentMarketDataEquityClosePerformance(t *testing.T) {
 					if _, err := service.ImportAgentMarketData(ctx, uuid.NewString(), AgentMarketDataInput{Items: items}); err != nil {
 						t.Fatal(err)
 					}
-					quotes, unsafe, err := service.repository.(quotePerformanceReader).ReadQuotePerformanceEvidence(ctx, instrument, "2026-10-14")
-					if err != nil || len(quotes) != 2 || len(unsafe) != 0 {
-						t.Fatalf("imported evidence %+v, unsafe %v, error %v", quotes, unsafe, err)
+					quotes, err := service.repository.(quotePerformanceReader).ReadQuotePerformanceEvidence(ctx, instrument, "2026-10-14")
+					if err != nil || len(quotes) != 2 {
+						t.Fatalf("imported evidence %+v, error %v", quotes, err)
 					}
 					for _, q := range quotes {
 						if q.SourceKind != domain.QuoteSourceAgent || q.SourceKey != "agent" || q.PriceBasis != "agent_raw_close_v1" || q.TimestampBasis != "date_label" || q.ObservationKind != "close" || q.BindingRevision != instrument.ProviderBindingRevision || q.Currency != instrument.QuoteCurrency {

@@ -81,9 +81,14 @@ mutual funds and ordinary NAV-priced wealth products. It returns the household
 `localDate` and `timezone`, a policy `revision`, full policy thresholds and
 per-instrument status/reasons. It uses source civil-date labels, exact NAV
 history and App eligibility/freshness safeguards. Missing or stale NAV and
-unsupported distributions/adjustments stay unavailable; do not substitute
+recorded quote distributions/unit changes stay unavailable; do not substitute
 holding balances, guess a sell, or turn a reminder into investment advice. The
 review read is available in all permission modes and never writes ledger facts.
+Rates use instrument quote/NAV evidence only: personal dividends, existing-position
+imports, quantity/cost calibrations, trades and transfers cannot change them.
+Holdings select reminder eligibility; they do not establish issuer distributions.
+Descriptive history shares the exact decimal rate calculation and actual elapsed
+days, with separate window availability and no reminder freshness cutoff.
 
 Only with `ledger_write` are these preference/episode changes available:
 
