@@ -36,7 +36,7 @@ func (p InvestmentReviewPolicy) Validate() error {
 }
 
 type InvestmentReviewSnapshot struct {
-	Gain GainSnapshot
+	Portfolio PortfolioSnapshot
 }
 type InvestmentReviewItem struct {
 	// EpisodeAliases are internal identities whose anchors still belong to this
@@ -63,11 +63,10 @@ type InvestmentReviewItem struct {
 }
 
 // ProjectInvestmentReviews measures unit NAV price change, never a holding's
-// balance or cash flows. Unsupported economic adjustments fail closed. Dates
+// balance or cash flows. Recorded issuer distributions/unit changes fail closed. Dates
 // are civil source labels, so DST never changes the elapsed-day denominator.
 func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReviewPolicy, today string, priorPolicies ...InvestmentReviewPolicy) []InvestmentReviewItem {
-	snapshot := input.Gain.Portfolio
-	unsafeDates := reviewUnsafeDates(input.Gain)
+	snapshot := input.Portfolio
 	lowThreshold := decimal.RequireFromString(p.LowAnnualizedPercent)
 	lossThreshold := decimal.RequireFromString(p.LossPercent)
 	accounts := map[AccountID]bool{}
@@ -99,7 +98,7 @@ func ProjectInvestmentReviews(input InvestmentReviewSnapshot, p InvestmentReview
 			var previousBreach string
 			var episodeAnchors []string
 			for index := range points {
-				current := reviewWindow(unsafeDates[i.ID], i, points, index, p, today)
+				current := reviewWindow(i, points, index, p, today)
 				if current.Status == "unavailable" {
 					firstBreach, previousBreach = "", ""
 					if episodeStart == "" {
@@ -189,7 +188,7 @@ func reviewDays(from, to string) int {
 	}
 	return int(b.Sub(a) / (24 * time.Hour))
 }
-func reviewWindow(unsafeDates []string, i Instrument, points []InstrumentQuote, end int, p InvestmentReviewPolicy, today string) InvestmentReviewItem {
+func reviewWindow(i Instrument, points []InstrumentQuote, end int, p InvestmentReviewPolicy, today string) InvestmentReviewItem {
 	latest := points[end]
 	r := InvestmentReviewItem{InstrumentID: i.ID.String(), DisplayName: i.DisplayLabel(), Status: "unavailable", Reason: "missing_baseline", LatestOn: latest.EffectiveDate, AgeDays: reviewDays(latest.EffectiveDate, today)}
 	anchor, err := time.Parse(time.DateOnly, latest.EffectiveDate)
@@ -220,11 +219,6 @@ func reviewWindow(unsafeDates []string, i Instrument, points []InstrumentQuote, 
 			r.Reason = "distribution_or_unit_change"
 			return r
 		}
-	}
-	blocked := sort.SearchStrings(unsafeDates, r.BaselineOn)
-	if blocked < len(unsafeDates) && unsafeDates[blocked] <= r.LatestOn {
-		r.Reason = "distribution_or_unit_change"
-		return r
 	}
 
 	if r.ElapsedDays <= 0 || r.AgeDays < 0 || r.MissingDays < 0 {
@@ -262,41 +256,6 @@ func (p InvestmentReviewPolicy) Canonical() InvestmentReviewPolicy {
 	p.LowAnnualizedPercent = decimal.RequireFromString(p.LowAnnualizedPercent).String()
 	p.LossPercent = decimal.RequireFromString(p.LossPercent).String()
 	return p
-}
-
-// Index once per capture so repeated rolling windows do not replay or scan the
-// household's entire transaction history per NAV endpoint.
-func reviewUnsafeDates(gain GainSnapshot) map[InstrumentID][]string {
-	dates := map[InstrumentID][]string{}
-	location := time.UTC
-	if gain.Portfolio.Origin != nil {
-		if l, e := time.LoadLocation(gain.Portfolio.Origin.Timezone); e == nil {
-			location = l
-		}
-	}
-	for _, d := range gain.Dividends {
-		if d.DividendDetail == nil {
-			continue
-		}
-		date := d.EffectiveLocalDate
-		if date == "" {
-			date = d.EffectiveAt.In(location).Format(time.DateOnly)
-		}
-		dates[d.DividendDetail.InstrumentID] = append(dates[d.DividendDetail.InstrumentID], date)
-	}
-	// Trades and transfers change positions, not the unit NAV series; trade fees
-	// are excluded. Quantity adjustments can represent unsupported unit changes.
-	for _, h := range gain.Portfolio.Holdings {
-		for _, e := range gain.CostEvents[h.ID] {
-			if e.Kind == CostBasisAdjustmentIn || e.Kind == CostBasisAdjustmentOut {
-				dates[h.InstrumentID] = append(dates[h.InstrumentID], e.EffectiveAt.In(location).Format(time.DateOnly))
-			}
-		}
-	}
-	for id := range dates {
-		sort.Strings(dates[id])
-	}
-	return dates
 }
 
 func legacyReviewEpisodeID(household HouseholdID, instrument InstrumentID, p InvestmentReviewPolicy, anchor string) string {

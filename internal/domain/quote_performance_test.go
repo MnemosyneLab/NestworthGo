@@ -12,23 +12,22 @@ func TestDescriptivePerformanceDatesAndAlertIndependence(t *testing.T) {
 		days      int
 	}{{"2026-09-30", "2026-10-09", 9}, {"2024-02-20", "2024-03-01", 10}, {"2026-08-01", "2026-10-09", 69}} {
 		points := []InstrumentQuote{reviewQuote(t, i, tc.base, "1"), reviewQuote(t, i, tc.end, "1.009")}
-		got := ProjectQuotePerformance(i, points, nil)
+		got := ProjectQuotePerformance(i, points)
 		if len(got) == 0 || got[0].ElapsedDays != tc.days || got[0].BaselineOn != tc.base || got[0].LatestOn != tc.end || got[0].PeriodPercent != "0.9" || got[0].AnnualizedPercent == nil {
 			t.Fatalf("performance %+v", got)
 		}
 	}
 	points := []InstrumentQuote{reviewQuote(t, i, "2026-09-24", "1"), reviewQuote(t, i, "2026-10-05", "1.01"), reviewQuote(t, i, "2026-10-14", "1.02")}
-	got := ProjectQuotePerformance(i, points, nil)
+	got := ProjectQuotePerformance(i, points)
 	if len(got) != 1 || got[0].WindowDays != 7 || got[0].ElapsedDays != 9 {
 		t.Fatalf("20-day history %+v", got)
 	}
 }
 func TestDescriptivePerformanceRejectsIncomparableEvidence(t *testing.T) {
 	_, i := reviewFixture(t)
-	for _, kind := range []string{"income_distribution", "currency", "binding", "distribution", "whole_value", "unsafe", "single"} {
+	for _, kind := range []string{"income_distribution", "currency", "binding", "distribution", "whole_value", "single"} {
 		t.Run(kind, func(t *testing.T) {
 			points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "1"), reviewQuote(t, i, "2026-10-09", "1.02")}
-			var unsafe []string
 			switch kind {
 			case "income_distribution":
 				points[1].UnitPrice = points[0].UnitPrice
@@ -41,12 +40,10 @@ func TestDescriptivePerformanceRejectsIncomparableEvidence(t *testing.T) {
 				points[1].DividendCash = "0.1"
 			case "whole_value":
 				points[0].PriceBasis = "total_value"
-			case "unsafe":
-				unsafe = []string{"2026-10-04"}
 			case "single":
 				points = points[:1]
 			}
-			if got := ProjectQuotePerformance(i, points, unsafe); len(got) != 0 {
+			if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 				t.Fatalf("unexpected %+v", got)
 			}
 		})
@@ -60,12 +57,12 @@ func TestDescriptiveStockFlatPriceAndNoSplitFactorOne(t *testing.T) {
 		points[n].PriceBasis = "tiingo_raw_close_v1"
 		points[n].SplitFactor = "1"
 	}
-	got := ProjectQuotePerformance(i, points, nil)
+	got := ProjectQuotePerformance(i, points)
 	if len(got) != 1 || got[0].PeriodPercent != "0" || got[0].AnnualizedPercent != nil {
 		t.Fatalf("flat stock %+v", got)
 	}
 	points[1].SplitFactor = "2"
-	if got := ProjectQuotePerformance(i, points, nil); len(got) != 0 {
+	if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 		t.Fatalf("split %+v", got)
 	}
 }
@@ -82,12 +79,12 @@ func TestDescriptiveYahooEquityPerformance(t *testing.T) {
 				points[n].SourceKey = YahooFinanceProviderKey
 				points[n].TimestampBasis = "session_close"
 			}
-			got := ProjectQuotePerformance(i, points, nil)
+			got := ProjectQuotePerformance(i, points)
 			if len(got) != 1 || got[0].PeriodPercent != "5" || got[0].ElapsedDays != 8 || got[0].BaselineOn != "2026-10-01" || got[0].LatestOn != "2026-10-09" {
 				t.Fatalf("Yahoo performance %+v", got)
 			}
 			points[1].SplitFactor = "2"
-			if got := ProjectQuotePerformance(i, points, nil); len(got) != 0 {
+			if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 				t.Fatalf("split %+v", got)
 			}
 		})
@@ -96,7 +93,7 @@ func TestDescriptiveYahooEquityPerformance(t *testing.T) {
 func TestDescriptiveFlatOrdinaryFundNAV(t *testing.T) {
 	_, i := reviewFixture(t)
 	points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "1.2345"), reviewQuote(t, i, "2026-10-10", "1.2345")}
-	got := ProjectQuotePerformance(i, points, nil)
+	got := ProjectQuotePerformance(i, points)
 	if len(got) != 1 || got[0].PeriodPercent != "0" || got[0].ElapsedDays != 9 || got[0].BaselineOn != "2026-10-01" || got[0].LatestOn != "2026-10-10" || got[0].AnnualizedPercent != nil {
 		t.Fatalf("flat NAV %+v", got)
 	}
@@ -108,25 +105,25 @@ func TestDescriptiveLatestEndpointAndZeroBaseline(t *testing.T) {
 	for n := range points {
 		points[n].PriceBasis = TiingoRawClosePriceBasis
 	}
-	got := ProjectQuotePerformance(i, points, nil)
+	got := ProjectQuotePerformance(i, points)
 	if len(got) != 1 || got[0].PeriodPercent != "-100" || got[0].LatestOn != "2026-10-10" || got[0].BaselineOn != "2026-10-01" || got[0].ElapsedDays != 9 {
 		t.Fatalf("zero endpoint %+v", got)
 	}
 	points[0].UnitPrice = points[2].UnitPrice
-	if got := ProjectQuotePerformance(i, points, nil); len(got) != 0 {
+	if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 		t.Fatalf("zero divisor %+v", got)
 	}
 	points[0] = reviewQuote(t, i, "2026-10-01", "100")
 	points[0].PriceBasis = TiingoRawClosePriceBasis
 	points[2].PriceBasis = "unsupported"
-	if got := ProjectQuotePerformance(i, points, nil); len(got) != 0 {
+	if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 		t.Fatalf("unsupported latest fell back %+v", got)
 	}
 	i.Type = InstrumentMutualFund
 	for n := range points {
 		points[n].PriceBasis = "agent_unit_nav_v1"
 	}
-	if got := ProjectQuotePerformance(i, points, nil); len(got) != 0 {
+	if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 		t.Fatalf("zero NAV latest fell back %+v", got)
 	}
 }
@@ -143,14 +140,13 @@ func TestDescriptiveAgentEquityPerformance(t *testing.T) {
 				points[n].BindingRevision = i.ProviderBindingRevision
 				points[n].SplitFactor = "1"
 			}
-			got := ProjectQuotePerformance(i, points, nil)
+			got := ProjectQuotePerformance(i, points)
 			if len(got) != 1 || got[0].WindowDays != 7 || got[0].PeriodPercent != "5" || got[0].ElapsedDays != 8 || got[0].BaselineOn != "2026-10-01" || got[0].LatestOn != "2026-10-09" || got[0].AnnualizedPercent != nil {
 				t.Fatalf("Agent performance %+v", got)
 			}
-			for _, mismatch := range []string{"unknown_source", "price_basis", "timestamp_basis", "binding", "currency", "date", "split", "zero_baseline", "unsafe"} {
+			for _, mismatch := range []string{"unknown_source", "price_basis", "timestamp_basis", "binding", "currency", "date", "split", "zero_baseline"} {
 				t.Run(mismatch, func(t *testing.T) {
 					changed := append([]InstrumentQuote(nil), points...)
-					var unsafe []string
 					switch mismatch {
 					case "unknown_source":
 						changed[0].SourceKind = "unknown"
@@ -168,16 +164,14 @@ func TestDescriptiveAgentEquityPerformance(t *testing.T) {
 						changed[1].SplitFactor = "2"
 					case "zero_baseline":
 						changed[0].UnitPrice, _ = ParseUnitPrice("0")
-					case "unsafe":
-						unsafe = []string{"2026-10-04"}
 					}
-					if got := ProjectQuotePerformance(i, changed, unsafe); len(got) != 0 {
+					if got := ProjectQuotePerformance(i, changed); len(got) != 0 {
 						t.Fatalf("incomparable Agent performance %+v", got)
 					}
 				})
 			}
 			points[1].UnitPrice, _ = ParseUnitPrice("0")
-			got = ProjectQuotePerformance(i, points, nil)
+			got = ProjectQuotePerformance(i, points)
 			if len(got) != 1 || got[0].PeriodPercent != "-100" || got[0].ElapsedDays != 8 || got[0].LatestOn != "2026-10-09" {
 				t.Fatalf("Agent zero endpoint %+v", got)
 			}
@@ -204,7 +198,7 @@ func TestDescriptiveDailySourcesAndEncodings(t *testing.T) {
 				points[1].TimestampBasis = "source_timestamp"
 				check := func(points []InstrumentQuote) {
 					t.Helper()
-					got := ProjectQuotePerformanceReport(i, points, nil)
+					got := ProjectQuotePerformanceReport(i, points)
 					if len(got.Items) != 1 || got.UnavailableReason != "" || got.Items[0].PeriodPercent != "0.9" || got.Items[0].ElapsedDays != 9 {
 						t.Fatalf("daily evidence: %+v", got)
 					}
@@ -233,7 +227,7 @@ func TestDescriptiveActualDaysAndIntradayExclusion(t *testing.T) {
 			intraday.ObservationKind = "realtime"
 			intraday.PriceBasis = "agent_latest_v1"
 			points = append(points, intraday)
-			got := ProjectQuotePerformanceReport(i, points, nil)
+			got := ProjectQuotePerformanceReport(i, points)
 			if len(got.Items) != 1 || got.Items[0].WindowDays != 7 || got.Items[0].BaselineOn != tc.base || got.Items[0].LatestOn != "2026-10-14" || got.Items[0].ElapsedDays != tc.days || *got.Items[0].AnnualizedPercent != tc.annual {
 				t.Fatalf("window %+v", got)
 			}
@@ -253,20 +247,20 @@ func TestDescriptiveSameDaySelectionAndUnavailableReasons(t *testing.T) {
 	previous.Revision = 1
 	previous.UnitPrice = older.UnitPrice
 	for _, points := range [][]InstrumentQuote{{base, older, latest, previous}, {previous, latest, older, base}} {
-		got := ProjectQuotePerformanceReport(i, points, nil)
+		got := ProjectQuotePerformanceReport(i, points)
 		if len(got.Items) != 1 || got.Items[0].PeriodPercent != "0" || got.Items[0].AnnualizedPercent == nil || *got.Items[0].AnnualizedPercent != "0" {
 			t.Fatalf("zero/revisions %+v", got)
 		}
 	}
-	if got := ProjectQuotePerformanceReport(i, []InstrumentQuote{base}, nil); got.UnavailableReason != "insufficient_daily_history" {
+	if got := ProjectQuotePerformanceReport(i, []InstrumentQuote{base}); got.UnavailableReason != "insufficient_daily_history" {
 		t.Fatal(got)
 	}
 	latest.PriceBasis = "cumulative_nav"
-	if got := ProjectQuotePerformanceReport(i, []InstrumentQuote{base, latest}, nil); got.UnavailableReason != "incomparable_daily_prices" || len(got.Items) != 0 {
+	if got := ProjectQuotePerformanceReport(i, []InstrumentQuote{base, latest}); got.UnavailableReason != "incomparable_daily_prices" || len(got.Items) != 0 {
 		t.Fatal(got)
 	}
 	i.Type = InstrumentType("unsupported")
-	if got := ProjectQuotePerformanceReport(i, nil, nil); got.UnavailableReason != "unsupported_instrument" {
+	if got := ProjectQuotePerformanceReport(i, nil); got.UnavailableReason != "unsupported_instrument" {
 		t.Fatal(got)
 	}
 }
@@ -277,11 +271,11 @@ func TestDescriptiveNAVNeutralSplitMarker(t *testing.T) {
 	points[0].SourceKind = QuoteSourceProvider
 	points[0].TimestampBasis = "session_close"
 	points[0].SplitFactor = "1"
-	if got := ProjectQuotePerformance(i, points, nil); len(got) != 1 {
+	if got := ProjectQuotePerformance(i, points); len(got) != 1 {
 		t.Fatalf("neutral factor: %+v", got)
 	}
 	points[0].SplitFactor = "2"
-	if got := ProjectQuotePerformance(i, points, nil); len(got) != 0 {
+	if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 		t.Fatalf("unit change: %+v", got)
 	}
 }
@@ -289,7 +283,8 @@ func TestDescriptiveNAVNeutralSplitMarker(t *testing.T) {
 func TestDescriptiveUnavailableLongWindowKeepsShortWindow(t *testing.T) {
 	_, i := reviewFixture(t)
 	points := []InstrumentQuote{reviewQuote(t, i, "2026-09-01", "1"), reviewQuote(t, i, "2026-10-05", "1"), reviewQuote(t, i, "2026-10-14", "1.009")}
-	report := ProjectQuotePerformanceReport(i, points, []string{"2026-09-15"})
+	points[0].DividendCash = "0.01"
+	report := ProjectQuotePerformanceReport(i, points)
 	if len(report.Items) != 1 || report.Items[0].WindowDays != 7 || report.UnavailableReason != "" {
 		t.Fatalf("independent windows: %+v", report)
 	}

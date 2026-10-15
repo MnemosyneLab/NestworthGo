@@ -92,11 +92,13 @@ than forward filled. Sparse data or unsupported comparability shows unavailable
 with a reason, not zero return. A supported old window may still show its estimate
 with a stale label, but cannot issue a reminder.
 
-Any nonzero split/distribution metadata or known ledger cash dividend in the
-inclusive window makes it unsupported. The MVP does not add distributions to
-NAV, so double counting cannot occur. Ambiguous holding quantity adjustments
-also suppress windows. Ordinary buys, sells, cash flows and transfers cannot
-change the NAV calculation; trade fees are excluded and explicitly disclosed.
+Recorded quote split/distribution metadata in the inclusive window makes it
+unsupported. The MVP does not add distributions to NAV. Personal cash dividends,
+existing-position imports, quantity/cost calibrations, buys, sells and transfers
+cannot change or suppress the instrument rate. The review reader selects held
+instruments but does not read ledger activities or replay holding costs. It
+shares exact decimal period/simple annualization with descriptive performance;
+review freshness, baseline-gap and reminder policies remain separate.
 Fund expenses already embedded in supplied unit NAV remain embedded. Unknown or
 unrecorded corporate actions cannot be detected; checking source data is part of
 the prompt. There is no new TWR/XIRR engine or holding-balance return inference.

@@ -8,18 +8,18 @@ import (
 )
 
 type quotePerformanceReader interface {
-	ReadQuotePerformanceEvidence(context.Context, domain.Instrument, string) ([]domain.InstrumentQuote, []string, error)
+	ReadQuotePerformanceEvidence(context.Context, domain.Instrument, string) ([]domain.InstrumentQuote, error)
 }
 
 func (s *Service) InstrumentQuotePerformance(ctx context.Context, id domain.InstrumentID) (domain.QuotePerformanceReport, error) {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.repository.Household(ctx)
 	if err != nil {
 		return domain.QuotePerformanceReport{}, err
 	}
-	if b.Household == nil {
+	if household == nil {
 		return domain.QuotePerformanceReport{Items: []domain.QuotePerformance{}, UnavailableReason: "insufficient_daily_history"}, nil
 	}
-	i, err := s.repository.Instrument(ctx, b.Household.ID, id)
+	i, err := s.repository.Instrument(ctx, household.ID, id)
 	if err != nil {
 		return domain.QuotePerformanceReport{}, err
 	}
@@ -34,9 +34,10 @@ func (s *Service) InstrumentQuotePerformance(ctx context.Context, id domain.Inst
 	if !ok {
 		return domain.QuotePerformanceReport{}, &domain.Error{Code: domain.ErrUnavailable, Message: "local price history is unavailable"}
 	}
-	quotes, unsafe, err := reader.ReadQuotePerformanceEvidence(ctx, i, s.clock().In(s.seriesLocation(ctx)).Format(time.DateOnly))
+	// The daily cutoff must not depend on a personal History Origin timezone.
+	quotes, err := reader.ReadQuotePerformanceEvidence(ctx, i, s.clock().UTC().Format(time.DateOnly))
 	if err != nil {
 		return domain.QuotePerformanceReport{}, err
 	}
-	return domain.ProjectQuotePerformanceReport(i, quotes, unsafe), nil
+	return domain.ProjectQuotePerformanceReport(i, quotes), nil
 }

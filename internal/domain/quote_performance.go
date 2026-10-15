@@ -22,8 +22,8 @@ type QuotePerformanceReport struct {
 	UnavailableReason string             `json:"unavailableReason,omitempty"`
 }
 
-func ProjectQuotePerformanceReport(i Instrument, quotes []InstrumentQuote, unsafeDates []string) QuotePerformanceReport {
-	report := QuotePerformanceReport{Items: ProjectQuotePerformance(i, quotes, unsafeDates)}
+func ProjectQuotePerformanceReport(i Instrument, quotes []InstrumentQuote) QuotePerformanceReport {
+	report := QuotePerformanceReport{Items: ProjectQuotePerformance(i, quotes)}
 	if len(report.Items) > 0 {
 		return report
 	}
@@ -54,7 +54,9 @@ func priceWindowPercent(base, latest decimal.Decimal, elapsed int) (string, stri
 	return period.String(), annual.String()
 }
 
-func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote, unsafeDates []string) []QuotePerformance {
+// ProjectQuotePerformance accepts instrument evidence only. Personal positions,
+// cash dividends and ledger adjustments cannot establish issuer unit changes.
+func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote) []QuotePerformance {
 	result := []QuotePerformance{}
 	nav := i.Type == InstrumentMutualFund || i.Type == InstrumentBankInvestmentProduct
 	stock := i.Type == InstrumentStock || i.Type == InstrumentETF
@@ -92,11 +94,6 @@ func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote, unsafeDates
 			}
 			if stock {
 				comparable = comparable && !q.UnitPrice.Decimal().IsNegative() && (q.PriceBasis == TiingoRawClosePriceBasis || q.PriceBasis == YahooRawClosePriceBasis || q.PriceBasis == "agent_raw_close_v1") && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
-			}
-		}
-		for _, date := range unsafeDates {
-			if date >= first.EffectiveDate && date <= latest.EffectiveDate {
-				comparable = false
 			}
 		}
 		if !comparable {

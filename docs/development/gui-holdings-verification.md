@@ -12,7 +12,7 @@ and descriptive-performance date rules take precedence.
 | Business labels and historical warnings | Evidence uses shared observation semantics; internal IDs/policies are omitted. Historical missing entries carry account/instrument business names. Tooltips cap summaries at three entries and wrap within the viewport; full warnings remain in date-row disclosures. Repair blockers, missing metadata, analysis residuals and duplicate selectors use business fallbacks/ordinals. Historical and identity regressions plus a narrow source guard cover recurrence. |
 | Managed products | GUI inventory joins authoritative ProductContract ownership across all states, without product valuation reads. Shared ordinary eligibility filters catalog, Buy/Sell, dividend/transfer/adjustment and new holding/position choices, validates preselected IDs, and blocks failures with retry. Managed archive/price actions are absent. Wealth/history/liquidity inventory and backend guards remain. Ownership tests include settlement and an ordinary manual bank investment; existing product-operation guards remain tested. Zero holdings show their actual contract quantity. |
 | Account layout and shared details | Cash and holdings are full-width stacked cards with table-local overflow. Both account and Portfolio entries mount the same lazy detail body. Portfolio retains account breakdown and both views. Metadata, native-currency cost/value/P&L and local price history have separate loading/error behavior. Account summaries use one scope-specific cost replay, including explicit archived-account reads. |
-| Performance and caching | Pure decimal window calculation shared with investment review; latest real observation, nearest earlier baseline, actual civil days and visible dates. No alert freshness/baseline-gap cutoff. Missing 30-day history hides that metric. Whole valuations and unsupported unit/distribution changes do not produce returns. Flat unit NAV can show zero NAV change; it does not establish income or personal return. Agent, Yahoo and Tiingo raw closes are supported, including a zero stock/ETF endpoint with a positive baseline. Agent closes retain their Agent source identity and raw-close basis; comparable observations must match source, source key, binding revision, currency and timestamp/price bases, with known splits rejected. Raw stock price changes remain distinct from personal return. Quote history retains each observation’s original currency in its table, plots only the current currency, and breaks connections when price basis changes. Instrument-keyed finite caches, cancellation and existing invalidation cover expanded active rows; no per-row polling or provider fetch. Domain, SQLite and lazy-detail tests cover this contract. |
+| Performance and caching | Pure decimal window calculation shared with investment review; latest real observation, nearest earlier baseline, actual civil days and visible dates. No alert freshness/baseline-gap cutoff. Missing 30-day history hides that metric. Whole valuations and unsupported unit/distribution changes do not produce returns. Flat unit NAV can show zero NAV change; it does not establish income or personal return. Agent, Yahoo and Tiingo raw closes are supported, including a zero stock/ETF endpoint with a positive baseline. Agent closes retain their Agent source identity and raw-close basis; daily Agent/manual/provider observations may mix provenance and supported timestamp encodings; binding revision, currency and economic price basis remain validated, with known splits rejected. Raw stock price changes remain distinct from personal return. Quote history retains each observation’s original currency in its table, plots only the current currency, and breaks connections when price basis changes. Instrument-keyed finite caches, cancellation and existing invalidation cover expanded active rows; no per-row polling or provider fetch. Domain, SQLite and lazy-detail tests cover this contract. |
 | Select controls | Shared field appearance; native select semantics retained. Combobox committed value and temporary query are separate, reopening shows all candidates, blur/Escape/Tab cancel, disabled choices are skipped, IME confirmation is guarded, and active descendants have stable IDs. Component and existing Settings/Analysis regressions cover interaction. |
 
 Verification uses synthetic fixtures only. No real household database was opened,
@@ -72,8 +72,8 @@ Wails v3.0.0-beta.28. The executor's environment setup supplies
 ## Independent review corrections
 
 - Both supported Yahoo and Tiingo raw-close bases permit descriptive stock/ETF
-  price change, while source, binding, currency, basis and split consistency remain
-  required. Yahoo stock and ETF regressions assert 100 to 105 over eight days.
+  price change. Eligible daily sources may mix; binding, currency, supported
+  economic bases and recorded split checks remain required. Yahoo stock and ETF regressions assert 100 to 105 over eight days.
 - A flat ordinary unit-NAV fund shows 0% NAV change over its actual nine days.
   Flatness is not evidence of money-fund status. Distribution evidence and
   whole-position valuation remain unsupported for these NAV metrics; the UI
@@ -82,9 +82,13 @@ Wails v3.0.0-beta.28. The executor's environment setup supplies
   with a positive baseline and exact dates. Zero divisors and unsupported latest
   evidence suppress the metric instead of silently selecting a stale endpoint.
   NAV prices must remain positive.
-- Distribution and share-change safety checks use the existing corrected
-  economic activity timeline. A legacy Oct 5 dividend replacement recorded Oct 20
-  still suppresses the Oct 1–9 NAV metric.
+- Descriptive price/NAV performance reads only instrument metadata, active quote
+  evidence and quote revocation records. Personal imports, calibrations, trades,
+  transfers and cash dividends never establish issuer distributions/unit changes.
+  Its future-date cutoff uses the current UTC date independently of History
+  Origin or account state. Actual quote dates still anchor every window.
+  Recorded quote distributions/splits remain guarded; unknown corporate actions
+  cannot be inferred. These are price metrics, not total or personal returns.
 - Waterfall reconciliation uses ordinary two-decimal display precision for JPY
   as well as other currencies, independently of financial command scales.
 - Account holdings wait for both holdings and instrument metadata and show
