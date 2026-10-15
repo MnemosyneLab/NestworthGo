@@ -11,6 +11,12 @@ export interface DisplayValuation { total?: DisplayMoney | null; knownSubtotal?:
 export function hasDisplay(value?: DisplayValuation | null): value is DisplayValuation {
   return Boolean(value && ["full", "partial", "none"].includes(value.quality?.availability));
 }
+// Coverage is verified, provisional, or unavailable. Carried prices do not
+// change coverage, so a coverage check alone cannot decide an estimate.
+export function displayQualityEstimated(quality?: Pick<DisplayQuality, "coverage" | "carriedCount"> | null): boolean {
+  if (!quality) return false;
+  return (quality.carriedCount ?? 0) > 0 || quality.coverage === "provisional" || quality.coverage === "unavailable";
+}
 export function fullDisplayAmount(value: DisplayValuation | null | undefined, legacy?: string | null): string | null {
   return hasDisplay(value) ? value.total?.amount ?? null : legacy ?? null;
 }
@@ -18,7 +24,7 @@ export function valuationLabel(t: TFunction, value?: DisplayValuation | null, cu
   if (!hasDisplay(value)) return "";
   if (value.quality.availability !== "full") return t("valuation.knownSubtotal");
   if (current) return t("valuation.currentEstimate");
-  return t(value.quality.coverage === "verified" ? "valuation.verified" : "valuation.estimated");
+  return t(displayQualityEstimated(value.quality) ? "valuation.estimated" : "valuation.verified");
 }
 export function valuationDetails(t: TFunction, value?: DisplayValuation | null, current = false): string {
   if (!hasDisplay(value)) return "";

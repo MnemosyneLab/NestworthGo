@@ -1,5 +1,5 @@
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
-import { fullDisplayAmount, hasDisplay } from "@/components/valuation/valuationQuality";
+import { displayQualityEstimated, fullDisplayAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
@@ -23,15 +23,16 @@ function stateLabel(state: HistoricalOverviewState, side: Side, current: string)
   return `${side === "left" ? "A" : "B"} · ${state.current ? current : state.date}`;
 }
 
+function valuationEstimated(value?: Parameters<typeof hasDisplay>[0]) {
+  return hasDisplay(value) && displayQualityEstimated(value.quality);
+}
+
 export function HistoricalMetricCards({ data, seriesPoints }: { data: HistoricalOverviewResult; seriesPoints?: HistoricalSeriesPoint[] | null }) {
   const { t } = useTranslation();
   const { left, right } = data;
   const change = data.estimatedChange ?? data.change;
   const mismatch = Boolean(right && left.currency !== right.currency);
-  const estimated = (key: "netWorth" | "assets" | "liabilities") => Boolean(data.estimatedChange) || [left, right].some(state => {
-    const display = state?.displayValuation?.[key];
-    return hasDisplay(display) && display.quality.coverage !== "verified";
-  });
+  const estimated = (key: "netWorth" | "assets" | "liabilities") => [left, right].some(state => valuationEstimated(state?.displayValuation?.[key]));
   return <div className="grid min-w-0 gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">
     {(["netWorth", "assets", "liabilities"] as const).map(key => {
       const subtotalKey = key === "assets" ? "knownAssets" : "knownLiabilities";
@@ -61,7 +62,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
               {showKnown(headline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(headline.known, headline.state.currency) ?? t("historicalOverview.unknown")}</p>}
             </div>
             {right && !mismatch && <div className="min-w-0">
-              <dt className="sr-only">{data.estimatedChange ? t("valuation.estimatedChange") : t("historicalOverview.deltaBA")}</dt>
+              <dt className="sr-only">{estimated(key) ? t("valuation.estimatedChange") : t("historicalOverview.deltaBA")}</dt>
               <dd tabIndex={0} className="flex items-center gap-2 overflow-x-auto text-base font-semibold focus-visible:outline-primary">
                 {changeValue == null ? <span className="text-sm font-normal text-muted-foreground">{t("historicalOverview.unknown")}</span>
                   : <SignedChange value={changeValue} currency={left.currency} neutral={key === "liabilities"} />}
@@ -211,7 +212,7 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     }) }],
   };
   const rowView = (row: HistoricalOverviewRow) => <li key={row.key} className="min-w-0 rounded-lg border border-border p-3">
-    {row.estimatedBaseChange != null && (row.left?.displayValuation?.quality?.coverage !== "verified" || row.right?.displayValuation?.quality?.coverage !== "verified") && <p className="text-xs">{t("valuation.estimatedChange")}</p>}
+    {row.estimatedBaseChange != null && (valuationEstimated(row.left?.displayValuation) || valuationEstimated(row.right?.displayValuation)) && <p className="text-xs">{t("valuation.estimatedChange")}</p>}
  <Button ref={button => { if (button) rowButtons.current.set(row.key, button); else rowButtons.current.delete(row.key); }} variant="link" className="h-auto min-w-0 whitespace-normal p-0 text-left" onClick={event => onOpen(row.key, event.currentTarget)}>{row.name}</Button>
     <dl className="mt-1 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-1 text-sm">
       <div><dt className="text-xs text-muted-foreground">A</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.left ? historicalDisplayAmount(t,row.left.displayValuation,row.left.baseAmount==null ? null : {amount:row.left.baseAmount,currency:data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
