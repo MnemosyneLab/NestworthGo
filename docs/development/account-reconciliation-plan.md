@@ -2,13 +2,13 @@
 
 ## Status and execution contract
 
-**Approved plan; implementation is now progressing in the same PR #89.**
+**Approved plan; implementation is delivered in the same draft PR #89.**
 See [the implementation contract](account-reconciliation.md) for delivered
 behavior and the PR for exact commits and validation. The original planning
 handoff below is retained as the approved scope. The owner stopped the earlier
-planning task and reassigned implementation. Exploratory,
-uncommitted implementation edits were removed; this branch changes only this
-plan. All proposed names and schemas below are design decisions for subsequent
+planning task and reassigned implementation. At the planning handoff, exploratory uncommitted edits were removed and the
+branch contained only the plan. The successor implementation and validation are
+now delivered alongside this retained scope. All proposed names and schemas below are design decisions for subsequent
 implementation, not existing APIs or passing acceptance claims.
 
 - Repository: `MnemosyneLab/NestworthGo`.

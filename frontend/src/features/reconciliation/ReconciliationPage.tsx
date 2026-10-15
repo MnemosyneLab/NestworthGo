@@ -962,9 +962,23 @@ function CommitReview({
       const wire = (cause as { wireError?: { code?: string; field?: string } })
         ?.wireError;
       const refused =
-        (wire?.code === "conflict" && wire.field !== "operationId") ||
+        (wire?.code === "conflict" &&
+          [
+            "reconciliationLink",
+            "financialRevision",
+            "expectedRevision",
+            "preview",
+            "revision",
+          ].includes(wire.field ?? "")) ||
         (wire?.code === "stale_preview" && wire.field !== "planId") ||
-        wire?.code === "validation";
+        (wire?.code === "validation" && Boolean(review.result)) ||
+        [
+          "invalid_change",
+          "no_change",
+          "insufficient_balance",
+          "insufficient_quantity",
+          "managed_position_conflict",
+        ].includes(wire?.code ?? "");
       if (refused) {
         confirmation?.resolve(review.planId);
         setUnknown(false);

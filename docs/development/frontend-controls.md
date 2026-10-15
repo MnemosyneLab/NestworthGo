@@ -97,7 +97,10 @@ Retry sends the saved request and mutation ID, plus the original Fix source;
 it never reconstructs a request from refreshed defaults. Record's audited
 business refusals (`invalid_change`, `no_change`, `insufficient_balance`,
 `insufficient_quantity`, `managed_position_conflict`) precede its atomic write
-and follow durable receipt lookup. Other errors remain unknown. Fix commits its
+and follow durable receipt lookup. Named Record conflicts on reconciliationLink,
+financialRevision or expectedRevision also follow that receipt lookup and prove
+a precommit refusal; refresh reconciliation evidence before renewed review.
+A mutationId/operationId conflict or an unscoped receipt conflict remains unknown. Other errors remain unknown. Fix commits its
 inverse/replacement before snapshot maintenance, and same-ID replay reruns that
 maintenance. Generic domain errors such as validation, conflict, decimal overflow
 and history errors therefore remain unknown for Fix; only `cannot_fix_change`,

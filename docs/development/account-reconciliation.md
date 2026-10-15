@@ -40,7 +40,9 @@ confirmed at the current financial revision. Partial finish requires explicit
 intent and a closing explanation; pending points remain pending. Account success
 is computed from completed confirmed snapshots, ordered by actual completion time.
 A partial session can contain a successful account and other unfinished accounts.
-No unrelated selected or unselected account is implicitly confirmed.
+No unrelated selected or unselected account is implicitly confirmed. Prior
+successful time is retained separately from a newly completed account success;
+account history ordering compares actual instants, including fractional seconds.
 
 ## Financial revision and correction transactions
 
@@ -56,7 +58,10 @@ A changed working account refreshes its current items, retains earlier attempts,
 surfaces removed points and requires renewed explicit review. Other accounts keep
 their progress. Completed rows stay frozen; current revision differences are a
 separate recheck projection. Historical successful timestamps remain available.
-The revision is deliberately account-granular: a relevant edit requires that
+Descriptive instrument price/NAV performance remains independent of personal
+ledger/reconciliation inputs, preserving merged PR90. No investment-review
+rule-engine overhaul is part of this feature. The revision is deliberately
+account-granular: a relevant edit requires that
 account's points and scope to be checked again.
 
 `reconciliationLink` is part of the immutable ledger/product command and request

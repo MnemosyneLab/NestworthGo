@@ -345,3 +345,32 @@ it.each(["en", "zh-CN", "zh-TW"])(
     expect(screen.queryByText(/reconciliation\./)).not.toBeInTheDocument();
   },
 );
+
+it.each(["mutationId", "operationId", ""])(
+  "keeps an ambiguous receipt conflict guarded (%s)",
+  async (field) => {
+    q.commit.mockRejectedValueOnce({
+      wireError: {
+        code: "conflict",
+        field,
+        message: "receipt identity conflict",
+      },
+    });
+    mount();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start reconciliation" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Commit reviewed result" }),
+    );
+    await screen.findByRole("button", { name: "Retry same submission" });
+    expect(hasUnresolvedSheetConfirmation()).toBe(true);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Retry same submission" }),
+    );
+    await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
+    expect(q.commit.mock.calls).toEqual([["review-plan"], ["review-plan"]]);
+  },
+);

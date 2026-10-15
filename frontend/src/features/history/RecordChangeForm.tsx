@@ -128,7 +128,7 @@ function provenOrdinaryRefusal(family: SubmittedChange["family"], error: unknown
   if (!wire) return false;
   // These Record business refusals follow durable same-ID lookup and precede
   // its atomic financial write. Conflict/mutationId can describe a stored write.
-  if (family === "record") return ["invalid_change", "no_change", "insufficient_balance", "insufficient_quantity", "managed_position_conflict"].includes(wire.code);
+  if (family === "record") return ["invalid_change", "no_change", "insufficient_balance", "insufficient_quantity", "managed_position_conflict"].includes(wire.code) || (wire.code === "conflict" && ["reconciliationLink", "financialRevision", "expectedRevision"].includes(wire.field ?? ""));
   // Fix rebuilds snapshots AFTER commit, including during receipt replay.
   // Generic validation/conflict/decimal/history errors cannot prove refusal.
   // cannot_fix_change is produced only by the precommit correction plan.
@@ -864,6 +864,8 @@ function RecordChangeFormReady({
     }, cause => {
       if (ownsScope() && provenOrdinaryRefusal(submission.family, cause)) {
         if (sheetConfirmation.resolve(id) && alive.current) clearPreview();
+        const wire=(cause as {wireError?:WireError})?.wireError;
+        if(submission.family==="record"&&wire?.code==="conflict"&&["reconciliationLink","financialRevision","expectedRevision"].includes(wire.field??"")) void queryClient.invalidateQueries({queryKey:["reconciliation"]});
       } else {
         const current = ordinarySubmission(sheetConfirmation.read()?.recovery);
         if (current) sheetConfirmation.update(id, { ...current, phase: "unknown", error: cause });

@@ -2053,3 +2053,8 @@ it("assigns distinct hook intents to identical Fix payloads for different source
   expect(fixChange).toHaveBeenCalledTimes(2);
   expect(fixChange.mock.calls[0][1].mutationId).not.toBe(fixChange.mock.calls[1][1].mutationId);
 });
+
+it.each(["reconciliationLink", "financialRevision", "expectedRevision"])("releases Record after receipt-first reconciliation refusal %s",async field=>{
+ recordChange.mockRejectedValueOnce(new Error(JSON.stringify({code:"conflict",field,message:"renewed review required"})));
+ const {form}=await openOrdinaryRecoveryForm("record");await userEvent.click(within(form).getByRole("button",{name:"Confirm"}));await within(form).findByRole("button",{name:"Preview"});expect(hasUnresolvedSheetConfirmation()).toBe(false);expect(screen.getByRole("button",{name:"Close"})).toBeEnabled();await userEvent.keyboard("{Escape}");
+});
