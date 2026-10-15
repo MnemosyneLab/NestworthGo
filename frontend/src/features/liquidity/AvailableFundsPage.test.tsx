@@ -2,7 +2,7 @@ import { NavigationContext, type ObjectNavigation } from "@/app/NavigationContex
 import i18n from "@/i18n";
 import { upcomingData } from "@/test/upcomingActions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -156,7 +156,7 @@ describe("AvailableFundsPage", () => {
     renderPage();
     expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("$8,000.00");
     expect(screen.getByTestId("horizon-available-2026-09-20")).not.toHaveTextContent("$0.00");
-    expect(within(screen.getByTestId("funds-comparison")).getAllByText(/Known amounts only;/)).toHaveLength(3);
+    expect(within(screen.getByTestId("funds-comparison")).getAllByText("Partial")).toHaveLength(3);
     expect(screen.queryByLabelText("Summary currency")).not.toBeInTheDocument();
     expect(screen.getAllByText("€100.00").length).toBeGreaterThan(0);
   });
@@ -310,8 +310,7 @@ it("shows a known future lock clearly and keeps the normal route when early acce
   expect(within(row).getByText("2026-09-27")).toBeVisible();
   await userEvent.click(screen.getByTestId("horizon-2026-09-27"));
   expect(within(row).getByText("$8,000.00")).toBeVisible();
-  await userEvent.click(screen.getByRole("button", {name: "Locked"}));
-  expect(screen.getByText("No sources match this filter.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: /^Locked/ })).not.toBeInTheDocument();
 });
 
 
@@ -335,5 +334,121 @@ describe("Available Funds scope", () => {
     expect(screen.getByLabelText(i18n.t("availableFunds.customDate"))).toBeVisible();
     expect(screen.getByTestId("horizon-2026-09-20")).toBeVisible();
     expect(screen.getAllByText("Bank cash")[0]).toBeVisible();
+  });
+});
+
+
+describe("Available Funds visual hierarchy and interaction", () => {
+  function earlyFixture() {
+    const data = fixtureOverview();
+    const route = (kind: string, receiptOn: string, net: string, fee: string) => ({ kind, eligibleOn: receiptOn, receiptOn, grossNative: money("20000"), feeNative: money(fee), netNative: money(net), status: "complete", amountBasis: "current_value", actionRequired: kind === "early" ? "early_withdrawal" : "withdraw", assumptions: [], missingReasons: [] });
+    const deposit = source({ sourceKey: "cd", displayName: "Term deposit", accountId: "acc-1", displayState: "locked", productId: "prod-1", currentNativeValue: money("20000"), normalRoute: route("normal", "2026-12-20", "20000", "0"), earlyRoute: route("early", "2026-09-22", "19700", "300") });
+    const result = (horizonOn: string, early: boolean) => early
+      ? { horizonOn, selectedRoute: route("early", "2026-09-22", "19700", "300"), netNative: money("19700"), netBase: money("19700"), appliedReserveNative: money("0"), unreservedNative: money("19700"), reserveShortfallNative: null, status: "complete", reasons: [] }
+      : { horizonOn, selectedRoute: null, netNative: null, netBase: null, appliedReserveNative: null, unreservedNative: null, reserveShortfallNative: null, status: "complete", reasons: [] };
+    deposit.bucketResults = [result("2026-09-20", false), result("2026-09-27", true), result("2026-10-20", true)];
+    data.sources = [...data.sources!, deposit];
+    return data;
+  }
+
+  it("explains identical horizon totals with a same-as cue and marks growth", async () => {
+    const data = fixtureOverview();
+    data.buckets![2] = { ...data.buckets![1], horizonOn: "2026-10-20" };
+    overview.mockResolvedValue(data);
+    renderPage();
+    await screen.findByTestId("funds-comparison");
+    expect(within(screen.getByTestId("horizon-2026-09-20")).queryByText(/More than|Same as|Less than/)).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("horizon-2026-09-27")).getByText("More than Today")).toBeVisible();
+    expect(within(screen.getByTestId("horizon-2026-10-20")).getByText("Same as Within 7 days")).toBeVisible();
+  });
+
+  it("keeps the cumulative and assumption notes in one info popover instead of repeating them", async () => {
+    overview.mockResolvedValue(fixtureOverview());
+    renderPage();
+    await screen.findByTestId("funds-comparison");
+    expect(screen.queryByText(/Do not add the date totals together/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Assumptions and omitted costs")).not.toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: "About these amounts" })[0]);
+    expect(await screen.findByText(/Do not add the date totals together/)).toBeVisible();
+    expect(screen.getByText(/Based on current assets/)).toBeVisible();
+  });
+
+  it("marks early withdrawal on affected cards and rows only after the toggle is on", async () => {
+    overview.mockImplementation((request: { includeEarlyWithdrawal: boolean }) => Promise.resolve(request.includeEarlyWithdrawal ? earlyFixture() : fixtureOverview()));
+    renderPage();
+    await screen.findByTestId("funds-comparison");
+    expect(screen.queryByText("Includes early withdrawal")).not.toBeInTheDocument();
+    const toggle = screen.getByLabelText("Consider early withdrawal");
+    await userEvent.click(toggle);
+    expect(toggle).toBeChecked();
+    await waitFor(() => expect(within(screen.getByTestId("horizon-2026-09-27")).getByText("Includes early withdrawal")).toBeVisible());
+    expect(within(screen.getByTestId("horizon-2026-09-20")).queryByText("Includes early withdrawal")).not.toBeInTheDocument();
+    const row = screen.getAllByText("Term deposit")[0].closest("tr")!;
+    expect(within(row).getByText("Early withdrawal")).toBeVisible();
+    expect(within(row).getByText("Cost: $300.00")).toBeVisible();
+    await userEvent.click(toggle);
+    await waitFor(() => expect(screen.queryByText("Includes early withdrawal")).not.toBeInTheDocument());
+  });
+
+  it("shows filter counts, hides empty filters, and recovers from an empty filter", async () => {
+    const data = fixtureOverview();
+    data.sources![0].bucketResults![0] = { ...data.sources![0].bucketResults![0], selectedRoute: null, netNative: null, unreservedNative: null, appliedReserveNative: null };
+    overview.mockResolvedValue(data);
+    renderPage();
+    await screen.findByTestId("funds-comparison");
+    const group = screen.getByRole("group", { name: "Assets" });
+    expect(within(group).getByRole("button", { name: "All 1" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(group).getByRole("button", { name: "Locked 1" })).toBeVisible();
+    expect(within(group).queryByRole("button", { name: /^Excluded/ })).not.toBeInTheDocument();
+    expect(within(group).queryByRole("button", { name: /^Needs information/ })).not.toBeInTheDocument();
+    await userEvent.click(within(group).getByRole("button", { name: "Locked 1" }));
+    expect(within(group).getByRole("button", { name: "Locked 1" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByText("Bank cash").length).toBeGreaterThan(0);
+    await userEvent.click(within(group).getByRole("button", { name: "All 1" }));
+    expect(within(group).getByRole("button", { name: "All 1" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps an active filter visible after a horizon change empties it, with a way back", async () => {
+    const data = fixtureOverview();
+    data.sources![0].bucketResults![0] = { ...data.sources![0].bucketResults![0], selectedRoute: null, netNative: null, unreservedNative: null, appliedReserveNative: null };
+    overview.mockResolvedValue(data);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Locked 1" }));
+    await userEvent.click(screen.getByTestId("horizon-2026-09-27"));
+    expect(screen.getByRole("button", { name: "Locked 0" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("No sources match this filter.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(screen.getAllByText("Bank cash").length).toBeGreaterThan(0);
+  });
+
+  it("offers a shortcut from the needs-information notice to the affected sources", async () => {
+    const data = fixtureOverview();
+    const mmf = source({ sourceKey: "mmf", displayName: "Money fund", accountId: "acc-1", displayState: "needs_info", reasons: ["missing_policy"], bucketResults: [
+      { horizonOn: "2026-09-20", selectedRoute: null, netNative: null, netBase: null, appliedReserveNative: null, unreservedNative: null, reserveShortfallNative: null, status: "partial", reasons: ["missing_policy"] },
+    ] });
+    data.sources = [...data.sources!, mmf];
+    data.buckets![0] = { ...data.buckets![0], status: "partial", fullUnreserved: null };
+    overview.mockResolvedValue(data);
+    renderPage();
+    expect(await screen.findByText("Availability needs more information")).toBeVisible();
+    await userEvent.click(await screen.findByRole("button", { name: "Show items" }));
+    expect(screen.getByRole("button", { name: /^Needs information/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByText("Money fund").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Bank cash")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show items" })).not.toBeInTheDocument();
+  });
+
+  it.each(["zh-CN", "zh-TW"])("localizes the new card cues in %s", async (language) => {
+    await i18n.changeLanguage(language);
+    const data = fixtureOverview();
+    data.buckets![2] = { ...data.buckets![2], fullUnreserved: null };
+    data.buckets![1] = { ...data.buckets![1], fullUnreserved: data.buckets![0].fullUnreserved, knownUnreservedSubtotal: data.buckets![0].knownUnreservedSubtotal };
+    overview.mockResolvedValue(data);
+    renderPage();
+    const cards = await screen.findByTestId("funds-comparison");
+    expect(within(cards).getByText(i18n.t("availableFunds.partialShort"))).toBeVisible();
+    expect(i18n.t("availableFunds.partialShort")).not.toBe("Partial");
+    expect(within(cards).getByText(i18n.t("availableFunds.sameAs", { label: i18n.t("availableFunds.today") }))).toBeVisible();
+    await i18n.changeLanguage("en");
   });
 });
