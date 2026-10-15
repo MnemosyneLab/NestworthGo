@@ -69,7 +69,8 @@ export function FundsComparison({ horizons, selected, onSelect, sources, baseCur
         const { label, bucket } = horizon;
         const active = selected === bucket.horizonOn;
         const previous = earlier(horizon);
-        const direction = previous ? compareHorizonTotals(total(bucket), total(previous.bucket)) : null;
+        // A cue only compares complete totals; known subtotals can look equal while the real totals differ.
+        const direction = previous && bucket.fullUnreserved && previous.bucket.fullUnreserved ? compareHorizonTotals(bucket.fullUnreserved, previous.bucket.fullUnreserved) : null;
         const early = includeEarly && horizonUsesEarly(sources, bucket.horizonOn);
         return <button
           key={bucket.horizonOn}

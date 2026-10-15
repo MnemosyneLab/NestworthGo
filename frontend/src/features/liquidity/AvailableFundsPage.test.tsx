@@ -362,6 +362,30 @@ describe("Available Funds visual hierarchy and interaction", () => {
     expect(within(screen.getByTestId("horizon-2026-10-20")).getByText("Same as Within 7 days")).toBeVisible();
   });
 
+  it("shows the comparison cue only when both horizons have complete totals", async () => {
+    const data = fixtureOverview();
+    const today = data.buckets![0];
+    data.buckets![1] = { ...today, horizonOn: "2026-09-27", fullUnreserved: null };
+    data.buckets![2] = { ...today, horizonOn: "2026-10-20" };
+    overview.mockResolvedValue(data);
+    renderPage();
+    await screen.findByTestId("funds-comparison");
+    for (const date of ["2026-09-20", "2026-09-27", "2026-10-20"]) {
+      expect(within(screen.getByTestId(`horizon-${date}`)).queryByText(/More than|Same as|Less than/)).not.toBeInTheDocument();
+    }
+    expect(within(screen.getByTestId("horizon-2026-09-27")).getByText("Partial")).toBeVisible();
+  });
+
+  it("keeps the comparison cue for complete totals next to a partial horizon", async () => {
+    const data = fixtureOverview();
+    data.buckets![2] = { ...data.buckets![2], fullUnreserved: null };
+    overview.mockResolvedValue(data);
+    renderPage();
+    await screen.findByTestId("funds-comparison");
+    expect(within(screen.getByTestId("horizon-2026-09-27")).getByText("More than Today")).toBeVisible();
+    expect(within(screen.getByTestId("horizon-2026-10-20")).queryByText(/More than|Same as|Less than/)).not.toBeInTheDocument();
+  });
+
   it("keeps the cumulative and assumption notes in one info popover instead of repeating them", async () => {
     overview.mockResolvedValue(fixtureOverview());
     renderPage();
@@ -449,6 +473,11 @@ describe("Available Funds visual hierarchy and interaction", () => {
     expect(within(cards).getByText(i18n.t("availableFunds.partialShort"))).toBeVisible();
     expect(i18n.t("availableFunds.partialShort")).not.toBe("Partial");
     expect(within(cards).getByText(i18n.t("availableFunds.sameAs", { label: i18n.t("availableFunds.today") }))).toBeVisible();
+    const previousLabel = screen.getByTestId("horizon-2026-09-27").querySelector("span.text-sm")!.textContent!;
+    const partialCard = screen.getByTestId("horizon-2026-10-20");
+    for (const key of ["sameAs", "moreThan", "lessThan"]) {
+      expect(partialCard).not.toHaveTextContent(i18n.t(`availableFunds.${key}`, { label: previousLabel }));
+    }
     await i18n.changeLanguage("en");
   });
 });

@@ -1487,7 +1487,8 @@
     "aboutChange": "About this change",
     "debtShort": "Debt balance",
     "noOrigin": "History has not started yet",
-    "noOriginHint": "Historical overview becomes available after the household history begins."
+    "noOriginHint": "Historical overview becomes available after the household history begins.",
+    "estimatedShort": "Estimated"
   },
   "investmentReview": {
     "title": "Investment review",

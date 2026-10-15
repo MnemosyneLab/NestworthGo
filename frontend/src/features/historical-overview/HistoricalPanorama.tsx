@@ -1,5 +1,5 @@
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
-import { fullDisplayAmount } from "@/components/valuation/valuationQuality";
+import { fullDisplayAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
@@ -28,6 +28,10 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
   const { left, right } = data;
   const change = data.estimatedChange ?? data.change;
   const mismatch = Boolean(right && left.currency !== right.currency);
+  const estimated = (key: "netWorth" | "assets" | "liabilities") => Boolean(data.estimatedChange) || [left, right].some(state => {
+    const display = state?.displayValuation?.[key];
+    return hasDisplay(display) && display.quality.coverage !== "verified";
+  });
   return <div className="grid min-w-0 gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">
     {(["netWorth", "assets", "liabilities"] as const).map(key => {
       const subtotalKey = key === "assets" ? "knownAssets" : "knownLiabilities";
@@ -58,9 +62,10 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
             </div>
             {right && !mismatch && <div className="min-w-0">
               <dt className="sr-only">{data.estimatedChange ? t("valuation.estimatedChange") : t("historicalOverview.deltaBA")}</dt>
-              <dd tabIndex={0} className="overflow-x-auto text-base font-semibold focus-visible:outline-primary">
+              <dd tabIndex={0} className="flex items-center gap-2 overflow-x-auto text-base font-semibold focus-visible:outline-primary">
                 {changeValue == null ? <span className="text-sm font-normal text-muted-foreground">{t("historicalOverview.unknown")}</span>
                   : <SignedChange value={changeValue} currency={left.currency} neutral={key === "liabilities"} />}
+                {changeValue != null && estimated(key) && <Badge variant="warning" title={t("valuation.estimatedChange")}>{t("historicalOverview.estimatedShort")}</Badge>}
               </dd>
             </div>}
             {baseline && <div className="min-w-0 border-t border-border pt-1.5">
@@ -68,6 +73,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
               <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="overflow-x-auto text-sm font-medium focus-visible:outline-primary">
                 <span className="num whitespace-nowrap" title={baseline.state[key] == null ? undefined : amount(baseline.state[key], baseline.state.currency) ?? undefined}>{historicalDisplayAmount(t, baseline.state.displayValuation?.[key], baseline.state[key] == null ? null : { amount: baseline.state[key], currency: baseline.state.currency }, key === "netWorth")}</span>
               </dd>
+              <ValuationQualitySummary value={baseline.state.displayValuation?.[key]} current={baseline.state.current} compact />
               {showKnown(baseline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(baseline.known, baseline.state.currency) ?? t("historicalOverview.unknown")}</p>}
             </div>}
           </dl>

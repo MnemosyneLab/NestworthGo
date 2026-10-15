@@ -1116,3 +1116,60 @@ it("opens the first incomplete component in the evidence sheet from the coverage
   const detail = await screen.findByRole("dialog");
   expect(detail).toHaveTextContent("Exchange rate is missing");
 });
+
+function displayState(coverage: "verified" | "estimated", state: { assets: string | null; liabilities: string | null; netWorth: string | null }) {
+  const quality = { availability: "full", coverage, includedCount: 2, valuedCount: 2, unpricedCount: 0, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: [] };
+  const money = (amount: string | null) => ({ total: amount == null ? null : { amount, currency: "CNY" }, quality });
+  return { netWorth: money(state.netWorth), assets: money(state.assets), liabilities: money(state.liabilities) };
+}
+
+function comparedWithCoverage(left: "verified" | "estimated", right: "verified" | "estimated") {
+  read.mockImplementation((date: string, compare: string) => {
+    const data = result(date, compare);
+    Object.assign(data.left, { displayValuation: displayState(left, data.left) });
+    if (data.right) Object.assign(data.right, { displayValuation: displayState(right, data.right) });
+    return Promise.resolve(data);
+  });
+}
+
+it("flags the change as estimated when only the A baseline is estimated and shows A's quality", async () => {
+  comparedWithCoverage("estimated", "verified");
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await chooseMode("date", userEvent);
+  const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort"))).toHaveLength(3);
+  const asset = within(region).getAllByTitle("+" + formatAmount("20", "CNY"))[0].closest("dd")!;
+  expect(asset).toHaveTextContent(i18n.t("historicalOverview.estimatedShort"));
+  expect(within(region).getAllByText(i18n.t("valuation.estimated")).length).toBeGreaterThan(0);
+  expect(within(region).getAllByText(i18n.t("valuation.verified")).length).toBeGreaterThan(0);
+});
+
+it("flags the change as estimated when only B is estimated, and not when both sides are verified", async () => {
+  comparedWithCoverage("verified", "estimated");
+  const first = show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await chooseMode("date", userEvent);
+  const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort"))).toHaveLength(3);
+  first.unmount();
+  comparedWithCoverage("verified", "verified");
+  show(true);
+  await screen.findByRole("region", { name: "Asset allocation" });
+  await chooseMode("date", userEvent);
+  const verified = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  await within(verified).findAllByTitle("+" + formatAmount("20", "CNY"));
+  expect(within(verified).queryByText(i18n.t("historicalOverview.estimatedShort"))).not.toBeInTheDocument();
+});
+
+it.each(["zh-CN", "zh-TW"])("localizes the estimated change badge (%s)", async language => {
+  await i18n.changeLanguage(language);
+  expect(i18n.t("historicalOverview.estimatedShort")).not.toBe("Estimated");
+  expect(i18n.t("historicalOverview.estimatedShort")).not.toBe("historicalOverview.estimatedShort");
+  comparedWithCoverage("estimated", "verified");
+  show(true);
+  await screen.findByRole("region", { name: i18n.t("historicalOverview.categoryCompare") }).catch(() => undefined);
+  await chooseMode("date", userEvent);
+  const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort")).length).toBeGreaterThan(0);
+});
