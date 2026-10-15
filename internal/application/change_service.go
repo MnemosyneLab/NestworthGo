@@ -178,6 +178,10 @@ func (s *Service) recordChangeWithMutationChecked(ctx context.Context, command a
 			return domain.ChangePreview{}, err
 		}
 	}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
 	if err := s.rejectManagedCommand(ctx, command); err != nil {
 		return domain.ChangePreview{}, err
 	}

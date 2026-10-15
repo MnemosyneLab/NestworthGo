@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -134,11 +135,25 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 		}{p.ID, "reconciliation_session", p}); e != nil {
 			return nil, e
 		}
+		var checked *domain.ReconciliationItem
+		if in.Action == "check" {
+			for _, a := range p.Result.Accounts {
+				if a.AccountID == in.AccountID {
+					for _, item := range a.Items {
+						if item.ID == in.ItemID {
+							copy := item
+							copy.Attempts = nil
+							checked = &copy
+						}
+					}
+				}
+			}
+		}
 		result := p.Result
 		for i := range result.Accounts {
 			result.Accounts[i].Items = nil
 		}
-		return map[string]any{"planId": p.ID, "expiresAt": p.ExpiresAt, "result": result}, nil
+		return map[string]any{"planId": p.ID, "expiresAt": p.ExpiresAt, "result": result, "action": p.Action, "checkedItem": checked}, nil
 	})
 	closed := false
 	mcp.AddTool(server, &mcp.Tool{Name: "commit_reconciliation_session", Description: "Commit exactly the saved session preview. Requires ledger_write. Retry same operationId and planId after an unknown outcome. Durable session receipt is checked before expiry, completed-state and revision checks. Returned header is the original committed outcome; reread current evidence separately.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
@@ -164,6 +179,16 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 	})
 }
 func (s *Service) listReconciliationSessions(ctx context.Context, in ReconciliationReadInput) (any, error) {
+	for _, date := range []string{in.From, in.To} {
+		if date != "" {
+			if _, err := time.Parse("2006-01-02", date); err != nil {
+				return nil, fail("validation", "date filters must be YYYY-MM-DD")
+			}
+		}
+	}
+	if in.From != "" && in.To != "" && in.From > in.To {
+		return nil, fail("validation", "date filters must be ordered")
+	}
 	if in.Sort != "" && in.Sort != "asc" && in.Sort != "desc" {
 		return nil, fail("validation", "sort must be asc or desc")
 	}

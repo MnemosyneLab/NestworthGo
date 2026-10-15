@@ -67,6 +67,10 @@ type ReconciliationItem struct {
 	Attempts          []ReconciliationAttempt `json:"attempts,omitempty"`
 }
 type ReconciliationAttempt struct {
+	Label             string               `json:"label"`
+	Kind              string               `json:"kind"`
+	Currency          string               `json:"currency,omitempty"`
+	Detail            json.RawMessage      `json:"detail,omitempty"`
 	Outcome           string               `json:"outcome"`
 	Note              string               `json:"note"`
 	Source            ReconciliationSource `json:"source"`
@@ -118,4 +122,19 @@ type ReconciliationFinancialChange struct {
 	RecordedAt  string          `json:"recordedAt"`
 	EffectiveAt string          `json:"effectiveAt"`
 	Evidence    json.RawMessage `json:"evidence"`
+}
+
+// The application supplies the authoritative refreshed working point at commit.
+// It is not a client command field and cannot fabricate an attestation.
+type reconciliationItemKey struct{}
+
+func WithReconciliationWorkingItem(ctx context.Context, item ReconciliationItem) context.Context {
+	return context.WithValue(ctx, reconciliationItemKey{}, item)
+}
+func ReconciliationWorkingItemFrom(ctx context.Context) *ReconciliationItem {
+	v, ok := ctx.Value(reconciliationItemKey{}).(ReconciliationItem)
+	if !ok {
+		return nil
+	}
+	return &v
 }

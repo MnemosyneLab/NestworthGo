@@ -51,11 +51,11 @@ func (s *Service) RecordProductOperationGuarded(ctx context.Context, command Pro
 
 func validateGuardedProductCommand(command ProductCommand) error {
 	switch command.Kind {
-	case domain.ProductOpOpen, domain.ProductOpRecordExisting, domain.ProductOpReceiveInterest, domain.ProductOpSettle, domain.ProductOpUndo:
+	case domain.ProductOpOpen, domain.ProductOpRecordExisting, domain.ProductOpReceiveInterest, domain.ProductOpSettle, domain.ProductOpRenew, domain.ProductOpUndo:
 	default:
 		return &domain.Error{Code: domain.ErrValidation, Field: "kind", Message: "unsupported stored product operation"}
 	}
-	if command.Renew != nil || command.Settle != nil && len(command.Settle.ReleaseReservationIDs) != 0 {
+	if command.Renew != nil && len(command.Renew.Settle.ReleaseReservationIDs) != 0 || command.Settle != nil && len(command.Settle.ReleaseReservationIDs) != 0 {
 		return productReservationGUIError()
 	}
 	_, _, err := normalizeProductCommand(command)

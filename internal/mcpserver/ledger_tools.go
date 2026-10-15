@@ -108,6 +108,7 @@ func (s *Service) previewChange(ctx context.Context, in history.ChangeCommandReq
 	if err != nil {
 		return nil, err
 	}
+	var resolved any
 	preview, version, err := s.app.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
 		origin, err := s.app.HistoryOrigin(ctx)
 		if err != nil {
@@ -116,12 +117,13 @@ func (s *Service) previewChange(ctx context.Context, in history.ChangeCommandReq
 		if origin == nil {
 			return nil, fail("history_not_started", "start history in the App before recording changes")
 		}
-		return ledgerCommand(in, origin)
+		resolved, err = ledgerCommand(in, origin)
+		return resolved, err
 	})
 	if err != nil {
 		return nil, err
 	}
-	if err := s.app.ValidateReconciliationLink(ctx, in.ReconciliationLink, []domain.ChangePreview{preview}); err != nil {
+	if err := s.app.ValidateReconciliationCommandLink(ctx, in.ReconciliationLink, resolved, preview); err != nil {
 		return nil, err
 	}
 	plan := changePlan{Type: "change", ID: uuid.NewString(), Command: in, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}

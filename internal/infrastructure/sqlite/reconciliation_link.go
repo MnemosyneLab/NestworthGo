@@ -17,11 +17,30 @@ func validateReconciliationLinkTx(ctx context.Context, tx *sql.Tx) error {
 	}
 	var status string
 	var revision, financial int64
-	err := tx.QueryRowContext(ctx, `SELECT s.status,s.revision,r.revision FROM reconciliation_sessions s JOIN reconciliation_accounts a ON a.session_id=s.id JOIN account_financial_revisions r ON r.account_id=a.account_id JOIN reconciliation_items i ON i.session_id=a.session_id AND i.account_id=a.account_id WHERE s.id=? AND a.account_id=? AND i.id=?`, l.SessionID, l.AccountID, l.ItemID).Scan(&status, &revision, &financial)
+	err := tx.QueryRowContext(ctx, `SELECT s.status,s.revision,r.revision FROM reconciliation_sessions s JOIN reconciliation_accounts a ON a.session_id=s.id JOIN account_financial_revisions r ON r.account_id=a.account_id WHERE s.id=? AND a.account_id=?`, l.SessionID, l.AccountID).Scan(&status, &revision, &financial)
 	if err != nil {
 		return reconciliationConflict("reconciliationLink")
 	}
 	if status != "in_progress" || revision != l.ExpectedRevision || financial != l.FinancialRevision {
+		return reconciliationConflict("reconciliationLink")
+	}
+	if item := domain.ReconciliationWorkingItemFrom(ctx); item != nil {
+		if item.ID != l.ItemID || item.AccountID != l.AccountID || item.FinancialRevision != l.FinancialRevision {
+			return reconciliationConflict("reconciliationLink")
+		}
+		raw, err := json.Marshal(item)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, "INSERT INTO reconciliation_items(session_id,account_id,id,evidence) VALUES(?,?,?,?) ON CONFLICT(session_id,account_id,id) DO UPDATE SET evidence=excluded.evidence", l.SessionID, l.AccountID, l.ItemID, string(raw)); err != nil {
+			return err
+		}
+	}
+	var present int
+	if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM reconciliation_items WHERE session_id=? AND account_id=? AND id=?", l.SessionID, l.AccountID, l.ItemID).Scan(&present); err != nil {
+		return err
+	}
+	if present != 1 {
 		return reconciliationConflict("reconciliationLink")
 	}
 	return nil

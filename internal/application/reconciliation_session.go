@@ -51,6 +51,11 @@ func (s *Service) reconciliationRepo() (ReconciliationRepository, error) {
 }
 
 func (s *Service) ListReconciliationSessions(ctx context.Context) ([]domain.ReconciliationSession, error) {
+	unlock, err := s.beginPreviewRead(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	r, err := s.reconciliationRepo()
 	if err != nil {
 		return nil, err
@@ -59,7 +64,20 @@ func (s *Service) ListReconciliationSessions(ctx context.Context) ([]domain.Reco
 	if err != nil {
 		return nil, err
 	}
-	return r.ReconciliationSessions(ctx, h.ID.String())
+	rows, err := r.ReconciliationSessions(ctx, h.ID.String())
+	if err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		if rows[i].Status != "completed" {
+			current, err := s.getReconciliationSession(ctx, rows[i].ID)
+			if err != nil {
+				return nil, err
+			}
+			rows[i].Counts = current.Counts
+		}
+	}
+	return rows, nil
 }
 func (s *Service) GetReconciliationSession(ctx context.Context, id string) (domain.ReconciliationSession, error) {
 	unlock, err := s.beginPreviewRead(ctx)
@@ -163,6 +181,14 @@ func countReconciliation(s *domain.ReconciliationSession) {
 		} else {
 			a.Outcome = "partial"
 		}
+		if s.Status != "completed" {
+			a.RecheckRequired = false
+			for _, item := range a.Items {
+				if item.RecheckRequired {
+					a.RecheckRequired = true
+				}
+			}
+		}
 		s.Counts.Pending += a.Counts.Pending
 		s.Counts.Confirmed += a.Counts.Confirmed
 		s.Counts.Skipped += a.Counts.Skipped
@@ -234,6 +260,7 @@ func (s *Service) captureReconciliation(ctx context.Context, ids []string, revis
 			continue
 		}
 		item := domain.ReconciliationItem{ID: "holding:" + h.ID.String(), Kind: "holding", Label: instrument.Name, HoldingID: h.ID.String(), InstrumentID: h.InstrumentID.String(), Value: h.Quantity.Canonical(), Currency: instrument.QuoteCurrency.String()}
+		item.Detail, _ = json.Marshal(map[string]string{"name": instrument.Name, "symbol": pointerText(instrument.Symbol), "isin": pointerText(instrument.ISIN), "marketCode": pointerText(instrument.MarketCode), "quantityUnit": instrument.QuantityUnit})
 		lot, err := costs.replay(ctx, h.ID, nil)
 		if err == nil {
 			item.Cost = lot.Current.AverageUnitCost.Canonical()
@@ -368,6 +395,9 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 					found = true
 					switch in.Outcome {
 					case "confirmed":
+						if (item.Kind == "cash" || item.Kind == "balance" || item.Kind == "holding") && item.Value == "" {
+							return session, nil, reconciliationError("itemId", "current financial value is unavailable; leave this check pending or unresolved")
+						}
 						if strings.TrimSpace(in.Source.Reference) == "" || in.Source.AsOfDate == "" {
 							return session, nil, reconciliationError("source", "confirmation requires a user-provided source and as-of date")
 						}
@@ -384,6 +414,9 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 							}
 							if origin == nil {
 								return session, nil, reconciliationError("asOfTime", "history timezone is required")
+							}
+							if _, err := domain.ResolveLocalDateTime(in.Source.AsOfDate, in.Source.AsOfTime, origin.Timezone); err != nil {
+								return session, nil, reconciliationError("asOfTime", "source time is not valid in the ledger timezone")
 							}
 							in.Source.Timezone = origin.Timezone
 						} else {
@@ -406,7 +439,7 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 					item.ReferenceValue = in.ReferenceValue
 					item.CheckedAt = plan.At
 					item.RecheckRequired = false
-					item.Attempts = append(item.Attempts, domain.ReconciliationAttempt{Outcome: item.Outcome, Note: item.Note, Source: item.Source, CheckedAt: plan.At, FinancialRevision: item.FinancialRevision, Value: item.Value, Cost: item.Cost, ReferenceValue: item.ReferenceValue})
+					item.Attempts = append(item.Attempts, domain.ReconciliationAttempt{Label: item.Label, Kind: item.Kind, Currency: item.Currency, Detail: item.Detail, Outcome: item.Outcome, Note: item.Note, Source: item.Source, CheckedAt: plan.At, FinancialRevision: item.FinancialRevision, Value: item.Value, Cost: item.Cost, ReferenceValue: item.ReferenceValue})
 				}
 			}
 			if !found {
@@ -624,4 +657,47 @@ func (s *Service) ReconciliationChanges(ctx context.Context, id, account string)
 		}
 	}
 	return result, nil
+}
+
+func (s *Service) ValidateReconciliationCommandLink(ctx context.Context, link *domain.ReconciliationLink, command any, preview domain.ChangePreview) error {
+	if link == nil {
+		return nil
+	}
+	if in, ok := command.(domain.PositionImportInput); ok {
+		if err := s.ValidateReconciliationLink(ctx, link, nil); err != nil {
+			return err
+		}
+		if in.AccountID.String() != link.AccountID {
+			return reconciliationError("reconciliationLink", "position import belongs to another account")
+		}
+		return nil
+	}
+	return s.ValidateReconciliationLink(ctx, link, []domain.ChangePreview{preview})
+}
+
+// Called AFTER receipt replay, under the owning financial write permit. Reads
+// stay read-only; a new working point is persisted with its next linked write.
+func (s *Service) reconciliationCommitContext(ctx context.Context) (context.Context, error) {
+	link := domain.ReconciliationLinkFrom(ctx)
+	if link == nil {
+		return ctx, nil
+	}
+	if err := s.ValidateReconciliationLink(ctx, link, nil); err != nil {
+		return ctx, err
+	}
+	session, err := s.getReconciliationSession(ctx, link.SessionID)
+	if err != nil {
+		return ctx, err
+	}
+	for _, a := range session.Accounts {
+		if a.AccountID != link.AccountID {
+			continue
+		}
+		for _, item := range a.Items {
+			if item.ID == link.ItemID {
+				return domain.WithReconciliationWorkingItem(ctx, item), nil
+			}
+		}
+	}
+	return ctx, reconciliationError("reconciliationLink", "reviewed point is outside the current scope")
 }

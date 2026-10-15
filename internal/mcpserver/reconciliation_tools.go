@@ -64,6 +64,7 @@ type reconciliationPlan struct {
 }
 
 type ReconciliationPlanPreview struct {
+	Link      *domain.ReconciliationLink  `json:"reconciliationLink,omitempty"`
 	PlanID    string                      `json:"planId"`
 	ExpiresAt string                      `json:"expiresAt"`
 	Targets   []ReconciliationTargetInput `json:"targets"`
@@ -237,7 +238,7 @@ func (s *Service) previewReconciliation(ctx context.Context, in ReconciliationIn
 	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
 		return nil, err
 	}
-	result := ReconciliationPlanPreview{PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Targets: in.Targets, Commands: saved, Previews: make([]wire.ChangePreviewDTO, len(previews))}
+	result := ReconciliationPlanPreview{Link: in.Link, PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Targets: in.Targets, Commands: saved, Previews: make([]wire.ChangePreviewDTO, len(previews))}
 	for i, preview := range previews {
 		result.Previews[i] = wire.FromChangePreview(preview)
 	}
@@ -269,10 +270,13 @@ func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput
 				return batchInputError(i, err)
 			}
 		}
-		payload, err := json.Marshal(struct {
-			Commands []reconciliationCommand
-			Link     *domain.ReconciliationLink
-		}{plan.Commands, plan.Link})
+		payload, err := json.Marshal(plan.Commands)
+		if plan.Link != nil {
+			payload, err = json.Marshal(struct {
+				Commands []reconciliationCommand
+				Link     *domain.ReconciliationLink
+			}{plan.Commands, plan.Link})
+		}
 		if err != nil {
 			return err
 		}

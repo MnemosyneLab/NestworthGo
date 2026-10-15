@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -212,5 +213,199 @@ func TestReconciliationLinkedCorrectionAtomicReceiptAndExplicitRecheck(t *testin
 	v = recAction(t, s, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: v.Revision, AllowPartial: true, Note: "Still reviewing"})
 	if _, err = s.RecordChangesGuarded(domain.WithReconciliationLink(ctx, link), commands, domain.NewMutationID().String(), hash, s.writes.previewToken()); err == nil {
 		t.Fatal("completed session accepted a new correction")
+	}
+}
+
+func TestReconciliationMixedAccountProductLinksAndMarketDataIsolation(t *testing.T) {
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	aid := seedHoldingsCash(t, s, ctx, "10000")
+	create := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{AccountID: aid.String(), Currency: "USD", Principal: "1000", EffectiveAt: "2026-09-20T04:00:00Z", Terms: ProductTermsInput{Kind: "term_deposit", Name: "Synthetic deposit", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "manual_maturity_amount", MaturityInterest: strPtr("10")}, Policy: depositPolicy()}}
+	p, err := s.PreviewProductOperation(ctx, create)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := s.RecordProductOperation(ctx, create, domain.NewProductOperationID().String(), p.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "25"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.AppendAccountCashValue(ctx, aid, "10", "EUR", ""); err != nil {
+		t.Fatal(err)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	kinds := map[string]int{}
+	var productItem string
+	for _, item := range v.Accounts[0].Items {
+		kinds[item.Kind]++
+		if item.Kind == "product" {
+			productItem = item.ID
+		}
+	}
+	if kinds["scope"] != 1 || kinds["cash"] != 2 || kinds["holding"] != 1 || kinds["product"] != 1 {
+		t.Fatalf("mixed contents lost: %v", kinds)
+	}
+	rev := v.Accounts[0].FinancialRevision
+	// Ordinary manual quotes affect valuation, not a cash/quantity attestation.
+	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "30", "", false); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Accounts[0].FinancialRevision != rev {
+		t.Fatal("quote invalidated financial evidence")
+	}
+	product, err := s.Product(ctx, receipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := &domain.ReconciliationLink{SessionID: v.ID, AccountID: aid.String(), ItemID: productItem, ExpectedRevision: v.Revision, FinancialRevision: rev}
+	terms := UpdateProductTermsInput{ReconciliationLink: link, ProductID: product.Contract.ID, ExpectedRevision: product.Contract.Revision, Terms: create.Open.Terms, Policy: create.Open.Policy}
+	terms.Terms.Name = "Updated synthetic deposit"
+	preview, token, err := s.PreviewProductTermsGuarded(ctx, terms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutation := domain.NewProductOperationID().String()
+	saved, err := s.CommitProductTermsGuarded(ctx, terms, mutation, preview.ReviewedStateHash, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := s.CommitProductTermsGuarded(ctx, terms, mutation, preview.ReviewedStateHash, "expired")
+	if err != nil || !replay.Replayed || replay.Contract.ID != saved.Contract.ID {
+		t.Fatalf("product terms receipt %+v %v", replay, err)
+	}
+	links, err := s.ReconciliationLinkedChanges(ctx, v.ID)
+	if err != nil || len(links) != 1 || links[0].Family != "product_terms" {
+		t.Fatalf("terms link %+v %v", links, err)
+	}
+	current, err = s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Counts.Confirmed != 0 || current.Accounts[0].FinancialRevision == rev {
+		t.Fatal("terms did not require renewed review")
+	}
+}
+
+func TestReconciliationMissingPositionsAndManagedProductUseExistingAtomicOperations(t *testing.T) {
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	aid := seedHoldingsCash(t, s, ctx, "10000")
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Missing synthetic fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := &domain.ReconciliationLink{SessionID: v.ID, AccountID: aid.String(), ItemID: "scope", ExpectedRevision: v.Revision, FinancialRevision: v.Accounts[0].FinancialRevision}
+	h, _ := s.requireHousehold(ctx)
+	quantity, _ := domain.ParseQuantity("2")
+	cost, _ := domain.ParseUnitPrice("25")
+	command := domain.PositionImportInput{HouseholdID: h.ID, AccountID: aid, InstrumentID: instrument.ID, Quantity: quantity, UnitCost: &cost, Currency: domain.CurrencyCode("USD"), EffectiveAt: s.clock()}
+	preview, token, err := s.PreviewChangeGuarded(ctx, command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ValidateReconciliationCommandLink(ctx, link, command, preview); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.RecordChangeGuarded(domain.WithReconciliationLink(ctx, link), command, domain.NewMutationID().String(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", token); err != nil {
+		t.Fatal(err)
+	}
+	assertCash(t, s, ctx, aid, "10000")
+	v, err = s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link.ExpectedRevision = v.Revision
+	link.FinancialRevision = v.Accounts[0].FinancialRevision
+	productCommand := ProductCommand{ReconciliationLink: link, Kind: domain.ProductOpRecordExisting, RecordExisting: &RecordExistingProductCommand{AccountID: aid.String(), Currency: "USD", Principal: "1000", TotalCostBasis: "1000", CurrentValue: "1000", CashExcludesProduct: true, Terms: ProductTermsInput{Kind: "term_deposit", Name: "Missing synthetic deposit", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "manual_maturity_amount", MaturityInterest: strPtr("10")}, Policy: depositPolicy()}}
+	p, token, err := s.PreviewProductOperationGuarded(ctx, productCommand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var frozen ProductCommand
+	if err = json.Unmarshal([]byte(p.NormalizedJSON), &frozen); err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.RecordProductOperationGuarded(ctx, frozen, domain.NewProductOperationID().String(), p.ReviewedStateHash, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCash(t, s, ctx, aid, "10000")
+	v, err = s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Counts.Confirmed != 0 {
+		t.Fatal("new position/product auto-confirmed")
+	}
+	link.ExpectedRevision = v.Revision
+	link.FinancialRevision = v.Accounts[0].FinancialRevision
+	link.ItemID = "product:" + r.ProductIDs[0].String()
+	renewal := ProductCommand{ReconciliationLink: link, Kind: domain.ProductOpRenew, Renew: &RenewProductCommand{Settle: SettleProductCommand{ProductID: r.ProductIDs[0].String(), ReturnedPrincipal: strPtr("1000"), Interest: strPtr("10"), Fee: strPtr("0"), EffectiveAt: "2026-09-20T04:00:00Z"}, Principal: "1000", OpeningFee: strPtr("0"), Terms: ProductTermsInput{Kind: "term_deposit", Name: "Renewed synthetic deposit", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"}, Policy: depositPolicy()}}
+	p, token, err = s.PreviewProductOperationGuarded(ctx, renewal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen = ProductCommand{}
+	if err = json.Unmarshal([]byte(p.NormalizedJSON), &frozen); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.RecordProductOperationGuarded(ctx, frozen, domain.NewProductOperationID().String(), p.ReviewedStateHash, token); err != nil {
+		t.Fatal(err)
+	}
+	links, err := s.ReconciliationLinkedChanges(ctx, v.ID)
+	if err != nil || len(links) < 3 {
+		t.Fatalf("explicit links: %+v %v", links, err)
+	}
+}
+
+func TestReconciliationDatabaseReopenAndCompletedEvidenceVerification(t *testing.T) {
+	s, db, aid := reconciliationFixture(t)
+	ctx := context.Background()
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	v = recAction(t, s, ReconciliationAction{Action: "pause", SessionID: v.ID, ExpectedRevision: v.Revision})
+	path := db.Path
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { reopened.Close() })
+	next := NewService(sqlite.NewRepository(reopened))
+	next.SetClock(s.clock)
+	current, err := next.GetReconciliationSession(ctx, v.ID)
+	if err != nil || current.Status != "paused" {
+		t.Fatalf("persisted pause: %+v %v", current, err)
+	}
+	current = recAction(t, next, ReconciliationAction{Action: "resume", SessionID: v.ID, ExpectedRevision: current.Revision})
+	for _, item := range current.Accounts[0].Items {
+		current = recAction(t, next, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: current.Revision, AccountID: aid, ItemID: item.ID, FinancialRevision: current.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic reopened statement", AsOfDate: "2026-09-01"}})
+	}
+	current = recAction(t, next, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: current.Revision})
+	if err := reopened.Verify(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := reopened.Close(); err != nil {
+		t.Fatal(err)
+	}
+	finalDB, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer finalDB.Close()
+	last, err := NewService(sqlite.NewRepository(finalDB)).ReconciliationLastSuccess(ctx, aid)
+	if err != nil || last == nil || last.ID != current.ID || last.CompletedAt != current.CompletedAt {
+		t.Fatalf("immutable success after reopen: %+v %v", last, err)
 	}
 }

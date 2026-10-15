@@ -167,6 +167,10 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 	if err != nil {
 		return domain.ProductTermsReceipt{}, err
 	}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return domain.ProductTermsReceipt{}, err
+	}
 	if err := s.repository.CommitProductTermsMutation(ctx, prepared.contract, prepared.policy, prepared.expectedPolicyRevision, m); err != nil {
 		return domain.ProductTermsReceipt{}, err
 	}
@@ -287,6 +291,10 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 		return ProductValuationReceipt{}, err
 	}
 	op := domain.ProductOperation{ID: id, HouseholdID: household.ID, Kind: domain.ProductOpValueObservation, PayloadSHA256: digest, RequestVersion: domain.ProductRequestVersion, RequestJSON: string(requestJSON), ResultJSON: string(resultJSON), EffectiveAt: prepared.observedAt, CreatedAt: now}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return ProductValuationReceipt{}, err
+	}
 	if err := s.repository.CommitProductBundle(ctx, domain.ProductBundle{AsOf: now, Operation: op, Quotes: []domain.InstrumentQuote{prepared.quote}, ProductLinks: []domain.ProductOperationProduct{{OperationID: id, ProductID: command.ProductID, Role: domain.ProductRoleValued}}}); err != nil {
 		return ProductValuationReceipt{}, err
 	}

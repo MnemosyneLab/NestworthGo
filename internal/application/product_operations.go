@@ -220,6 +220,10 @@ func (s *Service) recordProductOperation(ctx context.Context, command ProductCom
 	for _, preview := range plan.previews {
 		commits = append(commits, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting})
 	}
+	ctx, err = s.reconciliationCommitContext(ctx)
+	if err != nil {
+		return ProductOperationReceipt{}, err
+	}
 	if err := s.repository.CommitProductBundle(ctx, domain.ProductBundle{
 		AsOf: now, Operation: operation, Instruments: plan.instruments, InstrumentObservations: plan.observations,
 		Holdings: plan.holdings, Quotes: plan.quotes, Activities: commits, Contracts: plan.contracts,

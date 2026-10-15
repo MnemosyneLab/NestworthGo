@@ -42,5 +42,16 @@ func verifyReconciliationSchema(ctx context.Context, query schemaQuery) error {
 			return fmt.Errorf("invalid reconciliation schema %s", name)
 		}
 	}
+	var invalid int
+	if err := query.QueryRowContext(ctx, `SELECT
+ (SELECT count(*) FROM reconciliation_accounts WHERE json_extract(evidence,'$.accountId') IS NOT account_id OR json_extract(evidence,'$.financialRevision') < 1)
+ +(SELECT count(*) FROM reconciliation_items WHERE json_extract(evidence,'$.id') IS NOT id OR json_extract(evidence,'$.accountId') IS NOT account_id OR json_extract(evidence,'$.outcome') NOT IN ('pending','confirmed','skipped','unresolved'))
+ +(SELECT count(*) FROM reconciliation_sessions WHERE (status='completed') != (completed_at IS NOT NULL))
+ +(SELECT count(*) FROM reconciliation_receipts WHERE json_extract(result,'$.householdId') IS NOT household_id)`).Scan(&invalid); err != nil {
+		return err
+	}
+	if invalid != 0 {
+		return fmt.Errorf("reconciliation evidence is inconsistent")
+	}
 	return nil
 }

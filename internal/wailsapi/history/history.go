@@ -139,7 +139,7 @@ func (s *Service) PreviewChange(ctx context.Context, request ChangeCommandReques
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	if err := s.app.ValidateReconciliationLink(ctx, request.ReconciliationLink, []domain.ChangePreview{preview}); err != nil {
+	if err := s.app.ValidateReconciliationCommandLink(ctx, request.ReconciliationLink, command, preview); err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
 	return wire.FromChangePreview(preview), nil
@@ -188,6 +188,9 @@ func (s *Service) UndoChange(ctx context.Context, activityID string) (wire.Chang
 // effects first, so the previewed number is not double-counted against
 // the original Activity that Confirm will actually remove.
 func (s *Service) PreviewFixChange(ctx context.Context, activityID string, replacement ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
+	if replacement.ReconciliationLink != nil || replacement.Kind == ChangePositionImport {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrInvalidChange, Field: "replacement", Message: "use linked recording or a current target correction; position import is not a historical replacement"})
+	}
 	id, err := domain.ParseActivityID(activityID)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
@@ -208,6 +211,9 @@ func (s *Service) PreviewFixChange(ctx context.Context, activityID string, repla
 }
 
 func (s *Service) FixChange(ctx context.Context, activityID string, replacement ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
+	if replacement.ReconciliationLink != nil || replacement.Kind == ChangePositionImport {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrInvalidChange, Field: "replacement", Message: "use linked recording or a current target correction; position import is not a historical replacement"})
+	}
 	id, err := domain.ParseActivityID(activityID)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)

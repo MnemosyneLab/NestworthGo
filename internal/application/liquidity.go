@@ -577,6 +577,9 @@ func (s *Service) ReleaseLiquidityReservation(ctx context.Context, id domain.Liq
 }
 
 func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTermsInput) (ProductDetail, error) {
+	if input.ReconciliationLink != nil {
+		return ProductDetail{}, reconciliationError("reconciliationLink", "linked terms require the guarded preview and commit workflow")
+	}
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return ProductDetail{}, err

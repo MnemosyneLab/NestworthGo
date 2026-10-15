@@ -789,20 +789,20 @@ CREATE TABLE reconciliation_sessions (
 CREATE INDEX idx_reconciliation_sessions ON reconciliation_sessions(household_id, started_at DESC, id DESC);
 CREATE TABLE reconciliation_accounts (
  session_id TEXT NOT NULL REFERENCES reconciliation_sessions(id), account_id TEXT NOT NULL REFERENCES accounts(id),
- evidence TEXT NOT NULL, PRIMARY KEY(session_id, account_id)
+ evidence TEXT NOT NULL CHECK(json_valid(evidence)), PRIMARY KEY(session_id, account_id)
 );
 CREATE INDEX idx_reconciliation_accounts ON reconciliation_accounts(account_id, session_id);
 CREATE TABLE reconciliation_items (
- session_id TEXT NOT NULL, account_id TEXT NOT NULL, id TEXT NOT NULL, evidence TEXT NOT NULL,
+ session_id TEXT NOT NULL, account_id TEXT NOT NULL, id TEXT NOT NULL, evidence TEXT NOT NULL CHECK(json_valid(evidence)),
  PRIMARY KEY(session_id, account_id, id), FOREIGN KEY(session_id, account_id) REFERENCES reconciliation_accounts(session_id, account_id)
 );
 CREATE TABLE reconciliation_receipts (
  operation_id TEXT PRIMARY KEY NOT NULL, household_id TEXT NOT NULL REFERENCES households(id),
- payload_hash TEXT NOT NULL, result TEXT NOT NULL
+ payload_hash TEXT NOT NULL, result TEXT NOT NULL CHECK(json_valid(result))
 );
 CREATE TABLE reconciliation_links (
  session_id TEXT NOT NULL, account_id TEXT NOT NULL, item_id TEXT NOT NULL,
- operation_id TEXT NOT NULL, family TEXT NOT NULL, evidence TEXT NOT NULL,
+ operation_id TEXT NOT NULL, family TEXT NOT NULL, evidence TEXT NOT NULL CHECK(json_valid(evidence)),
  PRIMARY KEY(session_id, account_id, operation_id),
  FOREIGN KEY(session_id, account_id, item_id) REFERENCES reconciliation_items(session_id, account_id, id)
 );
@@ -813,7 +813,7 @@ INSERT INTO account_financial_revisions SELECT id, 1 FROM accounts;
 CREATE TABLE reconciliation_financial_changes (
  account_id TEXT NOT NULL REFERENCES accounts(id), revision INTEGER NOT NULL,
  family TEXT NOT NULL, fact_id TEXT NOT NULL, recorded_at TEXT NOT NULL, effective_at TEXT NOT NULL,
- evidence TEXT NOT NULL, PRIMARY KEY(account_id, revision)
+ evidence TEXT NOT NULL CHECK(json_valid(evidence)), PRIMARY KEY(account_id, revision)
 );
 CREATE TRIGGER reconciliation_accounts_insert AFTER INSERT ON accounts BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.id, 1)
@@ -863,6 +863,7 @@ END;
 CREATE TRIGGER reconciliation_instrument_scope AFTER UPDATE OF archived_at, quote_currency ON instruments
  WHEN OLD.archived_at IS NOT NEW.archived_at OR OLD.quote_currency IS NOT NEW.quote_currency BEGIN
  UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id IN (SELECT account_id FROM holdings WHERE instrument_id=NEW.id);
+ INSERT INTO reconciliation_financial_changes SELECT r.account_id,r.revision,'instrument_scope',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',a.name,'instrumentName',NEW.name,'archivedAt',NEW.archived_at,'currency',NEW.quote_currency) FROM account_financial_revisions r JOIN accounts a ON a.id=r.account_id WHERE r.account_id IN (SELECT account_id FROM holdings WHERE instrument_id=NEW.id);
 END;
 CREATE TRIGGER reconciliation_product_facts AFTER INSERT ON product_operation_products BEGIN
  UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=(SELECT account_id FROM product_contracts WHERE id=NEW.product_id);

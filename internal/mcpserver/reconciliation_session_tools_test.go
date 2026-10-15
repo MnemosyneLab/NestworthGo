@@ -125,3 +125,19 @@ func TestReconciliationPageBoundsAndWireBudget(t *testing.T) {
 		t.Fatal("oversized page accepted")
 	}
 }
+
+func TestReconciliationLinkedBatchUsesOneAtomicScope(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	v := sessionAction(t, c, map[string]any{"action": "start", "accountIds": []string{fx.checking}})
+	id := v["id"].(string)
+	point := call(t, c, "get_reconciliation_item", map[string]any{"sessionId": id, "accountId": fx.checking, "itemId": "balance"}, false)["data"].(map[string]any)
+	item := point["item"].(map[string]any)
+	link := map[string]any{"sessionId": id, "accountId": fx.checking, "itemId": "balance", "expectedRevision": point["sessionRevision"], "financialRevision": item["financialRevision"]}
+	p := call(t, c, "preview_batch", map[string]any{"reconciliationLink": link, "commands": []any{map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "2", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}}}, false)["data"].(map[string]any)
+	call(t, c, "commit_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": p["planId"]}}, false)
+	links := call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "links"}, false)["data"].(map[string]any)
+	if links["total"].(float64) != 2 {
+		t.Fatal(links)
+	}
+}

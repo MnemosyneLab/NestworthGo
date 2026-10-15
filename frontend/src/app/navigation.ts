@@ -9,6 +9,7 @@ export type PageId =
   | "available-funds"
   | "upcoming-actions"
   | "portfolio"
+  | "reconciliation"
   | "history"
   | "return-analysis"
   | "asset-changes"
@@ -89,11 +90,12 @@ export type NavigationTarget =
   | { page: "historical-overview"; date?: string; historical?: HistoricalNavigationContext }
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
+  | { page: "reconciliation"; accountId?: string; sessionId?: string }
   | { page: "history"; filters?: HistoryNavigationFilters }
   | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
   | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }
-  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "accounts" | "market-data" | "data-health" | "available-funds"> };
+  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "reconciliation" | "accounts" | "market-data" | "data-health" | "available-funds"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the
@@ -127,7 +129,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: "activity",
     translationKey: "navGroups.activity",
-    items: [{ id: "history", translationKey: "nav.history", icon: History }],
+    items: [{ id: "history", translationKey: "nav.history", icon: History }, { id: "reconciliation", translationKey: "nav.reconciliation", icon: GitCompareArrows }],
   },
   {
     id: "insights",

@@ -2,6 +2,8 @@ package mcpserver
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"path/filepath"
 	"testing"
@@ -311,5 +313,46 @@ func TestReconciliationRejectsStaleExpiredAndWrongPlanType(t *testing.T) {
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 1 {
 		t.Fatalf("rejected commits posted %d activities", got)
+	}
+}
+
+func TestReconciliationUnlinkedPlansKeepLegacyDurableReceiptHash(t *testing.T) {
+	fx := newLedgerFixture(t)
+	ctx := context.Background()
+	value, err := fx.service.previewReconciliation(ctx, ReconciliationInput{Targets: []ReconciliationTargetInput{{AccountID: fx.checking, TargetBalance: "25", Currency: "USD"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := value.(ReconciliationPlanPreview).PlanID
+	raw, err := fx.service.loadPreviewPlan(id, "reconciliation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan reconciliationPlan
+	if err = json.Unmarshal(raw, &plan); err != nil {
+		t.Fatal(err)
+	}
+	origin, err := fx.app.HistoryOrigin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands := make([]any, len(plan.Commands))
+	for i, request := range plan.Commands {
+		commands[i], err = request.toDomain(origin.HouseholdID, origin.Timezone)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	payload, _ := json.Marshal(plan.Commands)
+	sum := sha256.Sum256(append([]byte("ledger_reconciliation\n"), payload...))
+	if _, err = fx.app.RecordChangesGuarded(ctx, commands, id, hex.EncodeToString(sum[:]), plan.Version); err != nil {
+		t.Fatal(err)
+	}
+	before := ledgerActivityCount(t, fx.app)
+	if _, err = fx.service.commitReconciliation(ctx, CommitChangeInput{PlanID: id}); err != nil {
+		t.Fatalf("legacy receipt replay: %v", err)
+	}
+	if ledgerActivityCount(t, fx.app) != before {
+		t.Fatal("legacy replay duplicated activities")
 	}
 }

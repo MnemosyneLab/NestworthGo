@@ -20,6 +20,7 @@ import type { HealthFocus, AccountListFocus } from "@/app/navigation";
 import { AgentWorkspaceObserver } from "@/queries/agent";
 import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
 
+const ReconciliationPage = lazy(() => import("@/features/reconciliation/ReconciliationPage").then(module => ({default:module.ReconciliationPage})));
 const HistoricalOverviewPage = lazy(() => import("@/features/historical-overview/HistoricalOverviewPage").then(module => ({ default: module.HistoricalOverviewPage })));
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
@@ -50,6 +51,7 @@ function App() {
   const { t } = useTranslation();
   const [activePageId, setActivePageId] = useState<PageId>(DEFAULT_PAGE_ID);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [reconciliationFocus,setReconciliationFocus]=useState<{accountId?:string;sessionId?:string}>({});
   const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
   const [accountFilter, setAccountFilter] = useState<AccountListFocus>();
   const [updateValue, setUpdateValue] = useState(false);
@@ -136,6 +138,7 @@ function App() {
     }
     if (navigation.page === "market-data") setMarketFocus(navigation.focus);
     if (navigation.page === "data-health") setHealthFocus(navigation.focus);
+    if(navigation.page === "reconciliation") setReconciliationFocus({accountId:navigation.accountId,sessionId:navigation.sessionId});
     if (navigation.page === "available-funds") {
       setLiquidityProductId(navigation.productId);
       setLiquidityAccountId(navigation.accountId);
@@ -211,6 +214,7 @@ function App() {
         </WorkspaceLazy>
         </div>
       )}
+      {retained("reconciliation") && <div hidden={activePageId !== "reconciliation"}><WorkspaceLazy><ReconciliationPage key={`${reconciliationFocus.accountId}:${reconciliationFocus.sessionId}`} {...reconciliationFocus} /></WorkspaceLazy></div>}
       {retained("upcoming-actions") && <div hidden={activePageId !== "upcoming-actions"}><WorkspaceLazy><UpcomingActionsPage isActive={activePageId === "upcoming-actions"} /></WorkspaceLazy></div>}
       {retained("portfolio") && (
         <div hidden={activePageId !== "portfolio"}>

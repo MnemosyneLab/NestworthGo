@@ -37,9 +37,18 @@ type SettleProductInput struct {
 	EffectiveAt        string  `json:"effectiveAt"`
 }
 
+type RenewProductInput struct {
+	Settle     SettleProductInput             `json:"settle"`
+	Principal  string                         `json:"principal"`
+	OpeningFee *string                        `json:"openingFee"`
+	Terms      application.ProductTermsInput  `json:"terms"`
+	Policy     application.ProductPolicyInput `json:"policy"`
+}
+
 type ProductOperationInput struct {
+	Renew              *RenewProductInput                  `json:"renew,omitempty"`
 	ReconciliationLink *domain.ReconciliationLink          `json:"reconciliationLink,omitempty"`
-	Kind               string                              `json:"kind" jsonschema:"open, record_existing, receive_interest, settle or undo; exactly one matching payload"`
+	Kind               string                              `json:"kind" jsonschema:"open, record_existing, receive_interest, settle, renew or undo; exactly one matching payload"`
 	Open               *application.OpenProductCommand     `json:"open,omitempty"`
 	RecordExisting     *RecordExistingProductInput         `json:"recordExisting,omitempty"`
 	ReceiveInterest    *application.ReceiveInterestCommand `json:"receiveInterest,omitempty"`
@@ -72,6 +81,11 @@ func (in ProductOperationInput) command() (application.ProductCommand, error) {
 		v := in.Settle
 		r.Settle = &application.SettleProductCommand{ProductID: v.ProductID, ReturnedPrincipal: v.ReturnedPrincipal, Interest: v.Interest, GrossProceeds: v.GrossProceeds, Fee: v.Fee, EffectiveAt: v.EffectiveAt, EffectiveLocalDate: v.EffectiveLocalDate, EffectiveLocalTime: v.EffectiveLocalTime}
 	}
+	if in.Renew != nil {
+		v := in.Renew
+		s := v.Settle
+		r.Renew = &application.RenewProductCommand{Settle: application.SettleProductCommand{ProductID: s.ProductID, ReturnedPrincipal: s.ReturnedPrincipal, Interest: s.Interest, GrossProceeds: s.GrossProceeds, Fee: s.Fee, EffectiveAt: s.EffectiveAt, EffectiveLocalDate: s.EffectiveLocalDate, EffectiveLocalTime: s.EffectiveLocalTime}, Principal: v.Principal, OpeningFee: v.OpeningFee, Terms: v.Terms, Policy: v.Policy}
+	}
 	return r.ToApplication()
 }
 
@@ -84,7 +98,7 @@ func productWriteError(err error) error {
 }
 
 func (s *Service) productOperationTools(server *mcp.Server) {
-	readTool(server, "preview_product_operation", "Preview exactly one managed product lifecycle fact: open, record_existing, receive_interest, whole-contract settle, or latest safe operation-group undo. Requires ledger_write. This records facts already completed, never bank orders or automatic maturity cash. Exactly one matching payload. Money is original-currency decimal strings. record_existing requires original totalCostBasis/currentValue and cashExcludesProduct=true (account cash already excludes this product); recording time is server-frozen, startOn is descriptive. For open/interest/settle, effectiveAt may be empty for frozen now or use one timestamp OR local date/time in history timezone. Settle closes the whole contract; actual early receipts are allowed despite forecast locks. No renewal or reservation release/restore; use the GUI if reservations constrain the operation. Inspect normalizedJSON/effects, then commit only the planId within ten minutes. Draft IDs are provisional.", s.previewProductOperation)
+	readTool(server, "preview_product_operation", "Preview exactly one managed product lifecycle fact: open, record_existing, receive_interest, whole-contract settle, atomic renewal without reservation changes, or latest safe operation-group undo. Requires ledger_write. This records facts already completed, never bank orders or automatic maturity cash. Exactly one matching payload. Money is original-currency decimal strings. record_existing requires original totalCostBasis/currentValue and cashExcludesProduct=true (account cash already excludes this product); recording time is server-frozen, startOn is descriptive. For open/interest/settle, effectiveAt may be empty for frozen now or use one timestamp OR local date/time in history timezone. Settle closes the whole contract; actual early receipts are allowed despite forecast locks. No reservation release/restore; use the GUI if reservations constrain the operation. Inspect normalizedJSON/effects, then commit only the planId within ten minutes. Draft IDs are provisional.", s.previewProductOperation)
 	closed := false
 	mcp.AddTool(server, &mcp.Tool{Name: "commit_product_operation", Description: "Commit exactly a stored preview_product_operation plan. Requires ledger_write; only operationId and input.planId. Financial effects, lifecycle operation and immutable business receipt commit atomically. Retry identical operationId/input after interruption; same plan with another operationId returns original committed IDs without posting again, including after expiry/restart. Uncommitted expired/stale/restarted/restored plans require a new preview. Never releases/restores reservations. Read get_operation for outer receipt; list_product_operations for business operation IDs.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_product_operation", in.Input, true, func(ctx context.Context) (any, error) { return s.commitProductOperation(ctx, in.Input) })
