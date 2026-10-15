@@ -1,4 +1,8 @@
 {
+  "inputBytes": {
+    "count": "{{count}} / {{limit}} 位元組",
+    "exceeded": "{{count}} / {{limit}} 位元組 — 請縮短此欄位"
+  },
   "about": {
     "description": "一款以本地優先為理念、用於建立和維護個人或家庭資產負債表的財務桌面應用程式。",
     "license": "MIT 授權條款",

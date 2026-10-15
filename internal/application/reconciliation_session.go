@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -266,7 +268,13 @@ func (s *Service) captureReconciliation(ctx context.Context, ids []string, revis
 		item := domain.ReconciliationItem{ID: "holding:" + h.ID.String(), Kind: "holding", Label: instrument.Name, HoldingID: h.ID.String(), InstrumentID: h.InstrumentID.String(), Value: h.Quantity.Canonical(), Currency: instrument.QuoteCurrency.String()}
 		item.Detail, _ = json.Marshal(map[string]string{"name": instrument.Name, "symbol": pointerText(instrument.Symbol), "isin": pointerText(instrument.ISIN), "marketCode": pointerText(instrument.MarketCode), "quantityUnit": instrument.QuantityUnit})
 		lot, err := costs.replay(ctx, h.ID, nil)
-		if err == nil {
+		if err != nil {
+			var domainErr *domain.Error
+			if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrCostBasisRequired {
+				return nil, err
+			}
+		} else if lot.Current.Quantity.Decimal().Equal(h.Quantity.Decimal()) {
+			// A known zero cost is evidence; missing cost remains empty.
 			item.Cost = lot.Current.AverageUnitCost.Canonical()
 		}
 		a.Items = append(a.Items, item)
@@ -298,8 +306,17 @@ func (s *Service) PreviewReconciliationSession(ctx context.Context, in Reconcili
 func (s *Service) prepareReconciliationSession(ctx context.Context, plan ReconciliationSessionPlan) (domain.ReconciliationSession, map[string]int64, error) {
 	in := plan.Action
 	var session domain.ReconciliationSession
-	if len(in.Note) > 2000 || len(in.ReferenceValue) > 256 || len(in.Source.Reference) > 512 {
-		return session, nil, reconciliationError("note", "reconciliation text exceeds its bound")
+	for _, field := range []struct {
+		name, value string
+		limit       int
+	}{
+		{"note", in.Note, 2000},
+		{"referenceValue", in.ReferenceValue, 256},
+		{"source.reference", in.Source.Reference, 512},
+	} {
+		if len(field.value) > field.limit {
+			return session, nil, reconciliationError(field.name, fmt.Sprintf("reconciliation %s exceeds %d UTF-8 bytes", field.name, field.limit))
+		}
 	}
 	r, err := s.reconciliationRepo()
 	if err != nil {
@@ -402,6 +419,9 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 					case "confirmed":
 						if (item.Kind == "cash" || item.Kind == "balance" || item.Kind == "holding") && item.Value == "" {
 							return session, nil, reconciliationError("itemId", "current financial value is unavailable; leave this check pending or unresolved")
+						}
+						if item.Kind == "holding" && item.Cost == "" {
+							return session, nil, reconciliationError("itemId", "current cost is unavailable; leave this check pending or unresolved")
 						}
 						if strings.TrimSpace(in.Source.Reference) == "" || in.Source.AsOfDate == "" {
 							return session, nil, reconciliationError("source", "confirmation requires a user-provided source and as-of date")

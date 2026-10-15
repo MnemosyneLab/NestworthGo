@@ -1,4 +1,8 @@
 {
+  "inputBytes": {
+    "count": "{{count}} / {{limit}} bytes",
+    "exceeded": "{{count}} / {{limit}} bytes — shorten this field"
+  },
   "about": {
     "description": "A local-first personal finance desktop application for building and maintaining a personal or household balance sheet.",
     "license": "MIT License",

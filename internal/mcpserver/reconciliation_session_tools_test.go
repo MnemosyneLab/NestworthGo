@@ -3,9 +3,14 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -161,5 +166,96 @@ func TestReconciliationSessionNotificationsDoNotInvalidateFinancialPerformance(t
 	sessionAction(t, c, map[string]any{"action": "pause", "sessionId": v["id"], "expectedRevision": v["revision"]})
 	if financial.Load() != 1 || session.Load() != 2 {
 		t.Fatal("pause leaked a broad financial invalidation")
+	}
+}
+
+func TestReconciliationSessionCivilDateFiltersAndPaging(t *testing.T) {
+	for _, tc := range []struct {
+		name, zone, date string
+		instants         []string
+		matched          []int
+	}{
+		{"positive_midnight", "Asia/Tokyo", "2026-09-02", []string{"2026-09-01T14:59:59Z", "2026-09-01T15:00:00Z", "2026-09-02T14:59:59Z", "2026-09-02T15:00:00Z"}, []int{1, 2}},
+		{"negative_midnight", "America/Los_Angeles", "2026-09-01", []string{"2026-09-01T06:59:59Z", "2026-09-01T07:00:00Z", "2026-09-02T06:59:59Z", "2026-09-02T07:00:00Z"}, []int{1, 2}},
+		{"spring_DST", "America/New_York", "2026-03-08", []string{"2026-03-08T04:59:59Z", "2026-03-08T05:00:00Z", "2026-03-09T03:59:59Z", "2026-03-09T04:00:00Z"}, []int{1, 2}},
+		{"fall_DST", "America/New_York", "2026-11-01", []string{"2026-11-01T03:59:59Z", "2026-11-01T04:00:00Z", "2026-11-02T04:59:59Z", "2026-11-02T05:00:00Z"}, []int{1, 2}},
+		{"no_origin_UTC", "", "2026-09-01", []string{"2026-08-31T23:59:59Z", "2026-09-01T00:00:00Z", "2026-09-01T23:59:59Z", "2026-09-02T00:00:00Z"}, []int{1, 2}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db, err := sqlite.Open(filepath.Join(t.TempDir(), "synthetic.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			app := application.NewService(sqlite.NewRepository(db))
+			now, _ := time.Parse(time.RFC3339, tc.instants[0])
+			app.SetClock(func() time.Time { return now })
+			if err = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
+				t.Fatal(err)
+			}
+			if tc.zone != "" {
+				if _, err = app.StartHistory(ctx, tc.zone); err != nil {
+					t.Fatal(err)
+				}
+			}
+			bootstrap, _ := app.Bootstrap(ctx)
+			account, err := app.CreateAccount(ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "0", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := New(app, t.TempDir(), nil)
+			defer s.Close()
+			ids := []string{}
+			for _, instant := range tc.instants {
+				now, _ = time.Parse(time.RFC3339, instant)
+				plan, err := app.PreviewReconciliationSession(ctx, application.ReconciliationAction{Action: "start"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				v, err := app.CommitReconciliationSession(ctx, plan)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ids = append(ids, v.ID)
+			}
+			for _, sort := range []string{"asc", "desc"} {
+				input := ReconciliationReadInput{From: tc.date, To: tc.date, AccountID: account.Account.ID.String(), Status: "in_progress", Sort: sort, Limit: 1}
+				result, err := s.listReconciliationSessions(ctx, input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				page := result.(reconciliationPage)
+				first, second := tc.matched[0], tc.matched[1]
+				if sort == "desc" {
+					first, second = second, first
+				}
+				if page.Total != 2 || len(page.Items) != 1 || page.Items[0].(domain.ReconciliationSession).ID != ids[first] || page.NextCursor == "" {
+					t.Fatalf("first page: %+v", page)
+				}
+				input.Cursor = page.NextCursor
+				result, err = s.listReconciliationSessions(ctx, input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				page = result.(reconciliationPage)
+				if page.Total != 2 || len(page.Items) != 1 || page.Items[0].(domain.ReconciliationSession).ID != ids[second] || page.NextCursor != "" {
+					t.Fatalf("second page: %+v", page)
+				}
+				input.Status = "paused"
+				if _, err = s.listReconciliationSessions(ctx, input); err == nil {
+					t.Fatal("changed filter reused cursor")
+				}
+			}
+			// Invalid persisted timestamps must produce a safe failure, including short strings.
+			for _, bad := range []string{"x", "2026-99-99T00:00:00Z"} {
+				if _, err = db.SQL.Exec("UPDATE reconciliation_sessions SET started_at=? WHERE id=?", bad, ids[0]); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = s.listReconciliationSessions(ctx, ReconciliationReadInput{From: tc.date}); err == nil {
+					t.Fatal("invalid timestamp accepted")
+				}
+			}
+		})
 	}
 }

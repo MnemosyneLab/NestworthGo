@@ -15,7 +15,10 @@ Contents determine independent scope, native-currency cash, ordinary holding,
 balance/manual-value and managed-product points. Every point starts pending,
 including an empty account's completeness check. Quantities, money and cost are
 canonical decimal strings. Ordinary cost evidence uses the existing cost replay;
-product terms use the existing product model, including closed contracts.
+product terms use the existing product model, including closed contracts. Cost
+repository and integrity failures abort capture and preview/commit revalidation;
+missing cost stays unavailable and prevents holding confirmation. Known zero
+cost remains valid evidence.
 
 Checks store the ledger values reviewed, financial revision, explicit outcome,
 reference value, source reference, civil as-of date, optional local time and ledger
@@ -24,7 +27,9 @@ receives an invented source time. Skipped and unresolved outcomes require a note
 confirmation requires actual source and date. Prior attempts remain on each point,
 with a maximum of 100 attempts per session item. At that bound, finish partially
 and start another session rather than drop evidence. Notes are at most 2,000
-bytes, source references 512 and reference values 256.
+UTF-8 bytes, source references 512 and reference values 256. Shared inputs show
+byte counts and field validation before preview; backend bounds identify the
+specific note, source reference or reference value.
 
 Start, pause, resume, checks and finish are preview/commit operations. The exact
 plan, result and revisions are retained at the boundary; commit regenerates and
@@ -55,7 +60,9 @@ account archive/mode/currency, product contract and product-operation facts adva
 the affected account. Provider prices, ordinary manual quotes, NAV and FX do not.
 Pure managed-product value observations (`value_observation` with a `valued`
 link) also leave the financial revision unchanged; principal, quantity, terms
-and cash mutations retain their existing revision triggers.
+and cash mutations retain their existing revision triggers. Derived value/cash
+rows with `projection_kind='replay'` do not advance revisions or add changes;
+authoritative baseline/event writes and activity facts retain their triggers.
 Recorded revision order detects newly recorded backdated activity, rather than
 using its effective date as a watermark. Separate change-log rows retain recorded
 and effective timestamps. There is no prior watermark on a first session.
@@ -127,6 +134,9 @@ replacement commands reject session links. Unlinked existing plans retain their
 original durable receipt hash.
 
 Headers omit account/item arrays. List filters status/account/start-date and sort;
+start-date bounds are inclusive civil dates in the History Origin timezone, with
+UTC fallback when no valid origin timezone exists. Invalid stored start timestamps
+fail safely. GUI instant timestamps use the configured presentation timezone;
 detail sections page accounts/items/attempts/changes/links with deterministic order.
 Pages default to 25, cap at 50 and enforce a 96 KiB encoded budget with explicit
 response_too_large. The client reduces limit instead of losing fields. Item rows

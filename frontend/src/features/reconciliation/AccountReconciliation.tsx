@@ -2,10 +2,11 @@ import { useTranslation } from "react-i18next";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { useReconciliationLastSuccess } from "@/queries/reconciliation";
 import { Button } from "@/components/ui/button";
-import { formatTimestamp as timestamp } from "@/lib/time";
-const formatTimestamp = (value: string) => timestamp(value, undefined);
+import { useReconciliationTimestamp } from "./useReconciliationTimestamp";
+
 export function AccountReconciliation({ accountId }: { accountId: string }) {
   const { t } = useTranslation();
+  const formatTimestamp = useReconciliationTimestamp();
   const navigation = useObjectNavigation();
   const last = useReconciliationLastSuccess(accountId);
   return (

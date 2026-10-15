@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -99,5 +101,50 @@ func TestV16UpgradeFailureRollsBackDDL(t *testing.T) {
 	tx.Rollback()
 	if err = verifySchemaVersion(ctx, db, 16); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReconciliationReplayTriggerFreshUpgradeAndVerifierParity(t *testing.T) {
+	for _, upgraded := range []bool{false, true} {
+		t.Run(fmt.Sprint("upgraded_", upgraded), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "synthetic.db")
+			if upgraded {
+				path = syntheticV16(t)
+			}
+			db, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			if err = db.Verify(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			for _, table := range []string{"account_values", "account_cash_values"} {
+				name := "reconciliation_" + table + "_insert"
+				var ddl string
+				if err = db.SQL.QueryRow("SELECT sql FROM sqlite_master WHERE name=?", name).Scan(&ddl); err != nil {
+					t.Fatal(err)
+				}
+				predicate := " WHEN NEW.projection_kind <> 'replay'"
+				if !strings.Contains(ddl, predicate) {
+					t.Fatalf("%s includes replay", name)
+				}
+				if _, err = db.SQL.Exec("DROP TRIGGER " + name); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = db.SQL.Exec(strings.Replace(ddl, predicate, "", 1)); err != nil {
+					t.Fatal(err)
+				}
+				if err = db.Verify(context.Background()); err == nil {
+					t.Fatal("verifier accepted replay revision trigger")
+				}
+				if _, err = db.SQL.Exec("DROP TRIGGER " + name); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = db.SQL.Exec(ddl); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
 	}
 }

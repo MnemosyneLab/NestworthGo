@@ -22,8 +22,8 @@ type ReconciliationReadInput struct {
 	AccountID string `json:"accountId,omitempty"`
 	ItemID    string `json:"itemId,omitempty"`
 	Status    string `json:"status,omitempty"`
-	From      string `json:"from,omitempty"`
-	To        string `json:"to,omitempty"`
+	From      string `json:"from,omitempty" jsonschema:"Inclusive started civil date in the ledger timezone (UTC before History Origin)"`
+	To        string `json:"to,omitempty" jsonschema:"Inclusive started civil date in the ledger timezone (UTC before History Origin)"`
 	Sort      string `json:"sort,omitempty" jsonschema:"asc or desc; default desc for sessions, asc for detail"`
 	Cursor    string `json:"cursor,omitempty"`
 	Limit     int    `json:"limit,omitempty" jsonschema:"Default 25; maximum 50"`
@@ -199,9 +199,24 @@ func (s *Service) listReconciliationSessions(ctx context.Context, in Reconciliat
 	if e != nil {
 		return nil, e
 	}
+	origin, e := s.app.HistoryOrigin(ctx)
+	if e != nil {
+		return nil, e
+	}
+	location := time.UTC
+	if origin != nil {
+		if loaded, err := time.LoadLocation(origin.Timezone); err == nil {
+			location = loaded
+		}
+	}
 	rows := []any{}
 	for _, v := range values {
-		if in.Status != "" && v.Status != in.Status || in.From != "" && v.StartedAt[:10] < in.From || in.To != "" && v.StartedAt[:10] > in.To {
+		started, err := time.Parse(time.RFC3339Nano, v.StartedAt)
+		if err != nil {
+			return nil, &domain.Error{Code: domain.ErrIntegrity, Field: "startedAt", Message: "invalid reconciliation start timestamp"}
+		}
+		date := started.In(location).Format(time.DateOnly)
+		if in.Status != "" && v.Status != in.Status || in.From != "" && date < in.From || in.To != "" && date > in.To {
 			continue
 		}
 		if in.AccountID != "" {

@@ -13,6 +13,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { utf8ByteLength } from "@/lib/utf8";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -46,7 +47,7 @@ import { invalidateActivityChange } from "@/queries/invalidation";
 import { callService } from "@/lib/wails";
 import { displayError } from "@/lib/display";
 import { formatAmount, formatQuotePrice, multiplyCanonical } from "@/lib/money";
-import { formatTimestamp as timestamp } from "@/lib/time";
+import { useReconciliationTimestamp } from "./useReconciliationTimestamp";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
@@ -61,7 +62,6 @@ import type {
   ProductPreview,
 } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation/models";
 
-const formatTimestamp = (value: string) => timestamp(value, undefined);
 const reconciliationAction = (
   action: string,
   session?: ReconciliationSession,
@@ -89,6 +89,7 @@ export function ReconciliationPage({
 }) {
   const { t } = useTranslation();
   const client = useQueryClient();
+  const formatTimestamp = useReconciliationTimestamp();
   const accounts = useAccounts();
   const sessions = useReconciliationSessions(accountId);
   const [selected, setSelected] = useState<string[] | null>(
@@ -534,11 +535,11 @@ export function ReconciliationPage({
               <Input
                 id="closing-note"
                 value={closingNote}
-                maxLength={2000}
+                maxBytes={2000}
                 onChange={(e) => setClosingNote(e.target.value)}
               />
               <Button
-                disabled={busy}
+                disabled={busy || utf8ByteLength(closingNote) > 2000}
                 onClick={() =>
                   void preview({
                     ...reconciliationAction("finish", current),
@@ -784,7 +785,7 @@ function CheckForm({
       <Label htmlFor="check-source">{t("reconciliation.source")}</Label>
       <Input
         id="check-source"
-        maxLength={512}
+        maxBytes={512}
         value={reference}
         onChange={(e) => setReference(e.target.value)}
       />
@@ -796,18 +797,23 @@ function CheckForm({
       <Input
         id="check-value"
         value={value}
-        maxLength={256}
+        maxBytes={256}
         onChange={(e) => setValue(e.target.value)}
       />
       <Label htmlFor="check-note">{t("reconciliation.note")}</Label>
       <Input
         id="check-note"
         value={note}
-        maxLength={2000}
+        maxBytes={2000}
         onChange={(e) => setNote(e.target.value)}
       />
       <Button
-        disabled={disabled}
+        disabled={
+          disabled ||
+          utf8ByteLength(reference) > 512 ||
+          utf8ByteLength(value) > 256 ||
+          utf8ByteLength(note) > 2000
+        }
         onClick={() =>
           void onPreview({
             outcome,
@@ -888,12 +894,12 @@ function AdjustmentForm({
       <Input
         id="adjust-note"
         value={note}
-        maxLength={2000}
+        maxBytes={2000}
         onChange={(e) => setNote(e.target.value)}
       />
       {error && <p role="alert">{error}</p>}
       <Button
-        disabled={busy}
+        disabled={busy || utf8ByteLength(note) > 2000}
         onClick={() => {
           setBusy(true);
           void callService(() =>
@@ -1158,6 +1164,7 @@ type LinkedAudit = {
 };
 function LinkedChanges({ sessionId }: { sessionId: string }) {
   const { t } = useTranslation();
+  const formatTimestamp = useReconciliationTimestamp();
   const links = useReconciliationLinks(sessionId);
   const [page, setPage] = useState(0);
   return (
@@ -1260,6 +1267,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
 
 function RecentChanges({ sessionId }: { sessionId: string }) {
   const { t } = useTranslation();
+  const formatTimestamp = useReconciliationTimestamp();
   const changes = useReconciliationChanges(sessionId);
   const [page, setPage] = useState(0);
   return (

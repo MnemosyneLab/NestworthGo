@@ -825,12 +825,12 @@ CREATE TRIGGER reconciliation_accounts_update AFTER UPDATE ON accounts WHEN OLD.
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
  INSERT INTO reconciliation_financial_changes SELECT NEW.id,revision,'accounts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.id)) FROM account_financial_revisions WHERE account_id=NEW.id;
 END;
-CREATE TRIGGER reconciliation_account_values_insert AFTER INSERT ON account_values BEGIN
+CREATE TRIGGER reconciliation_account_values_insert AFTER INSERT ON account_values WHEN NEW.projection_kind <> 'replay' BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
  INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'account_values',NEW.id,NEW.created_at,NEW.effective_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'amount',NEW.amount,'currency',NEW.currency) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
-CREATE TRIGGER reconciliation_account_cash_values_insert AFTER INSERT ON account_cash_values BEGIN
+CREATE TRIGGER reconciliation_account_cash_values_insert AFTER INSERT ON account_cash_values WHEN NEW.projection_kind <> 'replay' BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
  INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'account_cash_values',NEW.id,NEW.created_at,NEW.effective_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'amount',NEW.amount,'currency',NEW.currency) FROM account_financial_revisions WHERE account_id=NEW.account_id;

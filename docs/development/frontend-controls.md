@@ -24,6 +24,10 @@ clearability, disabled state, form errors and server-side validation. Explicit
 future contract dates must remain reachable. Do not silently normalize invalid
 dates or replace an intentionally empty selection with today.
 
+For UTF-8 byte bounds, use Input's `maxBytes` counter/field error and
+`utf8ByteLength` to guard submission. HTML `maxLength` counts UTF-16 code units;
+it cannot enforce storage byte budgets. Keep backend validation authoritative.
+
 Provide a localized accessible name, associate errors with aria-describedby,
 and expose aria-invalid. Labels must target the actual interactive trigger.
 Preserve refs and focus restoration when changing an input into a picker.

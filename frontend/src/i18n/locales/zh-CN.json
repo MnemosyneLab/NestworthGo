@@ -1,4 +1,8 @@
 {
+  "inputBytes": {
+    "count": "{{count}} / {{limit}} 字节",
+    "exceeded": "{{count}} / {{limit}} 字节 — 请缩短此字段"
+  },
   "about": {
     "description": "一款以本地优先为理念、用于建立和维护个人或家庭资产负债表的财务桌面应用。",
     "license": "MIT 许可证",

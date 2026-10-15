@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -540,5 +542,214 @@ func TestReconciliationExpiredPreviewRefusalAndReceiptFirstRecovery(t *testing.T
 	recovered, err := s.CommitReconciliationSession(ctx, plan)
 	if err != nil || recovered.ID != plan.Result.ID || recovered.Revision != plan.Result.Revision {
 		t.Fatalf("expiry blocked original durable outcome: %+v %v", recovered, err)
+	}
+}
+
+// Override only cost reads; reconciliation transactions stay on the isolated SQLite repository.
+type reconciliationCostFault struct {
+	*sqlite.Repository
+	eventsErr, startingErr error
+	overrideStarting       bool
+	events                 []domain.CostBasisEvent
+	overrideEvents         bool
+}
+
+func (r *reconciliationCostFault) ListCostBasisEvents(ctx context.Context, id domain.HoldingID, filter domain.CostBasisReadFilter) ([]domain.CostBasisEvent, error) {
+	if r.eventsErr != nil || r.overrideEvents {
+		return r.events, r.eventsErr
+	}
+	return r.Repository.ListCostBasisEvents(ctx, id, filter)
+}
+func (r *reconciliationCostFault) StartingPointCost(ctx context.Context, id domain.HoldingID, filter domain.CostBasisReadFilter) (*domain.UnitPrice, error) {
+	if r.startingErr != nil || r.overrideStarting {
+		return nil, r.startingErr
+	}
+	return r.Repository.StartingPointCost(ctx, id, filter)
+}
+func TestReconciliationCostReadFailuresNeverPersist(t *testing.T) {
+	for _, kind := range []string{"events", "starting", "integrity", "invalid_history"} {
+		t.Run(kind, func(t *testing.T) {
+			s, db, _ := reconciliationFixture(t)
+			ctx := context.Background()
+			aid := seedHoldingsCash(t, s, ctx, "1")
+			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "0"}); err != nil {
+				t.Fatal(err)
+			}
+			plan, err := s.PreviewReconciliationSession(ctx, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fault := &reconciliationCostFault{Repository: sqlite.NewRepository(db)}
+			injected := errors.New("synthetic cost repository failure")
+			switch kind {
+			case "events":
+				fault.eventsErr = injected
+			case "starting":
+				fault.startingErr = injected
+			case "integrity":
+				fault.eventsErr = &domain.Error{Code: domain.ErrIntegrity, Message: "synthetic invalid cost history"}
+			case "invalid_history":
+				fault.overrideEvents = true
+				quantity, _ := domain.ParseQuantity("2")
+				zero, _ := domain.ParseUnitPrice("0")
+				fault.events = []domain.CostBasisEvent{{Kind: domain.CostBasisStartingPoint, Quantity: quantity, UnitCost: &zero}, {Kind: domain.CostBasisStartingPoint, Quantity: quantity, UnitCost: &zero}}
+			}
+			s.repository = fault
+			if _, err = s.PreviewReconciliationSession(ctx, plan.Action); err == nil {
+				t.Fatal("cost failure ignored by preview")
+			}
+			if _, err = s.CommitReconciliationSession(ctx, plan); err == nil {
+				t.Fatal("cost failure ignored by commit revalidation")
+			}
+			for _, table := range []string{"reconciliation_sessions", "reconciliation_receipts"} {
+				var count int
+				if err = db.SQL.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
+					t.Fatalf("%s writes: %d %v", table, count, err)
+				}
+			}
+		})
+	}
+}
+func TestReconciliationKnownZeroAndUnknownCost(t *testing.T) {
+	s, db, _ := reconciliationFixture(t)
+	ctx := context.Background()
+	aid := seedHoldingsCash(t, s, ctx, "1")
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic zero cost", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	action := ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid.String(), ItemID: "holding:" + holding.ID.String(), FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic statement", AsOfDate: "2026-09-01"}}
+	checked := recAction(t, s, action)
+	for _, item := range checked.Accounts[0].Items {
+		if item.Kind == "holding" && (item.Cost != "0" || item.Outcome != "confirmed") {
+			t.Fatalf("zero cost rejected: %+v", item)
+		}
+	}
+	quantity, _ := domain.ParseQuantity("2")
+	for _, events := range [][]domain.CostBasisEvent{nil, {{Kind: domain.CostBasisStartingPoint, Quantity: quantity}}} {
+		s.repository = &reconciliationCostFault{Repository: sqlite.NewRepository(db), overrideEvents: true, events: events}
+		// No starting cost and no incoming cost facts: this is unavailable, never known zero.
+		fault := s.repository.(*reconciliationCostFault)
+		fault.overrideStarting = true
+		fresh := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+		action.SessionID, action.ExpectedRevision = fresh.ID, fresh.Revision
+		if _, err := s.PreviewReconciliationSession(ctx, action); err == nil {
+			t.Fatal("unknown cost confirmed")
+		}
+	}
+}
+func TestReconciliationUnchangedRebuildPreservesEvidence(t *testing.T) {
+	s, db, balance := reconciliationFixture(t)
+	ctx := context.Background()
+	cash := seedHoldingsCash(t, s, ctx, "20")
+	for _, id := range []string{balance, cash.String()} {
+		aid, _ := domain.ParseAccountID(id)
+		household, _ := s.requireHousehold(ctx)
+		amount, _ := domain.ParseMoney("1", "USD")
+		if _, err := s.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: household.ID, AccountID: aid, Amount: amount, EffectiveAt: s.clock(), Reason: domain.ReasonReconciliation}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{balance, cash.String()}})
+	for _, account := range v.Accounts {
+		for _, item := range account.Items {
+			v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: account.AccountID, ItemID: item.ID, FinancialRevision: account.FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic", AsOfDate: "2026-09-01"}})
+		}
+	}
+	completed := recAction(t, s, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: v.Revision})
+	repo := sqlite.NewRepository(db)
+	before, err := repo.ReconciliationRevisions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readChanges := func() map[string][]domain.ReconciliationFinancialChange {
+		rows := map[string][]domain.ReconciliationFinancialChange{}
+		for _, id := range []string{balance, cash.String()} {
+			changes, err := repo.ReconciliationFinancialChanges(ctx, id, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows[id] = changes
+		}
+		return rows
+	}
+	changes := readChanges()
+	if len(changes[balance]) == 0 || len(changes[cash.String()]) == 0 {
+		t.Fatal("fixture needs authoritative change evidence")
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := s.RebuildDerivedData(ctx); err != nil {
+			t.Fatal(err)
+		}
+		after, err := repo.ReconciliationRevisions(ctx)
+		if err != nil || !reflect.DeepEqual(before, after) {
+			t.Fatalf("replay changed revisions: %v -> %v: %v", before, after, err)
+		}
+		current, err := s.GetReconciliationSession(ctx, completed.ID)
+		if err != nil || !reflect.DeepEqual(completed, current) {
+			t.Fatalf("replay changed outcome: %+v %v", current, err)
+		}
+		if !reflect.DeepEqual(changes, readChanges()) {
+			t.Fatal("replay added financial changes")
+		}
+	}
+	aid, _ := domain.ParseAccountID(balance)
+	h, _ := s.requireHousehold(ctx)
+	money, _ := domain.ParseMoney("1", "USD")
+	if _, err := s.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: h.ID, AccountID: aid, Amount: money, EffectiveAt: s.clock(), Reason: domain.ReasonReconciliation}); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := repo.ReconciliationRevisions(ctx)
+	if after[balance] <= before[balance] || after[cash.String()] != before[cash.String()] {
+		t.Fatalf("real correction revisions: %v", after)
+	}
+	current, err := s.GetReconciliationSession(ctx, completed.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, account := range current.Accounts {
+		if account.RecheckRequired != (account.AccountID == balance) {
+			t.Fatal("incorrect correction recheck", account)
+		}
+	}
+}
+func TestReconciliationTextUTF8BoundsIdentifyField(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	for _, text := range []string{"a", "中", "😀"} {
+		for _, field := range []struct {
+			name  string
+			limit int
+		}{{"note", 2000}, {"referenceValue", 256}, {"source.reference", 512}} {
+			action := ReconciliationAction{Action: "start", AccountIDs: []string{aid}}
+			set := func(value string) {
+				switch field.name {
+				case "note":
+					action.Note = value
+				case "referenceValue":
+					action.ReferenceValue = value
+				default:
+					action.Source.Reference = value
+				}
+			}
+			set(strings.Repeat(text, field.limit/len(text)))
+			if _, err := s.PreviewReconciliationSession(context.Background(), action); err != nil {
+				t.Fatal(err)
+			}
+			set(strings.Repeat(text, field.limit/len(text)+1))
+			_, err := s.PreviewReconciliationSession(context.Background(), action)
+			var de *domain.Error
+			if !errors.As(err, &de) || de.Field != field.name {
+				t.Fatalf("%s: %v", field.name, err)
+			}
+		}
 	}
 }

@@ -1,9 +1,11 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import i18n from "@/i18n";
+import { AccountReconciliation } from "./AccountReconciliation";
+import { formatTimestamp } from "@/lib/time";
 import { ReconciliationPage } from "./ReconciliationPage";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import type {
@@ -13,6 +15,7 @@ import type {
 const q = vi.hoisted(() => ({
   session: undefined as ReconciliationSession | undefined,
   error: false,
+  timezone: "UTC",
   preview: vi.fn(),
   commit: vi.fn(),
   adjust: vi.fn(),
@@ -22,6 +25,9 @@ const q = vi.hoisted(() => ({
   commitProduct: vi.fn(),
 }));
 vi.mock("@/queries/reconciliation", () => ({
+  useReconciliationLastSuccess: () => ({
+    data: q.session, isError: false, isLoading: false,
+  }),
   useReconciliationSessions: () => ({
     data: [],
     isLoading: false,
@@ -59,7 +65,7 @@ vi.mock("@/queries/accounts", () => ({
 }));
 vi.mock("@/queries/settings", () => ({
   useSettings: () => ({
-    data: { weekStart: "monday", dateFormat: "iso", timezone: "UTC" },
+    data: { weekStart: "monday", dateFormat: "iso", timezone: q.timezone },
   }),
 }));
 vi.mock("@/features/history/RecordChangeForm", () => ({
@@ -151,6 +157,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   q.session = session();
   q.error = false;
+  q.timezone = "UTC";
   q.preview.mockResolvedValue({ planId: "review-plan", result: q.session });
   q.commit.mockResolvedValue(q.session);
   q.adjust.mockResolvedValue({ planId: "adjust-plan", changes: [] });
@@ -529,4 +536,38 @@ it.each([
   await userEvent.click(retry);
   await waitFor(() => expect(hasUnresolvedSheetConfirmation()).toBe(false));
   expect(q.commitProduct.mock.calls).toEqual([["terms-plan"], ["terms-plan"]]);
+});
+
+it.each(["a", "中", "😀"])("blocks over-budget %s fields before preview and allows valid byte bounds", async (text) => {
+  mount("session-one");
+  await userEvent.click(screen.getAllByRole("button", { name: "Review check" })[0]);
+  const preview = screen.getByRole("button", { name: "Preview" });
+  for (const [label, limit] of [["Statement or source reference", 512], ["Value shown by your source (optional)", 256], ["Explanation or note", 2000]] as const) {
+    const input = screen.getByLabelText(label);
+    const value = text.repeat(Math.floor(limit / new TextEncoder().encode(text).length));
+    fireEvent.change(input, { target: { value: value + text } });
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(preview).toBeDisabled();
+    await userEvent.click(preview);
+    expect(q.preview).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value } });
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    expect(preview).toBeEnabled();
+  }
+  await userEvent.click(preview);
+  expect(q.preview).toHaveBeenCalledTimes(1);
+});
+it.each(["Asia/Tokyo", "America/Los_Angeles"])("uses configured %s for session and account completion timestamps", async (timezone) => {
+  q.timezone = timezone;
+  const hour = timezone === "Asia/Tokyo" ? "23" : "00";
+  q.session!.startedAt = `2026-09-01T${hour}:30:00Z`;
+  q.session!.completedAt = `2026-09-01T${hour}:40:00Z`;
+  q.session!.status = "completed";
+  const view = mount("session-one");
+  expect(formatTimestamp(q.session!.startedAt, q.timezone, "en")).not.toEqual(formatTimestamp(q.session!.startedAt, "UTC", "en"));
+  expect(screen.getByText(new RegExp(formatTimestamp(q.session!.startedAt, q.timezone, "en")))).toBeInTheDocument();
+  expect(screen.getByText(new RegExp(formatTimestamp(q.session!.completedAt, q.timezone, "en")))).toBeInTheDocument();
+  view.unmount();
+  render(<QueryClientProvider client={createTestQueryClient()}><AccountReconciliation accountId="one" /></QueryClientProvider>);
+  expect(screen.getByText(new RegExp(formatTimestamp(q.session!.completedAt, q.timezone, "en")))).toBeInTheDocument();
 });
