@@ -152,6 +152,9 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 			item.CheckedAt = ""
 			a.Items = append(a.Items, item)
 		}
+		// Removed points originate in a map. Keep the entire refreshed evidence
+		// in the same stable-ID order used by capture and persisted reads.
+		sort.Slice(a.Items, func(i, j int) bool { return a.Items[i].ID < a.Items[j].ID })
 		a.FinancialRevision = revisions[a.AccountID]
 		a.RecheckRequired = true
 		a.Outcome = "pending"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -446,5 +447,58 @@ func TestReconciliationCompletionOrderingPreservesFractionalSeconds(t *testing.T
 	last, err := s.ReconciliationLastSuccess(ctx, aid)
 	if err != nil || last == nil || last.ID != ids[1] {
 		t.Fatalf("completion ordering: %+v %v", last, err)
+	}
+}
+
+func TestReconciliationRemovedItemsHaveStablePreviewAndCommitOrder(t *testing.T) {
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	aid := seedHoldingsCash(t, s, ctx, "1000")
+	var holdings []domain.HoldingID
+	for _, name := range []string{"Synthetic first ETF", "Synthetic second ETF"} {
+		instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		holdings = append(holdings, holding.ID)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	for _, item := range v.Accounts[0].Items {
+		v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid.String(), ItemID: item.ID, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic holdings statement", AsOfDate: "2026-09-20"}})
+	}
+	for _, id := range holdings {
+		if err := s.ArchiveHolding(ctx, id, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Repeated refreshes must use the same canonical order as stored evidence.
+	for i := 0; i < 20; i++ {
+		current, err := s.GetReconciliationSession(ctx, v.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		items := current.Accounts[0].Items
+		if !sort.SliceIsSorted(items, func(i, j int) bool { return items[i].ID < items[j].ID }) {
+			t.Fatalf("refreshed items are not in stable ID order: %+v", items)
+		}
+		removed := 0
+		for _, item := range items {
+			if item.Kind == "removed" {
+				removed++
+				if item.Outcome != "pending" || item.CheckedAt != "" || !item.RecheckRequired || len(item.Attempts) != 1 {
+					t.Fatalf("removed evidence changed semantics: %+v", item)
+				}
+			}
+		}
+		if removed != 2 {
+			t.Fatalf("removed holdings = %d, want 2", removed)
+		}
+	}
+	v = recAction(t, s, ReconciliationAction{Action: "pause", SessionID: v.ID, ExpectedRevision: v.Revision})
+	if v.Status != "paused" || v.Counts.Pending != 4 {
+		t.Fatalf("unchanged preview did not commit refreshed evidence: %+v", v)
 	}
 }
