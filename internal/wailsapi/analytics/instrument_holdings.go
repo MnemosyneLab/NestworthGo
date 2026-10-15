@@ -2,6 +2,8 @@ package analytics
 
 import (
 	"context"
+	"errors"
+
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -40,6 +42,10 @@ func holdingAmountsDTO(a domain.HoldingAmounts) HoldingAmountsDTO {
 }
 func (s *Service) InstrumentHoldings(ctx context.Context) ([]InstrumentHoldingsDTO, error) {
 	groups, err := s.app.InstrumentHoldings(ctx)
+	// Match HistoricalOverview: an abandoned Wails read completes quietly.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, apierror.Wrap(err)
 	}
@@ -66,6 +72,10 @@ func (s *Service) AccountHoldingDetails(ctx context.Context, accountID string) (
 		return nil, apierror.Wrap(err)
 	}
 	groups, err := s.app.AccountHoldingDetails(ctx, id)
+	// Match HistoricalOverview: an abandoned Wails read completes quietly.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, apierror.Wrap(err)
 	}
@@ -109,6 +119,10 @@ func instrumentHoldingGroupsDTO(groups []domain.InstrumentHoldingGroupView) []In
 // with per-currency subtotals.
 func (s *Service) InstrumentHoldingGroups(ctx context.Context) ([]InstrumentHoldingGroupDTO, error) {
 	groups, err := s.app.InstrumentHoldingGroups(ctx)
+	// Match HistoricalOverview: an abandoned Wails read completes quietly.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, apierror.Wrap(err)
 	}
@@ -123,6 +137,10 @@ func (s *Service) AccountHoldingGroups(ctx context.Context, accountID string) ([
 		return nil, apierror.Wrap(err)
 	}
 	groups, err := s.app.AccountHoldingGroups(ctx, id)
+	// Match HistoricalOverview: an abandoned Wails read completes quietly.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, apierror.Wrap(err)
 	}

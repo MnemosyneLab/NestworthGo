@@ -240,3 +240,85 @@ it("shows the loading skeleton until the performance arrives, then a retryable e
  await userEvent.click(performance.getByRole("button",{name:"Try again"}));
  expect(await performance.findByText("View data table")).toBeInTheDocument();
 });
+
+function pendingDetailRead<T>() {
+ let resolve!:(value:T)=>void;
+ let reject!:(error:Error)=>void;
+ const cancel=vi.fn();
+ const promise=Object.assign(new Promise<T>((yes,no)=>{resolve=yes;reject=no;}),{cancel});
+ return {promise,resolve,reject,cancel};
+}
+
+it.each(["portfolio","account"] as const)("handles expansion, collapse and switching instruments without hiding live errors (%s)",async(scope)=>{
+ const seriesReads:Array<ReturnType<typeof pendingDetailRead<ReturnType<typeof seriesAnswer>>>>=[];
+ const returnReads:Array<ReturnType<typeof pendingDetailRead<{items:ReturnType<typeof item>[]}>>>=[];
+ api.series.mockImplementation(()=>{const read=pendingDetailRead<ReturnType<typeof seriesAnswer>>();seriesReads.push(read);return read.promise;});
+ api.returns.mockImplementation(()=>{const read=pendingDetailRead<{items:ReturnType<typeof item>[]}>();returnReads.push(read);return read.promise;});
+ const second={...group,instrumentId:"second",name:"Second synthetic fund",symbol:"SECOND",holdings:[{...group.holdings![0],holdingId:"second-holding"}]};
+ const first={...group,holdings:[group.holdings![0]]};
+ api.instruments.mockResolvedValue([first,second].map(entry=>({id:entry.instrumentId,name:entry.name,type:"bank_investment_product",quoteCurrency:"USD",countryCode:"US",symbol:entry.symbol,quoteSource:"agent"})));
+ mount({scope,accountId:"a",accountName:"Account A",groups:[{key:"bank_wealth",instruments:[first,second],subtotals:[]}]},false);
+
+ // Initial expansion mounts the shared detail, chart and return hooks.
+ await open();
+ await waitFor(()=>expect(seriesReads).toHaveLength(1));
+ expect(returnReads).toHaveLength(1);
+ expect(screen.getByRole("status")).toHaveTextContent("Loading price history");
+ await userEvent.click(screen.getByRole("button",{name:"Hide details for Synthetic fund"}));
+ expect(seriesReads[0].cancel).toHaveBeenCalledOnce();
+ expect(returnReads[0].cancel).toHaveBeenCalledOnce();
+ expect(screen.queryByRole("region",{name:"Price performance"})).not.toBeInTheDocument();
+
+ await userEvent.click(screen.getByRole("button",{name:"Show details for Second synthetic fund"}));
+ await act(() => vi.dynamicImportSettled());
+ await screen.findByRole("region",{name:/SECOND/});
+ await waitFor(()=>expect(seriesReads).toHaveLength(2));
+ expect(returnReads).toHaveLength(2);
+ expect(api.series).toHaveBeenLastCalledWith("second",30);
+ const performance=within(screen.getByRole("region",{name:"Price performance"}));
+ await userEvent.click(performance.getByRole("button",{name:"1W"}));
+ await waitFor(()=>expect(seriesReads).toHaveLength(3));
+ expect(seriesReads[1].cancel).toHaveBeenCalledOnce();
+ expect(api.series).toHaveBeenLastCalledWith("second",7);
+ await act(async()=>{
+  // Abandoned failures must not become the active row's error.
+  seriesReads[0].reject(new Error('{"code":"internal","message":"an unexpected error occurred"}'));
+  returnReads[0].reject(new Error('{"code":"internal","message":"an unexpected error occurred"}'));
+  seriesReads[1].resolve(seriesAnswer(30));
+  seriesReads[2].resolve(seriesAnswer(7,{item:item(7,"1.5")}));
+  returnReads[1].resolve({items:[item(7,"1.5",{annualizedPercent:"12.34"})]});
+ });
+ expect(await performance.findByText("+1.50%")).toBeInTheDocument();
+ expect(performance.getByRole("table")).toBeInTheDocument();
+ const returns=within(await screen.findByRole("region",{name:"Returns by period"}));
+ expect(returns.getByText("7-day")).toBeInTheDocument();
+ expect(returns.getByText("12.34% annualized")).toBeInTheDocument();
+ expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"Hide details for Second synthetic fund"}));
+ expect(seriesReads[2].cancel).not.toHaveBeenCalled();
+ expect(returnReads[1].cancel).not.toHaveBeenCalled();
+
+ // On returning, live chart and return errors stay visible and retryable.
+ await open();
+ await waitFor(()=>expect(seriesReads).toHaveLength(4));
+ expect(returnReads).toHaveLength(3);
+ await act(async()=>{
+  seriesReads[3].reject(new Error('{"code":"internal","message":"an unexpected error occurred"}'));
+  returnReads[2].reject(new Error('{"code":"internal","message":"an unexpected error occurred"}'));
+ });
+ const livePerformance=within(screen.getByRole("region",{name:"Price performance"}));
+ expect(await livePerformance.findByRole("alert")).toBeInTheDocument();
+ const liveReturns=within(screen.getByRole("region",{name:"Returns by period"}));
+ expect(liveReturns.getByText("Couldn’t load returns")).toBeInTheDocument();
+ await userEvent.click(livePerformance.getByRole("button",{name:"Try again"}));
+ await userEvent.click(liveReturns.getByRole("button",{name:"Try again"}));
+ await waitFor(()=>expect(seriesReads).toHaveLength(5));
+ expect(returnReads).toHaveLength(4);
+ await act(async()=>{
+  seriesReads[4].resolve(seriesAnswer(30));
+  returnReads[3].resolve({items:[item(7,"1.5",{annualizedPercent:"12.34"})]});
+ });
+ expect(await livePerformance.findByRole("table")).toBeInTheDocument();
+ expect(await screen.findByText("12.34% annualized")).toBeInTheDocument();
+ expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

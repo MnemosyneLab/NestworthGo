@@ -6,6 +6,7 @@ package quote
 
 import (
 	"context"
+	"errors"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -134,6 +135,11 @@ func (s *Service) InstrumentQuoteSeries(ctx context.Context, instrumentID, trend
 		return QuoteSeriesDTO{}, apierror.Wrap(err)
 	}
 	result, err := s.app.InstrumentQuoteSeries(ctx, id, parsedRange, parsedFilter)
+	// Wails has already cancelled the abandoned JavaScript promise.
+	// Match HistoricalOverview: do not log/reject again or return partial data.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return QuoteSeriesDTO{}, nil
+	}
 	if err != nil {
 		return QuoteSeriesDTO{}, apierror.Wrap(err)
 	}
@@ -188,6 +194,11 @@ func (s *Service) InstrumentQuoteReturns(ctx context.Context, instrumentID strin
 		return domain.QuotePerformanceReport{}, apierror.Wrap(err)
 	}
 	result, err := s.app.InstrumentQuoteReturns(ctx, id)
+	// Wails has already cancelled the abandoned JavaScript promise.
+	// Match HistoricalOverview: do not log/reject again or return partial data.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return domain.QuotePerformanceReport{}, nil
+	}
 	return result, apierror.Wrap(err)
 }
 
@@ -226,6 +237,11 @@ func (s *Service) InstrumentQuotePerformanceSeries(ctx context.Context, instrume
 		return PerformanceSeriesDTO{}, apierror.Wrap(err)
 	}
 	result, err := s.app.InstrumentQuotePerformanceSeries(ctx, id, windowDays)
+	// Wails has already cancelled the abandoned JavaScript promise.
+	// Match HistoricalOverview: do not log/reject again or return partial data.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return PerformanceSeriesDTO{}, nil
+	}
 	if err != nil {
 		return PerformanceSeriesDTO{}, apierror.Wrap(err)
 	}
@@ -247,5 +263,10 @@ func (s *Service) InstrumentQuotePerformance(ctx context.Context, instrumentID s
 		return domain.QuotePerformanceReport{}, apierror.Wrap(err)
 	}
 	result, err := s.app.InstrumentQuotePerformance(ctx, id)
+	// Wails has already cancelled the abandoned JavaScript promise.
+	// Match HistoricalOverview: do not log/reject again or return partial data.
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return domain.QuotePerformanceReport{}, nil
+	}
 	return result, apierror.Wrap(err)
 }

@@ -280,6 +280,14 @@ Application errors should be grouped into stable categories such as:
 Detailed database/driver errors stay in local diagnostics. They must not be
 shown by default in the UI.
 
+Cancellable holdings, instrument quote-history/performance and historical-overview
+reads complete with a zero result and no error when their own Wails request
+context is cancelled. Their JavaScript promises have already been abandoned;
+no partial data or second error is delivered. Live requests still use the normal
+sanitized wire-error contract, and mutation errors are unaffected. The frontend
+retains its scoped handling for late beta.28 native errors already in transit.
+See [PR91 cancellation evidence](../testing/pr91-merge-and-binding-errors.md).
+
 ## Compatibility evidence
 
 The current schema must have sanitized fixtures and tests for create, reopen,
