@@ -1650,8 +1650,8 @@
       "unsupported_instrument": "Historical price performance is unavailable for this instrument type."
     },
     "loading": "Loading price history",
-    "empty": "No price history yet",
-    "emptyHint": "Prices appear here once they are recorded or synced.",
+    "empty": "No daily price history yet",
+    "emptyHint": "Record or sync daily closing prices. Timestamped manual prices are available in Market Data.",
     "chartLabel": "Price history for {{name}}",
     "returns": {
       "label": "Returns by period",

@@ -1650,8 +1650,8 @@
       "unsupported_instrument": "此类投资品暂不支持历史价格表现。"
     },
     "loading": "正在加载价格历史",
-    "empty": "暂无价格历史",
-    "emptyHint": "记录或同步价格后会显示在这里。",
+    "empty": "暂无每日收盘价历史",
+    "emptyHint": "记录或同步每日收盘价。带时间戳的手动价格可在市场数据中查看。",
     "chartLabel": "{{name}} 的价格历史",
     "returns": {
       "label": "各区间收益",

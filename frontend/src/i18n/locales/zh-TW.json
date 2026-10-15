@@ -1650,8 +1650,8 @@
       "unsupported_instrument": "此類投資標的暫不支援歷史價格表現。"
     },
     "loading": "正在載入價格歷史",
-    "empty": "尚無價格歷史",
-    "emptyHint": "記錄或同步價格後會顯示在這裡。",
+    "empty": "暫無每日收盤價歷史",
+    "emptyHint": "記錄或同步每日收盤價。帶時間戳記的手動價格可在市場資料中查看。",
     "chartLabel": "{{name}} 的價格歷史",
     "returns": {
       "label": "各區間報酬",
