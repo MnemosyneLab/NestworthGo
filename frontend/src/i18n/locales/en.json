@@ -1488,7 +1488,8 @@
     "debtShort": "Debt balance",
     "noOrigin": "History has not started yet",
     "noOriginHint": "Historical overview becomes available after the household history begins.",
-    "estimatedShort": "Estimated"
+    "estimatedShort": "Estimated",
+    "coverageEstimated": "Complete estimated totals"
   },
   "investmentReview": {
     "title": "Investment review",

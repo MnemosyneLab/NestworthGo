@@ -1488,7 +1488,8 @@
     "debtShort": "負債餘額",
     "noOrigin": "歷史記錄尚未開始",
     "noOriginHint": "家庭歷史記錄開始後即可使用歷史全景。",
-    "estimatedShort": "暫估"
+    "estimatedShort": "暫估",
+    "coverageEstimated": "完整暫估總額"
   },
   "investmentReview": {
     "title": "投資複核",

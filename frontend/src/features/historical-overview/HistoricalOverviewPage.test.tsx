@@ -12,6 +12,7 @@ import type { HistoricalOverviewSeriesResult } from "../../../bindings/github.co
 import { formatAmount } from "@/lib/money";
 import { formatHistoricalAmount } from "./historicalAmount";
 import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import { ValuationAvailability } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 type MetricValuation = NonNullable<HistoricalOverviewState["displayValuation"]>["assets"];
 
 // Page orchestration tests deliberately inject invalid/empty values. Real picker
@@ -1144,7 +1145,7 @@ function comparedWithCoverage(left: ContractCoverage, right: ContractCoverage, d
   });
 }
 
-it("flags carried or unverified A against verified B and keeps the partial evidence path", async () => {
+it("flags full estimated A against verified B and retains its evidence path", async () => {
   comparedWithCoverage("provisional", "verified", data => {
     data.left.complete = false;
     data.left.displayValuation = displayState("provisional", data.left, { carriedCount: 1, reasons: ["history_unverified", "carried_nav"], oldestMarketDate: "2026-08-01" });
@@ -1166,7 +1167,7 @@ it("flags carried or unverified A against verified B and keeps the partial evide
   expect(qualityText(region, "estimated").length).toBeGreaterThan(0);
   expect(qualityText(region, "verified").length).toBeGreaterThan(0);
   const banner = screen.getByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }).closest("[role=status]")!;
-  expect(banner).toHaveTextContent(i18n.t("historicalOverview.coveragePartial"));
+  expect(banner).toHaveTextContent(i18n.t("historicalOverview.coverageEstimated"));
   expect(banner).toHaveTextContent(i18n.t("historicalOverview.coverageComplete"));
   await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }));
   const detail = await screen.findByRole("dialog");
@@ -1227,4 +1228,34 @@ it.each(["zh-CN", "zh-TW"])("localizes the estimated change badge (%s)", async l
   await chooseMode("date", userEvent);
   const region = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
   expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort")).length).toBeGreaterThan(0);
+});
+
+it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["full", "partial"].map(availability => ({ locale, availability }))))("distinguishes complete estimates from missing totals and keeps the net-worth label readable ($locale, $availability)", async ({ locale, availability }) => {
+  await i18n.changeLanguage(locale);
+  comparedWithCoverage("provisional", "verified", data => {
+    // Backend strict totals can be absent while displayValuation has a full
+    // provisional total; those are separate contracts, not contradictory flags.
+    data.left.complete = false;
+    data.left.assets = null;
+    data.left.netWorth = null;
+    if (availability === "partial") {
+      const metric = data.left.displayValuation!.netWorth;
+      metric.total = null;
+      metric.quality.availability = ValuationAvailability.ValuationPartial;
+      metric.quality.unpricedCount = 1;
+    }
+  });
+  show(true);
+  await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  await chooseMode("current", userEvent);
+  const banner = screen.getByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }).closest("[role=status]")!;
+  expect(banner).toHaveTextContent(i18n.t(availability === "full" ? "historicalOverview.coverageEstimated" : "historicalOverview.coveragePartial"));
+  expect(banner).toHaveClass("border-warning/40");
+  const heading = screen.getByRole("heading", { name: i18n.t("overview.netWorth") });
+  expect(heading).not.toHaveClass("truncate");
+  const card = heading.closest(".rounded-2xl")!;
+  const values = card.querySelectorAll("dd[aria-label]");
+  expect(values.length).toBe(2);
+  for (const value of values) expect(value).not.toHaveTextContent(i18n.t("valuation.knownNetContribution"));
+  if (availability === "partial") expect(within(card as HTMLElement).getByText(i18n.t("valuation.knownNetContribution"))).toBeInTheDocument();
 });
