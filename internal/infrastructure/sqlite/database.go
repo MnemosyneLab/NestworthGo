@@ -178,15 +178,6 @@ func Open(path string) (*DB, error) {
 			_ = tx.Rollback()
 			return closeOnError(StatusUnavailable, found, execErr)
 		}
-		extra, readErr := schemaFS.ReadFile("reconciliation_schema.sql")
-		if readErr != nil {
-			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, found, readErr)
-		}
-		if _, err := tx.ExecContext(context.Background(), string(extra)); err != nil {
-			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, found, err)
-		}
 		if err := verifySchema(context.Background(), tx); err != nil {
 			_ = tx.Rollback()
 			return closeOnError(StatusIntegrityFailed, CurrentSchemaVersion, err)

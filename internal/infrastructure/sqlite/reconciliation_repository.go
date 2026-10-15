@@ -84,7 +84,7 @@ func (r *Repository) ReconciliationSession(ctx context.Context, household, id st
 	return s, rows.Err()
 }
 func (r *Repository) ReconciliationSessions(ctx context.Context, household string) ([]domain.ReconciliationSession, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, "SELECT id,household_id,status,revision,started_at,COALESCE(completed_at,''),note,partial FROM reconciliation_sessions WHERE household_id=? ORDER BY started_at DESC,id DESC", household)
+	rows, err := r.database.SQL.QueryContext(ctx, "SELECT id,household_id,status,revision,started_at,COALESCE(completed_at,''),note,partial, (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.pending')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.confirmed')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.skipped')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.unresolved')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id) FROM reconciliation_sessions WHERE household_id=? ORDER BY started_at DESC,id DESC", household)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (r *Repository) ReconciliationSessions(ctx context.Context, household strin
 	result := []domain.ReconciliationSession{}
 	for rows.Next() {
 		var s domain.ReconciliationSession
-		if err := rows.Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &s.CompletedAt, &s.Note, &s.Partial); err != nil {
+		if err := rows.Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &s.CompletedAt, &s.Note, &s.Partial, &s.Counts.Pending, &s.Counts.Confirmed, &s.Counts.Skipped, &s.Counts.Unresolved); err != nil {
 			return nil, err
 		}
 		result = append(result, s)
@@ -186,6 +186,25 @@ func (r *Repository) ReconciliationLinks(ctx context.Context, household, session
 		v := domain.ReconciliationLinkedChange{SessionID: session}
 		var raw string
 		if err := rows.Scan(&v.AccountID, &v.ItemID, &v.OperationID, &v.Family, &raw); err != nil {
+			return nil, err
+		}
+		v.Evidence = json.RawMessage(raw)
+		result = append(result, v)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) ReconciliationFinancialChanges(ctx context.Context, account string, after int64) ([]domain.ReconciliationFinancialChange, error) {
+	rows, err := r.database.SQL.QueryContext(ctx, "SELECT revision,family,fact_id,recorded_at,effective_at,evidence FROM reconciliation_financial_changes WHERE account_id=? AND revision>? ORDER BY revision", account, after)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []domain.ReconciliationFinancialChange{}
+	for rows.Next() {
+		v := domain.ReconciliationFinancialChange{AccountID: account}
+		var raw string
+		if err := rows.Scan(&v.Revision, &v.Family, &v.FactID, &v.RecordedAt, &v.EffectiveAt, &raw); err != nil {
 			return nil, err
 		}
 		v.Evidence = json.RawMessage(raw)

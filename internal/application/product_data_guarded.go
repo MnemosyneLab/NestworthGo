@@ -16,9 +16,10 @@ type ProductTermsPreview struct {
 }
 
 type ProductValuationCommand struct {
-	ProductID  domain.ProductContractID `json:"productId"`
-	Amount     string                   `json:"amount"`
-	ObservedAt string                   `json:"observedAt"`
+	ReconciliationLink *domain.ReconciliationLink `json:"reconciliationLink,omitempty"`
+	ProductID          domain.ProductContractID   `json:"productId"`
+	Amount             string                     `json:"amount"`
+	ObservedAt         string                     `json:"observedAt"`
 }
 
 type ProductValuationPreview struct {
@@ -96,6 +97,9 @@ func (s *Service) PreviewProductTermsGuarded(ctx context.Context, input UpdatePr
 	if err != nil {
 		return ProductTermsPreview{}, "", err
 	}
+	if err := s.validateProductReconciliationLink(ctx, input.ReconciliationLink, input.ProductID); err != nil {
+		return ProductTermsPreview{}, "", err
+	}
 	digest, err := productDataDigest(input)
 	if err != nil {
 		return ProductTermsPreview{}, "", err
@@ -105,6 +109,7 @@ func (s *Service) PreviewProductTermsGuarded(ctx context.Context, input UpdatePr
 }
 
 func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdateProductTermsInput, mutationID, stateHash, token string) (domain.ProductTermsReceipt, error) {
+	ctx = domain.WithReconciliationLink(ctx, input.ReconciliationLink)
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.ProductTermsReceipt{}, err
@@ -184,6 +189,9 @@ func (s *Service) PreviewProductValuationGuarded(ctx context.Context, command Pr
 		return ProductValuationPreview{}, "", err
 	}
 	command.ObservedAt = prepared.observedAt.UTC().Format(time.RFC3339Nano)
+	if err := s.validateProductReconciliationLink(ctx, command.ReconciliationLink, command.ProductID); err != nil {
+		return ProductValuationPreview{}, "", err
+	}
 	digest, err := productDataDigest(command)
 	if err != nil {
 		return ProductValuationPreview{}, "", err
@@ -205,6 +213,7 @@ func (s *Service) PreviewProductValuationGuarded(ctx context.Context, command Pr
 }
 
 func (s *Service) CommitProductValuationGuarded(ctx context.Context, command ProductValuationCommand, mutationID, stateHash, token string) (ProductValuationReceipt, error) {
+	ctx = domain.WithReconciliationLink(ctx, command.ReconciliationLink)
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return ProductValuationReceipt{}, err

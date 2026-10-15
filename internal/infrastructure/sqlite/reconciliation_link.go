@@ -80,7 +80,12 @@ func saveReconciliationLinkTx(ctx context.Context, tx *sql.Tx, operation, family
 	if err := tx.QueryRowContext(ctx, "SELECT evidence FROM reconciliation_items WHERE session_id=? AND account_id=? AND id=?", l.SessionID, l.AccountID, l.ItemID).Scan(&before); err != nil {
 		return err
 	}
-	raw, err := json.Marshal(map[string]any{"reviewedBefore": json.RawMessage(before), "committed": after})
+	var reviewed domain.ReconciliationItem
+	if err := json.Unmarshal([]byte(before), &reviewed); err != nil {
+		return err
+	}
+	reviewed.Attempts = nil
+	raw, err := json.Marshal(map[string]any{"reviewedBefore": reviewed, "committed": after})
 	if err != nil {
 		return err
 	}
@@ -118,4 +123,35 @@ func finishReconciliationLinkTx(ctx context.Context, tx *sql.Tx, priorCount int)
 		return reconciliationConflict("reconciliationLink")
 	}
 	return nil
+}
+
+func linkReconciliationProductTx(ctx context.Context, tx *sql.Tx, bundle domain.ProductBundle) error {
+	l := domain.ReconciliationLinkFrom(ctx)
+	if l == nil {
+		return nil
+	}
+	var household string
+	if err := tx.QueryRowContext(ctx, "SELECT household_id FROM reconciliation_sessions WHERE id=?", l.SessionID).Scan(&household); err != nil {
+		return err
+	}
+	if household != bundle.Operation.HouseholdID.String() {
+		return reconciliationConflict("reconciliationLink")
+	}
+	affected := false
+	for _, p := range bundle.Contracts {
+		if p.AccountID.String() == l.AccountID {
+			affected = true
+		}
+	}
+	for _, p := range bundle.ProductLinks {
+		var account string
+		err := tx.QueryRowContext(ctx, "SELECT account_id FROM product_contracts WHERE id=?", p.ProductID.String()).Scan(&account)
+		if err == nil && account == l.AccountID {
+			affected = true
+		}
+	}
+	if !affected {
+		return reconciliationConflict("reconciliationLink")
+	}
+	return saveReconciliationLinkTx(ctx, tx, bundle.Operation.ID.String(), "product_operation", map[string]any{"kind": bundle.Operation.Kind, "request": json.RawMessage(bundle.Operation.RequestJSON), "result": json.RawMessage(bundle.Operation.ResultJSON), "contracts": bundle.Contracts, "effectiveAt": bundle.Operation.EffectiveAt, "recordedAt": bundle.Operation.CreatedAt})
 }

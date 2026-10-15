@@ -19,7 +19,7 @@ import (
 // observations, history origin, mutation keys, product facts and configuration.
 func financialRows(t *testing.T, db *sql.DB) map[string][]string {
 	t.Helper()
-	tables, err := db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
+	tables, err := db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'reconciliation_%' AND name != 'account_financial_revisions' ORDER BY name`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -38,12 +38,13 @@ type SettleProductInput struct {
 }
 
 type ProductOperationInput struct {
-	Kind            string                              `json:"kind" jsonschema:"open, record_existing, receive_interest, settle or undo; exactly one matching payload"`
-	Open            *application.OpenProductCommand     `json:"open,omitempty"`
-	RecordExisting  *RecordExistingProductInput         `json:"recordExisting,omitempty"`
-	ReceiveInterest *application.ReceiveInterestCommand `json:"receiveInterest,omitempty"`
-	Settle          *SettleProductInput                 `json:"settle,omitempty"`
-	Undo            *application.UndoProductCommand     `json:"undo,omitempty"`
+	ReconciliationLink *domain.ReconciliationLink          `json:"reconciliationLink,omitempty"`
+	Kind               string                              `json:"kind" jsonschema:"open, record_existing, receive_interest, settle or undo; exactly one matching payload"`
+	Open               *application.OpenProductCommand     `json:"open,omitempty"`
+	RecordExisting     *RecordExistingProductInput         `json:"recordExisting,omitempty"`
+	ReceiveInterest    *application.ReceiveInterestCommand `json:"receiveInterest,omitempty"`
+	Settle             *SettleProductInput                 `json:"settle,omitempty"`
+	Undo               *application.UndoProductCommand     `json:"undo,omitempty"`
 }
 
 type productOperationPlan struct {
@@ -62,7 +63,7 @@ type ProductOperationPlanPreview struct {
 }
 
 func (in ProductOperationInput) command() (application.ProductCommand, error) {
-	r := liquidity.ProductCommandRequest{Kind: in.Kind, Open: in.Open, ReceiveInterest: in.ReceiveInterest, Undo: in.Undo}
+	r := liquidity.ProductCommandRequest{ReconciliationLink: in.ReconciliationLink, Kind: in.Kind, Open: in.Open, ReceiveInterest: in.ReceiveInterest, Undo: in.Undo}
 	if in.RecordExisting != nil {
 		v := in.RecordExisting
 		r.RecordExisting = &application.RecordExistingProductCommand{AccountID: v.AccountID, Currency: v.Currency, Principal: v.Principal, TotalCostBasis: v.TotalCostBasis, CurrentValue: v.CurrentValue, CashExcludesProduct: v.CashExcludesProduct, Terms: v.Terms, Policy: v.Policy}

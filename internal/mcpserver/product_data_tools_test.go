@@ -138,7 +138,7 @@ func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
 			t.Fatal(code)
 		}
 	}
-	for _, in := range []ProductValuationInput{{locked, "-1", ""}, {locked, "0", ""}, {locked, "1", "2026-09-30T12:00:00Z"}, {locked, "1", "2026-08-31T12:00:00Z"}} {
+	for _, in := range []ProductValuationInput{{nil, locked, "-1", ""}, {nil, locked, "0", ""}, {nil, locked, "1", "2026-09-30T12:00:00Z"}, {nil, locked, "1", "2026-08-31T12:00:00Z"}} {
 		if code := ledgerErrorCode(t, c, "preview_product_valuation", in); code == "" {
 			t.Fatal(in)
 		}
@@ -245,7 +245,7 @@ func TestProductHTTPValuationFrozenObservationImmutableReceiptAndHistory(t *test
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return now })
 	c := ledgerSession(t, fx)
 	id, opened := productDataSeed(t, fx, c, "locked_product")
-	p := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{id, "1100", ""})
+	p := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{nil, id, "1100", ""})
 	plan := p["planId"].(string)
 	preview := p["preview"].(map[string]any)
 	command := preview["command"].(map[string]any)
@@ -277,13 +277,13 @@ func TestProductHTTPValuationFrozenObservationImmutableReceiptAndHistory(t *test
 	if code := ledgerErrorCode(t, c, "preview_product_operation", ProductOperationInput{Kind: "undo", Undo: &application.UndoProductCommand{OperationID: opened["operationId"].(string)}}); code != "unsafe_undo" {
 		t.Fatal(code)
 	}
-	later := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{id, "1200", ""})
+	later := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{nil, id, "1200", ""})
 	productDataCommitHTTP(t, c, "commit_product_valuation", later["planId"].(string), uuid.NewString())
 	replay := productDataCommitHTTP(t, c, "commit_product_valuation", plan, uuid.NewString())
 	if replay["quoteId"] != result["quoteId"] || replay["amount"].(map[string]any)["amount"] != "1100" || replay["replayed"] != true {
 		t.Fatal(replay)
 	}
-	historical := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{id, "900", "2026-09-28T14:00:00+02:00"})
+	historical := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{nil, id, "900", "2026-09-28T14:00:00+02:00"})
 	h := historical["preview"].(map[string]any)
 	if h["currentValueBefore"].(map[string]any)["amount"] != "1200" || h["currentValueAfter"].(map[string]any)["amount"] != "1200" || h["netWorthDelta"].(map[string]any)["amount"] != "0" {
 		t.Fatal(h)
@@ -306,7 +306,7 @@ func TestProductHTTPDataStaleExpiredHashAndConcurrency(t *testing.T) {
 			previewTool, commitTool := "preview_product_"+kind, "commit_product_"+kind
 			input := any(productTermsInput(id, 1, "locked_product"))
 			if kind == "valuation" {
-				input = ProductValuationInput{id, "1100", ""}
+				input = ProductValuationInput{nil, id, "1100", ""}
 			}
 			for _, change := range []func(map[string]any){func(p map[string]any) { p["expiresAt"] = time.Now().Add(-time.Second) }, func(p map[string]any) { p["reviewedStateHash"] = "private-wrong-hash" }} {
 				p := productDataPreviewHTTP(t, c, previewTool, input)
@@ -377,7 +377,7 @@ func TestProductHTTPDataAtomicFailuresAndUnknownRecovery(t *testing.T) {
 			input := any(productTermsInput(id, 1, "locked_product"))
 			stages := []string{"terms:contract", "terms:policy", "terms:receipt"}
 			if kind == "valuation" {
-				input = ProductValuationInput{id, "1100", ""}
+				input = ProductValuationInput{nil, id, "1100", ""}
 				stages = []string{"operation", "quotes", "links", "complete"}
 			}
 			for _, stage := range stages {
@@ -463,7 +463,7 @@ func TestProductHTTPDataRestartAndOlderSnapshot(t *testing.T) {
 			id, _ := productDataSeed(t, fx, c, "locked_product")
 			input := any(productTermsInput(id, 1, "locked_product"))
 			if kind == "valuation" {
-				input = ProductValuationInput{id, "1100", ""}
+				input = ProductValuationInput{nil, id, "1100", ""}
 			}
 			previewTool, commitTool := "preview_product_"+kind, "commit_product_"+kind
 			p := productDataPreviewHTTP(t, c, previewTool, input)
@@ -530,7 +530,7 @@ func TestProductHTTPDataReceiptIntegrity(t *testing.T) {
 			id, _ := productDataSeed(t, fx, c, "locked_product")
 			input := any(productTermsInput(id, 1, "locked_product"))
 			if kind == "valuation" {
-				input = ProductValuationInput{id, "1100", ""}
+				input = ProductValuationInput{nil, id, "1100", ""}
 			}
 			p := productDataPreviewHTTP(t, c, "preview_product_"+kind, input)
 			productDataCommitHTTP(t, c, "commit_product_"+kind, p["planId"].(string), uuid.NewString())
@@ -574,7 +574,7 @@ func TestProductHTTPDataClosedRules(t *testing.T) {
 	id, _ := productDataSeed(t, fx, c, "locked_product")
 	p := productPlanHTTP(t, c, ProductOperationInput{Kind: "settle", Settle: &SettleProductInput{ProductID: id, GrossProceeds: productString("1000"), EffectiveAt: ""}})
 	productCommitHTTP(t, c, p["planId"].(string), uuid.NewString())
-	if code := ledgerErrorCode(t, c, "preview_product_valuation", ProductValuationInput{id, "1000", ""}); code != "conflict" {
+	if code := ledgerErrorCode(t, c, "preview_product_valuation", ProductValuationInput{nil, id, "1000", ""}); code != "conflict" {
 		t.Fatal(code)
 	}
 	current, err := fx.app.Product(t.Context(), domain.ProductContractID(id))
@@ -628,7 +628,7 @@ func TestProductHTTPValuationUnknownBeforeRemainsUnknown(t *testing.T) {
 	if _, err := db.SQL.Exec(`DELETE FROM instrument_quotes WHERE instrument_id=?`, product.Contract.InstrumentID.String()); err != nil {
 		t.Fatal(err)
 	}
-	p := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{id, "1100", ""})
+	p := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{nil, id, "1100", ""})
 	preview := p["preview"].(map[string]any)
 	if preview["currentValueBefore"] != nil || preview["netWorthKnown"] != false || preview["netWorthDelta"] != nil || preview["currentValueAfter"].(map[string]any)["amount"] != "1100" {
 		t.Fatal(p)
@@ -695,7 +695,7 @@ func TestProductHTTPTermsReceiptFeesRoundTripAndCommandBinding(t *testing.T) {
 	p := productDataPreviewHTTP(t, c, "preview_product_terms", in)
 	plan := p["planId"].(string)
 	first := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
-	valuePlan := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{id, "1100", ""})
+	valuePlan := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{nil, id, "1100", ""})
 	productDataCommitHTTP(t, c, "commit_product_valuation", valuePlan["planId"].(string), uuid.NewString())
 	replay := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
 	replay["replayed"] = false

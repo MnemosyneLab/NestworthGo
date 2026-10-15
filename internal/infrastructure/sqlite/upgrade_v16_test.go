@@ -16,7 +16,7 @@ func syntheticV16(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := schemaFS.ReadFile("schema.sql")
+	raw, err := os.ReadFile("testdata/schema_v16.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

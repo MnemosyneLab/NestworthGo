@@ -16,16 +16,16 @@ import (
 type ReconciliationAction struct {
 	Action            string                      `json:"action"`
 	SessionID         string                      `json:"sessionId,omitempty"`
-	ExpectedRevision  int64                       `json:"expectedRevision"`
+	ExpectedRevision  int64                       `json:"expectedRevision,omitempty"`
 	AccountIDs        []string                    `json:"accountIds,omitempty"`
 	AccountID         string                      `json:"accountId,omitempty"`
 	ItemID            string                      `json:"itemId,omitempty"`
-	FinancialRevision int64                       `json:"financialRevision"`
+	FinancialRevision int64                       `json:"financialRevision,omitempty"`
 	Outcome           string                      `json:"outcome,omitempty"`
-	Source            domain.ReconciliationSource `json:"source"`
+	Source            domain.ReconciliationSource `json:"source,omitempty"`
 	ReferenceValue    string                      `json:"referenceValue,omitempty"`
-	Note              string                      `json:"note"`
-	AllowPartial      bool                        `json:"allowPartial"`
+	Note              string                      `json:"note,omitempty"`
+	AllowPartial      bool                        `json:"allowPartial,omitempty"`
 }
 type ReconciliationSessionPlan struct {
 	ID        string                       `json:"id"`
@@ -483,6 +483,7 @@ func (s *Service) reconciliationLastSuccess(ctx context.Context, household, acco
 	if err != nil {
 		return nil, err
 	}
+	sort.Slice(sessions, func(i, j int) bool { return sessions[i].CompletedAt > sessions[j].CompletedAt })
 	for _, header := range sessions {
 		if header.Status != "completed" {
 			continue
@@ -567,4 +568,60 @@ func (s *Service) ValidateReconciliationLink(ctx context.Context, link *domain.R
 		}
 	}
 	return nil
+}
+
+func (s *Service) validateProductReconciliationLink(ctx context.Context, link *domain.ReconciliationLink, id domain.ProductContractID) error {
+	if link == nil {
+		return nil
+	}
+	if err := s.ValidateReconciliationLink(ctx, link, nil); err != nil {
+		return err
+	}
+	h, err := s.requireHousehold(ctx)
+	if err != nil {
+		return err
+	}
+	p, err := s.repository.Product(ctx, h.ID, id)
+	if err != nil {
+		return err
+	}
+	if p.AccountID.String() != link.AccountID {
+		return reconciliationError("reconciliationLink", "product belongs to another account")
+	}
+	return nil
+}
+
+func (s *Service) ReconciliationChanges(ctx context.Context, id, account string) ([]domain.ReconciliationFinancialChange, error) {
+	unlock, err := s.beginPreviewRead(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	v, err := s.getReconciliationSession(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	r, err := s.reconciliationRepo()
+	if err != nil {
+		return nil, err
+	}
+	result := []domain.ReconciliationFinancialChange{}
+	for _, a := range v.Accounts {
+		if account != "" && a.AccountID != account {
+			continue
+		}
+		if a.PriorRevision == 0 {
+			continue
+		}
+		rows, err := r.ReconciliationFinancialChanges(ctx, a.AccountID, a.PriorRevision)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			if v.Status != "completed" || row.Revision <= a.FinancialRevision {
+				result = append(result, row)
+			}
+		}
+	}
+	return result, nil
 }

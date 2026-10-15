@@ -109,3 +109,13 @@ func ReconciliationLinkFrom(ctx context.Context) *ReconciliationLink {
 	}
 	return &link
 }
+
+type ReconciliationFinancialChange struct {
+	AccountID   string          `json:"accountId"`
+	Revision    int64           `json:"revision"`
+	Family      string          `json:"family"`
+	FactID      string          `json:"factId"`
+	RecordedAt  string          `json:"recordedAt"`
+	EffectiveAt string          `json:"effectiveAt"`
+	Evidence    json.RawMessage `json:"evidence"`
+}

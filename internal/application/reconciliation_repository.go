@@ -12,5 +12,6 @@ type ReconciliationRepository interface {
 	ReconciliationRevisions(context.Context) (map[string]int64, error)
 	ReconciliationReceipt(context.Context, string, string, string) (*domain.ReconciliationSession, error)
 	SaveReconciliation(context.Context, domain.ReconciliationSession, int64, map[string]int64, string, string) error
+	ReconciliationFinancialChanges(context.Context, string, int64) ([]domain.ReconciliationFinancialChange, error)
 	ReconciliationLinks(context.Context, string, string) ([]domain.ReconciliationLinkedChange, error)
 }

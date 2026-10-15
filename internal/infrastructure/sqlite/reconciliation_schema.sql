@@ -28,44 +28,62 @@ CREATE TABLE account_financial_revisions (
  account_id TEXT PRIMARY KEY NOT NULL REFERENCES accounts(id), revision INTEGER NOT NULL CHECK(revision >= 1)
 );
 INSERT INTO account_financial_revisions SELECT id, 1 FROM accounts;
+CREATE TABLE reconciliation_financial_changes (
+ account_id TEXT NOT NULL REFERENCES accounts(id), revision INTEGER NOT NULL,
+ family TEXT NOT NULL, fact_id TEXT NOT NULL, recorded_at TEXT NOT NULL, effective_at TEXT NOT NULL,
+ evidence TEXT NOT NULL, PRIMARY KEY(account_id, revision)
+);
 CREATE TRIGGER reconciliation_accounts_insert AFTER INSERT ON accounts BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.id,revision,'accounts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.id)) FROM account_financial_revisions WHERE account_id=NEW.id;
 END;
 CREATE TRIGGER reconciliation_accounts_update AFTER UPDATE ON accounts WHEN OLD.archived_at IS NOT NEW.archived_at OR OLD.tracking_mode IS NOT NEW.tracking_mode OR OLD.default_currency IS NOT NEW.default_currency BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.id,revision,'accounts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.id)) FROM account_financial_revisions WHERE account_id=NEW.id;
 END;
 CREATE TRIGGER reconciliation_account_values_insert AFTER INSERT ON account_values BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'account_values',NEW.id,NEW.created_at,NEW.effective_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'amount',NEW.amount,'currency',NEW.currency) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
 CREATE TRIGGER reconciliation_account_cash_values_insert AFTER INSERT ON account_cash_values BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'account_cash_values',NEW.id,NEW.created_at,NEW.effective_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'amount',NEW.amount,'currency',NEW.currency) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
 CREATE TRIGGER reconciliation_holdings_insert AFTER INSERT ON holdings BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'holdings',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'quantity',NEW.quantity,'holdingId',NEW.id) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
 CREATE TRIGGER reconciliation_holdings_update AFTER UPDATE ON holdings WHEN OLD.quantity IS NOT NEW.quantity OR OLD.archived_at IS NOT NEW.archived_at OR OLD.instrument_id IS NOT NEW.instrument_id OR OLD.account_id IS NOT NEW.account_id BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'holdings',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'quantity',NEW.quantity,'holdingId',NEW.id) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
 CREATE TRIGGER reconciliation_activity_effects_insert AFTER INSERT ON activity_effects BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id)), 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id)),revision,'activity_effects',NEW.id,(SELECT created_at FROM activities WHERE id=NEW.activity_id),(SELECT effective_at FROM activities WHERE id=NEW.activity_id),json_object('accountName',(SELECT name FROM accounts WHERE id=COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id))),'kind',(SELECT kind FROM activities WHERE id=NEW.activity_id),'activityId',NEW.activity_id,'amount',NEW.amount,'currency',NEW.currency,'quantity',NEW.quantity,'unitCost',NEW.cost_unit_price) FROM account_financial_revisions WHERE account_id=COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id));
 END;
 CREATE TRIGGER reconciliation_product_contracts_insert AFTER INSERT ON product_contracts BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_contracts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'productName',NEW.name,'principal',NEW.principal,'state',NEW.state,'maturityOn',NEW.maturity_on) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
 CREATE TRIGGER reconciliation_product_contracts_update AFTER UPDATE ON product_contracts BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_contracts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'productName',NEW.name,'principal',NEW.principal,'state',NEW.state,'maturityOn',NEW.maturity_on) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
 CREATE TRIGGER reconciliation_instrument_scope AFTER UPDATE OF archived_at, quote_currency ON instruments
  WHEN OLD.archived_at IS NOT NEW.archived_at OR OLD.quote_currency IS NOT NEW.quote_currency BEGIN
  UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id IN (SELECT account_id FROM holdings WHERE instrument_id=NEW.id);
+END;
+CREATE TRIGGER reconciliation_product_facts AFTER INSERT ON product_operation_products BEGIN
+ UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=(SELECT account_id FROM product_contracts WHERE id=NEW.product_id);
+ INSERT INTO reconciliation_financial_changes SELECT p.account_id,r.revision,'product_operation',NEW.operation_id,o.created_at,o.effective_at,json_object('accountName',a.name,'productName',p.name,'kind',o.kind,'result',json(o.result_json)) FROM product_contracts p JOIN accounts a ON a.id=p.account_id JOIN account_financial_revisions r ON r.account_id=p.account_id JOIN product_operations o ON o.id=NEW.operation_id WHERE p.id=NEW.product_id;
 END;
 PRAGMA user_version = 17;

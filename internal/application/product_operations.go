@@ -105,6 +105,9 @@ func (s *Service) previewProductOperation(ctx context.Context, command ProductCo
 			}
 		}
 	}
+	if err := s.ValidateReconciliationLink(ctx, command.ReconciliationLink, nil); err != nil {
+		return ProductOperationPreview{}, err
+	}
 	return ProductOperationPreview{
 		Kind: command.Kind, NormalizedJSON: normalized, PayloadSHA256: payloadSHA,
 		ReviewedStateHash: reviewed, LocalDate: localDate, Timezone: origin.Timezone,
@@ -122,6 +125,7 @@ func (s *Service) RecordProductOperation(ctx context.Context, command ProductCom
 }
 
 func (s *Service) recordProductOperation(ctx context.Context, command ProductCommand, mutationID, reviewedStateHash string, expectedToken *string) (ProductOperationReceipt, error) {
+	ctx = domain.WithReconciliationLink(ctx, command.ReconciliationLink)
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return ProductOperationReceipt{}, err
