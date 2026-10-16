@@ -111,15 +111,24 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 	if err != nil {
 		return session, err
 	}
+	coverage, err := s.reconciliationInventoryCoverage(ctx, session)
+	if err != nil {
+		return session, err
+	}
+	for i := range session.Accounts {
+		a := &session.Accounts[i]
+		a.UncoveredArchivedHoldings = coverage.uncovered[a.AccountID]
+		a.ArchivedHoldingIDs = coverage.archived[a.AccountID]
+		a.InventoryCoverageGap = len(a.UncoveredArchivedHoldings) > 0
+		a.FinancialRevisionChanged = a.FinancialRevision != revisions[a.AccountID]
+	}
 	if session.Status == "completed" {
 		for i := range session.Accounts {
 			a := &session.Accounts[i]
-			a.RecheckRequired = a.FinancialRevision != revisions[a.AccountID]
-			for j := range a.Items {
-				a.Items[j].RecheckRequired = a.RecheckRequired
-			}
+			a.RecheckRequired = a.FinancialRevisionChanged
 		}
-		countReconciliation(&session)
+		// Completed items, outcomes and counts are frozen. Current coverage and
+		// bookkeeping context are separate account-level read projections.
 		return session, nil
 	}
 	ids := []string{}
@@ -140,13 +149,18 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 			for index, item := range a.Items {
 				known[item.ID] = index
 			}
+			uncovered := map[string]bool{}
+			for _, holding := range a.UncoveredArchivedHoldings {
+				uncovered[holding.HoldingID] = true
+			}
 			if fresh := current[a.AccountID]; fresh != nil {
 				for _, item := range fresh.Items {
-					if !item.ArchivedNonzero {
+					if !item.ArchivedNonzero && !uncovered[item.HoldingID] {
 						continue
 					}
 					index, exists := known[item.ID]
 					if exists && a.Items[index].Kind != "removed" {
+						a.Items[index].ArchivedNonzero = item.ArchivedNonzero
 						continue
 					}
 					item.RecheckRequired = true
@@ -196,6 +210,56 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 	countReconciliation(&session)
 	return session, nil
 }
+
+// Compare current inventory with recorded identities only. A gap does not
+// establish when the position appeared and must not rewrite a completed check.
+type reconciliationInventoryContext struct {
+	uncovered map[string][]domain.ReconciliationCoverageHolding
+	archived  map[string][]string
+}
+
+func (s *Service) reconciliationInventoryCoverage(ctx context.Context, session domain.ReconciliationSession) (reconciliationInventoryContext, error) {
+	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return reconciliationInventoryContext{}, err
+	}
+	selected := map[string]map[string]bool{}
+	for _, account := range session.Accounts {
+		known := map[string]bool{}
+		for _, item := range account.Items {
+			if item.HoldingID != "" && (item.Kind == "holding" || item.Kind == "product") {
+				known[item.HoldingID] = true
+			}
+		}
+		selected[account.AccountID] = known
+	}
+	instruments := map[domain.InstrumentID]domain.Instrument{}
+	for _, instrument := range snapshot.Instruments {
+		instruments[instrument.ID] = instrument
+	}
+	gaps := map[string][]domain.ReconciliationCoverageHolding{}
+	archived := map[string][]string{}
+	for _, holding := range snapshot.Holdings {
+		known, selectedAccount := selected[holding.AccountID.String()]
+		instrument := instruments[holding.InstrumentID]
+		if !selectedAccount || (holding.ArchivedAt == nil && instrument.ArchivedAt == nil) {
+			continue
+		}
+		archived[holding.AccountID.String()] = append(archived[holding.AccountID.String()], holding.ID.String())
+		if known[holding.ID.String()] || holding.Quantity.IsZero() {
+			continue
+		}
+		gaps[holding.AccountID.String()] = append(gaps[holding.AccountID.String()], domain.ReconciliationCoverageHolding{HoldingID: holding.ID.String(), InstrumentID: holding.InstrumentID.String(), Label: instrument.Name, Quantity: holding.Quantity.Canonical(), Currency: instrument.QuoteCurrency.String()})
+	}
+	for account := range gaps {
+		sort.Slice(gaps[account], func(i, j int) bool { return gaps[account][i].HoldingID < gaps[account][j].HoldingID })
+	}
+	for account := range archived {
+		sort.Strings(archived[account])
+	}
+	return reconciliationInventoryContext{uncovered: gaps, archived: archived}, nil
+}
+
 func countReconciliation(s *domain.ReconciliationSession) {
 	s.Counts = domain.ReconciliationCounts{}
 	for i := range s.Accounts {
@@ -556,6 +620,12 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 			return session, nil, reconciliationError("action", "unsupported reconciliation action")
 		}
 		session.Revision++
+	}
+	for i := range session.Accounts {
+		session.Accounts[i].ArchivedHoldingIDs = nil
+		session.Accounts[i].InventoryCoverageGap = false
+		session.Accounts[i].FinancialRevisionChanged = false
+		session.Accounts[i].UncoveredArchivedHoldings = nil
 	}
 	countReconciliation(&session)
 	selected := map[string]int64{}

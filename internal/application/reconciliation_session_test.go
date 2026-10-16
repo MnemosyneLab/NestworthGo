@@ -798,6 +798,9 @@ func TestReconciliationArchiveGuardAndLegacyVisibility(t *testing.T) {
 	if current.Accounts[0].FinancialRevision != v.Accounts[0].FinancialRevision {
 		t.Fatal("inventory refresh invented a financial revision")
 	}
+	if !current.Accounts[0].InventoryCoverageGap || current.Accounts[0].FinancialRevisionChanged || !current.Accounts[0].RecheckRequired {
+		t.Fatalf("coverage repair confused with bookkeeping: %+v", current.Accounts[0])
+	}
 	// Older sessions could also persist this position as "removed". That
 	// disposition is not evidence that its still-present units were checked.
 	for _, item := range current.Accounts[0].Items {

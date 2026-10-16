@@ -1784,6 +1784,12 @@
     "costZeroQuantity": "數量為零的持倉，總成本必須為零。",
     "costCurrency": "總成本必須使用標的的幣別。",
     "costPrecision": "此總成本無法以支援的每單位成本精度表示，請調整總成本。",
-    "costTotalInvalid": "請輸入非負的總成本，最多保留四位小數。"
+    "costTotalInvalid": "請輸入非負的總成本，最多保留四位小數。",
+    "historicalCoverageGap": "目前持倉中有已封存但數量非零的持倉，未被此歷史紀錄涵蓋。這不能證明它們在該紀錄完成時已經存在。",
+    "inventoryCoverageGap": "已儲存清單遺漏了目前已封存但數量非零的持倉，現已補為待核對項。",
+    "workingBookkeepingChanged": "這些工作檢查點之後發生了記帳變更，請複核已重新整理的待核對項。",
+    "pendingReview": "部分檢查點仍需複核，完成前請確認。",
+    "coverageNewCheck": "請新增核對以檢查目前涵蓋範圍。歷史證據和完成時間維持不變。",
+    "restoreBeforeCorrection": "請先還原已封存的持倉或標的，再更正或補記交易。仍可核對證據、標記處理結果或部分完成。"
   }
 }

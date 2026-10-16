@@ -217,3 +217,27 @@ pending; an old "removed" point is restored as a holding with its earlier attemp
 retained. This read projection does not invent a financial revision or mutate a
 completed record. The new pending point prevents a full finish until reviewed;
 the next session action persists it through the existing evidence transaction.
+
+### Current coverage beside frozen records
+
+Completed reads retain persisted item evidence, account outcomes/counts, the
+session revision, opening/closing notes and all timestamps. Counts come from the
+saved account evidence, not a recount of today's inventory. The read model derives
+`inventoryCoverageGap` and `uncoveredArchivedHoldings` separately from current
+archived nonzero holdings missing from the recorded holding/product identities
+(or represented only by a removed point). It does not infer whether a current
+holding existed when that record completed. The record and account summary ask
+for a new reconciliation; the historical success remains intact. Repeated reads
+do not write or repair the completed record.
+
+For unfinished sessions, coverage repair still adds/restores pending checks.
+`financialRevisionChanged` identifies a real revision difference; inventory-only
+repair and remaining pending reviews have their own copy and never claim that
+bookkeeping occurred after completion. These current-context fields are stripped
+before preview results are persisted, including receipts. They are not exported
+as historical facts. `archivedHoldingIds` independently identifies currently archived holdings or
+instruments, including zero quantities retained by legacy working records; it
+does not label zero quantities as nonzero. Ordinary archived positions retain evidence/disposition and
+partial-finish controls, but adjustment and missing-trade actions are hidden
+until the holding or instrument is restored. Backend refusals remain authoritative.
+Paused sessions may still finish directly.

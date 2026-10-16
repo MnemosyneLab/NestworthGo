@@ -1126,3 +1126,204 @@ it("preserves an unrecognized localized cost error instead of inventing a choice
     "Specific localized validation guidance",
   );
 });
+
+for (const locale of ["en", "zh-CN", "zh-TW"]) {
+  it(`shows independent current coverage on a frozen record and account (${locale})`, async () => {
+    await i18n.changeLanguage(locale);
+    q.session!.status = "completed";
+    q.session!.completedAt = "2026-09-01T13:00:00Z";
+    const account = q.session!.accounts![0];
+    account.inventoryCoverageGap = true;
+    account.financialRevisionChanged = false;
+    account.uncoveredArchivedHoldings = [
+      {
+        holdingId: "legacy-held",
+        instrumentId: "legacy-asset",
+        label: "Synthetic omitted ETF",
+        quantity: "2",
+        currency: "USD",
+      },
+    ];
+    const frozen = JSON.stringify(q.session);
+    const page = mount("session-one");
+    expect(
+      screen.getByText(i18n.t("reconciliation.historicalCoverageGap")),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(i18n.t("reconciliation.coverageNewCheck")),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Synthetic omitted ETF · 2/)).toBeInTheDocument();
+    expect(
+      screen.queryByText(i18n.t("reconciliation.recheck")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: i18n.t("reconciliation.adjust") }),
+    ).not.toBeInTheDocument();
+    expect(JSON.stringify(q.session)).toBe(frozen);
+    page.unmount();
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <AccountReconciliation accountId="one" />
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.getByText(i18n.t("reconciliation.historicalCoverageGap")),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: i18n.t("reconciliation.lastRecord") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(i18n.t("reconciliation.laterBookkeeping")),
+    ).not.toBeInTheDocument();
+    expect(JSON.stringify(q.session)).toBe(frozen);
+  });
+
+  it.each(["inventory", "financial", "pending"])(
+    `distinguishes %s working checks from completed bookkeeping (${locale})`,
+    async (reason) => {
+      await i18n.changeLanguage(locale);
+      const account = q.session!.accounts![0];
+      account.recheckRequired = true;
+      account.inventoryCoverageGap = reason === "inventory";
+      account.financialRevisionChanged = reason === "financial";
+      mount("session-one");
+      expect(
+        screen.getByText(
+          i18n.t(
+            `reconciliation.${reason === "financial" ? "workingBookkeepingChanged" : "pendingReview"}`,
+          ),
+        ),
+      ).toBeInTheDocument();
+      expect(
+        Boolean(
+          screen.queryByText(i18n.t("reconciliation.inventoryCoverageGap")),
+        ),
+      ).toBe(reason === "inventory");
+      expect(
+        screen.queryByText(i18n.t("reconciliation.recheck")),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(i18n.t("reconciliation.laterBookkeeping")),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getAllByText(
+          i18n.t("reconciliation.counts", {
+            confirmed: 0,
+            pending: 2,
+            skipped: 0,
+            unresolved: 0,
+          }),
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByRole("button", {
+          name: i18n.t("reconciliation.review"),
+        }),
+      ).toHaveLength(2);
+    },
+  );
+
+  it.each(["0", "2"])(
+    `keeps archived evidence and partial finish while hiding unsupported corrections for quantity %s (${locale})`,
+    async (quantity) => {
+      await i18n.changeLanguage(locale);
+      q.session!.accounts![0].archivedHoldingIds = ["held-one"];
+      Object.assign(q.session!.accounts![0].items![0], {
+        kind: "holding",
+        holdingId: "held-one",
+        instrumentId: "asset-one",
+        archivedNonzero: quantity !== "0",
+        label: "Synthetic archived ETF",
+        value: quantity,
+        note: "Retain existing explanation",
+      });
+      const activePage = mount("session-one");
+      const article = screen
+        .getByText(/Synthetic archived ETF ·/)
+        .closest("article")!;
+      expect(article).toHaveTextContent("Retain existing explanation");
+      expect(article).toHaveTextContent(
+        i18n.t("reconciliation.restoreBeforeCorrection"),
+      );
+      expect(
+        within(article).queryByRole("button", {
+          name: i18n.t("reconciliation.adjust"),
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(article).queryByRole("button", {
+          name: i18n.t("reconciliation.recordMissing"),
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(article).getByRole("button", {
+          name: i18n.t("reconciliation.review"),
+        }),
+      ).toBeInTheDocument();
+      if (quantity === "0")
+        expect(
+          within(article).queryByText(i18n.t("reconciliation.archivedNonzero")),
+        ).not.toBeInTheDocument();
+      activePage.unmount();
+      q.session!.status = "paused";
+      mount("session-one");
+      // Paused sessions retain direct finish without resuming.
+      await userEvent.click(
+        screen.getByRole("button", { name: i18n.t("reconciliation.finish") }),
+      );
+      await userEvent.click(
+        screen.getByRole("checkbox", {
+          name: i18n.t("reconciliation.allowPartial"),
+        }),
+      );
+      fireEvent.change(
+        screen.getByLabelText(i18n.t("reconciliation.closingNote")),
+        { target: { value: "Restore position before correcting" } },
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: i18n.t("reconciliation.preview") }),
+      );
+      expect(q.preview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "finish",
+          allowPartial: true,
+          note: "Restore position before correcting",
+        }),
+      );
+    },
+  );
+}
+
+it("allows an archived position's evidence disposition through the real check form", async () => {
+  Object.assign(q.session!.accounts![0].items![0], {
+    kind: "holding",
+    holdingId: "held-one",
+    archivedNonzero: true,
+    label: "Synthetic archived ETF",
+    value: "2",
+  });
+  mount("session-one");
+  const article = screen
+    .getByText(/Synthetic archived ETF ·/)
+    .closest("article")!;
+  await userEvent.click(
+    within(article).getByRole("button", { name: "Check item" }),
+  );
+  await userEvent.selectOptions(
+    screen.getByLabelText("Check outcome"),
+    "unresolved",
+  );
+  await userEvent.type(
+    screen.getByLabelText("Explanation or note"),
+    "Restore this holding before correcting",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: "check",
+      itemId: "balance",
+      outcome: "unresolved",
+      note: "Restore this holding before correcting",
+    }),
+  );
+});

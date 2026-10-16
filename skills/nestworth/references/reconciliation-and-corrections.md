@@ -183,3 +183,18 @@ changes marked afterCompletion are later bookkeeping, outside the frozen origina
 interval. Keep historical success timestamps when describing subsequent changes.
 Business revision/change logs are in JSON exports; private plans/receipts are not.
 Exports are evidence for inspection, not restorable backups.
+
+Current account context may include inventoryCoverageGap and
+uncoveredArchivedHoldings: these name currently archived nonzero positions absent
+from the record's covered identities. On a completed record they do not prove
+that the positions existed when it completed, and do not invalidate its historical
+time, counts, outcome or evidence. Start a new reconciliation for current coverage.
+For an unfinished record the inventory repair leaves pending checks; distinguish
+it from financialRevisionChanged and from bookkeeping after completion. Do not
+claim that an in-progress or paused record was already completed. The current archivedHoldingIds context also covers zero-quantity legacy points.
+Restore an archived holding/instrument before ordinary adjustments or missing trades; evidence
+disposition and partial finish remain available. A paused session may finish
+without resuming. These current-context fields are read projections, not exported
+historical facts. Older v2 exports may omit the reconciliation datasets and a
+session's closingNote; absence is unavailable evidence, not an empty history or
+permission to copy the opening note into the closing explanation.

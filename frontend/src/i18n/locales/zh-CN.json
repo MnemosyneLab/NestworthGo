@@ -1784,6 +1784,12 @@
     "costZeroQuantity": "数量为零的持仓，总成本必须为零。",
     "costCurrency": "总成本必须使用标的的币种。",
     "costPrecision": "此总成本无法按支持的单位成本精度表示，请调整总成本。",
-    "costTotalInvalid": "请输入非负总成本，最多保留四位小数。"
+    "costTotalInvalid": "请输入非负总成本，最多保留四位小数。",
+    "historicalCoverageGap": "当前持仓中有已归档但数量非零的持仓，未被此历史记录覆盖。这不能证明它们在该记录完成时已经存在。",
+    "inventoryCoverageGap": "已保存清单遗漏了当前已归档但数量非零的持仓，现已补为待核对项。",
+    "workingBookkeepingChanged": "这些工作检查点之后发生了记账变更，请复核已刷新的待核对项。",
+    "pendingReview": "部分检查点仍需复核，完成前请确认。",
+    "coverageNewCheck": "请新建核对以检查当前覆盖范围。历史证据和完成时间保持不变。",
+    "restoreBeforeCorrection": "请先恢复已归档的持仓或标的，再更正或补记交易。仍可核对证据、标记处理结果或部分完成。"
   }
 }

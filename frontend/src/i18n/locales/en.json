@@ -1784,6 +1784,12 @@
     "costZeroQuantity": "A holding with zero quantity must have zero total cost.",
     "costCurrency": "Total cost must use the instrument’s currency.",
     "costPrecision": "This total cost cannot be represented at the supported per-unit precision. Adjust the total cost.",
-    "costTotalInvalid": "Enter a non-negative total cost with up to four decimal places."
+    "costTotalInvalid": "Enter a non-negative total cost with up to four decimal places.",
+    "historicalCoverageGap": "Current inventory contains archived positions with nonzero units that are not covered by this historical record. This does not establish whether they existed when it was completed.",
+    "inventoryCoverageGap": "The saved checklist omitted a currently archived position with nonzero units. It has been added as a pending check.",
+    "workingBookkeepingChanged": "Bookkeeping changed since these working checkpoints. Review the refreshed pending checks.",
+    "pendingReview": "Some checkpoints still need review before finishing.",
+    "coverageNewCheck": "Start a new reconciliation to review the current coverage. The historical evidence and completion time are unchanged.",
+    "restoreBeforeCorrection": "Restore the archived holding or instrument before adjusting it or recording a missing transaction. Evidence review, disposition and partial finish remain available."
   }
 }

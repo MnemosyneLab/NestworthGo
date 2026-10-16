@@ -34,7 +34,23 @@ type ReconciliationCounts struct {
 	Skipped    int `json:"skipped"`
 	Unresolved int `json:"unresolved"`
 }
+
+// ReconciliationCoverageHolding describes a current archived nonzero position,
+// without claiming it existed at the historical check's completion.
+type ReconciliationCoverageHolding struct {
+	HoldingID    string `json:"holdingId"`
+	InstrumentID string `json:"instrumentId"`
+	Label        string `json:"label"`
+	Quantity     string `json:"quantity"`
+	Currency     string `json:"currency"`
+}
 type ReconciliationAccount struct {
+	// Read-only context; never persisted as historical evidence or receipts.
+	ArchivedHoldingIDs        []string                        `json:"archivedHoldingIds,omitempty"`
+	InventoryCoverageGap      bool                            `json:"inventoryCoverageGap,omitempty"`
+	FinancialRevisionChanged  bool                            `json:"financialRevisionChanged,omitempty"`
+	UncoveredArchivedHoldings []ReconciliationCoverageHolding `json:"uncoveredArchivedHoldings,omitempty"`
+
 	PriorSuccessfulAt string               `json:"priorSuccessfulAt,omitempty"`
 	AccountID         string               `json:"accountId"`
 	Name              string               `json:"name"`

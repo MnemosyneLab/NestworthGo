@@ -56,6 +56,11 @@ func (r *Repository) ReconciliationSession(ctx context.Context, household, id st
 			return s, err
 		}
 		s.Accounts = append(s.Accounts, a)
+		// Counts are frozen account evidence, not recalculated from today's inventory.
+		s.Counts.Pending += a.Counts.Pending
+		s.Counts.Confirmed += a.Counts.Confirmed
+		s.Counts.Skipped += a.Counts.Skipped
+		s.Counts.Unresolved += a.Counts.Unresolved
 	}
 	err = rows.Err()
 	rows.Close()

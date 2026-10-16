@@ -1,3 +1,4 @@
+import { ReconciliationCoverageNotice } from "./ReconciliationCoverageNotice";
 import { useHistoryOrigin } from "@/queries/history";
 import { localDateTimeInTimeZone } from "@/lib/time";
 import {
@@ -107,6 +108,16 @@ type Review = {
   adjustment?: AdjustmentPreview;
   product?: ProductPreview;
 };
+function archivedTarget(
+  account: ReconciliationAccount,
+  item: ReconciliationItem,
+): boolean {
+  return Boolean(
+    item.archivedNonzero ||
+      (item.holdingId && account.archivedHoldingIds?.includes(item.holdingId)),
+  );
+}
+
 export function ReconciliationPage({
   accountId,
   sessionId,
@@ -433,8 +444,16 @@ export function ReconciliationPage({
                         ? formatTimestamp(a.lastSuccessfulAt)
                         : t("reconciliation.never")}
                     </p>
+                    <ReconciliationCoverageNotice
+                      account={a}
+                      completed={current.status === "completed"}
+                    />
                     {a.recheckRequired && (
-                      <p role="status">{t("reconciliation.recheck")}</p>
+                      <p role="status">
+                        {t(
+                          `reconciliation.${current.status === "completed" ? "recheck" : a.financialRevisionChanged ? "workingBookkeepingChanged" : "pendingReview"}`,
+                        )}
+                      </p>
                     )}
                     {[...(a.items ?? [])]
                       .sort(
@@ -476,6 +495,12 @@ export function ReconciliationPage({
                               {t("reconciliation.archivedNonzero")}
                             </p>
                           )}
+                          {archivedTarget(a, item) &&
+                            current.status !== "completed" && (
+                              <p role="status">
+                                {t("reconciliation.restoreBeforeCorrection")}
+                              </p>
+                            )}
                           {item.kind !== "scope" && (
                             <p className="break-words font-mono">
                               {checkpointValue(t, item)}
@@ -542,21 +567,22 @@ export function ReconciliationPage({
                               </Button>
                               {["cash", "balance", "holding"].includes(
                                 item.kind,
-                              ) && (
-                                <Button
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    trigger.current = e.currentTarget;
-                                    setEditing({
-                                      account: a,
-                                      item,
-                                      route: "adjust",
-                                    });
-                                  }}
-                                >
-                                  {t("reconciliation.adjust")}
-                                </Button>
-                              )}
+                              ) &&
+                                !archivedTarget(a, item) && (
+                                  <Button
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      trigger.current = e.currentTarget;
+                                      setEditing({
+                                        account: a,
+                                        item,
+                                        route: "adjust",
+                                      });
+                                    }}
+                                  >
+                                    {t("reconciliation.adjust")}
+                                  </Button>
+                                )}
                               {item.kind === "product" && (
                                 <Button
                                   variant="ghost"
@@ -605,7 +631,8 @@ export function ReconciliationPage({
                                   </Button>
                                 )}
                               {item.kind !== "product" &&
-                                item.kind !== "removed" && (
+                                item.kind !== "removed" &&
+                                !archivedTarget(a, item) && (
                                   <Button
                                     variant="ghost"
                                     onClick={(e) => {
