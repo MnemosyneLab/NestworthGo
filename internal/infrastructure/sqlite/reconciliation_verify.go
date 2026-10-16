@@ -6,8 +6,12 @@ import (
 	"strings"
 )
 
-func verifyReconciliationSchema(ctx context.Context, query schemaQuery) error {
-	raw, err := schemaFS.ReadFile("reconciliation_schema.sql")
+func verifyReconciliationSchema(ctx context.Context, query schemaQuery, version int) error {
+	file := "reconciliation_schema.sql"
+	if version == 17 {
+		file = "reconciliation_schema_v17.sql"
+	}
+	raw, err := schemaFS.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -36,7 +40,7 @@ func verifyReconciliationSchema(ctx context.Context, query schemaQuery) error {
 			return fmt.Errorf("missing reconciliation schema %s: %w", name, err)
 		}
 		normalize := func(s string) string {
-			return strings.Join(strings.Fields(strings.TrimSuffix(strings.TrimSpace(s), ";")), " ")
+			return strings.ReplaceAll(strings.ReplaceAll(strings.Join(strings.Fields(strings.TrimSuffix(strings.TrimSpace(s), ";")), " "), " ,", ","), " )", ")")
 		}
 		if normalize(stored) != normalize("CREATE "+statement) {
 			return fmt.Errorf("invalid reconciliation schema %s", name)

@@ -178,6 +178,34 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 		if err := ensureHousehold(ctx, tx, householdID); err != nil {
 			return err
 		}
+		if archived {
+			rows, err := tx.QueryContext(ctx, "SELECT quantity FROM holdings WHERE instrument_id=?", id.String())
+			if err != nil {
+				return err
+			}
+			nonzero := false
+			for rows.Next() {
+				var raw string
+				if err := rows.Scan(&raw); err != nil {
+					rows.Close()
+					return err
+				}
+				q, err := domain.ParseQuantity(raw)
+				if err != nil {
+					rows.Close()
+					return err
+				}
+				nonzero = nonzero || !q.IsZero()
+			}
+			err = rows.Err()
+			rows.Close()
+			if err != nil {
+				return err
+			}
+			if nonzero {
+				return &domain.Error{Code: domain.ErrConflict, Field: "quantity", Message: "all holdings must have zero quantity before archiving an instrument"}
+			}
+		}
 		if !archived {
 			var providerKey, providerSymbol sql.NullString
 			var metalTemplate, quantityUnit, currency string
@@ -391,6 +419,19 @@ func (r *Repository) SetHoldingArchive(ctx context.Context, householdID domain.H
 				return &domain.Error{Code: domain.ErrNotFound, Message: "holding was not found"}
 			}
 			return err
+		}
+		if archived {
+			var raw string
+			if err := tx.QueryRowContext(ctx, "SELECT quantity FROM holdings WHERE id=?", id.String()).Scan(&raw); err != nil {
+				return err
+			}
+			q, err := domain.ParseQuantity(raw)
+			if err != nil {
+				return err
+			}
+			if !q.IsZero() {
+				return &domain.Error{Code: domain.ErrConflict, Field: "quantity", Message: "a holding must have zero quantity before it is archived"}
+			}
 		}
 		if !archived {
 			var conflictID string

@@ -356,3 +356,44 @@ func TestReconciliationUnlinkedPlansKeepLegacyDurableReceiptHash(t *testing.T) {
 		t.Fatal("legacy replay duplicated activities")
 	}
 }
+
+func TestReconciliationOldUnknownCommitAfterNewPlanRevision(t *testing.T) {
+	fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	c := ledgerSession(t, fx)
+	old := reconciliationPreview(t, c, map[string]any{"accountId": fx.checking, "targetBalance": "25", "currency": "USD"})
+	id := old["planId"].(string)
+	raw, err := fx.service.loadPreviewPlan(id, "reconciliation")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	op := uuid.NewString()
+	args := map[string]any{"operationId": op, "input": map[string]any{"planId": id}}
+	if _, err := db.SQL.Exec("DELETE FROM app_configuration WHERE key=?", "mcp.plan."+id); err != nil {
+		t.Fatal(err)
+	}
+	if code := ledgerErrorCode(t, c, "commit_reconciliation", args); code != "operation_outcome_unknown" {
+		t.Fatal(code)
+	}
+	newer := reconciliationPreview(t, c, map[string]any{"accountId": fx.checking, "targetBalance": "30", "currency": "USD"})
+	reconciliationCommit(t, c, uuid.NewString(), newer["planId"].(string))
+	count := ledgerActivityCount(t, fx.app)
+	// An old absent body remains unknown even after a different reviewed plan
+	// committed. Changing outer operation IDs is not treated as proof of a duplicate.
+	if code := ledgerErrorCode(t, c, "commit_reconciliation", args); code != "operation_outcome_unknown" {
+		t.Fatal(code)
+	}
+	var body any
+	if err = json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if err = fx.service.writePrivate(filepath.Join(fx.service.dir, "plans", id+".json"), body); err != nil {
+		t.Fatal(err)
+	}
+	if code := ledgerErrorCode(t, c, "commit_reconciliation", args); code != "stale_preview" {
+		t.Fatal(code)
+	}
+	if ledgerActivityCount(t, fx.app) != count {
+		t.Fatal("unknown old ID executed")
+	}
+}

@@ -127,11 +127,12 @@ families keep their existing behavior. The backend request hash, schema and MCP
 plan/receipt behavior are unchanged; the frontend binds family and Fix source
 separately because they are absent from the ordinary request hash.
 
-This is in-session recovery, not persistence across process restart. Desktop
-plans are held in memory; if a plan has actually disappeared, retry cannot
-resolve its receipt through the current desktop API. Keep the review guarded
-rather than silently assigning a new identity. Native window/process close and
-restart recovery require separate backend/product work and acceptance.
+Ordinary Record/Fix recovery remains in-session. Reconciliation session,
+adjustment and product previews additionally register private immutable SQLite
+recovery material, using stable business IDs. The reconciliation adapter can
+reload these after restart and inspect succeeded receipts without a body.
+An unavailable plan with no proven receipt remains guarded and unknown.
+Native window/process close and restart UI acceptance remains a separate gate.
 
 ## Financial display and identities
 

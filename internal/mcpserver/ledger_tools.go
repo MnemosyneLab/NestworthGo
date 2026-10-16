@@ -254,7 +254,7 @@ func (s *Service) loadPreviewPlan(planID, expectedType string) ([]byte, error) {
 	}
 	raw, err := s.readPrivate(filepath.Join(s.dir, "plans", id.String()+".json"))
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fail("not_found", "preview plan not found; create a new preview")
+		return nil, fail("operation_outcome_unknown", "reviewed plan unavailable; inspect the operation receipt and current data; do not replace an unknown submission")
 	}
 	if err != nil {
 		return nil, err

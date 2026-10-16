@@ -21,8 +21,9 @@ for older files; current Nestworth writes version 2.
 
 - Amounts, quantities, prices, FX rates, split factors and dividend cash are decimal
   strings. Parse with decimal arithmetic, not binary floating point.
-- Optional values are JSON `null`, including unavailable money and missing timezone.
-  Empty collections are always `[]`. Flags are booleans. Sequences, revisions,
+- Nullable row values are JSON `null`, including unavailable money and missing
+  timezone. Nested business evidence may omit optional properties as specified in
+  the schema. Empty collections are always `[]`. Flags are booleans. Sequences, revisions,
   sort orders and ownership basis points are integers (`10000` means 100%).
 - Timestamps retain full stored precision and offset (RFC 3339); local dates are
   `YYYY-MM-DD`. `timezone` is the history-origin IANA timezone, or null when history
@@ -109,3 +110,32 @@ for holding in data["currentState"]["holdings"]:
     name = instruments[holding["instrumentId"]]["name"]
     print(name, Decimal(holding["quantity"]), holding["costStatus"])
 ```
+
+## Additive v2 reconciliation compatibility
+
+Current writers emit `facts.history.reconciliationSessions`,
+`reconciliationAccounts`, `reconciliationItems`, `reconciliationLinks`,
+`accountFinancialRevisions`, and `reconciliationFinancialChanges`, including empty
+arrays. These are business evidence and revision/change logs. Session `note`
+retains the opening note; `closingNote` is the separate closing explanation.
+Private preview plans, recovery bodies and execution receipts are excluded.
+Current inventory coverage warnings are derived read context, not frozen evidence,
+and are not added to these datasets.
+
+The v2 schema accepts these six datasets as optional because earlier v2 exports
+omitted them. `closingNote` is likewise optional for older session rows; current
+writers always emit a string (empty when no closing explanation was supplied).
+An absent dataset/field means the producer did not provide that evidence; it is
+not proof of an empty history and must not be filled by copying the opening note.
+The original required datasets remain required. Dataset row envelopes and known
+field types remain strict; family-specific nested business evidence (`detail`,
+financial-change evidence and committed link results) permits its varying fields.
+Legacy `targetMatched` and source/reference additions remain optional.
+
+The same compatibility policy documents the already-exported optional
+`facts.marketData.agentQuoteBatches` and `agentQuoteRecords` provenance arrays.
+They retain public source attribution and correction/retraction identities, with
+nullable quote/target IDs. This aligns the schema with the existing writer;
+there is no format version change or new restore capability. Tests validate real
+application exports, populated reconciliation/link and Agent provenance data,
+older files with optional datasets/closing notes removed, and invalid row types.

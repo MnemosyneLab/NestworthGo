@@ -151,6 +151,16 @@ func TestPortfolioRepositoriesEnforceModesUniquenessAndSnapshotBoundary(t *testi
 	if err := repository.AppendInstrumentQuote(ctx, badQuote); err == nil {
 		t.Fatal("instrument quote with invalid currency succeeded")
 	}
+	if err := repository.SetHoldingArchive(ctx, household.ID, holding.ID, true, now); err == nil {
+		t.Fatal("nonzero holding archive accepted")
+	}
+	if err := repository.SetInstrumentArchive(ctx, household.ID, instrument.ID, true, now); err == nil {
+		t.Fatal("nonzero instrument archive accepted")
+	}
+	zero, _ := domain.ParseQuantity("0")
+	if err := repository.UpdateHolding(ctx, holding.ReplaceQuantity(zero, now)); err != nil {
+		t.Fatal(err)
+	}
 	if err := repository.SetHoldingArchive(ctx, household.ID, holding.ID, true, now); err != nil {
 		t.Fatalf("archive holding: %v", err)
 	}
@@ -436,7 +446,7 @@ func TestArchivedHoldingAndAccountRejectFinalWrites(t *testing.T) {
 	_, repository, household, account, instrument := seedPortfolioRepository(t)
 	ctx := context.Background()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
-	quantity, err := domain.ParseQuantity("1")
+	quantity, err := domain.ParseQuantity("0")
 	if err != nil {
 		t.Fatal(err)
 	}

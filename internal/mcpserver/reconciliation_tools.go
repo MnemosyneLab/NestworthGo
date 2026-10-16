@@ -248,6 +248,20 @@ func (s *Service) previewReconciliation(ctx context.Context, in ReconciliationIn
 func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput) (any, error) {
 	raw, err := s.loadPreviewPlan(in.PlanID, "reconciliation")
 	if err != nil {
+		if safeError(err).Code != "operation_outcome_unknown" {
+			return nil, err
+		}
+		receipt, lookupErr := s.app.ReconciliationAdjustmentReceipt(ctx, in.PlanID)
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+		if receipt != nil {
+			result := BatchChangeResult{Changes: make([]wire.ChangePreviewDTO, len(receipt))}
+			for i, v := range receipt {
+				result.Changes[i] = wire.FromChangePreview(v)
+			}
+			return result, nil
+		}
 		return nil, err
 	}
 	var plan reconciliationPlan

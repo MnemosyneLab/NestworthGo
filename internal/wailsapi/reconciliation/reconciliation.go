@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +20,6 @@ import (
 type Service struct {
 	products    preview.Store[productPlan]
 	app         *application.Service
-	sessions    preview.Store[application.ReconciliationSessionPlan]
 	adjustments preview.Store[adjustmentPlan]
 }
 
@@ -51,12 +51,33 @@ func (s *Service) Preview(ctx context.Context, in application.ReconciliationActi
 	if e != nil {
 		return SessionPreview{}, apierror.Wrap(e)
 	}
-	return SessionPreview{PlanID: s.sessions.Put(v), Result: v.Result}, nil
+	raw, e := json.Marshal(v)
+	if e == nil {
+		e = s.app.SaveReconciliationPlan(ctx, "session", v.ID, raw)
+	}
+	if e != nil {
+		return SessionPreview{}, apierror.Wrap(e)
+	}
+	return SessionPreview{PlanID: v.ID, Result: v.Result}, nil
 }
 func (s *Service) Commit(ctx context.Context, id string) (domain.ReconciliationSession, error) {
-	plan, e := s.sessions.Get(id)
+	var plan application.ReconciliationSessionPlan
+	raw, e := s.app.LoadReconciliationPlan(ctx, "session", id)
 	if e != nil {
+		receipt, lookupErr := s.app.ReconciliationSessionReceipt(ctx, id)
+		if lookupErr != nil {
+			return domain.ReconciliationSession{}, apierror.Wrap(lookupErr)
+		}
+		if receipt != nil {
+			return *receipt, nil
+		}
 		return domain.ReconciliationSession{}, apierror.Wrap(e)
+	}
+	if e = json.Unmarshal(raw, &plan); e != nil {
+		return domain.ReconciliationSession{}, apierror.Wrap(e)
+	}
+	if plan.ID != id {
+		return domain.ReconciliationSession{}, apierror.Wrap(&domain.Error{Code: domain.ErrConflict, Field: "planId", Message: "saved identity differs"})
 	}
 	v, e := s.app.CommitReconciliationSession(ctx, plan)
 	return v, apierror.Wrap(e)
@@ -103,18 +124,18 @@ func (s *Service) PreviewAdjustment(ctx context.Context, in AdjustmentRequest) (
 		if in.UnitCost != "" {
 			q, e := domain.ParseUnitPrice(in.UnitCost)
 			if e != nil {
-				return AdjustmentPreview{}, apierror.Wrap(e)
+				return AdjustmentPreview{}, adjustmentFieldError("unitCost", e)
 			}
 			target.UnitCost = &q
 		}
 		if in.TotalCost != "" {
 			currency, e := domain.ParseSupportedCurrency(in.Currency)
 			if e != nil {
-				return AdjustmentPreview{}, apierror.Wrap(e)
+				return AdjustmentPreview{}, adjustmentFieldError("totalCost", e)
 			}
 			m, e := domain.ParseMoney(in.TotalCost, currency)
 			if e != nil {
-				return AdjustmentPreview{}, apierror.Wrap(e)
+				return AdjustmentPreview{}, adjustmentFieldError("totalCost", e)
 			}
 			target.TargetTotalCost = &m
 		}
@@ -149,7 +170,14 @@ func (s *Service) PreviewAdjustment(ctx context.Context, in AdjustmentRequest) (
 	sum := sha256.Sum256(raw)
 	plan.hash = hex.EncodeToString(sum[:])
 	plan.token = token
-	result := AdjustmentPreview{PlanID: s.adjustments.Put(plan)}
+	raw, e := json.Marshal(plan)
+	if e == nil {
+		e = s.app.SaveReconciliationPlan(ctx, "adjustment", plan.id, raw)
+	}
+	if e != nil {
+		return AdjustmentPreview{}, apierror.Wrap(e)
+	}
+	result := AdjustmentPreview{PlanID: plan.id}
 	for _, v := range values {
 		result.Changes = append(result.Changes, wire.FromChangePreview(v))
 	}
@@ -158,7 +186,24 @@ func (s *Service) PreviewAdjustment(ctx context.Context, in AdjustmentRequest) (
 func (s *Service) CommitAdjustment(ctx context.Context, id string) ([]wire.ChangePreviewDTO, error) {
 	p, e := s.adjustments.Get(id)
 	if e != nil {
-		return nil, apierror.Wrap(e)
+		raw, err := s.app.LoadReconciliationPlan(ctx, "adjustment", id)
+		if err != nil {
+			receipt, lookupErr := s.app.ReconciliationAdjustmentReceipt(ctx, id)
+			if lookupErr != nil {
+				return nil, apierror.Wrap(lookupErr)
+			}
+			if receipt != nil {
+				result := []wire.ChangePreviewDTO{}
+				for _, v := range receipt {
+					result = append(result, wire.FromChangePreview(v))
+				}
+				return result, nil
+			}
+			return nil, apierror.Wrap(err)
+		}
+		if e = json.Unmarshal(raw, &p); e != nil {
+			return nil, apierror.Wrap(e)
+		}
 	}
 	token := p.token
 	if time.Now().After(p.expires) {
@@ -178,4 +223,16 @@ func (s *Service) CommitAdjustment(ctx context.Context, id string) ([]wire.Chang
 func (s *Service) Changes(ctx context.Context, id, account string) ([]domain.ReconciliationFinancialChange, error) {
 	v, e := s.app.ReconciliationChanges(ctx, id, account)
 	return v, apierror.Wrap(e)
+}
+
+// Parsing domain primitives names their value type; the adapter names the
+// reviewed form field so the shared field-error contract remains actionable.
+func adjustmentFieldError(field string, err error) error {
+	var de *domain.Error
+	if errors.As(err, &de) {
+		copy := *de
+		copy.Field = field
+		return apierror.Wrap(&copy)
+	}
+	return apierror.Wrap(err)
 }

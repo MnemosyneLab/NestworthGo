@@ -1,3 +1,9 @@
+import {
+  knownReconciliationConflict,
+  completedReconciliation,
+} from "./reconciliationErrors";
+import { useQueryClient } from "@tanstack/react-query";
+import type { WireError } from "@/lib/wails";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -43,9 +49,16 @@ export function ProductCorrection({
       onPreview={onPreview}
     />
   ) : (
-    <p role="status">
-      {t(product.isError ? "reconciliation.error" : "reconciliation.loading")}
-    </p>
+    <div role={product.isError ? "alert" : "status"}>
+      <p>
+        {t(product.isError ? "reconciliation.error" : "reconciliation.loading")}
+      </p>
+      {product.isError && (
+        <Button onClick={() => void product.refetch()}>
+          {t("reconciliation.retry")}
+        </Button>
+      )}
+    </div>
   );
 }
 function ProductCorrectionForm({
@@ -59,6 +72,7 @@ function ProductCorrectionForm({
 }) {
   const { t } = useTranslation();
   const history = useHistoryOrigin();
+  const client = useQueryClient();
   const [mode, setMode] = useState("terms");
   const [terms, setTerms] = useState(() => termsFromProduct(product));
   const [rules, setRules] = useState(() => policyFromDTO(product.policy));
@@ -154,13 +168,28 @@ function ProductCorrectionForm({
               );
       onPreview(value);
     } catch (cause) {
-      setError(displayError(cause, t("reconciliation.error")));
+      const wire = (cause as { wireError?: WireError })?.wireError;
+      if (knownReconciliationConflict(wire))
+        void client.invalidateQueries({ queryKey: ["reconciliation"] });
+      setError(
+        completedReconciliation(wire)
+          ? t("reconciliation.readOnly")
+          : knownReconciliationConflict(wire)
+            ? t("reconciliation.changedReview")
+            : displayError(cause, t("reconciliation.error")),
+      );
     } finally {
       setBusy(false);
     }
   };
   return (
     <div className="flex flex-col gap-4">
+      <p>{t("reconciliation.maturityHelp")}</p>
+      <p>
+        {t("reconciliation.current")}:{" "}
+        {product.currentValue?.amount ?? product.principal.amount}{" "}
+        {product.principal.currency}
+      </p>
       <Label htmlFor="product-correction-mode">
         {t("reconciliation.productRoute")}
       </Label>
@@ -230,7 +259,15 @@ function ProductCorrectionForm({
       ) : (
         <>
           <Label htmlFor="product-correction-amount">
-            {t("reconciliation.actualAmount")}
+            {t(
+              mode === "value"
+                ? "availableFunds.currentValue"
+                : mode === "receive_interest"
+                  ? "availableFunds.interestReceived"
+                  : product.kind === "term_deposit"
+                    ? "availableFunds.returnedPrincipal"
+                    : "availableFunds.grossProceeds",
+            )}
           </Label>
           <Input
             id="product-correction-amount"
@@ -240,15 +277,19 @@ function ProductCorrectionForm({
           />
           {(mode === "settle" || mode === "renew") && (
             <>
-              <Label htmlFor="product-correction-interest">
-                {t("availableFunds.interestReceived")}
-              </Label>
-              <Input
-                id="product-correction-interest"
-                inputMode="decimal"
-                value={interest}
-                onChange={(e) => setInterest(e.target.value)}
-              />
+              {product.kind === "term_deposit" && (
+                <>
+                  <Label htmlFor="product-correction-interest">
+                    {t("availableFunds.interestReceived")}
+                  </Label>
+                  <Input
+                    id="product-correction-interest"
+                    inputMode="decimal"
+                    value={interest}
+                    onChange={(e) => setInterest(e.target.value)}
+                  />
+                </>
+              )}
               <Label htmlFor="product-correction-fee">
                 {t("availableFunds.fee")}
               </Label>

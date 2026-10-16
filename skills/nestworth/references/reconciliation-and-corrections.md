@@ -158,3 +158,43 @@ links inside individual commands or mix session scopes. Historical replacement
 commands do not accept links; use the current target or missing-record route for
 session corrections. Unlinked pre-existing target plans retain their original
 receipt hash and recovery semantics.
+
+
+Opening `note` on start and the finish action's closing explanation are saved as
+separate `note` and `closingNote` fields. Do not erase or repurpose the opening
+evidence. A paused session can finish without resuming. Overlapping sessions are
+allowed; explain their independent evidence and prefer continuing an existing one.
+
+Use `referenceComparable:true` only on the user's matching units/currency/current
+as-of basis; compare current-day numeric cash/balance/quantity references with
+exact decimals. An unequal comparable reference requires the user's explanation,
+a correction, or an unresolved disposition before confirmation. Old dates and
+descriptive references remain valid evidence with referenceComparable omitted.
+Never infer comparability or confirmation from a matching number.
+
+Match reconciliation links to the concrete holding ID, product ID or cash
+currency. Companion entries may be included in the same atomic correction.
+Use the completeness point for missing items. Removed items keep their audit
+evidence, but cannot receive new corrections. Archived nonzero holdings remain
+visible warnings. Neither instrument nor holding may be archived with units left.
+
+Account priorSuccessfulAt defines whether its first baseline exists. Completed
+changes marked afterCompletion are later bookkeeping, outside the frozen original
+interval. Keep historical success timestamps when describing subsequent changes.
+Business revision/change logs are in JSON exports; private plans/receipts are not.
+Exports are evidence for inspection, not restorable backups.
+
+Current account context may include inventoryCoverageGap and
+uncoveredArchivedHoldings: these name currently archived nonzero positions absent
+from the record's covered identities. On a completed record they do not prove
+that the positions existed when it completed, and do not invalidate its historical
+time, counts, outcome or evidence. Start a new reconciliation for current coverage.
+For an unfinished record the inventory repair leaves pending checks; distinguish
+it from financialRevisionChanged and from bookkeeping after completion. Do not
+claim that an in-progress or paused record was already completed. The current archivedHoldingIds context also covers zero-quantity legacy points.
+Restore an archived holding/instrument before ordinary adjustments or missing trades; evidence
+disposition and partial finish remain available. A paused session may finish
+without resuming. These current-context fields are read projections, not exported
+historical facts. Older v2 exports may omit the reconciliation datasets and a
+session's closingNote; absence is unavailable evidence, not an empty history or
+permission to copy the opening note into the closing explanation.

@@ -126,7 +126,7 @@ func TestShortNameEditsPreserveIdentityAndProjections(t *testing.T) {
 		if err != nil || current.Quantity.Canonical() != holding.Quantity.Canonical() {
 			t.Fatalf("holding changed %+v %v", current, err)
 		}
-		if err := s.ArchiveInstrument(ctx, i.ID, true); err != nil {
+		if err := seedLegacyInstrumentArchive(t, s, i.ID); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -140,6 +140,11 @@ func TestAgentMarketDataCorrectionRetractionAndSourceOnlyHistory(t *testing.T) {
 	if err != nil || len(records) != 3 {
 		t.Fatalf("correction audit trail incomplete: %d, %v", len(records), err)
 	}
+	exported, err := service.ExportJSONBytes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validateExportSchema(t, exported)
 }
 
 func TestAgentMarketDataReplaySurvivesInstrumentArchive(t *testing.T) {

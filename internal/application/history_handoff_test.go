@@ -451,7 +451,17 @@ func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	// This compatibility fixture represents a legacy archive with remaining units.
+	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err == nil {
+		t.Fatal("nonzero archive accepted")
+	}
+	if _, err := database.SQL.Exec("UPDATE holdings SET quantity='0' WHERE instrument_id=?", instrument.ID.String()); err != nil {
+		t.Fatal(err)
+	}
 	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.Exec("UPDATE holdings SET quantity='1' WHERE instrument_id=?", instrument.ID.String()); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.ArchiveHolding(ctx, zeroHolding.ID, true); err != nil {

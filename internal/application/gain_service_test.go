@@ -154,7 +154,7 @@ func TestAccountGainIncludesActiveHoldingWithArchivedInstrument(t *testing.T) {
 	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
+	if err := seedLegacyInstrumentArchive(t, service, instrument.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -239,7 +239,7 @@ func TestRealizedGainIncludesSoldThenArchivedHolding(t *testing.T) {
 	if err := service.ArchiveHolding(ctx, holding.ID, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
+	if err := seedLegacyInstrumentArchive(t, service, instrument.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -596,7 +596,7 @@ func TestDividendIncomeAggregatesIndependentlyOfRealizedGain(t *testing.T) {
 		t.Fatalf("scoped dividend income = %+v", scoped)
 	}
 
-	if err := service.ArchiveInstrument(ctx, qqq.ID, true); err != nil {
+	if err := seedLegacyInstrumentArchive(t, service, qqq.ID); err != nil {
 		t.Fatal(err)
 	}
 	archived, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")

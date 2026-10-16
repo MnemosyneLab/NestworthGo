@@ -33,7 +33,7 @@ func (r *Repository) ReconciliationRevisions(ctx context.Context) (map[string]in
 func (r *Repository) ReconciliationSession(ctx context.Context, household, id string) (domain.ReconciliationSession, error) {
 	var s domain.ReconciliationSession
 	var completed sql.NullString
-	err := r.database.SQL.QueryRowContext(ctx, "SELECT id,household_id,status,revision,started_at,completed_at,note,partial FROM reconciliation_sessions WHERE household_id=? AND id=?", household, id).Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &completed, &s.Note, &s.Partial)
+	err := r.database.SQL.QueryRowContext(ctx, "SELECT id,household_id,status,revision,started_at,completed_at,note,partial,closing_note FROM reconciliation_sessions WHERE household_id=? AND id=?", household, id).Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &completed, &s.Note, &s.Partial, &s.ClosingNote)
 	if errors.Is(err, sql.ErrNoRows) {
 		return s, &domain.Error{Code: domain.ErrNotFound, Field: "sessionId", Message: "reconciliation session was not found"}
 	}
@@ -56,6 +56,11 @@ func (r *Repository) ReconciliationSession(ctx context.Context, household, id st
 			return s, err
 		}
 		s.Accounts = append(s.Accounts, a)
+		// Counts are frozen account evidence, not recalculated from today's inventory.
+		s.Counts.Pending += a.Counts.Pending
+		s.Counts.Confirmed += a.Counts.Confirmed
+		s.Counts.Skipped += a.Counts.Skipped
+		s.Counts.Unresolved += a.Counts.Unresolved
 	}
 	err = rows.Err()
 	rows.Close()
@@ -86,7 +91,7 @@ func (r *Repository) ReconciliationSession(ctx context.Context, household, id st
 	return s, rows.Err()
 }
 func (r *Repository) ReconciliationSessions(ctx context.Context, household string) ([]domain.ReconciliationSession, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, "SELECT id,household_id,status,revision,started_at,COALESCE(completed_at,''),note,partial, (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.pending')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.confirmed')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.skipped')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.unresolved')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT json_group_array(account_id) FROM (SELECT account_id FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id ORDER BY account_id)), (SELECT json_group_array(json_extract(evidence,'$.name')) FROM (SELECT evidence FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id ORDER BY account_id)) FROM reconciliation_sessions WHERE household_id=? ORDER BY started_at DESC,id DESC", household)
+	rows, err := r.database.SQL.QueryContext(ctx, "SELECT id,household_id,status,revision,started_at,COALESCE(completed_at,''),note,partial,closing_note, (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.pending')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.confirmed')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.skipped')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT COALESCE(SUM(json_extract(evidence,'$.counts.unresolved')),0) FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id), (SELECT json_group_array(account_id) FROM (SELECT account_id FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id ORDER BY account_id)), (SELECT json_group_array(json_extract(evidence,'$.name')) FROM (SELECT evidence FROM reconciliation_accounts a WHERE a.session_id=reconciliation_sessions.id ORDER BY account_id)) FROM reconciliation_sessions WHERE household_id=? ORDER BY started_at DESC,id DESC", household)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +100,7 @@ func (r *Repository) ReconciliationSessions(ctx context.Context, household strin
 	for rows.Next() {
 		var s domain.ReconciliationSession
 		var ids, names string
-		if err := rows.Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &s.CompletedAt, &s.Note, &s.Partial, &s.Counts.Pending, &s.Counts.Confirmed, &s.Counts.Skipped, &s.Counts.Unresolved, &ids, &names); err != nil {
+		if err := rows.Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &s.CompletedAt, &s.Note, &s.Partial, &s.ClosingNote, &s.Counts.Pending, &s.Counts.Confirmed, &s.Counts.Skipped, &s.Counts.Unresolved, &ids, &names); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(ids), &s.AccountIDs); err != nil {
@@ -158,7 +163,7 @@ func (r *Repository) SaveReconciliation(ctx context.Context, s domain.Reconcilia
 			}
 		}
 		if expected == 0 {
-			_, err := tx.ExecContext(ctx, "INSERT INTO reconciliation_sessions(id,household_id,status,revision,started_at,completed_at,note,partial) VALUES(?,?,?,?,?,NULL,?,?)", s.ID, s.HouseholdID, s.Status, s.Revision, s.StartedAt, s.Note, s.Partial)
+			_, err := tx.ExecContext(ctx, "INSERT INTO reconciliation_sessions(id,household_id,status,revision,started_at,completed_at,note,partial,closing_note) VALUES(?,?,?,?,?,NULL,?,?,?)", s.ID, s.HouseholdID, s.Status, s.Revision, s.StartedAt, s.Note, s.Partial, s.ClosingNote)
 			if err != nil {
 				return err
 			}
@@ -167,7 +172,7 @@ func (r *Repository) SaveReconciliation(ctx context.Context, s domain.Reconcilia
 			if s.CompletedAt != "" {
 				completed = s.CompletedAt
 			}
-			result, err := tx.ExecContext(ctx, "UPDATE reconciliation_sessions SET status=?,revision=?,completed_at=?,note=?,partial=? WHERE id=? AND household_id=? AND revision=? AND status!='completed'", s.Status, s.Revision, completed, s.Note, s.Partial, s.ID, s.HouseholdID, expected)
+			result, err := tx.ExecContext(ctx, "UPDATE reconciliation_sessions SET status=?,revision=?,completed_at=?,note=?,partial=?,closing_note=? WHERE id=? AND household_id=? AND revision=? AND status!='completed'", s.Status, s.Revision, completed, s.Note, s.Partial, s.ClosingNote, s.ID, s.HouseholdID, expected)
 			if err != nil {
 				return err
 			}

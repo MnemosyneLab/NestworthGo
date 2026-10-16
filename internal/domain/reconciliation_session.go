@@ -23,6 +23,7 @@ type ReconciliationSession struct {
 	StartedAt    string                  `json:"startedAt"`
 	CompletedAt  string                  `json:"completedAt,omitempty"`
 	Note         string                  `json:"note"`
+	ClosingNote  string                  `json:"closingNote,omitempty"`
 	Partial      bool                    `json:"partial"`
 	Accounts     []ReconciliationAccount `json:"accounts,omitempty"`
 	Counts       ReconciliationCounts    `json:"counts"`
@@ -33,7 +34,23 @@ type ReconciliationCounts struct {
 	Skipped    int `json:"skipped"`
 	Unresolved int `json:"unresolved"`
 }
+
+// ReconciliationCoverageHolding describes a current archived nonzero position,
+// without claiming it existed at the historical check's completion.
+type ReconciliationCoverageHolding struct {
+	HoldingID    string `json:"holdingId"`
+	InstrumentID string `json:"instrumentId"`
+	Label        string `json:"label"`
+	Quantity     string `json:"quantity"`
+	Currency     string `json:"currency"`
+}
 type ReconciliationAccount struct {
+	// Read-only context; never persisted as historical evidence or receipts.
+	ArchivedHoldingIDs        []string                        `json:"archivedHoldingIds,omitempty"`
+	InventoryCoverageGap      bool                            `json:"inventoryCoverageGap,omitempty"`
+	FinancialRevisionChanged  bool                            `json:"financialRevisionChanged,omitempty"`
+	UncoveredArchivedHoldings []ReconciliationCoverageHolding `json:"uncoveredArchivedHoldings,omitempty"`
+
 	PriorSuccessfulAt string               `json:"priorSuccessfulAt,omitempty"`
 	AccountID         string               `json:"accountId"`
 	Name              string               `json:"name"`
@@ -48,40 +65,43 @@ type ReconciliationAccount struct {
 	Items             []ReconciliationItem `json:"items,omitempty"`
 }
 type ReconciliationItem struct {
-	ID                string                  `json:"id"`
-	AccountID         string                  `json:"accountId"`
-	AccountName       string                  `json:"accountName"`
-	Kind              string                  `json:"kind"`
-	Label             string                  `json:"label"`
-	Currency          string                  `json:"currency,omitempty"`
-	HoldingID         string                  `json:"holdingId,omitempty"`
-	InstrumentID      string                  `json:"instrumentId,omitempty"`
-	ProductID         string                  `json:"productId,omitempty"`
-	Value             string                  `json:"value,omitempty"`
-	Cost              string                  `json:"cost,omitempty"`
-	Detail            json.RawMessage         `json:"detail,omitempty"`
-	FinancialRevision int64                   `json:"financialRevision"`
-	Outcome           string                  `json:"outcome"`
-	Note              string                  `json:"note"`
-	Source            ReconciliationSource    `json:"source"`
-	CheckedAt         string                  `json:"checkedAt,omitempty"`
-	ReferenceValue    string                  `json:"referenceValue,omitempty"`
-	RecheckRequired   bool                    `json:"recheckRequired"`
-	Attempts          []ReconciliationAttempt `json:"attempts,omitempty"`
+	ArchivedNonzero     bool                    `json:"archivedNonzero,omitempty"`
+	ID                  string                  `json:"id"`
+	AccountID           string                  `json:"accountId"`
+	AccountName         string                  `json:"accountName"`
+	Kind                string                  `json:"kind"`
+	Label               string                  `json:"label"`
+	Currency            string                  `json:"currency,omitempty"`
+	HoldingID           string                  `json:"holdingId,omitempty"`
+	InstrumentID        string                  `json:"instrumentId,omitempty"`
+	ProductID           string                  `json:"productId,omitempty"`
+	Value               string                  `json:"value,omitempty"`
+	Cost                string                  `json:"cost,omitempty"`
+	Detail              json.RawMessage         `json:"detail,omitempty"`
+	FinancialRevision   int64                   `json:"financialRevision"`
+	Outcome             string                  `json:"outcome"`
+	Note                string                  `json:"note"`
+	Source              ReconciliationSource    `json:"source"`
+	CheckedAt           string                  `json:"checkedAt,omitempty"`
+	ReferenceComparable bool                    `json:"referenceComparable,omitempty"`
+	ReferenceValue      string                  `json:"referenceValue,omitempty"`
+	RecheckRequired     bool                    `json:"recheckRequired"`
+	Attempts            []ReconciliationAttempt `json:"attempts,omitempty"`
 }
 type ReconciliationAttempt struct {
-	Label             string               `json:"label"`
-	Kind              string               `json:"kind"`
-	Currency          string               `json:"currency,omitempty"`
-	Detail            json.RawMessage      `json:"detail,omitempty"`
-	Outcome           string               `json:"outcome"`
-	Note              string               `json:"note"`
-	Source            ReconciliationSource `json:"source"`
-	CheckedAt         string               `json:"checkedAt"`
-	FinancialRevision int64                `json:"financialRevision"`
-	Value             string               `json:"value"`
-	Cost              string               `json:"cost,omitempty"`
-	ReferenceValue    string               `json:"referenceValue,omitempty"`
+	Label               string               `json:"label"`
+	Kind                string               `json:"kind"`
+	Currency            string               `json:"currency,omitempty"`
+	Detail              json.RawMessage      `json:"detail,omitempty"`
+	Outcome             string               `json:"outcome"`
+	Note                string               `json:"note"`
+	Source              ReconciliationSource `json:"source"`
+	CheckedAt           string               `json:"checkedAt"`
+	FinancialRevision   int64                `json:"financialRevision"`
+	Value               string               `json:"value"`
+	Cost                string               `json:"cost,omitempty"`
+	ReferenceComparable bool                 `json:"referenceComparable,omitempty"`
+	ReferenceValue      string               `json:"referenceValue,omitempty"`
 }
 type ReconciliationLink struct {
 	SessionID         string `json:"sessionId"`
@@ -118,13 +138,14 @@ func ReconciliationLinkFrom(ctx context.Context) *ReconciliationLink {
 }
 
 type ReconciliationFinancialChange struct {
-	AccountID   string          `json:"accountId"`
-	Revision    int64           `json:"revision"`
-	Family      string          `json:"family"`
-	FactID      string          `json:"factId"`
-	RecordedAt  string          `json:"recordedAt"`
-	EffectiveAt string          `json:"effectiveAt"`
-	Evidence    json.RawMessage `json:"evidence"`
+	AfterCompletion bool            `json:"afterCompletion"`
+	AccountID       string          `json:"accountId"`
+	Revision        int64           `json:"revision"`
+	Family          string          `json:"family"`
+	FactID          string          `json:"factId"`
+	RecordedAt      string          `json:"recordedAt"`
+	EffectiveAt     string          `json:"effectiveAt"`
+	Evidence        json.RawMessage `json:"evidence"`
 }
 
 // The application supplies the authoritative refreshed working point at commit.
@@ -140,4 +161,23 @@ func ReconciliationWorkingItemFrom(ctx context.Context) *ReconciliationItem {
 		return nil
 	}
 	return &v
+}
+
+// ReconciliationEffectMatches identifies the concrete reviewed business target.
+// Companion legs may differ; at least one leg of the atomic operation must match.
+func ReconciliationEffectMatches(item ReconciliationItem, account string, e ActivityEffect) bool {
+	if account != item.AccountID {
+		return false
+	}
+	switch item.Kind {
+	case "scope":
+		return true
+	case "balance":
+		return e.Target == EffectTargetAccountValue
+	case "cash":
+		return e.Target == EffectTargetAccountCash && e.Money != nil && e.Money.Currency().String() == item.Currency
+	case "holding":
+		return (e.Target == EffectTargetHoldingQuantity || e.Target == EffectTargetHoldingCost) && e.HoldingID != nil && e.HoldingID.String() == item.HoldingID
+	}
+	return false
 }

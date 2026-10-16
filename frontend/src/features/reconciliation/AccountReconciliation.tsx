@@ -1,3 +1,4 @@
+import { ReconciliationCoverageNotice } from "./ReconciliationCoverageNotice";
 import { useTranslation } from "react-i18next";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { useReconciliationLastSuccess } from "@/queries/reconciliation";
@@ -9,6 +10,9 @@ export function AccountReconciliation({ accountId }: { accountId: string }) {
   const formatTimestamp = useReconciliationTimestamp();
   const navigation = useObjectNavigation();
   const last = useReconciliationLastSuccess(accountId);
+  const checkedAccount = last.data?.accounts?.find(
+    (a) => a.accountId === accountId,
+  );
   return (
     <section className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4">
       <p>
@@ -21,6 +25,14 @@ export function AccountReconciliation({ accountId }: { accountId: string }) {
               ? formatTimestamp(last.data.completedAt)
               : t("reconciliation.never")}
       </p>
+      {checkedAccount && (
+        <ReconciliationCoverageNotice account={checkedAccount} completed />
+      )}
+      {checkedAccount?.recheckRequired && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("reconciliation.laterBookkeeping")}
+        </p>
+      )}
       <Button
         variant="outline"
         onClick={() => navigation?.open({ page: "reconciliation", accountId })}
@@ -38,7 +50,7 @@ export function AccountReconciliation({ accountId }: { accountId: string }) {
             })
           }
         >
-          {t("reconciliation.history")}
+          {t("reconciliation.lastRecord")}
         </Button>
       )}
     </section>

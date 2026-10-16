@@ -111,12 +111,12 @@ func commitV16Upgrade(ctx context.Context, database *sql.DB, generation int) err
 
 // The caller owns the transaction and rolls back failed verification.
 func applyV16Upgrade(ctx context.Context, tx *sql.Tx) error {
-	schema, err := schemaFS.ReadFile("reconciliation_schema.sql")
+	schema, err := schemaFS.ReadFile("reconciliation_schema_v17.sql")
 	if err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, string(schema)); err != nil {
 		return err
 	}
-	return verifySchema(ctx, tx)
+	return verifySchemaVersion(ctx, tx, 17)
 }

@@ -133,7 +133,7 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 		if prior.Status == "succeeded" {
 			return prior, nil
 		}
-		if prior.Status == "failed" {
+		if prior.Status == "failed" && !(recoverable && prior.Error != nil && prior.Error.Code == "not_found") {
 			return nil, prior.Error
 		}
 		if !recoverable {
@@ -154,7 +154,7 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 	if callErr != nil {
 		op.Error = safeError(callErr)
 		op.Status = "failed"
-		if op.Error.Code == "internal" {
+		if op.Error.Code == "internal" || op.Error.Code == "operation_outcome_unknown" {
 			op.Status = "unknown"
 		}
 	} else {

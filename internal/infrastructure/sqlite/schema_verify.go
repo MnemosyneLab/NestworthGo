@@ -73,7 +73,7 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 	}
 
 	if expectedVersion >= 17 {
-		if err := verifyReconciliationSchema(ctx, query); err != nil {
+		if err := verifyReconciliationSchema(ctx, query, expectedVersion); err != nil {
 			return err
 		}
 	}

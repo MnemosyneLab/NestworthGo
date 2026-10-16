@@ -284,7 +284,7 @@ func TestReconciliationMixedAccountProductLinksAndMarketDataIsolation(t *testing
 	}
 	link := &domain.ReconciliationLink{SessionID: v.ID, AccountID: aid.String(), ItemID: productItem, ExpectedRevision: v.Revision, FinancialRevision: rev}
 	terms := UpdateProductTermsInput{ReconciliationLink: link, ProductID: product.Contract.ID, ExpectedRevision: product.Contract.Revision, Terms: create.Open.Terms, Policy: create.Open.Policy}
-	terms.Terms.Name = "Updated synthetic deposit"
+	terms.Terms.MaturityInterest = strPtr("15")
 	preview, token, err := s.PreviewProductTermsGuarded(ctx, terms)
 	if err != nil {
 		t.Fatal(err)
@@ -755,5 +755,212 @@ func TestReconciliationTextUTF8BoundsIdentifyField(t *testing.T) {
 				t.Fatalf("%s: %v", field.name, err)
 			}
 		}
+	}
+}
+
+func TestReconciliationArchiveGuardAndLegacyVisibility(t *testing.T) {
+	s, db, _ := reconciliationFixture(t)
+	ctx := t.Context()
+	aid := seedHoldingsCash(t, s, ctx, "100")
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic archived ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewRepository(db)
+	b, _ := s.Bootstrap(ctx)
+	if err := repo.SetInstrumentArchive(ctx, b.Household.ID, instrument.ID, true, s.clock()); err == nil {
+		t.Fatal("instrument with nonzero holdings archived")
+	}
+	if err := repo.SetHoldingArchive(ctx, b.Household.ID, holding.ID, true, s.clock()); err == nil {
+		t.Fatal("nonzero holding archived")
+	}
+	// Simulate an existing legacy database, bypassing the repository write guard.
+	if _, err := db.SQL.Exec("UPDATE instruments SET archived_at=? WHERE id=?", s.clock().Format(time.RFC3339), instrument.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.SQL.Exec("UPDATE holdings SET archived_at=? WHERE id=?", s.clock().Format(time.RFC3339), holding.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	// Emulate an already-open v17 session which omitted this legacy position,
+	// without changing its financial revision. Reading must restore the gap.
+	if _, err := db.SQL.Exec("DELETE FROM reconciliation_items WHERE session_id=? AND id=?", v.ID, "holding:"+holding.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Accounts[0].FinancialRevision != v.Accounts[0].FinancialRevision {
+		t.Fatal("inventory refresh invented a financial revision")
+	}
+	if !current.Accounts[0].InventoryCoverageGap || current.Accounts[0].FinancialRevisionChanged || !current.Accounts[0].RecheckRequired {
+		t.Fatalf("coverage repair confused with bookkeeping: %+v", current.Accounts[0])
+	}
+	// Older sessions could also persist this position as "removed". That
+	// disposition is not evidence that its still-present units were checked.
+	for _, item := range current.Accounts[0].Items {
+		if item.HoldingID != holding.ID.String() {
+			continue
+		}
+		item.Kind = "removed"
+		item.ArchivedNonzero = false
+		item.Outcome = "confirmed"
+		item.Attempts = []domain.ReconciliationAttempt{{Kind: "removed", Outcome: "confirmed", Note: "Retain old disposition", FinancialRevision: item.FinancialRevision}}
+		raw, err := json.Marshal(item)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = db.SQL.Exec("INSERT INTO reconciliation_items(session_id,account_id,id,evidence) VALUES(?,?,?,?)", v.ID, aid.String(), item.ID, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current, err = s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v = current
+	if v.Counts.Pending != 3 {
+		t.Fatalf("missing legacy point not pending: %+v", v.Counts)
+	}
+	for _, item := range v.Accounts[0].Items {
+		if item.HoldingID == holding.ID.String() {
+			if item.Value != "2" || !item.ArchivedNonzero || item.Kind != "holding" || item.Outcome != "pending" || len(item.Attempts) != 1 || item.Attempts[0].Note != "Retain old disposition" {
+				t.Fatalf("missing archive warning or lost legacy attempt: %+v", item)
+			}
+			return
+		}
+	}
+	t.Fatal("legacy nonzero position omitted")
+}
+
+func TestReconciliationNotesReferenceBasisAndFrozenLaterChanges(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	ctx := t.Context()
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}, Note: "Keep opening evidence"})
+	check := ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: "balance", FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic statement", AsOfDate: "2026-09-01"}, ReferenceValue: "99", ReferenceComparable: true}
+	if _, err := s.PreviewReconciliationSession(ctx, check); err == nil {
+		t.Fatal("comparable unexplained mismatch confirmed")
+	}
+	check.Note = "One unit is still settling"
+	v = recAction(t, s, check)
+	check.ExpectedRevision = v.Revision
+	check.ReferenceValue = "100.0000"
+	check.Note = ""
+	v = recAction(t, s, check)
+	check.ExpectedRevision = v.Revision
+	check.Source.AsOfDate = "2026-08-01"
+	if _, err := s.PreviewReconciliationSession(ctx, check); err == nil {
+		t.Fatal("old statement compared to current checkpoint")
+	}
+	check.ReferenceComparable = false
+	check.ReferenceValue = "statement text"
+	v = recAction(t, s, check)
+	v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: "scope", FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic contents", AsOfDate: "2026-09-01"}})
+	v = recAction(t, s, ReconciliationAction{Action: "pause", SessionID: v.ID, ExpectedRevision: v.Revision})
+	completed := recAction(t, s, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: v.Revision})
+	if completed.Note != "Keep opening evidence" || completed.ClosingNote != "" {
+		t.Fatalf("blank finish erased opening: %+v", completed)
+	}
+	id, _ := domain.ParseAccountID(aid)
+	money, _ := domain.ParseMoney("1", domain.CurrencyCode("USD"))
+	h, _ := s.requireHousehold(ctx)
+	if _, err := s.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: h.ID, AccountID: id, Amount: money, Reason: domain.ReasonIncome, EffectiveAt: s.clock()}); err != nil {
+		t.Fatal(err)
+	}
+	last, err := s.ReconciliationLastSuccess(ctx, aid)
+	if err != nil || last.CompletedAt != completed.CompletedAt || !last.Accounts[0].RecheckRequired {
+		t.Fatalf("historical success lost: %+v %v", last, err)
+	}
+	changes, err := s.ReconciliationChanges(ctx, v.ID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) == 0 {
+		t.Fatal("later changes omitted from first completed baseline")
+	}
+	for _, change := range changes {
+		if !change.AfterCompletion || change.Revision <= completed.Accounts[0].FinancialRevision {
+			t.Fatal("later change included in original frozen interval")
+		}
+	}
+	next := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	if next.Accounts[0].PriorSuccessfulAt == "" {
+		t.Fatal("per-account baseline missing")
+	}
+	exported, err := s.ExportJSONBytes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"closingNote", "accountFinancialRevisions", "reconciliationFinancialChanges"} {
+		if !strings.Contains(string(exported), key) {
+			t.Fatalf("export missing %s", key)
+		}
+	}
+	for _, key := range []string{"reconciliation.desktop.", "reconciliation_receipts", "mcp.plan."} {
+		if strings.Contains(string(exported), key) {
+			t.Fatalf("private recovery material exported: %s", key)
+		}
+	}
+}
+
+func TestReconciliationConcreteHoldingAndAtomicCompanion(t *testing.T) {
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	aid := seedHoldingsCash(t, s, ctx, "1000")
+	var holdings []domain.Holding
+	for _, name := range []string{"Reviewed ETF", "Other ETF"} {
+		i, err := s.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: i.ID.String(), Quantity: "2", UnitCost: "10"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		holdings = append(holdings, h)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	link := &domain.ReconciliationLink{SessionID: v.ID, AccountID: aid.String(), ItemID: "holding:" + holdings[0].ID.String(), ExpectedRevision: v.Revision, FinancialRevision: v.Accounts[0].FinancialRevision}
+	h, _ := s.requireHousehold(ctx)
+	money, _ := domain.ParseMoney("1", domain.CurrencyCode("USD"))
+	q, _ := domain.ParseQuantity("1")
+	cash := domain.MoneyAddedInput{HouseholdID: h.ID, AccountID: aid, Amount: money, Reason: domain.ReasonIncome, EffectiveAt: s.clock()}
+	wrong := domain.PositionAdjustmentInput{HouseholdID: h.ID, HoldingID: holdings[1].ID, Quantity: q, Added: false, EffectiveAt: s.clock()}
+	for _, commands := range [][]any{{cash}, {wrong}} {
+		previews, token, err := s.PreviewChangesGuardedWith(ctx, func(context.Context) ([]any, error) { return commands, nil })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = s.ValidateReconciliationLink(ctx, link, previews); err == nil {
+			t.Fatal("wrong concrete target preview accepted")
+		}
+		if _, err = s.RecordChangesGuarded(domain.WithReconciliationLink(ctx, link), commands, domain.NewMutationID().String(), strings.Repeat("a", 64), token); err == nil {
+			t.Fatal("wrong target committed")
+		}
+	}
+	right := wrong
+	right.HoldingID = holdings[0].ID
+	commands := []any{cash, right}
+	previews, token, err := s.PreviewChangesGuardedWith(ctx, func(context.Context) ([]any, error) { return commands, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ValidateReconciliationLink(ctx, link, previews); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.RecordChangesGuarded(domain.WithReconciliationLink(ctx, link), commands, domain.NewMutationID().String(), strings.Repeat("b", 64), token); err != nil {
+		t.Fatal(err)
+	}
+	links, err := s.ReconciliationLinkedChanges(ctx, v.ID)
+	if err != nil || len(links) != 2 {
+		t.Fatalf("companion links %+v %v", links, err)
+	}
+	v, err = s.GetReconciliationSession(ctx, v.ID)
+	if err != nil || v.Counts.Confirmed != 0 {
+		t.Fatal("correction implied attestation")
 	}
 }

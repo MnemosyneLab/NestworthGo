@@ -16,6 +16,7 @@ func decodeExport(t *testing.T, service *Service) ExportDocument {
 	if err != nil {
 		t.Fatal(err)
 	}
+	validateExportSchema(t, data)
 	var doc ExportDocument
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
@@ -177,6 +178,7 @@ func TestJSONExportStableEmptyCollectionsAndNoWrites(t *testing.T) {
 	if string(first) != string(second) {
 		t.Fatal("same state and clock should produce identical exports")
 	}
+	validateExportSchema(t, first)
 	var doc ExportDocument
 	if err := json.Unmarshal(first, &doc); err != nil {
 		t.Fatal(err)

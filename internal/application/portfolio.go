@@ -578,7 +578,7 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 		return err
 	}
 	defer unlock()
-	snapshot, household, err := s.portfolioSnapshot(ctx)
+	_, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return err
 	}
@@ -587,19 +587,6 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 	}
 	if err := s.rejectManagedHolding(ctx, id); err != nil {
 		return err
-	}
-	origin, originErr := s.repository.HistoryOrigin(ctx, household.ID)
-	if originErr != nil {
-		return originErr
-	}
-	if archived && origin != nil {
-		current, found := holdingFromSnapshot(snapshot, id)
-		if !found {
-			return &domain.Error{Code: domain.ErrNotFound, Message: "holding was not found"}
-		}
-		if !current.Quantity.IsZero() {
-			return &domain.Error{Code: domain.ErrConflict, Message: "a Holding must have zero quantity before it is archived"}
-		}
 	}
 	err = s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.clock())
 	if err == nil {

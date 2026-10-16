@@ -64,7 +64,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 	createHolding(archived, id, "50")
 	createHolding(a, other, "0")
 	archivedHolding := createHolding(b, other, "20")
-	if err := app.ArchiveHolding(ctx, archivedHolding, true); err != nil {
+	if err := seedLegacyHoldingArchive(t, app, archivedHolding); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.ArchiveAccount(ctx, archived, true); err != nil {
@@ -110,7 +110,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 		}
 	}
 	// Archiving identity must not hide an active position.
-	if err := app.ArchiveInstrument(ctx, id, true); err != nil {
+	if err := seedLegacyInstrumentArchive(t, app, id); err != nil {
 		t.Fatal(err)
 	}
 	groups, err = app.InstrumentHoldings(ctx)

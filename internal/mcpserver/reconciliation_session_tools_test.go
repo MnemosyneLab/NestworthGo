@@ -269,3 +269,79 @@ func TestReconciliationSessionCivilDateFiltersAndPaging(t *testing.T) {
 		})
 	}
 }
+
+func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) {
+	clock := func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) }
+	fx, db, _ := newPersistentProductFixture(t, clock)
+	c := ledgerSession(t, fx)
+	preview := call(t, c, "preview_reconciliation_session", map[string]any{"action": "start", "accountIds": []string{fx.checking}, "note": "Opening context"}, false)["data"].(map[string]any)
+	planID := preview["planId"].(string)
+	operationID := uuid.NewString()
+	args := map[string]any{"operationId": operationID, "input": map[string]any{"planId": planID}}
+	posted := call(t, c, "commit_reconciliation_session", args, false)["data"].(map[string]any)
+	operation, err := fx.service.GetOperation(operationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.SQL.Exec("DELETE FROM app_configuration WHERE key=?", "mcp.plan."+planID); err != nil {
+		t.Fatal(err)
+	}
+	// An already-succeeded outer receipt is independent of plan retention.
+	replay := call(t, c, "commit_reconciliation_session", args, false)["data"].(map[string]any)
+	if replay["id"] != posted["id"] {
+		t.Fatal("succeeded operation receipt changed")
+	}
+	// Reproduce interruption after business commit but before outer receipt save.
+	operation.Status = "pending"
+	operation.Result = nil
+	path, _ := fx.service.operationPath(operationID)
+	if err = fx.service.writePrivate(path, operation); err != nil {
+		t.Fatal(err)
+	}
+	recovered := call(t, c, "commit_reconciliation_session", args, false)["data"].(map[string]any)
+	if recovered["result"].(map[string]any)["id"] != planID {
+		t.Fatal("business receipt not recovered")
+	}
+
+	pending := call(t, c, "preview_reconciliation_session", map[string]any{"action": "start", "accountIds": []string{fx.savings}}, false)["data"].(map[string]any)
+	missingID := pending["planId"].(string)
+	raw, err := fx.service.loadPreviewPlan(missingID, "reconciliation_session")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.SQL.Exec("DELETE FROM app_configuration WHERE key=?", "mcp.plan."+missingID); err != nil {
+		t.Fatal(err)
+	}
+	pendingOp := uuid.NewString()
+	missingArgs := map[string]any{"operationId": pendingOp, "input": map[string]any{"planId": missingID}}
+	if code := ledgerErrorCode(t, c, "commit_reconciliation_session", missingArgs); code != "operation_outcome_unknown" {
+		t.Fatal(code)
+	}
+	saved, err := fx.service.GetOperation(pendingOp)
+	if err != nil || saved.Status != "unknown" {
+		t.Fatalf("missing plan permanently failed: %+v %v", saved, err)
+	}
+	// Recover older versions' permanently failed not_found operations too.
+	saved.Status = "failed"
+	saved.Error = safeError(fail("not_found", "old missing plan"))
+	path, _ = fx.service.operationPath(pendingOp)
+	if err = fx.service.writePrivate(path, saved); err != nil {
+		t.Fatal(err)
+	}
+	if code := ledgerErrorCode(t, c, "commit_reconciliation_session", missingArgs); code != "operation_outcome_unknown" {
+		t.Fatal(code)
+	}
+	var body any
+	if err = json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if err = fx.service.writePrivate(filepath.Join(fx.service.dir, "plans", missingID+".json"), body); err != nil {
+		t.Fatal(err)
+	}
+	// Only an explicit retry submits the recovered, unchanged reviewed plan.
+	call(t, c, "commit_reconciliation_session", missingArgs, false)
+	rows, err := fx.app.ListReconciliationSessions(t.Context())
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("unexpected executions: %d %v", len(rows), err)
+	}
+}

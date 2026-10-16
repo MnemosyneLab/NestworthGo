@@ -42,3 +42,35 @@ If a submission's outcome is unknown, keep the review open and retry the same
 submission. Do not create a second correction to compensate for an uncertain
 response. MCP users can follow the maintained Skill's session workflow with the
 same evidence, revision and receipt rules.
+
+
+Choose **Continue session** for unfinished work. When selected accounts overlap
+an unfinished session, the start panel explains that a new session is a separate
+record; it does not lock an account globally. **Back to session list** returns to
+the current account's filtered list. **View last successful record** opens that
+historical completed record.
+
+**Anything missing?** appears first and lets you record omissions immediately.
+Holding transactions start with a trade for that holding; cash starts with cash
+flow. Archived positions with units remain visible with a warning. Removed
+items retain their evidence and can be given a disposition, with correction
+actions hidden.
+
+Use **Compare: same units, currency and current as-of basis** only when those
+conditions hold. A differing numeric reference is shown as a mismatch. Correct
+the ledger, leave the check unresolved, or explain the difference before
+confirming. Older statements and text can stay as evidence without comparison.
+There is no automatic confirmation or mandatory copying of statement numbers.
+
+Opening notes and closing explanations are saved separately. A blank finish
+does not erase the opening note. Paused sessions can finish directly. The
+completed record keeps its original interval; later bookkeeping is listed
+separately and does not erase the historical success timestamp.
+
+On a known revision conflict, current evidence refreshes. Close the old review,
+read the changed figures and preview again. A completed record is read-only.
+Unknown outcomes keep the same submission identity and require explicit retry.
+Desktop reconciliation previews now keep private recovery material across
+restart. Unavailable older plans can still remain unknown; do not compensate by
+creating another financial write. JSON export includes business revisions and
+change logs, and excludes private plans and receipts. It is not a restorable backup.

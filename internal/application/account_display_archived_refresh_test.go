@@ -102,7 +102,7 @@ func TestAccountDisplayArchivedInstrumentRefreshToValuation(t *testing.T) {
 				if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-23", false); err != nil {
 					t.Fatal(err)
 				}
-				if err := service.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
+				if err := seedLegacyInstrumentArchive(t, service, instrument.ID); err != nil {
 					t.Fatal(err)
 				}
 				// No cash components or other accounts may mask the retained
