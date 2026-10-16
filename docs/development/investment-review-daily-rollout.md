@@ -68,11 +68,17 @@ read state and cursor expiration after acknowledgement.
 
 ## Work still required for the design's release gate
 
-The migrated compatibility rule still needs an explicit conversion preview
-and a single transaction that archives it and creates selected new daily
-rules. The old evaluator and its old settings remain isolated.
-The page has no historical episode view, and rule and
-suppression management currently load only the first 100 records. The editor
+The migrated compatibility rule now has an explicit conversion sheet. A pure
+preview proposes separate low-yield and loss daily rules, states the changed
+calendar-span semantics, and estimates new alerts and unknown outcomes. The
+user chooses the daily trigger and may explicitly expand from old enrolled
+investments to all current holdings. Save checks source and handling revisions,
+then atomically archives the v1 rule and creates both new rules with a mutation
+receipt. The old acknowledgements remain in history; original absolute snooze
+dates become scoped suppressions. A retry uses the same IDs and receipt.
+
+The page has no historical episode view. Rule and suppression management now
+page through records beyond the first 100. The editor
 does not expose all supported nested predicate and multi-type choices.
 
 Reconciliation currently replays every historical date for each rule and
@@ -102,13 +108,22 @@ remains `com.nestworth.dev` / `Nestworth`. No real ledger has been opened.
 
 ## Latest automated verification
 
-Serial server-profile Go short tests passed across domain, application,
-SQLite, backup, continuous backup and Wails API packages. MCP's full run
-found only its hard-coded discovery count (52) stale after the new read tool;
-the count and read-only roster were updated, and the affected MCP discovery,
-permission and strict-rule tests passed on rerun. Go vet passed. Generated
-Wails bindings were refreshed with the pinned generator in server mode.
-Frontend TypeScript, ESLint, all 134 Vitest files/1439 tests and the
-production Vite build passed. A separate parallel Go run exceeded an
-unrelated existing cold 3-year analysis budget by 0.51 seconds; the serial
-application run passed that budget.
+The previous checkpoint passed serial server-profile Go short tests across
+domain, application, SQLite, backup, continuous backup, Wails API and MCP,
+plus Go vet. Generated Wails bindings were refreshed with the pinned
+generator in server mode. The current conversion change passes targeted
+domain/application/MCP tests, TypeScript, ESLint, the production Vite build,
+and all 135 frontend Vitest files/1442 tests when run alone. The first full
+Go rerun shared CPU with Vitest and exceeded an unrelated dense-history
+test's 10-second computation budget; that exact test passed alone at 4.55
+seconds. The resource-isolated full Go rerun passed across all packages.
+Go vet and the server-profile `cmd/nestworth` build also passed. Linux
+server-mode compilation does not establish native macOS packaging.
+
+The first remote CI run of the older draft head stopped at the standalone
+user-skill check after Go tests passed: `skills/nestworth/SKILL.md` had 905
+whitespace-separated words against its 900-word entrypoint budget. This
+branch shortened the entrypoint without removing its MCP guidance, and
+`python3 tools/check-nestworth-skill.py` now passes with all 76 JSON examples
+linked to available tools. The companion installer test suite is also run
+locally; remote CI must confirm the exact pushed head.

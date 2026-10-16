@@ -6,8 +6,7 @@ description: Use a running Nestworth App through its local MCP to manage account
 # Nestworth
 
 Use the App's MCP as the authority for financial records and calculations. This
-skill is self-contained: the user does not need Nestworth source code or a
-development environment. Answer in the user's language.
+skill needs no source checkout. Answer in the user's language.
 
 ## Start with the connected App
 

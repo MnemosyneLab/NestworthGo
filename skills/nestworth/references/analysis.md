@@ -104,6 +104,19 @@ and uses existing local facts; it does not fetch quotes. An all-rule permanent
 suppression also applies to rules created later; acknowledgement applies only
 to one episode. Neither action changes holdings.
 
+Use `preview_legacy_investment_review_conversion` before changing a migrated
+`legacy_v1` rule. Choose an explicit new daily trigger and target: the default
+keeps only investments enrolled in v1, while all current holdings expands it.
+The preview reports two proposed rules, new alerts, unknown outcomes and the
+source/configuration/handling revisions. With `ledger_write`,
+`convert_legacy_investment_review_rule` archives the old rule and creates the
+new low-yield and loss rules in one transaction using those exact revisions,
+new distinct rule IDs and one mutation ID. Old acknowledgements stay in
+history rather than silencing different predicates; absolute snoozes and
+all-rule ignores remain effective. If the preview becomes stale, re-preview
+before submitting a new conversion. If a submission's outcome is unknown,
+retry the identical operation and IDs before creating another.
+
 The tools below are **legacy v1** compatibility tools. They preserve the old
 7/30-day combined NAV policy and its enrollment, acknowledgement and snooze;
 they do not edit v2 named rules or suppressions. Do not represent an old

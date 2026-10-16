@@ -84,6 +84,16 @@ func (s *Service) PreviewReviewRuleV2(ctx context.Context, request PreviewReview
 	return preview, apierror.Wrap(err)
 }
 
+func (s *Service) PreviewReviewLegacyConversionV2(ctx context.Context, request application.ReviewLegacyConversionDraft) (application.ReviewLegacyConversionPreview, error) {
+	preview, err := s.app.PreviewReviewLegacyConversionV2(ctx, request)
+	return preview, apierror.Wrap(err)
+}
+
+func (s *Service) ConvertReviewLegacyRuleV2(ctx context.Context, request application.ConvertReviewLegacyRuleV2Input) ([]domain.ReviewRule, error) {
+	rules, err := s.app.ConvertReviewLegacyRuleV2(ctx, request)
+	return rules, apierror.Wrap(err)
+}
+
 type AcknowledgeReviewEpisodeV2Request struct {
 	EpisodeID        string `json:"episodeId"`
 	MutationID       string `json:"mutationId"`

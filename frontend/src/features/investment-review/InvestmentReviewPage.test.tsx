@@ -14,8 +14,8 @@ const state = vi.hoisted(() => {
     alert: { data: null as ReviewAlertPage | null, isPending: false, isError: false, isFetching: false, error: null, refetch: vi.fn() },
     evidence: { data: { items: [{ on: "2026-10-15", truth: "true", leaves: [] }], reportRevision: "evidence-1", episodeId: "episode-one", nextCursor: "" }, isPending: false, isError: false, isFetching: false },
     coverage: { data: null as ReviewCoveragePage | null, isPending: false, isError: false, isFetching: false, refetch: vi.fn() },
-    rules: { data: [], isPending: false, isError: false },
-    suppressions: { data: [], isPending: false, isError: false },
+    rules: { data: [], isPending: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn() },
+    suppressions: { data: [], isPending: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn() },
     commands: { acknowledge: mutation(), suppress: mutation(), clearSuppression: mutation(), reconcile: mutation(), createRule: mutation(), updateRule: mutation(), archiveRule: mutation() },
   };
 });
@@ -49,10 +49,24 @@ beforeEach(async () => {
   await i18n.changeLanguage("en");
   state.alert.data = report(); state.alert.isPending = state.alert.isError = state.alert.isFetching = false;
   state.rules.data = [];
+  state.rules.hasNextPage = false;
+  state.suppressions.hasNextPage = false;
   state.coverage.data = { items: [{ instrumentId: "synthetic-gap", displayName: "Synthetic gap", instrumentType: "stock" as never, status: "unknown", rules: [{ ruleId: "rule-gap", name: "Missing price", state: "unknown", latestClosedOn: "2026-10-15", window: { truth: "" as never, windowStart: "2026-10-06", windowEnd: "2026-10-15", hitCount: 0, falseCount: 0, unknownCount: 10, consecutiveCount: 0 }, missing: ["quote_missing"] }] }], reportRevision: "coverage-1", projectionStatus: "complete", publishedOn: "2026-10-15" };
 });
 
 describe("daily investment review page", () => {
+  it("loads the next rule and suppression pages on demand", async () => {
+    state.rules.hasNextPage = true;
+    state.suppressions.hasNextPage = true;
+    mount();
+    await userEvent.click(screen.getByRole("button", { name: "Rules" }));
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(state.rules.fetchNextPage).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ignored investments" }));
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(state.suppressions.fetchNextPage).toHaveBeenCalledOnce();
+  });
   it("labels a migrated legacy rule without opening the daily rule editor for it", async () => {
     state.rules.data = [{ id: "legacy-rule", evaluator: "legacy_v1", enabled: true, rowRevision: 1, archivedAt: null }] as never;
     mount();

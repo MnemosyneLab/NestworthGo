@@ -1,8 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity";
 import type { ReviewAlertFilter, ReviewCoverageFilter } from "../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
-import type { SaveReviewRuleV2Input, SetReviewSuppressionV2Input } from "../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { SaveReviewRuleV2Input, SetReviewSuppressionV2Input, ReviewLegacyConversionDraft, ConvertReviewLegacyRuleV2Input } from "../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { callService } from "@/lib/wails";
+import { investmentReviewKey } from "./investmentReview";
 
 export const reviewV2Key = ["investment-review", "v2"] as const;
 
@@ -33,19 +34,25 @@ export function useReviewCoveragePage(filter: ReviewCoverageFilter, cursor = "",
 }
 
 export function useReviewRulesV2(active = true) {
-  return useQuery({
+  const query = useInfiniteQuery({
     queryKey: [...reviewV2Key, "rules"],
-    queryFn: () => callService(() => Service.ListReviewRulesV2({ cursor: "", pageSize: 100 })),
+    queryFn: ({ pageParam }) => callService(() => Service.ListReviewRulesV2({ cursor: pageParam, pageSize: 100 })),
+    initialPageParam: "",
+    getNextPageParam: last => last?.length === 100 ? last[last.length - 1].id : undefined,
     enabled: active,
   });
+  return { ...query, data: query.data?.pages.flatMap(page => page ?? []) };
 }
 
 export function useReviewSuppressionsV2(active = true) {
-  return useQuery({
+  const query = useInfiniteQuery({
     queryKey: [...reviewV2Key, "suppressions"],
-    queryFn: () => callService(() => Service.ListReviewSuppressionsV2({ cursor: "", pageSize: 100 })),
+    queryFn: ({ pageParam }) => callService(() => Service.ListReviewSuppressionsV2({ cursor: pageParam, pageSize: 100 })),
+    initialPageParam: "",
+    getNextPageParam: last => last?.length === 100 ? last[last.length - 1].ID : undefined,
     enabled: active,
   });
+  return { ...query, data: query.data?.pages.flatMap(page => page ?? []) };
 }
 
 export function useReviewV2Commands() {
@@ -80,4 +87,16 @@ export function useReviewV2Commands() {
     onSuccess: invalidate,
   });
   return { acknowledge, suppress, clearSuppression, reconcile, createRule, updateRule, archiveRule };
+}
+
+export function useReviewLegacyConversionCommands() {
+  const client = useQueryClient();
+  const preview = useMutation({
+    mutationFn: (draft: ReviewLegacyConversionDraft) => callService(() => Service.PreviewReviewLegacyConversionV2(draft)),
+  });
+  const convert = useMutation({
+    mutationFn: (request: ConvertReviewLegacyRuleV2Input) => callService(() => Service.ConvertReviewLegacyRuleV2(request)),
+    onSuccess: () => { void client.invalidateQueries({ queryKey: reviewV2Key }); void client.invalidateQueries({ queryKey: investmentReviewKey }); },
+  });
+  return { preview, convert };
 }
