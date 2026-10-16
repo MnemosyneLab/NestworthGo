@@ -101,12 +101,46 @@ func TestReconciliationProductValuationPreservesChecksInFreshAndUpgradedSchemas(
 			if err != nil || completed.Partial {
 				t.Fatalf("valuation invalidated unchanged finish preview: %+v %v", completed, err)
 			}
+			// Metadata-only updates and no-op assignments preserve every check.
+			repoForMetadata := NewRepository(db)
+			beforeMetadata, err := repoForMetadata.ReconciliationRevisions(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = db.SQL.Exec("UPDATE product_contracts SET name=name || ' renamed', note='Synthetic note',updated_at=updated_at,revision=revision+1,principal=principal WHERE id=?", product.ProductIDs[0].String()); err != nil {
+				t.Fatal(err)
+			}
+			afterMetadata, err := repoForMetadata.ReconciliationRevisions(ctx)
+			if err != nil || beforeMetadata[aid.String()] != afterMetadata[aid.String()] {
+				t.Fatal("metadata advanced financial revision")
+			}
+			// Exercise real OLD/NEW values, including financial updates made by
+			// upserts which also write metadata and revision fields.
+			for _, assignment := range []string{"principal='1001'", "currency='EUR'", "state='settled'", "maturity_on='2027-01-20'", "interest_mode='manual_maturity_amount'", "annual_rate='0.02'", "maturity_interest='10'", "interest_paid_through_on='2026-09-21'", "start_on='2026-09-19'"} {
+				tx, err := db.SQL.BeginTx(ctx, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = tx.ExecContext(ctx, "UPDATE product_contracts SET "+assignment+" WHERE id=?", product.ProductIDs[0].String()); err != nil {
+					tx.Rollback()
+					t.Fatal(err)
+				}
+				var revision int64
+				if err = tx.QueryRowContext(ctx, "SELECT revision FROM account_financial_revisions WHERE account_id=?", aid.String()).Scan(&revision); err != nil {
+					tx.Rollback()
+					t.Fatal(err)
+				}
+				tx.Rollback()
+				if revision <= beforeMetadata[aid.String()] {
+					t.Fatalf("financial field did not advance: %s", assignment)
+				}
+			}
 			// Terms and actual cash changes still advance the financial revision.
 			detail, err := s.Product(ctx, product.ProductIDs[0])
 			if err != nil {
 				t.Fatal(err)
 			}
-			terms.Name = "Updated synthetic terms"
+			terms.MaturityOn = strForRevisionTest("2027-01-20")
 			input := application.UpdateProductTermsInput{ProductID: detail.Contract.ID, ExpectedRevision: detail.Contract.Revision, Terms: terms, Policy: policy}
 			tp, token, err := s.PreviewProductTermsGuarded(ctx, input)
 			if err != nil {
@@ -137,3 +171,5 @@ func TestReconciliationProductValuationPreservesChecksInFreshAndUpgradedSchemas(
 		})
 	}
 }
+
+func strForRevisionTest(s string) *string { return &s }

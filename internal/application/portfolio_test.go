@@ -101,6 +101,15 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	if err != nil || pref.SourceKind != domain.QuoteSourceManual {
 		t.Fatalf("FX preference = %+v, err = %v", pref, err)
 	}
+	if err := service.ArchiveHolding(ctx, holding.ID, true); err == nil {
+		t.Fatal("nonzero holding archived before History")
+	}
+	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err == nil {
+		t.Fatal("instrument with units archived before History")
+	}
+	if _, err := service.UpdateHoldingQuantity(ctx, holding.ID, "0"); err != nil {
+		t.Fatal(err)
+	}
 	if err := service.ArchiveHolding(ctx, holding.ID, true); err != nil {
 		t.Fatalf("archive holding: %v", err)
 	}

@@ -160,6 +160,17 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 		v, e := s.executeWithRecovery(ctx, in.OperationID, "commit_reconciliation_session", in.Input, true, func(ctx context.Context) (any, error) {
 			raw, e := s.loadPreviewPlan(in.Input.PlanID, "reconciliation_session")
 			if e != nil {
+				if safeError(e).Code != "operation_outcome_unknown" {
+					return nil, e
+				}
+				receipt, lookupErr := s.app.ReconciliationSessionReceipt(ctx, in.Input.PlanID)
+				if lookupErr != nil {
+					return nil, lookupErr
+				}
+				if receipt != nil {
+					receipt.Accounts = nil
+					return receipt, nil
+				}
 				return nil, e
 			}
 			var saved struct {

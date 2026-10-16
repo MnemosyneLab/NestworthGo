@@ -130,8 +130,18 @@ func TestProductRefusalAndReceiptRecovery(t *testing.T) {
 			}
 			// The same mutation still commits with its original facts: refusals wrote no receipt.
 			p.token = refreshToken()
-			if err := service.CommitProduct(ctx, service.products.Put(p)); err != nil {
+			registered, err := service.saveProductPlan(ctx, p)
+			if err != nil {
 				t.Fatal(err)
+			}
+			if err := NewService(app).CommitProduct(ctx, registered); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.SQL.Exec("DELETE FROM app_configuration WHERE key LIKE 'reconciliation.desktop.%'"); err != nil {
+				t.Fatal(err)
+			}
+			if err := NewService(app).CommitProduct(ctx, registered); err != nil {
+				t.Fatalf("missing product body receipt: %v", err)
 			}
 			// Lost-response retries must recover before expiry, token or state checks.
 			expired.token, expired.state = "invalidated", "stale"

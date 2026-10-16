@@ -40,8 +40,18 @@ expiry and completion. Changed payloads conflict. Uncommitted previews expire in
 ten minutes. Only after durable receipt lookup proves there was no commit does
 expiry return `stale_preview` with field `expiresAt`, allowing fresh review.
 An unavailable desktop plan (`planId`) or unscoped stale response retains unknown
-outcome recovery. Desktop plan stores are in memory; MCP plans use the existing private
-backup-owned plan store. A lost desktop plan is not proof of a failed commit.
+outcome recovery. New desktop previews register immutable private SQLite recovery material before
+returning their business plan ID. Session IDs match their receipt identity;
+adjustment/product plans retain their original canonical commands, token, hash
+and expiry. Adapter/process loss therefore does not rebuild a financial command
+from changed defaults. Receipt-only recovery is read-only and never executes an
+unregistered identity. If a body exists, its hash/revision checks still apply.
+MCP production plans and outer operation receipts also use private SQLite
+configuration; files are a legacy/test fallback. Succeeded outer receipts replay
+without plans. A missing body on a pending/unknown operation stays unknown;
+older terminal `not_found` records may be inspected again for business receipts.
+No polling or UI refresh automatically resubmits an unknown operation. Older
+volatile desktop IDs cannot retroactively acquire a durable mapping.
 
 Full success requires every point, including completeness, to be explicitly
 confirmed at the current financial revision. Partial finish requires explicit
@@ -103,22 +113,25 @@ existing guarded services and financial invariants. Saving a correction leaves
 its check pending. All scope/ownership and managed-position guards remain on the
 backend. Financial mutations and evidence receipts are never best-effort paired.
 
-## Schema 17, backup and export
+## Schema 18, backup and export
 
 Schema 17 adds reconciliation session/account/item/link/receipt, financial
 revision and recorded-change tables, indexes and revision triggers. New-database
 DDL and the additive migration have equivalent verified definitions. v16 is
 verified before a flushed, verified, read-only recovery copy is retained. DDL and
 version advance in one transaction, followed by full verification. Existing v15
-uses its original verified v15 → v16 step and then v16 → v17. Recovery copies
+uses its original verified v15 → v16 step and then v16 → v17 → v18. Recovery copies
 cannot be opened as writable live files; restore a copy to a new path.
 
-Read-only inspection accepts verified v15/v16/v17 without upgrading the source.
+Read-only inspection accepts verified v15/v16/v17/v18 without upgrading the source.
 Normal live open upgrades a restored copy. Unsupported versions, missing current
 structures and malformed facts remain blocked. Backup containers and continuous
 backup stream identity retain these exact compatibility boundaries. JSON export
 format 2 adds explicit history datasets reconciliationSessions,
-reconciliationAccounts, reconciliationItems and reconciliationLinks. Evidence is
+reconciliationAccounts, reconciliationItems and reconciliationLinks. Additive
+format-2 datasets accountFinancialRevisions and reconciliationFinancialChanges
+retain business revision and change evidence; consumers must accept additional
+fields/datasets. closingNote is distinct from the opening note. Evidence is
 structured JSON; private plan/receipt configuration is excluded. JSON export is
 not a restorable application database or MCP session.
 
@@ -154,3 +167,46 @@ protocol IDs and revision tokens stay in control payloads and MCP responses.
 
 Native macOS interaction, screen-reader/manual accessibility and packaging remain
 separate from Linux server-tag builds, jsdom tests and generated bindings.
+
+
+## Approved reconciliation follow-up
+
+The v17 → v18 migration verifies the old DDL, publishes a flushed verified
+read-only v17 recovery copy, then adds closing_note and replaces the product
+revision triggers in one verified transaction. Fresh DDL and both upgrade paths
+share the same final definitions. An unfinished v17 note is an opening note.
+A completed v17 note was a closing explanation: migration moves it to closing_note.
+An overwritten legacy opening note cannot be reconstructed. Existing receipts
+remain original historical outcomes.
+
+Actual OLD/NEW economic values drive revisions: principal, currency, state,
+dates, interest and product access/fee terms matter. Name, note, updated_at,
+revision and no-op financial assignments do not. Product value observations
+retain their existing exemption. This does not change replay, move-account or
+double-checkpoint rules.
+
+Instrument archive checks all holdings, including other accounts and archived
+rows, for nonzero exact quantities inside the shared write transaction. Holding
+archive requires zero regardless of History origin. Legacy archived nonzero
+positions stay visible with warnings; new archive operations cannot create them.
+
+Links must match the reviewed holding ID, product ID or cash currency (or balance
+target). Atomic companion legs are allowed when at least one leg matches;
+missing-item corrections use the account completeness point. Removed rows keep
+evidence and disposition, but reject new corrections. The repository validates
+this within the financial/link/session transaction, including rollback on mismatch.
+
+A reference is optional evidence. Explicit referenceComparable asserts matching
+units/currency/current as-of basis, limited to current-day numeric cash, balance
+or quantity values. Exact decimal comparison accepts equal numeric spellings.
+A mismatch requires a correction, unresolved disposition, or a user explanation
+before confirmation. Historical dates and descriptive references are retained
+without comparison. Nothing copies values or confirms checks automatically.
+
+Completed change lists retain the original revision interval and mark later rows
+afterCompletion separately. Last-success timestamps remain historical facts with
+a neutral later-bookkeeping indication. First-baseline copy comes from each
+account's priorSuccessfulAt, never from whether a filtered changes list is empty.
+Overlapping sessions remain independent and permitted; Continue appears before
+new-session selection. Paused sessions may finish directly; finishing freezes
+the completed record. AR19 and broad redesign remain deferred.

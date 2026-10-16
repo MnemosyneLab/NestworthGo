@@ -7,27 +7,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 type ReconciliationAction struct {
-	Action            string                      `json:"action"`
-	SessionID         string                      `json:"sessionId,omitempty"`
-	ExpectedRevision  int64                       `json:"expectedRevision,omitempty"`
-	AccountIDs        []string                    `json:"accountIds,omitempty"`
-	AccountID         string                      `json:"accountId,omitempty"`
-	ItemID            string                      `json:"itemId,omitempty"`
-	FinancialRevision int64                       `json:"financialRevision,omitempty"`
-	Outcome           string                      `json:"outcome,omitempty"`
-	Source            domain.ReconciliationSource `json:"source,omitempty"`
-	ReferenceValue    string                      `json:"referenceValue,omitempty"`
-	Note              string                      `json:"note,omitempty"`
-	AllowPartial      bool                        `json:"allowPartial,omitempty"`
+	Action              string                      `json:"action"`
+	SessionID           string                      `json:"sessionId,omitempty"`
+	ExpectedRevision    int64                       `json:"expectedRevision,omitempty"`
+	AccountIDs          []string                    `json:"accountIds,omitempty"`
+	AccountID           string                      `json:"accountId,omitempty"`
+	ItemID              string                      `json:"itemId,omitempty"`
+	FinancialRevision   int64                       `json:"financialRevision,omitempty"`
+	Outcome             string                      `json:"outcome,omitempty"`
+	Source              domain.ReconciliationSource `json:"source,omitempty"`
+	ReferenceComparable bool                        `json:"referenceComparable,omitempty"`
+	ReferenceValue      string                      `json:"referenceValue,omitempty"`
+	Note                string                      `json:"note,omitempty"`
+	AllowPartial        bool                        `json:"allowPartial,omitempty"`
 }
 type ReconciliationSessionPlan struct {
 	ID        string                       `json:"id"`
@@ -37,6 +40,8 @@ type ReconciliationSessionPlan struct {
 	Result    domain.ReconciliationSession `json:"result"`
 	Revisions map[string]int64             `json:"revisions"`
 }
+
+var reconciliationReferenceNumber = regexp.MustCompile(`^-?(0|[1-9][0-9]{0,17})(\.[0-9]{1,16})?$`)
 
 func reconciliationError(field, message string) error {
 	return &domain.Error{Code: domain.ErrValidation, Field: field, Message: message}
@@ -433,6 +438,37 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 						if _, err := time.Parse("2006-01-02", in.Source.AsOfDate); err != nil {
 							return session, nil, reconciliationError("asOfDate", "provide a valid civil date")
 						}
+						if in.ReferenceComparable && strings.TrimSpace(in.ReferenceValue) != "" && (item.Kind == "balance" || item.Kind == "cash" || item.Kind == "holding") {
+							loc := time.UTC
+							if origin, e := s.HistoryOrigin(ctx); e != nil {
+								return session, nil, e
+							} else if origin != nil {
+								if l, e := time.LoadLocation(origin.Timezone); e == nil {
+									loc = l
+								}
+							}
+							at, e := time.Parse(time.RFC3339Nano, plan.At)
+							if e != nil {
+								return session, nil, e
+							}
+							if in.Source.AsOfDate != at.In(loc).Format(time.DateOnly) {
+								return session, nil, reconciliationError("referenceComparable", "historical source values are not comparable to the current ledger checkpoint")
+							}
+							if !reconciliationReferenceNumber.MatchString(strings.TrimSpace(in.ReferenceValue)) {
+								return session, nil, reconciliationError("referenceValue", "provide a bounded numeric value for comparison")
+							}
+							ref, e := decimal.NewFromString(strings.TrimSpace(in.ReferenceValue))
+							if e != nil {
+								return session, nil, reconciliationError("referenceValue", "provide a numeric value for this comparison")
+							}
+							current, e := decimal.NewFromString(item.Value)
+							if e != nil {
+								return session, nil, e
+							}
+							if !ref.Equal(current) && strings.TrimSpace(in.Note) == "" {
+								return session, nil, reconciliationError("referenceValue", "source value differs; correct the ledger, leave unresolved, or explain the difference")
+							}
+						}
 						if in.Source.AsOfTime != "" {
 							if _, err := time.Parse("15:04", in.Source.AsOfTime); err != nil {
 								return session, nil, reconciliationError("asOfTime", "provide HH:mm")
@@ -466,9 +502,10 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 					item.Note = in.Note
 					item.Source = in.Source
 					item.ReferenceValue = in.ReferenceValue
+					item.ReferenceComparable = in.ReferenceComparable
 					item.CheckedAt = plan.At
 					item.RecheckRequired = false
-					item.Attempts = append(item.Attempts, domain.ReconciliationAttempt{Label: item.Label, Kind: item.Kind, Currency: item.Currency, Detail: item.Detail, Outcome: item.Outcome, Note: item.Note, Source: item.Source, CheckedAt: plan.At, FinancialRevision: item.FinancialRevision, Value: item.Value, Cost: item.Cost, ReferenceValue: item.ReferenceValue})
+					item.Attempts = append(item.Attempts, domain.ReconciliationAttempt{Label: item.Label, Kind: item.Kind, Currency: item.Currency, Detail: item.Detail, Outcome: item.Outcome, Note: item.Note, Source: item.Source, CheckedAt: plan.At, FinancialRevision: item.FinancialRevision, Value: item.Value, Cost: item.Cost, ReferenceValue: item.ReferenceValue, ReferenceComparable: item.ReferenceComparable})
 				}
 			}
 			if !found {
@@ -483,7 +520,7 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 			session.Status = "completed"
 			session.CompletedAt = plan.At
 			session.Partial = partial
-			session.Note = in.Note
+			session.ClosingNote = in.Note
 			for i := range session.Accounts {
 				if session.Accounts[i].Outcome == "confirmed" {
 					session.Accounts[i].LastSuccessfulAt = plan.At
@@ -581,7 +618,12 @@ func (s *Service) ReconciliationLastSuccess(ctx context.Context, account string)
 	if err != nil {
 		return nil, err
 	}
-	return s.reconciliationLastSuccess(ctx, h.ID.String(), account)
+	v, err := s.reconciliationLastSuccess(ctx, h.ID.String(), account)
+	if err != nil || v == nil {
+		return v, err
+	}
+	current, err := s.getReconciliationSession(ctx, v.ID)
+	return &current, err
 }
 func (s *Service) ReconciliationLinkedChanges(ctx context.Context, id string) ([]domain.ReconciliationLinkedChange, error) {
 	r, err := s.reconciliationRepo()
@@ -626,23 +668,30 @@ func (s *Service) ValidateReconciliationLink(ctx context.Context, link *domain.R
 	if selected == nil {
 		return reconciliationError("reconciliationLink", "item is outside selected scope")
 	}
+
+	if selected.Kind == "removed" {
+		return reconciliationError("reconciliationLink", "removed items retain evidence but cannot receive corrections")
+	}
+	matched := len(previews) == 0
 	for _, p := range previews {
-		affected := false
 		for _, e := range p.Effects {
-			if e.AccountID != nil && e.AccountID.String() == link.AccountID {
-				affected = true
+			account := ""
+			if e.AccountID != nil {
+				account = e.AccountID.String()
 			}
 			if e.HoldingID != nil {
 				h, err := s.repository.Holding(ctx, *e.HoldingID)
-				if err == nil && h.AccountID.String() == link.AccountID {
-					affected = true
+				if err == nil {
+					account = h.AccountID.String()
 				}
 			}
-		}
-		if !affected {
-			return reconciliationError("reconciliationLink", "each linked change must affect the selected account")
+			matched = matched || domain.ReconciliationEffectMatches(*selected, account, e)
 		}
 	}
+	if !matched {
+		return reconciliationError("reconciliationLink", "the atomic correction must affect the selected holding, product or cash currency")
+	}
+
 	return nil
 }
 
@@ -664,6 +713,20 @@ func (s *Service) validateProductReconciliationLink(ctx context.Context, link *d
 	if p.AccountID.String() != link.AccountID {
 		return reconciliationError("reconciliationLink", "product belongs to another account")
 	}
+	session, err := s.getReconciliationSession(ctx, link.SessionID)
+	if err != nil {
+		return err
+	}
+	for _, a := range session.Accounts {
+		if a.AccountID == link.AccountID {
+			for _, item := range a.Items {
+				if item.ID == link.ItemID && !(item.Kind == "scope" || item.Kind == "product" && item.ProductID == id.String()) {
+					return reconciliationError("reconciliationLink", "product does not match the reviewed item")
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -686,7 +749,7 @@ func (s *Service) ReconciliationChanges(ctx context.Context, id, account string)
 		if account != "" && a.AccountID != account {
 			continue
 		}
-		if a.PriorRevision == 0 {
+		if a.PriorRevision == 0 && v.Status != "completed" {
 			continue
 		}
 		rows, err := r.ReconciliationFinancialChanges(ctx, a.AccountID, a.PriorRevision)
@@ -694,7 +757,8 @@ func (s *Service) ReconciliationChanges(ctx context.Context, id, account string)
 			return nil, err
 		}
 		for _, row := range rows {
-			if v.Status != "completed" || row.Revision <= a.FinancialRevision {
+			row.AfterCompletion = v.Status == "completed" && row.Revision > a.FinancialRevision
+			if a.PriorRevision != 0 || row.AfterCompletion {
 				result = append(result, row)
 			}
 		}
@@ -710,7 +774,19 @@ func (s *Service) ValidateReconciliationCommandLink(ctx context.Context, link *d
 		if err := s.ValidateReconciliationLink(ctx, link, nil); err != nil {
 			return err
 		}
-		if in.AccountID.String() != link.AccountID {
+		session, err := s.getReconciliationSession(ctx, link.SessionID)
+		if err != nil {
+			return err
+		}
+		validScope := false
+		for _, a := range session.Accounts {
+			for _, item := range a.Items {
+				if a.AccountID == link.AccountID && item.ID == link.ItemID && item.Kind == "scope" {
+					validScope = true
+				}
+			}
+		}
+		if in.AccountID.String() != link.AccountID || !validScope {
 			return reconciliationError("reconciliationLink", "position import belongs to another account")
 		}
 		return nil

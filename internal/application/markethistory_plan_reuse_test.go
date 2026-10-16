@@ -187,7 +187,7 @@ func TestHistoryPlanReuseRetainsOverridesAndFreshReads(t *testing.T) {
 	if err := s.SetInstrumentQuoteSource(ctx, second.ID, "agent"); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.SetInstrumentArchive(ctx, first.HouseholdID, first.ID, true, s.clock()); err != nil {
+	if err := seedLegacyInstrumentArchive(t, s, first.ID); err != nil {
 		t.Fatal(err)
 	}
 	assertHistoryPlanMatchesLegacy(t, s)

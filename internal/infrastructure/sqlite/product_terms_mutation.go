@@ -60,7 +60,8 @@ func (r *Repository) CommitProductTermsMutation(ctx context.Context, contract do
 	}
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		if l := domain.ReconciliationLinkFrom(ctx); l != nil {
-			if l.AccountID != contract.AccountID.String() {
+			item := domain.ReconciliationWorkingItemFrom(ctx)
+			if item == nil || !(item.Kind == "scope" || item.Kind == "product" && item.ProductID == contract.ID.String()) || l.AccountID != contract.AccountID.String() {
 				return reconciliationConflict("reconciliationLink")
 			}
 			if err := saveReconciliationLinkTx(ctx, tx, m.ID.String(), "product_terms", m.Receipt); err != nil {

@@ -682,7 +682,7 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 		t.Fatal(err)
 	}
 	assertMoneyView(t, withArchived.ValuedSubtotal, "999.0001", "CNY")
-	if err := service.ArchiveInstrument(ctx, archived.ID, true); err != nil {
+	if err := seedLegacyInstrumentArchive(t, service, archived.ID); err != nil {
 		t.Fatal(err)
 	}
 	afterArchive, err := service.Portfolio(ctx, domain.AccountFilter{})

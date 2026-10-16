@@ -10,7 +10,9 @@ import (
 // Version 1's explicit projection is intentionally independent of schema discovery.
 // Adding a database column must never silently extend the public export contract.
 var exportQueries = []struct{ section, name, query string }{
-	{"history", "reconciliationSessions", `SELECT id, household_id AS householdId, status, revision, started_at AS startedAt, completed_at AS completedAt, note, partial FROM reconciliation_sessions ORDER BY started_at,id`},
+	{"history", "reconciliationSessions", `SELECT id, household_id AS householdId, status, revision, started_at AS startedAt, completed_at AS completedAt, note, partial, closing_note AS closingNote FROM reconciliation_sessions ORDER BY started_at,id`},
+	{"history", "accountFinancialRevisions", `SELECT account_id AS accountId,revision FROM account_financial_revisions ORDER BY account_id`},
+	{"history", "reconciliationFinancialChanges", `SELECT account_id AS accountId,revision,family,fact_id AS factId,recorded_at AS recordedAt,effective_at AS effectiveAt,evidence AS reconciliationEvidence FROM reconciliation_financial_changes ORDER BY account_id,revision`},
 	{"history", "reconciliationAccounts", `SELECT session_id AS sessionId, account_id AS accountId, evidence AS reconciliationEvidence FROM reconciliation_accounts ORDER BY session_id,account_id`},
 	{"history", "reconciliationItems", `SELECT session_id AS sessionId, account_id AS accountId, id, evidence AS reconciliationEvidence FROM reconciliation_items ORDER BY session_id,account_id,id`},
 	{"history", "reconciliationLinks", `SELECT session_id AS sessionId, account_id AS accountId, item_id AS itemId, operation_id AS operationId, family, evidence AS reconciliationEvidence FROM reconciliation_links ORDER BY session_id,account_id,operation_id`},

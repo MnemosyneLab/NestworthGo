@@ -470,7 +470,7 @@ func TestProductHTTPPostCommitReceiptFailureAndOlderSnapshot(t *testing.T) {
 	if _, err := s.GetOperation(opID); safeError(err).Code != "not_found" {
 		t.Fatal(err)
 	}
-	if code := productCommitCode(t, c, p["planId"].(string)); code != "not_found" {
+	if code := productCommitCode(t, c, p["planId"].(string)); code != "operation_outcome_unknown" {
 		t.Fatal(code)
 	}
 	if ledgerActivityCount(t, app) != 0 {

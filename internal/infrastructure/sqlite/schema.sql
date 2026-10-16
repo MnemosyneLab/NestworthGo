@@ -784,7 +784,7 @@ CREATE TABLE reconciliation_sessions (
  id TEXT PRIMARY KEY NOT NULL, household_id TEXT NOT NULL REFERENCES households(id),
  status TEXT NOT NULL CHECK(status IN ('in_progress','paused','completed')),
  revision INTEGER NOT NULL CHECK(revision >= 1), started_at TEXT NOT NULL, completed_at TEXT,
- note TEXT NOT NULL, partial INTEGER NOT NULL CHECK(partial IN (0,1))
+ note TEXT NOT NULL, partial INTEGER NOT NULL CHECK(partial IN (0,1)), closing_note TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX idx_reconciliation_sessions ON reconciliation_sessions(household_id, started_at DESC, id DESC);
 CREATE TABLE reconciliation_accounts (
@@ -855,7 +855,7 @@ CREATE TRIGGER reconciliation_product_contracts_insert AFTER INSERT ON product_c
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
  INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_contracts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'productName',NEW.name,'principal',NEW.principal,'state',NEW.state,'maturityOn',NEW.maturity_on) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
-CREATE TRIGGER reconciliation_product_contracts_update AFTER UPDATE ON product_contracts BEGIN
+CREATE TRIGGER reconciliation_product_contracts_update AFTER UPDATE ON product_contracts WHEN OLD.household_id IS NOT NEW.household_id OR OLD.account_id IS NOT NEW.account_id OR OLD.holding_id IS NOT NEW.holding_id OR OLD.instrument_id IS NOT NEW.instrument_id OR OLD.kind IS NOT NEW.kind OR OLD.currency IS NOT NEW.currency OR OLD.principal IS NOT NEW.principal OR OLD.start_on IS NOT NEW.start_on OR OLD.maturity_on IS NOT NEW.maturity_on OR OLD.interest_mode IS NOT NEW.interest_mode OR OLD.annual_rate IS NOT NEW.annual_rate OR OLD.maturity_interest IS NOT NEW.maturity_interest OR OLD.interest_paid_through_on IS NOT NEW.interest_paid_through_on OR OLD.renewed_from_id IS NOT NEW.renewed_from_id OR OLD.state IS NOT NEW.state OR OLD.opened_operation_id IS NOT NEW.opened_operation_id OR OLD.closed_operation_id IS NOT NEW.closed_operation_id BEGIN
  INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
  ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
  INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_contracts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'productName',NEW.name,'principal',NEW.principal,'state',NEW.state,'maturityOn',NEW.maturity_on) FROM account_financial_revisions WHERE account_id=NEW.account_id;
@@ -870,4 +870,12 @@ CREATE TRIGGER reconciliation_product_facts AFTER INSERT ON product_operation_pr
  UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=(SELECT account_id FROM product_contracts WHERE id=NEW.product_id);
  INSERT INTO reconciliation_financial_changes SELECT p.account_id,r.revision,'product_operation',NEW.operation_id,o.created_at,o.effective_at,json_object('accountName',a.name,'productName',p.name,'kind',o.kind,'result',json(o.result_json)) FROM product_contracts p JOIN accounts a ON a.id=p.account_id JOIN account_financial_revisions r ON r.account_id=p.account_id JOIN product_operations o ON o.id=NEW.operation_id WHERE p.id=NEW.product_id;
 END;
-PRAGMA user_version = 17;
+CREATE TRIGGER reconciliation_product_policy_insert AFTER INSERT ON liquidity_policies WHEN EXISTS(SELECT 1 FROM product_contracts WHERE holding_id=NEW.holding_id) BEGIN
+ UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=NEW.account_id;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_policy',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'holdingId',NEW.holding_id,'accessKind',NEW.access_kind,'unlockOn',NEW.unlock_on,'normalExitFee',NEW.normal_exit_fee,'earlyFee',NEW.early_fee) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_product_policy_update AFTER UPDATE ON liquidity_policies WHEN EXISTS(SELECT 1 FROM product_contracts WHERE holding_id=NEW.holding_id) AND (OLD.source_kind IS NOT NEW.source_kind OR OLD.account_id IS NOT NEW.account_id OR OLD.holding_id IS NOT NEW.holding_id OR OLD.currency IS NOT NEW.currency OR OLD.access_kind IS NOT NEW.access_kind OR OLD.unlock_on IS NOT NEW.unlock_on OR OLD.settlement_days IS NOT NEW.settlement_days OR OLD.day_basis IS NOT NEW.day_basis OR OLD.receipt_on_override IS NOT NEW.receipt_on_override OR OLD.accessible_amount_cap IS NOT NEW.accessible_amount_cap OR OLD.normal_exit_fee IS NOT NEW.normal_exit_fee OR OLD.early_kind IS NOT NEW.early_kind OR OLD.early_settlement_days IS NOT NEW.early_settlement_days OR OLD.early_day_basis IS NOT NEW.early_day_basis OR OLD.early_fee IS NOT NEW.early_fee OR OLD.early_amount_mode IS NOT NEW.early_amount_mode OR OLD.early_gross_amount IS NOT NEW.early_gross_amount) BEGIN
+ UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=NEW.account_id;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_policy',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'holdingId',NEW.holding_id,'accessKind',NEW.access_kind,'unlockOn',NEW.unlock_on,'normalExitFee',NEW.normal_exit_fee,'earlyFee',NEW.early_fee) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+PRAGMA user_version = 18;

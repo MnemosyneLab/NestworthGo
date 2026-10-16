@@ -16,10 +16,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql reconciliation_schema.sql
+//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 17
+const CurrentSchemaVersion = 18
 
 type BootstrapStatus string
 
@@ -88,7 +88,7 @@ type DB struct {
 }
 
 func Open(path string) (*DB, error) {
-	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) {
+	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -111,7 +111,7 @@ func Open(path string) (*DB, error) {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
 		found, readErr := readVersion(probe)
-		if readErr == nil && (found == 15 || found == 16) {
+		if readErr == nil && (found == 15 || found == 16 || found == 17) {
 			readErr = verifySchemaVersion(context.Background(), probe, found)
 			if readErr != nil {
 				probe.Close()
@@ -122,7 +122,7 @@ func Open(path string) (*DB, error) {
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion && found != 15 && found != 16 {
+		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -157,6 +157,12 @@ func Open(path string) (*DB, error) {
 	}
 	if found == 16 && existed {
 		if err := upgradeV16(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 17
+	}
+	if found == 17 && existed {
+		if err := upgradeV17(context.Background(), database, path); err != nil {
 			return closeOnError(StatusUnavailable, found, err)
 		}
 		found = CurrentSchemaVersion

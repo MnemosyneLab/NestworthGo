@@ -38,7 +38,8 @@ func (s *Service) PreviewProductTerms(ctx context.Context, in liquidity.UpdatePr
 	}
 	before, after := liquidity.FromProductDetail(p.Before), liquidity.FromProductDetail(p.After)
 	plan := productPlan{kind: "terms", id: uuid.NewString(), terms: input, token: token, state: p.ReviewedStateHash, expires: time.Now().Add(10 * time.Minute)}
-	return ProductPreview{PlanID: s.products.Put(plan), Before: &before, After: &after}, nil
+	planID, e := s.saveProductPlan(ctx, plan)
+	return ProductPreview{PlanID: planID, Before: &before, After: &after}, e
 }
 func (s *Service) PreviewProductValuation(ctx context.Context, link domain.ReconciliationLink, productID, amount, observedAt string) (ProductPreview, error) {
 	id, e := domain.ParseProductContractID(productID)
@@ -51,7 +52,8 @@ func (s *Service) PreviewProductValuation(ctx context.Context, link domain.Recon
 	}
 	value := liquidity.FromProductValuationPreview(p)
 	plan := productPlan{kind: "valuation", id: uuid.NewString(), valuation: p.Command, token: token, state: p.ReviewedStateHash, expires: time.Now().Add(10 * time.Minute)}
-	return ProductPreview{PlanID: s.products.Put(plan), Valuation: &value}, nil
+	idString, e := s.saveProductPlan(ctx, plan)
+	return ProductPreview{PlanID: idString, Valuation: &value}, e
 }
 func (s *Service) PreviewProductOperation(ctx context.Context, in liquidity.ProductCommandRequest) (ProductPreview, error) {
 	command, e := in.ToApplication()
@@ -70,12 +72,29 @@ func (s *Service) PreviewProductOperation(ctx context.Context, in liquidity.Prod
 	}
 	value := liquidity.FromProductOperationPreview(p)
 	plan := productPlan{kind: "operation", id: uuid.NewString(), operation: frozen, token: token, state: p.ReviewedStateHash, expires: time.Now().Add(10 * time.Minute)}
-	return ProductPreview{PlanID: s.products.Put(plan), Operation: &value}, nil
+	id, e := s.saveProductPlan(ctx, plan)
+	return ProductPreview{PlanID: id, Operation: &value}, e
 }
 func (s *Service) CommitProduct(ctx context.Context, id string) error {
 	p, e := s.products.Get(id)
 	if e != nil {
-		return apierror.Wrap(e)
+		if s.app == nil {
+			return apierror.Wrap(e)
+		}
+		raw, err := s.app.LoadReconciliationPlan(ctx, "product", id)
+		if err != nil {
+			found, lookupErr := s.app.ReconciliationProductReceipt(ctx, id)
+			if lookupErr != nil {
+				return apierror.Wrap(lookupErr)
+			}
+			if found {
+				return nil
+			}
+			return apierror.Wrap(err)
+		}
+		if e = json.Unmarshal(raw, &p); e != nil {
+			return apierror.Wrap(e)
+		}
 	}
 	token := p.token
 	if time.Now().After(p.expires) {
@@ -90,4 +109,34 @@ func (s *Service) CommitProduct(ctx context.Context, id string) error {
 		_, e = s.app.RecordProductOperationGuarded(ctx, p.operation, p.id, p.state, token)
 	}
 	return apierror.Wrap(e)
+}
+
+type savedProductPlan struct {
+	Kind      string
+	ID        string
+	Token     string
+	State     string
+	Terms     application.UpdateProductTermsInput
+	Valuation application.ProductValuationCommand
+	Operation application.ProductCommand
+	Expires   time.Time
+}
+
+func (p productPlan) MarshalJSON() ([]byte, error) {
+	return json.Marshal(savedProductPlan{p.kind, p.id, p.token, p.state, p.terms, p.valuation, p.operation, p.expires})
+}
+func (p *productPlan) UnmarshalJSON(raw []byte) error {
+	var v savedProductPlan
+	if e := json.Unmarshal(raw, &v); e != nil {
+		return e
+	}
+	*p = productPlan{v.Kind, v.ID, v.Token, v.State, v.Terms, v.Valuation, v.Operation, v.Expires}
+	return nil
+}
+func (s *Service) saveProductPlan(ctx context.Context, p productPlan) (string, error) {
+	raw, e := json.Marshal(p)
+	if e == nil {
+		e = s.app.SaveReconciliationPlan(ctx, "product", p.id, raw)
+	}
+	return p.id, apierror.Wrap(e)
 }

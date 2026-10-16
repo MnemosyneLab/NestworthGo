@@ -57,6 +57,10 @@ func linkReconciliationActivityTx(ctx context.Context, tx *sql.Tx, commit domain
 	if household != commit.Activity.HouseholdID.String() {
 		return reconciliationConflict("reconciliationLink")
 	}
+	item := domain.ReconciliationWorkingItemFrom(ctx)
+	if item == nil {
+		return reconciliationConflict("reconciliationLink")
+	}
 	affected := false
 	effects := []map[string]any{}
 	for _, e := range commit.Effects {
@@ -69,9 +73,7 @@ func linkReconciliationActivityTx(ctx context.Context, tx *sql.Tx, commit domain
 				return err
 			}
 		}
-		if account == l.AccountID {
-			affected = true
-		}
+		affected = affected || domain.ReconciliationEffectMatches(*item, account, e)
 		effect := map[string]any{"accountId": account, "target": e.Target, "direction": e.Direction}
 		if e.Money != nil {
 			effect["amount"] = e.Money.CanonicalAmount()
@@ -85,12 +87,9 @@ func linkReconciliationActivityTx(ctx context.Context, tx *sql.Tx, commit domain
 		}
 		effects = append(effects, effect)
 	}
-	if !affected {
-		return reconciliationConflict("reconciliationLink.accountId")
-	}
-	return saveReconciliationLinkTx(ctx, tx, commit.Activity.ID.String(), "activity", map[string]any{"activityId": commit.Activity.ID.String(), "kind": commit.Activity.Kind, "reason": commit.Activity.Reason, "effectiveAt": commit.Activity.EffectiveAt, "recordedAt": commit.Activity.CreatedAt, "note": commit.Activity.Note, "effects": effects, "resulting": commit.Resulting})
+	return saveReconciliationLinkTx(ctx, tx, commit.Activity.ID.String(), "activity", map[string]any{"activityId": commit.Activity.ID.String(), "kind": commit.Activity.Kind, "reason": commit.Activity.Reason, "effectiveAt": commit.Activity.EffectiveAt, "recordedAt": commit.Activity.CreatedAt, "note": commit.Activity.Note, "effects": effects, "resulting": commit.Resulting}, affected)
 }
-func saveReconciliationLinkTx(ctx context.Context, tx *sql.Tx, operation, family string, after any) error {
+func saveReconciliationLinkTx(ctx context.Context, tx *sql.Tx, operation, family string, after any, matches ...bool) error {
 	l := domain.ReconciliationLinkFrom(ctx)
 	if l == nil {
 		return nil
@@ -104,7 +103,8 @@ func saveReconciliationLinkTx(ctx context.Context, tx *sql.Tx, operation, family
 		return err
 	}
 	reviewed.Attempts = nil
-	raw, err := json.Marshal(map[string]any{"reviewedBefore": reviewed, "committed": after})
+	matched := len(matches) == 0 || matches[0]
+	raw, err := json.Marshal(map[string]any{"reviewedBefore": reviewed, "committed": after, "targetMatched": matched, "sessionRevision": l.ExpectedRevision})
 	if err != nil {
 		return err
 	}
@@ -133,6 +133,13 @@ func finishReconciliationLinkTx(ctx context.Context, tx *sql.Tx, priorCount int)
 	if count <= priorCount {
 		return reconciliationConflict("reconciliationLink")
 	}
+	var matched int
+	if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM reconciliation_links WHERE session_id=? AND account_id=? AND json_extract(evidence,'$.sessionRevision')=? AND json_extract(evidence,'$.targetMatched')=1", l.SessionID, l.AccountID, l.ExpectedRevision).Scan(&matched); err != nil {
+		return err
+	}
+	if matched == 0 {
+		return reconciliationConflict("reconciliationLink")
+	}
 	result, err := tx.ExecContext(ctx, "UPDATE reconciliation_sessions SET revision=revision+1 WHERE id=? AND revision=? AND status='in_progress'", l.SessionID, l.ExpectedRevision)
 	if err != nil {
 		return err
@@ -156,17 +163,47 @@ func linkReconciliationProductTx(ctx context.Context, tx *sql.Tx, bundle domain.
 	if household != bundle.Operation.HouseholdID.String() {
 		return reconciliationConflict("reconciliationLink")
 	}
+	item := domain.ReconciliationWorkingItemFrom(ctx)
+	if item == nil {
+		return reconciliationConflict("reconciliationLink")
+	}
+	matchesProduct := func(account, id string) bool {
+		return account == l.AccountID && (item.Kind == "scope" || item.Kind == "product" && item.ProductID == id)
+	}
 	affected := false
 	for _, p := range bundle.Contracts {
-		if p.AccountID.String() == l.AccountID {
+		if matchesProduct(p.AccountID.String(), p.ID.String()) {
 			affected = true
 		}
 	}
 	for _, p := range bundle.ProductLinks {
 		var account string
 		err := tx.QueryRowContext(ctx, "SELECT account_id FROM product_contracts WHERE id=?", p.ProductID.String()).Scan(&account)
-		if err == nil && account == l.AccountID {
+		if err == nil && matchesProduct(account, p.ProductID.String()) {
 			affected = true
+		}
+	}
+	// A product receipt can also correct the selected cash currency. Other
+	// operation legs remain companions, never substitute for the selected target.
+	for _, activity := range bundle.Activities {
+		for _, effect := range activity.Effects {
+			account := ""
+			if effect.AccountID != nil {
+				account = effect.AccountID.String()
+			}
+			if account == "" && effect.HoldingID != nil {
+				for _, holding := range bundle.Holdings {
+					if holding.ID == *effect.HoldingID {
+						account = holding.AccountID.String()
+					}
+				}
+				if account == "" {
+					if err := tx.QueryRowContext(ctx, "SELECT account_id FROM holdings WHERE id=?", effect.HoldingID.String()).Scan(&account); err != nil {
+						return err
+					}
+				}
+			}
+			affected = affected || domain.ReconciliationEffectMatches(*item, account, effect)
 		}
 	}
 	if !affected {

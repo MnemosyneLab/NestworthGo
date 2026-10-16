@@ -108,6 +108,43 @@ func (s *Service) previewProductOperation(ctx context.Context, command ProductCo
 	if err := s.ValidateReconciliationLink(ctx, command.ReconciliationLink, nil); err != nil {
 		return ProductOperationPreview{}, err
 	}
+	if link := command.ReconciliationLink; link != nil {
+		session, e := s.getReconciliationSession(ctx, link.SessionID)
+		if e != nil {
+			return ProductOperationPreview{}, e
+		}
+		matched := false
+		for _, account := range session.Accounts {
+			if account.AccountID != link.AccountID {
+				continue
+			}
+			for _, item := range account.Items {
+				if item.ID != link.ItemID {
+					continue
+				}
+				if item.Kind == "product" {
+					for _, id := range plan.productIDs {
+						matched = matched || item.ProductID == id.String()
+					}
+				}
+				if item.Kind == "scope" {
+					for _, contract := range plan.contracts {
+						matched = matched || contract.AccountID.String() == link.AccountID
+					}
+					for _, contract := range plan.beforeContracts {
+						matched = matched || contract.AccountID.String() == link.AccountID
+					}
+				}
+				if item.Kind == "cash" || item.Kind == "balance" || item.Kind == "holding" {
+					matched = s.ValidateReconciliationLink(ctx, link, plan.previews) == nil && len(plan.previews) > 0
+				}
+			}
+		}
+		if !matched {
+			return ProductOperationPreview{}, reconciliationError("reconciliationLink", "product operation does not match the selected concrete target")
+		}
+	}
+
 	return ProductOperationPreview{
 		Kind: command.Kind, NormalizedJSON: normalized, PayloadSHA256: payloadSHA,
 		ReviewedStateHash: reviewed, LocalDate: localDate, Timezone: origin.Timezone,
