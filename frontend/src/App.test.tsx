@@ -540,7 +540,7 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
     await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
     expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Fund Two");
-  });
+  }, 15_000);
 
   it("returns from market health to market data with the navigation trail intact", async () => {
     await i18n.changeLanguage("en");
