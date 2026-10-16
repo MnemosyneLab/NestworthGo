@@ -346,6 +346,10 @@ reports its current filters to the navigation trail so returning after an
 object drill-down restores user edits rather than the original entry filters.
 Moving between Market Data and Data Health preserves the focused health issue
 and adds a return step, allowing an analysis-to-repair path to be retraced.
+Opening a new History record from a filtered list suggests only active account
+and instrument IDs. Its effective time remains an explicit form choice, not an
+inference from the list's date range. After recording, the receipt offers a
+link to the exact new Activity even if it lies outside that list range.
 
 ## Metals and crypto
 

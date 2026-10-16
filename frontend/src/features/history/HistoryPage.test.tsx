@@ -16,6 +16,7 @@ import { HistoryPage } from "./HistoryPage";
 import { AccountActionSheet } from "@/features/accounts/AccountActionSheets";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import i18n from "@/i18n";
+import { toast } from "sonner";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
 const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));
@@ -416,6 +417,7 @@ describe("HistoryPage", () => {
   });
 
   it("previews then records a money_added change", async () => {
+    const success = vi.spyOn(toast, "success");
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listActivities.mockResolvedValue([]);
     previewChange.mockResolvedValue({
@@ -425,7 +427,7 @@ describe("HistoryPage", () => {
     });
     recordChange.mockResolvedValue({ activity: { id: "a1", kind: "cash_in" }, effects: [], resulting: [] });
 
-    renderPage();
+    renderPage({ from: "2026-08-01", to: "2026-08-31" });
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
 
@@ -438,6 +440,8 @@ describe("HistoryPage", () => {
 
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
+    await waitFor(() => expect(success).toHaveBeenCalledWith(i18n.t("history.recorded"), expect.objectContaining({ action: expect.objectContaining({ label: i18n.t("insights.viewInHistory"), onClick: expect.any(Function) }) })));
+    success.mockRestore();
   });
 
   it("previews money_added in the household base currency after hydrate, not CNY", async () => {
@@ -1800,6 +1804,35 @@ it("offers only cash assets for ordinary transfer endpoints", async () => {
     const select = within(form).getByLabelText(label);
     expect(within(select).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["", "bank", "broker"]);
   }
+});
+
+it("suggests the filtered active account and instrument for a new record without guessing a date", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ account: { id: "broker", name: "Synthetic Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "EUR" } }]);
+  listInstruments.mockResolvedValue([{ id: "stock", name: "Synthetic Stock", quoteCurrency: "USD", instrumentType: "stock" }]);
+  renderPage({ accountId: "broker", instrumentId: "stock", from: "2026-08-01", to: "2026-08-31" });
+  await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByLabelText("Account")).toHaveValue("broker");
+  expect(within(form).getByLabelText("Currency")).toHaveValue("EUR");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
+  expect(within(form).getByLabelText("Settlement account")).toHaveValue("broker");
+  expect(within(form).getByLabelText("Instrument")).toHaveValue("stock");
+  expect(form.querySelector("#change-gross-currency")).toHaveValue("USD");
+  expect(form.querySelector("#change-effective-date")).not.toHaveTextContent(/2026-08-01|08\/01\/2026/);
+});
+
+it("does not prefill archived history objects into a new record", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ account: { id: "old-account", name: "Old Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "EUR", archivedAt: "2026-08-31T00:00:00Z" } }]);
+  listInstruments.mockResolvedValue([{ id: "old-stock", name: "Old Stock", quoteCurrency: "USD", instrumentType: "stock", archivedAt: "2026-08-31T00:00:00Z" }]);
+  renderPage({ accountId: "old-account", instrumentId: "old-stock" });
+  await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByLabelText("Account")).toHaveValue("");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
+  expect(within(form).getByLabelText("Settlement account")).toHaveValue("");
+  expect(within(form).getByLabelText("Instrument")).toHaveValue("");
 });
 
 

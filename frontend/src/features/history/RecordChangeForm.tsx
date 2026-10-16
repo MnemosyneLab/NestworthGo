@@ -28,7 +28,7 @@ import { useRefreshFX, useRefreshInstrument } from "@/queries/marketdata";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
-import type { AccountRecordDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { AccountRecordDTO, ActivityDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { ChoiceGrid } from "@/components/ui/choice-grid";
 import { activityStyle } from "@/lib/activityStyle";
 import { FieldError } from "@/components/ui/field-error";
@@ -290,6 +290,7 @@ function timeKey(date: string, clock: string): string {
 export function RecordChangeForm({
   onRecorded,
   initial,
+  prefill,
   fixActivityId,
   repeat = false,
   repeatSourceId,
@@ -297,8 +298,9 @@ export function RecordChangeForm({
   originalEffectiveAt,
   originOverride,
 }: {
-  onRecorded: () => void;
+  onRecorded: (activity?: ActivityDTO) => void;
   initial?: ChangeCommandRequest;
+  prefill?: { accountId?: string; instrumentId?: string; accountCurrency?: string; instrumentCurrency?: string };
   fixActivityId?: string;
   repeat?: boolean;
   repeatSourceId?: string;
@@ -324,6 +326,7 @@ export function RecordChangeForm({
       key={resolvedCurrency}
       onRecorded={onRecorded}
       initial={initial}
+      prefill={prefill}
       fixActivityId={fixActivityId}
       repeat={repeat}
       repeatSourceId={repeatSourceId}
@@ -338,6 +341,7 @@ export function RecordChangeForm({
 function RecordChangeFormReady({
   onRecorded,
   initial,
+  prefill,
   fixActivityId,
   repeat = false,
   repeatSourceId,
@@ -346,8 +350,9 @@ function RecordChangeFormReady({
   originOverride,
   defaultCurrency,
 }: {
-  onRecorded: () => void;
+  onRecorded: (activity?: ActivityDTO) => void;
   initial?: ChangeCommandRequest;
+  prefill?: { accountId?: string; instrumentId?: string; accountCurrency?: string; instrumentCurrency?: string };
   fixActivityId?: string;
   repeat?: boolean;
   repeatSourceId?: string;
@@ -403,7 +408,7 @@ function RecordChangeFormReady({
   const currencyOptions = currencies.data ?? [defaultCurrency];
 
   const initialRequest: ChangeCommandRequest = (() => {
-    const base = initial ?? emptyChangeRequest(lock?.kind ?? ChangeCommandKind.ChangeMoneyAdded, defaultCurrency);
+    const base = initial ?? { ...emptyChangeRequest(lock?.kind ?? ChangeCommandKind.ChangeMoneyAdded, prefill?.accountCurrency ?? defaultCurrency), accountId: prefill?.accountId };
     return {
       ...base,
       kind: lock?.kind ?? base.kind,
@@ -806,9 +811,9 @@ function RecordChangeFormReady({
       const planId = sheetConfirmation?.identity ?? currentReview.planId;
       sheetConfirmation?.begin(planId, currentReview);
       repeatConfirm.mutate(planId, {
-        onSuccess: () => {
+        onSuccess: (result) => {
           if (sheetConfirmation && !sheetConfirmation.resolve(planId)) return;
-          if (alive.current) { clearPreview(); onRecorded(); }
+          if (alive.current) { clearPreview(); onRecorded(result.activity); }
         },
         onError: (cause) => {
           if (!alive.current) return;
@@ -853,7 +858,7 @@ function RecordChangeFormReady({
     const operation = submission.family === "fix"
       ? fix.mutateAsync({ activityId: submission.sourceActivityId!, replacement: submission.review.command })
       : record.mutateAsync(submission.review.command);
-    void operation.then(() => {
+    void operation.then((result) => {
       if (!ownsScope()) {
         const current = ordinarySubmission(sheetConfirmation.read()?.recovery);
         if (current) sheetConfirmation.update(id, { ...current, phase: "unknown" });
@@ -861,7 +866,7 @@ function RecordChangeFormReady({
       }
       if (!sheetConfirmation.resolve(id)) return;
       if (alive.current) clearPreview();
-      onRecorded();
+      onRecorded(result.activity);
     }, cause => {
       if (ownsScope() && provenOrdinaryRefusal(submission.family, cause)) {
         if (sheetConfirmation.resolve(id) && alive.current) clearPreview();
@@ -1023,16 +1028,18 @@ function RecordChangeFormReady({
           onChange={(value) => {
             if (sheetConfirmation?.read() || confirmBusy.current) return;
             const nextKind = value as ChangeCommandKind;
-            const next = emptyChangeRequest(nextKind, defaultCurrency);
+            const next = emptyChangeRequest(nextKind, prefill?.accountCurrency ?? defaultCurrency);
             const locked = {
               ...next,
               reconciliationLink:request.reconciliationLink,
               effectiveAt: request.effectiveAt,
               effectiveLocalDate: request.effectiveLocalDate,
               effectiveLocalTime: request.effectiveLocalTime,
-              accountId: lock?.accountId ?? next.accountId,
-              settlementAccountId: lock?.settlementAccountId ?? next.settlementAccountId,
-              fromAccountId: lock?.accountId && nextKind === ChangeCommandKind.ChangeCashTransfer ? lock.accountId : next.fromAccountId,
+              accountId: lock?.accountId ?? ([ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashTransfer, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment].includes(nextKind) ? next.accountId : prefill?.accountId ?? next.accountId),
+              settlementAccountId: lock?.settlementAccountId ?? (nextKind === ChangeCommandKind.ChangeTrade ? prefill?.accountId : next.settlementAccountId),
+              fromAccountId: nextKind === ChangeCommandKind.ChangeCashTransfer ? (lock?.accountId ?? prefill?.accountId ?? next.fromAccountId) : next.fromAccountId,
+              instrumentId: nextKind === ChangeCommandKind.ChangeTrade || nextKind === ChangeCommandKind.ChangePositionImport ? prefill?.instrumentId : next.instrumentId,
+              grossCurrency: nextKind === ChangeCommandKind.ChangeTrade ? prefill?.instrumentCurrency ?? next.grossCurrency : next.grossCurrency,
             };
             resetAutomaticTracking(locked);
             setRequest(locked);

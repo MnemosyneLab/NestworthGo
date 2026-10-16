@@ -46,6 +46,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { resolvedTimeZone } from "@/lib/time";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { HistoryNavigationFilters } from "@/app/navigation";
+import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 
 const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_dividend", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment"];
 
@@ -124,6 +125,8 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
       .filter((id): id is string => Boolean(id)),
   );
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
+  const prefillAccount = (accounts.data ?? []).find((record) => record.account.id === accountFilter && !record.account.archivedAt)?.account;
+  const prefillInstrument = (instruments.data ?? []).find((instrument) => instrument.id === instrumentFilter && !instrument.archivedAt && ordinaryInstrument(instrument));
   const instrumentNames = instrumentDisplayLabels(instruments.data ?? [], t("history.unknownInstrument"));
   const holdingNames = new Map(
     Object.entries(holdings.data ?? {}).flatMap(([accountId, accountHoldings]) =>
@@ -216,8 +219,9 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
                 </SheetHeader>
                 <div>
                   <RecordChangeForm
-                    onRecorded={() => {
-                      toast.success(t("history.recorded"));
+                    prefill={{ accountId: prefillAccount?.id, accountCurrency: prefillAccount?.defaultCurrency, instrumentId: prefillInstrument?.id, instrumentCurrency: prefillInstrument?.quoteCurrency }}
+                    onRecorded={(activity) => {
+                      toast.success(t("history.recorded"), activity?.id ? { action: { label: t("insights.viewInHistory"), onClick: () => setDetailTargetState(activity) } } : undefined);
                       setOpen(false);
                     }}
                   />
