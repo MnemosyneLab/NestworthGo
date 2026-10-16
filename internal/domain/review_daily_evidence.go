@@ -49,7 +49,7 @@ func ResolveReviewDailyPerformance(instrument Instrument, quotes []InstrumentQuo
 	}
 	prior := make([]InstrumentQuote, 0, len(quotes))
 	for _, q := range quotes {
-		if q.EffectiveDate <= on {
+		if q.InstrumentID == instrument.ID && q.EffectiveDate <= on {
 			prior = append(prior, q)
 		}
 	}
@@ -80,7 +80,7 @@ func ResolveReviewDailyClose(instrument Instrument, quotes []InstrumentQuote, on
 	}
 	filtered := make([]InstrumentQuote, 0, len(quotes))
 	for _, quote := range quotes {
-		if quote.EffectiveDate <= on {
+		if quote.InstrumentID == instrument.ID && quote.EffectiveDate <= on {
 			filtered = append(filtered, quote)
 		}
 	}

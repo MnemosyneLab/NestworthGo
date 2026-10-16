@@ -146,6 +146,40 @@ func TestReviewDailyCloseDoesNotCarryPrices(t *testing.T) {
 	}
 }
 
+func TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes(t *testing.T) {
+	_, target := reviewFixture(t)
+	target.Type, target.QuoteCurrency = InstrumentStock, "CNY"
+	other := target
+	other.ID = NewInstrumentID()
+	stockQuote := func(i Instrument, on, price string) InstrumentQuote {
+		q := reviewQuote(t, i, on, price)
+		q.PriceBasis = "agent_raw_close_v1"
+		return q
+	}
+	for _, currency := range []CurrencyCode{"CNY", "USD"} {
+		t.Run(string(currency), func(t *testing.T) {
+			other.QuoteCurrency = currency
+			base := stockQuote(other, "2026-09-10", "1000")
+			end := stockQuote(other, "2026-10-10", "2000")
+			for _, quotes := range [][]InstrumentQuote{{base, end}, {end, base}} {
+				if got, reason := ResolveReviewDailyClose(target, quotes, "2026-10-10"); got != nil || reason != "daily_close_missing" {
+					t.Fatalf("borrowed other close with %s, %v: %+v %s", currency, quotes, got, reason)
+				}
+				if got, reason := ResolveReviewDailyPerformance(target, quotes, "2026-10-10", 30, 7); got != nil || reason != "daily_close_missing" {
+					t.Fatalf("borrowed other 100%% change with %s, %v: %+v %s", currency, quotes, got, reason)
+				}
+			}
+			// A real target close must win regardless of the unrelated close's position.
+			own := stockQuote(target, "2026-10-10", "10")
+			for _, quotes := range [][]InstrumentQuote{{end, own}, {own, end}} {
+				if got, reason := ResolveReviewDailyClose(target, quotes, "2026-10-10"); got == nil || reason != "" || got.InstrumentID != target.ID || got.UnitPrice.Canonical() != "10" {
+					t.Fatalf("other close displaced target with %s: %+v %s", currency, got, reason)
+				}
+			}
+		})
+	}
+}
+
 func TestReviewCivilDateBoundaries(t *testing.T) {
 	day, err := ReviewLatestClosedDay(time.Date(2026, 10, 11, 0, 0, 0, 0, time.UTC), "Etc/UTC")
 	if err != nil || day != "2026-10-10" {
