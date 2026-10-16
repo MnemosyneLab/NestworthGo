@@ -1,6 +1,9 @@
 package domain
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLegacyConversionRequiresExplicitDailyPolicyAndKeepsOnlyTrueTargets(t *testing.T) {
 	legacy := ReviewLegacySpec{SpecVersion: 1, Evaluator: ReviewLegacyEvaluator, Configuration: ReviewLegacyConfiguration{
@@ -30,5 +33,46 @@ func TestLegacyConversionRequiresExplicitDailyPolicyAndKeepsOnlyTrueTargets(t *t
 	}
 	if len(legacy.Configuration.Acknowledged) != 1 || len(legacy.Configuration.Enrolled) != 2 {
 		t.Fatal("proposal mutated legacy preferences")
+	}
+}
+
+func TestReviewLegacyConversionTemporalTokenTracksIndependentCivilDays(t *testing.T) {
+	before := time.Date(2026, 8, 29, 23, 59, 0, 0, time.UTC)
+	after := before.Add(2 * time.Minute)
+	suppressions := []ReviewSuppression{{ID: "global-expiring", Mode: "until_date", UntilOn: "2026-08-30", Timezone: "UTC"}}
+	prior, err := ReviewLegacyConversionTemporalToken(before, "UTC", "UTC", suppressions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := ReviewLegacyConversionTemporalToken(after, "UTC", "UTC", suppressions)
+	if err != nil || prior == next {
+		t.Fatalf("UTC expiry preserved preview token: %q %q %v", prior, next, err)
+	}
+	// The rule and history days remain in August 29 in Los Angeles, while
+	// an all-rule ignore expires on the UTC boundary.
+	prior, err = ReviewLegacyConversionTemporalToken(before, "America/Los_Angeles", "America/Los_Angeles", suppressions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err = ReviewLegacyConversionTemporalToken(after, "America/Los_Angeles", "America/Los_Angeles", suppressions)
+	if err != nil || prior == next {
+		t.Fatalf("independent suppression timezone did not expire token: %q %q %v", prior, next, err)
+	}
+	prior, err = ReviewLegacyConversionTemporalToken(before, "UTC", "Asia/Tokyo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err = ReviewLegacyConversionTemporalToken(after, "UTC", "Asia/Tokyo", nil)
+	if err != nil || prior == next {
+		t.Fatalf("rule day did not expire token: %q %q %v", prior, next, err)
+	}
+	before = time.Date(2026, 8, 29, 14, 59, 0, 0, time.UTC)
+	prior, err = ReviewLegacyConversionTemporalToken(before, "UTC", "Asia/Tokyo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err = ReviewLegacyConversionTemporalToken(before.Add(2*time.Minute), "UTC", "Asia/Tokyo", nil)
+	if err != nil || prior == next {
+		t.Fatalf("history-origin day did not expire token: %q %q %v", prior, next, err)
 	}
 }

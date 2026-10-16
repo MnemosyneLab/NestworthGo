@@ -108,12 +108,14 @@ Use `preview_legacy_investment_review_conversion` before changing a migrated
 `legacy_v1` rule. Choose an explicit new daily trigger and target: the default
 keeps only investments enrolled in v1, while all current holdings expands it.
 The preview reports two proposed rules, new alerts, unknown outcomes and the
-source/configuration/handling revisions. With `ledger_write`,
+source/configuration/handling revisions and a temporal token. With `ledger_write`,
 `convert_legacy_investment_review_rule` archives the old rule and creates the
-new low-yield and loss rules in one transaction using those exact revisions,
+new low-yield and loss rules in one transaction using those exact revisions and
+both `sourceToken` and `temporalToken` from the preview,
 new distinct rule IDs and one mutation ID. Old acknowledgements stay in
 history rather than silencing different predicates; absolute snoozes and
-all-rule ignores remain effective. If the preview becomes stale, re-preview
+all-rule ignores remain effective. A local-day rollover or ignore expiry also
+stales the preview. If the preview becomes stale, re-preview
 before submitting a new conversion. If a submission's outcome is unknown,
 retry the identical operation and IDs before creating another.
 

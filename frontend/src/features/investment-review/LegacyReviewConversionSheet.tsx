@@ -38,7 +38,7 @@ export function LegacyReviewConversionSheet({ rule, onClose, onConverted }: { ru
   const convert = async () => {
     if (!preview || commands.convert.isPending) return;
     if (!pendingSave.current || pendingSave.current.key !== draftKey) {
-      pendingSave.current = { key: draftKey, request: { ...draft, expectedRevision: preview.legacyRevision, expectedConfigRevision: preview.configRevision, expectedStateRevision: preview.stateRevision, expectedSourceToken: preview.sourceToken, lowYieldRuleId: crypto.randomUUID(), lossRuleId: crypto.randomUUID(), mutationId: crypto.randomUUID() } };
+      pendingSave.current = { key: draftKey, request: { ...draft, expectedRevision: preview.legacyRevision, expectedConfigRevision: preview.configRevision, expectedStateRevision: preview.stateRevision, expectedSourceToken: preview.sourceToken, expectedTemporalToken: preview.temporalToken, lowYieldRuleId: crypto.randomUUID(), lossRuleId: crypto.randomUUID(), mutationId: crypto.randomUUID() } };
     }
     setSubmitted(true);
     try { await commands.convert.mutateAsync(pendingSave.current.request); onConverted(); onClose(); }

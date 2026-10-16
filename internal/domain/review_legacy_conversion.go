@@ -1,6 +1,9 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"slices"
 	"time"
 
@@ -72,6 +75,7 @@ type ReviewLegacyConversionMutation struct {
 	ExpectedConfigRevision int
 	ExpectedStateRevision  int
 	ExpectedSourceToken    string
+	ExpectedTemporalToken  string
 	LowYieldRuleID         ReviewRuleID
 	LossRuleID             ReviewRuleID
 	MutationID             MutationID
@@ -79,4 +83,63 @@ type ReviewLegacyConversionMutation struct {
 	Timezone               string
 	Trigger                ReviewTriggerPolicy
 	At                     time.Time
+}
+
+// ReviewLegacyConversionTemporalToken binds a conversion preview to every
+// civil-day boundary that can change its latest closed vote or effective
+// ignores without a database write. Revisions separately protect edits.
+func ReviewLegacyConversionTemporalToken(now time.Time, ruleZone, historyZone string, suppressions []ReviewSuppression) (string, error) {
+	if now.IsZero() {
+		return "", validation("now", "a conversion time is required")
+	}
+	if historyZone == "" {
+		historyZone = ruleZone
+	}
+	localDay := func(zone string) (string, error) {
+		location, err := time.LoadLocation(zone)
+		if err != nil || zone == "Local" {
+			return "", validation("timezone", "a fixed IANA timezone is required")
+		}
+		return now.In(location).Format(time.DateOnly), nil
+	}
+	ruleDay, err := localDay(ruleZone)
+	if err != nil {
+		return "", err
+	}
+	historyDay, err := localDay(historyZone)
+	if err != nil {
+		return "", err
+	}
+	type suppressionDay struct {
+		ID, UntilOn, Timezone, Today string
+	}
+	days := make([]suppressionDay, 0)
+	for _, item := range suppressions {
+		if item.RuleID != "" || item.Mode != "until_date" {
+			continue // only all-rule, expiring ignores affect new rule IDs
+		}
+		today, err := localDay(item.Timezone)
+		if err != nil {
+			return "", err
+		}
+		days = append(days, suppressionDay{item.ID, item.UntilOn, item.Timezone, today})
+	}
+	slices.SortFunc(days, func(a, b suppressionDay) int {
+		if a.ID < b.ID {
+			return -1
+		}
+		if a.ID > b.ID {
+			return 1
+		}
+		return 0
+	})
+	raw, err := json.Marshal(struct {
+		RuleDay, HistoryDay string
+		Suppressions        []suppressionDay
+	}{ruleDay, historyDay, days})
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(raw)
+	return hex.EncodeToString(digest[:]), nil
 }

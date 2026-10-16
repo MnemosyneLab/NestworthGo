@@ -24,6 +24,7 @@ type ReviewLegacyConversionPreview struct {
 	ConfigRevision    int                        `json:"configRevision"`
 	StateRevision     int                        `json:"stateRevision"`
 	SourceToken       string                     `json:"sourceToken"`
+	TemporalToken     string                     `json:"temporalToken"`
 	RecommendedPolicy domain.ReviewTriggerPolicy `json:"recommendedPolicy"`
 	LowYieldSpec      domain.ReviewRuleSpec      `json:"lowYieldSpec"`
 	LossSpec          domain.ReviewRuleSpec      `json:"lossSpec"`
@@ -40,6 +41,7 @@ type ConvertReviewLegacyRuleV2Input struct {
 	ExpectedConfigRevision int    `json:"expectedConfigRevision"`
 	ExpectedStateRevision  int    `json:"expectedStateRevision"`
 	ExpectedSourceToken    string `json:"expectedSourceToken"`
+	ExpectedTemporalToken  string `json:"expectedTemporalToken"`
 	LowYieldRuleID         string `json:"lowYieldRuleId"`
 	LossRuleID             string `json:"lossRuleId"`
 	MutationID             string `json:"mutationId"`
@@ -99,6 +101,10 @@ func (s *Service) PreviewReviewLegacyConversionV2(ctx context.Context, draft Rev
 		RecommendedPolicy: domain.ReviewTriggerPolicy{Kind: "consecutive", Count: rule.LegacySpec.Configuration.Policy.SustainDays},
 		LowYieldSpec:      lowSpec, LossSpec: lossSpec,
 		LegacySustainDays: rule.LegacySpec.Configuration.Policy.SustainDays, LegacyWindowDays: rule.LegacySpec.Configuration.Policy.WindowDays}
+	result.TemporalToken, err = domain.ReviewLegacyConversionTemporalToken(now, draft.Timezone, capture.Historical.History.Origin.Timezone, capture.Suppressions)
+	if err != nil {
+		return empty, err
+	}
 	if !rule.Enabled || !capture.Control.Enabled {
 		return result, nil // original master pause remains paused after conversion
 	}
@@ -177,8 +183,8 @@ func (s *Service) ConvertReviewLegacyRuleV2(ctx context.Context, input ConvertRe
 	if err != nil {
 		return nil, err
 	}
-	if lowID == lossID || lowID == legacyID || lossID == legacyID || input.ExpectedRevision < 1 || input.ExpectedConfigRevision < 1 || input.ExpectedStateRevision < 0 || len(input.ExpectedSourceToken) != 64 {
-		return nil, &domain.Error{Code: domain.ErrValidation, Field: "conversion", Message: "distinct rule IDs, legacy revision and source token are required"}
+	if lowID == lossID || lowID == legacyID || lossID == legacyID || input.ExpectedRevision < 1 || input.ExpectedConfigRevision < 1 || input.ExpectedStateRevision < 0 || len(input.ExpectedSourceToken) != 64 || len(input.ExpectedTemporalToken) != 64 {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "conversion", Message: "distinct rule IDs, legacy revision and current preview tokens are required"}
 	}
 	writeCtx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
@@ -192,5 +198,5 @@ func (s *Service) ConvertReviewLegacyRuleV2(ctx context.Context, input ConvertRe
 	if household == nil {
 		return nil, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 	}
-	return port.ConvertReviewLegacyRuleV2(writeCtx, domain.ReviewLegacyConversionMutation{HouseholdID: household.ID, LegacyRuleID: legacyID, ExpectedRevision: input.ExpectedRevision, ExpectedConfigRevision: input.ExpectedConfigRevision, ExpectedStateRevision: input.ExpectedStateRevision, ExpectedSourceToken: input.ExpectedSourceToken, LowYieldRuleID: lowID, LossRuleID: lossID, MutationID: mutationID, TargetKind: input.TargetKind, Timezone: input.Timezone, Trigger: input.Trigger, At: s.clock().UTC()})
+	return port.ConvertReviewLegacyRuleV2(writeCtx, domain.ReviewLegacyConversionMutation{HouseholdID: household.ID, LegacyRuleID: legacyID, ExpectedRevision: input.ExpectedRevision, ExpectedConfigRevision: input.ExpectedConfigRevision, ExpectedStateRevision: input.ExpectedStateRevision, ExpectedSourceToken: input.ExpectedSourceToken, ExpectedTemporalToken: input.ExpectedTemporalToken, LowYieldRuleID: lowID, LossRuleID: lossID, MutationID: mutationID, TargetKind: input.TargetKind, Timezone: input.Timezone, Trigger: input.Trigger, At: s.clock().UTC()})
 }

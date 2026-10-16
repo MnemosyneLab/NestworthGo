@@ -1,6 +1,8 @@
 package application
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -526,6 +528,21 @@ func TestReviewSameDayClearAndRebuyUsesNewEpisodeWithClosedVotes(t *testing.T) {
 	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_position_epochs`).Scan(&epochCount); err != nil || epochCount != 2 {
 		t.Fatalf("same-day clear/rebuy did not create two epochs: %d %v", epochCount, err)
 	}
+	page, err := f.s.ListReviewDailyEvidenceV2(t.Context(), current, "", 2)
+	if err != nil || len(page.Items) != 2 || page.Items[0].On != "2026-10-06" || page.NextCursor == "" {
+		t.Fatalf("new episode evidence after rebuy: %+v %v", page, err)
+	}
+	var oldest string
+	for page.NextCursor != "" {
+		page, err = f.s.ListReviewDailyEvidenceV2(t.Context(), current, page.NextCursor, 2)
+		if err != nil || len(page.Items) == 0 {
+			t.Fatalf("rebuy evidence cursor: %+v %v", page, err)
+		}
+		oldest = page.Items[len(page.Items)-1].On
+	}
+	if oldest != "2026-10-01" {
+		t.Fatalf("new episode lost closed rolling vote history: oldest=%s", oldest)
+	}
 }
 
 func TestReviewSameDayClearClosesEpisodeBeforeNextDailyVote(t *testing.T) {
@@ -749,5 +766,57 @@ func TestReviewDailyEvidencePagesClosedVotesAndExpiresOnRevision(t *testing.T) {
 	}
 	if _, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, "", 1); err == nil {
 		t.Fatal("current evidence endpoint exposed a resolved episode without historical version context")
+	}
+}
+
+func TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows(t *testing.T) {
+	for _, test := range []struct {
+		name, today, triggered, oldest string
+		policy                         domain.ReviewTriggerPolicy
+	}{
+		{"consecutive", "2026-10-04", "2026-10-03", "2026-10-01", domain.ReviewTriggerPolicy{Kind: "consecutive", Count: 3}},
+		{"rolling", "2026-10-06", "2026-10-05", "2026-10-01", domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 10, MinHits: 5}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+			spec := syntheticHistoricalReviewSpec()
+			spec.TriggerPolicy = test.policy
+			if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic trigger", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
+				t.Fatal(err)
+			}
+			f.day(t, test.today)
+			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			var episode, triggered string
+			if err := f.db.SQL.QueryRow(`SELECT id,triggered_on FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&episode, &triggered); err != nil || triggered != test.triggered {
+				t.Fatalf("trigger day: %q %v", triggered, err)
+			}
+			var days []string
+			cursor := ""
+			revision := ""
+			for {
+				page, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, cursor, 1)
+				if err != nil || len(page.Items) != 1 {
+					t.Fatalf("evidence page after %q: %+v %v", cursor, page, err)
+				}
+				revision = page.ReportRevision
+				days = append(days, page.Items[0].On)
+				if page.NextCursor == "" {
+					break
+				}
+				cursor = page.NextCursor
+			}
+			if days[0] != test.triggered || days[len(days)-1] != test.oldest {
+				t.Fatalf("trigger window evidence clipped: %v", days)
+			}
+			bad, err := json.Marshal(map[string]string{"revision": revision, "beforeOn": "0001-01-01"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, base64.RawURLEncoding.EncodeToString(bad), 1); err == nil {
+				t.Fatal("accepted a cursor before the persisted trigger window")
+			}
+		})
 	}
 }

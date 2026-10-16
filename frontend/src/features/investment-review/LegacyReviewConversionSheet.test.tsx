@@ -7,7 +7,7 @@ import { LegacyReviewConversionSheet } from "./LegacyReviewConversionSheet";
 
 const state = vi.hoisted(() => ({
   preview: { mutateAsync: vi.fn(async (draft: unknown) => ({
-    legacyRevision: 4, configRevision: 2, stateRevision: 3, sourceToken: "a".repeat(64), lowYieldAlerts: 2, lossAlerts: 1, unknownOutcomes: 3, draft,
+    legacyRevision: 4, configRevision: 2, stateRevision: 3, sourceToken: "a".repeat(64), temporalToken: "b".repeat(64), lowYieldAlerts: 2, lossAlerts: 1, unknownOutcomes: 3, draft,
   })), isPending: false, isError: false, error: null },
   convert: { mutateAsync: vi.fn(async (_request: unknown) => []), isPending: false, isError: false, error: null },
 }));
@@ -49,7 +49,7 @@ describe("legacy review conversion", () => {
     await waitFor(() => expect(state.convert.mutateAsync).toHaveBeenCalledTimes(1));
     expect(state.convert.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({
       legacyRuleId: oldRule.id, targetKind: "all_current", timezone: "Asia/Shanghai", triggerPolicy: { kind: "single" },
-      expectedRevision: 4, expectedConfigRevision: 2, expectedStateRevision: 3, expectedSourceToken: "a".repeat(64),
+      expectedRevision: 4, expectedConfigRevision: 2, expectedStateRevision: 3, expectedSourceToken: "a".repeat(64), expectedTemporalToken: "b".repeat(64),
       lowYieldRuleId: expect.any(String), lossRuleId: expect.any(String), mutationId: expect.any(String),
     }));
     expect(converted).toHaveBeenCalledOnce();

@@ -16,8 +16,8 @@ import (
 // the old evaluator in one transaction. It does not copy irreversible v1
 // acknowledgements to semantically different daily predicates.
 func (r *Repository) ConvertReviewLegacyRuleV2(ctx context.Context, m domain.ReviewLegacyConversionMutation) ([]domain.ReviewRule, error) {
-	if m.HouseholdID == "" || m.LegacyRuleID != legacyReviewRuleID(m.HouseholdID) || m.LowYieldRuleID == m.LossRuleID || m.LowYieldRuleID == m.LegacyRuleID || m.LossRuleID == m.LegacyRuleID || m.ExpectedRevision < 1 || m.ExpectedConfigRevision < 1 || m.ExpectedStateRevision < 0 || len(m.ExpectedSourceToken) != 64 || m.At.IsZero() {
-		return nil, &domain.Error{Code: domain.ErrValidation, Field: "conversion", Message: "a current legacy rule, distinct new IDs, revision and source token are required"}
+	if m.HouseholdID == "" || m.LegacyRuleID != legacyReviewRuleID(m.HouseholdID) || m.LowYieldRuleID == m.LossRuleID || m.LowYieldRuleID == m.LegacyRuleID || m.LossRuleID == m.LegacyRuleID || m.ExpectedRevision < 1 || m.ExpectedConfigRevision < 1 || m.ExpectedStateRevision < 0 || len(m.ExpectedSourceToken) != 64 || len(m.ExpectedTemporalToken) != 64 || m.At.IsZero() {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "conversion", Message: "a current legacy rule, distinct new IDs, revision and preview tokens are required"}
 	}
 	request, err := json.Marshal(struct {
 		HouseholdID            domain.HouseholdID
@@ -26,12 +26,13 @@ func (r *Repository) ConvertReviewLegacyRuleV2(ctx context.Context, m domain.Rev
 		ExpectedConfigRevision int
 		ExpectedStateRevision  int
 		ExpectedSourceToken    string
+		ExpectedTemporalToken  string
 		LowYieldRuleID         domain.ReviewRuleID
 		LossRuleID             domain.ReviewRuleID
 		TargetKind             string
 		Timezone               string
 		Trigger                domain.ReviewTriggerPolicy
-	}{m.HouseholdID, m.LegacyRuleID, m.ExpectedRevision, m.ExpectedConfigRevision, m.ExpectedStateRevision, m.ExpectedSourceToken, m.LowYieldRuleID, m.LossRuleID, m.TargetKind, m.Timezone, m.Trigger})
+	}{m.HouseholdID, m.LegacyRuleID, m.ExpectedRevision, m.ExpectedConfigRevision, m.ExpectedStateRevision, m.ExpectedSourceToken, m.ExpectedTemporalToken, m.LowYieldRuleID, m.LossRuleID, m.TargetKind, m.Timezone, m.Trigger})
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +96,17 @@ func (r *Repository) ConvertReviewLegacyRuleV2(ctx context.Context, m domain.Rev
 	}
 	if token != m.ExpectedSourceToken {
 		return nil, reviewRuleConflict("review evidence changed; preview conversion again")
+	}
+	suppressions, err := reviewSuppressionsInTx(ctx, tx, m.HouseholdID)
+	if err != nil {
+		return nil, err
+	}
+	temporalToken, err := domain.ReviewLegacyConversionTemporalToken(m.At, m.Timezone, actual.History.Origin.Timezone, suppressions)
+	if err != nil {
+		return nil, err
+	}
+	if temporalToken != m.ExpectedTemporalToken {
+		return nil, reviewRuleConflict("review day or ignore expiry changed; preview conversion again")
 	}
 	stamp := m.At.UTC().Format(time.RFC3339Nano)
 	if _, err := tx.ExecContext(ctx, `UPDATE investment_review_rules SET archived_at=?,updated_at=?,enabled=0,row_revision=row_revision+1 WHERE id=? AND row_revision=? AND archived_at IS NULL`, stamp, stamp, string(m.LegacyRuleID), m.ExpectedRevision); err != nil {

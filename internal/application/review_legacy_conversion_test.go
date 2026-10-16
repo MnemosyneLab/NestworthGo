@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -34,13 +35,13 @@ func TestReviewLegacyConversionPreviewsThenAtomicallyArchivesAndCreatesTwoRules(
 		t.Fatal(err)
 	}
 	preview, err := f.s.PreviewReviewLegacyConversionV2(t.Context(), draft)
-	if err != nil || preview.LegacyRevision != rules[0].RowRevision || preview.RecommendedPolicy.Count != 7 || len(preview.LowYieldSpec.Target.InstrumentIDs) != 1 || preview.SourceToken == "" || preview.LowYieldAlerts != 0 || preview.LossAlerts != 0 {
+	if err != nil || preview.LegacyRevision != rules[0].RowRevision || preview.RecommendedPolicy.Count != 7 || len(preview.LowYieldSpec.Target.InstrumentIDs) != 1 || preview.SourceToken == "" || len(preview.TemporalToken) != 64 || preview.LowYieldAlerts != 0 || preview.LossAlerts != 0 {
 		t.Fatalf("conversion preview: %+v %v", preview, err)
 	}
 	if err := f.db.SQL.QueryRow(`SELECT total_changes()`).Scan(&after); err != nil || after != before {
 		t.Fatalf("preview wrote %d rows: %v", after-before, err)
 	}
-	input := ConvertReviewLegacyRuleV2Input{ReviewLegacyConversionDraft: draft, ExpectedRevision: preview.LegacyRevision, ExpectedConfigRevision: preview.ConfigRevision, ExpectedStateRevision: preview.StateRevision, ExpectedSourceToken: strings.Repeat("0", 64), LowYieldRuleID: string(domain.NewReviewRuleID()), LossRuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID())}
+	input := ConvertReviewLegacyRuleV2Input{ReviewLegacyConversionDraft: draft, ExpectedRevision: preview.LegacyRevision, ExpectedConfigRevision: preview.ConfigRevision, ExpectedStateRevision: preview.StateRevision, ExpectedSourceToken: strings.Repeat("0", 64), ExpectedTemporalToken: preview.TemporalToken, LowYieldRuleID: string(domain.NewReviewRuleID()), LossRuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID())}
 	input.ExpectedStateRevision++
 	if _, err := f.s.ConvertReviewLegacyRuleV2(t.Context(), input); err == nil {
 		t.Fatal("accepted a stale suppression/handling preview")
@@ -82,5 +83,47 @@ func TestReviewLegacyConversionPreviewsThenAtomicallyArchivesAndCreatesTwoRules(
 	}
 	if err := store.SaveConfiguration(key, raw); err == nil {
 		t.Fatal("legacy v1 writer reactivated an archived compatibility rule")
+	}
+}
+
+func TestReviewLegacyConversionExpiresAtCivilMidnight(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	*f.now = time.Date(2026, 8, 29, 23, 59, 0, 0, time.UTC)
+	store := sqlite.NewConfigurationRepository(f.db)
+	key := "investment_review/" + f.account.Account.HouseholdID.String()
+	old := domain.ReviewLegacyConfiguration{Policy: domain.DefaultInvestmentReviewPolicy(), Revision: 4,
+		Enrolled: map[string]bool{f.instrument.ID.String(): true}, Acknowledged: map[string]bool{}, SnoozedUntil: map[string]string{f.instrument.ID.String(): "2026-08-30"}}
+	raw, err := json.Marshal(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveConfiguration(key, raw); err != nil {
+		t.Fatal(err)
+	}
+	rules, err := f.s.ListReviewRulesV2(t.Context(), "", 10)
+	if err != nil || len(rules) != 1 {
+		t.Fatalf("legacy rule: %+v %v", rules, err)
+	}
+	draft := ReviewLegacyConversionDraft{LegacyRuleID: string(rules[0].ID), TargetKind: "instruments", Timezone: "UTC", Trigger: domain.ReviewTriggerPolicy{Kind: "single"}}
+	preview, err := f.s.PreviewReviewLegacyConversionV2(t.Context(), draft)
+	if err != nil || preview.LowYieldAlerts != 0 || preview.LossAlerts != 0 {
+		t.Fatalf("snoozed preview: %+v %v", preview, err)
+	}
+	input := ConvertReviewLegacyRuleV2Input{ReviewLegacyConversionDraft: draft, ExpectedRevision: preview.LegacyRevision, ExpectedConfigRevision: preview.ConfigRevision, ExpectedStateRevision: preview.StateRevision, ExpectedSourceToken: preview.SourceToken, ExpectedTemporalToken: preview.TemporalToken, LowYieldRuleID: string(domain.NewReviewRuleID()), LossRuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID())}
+	*f.now = time.Date(2026, 8, 30, 0, 1, 0, 0, time.UTC)
+	if _, err := f.s.ConvertReviewLegacyRuleV2(t.Context(), input); err == nil {
+		t.Fatal("accepted preview after legacy snooze expired at midnight")
+	}
+	var archived int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_rules WHERE id=? AND archived_at IS NOT NULL`, draft.LegacyRuleID).Scan(&archived); err != nil || archived != 0 {
+		t.Fatalf("rejected save modified legacy rule: %d %v", archived, err)
+	}
+	fresh, err := f.s.PreviewReviewLegacyConversionV2(t.Context(), draft)
+	if err != nil || fresh.TemporalToken == preview.TemporalToken || fresh.SourceToken != preview.SourceToken {
+		t.Fatalf("new civil day did not invalidate preview: %+v %v", fresh, err)
+	}
+	input.ExpectedSourceToken, input.ExpectedTemporalToken = fresh.SourceToken, fresh.TemporalToken
+	if _, err := f.s.ConvertReviewLegacyRuleV2(t.Context(), input); err != nil {
+		t.Fatalf("fresh midnight preview could not save: %v", err)
 	}
 }

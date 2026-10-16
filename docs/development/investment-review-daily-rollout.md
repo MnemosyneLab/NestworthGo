@@ -64,7 +64,10 @@ and filtered group count on every page. A separate read-only endpoint pages
 persisted closed-day T/F/U evidence for one episode, binds its cursor to the
 published control and episode revision, and exposes it through Wails, MCP and
 the dedicated review page. Synthetic tests cover page boundaries, unchanged
-read state and cursor expiration after acknowledgement.
+read state and cursor expiration after acknowledgement. The evidence range
+starts at the trigger window's first date, so a consecutive or rolling rule
+retains the earlier votes needed to explain why it fired. Tests page through
+consecutive, rolling, and same-day clear/rebuy episodes.
 
 ## Work still required for the design's release gate
 
@@ -76,10 +79,16 @@ investments to all current holdings. Save checks source and handling revisions,
 then atomically archives the v1 rule and creates both new rules with a mutation
 receipt. The old acknowledgements remain in history; original absolute snooze
 dates become scoped suppressions. A retry uses the same IDs and receipt.
+The conversion preview also carries a temporal token over the rule day,
+history-origin day, and all-rule temporary-ignore days. Save rejects a token
+that expired across any of those civil-midnight boundaries, even when no
+financial row or revision changed; the user must preview again.
 
 The page has no historical episode view. Rule and suppression management now
-page through records beyond the first 100. The editor
-does not expose all supported nested predicate and multi-type choices.
+page through records beyond the first 100. The editor preserves nested
+predicates while editing an existing rule and exposes their bounded all/any
+JSON as an advanced field. Its ordinary type condition supports multi-select;
+a visual builder for nested groups remains outstanding.
 
 Reconciliation currently replays every historical date for each rule and
 instrument. The new report summary also scans all current alert groups in
@@ -108,16 +117,12 @@ remains `com.nestworth.dev` / `Nestworth`. No real ledger has been opened.
 
 ## Latest automated verification
 
-The previous checkpoint passed serial server-profile Go short tests across
-domain, application, SQLite, backup, continuous backup, Wails API and MCP,
-plus Go vet. Generated Wails bindings were refreshed with the pinned
-generator in server mode. The current conversion change passes targeted
-domain/application/MCP tests, TypeScript, ESLint, the production Vite build,
-and all 135 frontend Vitest files/1442 tests when run alone. The first full
-Go rerun shared CPU with Vitest and exceeded an unrelated dense-history
-test's 10-second computation budget; that exact test passed alone at 4.55
-seconds. The resource-isolated full Go rerun passed across all packages.
-Go vet and the server-profile `cmd/nestworth` build also passed. Linux
+Serial server-profile `go test -short -p 1 ./...` and `go vet ./...` passed
+across all packages. The conversion, evidence and same-day rebuy regressions
+also passed under the race detector. Generated Wails bindings were refreshed
+with the pinned generator in server mode. Frontend TypeScript, focused ESLint
+and conversion/editor tests passed. The previous draft head's remote CI
+completed successfully; this new head requires its own CI result. Linux
 server-mode compilation does not establish native macOS packaging.
 
 The first remote CI run of the older draft head stopped at the standalone
