@@ -229,8 +229,12 @@ func TestReviewTimezoneEditThroughMutationAndPublicationKeepsAcknowledgement(t *
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+	afterTimezoneEdit, err := f.s.ReconcileInvestmentReviewsV2(t.Context())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if afterTimezoneEdit.LatestClosedOn >= triggeredOn {
+		t.Fatalf("fixture did not move the closed-day boundary before the stored trigger: latest=%s trigger=%s", afterTimezoneEdit.LatestClosedOn, triggeredOn)
 	}
 	var afterID, afterTriggered, afterAcknowledged string
 	if err := f.db.SQL.QueryRow(`SELECT id,triggered_on,acknowledged_at FROM investment_review_episodes WHERE rule_id=? AND instrument_id=? AND resolved_at IS NULL`, string(rule.ID), f.instrument.ID.String()).Scan(&afterID, &afterTriggered, &afterAcknowledged); err != nil {

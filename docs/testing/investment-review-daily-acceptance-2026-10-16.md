@@ -67,7 +67,7 @@ called out explicitly and are not represented as automated passes.
 | D15 | `TestReviewFXEconomicDateBranches` | Go suite passed |
 | D16 | `TestReviewCivilDateBoundaries`; `TestReviewDateSlotsAreIdempotentAndAdvanceWithoutQuotes` | Go suite passed |
 | D17 | `TestReviewCivilDateBoundaries` (23/25-hour DST dates); `TestReviewFXEconomicDateBranches` | Go suite passed |
-| D18 | `TestReviewLifecycleKeepsEpisodeWhenTimezoneMovesLatestBeforeTrigger`; `TestReviewTimezoneEditThroughMutationAndPublicationKeepsAcknowledgement`; `TestReviewCivilDateBoundaries` | Go suite passed |
+| D18 | `TestReviewLifecycleKeepsEpisodeWhenTimezoneMovesLatestBeforeTrigger`; `TestReviewTimezoneEditThroughMutationAndPublicationKeepsAcknowledgement` explicitly asserts the edited timezone's latest closed date is earlier than the stored trigger; `TestReviewCivilDateBoundaries` | Focused Go test passed |
 | D19 | `TestReviewPolicyTimelineMatchesDateKeyedEvaluation`; source: `PlanReviewRuleInstrument` replays each closed date from the saved history origin | Go suite passed |
 | D20 | `TestReviewHistoricalDayBeforeOriginIsUnknown`; `TestReviewHistoricalBatchDoesNotBackfillCurrentHolding` | Go suite passed |
 | D21 | `TestReviewPolicyValidationAndNormalization` | Go suite passed |
