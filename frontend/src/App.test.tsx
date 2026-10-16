@@ -11,6 +11,7 @@ import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { queryKeys } from "./queries/keys";
 import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
+import { useObjectNavigation } from "./app/NavigationContext";
 
 const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
@@ -180,8 +181,14 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrume
   Service: { ListInstruments: (...args: unknown[]) => listInstruments(...args) },
 }));
 vi.mock("@/features/investments/InstrumentDetailPage", () => ({
-  InstrumentDetailPage: ({ context, onContextChange }: { context: { instrumentId: string; accountId?: string; section?: string }; onContextChange: (next: unknown) => void }) =>
-    <section data-testid="instrument-detail-page"><pre>{JSON.stringify(context)}</pre><button onClick={() => onContextChange({ ...context, section: "data" })}>Show data records</button></section>,
+  InstrumentDetailPage: ({ context, onContextChange }: { context: { instrumentId: string; accountId?: string; section?: string; from?: string; to?: string }; onContextChange: (next: unknown) => void }) => {
+    const navigation = useObjectNavigation();
+    return <section data-testid="instrument-detail-page"><pre>{JSON.stringify(context)}</pre>
+      <button onClick={() => onContextChange({ ...context, section: "data" })}>Show data records</button>
+      <button onClick={() => onContextChange({ ...context, from: "2026-07-01", to: "2026-07-31" })}>Set synthetic quote period</button>
+      <button onClick={() => navigation?.open({ page: "history", filters: { instrumentId: context.instrumentId, from: context.from, to: context.to } })}>Related transactions</button>
+    </section>;
+  },
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
@@ -432,7 +439,7 @@ describe("App shell smoke test", () => {
     await screen.findByTestId("overview-net-worth");
     const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
     await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
-    const search = await screen.findByLabelText(i18n.t("marketData.searchInstruments"));
+    const search = await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 });
     await userEvent.type(search, "One");
     await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
     expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-one"');
@@ -440,6 +447,49 @@ describe("App shell smoke test", () => {
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
     expect(screen.getByRole("button", { name: "Open Fund One details" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Fund Two details" })).not.toBeInTheDocument();
+  });
+
+  it("keeps each maintenance tab mounted through tab changes and detail return", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([
+      { id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 },
+      { id: "fund-two", householdId: "synthetic", name: "Fund Two", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 1 },
+    ]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    const search = await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 });
+    await userEvent.type(search, "One");
+    await userEvent.click(screen.getByRole("tab", { name: i18n.t("marketData.fx") }));
+    await userEvent.click(screen.getByRole("tab", { name: "Issues & repair" }));
+    expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Quotes & FX" }));
+    expect(screen.getByRole("tab", { name: i18n.t("marketData.fx") })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("tab", { name: "Instruments" }));
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    expect(screen.queryByRole("button", { name: "Open Fund Two details" })).not.toBeInTheDocument();
+  });
+
+  it("returns from scoped History to the edited instrument period and maintenance search", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([{ id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 }]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    await userEvent.type(await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 }), "One");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Set synthetic quote period" }));
+    await userEvent.click(screen.getByRole("button", { name: "Related transactions" }));
+    expect(await screen.findByRole("region", { name: "Synthetic transaction history" })).toHaveTextContent('"from":"2026-07-01","to":"2026-07-31"');
+    await userEvent.click(screen.getByRole("button", { name: `← Back to ${i18n.t("instrumentDetail.title")}` }));
+    expect(screen.getByTestId("instrument-detail-page")).toHaveTextContent('"from":"2026-07-01"');
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
   });
 
   it("returns from market health to market data with the navigation trail intact", async () => {

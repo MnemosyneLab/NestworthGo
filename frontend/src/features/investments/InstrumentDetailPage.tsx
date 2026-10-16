@@ -148,7 +148,9 @@ export function InstrumentDetailPage({ context, onContextChange, active = true }
             : <p className="num mt-2 text-xl font-semibold">{quote.data ? formatQuotePrice(quote.data.unitPrice, quote.data.currency) : t("portfolio.noCurrentPrice")}</p>}
           {quote.data && <p className="text-xs text-muted-foreground">{t("portfolio.quotedAsOf", { time: formatQuoteAsOf(quote.data, settings.data?.timezone, i18n.language) })} · {t("instrumentDetail.quoteSource")}: {displayEnum(t, "portfolio", quote.data.sourceKind)}{quote.data.sourceKey && quote.data.sourceKey !== quote.data.sourceKind ? ` · ${quote.data.sourceKey}` : ""}</p>}
         </section>
-        <QuoteHistoryContent target={{ kind: "instrument", instrument }} focus={focus} />
+        <QuoteHistoryContent target={{ kind: "instrument", instrument }} focus={focus}
+          onRangeChange={({ from, to }) => onContextChange({ ...context, from, to,
+            healthFocus: { ...context.healthFocus, rangeStart: from, rangeEnd: to } })} />
         {navigation && <Button type="button" variant="outline" className="self-start" onClick={() => navigation.open({ page: "market-data", focus: { ...focus, action: "instrument_editor" } })}>{t("instrumentDetail.maintain")}</Button>}
         </>}
       </TabsContent>

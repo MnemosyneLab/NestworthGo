@@ -25,7 +25,10 @@ vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "
 vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: { timezone: "UTC", startedAt: "2026-01-01" } }) }));
 vi.mock("./PricePerformancePanel", () => ({ PricePerformancePanel: () => <div data-testid="market-performance" /> }));
 vi.mock("./PerformanceReturns", () => ({ PerformanceReturns: () => <div data-testid="quote-returns" /> }));
-vi.mock("@/features/marketdata/QuoteHistorySheet", () => ({ QuoteHistoryContent: ({ focus }: { focus: unknown }) => <pre data-testid="quote-records">{JSON.stringify(focus)}</pre> }));
+vi.mock("@/features/marketdata/QuoteHistorySheet", () => ({ QuoteHistoryContent: ({ focus, onRangeChange }: { focus: unknown; onRangeChange?: (range: { from: string; to: string }) => void }) => <>
+  <pre data-testid="quote-records">{JSON.stringify(focus)}</pre>
+  <button onClick={() => onRangeChange?.({ from: "2026-07-01", to: "2026-07-31" })}>Select quote period</button>
+</> }));
 
 const instrument = { id: "fund-1", householdId: "synthetic", name: "Synthetic Fund", type: "fund", quoteCurrency: "USD", iconKey: "", sortOrder: 0, quoteSource: "manual", createdAt: "2026-01-01", updatedAt: "2026-01-01" };
 const money = (amount: string) => ({ amount, currency: "USD" });
@@ -96,6 +99,20 @@ it("opens archived and unowned records with source dates, while keeping maintena
   expect(screen.getByTestId("quote-records")).toHaveTextContent('"rangeEnd":"2026-09-30"');
   fireEvent.click(screen.getByRole("button", { name: "Maintain data" }));
   expect(view.open).toHaveBeenCalledWith({ page: "market-data", focus: expect.objectContaining({ id: "gap-1", instrumentId: "fund-1", rangeStart: "2026-09-01", rangeEnd: "2026-09-30", action: "instrument_editor" }) });
+});
+
+it("writes edited quote dates into shared detail context for maintenance and scoped History", () => {
+  const view = show({ instrumentId: "fund-1", section: "data", healthFocus: { id: "gap-1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Select quote period" }));
+  const updated = view.onContextChange.mock.lastCall?.[0] as InstrumentDetailContext;
+  expect(updated).toEqual(expect.objectContaining({ from: "2026-07-01", to: "2026-07-31",
+    healthFocus: expect.objectContaining({ id: "gap-1", rangeStart: "2026-07-01", rangeEnd: "2026-07-31" }) }));
+  view.rerender(updated);
+  fireEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+  expect(view.open).toHaveBeenCalledWith({ page: "market-data", focus: expect.objectContaining({ rangeStart: "2026-07-01", rangeEnd: "2026-07-31" }) });
+  view.rerender({ ...updated, section: "holdings" });
+  fireEvent.click(screen.getByRole("button", { name: "Related transactions" }));
+  expect(view.open).toHaveBeenCalledWith({ page: "history", filters: { instrumentId: "fund-1", accountId: undefined, from: "2026-07-01", to: "2026-07-31" } });
 });
 
 it("routes a product-owned instrument to its contract instead of presenting a market holding", () => {

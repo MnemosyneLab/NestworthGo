@@ -69,6 +69,7 @@ function App() {
   const [updateValue, setUpdateValue] = useState(false);
   const [healthFocus, setHealthFocus] = useState<HealthFocus>();
   const [marketFocus, setMarketFocus] = useState<HealthFocus>();
+  const [visitedMaintenance, setVisitedMaintenance] = useState({ market: false, health: false });
   const [historicalDate, setHistoricalDate] = useState<string>();
   const [historicalContext, setHistoricalContext] = useState<HistoricalNavigationContext>();
   const [historicalRequest, setHistoricalRequest] = useState(0);
@@ -149,8 +150,8 @@ function App() {
       setAccountFilter(navigation.page === "accounts" ? navigation.filter : undefined);
       setUpdateValue(navigation.page === "accounts" && navigation.updateValue === true);
     }
-    if (navigation.page === "market-data") setMarketFocus(navigation.focus);
-    if (navigation.page === "data-health") setHealthFocus(navigation.focus);
+    if (navigation.page === "market-data") { setMarketFocus(navigation.focus); setVisitedMaintenance(previous => ({ ...previous, market: true })); }
+    if (navigation.page === "data-health") { setHealthFocus(navigation.focus); setVisitedMaintenance(previous => ({ ...previous, health: true })); }
     if (navigation.page === "portfolio") setPortfolioView(navigation.view ?? "holdings");
     if (navigation.page === "instrument-detail") setInstrumentDetail({ instrumentId: navigation.instrumentId,
       accountId: navigation.accountId, section: navigation.section, from: navigation.from, to: navigation.to, healthFocus: navigation.healthFocus });
@@ -263,18 +264,22 @@ function App() {
       )}
       {(retained("market-data") || retained("data-health")) && <div hidden={activePageId !== "market-data" && activePageId !== "data-health"}>
         <Tabs value={activePageId === "market-data" || activePageId === "data-health" ? activePageId : "none"}
-          onValueChange={(value) => handleNavigate(value === "data-health" ? { page: "data-health", focus: marketFocus } : { page: "market-data", focus: healthFocus }, true)}>
+          onValueChange={(value) => {
+            if (hasUnresolvedSheetConfirmation()) return;
+            setVisitedMaintenance(previous => ({ ...previous, [value === "data-health" ? "health" : "market"]: true }));
+            setActivePageId(value === "data-health" ? "data-health" : "market-data");
+          }}>
           <TabsList aria-label={t("nav.marketData")}>
             <TabsTrigger value="data-health">{t("dataMaintenance.issues")}</TabsTrigger>
             <TabsTrigger value="market-data">{t("dataMaintenance.quotes")}</TabsTrigger>
           </TabsList>
           <TabsContent value="market-data" keepMounted>
-            {retained("market-data") && <WorkspaceLazy>
+            {visitedMaintenance.market && <WorkspaceLazy>
               <MarketDataPage key={JSON.stringify(marketFocus)} focus={marketFocus} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
             </WorkspaceLazy>}
           </TabsContent>
           <TabsContent value="data-health" keepMounted>
-            {retained("data-health") && <WorkspaceLazy>
+            {visitedMaintenance.health && <WorkspaceLazy>
               <DataHealthPage focus={healthFocus}
                 onOpenSettings={() => handleNavigate("settings")}
                 onOpenMarketData={() => open({ page: "market-data", focus: healthFocus })}

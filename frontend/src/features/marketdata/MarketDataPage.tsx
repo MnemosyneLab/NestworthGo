@@ -617,7 +617,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
             <TabsTrigger value="instruments">{t("marketData.instruments")}</TabsTrigger>
             <TabsTrigger value="fx">{t("marketData.fx")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="instruments">
+          <TabsContent value="instruments" keepMounted>
             <InstrumentManagement
               focus={focus}
               pageId="market-data"
@@ -629,7 +629,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
               syncingInstrumentId={sync.syncingInstrumentId}
             />
           </TabsContent>
-          <TabsContent value="fx">
+          <TabsContent value="fx" keepMounted>
             <SavedFXRates
               fxPairs={focus?.currencyA && focus.currencyB ? [{ currencyA: focus.currencyA, currencyB: focus.currencyB }] : fxPairs}
               fxPreferences={preferenceList}
