@@ -311,7 +311,10 @@ func (e ActivityEffect) Validate() error {
 	if e.Money == nil && e.Quantity == nil {
 		return changeError(ErrInvalidChange, "effect", "effect magnitude is required")
 	}
-	if (e.Money != nil && e.Money.IsZero()) || (e.Quantity != nil && e.Quantity.IsZero()) {
+	// Absolute balance observations retain their endpoint identity even when
+	// replay makes their delta zero. New value updates reject this earlier.
+	zeroObservation := e.Money != nil && e.Money.IsZero() && e.Target == EffectTargetAccountValue && e.Role == EffectRoleAmount && e.Classification == ClassificationRemeasurement
+	if (e.Money != nil && e.Money.IsZero() && !zeroObservation) || (e.Quantity != nil && e.Quantity.IsZero()) {
 		return changeError(ErrInvalidChange, "effect", "effect magnitude must be greater than zero")
 	}
 	if e.CostUnitPrice != nil && e.Target != EffectTargetHoldingQuantity {
@@ -1429,7 +1432,18 @@ func (state ChangeState) cashAfter(accountID AccountID, amount Money, direction 
 	return firstView, nil
 }
 
+// PreviewValueUpdateCorrection validates an existing absolute observation even
+// when earlier corrections have made its economic delta zero. Ordinary new
+// transactions continue to reject unchanged values.
+func PreviewValueUpdateCorrection(state ChangeState, input ValueUpdateInput) (ChangePreview, error) {
+	return buildValueUpdateWithZero(state, input, true)
+}
+
 func buildValueUpdate(state ChangeState, input ValueUpdateInput) (ChangePreview, error) {
+	return buildValueUpdateWithZero(state, input, false)
+}
+
+func buildValueUpdateWithZero(state ChangeState, input ValueUpdateInput, allowZero bool) (ChangePreview, error) {
 	account, err := state.account(input.AccountID, input.HouseholdID)
 	if err != nil {
 		return ChangePreview{}, err
@@ -1448,7 +1462,7 @@ func buildValueUpdate(state ChangeState, input ValueUpdateInput) (ChangePreview,
 		return ChangePreview{}, err
 	}
 	delta := input.NewValue.Amount().Sub(account.Current.Amount())
-	if delta.IsZero() {
+	if delta.IsZero() && !allowZero {
 		return ChangePreview{}, &Error{Code: ErrNoChange, Message: "the new value is unchanged"}
 	}
 	amount, err := NewMoney(delta.Abs(), account.Currency)

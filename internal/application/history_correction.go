@@ -59,7 +59,7 @@ func (s *Service) replayCorrection(ctx context.Context, original domain.Activity
 	// Quantities/balances remain those replayed at the original effective time.
 	state = correctionOriginalEndpoints(state, original)
 	command = correctionTransferFee(command, original)
-	replacement, err := previewCorrectionAt(state, command, original.EffectiveAt)
+	replacement, err := previewCorrectionAt(state, command, original.EffectiveAt, original.Kind == domain.ActivityValueUpdate)
 	if err != nil {
 		return correctionPlan{}, err
 	}
@@ -121,7 +121,7 @@ func correctionEndpointViews(state domain.ChangeState, effects []domain.Activity
 	return views
 }
 
-func previewCorrectionAt(state domain.ChangeState, command any, at time.Time) (domain.ChangePreview, error) {
+func previewCorrectionAt(state domain.ChangeState, command any, at time.Time, existingValueObservation bool) (domain.ChangePreview, error) {
 	switch input := command.(type) {
 	case domain.MoneyAddedInput:
 		input.EffectiveAt = at
@@ -152,6 +152,9 @@ func previewCorrectionAt(state domain.ChangeState, command any, at time.Time) (d
 		command = input
 	case domain.ValueUpdateInput:
 		input.EffectiveAt = at
+		if existingValueObservation {
+			return domain.PreviewValueUpdateCorrection(state, input)
+		}
 		command = input
 	case domain.DebtDrawInput:
 		input.EffectiveAt = at
@@ -240,7 +243,11 @@ func correctionTransferFee(command any, original domain.Activity) any {
 }
 
 func correctionOriginalEndpoints(state domain.ChangeState, original domain.Activity) domain.ChangeState {
-	for _, effect := range original.Effects {
+	effects := original.RecordedEffects
+	if effects == nil {
+		effects = original.Effects
+	}
+	for _, effect := range effects {
 		if effect.AccountID != nil {
 			if account, ok := state.Accounts[*effect.AccountID]; ok {
 				account.Archived = false

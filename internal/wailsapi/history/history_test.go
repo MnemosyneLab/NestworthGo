@@ -3,6 +3,7 @@ package history_test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -442,5 +443,40 @@ func TestRecordChangeMutationIDIsIdempotent(t *testing.T) {
 	wireErr, ok := apierror.Parse(err.Error())
 	if !ok || wireErr.Code != "conflict" || wireErr.Field != "mutationId" {
 		t.Fatalf("err = %v, want conflict mutationId", err)
+	}
+}
+
+// Export the real isolated SQLite DTO for the frontend integration test when
+// requested. Normal runs still verify the stored historical absolute target.
+func TestValueCorrectionDTOIntegration(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	first, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{Kind: history.ChangeValueUpdate, AccountID: fx.checkingID, NewValue: "1100", NewValueCurrency: "USD", Reason: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{Kind: history.ChangeValueUpdate, AccountID: fx.checkingID, NewValue: "1200", NewValueCurrency: "USD", Reason: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fx.service.FixChange(ctx, first.Activity.ID, history.ChangeCommandRequest{Kind: history.ChangeValueUpdate, AccountID: fx.checkingID, NewValue: "1200", NewValueCurrency: "USD", Reason: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dto, err := fx.service.Activity(ctx, second.Activity.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Resulting) != 1 || dto.Resulting[0].Amount != "1200" {
+		t.Fatalf("DTO: %+v", dto)
+	}
+	if path := os.Getenv("NESTWORTH_TEST_DTO_PATH"); path != "" {
+		data, err := json.Marshal(dto)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

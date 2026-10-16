@@ -336,6 +336,14 @@ value, never its delta or today's balance. Legacy records without an unambiguous
 resulting value leave the target blank; preview requires explicit user entry.
 No historical rows are migrated or rewritten to infer missing targets.
 
+An existing absolute balance observation may be corrected when its replayed
+change is zero, including a note-only correction. Its immutable remeasurement
+effect retains the account and zero amount so the stored absolute target and
+original endpoint evidence survive later corrections. Economic replay omits the
+zero delta. New unchanged value updates still return `no_change`; ordinary money
+and quantity effects still require a positive magnitude. Archive exceptions use
+recorded effects rather than the potentially empty replayed effects.
+
 Transfer corrections retain the original source fee and currency when omitted.
 An explicit zero removes the fee; a positive amount replaces it and must match
 the source currency. Preview and commit share this interpretation.

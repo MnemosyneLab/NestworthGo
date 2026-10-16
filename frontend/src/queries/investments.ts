@@ -84,7 +84,7 @@ export function useCreateHolding() {
  * binding, since all three are already loaded elsewhere in the app.
  */
 export function useAllHoldingsFlat(accountIds: string[], retainedHoldingId?: string) {
-  const accounts = useAccounts();
+  const accounts = useAccounts({ includeArchived: Boolean(retainedHoldingId) });
   const holdingsByAccount = useHoldingsByAccounts(accountIds);
   const instruments = useInstruments(Boolean(retainedHoldingId));
   const instrumentById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument]));

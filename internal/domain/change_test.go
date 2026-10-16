@@ -333,6 +333,18 @@ func TestPreviewTradeValueUpdateAndNoChange(t *testing.T) {
 	if err == nil || err.(*Error).Code != ErrNoChange {
 		t.Fatalf("no-change error = %v", err)
 	}
+	correction, err := PreviewValueUpdateCorrection(state, ValueUpdateInput{HouseholdID: state.HouseholdID, AccountID: findAccount(state, "Family Cash"), NewValue: current})
+	if err != nil || len(correction.Effects) != 1 || !correction.Effects[0].Money.IsZero() {
+		t.Fatalf("zero observation correction: %+v %v", correction, err)
+	}
+	if err := correction.Effects[0].Validate(); err != nil {
+		t.Fatal(err)
+	}
+	invalid := correction.Effects[0]
+	invalid.Classification = ClassificationExternalInflow
+	if err := invalid.Validate(); err == nil {
+		t.Fatal("zero ordinary money effect accepted")
+	}
 }
 
 func TestResolveLocalDateTimeRejectsDSTGapAndAmbiguity(t *testing.T) {
