@@ -72,10 +72,10 @@ for subsequent scope-label/product-detail refinements and final test results.
 
 Linux server-tag builds, generated bindings and jsdom do not prove native macOS
 behavior. No Mac operations, package/sign/notarize/release, manual screen-reader
-review or native window/process-close recovery acceptance was performed. Desktop
-plans are in memory; pause/resume and financial/session receipts are durable, but
-a lost desktop plan must be resolved by inspecting saved facts rather than
-fabricating a new identity. Native Linux compilation is unavailable locally;
+review or native window/process-close recovery acceptance was performed. At PR #89, desktop
+plans were in memory; PR #96 adds durable private SQLite recovery as described
+below. A missing body with no proven receipt remains unknown; never fabricate
+a replacement identity. Native Linux compilation is unavailable locally;
 the pinned GitHub CI run above covers that gate for its source commit.
 
 Vite builds successfully with large-chunk warnings for ECharts and the shared
@@ -176,9 +176,75 @@ historical-overview missing `Bank` button failure documented above; the complete
 two-worker run passed without altering that test or its deadlines.
 `pnpm run lint`, `CGO_ENABLED=0 pnpm run typecheck`, and
 `CGO_ENABLED=0 pnpm run build` passed. Vite retains its existing chunk-size warning.
-The Go source is unchanged from `6f11e3f532a7038ec35648148986d32e39e02432`;
+At UI review head `48e911dd8d486a1d8c5a4eb68a8d97e744bad438`, the Go source
+was unchanged from `6f11e3f532a7038ec35648148986d32e39e02432`;
 the full Go suite and focused race checks above were not rerun for this
 frontend-only delta. `CGO_ENABLED=0 go build -o
 /tmp/nestworth-reconciliation-server ./cmd/nestworth` passed again with the new
 frontend bundle, using the server-tag GOFLAGS shown above.
 Native GUI/macOS and manual accessibility gates remain unperformed.
+
+## PR96 current coverage and v2 schema follow-up
+
+Base: `48e911dd8d486a1d8c5a4eb68a8d97e744bad438`, same implementation branch
+and draft PR. Completed historical evidence is not repaired in place. Synthetic
+regressions cover holding-only, instrument-only and combined legacy archives;
+positions omitted by older records and positions created after completion; equal
+and changed financial revisions; repeated detail/last-success reads with identical
+before/after exports; preserved timestamps, notes, outcomes, item evidence, counts
+and revision; and a new pending session. Forced adjustments and explicit buy/sell
+commands still reject archived targets. Evidence disposition and direct paused
+partial finish continue to work.
+
+Real GUI components cover en/zh-CN/zh-TW coverage warnings on the historical record
+and account summary, current inventory versus real revision changes and pending
+reviews, hidden archived correction actions, retained disposition and paused
+partial-finish controls. The focused reconciliation/query suite passed 5 files /
+100 tests, including archived zero-quantity legacy points. These use independent
+current archive context, retain the evidence review action, and never show a
+nonzero warning for zero quantity. No custom pickers, forms or dialogs were introduced.
+
+The export schema tests validate bytes from `ExportJSONBytes`, including populated
+session/account/item/link/revision/change datasets and Agent append/correction/
+retraction provenance. Older v2 optional datasets and closing notes may be absent;
+original required datasets and row/field types remain enforced. Current read hints
+are not exported. The writer and format version remain unchanged.
+
+Final-source validation commands (synthetic data only):
+
+```sh
+export GOFLAGS='-mod=readonly -tags=server'
+CGO_ENABLED=0 go test -p 1 -parallel 4 ./... -count=1 -timeout 12m
+CGO_ENABLED=0 go vet -p 1 ./...
+CGO_ENABLED=1 go test -race -p 1 -parallel 4 ./internal/application ./internal/infrastructure/sqlite -run 'TestReconciliationCompletedCoverageIsDerivedAndReadOnly|TestReconciliationArchivedZeroHoldingReadContext|TestReconciliationArchiveGuardAndLegacyVisibility|TestReconciliationNotesReferenceBasisAndFrozenLaterChanges|TestReconciliationProductValuationPreservesChecksInFreshAndUpgradedSchemas|TestJSONExport|TestAgentMarketDataCorrectionRetractionAndSourceOnlyHistory' -count=1 -timeout 3m
+python3 tools/check-nestworth-skill.py
+python3 -m unittest discover -s tools/tests -v
+gofmt -l cmd internal
+git diff --check
+cd frontend
+CGO_ENABLED=0 pnpm run generate:bindings
+pnpm exec vitest run src/features/reconciliation src/queries/reconciliation.test.tsx --maxWorkers=2
+pnpm run lint
+CGO_ENABLED=0 pnpm run typecheck
+pnpm exec vitest run --maxWorkers=2
+CGO_ENABLED=0 pnpm run build
+cd ..
+CGO_ENABLED=0 go build -o /tmp/nestworth-reconciliation-server ./cmd/nestworth
+```
+
+Full Go tests and vet passed. The final-source focused race run passed application
+and SQLite; this is not full-repository race coverage. An earlier SQLite race
+filter selected no tests and was corrected to the actual named regression before
+the final two-package run. Full frontend: 133 files / 1,418 tests passed, including
+the zero-quantity archive additions. Lint, regenerated-bindings/typecheck passed.
+Python tools passed 53 tests; the Skill checker validated 76 JSON examples.
+No real financial profiles, provider accounts or user machines were accessed.
+
+The production frontend build and the server build embedding that bundle passed.
+Vite retains its existing large-chunk warning. Server-tag/CGO-disabled Linux
+checks and jsdom are not native desktop validation: no native Linux GUI launch,
+macOS packaging/window/process-restart, browser layout or manual screen-reader
+acceptance was performed. CI and independent review remain separate merge gates;
+this delegated task commits/pushes only and does not merge. AR19, historical-
+overview terminology, broad redesign and unproven replay/account-move/double-
+checkpoint changes remain deferred.

@@ -1436,6 +1436,230 @@
                   }
                 }
               }
+            },
+            "reconciliationSessions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "status",
+                  "revision",
+                  "startedAt",
+                  "completedAt",
+                  "note",
+                  "partial"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "in_progress",
+                      "paused",
+                      "completed"
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  },
+                  "completedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "partial": {
+                    "type": "boolean"
+                  },
+                  "closingNote": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "Optional additive v2 dataset. Older v2 files may omit it; older session rows may omit closingNote. Current writers always emit both, using an empty string for no closing explanation."
+            },
+            "accountFinancialRevisions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "accountId",
+                  "revision"
+                ],
+                "properties": {
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "description": "Optional additive v2 dataset, absent in older files. Current writers emit an array, including an empty array when no records exist."
+            },
+            "reconciliationFinancialChanges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "accountId",
+                  "family",
+                  "factId",
+                  "recordedAt",
+                  "effectiveAt",
+                  "revision",
+                  "reconciliationEvidence"
+                ],
+                "properties": {
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "family": {
+                    "type": "string"
+                  },
+                  "factId": {
+                    "type": "string"
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "reconciliationEvidence": {
+                    "type": "object",
+                    "description": "Family-specific business change evidence. Nested fields vary by financial fact family."
+                  }
+                }
+              },
+              "description": "Optional additive v2 dataset, absent in older files. Current writers emit an array, including an empty array when no records exist."
+            },
+            "reconciliationAccounts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sessionId",
+                  "accountId",
+                  "reconciliationEvidence"
+                ],
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "reconciliationEvidence": {
+                    "$ref": "#/$defs/reconciliationAccount"
+                  }
+                }
+              },
+              "description": "Optional additive v2 dataset, absent in older files. Current writers emit an array, including an empty array when no records exist."
+            },
+            "reconciliationItems": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sessionId",
+                  "accountId",
+                  "id",
+                  "reconciliationEvidence"
+                ],
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "reconciliationEvidence": {
+                    "$ref": "#/$defs/reconciliationItem"
+                  }
+                }
+              },
+              "description": "Optional additive v2 dataset, absent in older files. Current writers emit an array, including an empty array when no records exist."
+            },
+            "reconciliationLinks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sessionId",
+                  "accountId",
+                  "itemId",
+                  "operationId",
+                  "family",
+                  "reconciliationEvidence"
+                ],
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "itemId": {
+                    "type": "string"
+                  },
+                  "operationId": {
+                    "type": "string"
+                  },
+                  "family": {
+                    "type": "string"
+                  },
+                  "reconciliationEvidence": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "reviewedBefore",
+                      "committed",
+                      "sessionRevision"
+                    ],
+                    "properties": {
+                      "reviewedBefore": {
+                        "$ref": "#/$defs/reconciliationItem"
+                      },
+                      "committed": {
+                        "type": "object",
+                        "description": "Family-specific committed business result."
+                      },
+                      "targetMatched": {
+                        "type": "boolean"
+                      },
+                      "sessionRevision": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "description": "Optional additive v2 dataset, absent in older files. Current writers emit an array, including an empty array when no records exist."
             }
           }
         },
@@ -2034,6 +2258,92 @@
                   }
                 }
               }
+            },
+            "agentQuoteBatches": {
+              "type": "array",
+              "description": "Optional additive v2 provenance dataset, absent in older files. Current writers emit an array.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requestKey",
+                  "householdId",
+                  "payloadHash",
+                  "createdAt"
+                ],
+                "properties": {
+                  "requestKey": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "payloadHash": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "agentQuoteRecords": {
+              "type": "array",
+              "description": "Optional additive v2 provenance dataset, absent in older files. Current writers emit an array.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "requestKey",
+                  "householdId",
+                  "targetType",
+                  "operation",
+                  "quoteId",
+                  "targetQuoteId",
+                  "sourceTitle",
+                  "sourceUrl",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "requestKey": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "targetType": {
+                    "type": "string"
+                  },
+                  "operation": {
+                    "type": "string"
+                  },
+                  "quoteId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "targetQuoteId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sourceTitle": {
+                    "type": "string"
+                  },
+                  "sourceUrl": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
@@ -2330,6 +2640,260 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/missingInput"
+          }
+        }
+      }
+    },
+    "reconciliationCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pending",
+        "confirmed",
+        "skipped",
+        "unresolved"
+      ],
+      "properties": {
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confirmed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "reconciliationSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "asOfDate"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string"
+        },
+        "asOfDate": {
+          "type": "string"
+        },
+        "asOfTime": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      }
+    },
+    "reconciliationAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "kind",
+        "outcome",
+        "note",
+        "source",
+        "checkedAt",
+        "financialRevision",
+        "value"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "checkedAt": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "string"
+        },
+        "referenceValue": {
+          "type": "string"
+        },
+        "detail": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/reconciliationSource"
+        },
+        "financialRevision": {
+          "type": "integer"
+        },
+        "referenceComparable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "reconciliationItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "accountId",
+        "accountName",
+        "kind",
+        "label",
+        "financialRevision",
+        "outcome",
+        "note",
+        "source",
+        "recheckRequired"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "accountName": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "holdingId": {
+          "type": "string"
+        },
+        "instrumentId": {
+          "type": "string"
+        },
+        "productId": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "checkedAt": {
+          "type": "string"
+        },
+        "referenceValue": {
+          "type": "string"
+        },
+        "detail": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "financialRevision": {
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/reconciliationSource"
+        },
+        "archivedNonzero": {
+          "type": "boolean"
+        },
+        "referenceComparable": {
+          "type": "boolean"
+        },
+        "recheckRequired": {
+          "type": "boolean"
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reconciliationAttempt"
+          }
+        }
+      }
+    },
+    "reconciliationAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accountId",
+        "name",
+        "currency",
+        "mode",
+        "financialRevision",
+        "priorRevision",
+        "outcome",
+        "recheckRequired",
+        "counts"
+      ],
+      "properties": {
+        "priorSuccessfulAt": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "lastSuccessfulAt": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "financialRevision": {
+          "type": "integer"
+        },
+        "priorRevision": {
+          "type": "integer"
+        },
+        "recheckRequired": {
+          "type": "boolean"
+        },
+        "counts": {
+          "$ref": "#/$defs/reconciliationCounts"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reconciliationItem"
           }
         }
       }
