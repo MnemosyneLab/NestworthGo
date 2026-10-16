@@ -436,7 +436,7 @@ func TestReviewAlertPageCursorExpiresOnHandlingChange(t *testing.T) {
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	second, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Second synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	second, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Distinct security", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,6 +464,10 @@ func TestReviewAlertPageCursorExpiresOnHandlingChange(t *testing.T) {
 	first, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{}, "", 1)
 	if err != nil || len(first.Items) != 1 || first.NextCursor == "" {
 		t.Fatalf("first page: %+v %v", first, err)
+	}
+	filtered, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Query: first.Items[0].DisplayName}, "", 1)
+	if err != nil || len(filtered.Items) != 1 || filtered.NextCursor != "" {
+		t.Fatalf("filtered page falsely advertises a next match: %+v %v", filtered, err)
 	}
 	next, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{}, first.NextCursor, 1)
 	if err != nil || len(next.Items) != 1 || next.Items[0].InstrumentID == first.Items[0].InstrumentID {

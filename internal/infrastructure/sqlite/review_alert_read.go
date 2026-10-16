@@ -175,21 +175,8 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 		for _, id := range ids {
 			afterID = id
 			group, exists := groups[id]
-			if !exists || filter.InstrumentType != "" && string(group.InstrumentType) != filter.InstrumentType || filter.Query != "" && !strings.Contains(strings.ToLower(group.DisplayName), strings.ToLower(filter.Query)) {
+			if !exists || !reviewAlertMatchesFilter(group, filter) {
 				continue
-			}
-			if filter.Status != "all" {
-				matched := false
-				for _, rule := range group.Rules {
-					if filter.Status == "unignored" {
-						matched = matched || rule.Status != "ignored" && rule.Status != "paused"
-					} else {
-						matched = matched || rule.Status == filter.Status
-					}
-				}
-				if !matched {
-					continue
-				}
 			}
 			result.Items = append(result.Items, group)
 			if len(result.Items) == pageSize {
@@ -201,19 +188,61 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 		}
 	}
 	if len(result.Items) == pageSize {
-		var more string
-		err := tx.QueryRowContext(ctx, reviewAlertCandidateSQL+` LIMIT 1`, householdID.String(), afterID).Scan(&more)
-		if err == nil {
+		// A later candidate is not necessarily a later matching group. Look
+		// ahead through bounded candidate batches so Next never opens an empty
+		// filtered page.
+		probeAfter, hasMore := afterID, false
+		for !hasMore {
+			ids, err := reviewAlertCandidateIDs(ctx, tx, householdID, probeAfter, 100)
+			if err != nil {
+				return empty, err
+			}
+			if len(ids) == 0 {
+				break
+			}
+			groups, err := reviewAlertGroupsForIDs(ctx, tx, householdID, ids, byInstrument, control.Enabled, now)
+			if err != nil {
+				return empty, err
+			}
+			for _, id := range ids {
+				probeAfter = id
+				if group, ok := groups[id]; ok && reviewAlertMatchesFilter(group, filter) {
+					hasMore = true
+					break
+				}
+			}
+			if len(ids) < 100 {
+				break
+			}
+		}
+		if hasMore {
 			encoded, _ := json.Marshal(reviewAlertCursor{Revision: revision, FilterHash: filterHash, AfterID: afterID})
 			result.NextCursor = base64.RawURLEncoding.EncodeToString(encoded)
-		} else if err != sql.ErrNoRows {
-			return empty, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return empty, err
 	}
 	return result, nil
+}
+
+func reviewAlertMatchesFilter(group domain.ReviewAlertGroup, filter domain.ReviewAlertFilter) bool {
+	if filter.InstrumentType != "" && string(group.InstrumentType) != filter.InstrumentType || filter.Query != "" && !strings.Contains(strings.ToLower(group.DisplayName), strings.ToLower(filter.Query)) {
+		return false
+	}
+	if filter.Status == "all" {
+		return true
+	}
+	for _, rule := range group.Rules {
+		if filter.Status == "unignored" {
+			if rule.Status != "ignored" && rule.Status != "paused" {
+				return true
+			}
+		} else if rule.Status == filter.Status {
+			return true
+		}
+	}
+	return false
 }
 
 const reviewAlertCandidateSQL = `SELECT DISTINCT i.id FROM investment_review_evaluation_state s JOIN investment_review_rules r ON r.id=s.rule_id JOIN investment_review_episodes e ON e.id=s.episode_id JOIN instruments i ON i.id=s.instrument_id WHERE r.household_id=? AND i.id>? AND e.resolved_at IS NULL AND EXISTS(SELECT 1 FROM holdings h WHERE h.instrument_id=i.id AND CAST(h.quantity AS NUMERIC)>0) ORDER BY i.id`
