@@ -133,6 +133,32 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 	for i := range session.Accounts {
 		a := &session.Accounts[i]
 		if a.FinancialRevision == revisions[a.AccountID] {
+			// Older versions omitted archived nonzero positions entirely.
+			// Surface that known inventory gap even without a new financial
+			// write. Preserve existing evidence; the added point stays pending.
+			known := map[string]int{}
+			for index, item := range a.Items {
+				known[item.ID] = index
+			}
+			if fresh := current[a.AccountID]; fresh != nil {
+				for _, item := range fresh.Items {
+					if !item.ArchivedNonzero {
+						continue
+					}
+					index, exists := known[item.ID]
+					if exists && a.Items[index].Kind != "removed" {
+						continue
+					}
+					item.RecheckRequired = true
+					if exists {
+						item.Attempts = a.Items[index].Attempts
+						a.Items[index] = item
+					} else {
+						a.Items = append(a.Items, item)
+					}
+				}
+			}
+			sort.Slice(a.Items, func(i, j int) bool { return a.Items[i].ID < a.Items[j].ID })
 			continue
 		}
 		fresh := current[a.AccountID]

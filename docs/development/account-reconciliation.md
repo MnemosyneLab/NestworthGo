@@ -210,3 +210,10 @@ account's priorSuccessfulAt, never from whether a filtered changes list is empty
 Overlapping sessions remain independent and permitted; Continue appears before
 new-session selection. Paused sessions may finish directly; finishing freezes
 the completed record. AR19 and broad redesign remain deferred.
+
+Upgrading an already-open session also surfaces legacy archived nonzero positions
+when its financial revision has not changed. An omitted position is added as
+pending; an old "removed" point is restored as a holding with its earlier attempts
+retained. This read projection does not invent a financial revision or mutate a
+completed record. The new pending point prevents a full finish until reviewed;
+the next session action persists it through the existing evidence transaction.

@@ -786,10 +786,48 @@ func TestReconciliationArchiveGuardAndLegacyVisibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	// Emulate an already-open v17 session which omitted this legacy position,
+	// without changing its financial revision. Reading must restore the gap.
+	if _, err := db.SQL.Exec("DELETE FROM reconciliation_items WHERE session_id=? AND id=?", v.ID, "holding:"+holding.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Accounts[0].FinancialRevision != v.Accounts[0].FinancialRevision {
+		t.Fatal("inventory refresh invented a financial revision")
+	}
+	// Older sessions could also persist this position as "removed". That
+	// disposition is not evidence that its still-present units were checked.
+	for _, item := range current.Accounts[0].Items {
+		if item.HoldingID != holding.ID.String() {
+			continue
+		}
+		item.Kind = "removed"
+		item.ArchivedNonzero = false
+		item.Outcome = "confirmed"
+		item.Attempts = []domain.ReconciliationAttempt{{Kind: "removed", Outcome: "confirmed", Note: "Retain old disposition", FinancialRevision: item.FinancialRevision}}
+		raw, err := json.Marshal(item)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = db.SQL.Exec("INSERT INTO reconciliation_items(session_id,account_id,id,evidence) VALUES(?,?,?,?)", v.ID, aid.String(), item.ID, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current, err = s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v = current
+	if v.Counts.Pending != 3 {
+		t.Fatalf("missing legacy point not pending: %+v", v.Counts)
+	}
 	for _, item := range v.Accounts[0].Items {
 		if item.HoldingID == holding.ID.String() {
-			if item.Value != "2" || !item.ArchivedNonzero {
-				t.Fatalf("missing archive warning: %+v", item)
+			if item.Value != "2" || !item.ArchivedNonzero || item.Kind != "holding" || item.Outcome != "pending" || len(item.Attempts) != 1 || item.Attempts[0].Note != "Retain old disposition" {
+				t.Fatalf("missing archive warning or lost legacy attempt: %+v", item)
 			}
 			return
 		}

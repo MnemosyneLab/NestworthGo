@@ -144,3 +144,13 @@ packages. Native Linux GUI launch, native macOS build/window/process-restart
 acceptance, screen-reader testing, signing and packaging were not performed.
 The Vite bundle builds with the existing large-chunk warning. No user machine,
 personal financial profile, real database or provider account was used.
+
+The final legacy-inventory regression additionally emulates an already-open old
+session with an omitted or persisted "removed" archived nonzero position at an
+unchanged financial revision. Reads must restore a pending holding with the
+archive warning and old attempts, without inventing a financial revision.
+This case is also covered under the race detector:
+
+```sh
+CGO_ENABLED=1 go test -race -p 1 -parallel 4 ./internal/application -run 'TestReconciliationArchiveGuardAndLegacyVisibility|TestReconciliationSessionEvidenceDurabilityPartialAndImmutable|TestReconciliationRemovedItems' -count=1 -timeout 3m
+```
