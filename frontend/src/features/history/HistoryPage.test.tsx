@@ -2058,3 +2058,35 @@ it.each(["reconciliationLink", "financialRevision", "expectedRevision"])("releas
  recordChange.mockRejectedValueOnce(new Error(JSON.stringify({code:"conflict",field,message:"renewed review required"})));
  const {form}=await openOrdinaryRecoveryForm("record");await userEvent.click(within(form).getByRole("button",{name:"Confirm"}));await within(form).findByRole("button",{name:"Preview"});expect(hasUnresolvedSheetConfirmation()).toBe(false);expect(screen.getByRole("button",{name:"Close"})).toBeEnabled();await userEvent.keyboard("{Escape}");
 });
+
+it.each([false, true])("retains the original sold-out holding in Fix (archived=%s)", async archived => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  const archivedAt = archived ? "2026-03-01T00:00:00Z" : null;
+  listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "USD", archivedAt }, ownership: [], latestValue: null }]);
+  listInstruments.mockResolvedValue([{ id: "instrument-1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual", archivedAt }]);
+  holdingsByAccounts.mockResolvedValue({ "brokerage-1": [{ id: "holding-1", accountId: "brokerage-1", instrumentId: "instrument-1", quantity: "0", archivedAt }] });
+  previewFixChange.mockResolvedValue({ resulting: [] });
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><RecordChangeForm initial={{ kind: ChangeCommandKind.ChangeTrade, side: "sell", settlementAccountId: "brokerage-1", holdingId: "holding-1", instrumentId: "instrument-1", quantity: "10", gross: "100", grossCurrency: "USD", feeCurrency: "USD", added: true }} fixActivityId="sold" onRecorded={vi.fn()} /></QueryClientProvider>);
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await waitFor(() => expect(within(form).getByLabelText("Instrument")).toHaveValue("holding-1"));
+  await userEvent.type(within(form).getByLabelText("Note"), "Corrected note");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewFixChange).toHaveBeenCalledWith("sold", expect.objectContaining({ holdingId: "holding-1", instrumentId: "instrument-1", quantity: "10", gross: "100" })));
+  expect(fixChange).not.toHaveBeenCalled();
+});
+
+it.each(["1200", ""])("uses the historical absolute target for note-only Fix (%s)", async target => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  listAccounts.mockResolvedValue([{ account: { id: "acc-1", name: "Checking", trackingMode: "balance", defaultCurrency: "USD" }, ownership: [], latestValue: { amount: { amount: "9999", currency: "USD" } } }]);
+  previewFixChange.mockResolvedValue({ resulting: [] });
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><RecordChangeForm initial={{ kind: ChangeCommandKind.ChangeValueUpdate, accountId: "acc-1", newValue: target, newValueCurrency: "USD", reason: "other", note: "Original", added: true }} fixActivityId="observation" onRecorded={vi.fn()} /></QueryClientProvider>);
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.type(within(form).getByLabelText("Note"), " updated");
+  expect(within(form).getByLabelText("New value")).toHaveValue(target);
+  const preview = within(form).getByRole("button", { name: "Preview" });
+  if (!target) { expect(preview).toBeDisabled(); expect(previewFixChange).not.toHaveBeenCalled(); }
+  else { await userEvent.click(preview); expect(previewFixChange).toHaveBeenCalledWith("observation", expect.objectContaining({ newValue: "1200", note: "Original updated" })); }
+  expect(fixChange).not.toHaveBeenCalled();
+});

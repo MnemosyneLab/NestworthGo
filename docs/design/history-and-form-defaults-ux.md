@@ -327,3 +327,22 @@ start, users create accounts on their opening dates and enter dated transactions
 Account creation retains today's audit timestamp separately from its effective
 opening observation. Closed-day snapshots can then be rebuilt from those facts
 and the available historical prices and exchange rates.
+
+
+### Historical correction evidence
+
+Value-update correction drafts use the persisted historical resulting account
+value, never its delta or today's balance. Legacy records without an unambiguous
+resulting value leave the target blank; preview requires explicit user entry.
+No historical rows are migrated or rewritten to infer missing targets.
+
+Transfer corrections retain the original source fee and currency when omitted.
+An explicit zero removes the fee; a positive amount replaces it and must match
+the source currency. Preview and commit share this interpretation.
+
+A correction retains the original holding even after liquidation or archiving.
+The application validates at the original effective time and replays subsequent
+transactions. Archive exceptions apply only to the original record's endpoints;
+the persistence layer independently checks those immutable endpoint references.
+Current archive metadata is preserved. New transactions keep existing active
+endpoint and positive-quantity guards.

@@ -1,19 +1,9 @@
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
-/**
- * activityToInitialCommand reconstructs a best-effort ChangeCommandRequest
- * from a previously recorded ActivityDTO, for the Fix flow's "pre-fill the
- * Record change form with the original change" UX.
- *
- * This is intentionally best-effort, not a lossless inverse of
- * history.ChangeCommandRequest.ToCommand: domain.Activity only stores the
- * *effects* a change produced, not the original command, so some
- * distinctions the command made (e.g. which side of a symmetric transfer
- * the user entered first) cannot always be recovered byte-for-byte. Every
- * field this function fills in is still checked by RecordChange/FixChange
- * server-side, so a wrong guess here can never corrupt data — the user
- * sees exactly what they are about to submit before confirming.
+/** Restore editable facts from persisted historical evidence. Effects carry
+ * deltas, so absolute value updates must use their recorded resulting value.
+ * Missing legacy observations stay empty and require explicit user input.
  */
 export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRequest {
   const effects = activity.effects ?? [];
@@ -49,11 +39,16 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
 
     case "value_update": {
       const effect = effects[0];
+      const observations = (activity.resulting ?? []).filter(view =>
+        view.target === "account_value" && view.accountId && view.amount !== undefined && view.amount !== "" && view.currency &&
+        (!effect || (view.accountId === effect.accountId && view.target === effect.target && view.currency === effect.money?.currency)),
+      );
+      const observation = observations.length === 1 ? observations[0] : undefined;
       return {
         kind: ChangeCommandKind.ChangeValueUpdate,
-        accountId: effect?.accountId ?? "",
-        newValue: effect?.money?.amount ?? "",
-        newValueCurrency: effect?.money?.currency ?? "USD",
+        accountId: observation?.accountId ?? effect?.accountId ?? "",
+        newValue: observation?.amount ?? "",
+        newValueCurrency: observation?.currency ?? effect?.money?.currency ?? "USD",
         reason: activity.reason ?? "",
         note,
         added: true,
@@ -71,6 +66,8 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
         sentCurrency: from?.money?.currency ?? "USD",
         received: to?.money?.amount ?? "",
         receivedCurrency: to?.money?.currency ?? "USD",
+        fee: byRole("fee")?.money?.amount ?? "",
+        feeCurrency: byRole("fee")?.money?.currency ?? from?.money?.currency ?? "USD",
         note,
         added: true,
       };

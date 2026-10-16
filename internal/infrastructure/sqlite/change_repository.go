@@ -152,7 +152,11 @@ func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCom
 		if err := effect.Validate(); err != nil {
 			return err
 		}
-		if err := validateActiveEffectTargetTx(ctx, tx, activity.HouseholdID, effect); err != nil {
+		historicalEndpoint, err := originalCorrectionEndpointTx(ctx, tx, activity, effect)
+		if err != nil {
+			return err
+		}
+		if err := validateActiveEffectTargetTx(ctx, tx, activity.HouseholdID, effect, historicalEndpoint); err != nil {
 			return err
 		}
 	}
@@ -262,7 +266,8 @@ func (r *Repository) LookupActivityMutation(ctx context.Context, householdID dom
 	return &domain.ActivityMutationRecord{HouseholdID: householdID, ID: mutationID, PayloadSHA256: payloadHash, ActivityID: parsedActivity, CreatedAt: created.UTC()}, nil
 }
 
-func validateActiveEffectTargetTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, effect domain.ActivityEffect) error {
+func validateActiveEffectTargetTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, effect domain.ActivityEffect, historicalEndpoint ...bool) error {
+	allowArchived := len(historicalEndpoint) > 0 && historicalEndpoint[0]
 	switch effect.Target {
 	case domain.EffectTargetAccountValue, domain.EffectTargetAccountCash:
 		if effect.AccountID == nil {
@@ -275,7 +280,7 @@ func validateActiveEffectTargetTx(ctx context.Context, tx *sql.Tx, householdID d
 			}
 			return err
 		}
-		if archived.Valid {
+		if archived.Valid && !allowArchived {
 			return &domain.Error{Code: domain.ErrConflict, Field: "accountId", Message: "Account is archived"}
 		}
 	case domain.EffectTargetHoldingQuantity, domain.EffectTargetHoldingCost:
@@ -289,7 +294,7 @@ func validateActiveEffectTargetTx(ctx context.Context, tx *sql.Tx, householdID d
 			}
 			return err
 		}
-		if holdingArchived.Valid || accountArchived.Valid || instrumentArchived.Valid {
+		if (holdingArchived.Valid || accountArchived.Valid || instrumentArchived.Valid) && !allowArchived {
 			return &domain.Error{Code: domain.ErrConflict, Field: "holdingId", Message: "Holding, its Account, or Instrument is archived"}
 		}
 	}
@@ -411,4 +416,27 @@ func rebuildActivityProjectionTx(ctx context.Context, tx *sql.Tx, projection dom
 		}
 	}
 	return nil
+}
+
+// The archive exception is derived from the original immutable effect inside
+// this transaction, never from a caller-controlled allow-archived flag.
+func originalCorrectionEndpointTx(ctx context.Context, tx *sql.Tx, activity domain.Activity, effect domain.ActivityEffect) (bool, error) {
+	if activity.CorrectionGroupID == nil {
+		return false, nil
+	}
+	var originalID string
+	if activity.ReversesActivityID != nil {
+		originalID = activity.ReversesActivityID.String()
+	} else {
+		err := tx.QueryRowContext(ctx, `SELECT reverses_activity_id FROM activities WHERE household_id=? AND correction_group_id=? AND reverses_activity_id IS NOT NULL`, activity.HouseholdID.String(), activity.CorrectionGroupID.String()).Scan(&originalID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+	var count int
+	err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM activity_effects e JOIN activities a ON a.id=e.activity_id WHERE a.id=? AND a.household_id=? AND e.target=? AND ((? IS NOT NULL AND e.account_id=?) OR (? IS NOT NULL AND e.holding_id=?))`, originalID, activity.HouseholdID.String(), string(effect.Target), nullableID(effect.AccountID), nullableID(effect.AccountID), nullableID(effect.HoldingID), nullableID(effect.HoldingID)).Scan(&count)
+	return count > 0, err
 }

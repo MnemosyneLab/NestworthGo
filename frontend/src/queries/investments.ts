@@ -83,15 +83,15 @@ export function useCreateHolding() {
  * useHoldingsByAccounts + useInstruments rather than adding a new Go
  * binding, since all three are already loaded elsewhere in the app.
  */
-export function useAllHoldingsFlat(accountIds: string[]) {
+export function useAllHoldingsFlat(accountIds: string[], retainedHoldingId?: string) {
   const accounts = useAccounts();
   const holdingsByAccount = useHoldingsByAccounts(accountIds);
-  const instruments = useInstruments();
+  const instruments = useInstruments(Boolean(retainedHoldingId));
   const instrumentById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument]));
   const accountNameById = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const flat = Object.entries(holdingsByAccount.data ?? {}).flatMap(([accId, holdings]) =>
     (holdings ?? [])
-      .filter((holding) => !holding.archivedAt)
+      .filter((holding) => !holding.archivedAt || holding.id === retainedHoldingId)
       .map((holding) => {
         const instrument = instrumentById.get(holding.instrumentId);
         return {
