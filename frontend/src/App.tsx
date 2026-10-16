@@ -282,7 +282,7 @@ function App() {
           </TabsList>
           <TabsContent value="market-data" keepMounted>
             {visitedMaintenance.market && <WorkspaceLazy>
-              <MarketDataPage focus={marketFocus} focusRequestId={marketFocusRequestId} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
+              <MarketDataPage focus={marketFocus} focusRequestId={marketFocusRequestId} isActive={activePageId === "market-data"} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
             </WorkspaceLazy>}
           </TabsContent>
           <TabsContent value="data-health" keepMounted>

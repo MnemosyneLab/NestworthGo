@@ -11,6 +11,7 @@ These screenshots were captured on 2026-10-16 from the actual React components t
 - [App route: Back to instrument](app-instrument-back-focus-narrow.png): production `App` route returns from focused maintenance to the real instrument detail and restores the keyboard-visible Maintain button.
 - [App route: Back to maintenance](app-maintenance-back-focus-narrow.png): production `App` route then returns to the still-mounted maintenance page, preserving search `One` and restoring the keyboard-visible Details button.
 - [App route: FX focus request](app-fx-focus-narrow.png): while the real App is on the Instruments tab, the synthetic CNY/USD Data Health action returns to Market Data and selects FX rates.
+- [App route: nested Maintain Back](app-nested-back-narrow.png): nested Maintain requests can be backed out without reopening a dismissed editor over the restored maintenance page.
 
 The production-route evidence and the pre-fix reproduction are documented in [app-navigation-focus.md](app-navigation-focus.md). This route mounts the actual `App`, `AppShell`, `MarketDataPage`, `InstrumentManagement`, and `InstrumentDetailPage`; only TanStack Query results are preloaded with synthetic fixture data.
 

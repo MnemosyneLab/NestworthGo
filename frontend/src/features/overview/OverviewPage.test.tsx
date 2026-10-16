@@ -63,7 +63,12 @@ const defaultHeadlines = {
 // Each test needs a different mocked Overview() response, so the binding
 // is re-mocked per test with vi.doMock + a fresh dynamic import, rather
 // than one hoisted vi.mock factory shared by the whole file.
-async function renderWithMockedOverview(response: unknown, props: { onOpenDataHealth?: () => void } = {}, navigation?: ObjectNavigation) {
+async function renderWithMockedOverview(
+  response: unknown,
+  props: { onOpenDataHealth?: () => void } = {},
+  navigation?: ObjectNavigation,
+  queryClientOptions?: { retry?: number | false },
+) {
   vi.doMock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
     Service: { Overview: () => Promise.resolve(response) },
   }));
@@ -71,7 +76,7 @@ async function renderWithMockedOverview(response: unknown, props: { onOpenDataHe
   const { OverviewPage: FreshOverviewPage }: { OverviewPage: typeof OverviewPageComponent } = await import("./OverviewPage");
 
   const { NavigationContext } = await import("@/app/NavigationContext");
-  const queryClient = createTestQueryClient();
+  const queryClient = createTestQueryClient(queryClientOptions);
   return render(
     <QueryClientProvider client={queryClient}>
       <NavigationContext.Provider value={navigation ?? null}><FreshOverviewPage {...props} /></NavigationContext.Provider>
@@ -287,7 +292,7 @@ it("keeps historical issues actionable when current valuation is complete", asyn
 it.each(["loading", "failed"])("does not claim all clear while health is %s", async (state) => {
   if (state === "loading") scanHealth.mockImplementation(() => new Promise(() => {}));
   else scanHealth.mockRejectedValue(new Error("health unavailable"));
-  await renderWithMockedOverview(completeOverview);
+  await renderWithMockedOverview(completeOverview, {}, undefined, state === "failed" ? { retry: false } : undefined);
   await screen.findByText("Current valuation complete");
   const message = state === "loading" ? "Checking historical data health…" : "Historical data health could not be checked.";
   expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);

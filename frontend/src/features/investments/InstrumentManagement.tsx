@@ -227,18 +227,18 @@ export function InstrumentManagement({
   const updateInstrument = useUpdateInstrument();
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
-  const [editOverride, setEditOverride] = useState<{ requestId: number; value: InstrumentDTO | null }>();
-  const [priceFormOverride, setPriceFormOverride] = useState<{ requestId: number; value: boolean }>();
+  const [editOverrides, setEditOverrides] = useState<ReadonlyMap<number, InstrumentDTO | null>>(() => new Map());
+  const [priceFormOverrides, setPriceFormOverrides] = useState<ReadonlyMap<number, boolean>>(() => new Map());
   const focusOpensEditor = focus?.action === "manual_entry" || focus?.action === "instrument_editor";
   const focusedInstrument = focusOpensEditor ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : null;
-  const editTarget = editOverride?.requestId === focusRequestId
-    ? editOverride.value
-    : focusedInstrument;
-  const showPriceForm = priceFormOverride?.requestId === focusRequestId
-    ? priceFormOverride.value
+  const editTarget = active
+    ? editOverrides.has(focusRequestId) ? editOverrides.get(focusRequestId) ?? null : focusedInstrument
+    : null;
+  const showPriceForm = priceFormOverrides.has(focusRequestId)
+    ? priceFormOverrides.get(focusRequestId)!
     : focus?.action === "manual_entry";
-  const setEditTarget = (value: InstrumentDTO | null) => setEditOverride({ requestId: focusRequestId, value });
-  const setShowPriceForm = (value: boolean) => setPriceFormOverride({ requestId: focusRequestId, value });
+  const setEditTarget = (value: InstrumentDTO | null) => setEditOverrides((previous) => new Map(previous).set(focusRequestId, value));
+  const setShowPriceForm = (value: boolean) => setPriceFormOverrides((previous) => new Map(previous).set(focusRequestId, value));
   const [query, setQuery] = useState("");
   const productByInstrument = useMemo(
     () => new Map((products.data ?? []).map((detail) => [detail.product.instrumentId, detail.product])),

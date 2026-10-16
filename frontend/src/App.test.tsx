@@ -511,21 +511,29 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
     await userEvent.click(await screen.findByRole("button", { name: "Close" }));
 
+    // A nested Details → Maintain request must not replace the first
+    // request's dismissed state when Back restores its older request ID.
+    await userEvent.click(screen.getByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
     await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => expect(document.activeElement).toBe(document.getElementById("instrument-detail-maintain")));
     await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
-
-    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
-    await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Open Fund One details"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Open Fund One details" }));
     await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
     await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
     expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Fund One");
     await userEvent.click(await screen.findByRole("button", { name: "Close" }));
-    await userEvent.click(await screen.findByRole("button", { name: "← Back to Instrument details" }));
-    await userEvent.click(await screen.findByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
 
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Open Fund One details"));
+
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
     await userEvent.clear(screen.getByLabelText(i18n.t("marketData.searchInstruments")));
     await userEvent.type(screen.getByLabelText(i18n.t("marketData.searchInstruments")), "Two");
     await userEvent.click(await screen.findByRole("button", { name: "Open Fund Two details" }));
