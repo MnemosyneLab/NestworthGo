@@ -1,4 +1,5 @@
 import { useHoldingGroupStore } from "@/stores/holdings";
+import type { ComponentProps } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -156,11 +157,11 @@ async function accountHoldingGroups(accountId: string) {
 }
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { AccountHoldingDetails: () => Promise.resolve([]), AccountHoldingGroups: (accountId: string) => accountHoldingGroups(accountId) } }));
 
-function renderPage() {
+function renderPage(props: ComponentProps<typeof AccountsPage> = {}) {
   const queryClient = createTestQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <AccountsPage />
+      <AccountsPage {...props} />
     </QueryClientProvider>,
   );
   return { ...rendered, queryClient };
@@ -408,6 +409,21 @@ describe("AccountsPage", () => {
         initialAmount: "500",
       }),
     );
+  });
+
+  it("opens creation from navigation and returns the created account to its caller", async () => {
+    const onCreated = vi.fn(() => true);
+    createAccount.mockResolvedValue(brokerageAccount);
+    renderPage({ createRequestId: 1, onCreated });
+    const form = await screen.findByRole("form", { name: "Create account" });
+    await continueWizard(form, 3);
+    await userEvent.type(within(form).getByLabelText("Name"), "Demo brokerage");
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    await continueWizard(form, 1);
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("brk-1", true));
+    expect(screen.queryByRole("form", { name: "Create account" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("accounts-table")).toBeInTheDocument();
   });
 
   it("selects and clears an optional opening date in the account wizard", async () => {
@@ -757,6 +773,23 @@ describe("AccountsPage", () => {
     expect(await layout.findByText("Small position")).toBeInTheDocument();
     expect(layout.queryByText("Closed position")).not.toBeInTheDocument();
     expect(layout.getByRole("button", { name: "Cash dividend" })).toBeEnabled();
+    await userEvent.click(layout.getByRole("button", { name: "Closed" }));
+    expect(await layout.findByText("Closed position")).toBeInTheDocument();
+    expect(layout.queryByText("Small position")).not.toBeInTheDocument();
+  });
+
+  it("offers the closed-position view when an account has no current holdings", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    holdingsByAccounts.mockResolvedValue({ "brk-1": [{ id: "zero", accountId: "brk-1", instrumentId: "closed", quantity: "0" }] });
+    listInstruments.mockResolvedValue([{ id: "closed", name: "Closed position", type: "stock", quoteCurrency: "USD" }]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    const layout = within(await screen.findByTestId("account-cash-holdings-layout"));
+    expect(await layout.findByRole("button", { name: "Closed" })).toBeInTheDocument();
+    expect(layout.queryByText("Closed position")).not.toBeInTheDocument();
+    await userEvent.click(layout.getByRole("button", { name: "Closed" }));
+    expect(await layout.findByText("Closed position")).toBeInTheDocument();
+    expect(layout.queryByRole("button", { name: i18n.t("accounts.sellInvestment") })).not.toBeInTheDocument();
   });
 
   it("groups account investments by instrument type with the same collapsible headers as Portfolio", async () => {
@@ -929,6 +962,27 @@ describe("AccountsPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/greater than zero/i);
     expect(createHolding).not.toHaveBeenCalled();
     expect(recordChange).not.toHaveBeenCalled();
+  });
+
+  it("previews a dated existing position as an import after history starts", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    accountValuations.mockResolvedValue([{ account: brokerageAccount.account, ownership: brokerageAccount.ownership,
+      complete: true, components: [], missingInputs: [], baseValue: { amount: "0", currency: "USD" } }]);
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", type: "stock", quoteCurrency: "USD" }]);
+    previewChange.mockResolvedValue({ resulting: [{ name: "Synthetic position", quantity: "2" }] });
+    const { queryClient } = renderPage();
+    queryClient.setQueryData(queryKeys.household.bootstrap, { household: { id: "synthetic", baseCurrency: "USD" }, members: [], institutions: [], groups: [] });
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Record existing position" }));
+    expect(await screen.findByText("Record a quantity already in this account. This is not a buy and does not reduce cash.")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Local date")).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Instrument"), "i1");
+    await userEvent.type(screen.getByLabelText("Quantity"), "2");
+    await userEvent.type(screen.getByLabelText("Original per-unit acquisition cost (required)"), "80");
+    await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "position_import", accountId: brokerageAccount.account.id, instrumentId: "i1", quantity: "2", unitCost: "80" })));
+    expect(createHolding).not.toHaveBeenCalled();
   });
 
   it("creates a credit card as a liability without asking tracking or role enums", async () => {

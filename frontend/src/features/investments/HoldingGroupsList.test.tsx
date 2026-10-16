@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HoldingGroupsList } from "./HoldingGroupsList";
+import { NavigationContext } from "@/app/NavigationContext";
 import { useHoldingGroupStore } from "@/stores/holdings";
 import type { HoldingAmountsDTO, InstrumentHoldingGroupDTO, InstrumentHoldingsDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics/models";
 
@@ -86,6 +87,17 @@ describe("HoldingGroupsList", () => {
     expect(screen.getByRole("button", { name: "Hide details for Apple" })).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("opens the shared detail with the row's account scope", async () => {
+    const open = vi.fn();
+    render(<QueryClientProvider client={createTestQueryClient()}><NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><HoldingGroupsList scope="portfolio" groups={[stockGroup(apple())]} /></NavigationContext.Provider></QueryClientProvider>);
+    await userEvent.click(screen.getByRole("button", { name: "Open AAPL details" }));
+    expect(open).toHaveBeenLastCalledWith({ page: "instrument-detail", instrumentId: "i1", accountId: undefined, section: "holdings" });
+    await userEvent.click(screen.getByRole("button", { name: "Account details" }));
+    const brokerA = screen.getByRole("row", { name: /Broker A/ });
+    await userEvent.click(within(brokerA).getByRole("button", { name: "Open AAPL details" }));
+    expect(open).toHaveBeenLastCalledWith({ page: "instrument-detail", instrumentId: "i1", accountId: "a1", section: "holdings" });
+  });
+
   it("marks losses with an arrow and spoken direction, not only color", () => {
     render(<HoldingGroupsList scope="portfolio" groups={[stockGroup(apple())]} />);
     const row = screen.getByRole("row", { name: /Apple/ });
@@ -156,5 +168,24 @@ describe("HoldingGroupsList", () => {
     await userEvent.click(screen.getByRole("button", { name: "Actions for AAPL" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Cash dividend" }));
     expect(onDividend).toHaveBeenCalledWith("h1");
+  });
+
+  it("keeps closed account positions reachable without making them current sell candidates", async () => {
+    const current = { ...apple(), holdings: [apple().holdings![0]] };
+    const closed = { ...apple(), instrumentId: "i2", name: "Closed Fund", symbol: "CLSD", holdings: [{ ...apple().holdings![2], accountId: "a1", accountName: "Broker A" }] };
+    render(<QueryClientProvider client={createTestQueryClient()}><HoldingGroupsList scope="account" accountId="a1" groups={[stockGroup(current, closed)]} onDividend={vi.fn()} /></QueryClientProvider>);
+    expect(screen.getByRole("button", { name: "Current" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("holdings-table")).toHaveTextContent("Apple");
+    expect(screen.getByTestId("holdings-table")).not.toHaveTextContent("Closed Fund");
+    await userEvent.click(screen.getByRole("button", { name: "Closed" }));
+    expect(screen.getByTestId("holdings-table")).toHaveTextContent("Closed Fund");
+    expect(screen.getByTestId("holdings-table")).not.toHaveTextContent("Apple");
+    expect(screen.queryByRole("button", { name: "Actions for CLSD" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "All" }));
+    expect(screen.getByTestId("holdings-table")).toHaveTextContent("Apple");
+    expect(screen.getByTestId("holdings-table")).toHaveTextContent("Closed Fund");
+    expect(screen.getByText("Totals exclude zero-quantity positions.")).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("2 holdings")).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("$1,200.00")).toBeInTheDocument();
   });
 });

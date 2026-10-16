@@ -208,7 +208,7 @@ function ActivityDetailBody({
 }
 
 export function ActivityDetailSheet({
-  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings = new Map(), onClose, onRepeat, t,
+  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings = new Map(), finalFocus, onClose, onRepeat, t,
 }: {
   activity: ActivityDTO | null;
   originalActivity?: ActivityDTO;
@@ -217,13 +217,14 @@ export function ActivityDetailSheet({
   accounts: Map<string, string>;
   instruments: Map<string, string>;
   holdings?: Map<string, string>;
+  finalFocus?: () => HTMLElement | null;
   onClose: () => void;
   onRepeat?: () => void;
   t: Translator;
 }) {
   return (
     <Sheet open={activity !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent size="lg">
+      <SheetContent size="lg" finalFocus={finalFocus}>
         <SheetHeader><SheetTitle>{t("common.details")}</SheetTitle></SheetHeader>
         <div>
           {activity && <ActivityDetailBody activity={activity} originalActivity={originalActivity} originalActivityLoading={originalActivityLoading} timezone={timezone} accounts={accounts} instruments={instruments} holdings={holdings} onRepeat={onRepeat} t={t} />}

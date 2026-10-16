@@ -323,6 +323,63 @@ shortcuts end at the last closed day in the history-origin timezone and clamp
 the beginning to the history origin. Month shortcuts use calendar months and
 inclusive date endpoints.
 
+Return Analysis separates the calendar browsing cursor from explicit date
+filters. When leaving Calendar for Trend or Contribution, the page makes its
+displayed analysis period explicit: an existing selection wins; otherwise the
+visible month or year is used, clamped to History Origin and the last closed
+ledger-local day. Switching views preserves object, valuation, cash and
+additional filters. An empty period on the first local day remains empty and
+does not store a reversed date range. Calendar month/year mode stays local to
+the mounted Return Analysis page.
+The contribution metric is part of the shared analysis state, so a retained
+page receiving a new navigation context updates both its selector and query.
+Realized contribution normalizes unsupported currency/asset-class grouping and
+rate sorting before either the query or controls consume the new metric.
+Clearing additional filters removes only those filters; restoring portfolio
+defaults also resets the scope, metric, valuation, cash choice and date range.
+
+History navigation may carry an Activity ID alongside date, account, instrument,
+and kind filters. The ID opens that exact Activity through the authoritative
+read even when the record is outside the first filtered page or has since been
+corrected or reversed; closing the detail returns to the list filters. History
+filter choices include archived accounts and instruments for read-only lookup,
+while new-record forms retain their separate eligibility rules. The page
+reports its current filters to the navigation trail so returning after an
+object drill-down restores user edits rather than the original entry filters.
+Moving between Market Data and Data Health preserves the focused health issue
+and adds a return step, allowing an analysis-to-repair path to be retraced.
+The investment-assets workspace opens on owned holdings. Its saved-instrument
+view includes unowned and archived records, while allocation and trend are a
+secondary view. An `instrument-detail` navigation target carries the instrument
+ID, optional account ID, section (`holdings`, `performance`, or `data`), date
+range, and optional health focus. With an account ID, holding figures come from
+that account's server-provided holding member; without one, they come from the
+server-provided instrument total. Market performance and quote records describe
+the instrument rather than the owner's return. Product-owned instruments link
+to their Available Funds contract instead of displaying a market quote.
+Plain legacy Market Data instrument links resolve to this read-only detail;
+issue or editor links retain their Market Data repair destination. The single
+Data Maintenance navigation entry hosts the existing Market Data and Data
+Health routes as quote/FX and issue/repair tasks. Both Page IDs and their
+focus contexts remain valid for existing links. Returning from an instrument
+record restores the source tab and search state.
+Account holdings offer Current, Closed, and All views. The closed view filters
+zero-quantity account members without treating them as sell candidates, and it
+does not display an unfiltered group subtotal as a closed-position subtotal.
+Account and holding action menus also open related History with the current
+account, instrument, and explicit date range; App retains the source view and
+scroll position for Back.
+Opening a new History record from a filtered list suggests only active account
+and instrument IDs. Account suggestions also obey the destination field's cash,
+value, holdings, investment or debt eligibility. Its effective time remains an
+explicit form choice, not an inference from the list's date range. After
+recording, the receipt offers a link to the exact new Activity even if it lies
+outside that list range.
+
+Reconciliation previews are scoped to the current editor request. Closing an
+editor or changing sessions invalidates pending check, adjustment and product
+previews, and session selection clears an open review.
+
 ## Metals and crypto
 
 Schema 11 adds optional metal-template and quantity-unit metadata. Existing

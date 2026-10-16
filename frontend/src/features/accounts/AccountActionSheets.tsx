@@ -16,6 +16,7 @@ import { useSupportedCurrencies } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { RecordChangeForm, type RecordChangeLock } from "@/features/history/RecordChangeForm";
+import { PositionImportForm } from "@/features/investments/PositionImportForm";
 import { StartHistoryForm } from "@/features/history/StartHistoryForm";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
@@ -117,7 +118,9 @@ export function AccountActionSheet({
           ) : action === "cash" ? (
             <CashBalanceForm record={record} valuation={valuation} historyStarted={historyReady} onDone={onRecorded} />
           ) : action === "position" ? (
-            <ExistingPositionForm record={record} onDone={onRecorded} />
+            historyReady
+              ? <PositionImportForm account={record.account} originOverride={startedOrigin} onRecorded={onRecorded} />
+              : <ExistingPositionForm record={record} onDone={onRecorded} />
           ) : action === "simple" ? (
             <SimpleValueForm record={record} valuation={valuation} historyStarted={historyReady} onDone={onRecorded} />
           ) : (

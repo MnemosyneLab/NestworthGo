@@ -1,6 +1,6 @@
 import type { SourceRefDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import type { LucideIcon } from "lucide-react";
-import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, HeartPulse, Banknote } from "lucide-react";
+import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, Banknote } from "lucide-react";
 
 export type PageId =
   | "overview"
@@ -9,6 +9,7 @@ export type PageId =
   | "available-funds"
   | "upcoming-actions"
   | "portfolio"
+  | "instrument-detail"
   | "reconciliation"
   | "history"
   | "return-analysis"
@@ -57,6 +58,18 @@ export interface HealthFocus {
   snapshotComponentLabel?: string;
 }
 
+export type PortfolioView = "holdings" | "instruments" | "allocation";
+
+/** Shared, read-only instrument destination used by holdings, accounts and data maintenance. */
+export interface InstrumentDetailContext {
+  instrumentId: string;
+  accountId?: string;
+  section?: "holdings" | "performance" | "data";
+  from?: string;
+  to?: string;
+  healthFocus?: HealthFocus;
+}
+
 export interface AccountListFocus {
   dimension: "institutionId" | "accountType" | "memberId" | "groupId";
   value: string;
@@ -91,11 +104,13 @@ export type NavigationTarget =
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "reconciliation"; accountId?: string; sessionId?: string }
-  | { page: "history"; filters?: HistoryNavigationFilters }
-  | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
+  | { page: "history"; filters?: HistoryNavigationFilters; activityId?: string }
+  | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean; create?: boolean }
+  | { page: "portfolio"; view?: PortfolioView }
+  | ({ page: "instrument-detail" } & InstrumentDetailContext)
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
   | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }
-  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "reconciliation" | "accounts" | "market-data" | "data-health" | "available-funds"> };
+  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "reconciliation" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the
@@ -150,7 +165,6 @@ export const NAV_GROUPS: NavGroup[] = [
     translationKey: "navGroups.settings",
     items: [
       { id: "market-data", translationKey: "nav.marketData", icon: RefreshCw },
-      { id: "data-health", translationKey: "nav.dataHealth", icon: HeartPulse },
       { id: "settings", translationKey: "nav.settings", icon: Settings },
     ],
   },
@@ -163,5 +177,16 @@ export function targetForPage(page: PageId): NavigationTarget {
   if (page === "asset-changes") return { page };
   if (page === "history") return { page };
   if (page === "available-funds") return { page };
+  if (page === "portfolio") return { page, view: "holdings" };
+  if (page === "instrument-detail") throw new Error("An instrument detail target needs an instrumentId");
   return { page };
+}
+
+/** A plain old Market Data object link now opens the shared read-only record. Repair links stay in maintenance. */
+export function resolveLegacyTarget(target: NavigationTarget): NavigationTarget {
+  if (target.page !== "market-data") return target;
+  const focus = target.focus;
+  if (!focus?.instrumentId || focus.id || focus.kind || focus.action || focus.reason || focus.executable !== undefined || focus.snapshotComponentLabel || focus.currencyA || focus.currencyB) return target;
+  return { page: "instrument-detail", instrumentId: focus.instrumentId, accountId: focus.accountId,
+    section: "data", from: focus.rangeStart, to: focus.rangeEnd, healthFocus: focus };
 }

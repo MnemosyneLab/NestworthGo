@@ -12,12 +12,13 @@ import { useAnalysisStore } from "@/stores/analysis";
 import { useHistoryOrigin } from "@/queries/history";
 import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
 
-export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
+export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOpenHistory?: (filters: HistoryNavigationFilters, activityId?: string) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
   const session = useAnalysisStore();
   const setFilters = useAnalysisStore((state) => state.setFilters);
   const setAssetView = useAnalysisStore((state) => state.setAssetView);
   const reset = useAnalysisStore((state) => state.resetFilters);
+  const clearAdditionalFilters = useAnalysisStore((state) => state.clearAdditionalFilters);
   const origin = useHistoryOrigin();
   const scope = session.scope ?? "portfolio";
   const visibleMonth = currentMonth(origin.data?.timezone);
@@ -50,7 +51,7 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
           <TabsTrigger value="drivers">{t("insights.drivers")}</TabsTrigger>
           <TabsTrigger value="categories">{t("insights.categories")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} resolvedRange={rangeAvailable ? range : undefined} onChange={setFilters} onReset={reset} />
+        <AnalysisFilterBar session={session} resolvedRange={rangeAvailable ? range : undefined} onChange={setFilters} onReset={reset} onClearAdditionalFilters={clearAdditionalFilters} />
         <TabsContent value="drivers">{driverContent}</TabsContent>
         <TabsContent value="trend"><AssetTrendTab session={session} /></TabsContent>
         <TabsContent value="categories"><CategoriesTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>

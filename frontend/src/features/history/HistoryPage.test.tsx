@@ -16,6 +16,7 @@ import { HistoryPage } from "./HistoryPage";
 import { AccountActionSheet } from "@/features/accounts/AccountActionSheets";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import i18n from "@/i18n";
+import { toast } from "sonner";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
 const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));
@@ -130,11 +131,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
   return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
 });
 
-function renderPage(filters?: { kinds?: string[]; accountId?: string; instrumentId?: string; from?: string; to?: string }) {
+function renderPage(filters?: { kinds?: string[]; accountId?: string; instrumentId?: string; from?: string; to?: string }, focus?: { activityId: string; requestId: number }, onFiltersChange?: (filters: { kinds?: string[]; accountId?: string; instrumentId?: string; from?: string; to?: string }) => void) {
   const queryClient = createTestQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <HistoryPage navigationFilters={filters} />
+      <HistoryPage navigationFilters={filters} navigationActivityId={focus?.activityId} navigationRequestId={focus?.requestId} onFiltersChange={onFiltersChange} />
     </QueryClientProvider>,
   );
   return { ...rendered, queryClient };
@@ -235,7 +236,37 @@ describe("HistoryPage", () => {
     }));
   });
 
-  it.each(["en", "zh-CN", "zh-TW"])("keeps only selected archived filters visible and updates rows when cleared or changed (%s)", async (locale) => {
+  it("opens an exact activity outside the first filtered page and keeps the list context", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    const activity = { id: "exact-activity", kind: "cash_in", effectiveAt: "2026-01-05T12:00:00Z", effectiveLocalDate: "2026-01-05", createdAt: "2026-01-05T12:00:00Z", note: "Exact record note", effects: [], resulting: [], repeatEligible: false, repeatIneligibleReason: "" };
+    getActivity.mockResolvedValue(activity);
+    listActivityPage.mockResolvedValue({ activities: [{ ...activity, id: "other-record", note: "Other record" }], hasMore: true, next: { id: "other-record", effectiveAt: activity.effectiveAt, createdAt: activity.createdAt } });
+    const filters = { accountId: "acc-1", from: "2026-01-05", to: "2026-01-05" };
+    const view = renderPage(filters, { activityId: activity.id, requestId: 1 });
+    expect(await within(await screen.findByRole("dialog")).findByText("Exact record note")).toBeInTheDocument();
+    expect(getActivity).toHaveBeenCalledWith(activity.id);
+    expect(listActivityPage).toHaveBeenCalledWith(expect.objectContaining({ accountId: "acc-1", fromLocalDate: "2026-01-05", toLocalDate: "2026-01-05", limit: 50 }));
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("combobox", { name: "Account" })).toHaveValue("acc-1");
+    view.rerender(<QueryClientProvider client={view.queryClient}><HistoryPage navigationFilters={filters} navigationActivityId={activity.id} navigationRequestId={2} /></QueryClientProvider>);
+    expect(await within(await screen.findByRole("dialog")).findByText("Exact record note")).toBeInTheDocument();
+  }, 10000);
+
+  it("reports the current History filters for return navigation without resetting edited fields", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    const onFiltersChange = vi.fn();
+    renderPage(undefined, { activityId: "", requestId: 1 }, onFiltersChange);
+    const user = userEvent.setup();
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Account" }), "acc-1");
+    await waitFor(() => expect(onFiltersChange).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "acc-1" })));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Kind" }), "cash_in");
+    await waitFor(() => expect(onFiltersChange).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "acc-1", kinds: ["cash_in"] })));
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(onFiltersChange).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: undefined, kinds: undefined })));
+  });
+
+  it.each(["en", "zh-CN", "zh-TW"])("keeps archived filters selectable after clearing and updates rows (%s)", async (locale) => {
     await i18n.changeLanguage(locale);
     const t = i18n.t.bind(i18n);
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
@@ -264,8 +295,8 @@ describe("HistoryPage", () => {
       expect(instrument).toHaveValue(filters.instrumentId);
       expect(within(account).getByRole("option", { name: `Old brokerage · ${t("common.archived")}` })).toHaveProperty("selected", true);
       expect(within(instrument).getByRole("option", { name: `Family fund · 000001 · ${t("common.archived")}` })).toHaveProperty("selected", true);
-      expect(within(account).queryByText("Hidden archive")).not.toBeInTheDocument();
-      expect(within(instrument).queryByText(/Hidden fund/)).not.toBeInTheDocument();
+      expect(within(account).getByRole("option", { name: `Hidden archive · ${t("common.archived")}` })).toBeInTheDocument();
+      expect(within(instrument).getByRole("option", { name: `Family fund · ${t("common.archived")}` })).toBeInTheDocument();
       await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining(filters)));
       expect(screen.getByRole("list")).toHaveTextContent("Family fund");
       expect(screen.getByRole("list")).toHaveTextContent("Old brokerage");
@@ -273,13 +304,13 @@ describe("HistoryPage", () => {
       await userEvent.selectOptions(account, "active-account");
       await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "active-account", instrumentId: filters.instrumentId })));
       account = await screen.findByRole("combobox", { name: t("history.filterAccount") });
-      expect(within(account).queryByText(/Old brokerage/)).not.toBeInTheDocument();
+      expect(within(account).getByRole("option", { name: `Old brokerage · ${t("common.archived")}` })).toBeInTheDocument();
       await waitFor(() => expect(screen.getByRole("list")).toHaveTextContent("Current brokerage"));
       instrument = screen.getByRole("combobox", { name: t("history.filterInstrument") });
       await userEvent.selectOptions(instrument, "active-instrument");
       await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "active-account", instrumentId: "active-instrument" })));
       instrument = await screen.findByRole("combobox", { name: t("history.filterInstrument") });
-      expect(within(instrument).queryByText(/Full old fund/)).not.toBeInTheDocument();
+      expect(within(instrument).getByRole("option", { name: `Family fund · 000001 · ${t("common.archived")}` })).toBeInTheDocument();
       expect(instrument).toHaveValue("active-instrument");
 
       account = screen.getByRole("combobox", { name: t("history.filterAccount") });
@@ -294,6 +325,11 @@ describe("HistoryPage", () => {
       account = await screen.findByRole("combobox", { name: t("history.filterAccount") });
       instrument = screen.getByRole("combobox", { name: t("history.filterInstrument") });
       expect(account).toHaveValue(""); expect(instrument).toHaveValue("");
+      await userEvent.selectOptions(account, "other-archived-account");
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "other-archived-account" })));
+      instrument = await screen.findByRole("combobox", { name: t("history.filterInstrument") });
+      await userEvent.selectOptions(instrument, "other-archived-instrument");
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "other-archived-account", instrumentId: "other-archived-instrument" })));
       // App navigation unmounts History; returning reconstructs its saved filters.
       view.unmount();
       view = renderPage(filters);
@@ -381,6 +417,7 @@ describe("HistoryPage", () => {
   });
 
   it("previews then records a money_added change", async () => {
+    const success = vi.spyOn(toast, "success");
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listActivities.mockResolvedValue([]);
     previewChange.mockResolvedValue({
@@ -390,7 +427,7 @@ describe("HistoryPage", () => {
     });
     recordChange.mockResolvedValue({ activity: { id: "a1", kind: "cash_in" }, effects: [], resulting: [] });
 
-    renderPage();
+    renderPage({ from: "2026-08-01", to: "2026-08-31" });
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
 
@@ -403,6 +440,8 @@ describe("HistoryPage", () => {
 
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
+    await waitFor(() => expect(success).toHaveBeenCalledWith(i18n.t("history.recorded"), expect.objectContaining({ action: expect.objectContaining({ label: i18n.t("insights.viewInHistory"), onClick: expect.any(Function) }) })));
+    success.mockRestore();
   });
 
   it("previews money_added in the household base currency after hydrate, not CNY", async () => {
@@ -1764,6 +1803,58 @@ it("offers only cash assets for ordinary transfer endpoints", async () => {
   for (const label of [i18n.t("history.fromAccount"), i18n.t("history.toAccount")]) {
     const select = within(form).getByLabelText(label);
     expect(within(select).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["", "bank", "broker"]);
+  }
+});
+
+it("suggests the filtered active account and instrument for a new record without guessing a date", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ account: { id: "broker", name: "Synthetic Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "EUR" } }]);
+  listInstruments.mockResolvedValue([{ id: "stock", name: "Synthetic Stock", quoteCurrency: "USD", instrumentType: "stock" }]);
+  renderPage({ accountId: "broker", instrumentId: "stock", from: "2026-08-01", to: "2026-08-31" });
+  await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByLabelText("Account")).toHaveValue("broker");
+  expect(within(form).getByLabelText("Currency")).toHaveValue("EUR");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
+  expect(within(form).getByLabelText("Settlement account")).toHaveValue("broker");
+  expect(within(form).getByLabelText("Instrument")).toHaveValue("stock");
+  expect(form.querySelector("#change-gross-currency")).toHaveValue("USD");
+  expect(form.querySelector("#change-effective-date")).not.toHaveTextContent(/2026-08-01|08\/01\/2026/);
+});
+
+it("does not prefill archived history objects into a new record", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ account: { id: "old-account", name: "Old Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "EUR", archivedAt: "2026-08-31T00:00:00Z" } }]);
+  listInstruments.mockResolvedValue([{ id: "old-stock", name: "Old Stock", quoteCurrency: "USD", instrumentType: "stock", archivedAt: "2026-08-31T00:00:00Z" }]);
+  renderPage({ accountId: "old-account", instrumentId: "old-stock" });
+  await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByLabelText("Account")).toHaveValue("");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
+  expect(within(form).getByLabelText("Settlement account")).toHaveValue("");
+  expect(within(form).getByLabelText("Instrument")).toHaveValue("");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeCashTransfer}`) }));
+  expect(within(form).getByLabelText("From account")).toHaveValue("");
+});
+
+it.each([
+  { id: "home", trackingMode: "manual_value", balanceSheetRole: "asset" },
+  { id: "loan", trackingMode: "balance", balanceSheetRole: "liability" },
+])("uses field-specific eligibility when prefilling $id from History", async ({ id, trackingMode, balanceSheetRole }) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ account: { id, name: "Synthetic Account", trackingMode, balanceSheetRole, defaultCurrency: "EUR" } }]);
+  renderPage({ accountId: id });
+  await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByLabelText("Account")).toHaveValue("");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeValueUpdate}`) }));
+  expect(within(form).getByLabelText("Account")).toHaveValue(id);
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
+  expect(within(form).getByLabelText("Settlement account")).toHaveValue("");
+  if (balanceSheetRole === "liability") {
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeDebtDraw}`) }));
+    expect(within(form).getByLabelText("Debt account")).toHaveValue(id);
+    expect(within(form).getByLabelText("Cash account")).toHaveValue("");
   }
 });
 

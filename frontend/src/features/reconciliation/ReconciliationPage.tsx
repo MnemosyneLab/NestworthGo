@@ -20,7 +20,7 @@ import {
 } from "@/features/liquidity/productPolicy";
 import { ProductFormSheet } from "@/features/liquidity/ProductFormSheet";
 import { ProductCorrection } from "./ProductCorrection";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -145,28 +145,40 @@ export function ReconciliationPage({
     setErrorField(undefined);
   };
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState<{
+  type EditingIntent = {
     account: ReconciliationAccount;
     item: ReconciliationItem;
     route: "check" | "adjust" | "record" | "product" | "import" | "newProduct";
-  }>();
+  };
+  const [editing, setEditing] = useState<EditingIntent & { requestId: number }>();
+  const editingRequestId = useRef(0);
+  const beginEditing = (intent: EditingIntent) => setEditing({ ...intent, requestId: ++editingRequestId.current });
+  const endEditing = () => { editingRequestId.current += 1; setEditing(undefined); };
   const [closing, setClosing] = useState(false);
   const [closingNote, setClosingNote] = useState("");
   const [partial, setPartial] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
+  const previewSequence = useRef(0);
+  const invalidatePreview = () => {
+    previewSequence.current += 1;
+    setBusy(false);
+  };
 
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ["reconciliation"] });
   };
   const preview = async (action: ReconciliationAction) => {
+    const sequence = ++previewSequence.current;
     setBusy(true);
     clearError();
     try {
       const result = await callService(() =>
         ReconciliationService.Preview(action),
       );
+      if (sequence !== previewSequence.current) return;
       setReview({ ...result, action: action.action });
     } catch (cause) {
+      if (sequence !== previewSequence.current) return;
       const wire = (cause as { wireError?: WireError })?.wireError;
       setErrorField(wire?.field);
       const key =
@@ -186,22 +198,27 @@ export function ReconciliationPage({
               : displayError(cause, t("reconciliation.error")),
       );
     } finally {
-      setBusy(false);
+      if (sequence === previewSequence.current) setBusy(false);
     }
   };
   const activeAccounts = (accounts.data ?? []).filter(
     (a) => !a.account.archivedAt,
   );
-  const chosen = selected ?? activeAccounts.map((a) => a.account.id);
+  const activeAccountIds = new Set(activeAccounts.map((a) => a.account.id));
+  const chosen = selected ? selected.filter((id) => activeAccountIds.has(id)) : [...activeAccountIds];
   const rows = (sessions.data ?? []).filter(
     (s) => !filter || s.status === filter,
   );
   const current = detail.data;
   const select = (id: string) => {
     if (hasUnresolvedSheetConfirmation()) return;
+    invalidatePreview();
     setActive(id);
-    setEditing(undefined);
+    endEditing();
+    setReview(undefined);
     setClosing(false);
+    setPartial(false);
+    setClosingNote("");
     clearError();
   };
   return (
@@ -556,7 +573,7 @@ export function ReconciliationPage({
                                 variant="outline"
                                 onClick={(e) => {
                                   trigger.current = e.currentTarget;
-                                  setEditing({
+                                  beginEditing({
                                     account: a,
                                     item,
                                     route: "check",
@@ -573,7 +590,7 @@ export function ReconciliationPage({
                                     variant="ghost"
                                     onClick={(e) => {
                                       trigger.current = e.currentTarget;
-                                      setEditing({
+                                      beginEditing({
                                         account: a,
                                         item,
                                         route: "adjust",
@@ -588,7 +605,7 @@ export function ReconciliationPage({
                                   variant="ghost"
                                   onClick={(e) => {
                                     trigger.current = e.currentTarget;
-                                    setEditing({
+                                    beginEditing({
                                       account: a,
                                       item,
                                       route: "product",
@@ -604,7 +621,7 @@ export function ReconciliationPage({
                                     variant="ghost"
                                     onClick={(e) => {
                                       trigger.current = e.currentTarget;
-                                      setEditing({
+                                      beginEditing({
                                         account: a,
                                         item,
                                         route: "newProduct",
@@ -620,7 +637,7 @@ export function ReconciliationPage({
                                     variant="ghost"
                                     onClick={(e) => {
                                       trigger.current = e.currentTarget;
-                                      setEditing({
+                                      beginEditing({
                                         account: a,
                                         item,
                                         route: "import",
@@ -637,7 +654,7 @@ export function ReconciliationPage({
                                     variant="ghost"
                                     onClick={(e) => {
                                       trigger.current = e.currentTarget;
-                                      setEditing({
+                                      beginEditing({
                                         account: a,
                                         item,
                                         route: "record",
@@ -687,6 +704,7 @@ export function ReconciliationPage({
           open
           onOpenChange={(open) => {
             if (!open) {
+              invalidatePreview();
               setClosing(false);
               clearError();
             }
@@ -760,7 +778,8 @@ export function ReconciliationPage({
           open
           onOpenChange={(open) => {
             if (!open) {
-              setEditing(undefined);
+              invalidatePreview();
+              endEditing();
               clearError();
             }
           }}
@@ -842,7 +861,7 @@ export function ReconciliationPage({
                   },
                 }}
                 onRecorded={() => {
-                  setEditing(undefined);
+                  endEditing();
                   refresh();
                 }}
               />
@@ -856,16 +875,15 @@ export function ReconciliationPage({
                   expectedRevision: current.revision,
                   financialRevision: editing.account.financialRevision,
                 }}
-                onPreview={(p) => setReview({ planId: p.planId, product: p })}
+                onPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, product: p }); }}
               />
             ) : (
               <AdjustmentForm
+                key={`${current.id}:${editing.account.accountId}:${editing.item.id}`}
                 session={current}
                 account={editing.account}
                 item={editing.item}
-                onPreview={(p) =>
-                  setReview({ planId: p.planId, adjustment: p })
-                }
+                onPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, adjustment: p }); }}
               />
             )}
           </SheetContent>
@@ -886,13 +904,11 @@ export function ReconciliationPage({
           }}
           onOpenChange={(open) => {
             if (!open) {
-              setEditing(undefined);
+              endEditing();
               clearError();
             }
           }}
-          onReconciliationPreview={(p) =>
-            setReview({ planId: p.planId, product: p })
-          }
+          onReconciliationPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, product: p }); }}
         />
       )}
       {review && (
@@ -908,7 +924,9 @@ export function ReconciliationPage({
                   invalidateActivityChange(client);
                 setReview(undefined);
                 setClosing(false);
-                setEditing(undefined);
+                setPartial(false);
+                setClosingNote("");
+                endEditing();
                 if (result) setActive(result.id);
                 refresh();
               }}
@@ -1174,6 +1192,12 @@ function AdjustmentForm({
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const previewSequence = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; previewSequence.current += 1; };
+  }, []);
   const [errorField, setErrorField] = useState("");
   const [costChoiceError, setCostChoiceError] = useState(false);
   const clearCostChoiceError = (nextUnit: string, nextTotal: string) => {
@@ -1263,6 +1287,7 @@ function AdjustmentForm({
       <Button
         disabled={busy || utf8ByteLength(note) > 2000}
         onClick={() => {
+          const sequence = ++previewSequence.current;
           setBusy(true);
           void callService(() =>
             ReconciliationService.PreviewAdjustment({
@@ -1283,8 +1308,11 @@ function AdjustmentForm({
               note,
             }),
           )
-            .then(onPreview)
+            .then((result) => {
+              if (alive.current && sequence === previewSequence.current) onPreview(result);
+            })
             .catch((e) => {
+              if (!alive.current || sequence !== previewSequence.current) return;
               const wire = (e as { wireError?: WireError })?.wireError;
               const field = (wire?.field ?? "").split(".").slice(-1)[0] ?? "";
               const errorKey = adjustmentErrorKey(wire);
@@ -1300,7 +1328,7 @@ function AdjustmentForm({
                     : displayError(e, t("reconciliation.error")),
               );
             })
-            .finally(() => setBusy(false));
+            .finally(() => { if (alive.current && sequence === previewSequence.current) setBusy(false); });
         }}
       >
         {t("reconciliation.preview")}

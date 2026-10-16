@@ -11,6 +11,7 @@ import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageSt
 import { useInstrumentQuoteSeries, useFXQuoteSeries } from "@/queries/investments";
 import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
+import type { DateRange } from "@/components/charts/dateRanges";
 import { useSettings } from "@/queries/settings";
 import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumentDisplay";
 import { chartTheme, useThemeVersion } from "@/components/charts/chartTheme";
@@ -31,7 +32,7 @@ export function QuoteHistorySheet({
   return <QuoteHistoryContent target={target} focus={focus} render={(body,title) => <Sheet open onOpenChange={open => { if (!open) onClose(); }}><SheetContent className="max-w-xl overflow-y-auto" side="right"><SheetHeader><SheetTitle>{title}</SheetTitle><SheetDescription>{target.kind === "instrument" ? instrumentSecondaryName(target.instrument) : title}</SheetDescription></SheetHeader>{body}</SheetContent></Sheet>} />;
 }
 
-export function QuoteHistoryContent({ target, focus, render }: { target: QuoteHistoryTarget; focus?: HealthFocus; render?: (body: ReactNode, title: string) => ReactNode }) {
+export function QuoteHistoryContent({ target, focus, render, onRangeChange }: { target: QuoteHistoryTarget; focus?: HealthFocus; render?: (body: ReactNode, title: string) => ReactNode; onRangeChange?: (range: DateRange) => void }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const range = useTrendDateRange(focus?.rangeStart && focus.rangeEnd ? { from: focus.rangeStart, to: focus.rangeEnd } : undefined, true);
@@ -55,13 +56,14 @@ export function QuoteHistoryContent({ target, focus, render }: { target: QuoteHi
   const priceSuffix = target.kind === "instrument" ? metalPriceSuffix(target.instrument, t) : "";
   const emptyRange = !series.isLoading && !series.isError && observations.length === 0;
   const hasFactsOutsideRange = emptyRange && series.data?.outsideRange === true;
+  const changeRange = (next: DateRange) => { range.onChange(next); onRangeChange?.(next); };
 
   const body = (
     <>
         {target.kind === "instrument" && target.instrument.metalTemplate && <p className="mt-3 text-xs text-muted-foreground">{t("metals.referenceDisclaimer")}</p>}
         {target.kind === "instrument" && target.instrument.providerKey === "coingecko" && <p className="mt-3 text-xs text-muted-foreground">{t("portfolio.coinGeckoNotice")} · <a href="https://www.coingecko.com/en/api" target="_blank" rel="noreferrer" className="underline">{t("portfolio.coinGeckoAttribution")}</a></p>}
         <div className="flex flex-col gap-4">
-          <DateRangeControl {...range} />
+          <DateRangeControl {...range} onChange={changeRange} />
           <SourceFilterToggle value={sourceFilter} onChange={setSourceFilter} />
           <p className="text-sm text-muted-foreground">{t("quoteDetails.help")}</p>
           {currency && observations.some(item => item.currency && item.currency !== currency) && <p className="text-xs text-muted-foreground">{t("holdingDetail.otherCurrencies")}</p>}
@@ -86,7 +88,7 @@ export function QuoteHistoryContent({ target, focus, render }: { target: QuoteHi
             <EmptyState
               title={hasFactsOutsideRange ? t("charts.rangeEmpty") : t("charts.noLocalHistory")}
               action={hasFactsOutsideRange ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => range.onChange({ from: range.min, to: range.max })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => changeRange({ from: range.min, to: range.max })}>
                   {t("charts.showAllRange")}
                 </Button>
               ) : undefined}

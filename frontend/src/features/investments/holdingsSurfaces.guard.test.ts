@@ -10,8 +10,8 @@ it("renders every holdings list through the shared grouped list so Portfolio and
   expect(importing("HoldingDetailPanel")).toEqual(["./HoldingGroupsList.tsx"]);
 });
 
-it("keeps price performance on the shared panel and gain direction on the shared ChangeText", () => {
-  expect(importing("PricePerformancePanel")).toEqual(["./HoldingDetailPanel.tsx"]);
+it("keeps price performance on the shared holding and instrument detail panels and gain direction on ChangeText", () => {
+  expect(importing("PricePerformancePanel")).toEqual(["./HoldingDetailPanel.tsx", "./InstrumentDetailPage.tsx"]);
   for (const [path, source] of production) {
     if (!path.startsWith("./Holding") && !path.startsWith("./PricePerformance")) continue;
     // A literal green/red class would be color-only; direction goes through ChangeText.
