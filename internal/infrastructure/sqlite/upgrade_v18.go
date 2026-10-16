@@ -189,7 +189,11 @@ func captureLegacyReviewState(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 	for _, item := range entries {
-		householdID, err := domain.ParseHouseholdID(strings.TrimPrefix(item.key, "investment_review/"))
+		suffix := strings.TrimPrefix(item.key, "investment_review/")
+		householdID, err := domain.ParseHouseholdID(suffix)
+		if err == nil && suffix != householdID.String() {
+			err = fmt.Errorf("household key is not canonical")
+		}
 		hash := sha256.Sum256([]byte(item.raw))
 		if err == nil {
 			var exists int

@@ -117,9 +117,17 @@ func TestV18UpgradeQuarantinesMalformedAndOrphanReviewKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	// v18 constrains neither configuration key syntax nor its household link.
+	const household = "00000000-0000-4000-8000-0000000000ab"
+	if _, err := base.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES(?,'Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, household); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := base.Exec(`INSERT INTO app_configuration(key,value) VALUES(?,?)`, "investment_review/"+household, `{}`); err != nil {
+		t.Fatal(err)
+	}
 	values := map[string]string{
 		"investment_review/not-a-uuid":                           `{"source":"broken-key"}`,
 		"investment_review/00000000-0000-4000-8000-000000000099": `{"source":"orphan"}`,
+		"investment_review/00000000-0000-4000-8000-0000000000AB": `{"source":"alias"}`,
 		"investmentXreview/00000000-0000-4000-8000-000000000088": `{"source":"near-prefix"}`,
 	}
 	for key, value := range values {
@@ -156,10 +164,11 @@ func TestV18UpgradeQuarantinesMalformedAndOrphanReviewKeys(t *testing.T) {
 			t.Fatalf("quarantine %q: %q %q %q %v", key, raw, hash, reason, err)
 		}
 	}
-	for _, table := range []string{"investment_review_legacy_state", "investment_review_rules"} {
-		var count int
-		if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM ` + table).Scan(&count); err != nil || count != 0 {
-			t.Fatalf("%s activated legacy data: %d %v", table, count, err)
-		}
+	var count int
+	if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM investment_review_legacy_state WHERE source_key=?`, "investment_review/"+household).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("canonical source missing: %d %v", count, err)
+	}
+	if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM investment_review_rules`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("legacy key activated a rule: %d %v", count, err)
 	}
 }
