@@ -154,19 +154,27 @@ export function ReconciliationPage({
   const [closingNote, setClosingNote] = useState("");
   const [partial, setPartial] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
+  const previewSequence = useRef(0);
+  const invalidatePreview = () => {
+    previewSequence.current += 1;
+    setBusy(false);
+  };
 
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ["reconciliation"] });
   };
   const preview = async (action: ReconciliationAction) => {
+    const sequence = ++previewSequence.current;
     setBusy(true);
     clearError();
     try {
       const result = await callService(() =>
         ReconciliationService.Preview(action),
       );
+      if (sequence !== previewSequence.current) return;
       setReview({ ...result, action: action.action });
     } catch (cause) {
+      if (sequence !== previewSequence.current) return;
       const wire = (cause as { wireError?: WireError })?.wireError;
       setErrorField(wire?.field);
       const key =
@@ -186,22 +194,26 @@ export function ReconciliationPage({
               : displayError(cause, t("reconciliation.error")),
       );
     } finally {
-      setBusy(false);
+      if (sequence === previewSequence.current) setBusy(false);
     }
   };
   const activeAccounts = (accounts.data ?? []).filter(
     (a) => !a.account.archivedAt,
   );
-  const chosen = selected ?? activeAccounts.map((a) => a.account.id);
+  const activeAccountIds = new Set(activeAccounts.map((a) => a.account.id));
+  const chosen = selected ? selected.filter((id) => activeAccountIds.has(id)) : [...activeAccountIds];
   const rows = (sessions.data ?? []).filter(
     (s) => !filter || s.status === filter,
   );
   const current = detail.data;
   const select = (id: string) => {
     if (hasUnresolvedSheetConfirmation()) return;
+    invalidatePreview();
     setActive(id);
     setEditing(undefined);
     setClosing(false);
+    setPartial(false);
+    setClosingNote("");
     clearError();
   };
   return (
@@ -687,6 +699,7 @@ export function ReconciliationPage({
           open
           onOpenChange={(open) => {
             if (!open) {
+              invalidatePreview();
               setClosing(false);
               clearError();
             }
@@ -760,6 +773,7 @@ export function ReconciliationPage({
           open
           onOpenChange={(open) => {
             if (!open) {
+              invalidatePreview();
               setEditing(undefined);
               clearError();
             }
@@ -908,6 +922,8 @@ export function ReconciliationPage({
                   invalidateActivityChange(client);
                 setReview(undefined);
                 setClosing(false);
+                setPartial(false);
+                setClosingNote("");
                 setEditing(undefined);
                 if (result) setActive(result.id);
                 refresh();

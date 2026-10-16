@@ -224,7 +224,7 @@ export function AccountDetail({
           {t("accounts.archivedReadOnly")}
         </p>
       )}
-      <AccountReconciliation accountId={record.account.id} />
+      <AccountReconciliation accountId={record.account.id} archived={archived} />
       {valuation && !valuation.complete && missingReasons.length > 0 && (
         <p role="status" className="text-sm text-warning-foreground">
           {t("overview.totalsExcludeMissing")} {missingReasons.join(" · ")}
