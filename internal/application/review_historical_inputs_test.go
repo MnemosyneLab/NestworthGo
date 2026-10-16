@@ -88,3 +88,45 @@ func TestReviewHistoricalDayBeforeOriginIsUnknown(t *testing.T) {
 		t.Fatalf("day before authoritative origin: %+v %+v %v", input, coverage, err)
 	}
 }
+
+func TestReviewHistoricalDayDoesNotBorrowAnotherStocksDailyPrices(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-09-10", "1")
+	f.day(t, "2026-10-10")
+	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := f.instrument
+	other.ID = domain.NewInstrumentID()
+	other.QuoteSource = domain.QuoteSourceAgent
+	batch.History.Portfolio.Instruments = append(batch.History.Portfolio.Instruments, other)
+	quote := func(on, value string) domain.InstrumentQuote {
+		t.Helper()
+		price, err := domain.ParseUnitPrice(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		at, err := time.Parse(time.DateOnly, on)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: other.ID, UnitPrice: price, Currency: "CNY", SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: at, ValueEffectiveAt: at, EffectiveDate: on, ObservationKind: "close", PriceBasis: "agent_raw_close_v1", TimestampBasis: "date_label", Revision: 1}
+	}
+	batch.History.InstrumentQuoteFacts = append(batch.History.InstrumentQuoteFacts, quote("2026-09-10", "1000"), quote("2026-10-10", "2000"))
+	spec := syntheticHistoricalReviewSpec()
+	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{
+		{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "1000", Currency: "CNY", FXMode: "native"}},
+		{Leaf: &domain.ReviewRuleLeaf{Metric: "price_change", Operator: ">", Value: "50", LookbackDays: 30}},
+	}}
+	input, coverage, err := ProjectReviewHistoricalDay(t.Context(), batch, "", spec, f.instrument.ID, "2026-10-10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.Quantity == nil || *input.Quantity != "1" || input.AmountExact != nil || len(input.Performance) != 0 {
+		t.Fatalf("other stock's prices leaked into target input: %+v coverage=%+v", input, coverage)
+	}
+	result, err := domain.EvaluateReviewDaily(spec, input)
+	if err != nil || result.Truth != domain.ReviewUnknown {
+		t.Fatalf("missing target close should leave amount and performance unknown: %+v %v", result, err)
+	}
+}
