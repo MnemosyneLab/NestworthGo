@@ -94,6 +94,7 @@ export function InstrumentDetailPage({ context, onContextChange, active = true }
   const holding = (groups.data ?? []).flatMap((group) => group.instruments ?? []).find((item) => item.instrumentId === context.instrumentId);
   const section = context.section ?? "holdings";
   const focus = { ...context.healthFocus, instrumentId: context.instrumentId,
+    label: context.healthFocus?.label ?? (instrument ? instrumentDisplayLabel(instrument) : undefined),
     rangeStart: context.from ?? context.healthFocus?.rangeStart,
     rangeEnd: context.to ?? context.healthFocus?.rangeEnd };
 

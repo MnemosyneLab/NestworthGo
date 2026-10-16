@@ -3,8 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContext } from '@/app/NavigationContext';
 import { InstrumentDetailPage } from '@/features/investments/InstrumentDetailPage';
+import { MarketDataPage } from '@/features/marketdata/MarketDataPage';
 import { HoldingsTab } from '@/features/investments/HoldingsTab';
-import type { InstrumentDetailContext } from '@/app/navigation';
+import type { HealthFocus, InstrumentDetailContext, NavigationTarget } from '@/app/navigation';
 import { queryKeys } from '@/queries/keys';
 import '@/i18n';
 import '@fontsource-variable/plus-jakarta-sans';
@@ -31,16 +32,37 @@ client.setQueryData([...queryKeys.analytics.instrumentHoldings, 'groups', old.id
 client.setQueryData(queryKeys.history.origin, { id: 'synthetic-history', timezone: 'UTC', startedAt: '2026-01-01' });
 client.setQueryData(queryKeys.liquidity.products('', true), []);
 client.setQueryData(queryKeys.quote.instrument.current(instrument.id), { unitPrice: '120', currency: 'USD', sourceKind: 'manual', asOf: '2026-10-15T12:00:00Z' });
+for (const range of ['all', '2026-09-01:2026-09-30']) client.setQueryData(queryKeys.quote.instrument.series(instrument.id, range, 'all'), { range, points: [], observations: [], outsideRange: false });
+client.setQueryData(queryKeys.quote.fx.preferences, [{ currencyA: 'CNY', currencyB: 'USD', sourceKind: 'manual', sourceKey: 'manual' }]);
+client.setQueryData(queryKeys.quote.fx.current('CNY', 'USD'), { baseCurrency: 'CNY', quoteCurrency: 'USD', rate: '0.14', sourceKind: 'manual', asOf: '2026-10-15T12:00:00Z' });
 client.setQueryData(queryKeys.settings.all, { timezone: 'UTC', language: 'en', appearance: 'light', accent: 'blue' });
 client.setQueryData(queryKeys.household.bootstrap, { household: { id: 'synthetic-only', name: 'Demo Household', baseCurrency: 'USD' }, members: [], institutions: [], groups: [] });
 client.setQueryData(queryKeys.history.mutationAllowed, {});
 client.setQueryData(queryKeys.settings.supportedCurrencies, ['USD']);
+client.setQueryData(queryKeys.catalog.all, { currencies: ['USD', 'CNY'], quoteSources: ['manual', 'provider', 'agent'], instrumentTypes: ['fund'] });
+client.setQueryData(queryKeys.overview.all, { missingInputs: [] });
+client.setQueryData(queryKeys.marketdata.health, { issueCount: 0, issues: [] });
+client.setQueryData(queryKeys.marketdata.currentSync, { jobId: '' });
 const view = new URLSearchParams(location.search).get('view') ?? 'holdings';
 function Preview() {
-  const [context, setContext] = useState<InstrumentDetailContext>({ instrumentId: instrument.id, accountId: view === 'archived' ? old.id : undefined, section: 'holdings' });
-  return <NavigationContext.Provider value={{ open: () => {}, openHealth: () => {} }}><main className="mx-auto max-w-6xl p-8">
+  const params = new URLSearchParams(location.search);
+  const [context, setContext] = useState<InstrumentDetailContext>({ instrumentId: instrument.id, accountId: view === 'archived' ? old.id : undefined,
+    section: 'holdings', from: params.get('from') ?? undefined, to: params.get('to') ?? undefined });
+  const [page, setPage] = useState(view === 'market' ? 'market' : view === 'detail' || view === 'archived' ? 'detail' : 'holdings');
+  const [marketFocus, setMarketFocus] = useState<HealthFocus>();
+  const [trail, setTrail] = useState<string[]>([]);
+  const open = (target: NavigationTarget) => {
+    setTrail((items) => [...items, page]);
+    if (target.page === 'market-data') { setMarketFocus(target.focus); setPage('market'); }
+    if (target.page === 'instrument-detail') { setContext({ ...target, section: target.section ?? 'holdings' }); setPage('detail'); }
+  };
+  const back = () => { const next = trail.at(-1); if (next) { setTrail(trail.slice(0, -1)); setPage(next); } };
+  return <NavigationContext.Provider value={{ open, openHealth: () => {} }}><main className="mx-auto max-w-6xl p-8">
     <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">Web preview · Synthetic fixtures only · No ledger connected</div>
-    {view === 'holdings' ? <HoldingsTab /> : <InstrumentDetailPage context={context} onContextChange={setContext} />}
+    {trail.length > 0 && <button className="mb-4 rounded border px-3 py-2" onClick={back}>Back to previous page</button>}
+    <div hidden={page !== 'holdings'}><HoldingsTab /></div>
+    <div hidden={page !== 'detail'}><InstrumentDetailPage context={context} onContextChange={setContext} /></div>
+    <div hidden={page !== 'market'}><MarketDataPage focus={marketFocus} /></div>
   </main></NavigationContext.Provider>;
 }
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><Preview /></QueryClientProvider>);
