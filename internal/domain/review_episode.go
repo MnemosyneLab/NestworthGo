@@ -14,6 +14,20 @@ type ReviewEpisodeIdentity struct {
 	ResolvedReason  string
 }
 
+type ReviewAcknowledgement struct {
+	EpisodeID      ReviewEpisodeID `json:"episodeId"`
+	AcknowledgedAt time.Time       `json:"acknowledgedAt"`
+	Revision       int             `json:"revision"`
+}
+
+type ReviewAcknowledgeMutation struct {
+	HouseholdID      HouseholdID
+	EpisodeID        ReviewEpisodeID
+	MutationID       MutationID
+	ExpectedRevision int
+	At               time.Time
+}
+
 type ReviewEpisodeDecision struct {
 	Current *ReviewEpisodeIdentity
 	Closed  *ReviewEpisodeIdentity

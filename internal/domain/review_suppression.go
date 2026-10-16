@@ -6,11 +6,31 @@ import "time"
 // all-rule suppression also applies to rules created after it was set.
 type ReviewSuppression struct {
 	ID           string
+	HouseholdID  HouseholdID
 	InstrumentID InstrumentID
 	RuleID       string // empty means this instrument and every rule
 	Mode         string // permanent or until_date
 	UntilOn      string // first unsuppressed civil day in Timezone
 	Timezone     string
+	Revision     int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type ReviewSuppressionMutation struct {
+	Operation        string // set or clear
+	HouseholdID      HouseholdID
+	SuppressionID    ReviewSuppressionID
+	MutationID       MutationID
+	InstrumentID     InstrumentID
+	RuleID           ReviewRuleID // empty for all rules
+	Mode             string
+	UntilOn          string
+	Timezone         string
+	RelativeDays     int
+	CustomUntil      string
+	ExpectedRevision int
+	At               time.Time
 }
 
 // ReviewSuppressionUntil calculates the committed resume day once. Retries
