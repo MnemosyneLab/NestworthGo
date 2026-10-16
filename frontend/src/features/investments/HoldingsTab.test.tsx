@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HoldingsTab } from "./HoldingsTab";
+import i18n from "@/i18n";
 
 const historyOrigin = vi.fn();
 const listInstruments = vi.fn();
@@ -85,7 +86,7 @@ beforeEach(() => {
 describe("HoldingsTab", () => {
   it("does not duplicate instrument management on the holdings page", async () => {
     renderPage();
-    expect(await screen.findByRole("button", { name: "Add holding" })).toBeInTheDocument();
+    expect(await screen.findByText(i18n.t("portfolio.noHoldings"))).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Instruments" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add instrument" })).not.toBeInTheDocument();
   });
