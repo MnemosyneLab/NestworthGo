@@ -1493,6 +1493,7 @@
   },
     "reviewV2": {
       "title": "Investment review",
+      "openReview": "Open investment review",
       "refresh": "Refresh",
       "refreshed": "Review updated.",
       "rules": "Rules",

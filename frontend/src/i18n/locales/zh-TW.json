@@ -1493,6 +1493,7 @@
   },
     "reviewV2": {
       "title": "投資複核",
+      "openReview": "開啟投資複核",
       "refresh": "重新整理",
       "refreshed": "複核已更新。",
       "rules": "規則",

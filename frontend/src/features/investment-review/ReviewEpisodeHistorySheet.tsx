@@ -18,12 +18,12 @@ function eventWindow(payloadJSON: string): { hitCount: number; falseCount: numbe
   } catch { return null; }
 }
 
-function EpisodeEvents({ episodeId }: { episodeId: string }) {
+function EpisodeEvents({ episodeId, isActive }: { episodeId: string; isActive: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState("");
   const [previous, setPrevious] = useState<string[]>([]);
-  const events = useReviewEpisodeEventPage(episodeId, cursor, open);
+  const events = useReviewEpisodeEventPage(episodeId, cursor, open && isActive);
   return <details onToggle={event => setOpen(event.currentTarget.open)} className="text-sm">
     <summary className="cursor-pointer py-1">{t("reviewV2.historyEvents")}</summary>
     {events.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
@@ -37,7 +37,7 @@ function EpisodeEvents({ episodeId }: { episodeId: string }) {
   </details>;
 }
 
-function EpisodeRow({ item }: { item: ReviewEpisodeHistoryItem }) {
+function EpisodeRow({ item, isActive }: { item: ReviewEpisodeHistoryItem; isActive: boolean }) {
   const { t } = useTranslation();
   const state = item.resolvedAt ? t("reviewV2.historyResolved", { reason: t(`reviewV2.historyReason.${item.resolvedReason}`) }) : item.acknowledgedAt ? t("reviewV2.status.acknowledged") : t("reviewV2.status.pending");
   return <li className="space-y-1 rounded-lg border p-3 text-sm">
@@ -46,19 +46,19 @@ function EpisodeRow({ item }: { item: ReviewEpisodeHistoryItem }) {
     <p className="text-xs text-muted-foreground">{t("reviewV2.historyVersion", { version: item.openedConditionVersion, detected: item.firstDetectedAt })}</p>
     {item.acknowledgedAt && <p className="text-xs">{t("reviewV2.historyAcknowledged", { at: item.acknowledgedAt })}</p>}
     {item.resolvedAt && <p className="text-xs">{t("reviewV2.historyClosed", { at: item.resolvedAt })}</p>}
-    <EpisodeEvents episodeId={item.episodeId} />
+    <EpisodeEvents episodeId={item.episodeId} isActive={isActive} />
   </li>;
 }
 
-export function ReviewEpisodeHistorySheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function ReviewEpisodeHistorySheet({ open, isActive = true, onOpenChange }: { open: boolean; isActive?: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useTranslation();
-  const rules = useReviewRulesV2(open);
+  const rules = useReviewRulesV2(open && isActive);
   const dailyRules = (rules.data ?? []).filter(rule => rule.evaluator === "daily_predicate_v1");
   const [chosenRule, setChosenRule] = useState("");
   const ruleId = chosenRule || dailyRules[0]?.id || "";
   const [cursor, setCursor] = useState("");
   const [previous, setPrevious] = useState<string[]>([]);
-  const history = useReviewEpisodeHistoryPage(ruleId, cursor, open);
+  const history = useReviewEpisodeHistoryPage(ruleId, cursor, open && isActive);
   const changeRule = (id: string) => { setChosenRule(id); setCursor(""); setPrevious([]); };
   return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent size="lg"><SheetHeader><SheetTitle>{t("reviewV2.historyTitle")}</SheetTitle></SheetHeader>
     {rules.isError && <p role="alert">{t("reviewV2.loadError")}</p>}
@@ -67,7 +67,7 @@ export function ReviewEpisodeHistorySheet({ open, onOpenChange }: { open: boolea
     {!dailyRules.length && !rules.isPending && <p>{t("reviewV2.noRules")}</p>}
     {history.isPending && ruleId && <p role="status">{t("ui.state.loadingPage")}</p>}
     {history.isError && <p role="alert">{t("reviewV2.staleRead")} <Button size="sm" variant="outline" onClick={() => { setCursor(""); setPrevious([]); void history.refetch(); }}>{t("reviewV2.refresh")}</Button></p>}
-    {history.data && <><ul className="space-y-2">{(history.data.items ?? []).map(item => <EpisodeRow key={item.episodeId} item={item} />)}</ul>
+    {history.data && <><ul className="space-y-2">{(history.data.items ?? []).map(item => <EpisodeRow key={item.episodeId} item={item} isActive={isActive} />)}</ul>
       {!history.data.items?.length && <p>{t("reviewV2.historyEmpty")}</p>}
       <div className="flex gap-2 pt-3"><Button variant="outline" disabled={!previous.length || history.isFetching} onClick={() => { setCursor(previous[previous.length - 1] ?? ""); setPrevious(values => values.slice(0, -1)); }}>{t("reviewV2.previous")}</Button><Button variant="outline" disabled={!history.data.nextCursor || history.isFetching} onClick={() => { setPrevious(values => [...values, cursor]); setCursor(history.data!.nextCursor ?? ""); }}>{t("reviewV2.next")}</Button></div>
     </>}

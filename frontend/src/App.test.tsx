@@ -219,6 +219,12 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidit
   Service: {
     UpcomingActions: () => upcomingRead(),
     InvestmentReviews: () => Promise.resolve({ items: [], policy: { enabled: true, windowDays: 30, lowAnnualizedPercent: "1", lossPercent: "-1", sustainDays: 7, maxAgeDays: 7 }, asOf: "2026-10-15T12:00:00Z", timezone: "UTC" }),
+    ListReviewAlertsV2: () => Promise.resolve({
+      items: [], nextCursor: "", summary: { totalGroups: 0, matchedGroups: 0, pendingGroups: 0, acknowledgedGroups: 0, ignoredGroups: 0, unknownGroups: 0, pausedGroups: 0, actionableRules: 0 },
+      reportRevision: "synthetic-review-v2", projectionStatus: "complete", publishedOn: "2026-10-15",
+    }),
+    ListReviewRulesV2: () => Promise.resolve([]),
+    ReconcileInvestmentReviewsV2: () => Promise.resolve({}),
     Overview: () => Promise.resolve({
       asOf: "",
       localDate: "2026-09-20",
@@ -740,7 +746,7 @@ it.each(SUPPORTED_LANGUAGES)("keeps investment review reachable from Overview wi
   settingsLoad.mockResolvedValue({ ...defaultSettings, language });
   upcomingRead.mockResolvedValue(upcomingData());
   render(<AppProviders><App /></AppProviders>);
-  const entry = await screen.findByRole("button", { name: i18n.t("investmentReview.view") });
+  const entry = await screen.findByRole("button", { name: i18n.t("reviewV2.openReview") });
   entry.focus();
   await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
@@ -748,6 +754,7 @@ it.each(SUPPORTED_LANGUAGES)("keeps investment review reachable from Overview wi
   expect(await screen.findByText(i18n.t("upcomingActions.empty"))).toBeVisible();
   const reviewTab = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
   reviewTab.focus(); await userEvent.keyboard("{Enter}");
-  expect(await screen.findByRole("heading", { name: i18n.t("investmentReview.title") })).toBeVisible();
+  expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toBeVisible();
+  expect(screen.getByRole("button", { name: i18n.t("reviewV2.rules") })).toBeVisible();
   expect(reviewTab).toHaveAttribute("aria-selected", "true");
 });

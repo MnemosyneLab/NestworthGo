@@ -1493,6 +1493,7 @@
   },
     "reviewV2": {
       "title": "投资复核",
+      "openReview": "打开投资复核",
       "refresh": "刷新",
       "refreshed": "复核已更新。",
       "rules": "规则",

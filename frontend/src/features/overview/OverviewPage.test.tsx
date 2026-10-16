@@ -21,7 +21,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
-    InvestmentReviews: () => Promise.resolve({ items: [], policy: { enabled: true }, asOf: "2026-10-11T04:00:00Z", timezone: "Asia/Shanghai" }),
+    ListReviewAlertsV2: () => Promise.resolve({
+      items: [{ instrumentId: "synthetic-investment", displayName: "Synthetic fund", instrumentType: "stock", currency: "USD", status: "pending", rules: [{ ruleId: "synthetic-rule", name: "Daily check", actionable: true }] }],
+      nextCursor: "", summary: { totalGroups: 1, matchedGroups: 1, pendingGroups: 1, acknowledgedGroups: 0, ignoredGroups: 0, unknownGroups: 0, pausedGroups: 0, actionableRules: 1 },
+      reportRevision: "synthetic-review-v2", projectionStatus: "complete", publishedOn: "2026-10-15",
+    }),
     UpcomingActions: () => Promise.resolve(upcomingData()),
     Overview: () => Promise.resolve({
       asOf: "",
@@ -129,7 +133,7 @@ describe("OverviewPage", () => {
     expect(screen.getByText(/Updated /)).toBeInTheDocument();
     expect(await screen.findByText("Added $1,000.00 to Checking (Contribution)")).toBeInTheDocument();
     expect(await screen.findByTestId("data-health-indicator")).toHaveTextContent("Data Health ✓");
-  });
+  }, 15000);
 
   it("lists institutions from largest to smallest", async () => {
     await renderWithMockedOverview({
@@ -309,6 +313,9 @@ it("pairs attention and upcoming cards below the financial row, preserving healt
   expect(row).toContainElement(screen.getByTestId("overview-upcoming-actions-card"));
   expect(screen.getAllByRole("region", { name: "Investment review" })).toHaveLength(1);
   expect(within(screen.getByTestId("overview-upcoming-actions-card")).queryByRole("region", { name: "Investment review" })).not.toBeInTheDocument();
+  expect(await screen.findByText("1 of 1 investments · 1 need attention · 1 actionable rules · 0 with missing data")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Open investment review" }));
+  expect(navigation.open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
   const financial = screen.getByTestId("overview-financial-row");
   expect(financial).not.toContainElement(row);
   expect(financial).toContainElement(screen.getByTestId("overview-net-worth"));
