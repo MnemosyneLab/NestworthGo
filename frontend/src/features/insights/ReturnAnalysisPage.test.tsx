@@ -152,6 +152,18 @@ describe("ReturnAnalysisPage", () => {
     expect(useAnalysisStore.getState()).toMatchObject({ from: "2026-08-01", to: "2026-08-31" });
   });
 
+  it("updates the retained contribution view when a new metric arrives through navigation", async () => {
+    useAnalysisStore.getState().setFilters({ from: "2026-08-01", to: "2026-08-31" });
+    useAnalysisStore.getState().setReturnView({ tab: "contribution" });
+    renderPage();
+    expect(await screen.findByRole("combobox", { name: "Return type" })).toHaveValue("total_return");
+    useAnalysisStore.getState().replaceFilters({ from: "2026-08-01", to: "2026-08-31", returnType: "dividend_interest" });
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Return type" })).toHaveValue("dividend_interest"));
+    await waitFor(() => expect(contribution).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-01", to: "2026-08-31" }), "dividend_interest", "instrument", "amount_desc"));
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Return type" }), "realized");
+    expect(useAnalysisStore.getState().contributionReturnType).toBe("realized");
+  });
+
   it("keeps a browsed year clamped to the origin when leaving the calendar", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2025-04-10T00:00:00Z" });
     renderPage();

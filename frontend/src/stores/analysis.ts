@@ -19,6 +19,7 @@ export interface AnalysisSessionState {
   setReturnView: (view: { tab?: AnalysisTab; cursor?: string }) => void;
   setAssetView: (view: { tab?: AssetChangesTab; cursor?: string }) => void;
   resetFilters: () => void;
+  clearAdditionalFilters: () => void;
   reset: () => void;
 }
 
@@ -68,5 +69,6 @@ export const useAnalysisStore = create<AnalysisSessionState>((set) => ({
     assetCursor: view.cursor ?? state.assetCursor,
   })),
   resetFilters: () => set(({ returnTab, returnCursor, assetTab, assetCursor }) => ({ ...initialSession, returnTab, returnCursor, assetTab, assetCursor })),
+  clearAdditionalFilters: () => set({ moreFilters: {} }),
   reset: () => set(initialSession),
 }));

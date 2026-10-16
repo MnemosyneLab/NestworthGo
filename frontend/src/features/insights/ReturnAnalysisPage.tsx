@@ -19,6 +19,7 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
   const setFilters = useAnalysisStore((state) => state.setFilters);
   const setReturnView = useAnalysisStore((state) => state.setReturnView);
   const reset = useAnalysisStore((state) => state.resetFilters);
+  const clearAdditionalFilters = useAnalysisStore((state) => state.clearAdditionalFilters);
   const origin = useHistoryOrigin();
   const [calendarView, setCalendarView] = useState<"month" | "year">("month");
   const visibleMonth = session.returnCursor || currentMonth(origin.data?.timezone);
@@ -49,7 +50,7 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
           <TabsTrigger value="trend">{t("insights.trend")}</TabsTrigger>
           <TabsTrigger value="contribution">{t("insights.contribution")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} resolvedRange={resolvedRange} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} />
+        <AnalysisFilterBar session={session} resolvedRange={resolvedRange} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} onClearAdditionalFilters={clearAdditionalFilters} />
         <TabsContent value="calendar">
           <ReturnCalendarTab session={session} view={calendarView} onViewChange={setCalendarView} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
         </TabsContent>

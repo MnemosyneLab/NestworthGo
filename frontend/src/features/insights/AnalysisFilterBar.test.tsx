@@ -43,8 +43,19 @@ it("keeps selected filters and cash scope visible when collapsed, and preserves 
   expect(summary).toHaveTextContent("Exclude cash");
   expect(summary).toHaveTextContent("AUD");
   expect(summary.closest("details")).not.toHaveAttribute("open");
-  await userEvent.click(screen.getByRole("button", { name: "Reset" }));
+  await userEvent.click(screen.getByRole("button", { name: "Portfolio defaults" }));
   expect(onReset).toHaveBeenCalledOnce();
+});
+
+it("clears only extra filters while keeping the selected object and date", async () => {
+  useAnalysisStore.getState().setFilters({ scope: "account", scopeId: "a1", from: "2026-09-02", to: "2026-09-10", moreFilters: { currency: "AUD" } });
+  const clear = useAnalysisStore.getState().clearAdditionalFilters;
+  const view = render(<AnalysisFilterBar session={useAnalysisStore.getState()} onChange={vi.fn()} onReset={vi.fn()} onClearAdditionalFilters={clear} />);
+  await userEvent.click(screen.getByText("More filters", { exact: false, selector: "summary" }));
+  await userEvent.click(screen.getByRole("button", { name: "Clear extras" }));
+  expect(useAnalysisStore.getState()).toMatchObject({ scope: "account", scopeId: "a1", from: "2026-09-02", to: "2026-09-10", moreFilters: {} });
+  view.rerender(<AnalysisFilterBar session={useAnalysisStore.getState()} onChange={vi.fn()} onReset={vi.fn()} onClearAdditionalFilters={clear} />);
+  expect(screen.queryByRole("button", { name: "Clear extras" })).not.toBeInTheDocument();
 });
 
 it("uses the same day and week presets for return analysis", async () => {

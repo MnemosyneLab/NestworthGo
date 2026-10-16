@@ -331,6 +331,10 @@ ledger-local day. Switching views preserves object, valuation, cash and
 additional filters. An empty period on the first local day remains empty and
 does not store a reversed date range. Calendar month/year mode stays local to
 the mounted Return Analysis page.
+The contribution metric is part of the shared analysis state, so a retained
+page receiving a new navigation context updates both its selector and query.
+Clearing additional filters removes only those filters; restoring portfolio
+defaults also resets the scope, metric, valuation, cash choice and date range.
 
 History navigation may carry an Activity ID alongside date, account, instrument,
 and kind filters. The ID opens that exact Activity through the authoritative
@@ -340,6 +344,8 @@ filter choices include archived accounts and instruments for read-only lookup,
 while new-record forms retain their separate eligibility rules. The page
 reports its current filters to the navigation trail so returning after an
 object drill-down restores user edits rather than the original entry filters.
+Moving between Market Data and Data Health preserves the focused health issue
+and adds a return step, allowing an analysis-to-repair path to be retraced.
 
 ## Metals and crypto
 

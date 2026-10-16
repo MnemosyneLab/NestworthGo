@@ -18,6 +18,7 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
   const setFilters = useAnalysisStore((state) => state.setFilters);
   const setAssetView = useAnalysisStore((state) => state.setAssetView);
   const reset = useAnalysisStore((state) => state.resetFilters);
+  const clearAdditionalFilters = useAnalysisStore((state) => state.clearAdditionalFilters);
   const origin = useHistoryOrigin();
   const scope = session.scope ?? "portfolio";
   const visibleMonth = currentMonth(origin.data?.timezone);
@@ -50,7 +51,7 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
           <TabsTrigger value="drivers">{t("insights.drivers")}</TabsTrigger>
           <TabsTrigger value="categories">{t("insights.categories")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} resolvedRange={rangeAvailable ? range : undefined} onChange={setFilters} onReset={reset} />
+        <AnalysisFilterBar session={session} resolvedRange={rangeAvailable ? range : undefined} onChange={setFilters} onReset={reset} onClearAdditionalFilters={clearAdditionalFilters} />
         <TabsContent value="drivers">{driverContent}</TabsContent>
         <TabsContent value="trend"><AssetTrendTab session={session} /></TabsContent>
         <TabsContent value="categories"><CategoriesTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>

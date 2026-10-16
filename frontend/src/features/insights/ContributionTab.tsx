@@ -114,7 +114,7 @@ function DetailList({ title, values, labelFor }: { title: string; values: Contri
 
 export function ContributionTab({ session, onOpenHistory }: { session: AnalysisSessionState; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
   const { t } = useTranslation();
-  const [returnType, setReturnType] = useState<string>(session.contributionReturnType || "total_return");
+  const returnType = session.contributionReturnType;
   const [groupBy, setGroupBy] = useState("instrument");
   const [ordering, setOrdering] = useState("amount_desc");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   const data = contribution.data;
-  const showRate = returnType === "total_return" || (returnType === "unrealized" && (data?.rows ?? []).some((row) => row.rate != null));
+  const showRate = returnType === "total_return";
   const labelFor = (row: { key: string; label: string }) => contributionRowLabel(t, groupBy, row.key, row.label, accountNames, instrumentNames);
   const selected = (data?.rows ?? []).find((row) => row.key === selectedKey) ?? null;
   if (selectedKey && data && !selected) setSelectedKey(null);
@@ -143,7 +143,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
         <label htmlFor="contribution-return-type" className="text-sm font-medium">{t("insights.returnType")}</label>
         <NativeSelect id="contribution-return-type" value={returnType} onChange={(event) => {
           const next = event.target.value;
-          setReturnType(next);
+          session.setFilters({ returnType: next as AnalysisSessionState["contributionReturnType"] });
           setSelectedKey(null);
           if (next === "realized" && (groupBy === "currency" || groupBy === "asset_class")) setGroupBy("instrument");
           if (next !== "total_return" && (ordering === "rate_desc" || ordering === "rate_asc")) setOrdering("amount_desc");
