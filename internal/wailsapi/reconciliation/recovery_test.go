@@ -1,6 +1,7 @@
 package reconciliation
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -86,5 +87,57 @@ func TestDesktopReconciliationDurableIdentityAndReceiptWithoutBody(t *testing.T)
 	}
 	if replay[0].Activity.ID != committed[0].Activity.ID || replay[0].Resulting[0].Amount != "120.0001" || replay[0].Effects[0].Money.Amount != "20.0001" {
 		t.Fatalf("economic receipt changed: %+v", replay)
+	}
+}
+
+func TestDesktopAdjustmentCanonicalCommandRoundTrip(t *testing.T) {
+	h := domain.NewHouseholdID()
+	a := domain.NewAccountID()
+	held := domain.NewHoldingID()
+	at := time.Date(2026, 9, 1, 12, 0, 0, 123000000, time.UTC)
+	money, _ := domain.ParseMoney("12.0001", domain.CurrencyCode("USD"))
+	quantity, _ := domain.ParseQuantity("0.12345678")
+	unit, _ := domain.ParseUnitPrice("1.00000001")
+	note := "Original reviewed note"
+	plan := adjustmentPlan{id: uuid.NewString(), hash: "original hash", token: "original token", expires: at, commands: []any{
+		domain.ValueUpdateInput{HouseholdID: h, AccountID: a, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: at, Note: &note},
+		domain.MoneyAddedInput{HouseholdID: h, AccountID: a, Amount: money, Reason: domain.ReasonReconciliation, EffectiveAt: at, Note: &note},
+		domain.MoneyRemovedInput{HouseholdID: h, AccountID: a, Amount: money, Reason: domain.ReasonReconciliation, EffectiveAt: at, Note: &note},
+		domain.PositionAdjustmentInput{HouseholdID: h, HoldingID: held, Quantity: quantity, Added: true, UnitCost: &unit, EffectiveAt: at, Note: &note},
+		domain.PositionCostAdjustmentInput{HouseholdID: h, HoldingID: held, UnitCost: unit, EffectiveAt: at, Note: &note},
+	}}
+	raw, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored adjustmentPlan
+	if err = json.Unmarshal(raw, &restored); err != nil {
+		t.Fatal(err)
+	}
+	again, err := json.Marshal(restored)
+	if err != nil || string(raw) != string(again) {
+		t.Fatalf("canonical recovery changed %s -> %s (%v)", raw, again, err)
+	}
+	if len(restored.commands) != 5 || restored.commands[3].(domain.PositionAdjustmentInput).Quantity.Canonical() != "0.12345678" || restored.commands[4].(domain.PositionCostAdjustmentInput).UnitCost.Canonical() != "1.00000001" {
+		t.Fatal("financial precision lost")
+	}
+}
+
+func TestDesktopAdjustmentCostErrorsNameTheReviewedField(t *testing.T) {
+	for _, field := range []string{"unitCost", "totalCost"} {
+		input := AdjustmentRequest{HoldingID: uuid.NewString(), Quantity: "2", Currency: "USD"}
+		if field == "unitCost" {
+			input.UnitCost = "invalid"
+		} else {
+			input.TotalCost = "invalid"
+		}
+		_, err := NewService(nil).PreviewAdjustment(t.Context(), input)
+		if err == nil {
+			t.Fatal("invalid cost accepted")
+		}
+		wire, ok := apierror.Parse(err.Error())
+		if !ok || wire.Field != field {
+			t.Fatalf("%s: %v", field, err)
+		}
 	}
 }

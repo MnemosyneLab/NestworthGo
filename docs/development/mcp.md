@@ -916,5 +916,15 @@ preview/commit, durable receipt-first recovery and user-provided provenance.
 Existing financial target reconciliation keeps its original meaning. Optional
 reconciliationLink on ledger target/change and managed-product previews is part
 of the immutable request hash and owning financial transaction. A correction
-never confirms a check. Maintained Skill 1.10.0 documents both routes, partial
+never confirms a check. Maintained Skill 1.11.0 documents both routes, partial
 completion, source precision and same-operation recovery.
+
+
+Reconciliation follow-up: session start note and finish explanation are distinct
+note/closingNote fields. referenceComparable explicitly identifies comparable
+current-day numeric values; mismatches require explanation or correction.
+Changes expose afterCompletion separately from the frozen original interval.
+Private production plans use SQLite, and missing pending bodies remain unknown.
+An explicit same-ID recovery can inspect session/adjustment business receipts;
+unknown IDs never execute. See the maintained reconciliation and recovery Skill
+references for continuation, concrete target links and export boundaries.

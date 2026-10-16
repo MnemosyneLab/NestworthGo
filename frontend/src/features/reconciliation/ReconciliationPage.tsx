@@ -1,3 +1,10 @@
+import { useHistoryOrigin } from "@/queries/history";
+import { localDateTimeInTimeZone } from "@/lib/time";
+import {
+  knownReconciliationConflict,
+  completedReconciliation,
+} from "./reconciliationErrors";
+import { Badge } from "@/components/ui/badge";
 import { checkpointValue, sourceText } from "./reconciliationDisplay";
 import { FieldError } from "@/components/ui/field-error";
 import { ProductPreview as ProductOperationReview } from "@/features/liquidity/ProductPreview";
@@ -48,7 +55,12 @@ import {
 import { invalidateActivityChange } from "@/queries/invalidation";
 import { callService, type WireError } from "@/lib/wails";
 import { displayError } from "@/lib/display";
-import { formatAmount, formatQuotePrice, multiplyCanonical } from "@/lib/money";
+import {
+  formatAmount,
+  formatQuotePrice,
+  multiplyCanonical,
+  compareCanonical,
+} from "@/lib/money";
 import { useReconciliationTimestamp } from "./useReconciliationTimestamp";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
@@ -64,7 +76,16 @@ import type {
   ProductPreview,
 } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation/models";
 
-const validationFields = new Set(["source", "asOfDate", "asOfTime", "allowPartial", "note", "outcome"]);
+const validationFields = new Set([
+  "source",
+  "asOfDate",
+  "asOfTime",
+  "allowPartial",
+  "note",
+  "outcome",
+  "referenceValue",
+  "referenceComparable",
+]);
 
 const reconciliationAction = (
   action: string,
@@ -79,6 +100,7 @@ const reconciliationAction = (
   allowPartial: false,
 });
 type Review = {
+  action?: string;
   planId: string;
   result?: ReconciliationSession;
   adjustment?: AdjustmentPreview;
@@ -106,7 +128,10 @@ export function ReconciliationPage({
   const [review, setReview] = useState<Review>();
   const [error, setError] = useState<string>();
   const [errorField, setErrorField] = useState<string>();
-  const clearError = () => { setError(undefined); setErrorField(undefined); };
+  const clearError = () => {
+    setError(undefined);
+    setErrorField(undefined);
+  };
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<{
     account: ReconciliationAccount;
@@ -117,6 +142,7 @@ export function ReconciliationPage({
   const [closingNote, setClosingNote] = useState("");
   const [partial, setPartial] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
+
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ["reconciliation"] });
   };
@@ -127,12 +153,26 @@ export function ReconciliationPage({
       const result = await callService(() =>
         ReconciliationService.Preview(action),
       );
-      setReview(result);
+      setReview({ ...result, action: action.action });
     } catch (cause) {
       const wire = (cause as { wireError?: WireError })?.wireError;
       setErrorField(wire?.field);
-      const key = wire?.code === "validation" && wire.field && validationFields.has(wire.field) ? wire.field : undefined;
-      setError(key ? t(`reconciliation.validation.${key}`) : displayError(cause, t("reconciliation.error")));
+      const key =
+        wire?.code === "validation" &&
+        wire.field &&
+        validationFields.has(wire.field)
+          ? wire.field
+          : undefined;
+      if (knownReconciliationConflict(wire)) refresh();
+      setError(
+        completedReconciliation(wire)
+          ? t("reconciliation.readOnly")
+          : knownReconciliationConflict(wire)
+            ? t("reconciliation.changedReview")
+            : key
+              ? t(`reconciliation.validation.${key}`)
+              : displayError(cause, t("reconciliation.error")),
+      );
     } finally {
       setBusy(false);
     }
@@ -167,6 +207,7 @@ export function ReconciliationPage({
             <ErrorState
               description={t("ui.state.errorDescription")}
               title={t("reconciliation.error")}
+              retryLabel={t("reconciliation.retry")}
               onRetry={() => {
                 void accounts.refetch();
                 void sessions.refetch();
@@ -174,6 +215,26 @@ export function ReconciliationPage({
             />
           ) : (
             <>
+              {(sessions.data ?? [])
+                .filter((s) => s.status !== "completed")
+                .map((s) => (
+                  <div
+                    key={s.id}
+                    className="rounded-xl border border-border p-4"
+                  >
+                    <p>
+                      {s.accountNames?.join(" · ")} ·{" "}
+                      {t(`reconciliation.${s.status}`)}
+                    </p>
+                    <Counts counts={s.counts} />
+                    <Button onClick={() => select(s.id)}>
+                      {t("reconciliation.continue")}
+                    </Button>
+                  </div>
+                ))}
+              {!activeAccounts.length && (
+                <EmptyState title={t("reconciliation.noAccounts")} />
+              )}
               <fieldset className="rounded-xl border border-border p-4">
                 <legend>{t("reconciliation.selectAccounts")}</legend>
                 <Button
@@ -203,6 +264,11 @@ export function ReconciliationPage({
                     {a.account.name} · {a.account.defaultCurrency}
                   </label>
                 ))}
+                {(sessions.data ?? []).some(
+                  (s) =>
+                    s.status !== "completed" &&
+                    s.accountIds?.some((id) => chosen.includes(id)),
+                ) && <p role="status">{t("reconciliation.overlap")}</p>}
                 <Button
                   disabled={busy || !chosen.length}
                   onClick={() =>
@@ -233,7 +299,15 @@ export function ReconciliationPage({
                   </option>
                 ))}
               </NativeSelect>
-              {!rows.length && <EmptyState title={t("reconciliation.empty")} />}
+              {!rows.length && (
+                <EmptyState
+                  title={t(
+                    filter
+                      ? "reconciliation.noMatches"
+                      : "reconciliation.empty",
+                  )}
+                />
+              )}
               {rows.slice(page * 25, (page + 1) * 25).map((s) => (
                 <Button
                   key={s.id}
@@ -276,6 +350,7 @@ export function ReconciliationPage({
             <ErrorState
               description={t("ui.state.errorDescription")}
               title={t("reconciliation.error")}
+              retryLabel={t("reconciliation.retry")}
               onRetry={() => void detail.refetch()}
             />
           ) : (
@@ -289,9 +364,22 @@ export function ReconciliationPage({
                   {t(`reconciliation.${current.status}`)}
                 </h2>
                 <Counts counts={current.counts} />
+                {current.note && (
+                  <p>
+                    {t("reconciliation.openingNote")}: {current.note}
+                  </p>
+                )}
+                {current.closingNote && !current.partial && (
+                  <p>
+                    {t("reconciliation.closingNote")}: {current.closingNote}
+                  </p>
+                )}
+                {current.status === "completed" && (
+                  <p>{t("reconciliation.readOnly")}</p>
+                )}
                 {current.partial && (
                   <p>
-                    {t("reconciliation.partial")}: {current.note}
+                    {t("reconciliation.partial")}: {current.closingNote}
                   </p>
                 )}
                 {current.completedAt && (
@@ -318,7 +406,13 @@ export function ReconciliationPage({
                         `reconciliation.${current.status === "paused" ? "resume" : "pause"}`,
                       )}
                     </Button>
-                    <Button disabled={busy} onClick={() => setClosing(true)}>
+                    <Button
+                      disabled={busy}
+                      onClick={(e) => {
+                        trigger.current = e.currentTarget;
+                        setClosing(true);
+                      }}
+                    >
                       {t("reconciliation.finish")}
                     </Button>
                   </div>
@@ -341,166 +435,219 @@ export function ReconciliationPage({
                     {a.recheckRequired && (
                       <p role="status">{t("reconciliation.recheck")}</p>
                     )}
-                    {(a.items ?? []).map((item) => (
-                      <article
-                        key={item.id}
-                        className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
-                      >
-                        <div className="flex flex-wrap justify-between gap-2">
-                          <h4>
-                            {item.kind === "scope"
-                              ? t("reconciliation.scope")
-                              : item.label}{" "}
-                            · {t(`reconciliation.kind.${item.kind}`)}
-                          </h4>
-                          <span>{t(`reconciliation.${item.outcome}`)}</span>
-                        </div>
-                        {item.kind !== "scope" && (
-                          <p className="break-words font-mono">
-                            {checkpointValue(t, item)}
-                          </p>
-                        )}
-                        {item.cost && (
-                          <p>
-                            {t("reconciliation.unitCost")}:{" "}
-                            {formatQuotePrice(item.cost, item.currency)}
-                          </p>
-                        )}
-                        {item.kind === "holding" && (
-                          <HoldingIdentity detail={item.detail} />
-                        )}
-                        {item.kind === "product" && (
-                          <ProductEvidence detail={item.detail} />
-                        )}
-                        {item.checkedAt && (
-                          <p className="text-sm">
-                            {[sourceText(item.source), `${t("reconciliation.checkedAt")}: ${formatTimestamp(item.checkedAt)}`].filter(Boolean).join(" · ")}
-                          </p>
-                        )}
-                        {item.referenceValue && (
-                          <p>
-                            {t("reconciliation.referenceValue")}:{" "}
-                            {item.referenceValue}
-                          </p>
-                        )}
-                        {item.note && (
-                          <p className="whitespace-pre-wrap break-words">
-                            {item.note}
-                          </p>
-                        )}
-                        {current.status === "in_progress" && (
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={(e) => {
-                                trigger.current = e.currentTarget;
-                                setEditing({
-                                  account: a,
-                                  item,
-                                  route: "check",
-                                });
-                              }}
+                    {[...(a.items ?? [])]
+                      .sort(
+                        (left, right) =>
+                          Number(right.kind === "scope") -
+                          Number(left.kind === "scope"),
+                      )
+                      .map((item) => (
+                        <article
+                          key={item.id}
+                          className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
+                        >
+                          <div className="flex flex-wrap justify-between gap-2">
+                            <h4>
+                              {item.kind === "scope"
+                                ? t("reconciliation.scope")
+                                : item.label}{" "}
+                              · {t(`reconciliation.kind.${item.kind}`)}
+                            </h4>
+                            <Badge
+                              variant={
+                                item.outcome === "confirmed"
+                                  ? "success"
+                                  : item.outcome === "unresolved"
+                                    ? "warning"
+                                    : "secondary"
+                              }
                             >
-                              {t("reconciliation.review")}
-                            </Button>
-                            {["cash", "balance", "holding"].includes(
-                              item.kind,
-                            ) && (
-                              <Button
-                                variant="ghost"
-                                onClick={(e) => {
-                                  trigger.current = e.currentTarget;
-                                  setEditing({
-                                    account: a,
-                                    item,
-                                    route: "adjust",
-                                  });
-                                }}
-                              >
-                                {t("reconciliation.adjust")}
-                              </Button>
-                            )}
-                            {item.kind === "product" && (
-                              <Button
-                                variant="ghost"
-                                onClick={(e) => {
-                                  trigger.current = e.currentTarget;
-                                  setEditing({
-                                    account: a,
-                                    item,
-                                    route: "product",
-                                  });
-                                }}
-                              >
-                                {t("reconciliation.productRoute")}
-                              </Button>
-                            )}
-                            {item.kind === "scope" && a.mode === "holdings" && (
-                              <Button
-                                variant="ghost"
-                                onClick={(e) => {
-                                  trigger.current = e.currentTarget;
-                                  setEditing({
-                                    account: a,
-                                    item,
-                                    route: "newProduct",
-                                  });
-                                }}
-                              >
-                                {t("reconciliation.addProduct")}
-                              </Button>
-                            )}
-                            {item.kind === "scope" && a.mode === "holdings" && (
-                              <Button
-                                variant="ghost"
-                                onClick={(e) => {
-                                  trigger.current = e.currentTarget;
-                                  setEditing({
-                                    account: a,
-                                    item,
-                                    route: "import",
-                                  });
-                                }}
-                              >
-                                {t("reconciliation.importPosition")}
-                              </Button>
-                            )}
-                            {item.kind !== "product" && (
-                              <Button
-                                variant="ghost"
-                                onClick={(e) => {
-                                  trigger.current = e.currentTarget;
-                                  setEditing({
-                                    account: a,
-                                    item,
-                                    route: "record",
-                                  });
-                                }}
-                              >
-                                {t("reconciliation.recordMissing")}
-                              </Button>
-                            )}
+                              {t(`reconciliation.${item.outcome}`)}
+                            </Badge>
                           </div>
-                        )}
-                        {!!item.attempts?.length && (
-                          <details>
-                            <summary>
-                              {t("reconciliation.attempts", {
-                                count: item.attempts.length,
-                              })}
-                            </summary>
-                            {item.attempts.map((attempt, i) => (
-                              <p key={i} className="break-words text-sm">
-                                {[formatTimestamp(attempt.checkedAt), t(`reconciliation.${attempt.outcome}`), checkpointValue(t, attempt, true), sourceText(attempt.source), attempt.note].filter(Boolean).join(" · ")}
+                          {item.kind === "scope" && (
+                            <p className="text-sm text-muted-foreground">
+                              {t("reconciliation.scopeHelp")}
+                            </p>
+                          )}
+                          {item.archivedNonzero && (
+                            <p role="status">
+                              {t("reconciliation.archivedNonzero")}
+                            </p>
+                          )}
+                          {item.kind !== "scope" && (
+                            <p className="break-words font-mono">
+                              {checkpointValue(t, item)}
+                            </p>
+                          )}
+                          {item.cost && (
+                            <p>
+                              {t("reconciliation.unitCost")}:{" "}
+                              {formatQuotePrice(item.cost, item.currency)}
+                            </p>
+                          )}
+                          {item.kind === "holding" && (
+                            <HoldingIdentity detail={item.detail} />
+                          )}
+                          {item.kind === "product" && (
+                            <ProductEvidence detail={item.detail} />
+                          )}
+                          {item.checkedAt && (
+                            <p className="text-sm">
+                              {[
+                                sourceText(item.source),
+                                `${t("reconciliation.checkedAt")}: ${formatTimestamp(item.checkedAt)}`,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          )}
+                          {item.referenceValue && (
+                            <p>
+                              {t("reconciliation.referenceValue")}:{" "}
+                              {item.referenceValue}
+                            </p>
+                          )}
+                          {item.outcome === "confirmed" && item.referenceComparable &&
+                            /^-?\d+(\.\d+)?$/.test(item.referenceValue ?? "") &&
+                            /^-?\d+(\.\d+)?$/.test(item.value ?? "") &&
+                            compareCanonical(
+                              item.referenceValue!,
+                              item.value!,
+                            ) !== 0 && (
+                              <p role="status">
+                                {t("reconciliation.mismatch")}
                               </p>
-                            ))}
-                          </details>
-                        )}
-                      </article>
-                    ))}
+                            )}
+                          {item.note && (
+                            <p className="whitespace-pre-wrap break-words">
+                              {item.note}
+                            </p>
+                          )}
+                          {current.status === "in_progress" && (
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={(e) => {
+                                  trigger.current = e.currentTarget;
+                                  setEditing({
+                                    account: a,
+                                    item,
+                                    route: "check",
+                                  });
+                                }}
+                              >
+                                {t("reconciliation.review")}
+                              </Button>
+                              {["cash", "balance", "holding"].includes(
+                                item.kind,
+                              ) && (
+                                <Button
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    trigger.current = e.currentTarget;
+                                    setEditing({
+                                      account: a,
+                                      item,
+                                      route: "adjust",
+                                    });
+                                  }}
+                                >
+                                  {t("reconciliation.adjust")}
+                                </Button>
+                              )}
+                              {item.kind === "product" && (
+                                <Button
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    trigger.current = e.currentTarget;
+                                    setEditing({
+                                      account: a,
+                                      item,
+                                      route: "product",
+                                    });
+                                  }}
+                                >
+                                  {t("reconciliation.productRoute")}
+                                </Button>
+                              )}
+                              {item.kind === "scope" &&
+                                a.mode === "holdings" && (
+                                  <Button
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      trigger.current = e.currentTarget;
+                                      setEditing({
+                                        account: a,
+                                        item,
+                                        route: "newProduct",
+                                      });
+                                    }}
+                                  >
+                                    {t("reconciliation.addProduct")}
+                                  </Button>
+                                )}
+                              {item.kind === "scope" &&
+                                a.mode === "holdings" && (
+                                  <Button
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      trigger.current = e.currentTarget;
+                                      setEditing({
+                                        account: a,
+                                        item,
+                                        route: "import",
+                                      });
+                                    }}
+                                  >
+                                    {t("reconciliation.importPosition")}
+                                  </Button>
+                                )}
+                              {item.kind !== "product" &&
+                                item.kind !== "removed" && (
+                                  <Button
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      trigger.current = e.currentTarget;
+                                      setEditing({
+                                        account: a,
+                                        item,
+                                        route: "record",
+                                      });
+                                    }}
+                                  >
+                                    {t("reconciliation.recordMissing")}
+                                  </Button>
+                                )}
+                            </div>
+                          )}
+                          {!!item.attempts?.length && (
+                            <details>
+                              <summary>
+                                {t("reconciliation.attempts", {
+                                  count: item.attempts.length,
+                                })}
+                              </summary>
+                              {item.attempts.map((attempt, i) => (
+                                <p key={i} className="break-words text-sm">
+                                  {[
+                                    formatTimestamp(attempt.checkedAt),
+                                    t(`reconciliation.${attempt.outcome}`),
+                                    checkpointValue(t, attempt, true),
+                                    sourceText(attempt.source),
+                                    attempt.note,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                              ))}
+                            </details>
+                          )}
+                        </article>
+                      ))}
                   </section>
                 ))}
-                <RecentChanges sessionId={active} />
+                <RecentChanges sessionId={active} session={current} />
                 <LinkedChanges sessionId={active} />
               </>
             )
@@ -508,24 +655,42 @@ export function ReconciliationPage({
         </>
       )}
       {closing && current && (
-        <Sheet open onOpenChange={(open) => { if (!open) { setClosing(false); clearError(); } }}>
-          <SheetContent>
+        <Sheet
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setClosing(false);
+              clearError();
+            }
+          }}
+        >
+          <SheetContent finalFocus={() => trigger.current}>
             <SheetHeader>
               <SheetTitle>{t("reconciliation.finish")}</SheetTitle>
             </SheetHeader>
             <div className="flex flex-col gap-4">
-              {error && errorField !== "allowPartial" && <FieldError>{error}</FieldError>}
+              <p>{t("reconciliation.finishNotice")}</p>
+              {error && errorField !== "allowPartial" && (
+                <FieldError>{error}</FieldError>
+              )}
               <label className="flex gap-2">
                 <input
                   type="checkbox"
                   checked={partial}
                   aria-invalid={errorField === "allowPartial" || undefined}
-                  aria-describedby={errorField === "allowPartial" ? "finish-error" : undefined}
-                  onChange={(e) => { setPartial(e.target.checked); clearError(); }}
+                  aria-describedby={
+                    errorField === "allowPartial" ? "finish-error" : undefined
+                  }
+                  onChange={(e) => {
+                    setPartial(e.target.checked);
+                    if (e.target.checked && closingNote.trim()) clearError();
+                  }}
                 />
                 {t("reconciliation.allowPartial")}
               </label>
-              <FieldError id="finish-error">{errorField === "allowPartial" ? error : undefined}</FieldError>
+              <FieldError id="finish-error">
+                {errorField === "allowPartial" ? error : undefined}
+              </FieldError>
               <Label htmlFor="closing-note">
                 {t("reconciliation.closingNote")}
               </Label>
@@ -534,8 +699,17 @@ export function ReconciliationPage({
                 value={closingNote}
                 maxBytes={2000}
                 aria-invalid={errorField === "allowPartial" || undefined}
-                aria-describedby={errorField === "allowPartial" ? "finish-error" : undefined}
-                onChange={(e) => { setClosingNote(e.target.value); clearError(); }}
+                aria-describedby={
+                  errorField === "allowPartial" ? "finish-error" : undefined
+                }
+                onChange={(e) => {
+                  setClosingNote(e.target.value);
+                  if (
+                    errorField !== "allowPartial" ||
+                    (partial && e.target.value.trim())
+                  )
+                    clearError();
+                }}
               />
               <Button
                 disabled={busy || utf8ByteLength(closingNote) > 2000}
@@ -554,7 +728,15 @@ export function ReconciliationPage({
         </Sheet>
       )}
       {editing && editing.route !== "newProduct" && current && (
-        <Sheet open onOpenChange={(open) => { if (!open) { setEditing(undefined); clearError(); } }}>
+        <Sheet
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditing(undefined);
+              clearError();
+            }
+          }}
+        >
           <SheetContent size="lg" finalFocus={() => trigger.current}>
             <SheetHeader>
               <SheetTitle>
@@ -567,7 +749,19 @@ export function ReconciliationPage({
                 )}
               </SheetTitle>
             </SheetHeader>
-            {error && (editing.route !== "check" || !["source", "asOfDate", "asOfTime", "note", "outcome"].includes(errorField ?? "")) && <FieldError>{error}</FieldError>}
+            {error &&
+              (editing.route !== "check" ||
+                ![
+                  "source",
+                  "asOfDate",
+                  "asOfTime",
+                  "note",
+                  "outcome",
+                  "referenceValue",
+                  "referenceComparable",
+                ].includes(errorField ?? "")) && (
+                <FieldError>{error}</FieldError>
+              )}
             {editing.route === "check" ? (
               <CheckForm
                 key={editing.item.id}
@@ -601,11 +795,14 @@ export function ReconciliationPage({
                   ...emptyChangeRequest(
                     editing.route === "import"
                       ? ChangeCommandKind.ChangePositionImport
-                      : ChangeCommandKind.ChangeMoneyAdded,
+                      : editing.item.kind === "holding"
+                        ? ChangeCommandKind.ChangeTrade
+                        : ChangeCommandKind.ChangeMoneyAdded,
                     editing.item.currency || editing.account.currency,
                   ),
                   accountId: editing.account.accountId,
                   holdingId: editing.item.holdingId,
+                  side: editing.item.kind === "holding" ? "buy" : undefined,
                   settlementAccountId: editing.account.accountId,
                   reconciliationLink: {
                     sessionId: current.id,
@@ -658,7 +855,12 @@ export function ReconciliationPage({
             expectedRevision: current.revision,
             financialRevision: editing.account.financialRevision,
           }}
-          onOpenChange={(open) => { if (!open) { setEditing(undefined); clearError(); } }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditing(undefined);
+              clearError();
+            }
+          }}
           onReconciliationPreview={(p) =>
             setReview({ planId: p.planId, product: p })
           }
@@ -759,7 +961,9 @@ function CheckForm({
   item,
   onPreview,
   disabled,
-  error, errorField, onEdit,
+  error,
+  errorField,
+  onEdit,
 }: {
   error?: string;
   errorField?: string;
@@ -769,15 +973,34 @@ function CheckForm({
   disabled: boolean;
 }) {
   const { t } = useTranslation();
+  const history = useHistoryOrigin();
+  const today = localDateTimeInTimeZone(history.data?.timezone ?? "UTC")?.date;
   const [outcome, setOutcome] = useState("confirmed");
   const [reference, setReference] = useState(item.source.reference);
   const [date, setDate] = useState(item.source.asOfDate);
   const [time, setTime] = useState(item.source.asOfTime ?? "");
   const [note, setNote] = useState(item.note);
   const [value, setValue] = useState(item.referenceValue ?? "");
+  const [comparable, setComparable] = useState(
+    item.referenceComparable ?? false,
+  );
+  const numeric = /^-?\d+(\.\d+)?$/;
+  const mismatch =
+    comparable &&
+    date === today &&
+    numeric.test(value.trim()) &&
+    numeric.test(item.value ?? "") &&
+    compareCanonical(value.trim(), item.value!) !== 0;
   const invalid = (field: string) => errorField === field;
-  const aria = (field: string) => ({ "aria-invalid": invalid(field) || undefined, "aria-describedby": invalid(field) ? `check-${field}-error` : undefined });
-  const fieldError = (field: string) => <FieldError id={`check-${field}-error`}>{invalid(field) ? error : undefined}</FieldError>;
+  const aria = (field: string) => ({
+    "aria-invalid": invalid(field) || undefined,
+    "aria-describedby": invalid(field) ? `check-${field}-error` : undefined,
+  });
+  const fieldError = (field: string) => (
+    <FieldError id={`check-${field}-error`}>
+      {invalid(field) ? error : undefined}
+    </FieldError>
+  );
   return (
     <div className="flex flex-col gap-3">
       <Label htmlFor="check-outcome">{t("reconciliation.outcome")}</Label>
@@ -785,7 +1008,10 @@ function CheckForm({
         id="check-outcome"
         value={outcome}
         {...aria("outcome")}
-        onChange={(e) => { setOutcome(e.target.value); onEdit(); }}
+        onChange={(e) => {
+          setOutcome(e.target.value);
+          onEdit();
+        }}
       >
         {["confirmed", "skipped", "unresolved", "pending"].map((s) => (
           <option key={s} value={s}>
@@ -800,29 +1026,79 @@ function CheckForm({
         maxBytes={512}
         value={reference}
         {...aria("source")}
-        onChange={(e) => { setReference(e.target.value); onEdit(); }}
+        onChange={(e) => {
+          setReference(e.target.value);
+          onEdit();
+        }}
       />
       {fieldError("source")}
       <Label htmlFor="check-date">{t("reconciliation.sourceDate")}</Label>
-      <DatePicker id="check-date" value={date} onChange={(value) => { setDate(value); onEdit(); }} {...aria("asOfDate")} clearable />
+      <DatePicker
+        id="check-date"
+        value={date}
+        onChange={(value) => {
+          setDate(value);
+          onEdit();
+        }}
+        {...aria("asOfDate")}
+        clearable
+      />
       {fieldError("asOfDate")}
       <Label htmlFor="check-time">{t("reconciliation.sourceTime")}</Label>
-      <TimePicker id="check-time" value={time} onChange={(value) => { setTime(value); onEdit(); }} {...aria("asOfTime")} clearable />
+      <TimePicker
+        id="check-time"
+        value={time}
+        onChange={(value) => {
+          setTime(value);
+          onEdit();
+        }}
+        {...aria("asOfTime")}
+        clearable
+      />
       {fieldError("asOfTime")}
       <Label htmlFor="check-value">{t("reconciliation.referenceValue")}</Label>
       <Input
         id="check-value"
+        {...aria("referenceValue")}
         value={value}
         maxBytes={256}
-        onChange={(e) => { setValue(e.target.value); onEdit(); }}
+        onChange={(e) => {
+          setValue(e.target.value);
+          onEdit();
+        }}
       />
+      {fieldError("referenceValue")}
+      {["cash", "balance", "holding"].includes(item.kind) && (
+        <>
+          <label className="flex gap-2">
+            <input
+              type="checkbox"
+              checked={comparable}
+              {...aria("referenceComparable")}
+              onChange={(e) => {
+                setComparable(e.target.checked);
+                onEdit();
+              }}
+            />
+            {t("reconciliation.comparable")}
+          </label>
+          {fieldError("referenceComparable")}
+          <p className="text-sm text-muted-foreground">
+            {t("reconciliation.comparisonHelp")}
+          </p>
+          {mismatch && <p role="status">{t("reconciliation.mismatch")}</p>}
+        </>
+      )}
       <Label htmlFor="check-note">{t("reconciliation.note")}</Label>
       <Input
         id="check-note"
         value={note}
         maxBytes={2000}
         {...aria("note")}
-        onChange={(e) => { setNote(e.target.value); onEdit(); }}
+        onChange={(e) => {
+          setNote(e.target.value);
+          onEdit();
+        }}
       />
       {fieldError("note")}
       <Button
@@ -837,6 +1113,7 @@ function CheckForm({
             outcome,
             source: { reference, asOfDate: date, asOfTime: time },
             referenceValue: value,
+            referenceComparable: comparable,
             note,
           })
         }
@@ -858,6 +1135,7 @@ function AdjustmentForm({
   onPreview: (p: AdjustmentPreview) => void;
 }) {
   const { t } = useTranslation();
+  const client = useQueryClient();
   const [value, setValue] = useState(
     item.kind === "scope" ? "" : (item.value ?? ""),
   );
@@ -867,9 +1145,36 @@ function AdjustmentForm({
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [errorField, setErrorField] = useState("");
+  const clearCostChoiceError = (nextUnit: string, nextTotal: string) => {
+    const validDecimal = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
+    const hasOne = Boolean(nextUnit) !== Boolean(nextTotal);
+    if (
+      ["unitCost", "totalCost"].includes(errorField) &&
+      hasOne &&
+      validDecimal.test(nextUnit || nextTotal)
+    ) {
+      setError("");
+      setErrorField("");
+    }
+  };
+  const invalid = (field: string) => errorField === field;
+  const aria = (field: string) => ({
+    "aria-invalid": invalid(field) || undefined,
+    "aria-describedby": invalid(field) ? `adjust-${field}-error` : undefined,
+  });
+  const fieldError = (field: string) => (
+    <FieldError id={`adjust-${field}-error`}>
+      {invalid(field) ? error : undefined}
+    </FieldError>
+  );
   return (
     <div className="flex flex-col gap-3">
       <p>{t("reconciliation.correctionHelp")}</p>
+      <p>
+        {t("reconciliation.current")}: {checkpointValue(t, item, true)} →{" "}
+        {value || t("reconciliation.unavailable")}
+      </p>
       {item.kind === "scope" && (
         <>
           <Label htmlFor="adjust-currency">{t("history.currency")}</Label>
@@ -895,17 +1200,27 @@ function AdjustmentForm({
           </Label>
           <Input
             id="adjust-unit"
+            {...aria("unitCost")}
             inputMode="decimal"
             value={unit}
-            onChange={(e) => setUnit(e.target.value)}
+            onChange={(e) => {
+              setUnit(e.target.value);
+              clearCostChoiceError(e.target.value, total);
+            }}
           />
+          {fieldError("unitCost")}
           <Label htmlFor="adjust-total">{t("reconciliation.totalCost")}</Label>
           <Input
             id="adjust-total"
+            {...aria("totalCost")}
             inputMode="decimal"
             value={total}
-            onChange={(e) => setTotal(e.target.value)}
+            onChange={(e) => {
+              setTotal(e.target.value);
+              clearCostChoiceError(unit, e.target.value);
+            }}
           />
+          {fieldError("totalCost")}
         </>
       )}
       <Label htmlFor="adjust-note">{t("reconciliation.note")}</Label>
@@ -915,7 +1230,9 @@ function AdjustmentForm({
         maxBytes={2000}
         onChange={(e) => setNote(e.target.value)}
       />
-      {error && <p role="alert">{error}</p>}
+      {error && !["unitCost", "totalCost"].includes(errorField) && (
+        <p role="alert">{error}</p>
+      )}
       <Button
         disabled={busy || utf8ByteLength(note) > 2000}
         onClick={() => {
@@ -940,7 +1257,20 @@ function AdjustmentForm({
             }),
           )
             .then(onPreview)
-            .catch((e) => setError(displayError(e, t("reconciliation.error"))))
+            .catch((e) => {
+              const wire = (e as { wireError?: WireError })?.wireError;
+              const field = (wire?.field ?? "").split(".").slice(-1)[0] ?? "";
+              setErrorField(field);
+              if (knownReconciliationConflict(wire))
+                void client.invalidateQueries({ queryKey: ["reconciliation"] });
+              setError(
+                knownReconciliationConflict(wire)
+                  ? t("reconciliation.changedReview")
+                  : ["unitCost", "totalCost"].includes(field)
+                    ? t("reconciliation.costChoice")
+                    : displayError(e, t("reconciliation.error")),
+              );
+            })
             .finally(() => setBusy(false));
         }}
       >
@@ -957,13 +1287,15 @@ function CommitReview({
   onDone: (result?: ReconciliationSession) => void;
 }) {
   const { t } = useTranslation();
+  const client = useQueryClient();
   const confirmation = useSheetConfirmation();
   const [busy, setBusy] = useState(false);
   const [unknown, setUnknown] = useState(false);
+  const [refusedReview, setRefusedReview] = useState(false);
   const dispatching = useRef(false);
   const [error, setError] = useState("");
   const commit = async () => {
-    if (dispatching.current) return;
+    if (dispatching.current || refusedReview) return;
     if (!confirmation?.begin(review.planId, review) && !unknown) return;
     dispatching.current = true;
     setBusy(true);
@@ -983,8 +1315,7 @@ function CommitReview({
       confirmation?.resolve(review.planId);
       onDone(!result || Array.isArray(result) ? undefined : result);
     } catch (cause) {
-      const wire = (cause as { wireError?: { code?: string; field?: string } })
-        ?.wireError;
+      const wire = (cause as { wireError?: WireError })?.wireError;
       const refused =
         (wire?.code === "conflict" &&
           [
@@ -1008,10 +1339,18 @@ function CommitReview({
       if (refused) {
         confirmation?.resolve(review.planId);
         setUnknown(false);
+        setRefusedReview(true);
+        void client.invalidateQueries({ queryKey: ["reconciliation"] });
       } else {
         setUnknown(true);
       }
-      setError(displayError(cause, t("reconciliation.error")));
+      setError(
+        completedReconciliation(wire)
+          ? t("reconciliation.readOnly")
+          : knownReconciliationConflict(wire)
+            ? t("reconciliation.changedReview")
+            : displayError(cause, t("reconciliation.error")),
+      );
     } finally {
       dispatching.current = false;
       setBusy(false);
@@ -1024,6 +1363,7 @@ function CommitReview({
           <p>{t(`reconciliation.${review.result.status}`)}</p>
           <Counts counts={review.result.counts} />
           <p>{review.result.note}</p>
+          <p>{review.result.closingNote}</p>
           {review.result.accounts?.map((a) => (
             <p key={a.accountId}>
               {a.name} · {t(`reconciliation.${a.outcome}`)}
@@ -1045,11 +1385,11 @@ function CommitReview({
                     · {t(`reconciliation.${item.outcome}`)}
                   </p>
                   <p>
-                    {[checkpointValue(t, item, true), item.referenceValue].filter(Boolean).join(" · ")}
+                    {[checkpointValue(t, item, true), item.referenceValue]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
-                  <p>
-                    {sourceText(item.source)}
-                  </p>
+                  <p>{sourceText(item.source)}</p>
                   <p>{item.note}</p>
                 </div>
               )),
@@ -1063,8 +1403,12 @@ function CommitReview({
             <p key={`effect-${j}`}>
               {t(
                 effect.money
-                  ? (effect.direction === "added" ? "history.detailAmountAdded" : "history.detailAmountRemoved")
-                  : (effect.direction === "added" ? "history.detailQuantityAdded" : "history.detailQuantityRemoved"),
+                  ? effect.direction === "added"
+                    ? "history.detailAmountAdded"
+                    : "history.detailAmountRemoved"
+                  : effect.direction === "added"
+                    ? "history.detailQuantityAdded"
+                    : "history.detailQuantityRemoved",
               )}
               : {effect.money?.amount ?? effect.quantity}{" "}
               {effect.money?.currency}{" "}
@@ -1127,9 +1471,26 @@ function CommitReview({
         </>
       )}
       <p>{t("reconciliation.explicitReview")}</p>
+      {review.action === "finish" && <p>{t("reconciliation.finishNotice")}</p>}
       {error && <p role="alert">{error}</p>}
-      <Button disabled={busy} onClick={() => void commit()}>
-        {t(unknown ? "reconciliation.retrySame" : "reconciliation.commit")}
+      <Button
+        disabled={busy}
+        aria-disabled={refusedReview || undefined}
+        onClick={() => void commit()}
+      >
+        {t(
+          unknown
+            ? "reconciliation.retrySame"
+            : review.action === "pause"
+              ? "reconciliation.pause"
+              : review.action === "resume"
+                ? "reconciliation.resume"
+                : review.action === "finish"
+                  ? "reconciliation.finish"
+                  : review.action === "start"
+                    ? "reconciliation.start"
+                    : "reconciliation.commit",
+        )}
       </Button>
     </div>
   );
@@ -1189,7 +1550,12 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
     <details>
       <summary>{t("reconciliation.linkedChanges")}</summary>
       {links.isError ? (
-        <p role="alert">{t("reconciliation.error")}</p>
+        <div role="alert">
+          <p>{t("reconciliation.error")}</p>
+          <Button variant="outline" onClick={() => void links.refetch()}>
+            {t("reconciliation.retry")}
+          </Button>
+        </div>
       ) : (
         links.data?.slice(page * 25, (page + 1) * 25).map((link, i) => {
           const evidence = link.evidence as unknown as LinkedAudit;
@@ -1208,14 +1574,13 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
                   : before?.label}
               </h4>
               <p>
-                {t("reconciliation.reviewedBefore")}: {before && checkpointValue(t, before, true)}{" "}
+                {t("reconciliation.reviewedBefore")}:{" "}
+                {before && checkpointValue(t, before, true)}{" "}
                 {before?.cost &&
                   `${t("reconciliation.unitCost")}: ${before.cost}`}
               </p>
               {sourceText(before?.source) && (
-                <p>
-                  {sourceText(before?.source)}
-                </p>
+                <p>{sourceText(before?.source)}</p>
               )}
               {after?.recordedAt && (
                 <p>
@@ -1239,10 +1604,15 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
                 <p key={j}>
                   {t(
                     effect.amount != null
-                      ? (effect.direction === "added" ? "history.detailAmountAdded" : "history.detailAmountRemoved")
-                      : (effect.direction === "added" ? "history.detailQuantityAdded" : "history.detailQuantityRemoved"),
+                      ? effect.direction === "added"
+                        ? "history.detailAmountAdded"
+                        : "history.detailAmountRemoved"
+                      : effect.direction === "added"
+                        ? "history.detailQuantityAdded"
+                        : "history.detailQuantityRemoved",
                   )}
-                  : {effect.amount ?? effect.quantity} {effect.amount ? effect.currency : ""}{" "}
+                  : {effect.amount ?? effect.quantity}{" "}
+                  {effect.amount ? effect.currency : ""}{" "}
                   {effect.unitCost &&
                     `${t("reconciliation.unitCost")}: ${effect.unitCost}`}
                 </p>
@@ -1260,6 +1630,9 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
             </article>
           );
         })
+      )}
+      {!links.isLoading && !links.isError && !links.data?.length && (
+        <p>{t("reconciliation.noLinkedChanges")}</p>
       )}
       <div className="flex gap-2">
         <Button
@@ -1281,7 +1654,13 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
   );
 }
 
-function RecentChanges({ sessionId }: { sessionId: string }) {
+function RecentChanges({
+  sessionId,
+  session,
+}: {
+  sessionId: string;
+  session: ReconciliationSession;
+}) {
   const { t } = useTranslation();
   const formatTimestamp = useReconciliationTimestamp();
   const changes = useReconciliationChanges(sessionId);
@@ -1289,8 +1668,20 @@ function RecentChanges({ sessionId }: { sessionId: string }) {
   return (
     <details>
       <summary>{t("reconciliation.recentChanges")}</summary>
+      {session.accounts
+        ?.filter((a) => !a.priorSuccessfulAt)
+        .map((a) => (
+          <p key={a.accountId}>
+            {a.name}: {t("reconciliation.firstBaseline")}
+          </p>
+        ))}
       {changes.isError ? (
-        <p role="alert">{t("reconciliation.error")}</p>
+        <div role="alert">
+          <p>{t("reconciliation.error")}</p>
+          <Button variant="outline" onClick={() => void changes.refetch()}>
+            {t("reconciliation.retry")}
+          </Button>
+        </div>
       ) : (
         changes.data?.slice(page * 25, (page + 1) * 25).map((change, i) => {
           const evidence = change.evidence as unknown as {
@@ -1303,10 +1694,29 @@ function RecentChanges({ sessionId }: { sessionId: string }) {
           };
           return (
             <p key={i} className="break-words text-sm">
-              {[evidence.accountName, evidence.productName, [evidence.amount ?? evidence.quantity, evidence.amount ? evidence.currency : ""].filter(Boolean).join(" "), `${t("reconciliation.recordedAt")}: ${formatTimestamp(change.recordedAt)}`, `${t("reconciliation.effectiveAt")}: ${formatTimestamp(change.effectiveAt)}`].filter(Boolean).join(" · ")}
+              {[
+                change.afterCompletion
+                  ? t("reconciliation.afterCompletion")
+                  : t("reconciliation.originalInterval"),
+                evidence.accountName,
+                evidence.productName,
+                [
+                  evidence.amount ?? evidence.quantity,
+                  evidence.amount ? evidence.currency : "",
+                ]
+                  .filter(Boolean)
+                  .join(" "),
+                `${t("reconciliation.recordedAt")}: ${formatTimestamp(change.recordedAt)}`,
+                `${t("reconciliation.effectiveAt")}: ${formatTimestamp(change.effectiveAt)}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           );
         })
+      )}
+      {!changes.isLoading && !changes.isError && !changes.data?.length && (
+        <p>{t("reconciliation.noChanges")}</p>
       )}
       <div className="flex gap-2">
         <Button

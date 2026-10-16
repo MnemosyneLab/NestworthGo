@@ -21,6 +21,12 @@ export function AccountReconciliation({ accountId }: { accountId: string }) {
               ? formatTimestamp(last.data.completedAt)
               : t("reconciliation.never")}
       </p>
+      {last.data?.accounts?.find((a) => a.accountId === accountId)
+        ?.recheckRequired && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("reconciliation.laterBookkeeping")}
+        </p>
+      )}
       <Button
         variant="outline"
         onClick={() => navigation?.open({ page: "reconciliation", accountId })}
@@ -38,7 +44,7 @@ export function AccountReconciliation({ accountId }: { accountId: string }) {
             })
           }
         >
-          {t("reconciliation.history")}
+          {t("reconciliation.lastRecord")}
         </Button>
       )}
     </section>

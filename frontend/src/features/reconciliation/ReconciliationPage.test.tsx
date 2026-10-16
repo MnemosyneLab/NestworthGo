@@ -1,10 +1,18 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import i18n from "@/i18n";
 import { AccountReconciliation } from "./AccountReconciliation";
+import { localDateTimeInTimeZone } from "@/lib/time";
 import { formatTimestamp } from "@/lib/time";
 import { ReconciliationPage } from "./ReconciliationPage";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
@@ -16,6 +24,8 @@ const q = vi.hoisted(() => ({
   session: undefined as ReconciliationSession | undefined,
   error: false,
   timezone: "UTC",
+  sessions: [] as ReconciliationSession[],
+  auditError: false,
   preview: vi.fn(),
   commit: vi.fn(),
   adjust: vi.fn(),
@@ -26,10 +36,12 @@ const q = vi.hoisted(() => ({
 }));
 vi.mock("@/queries/reconciliation", () => ({
   useReconciliationLastSuccess: () => ({
-    data: q.session, isError: false, isLoading: false,
+    data: q.session,
+    isError: false,
+    isLoading: false,
   }),
   useReconciliationSessions: () => ({
-    data: [],
+    data: q.sessions,
     isLoading: false,
     isError: false,
     refetch: q.refetch,
@@ -40,8 +52,16 @@ vi.mock("@/queries/reconciliation", () => ({
     isError: q.error,
     refetch: q.refetch,
   }),
-  useReconciliationLinks: () => ({ data: [], isError: false }),
-  useReconciliationChanges: () => ({ data: [], isError: false }),
+  useReconciliationLinks: () => ({
+    data: [],
+    isError: q.auditError,
+    refetch: q.refetch,
+  }),
+  useReconciliationChanges: () => ({
+    data: [],
+    isError: q.auditError,
+    refetch: q.refetch,
+  }),
   ReconciliationService: {
     Preview: q.preview,
     Commit: q.commit,
@@ -62,6 +82,9 @@ vi.mock("@/queries/accounts", () => ({
     isError: false,
     refetch: q.refetch,
   }),
+}));
+vi.mock("@/queries/history", () => ({
+  useHistoryOrigin: () => ({ data: { timezone: q.timezone } }),
 }));
 vi.mock("@/queries/settings", () => ({
   useSettings: () => ({
@@ -100,6 +123,7 @@ function session(): ReconciliationSession {
     revision: 1,
     startedAt: "2026-09-01T12:00:00Z",
     note: "",
+    closingNote: "",
     partial: false,
     counts: { pending: 2, confirmed: 0, skipped: 0, unresolved: 0 },
     accounts: [
@@ -158,6 +182,8 @@ beforeEach(async () => {
   q.session = session();
   q.error = false;
   q.timezone = "UTC";
+  q.sessions = [];
+  q.auditError = false;
   q.preview.mockResolvedValue({ planId: "review-plan", result: q.session });
   q.commit.mockResolvedValue(q.session);
   q.adjust.mockResolvedValue({ planId: "adjust-plan", changes: [] });
@@ -177,7 +203,9 @@ it("previews a selected subset and commits before entering the pending session",
   );
   expect(q.commit).not.toHaveBeenCalled();
   await userEvent.click(
-    await screen.findByRole("button", { name: "Commit reviewed result" }),
+    await screen.findByRole("button", {
+      name: /Start reconciliation|Save reviewed result|Pause|Resume|Finish session/,
+    }),
   );
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument(),
@@ -189,7 +217,9 @@ it("previews a selected subset and commits before entering the pending session",
 });
 it("uses the actual date/time controls and passes explicit source evidence with current revisions", async () => {
   mount("session-one");
-  const trigger = screen.getAllByRole("button", { name: "Review check" })[0];
+  const trigger = within(
+    screen.getByText(/Synthetic bank · Account balance/).closest("article")!,
+  ).getByRole("button", { name: "Check item" });
   await userEvent.click(trigger);
   await userEvent.type(
     screen.getByLabelText("Statement or source reference"),
@@ -226,9 +256,11 @@ it("uses the actual date/time controls and passes explicit source evidence with 
 it("links the existing Record form and direct adjustment separately without confirming either", async () => {
   const view = mount("session-one");
   await userEvent.click(
-    screen.getAllByRole("button", {
+    within(
+      screen.getByText(/Synthetic bank · Account balance/).closest("article")!,
+    ).getByRole("button", {
       name: "Record missing income, expense, buy or sell",
-    })[0],
+    }),
   );
   expect(screen.getByTestId("record-form")).toHaveTextContent(
     '"reconciliationLink":{"sessionId":"session-one","accountId":"one","itemId":"balance","expectedRevision":1,"financialRevision":12}',
@@ -274,7 +306,9 @@ it("retains an unknown commit through failed reads, guards Escape and retries th
     screen.getByRole("button", { name: "Start reconciliation" }),
   );
   await userEvent.click(
-    await screen.findByRole("button", { name: "Commit reviewed result" }),
+    await screen.findByRole("button", {
+      name: /Start reconciliation|Save reviewed result|Pause|Resume|Finish session/,
+    }),
   );
   expect(hasUnresolvedSheetConfirmation()).toBe(true);
   await userEvent.keyboard("{Escape}");
@@ -306,7 +340,9 @@ it("releases a receipt-checked expired preview for dismissal and fresh review", 
     screen.getByRole("button", { name: "Start reconciliation" }),
   );
   await userEvent.click(
-    await screen.findByRole("button", { name: "Commit reviewed result" }),
+    await screen.findByRole("button", {
+      name: /Start reconciliation|Save reviewed result|Pause|Resume|Finish session/,
+    }),
   );
   await screen.findByRole("alert");
   expect(hasUnresolvedSheetConfirmation()).toBe(false);
@@ -325,7 +361,9 @@ it("releases a receipt-checked expired preview for dismissal and fresh review", 
     screen.getByRole("button", { name: "Start reconciliation" }),
   );
   await userEvent.click(
-    await screen.findByRole("button", { name: "Commit reviewed result" }),
+    await screen.findByRole("button", {
+      name: /Start reconciliation|Save reviewed result|Pause|Resume|Finish session/,
+    }),
   );
   await waitFor(() =>
     expect(q.commit.mock.calls).toEqual([
@@ -346,7 +384,9 @@ it.each(["planId", "reviewedStateHash", undefined])(
       screen.getByRole("button", { name: "Start reconciliation" }),
     );
     await userEvent.click(
-      await screen.findByRole("button", { name: "Commit reviewed result" }),
+      await screen.findByRole("button", {
+        name: /Start reconciliation|Save reviewed result|Pause|Resume|Finish session/,
+      }),
     );
     await screen.findByRole("button", { name: "Retry same submission" });
     expect(hasUnresolvedSheetConfirmation()).toBe(true);
@@ -385,7 +425,7 @@ it.each(["en", "zh-CN", "zh-TW"])(
       status: "completed",
       completedAt: "2026-09-01T13:00:00Z",
       partial: true,
-      note: "Synthetic outstanding checks",
+      closingNote: "Synthetic outstanding checks",
     };
     q.session.accounts![0].items!.push({
       id: "product:frozen",
@@ -439,7 +479,9 @@ it.each(["mutationId", "operationId", ""])(
       screen.getByRole("button", { name: "Start reconciliation" }),
     );
     await userEvent.click(
-      await screen.findByRole("button", { name: "Commit reviewed result" }),
+      await screen.findByRole("button", {
+        name: /Start reconciliation|Save reviewed result|Pause|Resume|Finish session/,
+      }),
     );
     await screen.findByRole("button", { name: "Retry same submission" });
     expect(hasUnresolvedSheetConfirmation()).toBe(true);
@@ -471,7 +513,9 @@ async function previewProduct() {
     screen.getByRole("button", { name: "Synthetic product preview" }),
   );
   await userEvent.click(
-    await screen.findByRole("button", { name: "Commit reviewed result" }),
+    await screen.findByRole("button", {
+      name: /Start reconciliation|Save reviewed result|Pause|Resume|Finish session/,
+    }),
   );
 }
 it.each(
@@ -494,7 +538,7 @@ it.each(
     await userEvent.keyboard("{Escape}");
     await waitFor(() =>
       expect(
-        screen.queryByRole("button", { name: "Commit reviewed result" }),
+        screen.queryByRole("button", { name: "Save reviewed result" }),
       ).not.toBeInTheDocument(),
     );
     expect(
@@ -538,89 +582,393 @@ it.each([
   expect(q.commitProduct.mock.calls).toEqual([["terms-plan"], ["terms-plan"]]);
 });
 
-it.each(["a", "中", "😀"])("blocks over-budget %s fields before preview and allows valid byte bounds", async (text) => {
-  mount("session-one");
-  await userEvent.click(screen.getAllByRole("button", { name: "Review check" })[0]);
-  const preview = screen.getByRole("button", { name: "Preview" });
-  for (const [label, limit] of [["Statement or source reference", 512], ["Value shown by your source (optional)", 256], ["Explanation or note", 2000]] as const) {
-    const input = screen.getByLabelText(label);
-    const value = text.repeat(Math.floor(limit / new TextEncoder().encode(text).length));
-    fireEvent.change(input, { target: { value: value + text } });
-    expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(preview).toBeDisabled();
+it.each(["a", "中", "😀"])(
+  "blocks over-budget %s fields before preview and allows valid byte bounds",
+  async (text) => {
+    mount("session-one");
+    await userEvent.click(
+      within(
+        screen
+          .getByText(/Synthetic bank · Account balance/)
+          .closest("article")!,
+      ).getByRole("button", { name: "Check item" }),
+    );
+    const preview = screen.getByRole("button", { name: "Preview" });
+    for (const [label, limit] of [
+      ["Statement or source reference", 512],
+      ["Value shown by your source (optional)", 256],
+      ["Explanation or note", 2000],
+    ] as const) {
+      const input = screen.getByLabelText(label);
+      const value = text.repeat(
+        Math.floor(limit / new TextEncoder().encode(text).length),
+      );
+      fireEvent.change(input, { target: { value: value + text } });
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(preview).toBeDisabled();
+      await userEvent.click(preview);
+      expect(q.preview).not.toHaveBeenCalled();
+      fireEvent.change(input, { target: { value } });
+      expect(input).not.toHaveAttribute("aria-invalid", "true");
+      expect(preview).toBeEnabled();
+    }
     await userEvent.click(preview);
-    expect(q.preview).not.toHaveBeenCalled();
-    fireEvent.change(input, { target: { value } });
-    expect(input).not.toHaveAttribute("aria-invalid", "true");
-    expect(preview).toBeEnabled();
-  }
-  await userEvent.click(preview);
-  expect(q.preview).toHaveBeenCalledTimes(1);
-});
-it.each(["Asia/Tokyo", "America/Los_Angeles"])("uses configured %s for session and account completion timestamps", async (timezone) => {
-  q.timezone = timezone;
-  const hour = timezone === "Asia/Tokyo" ? "23" : "00";
-  q.session!.startedAt = `2026-09-01T${hour}:30:00Z`;
-  q.session!.completedAt = `2026-09-01T${hour}:40:00Z`;
-  q.session!.status = "completed";
-  const view = mount("session-one");
-  expect(formatTimestamp(q.session!.startedAt, q.timezone, "en")).not.toEqual(formatTimestamp(q.session!.startedAt, "UTC", "en"));
-  expect(screen.getByText(new RegExp(formatTimestamp(q.session!.startedAt, q.timezone, "en")))).toBeInTheDocument();
-  expect(screen.getByText(new RegExp(formatTimestamp(q.session!.completedAt, q.timezone, "en")))).toBeInTheDocument();
-  view.unmount();
-  render(<QueryClientProvider client={createTestQueryClient()}><AccountReconciliation accountId="one" /></QueryClientProvider>);
-  expect(screen.getByText(new RegExp(formatTimestamp(q.session!.completedAt, q.timezone, "en")))).toBeInTheDocument();
-});
+    expect(q.preview).toHaveBeenCalledTimes(1);
+  },
+);
+it.each(["Asia/Tokyo", "America/Los_Angeles"])(
+  "uses configured %s for session and account completion timestamps",
+  async (timezone) => {
+    q.timezone = timezone;
+    const hour = timezone === "Asia/Tokyo" ? "23" : "00";
+    q.session!.startedAt = `2026-09-01T${hour}:30:00Z`;
+    q.session!.completedAt = `2026-09-01T${hour}:40:00Z`;
+    q.session!.status = "completed";
+    const view = mount("session-one");
+    expect(formatTimestamp(q.session!.startedAt, q.timezone, "en")).not.toEqual(
+      formatTimestamp(q.session!.startedAt, "UTC", "en"),
+    );
+    expect(
+      screen.getByText(
+        new RegExp(formatTimestamp(q.session!.startedAt, q.timezone, "en")),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        new RegExp(formatTimestamp(q.session!.completedAt, q.timezone, "en")),
+      ),
+    ).toBeInTheDocument();
+    view.unmount();
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <AccountReconciliation accountId="one" />
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.getByText(
+        new RegExp(formatTimestamp(q.session!.completedAt, q.timezone, "en")),
+      ),
+    ).toBeInTheDocument();
+  },
+);
 
-it.each(["en", "zh-CN", "zh-TW"])("identifies missing source evidence inline and clears corrected errors in %s", async (language) => {
-  await i18n.changeLanguage(language);
-  q.preview.mockRejectedValueOnce(Object.assign(new Error("Source: Check this field and try again."), { wireError: { code: "validation", field: "source", message: "confirmation requires a user-provided source and as-of date" } }));
-  mount("session-one");
-  await userEvent.click(screen.getAllByRole("button", { name: i18n.t("reconciliation.review") })[0]);
-  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.preview") }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("reconciliation.validation.source"));
-  const reference = screen.getByLabelText(i18n.t("reconciliation.source"));
-  expect(reference).toHaveAttribute("aria-invalid", "true");
-  expect(reference).toHaveAccessibleDescription(/source|来源|來源/);
-  await userEvent.type(reference, "Synthetic statement");
-  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  expect(reference).not.toHaveAttribute("aria-invalid");
-});
+it.each(["en", "zh-CN", "zh-TW"])(
+  "identifies missing source evidence inline and clears corrected errors in %s",
+  async (language) => {
+    await i18n.changeLanguage(language);
+    q.preview.mockRejectedValueOnce(
+      Object.assign(new Error("Source: Check this field and try again."), {
+        wireError: {
+          code: "validation",
+          field: "source",
+          message:
+            "confirmation requires a user-provided source and as-of date",
+        },
+      }),
+    );
+    mount("session-one");
+    await userEvent.click(
+      screen.getAllByRole("button", {
+        name: i18n.t("reconciliation.review"),
+      })[0],
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: i18n.t("reconciliation.preview") }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      i18n.t("reconciliation.validation.source"),
+    );
+    const reference = screen.getByLabelText(i18n.t("reconciliation.source"));
+    expect(reference).toHaveAttribute("aria-invalid", "true");
+    expect(reference).toHaveAccessibleDescription(/source|来源|來源/);
+    await userEvent.type(reference, "Synthetic statement");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(reference).not.toHaveAttribute("aria-invalid");
+  },
+);
 
 it("identifies partial finish intent and closing explanation and clears stale errors", async () => {
-  q.preview.mockRejectedValueOnce(Object.assign(new Error("Check this field and try again."), { wireError: { code: "validation", field: "allowPartial", message: "partial finish requires explicit intent and a closing explanation" } }));
+  q.preview.mockRejectedValueOnce(
+    Object.assign(new Error("Check this field and try again."), {
+      wireError: {
+        code: "validation",
+        field: "allowPartial",
+        message:
+          "partial finish requires explicit intent and a closing explanation",
+      },
+    }),
+  );
   mount("session-one");
   await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("reconciliation.validation.allowPartial"));
-  const partial = screen.getByRole("checkbox", { name: "Finish partially with outstanding checks" });
-  expect(partial).toHaveAccessibleDescription(i18n.t("reconciliation.validation.allowPartial"));
-  await userEvent.type(screen.getByLabelText("Closing explanation"), "Waiting for statement");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    i18n.t("reconciliation.validation.allowPartial"),
+  );
+  const partial = screen.getByRole("checkbox", {
+    name: "Finish partially with outstanding checks",
+  });
+  expect(partial).toHaveAccessibleDescription(
+    i18n.t("reconciliation.validation.allowPartial"),
+  );
+  await userEvent.type(
+    screen.getByLabelText("Closing explanation"),
+    "Waiting for statement",
+  );
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  await userEvent.click(partial);
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
 it("shows holding quantities without quote currency in completed checkpoints, attempts and previews", async () => {
   const item = q.session!.accounts![0].items![0];
-  Object.assign(item, { kind: "holding", label: "Synthetic shares", value: "100", cost: "10", detail: { quantityUnit: "" }, checkedAt: "2026-09-01T12:00:00Z", source: { reference: "", asOfDate: "" }, outcome: "skipped" });
-  item.attempts = [{ ...item, value: "100", checkedAt: "2026-09-01T12:00:00Z", note: "Awaiting statement" }];
+  Object.assign(item, {
+    kind: "holding",
+    label: "Synthetic shares",
+    value: "100",
+    cost: "10",
+    detail: { quantityUnit: "" },
+    checkedAt: "2026-09-01T12:00:00Z",
+    source: { reference: "", asOfDate: "" },
+    outcome: "skipped",
+  });
+  item.attempts = [
+    {
+      ...item,
+      value: "100",
+      checkedAt: "2026-09-01T12:00:00Z",
+      note: "Awaiting statement",
+    },
+  ];
   const view = mount("session-one");
   const article = screen.getByText(/Synthetic shares/).closest("article")!;
-  expect(within(article).getByText("100", { selector: "p" })).toBeInTheDocument();
+  expect(
+    within(article).getByText("100", { selector: "p" }),
+  ).toBeInTheDocument();
   expect(article).not.toHaveTextContent(/100 USD|·\s*·|·\s*Checked at|·\s*$/);
   view.unmount();
   mount();
-  await userEvent.click(screen.getByRole("button", { name: "Start reconciliation" }));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Start reconciliation" }),
+  );
   const review = await screen.findByRole("dialog");
-  expect(within(review).getByText("100", { selector: "p" })).toBeInTheDocument();
+  expect(
+    within(review).getByText("100", { selector: "p" }),
+  ).toBeInTheDocument();
   expect(review).not.toHaveTextContent(/100 USD|·\s*·/);
 });
 
-
 it("preserves the canonical cash amount in the reviewed checkpoint", async () => {
   const item = q.session!.accounts![0].items![0];
-  Object.assign(item, { checkedAt: "2026-09-01T12:00:00Z", source: { reference: "Synthetic statement", asOfDate: "2026-09-01" }, outcome: "confirmed" });
+  Object.assign(item, {
+    checkedAt: "2026-09-01T12:00:00Z",
+    source: { reference: "Synthetic statement", asOfDate: "2026-09-01" },
+    outcome: "confirmed",
+  });
   mount("session-one");
-  await userEvent.click(screen.getAllByRole("button", { name: "Review check" })[0]);
+  await userEvent.click(
+    within(
+      screen.getByText(/Synthetic bank · Account balance/).closest("article")!,
+    ).getByRole("button", { name: "Check item" }),
+  );
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
-  expect(await screen.findByText("100.001 USD", { selector: "p" })).toBeInTheDocument();
+  expect(
+    await screen.findByText("100.001 USD", { selector: "p" }),
+  ).toBeInTheDocument();
+});
+
+it("puts unfinished Continue and omission entry first without confirming anything", async () => {
+  q.sessions = [
+    { ...session(), accountIds: ["one"], accountNames: ["Synthetic bank"] },
+  ];
+  mount();
+  expect(screen.getByText(/An unfinished session/)).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Continue session" }),
+  );
+  expect(q.preview).not.toHaveBeenCalled();
+  const articles = screen.getAllByRole("article");
+  expect(articles[0]).toHaveTextContent("Anything missing?");
+  await userEvent.click(
+    within(articles[0]).getByRole("button", {
+      name: "Record missing income, expense, buy or sell",
+    }),
+  );
+  expect(screen.getByTestId("record-form")).toHaveTextContent(
+    '"itemId":"scope"',
+  );
+  expect(q.preview).not.toHaveBeenCalled();
+});
+
+it("defaults a missing holding transaction to trade with the selected holding", async () => {
+  const item = q.session!.accounts![0].items![0];
+  Object.assign(item, {
+    kind: "holding",
+    holdingId: "held-one",
+    label: "Synthetic shares",
+  });
+  mount("session-one");
+  const article = screen.getByText(/Synthetic shares/).closest("article")!;
+  await userEvent.click(
+    within(article).getByRole("button", {
+      name: "Record missing income, expense, buy or sell",
+    }),
+  );
+  expect(screen.getByTestId("record-form")).toHaveTextContent('"kind":"trade"');
+  expect(screen.getByTestId("record-form")).toHaveTextContent(
+    '"holdingId":"held-one"',
+  );
+  expect(screen.getByTestId("record-form")).toHaveTextContent('"side":"buy"');
+});
+
+it("shows comparable numeric differences without changing the selected outcome", async () => {
+  q.session!.accounts![0].items![0].source.asOfDate =
+    localDateTimeInTimeZone("UTC")!.date;
+  mount("session-one");
+  await userEvent.click(
+    within(
+      screen.getByText(/Synthetic bank · Account balance/).closest("article")!,
+    ).getByRole("button", { name: "Check item" }),
+  );
+  await userEvent.type(
+    screen.getByLabelText("Value shown by your source (optional)"),
+    "99",
+  );
+  expect(
+    screen.queryByText(/Source and ledger values differ/),
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Compare: same units, currency and current as-of basis",
+    }),
+  );
+  expect(
+    screen.getByText(/Source and ledger values differ/),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Check outcome")).toHaveValue("confirmed");
+  expect(q.preview).not.toHaveBeenCalled();
+});
+
+it("refreshes proven revision conflicts and requires a fresh review", async () => {
+  q.commit.mockRejectedValueOnce({
+    wireError: {
+      code: "conflict",
+      field: "financialRevision",
+      message: "evidence changed",
+    },
+  });
+  const client = createTestQueryClient();
+  const invalidate = vi.spyOn(client, "invalidateQueries");
+  render(
+    <QueryClientProvider client={client}>
+      <ReconciliationPage />
+    </QueryClientProvider>,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Start reconciliation" }),
+  );
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Start reconciliation" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /Close this review/,
+  );
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["reconciliation"] });
+  expect(hasUnresolvedSheetConfirmation()).toBe(false);
+  expect(
+    screen.getByRole("button", { name: "Start reconciliation" }),
+  ).toHaveAttribute("aria-disabled", "true");
+  expect(q.commit).toHaveBeenCalledTimes(1);
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+});
+
+it("keeps removed evidence and hides correction actions, and names audit Retry buttons", async () => {
+  const item = q.session!.accounts![0].items![0];
+  item.kind = "removed";
+  item.note = "Historical evidence retained";
+  q.auditError = true;
+  mount("session-one");
+  const article = screen
+    .getByText(/Synthetic bank · Removed from current scope/)
+    .closest("article")!;
+  expect(article).toHaveTextContent("Historical evidence retained");
+  expect(
+    within(article).queryByRole("button", {
+      name: "Record missing income, expense, buy or sell",
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    within(article).getByRole("button", { name: "Check item" }),
+  ).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByText("Linked corrections", { selector: "summary" }),
+  );
+  await userEvent.click(
+    screen.getByText("Changes since prior successful check", {
+      selector: "summary",
+    }),
+  );
+  for (const button of screen.getAllByRole("button", {
+    name: i18n.t("reconciliation.retry"),
+  })) {
+    await userEvent.click(button);
+  }
+  expect(q.refetch).toHaveBeenCalledTimes(2);
+});
+
+it("shows historical last success with neutral later-bookkeeping text", () => {
+  q.session!.status = "completed";
+  q.session!.completedAt = "2026-09-01T13:00:00Z";
+  q.session!.accounts![0].recheckRequired = true;
+  render(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <AccountReconciliation accountId="one" />
+    </QueryClientProvider>,
+  );
+  expect(
+    screen.getByText(/Bookkeeping has changed since this successful check/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "View last successful record" }),
+  ).toBeInTheDocument();
+});
+
+it("names added-unit and whole-holding costs precisely and retains an unfixed choice error", async () => {
+  const item = q.session!.accounts![0].items![0];
+  Object.assign(item, {
+    kind: "holding",
+    holdingId: "held-one",
+    label: "Synthetic shares",
+    value: "2",
+    cost: "10",
+  });
+  q.adjust.mockRejectedValueOnce({
+    wireError: {
+      code: "cost_basis_required",
+      field: "targets[0].unitCost",
+      message: "choose cost",
+    },
+  });
+  mount("session-one");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Correct current balance or holding" }),
+  );
+  const target = screen.getByLabelText("Target balance or quantity");
+  fireEvent.change(target, { target: { value: "3" } });
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  const unit = screen.getByLabelText("Added units: cost per unit");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /enter exactly one/,
+  );
+  expect(unit).toHaveAttribute("aria-invalid", "true");
+  fireEvent.change(unit, { target: { value: "" } });
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  fireEvent.change(
+    screen.getByLabelText("Entire remaining holding: total cost"),
+    { target: { value: "30" } },
+  );
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(unit).not.toHaveAttribute("aria-invalid");
 });

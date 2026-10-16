@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +20,6 @@ import (
 type Service struct {
 	products    preview.Store[productPlan]
 	app         *application.Service
-	sessions    preview.Store[application.ReconciliationSessionPlan]
 	adjustments preview.Store[adjustmentPlan]
 }
 
@@ -124,18 +124,18 @@ func (s *Service) PreviewAdjustment(ctx context.Context, in AdjustmentRequest) (
 		if in.UnitCost != "" {
 			q, e := domain.ParseUnitPrice(in.UnitCost)
 			if e != nil {
-				return AdjustmentPreview{}, apierror.Wrap(e)
+				return AdjustmentPreview{}, adjustmentFieldError("unitCost", e)
 			}
 			target.UnitCost = &q
 		}
 		if in.TotalCost != "" {
 			currency, e := domain.ParseSupportedCurrency(in.Currency)
 			if e != nil {
-				return AdjustmentPreview{}, apierror.Wrap(e)
+				return AdjustmentPreview{}, adjustmentFieldError("totalCost", e)
 			}
 			m, e := domain.ParseMoney(in.TotalCost, currency)
 			if e != nil {
-				return AdjustmentPreview{}, apierror.Wrap(e)
+				return AdjustmentPreview{}, adjustmentFieldError("totalCost", e)
 			}
 			target.TargetTotalCost = &m
 		}
@@ -223,4 +223,16 @@ func (s *Service) CommitAdjustment(ctx context.Context, id string) ([]wire.Chang
 func (s *Service) Changes(ctx context.Context, id, account string) ([]domain.ReconciliationFinancialChange, error) {
 	v, e := s.app.ReconciliationChanges(ctx, id, account)
 	return v, apierror.Wrap(e)
+}
+
+// Parsing domain primitives names their value type; the adapter names the
+// reviewed form field so the shared field-error contract remains actionable.
+func adjustmentFieldError(field string, err error) error {
+	var de *domain.Error
+	if errors.As(err, &de) {
+		copy := *de
+		copy.Field = field
+		return apierror.Wrap(&copy)
+	}
+	return apierror.Wrap(err)
 }

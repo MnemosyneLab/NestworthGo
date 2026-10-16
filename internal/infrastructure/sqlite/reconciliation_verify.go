@@ -43,7 +43,7 @@ func verifyReconciliationSchema(ctx context.Context, query schemaQuery, version 
 			return strings.ReplaceAll(strings.ReplaceAll(strings.Join(strings.Fields(strings.TrimSuffix(strings.TrimSpace(s), ";")), " "), " ,", ","), " )", ")")
 		}
 		if normalize(stored) != normalize("CREATE "+statement) {
-			return fmt.Errorf("invalid reconciliation schema %s: stored %s expected %s", name, normalize(stored), normalize("CREATE "+statement))
+			return fmt.Errorf("invalid reconciliation schema %s", name)
 		}
 	}
 	var invalid int

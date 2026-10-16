@@ -89,3 +89,14 @@ review. A completed session is immutable; changed current facts are a separate
 recheck projection. Pause/resume preserves progress across App restart. Desktop
 confirmation plans are in memory; a lost desktop plan remains an unknown outcome
 until the saved session and financial receipts are inspected.
+
+
+Production MCP plans and operations are stored in the connected App's SQLite
+configuration. File paths describe only legacy/test storage. Succeeded operation
+receipts replay without their plan. Missing bodies for pending/unknown commits
+remain operation_outcome_unknown unless non-submission is proven; do not turn
+that state into a new intent or repeatedly retry automatically. Reconciliation
+session and target-adjustment business receipts may resolve a lost body on an
+explicit identical retry. Unknown plan IDs never execute. A new plan after a
+revision change is a distinct reviewed intent; changing an outer operation UUID
+alone does not establish duplicate execution.
