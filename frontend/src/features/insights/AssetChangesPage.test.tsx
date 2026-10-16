@@ -10,6 +10,8 @@ import { AssetChangesPage } from "./AssetChangesPage";
 
 const assetChange = vi.fn();
 const assetDriverDetail = vi.fn();
+const categories = vi.fn();
+const categoryDetail = vi.fn();
 const historyOrigin = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis", () => ({
@@ -17,8 +19,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/an
     AssetChange: (...args: unknown[]) => assetChange(...args),
     AssetDriverDetail: (...args: unknown[]) => assetDriverDetail(...args),
     AssetTrend: vi.fn(),
-    Categories: vi.fn(),
-    CategoryDetail: vi.fn(),
+    Categories: (...args: unknown[]) => categories(...args),
+    CategoryDetail: (...args: unknown[]) => categoryDetail(...args),
     ReturnCalendar: vi.fn(),
     ReturnDay: vi.fn(),
     ReturnTrend: vi.fn(),
@@ -48,7 +50,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/di
   Service: { ListMembers: () => Promise.resolve([]) },
 }));
 
-function renderPage(props: { onOpenHistory?: (filters: { from?: string; to?: string; accountId?: string; instrumentId?: string }) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void } = {}) {
+function renderPage(props: { onOpenHistory?: (filters: { from?: string; to?: string; accountId?: string; instrumentId?: string }, activityId?: string) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void } = {}) {
   const queryClient = createTestQueryClient();
   const view = render(<QueryClientProvider client={queryClient}><AssetChangesPage {...props} /></QueryClientProvider>);
   return { queryClient, ...view };
@@ -62,6 +64,8 @@ describe("AssetChangesPage", () => {
     historyOrigin.mockReset();
     assetChange.mockReset();
     assetDriverDetail.mockReset();
+    categories.mockReset();
+    categoryDetail.mockReset();
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     assetChange.mockResolvedValue({
       summary: {
@@ -173,6 +177,19 @@ describe("AssetChangesPage", () => {
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
+  });
+
+  it("passes a category record ID separately from its History list filters", async () => {
+    useAnalysisStore.getState().setAssetView({ tab: "categories" });
+    categories.mockResolvedValue({ available: true, status: "ok", rows: [{ key: "groceries", label: "Groceries", amount: { amount: "-25", currency: "USD" } }] });
+    categoryDetail.mockResolvedValue({ available: true, status: "ok", activityRefs: [{ activityId: "activity-exact", date: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1", amount: { amount: "-25", currency: "USD" } }] });
+    const onOpenHistory = vi.fn();
+    const user = userEvent.setup();
+    renderPage({ onOpenHistory });
+    await user.click(await screen.findByRole("button", { name: /Groceries/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(await within(dialog).findByRole("button", { name: "View in History" }));
+    expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" }, "activity-exact");
   });
 
   it("opens Contribution from a Price Change driver with the shared analysis window", async () => {

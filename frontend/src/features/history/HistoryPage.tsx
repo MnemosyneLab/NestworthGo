@@ -2,7 +2,7 @@ import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { originLocalDate } from "@/features/insights/analysisRequest";
 import { ymdInTimeZone } from "@/features/insights/calendar";
 import { useMarketDataHealth } from "@/queries/marketdata";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -49,7 +49,7 @@ import type { HistoryNavigationFilters } from "@/app/navigation";
 
 const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_dividend", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment"];
 
-function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigationFilters }) {
+function Timeline({ navigationFilters, navigationActivityId, navigationRequestId, onFiltersChange, onNavigationActivityClose }: { navigationFilters?: HistoryNavigationFilters; navigationActivityId?: string; navigationRequestId?: number; onFiltersChange?: (filters: HistoryNavigationFilters) => void; onNavigationActivityClose?: () => void }) {
   const { t } = useTranslation();
   const accounts = useAccounts({ includeArchived: true });
   const instruments = useInstruments(true);
@@ -70,12 +70,26 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
   const setDetailTarget = (next: ActivityDTO | null) => { if (!hasUnresolvedSheetConfirmation()) setDetailTargetState(next); };
   const [repeatFromDetail, setRepeatFromDetail] = useState(false);
   const [detailTrigger, setDetailTrigger] = useState<HTMLButtonElement | null>(null);
+  const focusedActivity = useActivity(navigationActivityId ?? "");
+  const handledFocusRequest = useRef(0);
+  useEffect(() => {
+    if (navigationRequestId && handledFocusRequest.current !== navigationRequestId) setDetailTargetState(null);
+  }, [navigationRequestId]);
+  useEffect(() => {
+    if (!navigationRequestId || handledFocusRequest.current === navigationRequestId || !navigationActivityId || focusedActivity.data?.id !== navigationActivityId) return;
+    handledFocusRequest.current = navigationRequestId;
+    setDetailTrigger(null);
+    setDetailTargetState(focusedActivity.data);
+  }, [navigationActivityId, navigationRequestId, focusedActivity.data]);
   const [kindFilter, setKindFilter] = useState(navigationFilters?.kinds?.[0] ?? "");
   const [accountFilter, setAccountFilter] = useState(navigationFilters?.accountId ?? "");
   const [instrumentFilter, setInstrumentFilter] = useState(navigationFilters?.instrumentId ?? "");
-  const selectionLabels = instrumentSelectionLabels((instruments.data ?? []).filter((instrument) => !instrument.archivedAt || instrument.id === instrumentFilter));
+  const selectionLabels = instrumentSelectionLabels(instruments.data ?? []);
   const [fromLocalDate, setFromLocalDate] = useState(navigationFilters?.from ?? "");
   const [toLocalDate, setToLocalDate] = useState(navigationFilters?.to ?? "");
+  useEffect(() => {
+    onFiltersChange?.({ kinds: kindFilter ? [kindFilter] : undefined, accountId: accountFilter || undefined, instrumentId: instrumentFilter || undefined, from: fromLocalDate || undefined, to: toLocalDate || undefined });
+  }, [kindFilter, accountFilter, instrumentFilter, fromLocalDate, toLocalDate, onFiltersChange]);
   const today = ymdInTimeZone(new Date(), origin.data?.timezone);
   const originDate = origin.data?.startedAt ? originLocalDate(origin.data.startedAt, origin.data.timezone) : undefined;
   const originalActivity = useActivity(detailTarget?.reversesActivityId ?? "");
@@ -152,14 +166,14 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
             <Label htmlFor="history-filter-account">{t("history.filterAccount")}</Label>
             <NativeSelect id="history-filter-account" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
               <option value="">{t("history.filterAll")}</option>
-              {(accounts.data ?? []).filter((record) => !record.account.archivedAt || record.account.id === accountFilter).map((record) => <option key={record.account.id} value={record.account.id}>{record.account.name}{record.account.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
+              {(accounts.data ?? []).map((record) => <option key={record.account.id} value={record.account.id}>{record.account.name}{record.account.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
             </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="history-filter-instrument">{t("history.filterInstrument")}</Label>
             <NativeSelect id="history-filter-instrument" value={instrumentFilter} onChange={(event) => setInstrumentFilter(event.target.value)}>
               <option value="">{t("history.filterAll")}</option>
-              {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt || instrument.id === instrumentFilter).map((instrument) => <option key={instrument.id} value={instrument.id}>{selectionLabels.get(instrument.id) ?? instrument.name}{instrument.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
+              {(instruments.data ?? []).map((instrument) => <option key={instrument.id} value={instrument.id}>{selectionLabels.get(instrument.id) ?? instrument.name}{instrument.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
             </NativeSelect>
           </div>
         </div>
@@ -184,6 +198,9 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
         </div>
         {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="self-end" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
       </section>
+      {navigationActivityId && (focusedActivity.isError || (focusedActivity.isSuccess && !focusedActivity.data)) && (
+        <ErrorState title={t("history.loadError")} description={t("ui.state.errorDescription")} onRetry={() => focusedActivity.refetch()} retryLabel={t("common.retryAction")} />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{t("history.activityKind")}</p>
         <PageChrome
@@ -337,7 +354,8 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
         holdings={holdingNames}
         originalActivity={originalActivity.data}
         originalActivityLoading={originalActivity.isLoading}
-        onClose={() => setDetailTarget(null)}
+        finalFocus={() => detailTrigger?.isConnected ? detailTrigger : document.getElementById("history-filter-kind") ?? document.getElementById("main-content")}
+        onClose={() => { setDetailTarget(null); onNavigationActivityClose?.(); }}
         onRepeat={() => { if (detailTarget?.repeatEligible && activityToRepeatDraft(detailTarget)) { setRepeatFromDetail(true); setRepeatTarget(detailTarget); setDetailTarget(null); } }}
         t={t}
       />
@@ -350,7 +368,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
  * Fix through HistoryService. Mutating actions keep the append-only history
  * contract visible to the user and never expose backend enum identifiers.
  */
-export function HistoryPage({ navigationFilters }: { navigationFilters?: HistoryNavigationFilters }) {
+export function HistoryPage({ navigationFilters, navigationActivityId, navigationRequestId, onFiltersChange, onNavigationActivityClose }: { navigationFilters?: HistoryNavigationFilters; navigationActivityId?: string; navigationRequestId?: number; onFiltersChange?: (filters: HistoryNavigationFilters) => void; onNavigationActivityClose?: () => void }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
   const snapshotState = useDailySnapshotState();
@@ -393,7 +411,7 @@ export function HistoryPage({ navigationFilters }: { navigationFilters?: History
               {t("history.settingsTimezoneDiff", { origin: origin.data.timezone, presentation: resolvedTimeZone(settings.data.timezone) })}
             </p>
           )}
-          <Timeline key={JSON.stringify(navigationFilters ?? {})} navigationFilters={navigationFilters} />
+          <Timeline key={navigationRequestId || JSON.stringify(navigationFilters ?? {})} navigationFilters={navigationFilters} navigationActivityId={navigationActivityId} navigationRequestId={navigationRequestId} onFiltersChange={onFiltersChange} onNavigationActivityClose={onNavigationActivityClose} />
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3" aria-label={t("history.snapshotHealth")}>
             <div className="flex flex-col gap-1 text-sm">
               <p className="font-medium">{t("history.snapshotHealth")}</p>

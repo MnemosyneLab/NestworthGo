@@ -332,6 +332,15 @@ additional filters. An empty period on the first local day remains empty and
 does not store a reversed date range. Calendar month/year mode stays local to
 the mounted Return Analysis page.
 
+History navigation may carry an Activity ID alongside date, account, instrument,
+and kind filters. The ID opens that exact Activity through the authoritative
+read even when the record is outside the first filtered page or has since been
+corrected or reversed; closing the detail returns to the list filters. History
+filter choices include archived accounts and instruments for read-only lookup,
+while new-record forms retain their separate eligibility rules. The page
+reports its current filters to the navigation trail so returning after an
+object drill-down restores user edits rather than the original entry filters.
+
 ## Metals and crypto
 
 Schema 11 adds optional metal-template and quantity-unit metadata. Existing

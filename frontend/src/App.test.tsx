@@ -392,6 +392,19 @@ describe("App shell smoke test", () => {
     expect(screen.getByText(i18n.t("portfolio.noHoldingsAccount"))).not.toBeVisible();
   });
 
+  it("returns from market health to market data with the navigation trail intact", async () => {
+    await i18n.changeLanguage("en");
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.marketData") }));
+    expect(await screen.findByTestId("data-health-indicator")).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("data-health-indicator"));
+    expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Market data" }));
+    expect(await screen.findByTestId("data-health-indicator")).toBeInTheDocument();
+  });
+
   it("opens the Available funds page from the workspace nav", async () => {
     await i18n.changeLanguage("en");
     render(<AppProviders><App /></AppProviders>);

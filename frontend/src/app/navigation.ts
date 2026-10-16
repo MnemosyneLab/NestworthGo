@@ -91,7 +91,7 @@ export type NavigationTarget =
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "reconciliation"; accountId?: string; sessionId?: string }
-  | { page: "history"; filters?: HistoryNavigationFilters }
+  | { page: "history"; filters?: HistoryNavigationFilters; activityId?: string }
   | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
   | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }

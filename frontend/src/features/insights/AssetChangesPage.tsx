@@ -12,7 +12,7 @@ import { useAnalysisStore } from "@/stores/analysis";
 import { useHistoryOrigin } from "@/queries/history";
 import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
 
-export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
+export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOpenHistory?: (filters: HistoryNavigationFilters, activityId?: string) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
   const session = useAnalysisStore();
   const setFilters = useAnalysisStore((state) => state.setFilters);

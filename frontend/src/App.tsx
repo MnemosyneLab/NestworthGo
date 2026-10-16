@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useRef, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, useRef, type ReactNode } from "react";
 import { AppShell, DEFAULT_PAGE_ID } from "@/app/AppShell";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OverviewPage } from "@/features/overview/OverviewPage";
@@ -53,6 +53,10 @@ function App() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [reconciliationFocus,setReconciliationFocus]=useState<{accountId?:string;sessionId?:string}>({});
   const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
+  const [historyActivityId, setHistoryActivityId] = useState<string>();
+  const [historyRequestId, setHistoryRequestId] = useState(0);
+  const nextHistoryRequestId = useRef(0);
+  const handleHistoryFiltersChange = useCallback((filters: HistoryNavigationFilters) => setHistoryFilters(filters), []);
   const [accountFilter, setAccountFilter] = useState<AccountListFocus>();
   const [updateValue, setUpdateValue] = useState(false);
   const [healthFocus, setHealthFocus] = useState<HealthFocus>();
@@ -65,7 +69,7 @@ function App() {
   const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
   const [liquidityRequestId, setLiquidityRequestId] = useState(0);
   const nextLiquidityRequestId = useRef(0);
-  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
+  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
   const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
@@ -147,6 +151,8 @@ function App() {
     }
     if (navigation.page === "history") {
       setHistoryFilters(navigation.filters);
+      setHistoryActivityId(navigation.activityId);
+      setHistoryRequestId(++nextHistoryRequestId.current);
     }
     if (navigation.page === "return-analysis") {
       if (navigation.analysis) useAnalysisStore.getState().replaceFilters(navigation.analysis);
@@ -163,7 +169,7 @@ function App() {
     if (target.page === "available-funds" && target.page === activePageId) { handleNavigate(target, true); return; }
     setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
-      focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
+      focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
     handleNavigate(target, true);
   };
   const openHealth = (focus: HealthFocus) => {
@@ -177,7 +183,7 @@ function App() {
     const previous = trail[trail.length - 1];
     if (!previous) return;
     restorePosition.current = previous;
-    useAnalysisStore.setState(previous.analysis); setHistoryFilters(previous.history);
+    useAnalysisStore.setState(previous.analysis); setHistoryFilters(previous.history); setHistoryActivityId(previous.historyActivityId); setHistoryRequestId(previous.historyRequestId ?? 0);
     setSelectedAccountId(previous.accountId); setAccountFilter(previous.filter); setUpdateValue(false);
     setHealthFocus(previous.health); setMarketFocus(previous.market);
     setLiquidityProductId(previous.liquidityProduct); setLiquidityAccountId(previous.liquidityAccount); setLiquidityFocus(previous.liquidityFocus); setLiquidityRequestId(previous.liquidityRequest ?? 0);
@@ -232,7 +238,7 @@ function App() {
       )}
       {activePageId === "market-data" && (
         <WorkspaceLazy>
-          <MarketDataPage key={JSON.stringify(marketFocus)} focus={marketFocus} onOpenDataHealth={() => handleNavigate("data-health")} />
+          <MarketDataPage key={JSON.stringify(marketFocus)} focus={marketFocus} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
         </WorkspaceLazy>
       )}
       {retained("data-health") && (
@@ -240,7 +246,7 @@ function App() {
         <WorkspaceLazy>
           <DataHealthPage focus={healthFocus}
             onOpenSettings={() => handleNavigate("settings")}
-            onOpenMarketData={() => handleNavigate("market-data")}
+            onOpenMarketData={() => open({ page: "market-data", focus: healthFocus })}
           />
         </WorkspaceLazy>
         </div>
@@ -256,7 +262,7 @@ function App() {
       }} /></WorkspaceLazy></div>}
       {activePageId === "history" && (
         <WorkspaceLazy>
-          <HistoryPage navigationFilters={historyFilters} />
+          <HistoryPage navigationFilters={historyFilters} navigationActivityId={historyActivityId} navigationRequestId={historyRequestId} onFiltersChange={handleHistoryFiltersChange} onNavigationActivityClose={() => setHistoryActivityId(undefined)} />
         </WorkspaceLazy>
       )}
       {retained("return-analysis") && (
@@ -269,7 +275,7 @@ function App() {
       {retained("asset-changes") && (
         <div hidden={activePageId !== "asset-changes"}>
         <WorkspaceLazy>
-          <AssetChangesPage onOpenHistory={(filters) => open({ page: "history", filters })} onOpenReturnAnalysis={(analysis) => open({ page: "return-analysis", tab: "contribution", analysis })} />
+          <AssetChangesPage onOpenHistory={(filters, activityId) => open({ page: "history", filters, activityId })} onOpenReturnAnalysis={(analysis) => open({ page: "return-analysis", tab: "contribution", analysis })} />
         </WorkspaceLazy>
         </div>
       )}
