@@ -1,0 +1,881 @@
+CREATE TABLE households (
+    id TEXT PRIMARY KEY NOT NULL,
+    singleton_key INTEGER NOT NULL DEFAULT 1 UNIQUE CHECK(singleton_key = 1),
+    name TEXT NOT NULL,
+    base_currency TEXT NOT NULL CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]'),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE members (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    icon_key TEXT NOT NULL,
+    note TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_members_household ON members(household_id);
+CREATE TABLE institutions (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    institution_type TEXT NOT NULL CHECK(institution_type IN ('bank','brokerage','insurer','exchange','employer','government','other')),
+    country_code TEXT,
+    website TEXT,
+    note TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    icon_key TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_institutions_household ON institutions(household_id);
+CREATE TABLE account_groups (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    icon_key TEXT NOT NULL,
+    color TEXT,
+    description TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_groups_household ON account_groups(household_id);
+CREATE TABLE accounts (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    institution_id TEXT,
+    group_id TEXT,
+    name TEXT NOT NULL,
+    account_type TEXT NOT NULL CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other')),
+    balance_sheet_role TEXT NOT NULL CHECK(balance_sheet_role IN ('asset','liability')),
+    tracking_mode TEXT NOT NULL CHECK(tracking_mode IN ('balance','manual_value','holdings')),
+    default_currency TEXT NOT NULL CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]'),
+    note TEXT,
+    include_in_net_worth INTEGER NOT NULL DEFAULT 1 CHECK(include_in_net_worth IN (0,1)),
+    include_in_portfolio INTEGER NOT NULL DEFAULT 0 CHECK(include_in_portfolio IN (0,1)),
+    include_in_liquid_assets INTEGER NOT NULL DEFAULT 0 CHECK(include_in_liquid_assets IN (0,1)),
+    opened_on TEXT,
+    closed_on TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    icon_key TEXT NOT NULL,
+    CHECK(
+        (account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')) OR
+        (account_type = 'bank_account' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')) OR
+        (account_type = 'brokerage' AND balance_sheet_role = 'asset' AND tracking_mode IN ('holdings','manual_value')) OR
+        (account_type = 'investment_account' AND balance_sheet_role = 'asset' AND tracking_mode IN ('holdings','manual_value')) OR
+        (account_type = 'crypto_exchange' AND balance_sheet_role = 'asset' AND tracking_mode = 'holdings') OR
+        (account_type = 'digital_wallet' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')) OR
+        (account_type = 'pension' AND balance_sheet_role = 'asset' AND tracking_mode IN ('holdings','manual_value')) OR
+        (account_type = 'insurance_policy' AND balance_sheet_role = 'asset' AND tracking_mode = 'manual_value') OR
+        (account_type = 'property' AND balance_sheet_role = 'asset' AND tracking_mode = 'manual_value') OR
+        (account_type = 'vehicle' AND balance_sheet_role = 'asset' AND tracking_mode = 'manual_value') OR
+        (account_type = 'collectible' AND balance_sheet_role = 'asset' AND tracking_mode = 'manual_value') OR
+        (account_type = 'receivable' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','manual_value')) OR
+        (account_type = 'credit_card' AND balance_sheet_role = 'liability' AND tracking_mode = 'balance') OR
+        (account_type = 'loan' AND balance_sheet_role = 'liability' AND tracking_mode = 'balance') OR
+        (account_type = 'other' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','manual_value','holdings')) OR
+        (account_type = 'other' AND balance_sheet_role = 'liability' AND tracking_mode = 'balance')
+    ),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
+    FOREIGN KEY(institution_id) REFERENCES institutions(id) ON DELETE SET NULL,
+    FOREIGN KEY(group_id) REFERENCES account_groups(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_accounts_household ON accounts(household_id);
+CREATE INDEX idx_accounts_institution ON accounts(institution_id);
+CREATE INDEX idx_accounts_group ON accounts(group_id);
+CREATE INDEX idx_accounts_type ON accounts(account_type);
+CREATE TABLE account_ownership (
+    account_id TEXT NOT NULL,
+    member_id TEXT NOT NULL,
+    share_bps INTEGER NOT NULL CHECK(share_bps > 0 AND share_bps <= 10000),
+    PRIMARY KEY(account_id, member_id),
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_ownership_member ON account_ownership(member_id);
+CREATE TABLE account_values (
+    id TEXT PRIMARY KEY NOT NULL,
+    account_id TEXT NOT NULL,
+    value_kind TEXT NOT NULL CHECK(value_kind IN ('balance','manual_value')),
+    amount TEXT NOT NULL,
+    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
+    effective_at TEXT NOT NULL,
+    created_at TEXT NOT NULL, activity_effect_id TEXT, projection_kind TEXT NOT NULL DEFAULT 'baseline' CHECK(projection_kind IN ('baseline','event','replay')),
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_account_values_latest ON account_values(account_id, effective_at DESC, created_at DESC, id DESC);
+CREATE TABLE instruments (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    instrument_type TEXT NOT NULL CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other')),
+    quote_currency TEXT NOT NULL CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]'),
+    symbol TEXT,
+    market_code TEXT,
+    country_code TEXT CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]'),
+    isin TEXT,
+    note TEXT,
+    icon_key TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    quote_source TEXT NOT NULL DEFAULT 'manual' CHECK(quote_source IN ('manual','provider','agent')),
+    provider_key TEXT,
+    provider_symbol TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    metal_template TEXT NOT NULL DEFAULT '',
+    quantity_unit TEXT NOT NULL DEFAULT '',
+    short_name TEXT NOT NULL DEFAULT '',
+    CHECK(quote_source <> 'provider' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL)),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_instruments_household ON instruments(household_id);
+CREATE INDEX idx_instruments_quote_source ON instruments(household_id, quote_source, archived_at);
+CREATE UNIQUE INDEX ux_instruments_active_provider_binding ON instruments(household_id, provider_key, provider_symbol) WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL AND metal_template = '';
+CREATE UNIQUE INDEX ux_instruments_active_metal_binding ON instruments(household_id, provider_key, provider_symbol, quote_currency, quantity_unit) WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL AND metal_template <> '';
+CREATE TABLE holdings (
+    id TEXT PRIMARY KEY NOT NULL,
+    account_id TEXT NOT NULL,
+    instrument_id TEXT NOT NULL,
+    quantity TEXT NOT NULL,
+    note TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_holdings_account ON holdings(account_id, archived_at, sort_order, id);
+CREATE INDEX idx_holdings_instrument ON holdings(instrument_id, archived_at);
+CREATE UNIQUE INDEX ux_holdings_active_account_instrument ON holdings(account_id, instrument_id) WHERE archived_at IS NULL;
+CREATE TABLE account_cash_values (
+    id TEXT PRIMARY KEY NOT NULL,
+    account_id TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
+    effective_at TEXT NOT NULL,
+    created_at TEXT NOT NULL, activity_effect_id TEXT, projection_kind TEXT NOT NULL DEFAULT 'baseline' CHECK(projection_kind IN ('baseline','event','replay')),
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_account_cash_latest ON account_cash_values(account_id, currency, effective_at DESC, created_at DESC, id DESC);
+CREATE TABLE instrument_quotes (
+    id TEXT PRIMARY KEY NOT NULL,
+    instrument_id TEXT NOT NULL,
+    unit_price TEXT NOT NULL,
+    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
+    source_key TEXT NOT NULL,
+    quoted_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    delayed INTEGER NOT NULL DEFAULT 0 CHECK(delayed IN (0,1)),
+    observation_kind TEXT NOT NULL DEFAULT '',
+    effective_date TEXT,
+    provider_timestamp TEXT,
+    fetched_at TEXT,
+    value_effective_at TEXT,
+    binding_revision INTEGER,
+    source_policy_version TEXT,
+    price_basis TEXT,
+    timestamp_basis TEXT,
+    revision INTEGER NOT NULL DEFAULT 1,
+    supersedes_quote_id TEXT,
+    split_factor TEXT,
+    dividend_cash TEXT,
+    conversion_json TEXT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_instrument_quotes_latest ON instrument_quotes(instrument_id, source_kind, currency, quoted_at DESC, created_at DESC, id DESC);
+CREATE TABLE fx_quotes (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    base_currency TEXT NOT NULL CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]'),
+    quote_currency TEXT NOT NULL CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]'),
+    rate TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
+    source_key TEXT NOT NULL,
+    quoted_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    delayed INTEGER NOT NULL DEFAULT 0 CHECK(delayed IN (0,1)),
+    observation_kind TEXT NOT NULL DEFAULT '',
+    effective_date TEXT,
+    fetched_at TEXT,
+    value_effective_at TEXT,
+    source_policy_version TEXT,
+    timestamp_basis TEXT,
+    revision INTEGER NOT NULL DEFAULT 1,
+    supersedes_quote_id TEXT,
+    CHECK(base_currency <> quote_currency),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_fx_quotes_latest ON fx_quotes(household_id, base_currency, quote_currency, source_kind, quoted_at DESC, created_at DESC, id DESC);
+CREATE TABLE fx_preferences (
+    household_id TEXT NOT NULL,
+    currency_a TEXT NOT NULL CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]'),
+    currency_b TEXT NOT NULL CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]'),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, currency_a, currency_b),
+    CHECK(currency_a < currency_b),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_fx_preferences_household ON fx_preferences(household_id, currency_a, currency_b);
+CREATE TABLE history_origins (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL UNIQUE,
+    timezone TEXT NOT NULL CHECK(length(trim(timezone)) > 0),
+    started_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_history_origins_household ON history_origins(household_id);
+CREATE TABLE history_origin_components (
+    id TEXT PRIMARY KEY NOT NULL,
+    origin_id TEXT NOT NULL,
+    component_kind TEXT NOT NULL CHECK(component_kind IN ('account_value','account_cash','holding_quantity')),
+    account_id TEXT,
+    holding_id TEXT,
+    instrument_id TEXT,
+    amount TEXT,
+    currency TEXT,
+    quantity TEXT,
+    created_at TEXT NOT NULL, unit_cost TEXT,
+    FOREIGN KEY(origin_id) REFERENCES history_origins(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
+    CHECK((component_kind = 'account_value' AND account_id IS NOT NULL AND amount IS NOT NULL AND currency IS NOT NULL AND holding_id IS NULL AND instrument_id IS NULL AND quantity IS NULL) OR
+          (component_kind = 'account_cash' AND account_id IS NOT NULL AND amount IS NOT NULL AND currency IS NOT NULL AND holding_id IS NULL AND instrument_id IS NULL AND quantity IS NULL) OR
+          (component_kind = 'holding_quantity' AND account_id IS NOT NULL AND holding_id IS NOT NULL AND instrument_id IS NOT NULL AND quantity IS NOT NULL AND amount IS NULL AND currency IS NULL))
+);
+CREATE INDEX idx_history_origin_components_origin ON history_origin_components(origin_id, component_kind, id);
+CREATE INDEX idx_history_origin_components_account ON history_origin_components(account_id, component_kind, id);
+CREATE TABLE history_origin_account_states (
+    origin_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    archived_at TEXT,
+    include_in_net_worth INTEGER NOT NULL CHECK(include_in_net_worth IN (0,1)),
+    include_in_portfolio INTEGER NOT NULL CHECK(include_in_portfolio IN (0,1)),
+    include_in_liquid_assets INTEGER NOT NULL CHECK(include_in_liquid_assets IN (0,1)),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(origin_id, account_id),
+    FOREIGN KEY(origin_id) REFERENCES history_origins(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT
+);
+CREATE TABLE history_origin_ownership (
+    origin_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    member_id TEXT NOT NULL,
+    share_bps INTEGER NOT NULL CHECK(share_bps > 0 AND share_bps <= 10000),
+    PRIMARY KEY(origin_id, account_id, member_id),
+    FOREIGN KEY(origin_id) REFERENCES history_origins(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE RESTRICT
+);
+CREATE TABLE history_origin_instrument_preferences (
+    origin_id TEXT NOT NULL,
+    instrument_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(origin_id, instrument_id),
+    FOREIGN KEY(origin_id) REFERENCES history_origins(id) ON DELETE RESTRICT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT
+);
+CREATE TABLE history_origin_fx_preferences (
+    origin_id TEXT NOT NULL,
+    currency_a TEXT NOT NULL CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]'),
+    currency_b TEXT NOT NULL CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]'),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(origin_id, currency_a, currency_b),
+    FOREIGN KEY(origin_id) REFERENCES history_origins(id) ON DELETE RESTRICT
+);
+CREATE TABLE activities (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','cost_adjustment','buy','sell','value_update','debt_draw','debt_payment','reversal')),
+    reason TEXT NOT NULL,
+    effective_at TEXT NOT NULL,
+    effective_local_date TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    note TEXT,
+    reverses_activity_id TEXT UNIQUE,
+    correction_group_id TEXT,
+    transaction_fx_rate TEXT,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(reverses_activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_activities_timeline ON activities(household_id, effective_at DESC, created_at DESC, id DESC);
+CREATE INDEX idx_activities_local_date ON activities(household_id, effective_local_date, id);
+CREATE TABLE activity_effects (
+    id TEXT PRIMARY KEY NOT NULL,
+    activity_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL CHECK(sequence > 0),
+    role TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK(direction IN ('added','removed')),
+    target TEXT NOT NULL CHECK(target IN ('account_value','account_cash','holding_quantity','holding_cost')),
+    classification TEXT NOT NULL,
+    account_id TEXT,
+    holding_id TEXT,
+    instrument_id TEXT,
+    amount TEXT,
+    currency TEXT,
+    quantity TEXT, cost_unit_price TEXT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
+    UNIQUE(activity_id, sequence),
+    CHECK((target IN ('account_value','account_cash') AND account_id IS NOT NULL AND amount IS NOT NULL AND currency IS NOT NULL AND quantity IS NULL) OR
+          (target = 'holding_quantity' AND holding_id IS NOT NULL AND instrument_id IS NOT NULL AND quantity IS NOT NULL AND amount IS NULL AND currency IS NULL) OR
+          (target = 'holding_cost' AND account_id IS NULL AND holding_id IS NOT NULL AND instrument_id IS NOT NULL AND quantity IS NULL AND amount IS NULL AND currency IS NULL AND cost_unit_price IS NOT NULL))
+);
+CREATE INDEX idx_activity_effects_activity ON activity_effects(activity_id, sequence);
+CREATE INDEX idx_activity_effects_account ON activity_effects(account_id, activity_id, sequence);
+CREATE INDEX idx_activity_effects_holding ON activity_effects(holding_id, activity_id, sequence);
+CREATE TABLE activity_trade_details (
+    activity_id TEXT PRIMARY KEY NOT NULL,
+    side TEXT NOT NULL CHECK(side IN ('buy','sell')),
+    instrument_id TEXT NOT NULL,
+    holding_id TEXT NOT NULL,
+    quantity TEXT NOT NULL,
+    gross_amount TEXT NOT NULL,
+    gross_currency TEXT NOT NULL CHECK(gross_currency GLOB '[A-Z][A-Z][A-Z]'),
+    unit_price TEXT NOT NULL,
+    fee_amount TEXT,
+    fee_currency TEXT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT
+);
+CREATE TABLE activity_dividend_details (
+    activity_id TEXT PRIMARY KEY NOT NULL,
+    holding_id TEXT NOT NULL,
+    instrument_id TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT
+);
+CREATE TABLE activity_correction_groups (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    original_activity_id TEXT NOT NULL UNIQUE,
+    replacement_activity_id TEXT UNIQUE,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(original_activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
+    FOREIGN KEY(replacement_activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
+CREATE TABLE holding_quantity_values (
+    id TEXT PRIMARY KEY NOT NULL,
+    holding_id TEXT NOT NULL,
+    quantity TEXT NOT NULL,
+    effective_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    activity_effect_id TEXT,
+    projection_kind TEXT NOT NULL DEFAULT 'baseline' CHECK(projection_kind IN ('baseline','event','replay')),
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_effect_id) REFERENCES activity_effects(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_holding_quantity_latest ON holding_quantity_values(holding_id, effective_at DESC, created_at DESC, id DESC);
+CREATE TABLE account_state_observations (
+    id TEXT PRIMARY KEY NOT NULL,
+    account_id TEXT NOT NULL,
+    effective_at TEXT NOT NULL,
+    archived_at TEXT,
+    include_in_net_worth INTEGER NOT NULL CHECK(include_in_net_worth IN (0,1)),
+    include_in_portfolio INTEGER NOT NULL CHECK(include_in_portfolio IN (0,1)),
+    include_in_liquid_assets INTEGER NOT NULL CHECK(include_in_liquid_assets IN (0,1)),
+    activity_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_account_state_observations_effective ON account_state_observations(account_id, effective_at DESC, created_at DESC, id DESC);
+CREATE TABLE account_state_ownership (
+    observation_id TEXT NOT NULL,
+    member_id TEXT NOT NULL,
+    share_bps INTEGER NOT NULL CHECK(share_bps > 0 AND share_bps <= 10000),
+    PRIMARY KEY(observation_id, member_id),
+    FOREIGN KEY(observation_id) REFERENCES account_state_observations(id) ON DELETE RESTRICT,
+    FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE RESTRICT
+);
+CREATE TABLE instrument_preference_observations (
+    id TEXT PRIMARY KEY NOT NULL,
+    instrument_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
+    effective_at TEXT NOT NULL,
+    activity_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_instrument_preference_observations_effective ON instrument_preference_observations(instrument_id, effective_at DESC, created_at DESC, id DESC);
+CREATE TABLE fx_preference_observations (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    currency_a TEXT NOT NULL CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]'),
+    currency_b TEXT NOT NULL CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]'),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
+    effective_at TEXT NOT NULL,
+    activity_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
+    CHECK(currency_a < currency_b)
+);
+CREATE INDEX idx_fx_preference_observations_effective ON fx_preference_observations(household_id, currency_a, currency_b, effective_at DESC, created_at DESC, id DESC);
+CREATE TABLE daily_valuation_snapshots (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    local_date TEXT NOT NULL,
+    cutoff_at TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK(revision > 0),
+    supersedes_id TEXT,
+    content_hash TEXT NOT NULL,
+    assets_amount TEXT,
+    liabilities_amount TEXT,
+    net_worth_amount TEXT,
+    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
+    complete INTEGER NOT NULL CHECK(complete IN (0,1)),
+    component_count INTEGER NOT NULL CHECK(component_count >= 0),
+    missing_count INTEGER NOT NULL CHECK(missing_count >= 0),
+    generation_reason TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    input_generation INTEGER NOT NULL DEFAULT 0,
+    resolver_policy_version TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(supersedes_id) REFERENCES daily_valuation_snapshots(id) ON DELETE RESTRICT,
+    UNIQUE(household_id, local_date, revision)
+);
+CREATE INDEX idx_daily_valuation_latest ON daily_valuation_snapshots(household_id, local_date, revision DESC, created_at DESC);
+CREATE TABLE daily_valuation_snapshot_items (
+    id TEXT PRIMARY KEY NOT NULL,
+    snapshot_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    holding_id TEXT,
+    instrument_id TEXT,
+    native_amount TEXT,
+    native_currency TEXT,
+    base_amount TEXT,
+    base_currency TEXT NOT NULL CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]'),
+    quote_id TEXT,
+    fx_quote_id TEXT,
+    state_observation_id TEXT,
+    preference_observation_id TEXT,
+    complete INTEGER NOT NULL CHECK(complete IN (0,1)),
+    missing_reason TEXT, fx_preference_observation_id TEXT REFERENCES fx_preference_observations(id) ON DELETE RESTRICT,
+    FOREIGN KEY(snapshot_id) REFERENCES daily_valuation_snapshots(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_daily_valuation_items_snapshot ON daily_valuation_snapshot_items(snapshot_id, account_id, id);
+CREATE TABLE history_snapshot_state (
+    household_id TEXT PRIMARY KEY NOT NULL,
+    dirty_from TEXT,
+    last_completed_closed_on TEXT,
+    updated_at TEXT NOT NULL,
+    dirty_to TEXT,
+    input_generation INTEGER NOT NULL DEFAULT 0,
+    resolver_policy_version TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+);
+CREATE TABLE instrument_state_observations (
+    id TEXT PRIMARY KEY NOT NULL,
+    instrument_id TEXT NOT NULL,
+    effective_at TEXT NOT NULL,
+    archived_at TEXT,
+    activity_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_instrument_state_observations_effective ON instrument_state_observations(instrument_id, effective_at DESC, created_at DESC, id DESC);
+CREATE TABLE holding_state_observations (
+    id TEXT PRIMARY KEY NOT NULL,
+    holding_id TEXT NOT NULL,
+    effective_at TEXT NOT NULL,
+    archived_at TEXT,
+    activity_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_holding_state_observations_effective ON holding_state_observations(holding_id, effective_at DESC, created_at DESC, id DESC);
+CREATE INDEX idx_daily_valuation_items_fx_preference ON daily_valuation_snapshot_items(fx_preference_observation_id);
+CREATE TABLE activity_mutation_keys (
+    household_id TEXT NOT NULL,
+    mutation_id TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, mutation_id),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
+CREATE TABLE change_batch_mutation_keys (
+    household_id TEXT NOT NULL,
+    mutation_id TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    activity_ids TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, mutation_id),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+);
+CREATE TABLE instrument_provider_bindings (
+    instrument_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    provider_symbol TEXT NOT NULL,
+    market TEXT,
+    currency TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    effective_from TEXT NOT NULL,
+    PRIMARY KEY(instrument_id, provider_key),
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_instrument_provider_bindings_instrument ON instrument_provider_bindings(instrument_id);
+CREATE TABLE instrument_provider_binding_revisions (
+    instrument_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    provider_symbol TEXT NOT NULL,
+    market TEXT,
+    currency TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+    effective_from TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(instrument_id, provider_key, binding_revision),
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+);
+CREATE TABLE instrument_observation_slots (
+    instrument_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    source_policy_version TEXT NOT NULL,
+    market_date TEXT NOT NULL,
+    observation_kind TEXT NOT NULL,
+    quote_id TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(instrument_id, provider_key, binding_revision, source_policy_version, market_date, observation_kind),
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE,
+    FOREIGN KEY(quote_id) REFERENCES instrument_quotes(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_instrument_observation_slots_quote ON instrument_observation_slots(quote_id);
+CREATE TABLE fx_observation_slots (
+    household_id TEXT NOT NULL,
+    base_currency TEXT NOT NULL CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]'),
+    quote_currency TEXT NOT NULL CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]'),
+    provider_key TEXT NOT NULL,
+    source_policy_version TEXT NOT NULL,
+    market_date TEXT NOT NULL,
+    observation_kind TEXT NOT NULL,
+    quote_id TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, base_currency, quote_currency, provider_key, source_policy_version, market_date, observation_kind),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
+    FOREIGN KEY(quote_id) REFERENCES fx_quotes(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_fx_observation_slots_quote ON fx_observation_slots(quote_id);
+CREATE TABLE market_data_day_status (
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    household_id TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    source_policy_version TEXT NOT NULL,
+    effective_date TEXT NOT NULL,
+    status TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    checked_at TEXT NOT NULL,
+    next_check_at TEXT,
+    expires_at TEXT,
+    PRIMARY KEY(target_type, target_id, provider_key, household_id, binding_revision, source_policy_version, effective_date),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_market_data_day_status_household ON market_data_day_status(household_id, target_type, target_id, effective_date);
+CREATE TABLE product_operations (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('open','record_existing','receive_interest','settle','renew','undo','value_observation')),
+    payload_sha256 TEXT NOT NULL,
+    request_version INTEGER NOT NULL CHECK(request_version = 1),
+    request_json TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    effective_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    reverses_operation_id TEXT,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(reverses_operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX ux_product_operations_reverses ON product_operations(reverses_operation_id) WHERE reverses_operation_id IS NOT NULL;
+CREATE INDEX idx_product_operations_household ON product_operations(household_id, created_at, id);
+CREATE TABLE product_contracts (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    holding_id TEXT NOT NULL,
+    instrument_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('term_deposit','locked_product')),
+    name TEXT NOT NULL,
+    note TEXT,
+    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
+    principal TEXT NOT NULL,
+    start_on TEXT NOT NULL,
+    maturity_on TEXT,
+    interest_mode TEXT NOT NULL CHECK(interest_mode IN ('none','manual_maturity_amount','simple_act_365','simple_act_360')),
+    annual_rate TEXT,
+    maturity_interest TEXT,
+    interest_paid_through_on TEXT,
+    renewed_from_id TEXT,
+    state TEXT NOT NULL CHECK(state IN ('open','settled','cancelled')),
+    opened_operation_id TEXT NOT NULL,
+    closed_operation_id TEXT,
+    revision INTEGER NOT NULL CHECK(revision >= 1),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
+    FOREIGN KEY(renewed_from_id) REFERENCES product_contracts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(opened_operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT,
+    FOREIGN KEY(closed_operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX ux_product_contracts_holding ON product_contracts(holding_id);
+CREATE UNIQUE INDEX ux_product_contracts_instrument ON product_contracts(instrument_id);
+CREATE INDEX idx_product_contracts_account ON product_contracts(account_id, state);
+CREATE INDEX idx_product_contracts_household ON product_contracts(household_id, state);
+CREATE TABLE liquidity_policies (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('account_value','account_cash','holding')),
+    account_id TEXT NOT NULL,
+    holding_id TEXT,
+    currency TEXT CHECK(currency IS NULL OR currency GLOB '[A-Z][A-Z][A-Z]'),
+    access_kind TEXT NOT NULL CHECK(access_kind IN ('on_request','on_date','unknown','excluded')),
+    unlock_on TEXT,
+    settlement_days INTEGER CHECK(settlement_days IS NULL OR (settlement_days >= 0 AND settlement_days <= 365)),
+    day_basis TEXT CHECK(day_basis IS NULL OR day_basis IN ('calendar','weekdays')),
+    receipt_on_override TEXT,
+    accessible_amount_cap TEXT,
+    normal_exit_fee TEXT,
+    early_kind TEXT NOT NULL CHECK(early_kind IN ('not_allowed','allowed','unknown')),
+    early_settlement_days INTEGER CHECK(early_settlement_days IS NULL OR (early_settlement_days >= 0 AND early_settlement_days <= 365)),
+    early_day_basis TEXT CHECK(early_day_basis IS NULL OR early_day_basis IN ('calendar','weekdays')),
+    early_fee TEXT,
+    early_amount_mode TEXT CHECK(early_amount_mode IS NULL OR early_amount_mode IN ('current_value','fixed_gross')),
+    early_gross_amount TEXT,
+    confirmed_at TEXT,
+    note TEXT,
+    revision INTEGER NOT NULL CHECK(revision >= 1),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK((source_kind = 'account_value' AND holding_id IS NULL AND currency IS NULL) OR (source_kind = 'account_cash' AND holding_id IS NULL AND currency IS NOT NULL) OR (source_kind = 'holding' AND holding_id IS NOT NULL)),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX ux_liquidity_policies_account_value ON liquidity_policies(account_id) WHERE source_kind = 'account_value';
+CREATE UNIQUE INDEX ux_liquidity_policies_account_cash ON liquidity_policies(account_id, currency) WHERE source_kind = 'account_cash';
+CREATE UNIQUE INDEX ux_liquidity_policies_holding ON liquidity_policies(holding_id) WHERE source_kind = 'holding';
+CREATE TABLE liquidity_reservations (
+    id TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('account_value','account_cash','holding')),
+    account_id TEXT NOT NULL,
+    holding_id TEXT,
+    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
+    label TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK(revision >= 1),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    released_at TEXT,
+    CHECK((source_kind = 'account_value' AND holding_id IS NULL) OR (source_kind = 'account_cash' AND holding_id IS NULL) OR (source_kind = 'holding' AND holding_id IS NOT NULL)),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_liquidity_reservations_source ON liquidity_reservations(source_kind, account_id, holding_id, currency);
+CREATE TABLE product_operation_products (
+    operation_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('opened','settled','income','reopened','cancelled','valued')),
+    PRIMARY KEY(operation_id, product_id, role),
+    FOREIGN KEY(operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT,
+    FOREIGN KEY(product_id) REFERENCES product_contracts(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_product_operation_products_product ON product_operation_products(product_id, operation_id);
+CREATE TABLE product_operation_activities (
+    operation_id TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    purpose TEXT NOT NULL CHECK(purpose IN ('acquisition','existing_position','redemption','interest','reversal')),
+    product_id TEXT NOT NULL,
+    PRIMARY KEY(operation_id, activity_id),
+    FOREIGN KEY(operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
+    FOREIGN KEY(product_id) REFERENCES product_contracts(id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX ux_product_operation_activities_activity ON product_operation_activities(activity_id);
+CREATE TABLE product_operation_reservations (
+    operation_id TEXT NOT NULL,
+    reservation_id TEXT NOT NULL,
+    previous_released_at TEXT,
+    resulting_released_at TEXT,
+    resulting_revision INTEGER NOT NULL,
+    PRIMARY KEY(operation_id, reservation_id),
+    FOREIGN KEY(operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT,
+    FOREIGN KEY(reservation_id) REFERENCES liquidity_reservations(id) ON DELETE RESTRICT
+);
+CREATE TABLE agent_quote_batches (
+    request_key TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_agent_quote_batches_household ON agent_quote_batches(household_id, created_at);
+CREATE TABLE agent_quote_records (
+    id TEXT PRIMARY KEY NOT NULL,
+    request_key TEXT NOT NULL,
+    household_id TEXT NOT NULL,
+    target_type TEXT NOT NULL CHECK(target_type IN ('instrument','fx')),
+    operation TEXT NOT NULL CHECK(operation IN ('append','correct','retract')),
+    quote_id TEXT,
+    target_quote_id TEXT,
+    source_title TEXT NOT NULL CHECK(length(trim(source_title)) > 0),
+    source_url TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK((operation = 'append' AND quote_id IS NOT NULL AND target_quote_id IS NULL) OR
+          (operation = 'correct' AND quote_id IS NOT NULL AND target_quote_id IS NOT NULL) OR
+          (operation = 'retract' AND quote_id IS NULL AND target_quote_id IS NOT NULL)),
+    FOREIGN KEY(request_key) REFERENCES agent_quote_batches(request_key) ON DELETE RESTRICT,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX ux_agent_quote_records_quote ON agent_quote_records(target_type, quote_id) WHERE quote_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_agent_quote_records_target ON agent_quote_records(target_type, target_quote_id) WHERE target_quote_id IS NOT NULL;
+CREATE INDEX idx_agent_quote_records_household ON agent_quote_records(household_id, created_at, id);
+PRAGMA user_version = 16;
+
+CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
+
+-- Account reconciliation (schema 17). Keep equivalent to reconciliation_schema.sql.
+CREATE TABLE reconciliation_sessions (
+ id TEXT PRIMARY KEY NOT NULL, household_id TEXT NOT NULL REFERENCES households(id),
+ status TEXT NOT NULL CHECK(status IN ('in_progress','paused','completed')),
+ revision INTEGER NOT NULL CHECK(revision >= 1), started_at TEXT NOT NULL, completed_at TEXT,
+ note TEXT NOT NULL, partial INTEGER NOT NULL CHECK(partial IN (0,1)), closing_note TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX idx_reconciliation_sessions ON reconciliation_sessions(household_id, started_at DESC, id DESC);
+CREATE TABLE reconciliation_accounts (
+ session_id TEXT NOT NULL REFERENCES reconciliation_sessions(id), account_id TEXT NOT NULL REFERENCES accounts(id),
+ evidence TEXT NOT NULL CHECK(json_valid(evidence)), PRIMARY KEY(session_id, account_id)
+);
+CREATE INDEX idx_reconciliation_accounts ON reconciliation_accounts(account_id, session_id);
+CREATE TABLE reconciliation_items (
+ session_id TEXT NOT NULL, account_id TEXT NOT NULL, id TEXT NOT NULL, evidence TEXT NOT NULL CHECK(json_valid(evidence)),
+ PRIMARY KEY(session_id, account_id, id), FOREIGN KEY(session_id, account_id) REFERENCES reconciliation_accounts(session_id, account_id)
+);
+CREATE TABLE reconciliation_receipts (
+ operation_id TEXT PRIMARY KEY NOT NULL, household_id TEXT NOT NULL REFERENCES households(id),
+ payload_hash TEXT NOT NULL, result TEXT NOT NULL CHECK(json_valid(result))
+);
+CREATE TABLE reconciliation_links (
+ session_id TEXT NOT NULL, account_id TEXT NOT NULL, item_id TEXT NOT NULL,
+ operation_id TEXT NOT NULL, family TEXT NOT NULL, evidence TEXT NOT NULL CHECK(json_valid(evidence)),
+ PRIMARY KEY(session_id, account_id, operation_id),
+ FOREIGN KEY(session_id, account_id, item_id) REFERENCES reconciliation_items(session_id, account_id, id)
+);
+CREATE TABLE account_financial_revisions (
+ account_id TEXT PRIMARY KEY NOT NULL REFERENCES accounts(id), revision INTEGER NOT NULL CHECK(revision >= 1)
+);
+INSERT INTO account_financial_revisions SELECT id, 1 FROM accounts;
+CREATE TABLE reconciliation_financial_changes (
+ account_id TEXT NOT NULL REFERENCES accounts(id), revision INTEGER NOT NULL,
+ family TEXT NOT NULL, fact_id TEXT NOT NULL, recorded_at TEXT NOT NULL, effective_at TEXT NOT NULL,
+ evidence TEXT NOT NULL CHECK(json_valid(evidence)), PRIMARY KEY(account_id, revision)
+);
+CREATE TRIGGER reconciliation_accounts_insert AFTER INSERT ON accounts BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.id,revision,'accounts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.id)) FROM account_financial_revisions WHERE account_id=NEW.id;
+END;
+CREATE TRIGGER reconciliation_accounts_update AFTER UPDATE ON accounts WHEN OLD.archived_at IS NOT NEW.archived_at OR OLD.tracking_mode IS NOT NEW.tracking_mode OR OLD.default_currency IS NOT NEW.default_currency BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.id,revision,'accounts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.id)) FROM account_financial_revisions WHERE account_id=NEW.id;
+END;
+CREATE TRIGGER reconciliation_account_values_insert AFTER INSERT ON account_values WHEN NEW.projection_kind <> 'replay' BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'account_values',NEW.id,NEW.created_at,NEW.effective_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'amount',NEW.amount,'currency',NEW.currency) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_account_cash_values_insert AFTER INSERT ON account_cash_values WHEN NEW.projection_kind <> 'replay' BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'account_cash_values',NEW.id,NEW.created_at,NEW.effective_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'amount',NEW.amount,'currency',NEW.currency) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_holdings_insert AFTER INSERT ON holdings BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'holdings',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'quantity',NEW.quantity,'holdingId',NEW.id) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_holdings_update AFTER UPDATE ON holdings WHEN OLD.quantity IS NOT NEW.quantity OR OLD.archived_at IS NOT NEW.archived_at OR OLD.instrument_id IS NOT NEW.instrument_id OR OLD.account_id IS NOT NEW.account_id BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'holdings',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'quantity',NEW.quantity,'holdingId',NEW.id) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_activity_effects_insert AFTER INSERT ON activity_effects BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id)), 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id)),revision,'activity_effects',NEW.id,(SELECT created_at FROM activities WHERE id=NEW.activity_id),(SELECT effective_at FROM activities WHERE id=NEW.activity_id),json_object('accountName',(SELECT name FROM accounts WHERE id=COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id))),'kind',(SELECT kind FROM activities WHERE id=NEW.activity_id),'activityId',NEW.activity_id,'amount',NEW.amount,'currency',NEW.currency,'quantity',NEW.quantity,'unitCost',NEW.cost_unit_price) FROM account_financial_revisions WHERE account_id=COALESCE(NEW.account_id, (SELECT account_id FROM holdings WHERE id=NEW.holding_id));
+END;
+CREATE TRIGGER reconciliation_product_contracts_insert AFTER INSERT ON product_contracts BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_contracts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'productName',NEW.name,'principal',NEW.principal,'state',NEW.state,'maturityOn',NEW.maturity_on) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_product_contracts_update AFTER UPDATE ON product_contracts WHEN OLD.household_id IS NOT NEW.household_id OR OLD.account_id IS NOT NEW.account_id OR OLD.holding_id IS NOT NEW.holding_id OR OLD.instrument_id IS NOT NEW.instrument_id OR OLD.kind IS NOT NEW.kind OR OLD.currency IS NOT NEW.currency OR OLD.principal IS NOT NEW.principal OR OLD.start_on IS NOT NEW.start_on OR OLD.maturity_on IS NOT NEW.maturity_on OR OLD.interest_mode IS NOT NEW.interest_mode OR OLD.annual_rate IS NOT NEW.annual_rate OR OLD.maturity_interest IS NOT NEW.maturity_interest OR OLD.interest_paid_through_on IS NOT NEW.interest_paid_through_on OR OLD.renewed_from_id IS NOT NEW.renewed_from_id OR OLD.state IS NOT NEW.state OR OLD.opened_operation_id IS NOT NEW.opened_operation_id OR OLD.closed_operation_id IS NOT NEW.closed_operation_id BEGIN
+ INSERT INTO account_financial_revisions(account_id, revision) VALUES(NEW.account_id, 1)
+ ON CONFLICT(account_id) DO UPDATE SET revision=revision+1;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_contracts',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'productName',NEW.name,'principal',NEW.principal,'state',NEW.state,'maturityOn',NEW.maturity_on) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_instrument_scope AFTER UPDATE OF archived_at, quote_currency ON instruments
+ WHEN OLD.archived_at IS NOT NEW.archived_at OR OLD.quote_currency IS NOT NEW.quote_currency BEGIN
+ UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id IN (SELECT account_id FROM holdings WHERE instrument_id=NEW.id);
+ INSERT INTO reconciliation_financial_changes SELECT r.account_id,r.revision,'instrument_scope',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',a.name,'instrumentName',NEW.name,'archivedAt',NEW.archived_at,'currency',NEW.quote_currency) FROM account_financial_revisions r JOIN accounts a ON a.id=r.account_id WHERE r.account_id IN (SELECT account_id FROM holdings WHERE instrument_id=NEW.id);
+END;
+CREATE TRIGGER reconciliation_product_facts AFTER INSERT ON product_operation_products
+ WHEN NOT (NEW.role='valued' AND (SELECT kind FROM product_operations WHERE id=NEW.operation_id)='value_observation') BEGIN
+ UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=(SELECT account_id FROM product_contracts WHERE id=NEW.product_id);
+ INSERT INTO reconciliation_financial_changes SELECT p.account_id,r.revision,'product_operation',NEW.operation_id,o.created_at,o.effective_at,json_object('accountName',a.name,'productName',p.name,'kind',o.kind,'result',json(o.result_json)) FROM product_contracts p JOIN accounts a ON a.id=p.account_id JOIN account_financial_revisions r ON r.account_id=p.account_id JOIN product_operations o ON o.id=NEW.operation_id WHERE p.id=NEW.product_id;
+END;
+CREATE TRIGGER reconciliation_product_policy_insert AFTER INSERT ON liquidity_policies WHEN EXISTS(SELECT 1 FROM product_contracts WHERE holding_id=NEW.holding_id) BEGIN
+ UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=NEW.account_id;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_policy',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'holdingId',NEW.holding_id,'accessKind',NEW.access_kind,'unlockOn',NEW.unlock_on,'normalExitFee',NEW.normal_exit_fee,'earlyFee',NEW.early_fee) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+CREATE TRIGGER reconciliation_product_policy_update AFTER UPDATE ON liquidity_policies WHEN EXISTS(SELECT 1 FROM product_contracts WHERE holding_id=NEW.holding_id) AND (OLD.source_kind IS NOT NEW.source_kind OR OLD.account_id IS NOT NEW.account_id OR OLD.holding_id IS NOT NEW.holding_id OR OLD.currency IS NOT NEW.currency OR OLD.access_kind IS NOT NEW.access_kind OR OLD.unlock_on IS NOT NEW.unlock_on OR OLD.settlement_days IS NOT NEW.settlement_days OR OLD.day_basis IS NOT NEW.day_basis OR OLD.receipt_on_override IS NOT NEW.receipt_on_override OR OLD.accessible_amount_cap IS NOT NEW.accessible_amount_cap OR OLD.normal_exit_fee IS NOT NEW.normal_exit_fee OR OLD.early_kind IS NOT NEW.early_kind OR OLD.early_settlement_days IS NOT NEW.early_settlement_days OR OLD.early_day_basis IS NOT NEW.early_day_basis OR OLD.early_fee IS NOT NEW.early_fee OR OLD.early_amount_mode IS NOT NEW.early_amount_mode OR OLD.early_gross_amount IS NOT NEW.early_gross_amount) BEGIN
+ UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=NEW.account_id;
+ INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_policy',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'holdingId',NEW.holding_id,'accessKind',NEW.access_kind,'unlockOn',NEW.unlock_on,'normalExitFee',NEW.normal_exit_fee,'earlyFee',NEW.early_fee) FROM account_financial_revisions WHERE account_id=NEW.account_id;
+END;
+PRAGMA user_version = 18;

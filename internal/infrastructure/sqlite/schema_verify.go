@@ -77,6 +77,11 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 			return err
 		}
 	}
+	if expectedVersion >= 19 {
+		if err := verifyReviewSchema(ctx, query); err != nil {
+			return err
+		}
+	}
 	tables := expectedSchemaTables()
 	if expectedVersion == 15 {
 		columns := []schemaColumn{}

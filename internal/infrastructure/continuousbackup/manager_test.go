@@ -947,6 +947,35 @@ func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *tes
 			t.Fatal(err)
 		}
 	}
+	// This synthetic fixture starts as current schema and is manually reduced
+	// to v15. Remove v19-only review tables before exercising the upgrade chain.
+	if _, err := db.SQL.Exec(`PRAGMA foreign_keys=OFF`); err != nil {
+		t.Fatal(err)
+	}
+	reviewRows, err := db.SQL.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'investment_review_%'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reviewTables []string
+	for reviewRows.Next() {
+		var name string
+		if err := reviewRows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		reviewTables = append(reviewTables, name)
+	}
+	if err := reviewRows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	reviewRows.Close()
+	for _, name := range reviewTables {
+		if _, err := db.SQL.Exec(`DROP TABLE "` + name + `"`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.SQL.Exec(`PRAGMA foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.SQL.Exec(`ALTER TABLE instruments DROP COLUMN short_name; PRAGMA user_version=15`); err != nil {
 		t.Fatal(err)
 	}

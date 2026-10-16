@@ -50,7 +50,7 @@ func OpenReadOnlyForVerifyContext(ctx context.Context, path string) (*DB, error)
 		_ = database.Close()
 		return nil, &domain.Error{Code: domain.ErrBackupIntegrityFailed, Message: "database could not be read"}
 	}
-	if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 {
+	if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 {
 		_ = database.Close()
 		return nil, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: fmt.Sprintf("database schema version is %d, want %d", found, CurrentSchemaVersion)}
 	}

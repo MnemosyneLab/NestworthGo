@@ -213,7 +213,7 @@ func ReadPackage(path string) (Package, error) {
 	if manifest.FormatVersion != FormatVersion {
 		return Package{}, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "backup format is not supported"}
 	}
-	if manifest.SchemaVersion != sqlite.CurrentSchemaVersion && manifest.SchemaVersion != 15 && manifest.SchemaVersion != 16 {
+	if manifest.SchemaVersion != sqlite.CurrentSchemaVersion && manifest.SchemaVersion != 15 && manifest.SchemaVersion != 16 && manifest.SchemaVersion != 17 && manifest.SchemaVersion != 18 {
 		return Package{}, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "backup schema is not supported"}
 	}
 	if err := verifyMember(manifest, MemberDatabase, contents[MemberDatabase]); err != nil {
@@ -260,7 +260,7 @@ func DefaultBackupFileName(now time.Time) string {
 }
 
 func ExtractDatabase(pkg Package, dest string) error {
-	if pkg.Manifest.SchemaVersion != sqlite.CurrentSchemaVersion && pkg.Manifest.SchemaVersion != 15 && pkg.Manifest.SchemaVersion != 16 {
+	if pkg.Manifest.SchemaVersion != sqlite.CurrentSchemaVersion && pkg.Manifest.SchemaVersion != 15 && pkg.Manifest.SchemaVersion != 16 && pkg.Manifest.SchemaVersion != 17 && pkg.Manifest.SchemaVersion != 18 {
 		return &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "backup schema is not supported"}
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
