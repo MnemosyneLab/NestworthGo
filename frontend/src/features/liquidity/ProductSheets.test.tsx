@@ -759,3 +759,23 @@ it("ignores a linked product preview that resolves after its form closes", async
   await act(async () => { resolvePreview({ planId: "late-linked-product" }); });
   expect(onPreview).not.toHaveBeenCalled();
 });
+
+it("ignores a linked preview after a controlled close and reopen of the same form", async () => {
+  const link = { sessionId: "session", accountId: "account", itemId: "scope", expectedRevision: 2, financialRevision: 7 };
+  const onPreview = vi.fn();
+  let resolvePreview!: (value: unknown) => void;
+  reconciliationPreview.mockReset().mockImplementationOnce(() => new Promise((resolve) => { resolvePreview = resolve; }));
+  const client = createTestQueryClient();
+  const sheet = (open: boolean) => <QueryClientProvider client={client}>
+    <ProductFormSheet accountId="account" currency="EUR" open={open} onOpenChange={vi.fn()} reconciliationLink={link} onReconciliationPreview={onPreview} />
+  </QueryClientProvider>;
+  const view = render(sheet(true));
+  change("Principal", "1000"); change("Name", "Synthetic missing deposit"); change("Start date", "2026-09-20"); change("Maturity date", "2027-09-20");
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(reconciliationPreview).toHaveBeenCalledOnce();
+  view.rerender(sheet(false));
+  view.rerender(sheet(true));
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await act(async () => { resolvePreview({ planId: "late-controlled-product" }); });
+  expect(onPreview).not.toHaveBeenCalled();
+});

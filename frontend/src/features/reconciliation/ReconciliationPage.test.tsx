@@ -33,6 +33,7 @@ const q = vi.hoisted(() => ({
   commitAdjustment: vi.fn(),
   refetch: vi.fn(),
   productPreview: vi.fn(),
+  newProductPreview: vi.fn(),
   commitProduct: vi.fn(),
 }));
 vi.mock("@/queries/reconciliation", () => ({
@@ -68,6 +69,7 @@ vi.mock("@/queries/reconciliation", () => ({
     Commit: q.commit,
     PreviewAdjustment: q.adjust,
     CommitAdjustment: q.commitAdjustment,
+    PreviewProductOperation: q.newProductPreview,
     CommitProduct: q.commitProduct,
   },
 }));
@@ -83,6 +85,7 @@ vi.mock("@/queries/accounts", () => ({
     isError: false,
     refetch: q.refetch,
   }),
+  useAccountValuations: () => ({ data: [{ account: { id: "one", name: "Synthetic bank" }, components: [{ nativeCurrency: "USD", nativeAmount: "5000" }] }] }),
 }));
 vi.mock("@/queries/history", () => ({
   useHistoryOrigin: () => ({ data: { timezone: q.timezone } }),
@@ -91,6 +94,11 @@ vi.mock("@/queries/settings", () => ({
   useSettings: () => ({
     data: { weekStart: "monday", dateFormat: "iso", timezone: q.timezone },
   }),
+  useSupportedCurrencies: () => ({ data: ["USD", "EUR"] }),
+}));
+vi.mock("@/queries/liquidity", () => ({
+  usePreviewProductOperation: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useRecordProductOperation: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }));
 vi.mock("@/features/history/RecordChangeForm", () => ({
   RecordChangeForm: ({ initial }: { initial: unknown }) => (
@@ -195,6 +203,7 @@ beforeEach(async () => {
   q.adjust.mockResolvedValue({ planId: "adjust-plan", changes: [] });
   q.commitAdjustment.mockResolvedValue([]);
   q.commitProduct.mockResolvedValue(undefined);
+  q.newProductPreview.mockResolvedValue({ planId: "new-product-plan" });
 });
 it("keeps archived reconciliation records readable without offering an invalid start", () => {
   q.archivedAccountId = "one";
@@ -491,6 +500,29 @@ it("discards a late product correction preview after closing and switching sessi
   q.session = second;
   await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
   await act(async () => { resolveProduct({ planId: "late-product" }); });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("keeps a late new-product preview closed after Escape and a session switch", async () => {
+  q.session!.accounts![0].mode = "holdings";
+  const second = { ...session(), id: "session-two", accountNames: ["Other bank"] };
+  q.sessions = [second];
+  let resolveProduct!: (value: unknown) => void;
+  q.newProductPreview.mockImplementationOnce(() => new Promise((resolve) => { resolveProduct = resolve; }));
+  mount("session-one");
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.addProduct") }));
+  fireEvent.change(screen.getByLabelText("Principal"), { target: { value: "1000" } });
+  await userEvent.click(screen.getByLabelText("Start date"));
+  await userEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
+  await userEvent.click(screen.getByLabelText("Maturity date"));
+  await userEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(q.newProductPreview).toHaveBeenCalledOnce();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.back") }));
+  q.session = second;
+  await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
+  await act(async () => { resolveProduct({ planId: "late-new-product" }); });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it("clears an open preview when selecting the session list", async () => {

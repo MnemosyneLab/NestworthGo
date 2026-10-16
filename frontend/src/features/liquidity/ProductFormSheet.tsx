@@ -18,7 +18,7 @@ import {
   useRecordProductOperation
 } from "@/queries/liquidity";
 import { useSupportedCurrencies } from "@/queries/settings";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ProductPolicyInput, ProductTermsInput } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { ProductCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
@@ -49,9 +49,18 @@ export function ProductFormSheet({
 }) {
   const { t } = useTranslation();
   const preview = usePreviewProductOperation();
- const [linkedPreviewPending,setLinkedPreviewPending]=useState(false);
+  const [linkedPreviewPending, setLinkedPreviewPending] = useState(false);
+  // A controlled close can keep this component mounted; clear the prior request's UI state.
+  const [lastOpen, setLastOpen] = useState(open);
+  if (open !== lastOpen) {
+    setLastOpen(open);
+    if (!open) setLinkedPreviewPending(false);
+  }
   const linkedPreviewSequence = useRef(0);
   const alive = useRef(true);
+  useLayoutEffect(() => {
+    if (!open) linkedPreviewSequence.current += 1;
+  }, [open]);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; linkedPreviewSequence.current += 1; };
