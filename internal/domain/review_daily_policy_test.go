@@ -52,6 +52,77 @@ func TestReviewDailyGoldenWindows(t *testing.T) {
 	}
 }
 
+func TestReviewPolicyTimelineMatchesDateKeyedEvaluation(t *testing.T) {
+	for _, policy := range []ReviewTriggerPolicy{{Kind: "single"}, {Kind: "consecutive", Count: 3}, {Kind: "rolling", WindowDays: 10, MinHits: 5}} {
+		for _, sequence := range []string{"TTTTTFFFFF", "TUTTTFTTTU", "UUUTTTTTTT", "TFTFTFTFTF"} {
+			truths := reviewSyntheticDays(sequence)
+			if sequence == "TUTTTFTTTU" {
+				delete(truths, "2026-10-04") // a missing slot is U, not a skipped day
+			}
+			days := make([]ReviewDailyResult, 0, len(truths))
+			for index := 0; index < len(sequence); index++ {
+				on := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, index).Format(time.DateOnly)
+				truth, present := truths[on]
+				if present {
+					days = append(days, ReviewDailyResult{On: on, Truth: truth})
+				}
+			}
+			got, err := EvaluateReviewPolicyTimeline(policy, days)
+			if err != nil {
+				t.Fatalf("timeline %+v %s: %v", policy, sequence, err)
+			}
+			for _, day := range days {
+				want, err := EvaluateReviewPolicy(policy, day.On, truths)
+				if err != nil || got[day.On] != want {
+					t.Fatalf("timeline %+v %s %s: %+v, want %+v (%v)", policy, sequence, day.On, got[day.On], want, err)
+				}
+			}
+		}
+	}
+}
+
+func TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass(t *testing.T) {
+	days := make([]ReviewDailyResult, 3650)
+	start := time.Date(2016, 10, 1, 0, 0, 0, 0, time.UTC)
+	for index := range days {
+		days[index] = ReviewDailyResult{On: start.AddDate(0, 0, index).Format(time.DateOnly), Truth: ReviewTrue}
+	}
+	windows, err := EvaluateReviewPolicyTimeline(ReviewTriggerPolicy{Kind: "rolling", WindowDays: 365, MinHits: 365}, days)
+	if err != nil {
+		t.Fatal(err)
+	}
+	latest := windows[days[len(days)-1].On]
+	if latest.Truth != ReviewTrue || latest.HitCount != 365 || latest.ConsecutiveCount != len(days) {
+		t.Fatalf("long true suffix was truncated: %+v", latest)
+	}
+}
+
+var reviewPolicyBenchmarkSink map[string]ReviewPolicyWindow
+
+func BenchmarkReviewPolicyTimeline365CalendarDays(b *testing.B) {
+	days := make([]ReviewDailyResult, 365)
+	start := time.Date(2025, 10, 16, 0, 0, 0, 0, time.UTC)
+	for index := range days {
+		truth := ReviewTrue
+		if index%7 == 0 {
+			truth = ReviewUnknown
+		} else if index%5 == 0 {
+			truth = ReviewFalse
+		}
+		days[index] = ReviewDailyResult{On: start.AddDate(0, 0, index).Format(time.DateOnly), Truth: truth}
+	}
+	policy := ReviewTriggerPolicy{Kind: "rolling", WindowDays: 30, MinHits: 10}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for index := 0; index < b.N; index++ {
+		windows, err := EvaluateReviewPolicyTimeline(policy, days)
+		if err != nil {
+			b.Fatal(err)
+		}
+		reviewPolicyBenchmarkSink = windows
+	}
+}
+
 func TestReviewDateSlotsAreIdempotentAndAdvanceWithoutQuotes(t *testing.T) {
 	p := ReviewTriggerPolicy{Kind: "rolling", WindowDays: 10, MinHits: 5}
 	days := reviewSyntheticDays("TTTTTFFFFF")

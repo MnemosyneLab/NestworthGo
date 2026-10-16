@@ -25,8 +25,18 @@ func TestReviewPublicationIsAtomicAndSameDayIdempotent(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if attempt == 1 {
+			if len(capture.ReusableDailyEvidence) != 1 {
+				t.Fatalf("unchanged source should expose one reusable day, got %d", len(capture.ReusableDailyEvidence))
+			}
+			cache := newReviewProjectionCache(capture, "")
+			plan, err := planReviewRuleInstrument(t.Context(), capture, capture.Rules[0], f.instrument.ID, *f.now, cache)
+			if err != nil || !plan.Incremental || len(plan.Days) != 0 || plan.LatestResult == nil || cache.snapshotReads != 0 || cache.inputProjections != 0 {
+				t.Fatalf("unchanged-source incremental replay recomputed history: days=%d snapshots=%d inputs=%d err=%v", len(plan.Days), cache.snapshotReads, cache.inputProjections, err)
+			}
+		}
 		stage, err := PrepareReviewPublication(t.Context(), capture, *f.now, "")
-		if err != nil || len(stage.Rules) != 1 || len(stage.Rules[0].Days) != 1 {
+		if err != nil || len(stage.Rules) != 1 || attempt == 0 && len(stage.Rules[0].Days) != 1 || attempt == 1 && len(stage.Rules[0].Days) != 0 {
 			t.Fatalf("stage %d: %+v %v", attempt, stage, err)
 		}
 		if err := repo.PublishReviewProjection(t.Context(), stage, *f.now); err != nil {
@@ -127,6 +137,306 @@ func TestReviewPublicationRejectsDeletedFinancialSource(t *testing.T) {
 	var count int
 	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_daily_results`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("stale publication leaked %d daily results: %v", count, err)
+	}
+}
+
+func TestReviewProjectionCacheProjectsTargetQuotesWithoutRetainingDailyQuoteCopies(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	f.agent(t)
+	f.day(t, "2026-08-02")
+	spec := syntheticHistoricalReviewSpec()
+	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "1", Currency: "CNY", FXMode: "native"}}}}
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic cached daily amount", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
+		t.Fatal(err)
+	}
+	capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := newReviewProjectionCache(capture, "")
+	plan, err := planReviewRuleInstrument(t.Context(), capture, capture.Rules[0], f.instrument.ID, *f.now, cache)
+	if err != nil || len(plan.Days) != 1 || plan.Days[0].Input.AmountExact == nil || *plan.Days[0].Input.AmountExact != "100" {
+		t.Fatalf("indexed target quote was not used for daily evidence: days=%+v err=%v", plan.Days, err)
+	}
+	for _, snapshot := range cache.snapshots {
+		if len(snapshot.InstrumentQuotes) != 0 || len(snapshot.FXQuotes) != 0 {
+			t.Fatalf("date snapshot retained shared market quote copies: instrument=%d fx=%d", len(snapshot.InstrumentQuotes), len(snapshot.FXQuotes))
+		}
+	}
+}
+
+func TestReviewProjectionReplaysOnlyNewDateSlotsAndPreservesAcknowledgement(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	rule, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-08-02")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var episodeID string
+	if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&episodeID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), episodeID, string(domain.NewMutationID()), 1); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-08-03")
+	repo := sqlite.NewRepository(f.db)
+	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capture.Control.PublishedFingerprint != capture.HistoricalFingerprint {
+		t.Fatal("changing only the civil date should leave the captured financial fingerprint unchanged")
+	}
+	providerKey := f.s.FXProviderKey()
+	cache := newReviewProjectionCache(capture, providerKey)
+	plan, err := planReviewRuleInstrument(t.Context(), capture, rule, f.instrument.ID, *f.now, cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Incremental || plan.PreviousLatestOn != "2026-08-01" || len(plan.Days) != 1 || plan.Days[0].On != "2026-08-02" || plan.LatestResult == nil || plan.LatestResult.On != "2026-08-02" || cache.snapshotReads != 1 || cache.inputProjections != 1 {
+		t.Fatalf("expected one computed date slot and latest result: incremental=%t previous=%s days=%v snapshots=%d inputs=%d", plan.Incremental, plan.PreviousLatestOn, reviewPlannedDayDates(plan.Days), cache.snapshotReads, cache.inputProjections)
+	}
+	lifecycle, err := PlanReviewLifecycle(capture, capture.Rules[0], plan, *f.now)
+	if err != nil || lifecycle.Opened || len(lifecycle.Closed) != 0 || lifecycle.Current == nil || lifecycle.Current.ID != episodeID || lifecycle.Current.AcknowledgedAt == nil {
+		t.Fatalf("incremental true day did not preserve the acknowledged episode: %+v %v", lifecycle, err)
+	}
+	publication, err := PrepareReviewPublication(t.Context(), capture, *f.now, providerKey)
+	if err != nil || len(publication.Rules) != 1 || len(publication.Rules[0].Days) != 1 || publication.Rules[0].Days[0].On != "2026-08-02" || publication.Rules[0].LatestResult == nil || publication.Rules[0].LatestResult.On != "2026-08-02" {
+		t.Fatalf("incremental publication: %+v %v", publication, err)
+	}
+	if err := repo.PublishReviewProjection(t.Context(), publication, *f.now); err != nil {
+		t.Fatal(err)
+	}
+	var storedEpisode, acknowledged string
+	if err := f.db.SQL.QueryRow(`SELECT id,acknowledged_at FROM investment_review_episodes WHERE id=?`, episodeID).Scan(&storedEpisode, &acknowledged); err != nil || storedEpisode != episodeID || acknowledged == "" {
+		t.Fatalf("incremental publication lost acknowledged episode: %q %q %v", storedEpisode, acknowledged, err)
+	}
+}
+
+func TestReviewIncrementalReplayPreservesFullDailyTrueSuffix(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	f.day(t, "2026-08-06") // Five closed daily T votes before the first checkpoint.
+	_, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewRepository(f.db)
+	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	providerKey := f.s.FXProviderKey()
+	publication, err := PrepareReviewPublication(t.Context(), capture, *f.now, providerKey)
+	if err != nil || len(publication.Rules) != 1 || publication.Rules[0].LatestWindow.ConsecutiveCount != 5 {
+		t.Fatalf("initial full replay streak: %+v %v", publication.Rules, err)
+	}
+	if err := repo.PublishReviewProjection(t.Context(), publication, *f.now); err != nil {
+		t.Fatal(err)
+	}
+
+	f.day(t, "2026-08-07") // One new closed T vote; the policy width remains one.
+	capture, err = repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil || len(capture.ReusableDailyEvidence) != 1 {
+		t.Fatalf("bounded cache capture: entries=%d err=%v", len(capture.ReusableDailyEvidence), err)
+	}
+	for _, cached := range capture.ReusableDailyEvidence {
+		if cached.PriorConsecutiveCount != 5 {
+			t.Fatalf("captured trailing streak %d, want 5", cached.PriorConsecutiveCount)
+		}
+	}
+	cache := newReviewProjectionCache(capture, providerKey)
+	incremental, err := planReviewRuleInstrument(t.Context(), capture, capture.Rules[0], f.instrument.ID, *f.now, cache)
+	if err != nil || !incremental.Incremental || len(incremental.Days) != 1 {
+		t.Fatalf("incremental plan: days=%d incremental=%t err=%v", len(incremental.Days), incremental.Incremental, err)
+	}
+	fullCapture := capture
+	fullCapture.Control.ProjectionStatus = "pending"
+	fullCapture.Control.PublishedFingerprint = ""
+	fullCapture.ReusableDailyEvidence = nil
+	full, err := PlanReviewRuleInstrument(t.Context(), fullCapture, capture.Rules[0], f.instrument.ID, *f.now, providerKey)
+	if err != nil || incremental.LatestWindow.Truth != full.LatestWindow.Truth || incremental.LatestWindow.ConsecutiveCount != full.LatestWindow.ConsecutiveCount || full.LatestWindow.ConsecutiveCount != 6 {
+		t.Fatalf("incremental/full streak mismatch: incremental=%+v full=%+v err=%v", incremental.LatestWindow, full.LatestWindow, err)
+	}
+}
+
+func TestReviewIncrementalReplayTThenUDoesNotOpenStaleEpisode(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	f.day(t, "2026-08-03")
+	f.agent(t) // Known future closed-date quote; Aug 2 remains U.
+	spec := syntheticHistoricalReviewSpec()
+	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "1", Currency: "CNY", FXMode: "native"}}}}
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily amount", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewRepository(f.db)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-08-05") // New date slots are Aug 3=T and Aug 4=U.
+	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil || capture.Control.PublishedFingerprint != capture.HistoricalFingerprint {
+		t.Fatalf("same-source incremental capture: published=%s current=%s err=%v", capture.Control.PublishedFingerprint, capture.HistoricalFingerprint, err)
+	}
+	publication, err := PrepareReviewPublication(t.Context(), capture, *f.now, f.s.FXProviderKey())
+	if err != nil || len(publication.Rules) != 1 || publication.Rules[0].LatestWindow.Truth != domain.ReviewUnknown || publication.Rules[0].OpenedEpisode || publication.Rules[0].CurrentEpisode != nil || len(publication.Rules[0].Days) != 2 {
+		t.Fatalf("T→U incremental replay staged a stale episode: %+v %v", publication.Rules, err)
+	}
+	if err := repo.PublishReviewProjection(t.Context(), publication, *f.now); err != nil {
+		t.Fatalf("published T→U incremental evidence: %v", err)
+	}
+	var openEpisodes int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&openEpisodes); err != nil || openEpisodes != 0 {
+		t.Fatalf("T→U replay created %d open episodes: %v", openEpisodes, err)
+	}
+}
+
+func reviewPlannedDayDates(days []ReviewPlannedDay) []string {
+	result := make([]string, len(days))
+	for index, day := range days {
+		result[index] = day.On
+	}
+	return result
+}
+
+func TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	f.day(t, "2026-08-02")
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewRepository(f.db)
+	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publication, err := PrepareReviewPublication(t.Context(), capture, *f.now, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.PublishReviewProjection(t.Context(), publication, *f.now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.SQL.Exec(`DELETE FROM instrument_quotes WHERE instrument_id=?`, f.instrument.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Control.PublishedFingerprint == changed.HistoricalFingerprint || len(changed.ReusableDailyEvidence) != 0 {
+		t.Fatalf("changed source reused stale daily inputs: published=%s actual=%s reusable=%d", changed.Control.PublishedFingerprint, changed.HistoricalFingerprint, len(changed.ReusableDailyEvidence))
+	}
+	cache := newReviewProjectionCache(changed, "")
+	if _, err := planReviewRuleInstrument(t.Context(), changed, changed.Rules[0], f.instrument.ID, *f.now, cache); err != nil {
+		t.Fatal(err)
+	}
+	if cache.snapshotReads == 0 || cache.inputProjections == 0 {
+		t.Fatalf("changed history did not trigger full rebuild: snapshots=%d inputs=%d", cache.snapshotReads, cache.inputProjections)
+	}
+}
+
+func TestReviewCorrectedPositionHistoryDropsObsoleteEpochStreak(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	f.day(t, "2026-08-02")
+	f.quantity(t, false)
+	f.day(t, "2026-08-03")
+	f.quantity(t, true)
+	f.day(t, "2026-08-04")
+	spec := syntheticHistoricalReviewSpec()
+	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "type", Operator: "in", Types: []domain.InstrumentType{domain.InstrumentStock}}}}}
+	spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "consecutive", Count: 1}
+	rule, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic type rule", Enabled: true, Severity: "warning", Spec: spec})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var obsoleteEpoch string
+	if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_position_epochs WHERE instrument_id=? AND closed_at IS NULL ORDER BY opened_at DESC LIMIT 1`, f.instrument.ID.String()).Scan(&obsoleteEpoch); err != nil {
+		t.Fatal(err)
+	}
+	var obsoleteStateCount int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=? AND position_epoch_id=?`, string(rule.ID), f.instrument.ID.String(), obsoleteEpoch).Scan(&obsoleteStateCount); err != nil || obsoleteStateCount != 1 {
+		t.Fatalf("expected state for the soon-obsolete epoch: %d %v", obsoleteStateCount, err)
+	}
+	if _, err := f.db.SQL.Exec(`UPDATE investment_review_evaluation_state SET consecutive_count=99 WHERE rule_id=? AND instrument_id=? AND position_epoch_id=?`, string(rule.ID), f.instrument.ID.String(), obsoleteEpoch); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a corrected synthetic history by removing the sell/rebuy effect
+	// pair while retaining the current one-share holding. The origin quantity
+	// then remains authoritative on every date and the old rebuy epoch vanishes.
+	if _, err := f.db.SQL.Exec(`DELETE FROM holding_quantity_values WHERE activity_effect_id IN (SELECT id FROM activity_effects WHERE holding_id=? AND target='holding_quantity')`, f.holding.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.SQL.Exec(`DELETE FROM activity_effects WHERE holding_id=? AND target='holding_quantity'`, f.holding.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var remainingStates, streak int
+	if err := f.db.SQL.QueryRow(`SELECT count(*),MAX(consecutive_count) FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=?`, string(rule.ID), f.instrument.ID.String()).Scan(&remainingStates, &streak); err != nil || remainingStates != 1 || streak != 3 {
+		t.Fatalf("correction left obsolete streak state or wrong current suffix: rows=%d streak=%d err=%v", remainingStates, streak, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=? AND position_epoch_id=?`, string(rule.ID), f.instrument.ID.String(), obsoleteEpoch).Scan(&obsoleteStateCount); err != nil || obsoleteStateCount != 0 {
+		t.Fatalf("obsolete position epoch retained evaluation state: rows=%d err=%v", obsoleteStateCount, err)
+	}
+	recaptured, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundReusableLatest := false
+	for key, item := range recaptured.ReusableDailyEvidence {
+		if key.RuleID == rule.ID && key.InstrumentID == f.instrument.ID && key.On == "2026-08-03" {
+			foundReusableLatest = true
+			if item.PriorConsecutiveCount != 3 {
+				t.Fatalf("reusable date inherited the obsolete epoch streak: %d", item.PriorConsecutiveCount)
+			}
+		}
+	}
+	if !foundReusableLatest {
+		t.Fatal("corrected projection did not expose its current latest daily input for reuse")
+	}
+}
+
+func TestReviewProjectionReplayInvalidatesPersistedCacheOnFXProviderChange(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	f.day(t, "2026-08-02")
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewRepository(f.db)
+	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publication, err := PrepareReviewPublication(t.Context(), capture, *f.now, "provider-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.PublishReviewProjection(t.Context(), publication, *f.now); err != nil {
+		t.Fatal(err)
+	}
+
+	unchanged, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Control.PublishedFingerprint != unchanged.HistoricalFingerprint || len(unchanged.ReusableDailyEvidence) != 1 {
+		t.Fatalf("expected one source-current cached day: fingerprint=%t reusable=%d", unchanged.Control.PublishedFingerprint == unchanged.HistoricalFingerprint, len(unchanged.ReusableDailyEvidence))
+	}
+	cache := newReviewProjectionCache(unchanged, "provider-b")
+	plan, err := planReviewRuleInstrument(t.Context(), unchanged, unchanged.Rules[0], f.instrument.ID, *f.now, cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cache.snapshotReads == 0 || cache.inputProjections == 0 || plan.Days[0].Input.FXProviderKey != "provider-b" {
+		t.Fatalf("FX provider change reused stale daily evidence: snapshots=%d inputs=%d provider=%q", cache.snapshotReads, cache.inputProjections, plan.Days[0].Input.FXProviderKey)
 	}
 }
 
@@ -397,6 +707,31 @@ func TestReviewCoverageIncludesUnknownWithoutAnAlertAndExcludesZeroHolding(t *te
 	zero, err := f.s.ListReviewCoverageV2(t.Context(), domain.ReviewCoverageFilter{Status: "all"}, "", 10)
 	if err != nil || len(zero.Items) != 0 {
 		t.Fatalf("zero holding remained current coverage: %+v %v", zero, err)
+	}
+}
+
+func TestReviewCoveragePausePreservesUnknownDailyTruth(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	spec := syntheticHistoricalReviewSpec()
+	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "price_change", Operator: "<", Value: "-1", LookbackDays: 30}}}}
+	rule, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic paused unknown", Enabled: true, Severity: "notice", Spec: spec})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-08-02")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.SQL.Exec(`UPDATE investment_review_rules SET enabled=0 WHERE id=?`, string(rule.ID)); err != nil {
+		t.Fatal(err)
+	}
+	page, err := f.s.ListReviewCoverageV2(t.Context(), domain.ReviewCoverageFilter{Status: "paused"}, "", 10)
+	if err != nil || len(page.Items) != 1 || len(page.Items[0].Rules) != 1 {
+		t.Fatalf("paused coverage: %+v %v", page, err)
+	}
+	coverage := page.Items[0].Rules[0]
+	if coverage.State != "paused" || coverage.Window.Truth != domain.ReviewUnknown || coverage.Window.UnknownCount != 1 || coverage.Window.FalseCount != 0 {
+		t.Fatalf("pausing replaced the published unknown vote: %+v", coverage)
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 // acknowledgement or ignore changed before publication.
 func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
 	result := domain.ReviewPublication{Capture: capture, At: now, Rules: []domain.ReviewRulePublication{}}
+	cache := newReviewProjectionCache(capture, providerKey)
 	for _, rule := range capture.Rules {
 		if err := ctx.Err(); err != nil {
 			return domain.ReviewPublication{}, err
@@ -67,7 +68,7 @@ func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjecti
 				result.Rules = append(result.Rules, domain.ReviewRulePublication{RuleID: rule.ID, RuleRevision: rule.RowRevision, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion, LatestClosedOn: latest, ClosedEpisodes: closed, TargetExcluded: true})
 				continue
 			}
-			plan, err := PlanReviewRuleInstrument(ctx, capture, rule, instrumentID, now, providerKey)
+			plan, err := planReviewRuleInstrument(ctx, capture, rule, instrumentID, now, cache)
 			if err != nil {
 				return domain.ReviewPublication{}, err
 			}
@@ -78,15 +79,13 @@ func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjecti
 			entry := domain.ReviewRulePublication{
 				RuleID: rule.ID, RuleRevision: rule.RowRevision, ConditionVersion: rule.CurrentConditionVersion,
 				InstrumentID: instrumentID, TimezoneVersion: rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion,
-				LatestClosedOn: plan.LatestClosedOn, LatestWindow: plan.LatestWindow, PositionKnown: plan.Position.Known, CurrentEpochID: lifecycle.CurrentEpochID,
+				LatestClosedOn: plan.LatestClosedOn, LatestResult: plan.LatestResult, LatestCoverage: append([]string{}, plan.LatestCoverage...), FirstHitOn: plan.FirstHitOn,
+				LatestWindow: plan.LatestWindow, PositionKnown: plan.Position.Known, CurrentEpochID: lifecycle.CurrentEpochID,
 				CurrentEpisode: lifecycle.Current, ClosedEpisodes: lifecycle.Closed, OpenedEpisode: lifecycle.Opened,
 				Days: make([]domain.ReviewPublicationDay, 0, len(plan.Days)), Epochs: make([]domain.ReviewPublicationEpoch, 0, len(plan.Position.Epochs)),
 			}
 			for _, day := range plan.Days {
 				entry.Days = append(entry.Days, domain.ReviewPublicationDay{On: day.On, Input: day.Input, CoverageMissing: day.Coverage.Missing, Result: day.Result, PolicyWindow: day.PolicyWindow, InputFingerprint: day.InputFingerprint})
-			}
-			if len(plan.Days) > 0 {
-				entry.LatestCoverage = plan.Days[len(plan.Days)-1].Coverage.Missing
 			}
 			for index, epoch := range plan.Position.Epochs {
 				entry.Epochs = append(entry.Epochs, domain.ReviewPublicationEpoch{ID: plan.EpochIDs[index], InstrumentID: instrumentID, OpenedAt: epoch.OpenedAt, OpeningID: epoch.OpenedBy, ClosedAt: epoch.ClosedAt, ClosingID: epoch.ClosedBy, StartUnknown: epoch.StartUnknown})

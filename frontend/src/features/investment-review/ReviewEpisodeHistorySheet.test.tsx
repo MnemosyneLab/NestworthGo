@@ -15,7 +15,7 @@ vi.mock("@/queries/investmentReviewV2", () => ({
   useReviewEpisodeEventPage: (episodeId: string, cursor: string, active: boolean) => { state.eventCall(episodeId, cursor, active); return state.events; },
 }));
 
-beforeEach(async () => { vi.clearAllMocks(); await i18n.changeLanguage("en"); });
+beforeEach(async () => { vi.clearAllMocks(); state.events.data.items[0].payloadJson = "{}"; await i18n.changeLanguage("en"); });
 
 describe("investment review history", () => {
   it("shows a resolved episode and opens its paged event timeline", async () => {
@@ -27,5 +27,12 @@ describe("investment review history", () => {
     expect(screen.getByText("Resolved")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(state.historyCall).toHaveBeenLastCalledWith("synthetic-rule", "next-history", true);
+  });
+  it("renders an event with a JSON null payload without crashing", async () => {
+    state.events.data.items[0].payloadJson = "null";
+    render(<ReviewEpisodeHistorySheet open onOpenChange={vi.fn()} />);
+    await userEvent.click(screen.getByText("Events"));
+    await waitFor(() => expect(screen.getByText("Resolved")).toBeVisible());
+    expect(screen.queryByText(/Hits:/)).not.toBeInTheDocument();
   });
 });

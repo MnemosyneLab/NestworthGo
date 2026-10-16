@@ -298,20 +298,12 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 		LatestResult *domain.ReviewDailyResult
 		Coverage     []string
 	}{Window: item.LatestWindow, Coverage: item.LatestCoverage}
-	if len(item.Days) != 0 {
-		evidence.LatestResult = &item.Days[len(item.Days)-1].Result
-	}
+	evidence.LatestResult = item.LatestResult
 	payload, fingerprint, err := reviewEvidenceFingerprint(evidence)
 	if err != nil {
 		return err
 	}
-	firstHit := ""
-	for _, day := range item.Days {
-		if day.On >= item.LatestWindow.WindowStart && day.On <= item.LatestClosedOn && day.Result.Truth == domain.ReviewTrue {
-			firstHit = day.On
-			break
-		}
-	}
+	firstHit := item.FirstHitOn
 	if firstHit == "" {
 		firstHit = current.TriggeredOn // a retained episode may be U today
 	}
@@ -394,6 +386,39 @@ func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.R
 		_, err := tx.ExecContext(ctx, `INSERT INTO investment_review_evaluation_state(rule_id,instrument_id,position_epoch_id,latest_closed_on,policy_state,window_start,window_end,hit_count,false_count,unknown_count,consecutive_count,episode_id,coverage_json,publication_revision) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1) ON CONFLICT(rule_id,instrument_id,position_epoch_id) DO UPDATE SET latest_closed_on=excluded.latest_closed_on,policy_state=excluded.policy_state,window_start=excluded.window_start,window_end=excluded.window_end,hit_count=excluded.hit_count,false_count=excluded.false_count,unknown_count=excluded.unknown_count,consecutive_count=excluded.consecutive_count,episode_id=excluded.episode_id,coverage_json=excluded.coverage_json,publication_revision=investment_review_evaluation_state.publication_revision+1 WHERE latest_closed_on<>excluded.latest_closed_on OR policy_state<>excluded.policy_state OR window_start<>excluded.window_start OR window_end<>excluded.window_end OR hit_count<>excluded.hit_count OR false_count<>excluded.false_count OR unknown_count<>excluded.unknown_count OR consecutive_count<>excluded.consecutive_count OR episode_id IS NOT excluded.episode_id OR coverage_json<>excluded.coverage_json`, string(item.RuleID), item.InstrumentID.String(), epochID, item.LatestClosedOn, state, window.WindowStart, window.WindowEnd, window.HitCount, window.FalseCount, window.UnknownCount, window.ConsecutiveCount, episodeID, string(coverage))
 		if err != nil {
 			return err
+		}
+	}
+	if item.PositionKnown {
+		validEpochs := make(map[string]struct{}, len(epochIDs))
+		for _, epochID := range epochIDs {
+			validEpochs[epochID] = struct{}{}
+		}
+		rows, err := tx.QueryContext(ctx, `SELECT position_epoch_id FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=?`, string(item.RuleID), item.InstrumentID.String())
+		if err != nil {
+			return err
+		}
+		staleEpochs := []string{}
+		for rows.Next() {
+			var epochID string
+			if err := rows.Scan(&epochID); err != nil {
+				rows.Close()
+				return err
+			}
+			if _, ok := validEpochs[epochID]; !ok {
+				staleEpochs = append(staleEpochs, epochID)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		for _, epochID := range staleEpochs {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=? AND position_epoch_id=?`, string(item.RuleID), item.InstrumentID.String(), epochID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -152,3 +152,97 @@ func EvaluateReviewPolicy(p ReviewTriggerPolicy, latestClosedDay string, days ma
 	}
 	return result, nil
 }
+
+// EvaluateReviewPolicyTimeline computes policy windows in one chronological
+// pass. This is used when replaying many civil days so each new date has O(1)
+// trigger-policy work even for a full 365-day rolling window.
+func EvaluateReviewPolicyTimeline(p ReviewTriggerPolicy, days []ReviewDailyResult) (map[string]ReviewPolicyWindow, error) {
+	p, err := p.Normalize()
+	if err != nil {
+		return nil, err
+	}
+	width, required := 1, 1
+	if p.Kind == "consecutive" {
+		width, required = p.Count, p.Count
+	} else if p.Kind == "rolling" {
+		width, required = p.WindowDays, p.MinHits
+	}
+	window := make([]ReviewTruth, width)
+	for index := range window {
+		window[index] = ReviewUnknown
+	}
+	unknownCount, hitCount, falseCount := width, 0, 0
+	head := 0
+	consecutive := 0
+	latest := map[string]ReviewPolicyWindow{}
+	var previous time.Time
+
+	process := func(on string, truth ReviewTruth) (ReviewPolicyWindow, error) {
+		if !truth.valid() {
+			return ReviewPolicyWindow{}, validation("dailyPredicate", "contains an unsupported truth value")
+		}
+		old := window[head]
+		switch old {
+		case ReviewTrue:
+			hitCount--
+		case ReviewFalse:
+			falseCount--
+		default:
+			unknownCount--
+		}
+		switch truth {
+		case ReviewTrue:
+			hitCount++
+			consecutive++
+		case ReviewFalse:
+			falseCount++
+			consecutive = 0
+		default:
+			unknownCount++
+			consecutive = 0
+		}
+		window[head] = truth
+		head = (head + 1) % width
+		day, err := time.Parse(time.DateOnly, on)
+		if err != nil {
+			return ReviewPolicyWindow{}, validation("latestClosedDay", "must be a valid ISO civil date")
+		}
+		result := ReviewPolicyWindow{
+			WindowStart: day.AddDate(0, 0, 1-width).Format(time.DateOnly), WindowEnd: on,
+			HitCount: hitCount, FalseCount: falseCount, UnknownCount: unknownCount, ConsecutiveCount: consecutive,
+		}
+		switch {
+		case hitCount >= required:
+			result.Truth = ReviewTrue
+		case hitCount+unknownCount < required:
+			result.Truth = ReviewFalse
+		default:
+			result.Truth = ReviewUnknown
+		}
+		return result, nil
+	}
+
+	for _, day := range days {
+		current, err := time.Parse(time.DateOnly, day.On)
+		if err != nil {
+			return nil, validation("on", "must be a valid ISO civil date")
+		}
+		if !previous.IsZero() {
+			if !current.After(previous) {
+				return nil, validation("on", "timeline dates must be strictly increasing")
+			}
+			for missing := previous.AddDate(0, 0, 1); missing.Before(current); missing = missing.AddDate(0, 0, 1) {
+				if _, err := process(missing.Format(time.DateOnly), ReviewUnknown); err != nil {
+					return nil, err
+				}
+			}
+		}
+		result, err := process(day.On, day.Truth)
+		if err != nil {
+			return nil, err
+		}
+		latest[day.On] = result
+		previous = current
+	}
+	return latest, nil
+}

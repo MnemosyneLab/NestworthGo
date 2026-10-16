@@ -15,6 +15,27 @@ type ReviewProjectionCapture struct {
 	Suppressions          []ReviewSuppression
 	OpenEpisodes          []ReviewStoredEpisode
 	EvaluatedInstruments  map[ReviewRuleID][]InstrumentID
+	ReusableDailyEvidence map[ReviewDailyEvidenceKey]ReviewReusableDailyEvidence
+}
+
+// ReviewDailyEvidenceKey identifies one persisted daily input/result for the
+// current rule version. Reuse is permitted only when the capture's complete
+// historical source fingerprint matches the last published fingerprint.
+type ReviewDailyEvidenceKey struct {
+	RuleID           ReviewRuleID
+	ConditionVersion int
+	InstrumentID     InstrumentID
+	TimezoneVersion  string
+	On               string
+}
+
+type ReviewReusableDailyEvidence struct {
+	Input                 ReviewDailyInput
+	CoverageMissing       []string
+	InputFingerprint      string
+	Result                ReviewDailyResult
+	HasResult             bool
+	PriorConsecutiveCount int
 }
 
 type ReviewProjectionControl struct {
@@ -54,11 +75,13 @@ type ReviewRulePublication struct {
 	TimezoneVersion  string
 	LatestClosedOn   string
 	Days             []ReviewPublicationDay
+	LatestResult     *ReviewDailyResult
+	LatestCoverage   []string
+	FirstHitOn       string
 	Epochs           []ReviewPublicationEpoch
 	PositionKnown    bool
 	CurrentEpochID   string
 	LatestWindow     ReviewPolicyWindow
-	LatestCoverage   []string
 	CurrentEpisode   *ReviewEpisodeIdentity
 	ClosedEpisodes   []ReviewEpisodeIdentity
 	OpenedEpisode    bool

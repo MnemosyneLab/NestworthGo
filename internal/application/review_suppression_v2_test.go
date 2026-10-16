@@ -1,6 +1,7 @@
 package application
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -83,5 +84,66 @@ func TestReviewSuppressionV2CustomRetryAfterExpiry(t *testing.T) {
 	in.SuppressionID = string(domain.NewReviewSuppressionID())
 	if _, err := s.SetReviewSuppressionV2(t.Context(), in); err == nil {
 		t.Fatal("new operation accepted a past date")
+	}
+}
+
+func TestReviewSuppressionV2CanBeSetAgainAfterExpiryConcurrently(t *testing.T) {
+	s, _, _, now := overviewFixture(t)
+	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	*now = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	first, err := s.SetReviewSuppressionV2(t.Context(), SetReviewSuppressionV2Input{
+		SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()),
+		InstrumentID: instrument.ID.String(), Mode: "until_date", Days: 7,
+	})
+	if err != nil || first.UntilOn != "2026-10-08" || first.Revision != 1 {
+		t.Fatalf("initial ignore: %+v %v", first, err)
+	}
+	*now = time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	if _, err := s.SetReviewSuppressionV2(t.Context(), SetReviewSuppressionV2Input{
+		SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()),
+		InstrumentID: instrument.ID.String(), Mode: "until_date", Days: 30,
+	}); err == nil {
+		t.Fatal("new request silently extended an active ignore")
+	}
+
+	*now = time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	active, err := domain.ActiveReviewSuppression([]domain.ReviewSuppression{first}, instrument.ID, "", *now)
+	if err != nil || active != nil {
+		t.Fatalf("ignore should have expired on its resume date: %+v %v", active, err)
+	}
+	makeRequest := func() SetReviewSuppressionV2Input {
+		return SetReviewSuppressionV2Input{
+			SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()),
+			InstrumentID: instrument.ID.String(), Mode: "until_date", Days: 7,
+		}
+	}
+	requests := []SetReviewSuppressionV2Input{makeRequest(), makeRequest()}
+	results := make([]domain.ReviewSuppression, len(requests))
+	resultErrors := make([]error, len(requests))
+	var wait sync.WaitGroup
+	for index := range requests {
+		wait.Add(1)
+		go func(index int) {
+			defer wait.Done()
+			results[index], resultErrors[index] = s.SetReviewSuppressionV2(t.Context(), requests[index])
+		}(index)
+	}
+	wait.Wait()
+	for index, err := range resultErrors {
+		if err != nil {
+			t.Fatalf("concurrent re-ignore %d: %v", index, err)
+		}
+	}
+	for index, result := range results {
+		if result.ID != first.ID || result.UntilOn != "2026-10-15" || result.Revision != 2 {
+			t.Fatalf("re-ignore %d did not update the expired scope: %+v", index, result)
+		}
+	}
+	entries, err := s.ListReviewSuppressionsV2(t.Context(), "", 10)
+	if err != nil || len(entries) != 1 || entries[0].ID != first.ID || entries[0].UntilOn != "2026-10-15" || entries[0].Revision != 2 {
+		t.Fatalf("concurrent re-ignore created or changed multiple rows: %+v %v", entries, err)
 	}
 }

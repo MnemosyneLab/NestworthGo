@@ -167,15 +167,15 @@ func reviewCoverageGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID dom
 			if err := json.Unmarshal([]byte(coverage.String), &missing); err != nil {
 				return nil, err
 			}
+			truth := domain.ReviewFalse
+			if policyState.String == "triggered" {
+				truth = domain.ReviewTrue
+			} else if policyState.String == "unknown" {
+				truth = domain.ReviewUnknown
+			}
 			state := policyState.String
 			if !enabled || ruleEnabled.Int64 == 0 {
 				state = "paused"
-			}
-			truth := domain.ReviewFalse
-			if state == "triggered" {
-				truth = domain.ReviewTrue
-			} else if state == "unknown" {
-				truth = domain.ReviewUnknown
 			}
 			group.Rules = append(group.Rules, domain.ReviewCoverageRule{RuleID: domain.ReviewRuleID(ruleID.String), Name: ruleName.String, State: state, LatestClosedOn: latest.String, Window: domain.ReviewPolicyWindow{Truth: truth, WindowStart: windowStart.String, WindowEnd: windowEnd.String, HitCount: int(hits.Int64), FalseCount: int(falseCount.Int64), UnknownCount: int(unknownCount.Int64), ConsecutiveCount: int(streak.Int64)}, Missing: missing})
 			if reviewCoverageRank(state) < reviewCoverageRank(group.Status) {

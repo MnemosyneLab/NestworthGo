@@ -4,8 +4,10 @@ The authoritative design is Library item
 `libfile_da0cbd81b3c08191a4bdc7c9b6bee201`, version 2 (design 1.2),
 114254 bytes, SHA256
 `acddcc6e6eb82806c1d67156dd89d2e4e9b63af0a5e337df56a228ce1c34e56e`.
-It was downloaded and read in full. This branch starts from main with PR97 and
-commit `d23c01f4f9b59b64b7f83d4b246a8d6b37252f91`.
+It was downloaded and read in full. The original rollout checkpoint was based
+on main with PR97 at commit `d23c01f4f9b59b64b7f83d4b246a8d6b37252f91`.
+This continuation verified the existing PR98 branch at remote head
+`d602d7c9d258b6ace5cd72b74e067dd17e12acb1` and preserves its earlier work.
 
 ## Implemented on this branch
 
@@ -69,7 +71,7 @@ starts at the trigger window's first date, so a consecutive or rolling rule
 retains the earlier votes needed to explain why it fired. Tests page through
 consecutive, rolling, and same-day clear/rebuy episodes.
 
-## Work still required for the design's release gate
+## Conversion flow, history UI, nested editor, and incremental replay
 
 The migrated compatibility rule now has an explicit conversion sheet. A pure
 preview proposes separate low-yield and loss daily rules, states the changed
@@ -89,21 +91,39 @@ paged event timeline for each episode, including resolved and archived-rule
 history. Acknowledgement and same-day evidence correction append meaningful
 events; unchanged refreshes do not. Wails and MCP expose the same read-only
 history APIs. Rule and suppression management page beyond the first 100.
-The editor preserves nested
-predicates while editing an existing rule and exposes their bounded all/any
-JSON as an advanced field. Its ordinary type condition supports multi-select;
-a visual builder for nested groups remains outstanding.
+The rule editor now recursively edits nested all/any groups, instrument
+conditions, and multi-select type conditions without exposing raw JSON. It
+checks the 20-leaf/two-group limit and keeps Save disabled when a stored
+predicate contains malformed or `null` nodes. The historical event renderer
+also treats a JSON `null` payload as absent optional counts rather than
+crashing.
 
-Reconciliation currently replays every historical date for each rule and
-instrument. The new report summary also scans all current alert groups in
-bounded SQL batches on each page read; its consistency is tested, but the
-target first-page p95 budget has not been demonstrated. Dirty-range bounded
-replay, checkpointing, long-gap progress and performance budget evidence are
-outstanding. A complete independent rule
-template import/export remains optional in design stage 5. The native macOS
-Wails window, VoiceOver, Chinese IME, narrow/high-zoom layout, restart and
-backup restore acceptance have not been exercised here. These are material
-remaining gates; this checkpoint is for draft review, not merge or release.
+Published daily inputs and results now act as reusable date-slot checkpoints.
+Capture reads them only when the last published historical source fingerprint
+exactly matches the current consistent source snapshot and the current rule,
+condition version, timezone version, instrument, and date match. A missing
+slot is computed; a changed source fingerprint disables reuse and causes a
+full safe recomputation. Per-publication caches share same-day portfolio
+snapshots and compatible daily inputs across rules, index quantity activities
+by affected instrument, and calculate all policy windows in one O(1)-per-day
+rolling pass. Tests assert zero snapshot/input projections on unchanged
+source, exact invalidation on source change, and unchanged atomic-transfer
+epoch evidence.
+
+This is incremental reuse for unchanged history and new date slots. A source
+correction still triggers a full historical rebuild; dirty-range invalidation
+for individual source families and user-visible long-gap progress are outside
+this change. The application planning stage has now been measured against a
+synthetic 100-holding/20-rule/100k-quote/50k-activity fixture: 30 one-shot runs
+had a 445.17 ms nearest-rank p95, within the 500 ms planning-stage target. The
+benchmark excludes SQLite capture and publication, so the overall incremental
+request and 150 ms first-page targets remain unaccepted. Full measurements are
+in `docs/testing/investment-review-daily-acceptance-2026-10-16.md`. A complete
+independent rule-template import/export remains optional in design stage 5.
+The native macOS Wails window, VoiceOver,
+Chinese IME, narrow/high-zoom layout, restart and backup-restore acceptance
+have not been exercised in this Linux environment. This checkpoint is for
+draft review, not merge or release.
 
 ## Parallel frontend ownership
 
@@ -121,13 +141,15 @@ remains `com.nestworth.dev` / `Nestworth`. No real ledger has been opened.
 
 ## Latest automated verification
 
-Serial server-profile `go test -short -p 1 ./...` and `go vet ./...` passed
-across all packages. The conversion, evidence and same-day rebuy regressions
-also passed under the race detector. Generated Wails bindings were refreshed
-with the pinned generator in server mode. Frontend TypeScript, focused ESLint
-and conversion/editor tests passed. The previous draft head's remote CI
-completed successfully; this new head requires its own CI result. Linux
-server-mode compilation does not establish native macOS packaging.
+Pinned Go 1.27.2 server-profile `go test -short -p 1 ./...`, `go vet -p 1
+./...`, and `go build ./cmd/nestworth` passed. The T→U lifecycle, full streak
+carry-forward, corrected-epoch cleanup and concurrent expired-ignore
+regressions passed under the race detector. Direct Vitest execution passed all
+137 files/1451 tests; ESLint, TypeScript no-emit checking and the production
+frontend build passed. The older draft head CI run 38900264828 completed
+successfully; the new commit still needs its own exact-SHA CI result. This
+Linux server-profile verification does not establish native macOS Wails
+packaging or accessibility acceptance.
 
 The first remote CI run of the older draft head stopped at the standalone
 user-skill check after Go tests passed: `skills/nestworth/SKILL.md` had 905

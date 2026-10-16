@@ -22,7 +22,6 @@ type ReviewHistoricalCoverage struct {
 // transaction. An absent cost-event entry is unknown, not an empty history.
 // It is a pure projection suitable for preview or staged reconciliation.
 func ProjectReviewHistoricalDay(ctx context.Context, captured domain.ReviewHistoricalBatch, providerKey string, spec domain.ReviewRuleSpec, instrumentID domain.InstrumentID, on string) (domain.ReviewDailyInput, ReviewHistoricalCoverage, error) {
-	batch := captured.History
 	var err error
 	spec, err = spec.Normalize()
 	if err != nil {
@@ -32,19 +31,27 @@ func ProjectReviewHistoricalDay(ctx context.Context, captured domain.ReviewHisto
 	if err != nil {
 		return domain.ReviewDailyInput{}, ReviewHistoricalCoverage{}, err
 	}
-	input := domain.ReviewDailyInput{On: on, InstrumentID: instrumentID, Performance: map[int]domain.QuotePerformance{}, SelectedFX: map[domain.CurrencyCode]domain.ReviewSelectedFX{}}
+	if captured.History.Origin.StartedAt.IsZero() || !captured.History.Origin.StartedAt.Before(cutoff) {
+		return domain.ReviewDailyInput{On: on, InstrumentID: instrumentID, FXProviderKey: providerKey}, ReviewHistoricalCoverage{On: on, Missing: []string{"history_origin"}}, nil
+	}
+	portfolio, err := (HistoricalReplay{batch: &captured.History}).Snapshot(ctx, &captured.History.Origin, cutoff.Add(-time.Nanosecond))
+	if err != nil {
+		return domain.ReviewDailyInput{}, ReviewHistoricalCoverage{}, err
+	}
+	return projectReviewHistoricalDayFromPortfolio(ctx, captured, providerKey, spec, instrumentID, on, cutoff, portfolio)
+}
+
+func projectReviewHistoricalDayFromPortfolio(ctx context.Context, captured domain.ReviewHistoricalBatch, providerKey string, spec domain.ReviewRuleSpec, instrumentID domain.InstrumentID, on string, cutoff time.Time, portfolio domain.PortfolioSnapshot) (domain.ReviewDailyInput, ReviewHistoricalCoverage, error) {
+	batch := captured.History
+	input := domain.ReviewDailyInput{On: on, InstrumentID: instrumentID, FXProviderKey: providerKey, Performance: map[int]domain.QuotePerformance{}, SelectedFX: map[domain.CurrencyCode]domain.ReviewSelectedFX{}}
 	coverage := ReviewHistoricalCoverage{On: on, Missing: []string{}}
 	if batch.Origin.StartedAt.IsZero() || !batch.Origin.StartedAt.Before(cutoff) {
 		coverage.Missing = append(coverage.Missing, "history_origin")
 		return input, coverage, nil
 	}
 	// HistoricalReplay.Snapshot includes an effective fact at its cutoff. The
-	// review day is half-open, so pass the last instant before the next day.
+	// review day is half-open, so callers pass the last instant before the next day.
 	positionAt := cutoff.Add(-time.Nanosecond)
-	portfolio, err := (HistoricalReplay{batch: &batch}).Snapshot(ctx, &batch.Origin, positionAt)
-	if err != nil {
-		return domain.ReviewDailyInput{}, ReviewHistoricalCoverage{}, err
-	}
 	var instrument *domain.Instrument
 	for index := range portfolio.Instruments {
 		if portfolio.Instruments[index].ID == instrumentID {

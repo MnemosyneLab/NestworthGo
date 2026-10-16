@@ -201,6 +201,7 @@ func AdmitReviewFX(native, comparison CurrencyCode, selected *ReviewSelectedFX, 
 type ReviewDailyInput struct {
 	On             string
 	InstrumentID   InstrumentID
+	FXProviderKey  string
 	Quantity       *string
 	InstrumentType *InstrumentType
 	NativeCurrency *CurrencyCode

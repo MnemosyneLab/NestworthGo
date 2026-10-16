@@ -89,3 +89,55 @@ func TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval(t *testing.
 		})
 	}
 }
+
+func TestReviewLifecycleKeepsEpisodeWhenTimezoneMovesLatestBeforeTrigger(t *testing.T) {
+	now := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
+	household, instrument, ruleID := domain.NewHouseholdID(), domain.NewInstrumentID(), domain.NewReviewRuleID()
+	acknowledged := now.Add(-time.Hour)
+	oldID := domain.NewReviewEpisodeID()
+	rule := domain.ReviewRule{ID: ruleID, HouseholdID: household, Enabled: true, Evaluator: domain.ReviewEvaluator, CurrentConditionVersion: 2, Spec: syntheticHistoricalReviewSpec()}
+	capture := domain.ReviewProjectionCapture{HouseholdID: household, Control: domain.ReviewProjectionControl{Enabled: true}, OpenEpisodes: []domain.ReviewStoredEpisode{{ID: oldID, RuleID: ruleID, InstrumentID: instrument, PositionEpochID: "old", OpenedConditionVersion: 1, TriggeredOn: "2026-10-10", FirstDetectedAt: now.AddDate(0, 0, -3), AcknowledgedAt: &acknowledged}}}
+	plan := ReviewRuleInstrumentPlan{RuleID: ruleID, ConditionVersion: 2, InstrumentID: instrument, LatestClosedOn: "2026-10-09", LatestWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewUnknown}, Position: ReviewPositionTimeline{Known: true, Quantity: "1", Epochs: []ReviewPositionEpoch{{StartUnknown: true}}}, EpochIDs: []string{"old"}}
+	for day := 1; day <= 9; day++ {
+		plan.Days = append(plan.Days, ReviewPlannedDay{On: time.Date(2026, 10, day, 0, 0, 0, 0, time.UTC).Format(time.DateOnly), PolicyWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewTrue}})
+	}
+	got, err := PlanReviewLifecycle(capture, rule, plan, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Closed) != 0 || got.Opened || got.Current == nil || got.Current.ID != string(oldID) || got.Current.AcknowledgedAt == nil || got.Actionable {
+		t.Fatalf("timezone shift before the old trigger lost an unresolved episode acknowledgement: %+v", got)
+	}
+}
+
+func TestReviewIncrementalLifecycleReplaysAllNewPolicyDates(t *testing.T) {
+	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	household, instrument, ruleID := domain.NewHouseholdID(), domain.NewInstrumentID(), domain.NewReviewRuleID()
+	rule := domain.ReviewRule{ID: ruleID, HouseholdID: household, Enabled: true, Evaluator: domain.ReviewEvaluator, CurrentConditionVersion: 1, Spec: syntheticHistoricalReviewSpec()}
+	position := ReviewPositionTimeline{Known: true, Quantity: "1", Epochs: []ReviewPositionEpoch{{StartUnknown: true}}}
+	base := domain.ReviewProjectionCapture{HouseholdID: household, Control: domain.ReviewProjectionControl{Enabled: true}}
+	t.Run("true then unknown does not open a stale episode", func(t *testing.T) {
+		plan := ReviewRuleInstrumentPlan{RuleID: ruleID, ConditionVersion: 1, InstrumentID: instrument, LatestClosedOn: "2026-10-15", PreviousLatestOn: "2026-10-13", Incremental: true, LatestWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewUnknown}, Position: position, EpochIDs: []string{"epoch"}, Days: []ReviewPlannedDay{
+			{On: "2026-10-14", PolicyWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewTrue}},
+			{On: "2026-10-15", PolicyWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewUnknown}},
+		}}
+		got, err := PlanReviewLifecycle(base, rule, plan, now)
+		if err != nil || got.Opened || got.Current != nil || len(got.Closed) != 0 {
+			t.Fatalf("T→U replay should not create an already-unknown current episode: %+v %v", got, err)
+		}
+	})
+	t.Run("recovery then true starts an unacknowledged episode", func(t *testing.T) {
+		acknowledged := now.Add(-time.Hour)
+		oldID := domain.NewReviewEpisodeID()
+		capture := base
+		capture.OpenEpisodes = []domain.ReviewStoredEpisode{{ID: oldID, RuleID: ruleID, InstrumentID: instrument, PositionEpochID: "epoch", TriggeredOn: "2026-10-12", FirstDetectedAt: now.AddDate(0, 0, -3), AcknowledgedAt: &acknowledged}}
+		plan := ReviewRuleInstrumentPlan{RuleID: ruleID, ConditionVersion: 1, InstrumentID: instrument, LatestClosedOn: "2026-10-15", PreviousLatestOn: "2026-10-13", Incremental: true, LatestWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewTrue}, Position: position, EpochIDs: []string{"epoch"}, Days: []ReviewPlannedDay{
+			{On: "2026-10-14", PolicyWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewFalse}},
+			{On: "2026-10-15", PolicyWindow: domain.ReviewPolicyWindow{Truth: domain.ReviewTrue}},
+		}}
+		got, err := PlanReviewLifecycle(capture, rule, plan, now)
+		if err != nil || len(got.Closed) != 1 || got.Closed[0].ResolvedReason != "recovered" || !got.Opened || got.Current == nil || got.Current.ID == string(oldID) || got.Current.TriggeredOn != "2026-10-15" || got.Current.AcknowledgedAt != nil {
+			t.Fatalf("lost recovery or reused the prior acknowledgement: %+v %v", got, err)
+		}
+	})
+}

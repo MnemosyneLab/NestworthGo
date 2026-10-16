@@ -187,11 +187,49 @@ func (r *Repository) MutateReviewSuppressionV2(ctx context.Context, m domain.Rev
 		}
 		at := m.At.UTC().Format(time.RFC3339Nano)
 		if m.ExpectedRevision == 0 {
-			_, err = tx.ExecContext(ctx, `INSERT INTO investment_review_suppressions(id,household_id,instrument_id,rule_id,mode,until_on,timezone,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,1,?,?)`, string(m.SuppressionID), m.HouseholdID.String(), m.InstrumentID.String(), rule, m.Mode, resume, m.Timezone, at, at)
-			if err != nil {
-				return nil, mapSQLiteError(err)
+			current, lookupErr := scanReviewSuppression(tx.QueryRowContext(ctx, reviewSuppressionSelect+` WHERE household_id=? AND instrument_id=? AND COALESCE(rule_id,'')=?`, m.HouseholdID.String(), m.InstrumentID.String(), string(m.RuleID)))
+			if errors.Is(lookupErr, sql.ErrNoRows) {
+				_, err = tx.ExecContext(ctx, `INSERT INTO investment_review_suppressions(id,household_id,instrument_id,rule_id,mode,until_on,timezone,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,1,?,?)`, string(m.SuppressionID), m.HouseholdID.String(), m.InstrumentID.String(), rule, m.Mode, resume, m.Timezone, at, at)
+				if err != nil {
+					return nil, mapSQLiteError(err)
+				}
+				changed = true
+			} else if lookupErr != nil {
+				return nil, lookupErr
+			} else {
+				// A scope owns one durable suppression row. Reuse it when a
+				// temporary ignore has expired so a fresh ignore can be set
+				// without conflicting with the unique scope index. The write
+				// transaction is serialized by the household control row, and
+				// unchanged concurrent requests therefore converge on one result.
+				if current.Mode != m.Mode || current.UntilOn != until || current.Timezone != m.Timezone {
+					active, activeErr := domain.ActiveReviewSuppression([]domain.ReviewSuppression{current}, m.InstrumentID, string(m.RuleID), m.At)
+					if activeErr != nil {
+						return nil, activeErr
+					}
+					if active != nil {
+						return nil, reviewRuleConflict("active suppression changed; reload before setting ignore")
+					}
+					update, updateErr := tx.ExecContext(ctx, `UPDATE investment_review_suppressions SET mode=?,until_on=?,timezone=?,revision=revision+1,updated_at=? WHERE household_id=? AND id=? AND revision=?`, m.Mode, resume, m.Timezone, at, m.HouseholdID.String(), current.ID, current.Revision)
+					if updateErr != nil {
+						return nil, updateErr
+					}
+					rows, rowsErr := update.RowsAffected()
+					if rowsErr != nil {
+						return nil, rowsErr
+					}
+					if rows != 1 {
+						return nil, reviewRuleConflict("suppression changed; reload before setting ignore")
+					}
+					current.Mode = m.Mode
+					current.UntilOn = until
+					current.Timezone = m.Timezone
+					current.Revision++
+					current.UpdatedAt = m.At.UTC()
+					changed = true
+				}
+				result = &current
 			}
-			changed = true
 		} else {
 			current, err := scanReviewSuppression(tx.QueryRowContext(ctx, reviewSuppressionSelect+` WHERE household_id=? AND id=?`, m.HouseholdID.String(), string(m.SuppressionID)))
 			if errors.Is(err, sql.ErrNoRows) {
@@ -210,11 +248,13 @@ func (r *Repository) MutateReviewSuppressionV2(ctx context.Context, m domain.Rev
 				changed = true
 			}
 		}
-		item, err := scanReviewSuppression(tx.QueryRowContext(ctx, reviewSuppressionSelect+` WHERE household_id=? AND id=?`, m.HouseholdID.String(), string(m.SuppressionID)))
-		if err != nil {
-			return nil, err
+		if result == nil {
+			item, err := scanReviewSuppression(tx.QueryRowContext(ctx, reviewSuppressionSelect+` WHERE household_id=? AND id=?`, m.HouseholdID.String(), string(m.SuppressionID)))
+			if err != nil {
+				return nil, err
+			}
+			result = &item
 		}
-		result = &item
 	}
 	if changed {
 		if _, err := tx.ExecContext(ctx, `UPDATE investment_review_control SET review_state_revision=review_state_revision+1 WHERE household_id=?`, m.HouseholdID.String()); err != nil {

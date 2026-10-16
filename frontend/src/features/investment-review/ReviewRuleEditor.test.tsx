@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
 import type { ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
@@ -27,14 +27,32 @@ const rule = {
 beforeEach(async () => { vi.clearAllMocks(); await i18n.changeLanguage("en"); });
 
 describe("investment review rule editor", () => {
-  it("preserves a nested predicate and multi-type leaf when editing the rule name", async () => {
+  it("visually edits a nested predicate without flattening its groups or sibling leaves", async () => {
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
-    expect(screen.getByRole("textbox", { name: "Grouped conditions (all/any JSON)" })).toHaveValue(JSON.stringify(predicate, null, 2));
-    await userEvent.clear(screen.getByRole("textbox", { name: "Name" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Renamed rule");
+    expect(screen.getByRole("group", { name: "Nested condition group" })).toBeVisible();
+    const values = screen.getAllByRole("textbox", { name: "Value" });
+    await userEvent.clear(values[0]);
+    await userEvent.type(values[0], "-6");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
-    expect(state.save.mock.calls[0][0]).toEqual(expect.objectContaining({ name: "Renamed rule", spec: expect.objectContaining({ predicate }) }));
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect(saved.spec.predicate).toEqual({ any: [
+      { all: [
+        { leaf: { metric: "type", operator: "in", types: ["mutual_fund", "etf"] } },
+        { leaf: { metric: "price_change", operator: "<", value: "-6", lookbackDays: 30 } },
+      ] },
+      { leaf: { metric: "cost", operator: ">", value: "1000", currency: "CNY", fxMode: "native" } },
+    ] });
+  });
+  it("adds a nested all/any group through the visual builder", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    await userEvent.click(screen.getByRole("button", { name: "Add condition group" }));
+    expect(screen.getAllByRole("group", { name: "Nested condition group" })).toHaveLength(2);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: { any: unknown[] } } };
+    expect(saved.spec.predicate.any).toHaveLength(3);
+    expect(saved.spec.predicate.any[2]).toEqual({ all: [{ leaf: expect.objectContaining({ metric: "amount", value: "1000" }) }] });
   });
   it("keeps every selected instrument type in a simple daily condition", async () => {
     const simple = { ...rule, spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "type", operator: "in", types: ["mutual_fund"] } }] } } } as unknown as ReviewRule;
@@ -45,20 +63,17 @@ describe("investment review rule editor", () => {
     const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof simple.spec.predicate } };
     expect(saved.spec.predicate.all?.[0].leaf?.types).toEqual(["mutual_fund", "etf"]);
   });
-  it.each([
-    '{"all":[null]}',
-    '{"all":[{"any":[null]}]}',
-    '{"all":[]}',
-    '{"all":"not a group"}',
-    '{"all":[{"leaf":null}]}',
-    '{"all":[{"any":[{"all":[{"leaf":{"metric":"cost","operator":">"}}]}]}]}',
-    JSON.stringify({ all: Array.from({ length: 21 }, () => ({ leaf: { metric: "cost", operator: ">" } })) }),
-  ])("rejects malformed nested JSON without crashing: %s", async source => {
-    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
-    const editor = screen.getByRole("textbox", { name: "Grouped conditions (all/any JSON)" });
-    fireEvent.change(editor, { target: { value: source } });
+  it.each([null, { all: [null] }, { all: [{ leaf: null }] }])("does not crash or save malformed null predicate data", invalidPredicate => {
+    const malformed = { ...rule, spec: { ...rule.spec, predicate: invalidPredicate } } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={malformed} />);
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Use simple conditions" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
+  });
+  it("keeps saving disabled when an annualized leaf has no bank-product all gate", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const metrics = screen.getAllByRole("combobox", { name: "Metric" });
+    await userEvent.selectOptions(metrics[0], "annualized");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(state.save).not.toHaveBeenCalled();
   });
 });

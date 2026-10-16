@@ -11,9 +11,10 @@ import (
 // Starting point, immutable Activities, and observation facts. Rebuilds
 // inject a batch so the replay does not re-query the same facts per day.
 type HistoricalReplay struct {
-	repository Repository
-	batch      *domain.HistoricalSnapshotBatch
-	quotes     *historicalQuoteCache
+	repository          Repository
+	batch               *domain.HistoricalSnapshotBatch
+	quotes              *historicalQuoteCache
+	omitQuoteProjection bool
 }
 
 func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOrigin, cutoff time.Time) (domain.PortfolioSnapshot, error) {
@@ -383,18 +384,22 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			instrument = backdatedInstrumentHistoryRoute(instrument, quotes, snapshot.InstrumentHistoryCoverage, instrumentProviderBindings, cutoff, origin.Timezone)
 			snapshot.Instruments[index] = instrument
 		}
-		for _, quote := range quotes {
-			if err := ctx.Err(); err != nil {
-				return domain.PortfolioSnapshot{}, err
+		if !r.omitQuoteProjection {
+			for _, quote := range quotes {
+				if err := ctx.Err(); err != nil {
+					return domain.PortfolioSnapshot{}, err
+				}
+				// A correction may be fetched after the household day closed while
+				// its economic effective time is historical. Keep all immutable facts
+				// here; the historical valuation resolver applies the requested
+				// finalized market-date label and rejects realtime/legacy observations.
+				snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, quote)
 			}
-			// A correction may be fetched after the household day closed while
-			// its economic effective time is historical. Keep all immutable facts
-			// here; the historical valuation resolver applies the requested
-			// finalized market-date label and rejects realtime/legacy observations.
-			snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, quote)
 		}
 	}
-	snapshot.FXQuotes = append(snapshot.FXQuotes, quoteCache.fxQuotes...)
+	if !r.omitQuoteProjection {
+		snapshot.FXQuotes = append(snapshot.FXQuotes, quoteCache.fxQuotes...)
+	}
 	preferences := batch.FXPreferences
 	originFXPreferences := make(map[string]domain.HistoryOriginFXPreference, len(originData.FXPreferences))
 	for _, preference := range originData.FXPreferences {
