@@ -757,6 +757,23 @@ describe("AccountsPage", () => {
     expect(await layout.findByText("Small position")).toBeInTheDocument();
     expect(layout.queryByText("Closed position")).not.toBeInTheDocument();
     expect(layout.getByRole("button", { name: "Cash dividend" })).toBeEnabled();
+    await userEvent.click(layout.getByRole("button", { name: "Closed" }));
+    expect(await layout.findByText("Closed position")).toBeInTheDocument();
+    expect(layout.queryByText("Small position")).not.toBeInTheDocument();
+  });
+
+  it("offers the closed-position view when an account has no current holdings", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    holdingsByAccounts.mockResolvedValue({ "brk-1": [{ id: "zero", accountId: "brk-1", instrumentId: "closed", quantity: "0" }] });
+    listInstruments.mockResolvedValue([{ id: "closed", name: "Closed position", type: "stock", quoteCurrency: "USD" }]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    const layout = within(await screen.findByTestId("account-cash-holdings-layout"));
+    expect(await layout.findByRole("button", { name: "Closed" })).toBeInTheDocument();
+    expect(layout.queryByText("Closed position")).not.toBeInTheDocument();
+    await userEvent.click(layout.getByRole("button", { name: "Closed" }));
+    expect(await layout.findByText("Closed position")).toBeInTheDocument();
+    expect(layout.queryByRole("button", { name: i18n.t("accounts.sellInvestment") })).not.toBeInTheDocument();
   });
 
   it("groups account investments by instrument type with the same collapsible headers as Portfolio", async () => {

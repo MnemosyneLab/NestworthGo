@@ -27,6 +27,7 @@ const PAGE_TONE: Record<PageId, Tone> = {
   "available-funds": 2,
   "upcoming-actions": 2,
   portfolio: 5,
+  "instrument-detail": 5,
   history: 6,
  reconciliation: 6,
   "return-analysis": 7,
@@ -155,7 +156,9 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
               )}
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const active = item.id === activePageId;
+                const active = item.id === activePageId ||
+                  (item.id === "market-data" && activePageId === "data-health") ||
+                  (item.id === "portfolio" && activePageId === "instrument-detail");
                 const label = t(item.translationKey);
                 return (
                   <button

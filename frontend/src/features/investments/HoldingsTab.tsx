@@ -93,8 +93,6 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{t("portfolio.description")}</p>
-      <p className="text-sm text-muted-foreground">{t("portfolio.holdingsIndexDescription")}</p>
       <PageChrome
         pageId="portfolio"
         enabled={active}

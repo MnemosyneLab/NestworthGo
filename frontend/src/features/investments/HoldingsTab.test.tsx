@@ -85,7 +85,7 @@ beforeEach(() => {
 describe("HoldingsTab", () => {
   it("does not duplicate instrument management on the holdings page", async () => {
     renderPage();
-    expect(await screen.findByText(/Instrument identity and quotes live on Market Data/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Add holding" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Instruments" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add instrument" })).not.toBeInTheDocument();
   });

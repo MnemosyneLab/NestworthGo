@@ -9,6 +9,7 @@ export type HoldingGroupKey = typeof HOLDING_GROUP_ORDER[number];
 export type HoldingView = "instrument" | "account";
 export type HoldingSortKey = "name" | "quantity" | "totalCost" | "currentValue" | "unrealizedGain";
 export type HoldingSort = { key: HoldingSortKey; desc: boolean };
+export type HoldingQuantityFilter = "current" | "closed" | "all";
 export type HoldingRow = { id: string; instrument: InstrumentHoldingsDTO; amounts: HoldingAmountsDTO; accountId?: string; accountName?: string; holdingId?: string };
 
 export type VisibleHoldingGroup = {
@@ -25,13 +26,18 @@ export function normalizeHoldingGroupKey(key: string): HoldingGroupKey {
 
 const hasQuantity = (amounts: HoldingAmountsDTO) => compareCanonical(amounts.quantity, "0") !== 0;
 
+function includesQuantity(amounts: HoldingAmountsDTO, options: { showZero: boolean; quantityFilter?: HoldingQuantityFilter }) {
+  if (options.quantityFilter === "all" || (!options.quantityFilter && options.showZero)) return true;
+  return options.quantityFilter === "closed" ? !hasQuantity(amounts) : hasQuantity(amounts);
+}
+
 /**
  * Turns the backend groups into display rows. It only filters, orders and
  * re-labels; every amount and subtotal comes from the backend unchanged.
  */
 export function visibleHoldingGroups(
   groups: readonly InstrumentHoldingGroupDTO[],
-  options: { view: HoldingView; showZero: boolean; sort: HoldingSort; language: string },
+  options: { view: HoldingView; showZero: boolean; quantityFilter?: HoldingQuantityFilter; sort: HoldingSort; language: string },
 ): VisibleHoldingGroup[] {
   const merged = new Map<HoldingGroupKey, { instruments: InstrumentHoldingsDTO[]; subtotals: HoldingSubtotalDTO[] }>();
   for (const group of groups) {
@@ -46,7 +52,7 @@ export function visibleHoldingGroups(
     const entry = merged.get(key);
     if (!entry) continue;
     const instruments = entry.instruments
-      .map((instrument) => ({ ...instrument, holdings: (instrument.holdings ?? []).filter((member) => options.showZero || hasQuantity(member.amounts)) }))
+      .map((instrument) => ({ ...instrument, holdings: (instrument.holdings ?? []).filter((member) => includesQuantity(member.amounts, options)) }))
       .filter((instrument) => instrument.holdings.length > 0);
     const rows: HoldingRow[] = options.view === "instrument"
       ? instruments.map((instrument) => ({ id: `instrument:${instrument.instrumentId}`, instrument, amounts: instrument.amounts }))
@@ -54,7 +60,7 @@ export function visibleHoldingGroups(
         id: `holding:${member.holdingId}`, instrument, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName, holdingId: member.holdingId,
       })));
     if (rows.length === 0) continue;
-    result.push({ key, rows: sortHoldingRows(rows, options.sort, options.language), subtotals: entry.subtotals, instrumentCount: instruments.length });
+    result.push({ key, rows: sortHoldingRows(rows, options.sort, options.language), subtotals: options.quantityFilter === "closed" ? [] : entry.subtotals, instrumentCount: instruments.length });
   }
   return result;
 }

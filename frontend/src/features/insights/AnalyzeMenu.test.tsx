@@ -25,6 +25,16 @@ it("offers direct account links without a selection control", async () => {
   expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", {name: "Asset changes"}));
   expect(open).toHaveBeenCalledWith(expect.objectContaining({page: "asset-changes", tab: "drivers", analysis: expect.objectContaining({scope: "account", scopeId: "A", includeCash: true})}));
+  await userEvent.click(screen.getByRole("button", { name: "Related transactions" }));
+  expect(open).toHaveBeenCalledWith({ page: "history", filters: { accountId: "A", instrumentId: undefined, from: undefined, to: undefined } });
+});
+
+it("keeps both holding identifiers and explicit dates in History", async () => {
+  const open = vi.fn();
+  render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><AnalyzeMenu accountId="A" instrumentId="NVDA" label="NVDA" from="2026-02-01" to="2026-02-28" /></NavigationContext.Provider>);
+  await userEvent.click(screen.getByRole("button", { name: "Actions for NVDA" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Related transactions" }));
+  expect(open).toHaveBeenCalledWith({ page: "history", filters: { accountId: "A", instrumentId: "NVDA", from: "2026-02-01", to: "2026-02-28" } });
 });
 
 it("supports keyboard opening, Escape and focus return", async () => {

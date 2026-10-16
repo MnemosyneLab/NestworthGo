@@ -3,11 +3,12 @@ import { fullDisplayAmount, valuationDetails, valuationTableAmount, valuationLab
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { HoldingsTab } from "@/features/investments/HoldingsTab";
+import { InstrumentManagement } from "@/features/investments/InstrumentManagement";
+import type { PortfolioView } from "@/app/navigation";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { CompositionChart } from "@/components/charts/CompositionChart";
@@ -49,7 +50,6 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
 
   const data = portfolio.data;
   const currency = data.currency || "USD";
-  const total = valuationTableAmount(t,data.displayValuation,data.valuedSubtotal);
   const accounts = sortByCanonicalDesc(
     data.accounts ?? [],
     (valuation) => valuation.baseValue?.amount,
@@ -61,34 +61,12 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
 
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio-page">
-      <PageIntro description={t("review.portfolioScope")} />
  {portfolio.isFetching && <p role="status">{t("valuation.updating")}</p>}
  {portfolio.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void portfolio.refetch()}>{t("common.retryAction")}</Button></p>}
-      <p className="text-sm text-muted-foreground">{t("portfolio.holdingsOnlyNote")}</p>
       {accounts.length === 0 ? (
         <EmptyState title={t("portfolio.emptyTitle")} description={t("portfolio.emptyDescription")} />
       ) : (
         <>
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-3">
-              <CardTitle>{t("charts.valuedSubtotal")}</CardTitle>
-              <Badge variant={hasDisplay(data.displayValuation) ? "secondary" : data.complete ? "success" : "warning"}>
-                {hasDisplay(data.displayValuation) ? valuationLabel(t,data.displayValuation,true) : data.complete ? t("overview.healthy") : t("overview.needsAttention")}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold tracking-tight" data-testid="portfolio-total">
-                {total}
-              </p>
-              <ValuationQualitySummary value={data.displayValuation} current />
- {!data.complete && (
-                <p className="mt-2 text-sm text-warning-foreground">
-                  {t("overview.totalsExcludeMissing")} {t("portfolio.missingQuotes", { count: missingCount })}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
           {allocation.length > 0 && (
             <Card>
               <CardHeader>
@@ -202,24 +180,57 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
   );
 }
 
-/** One investment workspace with separate summary and holding management views. */
-export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
+/** Browse owned holdings first; saved instruments and allocation are secondary tasks. */
+export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true }: {
+  onOpenAccount?: (accountId: string) => void;
+  view?: PortfolioView;
+  onViewChange?: (view: PortfolioView) => void;
+  active?: boolean;
+} = {}) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState("overview");
-  const [holdingsVisited, setHoldingsVisited] = useState(false);
+  const portfolio = usePortfolio();
+  const [localView, setLocalView] = useState<PortfolioView>("holdings");
+  const [visited, setVisited] = useState<PortfolioView[]>(["holdings"]);
+  const tab = view ?? localView;
+  const select = (next: string) => {
+    const selected = next as PortfolioView;
+    if (view === undefined) setLocalView(selected);
+    onViewChange?.(selected);
+    setVisited((previous) => previous.includes(selected) ? previous : [...previous, selected]);
+  };
+  const summary = portfolio.data;
   return (
     <div className="flex flex-col gap-4">
-      <PageChrome pageId="portfolio" title={t("portfolio.pageTitle")} />
-      <Tabs value={tab} onValueChange={value => { setTab(String(value)); if (value === "holdings") setHoldingsVisited(true); }}>
+      <PageChrome pageId="portfolio" enabled={active} title={t("portfolio.pageTitle")} />
+      {summary && <section aria-label={t("investmentAssets.summary")} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-border bg-card px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">{t("investmentAssets.summary")}</p>
+          <p className="num text-xl font-semibold" data-testid="portfolio-total">{valuationTableAmount(t, summary.displayValuation, summary.valuedSubtotal)}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={hasDisplay(summary.displayValuation) ? "secondary" : summary.complete ? "success" : "warning"}>
+            {hasDisplay(summary.displayValuation) ? valuationLabel(t, summary.displayValuation, true) : summary.complete ? t("overview.healthy") : t("overview.needsAttention")}
+          </Badge>
+          <ValuationQualitySummary value={summary.displayValuation} current />
+        </div>
+        {!summary.complete && <p className="basis-full text-xs text-warning-foreground">{t("overview.totalsExcludeMissing")} {t("portfolio.missingQuotes", { count: (summary.missingInputs ?? []).length })}</p>}
+      </section>}
+      <Tabs value={tab} onValueChange={select}>
         <TabsList aria-label={t("portfolio.pageTitle")}>
-          <TabsTrigger value="overview">{t("nav.overview")}</TabsTrigger>
-          <TabsTrigger value="holdings">{t("nav.holdings")}</TabsTrigger>
+          <TabsTrigger value="holdings">{t("investmentAssets.holdings")}</TabsTrigger>
+          <TabsTrigger value="instruments">{t("investmentAssets.instruments")}</TabsTrigger>
+          <TabsTrigger value="allocation">{t("investmentAssets.allocation")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="overview">
-          <PortfolioOverview onOpenAccount={onOpenAccount} />
-        </TabsContent>
         <TabsContent value="holdings" keepMounted>
-          {holdingsVisited && <HoldingsTab onOpenAccount={onOpenAccount} active={tab === "holdings"} />}
+          <HoldingsTab onOpenAccount={onOpenAccount} active={active && tab === "holdings"} />
+        </TabsContent>
+        <TabsContent value="instruments" keepMounted>
+          {(tab === "instruments" || visited.includes("instruments")) && <div className="flex flex-col gap-3">
+            <InstrumentManagement pageId="portfolio" active={active && tab === "instruments"} enableSearch browseAll groupTestIdPrefix="investment-assets-group" />
+          </div>}
+        </TabsContent>
+        <TabsContent value="allocation" keepMounted>
+          {(tab === "allocation" || visited.includes("allocation")) && <PortfolioOverview onOpenAccount={onOpenAccount} />}
         </TabsContent>
       </Tabs>
     </div>

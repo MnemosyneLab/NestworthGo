@@ -348,6 +348,27 @@ reports its current filters to the navigation trail so returning after an
 object drill-down restores user edits rather than the original entry filters.
 Moving between Market Data and Data Health preserves the focused health issue
 and adds a return step, allowing an analysis-to-repair path to be retraced.
+The investment-assets workspace opens on owned holdings. Its saved-instrument
+view includes unowned and archived records, while allocation and trend are a
+secondary view. An `instrument-detail` navigation target carries the instrument
+ID, optional account ID, section (`holdings`, `performance`, or `data`), date
+range, and optional health focus. With an account ID, holding figures come from
+that account's server-provided holding member; without one, they come from the
+server-provided instrument total. Market performance and quote records describe
+the instrument rather than the owner's return. Product-owned instruments link
+to their Available Funds contract instead of displaying a market quote.
+Plain legacy Market Data instrument links resolve to this read-only detail;
+issue or editor links retain their Market Data repair destination. The single
+Data Maintenance navigation entry hosts the existing Market Data and Data
+Health routes as quote/FX and issue/repair tasks. Both Page IDs and their
+focus contexts remain valid for existing links. Returning from an instrument
+record restores the source tab and search state.
+Account holdings offer Current, Closed, and All views. The closed view filters
+zero-quantity account members without treating them as sell candidates, and it
+does not display an unfiltered group subtotal as a closed-position subtotal.
+Account and holding action menus also open related History with the current
+account, instrument, and explicit date range; App retains the source view and
+scroll position for Back.
 Opening a new History record from a filtered list suggests only active account
 and instrument IDs. Account suggestions also obey the destination field's cash,
 value, holdings, investment or debt eligibility. Its effective time remains an

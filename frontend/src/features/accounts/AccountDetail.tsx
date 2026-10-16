@@ -290,7 +290,7 @@ export function AccountDetail({
               <CardTitle>{t("accounts.investments")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {investmentRows.length === 0 ? (
+              {marketInstruments.length === 0 ? (
                 <EmptyState title={t("accounts.noHoldings")} description={t("accounts.buyInvestment")} />
               ) : (
                 <HoldingGroupsList scope="account" groups={groupsQuery.data ?? []} accountId={record.account.id} accountName={record.account.name}
