@@ -29,13 +29,15 @@ import { AccountIcon } from "@/components/icons/AccountIcon";
  * detail in the same workspace. Create uses the institution-first wizard.
  */
 export function AccountsPage({
-  navigationFilter, onClearFilter, updateValue,
+  navigationFilter, onClearFilter, updateValue, createRequestId, onCreated,
   selectedAccountId,
   onSelectAccount,
 }: {
   navigationFilter?: AccountListFocus; onClearFilter?: () => void; updateValue?: boolean;
   selectedAccountId?: string | null;
   onSelectAccount?: (id: string | null) => void;
+  createRequestId?: number;
+  onCreated?: (id: string, tracksHoldings: boolean) => boolean;
 } = {}) {
   const { t } = useTranslation();
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
@@ -54,8 +56,10 @@ export function AccountsPage({
   const valuations = useAccountValuations(filter);
   const createAccount = useCreateAccount();
   const [createOpen, setCreateOpen] = useState(false);
+  const [handledCreateRequestId, setHandledCreateRequestId] = useState(0);
   const [operation, setOperation] = useState<"create" | null>(null);
   const [createError, setCreateError] = useState<string | undefined>();
+  const createVisible = createOpen || Boolean(createRequestId && createRequestId !== handledCreateRequestId);
 
   const valuationByAccountId = useMemo(
     () => new Map((valuations.data ?? []).map((valuation) => [valuation.account.id, valuation])),
@@ -83,7 +87,8 @@ export function AccountsPage({
       void extras;
       toast.success(t("accounts.created"));
       setCreateOpen(false);
-      setSelectedId(record.account.id);
+      setHandledCreateRequestId(createRequestId ?? 0);
+      if (!onCreated?.(record.account.id, record.account.trackingMode === "holdings")) setSelectedId(record.account.id);
     } catch (error) {
       setCreateError(displayError(error, t("accounts.saveError")));
     } finally {
@@ -129,9 +134,10 @@ export function AccountsPage({
         title={t("nav.accounts")}
         actions={
           <Sheet
-            open={createOpen}
+            open={createVisible}
             onOpenChange={(open) => {
               setCreateOpen(open);
+              if (!open) setHandledCreateRequestId(createRequestId ?? 0);
               if (open) setCreateError(undefined);
             }}
           >

@@ -1,10 +1,12 @@
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: () => historyOrigin() } }));
+import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HoldingsTab } from "./HoldingsTab";
+import i18n from "@/i18n";
 
 const historyOrigin = vi.fn();
 const listInstruments = vi.fn();
@@ -12,6 +14,11 @@ const listAccounts = vi.fn();
 const createHolding = vi.fn();
 const holdingsByAccounts = vi.fn();
 const instrumentHoldingGroups = vi.fn();
+const positionImport = vi.fn();
+vi.mock("./PositionImportForm", () => ({ PositionImportForm: (props: { account?: { id: string } }) => {
+  positionImport(props);
+  return <div data-testid="position-import-form">Dated position import</div>;
+} }));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: {
@@ -57,11 +64,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
   Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
 }));
 
-function renderPage() {
+function renderPage(props: ComponentProps<typeof HoldingsTab> = {}) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <HoldingsTab />
+      <HoldingsTab {...props} />
     </QueryClientProvider>,
   );
 }
@@ -85,7 +92,7 @@ beforeEach(() => {
 describe("HoldingsTab", () => {
   it("does not duplicate instrument management on the holdings page", async () => {
     renderPage();
-    expect(await screen.findByText(/Instrument identity and quotes live on Market Data/i)).toBeInTheDocument();
+    expect(await screen.findByText(i18n.t("portfolio.noHoldings"))).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Instruments" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add instrument" })).not.toBeInTheDocument();
   });
@@ -105,17 +112,20 @@ describe("HoldingsTab", () => {
     await waitFor(() => expect(instrumentHoldingGroups).toHaveBeenCalledTimes(2));
   });
 
-  it("accepts an explicit unit cost after history starts", async () => {
+  it("routes existing holdings to the dated import form after history starts", async () => {
     historyOrigin.mockResolvedValue({ id: "origin" });
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA" }]);
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Add holding" }));
-    await userEvent.selectOptions(screen.getByLabelText("Account"), "acc-1");
-    await userEvent.selectOptions(screen.getByLabelText("Instrument"), "i1");
-    await userEvent.type(screen.getByLabelText("Quantity"), "10");
-    await userEvent.type(screen.getByLabelText("Unit cost"), "80");
-    await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
-    expect(createHolding).toHaveBeenCalledWith({ accountId: "acc-1", instrumentId: "i1", quantity: "10", unitCost: "80" });
+    await userEvent.click(await screen.findByRole("button", { name: "Record existing holding" }));
+    expect(screen.getByTestId("position-import-form")).toBeInTheDocument();
+    expect(createHolding).not.toHaveBeenCalled();
+  });
+
+  it("opens the import draft in the newly created investment account", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin" });
+    renderPage({ draftRequest: { requestId: 1, accountId: "acc-1" } });
+    expect(await screen.findByRole("dialog", { name: "Record existing holding" })).toBeInTheDocument();
+    expect(positionImport).toHaveBeenCalledWith(expect.objectContaining({ account: expect.objectContaining({ id: "acc-1" }) }));
   });
 
   it("does not offer cash-only multi-currency accounts for investment holdings", async () => {

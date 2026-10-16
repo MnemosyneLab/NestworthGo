@@ -410,7 +410,7 @@ function ManualFXQuoteForm({ onSaved, focus }: { onSaved: () => void; focus?: He
   );
 }
 
-function ManualFXQuoteSheet({ focus }: { focus?: HealthFocus }) {
+function ManualFXQuoteSheet({ focus, focusRequestId }: { focus?: HealthFocus; focusRequestId: number }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -424,7 +424,7 @@ function ManualFXQuoteSheet({ focus }: { focus?: HealthFocus }) {
           <SheetTitle>{t("marketData.manualFXTitle")}</SheetTitle>
           <SheetDescription>{t("marketData.manualFXDescription")}</SheetDescription>
         </SheetHeader>
-        <ManualFXQuoteForm focus={focus} onSaved={() => setOpen(false)} />
+        <ManualFXQuoteForm key={focusRequestId} focus={focus} onSaved={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );
@@ -482,7 +482,7 @@ function SavedFXRates({
 
 /** MarketDataPage merges instrument management and FX rates onto one
  * destination, with Sync Data progress restored from the in-process job. */
-export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?: () => void; focus?: HealthFocus } = {}) {
+export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, isActive = true }: { onOpenDataHealth?: () => void; focus?: HealthFocus; focusRequestId?: number; isActive?: boolean } = {}) {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const fxPreferences = useFXPreferences();
@@ -492,7 +492,12 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
   const refreshMissingOrStale = useRefreshMissingOrStale();
   const setFXPreference = useSetFXPreference();
   const sync = useMarketDataSyncActions();
-  const [tab, setTab] = useState(focus?.currencyA ? "fx" : "instruments");
+  const [userTab, setUserTab] = useState(focus?.currencyA ? "fx" : "instruments");
+  const [acknowledgedFocusRequestId, setAcknowledgedFocusRequestId] = useState(focusRequestId);
+  const navigationTab = focusRequestId > acknowledgedFocusRequestId
+    ? focus?.currencyA && focus.currencyB ? "fx" : focus?.instrumentId ? "instruments" : undefined
+    : undefined;
+  const tab = navigationTab ?? userTab;
   const [lastRefresh, setLastRefresh] = useState<"all" | "missing" | null>(null);
   const [result, setResult] = useState<RefreshResultDTO | undefined>();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | undefined>();
@@ -559,7 +564,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
       <PageChrome
         pageId="market-data"
         title={t("nav.marketData")}
-        actions={tab === "fx" ? <ManualFXQuoteSheet focus={focus} /> : undefined}
+        actions={tab === "fx" ? <ManualFXQuoteSheet focus={focus} focusRequestId={focusRequestId} /> : undefined}
       />
       <PageIntro
         description={t("marketData.description")}
@@ -612,16 +617,17 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
         />
       )}
       {!activeRefresh.isError && !instruments.isError && !fxPreferences.isError && (
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={tab} onValueChange={(value) => { setUserTab(value); setAcknowledgedFocusRequestId(focusRequestId); }}>
           <TabsList>
             <TabsTrigger value="instruments">{t("marketData.instruments")}</TabsTrigger>
             <TabsTrigger value="fx">{t("marketData.fx")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="instruments">
+          <TabsContent value="instruments" keepMounted>
             <InstrumentManagement
               focus={focus}
+              focusRequestId={focusRequestId}
               pageId="market-data"
-              active={tab === "instruments"}
+              active={isActive && tab === "instruments"}
               enableSearch
               groupTestIdPrefix="market-data-group"
               onViewHistory={(instrument) => setHistoryTarget({ kind: "instrument", instrument })}
@@ -629,7 +635,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
               syncingInstrumentId={sync.syncingInstrumentId}
             />
           </TabsContent>
-          <TabsContent value="fx">
+          <TabsContent value="fx" keepMounted>
             <SavedFXRates
               fxPairs={focus?.currencyA && focus.currencyB ? [{ currencyA: focus.currencyA, currencyB: focus.currencyB }] : fxPairs}
               fxPreferences={preferenceList}

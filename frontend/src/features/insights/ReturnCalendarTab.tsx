@@ -269,7 +269,7 @@ function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDT
 
 export { aggregateMonth, aggregateYearMonths };
 
-export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges }: { session: AnalysisSessionState; onCursorChange: (cursor: string) => void; onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
+export function ReturnCalendarTab({ session, view, onViewChange: setView, onCursorChange, onOpenAssetChanges }: { session: AnalysisSessionState; view: "month" | "year"; onViewChange: (view: "month" | "year") => void; onCursorChange: (cursor: string) => void; onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
   const { t, i18n } = useTranslation();
   const origin = useHistoryOrigin();
   const settings = useSettings();
@@ -277,7 +277,6 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   const timeZone = origin.data?.timezone;
   const weekStartsOn = settings.data?.weekStart === "sunday" ? 0 : 1;
-  const [view, setView] = useState<"month" | "year">("month");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const visibleMonth = session.returnCursor || currentMonth(timeZone);
   const year = Number(visibleMonth.slice(0, 4));

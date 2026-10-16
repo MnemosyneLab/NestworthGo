@@ -4,7 +4,7 @@ import {
 } from "./reconciliationErrors";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WireError } from "@/lib/wails";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -44,6 +44,7 @@ export function ProductCorrection({
   const product = useProduct(productId, true);
   return product.data ? (
     <ProductCorrectionForm
+      key={`${product.data.product.id}:${link.sessionId}:${link.itemId}`}
       product={product.data.product}
       link={link}
       onPreview={onPreview}
@@ -86,9 +87,16 @@ function ProductCorrectionForm({
   const [localTime, setLocalTime] = useState<ProductLocalTime>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const previewSequence = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; previewSequence.current += 1; };
+  }, []);
   const policy =
     product.state === "open" ? policyForTerms(terms, rules) : rules;
   const preview = async () => {
+    const sequence = ++previewSequence.current;
     setBusy(true);
     setError("");
     try {
@@ -166,8 +174,9 @@ function ProductCorrectionForm({
                         }),
                 }),
               );
-      onPreview(value);
+      if (alive.current && sequence === previewSequence.current) onPreview(value);
     } catch (cause) {
+      if (!alive.current || sequence !== previewSequence.current) return;
       const wire = (cause as { wireError?: WireError })?.wireError;
       if (knownReconciliationConflict(wire))
         void client.invalidateQueries({ queryKey: ["reconciliation"] });
@@ -179,7 +188,7 @@ function ProductCorrectionForm({
             : displayError(cause, t("reconciliation.error")),
       );
     } finally {
-      setBusy(false);
+      if (alive.current && sequence === previewSequence.current) setBusy(false);
     }
   };
   return (

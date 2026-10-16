@@ -1,6 +1,6 @@
 import { NavigationContext } from "@/app/NavigationContext";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -53,6 +53,11 @@ function renderWithClient(child: ReactNode) {
 function ConnectedReturnTrendTab() {
   const session = useAnalysisStore();
   return <ReturnTrendTab session={session} />;
+}
+
+function ConnectedContributionTab({ onOpenHistory }: { onOpenHistory?: ComponentProps<typeof ContributionTab>["onOpenHistory"] }) {
+  const session = useAnalysisStore();
+  return <ContributionTab session={session} onOpenHistory={onOpenHistory} />;
 }
 
 const available = { available: true, status: "ok", valuationForced: null };
@@ -142,7 +147,7 @@ describe("insight tabs", () => {
   });
 
   it("opens a Contribution item for the active independent view", async () => {
-    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    renderWithClient(<ConnectedContributionTab />);
     await screen.findByText("QQQ");
     expect(screen.getByText("◇")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /QQQ/ }));
@@ -158,7 +163,7 @@ describe("insight tabs", () => {
     ], ratedDays: 1, totalDays: 1, ...available });
     contributionItem.mockResolvedValue({ key: "cash:SGD", label: "cash:SGD", amount: { amount: "0.84", currency: "CNY" }, ratedDays: 1, totalDays: 1,
       components: [], byAccount: [], historyHint: { from: "2026-09-01", to: "2026-09-01" }, ...available });
-    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    renderWithClient(<ConnectedContributionTab />);
     expect(await screen.findByRole("button", { name: /Cash · USD/ })).toHaveTextContent("3.94");
     fireEvent.click(await screen.findByRole("button", { name: /Cash · SGD/ }));
     expect(await screen.findByRole("heading", { name: "Cash · SGD" })).toBeInTheDocument();
@@ -167,7 +172,7 @@ describe("insight tabs", () => {
 
   it("opens History from a contribution item with date and scope filters and empty kinds", async () => {
     const onOpenHistory = vi.fn();
-    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} onOpenHistory={onOpenHistory} />);
+    renderWithClient(<ConnectedContributionTab onOpenHistory={onOpenHistory} />);
     fireEvent.click(await screen.findByRole("button", { name: /QQQ/ }));
     fireEvent.click(await screen.findByRole("button", { name: "View in History" }));
     expect(onOpenHistory).toHaveBeenCalledWith({
@@ -181,14 +186,14 @@ describe("insight tabs", () => {
 
   it("starts Contribution on the navigated return type", async () => {
     useAnalysisStore.getState().setFilters({ returnType: "dividend_interest" });
-    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    renderWithClient(<ConnectedContributionTab />);
     await screen.findByTestId("contribution");
     expect(screen.getByLabelText("Return type")).toHaveValue("dividend_interest");
     expect(contribution).toHaveBeenCalledWith(expect.anything(), "dividend_interest", "instrument", "amount_desc");
   });
 
   it("hides Realized rate sort and currency grouping", async () => {
-    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    renderWithClient(<ConnectedContributionTab />);
     await screen.findByText("QQQ");
     fireEvent.change(screen.getByLabelText("Return type"), { target: { value: "realized" } });
     await screen.findByTestId("contribution");
@@ -224,7 +229,7 @@ describe("insight tabs", () => {
     renderWithClient(<CategoriesTab session={useAnalysisStore.getState()} onOpenHistory={onOpenHistory} />);
     fireEvent.click(await screen.findByRole("button", { name: /Brokerage/ }));
     fireEvent.click(await screen.findByRole("button", { name: "View in History" }));
-    expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-01", to: "2026-09-01", accountId: "account-1", instrumentId: undefined });
+    expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-01", to: "2026-09-01", accountId: "account-1", instrumentId: undefined }, "activity-1");
   });
 
   it("keeps Return type visible when Realized is unavailable so Total can be restored", async () => {
@@ -234,7 +239,7 @@ describe("insight tabs", () => {
       }
       return Promise.resolve({ returnType: "total_return", groupBy: "instrument", rows: [{ key: "instrument-1", label: "instrument-1", amount: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, ...available }], ratedDays: 1, totalDays: 3, ...available });
     });
-    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    renderWithClient(<ConnectedContributionTab />);
     await screen.findByText("QQQ");
     fireEvent.change(screen.getByLabelText("Return type"), { target: { value: "realized" } });
     expect(await screen.findByText("realized gain is unavailable for this filter")).toBeInTheDocument();

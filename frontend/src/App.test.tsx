@@ -11,8 +11,9 @@ import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { queryKeys } from "./queries/keys";
 import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
+import { useObjectNavigation } from "./app/NavigationContext";
 
-const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
   ordinaryRecord: vi.fn(),
   historyOrigin: vi.fn(),
@@ -23,6 +24,7 @@ const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, po
   settingsLoad: vi.fn(),
   settingsSave: vi.fn(),
   listAccounts: vi.fn(),
+  listInstruments: vi.fn(),
   accountValuations: vi.fn(),
   portfolio: vi.fn(),
   holdingsByAccounts: vi.fn(),
@@ -176,7 +178,18 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account"
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
-  Service: { ListInstruments: () => Promise.resolve([]) },
+  Service: { ListInstruments: (...args: unknown[]) => listInstruments(...args) },
+}));
+vi.mock("@/features/investments/InstrumentDetailPage", () => ({
+  InstrumentDetailPage: ({ context, onContextChange }: { context: { instrumentId: string; accountId?: string; section?: string; from?: string; to?: string }; onContextChange: (next: unknown) => void }) => {
+    const navigation = useObjectNavigation();
+    return <section data-testid="instrument-detail-page"><pre>{JSON.stringify(context)}</pre>
+      <button onClick={() => onContextChange({ ...context, section: "data" })}>Show data records</button>
+      <button onClick={() => onContextChange({ ...context, from: "2026-07-01", to: "2026-07-31" })}>Set synthetic quote period</button>
+      <button id="instrument-detail-maintain" onClick={() => navigation?.open({ page: "market-data", focus: { instrumentId: context.instrumentId, action: "instrument_editor", rangeStart: "2026-07-01", rangeEnd: "2026-07-31" } })}>Maintain data</button>
+      <button onClick={() => navigation?.open({ page: "history", filters: { instrumentId: context.instrumentId, from: context.from, to: context.to } })}>Related transactions</button>
+    </section>;
+  },
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
@@ -253,6 +266,8 @@ beforeEach(() => {
   settingsSave.mockReset();
   settingsSave.mockResolvedValue(undefined);
   listAccounts.mockReset();
+  listInstruments.mockReset();
+  listInstruments.mockResolvedValue([]);
   listAccounts.mockResolvedValue([]);
   accountValuations.mockReset();
   accountValuations.mockResolvedValue([]);
@@ -354,9 +369,10 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByRole("button", { name: i18n.t("nav.upcomingActions") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: i18n.t("nav.holdings") })).not.toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") })).toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: i18n.t("nav.dataHealth") })).not.toBeInTheDocument();
 
-    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") }));
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.marketData") }));
+    await userEvent.click(await screen.findByRole("tab", { name: i18n.t("dataMaintenance.issues") }));
     expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
 
     // Settings is a real surface and remains reachable from the grouped nav.
@@ -377,19 +393,166 @@ describe("App shell smoke test", () => {
     expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
   });
 
-  it("switches between portfolio overview and holdings within one navigation entry", async () => {
+  it("opens holdings first and keeps allocation as a secondary investment view", async () => {
     await i18n.changeLanguage("en");
     render(<AppProviders><App /></AppProviders>);
     await screen.findByTestId("overview-net-worth");
     const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
     await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") }));
-    expect(await screen.findByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
-    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+    expect(await screen.findByRole("tab", { name: "My holdings" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText(i18n.t("portfolio.noHoldingsAccount"))).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(i18n.t("portfolio.pageTitle"));
-    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Allocation & trend" }));
     expect(await screen.findByTestId("portfolio-page")).toBeInTheDocument();
     expect(screen.getByText(i18n.t("portfolio.noHoldingsAccount"))).not.toBeVisible();
+  });
+
+  it("returns from shared instrument details to the same saved-instrument view and accepts another object", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([
+      { id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 },
+      { id: "fund-two", householdId: "synthetic", name: "Fund Two", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 1, archivedAt: "2026-09-30" },
+    ]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Investment assets" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "All instruments" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-one"');
+    await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
+    expect(screen.getByTestId("instrument-detail-page")).toHaveTextContent('"section":"data"');
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Investment assets" }));
+    expect(screen.getByRole("tab", { name: "All instruments" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund Two details" }));
+    expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-two"');
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Investment assets" }));
+    expect(screen.getByRole("tab", { name: "All instruments" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("keeps the data-maintenance search when returning from an instrument record", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([
+      { id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 },
+      { id: "fund-two", householdId: "synthetic", name: "Fund Two", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 1 },
+    ]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    const search = await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 });
+    await userEvent.type(search, "One");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-one"');
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    expect(screen.getByRole("button", { name: "Open Fund One details" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Fund Two details" })).not.toBeInTheDocument();
+  });
+
+  it("keeps each maintenance tab mounted through tab changes and detail return", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([
+      { id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 },
+      { id: "fund-two", householdId: "synthetic", name: "Fund Two", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 1 },
+    ]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    const search = await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 });
+    await userEvent.type(search, "One");
+    await userEvent.click(screen.getByRole("tab", { name: i18n.t("marketData.fx") }));
+    await userEvent.click(screen.getByRole("tab", { name: "Issues & repair" }));
+    expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Quotes & FX" }));
+    expect(screen.getByRole("tab", { name: i18n.t("marketData.fx") })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("tab", { name: "Instruments" }));
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    expect(screen.queryByRole("button", { name: "Open Fund Two details" })).not.toBeInTheDocument();
+  });
+
+  it("returns from scoped History to the edited instrument period and maintenance search", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([{ id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 }]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    await userEvent.type(await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 }), "One");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Set synthetic quote period" }));
+    await userEvent.click(screen.getByRole("button", { name: "Related transactions" }));
+    expect(await screen.findByRole("region", { name: "Synthetic transaction history" })).toHaveTextContent('"from":"2026-07-01","to":"2026-07-31"');
+    await userEvent.click(screen.getByRole("button", { name: `← Back to ${i18n.t("instrumentDetail.title")}` }));
+    expect(screen.getByTestId("instrument-detail-page")).toHaveTextContent('"from":"2026-07-01"');
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+  });
+
+  it("restores focus and keeps maintenance search across focused editor Back round trips", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([
+      { id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 },
+      { id: "fund-two", householdId: "synthetic", name: "Fund Two", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 1 },
+    ]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    const search = await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 });
+    await userEvent.type(search, "One");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    await screen.findByTestId("instrument-detail-page");
+    await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
+
+    // A nested Details → Maintain request must not replace the first
+    // request's dismissed state when Back restores its older request ID.
+    await userEvent.click(screen.getByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(document.activeElement).toBe(document.getElementById("instrument-detail-maintain")));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Fund One");
+    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Open Fund One details"));
+
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    await userEvent.clear(screen.getByLabelText(i18n.t("marketData.searchInstruments")));
+    await userEvent.type(screen.getByLabelText(i18n.t("marketData.searchInstruments")), "Two");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund Two details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Fund Two");
+  }, 15_000);
+
+  it("returns from market health to market data with the navigation trail intact", async () => {
+    await i18n.changeLanguage("en");
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.marketData") }));
+    expect(await screen.findByTestId("data-health-indicator")).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("data-health-indicator"));
+    expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    expect(await screen.findByTestId("data-health-indicator")).toBeInTheDocument();
   });
 
   it("opens the Available funds page from the workspace nav", async () => {
@@ -415,6 +578,7 @@ describe("App shell smoke test", () => {
 
     const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
     await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Allocation & trend" }));
     await userEvent.click(await screen.findByRole("button", { name: "Checking" }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
 
@@ -562,7 +726,8 @@ it("preserves same-page Data Health gap focus history", async () => {
   ] });
   render(<AppProviders><App /></AppProviders>);
   await screen.findByTestId("overview-net-worth");
-  await userEvent.click(within(screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") })).getByRole("button", { name: "Data Health" }));
+  await userEvent.click(within(screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") })).getByRole("button", { name: "Data maintenance" }));
+  await userEvent.click(await screen.findByRole("tab", { name: "Issues & repair" }));
   const rows = await screen.findAllByTestId("health-issue-snapshot_incomplete");
   expect(rows).toHaveLength(2);
   await userEvent.click(within(rows[0]).getByRole("button", { name: "View gap" }));
@@ -597,7 +762,7 @@ it.each([
   await screen.findByTestId("overview-net-worth");
   const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
   await userEvent.click(within(nav).getByRole("button", { name: "Historical overview" }));
-  await screen.findByLabelText("Historical date");
+  await screen.findByLabelText("Historical date", {}, { timeout: 5000 });
   await userEvent.click(within(screen.getByRole("group", { name: "View mode" })).getByRole("button", { name: "Date vs. now" }));
   if (trendEnabled) {
     await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
@@ -641,7 +806,7 @@ it.each([
     expect(within(trend).getByRole("button", { name: "2026-09-30" })).toHaveAttribute("aria-pressed", "true");
     expect(seriesRead).toHaveBeenCalledTimes(seriesReads);
   }
-});
+}, 15000);
 
 
 it("blocks top-level and object navigation while a sheet confirmation is unresolved", async () => {

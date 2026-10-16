@@ -23,6 +23,7 @@ export function AnalysisFilterBar({
   session,
   onChange,
   onReset,
+  onClearAdditionalFilters,
   resolvedRange: requestedRange,
 }: {
   session: AnalysisSessionState;
@@ -30,6 +31,7 @@ export function AnalysisFilterBar({
   resolvedRange?: { from: string; to: string };
   onChange: (value: AnalysisNavigationContext) => void;
   onReset: () => void;
+  onClearAdditionalFilters?: () => void;
 }) {
   const { t } = useTranslation();
   const resolvedRange = requestedRange && requestedRange.from <= requestedRange.to ? requestedRange : undefined;
@@ -115,7 +117,7 @@ export function AnalysisFilterBar({
           <Label htmlFor="analysis-to">{t("insights.to")}</Label>
           <DatePicker id="analysis-to" value={session.to || resolvedRange?.to || ""} min={toMin} max={closedDate} onChange={(to) => update({ to, from: session.from || resolvedRange?.from })} placeholder={t("common.selectOption")} />
         </div>
-        <Button type="button" variant="outline" onClick={onReset}>{t("insights.reset")}</Button>
+        <Button type="button" variant="outline" onClick={onReset}>{t("insights.resetPortfolio")}</Button>
       </div>
 
       <DateRangeControl value={{ from: session.from || resolvedRange?.from || "", to: session.to || resolvedRange?.to || closedDate }} min={originDate} max={closedDate} disabled={!origin.data} onChange={update} />
@@ -142,6 +144,7 @@ export function AnalysisFilterBar({
             ))}
           </ul>
         )}
+        {filterChips.length > 0 && onClearAdditionalFilters && <Button type="button" variant="ghost" size="sm" onClick={onClearAdditionalFilters}>{t("insights.clearAdditionalFilters")}</Button>}
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex min-w-36 flex-1 flex-col gap-1.5">
             <Label htmlFor="analysis-valuation">{t("insights.valuation")}</Label>

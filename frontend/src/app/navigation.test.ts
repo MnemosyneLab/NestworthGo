@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_GROUPS, targetForPage, type NavigationTarget } from "./navigation";
+import { NAV_GROUPS, resolveLegacyTarget, targetForPage, type NavigationTarget } from "./navigation";
 
 describe("analysis navigation", () => {
   it("exposes typed Return and Asset Changes destinations alongside Historical overview", () => {
@@ -38,4 +38,16 @@ it("places Upcoming actions before History and Reconciliation and accepts existi
   const focus: NavigationTarget = { page: "available-funds", focus: { kind: "reservations", reservationId: "released" } };
   expect(legacy.productId).toBe("synthetic");
   expect(focus.focus?.kind).toBe("reservations");
+});
+
+it("keeps old destinations while routing plain instrument links to the shared data record", () => {
+  expect(targetForPage("portfolio")).toEqual({ page: "portfolio", view: "holdings" });
+  expect(NAV_GROUPS.find((group) => group.id === "settings")?.items.map((item) => item.id)).toEqual(["market-data", "settings"]);
+  expect(resolveLegacyTarget({ page: "market-data", focus: { instrumentId: "fund-1", accountId: "broker-1", rangeStart: "2026-01-01", rangeEnd: "2026-09-30" } })).toEqual({
+    page: "instrument-detail", instrumentId: "fund-1", accountId: "broker-1", section: "data", from: "2026-01-01", to: "2026-09-30",
+    healthFocus: { instrumentId: "fund-1", accountId: "broker-1", rangeStart: "2026-01-01", rangeEnd: "2026-09-30" },
+  });
+  const repair: NavigationTarget = { page: "market-data", focus: { instrumentId: "fund-1", action: "repair", rangeStart: "2026-01-01" } };
+  expect(resolveLegacyTarget(repair)).toBe(repair);
+  expect(resolveLegacyTarget({ page: "data-health", focus: { id: "gap", instrumentId: "fund-1" } })).toEqual({ page: "data-health", focus: { id: "gap", instrumentId: "fund-1" } });
 });

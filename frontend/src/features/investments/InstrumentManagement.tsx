@@ -1,4 +1,3 @@
-import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import type { HealthFocus } from "@/app/navigation";
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { metalPriceSuffix } from "@/lib/preciousMetals";
@@ -131,11 +130,13 @@ function InstrumentRow({
   instrument,
   groupTestId,
   onEdit,
+  onView,
   productKind,
 }: {
   instrument: InstrumentDTO;
   groupTestId: string;
   onEdit: () => void;
+  onView?: () => void;
   productKind?: string;
 }) {
   const { t, i18n } = useTranslation();
@@ -182,6 +183,9 @@ function InstrumentRow({
         )}
       </span>
       <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
+        {onView && <Button type="button" variant="ghost" size="sm" aria-label={t("investmentAssets.openInstrument", { name: instrument.name })} onClick={onView}>
+          {t("investmentAssets.details")}
+        </Button>}
         <Button type="button" variant="outline" size="sm" onClick={onEdit}>
           {t("common.edit")}
         </Button>
@@ -192,6 +196,7 @@ function InstrumentRow({
 
 export function InstrumentManagement({
   focus,
+  focusRequestId = 0,
   pageId,
   active,
   enableSearch = false,
@@ -199,8 +204,11 @@ export function InstrumentManagement({
   onViewHistory,
   onSyncInstrument,
   syncingInstrumentId,
+  browseAll = false,
 }: {
   focus?: HealthFocus;
+  /** Monotonic App navigation request; backtracking restores the prior value. */
+  focusRequestId?: number;
   pageId: string;
   active: boolean;
   enableSearch?: boolean;
@@ -208,19 +216,29 @@ export function InstrumentManagement({
   onViewHistory?: (instrument: InstrumentDTO) => void;
   onSyncInstrument?: (instrument: InstrumentDTO) => void;
   syncingInstrumentId?: string;
+  /** Investment browser includes unowned, archived and product-owned records. */
+  browseAll?: boolean;
 }) {
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
-  const instruments = useInstruments();
+  const instruments = useInstruments(true);
   const products = useProducts({ includeClosed: true });
   const createInstrument = useCreateInstrument();
   const updateInstrument = useUpdateInstrument();
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
-  const [editSelection, setEditTarget] = useState<InstrumentDTO | null>();
-  const editTarget = editSelection === undefined && (focus?.action === "manual_entry" || focus?.action === "instrument_editor")
-    ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : editSelection ?? null;
-  const [showPriceForm, setShowPriceForm] = useState(focus?.action === "manual_entry");
+  const [editOverrides, setEditOverrides] = useState<ReadonlyMap<number, InstrumentDTO | null>>(() => new Map());
+  const [priceFormOverrides, setPriceFormOverrides] = useState<ReadonlyMap<number, boolean>>(() => new Map());
+  const focusOpensEditor = focus?.action === "manual_entry" || focus?.action === "instrument_editor";
+  const focusedInstrument = focusOpensEditor ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : null;
+  const editTarget = active
+    ? editOverrides.has(focusRequestId) ? editOverrides.get(focusRequestId) ?? null : focusedInstrument
+    : null;
+  const showPriceForm = priceFormOverrides.has(focusRequestId)
+    ? priceFormOverrides.get(focusRequestId)!
+    : focus?.action === "manual_entry";
+  const setEditTarget = (value: InstrumentDTO | null) => setEditOverrides((previous) => new Map(previous).set(focusRequestId, value));
+  const setShowPriceForm = (value: boolean) => setPriceFormOverrides((previous) => new Map(previous).set(focusRequestId, value));
   const [query, setQuery] = useState("");
   const productByInstrument = useMemo(
     () => new Map((products.data ?? []).map((detail) => [detail.product.instrumentId, detail.product])),
@@ -229,7 +247,7 @@ export function InstrumentManagement({
   const managedProduct = editTarget ? productByInstrument.get(editTarget.id) : undefined;
 
   const filtered = useMemo(() => {
-    const items = (instruments.data ?? []).filter(item => ordinaryInstrument(item) && (!focus?.instrumentId || item.id === focus.instrumentId));
+    const items = (instruments.data ?? []).filter(item => (browseAll || !item.managedProductId) && (!focus?.instrumentId || item.id === focus.instrumentId));
     const needle = trimInstrumentText(query).toLowerCase();
     if (!needle) {
       return items;
@@ -238,7 +256,7 @@ export function InstrumentManagement({
       const haystack = [instrument.shortName, instrument.name, instrument.symbol, instrument.isin, instrument.marketCode, instrument.providerSymbol, instrument.quoteCurrency].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(needle);
     });
-  }, [instruments.data, query, focus]);
+  }, [instruments.data, query, focus, browseAll]);
 
   if (instruments.isLoading || products.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
@@ -312,6 +330,14 @@ export function InstrumentManagement({
                     instrument={instrument}
                     groupTestId={`${groupTestIdPrefix}-${group.key}`}
                     productKind={productByInstrument.get(instrument.id)?.kind}
+                    onView={navigation ? () => navigation.open({
+                      page: "instrument-detail",
+                      instrumentId: instrument.id,
+                      section: focus ? "data" : "holdings",
+                      from: focus?.rangeStart,
+                      to: focus?.rangeEnd,
+                      healthFocus: focus,
+                    }) : undefined}
                     onEdit={() => {
                       setShowPriceForm(false);
                       setEditTarget(instrument);
@@ -417,7 +443,7 @@ export function InstrumentManagement({
           )}
           {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && editTarget.quoteSource !== "agent" && (
             <div className="mt-5 border-t border-border pt-5">
-              <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
+              <Button type="button" variant="outline" onClick={() => setShowPriceForm(!showPriceForm)}>
                 {t("portfolio.setPrice")}
               </Button>
               {showPriceForm && (

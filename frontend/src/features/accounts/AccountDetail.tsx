@@ -224,7 +224,7 @@ export function AccountDetail({
           {t("accounts.archivedReadOnly")}
         </p>
       )}
-      <AccountReconciliation accountId={record.account.id} />
+      <AccountReconciliation accountId={record.account.id} archived={archived} />
       {valuation && !valuation.complete && missingReasons.length > 0 && (
         <p role="status" className="text-sm text-warning-foreground">
           {t("overview.totalsExcludeMissing")} {missingReasons.join(" · ")}
@@ -290,7 +290,7 @@ export function AccountDetail({
               <CardTitle>{t("accounts.investments")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {investmentRows.length === 0 ? (
+              {marketInstruments.length === 0 ? (
                 <EmptyState title={t("accounts.noHoldings")} description={t("accounts.buyInvestment")} />
               ) : (
                 <HoldingGroupsList scope="account" groups={groupsQuery.data ?? []} accountId={record.account.id} accountName={record.account.name}

@@ -5,7 +5,7 @@ import { useReconciliationLastSuccess } from "@/queries/reconciliation";
 import { Button } from "@/components/ui/button";
 import { useReconciliationTimestamp } from "./useReconciliationTimestamp";
 
-export function AccountReconciliation({ accountId }: { accountId: string }) {
+export function AccountReconciliation({ accountId, archived = false }: { accountId: string; archived?: boolean }) {
   const { t } = useTranslation();
   const formatTimestamp = useReconciliationTimestamp();
   const navigation = useObjectNavigation();
@@ -33,12 +33,12 @@ export function AccountReconciliation({ accountId }: { accountId: string }) {
           {t("reconciliation.laterBookkeeping")}
         </p>
       )}
-      <Button
+      {!archived && <Button
         variant="outline"
         onClick={() => navigation?.open({ page: "reconciliation", accountId })}
       >
         {t("reconciliation.open")}
-      </Button>
+      </Button>}
       {last.data && (
         <Button
           variant="ghost"

@@ -1,20 +1,21 @@
 import { Fragment, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ArrowUp, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { useObjectNavigation } from "@/app/NavigationContext";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChangeText } from "@/components/ui/change-text";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { displayEnum } from "@/lib/display";
-import { formatAmount, formatSignedMoney } from "@/lib/money";
+import { compareCanonical, formatAmount, formatSignedMoney } from "@/lib/money";
 import { metalUnitLabel } from "@/lib/preciousMetals";
 import { cn } from "@/lib/utils";
 import { useHoldingGroupStore, type HoldingGroupScope } from "@/stores/holdings";
 import { HoldingDisclosure } from "./HoldingDisclosure";
 import { HoldingGroupHeader } from "./HoldingGroupHeader";
 import { HoldingDetailPanel } from "./LazyHoldingDetailPanel";
-import { amountDirection, visibleHoldingGroups, type HoldingRow, type HoldingSort, type HoldingSortKey, type HoldingView } from "./holdingGroups";
+import { amountDirection, visibleHoldingGroups, type HoldingQuantityFilter, type HoldingRow, type HoldingSort, type HoldingSortKey, type HoldingView } from "./holdingGroups";
 import type { HoldingAmountsDTO, InstrumentHoldingGroupDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics/models";
 
 type Props = {
@@ -40,10 +41,12 @@ const NUMERIC: HoldingSortKey[] = ["quantity", "totalCost", "currentValue", "unr
  */
 export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount, accountId, accountName, onDividend }: Props) {
   const { t, i18n } = useTranslation();
+  const navigation = useObjectNavigation();
   const idPrefix = useId();
   const portfolio = scope === "portfolio";
   const [view, setView] = useState<HoldingView>("instrument");
   const [showZero, setShowZero] = useState(false);
+  const [accountPositions, setAccountPositions] = useState<HoldingQuantityFilter>("current");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<HoldingSort>({ key: "name", desc: false });
   const collapsed = useHoldingGroupStore((state) => state.collapsed[scope]);
@@ -51,7 +54,7 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
   const setCollapsed = useHoldingGroupStore((state) => state.setCollapsed);
 
   const effectiveView: HoldingView = portfolio ? view : "account";
-  const visible = visibleHoldingGroups(groups, { view: effectiveView, showZero: portfolio && showZero, sort, language: i18n.language })
+  const visible = visibleHoldingGroups(groups, { view: effectiveView, showZero: portfolio && showZero, quantityFilter: portfolio ? undefined : accountPositions, sort, language: i18n.language })
     // Contract-valued holdings have their own page; the account list shows market holdings only.
     .filter((group) => portfolio || group.key !== "cash_like");
   const typeLabel = (key: string) => t(`holdingGroups.types.${key}`);
@@ -94,8 +97,15 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
       <td className="num whitespace-nowrap px-3 py-3 text-right align-top font-medium">{money(row.amounts, "currentValue")}</td>
       <td className="num whitespace-nowrap px-3 py-3 text-right align-top font-medium">{money(row.amounts, "unrealizedGain")}</td>
       <td className="px-2 py-2.5 text-right align-top">
-        <AnalyzeMenu instrumentId={row.instrument.instrumentId} accountId={row.accountId ?? accountId} label={label}
-          onDividend={onDividend && row.holdingId && !row.instrument.archived ? () => onDividend(row.holdingId!) : undefined} />
+        <span className="inline-flex items-center gap-1">
+          {navigation && <Button type="button" size="icon" variant="ghost"
+            aria-label={t("investmentAssets.openInstrument", { name: label })}
+            onClick={() => navigation.open({ page: "instrument-detail", instrumentId: row.instrument.instrumentId, accountId: row.accountId ?? accountId, section: "holdings" })}>
+            <ArrowUpRight aria-hidden="true" />
+          </Button>}
+          <AnalyzeMenu instrumentId={row.instrument.instrumentId} accountId={row.accountId ?? accountId} label={label}
+            onDividend={onDividend && row.holdingId && !row.instrument.archived && compareCanonical(row.amounts.quantity, "0") !== 0 ? () => onDividend(row.holdingId!) : undefined} />
+        </span>
       </td>
     </>;
   };
@@ -107,6 +117,11 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
   ];
 
   return <div className="flex min-w-0 flex-col gap-4">
+    {!portfolio && <div role="group" aria-label={t("investmentAssets.accountPositions")} className="flex flex-wrap gap-1">
+      {(["current", "closed", "all"] as const).map((choice) => <Button key={choice} type="button" size="sm" variant={accountPositions === choice ? "default" : "outline"}
+        aria-pressed={accountPositions === choice} onClick={() => setAccountPositions(choice)}>{t(`investmentAssets.positions.${choice}`)}</Button>)}
+    </div>}
+    {!portfolio && accountPositions === "all" && <p className="text-xs text-muted-foreground">{t("investmentAssets.positions.allSubtotalHelp")}</p>}
     {portfolio && <div className="flex flex-wrap items-center justify-between gap-3">
       <div role="group" aria-label={t("holdingsSummary.view")} className="flex gap-2">
         <Button size="sm" variant={view === "instrument" ? "default" : "outline"} aria-pressed={view === "instrument"} onClick={() => setView("instrument")}>{t("holdingsSummary.byInstrument")}</Button>
