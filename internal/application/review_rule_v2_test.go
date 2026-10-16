@@ -78,4 +78,10 @@ func TestReviewRuleV2RejectsForeignOrUnknownTarget(t *testing.T) {
 	if err == nil {
 		t.Fatal("accepted instrument outside household")
 	}
+	spec = syntheticHistoricalReviewSpec()
+	spec.Predicate.All = append(spec.Predicate.All, domain.ReviewPredicateNode{Leaf: &domain.ReviewRuleLeaf{Metric: "instrument", Operator: "in", InstrumentIDs: []domain.InstrumentID{domain.NewInstrumentID()}}})
+	_, err = s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Invalid predicate target", Enabled: true, Severity: "notice", Spec: spec})
+	if err == nil {
+		t.Fatal("accepted foreign instrument in predicate leaf")
+	}
 }

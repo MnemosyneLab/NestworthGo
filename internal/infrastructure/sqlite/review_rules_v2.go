@@ -156,7 +156,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 		if m.ExpectedRevision != 0 {
 			return empty, reviewRuleConflict("new rule must start at revision zero")
 		}
-		if err := reviewTargetHousehold(ctx, tx, m.HouseholdID, m.Spec.Target); err != nil {
+		if err := reviewRuleInstrumentMembership(ctx, tx, m.HouseholdID, m.Spec); err != nil {
 			return empty, err
 		}
 		at := m.At.UTC().Format(time.RFC3339Nano)
@@ -186,7 +186,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 			}
 			changed = true
 		} else if current.Name != m.Name || current.Enabled != m.Enabled || current.Severity != m.Severity || current.SemanticHash != semanticHash {
-			if err := reviewTargetHousehold(ctx, tx, m.HouseholdID, m.Spec.Target); err != nil {
+			if err := reviewRuleInstrumentMembership(ctx, tx, m.HouseholdID, m.Spec); err != nil {
 				return empty, err
 			}
 			version := current.CurrentConditionVersion
@@ -237,13 +237,33 @@ func reviewRuleConflict(message string) error {
 	return &domain.Error{Code: domain.ErrConflict, Message: message}
 }
 
-func reviewTargetHousehold(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, target domain.ReviewRuleTarget) error {
-	if target.Kind != "instruments" {
+func reviewRuleInstrumentMembership(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, spec domain.ReviewRuleSpec) error {
+	unique := map[domain.InstrumentID]bool{}
+	for _, id := range spec.Target.InstrumentIDs {
+		unique[id] = true
+	}
+	var collect func(domain.ReviewPredicateNode)
+	collect = func(node domain.ReviewPredicateNode) {
+		if node.Leaf != nil {
+			for _, id := range node.Leaf.InstrumentIDs {
+				unique[id] = true
+			}
+			return
+		}
+		for _, child := range node.All {
+			collect(child)
+		}
+		for _, child := range node.Any {
+			collect(child)
+		}
+	}
+	collect(spec.Predicate)
+	if len(unique) == 0 {
 		return nil
 	}
-	ids := make([]string, len(target.InstrumentIDs))
-	for index, id := range target.InstrumentIDs {
-		ids[index] = id.String()
+	ids := make([]string, 0, len(unique))
+	for id := range unique {
+		ids = append(ids, id.String())
 	}
 	marks, args := sqlInArgs(ids)
 	queryArgs := append([]any{householdID.String()}, args...)
