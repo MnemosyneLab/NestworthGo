@@ -10,13 +10,15 @@ import { ReturnAnalysisPage } from "./ReturnAnalysisPage";
 const returnCalendar = vi.fn();
 const returnDay = vi.fn();
 const historyOrigin = vi.fn();
+const returnTrend = vi.fn();
+const contribution = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis", () => ({
   Service: {
     ReturnCalendar: (...args: unknown[]) => returnCalendar(...args),
     ReturnDay: (...args: unknown[]) => returnDay(...args),
-    ReturnTrend: vi.fn(),
-    Contribution: vi.fn(),
+    ReturnTrend: (...args: unknown[]) => returnTrend(...args),
+    Contribution: (...args: unknown[]) => contribution(...args),
     ContributionItem: vi.fn(),
   },
 }));
@@ -50,6 +52,8 @@ describe("ReturnAnalysisPage", () => {
     returnDay.mockReset();
     historyOrigin.mockReset();
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    returnTrend.mockReset().mockResolvedValue({ available: false });
+    contribution.mockReset().mockResolvedValue({ available: false });
     returnCalendar.mockResolvedValue({
       summary: {
         beginningInvestedValue: { amount: "100", currency: "USD" },
@@ -133,6 +137,50 @@ describe("ReturnAnalysisPage", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it.each(["trend", "contribution"] as const)("keeps the browsed month and object filters when switching to %s", async (tab) => {
+    useAnalysisStore.getState().setFilters({ scope: "instrument", scopeId: "i1", valuation: "native", includeCash: false, moreFilters: { accountId: "a1", currency: "USD" } });
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText("September 2026");
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    await user.click(screen.getByRole("tab", { name: tab === "trend" ? "Return Trend" : "Contribution" }));
+    await waitFor(() => expect(tab === "trend" ? returnTrend : contribution).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-01", to: "2026-08-31", scopeKind: "instrument", scopeId: "i1", accountId: "a1", currency: "USD", valuation: "native", includeCash: false }), ... (tab === "trend" ? ["cumulative_amount"] : ["total_return", "instrument", "amount_desc"])));
+    await user.click(screen.getByRole("tab", { name: "Return Calendar" }));
+    expect(await screen.findByText("August 2026")).toBeInTheDocument();
+    expect(useAnalysisStore.getState()).toMatchObject({ from: "2026-08-01", to: "2026-08-31" });
+  });
+
+  it("keeps a browsed year clamped to the origin when leaving the calendar", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2025-04-10T00:00:00Z" });
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText("September 2026");
+    await user.click(screen.getByRole("button", { name: "Year" }));
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    await user.click(screen.getByRole("tab", { name: "Return Trend" }));
+    await waitFor(() => expect(returnTrend).toHaveBeenCalledWith(expect.objectContaining({ from: "2025-04-10", to: "2025-12-31" }), "cumulative_amount"));
+  });
+
+  it("keeps an explicit cross-month selection when leaving a different visible calendar month", async () => {
+    useAnalysisStore.getState().setFilters({ from: "2026-06-15", to: "2026-08-12", scope: "account", scopeId: "a1" });
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText("September 2026");
+    await user.click(screen.getByRole("tab", { name: "Return Trend" }));
+    await waitFor(() => expect(returnTrend).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-06-15", to: "2026-08-12", scopeKind: "account", scopeId: "a1" }), "cumulative_amount"));
+  });
+
+  it("does not store a reversed period when the month has no closed day", async () => {
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText("No closed dates in the current month yet.");
+    await user.click(screen.getByRole("tab", { name: "Return Trend" }));
+    expect(useAnalysisStore.getState()).toMatchObject({ from: "", to: "" });
+    expect(returnTrend).not.toHaveBeenCalled();
   });
 
   it("keeps the month-start calendar muted and hides the reversed filter range", async () => {

@@ -323,6 +323,15 @@ shortcuts end at the last closed day in the history-origin timezone and clamp
 the beginning to the history origin. Month shortcuts use calendar months and
 inclusive date endpoints.
 
+Return Analysis separates the calendar browsing cursor from explicit date
+filters. When leaving Calendar for Trend or Contribution, the page makes its
+displayed analysis period explicit: an existing selection wins; otherwise the
+visible month or year is used, clamped to History Origin and the last closed
+ledger-local day. Switching views preserves object, valuation, cash and
+additional filters. An empty period on the first local day remains empty and
+does not store a reversed date range. Calendar month/year mode stays local to
+the mounted Return Analysis page.
+
 ## Metals and crypto
 
 Schema 11 adds optional metal-template and quantity-unit metadata. Existing

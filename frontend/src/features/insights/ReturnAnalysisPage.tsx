@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import { PageChrome } from "@/components/layout/PageChrome";
-import { effectiveRange } from "./analysisRequest";
+import { effectiveRange, periodRange } from "./analysisRequest";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisFilterBar } from "@/features/insights/AnalysisFilterBar";
 import { ReturnCalendarTab } from "@/features/insights/ReturnCalendarTab";
@@ -20,6 +20,21 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
   const setReturnView = useAnalysisStore((state) => state.setReturnView);
   const reset = useAnalysisStore((state) => state.resetFilters);
   const origin = useHistoryOrigin();
+  const [calendarView, setCalendarView] = useState<"month" | "year">("month");
+  const visibleMonth = session.returnCursor || currentMonth(origin.data?.timezone);
+  const year = visibleMonth.slice(0, 4);
+  const resolvedRange = session.returnTab === "calendar" && calendarView === "year" && !session.from && !session.to
+    ? periodRange(session, `${year}-01-01`, `${year}-12-31`, origin.data?.timezone, origin.data?.startedAt)
+    : effectiveRange(session, session.returnTab === "calendar" ? visibleMonth : currentMonth(origin.data?.timezone), origin.data?.timezone, origin.data?.startedAt);
+
+  const changeTab = (tab: typeof session.returnTab) => {
+    // Freeze the period shown by the calendar before the other projections
+    // resolve their default month. An explicit selection remains authoritative.
+    if (session.returnTab === "calendar" && tab !== "calendar" && origin.data?.timezone && resolvedRange.from <= resolvedRange.to) {
+      setFilters(resolvedRange);
+    }
+    setReturnView({ tab });
+  };
 
   useEffect(() => {
     if (!session.returnCursor && !origin.isLoading) setReturnView({ cursor: currentMonth(origin.data?.timezone) });
@@ -28,15 +43,15 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
   return (
     <div className="flex flex-col gap-4">
       <PageChrome pageId="return-analysis" title={t("insights.returnAnalysis")} />
-      <Tabs className="flex flex-col gap-4" value={session.returnTab} onValueChange={(value) => setReturnView({ tab: value as typeof session.returnTab })}>
+      <Tabs className="flex flex-col gap-4" value={session.returnTab} onValueChange={(value) => changeTab(value as typeof session.returnTab)}>
         <TabsList className="self-start">
           <TabsTrigger value="calendar">{t("insights.calendar")}</TabsTrigger>
           <TabsTrigger value="trend">{t("insights.trend")}</TabsTrigger>
           <TabsTrigger value="contribution">{t("insights.contribution")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} resolvedRange={effectiveRange(session, session.returnTab === "calendar" ? session.returnCursor || currentMonth(origin.data?.timezone) : currentMonth(origin.data?.timezone), origin.data?.timezone, origin.data?.startedAt)} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} />
+        <AnalysisFilterBar session={session} resolvedRange={resolvedRange} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} />
         <TabsContent value="calendar">
-          <ReturnCalendarTab session={session} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
+          <ReturnCalendarTab session={session} view={calendarView} onViewChange={setCalendarView} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
         </TabsContent>
         <TabsContent value="trend"><ReturnTrendTab session={session} /></TabsContent>
         <TabsContent value="contribution"><ContributionTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>
