@@ -752,6 +752,11 @@ it.each(SUPPORTED_LANGUAGES)("keeps investment review reachable from Overview wi
   expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
   expect(screen.getByText(i18n.t("upcomingActions.description"))).toBeVisible();
   expect(await screen.findByText(i18n.t("upcomingActions.empty"))).toBeVisible();
+  const header = within(document.querySelector("header")!);
+  expect(header.getByRole("button", { name: i18n.t("upcomingActions.refresh") })).toBeVisible();
+  expect(header.queryByRole("button", { name: i18n.t("reviewV2.historyTitle") })).not.toBeInTheDocument();
+  expect(header.queryByRole("button", { name: i18n.t("reviewV2.ignoredList") })).not.toBeInTheDocument();
+  expect(header.queryByRole("button", { name: i18n.t("reviewV2.rules") })).not.toBeInTheDocument();
   const reviewTab = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
   reviewTab.focus(); await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toBeVisible();
