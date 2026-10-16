@@ -173,6 +173,16 @@ func verifyReviewOpenEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Re
 }
 
 func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time) error {
+	if item.TargetExcluded {
+		if len(item.Days) != 0 || len(item.Epochs) != 0 || item.CurrentEpisode != nil || item.OpenedEpisode {
+			return &domain.Error{Code: domain.ErrValidation, Field: "target", Message: "an excluded target cannot publish daily evidence or an open episode"}
+		}
+		if err := publishReviewEpisodes(ctx, tx, capture, item, at); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `DELETE FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=?`, string(item.RuleID), item.InstrumentID.String())
+		return err
+	}
 	for _, epoch := range item.Epochs {
 		if epoch.InstrumentID != item.InstrumentID {
 			return &domain.Error{Code: domain.ErrValidation, Field: "epoch", Message: "epoch instrument mismatch"}

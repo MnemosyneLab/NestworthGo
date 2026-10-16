@@ -21,19 +21,20 @@ func ParseReviewSuppressionID(value string) (ReviewSuppressionID, error) {
 }
 
 type ReviewRule struct {
-	ID                      ReviewRuleID   `json:"id"`
-	HouseholdID             HouseholdID    `json:"householdId"`
-	Name                    string         `json:"name"`
-	Enabled                 bool           `json:"enabled"`
-	Severity                string         `json:"severity"`
-	Evaluator               string         `json:"evaluator"`
-	RowRevision             int            `json:"rowRevision"`
-	CurrentConditionVersion int            `json:"currentConditionVersion"`
-	Spec                    ReviewRuleSpec `json:"spec"`
-	SemanticHash            string         `json:"semanticHash"`
-	CreatedAt               time.Time      `json:"createdAt"`
-	UpdatedAt               time.Time      `json:"updatedAt"`
-	ArchivedAt              *time.Time     `json:"archivedAt,omitempty"`
+	ID                      ReviewRuleID      `json:"id"`
+	HouseholdID             HouseholdID       `json:"householdId"`
+	Name                    string            `json:"name"`
+	Enabled                 bool              `json:"enabled"`
+	Severity                string            `json:"severity"`
+	Evaluator               string            `json:"evaluator"`
+	RowRevision             int               `json:"rowRevision"`
+	CurrentConditionVersion int               `json:"currentConditionVersion"`
+	Spec                    ReviewRuleSpec    `json:"spec"`
+	LegacySpec              *ReviewLegacySpec `json:"legacySpec,omitempty"`
+	SemanticHash            string            `json:"semanticHash"`
+	CreatedAt               time.Time         `json:"createdAt"`
+	UpdatedAt               time.Time         `json:"updatedAt"`
+	ArchivedAt              *time.Time        `json:"archivedAt,omitempty"`
 }
 
 type ReviewRuleMutation struct {

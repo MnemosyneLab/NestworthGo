@@ -24,6 +24,12 @@ type ReviewV2AlertInput struct {
 	EpisodeID string `json:"episodeId"`
 }
 
+type ReviewV2EvidenceInput struct {
+	EpisodeID string `json:"episodeId"`
+	Cursor    string `json:"cursor,omitempty"`
+	PageSize  int    `json:"pageSize" jsonschema:"1–100 closed daily votes"`
+}
+
 type ReviewV2CoverageInput struct {
 	Filter   domain.ReviewCoverageFilter `json:"filter"`
 	Cursor   string                      `json:"cursor,omitempty"`
@@ -87,7 +93,7 @@ type ReviewV2ClearSuppressionInput struct {
 // New v2 tools never call the legacy report or policy writer. Read tools
 // return only the last complete publication and leave the database untouched.
 func (s *Service) reviewV2Tools(server *mcp.Server, mode string) {
-	readTool(server, "list_investment_review_rules", "List daily investment review rules with independent predicate and triggerPolicy. Read-only, 1–100 at a time; use the last rule ID as cursor when a full page is returned.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
+	readTool(server, "list_investment_review_rules", "List named investment review rules, including separately marked legacy_v1 compatibility rules. Daily rules have independent predicate and triggerPolicy; legacy_v1 keeps its original calendar-span semantics and cannot be updated with the daily-rule tools. Read-only, 1–100 at a time; use the last rule ID as cursor when a full page is returned.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
 		return s.app.ListReviewRulesV2(ctx, in.Cursor, in.PageSize)
 	})
 	readTool(server, "preview_investment_review_rule", "Preview a v2 rule on closed historical civil days for one instrument, without saving it or writing projections. Unknown days do not count as hits. sourceToken can be supplied to reject changed input.", func(ctx context.Context, in ReviewV2PreviewInput) (any, error) {
@@ -102,6 +108,9 @@ func (s *Service) reviewV2Tools(server *mcp.Server, mode string) {
 	})
 	readTool(server, "get_investment_review_alert", "Read the currently open v2 episode by episodeId with its instrument's other active rule alerts. A resolved episode is not a current alert. This is a pure bounded read.", func(ctx context.Context, in ReviewV2AlertInput) (any, error) {
 		return s.app.GetReviewAlertV2(ctx, in.EpisodeID)
+	})
+	readTool(server, "list_investment_review_daily_evidence", "Page persisted closed-day T/F/U evidence for one current open review episode. A changed publication expires the cursor. This read never reconciles or writes.", func(ctx context.Context, in ReviewV2EvidenceInput) (any, error) {
+		return s.app.ListReviewDailyEvidenceV2(ctx, in.EpisodeID, in.Cursor, in.PageSize)
 	})
 	readTool(server, "get_investment_review_coverage", "Page every current positive-holding investment's published daily rule outcomes, including unknown and uncomputed states with no open alert. No evaluation or write occurs. Filter by rule status; a group may contain several states.", func(ctx context.Context, in ReviewV2CoverageInput) (any, error) {
 		return s.app.ListReviewCoverageV2(ctx, in.Filter, in.Cursor, in.PageSize)

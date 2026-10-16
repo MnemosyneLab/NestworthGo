@@ -12,6 +12,7 @@ const state = vi.hoisted(() => {
     filter: null as unknown,
     coverageFilter: null as unknown,
     alert: { data: null as ReviewAlertPage | null, isPending: false, isError: false, isFetching: false, error: null, refetch: vi.fn() },
+    evidence: { data: { items: [{ on: "2026-10-15", truth: "true", leaves: [] }], reportRevision: "evidence-1", episodeId: "episode-one", nextCursor: "" }, isPending: false, isError: false, isFetching: false },
     coverage: { data: null as ReviewCoveragePage | null, isPending: false, isError: false, isFetching: false, refetch: vi.fn() },
     rules: { data: [], isPending: false, isError: false },
     suppressions: { data: [], isPending: false, isError: false },
@@ -20,6 +21,7 @@ const state = vi.hoisted(() => {
 });
 vi.mock("@/queries/investmentReviewV2", () => ({
   useReviewAlertPage: (filter: unknown) => { state.filter = filter; return state.alert; },
+  useReviewDailyEvidencePage: () => state.evidence,
   useReviewCoveragePage: (filter: unknown) => { state.coverageFilter = filter; return state.coverage; },
   useReviewRulesV2: () => state.rules,
   useReviewSuppressionsV2: () => state.suppressions,
@@ -30,6 +32,7 @@ vi.mock("./ReviewRuleEditor", () => ({ ReviewRuleEditor: () => null }));
 function report(): ReviewAlertPage {
   return {
     reportRevision: "published-synthetic-1", projectionStatus: "complete", publishedOn: "2026-10-15", nextCursor: "next-page",
+    summary: { totalGroups: 3, matchedGroups: 1, pendingGroups: 1, acknowledgedGroups: 1, ignoredGroups: 1, unknownGroups: 0, pausedGroups: 0, actionableRules: 2 },
     items: [{ instrumentId: "synthetic-investment", displayName: "Synthetic fund", instrumentType: "mutual_fund" as never, currency: "USD",
       status: "pending", rules: [
         { ruleId: "rule-one", name: "Daily amount", severity: "warning", enabled: true, episodeId: "episode-one", episodeRevision: 4, triggeredOn: "2026-10-12", firstHitOn: "2026-10-12", firstDetectedAt: "2026-10-12T12:00:00Z", latestClosedOn: "2026-10-15", window: { truth: "true" as never, windowStart: "2026-10-12", windowEnd: "2026-10-15", hitCount: 4, falseCount: 0, unknownCount: 0, consecutiveCount: 4 }, status: "pending", actionable: true, triggerPolicy: { kind: "consecutive", count: 3 }, coverage: [], latestResult: { on: "2026-10-15", truth: "true" as never, leaves: [{ metric: "amount", truth: "true" as never, actual: "1200", threshold: "1000", currency: "USD" }] } },
@@ -45,10 +48,18 @@ beforeEach(async () => {
   vi.clearAllMocks();
   await i18n.changeLanguage("en");
   state.alert.data = report(); state.alert.isPending = state.alert.isError = state.alert.isFetching = false;
+  state.rules.data = [];
   state.coverage.data = { items: [{ instrumentId: "synthetic-gap", displayName: "Synthetic gap", instrumentType: "stock" as never, status: "unknown", rules: [{ ruleId: "rule-gap", name: "Missing price", state: "unknown", latestClosedOn: "2026-10-15", window: { truth: "" as never, windowStart: "2026-10-06", windowEnd: "2026-10-15", hitCount: 0, falseCount: 0, unknownCount: 10, consecutiveCount: 0 }, missing: ["quote_missing"] }] }], reportRevision: "coverage-1", projectionStatus: "complete", publishedOn: "2026-10-15" };
 });
 
 describe("daily investment review page", () => {
+  it("labels a migrated legacy rule without opening the daily rule editor for it", async () => {
+    state.rules.data = [{ id: "legacy-rule", evaluator: "legacy_v1", enabled: true, rowRevision: 1, archivedAt: null }] as never;
+    mount();
+    await userEvent.click(screen.getByRole("button", { name: "Rules" }));
+    expect(screen.getByText(i18n.t("reviewV2.legacyRuleHelp"))).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+  });
   it.each(["en", "zh-CN", "zh-TW"])("groups every alert for one investment and explains its fixed window in %s", async language => {
     await i18n.changeLanguage(language);
     mount();
@@ -59,6 +70,8 @@ describe("daily investment review page", () => {
     expect(screen.getByText(i18n.t("reviewV2.windowRolling", { hits: 5, needed: 5, days: 10, unknowns: 2 }))).toBeVisible();
     await userEvent.click(screen.getAllByText(i18n.t("reviewV2.why"))[0]);
     expect(screen.getByText(i18n.t("reviewV2.windowCounts", { hits: 4, falseCount: 0, unknowns: 0 }))).toBeVisible();
+    expect(screen.getByText(i18n.t("reviewV2.summaryCounts", { total: 3, matched: 1, pending: 1, actionable: 2, unknown: 0 }))).toBeVisible();
+    expect(screen.getAllByText("2026-10-15 · " + i18n.t("reviewV2.dailyTrue"))).toHaveLength(2);
     expect(screen.queryByText(/reviewV2\./)).not.toBeInTheDocument();
   });
   it("keeps status and type filters independent and acknowledges exactly one episode revision", async () => {

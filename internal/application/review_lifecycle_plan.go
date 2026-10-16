@@ -53,8 +53,6 @@ func PlanReviewLifecycle(capture domain.ReviewProjectionCapture, rule domain.Rev
 		switch {
 		case rule.ArchivedAt != nil:
 			reason = "rule_archived"
-		case stored.OpenedConditionVersion != rule.CurrentConditionVersion:
-			reason = "rule_replaced"
 		case known && (!held || stored.PositionEpochID != result.CurrentEpochID):
 			reason = "position_closed"
 		case len(plan.Days) > 0 && stored.TriggeredOn < plan.Days[0].On:
@@ -86,21 +84,22 @@ func PlanReviewLifecycle(capture domain.ReviewProjectionCapture, rule domain.Rev
 			return result, err
 		}
 		openedOn := currentEpoch.OpenedAt.In(location).Format(time.DateOnly)
-		if openedOn > firstOn {
+		// A same-day re-buy has a new epoch now but no closed-day vote in
+		// that epoch yet. Rolling votes from the prior holding period may
+		// already make L sufficient; anchor its first detection to L without
+		// inventing a vote for today's unclosed civil day.
+		if openedOn > plan.LatestClosedOn {
+			firstOn = plan.LatestClosedOn
+		} else if openedOn > firstOn {
 			firstOn = openedOn
 		}
 	}
 	if reusable != nil && reusable.TriggeredOn > firstOn {
 		firstOn = reusable.TriggeredOn
 	}
-	// A semantic replacement is discovered now; do not assign the new version
-	// an alarm date before its current evaluation.
-	for _, closed := range result.Closed {
-		if closed.ResolvedReason == "rule_replaced" {
-			firstOn = plan.LatestClosedOn
-			break
-		}
-	}
+	// Re-evaluate the complete new condition over the old open interval.
+	// Only a proven policy F (or a different position epoch) can split it;
+	// conditionVersion alone is not an episode identity.
 	if firstOn > plan.LatestClosedOn {
 		return result, nil
 	}

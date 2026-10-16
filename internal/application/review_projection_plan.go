@@ -80,11 +80,11 @@ func PlanReviewRuleInstrument(ctx context.Context, capture domain.ReviewProjecti
 	if err != nil {
 		return empty, err
 	}
-	cutoff, err := reviewClosedDayBoundary(latest, spec.Schedule.Timezone)
-	if err != nil {
-		return empty, err
-	}
-	result.Position, err = ProjectReviewPositionTimeline(ctx, capture.Historical.History, instrumentID, cutoff)
+	// Position identity and current eligibility use authoritative effects up
+	// to the capture time. Daily predicate votes above remain closed at L.
+	// The replay helper has a half-open cutoff, while the captured SQL includes
+	// effects effective exactly at now.
+	result.Position, err = ProjectReviewPositionTimeline(ctx, capture.Historical.History, instrumentID, now.Add(time.Nanosecond))
 	if err != nil {
 		return empty, err
 	}

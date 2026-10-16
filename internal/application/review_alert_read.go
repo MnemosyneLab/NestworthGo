@@ -10,6 +10,27 @@ import (
 type ReviewAlertV2Repository interface {
 	ListReviewAlertGroupsV2(context.Context, domain.HouseholdID, domain.ReviewAlertFilter, string, int, time.Time) (domain.ReviewAlertPage, error)
 	GetReviewAlertV2(context.Context, domain.HouseholdID, domain.ReviewEpisodeID, time.Time) (domain.ReviewAlertGroup, error)
+	ListReviewDailyEvidenceV2(context.Context, domain.HouseholdID, domain.ReviewEpisodeID, string, int) (domain.ReviewDailyEvidencePage, error)
+}
+
+func (s *Service) ListReviewDailyEvidenceV2(ctx context.Context, episodeID, cursor string, pageSize int) (domain.ReviewDailyEvidencePage, error) {
+	var empty domain.ReviewDailyEvidencePage
+	reader, ok := s.repository.(ReviewAlertV2Repository)
+	if !ok {
+		return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "daily review evidence is unavailable"}
+	}
+	id, err := domain.ParseReviewEpisodeID(episodeID)
+	if err != nil {
+		return empty, err
+	}
+	household, err := s.repository.Household(ctx)
+	if err != nil {
+		return empty, err
+	}
+	if household == nil {
+		return empty, &domain.Error{Code: domain.ErrNotFound, Field: "episodeId", Message: "review episode not found"}
+	}
+	return reader.ListReviewDailyEvidenceV2(ctx, household.ID, id, cursor, pageSize)
 }
 
 // ListReviewAlertGroupsV2 reads only the last complete persisted publication.

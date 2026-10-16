@@ -62,7 +62,7 @@ func TestReviewPublicationIsAtomicAndSameDayIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	page, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "pending"}, "", 10)
-	if err != nil || len(page.Items) != 1 || len(page.Items[0].Rules) != 1 || page.Items[0].Rules[0].EpisodeID == "" || !page.Items[0].Rules[0].Actionable || page.ProjectionStatus != "complete" {
+	if err != nil || len(page.Items) != 1 || len(page.Items[0].Rules) != 1 || page.Items[0].Rules[0].EpisodeID == "" || !page.Items[0].Rules[0].Actionable || page.ProjectionStatus != "complete" || page.Summary.TotalGroups != 1 || page.Summary.PendingGroups != 1 || page.Summary.ActionableRules != 1 {
 		t.Fatalf("published alert report: %+v %v", page, err)
 	}
 	if err := f.db.SQL.QueryRow(`SELECT total_changes()`).Scan(&afterRead); err != nil || afterRead != beforeRead {
@@ -81,7 +81,7 @@ func TestReviewPublicationIsAtomicAndSameDayIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	acknowledgedPage, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "acknowledged"}, "", 10)
-	if err != nil || len(acknowledgedPage.Items) != 1 || acknowledgedPage.Items[0].Rules[0].Actionable {
+	if err != nil || len(acknowledgedPage.Items) != 1 || acknowledgedPage.Items[0].Rules[0].Actionable || acknowledgedPage.Summary.AcknowledgedGroups != 1 || acknowledgedPage.Summary.ActionableRules != 0 {
 		t.Fatalf("acknowledgement did not change read handling: %+v %v", acknowledgedPage, err)
 	}
 	unignoredPage, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "unignored"}, "", 10)
@@ -92,7 +92,7 @@ func TestReviewPublicationIsAtomicAndSameDayIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	ignoredPage, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "ignored"}, "", 10)
-	if err != nil || len(ignoredPage.Items) != 1 || ignoredPage.Items[0].Rules[0].SuppressionID == "" || ignoredPage.Items[0].Rules[0].Actionable {
+	if err != nil || len(ignoredPage.Items) != 1 || ignoredPage.Items[0].Rules[0].SuppressionID == "" || ignoredPage.Items[0].Rules[0].Actionable || ignoredPage.Summary.IgnoredGroups != 1 {
 		t.Fatalf("permanent ignore did not change read handling: %+v %v", ignoredPage, err)
 	}
 	unignoredPage, err = f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "unignored"}, "", 10)
@@ -462,7 +462,7 @@ func TestReviewAlertPageCursorExpiresOnHandlingChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{}, "", 1)
-	if err != nil || len(first.Items) != 1 || first.NextCursor == "" {
+	if err != nil || len(first.Items) != 1 || first.NextCursor == "" || first.Summary.TotalGroups != 2 || first.Summary.MatchedGroups != 2 {
 		t.Fatalf("first page: %+v %v", first, err)
 	}
 	filtered, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Query: first.Items[0].DisplayName}, "", 1)
@@ -470,7 +470,7 @@ func TestReviewAlertPageCursorExpiresOnHandlingChange(t *testing.T) {
 		t.Fatalf("filtered page falsely advertises a next match: %+v %v", filtered, err)
 	}
 	next, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{}, first.NextCursor, 1)
-	if err != nil || len(next.Items) != 1 || next.Items[0].InstrumentID == first.Items[0].InstrumentID {
+	if err != nil || len(next.Items) != 1 || next.Items[0].InstrumentID == first.Items[0].InstrumentID || next.Summary.TotalGroups != first.Summary.TotalGroups || next.Summary.MatchedGroups != first.Summary.MatchedGroups {
 		t.Fatalf("next page: %+v %v", next, err)
 	}
 	alert := first.Items[0].Rules[0]
@@ -479,5 +479,275 @@ func TestReviewAlertPageCursorExpiresOnHandlingChange(t *testing.T) {
 	}
 	if _, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{}, first.NextCursor, 1); err == nil {
 		t.Fatal("cursor survived a report handling revision")
+	}
+}
+
+func TestReviewSameDayClearAndRebuyUsesNewEpisodeWithClosedVotes(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	spec := syntheticHistoricalReviewSpec()
+	spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 6, MinHits: 5}
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic rolling", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-07")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var old string
+	if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), old, string(domain.NewMutationID()), 1); err != nil {
+		t.Fatal(err)
+	}
+	*f.now = time.Date(2026, 10, 7, 10, 0, 0, 0, time.UTC)
+	f.quantity(t, false)
+	*f.now = time.Date(2026, 10, 7, 11, 0, 0, 0, time.UTC)
+	f.quantity(t, true)
+	*f.now = time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var current, triggered, reason, oldAck string
+	var newAck *string
+	if err := f.db.SQL.QueryRow(`SELECT id,triggered_on,acknowledged_at FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&current, &triggered, &newAck); err != nil || current == old || triggered != "2026-10-06" || newAck != nil {
+		t.Fatalf("today's rebuy inherited old episode or invented a vote: %q %q %v %v", current, triggered, newAck, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT resolved_reason,acknowledged_at FROM investment_review_episodes WHERE id=?`, old).Scan(&reason, &oldAck); err != nil || reason != "position_closed" || oldAck == "" {
+		t.Fatalf("old episode not closed with its acknowledgement: %q %q %v", reason, oldAck, err)
+	}
+	var hitCount, todayRows, epochCount int
+	if err := f.db.SQL.QueryRow(`SELECT hit_count FROM investment_review_evaluation_state WHERE episode_id=?`, current).Scan(&hitCount); err != nil || hitCount < 5 {
+		t.Fatalf("closed rolling votes lost after rebuy: %d %v", hitCount, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_daily_results WHERE on_date='2026-10-07'`).Scan(&todayRows); err != nil || todayRows != 0 {
+		t.Fatalf("unclosed day received a vote: %d %v", todayRows, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_position_epochs`).Scan(&epochCount); err != nil || epochCount != 2 {
+		t.Fatalf("same-day clear/rebuy did not create two epochs: %d %v", epochCount, err)
+	}
+}
+
+func TestReviewSameDayClearClosesEpisodeBeforeNextDailyVote(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic single", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-02")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-03")
+	*f.now = time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
+	f.quantity(t, false)
+	*f.now = time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var open, closed, today int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&open); err != nil || open != 0 {
+		t.Fatalf("clear left an active episode: %d %v", open, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episodes WHERE resolved_reason='position_closed'`).Scan(&closed); err != nil || closed != 1 {
+		t.Fatalf("clear did not resolve old episode: %d %v", closed, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_daily_results WHERE on_date='2026-10-03'`).Scan(&today); err != nil || today != 0 {
+		t.Fatalf("clear created an unclosed-day vote: %d %v", today, err)
+	}
+}
+
+func TestReviewAtomicSameDayTransferKeepsEpisodeAndAcknowledgement(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic single", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-02")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var old string
+	if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), old, string(domain.NewMutationID()), 1); err != nil {
+		t.Fatal(err)
+	}
+	var owner string
+	if err := f.db.SQL.QueryRow(`SELECT member_id FROM account_ownership WHERE account_id=?`, f.account.Account.ID.String()).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	other := overviewAccount(t, f.s, domain.MemberID(owner), "Synthetic receiving account", "brokerage", "asset", "holdings", "CNY", "")
+	destination, err := f.s.CreateHolding(t.Context(), HoldingInput{AccountID: other.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	*f.now = time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
+	if _, err := f.s.RecordChange(t.Context(), domain.PositionTransferInput{HouseholdID: f.account.Account.HouseholdID, FromHoldingID: f.holding.ID, ToHoldingID: destination.ID, Quantity: mustQuantity(t, "1"), EffectiveAt: *f.now}); err != nil {
+		t.Fatal(err)
+	}
+	*f.now = time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var current, acknowledged string
+	if err := f.db.SQL.QueryRow(`SELECT id,acknowledged_at FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&current, &acknowledged); err != nil || current != old || acknowledged == "" {
+		t.Fatalf("atomic transfer reset the acknowledged episode: %q %q %v", current, acknowledged, err)
+	}
+	var epochs int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_position_epochs`).Scan(&epochs); err != nil || epochs != 1 {
+		t.Fatalf("atomic transfer created an epoch: %d %v", epochs, err)
+	}
+}
+
+func TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne(t *testing.T) {
+	for _, initial := range []string{"explicit", "all_current"} {
+		t.Run(initial, func(t *testing.T) {
+			f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+			other, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Other synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := syntheticHistoricalReviewSpec()
+			if initial == "explicit" {
+				spec.Target = domain.ReviewRuleTarget{Kind: "instruments", InstrumentIDs: []domain.InstrumentID{f.instrument.ID, other.ID}}
+			}
+			rule, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic target", Enabled: true, Severity: "warning", Spec: spec})
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.day(t, "2026-10-02")
+			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			var old string
+			if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&old); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), old, string(domain.NewMutationID()), 1); err != nil {
+				t.Fatal(err)
+			}
+			spec.Target = domain.ReviewRuleTarget{Kind: "instruments", InstrumentIDs: []domain.InstrumentID{other.ID}}
+			rule, err = f.s.UpdateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(rule.ID), MutationID: string(domain.NewMutationID()), ExpectedRevision: rule.RowRevision, Name: rule.Name, Enabled: rule.Enabled, Severity: rule.Severity, Spec: spec})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			var reason string
+			if err := f.db.SQL.QueryRow(`SELECT resolved_reason FROM investment_review_episodes WHERE id=?`, old).Scan(&reason); err != nil || reason != "rule_replaced" {
+				t.Fatalf("target removal did not resolve old episode: %q %v", reason, err)
+			}
+			var oldStates int
+			if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=?`, string(rule.ID), f.instrument.ID.String()).Scan(&oldStates); err != nil || oldStates != 0 {
+				t.Fatalf("excluded instrument kept stale evaluation state: %d %v", oldStates, err)
+			}
+			page, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{}, "", 10)
+			if err != nil || len(page.Items) != 0 {
+				t.Fatalf("excluded instrument still shown as an alert: %+v %v", page, err)
+			}
+			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			var closedCount int
+			if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episode_events WHERE kind='resolved'`).Scan(&closedCount); err != nil || closedCount != 1 {
+				t.Fatalf("repeated refresh duplicated resolution: %d %v", closedCount, err)
+			}
+			spec.Target = domain.ReviewRuleTarget{Kind: "instruments", InstrumentIDs: []domain.InstrumentID{f.instrument.ID, other.ID}}
+			if _, err := f.s.UpdateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(rule.ID), MutationID: string(domain.NewMutationID()), ExpectedRevision: rule.RowRevision, Name: rule.Name, Enabled: rule.Enabled, Severity: rule.Severity, Spec: spec}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			var current string
+			var ack *string
+			if err := f.db.SQL.QueryRow(`SELECT id,acknowledged_at FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&current, &ack); err != nil || current == old || ack != nil {
+				t.Fatalf("reentry inherited old episode/ack: %q %v %v", current, ack, err)
+			}
+		})
+	}
+}
+
+func TestReviewMaterialEditKeepsAcknowledgedPublishedEpisodeWhenIntervalStaysTrue(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	spec := syntheticHistoricalReviewSpec()
+	rule, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic cost", Enabled: true, Severity: "warning", Spec: spec})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-03")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var old string
+	if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), old, string(domain.NewMutationID()), 1); err != nil {
+		t.Fatal(err)
+	}
+	spec.Predicate.All[1].Leaf.Value = "200" // material condition edit; every historical day still T
+	rule, err = f.s.UpdateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(rule.ID), MutationID: string(domain.NewMutationID()), ExpectedRevision: rule.RowRevision, Name: rule.Name, Enabled: rule.Enabled, Severity: rule.Severity, Spec: spec})
+	if err != nil || rule.CurrentConditionVersion != 2 {
+		t.Fatalf("rule edit: %+v %v", rule, err)
+	}
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var current, acknowledged string
+	var openedVersion int
+	if err := f.db.SQL.QueryRow(`SELECT id,opened_condition_version,acknowledged_at FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&current, &openedVersion, &acknowledged); err != nil || current != old || openedVersion != 1 || acknowledged == "" {
+		t.Fatalf("material edit replaced an unresolved acknowledged episode: %q %d %q %v", current, openedVersion, acknowledged, err)
+	}
+	var events int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episode_events`).Scan(&events); err != nil || events != 1 {
+		t.Fatalf("material edit generated duplicate episode events: %d %v", events, err)
+	}
+}
+
+func TestReviewDailyEvidencePagesClosedVotesAndExpiresOnRevision(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-08-04")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var episode string
+	if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&episode); err != nil {
+		t.Fatal(err)
+	}
+	var before, after int
+	if err := f.db.SQL.QueryRow(`SELECT total_changes()`).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	first, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, "", 1)
+	if err != nil || len(first.Items) != 1 || first.Items[0].On != "2026-08-03" || first.NextCursor == "" {
+		t.Fatalf("first evidence page: %+v %v", first, err)
+	}
+	second, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, first.NextCursor, 1)
+	if err != nil || len(second.Items) != 1 || second.Items[0].On != "2026-08-02" || second.NextCursor == "" || second.ReportRevision != first.ReportRevision {
+		t.Fatalf("second evidence page: %+v %v", second, err)
+	}
+	third, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, second.NextCursor, 1)
+	if err != nil || len(third.Items) != 1 || third.Items[0].On != "2026-08-01" || third.NextCursor != "" {
+		t.Fatalf("third evidence page: %+v %v", third, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT total_changes()`).Scan(&after); err != nil || after != before {
+		t.Fatalf("evidence read wrote %d rows: %v", after-before, err)
+	}
+	if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), episode, string(domain.NewMutationID()), 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, first.NextCursor, 1); err == nil {
+		t.Fatal("evidence cursor survived acknowledgement revision")
+	}
+	if _, err := f.db.SQL.Exec(`UPDATE investment_review_episodes SET resolved_at='2026-08-04T00:00:00Z',resolved_reason='recovered' WHERE id=?`, episode); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.ListReviewDailyEvidenceV2(t.Context(), episode, "", 1); err == nil {
+		t.Fatal("current evidence endpoint exposed a resolved episode without historical version context")
 	}
 }

@@ -46,7 +46,32 @@ type ReviewAlertGroup struct {
 type ReviewAlertPage struct {
 	Items            []ReviewAlertGroup `json:"items"`
 	NextCursor       string             `json:"nextCursor,omitempty"`
+	Summary          ReviewAlertSummary `json:"summary"`
 	ReportRevision   string             `json:"reportRevision"`
 	ProjectionStatus string             `json:"projectionStatus"`
 	PublishedOn      string             `json:"publishedOn,omitempty"`
+}
+
+// Counts are per complete instrument group in the same publication/read
+// snapshot as Items. MatchedGroups reflects the requested filter, not the
+// length of one page; ActionableRules counts open rule episodes.
+type ReviewAlertSummary struct {
+	TotalGroups        int `json:"totalGroups"`
+	MatchedGroups      int `json:"matchedGroups"`
+	PendingGroups      int `json:"pendingGroups"`
+	AcknowledgedGroups int `json:"acknowledgedGroups"`
+	IgnoredGroups      int `json:"ignoredGroups"`
+	UnknownGroups      int `json:"unknownGroups"`
+	PausedGroups       int `json:"pausedGroups"`
+	ActionableRules    int `json:"actionableRules"`
+}
+
+// ReviewDailyEvidencePage reads persisted closed-day votes for one episode.
+// The cursor is bound to its publication so a corrected day cannot silently
+// disappear between pages.
+type ReviewDailyEvidencePage struct {
+	Items          []ReviewDailyResult `json:"items"`
+	NextCursor     string              `json:"nextCursor,omitempty"`
+	ReportRevision string              `json:"reportRevision"`
+	EpisodeID      ReviewEpisodeID     `json:"episodeId"`
 }

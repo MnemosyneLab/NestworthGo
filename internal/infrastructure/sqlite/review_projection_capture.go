@@ -19,7 +19,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 		return empty, err
 	}
 	defer tx.Rollback()
-	result := domain.ReviewProjectionCapture{HouseholdID: householdID, SourceCutoff: cutoff, Rules: []domain.ReviewRule{}, Suppressions: []domain.ReviewSuppression{}, OpenEpisodes: []domain.ReviewStoredEpisode{}}
+	result := domain.ReviewProjectionCapture{HouseholdID: householdID, SourceCutoff: cutoff, Rules: []domain.ReviewRule{}, Suppressions: []domain.ReviewSuppression{}, OpenEpisodes: []domain.ReviewStoredEpisode{}, EvaluatedInstruments: map[domain.ReviewRuleID][]domain.InstrumentID{}}
 	result.Historical, err = loadReviewHistoricalBatchQuery(ctx, tx, householdID, cutoff)
 	if err != nil {
 		return empty, err
@@ -113,6 +113,23 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	}
 	err = episodeRows.Err()
 	episodeRows.Close()
+	if err != nil {
+		return empty, err
+	}
+	stateRows, err := tx.QueryContext(ctx, `SELECT DISTINCT s.rule_id,s.instrument_id FROM investment_review_evaluation_state s JOIN investment_review_rules r ON r.id=s.rule_id WHERE r.household_id=? ORDER BY s.rule_id,s.instrument_id`, householdID.String())
+	if err != nil {
+		return empty, err
+	}
+	for stateRows.Next() {
+		var ruleID, instrumentID string
+		if err := stateRows.Scan(&ruleID, &instrumentID); err != nil {
+			stateRows.Close()
+			return empty, err
+		}
+		result.EvaluatedInstruments[domain.ReviewRuleID(ruleID)] = append(result.EvaluatedInstruments[domain.ReviewRuleID(ruleID)], domain.InstrumentID(instrumentID))
+	}
+	err = stateRows.Err()
+	stateRows.Close()
 	if err != nil {
 		return empty, err
 	}

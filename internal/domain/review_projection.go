@@ -14,6 +14,7 @@ type ReviewProjectionCapture struct {
 	Rules                 []ReviewRule
 	Suppressions          []ReviewSuppression
 	OpenEpisodes          []ReviewStoredEpisode
+	EvaluatedInstruments  map[ReviewRuleID][]InstrumentID
 }
 
 type ReviewProjectionControl struct {
@@ -61,6 +62,7 @@ type ReviewRulePublication struct {
 	CurrentEpisode   *ReviewEpisodeIdentity
 	ClosedEpisodes   []ReviewEpisodeIdentity
 	OpenedEpisode    bool
+	TargetExcluded   bool
 }
 
 type ReviewPublicationDay struct {

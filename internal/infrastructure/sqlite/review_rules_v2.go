@@ -47,7 +47,13 @@ func scanReviewRule(row rowScanner) (domain.ReviewRule, error) {
 		}
 		result.ArchivedAt = &at
 	}
-	result.Spec, err = domain.DecodeReviewRuleSpec([]byte(specJSON))
+	if result.Evaluator == domain.ReviewLegacyEvaluator {
+		var legacy domain.ReviewLegacySpec
+		legacy, err = domain.DecodeReviewLegacySpec([]byte(specJSON))
+		result.LegacySpec = &legacy
+	} else {
+		result.Spec, err = domain.DecodeReviewRuleSpec([]byte(specJSON))
+	}
 	return result, err
 }
 
@@ -178,6 +184,9 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 		}
 		if current.ArchivedAt != nil || current.RowRevision != m.ExpectedRevision {
 			return empty, reviewRuleConflict("rule changed; reload before saving")
+		}
+		if current.Evaluator != domain.ReviewEvaluator {
+			return empty, &domain.Error{Code: domain.ErrValidation, Field: "ruleId", Message: "legacy rules require explicit conversion"}
 		}
 		if m.Operation == "archive" {
 			at := m.At.UTC().Format(time.RFC3339Nano)

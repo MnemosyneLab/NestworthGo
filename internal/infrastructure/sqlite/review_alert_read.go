@@ -160,8 +160,13 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 	for _, item := range suppressions {
 		byInstrument[item.InstrumentID] = append(byInstrument[item.InstrumentID], item)
 	}
-	for len(result.Items) < pageSize {
-		ids, err := reviewAlertCandidateIDs(ctx, tx, householdID, afterID, 100)
+	// Scan every complete group within this one read snapshot for the report
+	// summary. Page contents still carry only the requested bounded slice.
+	// A later candidate may not match the filter, so the same pass also proves
+	// whether NextCursor will actually have a subsequent result.
+	pageAfter, scanAfter, lastPageID, hasMore := afterID, "", "", false
+	for {
+		ids, err := reviewAlertCandidateIDs(ctx, tx, householdID, scanAfter, 100)
 		if err != nil {
 			return empty, err
 		}
@@ -173,52 +178,50 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 			return empty, err
 		}
 		for _, id := range ids {
-			afterID = id
+			scanAfter = id
 			group, exists := groups[id]
-			if !exists || !reviewAlertMatchesFilter(group, filter) {
+			if !exists {
 				continue
 			}
-			result.Items = append(result.Items, group)
-			if len(result.Items) == pageSize {
-				break
+			result.Summary.TotalGroups++
+			switch group.Status {
+			case "pending":
+				result.Summary.PendingGroups++
+			case "acknowledged":
+				result.Summary.AcknowledgedGroups++
+			case "ignored":
+				result.Summary.IgnoredGroups++
+			case "unknown":
+				result.Summary.UnknownGroups++
+			case "paused":
+				result.Summary.PausedGroups++
+			}
+			for _, rule := range group.Rules {
+				if rule.Actionable {
+					result.Summary.ActionableRules++
+				}
+			}
+			if !reviewAlertMatchesFilter(group, filter) {
+				continue
+			}
+			result.Summary.MatchedGroups++
+			if id <= pageAfter {
+				continue
+			}
+			if len(result.Items) < pageSize {
+				result.Items = append(result.Items, group)
+				lastPageID = id
+			} else {
+				hasMore = true
 			}
 		}
-		if len(ids) < 100 || len(result.Items) == pageSize {
+		if len(ids) < 100 {
 			break
 		}
 	}
-	if len(result.Items) == pageSize {
-		// A later candidate is not necessarily a later matching group. Look
-		// ahead through bounded candidate batches so Next never opens an empty
-		// filtered page.
-		probeAfter, hasMore := afterID, false
-		for !hasMore {
-			ids, err := reviewAlertCandidateIDs(ctx, tx, householdID, probeAfter, 100)
-			if err != nil {
-				return empty, err
-			}
-			if len(ids) == 0 {
-				break
-			}
-			groups, err := reviewAlertGroupsForIDs(ctx, tx, householdID, ids, byInstrument, control.Enabled, now)
-			if err != nil {
-				return empty, err
-			}
-			for _, id := range ids {
-				probeAfter = id
-				if group, ok := groups[id]; ok && reviewAlertMatchesFilter(group, filter) {
-					hasMore = true
-					break
-				}
-			}
-			if len(ids) < 100 {
-				break
-			}
-		}
-		if hasMore {
-			encoded, _ := json.Marshal(reviewAlertCursor{Revision: revision, FilterHash: filterHash, AfterID: afterID})
-			result.NextCursor = base64.RawURLEncoding.EncodeToString(encoded)
-		}
+	if hasMore {
+		encoded, _ := json.Marshal(reviewAlertCursor{Revision: revision, FilterHash: filterHash, AfterID: lastPageID})
+		result.NextCursor = base64.RawURLEncoding.EncodeToString(encoded)
 	}
 	if err := tx.Commit(); err != nil {
 		return empty, err

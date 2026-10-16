@@ -20,43 +20,53 @@ func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjecti
 		if rule.Evaluator != domain.ReviewEvaluator {
 			continue // legacy evaluator remains isolated
 		}
-		if rule.ArchivedAt != nil {
-			// An archived rule needs only to close any still-open episodes. Its
-			// historical predicate cannot produce another alert, so replaying
-			// every old day wastes work and risks stale evidence writes.
-			latest, err := domain.ReviewLatestClosedDay(now, rule.Spec.Schedule.Timezone)
-			if err != nil {
-				return domain.ReviewPublication{}, err
-			}
-			for _, stored := range capture.OpenEpisodes {
-				if stored.RuleID != rule.ID {
-					continue
-				}
-				closedAt := now.UTC()
-				result.Rules = append(result.Rules, domain.ReviewRulePublication{
-					RuleID: rule.ID, RuleRevision: rule.RowRevision, ConditionVersion: rule.CurrentConditionVersion,
-					InstrumentID: stored.InstrumentID, TimezoneVersion: rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion,
-					LatestClosedOn: latest, ClosedEpisodes: []domain.ReviewEpisodeIdentity{{ID: string(stored.ID), TriggeredOn: stored.TriggeredOn, FirstDetectedAt: stored.FirstDetectedAt, AcknowledgedAt: stored.AcknowledgedAt, ResolvedAt: &closedAt, ResolvedReason: "rule_archived"}},
-				})
-			}
-			continue
+		latest, err := domain.ReviewLatestClosedDay(now, rule.Spec.Schedule.Timezone)
+		if err != nil {
+			return domain.ReviewPublication{}, err
 		}
-		instrumentIDs := map[domain.InstrumentID]bool{}
-		if rule.Spec.Target.Kind == "instruments" {
+		eligible := map[domain.InstrumentID]bool{}
+		if rule.ArchivedAt == nil && rule.Spec.Target.Kind == "instruments" {
 			for _, id := range rule.Spec.Target.InstrumentIDs {
-				instrumentIDs[id] = true
+				eligible[id] = true
 			}
-		} else {
+		} else if rule.ArchivedAt == nil {
 			for _, holding := range capture.Historical.History.Portfolio.Holdings {
-				instrumentIDs[holding.InstrumentID] = true
+				eligible[holding.InstrumentID] = true
 			}
 		}
-		ordered := make([]domain.InstrumentID, 0, len(instrumentIDs))
-		for instrumentID := range instrumentIDs {
+		candidates := map[domain.InstrumentID]bool{}
+		for id := range eligible {
+			candidates[id] = true
+		}
+		for _, id := range capture.EvaluatedInstruments[rule.ID] {
+			candidates[id] = true
+		}
+		for _, stored := range capture.OpenEpisodes {
+			if stored.RuleID == rule.ID {
+				candidates[stored.InstrumentID] = true
+			}
+		}
+		ordered := make([]domain.InstrumentID, 0, len(candidates))
+		for instrumentID := range candidates {
 			ordered = append(ordered, instrumentID)
 		}
 		slices.Sort(ordered)
 		for _, instrumentID := range ordered {
+			if !eligible[instrumentID] {
+				reason := "rule_replaced"
+				if rule.ArchivedAt != nil {
+					reason = "rule_archived"
+				}
+				closed := make([]domain.ReviewEpisodeIdentity, 0)
+				for _, stored := range capture.OpenEpisodes {
+					if stored.RuleID == rule.ID && stored.InstrumentID == instrumentID {
+						closedAt := now.UTC()
+						closed = append(closed, domain.ReviewEpisodeIdentity{ID: string(stored.ID), TriggeredOn: stored.TriggeredOn, FirstDetectedAt: stored.FirstDetectedAt, AcknowledgedAt: stored.AcknowledgedAt, ResolvedAt: &closedAt, ResolvedReason: reason})
+					}
+				}
+				result.Rules = append(result.Rules, domain.ReviewRulePublication{RuleID: rule.ID, RuleRevision: rule.RowRevision, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion, LatestClosedOn: latest, ClosedEpisodes: closed, TargetExcluded: true})
+				continue
+			}
 			plan, err := PlanReviewRuleInstrument(ctx, capture, rule, instrumentID, now, providerKey)
 			if err != nil {
 				return domain.ReviewPublication{}, err

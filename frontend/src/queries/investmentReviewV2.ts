@@ -15,6 +15,14 @@ export function useReviewAlertPage(filter: ReviewAlertFilter, cursor = "", activ
   });
 }
 
+export function useReviewDailyEvidencePage(episodeId: string, cursor = "", active = true) {
+  return useQuery({
+    queryKey: [...reviewV2Key, "evidence", episodeId, cursor],
+    queryFn: () => callService(() => Service.ListReviewDailyEvidenceV2({ episodeId, cursor, pageSize: 20 })),
+    enabled: active && episodeId !== "",
+  });
+}
+
 export function useReviewCoveragePage(filter: ReviewCoverageFilter, cursor = "", active = true) {
   return useQuery({
     queryKey: [...reviewV2Key, "coverage", filter, cursor],

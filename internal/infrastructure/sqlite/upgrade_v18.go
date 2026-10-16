@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -144,14 +143,6 @@ func captureLegacyReviewState(ctx context.Context, tx *sql.Tx) error {
 	if err != nil {
 		return err
 	}
-	type oldValue struct {
-		PriorPolicies []domain.InvestmentReviewPolicy `json:"priorPolicies"`
-		SnoozedUntil  map[string]string               `json:"snoozedUntil"`
-		Enrolled      map[string]bool                 `json:"enrolled"`
-		Revision      int                             `json:"revision"`
-		Policy        domain.InvestmentReviewPolicy   `json:"policy"`
-		Acknowledged  map[string]bool                 `json:"acknowledged"`
-	}
 	type entry struct{ key, raw, status, reason string }
 	entries := []entry{}
 	for rows.Next() {
@@ -160,24 +151,9 @@ func captureLegacyReviewState(ctx context.Context, tx *sql.Tx) error {
 			rows.Close()
 			return err
 		}
-		value := oldValue{Policy: domain.DefaultInvestmentReviewPolicy(), SnoozedUntil: map[string]string{}, Enrolled: map[string]bool{}, Acknowledged: map[string]bool{}}
 		status, reason := "compatible", ""
-		if !strings.HasPrefix(strings.TrimSpace(raw), "{") || json.Unmarshal([]byte(raw), &value) != nil || value.Policy.Validate() != nil || value.Revision < 0 || value.Acknowledged == nil || value.Enrolled == nil {
+		if _, err := domain.DecodeReviewLegacyConfiguration([]byte(raw)); err != nil {
 			status, reason = "needs_repair", "invalid legacy review configuration"
-		} else {
-			for _, prior := range value.PriorPolicies {
-				if prior.Validate() != nil {
-					status, reason = "needs_repair", "invalid prior review policy"
-				}
-			}
-			for id, until := range value.SnoozedUntil {
-				if _, err := domain.ParseInstrumentID(id); err != nil {
-					status, reason = "needs_repair", "invalid legacy snooze instrument"
-				}
-				if _, err := time.Parse(time.DateOnly, until); err != nil {
-					status, reason = "needs_repair", "invalid legacy snooze date"
-				}
-			}
 		}
 		entries = append(entries, entry{key: key, raw: raw, status: status, reason: reason})
 	}
@@ -220,6 +196,8 @@ func captureLegacyReviewState(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, `UPDATE investment_review_control SET projection_status='needs_repair' WHERE household_id=?`, householdID.String()); err != nil {
 				return err
 			}
+		} else if err := upsertReviewLegacyRule(ctx, tx, householdID, []byte(item.raw), time.Now()); err != nil {
+			return err
 		}
 	}
 	return nil

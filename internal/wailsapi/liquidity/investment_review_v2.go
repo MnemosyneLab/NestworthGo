@@ -20,6 +20,17 @@ type ListReviewCoverageV2Request struct {
 	PageSize int                         `json:"pageSize"`
 }
 
+type ListReviewDailyEvidenceV2Request struct {
+	EpisodeID string `json:"episodeId"`
+	Cursor    string `json:"cursor"`
+	PageSize  int    `json:"pageSize"`
+}
+
+func (s *Service) ListReviewDailyEvidenceV2(ctx context.Context, request ListReviewDailyEvidenceV2Request) (domain.ReviewDailyEvidencePage, error) {
+	page, err := s.app.ListReviewDailyEvidenceV2(ctx, request.EpisodeID, request.Cursor, request.PageSize)
+	return page, apierror.Wrap(err)
+}
+
 func (s *Service) ListReviewCoverageV2(ctx context.Context, request ListReviewCoverageV2Request) (domain.ReviewCoveragePage, error) {
 	page, err := s.app.ListReviewCoverageV2(ctx, request.Filter, request.Cursor, request.PageSize)
 	return page, apierror.Wrap(err)
