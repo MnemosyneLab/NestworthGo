@@ -88,7 +88,11 @@ func loadHistoricalSnapshotBatchQueryMode(ctx context.Context, query queryer, ho
 	if cutoff.IsZero() {
 		return domain.HistoricalSnapshotBatch{}, &domain.Error{Code: domain.ErrValidation, Field: "cutoff", Message: "historical batch cutoff is required"}
 	}
-	portfolio, err := readPortfolioSnapshotQuery(ctx, query, domain.AccountFilter{IncludeArchived: true})
+	loadPortfolio := readPortfolioSnapshotQuery
+	if reviewRead {
+		loadPortfolio = readPortfolioReviewSnapshotQuery
+	}
+	portfolio, err := loadPortfolio(ctx, query, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}

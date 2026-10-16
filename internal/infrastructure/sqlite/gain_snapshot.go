@@ -66,8 +66,17 @@ type prependScanner struct {
 func (s prependScanner) Scan(dest ...any) error { return s.row.Scan(append(s.prefix, dest...)...) }
 
 func readGainCosts(ctx context.Context, query queryer, householdID domain.HouseholdID, result *domain.GainSnapshot) error {
+	return readGainCostsWithActivityCTE(ctx, query, householdID, result, correctedActivityCTE, nil, validCostBasisEvents)
+}
+
+func readReviewGainCosts(ctx context.Context, query queryer, householdID domain.HouseholdID, result *domain.GainSnapshot) error {
+	return readGainCostsWithActivityCTE(ctx, query, householdID, result, reviewFactActivityCTE, []any{householdID.String(), householdID.String()}, reviewCostBasisEvents)
+}
+
+func readGainCostsWithActivityCTE(ctx context.Context, query queryer, householdID domain.HouseholdID, result *domain.GainSnapshot, activityCTE string, args []any, validEvents string) error {
 	statement := strings.Replace(costBasisEventsSelect, "SELECT e.activity_id", "SELECT e.holding_id, e.activity_id", 1)
-	rows, err := query.QueryContext(ctx, correctedActivityCTE+statement+` WHERE a.household_id = ?`+validCostBasisEvents+costBasisEventOrder, householdID.String())
+	args = append(args, householdID.String())
+	rows, err := query.QueryContext(ctx, activityCTE+statement+` WHERE a.household_id = ?`+validEvents+costBasisEventOrder, args...)
 	if err != nil {
 		return err
 	}

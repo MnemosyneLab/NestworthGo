@@ -148,7 +148,7 @@ called out explicitly and are not represented as automated passes.
 
 | ID | Evidence | Execution status |
 | --- | --- | --- |
-| F01 | `TestReviewPublicationIsAtomicAndSameDayIdempotent`; `TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange`; `TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass`; `TestReviewIncrementalReplayPreservesFullDailyTrueSuffix`; opt-in `TestReviewFullPipelinePerformanceEvidence` measures SQLite cold/warm capture, planning, publish and first-page reads on synthetic fixtures. | Planning and first-page budgets pass; full warm and cold budgets fail as measured below |
+| F01 | `TestReviewPublicationIsAtomicAndSameDayIdempotent`; `TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange`; `TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass`; `TestReviewIncrementalReplayPreservesFullDailyTrueSuffix`; opt-in `TestReviewFullPipelinePerformanceEvidence` measures SQLite cold/warm capture, planning, publish and first-page reads on synthetic fixtures. | First-page budgets pass at 30 and 365 days; full warm and cold budgets fail as measured below |
 
 ## Performance measurement and limits
 
@@ -160,38 +160,68 @@ metrics and trigger policies. FX references number 120 for the 30-day mode and
 1,460 for the 365-day mode. It records source counts, projection rows and
 SQLite database+WAL+SHM bytes.
 
-On Linux with the repository's modernc SQLite build, the post-indexing 365-day
-cold full reconcile took 85.304 seconds (n=1), against the design target of
-3 seconds (28.4× over budget). It published 730,000 daily input rows and
-730,000 results; 100 position epochs, 240 episodes, 240 episode events and
-2,000 evaluation-state rows; database+WAL+SHM totaled 2,001,646,368 bytes.
-The preceding version took 305.539 seconds on the same synthetic row counts.
-Building one immutable daily quote series per instrument removed repeated
-filtering/sorting, but did not make the cold budget pass.
+The records below come from separate invocations of the opt-in harness; do
+not treat earlier cold-run values as controlled before/after measurements.
+In particular, the archived 305.539s and 339.29s cold values came from
+different runs. The current Linux run used `TMPDIR=/workspace/.tmp` because
+the runner's `/tmp` volume had only 1.2GB free.
 
-For 30-day mode, full-pipeline cold publish took 12.472 seconds (n=1), above
-the 3-second target. A separately timed warm increment decomposed as follows:
-SQLite capture plus source fingerprint 3.774 seconds; in-memory source
-fingerprint alone 462 ms; preparation and planning 294 ms; serializing the
-staged input/result/coverage JSON alone 7.0 ms for 510,520 input+coverage
-bytes and 594,300 result bytes; read-only pre-publish recapture 3.670 seconds;
-atomic publish recapture, serialization and writes 3.414 seconds. The staged
-increment contained 2,000 rule/instrument pairs and 2,000 new daily slots.
-Planning is within the 500 ms target; full capture/publish is not.
+**Current 365-day clock-only run.** The cold full reconcile took 86.362s
+(n=1), against the 3s target. After it, 30 warm reconciles had a median of
+15.800s, nearest-rank p95 17.262s and max 17.431s against 500ms. First-page
+reads had a median of 42.043ms, p95 47.570ms and max 60.603ms against 150ms.
+After 30 increments the fixture held 790,000 daily inputs and 790,000 results;
+database+WAL+SHM totaled 1,541,427,168 bytes. The first warm reconcile read
+200,200 quote rows across capture and transactional recheck; its 20 reusable-
+evidence window queries returned 6,000 rows and spent 9.551s in SQLite. The
+full driver-query time was 12.612s. Capture and publication repeat the
+authoritative source read to preserve the concurrency snapshot check.
 
-Across 30 measured 30-day warm increments, median was 8.427 seconds, nearest-
-rank p95 was 9.211 seconds and max was 9.678 seconds, against the 500 ms
-end-to-end target (18.4× p95 over budget). This is full request latency,
-including source capture/fingerprinting, planning and atomic publication.
-After 30 increments the fixture contained 120,000 daily input rows and 120,000
-result rows; database+WAL+SHM totaled 541,685,936 bytes, with 100 position
-epochs, 240 episodes/events and 2,000 evaluation-state rows. No 365-day warm
-run was made, so this 30-day result is not extrapolated to 365 days.
+**Current 30-day clock-only run.** The cold full reconcile took 10.393s
+(n=1). Across 30 warm reconciles, median was 6.677s, p95 7.290s and max
+7.313s against 500ms. First-page reads had a median of 19.480ms, p95
+25.696ms and max 26.307ms against 150ms. After 30 increments the fixture
+held 120,000 daily inputs and 120,000 results; database+WAL+SHM totaled
+393,771,424 bytes. The first warm reconcile executed 371 SQL queries across
+capture, recheck and publish; it read 200,200 quote rows and 6,000 reusable
+evidence rows. Combined SQL driver time was 4.087s.
 
-The 30-day first-alert-page read p95 was 27.191 ms (median 22.113 ms, max
-28.674 ms) over 30 reads, within the 150 ms budget. It was read from the exact
-30-day fixture above after publication. It does not establish 365-day page
-latency. Native macOS performance is not measured here.
+**Changed-source scenarios, 30-day fixture.** A typical daily refresh appended
+100 instrument quote rows and 4 FX references before one warm reconcile. A
+single changed-source fingerprint then disabled evidence reuse and staged
+62,000 days (2,000 rule/instrument pairs × 31 dates). Planning took 3.354s;
+the atomic publish took 5.136s, with 128,241 SQL executions and 37,538,300
+serialized input/result/coverage bytes. A separate historical correction
+updated one existing quote's price. This also changed the source fingerprint,
+disabled reuse and staged all 62,000 days; planning took 3.052s and atomic
+publish 4.914s. Regression tests verify in-place changes to existing UnitPrice
+and FX Rate values change the historical source token.
+
+**30-day capture optimization evidence.** Each warm capture and publish
+recheck runs one 100,100-row quote-history scan (~0.9s) and 20 reusable-evidence
+queries (~1.0s total at 30 days). The two review correction-chain queries still
+scan the 50k cash-only activity/effect rows while filtering them, although they
+return no review activity or cost events. Review-only current-quote selection is now skipped as
+redundant with full quote history. Rule revision checks were reduced from one
+per pair to one per rule; existing evaluation-state epochs are fetched in one
+transactional query instead of one query per pair. The review correction CTE
+starts from quantity/cost-relevant activity chains rather than all activities.
+An experiment combining reusable-evidence queries into one SQL statement
+regressed 30-day capture from ~0.9s to ~1.5s and was reverted.
+
+Performance acceptance remains blocked. At 365 days, a covering index for
+`(household_id,input_policy,timezone_version,instrument_id,on_date)` is a
+candidate for reducing reusable-evidence ranking scans, but it requires a
+schema migration and adds substantial per-row storage. Reaching the 500ms
+warm target also requires avoiding full 100k-quote source rescans on both
+capture and publish recheck. A future design could maintain a source-change
+generation with transactional triggers for every authoritative source table,
+then verify that generation inside publication before reusing date slots.
+This needs a completeness audit for every insert/update/delete/withdrawal path
+and a write-amplification/storage review. No such schema/index/generation
+change has been implemented pending design approval.
+
+Native macOS performance is not measured here.
 
 Every matrix item has an evidence mapping above. Items with automated tests are
 covered by the server-profile Go suite or Vitest suite; `Source mapped` items

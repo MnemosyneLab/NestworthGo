@@ -24,7 +24,7 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	}
 	mode := os.Getenv("NW_REVIEW_PERF_MODE")
 	historyDays := 365
-	if mode == "warm" || mode == "stages" {
+	if mode == "warm" || mode == "stages" || mode == "warm-marketdata" || mode == "warm-correction" || mode == "stages-marketdata" || mode == "stages-correction" {
 		historyDays = 30
 	}
 	fixture := newReviewFullPipelineFixture(t, historyDays)
@@ -45,12 +45,15 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		logReviewFullPipelineStorage(t, fixture, historyDays)
 		return
 	}
+	metrics := enableReviewSQLMetrics(t, fixture)
 	if mode == "stages" {
 		*fixture.now = fixture.now.AddDate(0, 0, 1)
 		repository := sqlite.NewRepository(fixture.db)
+		metrics.reset()
 		started = time.Now()
 		capture, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
 		captureElapsed := time.Since(started)
+		captureSQL := metrics.snapshot(8)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -91,18 +94,78 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 			}
 		}
 		serializationElapsed := time.Since(started)
+		metrics.reset()
 		started = time.Now()
 		recheck, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
 		recheckElapsed := time.Since(started)
 		if err != nil || recheck.HistoricalFingerprint != capture.HistoricalFingerprint {
 			t.Fatalf("read-only publication recheck differs: %v", err)
 		}
+		recheckSQL := metrics.snapshot(8)
+		metrics.reset()
 		started = time.Now()
 		if err := repository.PublishReviewProjection(ctx, publication, *fixture.now); err != nil {
 			t.Fatalf("publish staged warm increment: %v", err)
 		}
 		publishElapsed := time.Since(started)
-		t.Logf("one warm increment stages: SQLite capture+source fingerprint=%s (positionActivitiesCaptured=%d); in-memory source fingerprint alone=%s; planning+daily fingerprints=%s; repeated input/result/coverage JSON serialization alone=%s (%d input+coverage bytes, %d result bytes); read-only publish recheck capture=%s; atomic publish recheck+serialization+writes=%s; staged ruleInstrumentPairs=%d newDays=%d", captureElapsed, len(capture.Historical.History.Activities), fingerprintElapsed, prepareElapsed, serializationElapsed, inputBytes, resultBytes, recheckElapsed, publishElapsed, len(publication.Rules), plannedDays)
+		publishSQL := metrics.snapshot(8)
+		stagedBytes := inputBytes + resultBytes
+		t.Logf("one warm increment phases: capture+source fingerprint=%s (%s; top SQL: %s; positionActivitiesCaptured=%d); in-memory source fingerprint=%s; planning+daily fingerprints=%s; staged JSON serialization=%s (input+coverage=%d bytes result=%d bytes total=%d); separate read-only recheck=%s (%s; top SQL: %s); atomic publish recheck+serialization+writes=%s (%s; top SQL: %s); staged ruleInstrumentPairs=%d newDays=%d", captureElapsed, captureSQL.summary(), captureSQL.slowest(), len(capture.Historical.History.Activities), fingerprintElapsed, prepareElapsed, serializationElapsed, inputBytes, resultBytes, stagedBytes, recheckElapsed, recheckSQL.summary(), recheckSQL.slowest(), publishElapsed, publishSQL.summary(), publishSQL.slowest(), len(publication.Rules), plannedDays)
+		logReviewFullPipelineStorage(t, fixture, historyDays)
+		return
+	}
+	if mode == "stages-marketdata" || mode == "stages-correction" {
+		*fixture.now = fixture.now.AddDate(0, 0, 1)
+		if mode == "stages-marketdata" {
+			if err := appendReviewPerfDailyMarketData(ctx, fixture, fixture.now.AddDate(0, 0, -1)); err != nil {
+				t.Fatalf("append synthetic daily quote and FX refresh: %v", err)
+			}
+		} else if err := correctReviewPerfHistoricalQuote(ctx, fixture, 0); err != nil {
+			t.Fatalf("correct synthetic historical quote: %v", err)
+		}
+		repository := sqlite.NewRepository(fixture.db)
+		metrics.reset()
+		started = time.Now()
+		capture, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
+		captureElapsed := time.Since(started)
+		captureSQL := metrics.snapshot(8)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if capture.HistoricalFingerprint == capture.Control.PublishedFingerprint {
+			t.Fatalf("source change did not invalidate the published fingerprint: %s", mode)
+		}
+		if len(capture.ReusableDailyEvidence) != 0 {
+			t.Fatalf("source change unexpectedly reused %d daily evidence rows: %s", len(capture.ReusableDailyEvidence), mode)
+		}
+		started = time.Now()
+		publication, err := PrepareReviewPublication(ctx, capture, *fixture.now, fixture.service.FXProviderKey())
+		prepareElapsed := time.Since(started)
+		if err != nil {
+			t.Fatal(err)
+		}
+		metrics.reset()
+		started = time.Now()
+		if err := repository.PublishReviewProjection(ctx, publication, *fixture.now); err != nil {
+			t.Fatal(err)
+		}
+		publishElapsed := time.Since(started)
+		publishSQL := metrics.snapshot(8)
+		var quoteBytes, resultBytes int64
+		for _, item := range publication.Rules {
+			for _, day := range item.Days {
+				inputJSON, _ := json.Marshal(day.Input)
+				coverageJSON, _ := json.Marshal(day.CoverageMissing)
+				resultJSON, _ := json.Marshal(day.Result)
+				quoteBytes += int64(len(inputJSON) + len(coverageJSON))
+				resultBytes += int64(len(resultJSON))
+			}
+		}
+		scenario := "historical quote correction (one existing instrument/day fact updated)"
+		if mode == "stages-marketdata" {
+			scenario = "daily market refresh (100 new instrument quotes + 4 FX references)"
+		}
+		t.Logf("one warm %s: capture+source fingerprint=%s (%s; top SQL: %s); planning+daily fingerprints=%s; staged JSON bytes input+coverage=%d result=%d total=%d; atomic publish recheck+serialization+writes=%s (%s; top SQL: %s); ruleInstrumentPairs=%d newDays=%d", scenario, captureElapsed, captureSQL.summary(), captureSQL.slowest(), prepareElapsed, quoteBytes, resultBytes, quoteBytes+resultBytes, publishElapsed, publishSQL.summary(), publishSQL.slowest(), len(publication.Rules), countReviewPublicationDays(publication))
 		logReviewFullPipelineStorage(t, fixture, historyDays)
 		return
 	}
@@ -110,6 +173,18 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	incremental := make([]time.Duration, 30)
 	for index := range incremental {
 		*fixture.now = fixture.now.AddDate(0, 0, 1)
+		if mode == "warm-marketdata" {
+			if err := appendReviewPerfDailyMarketData(ctx, fixture, fixture.now.AddDate(0, 0, -1)); err != nil {
+				t.Fatalf("append synthetic daily quote and FX refresh %d: %v", index+1, err)
+			}
+		} else if mode == "warm-correction" {
+			if err := correctReviewPerfHistoricalQuote(ctx, fixture, index); err != nil {
+				t.Fatalf("correct synthetic historical quote %d: %v", index+1, err)
+			}
+		}
+		if index == 0 {
+			metrics.reset()
+		}
 		started = time.Now()
 		result, err = fixture.service.ReconcileInvestmentReviewsV2(ctx)
 		incremental[index] = time.Since(started)
@@ -119,10 +194,17 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		if result.RuleInstrumentCount != 2_000 {
 			t.Fatalf("incremental publication %d covered %d rule/instrument pairs, want 2000", index+1, result.RuleInstrumentCount)
 		}
+		if index == 0 {
+			sqlSnapshot := metrics.snapshot(8)
+			t.Logf("first warm full reconcile SQL: %s; top SQL: %s", sqlSnapshot.summary(), sqlSnapshot.slowest())
+		}
 	}
 
 	pageReads := make([]time.Duration, 30)
 	for index := range pageReads {
+		if index == 0 {
+			metrics.reset()
+		}
 		started = time.Now()
 		page, err := fixture.service.ListReviewAlertGroupsV2(ctx, domain.ReviewAlertFilter{Status: "pending"}, "", 50)
 		pageReads[index] = time.Since(started)
@@ -131,6 +213,10 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		}
 		if page.ProjectionStatus != "complete" || len(page.Items) == 0 {
 			t.Fatalf("first page read returned status=%q items=%d", page.ProjectionStatus, len(page.Items))
+		}
+		if index == 0 {
+			sqlSnapshot := metrics.snapshot(8)
+			t.Logf("first alert page SQL: %s; top SQL: %s", sqlSnapshot.summary(), sqlSnapshot.slowest())
 		}
 	}
 
@@ -145,7 +231,13 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	}
 	t.Logf("fixture: holdings=100 rules=20 ruleInstrumentPairs=2000 instrumentQuotes=%d activities=%d fxReferences=%d historyDays=%d", quoteCount, activityCount, fxCount, historyDays)
 	t.Logf("cold full reconcile n=1: %s (budget <=3s)", cold)
-	t.Logf("warm incremental full reconcile n=%d: median=%s p95=%s max=%s (budget p95 <=500ms)", len(incremental), durationPercentile(incremental, 0.50), durationPercentile(incremental, 0.95), durationPercentile(incremental, 1))
+	if mode == "warm-marketdata" {
+		t.Logf("warm incremental full reconcile with daily quote+FX additions n=%d: median=%s p95=%s max=%s (market data adds 100 quote + 4 FX rows per sample)", len(incremental), durationPercentile(incremental, 0.50), durationPercentile(incremental, 0.95), durationPercentile(incremental, 1))
+	} else if mode == "warm-correction" {
+		t.Logf("warm incremental full reconcile with one historical quote correction per sample n=%d: median=%s p95=%s max=%s", len(incremental), durationPercentile(incremental, 0.50), durationPercentile(incremental, 0.95), durationPercentile(incremental, 1))
+	} else {
+		t.Logf("warm incremental full reconcile n=%d: median=%s p95=%s max=%s (budget p95 <=500ms)", len(incremental), durationPercentile(incremental, 0.50), durationPercentile(incremental, 0.95), durationPercentile(incremental, 1))
+	}
 	t.Logf("published alert first page n=%d: median=%s p95=%s max=%s (budget p95 <=150ms)", len(pageReads), durationPercentile(pageReads, 0.50), durationPercentile(pageReads, 0.95), durationPercentile(pageReads, 1))
 	logReviewFullPipelineStorage(t, fixture, historyDays)
 }
@@ -156,6 +248,8 @@ type reviewFullPipelineFixture struct {
 	now         *time.Time
 	householdID domain.HouseholdID
 	dbPath      string
+	start       time.Time
+	instruments []domain.Instrument
 }
 
 func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipelineFixture {
@@ -237,7 +331,76 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 			t.Fatalf("create rule %d: %v", index, err)
 		}
 	}
-	return reviewFullPipelineFixture{service: service, db: db, now: &now, householdID: bootstrap.Household.ID, dbPath: dbPath}
+	return reviewFullPipelineFixture{service: service, db: db, now: &now, householdID: bootstrap.Household.ID, dbPath: dbPath, start: start, instruments: instruments}
+}
+
+func appendReviewPerfDailyMarketData(ctx context.Context, fixture reviewFullPipelineFixture, on time.Time) error {
+	tx, err := fixture.db.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	quoteStatement, err := tx.PrepareContext(ctx, `INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at,observation_kind,effective_date,value_effective_at,binding_revision,price_basis,timestamp_basis,revision) VALUES(?,?,?,?,'agent','agent',?,?, 'close',?,?,0,?,?,1)`)
+	if err != nil {
+		return err
+	}
+	defer quoteStatement.Close()
+	date := on.UTC().Format(time.DateOnly)
+	dayIndex := int(on.UTC().Sub(fixture.start).Hours() / 24)
+	when := time.Date(on.Year(), on.Month(), on.Day(), 17, 0, 0, 0, time.UTC)
+	createdAt := when.Add(time.Hour)
+	for index, instrument := range fixture.instruments {
+		priceBasis, timestampBasis := "agent_raw_close_v1", "date_label"
+		if instrument.Type == domain.InstrumentMutualFund || instrument.Type == domain.InstrumentBankInvestmentProduct {
+			priceBasis = "agent_unit_nav_v1"
+		} else if instrument.Type == domain.InstrumentCrypto {
+			priceBasis = domain.CoinGeckoDailyPriceBasis
+			timestampBasis = "observed_publication"
+		}
+		id := fmt.Sprintf("00000000-0000-4000-8005-%012x", dayIndex*len(fixture.instruments)+index+1)
+		price := fmt.Sprintf("%d", 100+dayIndex/30)
+		if _, err := quoteStatement.ExecContext(ctx, id, instrument.ID.String(), price, instrument.QuoteCurrency.String(), formatReviewPerfTime(when), formatReviewPerfTime(createdAt), date, formatReviewPerfTime(when), priceBasis, timestampBasis); err != nil {
+			return fmt.Errorf("insert daily synthetic quote for %s: %w", instrument.ID, err)
+		}
+	}
+	fxStatement, err := tx.PrepareContext(ctx, `INSERT INTO fx_quotes(id,household_id,base_currency,quote_currency,rate,source_kind,source_key,quoted_at,created_at,observation_kind,effective_date,fetched_at,value_effective_at,timestamp_basis,revision) VALUES(?,?,?,'CNY','2','manual','manual',?,?, 'daily_reference',?,?,?,'date_label',1)`)
+	if err != nil {
+		return err
+	}
+	defer fxStatement.Close()
+	for index, currency := range []string{"USD", "EUR", "JPY", "SGD"} {
+		id := fmt.Sprintf("00000000-0000-4000-8006-%012x", dayIndex*4+index+1)
+		if _, err := fxStatement.ExecContext(ctx, id, fixture.householdID.String(), currency, formatReviewPerfTime(when), formatReviewPerfTime(createdAt), date, formatReviewPerfTime(when), formatReviewPerfTime(when)); err != nil {
+			return fmt.Errorf("insert daily synthetic FX reference for %s: %w", currency, err)
+		}
+	}
+	return tx.Commit()
+}
+
+func correctReviewPerfHistoricalQuote(ctx context.Context, fixture reviewFullPipelineFixture, sample int) error {
+	day := fixture.start.AddDate(0, 0, 5+sample%20).Format(time.DateOnly)
+	tx, err := fixture.db.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var id string
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM instrument_quotes WHERE instrument_id=? AND effective_date=? AND source_kind='agent' ORDER BY created_at DESC,id DESC LIMIT 1`, fixture.instruments[0].ID.String(), day).Scan(&id); err != nil {
+		return err
+	}
+	correctedPrice := fmt.Sprintf("%d", 250+sample)
+	if _, err := tx.ExecContext(ctx, `UPDATE instrument_quotes SET unit_price=? WHERE id=?`, correctedPrice, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func countReviewPublicationDays(publication domain.ReviewPublication) int {
+	count := 0
+	for _, item := range publication.Rules {
+		count += len(item.Days)
+	}
+	return count
 }
 
 func logReviewFullPipelineStorage(t *testing.T, fixture reviewFullPipelineFixture, historyDays int) {

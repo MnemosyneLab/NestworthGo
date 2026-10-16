@@ -89,6 +89,43 @@ func TestReviewHistoricalDayBeforeOriginIsUnknown(t *testing.T) {
 	}
 }
 
+func TestReviewHistoricalCostKeepsActivityUntilEffectiveReversalDate(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	f.day(t, "2026-08-02")
+	importReviewDailyClose(t, f, "2026-08-02", "100")
+	cost, err := domain.ParseUnitPrice("100")
+	if err != nil {
+		t.Fatal(err)
+	}
+	added, err := f.s.RecordChange(t.Context(), domain.PositionAdjustmentInput{
+		HouseholdID: f.account.Account.HouseholdID, HoldingID: f.holding.ID,
+		Quantity: mustQuantity(t, "1"), Added: true, UnitCost: &cost, EffectiveAt: *f.now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-08-04")
+	if _, err := f.s.UndoChange(t.Context(), added.Activity.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		date, quantity, cost string
+	}{
+		{date: "2026-08-02", quantity: "2", cost: "200"},
+		{date: "2026-08-04", quantity: "1", cost: "100"},
+	} {
+		input, coverage, err := ProjectReviewHistoricalDay(t.Context(), batch, "", syntheticHistoricalReviewSpec(), f.instrument.ID, tc.date)
+		if err != nil || input.Quantity == nil || *input.Quantity != tc.quantity || input.CostExact == nil || *input.CostExact != tc.cost {
+			t.Fatalf("historical cost on %s: input=%+v coverage=%+v events=%+v err=%v", tc.date, input, coverage, batch.CostEvents[f.holding.ID], err)
+		}
+	}
+}
+
 func TestReviewHistoricalDayDoesNotBorrowAnotherStocksDailyPrices(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-09-10", "1")
 	f.day(t, "2026-10-10")

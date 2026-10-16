@@ -41,7 +41,7 @@ func loadReviewHistoricalBatchQuery(ctx context.Context, query queryer, househol
 	for _, holding := range history.Portfolio.Holdings {
 		gain.CostEvents[holding.ID] = nil
 	}
-	if err := readGainCosts(ctx, query, householdID, &gain); err != nil {
+	if err := readReviewGainCosts(ctx, query, householdID, &gain); err != nil {
 		return domain.ReviewHistoricalBatch{}, err
 	}
 	return domain.ReviewHistoricalBatch{History: history, CostEvents: gain.CostEvents}, nil

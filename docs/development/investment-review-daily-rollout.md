@@ -114,17 +114,19 @@ source, exact invalidation on source change, and unchanged atomic-transfer
 epoch evidence.
 
 This is incremental reuse for unchanged history and new date slots. Quote
-selection is now indexed once per instrument for a full replay, so same-date
+selection is indexed once per instrument for a full replay, so same-date
 deduplication and sorting are not repeated for every daily vote. The opt-in
 SQLite measurements use the design-sized 100-holding/20-rule/100k-quote/
-50k-activity synthetic fixture. On this Linux executor, 365-day cold reconcile
-took 85.304s against the 3s target; 30-day full warm reconcile p95 was 9.211s
-against 500ms; the separately measured 30-day first-alert-page p95 was
-27.191ms against 150ms. The planning slice was 294ms, while capture and
-publication dominate the warm request. No 365-day warm/page pass is inferred
-from the 30-day measurement. The first-page target passes at 30 days; full warm
-and cold targets remain performance acceptance blockers. Full fixture counts
-and phase timings are in `docs/testing/investment-review-daily-acceptance-2026-10-16.md`.
+50k-activity synthetic fixture. A current 30-day clock-only run measured
+7.290s warm p95 and 25.696ms first-alert-page p95; a separate 365-day run
+measured 17.262s warm p95 and 47.570ms page p95. Both page results are below
+150ms, while cold and warm budgets fail. A daily refresh with 100 new quotes
+and 4 FX references, and an in-place historical quote correction, each changed
+the source token and safely forced a full 62,000-day replay. The exact-decimal
+values inside quote/rate types are now included in that token; regression tests
+cover in-place corrections. Full fixture counts, SQL traces, phase timings and
+the proposed schema-level performance work are in
+`docs/testing/investment-review-daily-acceptance-2026-10-16.md`.
 Native macOS Wails, VoiceOver, Chinese IME, high-zoom layout, restart and
 backup-restore acceptance have not been exercised in this Linux environment.
 

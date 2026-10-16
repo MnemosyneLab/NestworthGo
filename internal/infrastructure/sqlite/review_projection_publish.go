@@ -57,16 +57,25 @@ func (r *Repository) PublishReviewProjection(ctx context.Context, publication do
 	for _, rule := range capture.Rules {
 		byRule[rule.ID] = rule
 	}
+	stagedRules := make(map[domain.ReviewRuleID]struct{}, len(publication.Rules))
 	for _, item := range publication.Rules {
 		rule, ok := byRule[item.RuleID]
 		if !ok || rule.RowRevision != item.RuleRevision || rule.CurrentConditionVersion != item.ConditionVersion || item.InstrumentID == "" || item.TimezoneVersion != rule.Spec.Schedule.Timezone+"/"+rule.Spec.Schedule.CutoffVersion {
 			return reviewRuleConflict("staged review rule changed")
 		}
+		stagedRules[item.RuleID] = struct{}{}
+	}
+	// One publication commonly contains one item per rule/instrument pair.
+	// Rule revisions are household-wide, so check each staged rule once.
+	for _, rule := range capture.Rules {
+		if _, staged := stagedRules[rule.ID]; !staged {
+			continue
+		}
 		var revision, condition int
-		if err := tx.QueryRowContext(ctx, `SELECT row_revision,current_condition_version FROM investment_review_rules WHERE id=? AND household_id=?`, string(item.RuleID), capture.HouseholdID.String()).Scan(&revision, &condition); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT row_revision,current_condition_version FROM investment_review_rules WHERE id=? AND household_id=?`, string(rule.ID), capture.HouseholdID.String()).Scan(&revision, &condition); err != nil {
 			return err
 		}
-		if revision != item.RuleRevision || condition != item.ConditionVersion {
+		if revision != rule.RowRevision || condition != rule.CurrentConditionVersion {
 			return reviewRuleConflict("review rule changed during calculation")
 		}
 	}
@@ -85,8 +94,12 @@ func (r *Repository) PublishReviewProjection(ctx context.Context, publication do
 		return err
 	}
 	defer resultStatement.Close()
+	existingStateEpochs, err := reviewEvaluationStateEpochs(ctx, tx, publication.Rules)
+	if err != nil {
+		return err
+	}
 	for _, item := range publication.Rules {
-		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement); err != nil {
+		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement, existingStateEpochs[reviewEvaluationStateKey(item.RuleID, item.InstrumentID)]); err != nil {
 			return err
 		}
 	}
@@ -182,7 +195,7 @@ func verifyReviewOpenEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Re
 	return nil
 }
 
-func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt) error {
+func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt, existingStateEpochs []string) error {
 	if item.TargetExcluded {
 		if len(item.Days) != 0 || len(item.Epochs) != 0 || item.CurrentEpisode != nil || item.OpenedEpisode {
 			return &domain.Error{Code: domain.ErrValidation, Field: "target", Message: "an excluded target cannot publish daily evidence or an open episode"}
@@ -243,7 +256,7 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 	if err := publishReviewEpisodes(ctx, tx, capture, item, at); err != nil {
 		return err
 	}
-	return publishReviewEvaluationState(ctx, tx, item)
+	return publishReviewEvaluationState(ctx, tx, item, existingStateEpochs)
 }
 
 func nullableReviewPointer(value *string) any {
@@ -357,7 +370,7 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 	return nil
 }
 
-func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.ReviewRulePublication) error {
+func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.ReviewRulePublication, existingEpochs []string) error {
 	coverage, err := json.Marshal(item.LatestCoverage)
 	if err != nil {
 		return err
@@ -403,27 +416,11 @@ func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.R
 		for _, epochID := range epochIDs {
 			validEpochs[epochID] = struct{}{}
 		}
-		rows, err := tx.QueryContext(ctx, `SELECT position_epoch_id FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=?`, string(item.RuleID), item.InstrumentID.String())
-		if err != nil {
-			return err
-		}
 		staleEpochs := []string{}
-		for rows.Next() {
-			var epochID string
-			if err := rows.Scan(&epochID); err != nil {
-				rows.Close()
-				return err
-			}
+		for _, epochID := range existingEpochs {
 			if _, ok := validEpochs[epochID]; !ok {
 				staleEpochs = append(staleEpochs, epochID)
 			}
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return err
-		}
-		if err := rows.Close(); err != nil {
-			return err
 		}
 		for _, epochID := range staleEpochs {
 			if _, err := tx.ExecContext(ctx, `DELETE FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=? AND position_epoch_id=?`, string(item.RuleID), item.InstrumentID.String(), epochID); err != nil {
@@ -432,6 +429,49 @@ func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.R
 		}
 	}
 	return nil
+}
+
+func reviewEvaluationStateKey(ruleID domain.ReviewRuleID, instrumentID domain.InstrumentID) string {
+	return string(ruleID) + "\x00" + string(instrumentID)
+}
+
+// Existing epoch IDs are captured once in the publication transaction. The
+// same consistent row set feeds stale-state cleanup for each target pair.
+func reviewEvaluationStateEpochs(ctx context.Context, tx *sql.Tx, publications []domain.ReviewRulePublication) (map[string][]string, error) {
+	ruleIDs := make([]string, 0)
+	seen := make(map[domain.ReviewRuleID]struct{})
+	for _, item := range publications {
+		if item.TargetExcluded || !item.PositionKnown {
+			continue
+		}
+		if _, ok := seen[item.RuleID]; ok {
+			continue
+		}
+		seen[item.RuleID] = struct{}{}
+		ruleIDs = append(ruleIDs, string(item.RuleID))
+	}
+	result := make(map[string][]string)
+	if len(ruleIDs) == 0 {
+		return result, nil
+	}
+	placeholders, args := sqlInArgs(ruleIDs)
+	rows, err := tx.QueryContext(ctx, `SELECT rule_id,instrument_id,position_epoch_id FROM investment_review_evaluation_state WHERE rule_id IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ruleID, instrumentID, epochID string
+		if err := rows.Scan(&ruleID, &instrumentID, &epochID); err != nil {
+			return nil, err
+		}
+		key := ruleID + "\x00" + instrumentID
+		result[key] = append(result[key], epochID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func reviewPublicationConflict(format string, values ...any) error {

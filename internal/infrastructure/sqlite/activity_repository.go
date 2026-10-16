@@ -372,7 +372,10 @@ func listReviewActivitiesUntilQuery(ctx context.Context, query queryer, househol
 
 func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time, reviewRead bool) ([]domain.Activity, error) {
 	statement := correctedActivityCTE + `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ?`
+	args := []any{householdID.String(), formatTimestamp(cutoff)}
 	if reviewRead {
+		statement = reviewFactActivityCTE + `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ?`
+		args = []any{householdID.String(), householdID.String(), formatTimestamp(cutoff)}
 		// Daily review consumes only position changes from the activity ledger;
 		// cost adjustments are loaded separately as cost-basis events. Cash,
 		// account-value, dividend and fee activities cannot change a rule's
@@ -382,7 +385,7 @@ func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdI
 		statement += ` AND EXISTS(SELECT 1 FROM activity_effects review_effect WHERE review_effect.activity_id=economic_activities.id AND review_effect.target='holding_quantity')`
 	}
 	statement += ` ORDER BY effective_at ASC, created_at ASC, ordering_id ASC`
-	rows, err := query.QueryContext(ctx, statement, householdID.String(), formatTimestamp(cutoff))
+	rows, err := query.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return nil, err
 	}
