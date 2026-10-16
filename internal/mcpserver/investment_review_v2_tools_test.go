@@ -35,7 +35,7 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = tool
 		}
-		for _, name := range []string{"list_investment_review_rules", "preview_investment_review_rule", "preview_legacy_investment_review_conversion", "list_investment_review_alerts", "get_investment_review_alert", "list_investment_review_daily_evidence", "get_investment_review_coverage", "list_investment_review_suppressions"} {
+		for _, name := range []string{"list_investment_review_rules", "preview_investment_review_rule", "preview_legacy_investment_review_conversion", "list_investment_review_alerts", "get_investment_review_alert", "list_investment_review_daily_evidence", "list_investment_review_episode_history", "list_investment_review_episode_events", "get_investment_review_coverage", "list_investment_review_suppressions"} {
 			if found[name] == nil || !found[name].Annotations.ReadOnlyHint {
 				t.Fatalf("%s missing pure read tool %s", mode, name)
 			}
