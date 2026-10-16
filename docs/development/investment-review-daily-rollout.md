@@ -151,9 +151,10 @@ Go 1.27.2 `go test -short -p 1 ./...`, `go vet -p 1 ./...`, and server-profile
 `go build ./cmd/nestworth` passed. Direct Vitest execution passed all 137 files
 and 1,457 tests. TypeScript no-emit checking and the production Vite build
 passed, ESLint passed, and the generated Wails bindings check passed against
-v3.0.0-beta.28. The standalone screenshot capture attempt did not produce an image;
-the synthetic nested-editor interaction and invalid-value tests did pass in
-Vitest. This Linux server-profile verification does not establish native
+v3.0.0-beta.28. The synthetic nested-editor interaction and invalid-value tests
+passed in Vitest; a Chromium screenshot of the real editor component is stored
+at `docs/qa/investment-review-daily-2026-10-16/nested-condition-editor.chromium.png`.
+This Linux server-profile verification does not establish native
 macOS Wails packaging or accessibility acceptance.
 
 The older draft head CI run 38900264828 completed successfully. The final

@@ -137,7 +137,7 @@ called out explicitly and are not represented as automated passes.
 | C02 | `TestReviewEpisodeHistoryPagesResolvedAcknowledgedAndReboughtEpisodes`; `TestReviewDailyEvidencePagesClosedVotesAndExpiresOnRevision`; `TestReviewAlertPageCursorExpiresOnHandlingChange` | Go suite passed |
 | C03 | `TestV18UpgradePreservesLegacyReviewAndRecovery`; backup compatibility test coverage in `internal/infrastructure/backup` | Go suite passed |
 | C04 | `TestJSONExportReconciliationSchemaCompatibility`; `TestJSONExportStableEmptyCollectionsAndNoWrites` | Go suite passed |
-| U01 | `ReviewRuleEditor.test.tsx` nested editor and validation cases; three locale files. Browser screenshot capture was attempted but Chromium did not complete in this executor. Native zoom/theme/layout acceptance was not run. | Vitest; browser screenshot and native layout not run |
+| U01 | `ReviewRuleEditor.test.tsx` nested editor and validation cases; three locale files; [Chromium editor screenshot](../qa/investment-review-daily-2026-10-16/nested-condition-editor.chromium.png) from the synthetic harness. Native zoom/theme/layout acceptance was not run. | Vitest and Chromium screenshot passed; native layout not run |
 | U02 | `ReviewEpisodeHistorySheet.test.tsx`; shared Sheet keyboard/focus behavior is tested in `src/components/ui/sheet.test.tsx`; native VoiceOver/IME acceptance is not run here. | Vitest; native VoiceOver/IME not run |
 | U03 | `InvestmentReviewPage.test.tsx`; `ReviewRuleEditor.test.tsx`; `ReviewEpisodeHistorySheet.test.tsx` | Vitest passed |
 | U04 | owner split documented in `investment-review-daily-rollout.md`; shared App/navigation wiring is owned by PR99 and was not edited in this branch | Page contract tested; shared route owned by PR99 |
@@ -223,8 +223,14 @@ capture and publish recheck. A future design could maintain a source-change
 generation with transactional triggers for every authoritative source table,
 then verify that generation inside publication before reusing date slots.
 This needs a completeness audit for every insert/update/delete/withdrawal path
-and a write-amplification/storage review. No such schema/index/generation
-change has been implemented pending design approval.
+and a write-amplification/storage review. This branch does not contain that
+schema/index/generation work, so F01 is not accepted for latency. A generation
+counter alone would only skip scans when no sources changed; a normal daily
+quote/FX append still invalidates it and currently forces full replay. A safe
+dirty-frontier path must account for every source insert/update/delete and
+recompute the affected suffix. The measured first full replay also misses the
+3-second target and needs background materialization or a shared-input storage
+redesign before the cold budget can be accepted.
 
 **Key-first reusable-evidence query comparison.** On the same isolated 30-day
 fixture, the original and key-first SQL returned identical rows (6,000 total),
@@ -280,8 +286,8 @@ Native macOS performance is not measured here.
 
 Every matrix item has an evidence mapping above. Items with automated tests are
 covered by the server-profile Go suite or Vitest suite; `Source mapped` items
-are implementation checks without an isolated scenario test. The real
-screenshot request could not be completed: installed Chromium failed to finish
-headless capture in this restricted executor. The UI interaction and validation
-cases do run under Vitest. Native macOS Wails, VoiceOver, Chinese IME, 200% zoom
-and desktop backup/restore acceptance remain device-specific checks.
+are implementation checks without an isolated scenario test. The Chromium
+screenshot uses the real nested editor component with synthetic hooks and is
+documented alongside the image. The UI interaction and validation cases also
+run under Vitest. Native macOS Wails, VoiceOver, Chinese IME, 200% zoom and
+desktop backup/restore acceptance remain device-specific checks.
