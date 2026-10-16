@@ -196,6 +196,7 @@ function InstrumentRow({
 
 export function InstrumentManagement({
   focus,
+  focusRequestId = 0,
   pageId,
   active,
   enableSearch = false,
@@ -206,6 +207,8 @@ export function InstrumentManagement({
   browseAll = false,
 }: {
   focus?: HealthFocus;
+  /** Monotonic App navigation request; backtracking restores the prior value. */
+  focusRequestId?: number;
   pageId: string;
   active: boolean;
   enableSearch?: boolean;
@@ -224,10 +227,18 @@ export function InstrumentManagement({
   const updateInstrument = useUpdateInstrument();
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
-  const [editSelection, setEditTarget] = useState<InstrumentDTO | null>();
-  const editTarget = editSelection === undefined && (focus?.action === "manual_entry" || focus?.action === "instrument_editor")
-    ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : editSelection ?? null;
-  const [showPriceForm, setShowPriceForm] = useState(focus?.action === "manual_entry");
+  const [editOverride, setEditOverride] = useState<{ requestId: number; value: InstrumentDTO | null }>();
+  const [priceFormOverride, setPriceFormOverride] = useState<{ requestId: number; value: boolean }>();
+  const focusOpensEditor = focus?.action === "manual_entry" || focus?.action === "instrument_editor";
+  const focusedInstrument = focusOpensEditor ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : null;
+  const editTarget = editOverride?.requestId === focusRequestId
+    ? editOverride.value
+    : focusedInstrument;
+  const showPriceForm = priceFormOverride?.requestId === focusRequestId
+    ? priceFormOverride.value
+    : focus?.action === "manual_entry";
+  const setEditTarget = (value: InstrumentDTO | null) => setEditOverride({ requestId: focusRequestId, value });
+  const setShowPriceForm = (value: boolean) => setPriceFormOverride({ requestId: focusRequestId, value });
   const [query, setQuery] = useState("");
   const productByInstrument = useMemo(
     () => new Map((products.data ?? []).map((detail) => [detail.product.instrumentId, detail.product])),
@@ -432,7 +443,7 @@ export function InstrumentManagement({
           )}
           {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && editTarget.quoteSource !== "agent" && (
             <div className="mt-5 border-t border-border pt-5">
-              <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
+              <Button type="button" variant="outline" onClick={() => setShowPriceForm(!showPriceForm)}>
                 {t("portfolio.setPrice")}
               </Button>
               {showPriceForm && (

@@ -10,6 +10,7 @@ These screenshots were captured on 2026-10-16 from the actual React components t
 - [Narrow archived return](interaction-archived-return-narrow.png): the actual detail component returns to the archive account scope after maintenance at 390×844.
 - [App route: Back to instrument](app-instrument-back-focus-narrow.png): production `App` route returns from focused maintenance to the real instrument detail and restores the keyboard-visible Maintain button.
 - [App route: Back to maintenance](app-maintenance-back-focus-narrow.png): production `App` route then returns to the still-mounted maintenance page, preserving search `One` and restoring the keyboard-visible Details button.
+- [App route: FX focus request](app-fx-focus-narrow.png): while the real App is on the Instruments tab, the synthetic CNY/USD Data Health action returns to Market Data and selects FX rates.
 
 The production-route evidence and the pre-fix reproduction are documented in [app-navigation-focus.md](app-navigation-focus.md). This route mounts the actual `App`, `AppShell`, `MarketDataPage`, `InstrumentManagement`, and `InstrumentDetailPage`; only TanStack Query results are preloaded with synthetic fixture data.
 

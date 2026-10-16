@@ -6,6 +6,10 @@ Keyboard sequence: Data maintenance → search `One` → Details → Data record
 
 The quote period was `2026-08-17 – 2026-09-16`. It appeared in the maintenance focus card and remained selected after returning to the instrument page. After the first Back, `document.activeElement` was `#instrument-detail-maintain` and matched `:focus-visible`. After the second Back, the search still contained `One`; focus returned to the original Details button and matched `:focus-visible`.
 
+After closing that focused editor, the real App also reopened the same `Fund One` editor on a new Maintain request, then opened `Fund Two` after the search changed. This confirms editor dismissal is scoped to a navigation request rather than the mounted maintenance component. The App regression test covers both same-instrument and different-instrument requests.
+
+For FX routing, the real App started on Instruments, navigated through Data Health's synthetic CNY/USD “Add manual data” action, and returned with FX rates selected. The screenshot is [app-fx-focus-narrow.png](app-fx-focus-narrow.png). This verifies the navigation target changes the active tab while preserving user-owned tab state for ordinary returns.
+
 ## Issue reproduced before the fix
 
 Before removing the focus-dependent `MarketDataPage` key, the same real-App route returned with an empty search and `document.activeElement` at `BODY`. The focused editor navigation changed the key, remounting `MarketDataPage`; its `useState` search value was lost. The detail page also had no stable Maintain button ID, so App's existing element-or-ID restore path could not find its trigger after the detail page unmounted.

@@ -10,6 +10,7 @@ import '@/index.css';
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
 const account = { id: 'synthetic-app-broker', name: 'Synthetic Brokerage', accountType: 'brokerage', trackingMode: 'holdings', defaultCurrency: 'USD', archivedAt: '' };
 const instrument = { id: 'synthetic-app-fund-one', householdId: 'synthetic-only', name: 'Fund One', symbol: 'ONE', type: 'fund', quoteCurrency: 'USD', quoteSource: 'manual', createdAt: '2026-01-01', updatedAt: '2026-01-01' };
+const secondInstrument = { id: 'synthetic-app-fund-two', householdId: 'synthetic-only', name: 'Fund Two', symbol: 'TWO', type: 'fund', quoteCurrency: 'USD', quoteSource: 'manual', createdAt: '2026-01-01', updatedAt: '2026-01-01' };
 
 client.setQueryData(queryKeys.app.startup, { available: true });
 client.setQueryData(queryKeys.settings.all, { timezone: 'UTC', language: 'en', appearance: 'light', accent: 'blue', currency: 'USD', weekStart: 'monday', dateFormat: 'iso', timeFormat: '24h' });
@@ -18,8 +19,8 @@ client.setQueryData(queryKeys.household.bootstrap, { household: { id: 'synthetic
 client.setQueryData(queryKeys.accounts.list({}), [{ account, ownership: [], latestValue: null }]);
 client.setQueryData(queryKeys.accounts.list({ includeArchived: true }), [{ account, ownership: [], latestValue: null }]);
 client.setQueryData(queryKeys.accounts.valuations({}), []);
-client.setQueryData(queryKeys.instruments.list(false), [instrument]);
-client.setQueryData(queryKeys.instruments.list(true), [instrument]);
+client.setQueryData(queryKeys.instruments.list(false), [instrument, secondInstrument]);
+client.setQueryData(queryKeys.instruments.list(true), [instrument, secondInstrument]);
 client.setQueryData(queryKeys.holdings.byAccounts([account.id]), { [account.id]: [] });
 client.setQueryData([...queryKeys.analytics.instrumentHoldings, 'groups', ''], [{ key: 'fund', instruments: [{ instrumentId: instrument.id, name: instrument.name, symbol: instrument.symbol, type: 'fund', quoteCurrency: 'USD', quantityUnit: 'units', archived: false, holdings: [], amounts: { quantity: '0', totalCost: null, currentValue: null, unrealizedGain: null } }], subtotals: [] }]);
 client.setQueryData([...queryKeys.analytics.instrumentHoldings, 'groups', account.id], []);
@@ -27,14 +28,16 @@ client.setQueryData(queryKeys.history.origin, { id: 'synthetic-history', timezon
 client.setQueryData(queryKeys.history.mutationAllowed, {});
 client.setQueryData(queryKeys.liquidity.products('', true), []);
 client.setQueryData(queryKeys.quote.instrument.current(instrument.id), { unitPrice: '120', currency: 'USD', sourceKind: 'manual', asOf: '2026-10-15T12:00:00Z' });
+client.setQueryData(queryKeys.quote.instrument.current(secondInstrument.id), { unitPrice: '80', currency: 'USD', sourceKind: 'manual', asOf: '2026-10-15T12:00:00Z' });
 client.setQueryData(queryKeys.quote.instrument.series(instrument.id, 'all', 'all'), { range: 'all', points: [], observations: [], outsideRange: false });
 client.setQueryData(queryKeys.quote.instrument.series(instrument.id, '2026-09-17:2026-10-16', 'all'), { range: '2026-09-17:2026-10-16', points: [], observations: [], outsideRange: false });
 client.setQueryData(queryKeys.quote.instrument.series(instrument.id, '2026-08-17:2026-09-16', 'all'), { range: '2026-08-17:2026-09-16', points: [], observations: [], outsideRange: false });
+client.setQueryData(queryKeys.quote.instrument.series(secondInstrument.id, 'all', 'all'), { range: 'all', points: [], observations: [], outsideRange: false });
 client.setQueryData(queryKeys.quote.fx.preferences, []);
 client.setQueryData(queryKeys.catalog.all, { currencies: ['USD', 'CNY'], quoteSources: ['manual', 'provider', 'agent'], instrumentTypes: ['fund'] });
 client.setQueryData(queryKeys.overview.all, { currency: 'USD', accountCount: 1, complete: true, missingInputs: [], assets: '0', liabilities: '0', netWorth: '0', assetsByType: [], liabilitiesByType: [], byMember: [], byInstitution: [], byGroup: [], byAccountType: [] });
 client.setQueryData(queryKeys.portfolio.all, { currency: 'USD', complete: true, accounts: [], missingInputs: [], byInstrumentType: [], byCurrency: [] });
-client.setQueryData(queryKeys.marketdata.health, { issueCount: 0, issues: [] });
+client.setQueryData(queryKeys.marketdata.health, { healthy: false, issueCount: 1, issues: [{ id: 'synthetic-fx-gap', kind: 'missing_manual_fx', severity: 'blocking', targetKey: 'fx:CNY/USD', label: 'CNY/USD', currencyA: 'CNY', currencyB: 'USD', rangeStart: '2026-09-01', action: 'manual_entry', executable: false }] });
 client.setQueryData(queryKeys.marketdata.currentSync, { jobId: '' });
 
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><App /></QueryClientProvider>);

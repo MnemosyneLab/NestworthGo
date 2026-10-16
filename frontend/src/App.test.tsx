@@ -517,6 +517,21 @@ describe("App shell smoke test", () => {
 
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
     await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Open Fund One details"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Open Fund One details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Fund One");
+    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
+    await userEvent.click(await screen.findByRole("button", { name: "← Back to Instrument details" }));
+    await userEvent.click(await screen.findByRole("button", { name: "← Back to Data maintenance" }));
+
+    await userEvent.clear(screen.getByLabelText(i18n.t("marketData.searchInstruments")));
+    await userEvent.type(screen.getByLabelText(i18n.t("marketData.searchInstruments")), "Two");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund Two details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Fund Two");
   });
 
   it("returns from market health to market data with the navigation trail intact", async () => {

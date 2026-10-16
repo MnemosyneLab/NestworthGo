@@ -69,6 +69,8 @@ function App() {
   const [updateValue, setUpdateValue] = useState(false);
   const [healthFocus, setHealthFocus] = useState<HealthFocus>();
   const [marketFocus, setMarketFocus] = useState<HealthFocus>();
+  const [marketFocusRequestId, setMarketFocusRequestId] = useState(0);
+  const nextMarketFocusRequestId = useRef(0);
   const [visitedMaintenance, setVisitedMaintenance] = useState({ market: false, health: false });
   const [historicalDate, setHistoricalDate] = useState<string>();
   const [historicalContext, setHistoricalContext] = useState<HistoricalNavigationContext>();
@@ -78,7 +80,7 @@ function App() {
   const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
   const [liquidityRequestId, setLiquidityRequestId] = useState(0);
   const nextLiquidityRequestId = useRef(0);
-  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; portfolioView: PortfolioView; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
+  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; portfolioView: PortfolioView; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
   const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
@@ -150,7 +152,11 @@ function App() {
       setAccountFilter(navigation.page === "accounts" ? navigation.filter : undefined);
       setUpdateValue(navigation.page === "accounts" && navigation.updateValue === true);
     }
-    if (navigation.page === "market-data") { setMarketFocus(navigation.focus); setVisitedMaintenance(previous => ({ ...previous, market: true })); }
+    if (navigation.page === "market-data") {
+      setMarketFocus(navigation.focus);
+      setMarketFocusRequestId(++nextMarketFocusRequestId.current);
+      setVisitedMaintenance(previous => ({ ...previous, market: true }));
+    }
     if (navigation.page === "data-health") { setHealthFocus(navigation.focus); setVisitedMaintenance(previous => ({ ...previous, health: true })); }
     if (navigation.page === "portfolio") setPortfolioView(navigation.view ?? "holdings");
     if (navigation.page === "instrument-detail") setInstrumentDetail({ instrumentId: navigation.instrumentId,
@@ -183,7 +189,7 @@ function App() {
     setReturnToHoldingsAfterCreate(target.page === "accounts" && target.create === true && activePageId === "portfolio");
     setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, instrumentDetail,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
-      focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
+      marketFocusRequestId, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
     handleNavigate(target, true);
   };
   const openHealth = (focus: HealthFocus) => {
@@ -201,6 +207,7 @@ function App() {
     useAnalysisStore.setState(previous.analysis); setHistoryFilters(previous.history); setHistoryActivityId(previous.historyActivityId); setHistoryRequestId(previous.historyRequestId ?? 0);
     setSelectedAccountId(previous.accountId); setAccountFilter(previous.filter); setUpdateValue(false);
     setHealthFocus(previous.health); setMarketFocus(previous.market);
+    setMarketFocusRequestId(previous.marketFocusRequestId);
     setPortfolioView(previous.portfolioView); setInstrumentDetail(previous.instrumentDetail);
     setLiquidityProductId(previous.liquidityProduct); setLiquidityAccountId(previous.liquidityAccount); setLiquidityFocus(previous.liquidityFocus); setLiquidityRequestId(previous.liquidityRequest ?? 0);
     setActivePageId(previous.page); setTrail(trail.slice(0, -1));
@@ -275,7 +282,7 @@ function App() {
           </TabsList>
           <TabsContent value="market-data" keepMounted>
             {visitedMaintenance.market && <WorkspaceLazy>
-              <MarketDataPage focus={marketFocus} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
+              <MarketDataPage focus={marketFocus} focusRequestId={marketFocusRequestId} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
             </WorkspaceLazy>}
           </TabsContent>
           <TabsContent value="data-health" keepMounted>
