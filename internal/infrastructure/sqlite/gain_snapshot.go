@@ -70,7 +70,7 @@ func readGainCosts(ctx context.Context, query queryer, householdID domain.Househ
 }
 
 func readReviewGainCosts(ctx context.Context, query queryer, householdID domain.HouseholdID, result *domain.GainSnapshot) error {
-	return readGainCostsWithActivityCTE(ctx, query, householdID, result, reviewFactActivityCTE, []any{householdID.String(), householdID.String()}, reviewCostBasisEvents)
+	return readGainCostsWithActivityCTE(ctx, query, householdID, result, reviewFactActivityCTE, []any{householdID.String()}, reviewCostBasisEvents)
 }
 
 func readGainCostsWithActivityCTE(ctx context.Context, query queryer, householdID domain.HouseholdID, result *domain.GainSnapshot, activityCTE string, args []any, validEvents string) error {

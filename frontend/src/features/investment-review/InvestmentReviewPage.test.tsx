@@ -55,6 +55,17 @@ beforeEach(async () => {
 });
 
 describe("daily investment review page", () => {
+  it.each([
+    ["complete", false],
+    ["pending", true],
+    ["error", true],
+  ] as const)("shows the alert projection-status banner only when status is %s", (projectionStatus, visible) => {
+    state.alert.data = { ...report(), projectionStatus };
+    mount();
+    const banner = screen.queryByText(i18n.t("reviewV2.projectionStatus", { status: projectionStatus }));
+    if (visible) expect(banner).toBeVisible();
+    else expect(banner).not.toBeInTheDocument();
+  });
   it("loads the next rule and suppression pages on demand", async () => {
     state.rules.hasNextPage = true;
     state.suppressions.hasNextPage = true;

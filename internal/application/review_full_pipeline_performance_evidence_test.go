@@ -2,11 +2,15 @@ package application
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,7 +28,7 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	}
 	mode := os.Getenv("NW_REVIEW_PERF_MODE")
 	historyDays := 365
-	if mode == "warm" || mode == "stages" || mode == "warm-marketdata" || mode == "warm-correction" || mode == "stages-marketdata" || mode == "stages-correction" {
+	if mode == "warm" || mode == "stages" || mode == "warm-marketdata" || mode == "warm-correction" || mode == "stages-marketdata" || mode == "stages-correction" || mode == "profile" {
 		historyDays = 30
 	}
 	fixture := newReviewFullPipelineFixture(t, historyDays)
@@ -46,7 +50,11 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		return
 	}
 	metrics := enableReviewSQLMetrics(t, fixture)
-	if mode == "stages" {
+	if mode == "profile" || mode == "profile365" {
+		profileReviewReusableEvidence(t, fixture, metrics)
+		return
+	}
+	if mode == "stages" || mode == "stages365" {
 		*fixture.now = fixture.now.AddDate(0, 0, 1)
 		repository := sqlite.NewRepository(fixture.db)
 		metrics.reset()
@@ -240,6 +248,314 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	}
 	t.Logf("published alert first page n=%d: median=%s p95=%s max=%s (budget p95 <=150ms)", len(pageReads), durationPercentile(pageReads, 0.50), durationPercentile(pageReads, 0.95), durationPercentile(pageReads, 1))
 	logReviewFullPipelineStorage(t, fixture, historyDays)
+}
+
+type reusableEvidenceProfileRow struct {
+	instrumentID, on, inputFingerprint, inputJSON, coverageJSON string
+	resultJSON, resultFingerprint                               sql.NullString
+	consecutiveCount                                            int
+}
+
+type reusableEvidenceProfile struct {
+	query, next, scan, jsonDecode, queryToClose time.Duration
+	rows                                        []reusableEvidenceProfileRow
+}
+
+const currentReusableEvidenceSQL = `WITH ranked AS (
+	SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,
+	ROW_NUMBER() OVER (PARTITION BY d.instrument_id ORDER BY d.on_date DESC) AS slot_rank
+	FROM investment_review_daily_inputs d
+	WHERE d.household_id=? AND d.input_policy=? AND d.timezone_version=?
+), latest_date AS (
+	SELECT d.instrument_id,MAX(d.on_date) AS latest_on
+	FROM investment_review_daily_inputs d
+	WHERE d.household_id=? AND d.input_policy=? AND d.timezone_version=?
+	GROUP BY d.instrument_id
+), latest_streak AS (
+	SELECT s.instrument_id,s.latest_closed_on,MAX(s.consecutive_count) AS consecutive_count
+	FROM investment_review_evaluation_state s
+	WHERE s.rule_id=?
+	GROUP BY s.instrument_id,s.latest_closed_on
+)
+SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,r.evidence_json,r.input_fingerprint,COALESCE(s.consecutive_count,0)
+FROM ranked d LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.instrument_id=d.instrument_id AND r.timezone_version=? AND r.on_date=d.on_date
+LEFT JOIN latest_date ld ON ld.instrument_id=d.instrument_id
+LEFT JOIN latest_streak s ON s.instrument_id=d.instrument_id AND s.latest_closed_on=ld.latest_on
+WHERE d.slot_rank<=? ORDER BY d.instrument_id,d.on_date`
+
+const narrowKeyReusableEvidenceSQL = `WITH ranked_keys AS (
+	SELECT d.instrument_id,d.on_date,
+	ROW_NUMBER() OVER (PARTITION BY d.instrument_id ORDER BY d.on_date DESC) AS slot_rank
+	FROM investment_review_daily_inputs d
+	WHERE d.household_id=? AND d.input_policy=? AND d.timezone_version=?
+), latest_date AS (
+	SELECT k.instrument_id,MAX(k.on_date) AS latest_on
+	FROM ranked_keys k
+	GROUP BY k.instrument_id
+), latest_streak AS (
+	SELECT s.instrument_id,s.latest_closed_on,MAX(s.consecutive_count) AS consecutive_count
+	FROM investment_review_evaluation_state s
+	WHERE s.rule_id=?
+	GROUP BY s.instrument_id,s.latest_closed_on
+)
+SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,r.evidence_json,r.input_fingerprint,COALESCE(s.consecutive_count,0)
+FROM ranked_keys k
+JOIN investment_review_daily_inputs d ON d.household_id=? AND d.input_policy=? AND d.timezone_version=? AND d.instrument_id=k.instrument_id AND d.on_date=k.on_date
+LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.instrument_id=k.instrument_id AND r.timezone_version=? AND r.on_date=k.on_date
+LEFT JOIN latest_date ld ON ld.instrument_id=k.instrument_id
+LEFT JOIN latest_streak s ON s.instrument_id=k.instrument_id AND s.latest_closed_on=ld.latest_on
+WHERE k.slot_rank<=? ORDER BY k.instrument_id,k.on_date`
+
+func profileReviewReusableEvidence(t *testing.T, fixture reviewFullPipelineFixture, metrics *reviewSQLStats) {
+	t.Helper()
+	ctx := context.Background()
+	repository := sqlite.NewRepository(fixture.db)
+	metrics.reset()
+	started := time.Now()
+	beforeCapture, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeCaptureSQL := metrics.snapshot(8)
+	t.Logf("production capture without trial index: %s; driver Query-to-Rows.Close aggregate=%s (includes row consumption, not pure SQL)", time.Since(started), beforeCaptureSQL.queryTime)
+
+	beforeBytes := reviewPerfDatabaseBytes(t, fixture)
+	beforePages, pageSize := reviewPerfPageStats(t, fixture)
+	beforePlan, beforeCandidate, beforeCount := profileReusableEvidenceVariants(t, fixture, beforeCapture, false)
+	t.Logf("without trial index, exact row outputs: rows=%d equivalent=true current={%s} narrow-keys={%s}", beforeCount, beforePlan.summary(), beforeCandidate.summary())
+
+	indexStarted := time.Now()
+	tx, err := fixture.db.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, `CREATE INDEX idx_review_perf_inputs_scope_date ON investment_review_daily_inputs(household_id,input_policy,timezone_version,instrument_id,on_date DESC)`); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	indexBuild := time.Since(indexStarted)
+	afterBytes := reviewPerfDatabaseBytes(t, fixture)
+	afterPages, _ := reviewPerfPageStats(t, fixture)
+	t.Logf("temporary additive-index migration on synthetic DB: elapsed=%s fileBytesDelta=%d pageDelta=%d pageSize=%d", indexBuild, afterBytes-beforeBytes, afterPages-beforePages, pageSize)
+
+	metrics.reset()
+	started = time.Now()
+	afterCapture, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(beforeCapture.ReusableDailyEvidence, afterCapture.ReusableDailyEvidence) {
+		t.Fatal("trial index changed production reusable evidence")
+	}
+	afterCaptureSQL := metrics.snapshot(8)
+	t.Logf("production capture with trial index: %s; driver Query-to-Rows.Close aggregate=%s (includes row consumption, not pure SQL); typed evidence equivalence=true", time.Since(started), afterCaptureSQL.queryTime)
+	indexedPlan, indexedCandidate, indexedCount := profileReusableEvidenceVariants(t, fixture, afterCapture, true)
+	if beforeCount != indexedCount {
+		t.Fatalf("trial index changed row count: before=%d after=%d", beforeCount, indexedCount)
+	}
+	t.Logf("with trial index, exact row outputs: rows=%d equivalent=true current={%s} narrow-keys={%s}", indexedCount, indexedPlan.summary(), indexedCandidate.summary())
+	t.Logf("trial-index storage after profile: database+wal+shm=%d bytes", afterBytes)
+	logReviewFullPipelineStorage(t, fixture, int(fixture.now.Sub(fixture.start).Hours()/24))
+}
+
+func profileReusableEvidenceVariants(t *testing.T, fixture reviewFullPipelineFixture, capture domain.ReviewProjectionCapture, indexed bool) (reusableEvidenceProfile, reusableEvidenceProfile, int) {
+	t.Helper()
+	var currentTotal, narrowTotal reusableEvidenceProfile
+	first := true
+	for _, rule := range capture.Rules {
+		if rule.Evaluator != domain.ReviewEvaluator {
+			continue
+		}
+		policy := "rule:" + string(rule.ID) + "/v:" + strconv.Itoa(rule.CurrentConditionVersion)
+		timezoneVersion := rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion
+		width := 1
+		switch rule.Spec.TriggerPolicy.Kind {
+		case "consecutive":
+			width = rule.Spec.TriggerPolicy.Count
+		case "rolling":
+			width = rule.Spec.TriggerPolicy.WindowDays
+		}
+		currentArgs := []any{fixture.householdID.String(), policy, timezoneVersion, fixture.householdID.String(), policy, timezoneVersion, string(rule.ID), string(rule.ID), rule.CurrentConditionVersion, timezoneVersion, width}
+		narrowArgs := []any{fixture.householdID.String(), policy, timezoneVersion, string(rule.ID), fixture.householdID.String(), policy, timezoneVersion, string(rule.ID), rule.CurrentConditionVersion, timezoneVersion, width}
+		if first {
+			label := "without trial index"
+			if indexed {
+				label = "with trial index"
+			}
+			logReusableEvidencePlan(t, fixture.db.SQL, label+" current", currentReusableEvidenceSQL, currentArgs)
+			logReusableEvidencePlan(t, fixture.db.SQL, label+" narrow-key", narrowKeyReusableEvidenceSQL, narrowArgs)
+			first = false
+		}
+		current := timeReusableEvidenceQuery(t, fixture.db.SQL, currentReusableEvidenceSQL, currentArgs)
+		narrow := timeReusableEvidenceQuery(t, fixture.db.SQL, narrowKeyReusableEvidenceSQL, narrowArgs)
+		if !reflect.DeepEqual(current.rows, narrow.rows) {
+			t.Fatalf("narrow-key query changed results for rule %s (indexed=%t): current=%d narrow=%d", rule.ID, indexed, len(current.rows), len(narrow.rows))
+		}
+		assertReusableEvidenceRowsMatchCapture(t, current.rows, capture, rule)
+		assertReusableEvidenceRowsMatchCapture(t, narrow.rows, capture, rule)
+		appendReusableEvidenceProfile(&currentTotal, current)
+		appendReusableEvidenceProfile(&narrowTotal, narrow)
+	}
+	if len(currentTotal.rows) == 0 {
+		t.Fatal("profiled no reusable daily evidence rows")
+	}
+	return currentTotal, narrowTotal, len(currentTotal.rows)
+}
+
+func assertReusableEvidenceRowsMatchCapture(t *testing.T, rows []reusableEvidenceProfileRow, capture domain.ReviewProjectionCapture, rule domain.ReviewRule) {
+	t.Helper()
+	want := make(map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence)
+	for key, value := range capture.ReusableDailyEvidence {
+		if key.RuleID == rule.ID {
+			want[key] = value
+		}
+	}
+	got := make(map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, len(rows))
+	for _, row := range rows {
+		id, err := domain.ParseInstrumentID(row.instrumentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		item := domain.ReviewReusableDailyEvidence{InputFingerprint: row.inputFingerprint, PriorConsecutiveCount: row.consecutiveCount}
+		if err := json.Unmarshal([]byte(row.inputJSON), &item.Input); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal([]byte(row.coverageJSON), &item.CoverageMissing); err != nil {
+			t.Fatal(err)
+		}
+		if row.resultJSON.Valid && row.resultFingerprint.Valid && row.resultFingerprint.String == row.inputFingerprint {
+			if err := json.Unmarshal([]byte(row.resultJSON.String), &item.Result); err != nil {
+				t.Fatal(err)
+			}
+			item.HasResult = item.Result.On == row.on
+		}
+		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion, On: row.on}
+		got[key] = item
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("query rows differ from production capture for rule %s: got=%d want=%d", rule.ID, len(got), len(want))
+	}
+}
+
+func timeReusableEvidenceQuery(t *testing.T, database *sql.DB, statement string, args []any) reusableEvidenceProfile {
+	t.Helper()
+	started := time.Now()
+	queryStarted := time.Now()
+	rows, err := database.QueryContext(context.Background(), statement, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := reusableEvidenceProfile{query: time.Since(queryStarted)}
+	for {
+		nextStarted := time.Now()
+		next := rows.Next()
+		profile.next += time.Since(nextStarted)
+		if !next {
+			break
+		}
+		var item reusableEvidenceProfileRow
+		scanStarted := time.Now()
+		if err := rows.Scan(&item.instrumentID, &item.on, &item.inputFingerprint, &item.inputJSON, &item.coverageJSON, &item.resultJSON, &item.resultFingerprint, &item.consecutiveCount); err != nil {
+			_ = rows.Close()
+			t.Fatal(err)
+		}
+		profile.scan += time.Since(scanStarted)
+		jsonStarted := time.Now()
+		var input domain.ReviewDailyInput
+		var coverage []string
+		if err := json.Unmarshal([]byte(item.inputJSON), &input); err != nil {
+			_ = rows.Close()
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal([]byte(item.coverageJSON), &coverage); err != nil {
+			_ = rows.Close()
+			t.Fatal(err)
+		}
+		if item.resultJSON.Valid && item.resultFingerprint.Valid && item.resultFingerprint.String == item.inputFingerprint {
+			var result domain.ReviewDailyResult
+			if err := json.Unmarshal([]byte(item.resultJSON.String), &result); err != nil {
+				_ = rows.Close()
+				t.Fatal(err)
+			}
+		}
+		profile.jsonDecode += time.Since(jsonStarted)
+		profile.rows = append(profile.rows, item)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		t.Fatal(err)
+	}
+	if err := rows.Close(); err != nil {
+		t.Fatal(err)
+	}
+	profile.queryToClose = time.Since(started)
+	return profile
+}
+
+func appendReusableEvidenceProfile(total *reusableEvidenceProfile, item reusableEvidenceProfile) {
+	total.query += item.query
+	total.next += item.next
+	total.scan += item.scan
+	total.jsonDecode += item.jsonDecode
+	total.queryToClose += item.queryToClose
+	total.rows = append(total.rows, item.rows...)
+}
+
+func (p reusableEvidenceProfile) summary() string {
+	return fmt.Sprintf("QueryContext=%s Rows.Next=%s Rows.Scan=%s JSONDecode=%s Query-to-Rows.Close=%s", p.query, p.next, p.scan, p.jsonDecode, p.queryToClose)
+}
+
+func logReusableEvidencePlan(t *testing.T, database *sql.DB, label, statement string, args []any) {
+	t.Helper()
+	rows, err := database.QueryContext(context.Background(), `EXPLAIN QUERY PLAN `+statement, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var details []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		details = append(details, detail)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("EXPLAIN %s: %s", label, strings.Join(details, " | "))
+}
+
+func reviewPerfDatabaseBytes(t *testing.T, fixture reviewFullPipelineFixture) int64 {
+	t.Helper()
+	var total int64
+	for _, path := range []string{fixture.dbPath, fixture.dbPath + "-wal", fixture.dbPath + "-shm"} {
+		info, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			t.Fatal(err)
+		}
+		total += info.Size()
+	}
+	return total
+}
+
+func reviewPerfPageStats(t *testing.T, fixture reviewFullPipelineFixture) (int64, int64) {
+	t.Helper()
+	var pages, size int64
+	if err := fixture.db.SQL.QueryRow(`PRAGMA page_count`).Scan(&pages); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.db.SQL.QueryRow(`PRAGMA page_size`).Scan(&size); err != nil {
+		t.Fatal(err)
+	}
+	return pages, size
 }
 
 type reviewFullPipelineFixture struct {

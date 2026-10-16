@@ -74,16 +74,15 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 			case "rolling":
 				width = rule.Spec.TriggerPolicy.WindowDays
 			}
-			rows, err := tx.QueryContext(ctx, `WITH ranked AS (
-			SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,
+			rows, err := tx.QueryContext(ctx, `WITH ranked_keys AS (
+			SELECT d.instrument_id,d.on_date,
 			ROW_NUMBER() OVER (PARTITION BY d.instrument_id ORDER BY d.on_date DESC) AS slot_rank
 			FROM investment_review_daily_inputs d
 			WHERE d.household_id=? AND d.input_policy=? AND d.timezone_version=?
 		), latest_date AS (
-			SELECT d.instrument_id,MAX(d.on_date) AS latest_on
-			FROM investment_review_daily_inputs d
-			WHERE d.household_id=? AND d.input_policy=? AND d.timezone_version=?
-			GROUP BY d.instrument_id
+			SELECT k.instrument_id,MAX(k.on_date) AS latest_on
+			FROM ranked_keys k
+			GROUP BY k.instrument_id
 		), latest_streak AS (
 			SELECT s.instrument_id,s.latest_closed_on,MAX(s.consecutive_count) AS consecutive_count
 			FROM investment_review_evaluation_state s
@@ -91,10 +90,12 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 			GROUP BY s.instrument_id,s.latest_closed_on
 		)
 		SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,r.evidence_json,r.input_fingerprint,COALESCE(s.consecutive_count,0)
-		FROM ranked d LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.instrument_id=d.instrument_id AND r.timezone_version=? AND r.on_date=d.on_date
+		FROM ranked_keys k
+		JOIN investment_review_daily_inputs d ON d.household_id=? AND d.input_policy=? AND d.timezone_version=? AND d.instrument_id=k.instrument_id AND d.on_date=k.on_date
+		LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.instrument_id=k.instrument_id AND r.timezone_version=? AND r.on_date=k.on_date
 		LEFT JOIN latest_date ld ON ld.instrument_id=d.instrument_id
-		LEFT JOIN latest_streak s ON s.instrument_id=d.instrument_id AND s.latest_closed_on=ld.latest_on
-		WHERE d.slot_rank<=? ORDER BY d.instrument_id,d.on_date`, householdID.String(), policy, timezoneVersion, householdID.String(), policy, timezoneVersion, string(rule.ID), string(rule.ID), rule.CurrentConditionVersion, timezoneVersion, width)
+		LEFT JOIN latest_streak s ON s.instrument_id=k.instrument_id AND s.latest_closed_on=ld.latest_on
+		WHERE k.slot_rank<=? ORDER BY k.instrument_id,k.on_date`, householdID.String(), policy, timezoneVersion, string(rule.ID), householdID.String(), policy, timezoneVersion, string(rule.ID), rule.CurrentConditionVersion, timezoneVersion, width)
 			if err != nil {
 				return empty, err
 			}

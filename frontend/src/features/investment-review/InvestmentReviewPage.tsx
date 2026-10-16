@@ -132,7 +132,7 @@ export function InvestmentReviewPage({ isActive = true }: { isActive?: boolean }
     target?.focus();
   }, [content]);
   const list = <section className="space-y-3" aria-busy={alerts.isFetching}>
-    {content?.projectionStatus && content.projectionStatus !== "current" && <p role="status" className="text-sm text-muted-foreground">{t("reviewV2.projectionStatus", { status: content.projectionStatus })}</p>}
+    {content?.projectionStatus && content.projectionStatus !== "complete" && <p role="status" className="text-sm text-muted-foreground">{t("reviewV2.projectionStatus", { status: content.projectionStatus })}</p>}
     {content?.publishedOn && <p className="text-xs text-muted-foreground">{t("reviewV2.publishedOn", { date: content.publishedOn })}</p>}
     {content?.summary && <p className="text-sm" role="status">{t("reviewV2.summaryCounts", { total: content.summary.totalGroups, matched: content.summary.matchedGroups, pending: content.summary.pendingGroups, actionable: content.summary.actionableRules, unknown: content.summary.unknownGroups })}</p>}
     {!items.length && !alerts.isFetching && <p className="rounded-lg border p-6 text-sm text-muted-foreground">{t(query || status !== "unignored" || instrumentType !== "all" ? "reviewV2.noFilterResults" : "reviewV2.noAlerts")}</p>}

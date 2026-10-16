@@ -166,7 +166,7 @@ In particular, the archived 305.539s and 339.29s cold values came from
 different runs. The current Linux run used `TMPDIR=/workspace/.tmp` because
 the runner's `/tmp` volume had only 1.2GB free.
 
-**Current 365-day clock-only run.** The cold full reconcile took 86.362s
+**Pre-query-rewrite 365-day clock-only baseline.** The cold full reconcile took 86.362s
 (n=1), against the 3s target. After it, 30 warm reconciles had a median of
 15.800s, nearest-rank p95 17.262s and max 17.431s against 500ms. First-page
 reads had a median of 42.043ms, p95 47.570ms and max 60.603ms against 150ms.
@@ -177,7 +177,7 @@ evidence window queries returned 6,000 rows and spent 9.551s in SQLite. The
 full driver-query time was 12.612s. Capture and publication repeat the
 authoritative source read to preserve the concurrency snapshot check.
 
-**Current 30-day clock-only run.** The cold full reconcile took 10.393s
+**Pre-query-rewrite 30-day clock-only baseline.** The cold full reconcile took 10.393s
 (n=1). Across 30 warm reconciles, median was 6.677s, p95 7.290s and max
 7.313s against 500ms. First-page reads had a median of 19.480ms, p95
 25.696ms and max 26.307ms against 150ms. After 30 increments the fixture
@@ -220,6 +220,46 @@ then verify that generation inside publication before reusing date slots.
 This needs a completeness audit for every insert/update/delete/withdrawal path
 and a write-amplification/storage review. No such schema/index/generation
 change has been implemented pending design approval.
+
+**Key-first reusable-evidence query comparison.** On the same isolated 30-day
+fixture, the original and key-first SQL returned identical rows (6,000 total),
+and each matched the typed evidence map returned by production capture. Without
+an added index, the original query's QueryContext/Rows.Next/Rows.Scan/JSON
+decode/Query-to-Rows.Close times were 810.4/21.2/1.5/38.8/874.0ms; the
+key-first query measured 539.6/27.6/2.4/41.4/616.4ms. With a trial index,
+the same split measured 237/18/1.5/39.4/298ms for the original and
+246/20/1.9/43.9/316ms for key-first. The trial index built in 174ms and added
+20,844,048 bytes (2,536 4KB pages) on this 30-day fixture.
+
+On the same 365-day fixture, both statements again returned identical 6,000
+rows and matched production capture. Without the trial index, the original
+query measured 8.770/18.6/1.5/38.8/8.831s and key-first measured
+5.285/36.6/1.6/40.5/5.366s. With the trial index the times were
+2.190/17.7/1.5/37.3/2.249s and 2.050/28.8/1.6/36.4/2.119s, respectively.
+The index build took 2.248s and added 256,042,808 bytes (31,135 4KB pages),
+about 18% over the database+WAL+SHM size. These timings separate QueryContext,
+Rows.Next, Rows.Scan, and JSON decoding; Query-to-Rows.Close also includes
+result construction and is not pure SQL time. Query plans show that key-first
+ranks narrow instrument/date keys before fetching JSON payloads. The trial
+index removes the window sort in EXPLAIN, but its storage cost is substantial;
+no schema migration or index is included in this change.
+
+In one post-rewrite 30-day warm increment, capture plus source fingerprint
+took 2.740s, in-memory fingerprinting 746ms, planning 267ms, a separate read-
+only recheck 2.750s, and atomic publish with its recheck/writes 2.870s. The
+captured 100,100 quote rows remain the largest measured SQL operation (about
+0.86s); the 20 reusable-evidence queries took 0.58s total. These phase results
+confirm the 500ms warm-reconcile budget still fails; they are a single warm
+increment and do not replace the 30-sample p95 runs above.
+
+The corresponding post-rewrite 365-day warm increment took 7.938s for capture
+plus source fingerprint, 640ms for the in-memory fingerprint, 287ms for
+planning, 7.592s for a separate read-only recheck, and 3.136s for atomic
+publish with its recheck/writes. The 20 reusable-evidence reads took 5.593s
+during capture and 5.179s during the separate recheck; each returned 6,000
+rows across all rules. The 100,100-row quote history read took 977ms and
+944ms, respectively. After this increment, database+WAL+SHM totaled
+1,423,883,904 bytes with 732,000 input rows and 732,000 result rows.
 
 Native macOS performance is not measured here.
 

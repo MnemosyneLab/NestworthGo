@@ -117,8 +117,8 @@ This is incremental reuse for unchanged history and new date slots. Quote
 selection is indexed once per instrument for a full replay, so same-date
 deduplication and sorting are not repeated for every daily vote. The opt-in
 SQLite measurements use the design-sized 100-holding/20-rule/100k-quote/
-50k-activity synthetic fixture. A current 30-day clock-only run measured
-7.290s warm p95 and 25.696ms first-alert-page p95; a separate 365-day run
+50k-activity synthetic fixture. A pre-query-rewrite 30-day clock-only run measured
+7.290s warm p95 and 25.696ms first-alert-page p95; a pre-query-rewrite 365-day run
 measured 17.262s warm p95 and 47.570ms page p95. Both page results are below
 150ms, while cold and warm budgets fail. A daily refresh with 100 new quotes
 and 4 FX references, and an in-place historical quote correction, each changed
