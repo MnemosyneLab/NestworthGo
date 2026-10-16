@@ -10,6 +10,8 @@ export const investmentAssetsEn = {
     openInstrument: "Open {{name}} details",
     details: "Details",
     accountPositions: "Account holdings",
+    createAccount: "Create investment account",
+    recordExisting: "Record existing holding",
     positions: { current: "Current", closed: "Closed", all: "All" },
   },
   instrumentDetail: {
@@ -47,6 +49,8 @@ export const investmentAssetsZhCN = {
     openInstrument: "打开{{name}}详情",
     details: "详情",
     accountPositions: "账户持仓",
+    createAccount: "创建投资账户",
+    recordExisting: "记录已有持仓",
     positions: { current: "当前", closed: "已清仓", all: "全部" },
   },
   instrumentDetail: {
@@ -84,6 +88,8 @@ export const investmentAssetsZhTW = {
     openInstrument: "開啟{{name}}詳情",
     details: "詳情",
     accountPositions: "帳戶持倉",
+    createAccount: "建立投資帳戶",
+    recordExisting: "記錄既有持倉",
     positions: { current: "目前", closed: "已清倉", all: "全部" },
   },
   instrumentDetail: {

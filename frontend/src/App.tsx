@@ -54,6 +54,10 @@ function App() {
   const [activePageId, setActivePageId] = useState<PageId>(DEFAULT_PAGE_ID);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [portfolioView, setPortfolioView] = useState<PortfolioView>("holdings");
+  const [accountCreateRequestId, setAccountCreateRequestId] = useState(0);
+  const [returnToHoldingsAfterCreate, setReturnToHoldingsAfterCreate] = useState(false);
+  const [holdingDraftRequest, setHoldingDraftRequest] = useState<{ requestId: number; accountId: string }>();
+  const nextHoldingDraftRequest = useRef(0);
   const [instrumentDetail, setInstrumentDetail] = useState<InstrumentDetailContext>();
   const [reconciliationFocus,setReconciliationFocus]=useState<{accountId?:string;sessionId?:string}>({});
   const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
@@ -133,13 +137,14 @@ function App() {
   const openAccount = (accountId: string) => open({ page: "accounts", accountId });
   const handleNavigate = (target: NavigationTarget | PageId, retainSource = false) => {
     if (hasUnresolvedSheetConfirmation()) return;
-    if (!retainSource) setTrail([]);
+    if (!retainSource) { setTrail([]); setReturnToHoldingsAfterCreate(false); }
     const navigation = resolveLegacyTarget(typeof target === "string" ? targetForPage(target) : target);
     const pageId = navigation.page;
     if (navigation.page === "historical-overview") { setHistoricalDate(navigation.date); setHistoricalContext(navigation.historical); setHistoricalRequest(previous => previous + 1); }
     // Top-level Accounts navigation always returns to the list. Opening a
     // specific account uses openAccount, which sets selectedAccountId first.
     if (pageId === "accounts") {
+      if (navigation.page === "accounts" && navigation.create) setAccountCreateRequestId(previous => previous + 1);
       setSelectedAccountId(navigation.page === "accounts" ? navigation.accountId ?? null : null);
       setAccountFilter(navigation.page === "accounts" ? navigation.filter : undefined);
       setUpdateValue(navigation.page === "accounts" && navigation.updateValue === true);
@@ -174,6 +179,7 @@ function App() {
   const open = (target: NavigationTarget) => {
     if (hasUnresolvedSheetConfirmation()) return;
     if (target.page === "available-funds" && target.page === activePageId) { handleNavigate(target, true); return; }
+    setReturnToHoldingsAfterCreate(target.page === "accounts" && target.create === true && activePageId === "portfolio");
     setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, instrumentDetail,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
       focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
@@ -189,6 +195,7 @@ function App() {
     if (hasUnresolvedSheetConfirmation()) return;
     const previous = trail[trail.length - 1];
     if (!previous) return;
+    setReturnToHoldingsAfterCreate(false);
     restorePosition.current = previous;
     useAnalysisStore.setState(previous.analysis); setHistoryFilters(previous.history); setHistoryActivityId(previous.historyActivityId); setHistoryRequestId(previous.historyRequestId ?? 0);
     setSelectedAccountId(previous.accountId); setAccountFilter(previous.filter); setUpdateValue(false);
@@ -196,6 +203,13 @@ function App() {
     setPortfolioView(previous.portfolioView); setInstrumentDetail(previous.instrumentDetail);
     setLiquidityProductId(previous.liquidityProduct); setLiquidityAccountId(previous.liquidityAccount); setLiquidityFocus(previous.liquidityFocus); setLiquidityRequestId(previous.liquidityRequest ?? 0);
     setActivePageId(previous.page); setTrail(trail.slice(0, -1));
+  };
+  const onAccountCreated = (accountId: string, tracksHoldings: boolean) => {
+    if (!returnToHoldingsAfterCreate || trail[trail.length - 1]?.page !== "portfolio") return false;
+    if (!tracksHoldings) { setReturnToHoldingsAfterCreate(false); return false; }
+    back();
+    setHoldingDraftRequest({ requestId: ++nextHoldingDraftRequest.current, accountId });
+    return true;
   };
   const retained = (page: PageId) => activePageId === page || (activePageId !== "historical-overview" && trail.some(entry => entry.page === page));
   return (
@@ -218,7 +232,7 @@ function App() {
       )}
       {retained("accounts") && (
         <div hidden={activePageId !== "accounts"}>
-        <AccountsPage navigationFilter={accountFilter} onClearFilter={() => setAccountFilter(undefined)} updateValue={updateValue} selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />
+        <AccountsPage navigationFilter={accountFilter} onClearFilter={() => setAccountFilter(undefined)} updateValue={updateValue} selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} createRequestId={accountCreateRequestId} onCreated={onAccountCreated} />
         </div>
       )}
       {retained("available-funds") && (
@@ -233,7 +247,7 @@ function App() {
       {retained("portfolio") && (
         <div hidden={activePageId !== "portfolio"}>
         <WorkspaceLazy>
-          <PortfolioPage onOpenAccount={openAccount} view={portfolioView} onViewChange={setPortfolioView} active={activePageId === "portfolio"} />
+          <PortfolioPage onOpenAccount={openAccount} view={portfolioView} onViewChange={setPortfolioView} active={activePageId === "portfolio"} holdingDraftRequest={holdingDraftRequest} />
         </WorkspaceLazy>
         </div>
       )}

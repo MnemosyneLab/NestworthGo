@@ -181,11 +181,12 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
 }
 
 /** Browse owned holdings first; saved instruments and allocation are secondary tasks. */
-export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true }: {
+export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true, holdingDraftRequest }: {
   onOpenAccount?: (accountId: string) => void;
   view?: PortfolioView;
   onViewChange?: (view: PortfolioView) => void;
   active?: boolean;
+  holdingDraftRequest?: { requestId: number; accountId: string };
 } = {}) {
   const { t } = useTranslation();
   const portfolio = usePortfolio();
@@ -222,7 +223,7 @@ export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true
           <TabsTrigger value="allocation">{t("investmentAssets.allocation")}</TabsTrigger>
         </TabsList>
         <TabsContent value="holdings" keepMounted>
-          <HoldingsTab onOpenAccount={onOpenAccount} active={active && tab === "holdings"} />
+          <HoldingsTab onOpenAccount={onOpenAccount} active={active && tab === "holdings"} draftRequest={holdingDraftRequest} />
         </TabsContent>
         <TabsContent value="instruments" keepMounted>
           {(tab === "instruments" || visited.includes("instruments")) && <div className="flex flex-col gap-3">

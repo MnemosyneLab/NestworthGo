@@ -87,7 +87,7 @@ export function InstrumentDetailPage({ context, onContextChange, active = true }
   const { t, i18n } = useTranslation();
   const navigation = useObjectNavigation();
   const instruments = useInstruments(true);
-  const groups = useInstrumentHoldingGroups();
+  const groups = useInstrumentHoldingGroups(true, context.accountId ?? "");
   const quote = useCurrentInstrumentQuote(context.instrumentId);
   const settings = useSettings();
   const instrument = instruments.data?.find((item) => item.id === context.instrumentId);

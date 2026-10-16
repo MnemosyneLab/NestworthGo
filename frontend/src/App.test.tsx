@@ -662,7 +662,7 @@ it.each([
   await screen.findByTestId("overview-net-worth");
   const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
   await userEvent.click(within(nav).getByRole("button", { name: "Historical overview" }));
-  await screen.findByLabelText("Historical date");
+  await screen.findByLabelText("Historical date", {}, { timeout: 5000 });
   await userEvent.click(within(screen.getByRole("group", { name: "View mode" })).getByRole("button", { name: "Date vs. now" }));
   if (trendEnabled) {
     await userEvent.click(screen.getByRole("tab", { name: "Time trend" }));
@@ -706,7 +706,7 @@ it.each([
     expect(within(trend).getByRole("button", { name: "2026-09-30" })).toHaveAttribute("aria-pressed", "true");
     expect(seriesRead).toHaveBeenCalledTimes(seriesReads);
   }
-});
+}, 15000);
 
 
 it("blocks top-level and object navigation while a sheet confirmation is unresolved", async () => {

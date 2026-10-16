@@ -1221,6 +1221,15 @@ function RecordChangeFormReady({
       {kind === ChangeCommandKind.ChangePositionImport && <>
         {!lock?.accountId&&<AccountSelect id="import-account" label={t("history.account")} value={request.accountId??""} accounts={investmentAccountOptions} onChange={accountId=>patch({accountId})}/>}
         <OptionSelect id="import-instrument" label={t("history.instrument")} value={request.instrumentId??""} emptyLabel={t("history.selectEmpty")} options={(instruments.data??[]).filter(ordinaryInstrument).map(instrument=>({id:instrument.id,name:selectionLabels.get(instrument.id)??instrument.name}))} onChange={instrumentId=>patch({instrumentId,currency:instruments.data?.find(v=>v.id===instrumentId)?.quoteCurrency??""})}/>
+        {creatingInstrument ? <div className="flex flex-col gap-3">
+          <InstrumentForm isSubmitting={createInstrument.isPending}
+            submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+            onSubmit={(instrumentRequest) => createInstrument.mutate(instrumentRequest, { onSuccess: (created) => {
+              patch({ instrumentId: created.id, currency: created.quoteCurrency });
+              setCreatingInstrument(false);
+            } })} />
+          <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(false)}>{t("common.cancel")}</Button>
+        </div> : <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>{t("accounts.createInstrument")}</Button>}
         <Label htmlFor="import-quantity">{t("history.quantity")}</Label><Input id="import-quantity" inputMode="decimal" value={request.quantity??""} onChange={e=>patch({quantity:e.target.value})}/>
         <Label htmlFor="import-cost">{t("reconciliation.originalUnitCost")}</Label><Input id="import-cost" inputMode="decimal" value={request.unitCost??""} aria-invalid={Boolean(unitCostInvalid)} onChange={e=>patch({unitCost:e.target.value})}/>
       </>}

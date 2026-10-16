@@ -9,13 +9,18 @@ const q = vi.hoisted(() => ({
   groups: [] as Record<string, unknown>[],
   quote: undefined as Record<string, unknown> | undefined,
   listInstruments: vi.fn(),
+  listHoldingGroups: vi.fn(),
+  accountGroups: {} as Record<string, Record<string, unknown>[]>,
 }));
 vi.mock("@/queries/investments", () => ({
   useInstruments: (includeArchived: boolean) => { q.listInstruments(includeArchived); return { data: q.instruments, isLoading: false, isError: false }; },
   useCurrentInstrumentQuote: () => ({ data: q.quote, isLoading: false, isError: false }),
 }));
-vi.mock("@/queries/analytics", () => ({ useInstrumentHoldingGroups: () => ({ data: q.groups, isLoading: false, isError: false }) }));
-vi.mock("@/queries/accounts", () => ({ useAccounts: () => ({ data: [{ account: { id: "broker-a", name: "Broker A" } }, { account: { id: "broker-b", name: "Broker B" } }] }) }));
+vi.mock("@/queries/analytics", () => ({ useInstrumentHoldingGroups: (enabled: boolean, accountId: string) => {
+  q.listHoldingGroups(enabled, accountId);
+  return { data: q.accountGroups[accountId] ?? q.groups, isLoading: false, isError: false };
+} }));
+vi.mock("@/queries/accounts", () => ({ useAccounts: () => ({ data: [{ account: { id: "broker-a", name: "Broker A" } }, { account: { id: "broker-b", name: "Broker B" } }, { account: { id: "archived-broker", name: "Old Broker", archivedAt: "2026-05-01" } }] }) }));
 vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "UTC" } }) }));
 vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: { timezone: "UTC", startedAt: "2026-01-01" } }) }));
 vi.mock("./PricePerformancePanel", () => ({ PricePerformancePanel: () => <div data-testid="market-performance" /> }));
@@ -46,6 +51,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   q.instruments = [instrument];
   q.groups = [{ key: "fund", instruments: [holdings], subtotals: [] }];
+  q.accountGroups = {};
   q.quote = undefined;
 });
 
@@ -60,6 +66,24 @@ it("shows backend account figures without replacing them with household totals, 
   view.rerender({ instrumentId: "fund-1", section: "holdings" });
   expect(screen.getByText("$100.00")).toBeInTheDocument();
   expect(q.listInstruments).toHaveBeenCalledWith(true);
+  expect(q.listHoldingGroups).toHaveBeenCalledWith(true, "broker-a");
+  expect(q.listHoldingGroups).toHaveBeenCalledWith(true, "");
+});
+
+it("queries an archived account's own holding groups instead of the active-household projection", () => {
+  q.groups = [];
+  q.accountGroups["archived-broker"] = [{ key: "fund", instruments: [{ ...holdings,
+    amounts: { quantity: "3", totalCost: money("300"), currentValue: money("330"), unrealizedGain: money("30") },
+    holdings: [{ holdingId: "old-holding", accountId: "archived-broker", accountName: "Old Broker",
+      amounts: { quantity: "3", totalCost: money("300"), currentValue: money("330"), unrealizedGain: money("30") } }],
+  }], subtotals: [] }];
+  const view = show({ instrumentId: "fund-1", accountId: "archived-broker" });
+  expect(q.listHoldingGroups).toHaveBeenCalledWith(true, "archived-broker");
+  expect(screen.getByText("Account: Old Broker")).toBeInTheDocument();
+  expect(screen.getByText("$300.00")).toBeInTheDocument();
+  expect(screen.queryByText("No recorded holding in this scope.")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Related transactions" }));
+  expect(view.open).toHaveBeenCalledWith({ page: "history", filters: { instrumentId: "fund-1", accountId: "archived-broker", from: undefined, to: undefined } });
 });
 
 it("opens archived and unowned records with source dates, while keeping maintenance focused", () => {

@@ -105,7 +105,7 @@ export type NavigationTarget =
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "reconciliation"; accountId?: string; sessionId?: string }
   | { page: "history"; filters?: HistoryNavigationFilters; activityId?: string }
-  | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
+  | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean; create?: boolean }
   | { page: "portfolio"; view?: PortfolioView }
   | ({ page: "instrument-detail" } & InstrumentDetailContext)
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
