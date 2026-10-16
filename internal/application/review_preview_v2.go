@@ -51,7 +51,8 @@ func (s *Service) PreviewReviewRuleV2(ctx context.Context, spec domain.ReviewRul
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId", Message: "instrument is outside the rule target"}
 		}
 	}
-	latestAvailable, err := domain.ReviewLatestClosedDay(s.clock(), spec.Schedule.Timezone)
+	now := s.clock()
+	latestAvailable, err := domain.ReviewLatestClosedDay(now, spec.Schedule.Timezone)
 	if err != nil {
 		return empty, err
 	}
@@ -68,7 +69,7 @@ func (s *Service) PreviewReviewRuleV2(ctx context.Context, spec domain.ReviewRul
 	if household == nil {
 		return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 	}
-	cutoff, err := domain.ReviewCivilCutoff(latestClosedOn, spec.Schedule.Timezone)
+	cutoff, err := reviewClosedDayBoundary(latestClosedOn, spec.Schedule.Timezone)
 	if err != nil {
 		return empty, err
 	}
@@ -98,16 +99,39 @@ func (s *Service) PreviewReviewRuleV2(ctx context.Context, spec domain.ReviewRul
 			return empty, err
 		}
 		on := end.AddDate(0, 0, -offset).Format(time.DateOnly)
-		input, coverage, err := ProjectReviewHistoricalDay(ctx, batch, s.FXProviderKey(), spec, instrumentID, on)
-		if err != nil {
-			return empty, err
-		}
-		daily, err := domain.EvaluateReviewDaily(spec, input)
+		_, coverage, daily, err := evaluateReviewHistoricalDate(ctx, batch, s.FXProviderKey(), spec, instrumentID, on)
 		if err != nil {
 			return empty, err
 		}
 		truths[on] = daily.Truth
 		result.Days = append(result.Days, ReviewPreviewDay{On: on, Result: daily, Coverage: coverage})
+	}
+	// The policy's H/F/U counts use its fixed window, while the displayed
+	// consecutive T suffix continues backwards until a real F/U or origin.
+	allWindowTrue := true
+	for _, day := range result.Days {
+		if day.Result.Truth != domain.ReviewTrue {
+			allWindowTrue = false
+			break
+		}
+	}
+	if allWindowTrue {
+		location, _ := time.LoadLocation(spec.Schedule.Timezone)
+		originDay := batch.History.Origin.StartedAt.In(location).Format(time.DateOnly)
+		for day := end.AddDate(0, 0, -width); day.Format(time.DateOnly) >= originDay; day = day.AddDate(0, 0, -1) {
+			if err := ctx.Err(); err != nil {
+				return empty, err
+			}
+			on := day.Format(time.DateOnly)
+			_, _, daily, err := evaluateReviewHistoricalDate(ctx, batch, s.FXProviderKey(), spec, instrumentID, on)
+			if err != nil {
+				return empty, err
+			}
+			truths[on] = daily.Truth
+			if daily.Truth != domain.ReviewTrue {
+				break
+			}
+		}
 	}
 	result.Window, err = domain.EvaluateReviewPolicy(spec.TriggerPolicy, latestClosedOn, truths)
 	return result, err

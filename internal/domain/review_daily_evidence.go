@@ -1,11 +1,20 @@
 package domain
 
 import (
+	"errors"
 	"slices"
 	"time"
 
 	"github.com/shopspring/decimal"
 )
+
+// ReviewNonexistentCivilDate identifies only an IANA date-line skip. Other
+// cutoff errors (invalid input, timezone data, or interval failures) remain
+// errors and must not silently turn into missing evidence.
+func ReviewNonexistentCivilDate(err error) bool {
+	var issue *Error
+	return errors.As(err, &issue) && issue.Code == ErrInvalidChangeTime && issue.Field == "localDate" && issue.Message == "the selected civil date does not exist in the household timezone"
+}
 
 // ReviewLatestClosedDay uses the rule's fixed timezone. Advancing the day does
 // not depend on whether the market has published a quote for that day.

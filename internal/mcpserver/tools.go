@@ -149,6 +149,7 @@ func (s *Service) tools(mode string) *mcp.Server {
 	s.financialContextTools(server, s.contextGeneration)
 	s.financialComparisonTools(server, s.contextGeneration)
 	s.featureTools(server, mode)
+	s.reviewV2Tools(server, mode)
 	s.reviewBatchTools(server, mode)
 	s.productTools(server)
 	s.instrumentBatchTools(server, mode)
@@ -354,12 +355,12 @@ func (s *Service) tools(mode string) *mcp.Server {
 
 func capabilities(mode string) []string {
 	result := []string{"directory", "accounts", "instruments", "current_valuation", "financial_context", "financial_comparison", "activity_history", "period_analysis", "return_attribution", "data_health", "data_repair_preview", "data_repair_status", "market_data", "agent_market_data_history", "managed_product_read", "liquidity_read"}
-	result = append(result, "bounded_read", "instrument_paging", "market_data_batch", "investment_review_read", "upcoming_action_read", "historical_overview_read", "reconciliation_session_read")
+	result = append(result, "bounded_read", "instrument_paging", "market_data_batch", "investment_review_read", "investment_review_v2_read", "upcoming_action_read", "historical_overview_read", "reconciliation_session_read")
 	if mode != ReadOnly {
 		result = append(result, "instrument_metadata_batch")
 	}
 	if mode == LedgerWrite {
-		result = append(result, "reconciliation_session_write", "investment_review_batch", "investment_review_write", "liquidity_policy_write", "managed_product_lifecycle", "managed_product_terms", "managed_product_valuation", "ledger_preview_commit", "ledger_batch", "position_import", "reconciliation", "cost_reconciliation", "position_transfer", "activity_correction", "data_repair", "agent_market_data_import")
+		result = append(result, "reconciliation_session_write", "investment_review_batch", "investment_review_write", "investment_review_v2_write", "liquidity_policy_write", "managed_product_lifecycle", "managed_product_terms", "managed_product_valuation", "ledger_preview_commit", "ledger_batch", "position_import", "reconciliation", "cost_reconciliation", "position_transfer", "activity_correction", "data_repair", "agent_market_data_import")
 	}
 	return result
 }

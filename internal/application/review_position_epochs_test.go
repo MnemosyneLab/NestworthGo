@@ -34,7 +34,7 @@ func TestReviewPositionEpochsUseAtomicQuantityEffects(t *testing.T) {
 	closeOneLeg := activity(4, domain.ActivityPositionTransfer, effect(b, domain.EffectRemoved))
 	reopen := activity(5, domain.ActivityBuy, effect(b, domain.EffectAdded))
 	batch := domain.HistoricalSnapshotBatch{
-		Origin: domain.HistoryOrigin{StartedAt: origin},
+		Origin: domain.HistoryOrigin{ID: domain.NewHistoryOriginID(), StartedAt: origin},
 		Portfolio: domain.PortfolioSnapshot{Holdings: []domain.Holding{
 			{ID: a, InstrumentID: instrument, CreatedAt: origin.Add(time.Hour), Quantity: *quantity("0")},
 			{ID: b, InstrumentID: instrument, CreatedAt: origin.Add(time.Hour), Quantity: *quantity("2")},
@@ -62,6 +62,21 @@ func TestReviewPositionEpochsUseAtomicQuantityEffects(t *testing.T) {
 		}
 		if tc.day == 6 && (got.Epochs[1].OpenedBy == nil || *got.Epochs[1].OpenedBy != reopen.ID) {
 			t.Fatal("re-purchase did not open a fresh epoch")
+		}
+		if tc.day == 6 {
+			household := domain.NewHouseholdID()
+			first, err := ReviewPositionEpochID(household, instrument, batch.Origin.ID, got.Epochs[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			second, err := ReviewPositionEpochID(household, instrument, batch.Origin.ID, got.Epochs[1])
+			if err != nil || first == second {
+				t.Fatalf("closed and reopened positions share an identity: %s %s %v", first, second, err)
+			}
+			repeated, err := ReviewPositionEpochID(household, instrument, batch.Origin.ID, got.Epochs[1])
+			if err != nil || second != repeated {
+				t.Fatalf("replay changed epoch identity: %s %s %v", second, repeated, err)
+			}
 		}
 	}
 }

@@ -2,9 +2,11 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -15,6 +17,21 @@ type ReviewPositionEpoch struct {
 	ClosedAt     *time.Time
 	ClosedBy     *domain.ActivityID
 	StartUnknown bool
+}
+
+// ReviewPositionEpochID is stable across replay order and quote corrections.
+// An origin position has an explicitly unknown opening date; a later
+// zero-to-positive crossing belongs to the atomic opening activity instead.
+func ReviewPositionEpochID(householdID domain.HouseholdID, instrumentID domain.InstrumentID, originID domain.HistoryOriginID, epoch ReviewPositionEpoch) (string, error) {
+	key := ""
+	if epoch.StartUnknown && epoch.OpenedBy == nil {
+		key = "origin/" + originID.String()
+	} else if !epoch.StartUnknown && epoch.OpenedBy != nil {
+		key = "activity/" + epoch.OpenedBy.String()
+	} else {
+		return "", fmt.Errorf("review position epoch has no reliable opening boundary")
+	}
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("nestworth-review-epoch-v1/"+householdID.String()+"/"+instrumentID.String()+"/"+key)).String(), nil
 }
 
 type ReviewPositionTimeline struct {
