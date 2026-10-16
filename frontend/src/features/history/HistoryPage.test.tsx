@@ -1833,6 +1833,29 @@ it("does not prefill archived history objects into a new record", async () => {
   await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
   expect(within(form).getByLabelText("Settlement account")).toHaveValue("");
   expect(within(form).getByLabelText("Instrument")).toHaveValue("");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeCashTransfer}`) }));
+  expect(within(form).getByLabelText("From account")).toHaveValue("");
+});
+
+it.each([
+  { id: "home", trackingMode: "manual_value", balanceSheetRole: "asset" },
+  { id: "loan", trackingMode: "balance", balanceSheetRole: "liability" },
+])("uses field-specific eligibility when prefilling $id from History", async ({ id, trackingMode, balanceSheetRole }) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ account: { id, name: "Synthetic Account", trackingMode, balanceSheetRole, defaultCurrency: "EUR" } }]);
+  renderPage({ accountId: id });
+  await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByLabelText("Account")).toHaveValue("");
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeValueUpdate}`) }));
+  expect(within(form).getByLabelText("Account")).toHaveValue(id);
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
+  expect(within(form).getByLabelText("Settlement account")).toHaveValue("");
+  if (balanceSheetRole === "liability") {
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeDebtDraw}`) }));
+    expect(within(form).getByLabelText("Debt account")).toHaveValue(id);
+    expect(within(form).getByLabelText("Cash account")).toHaveValue("");
+  }
 });
 
 

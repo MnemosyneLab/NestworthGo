@@ -164,6 +164,22 @@ describe("ReturnAnalysisPage", () => {
     expect(useAnalysisStore.getState().contributionReturnType).toBe("realized");
   });
 
+  it("normalizes grouping and sorting when retained contribution switches to realized", async () => {
+    useAnalysisStore.getState().setFilters({ from: "2026-08-01", to: "2026-08-31" });
+    useAnalysisStore.getState().setReturnView({ tab: "contribution" });
+    renderPage();
+    const user = userEvent.setup();
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Group by" }), "currency");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sort" }), "rate_desc");
+    contribution.mockClear();
+    useAnalysisStore.getState().replaceFilters({ from: "2026-08-01", to: "2026-08-31", returnType: "realized" });
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Return type" })).toHaveValue("realized"));
+    expect(screen.getByRole("combobox", { name: "Group by" })).toHaveValue("instrument");
+    expect(screen.getByRole("combobox", { name: "Sort" })).toHaveValue("amount_desc");
+    await waitFor(() => expect(contribution).toHaveBeenCalledWith(expect.anything(), "realized", "instrument", "amount_desc"));
+    expect(contribution.mock.calls.filter(([, metric]) => metric === "realized").every(([, , grouping, sort]) => grouping === "instrument" && sort === "amount_desc")).toBe(true);
+  });
+
   it("keeps a browsed year clamped to the origin when leaving the calendar", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2025-04-10T00:00:00Z" });
     renderPage();

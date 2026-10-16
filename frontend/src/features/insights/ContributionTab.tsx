@@ -118,16 +118,18 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   const [groupBy, setGroupBy] = useState("instrument");
   const [ordering, setOrdering] = useState("amount_desc");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const effectiveGroupBy = returnType === "realized" && (groupBy === "currency" || groupBy === "asset_class") ? "instrument" : groupBy;
+  const effectiveOrdering = returnType !== "total_return" && (ordering === "rate_desc" || ordering === "rate_asc") ? "amount_desc" : ordering;
   const context = useAnalysisProjectionContext(session);
-  const contribution = useContribution(context.request, returnType, groupBy, ordering, context.enabled);
-  const item = useContributionItem(context.request, returnType, groupBy, selectedKey ?? "", Boolean(selectedKey) && context.enabled);
+  const contribution = useContribution(context.request, returnType, effectiveGroupBy, effectiveOrdering, context.enabled);
+  const item = useContributionItem(context.request, returnType, effectiveGroupBy, selectedKey ?? "", Boolean(selectedKey) && context.enabled);
   const accounts = useAccounts();
   const instruments = useInstruments();
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   const data = contribution.data;
   const showRate = returnType === "total_return";
-  const labelFor = (row: { key: string; label: string }) => contributionRowLabel(t, groupBy, row.key, row.label, accountNames, instrumentNames);
+  const labelFor = (row: { key: string; label: string }) => contributionRowLabel(t, effectiveGroupBy, row.key, row.label, accountNames, instrumentNames);
   const selected = (data?.rows ?? []).find((row) => row.key === selectedKey) ?? null;
   if (selectedKey && data && !selected) setSelectedKey(null);
 
@@ -155,7 +157,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="contribution-group-by" className="text-sm font-medium">{t("insights.groupBy")}</label>
-        <NativeSelect id="contribution-group-by" value={groupBy} onChange={(event) => { setGroupBy(event.target.value); setSelectedKey(null); }}>
+        <NativeSelect id="contribution-group-by" value={effectiveGroupBy} onChange={(event) => { setGroupBy(event.target.value); setSelectedKey(null); }}>
           <option value="instrument">{t("insights.byInstrument")}</option>
           <option value="account">{t("insights.byAccount")}</option>
           {returnType !== "realized" && <option value="currency">{t("insights.byCurrency")}</option>}
@@ -164,7 +166,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="contribution-sort" className="text-sm font-medium">{t("insights.sort")}</label>
-        <NativeSelect id="contribution-sort" value={ordering} onChange={(event) => setOrdering(event.target.value)}>
+        <NativeSelect id="contribution-sort" value={effectiveOrdering} onChange={(event) => setOrdering(event.target.value)}>
           <option value="amount_desc">{t("insights.sortAmountDesc")}</option>
           <option value="amount_asc">{t("insights.sortAmountAsc")}</option>
           {showRate && <option value="rate_desc">{t("insights.sortRateDesc")}</option>}

@@ -266,6 +266,26 @@ export type RecordChangeLock = {
   holdingId?: string;
 };
 
+type RecordChangePrefill = {
+  account?: AccountRecordDTO["account"];
+  instrumentId?: string;
+  instrumentCurrency?: string;
+};
+
+function suggestedAccountIds(prefill?: RecordChangePrefill) {
+  const account = prefill?.account;
+  if (!account || account.archivedAt) return {};
+  const cash = account.balanceSheetRole !== "liability" && (account.trackingMode === "balance" || account.trackingMode === "holdings");
+  const investment = account.trackingMode === "holdings" && account.accountType !== "cash_on_hand";
+  return {
+    cash: cash ? account.id : undefined,
+    value: account.trackingMode === "balance" || account.trackingMode === "manual_value" ? account.id : undefined,
+    holdings: account.trackingMode === "holdings" ? account.id : undefined,
+    investment: investment ? account.id : undefined,
+    debt: account.balanceSheetRole === "liability" && account.trackingMode === "balance" ? account.id : undefined,
+  };
+}
+
 function currencyFromRequest(request: ChangeCommandRequest | undefined): string | undefined {
   if (!request) {
     return undefined;
@@ -300,7 +320,7 @@ export function RecordChangeForm({
 }: {
   onRecorded: (activity?: ActivityDTO) => void;
   initial?: ChangeCommandRequest;
-  prefill?: { accountId?: string; instrumentId?: string; accountCurrency?: string; instrumentCurrency?: string };
+  prefill?: RecordChangePrefill;
   fixActivityId?: string;
   repeat?: boolean;
   repeatSourceId?: string;
@@ -352,7 +372,7 @@ function RecordChangeFormReady({
 }: {
   onRecorded: (activity?: ActivityDTO) => void;
   initial?: ChangeCommandRequest;
-  prefill?: { accountId?: string; instrumentId?: string; accountCurrency?: string; instrumentCurrency?: string };
+  prefill?: RecordChangePrefill;
   fixActivityId?: string;
   repeat?: boolean;
   repeatSourceId?: string;
@@ -406,9 +426,10 @@ function RecordChangeFormReady({
   const setFXPreference = useSetFXPreference();
   const [creatingInstrument, setCreatingInstrument] = useState(false);
   const currencyOptions = currencies.data ?? [defaultCurrency];
+  const suggested = suggestedAccountIds(prefill);
 
   const initialRequest: ChangeCommandRequest = (() => {
-    const base = initial ?? { ...emptyChangeRequest(lock?.kind ?? ChangeCommandKind.ChangeMoneyAdded, prefill?.accountCurrency ?? defaultCurrency), accountId: prefill?.accountId };
+    const base = initial ?? { ...emptyChangeRequest(lock?.kind ?? ChangeCommandKind.ChangeMoneyAdded, suggested.cash ? prefill?.account?.defaultCurrency ?? defaultCurrency : defaultCurrency), accountId: suggested.cash };
     return {
       ...base,
       kind: lock?.kind ?? base.kind,
@@ -1028,16 +1049,22 @@ function RecordChangeFormReady({
           onChange={(value) => {
             if (sheetConfirmation?.read() || confirmBusy.current) return;
             const nextKind = value as ChangeCommandKind;
-            const next = emptyChangeRequest(nextKind, prefill?.accountCurrency ?? defaultCurrency);
+            const eligibleAccountId = nextKind === ChangeCommandKind.ChangeMoneyAdded || nextKind === ChangeCommandKind.ChangeMoneyRemoved ? suggested.cash
+              : nextKind === ChangeCommandKind.ChangeValueUpdate ? suggested.value
+                : nextKind === ChangeCommandKind.ChangeFXConversion ? suggested.holdings
+                  : nextKind === ChangeCommandKind.ChangePositionImport ? suggested.investment : undefined;
+            const next = emptyChangeRequest(nextKind, eligibleAccountId || suggested.debt || suggested.cash ? prefill?.account?.defaultCurrency ?? defaultCurrency : defaultCurrency);
             const locked = {
               ...next,
               reconciliationLink:request.reconciliationLink,
               effectiveAt: request.effectiveAt,
               effectiveLocalDate: request.effectiveLocalDate,
               effectiveLocalTime: request.effectiveLocalTime,
-              accountId: lock?.accountId ?? ([ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashTransfer, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment].includes(nextKind) ? next.accountId : prefill?.accountId ?? next.accountId),
-              settlementAccountId: lock?.settlementAccountId ?? (nextKind === ChangeCommandKind.ChangeTrade ? prefill?.accountId : next.settlementAccountId),
-              fromAccountId: nextKind === ChangeCommandKind.ChangeCashTransfer ? (lock?.accountId ?? prefill?.accountId ?? next.fromAccountId) : next.fromAccountId,
+              accountId: lock?.accountId ?? eligibleAccountId ?? next.accountId,
+              settlementAccountId: lock?.settlementAccountId ?? (nextKind === ChangeCommandKind.ChangeTrade ? suggested.investment : next.settlementAccountId),
+              fromAccountId: nextKind === ChangeCommandKind.ChangeCashTransfer ? (lock?.accountId ?? suggested.cash ?? next.fromAccountId) : next.fromAccountId,
+              debtAccountId: nextKind === ChangeCommandKind.ChangeDebtDraw || nextKind === ChangeCommandKind.ChangeDebtPayment ? suggested.debt : next.debtAccountId,
+              cashAccountId: nextKind === ChangeCommandKind.ChangeDebtDraw || nextKind === ChangeCommandKind.ChangeDebtPayment ? suggested.cash : next.cashAccountId,
               instrumentId: nextKind === ChangeCommandKind.ChangeTrade || nextKind === ChangeCommandKind.ChangePositionImport ? prefill?.instrumentId : next.instrumentId,
               grossCurrency: nextKind === ChangeCommandKind.ChangeTrade ? prefill?.instrumentCurrency ?? next.grossCurrency : next.grossCurrency,
             };

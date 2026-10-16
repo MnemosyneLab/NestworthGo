@@ -219,7 +219,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
                 </SheetHeader>
                 <div>
                   <RecordChangeForm
-                    prefill={{ accountId: prefillAccount?.id, accountCurrency: prefillAccount?.defaultCurrency, instrumentId: prefillInstrument?.id, instrumentCurrency: prefillInstrument?.quoteCurrency }}
+                    prefill={{ account: prefillAccount, instrumentId: prefillInstrument?.id, instrumentCurrency: prefillInstrument?.quoteCurrency }}
                     onRecorded={(activity) => {
                       toast.success(t("history.recorded"), activity?.id ? { action: { label: t("insights.viewInHistory"), onClick: () => setDetailTargetState(activity) } } : undefined);
                       setOpen(false);

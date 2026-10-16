@@ -103,7 +103,11 @@ vi.mock("./ProductCorrection", () => ({
   }: {
     onPreview: (preview: unknown) => void;
   }) => (
-    <button onClick={() => onPreview(q.productPreview())}>
+    <button onClick={() => {
+      const result = q.productPreview();
+      if (result instanceof Promise) void result.then(onPreview);
+      else onPreview(result);
+    }}>
       Synthetic product preview
     </button>
   ),
@@ -456,6 +460,45 @@ it("does not reopen a closed sheet when its preview response arrives late", asyn
   expect(q.preview).toHaveBeenCalledOnce();
   await userEvent.keyboard("{Escape}");
   await act(async () => { resolvePreview({ planId: "late-plan", result: q.session }); });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("discards a late adjustment preview after closing and switching sessions", async () => {
+  let resolveAdjustment!: (value: unknown) => void;
+  q.adjust.mockImplementationOnce(() => new Promise((resolve) => { resolveAdjustment = resolve; }));
+  const second = { ...session(), id: "session-two", accountNames: ["Other bank"] };
+  q.sessions = [second];
+  mount("session-one");
+  await userEvent.click(screen.getByRole("button", { name: "Correct current balance or holding" }));
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.adjust).toHaveBeenCalledOnce();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.back") }));
+  q.session = second;
+  await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
+  await act(async () => { resolveAdjustment({ planId: "late-adjustment", changes: [] }); });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("discards a late product correction preview after closing and switching sessions", async () => {
+  mountProductReview("late");
+  let resolveProduct!: (value: unknown) => void;
+  q.productPreview.mockImplementationOnce(() => new Promise((resolve) => { resolveProduct = resolve; }));
+  const second = { ...session(), id: "session-two", accountNames: ["Other bank"] };
+  q.sessions = [second];
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.productRoute") }));
+  await userEvent.click(screen.getByRole("button", { name: "Synthetic product preview" }));
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.back") }));
+  q.session = second;
+  await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
+  await act(async () => { resolveProduct({ planId: "late-product" }); });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("clears an open preview when selecting the session list", async () => {
+  mountProductReview("selected-away");
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.productRoute") }));
+  await userEvent.click(screen.getByRole("button", { name: "Synthetic product preview" }));
+  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  fireEvent.click(screen.getByText(i18n.t("reconciliation.back")));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it.each(["en", "zh-CN", "zh-TW"])(

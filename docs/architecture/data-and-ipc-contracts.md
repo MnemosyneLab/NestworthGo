@@ -333,6 +333,8 @@ does not store a reversed date range. Calendar month/year mode stays local to
 the mounted Return Analysis page.
 The contribution metric is part of the shared analysis state, so a retained
 page receiving a new navigation context updates both its selector and query.
+Realized contribution normalizes unsupported currency/asset-class grouping and
+rate sorting before either the query or controls consume the new metric.
 Clearing additional filters removes only those filters; restoring portfolio
 defaults also resets the scope, metric, valuation, cash choice and date range.
 
@@ -347,9 +349,15 @@ object drill-down restores user edits rather than the original entry filters.
 Moving between Market Data and Data Health preserves the focused health issue
 and adds a return step, allowing an analysis-to-repair path to be retraced.
 Opening a new History record from a filtered list suggests only active account
-and instrument IDs. Its effective time remains an explicit form choice, not an
-inference from the list's date range. After recording, the receipt offers a
-link to the exact new Activity even if it lies outside that list range.
+and instrument IDs. Account suggestions also obey the destination field's cash,
+value, holdings, investment or debt eligibility. Its effective time remains an
+explicit form choice, not an inference from the list's date range. After
+recording, the receipt offers a link to the exact new Activity even if it lies
+outside that list range.
+
+Reconciliation previews are scoped to the current editor request. Closing an
+editor or changing sessions invalidates pending check, adjustment and product
+previews, and session selection clears an open review.
 
 ## Metals and crypto
 
