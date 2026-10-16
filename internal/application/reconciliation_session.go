@@ -258,14 +258,15 @@ func (s *Service) captureReconciliation(ctx context.Context, ids []string, revis
 	costs := newCostBasisReplayContext(s.repository, snapshot.Holdings)
 	for _, h := range snapshot.Holdings {
 		a := result[h.AccountID.String()]
-		if a == nil || h.ArchivedAt != nil || managed[h.ID] {
+		if a == nil || (h.ArchivedAt != nil && h.Quantity.IsZero()) || managed[h.ID] {
 			continue
 		}
 		instrument := instruments[h.InstrumentID]
-		if instrument.ArchivedAt != nil {
+		if instrument.ArchivedAt != nil && h.Quantity.IsZero() {
 			continue
 		}
 		item := domain.ReconciliationItem{ID: "holding:" + h.ID.String(), Kind: "holding", Label: instrument.Name, HoldingID: h.ID.String(), InstrumentID: h.InstrumentID.String(), Value: h.Quantity.Canonical(), Currency: instrument.QuoteCurrency.String()}
+		item.ArchivedNonzero = !h.Quantity.IsZero() && (h.ArchivedAt != nil || instrument.ArchivedAt != nil)
 		item.Detail, _ = json.Marshal(map[string]string{"name": instrument.Name, "symbol": pointerText(instrument.Symbol), "isin": pointerText(instrument.ISIN), "marketCode": pointerText(instrument.MarketCode), "quantityUnit": instrument.QuantityUnit})
 		lot, err := costs.replay(ctx, h.ID, nil)
 		if err != nil {

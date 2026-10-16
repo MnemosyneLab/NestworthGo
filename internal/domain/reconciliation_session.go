@@ -48,6 +48,7 @@ type ReconciliationAccount struct {
 	Items             []ReconciliationItem `json:"items,omitempty"`
 }
 type ReconciliationItem struct {
+	ArchivedNonzero   bool                    `json:"archivedNonzero,omitempty"`
 	ID                string                  `json:"id"`
 	AccountID         string                  `json:"accountId"`
 	AccountName       string                  `json:"accountName"`

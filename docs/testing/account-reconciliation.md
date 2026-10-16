@@ -82,3 +82,8 @@ Vite builds successfully with large-chunk warnings for ECharts and the shared
 display bundle. Generated bindings, bundles, binaries and the portable Skill
 archive remain ignored artifacts. The development/debug bundle identifier is
 unchanged. No release or public artifact publication is part of this PR.
+
+Archive regression: synthetic repositories reject archiving nonzero holdings or
+an instrument with any remaining units, within the financial transaction and
+without requiring a History origin. Legacy archived nonzero positions remain
+pending checklist evidence and carry an explicit archive warning.

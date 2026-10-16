@@ -436,7 +436,7 @@ func TestArchivedHoldingAndAccountRejectFinalWrites(t *testing.T) {
 	_, repository, household, account, instrument := seedPortfolioRepository(t)
 	ctx := context.Background()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
-	quantity, err := domain.ParseQuantity("1")
+	quantity, err := domain.ParseQuantity("0")
 	if err != nil {
 		t.Fatal(err)
 	}

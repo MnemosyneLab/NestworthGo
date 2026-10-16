@@ -757,3 +757,42 @@ func TestReconciliationTextUTF8BoundsIdentifyField(t *testing.T) {
 		}
 	}
 }
+
+func TestReconciliationArchiveGuardAndLegacyVisibility(t *testing.T) {
+	s, db, _ := reconciliationFixture(t)
+	ctx := t.Context()
+	aid := seedHoldingsCash(t, s, ctx, "100")
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic archived ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewRepository(db)
+	b, _ := s.Bootstrap(ctx)
+	if err := repo.SetInstrumentArchive(ctx, b.Household.ID, instrument.ID, true, s.clock()); err == nil {
+		t.Fatal("instrument with nonzero holdings archived")
+	}
+	if err := repo.SetHoldingArchive(ctx, b.Household.ID, holding.ID, true, s.clock()); err == nil {
+		t.Fatal("nonzero holding archived")
+	}
+	// Simulate an existing legacy database, bypassing the repository write guard.
+	if _, err := db.SQL.Exec("UPDATE instruments SET archived_at=? WHERE id=?", s.clock().Format(time.RFC3339), instrument.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.SQL.Exec("UPDATE holdings SET archived_at=? WHERE id=?", s.clock().Format(time.RFC3339), holding.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	for _, item := range v.Accounts[0].Items {
+		if item.HoldingID == holding.ID.String() {
+			if item.Value != "2" || !item.ArchivedNonzero {
+				t.Fatalf("missing archive warning: %+v", item)
+			}
+			return
+		}
+	}
+	t.Fatal("legacy nonzero position omitted")
+}
