@@ -24,6 +24,22 @@ export function useReviewDailyEvidencePage(episodeId: string, cursor = "", activ
   });
 }
 
+export function useReviewEpisodeHistoryPage(ruleId: string, cursor = "", active = true) {
+  return useQuery({
+    queryKey: [...reviewV2Key, "episode-history", ruleId, cursor],
+    queryFn: () => callService(() => Service.ListReviewEpisodeHistoryV2({ ruleId, cursor, pageSize: 20 })),
+    enabled: active && ruleId !== "",
+  });
+}
+
+export function useReviewEpisodeEventPage(episodeId: string, cursor = "", active = true) {
+  return useQuery({
+    queryKey: [...reviewV2Key, "episode-events", episodeId, cursor],
+    queryFn: () => callService(() => Service.ListReviewEpisodeEventsV2({ episodeId, cursor, pageSize: 20 })),
+    enabled: active && episodeId !== "",
+  });
+}
+
 export function useReviewCoveragePage(filter: ReviewCoverageFilter, cursor = "", active = true) {
   return useQuery({
     queryKey: [...reviewV2Key, "coverage", filter, cursor],

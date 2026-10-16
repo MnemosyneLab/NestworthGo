@@ -339,8 +339,20 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 	if previousFingerprint == fingerprint && previousFirstHit == firstHit && previousLatest == item.LatestClosedOn {
 		return nil
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE investment_review_episodes SET first_hit_on=?,window_start=?,window_end=?,latest_closed_on=?,hit_count=?,false_count=?,unknown_count=?,consecutive_count=?,evidence_json=?,evidence_fingerprint=?,revision=revision+1 WHERE id=? AND revision=? AND resolved_at IS NULL`, firstHit, item.LatestWindow.WindowStart, item.LatestWindow.WindowEnd, item.LatestClosedOn, item.LatestWindow.HitCount, item.LatestWindow.FalseCount, item.LatestWindow.UnknownCount, item.LatestWindow.ConsecutiveCount, payload, fingerprint, current.ID, stored.Revision)
-	return err
+	changed, err := tx.ExecContext(ctx, `UPDATE investment_review_episodes SET first_hit_on=?,window_start=?,window_end=?,latest_closed_on=?,hit_count=?,false_count=?,unknown_count=?,consecutive_count=?,evidence_json=?,evidence_fingerprint=?,revision=revision+1 WHERE id=? AND revision=? AND resolved_at IS NULL`, firstHit, item.LatestWindow.WindowStart, item.LatestWindow.WindowEnd, item.LatestClosedOn, item.LatestWindow.HitCount, item.LatestWindow.FalseCount, item.LatestWindow.UnknownCount, item.LatestWindow.ConsecutiveCount, payload, fingerprint, current.ID, stored.Revision)
+	if err != nil {
+		return err
+	}
+	count, err := changed.RowsAffected()
+	if err != nil || count != 1 {
+		return reviewRuleConflict("review episode changed during evidence update")
+	}
+	if previousLatest == item.LatestClosedOn && (previousFingerprint != fingerprint || previousFirstHit != firstHit) {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_episode_events(id,episode_id,event_key,kind,payload_json,created_at) VALUES(?,?,?,?,?,?)`, string(domain.NewReviewEpisodeID()), current.ID, "evidence/"+current.ID+"/"+strconv.Itoa(stored.Revision+1), "evidence_corrected", payload, atText); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.ReviewRulePublication) error {

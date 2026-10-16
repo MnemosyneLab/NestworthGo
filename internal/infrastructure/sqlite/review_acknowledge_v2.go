@@ -103,6 +103,11 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 	if err != nil {
 		return empty, err
 	}
+	if !acknowledged.Valid {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_episode_events(id,episode_id,event_key,kind,payload_json,created_at) VALUES(?,?,?,?,?,?)`, string(domain.NewReviewEpisodeID()), string(m.EpisodeID), "ack/"+string(m.EpisodeID), "acknowledged", string(encoded), result.AcknowledgedAt.Format(time.RFC3339Nano)); err != nil {
+			return empty, err
+		}
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_mutation_receipts(household_id,mutation_id,request_hash,result_json,created_at) VALUES(?,?,?,?,?)`, m.HouseholdID.String(), string(m.MutationID), requestHash, string(encoded), m.At.UTC().Format(time.RFC3339Nano)); err != nil {
 		return empty, err
 	}

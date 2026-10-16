@@ -91,6 +91,12 @@ rules are unknown, confirming, healthy or uncomputed without an open alert.
 dates. All these reads, and `preview_investment_review_rule`, are read-only:
 they never refresh source data or publish an evaluation. A cursor expires when
 its report or filter changes; restart from page one.
+`list_investment_review_episode_history` pages open and resolved episodes for
+one daily rule, including an archived rule. Use
+`list_investment_review_episode_events` with an episode ID to page its opening,
+acknowledgement, evidence-correction and resolution events. These historical
+reads preserve the original condition version and never reinterpret it as the
+current rule; a changed publication expires their cursors.
 
 With `ledger_write`, v2 uses `create_investment_review_rule`,
 `update_investment_review_rule`, `archive_investment_review_rule`,

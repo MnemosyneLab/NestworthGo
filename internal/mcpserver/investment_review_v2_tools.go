@@ -30,6 +30,18 @@ type ReviewV2EvidenceInput struct {
 	PageSize  int    `json:"pageSize" jsonschema:"1–100 closed daily votes"`
 }
 
+type ReviewV2HistoryInput struct {
+	RuleID   string `json:"ruleId"`
+	Cursor   string `json:"cursor,omitempty"`
+	PageSize int    `json:"pageSize" jsonschema:"1–100 episodes for one rule"`
+}
+
+type ReviewV2EventInput struct {
+	EpisodeID string `json:"episodeId"`
+	Cursor    string `json:"cursor,omitempty"`
+	PageSize  int    `json:"pageSize" jsonschema:"1–100 events for one episode"`
+}
+
 type ReviewV2CoverageInput struct {
 	Filter   domain.ReviewCoverageFilter `json:"filter"`
 	Cursor   string                      `json:"cursor,omitempty"`
@@ -114,6 +126,12 @@ func (s *Service) reviewV2Tools(server *mcp.Server, mode string) {
 	})
 	readTool(server, "list_investment_review_daily_evidence", "Page persisted closed-day T/F/U evidence for one current open review episode. A changed publication expires the cursor. This read never reconciles or writes.", func(ctx context.Context, in ReviewV2EvidenceInput) (any, error) {
 		return s.app.ListReviewDailyEvidenceV2(ctx, in.EpisodeID, in.Cursor, in.PageSize)
+	})
+	readTool(server, "list_investment_review_episode_history", "Page open and resolved daily review episodes for one rule, including archived rules. Returns original trigger, condition version, handling and resolution without reinterpreting old evidence. Pure read with a revision-bound cursor.", func(ctx context.Context, in ReviewV2HistoryInput) (any, error) {
+		return s.app.ListReviewEpisodeHistoryV2(ctx, in.RuleID, in.Cursor, in.PageSize)
+	})
+	readTool(server, "list_investment_review_episode_events", "Page persisted opening, acknowledgement, evidence-correction and resolution events for one open or historical daily review episode. Pure read with a revision-bound cursor.", func(ctx context.Context, in ReviewV2EventInput) (any, error) {
+		return s.app.ListReviewEpisodeEventsV2(ctx, in.EpisodeID, in.Cursor, in.PageSize)
 	})
 	readTool(server, "get_investment_review_coverage", "Page every current positive-holding investment's published daily rule outcomes, including unknown and uncomputed states with no open alert. No evaluation or write occurs. Filter by rule status; a group may contain several states.", func(ctx context.Context, in ReviewV2CoverageInput) (any, error) {
 		return s.app.ListReviewCoverageV2(ctx, in.Filter, in.Cursor, in.PageSize)

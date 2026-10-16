@@ -100,6 +100,7 @@ CREATE TABLE investment_review_episode_events (
  id TEXT PRIMARY KEY NOT NULL, episode_id TEXT NOT NULL REFERENCES investment_review_episodes(id) ON DELETE RESTRICT,
  event_key TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)), created_at TEXT NOT NULL
 );
+CREATE INDEX idx_investment_review_episode_events_recent ON investment_review_episode_events(episode_id,created_at DESC,id DESC);
 CREATE TABLE investment_review_legacy_state (
  household_id TEXT PRIMARY KEY NOT NULL REFERENCES households(id) ON DELETE RESTRICT,
  source_key TEXT NOT NULL UNIQUE, raw_json TEXT NOT NULL, raw_sha256 TEXT NOT NULL,

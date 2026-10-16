@@ -84,8 +84,12 @@ history-origin day, and all-rule temporary-ignore days. Save rejects a token
 that expired across any of those civil-midnight boundaries, even when no
 financial row or revision changed; the user must preview again.
 
-The page has no historical episode view. Rule and suppression management now
-page through records beyond the first 100. The editor preserves nested
+The dedicated page now offers a rule-scoped historical episode list and a
+paged event timeline for each episode, including resolved and archived-rule
+history. Acknowledgement and same-day evidence correction append meaningful
+events; unchanged refreshes do not. Wails and MCP expose the same read-only
+history APIs. Rule and suppression management page beyond the first 100.
+The editor preserves nested
 predicates while editing an existing rule and exposes their bounded all/any
 JSON as an advanced field. Its ordinary type condition supports multi-select;
 a visual builder for nested groups remains outstanding.

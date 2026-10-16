@@ -167,7 +167,7 @@ func TestReviewPublicationPreservesAcknowledgementAcrossUnknownDay(t *testing.T)
 		t.Fatalf("T-U-T lost original acknowledged episode: %q %q %v", current, acknowledged, err)
 	}
 	var count int
-	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episode_events`).Scan(&count); err != nil || count != 1 {
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episode_events`).Scan(&count); err != nil || count != 2 {
 		t.Fatalf("T-U-T emitted another event: %d %v", count, err)
 	}
 }
@@ -718,8 +718,8 @@ func TestReviewMaterialEditKeepsAcknowledgedPublishedEpisodeWhenIntervalStaysTru
 		t.Fatalf("material edit replaced an unresolved acknowledged episode: %q %d %q %v", current, openedVersion, acknowledged, err)
 	}
 	var events int
-	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episode_events`).Scan(&events); err != nil || events != 1 {
-		t.Fatalf("material edit generated duplicate episode events: %d %v", events, err)
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episode_events`).Scan(&events); err != nil || events != 3 {
+		t.Fatalf("material edit did not record exactly one evidence correction: %d %v", events, err)
 	}
 }
 
