@@ -42,20 +42,28 @@ func verifyReviewSchema(ctx context.Context, query schemaQuery) error {
 			return fmt.Errorf("invalid investment review schema %s", name)
 		}
 	}
-	rows, err := query.QueryContext(ctx, `SELECT raw_json,raw_sha256 FROM investment_review_legacy_state`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var raw, hash string
-		if err := rows.Scan(&raw, &hash); err != nil {
+	for _, table := range []string{"investment_review_legacy_state", "investment_review_legacy_quarantine"} {
+		rows, err := query.QueryContext(ctx, `SELECT raw_json,raw_sha256 FROM `+table)
+		if err != nil {
 			return err
 		}
-		digest := sha256.Sum256([]byte(raw))
-		if hash != hex.EncodeToString(digest[:]) {
-			return fmt.Errorf("investment review legacy source hash changed")
+		for rows.Next() {
+			var raw, hash string
+			if err := rows.Scan(&raw, &hash); err != nil {
+				rows.Close()
+				return err
+			}
+			digest := sha256.Sum256([]byte(raw))
+			if hash != hex.EncodeToString(digest[:]) {
+				rows.Close()
+				return fmt.Errorf("investment review legacy source hash changed")
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }

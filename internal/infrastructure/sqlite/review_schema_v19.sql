@@ -107,6 +107,11 @@ CREATE TABLE investment_review_legacy_state (
  status TEXT NOT NULL CHECK(status IN ('compatible','needs_repair')),
  error TEXT, imported_at TEXT NOT NULL
 );
+CREATE TABLE investment_review_legacy_quarantine (
+ source_key TEXT PRIMARY KEY NOT NULL, raw_json TEXT NOT NULL, raw_sha256 TEXT NOT NULL,
+ migration_version INTEGER NOT NULL CHECK(migration_version >= 1),
+ reason TEXT NOT NULL, imported_at TEXT NOT NULL
+);
 CREATE TABLE investment_review_mutation_receipts (
  household_id TEXT NOT NULL REFERENCES households(id) ON DELETE RESTRICT,
  mutation_id TEXT NOT NULL, request_hash TEXT NOT NULL, result_json TEXT NOT NULL CHECK(json_valid(result_json)),

@@ -138,7 +138,9 @@ func captureLegacyReviewState(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_control(household_id) SELECT id FROM households`); err != nil {
 		return err
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT key,value FROM app_configuration WHERE key LIKE 'investment_review/%' ORDER BY key`)
+	// app_configuration has unrestricted TEXT keys in v18. LIKE treats '_' as
+	// a wildcard, so match the literal prefix before attempting to parse IDs.
+	rows, err := tx.QueryContext(ctx, `SELECT key,value FROM app_configuration WHERE substr(key,1,length('investment_review/'))='investment_review/' ORDER BY key`)
 	if err != nil {
 		return err
 	}
@@ -188,10 +190,24 @@ func captureLegacyReviewState(ctx context.Context, tx *sql.Tx) error {
 	}
 	for _, item := range entries {
 		householdID, err := domain.ParseHouseholdID(strings.TrimPrefix(item.key, "investment_review/"))
-		if err != nil {
-			return fmt.Errorf("legacy review key cannot be preserved: %w", err)
-		}
 		hash := sha256.Sum256([]byte(item.raw))
+		if err == nil {
+			var exists int
+			err = tx.QueryRowContext(ctx, `SELECT 1 FROM households WHERE id=?`, householdID.String()).Scan(&exists)
+			if errors.Is(err, sql.ErrNoRows) {
+				err = fmt.Errorf("household does not exist")
+			} else if err != nil {
+				return err
+			}
+		}
+		if err != nil {
+			// Quarantine is keyed by the original TEXT key, without a household
+			// foreign key: malformed/orphaned source data must not abort startup.
+			if _, insertErr := tx.ExecContext(ctx, `INSERT INTO investment_review_legacy_quarantine(source_key,raw_json,raw_sha256,migration_version,reason,imported_at) VALUES(?,?,?,1,?,?)`, item.key, item.raw, hex.EncodeToString(hash[:]), err.Error(), time.Now().UTC().Format(time.RFC3339Nano)); insertErr != nil {
+				return insertErr
+			}
+			continue
+		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO investment_review_legacy_state(household_id,source_key,raw_json,raw_sha256,migration_version,status,error,imported_at) VALUES(?,?,?,?,1,?,?,?)`, householdID.String(), item.key, item.raw, hex.EncodeToString(hash[:]), item.status, item.reason, time.Now().UTC().Format(time.RFC3339Nano))
 		if err != nil {
 			return err

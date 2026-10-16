@@ -102,3 +102,64 @@ func TestV19VerifierDetectsReviewSchemaTampering(t *testing.T) {
 		t.Fatal("accepted missing review uniqueness index")
 	}
 }
+
+func TestV18UpgradeQuarantinesMalformedAndOrphanReviewKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "synthetic-v18-keys.db")
+	base, err := sql.Open("sqlite", path+"?_pragma=foreign_keys%3d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema, err := os.ReadFile("testdata/schema_v18.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := base.Exec(string(schema)); err != nil {
+		t.Fatal(err)
+	}
+	// v18 constrains neither configuration key syntax nor its household link.
+	values := map[string]string{
+		"investment_review/not-a-uuid":                           `{"source":"broken-key"}`,
+		"investment_review/00000000-0000-4000-8000-000000000099": `{"source":"orphan"}`,
+		"investmentXreview/00000000-0000-4000-8000-000000000088": `{"source":"near-prefix"}`,
+	}
+	for key, value := range values {
+		if _, err := base.Exec(`INSERT INTO app_configuration(key,value) VALUES(?,?)`, key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := base.Close(); err != nil {
+		t.Fatal(err)
+	}
+	upgraded, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgraded.Close()
+	if err := upgraded.Verify(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	for key, expected := range values {
+		var original string
+		if err := upgraded.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key=?`, key).Scan(&original); err != nil || original != expected {
+			t.Fatalf("original %q changed: %q %v", key, original, err)
+		}
+		var raw, hash, reason string
+		err := upgraded.SQL.QueryRow(`SELECT raw_json,raw_sha256,reason FROM investment_review_legacy_quarantine WHERE source_key=?`, key).Scan(&raw, &hash, &reason)
+		if key[:len("investment_review/")] != "investment_review/" {
+			if err != sql.ErrNoRows {
+				t.Fatalf("near-prefix key was captured: %v", err)
+			}
+			continue
+		}
+		digest := sha256.Sum256([]byte(expected))
+		if err != nil || raw != expected || hash != hex.EncodeToString(digest[:]) || reason == "" {
+			t.Fatalf("quarantine %q: %q %q %q %v", key, raw, hash, reason, err)
+		}
+	}
+	for _, table := range []string{"investment_review_legacy_state", "investment_review_rules"} {
+		var count int
+		if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM ` + table).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("%s activated legacy data: %d %v", table, count, err)
+		}
+	}
+}
