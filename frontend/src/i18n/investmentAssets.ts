@@ -12,7 +12,7 @@ export const investmentAssetsEn = {
     accountPositions: "Account holdings",
     createAccount: "Create investment account",
     recordExisting: "Record existing holding",
-    positions: { current: "Current", closed: "Closed", all: "All" },
+    positions: { current: "Current", closed: "Closed", all: "All", allSubtotalHelp: "Totals exclude zero-quantity positions." },
   },
   instrumentDetail: {
     title: "Instrument details",
@@ -51,7 +51,7 @@ export const investmentAssetsZhCN = {
     accountPositions: "账户持仓",
     createAccount: "创建投资账户",
     recordExisting: "记录已有持仓",
-    positions: { current: "当前", closed: "已清仓", all: "全部" },
+    positions: { current: "当前", closed: "已清仓", all: "全部", allSubtotalHelp: "小计不包含数量为 0 的持仓。" },
   },
   instrumentDetail: {
     title: "标的详情",
@@ -90,7 +90,7 @@ export const investmentAssetsZhTW = {
     accountPositions: "帳戶持倉",
     createAccount: "建立投資帳戶",
     recordExisting: "記錄既有持倉",
-    positions: { current: "目前", closed: "已清倉", all: "全部" },
+    positions: { current: "目前", closed: "已清倉", all: "全部", allSubtotalHelp: "小計不包含數量為 0 的持倉。" },
   },
   instrumentDetail: {
     title: "標的詳情",

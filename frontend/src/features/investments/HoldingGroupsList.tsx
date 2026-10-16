@@ -121,6 +121,7 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
       {(["current", "closed", "all"] as const).map((choice) => <Button key={choice} type="button" size="sm" variant={accountPositions === choice ? "default" : "outline"}
         aria-pressed={accountPositions === choice} onClick={() => setAccountPositions(choice)}>{t(`investmentAssets.positions.${choice}`)}</Button>)}
     </div>}
+    {!portfolio && accountPositions === "all" && <p className="text-xs text-muted-foreground">{t("investmentAssets.positions.allSubtotalHelp")}</p>}
     {portfolio && <div className="flex flex-wrap items-center justify-between gap-3">
       <div role="group" aria-label={t("holdingsSummary.view")} className="flex gap-2">
         <Button size="sm" variant={view === "instrument" ? "default" : "outline"} aria-pressed={view === "instrument"} onClick={() => setView("instrument")}>{t("holdingsSummary.byInstrument")}</Button>

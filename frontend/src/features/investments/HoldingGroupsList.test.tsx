@@ -184,5 +184,8 @@ describe("HoldingGroupsList", () => {
     await userEvent.click(screen.getByRole("button", { name: "All" }));
     expect(screen.getByTestId("holdings-table")).toHaveTextContent("Apple");
     expect(screen.getByTestId("holdings-table")).toHaveTextContent("Closed Fund");
+    expect(screen.getByText("Totals exclude zero-quantity positions.")).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("2 holdings")).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("$1,200.00")).toBeInTheDocument();
   });
 });
