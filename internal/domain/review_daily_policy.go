@@ -87,8 +87,8 @@ type ReviewPolicyWindow struct {
 // EvaluateReviewPolicy consumes a date-keyed projection, never a sequence of
 // polling results. latestClosedDay must be derived from the rule's fixed
 // timezone, not the latest available quote. Missing dates count as unknown.
-// ConsecutiveCount is the trailing true suffix within the policy window.
-// Results outside this window, including today's preview, are not examined.
+// H/F/U counts belong to the policy window. ConsecutiveCount spans the full
+// trailing true suffix of known dates; today's preview is never examined.
 func EvaluateReviewPolicy(p ReviewTriggerPolicy, latestClosedDay string, days map[string]ReviewTruth) (ReviewPolicyWindow, error) {
 	p, err := p.Normalize()
 	if err != nil {
@@ -124,6 +124,22 @@ func EvaluateReviewPolicy(p ReviewTriggerPolicy, latestClosedDay string, days ma
 		default:
 			result.UnknownCount++
 			suffix = false
+		}
+	}
+	// Window H/F/U counts belong to this policy's fixed window. The display
+	// streak is independent: when the entire window ends in T, continue over
+	// earlier calendar dates until the first F, U, or absent day.
+	if result.ConsecutiveCount == width {
+		for offset := width; ; offset++ {
+			day := end.AddDate(0, 0, -offset).Format(time.DateOnly)
+			v := days[day]
+			if !v.valid() {
+				return ReviewPolicyWindow{}, validation("dailyPredicate", "contains an unsupported truth value")
+			}
+			if v != ReviewTrue {
+				break
+			}
+			result.ConsecutiveCount++
 		}
 	}
 	switch {

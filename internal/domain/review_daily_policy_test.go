@@ -85,6 +85,39 @@ func TestReviewDateSlotsAreIdempotentAndAdvanceWithoutQuotes(t *testing.T) {
 	}
 }
 
+func TestReviewConsecutiveCountIsFullTrailingSuffix(t *testing.T) {
+	policy := ReviewTriggerPolicy{Kind: "consecutive", Count: 3}
+	for _, tc := range []struct {
+		name, sequence string
+		want           int
+	}{
+		{"six_hits", "TTTTTT", 6},
+		{"false_then_six", "FTTTTTT", 6},
+		{"unknown_then_six", "UTTTTTT", 6},
+		{"later_unknown_breaks", "TTUTTT", 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			end := time.Date(2026, 10, len(tc.sequence), 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
+			got, err := EvaluateReviewPolicy(policy, end, reviewSyntheticDays(tc.sequence))
+			if err != nil || got.Truth != ReviewTrue || got.ConsecutiveCount != tc.want || got.HitCount != 3 || got.FalseCount != 0 || got.UnknownCount != 0 {
+				t.Fatalf("full suffix and window counts: %+v %v", got, err)
+			}
+		})
+	}
+	missing := reviewSyntheticDays("TTTTTT")
+	delete(missing, "2026-10-03")
+	got, err := EvaluateReviewPolicy(policy, "2026-10-06", missing)
+	if err != nil || got.ConsecutiveCount != 3 || got.Truth != ReviewTrue {
+		t.Fatalf("missing day must interrupt suffix: %+v %v", got, err)
+	}
+	// A correction replaces one economic day's vote; it cannot add a second.
+	missing["2026-10-03"] = ReviewTrue
+	got, err = EvaluateReviewPolicy(policy, "2026-10-06", missing)
+	if err != nil || got.ConsecutiveCount != 6 || got.HitCount != 3 {
+		t.Fatalf("backfilled date must restore six-day suffix without an extra vote: %+v %v", got, err)
+	}
+}
+
 func TestReviewDailyBooleanGate(t *testing.T) {
 	values := []ReviewTruth{ReviewTrue, ReviewFalse, ReviewUnknown}
 	wantAll := [][]ReviewTruth{{ReviewTrue, ReviewFalse, ReviewUnknown}, {ReviewFalse, ReviewFalse, ReviewFalse}, {ReviewUnknown, ReviewFalse, ReviewUnknown}}

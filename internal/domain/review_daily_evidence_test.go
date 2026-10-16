@@ -1,0 +1,179 @@
+package domain
+
+import (
+	"testing"
+	"time"
+)
+
+func reviewString(value string) *string { return &value }
+
+func TestReviewDailyEntirePredicateUsesSameDate(t *testing.T) {
+	spec := syntheticReviewSpec()
+	bank, cny := InstrumentBankInvestmentProduct, CurrencyCode("CNY")
+	input := ReviewDailyInput{
+		On: "2026-10-10", InstrumentID: NewInstrumentID(), Quantity: reviewString("1"), InstrumentType: &bank,
+		NativeCurrency: &cny, AmountExact: reviewString("900"),
+		Performance: map[int]QuotePerformance{30: {WindowDays: 30, LatestOn: "2026-10-10", BaselineOn: "2026-09-10", ElapsedDays: 30, PeriodPercent: "0.01", AnnualizedPercent: reviewString("0.121666666667")}},
+	}
+	result, err := EvaluateReviewDaily(spec, input)
+	if err != nil || result.Truth != ReviewFalse {
+		t.Fatalf("older low yield must not compensate for today's small amount: %+v %v", result, err)
+	}
+	input.AmountExact = reviewString("1000.004")
+	result, err = EvaluateReviewDaily(spec, input)
+	if err != nil || result.Truth != ReviewTrue {
+		t.Fatalf("M02 canonical four-place amount: %+v %v", result, err)
+	}
+	found := false
+	for _, leaf := range result.Leaves {
+		if leaf.Metric == "amount" {
+			found = true
+			if leaf.Actual != "1000.0040" {
+				t.Fatalf("comparison evidence: %+v", leaf)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("amount evidence missing")
+	}
+	input.AmountExact = nil
+	result, err = EvaluateReviewDaily(spec, input)
+	if err != nil || result.Truth != ReviewUnknown {
+		t.Fatalf("missing historical amount must stay unknown: %+v %v", result, err)
+	}
+	input.Quantity = reviewString("0")
+	result, err = EvaluateReviewDaily(spec, input)
+	if err != nil || result.Truth != ReviewFalse {
+		t.Fatalf("historical zero quantity is a hard gate: %+v %v", result, err)
+	}
+	input.Quantity = nil
+	result, err = EvaluateReviewDaily(spec, input)
+	if err != nil || result.Truth != ReviewUnknown {
+		t.Fatalf("current holding cannot fill unknown historical quantity: %+v %v", result, err)
+	}
+}
+
+func TestReviewFXEconomicDateBranches(t *testing.T) {
+	policy := DefaultReviewRuleDataPolicy()
+	rate, _ := ParseFxRate("7")
+	q := FXQuote{ID: NewFXQuoteID(), BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate, ObservationKind: "daily_reference", EffectiveDate: "2026-10-10"}
+	cutoff, err := ReviewCivilCutoff("2026-10-10", "Asia/Shanghai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.FetchedAt = cutoff.Add(8 * time.Hour)
+	selected := ReviewSelectedFX{Quote: q, EconomicKind: "daily_reference"}
+	got, err := AdmitReviewFX("USD", "CNY", &selected, "2026-10-10", "Asia/Shanghai", policy)
+	if err != nil || !got.Known || got.Rate != "7" || got.EffectiveDate != "2026-10-10" {
+		t.Fatalf("M09 late D reference: %+v %v", got, err)
+	}
+	selected.EconomicKind = "timestamped"
+	q.ValueEffectiveAt = cutoff
+	selected.Quote = q
+	got, err = AdmitReviewFX("USD", "CNY", &selected, "2026-10-10", "Asia/Shanghai", policy)
+	if err != nil || got.Known {
+		t.Fatalf("M10 cutoff instant belongs to next day: %+v %v", got, err)
+	}
+	q.ValueEffectiveAt = cutoff.Add(-11 * time.Hour)
+	q.FetchedAt = cutoff.Add(72 * time.Hour)
+	selected.Quote = q
+	got, err = AdmitReviewFX("USD", "CNY", &selected, "2026-10-10", "Asia/Shanghai", policy)
+	if err != nil || !got.Known || !got.EffectiveAt.Equal(q.ValueEffectiveAt) {
+		t.Fatalf("M10 late historical timestamp: %+v %v", got, err)
+	}
+	q.ValueEffectiveAt = time.Time{}
+	selected.Quote = q
+	got, err = AdmitReviewFX("USD", "CNY", &selected, "2026-10-10", "Asia/Shanghai", policy)
+	if err != nil || got.Known {
+		t.Fatalf("fetchedAt cannot replace economic timestamp: %+v %v", got, err)
+	}
+	identity, err := AdmitReviewFX("CNY", "CNY", nil, "2026-10-10", "Asia/Shanghai", policy)
+	if err != nil || !identity.Known || identity.Rate != "1" {
+		t.Fatalf("same-currency conversion: %+v %v", identity, err)
+	}
+}
+
+func TestReviewFXReferenceAgesAndReciprocal(t *testing.T) {
+	rate, _ := ParseFxRate("2")
+	selected := ReviewSelectedFX{EconomicKind: "daily_reference", Quote: FXQuote{ID: NewFXQuoteID(), Rate: rate, BaseCurrency: "CNY", QuoteCurrency: "USD", EffectiveDate: "2026-10-03", ObservationKind: "close"}}
+	got, err := AdmitReviewFX("USD", "CNY", &selected, "2026-10-10", "Etc/UTC", DefaultReviewRuleDataPolicy())
+	if err != nil || !got.Known || got.Rate != "0.5" || got.Direction != FXMappingReciprocal || got.AgeDays != 7 {
+		t.Fatalf("reciprocal day 7: %+v %v", got, err)
+	}
+	selected.Quote.EffectiveDate = "2026-10-02"
+	got, err = AdmitReviewFX("USD", "CNY", &selected, "2026-10-10", "Etc/UTC", DefaultReviewRuleDataPolicy())
+	if err != nil || got.Known || got.Reason != "fx_stale" {
+		t.Fatalf("day 8: %+v %v", got, err)
+	}
+}
+
+func TestReviewDailyPerformanceNeedsTrueEndpointAndBoundedBaseline(t *testing.T) {
+	_, instrument := reviewFixture(t)
+	instrument.Type = InstrumentBankInvestmentProduct
+	quotes := []InstrumentQuote{reviewQuote(t, instrument, "2026-09-10", "1"), reviewQuote(t, instrument, "2026-10-10", "1.001")}
+	got, reason := ResolveReviewDailyPerformance(instrument, quotes, "2026-10-10", 30, 7)
+	if reason != "" || got == nil || got.LatestOn != "2026-10-10" {
+		t.Fatalf("daily endpoint: %+v %s", got, reason)
+	}
+	got, reason = ResolveReviewDailyPerformance(instrument, quotes, "2026-10-11", 30, 7)
+	if got != nil || reason != "daily_close_missing" {
+		t.Fatalf("no forward-filled close: %+v %s", got, reason)
+	}
+	quotes[0] = reviewQuote(t, instrument, "2026-09-02", "1")
+	got, reason = ResolveReviewDailyPerformance(instrument, quotes, "2026-10-10", 30, 7)
+	if got != nil || reason != "baseline_too_old" {
+		t.Fatalf("baseline gap eight days: %+v %s", got, reason)
+	}
+}
+
+func TestReviewDailyCloseDoesNotCarryPrices(t *testing.T) {
+	_, instrument := reviewFixture(t)
+	instrument.Type = InstrumentStock
+	quote := reviewQuote(t, instrument, "2026-10-10", "0")
+	quote.PriceBasis = TiingoRawClosePriceBasis
+	got, reason := ResolveReviewDailyClose(instrument, []InstrumentQuote{quote}, "2026-10-10")
+	if reason != "" || got == nil || !got.UnitPrice.IsZero() {
+		t.Fatalf("a valid zero price is still a positive holding's daily fact: %+v %s", got, reason)
+	}
+	got, reason = ResolveReviewDailyClose(instrument, []InstrumentQuote{quote}, "2026-10-11")
+	if got != nil || reason != "daily_close_missing" {
+		t.Fatalf("yesterday's close cannot become today's fact: %+v %s", got, reason)
+	}
+	quote.ObservationKind = "realtime"
+	got, reason = ResolveReviewDailyClose(instrument, []InstrumentQuote{quote}, "2026-10-10")
+	if got != nil || reason != "daily_close_missing" {
+		t.Fatalf("realtime price became a daily close: %+v %s", got, reason)
+	}
+}
+
+func TestReviewCivilDateBoundaries(t *testing.T) {
+	day, err := ReviewLatestClosedDay(time.Date(2026, 10, 11, 0, 0, 0, 0, time.UTC), "Etc/UTC")
+	if err != nil || day != "2026-10-10" {
+		t.Fatalf("closed day: %s %v", day, err)
+	}
+	a, err := ReviewCivilCutoff("2026-03-08", "America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ReviewCivilCutoff("2026-03-07", "America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Sub(b) != 23*time.Hour {
+		t.Fatalf("spring day was %s", a.Sub(b))
+	}
+	a, err = ReviewCivilCutoff("2026-11-01", "America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err = ReviewCivilCutoff("2026-10-31", "America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Sub(b) != 25*time.Hour {
+		t.Fatalf("fall day was %s", a.Sub(b))
+	}
+	if _, err := ReviewCivilCutoff("2011-12-30", "Pacific/Apia"); err == nil {
+		t.Fatal("skipped date was normalized instead of rejected")
+	}
+}
