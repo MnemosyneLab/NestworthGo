@@ -186,6 +186,7 @@ vi.mock("@/features/investments/InstrumentDetailPage", () => ({
     return <section data-testid="instrument-detail-page"><pre>{JSON.stringify(context)}</pre>
       <button onClick={() => onContextChange({ ...context, section: "data" })}>Show data records</button>
       <button onClick={() => onContextChange({ ...context, from: "2026-07-01", to: "2026-07-31" })}>Set synthetic quote period</button>
+      <button id="instrument-detail-maintain" onClick={() => navigation?.open({ page: "market-data", focus: { instrumentId: context.instrumentId, action: "instrument_editor", rangeStart: "2026-07-01", rangeEnd: "2026-07-31" } })}>Maintain data</button>
       <button onClick={() => navigation?.open({ page: "history", filters: { instrumentId: context.instrumentId, from: context.from, to: context.to } })}>Related transactions</button>
     </section>;
   },
@@ -490,6 +491,32 @@ describe("App shell smoke test", () => {
     expect(screen.getByTestId("instrument-detail-page")).toHaveTextContent('"from":"2026-07-01"');
     await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+  });
+
+  it("restores focus and keeps maintenance search across focused editor Back round trips", async () => {
+    await i18n.changeLanguage("en");
+    listInstruments.mockResolvedValue([
+      { id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 },
+      { id: "fund-two", householdId: "synthetic", name: "Fund Two", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 1 },
+    ]);
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: "Data maintenance" }));
+    const search = await screen.findByLabelText(i18n.t("marketData.searchInstruments"), {}, { timeout: 5000 });
+    await userEvent.type(search, "One");
+    await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
+    await screen.findByTestId("instrument-detail-page");
+    await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
+    await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
+    await waitFor(() => expect(document.activeElement).toBe(document.getElementById("instrument-detail-maintain")));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Open Fund One details"));
   });
 
   it("returns from market health to market data with the navigation trail intact", async () => {

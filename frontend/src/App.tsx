@@ -275,7 +275,7 @@ function App() {
           </TabsList>
           <TabsContent value="market-data" keepMounted>
             {visitedMaintenance.market && <WorkspaceLazy>
-              <MarketDataPage key={JSON.stringify(marketFocus)} focus={marketFocus} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
+              <MarketDataPage focus={marketFocus} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
             </WorkspaceLazy>}
           </TabsContent>
           <TabsContent value="data-health" keepMounted>

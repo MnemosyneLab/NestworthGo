@@ -73,7 +73,7 @@ function HoldingProjection({ instrument, holding, accountId, from, to }: {
     </ul>}
     <div className="flex flex-wrap items-center gap-2">
       <AnalyzeMenu instrumentId={instrument.id} accountId={accountId} label={instrumentDisplayLabel(instrument)} from={from} to={to} inline includeHistory={false} />
-      {navigation && <Button type="button" variant="outline" size="sm" onClick={() => navigation.open({ page: "history", filters: { instrumentId: instrument.id, accountId, from, to } })}>{t("instrumentDetail.transactions")}</Button>}
+      {navigation && <Button id="instrument-detail-related-transactions" type="button" variant="outline" size="sm" onClick={() => navigation.open({ page: "history", filters: { instrumentId: instrument.id, accountId, from, to } })}>{t("instrumentDetail.transactions")}</Button>}
     </div>
   </section>;
 }
@@ -152,7 +152,7 @@ export function InstrumentDetailPage({ context, onContextChange, active = true }
         <QuoteHistoryContent target={{ kind: "instrument", instrument }} focus={focus}
           onRangeChange={({ from, to }) => onContextChange({ ...context, from, to,
             healthFocus: { ...context.healthFocus, rangeStart: from, rangeEnd: to } })} />
-        {navigation && <Button type="button" variant="outline" className="self-start" onClick={() => navigation.open({ page: "market-data", focus: { ...focus, action: "instrument_editor" } })}>{t("instrumentDetail.maintain")}</Button>}
+        {navigation && <Button id="instrument-detail-maintain" type="button" variant="outline" className="self-start" onClick={() => navigation.open({ page: "market-data", focus: { ...focus, action: "instrument_editor" } })}>{t("instrumentDetail.maintain")}</Button>}
         </>}
       </TabsContent>
     </Tabs>

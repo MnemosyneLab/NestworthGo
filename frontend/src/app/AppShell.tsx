@@ -207,7 +207,7 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
             />
           </div>
         </header>
-        <main id="main-content" className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto bg-[radial-gradient(48rem_20rem_at_100%_0%,var(--color-surface-tint),transparent)] p-6 sm:p-8">
+        <main id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto bg-[radial-gradient(48rem_20rem_at_100%_0%,var(--color-surface-tint),transparent)] p-6 sm:p-8">
           <div className="page-stage mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </main>
       </div>
