@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
 import type { ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
@@ -44,5 +44,21 @@ describe("investment review rule editor", () => {
     await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
     const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof simple.spec.predicate } };
     expect(saved.spec.predicate.all?.[0].leaf?.types).toEqual(["mutual_fund", "etf"]);
+  });
+  it.each([
+    '{"all":[null]}',
+    '{"all":[{"any":[null]}]}',
+    '{"all":[]}',
+    '{"all":"not a group"}',
+    '{"all":[{"leaf":null}]}',
+    '{"all":[{"any":[{"all":[{"leaf":{"metric":"cost","operator":">"}}]}]}]}',
+    JSON.stringify({ all: Array.from({ length: 21 }, () => ({ leaf: { metric: "cost", operator: ">" } })) }),
+  ])("rejects malformed nested JSON without crashing: %s", async source => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const editor = screen.getByRole("textbox", { name: "Grouped conditions (all/any JSON)" });
+    fireEvent.change(editor, { target: { value: source } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Use simple conditions" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
   });
 });

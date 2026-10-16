@@ -16,13 +16,28 @@ import { callService } from "@/lib/wails";
 type Condition = ReviewRuleLeaf;
 const choices = Object.values(InstrumentType).filter(value => value !== InstrumentType.$zero);
 const defaultCondition = (): Condition => ({ metric: "amount", operator: ">", value: "1000", currency: "CNY", fxMode: "native" });
-const leaves = (node: ReviewPredicateNode): Condition[] => (node.all ?? node.any ?? []).flatMap(child => child.leaf ? [child.leaf] : []);
-const hasNestedGroup = (node: ReviewPredicateNode) => (node.all ?? node.any ?? []).some(child => !child.leaf);
+const leaves = (node: ReviewPredicateNode): Condition[] => (node.all ?? node.any ?? []).flatMap(child => child?.leaf ? [child.leaf] : []);
+const hasNestedGroup = (node: ReviewPredicateNode) => (node.all ?? node.any ?? []).some(child => !child?.leaf);
+function isPredicateNode(value: unknown, depth: number, count: { leaves: number }): value is ReviewPredicateNode {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const node = value as Record<string, unknown>;
+  const shape = ["all", "any", "leaf"].filter(key => Object.prototype.hasOwnProperty.call(node, key));
+  if (shape.length !== 1 || Object.keys(node).length !== 1) return false;
+  if (shape[0] === "leaf") {
+    if (depth === 0 || node.leaf === null || typeof node.leaf !== "object" || Array.isArray(node.leaf)) return false;
+    const leaf = node.leaf as Record<string, unknown>;
+    if (typeof leaf.metric !== "string" || typeof leaf.operator !== "string") return false;
+    count.leaves++;
+    return count.leaves <= 20;
+  }
+  if (depth >= 2) return false;
+  const children = node[shape[0]];
+  return Array.isArray(children) && children.length >= 1 && children.length <= 20 && children.every(child => isPredicateNode(child, depth + 1, count));
+}
 function parsePredicate(source: string): ReviewPredicateNode | null {
   try {
-    const value = JSON.parse(source) as ReviewPredicateNode;
-    if (!value || typeof value !== "object" || Boolean(value.all) === Boolean(value.any) || !(value.all ?? value.any)?.length) return null;
-    return value;
+    const value: unknown = JSON.parse(source);
+    return isPredicateNode(value, 0, { leaves: 0 }) ? value : null;
   } catch { return null; }
 }
 function predicate(conditions: Condition[], join: "all" | "any"): ReviewPredicateNode {
