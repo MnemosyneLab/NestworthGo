@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -236,5 +237,146 @@ func TestCorrectionPreservesLaterAbsoluteBalanceObservation(t *testing.T) {
 	snapshot, _, err = s.BuildDailyValuationSnapshot(ctx, "2026-09-27")
 	if err != nil || snapshot.NetWorthAmount.CanonicalAmount() != "1200" {
 		t.Fatal("reconciled snapshot incorrect", err)
+	}
+}
+
+func TestCorrectionZeroDeltaObservation(t *testing.T) {
+	for _, archived := range []bool{false, true} {
+		t.Run(map[bool]string{false: "active", true: "archived"}[archived], func(t *testing.T) {
+			ctx := context.Background()
+			db, err := sqlite.Open(t.TempDir() + "/balances.db")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			repo := sqlite.NewRepository(db)
+			s := NewService(repo)
+			now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+			s.setClock(func() time.Time { return now })
+			if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+				t.Fatal(err)
+			}
+			boot, _ := s.Bootstrap(ctx)
+			account, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			other, err := s.CreateAccount(ctx, AccountInput{Name: "Other", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1200", OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.ArchiveAccount(ctx, other.Account.ID, true); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+				t.Fatal(err)
+			}
+
+			now = now.AddDate(0, 0, 1)
+			cmd := domain.ValueUpdateInput{HouseholdID: boot.Household.ID, AccountID: account.Account.ID, NewValue: mustMoney(t, "1100", "CNY"), EffectiveAt: now}
+			first, err := s.RecordChange(ctx, cmd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			now = now.AddDate(0, 0, 1)
+			cmd.NewValue = mustMoney(t, "1200", "CNY")
+			cmd.EffectiveAt = now
+			second, err := s.RecordChange(ctx, cmd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			now = now.AddDate(0, 0, 1)
+			correctedFirst, err := s.FixChange(ctx, first.Activity.ID, cmd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			events, err := repo.ListActivitiesUntil(ctx, boot.Household.ID, now)
+			if err != nil || len(events) != 2 || len(events[1].Effects) != 0 || len(events[1].RecordedEffects) != 1 {
+				t.Fatalf("replay: %+v %v", events, err)
+			}
+			// Ordinary recording must still reject a zero delta.
+			if _, err = s.RecordChange(ctx, cmd); err == nil {
+				t.Fatal("new zero-delta record accepted")
+			} else {
+				var domainErr *domain.Error
+				if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrNoChange {
+					t.Fatalf("new unchanged value error: %v", err)
+				}
+			}
+			// A later transaction must survive the metadata-only correction.
+			later, err := s.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: boot.Household.ID, AccountID: account.Account.ID, Amount: mustMoney(t, "50", "CNY"), Reason: domain.ReasonIncome, EffectiveAt: now})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if archived {
+				if err = s.ArchiveAccount(ctx, account.Account.ID, true); err != nil {
+					t.Fatal(err)
+				}
+			}
+			note := "corrected note"
+			cmd.Note = &note
+			invalid := cmd
+			invalid.AccountID = other.Account.ID
+			if _, err = s.PreviewFixChange(ctx, second.Activity.ID, invalid); err == nil {
+				t.Fatal("unrelated archived endpoint accepted")
+			}
+			var beforeCount, afterCount int
+			if err = db.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&beforeCount); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.FixChange(ctx, second.Activity.ID, invalid); err == nil {
+				t.Fatal("unrelated archived endpoint committed")
+			}
+			preview, err := s.PreviewFixChange(ctx, second.Activity.ID, cmd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(preview.Resulting) != 1 || preview.Resulting[0].Amount != "1200" {
+				t.Fatalf("preview: %+v", preview)
+			}
+			if err = db.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&afterCount); err != nil || afterCount != beforeCount {
+				t.Fatal("preview/refused correction wrote history", err)
+			}
+			key := domain.NewActivityID().String()
+			hash := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+			fixed, err := s.FixChangeWithMutation(ctx, second.Activity.ID, cmd, key, hash)
+			if err != nil {
+				t.Fatal(err)
+			}
+			retry, err := s.FixChangeWithMutation(ctx, second.Activity.ID, cmd, key, hash)
+			if err != nil || retry.Activity.ID != fixed.Activity.ID {
+				t.Fatalf("retry %v", err)
+			}
+			if err = db.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&afterCount); err != nil || afterCount != beforeCount+2 {
+				t.Fatal("retry duplicated history", err)
+			}
+			var isArchived bool
+			if err = db.SQL.QueryRow("SELECT archived_at IS NOT NULL FROM accounts WHERE id=?", account.Account.ID.String()).Scan(&isArchived); err != nil || isArchived != archived {
+				t.Fatal("archive metadata changed", err)
+			}
+			events, err = repo.ListActivitiesUntil(ctx, boot.Household.ID, now)
+			if err != nil || len(events) != 3 || events[1].Note == nil || *events[1].Note != note || len(events[1].Effects) != 0 || events[2].ID != later.Activity.ID {
+				t.Fatalf("corrected replay: %+v %v", events, err)
+			}
+			var amount string
+			if err = db.SQL.QueryRow(`SELECT amount FROM account_values WHERE projection_kind='event' AND activity_effect_id IN (SELECT id FROM activity_effects WHERE activity_id=?)`, later.Activity.ID.String()).Scan(&amount); err != nil || amount != "1250" {
+				t.Fatalf("later balance %s %v", amount, err)
+			}
+			// Re-correcting a zero-effect replacement retains endpoint evidence.
+			note = "second note"
+			if _, err = s.FixChange(ctx, fixed.Activity.ID, cmd); err != nil {
+				t.Fatal(err)
+			}
+			// A later correction of the preceding observation must turn the
+			// stored zero delta back into 100 without moving the 1200 target.
+			cmd.NewValue = mustMoney(t, "1100", "CNY")
+			if _, err = s.FixChange(ctx, correctedFirst.Activity.ID, cmd); err != nil {
+				t.Fatal(err)
+			}
+			events, err = repo.ListActivitiesUntil(ctx, boot.Household.ID, now)
+			if err != nil || len(events) != 3 || len(events[1].Effects) != 1 || events[1].Effects[0].Money.CanonicalAmount() != "100" || events[1].Resulting[0].Amount != "1200" {
+				t.Fatalf("zero fact replay: %+v %v", events, err)
+			}
+		})
 	}
 }

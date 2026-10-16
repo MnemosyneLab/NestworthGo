@@ -357,10 +357,10 @@ function RecordChangeFormReady({
   defaultCurrency: string;
 }) {
   const { t } = useTranslation();
-  const accounts = useAccounts({});
+  const accounts = useAccounts({ includeArchived: Boolean(fixActivityId) });
   const valuations = useAccountValuations({});
-  const inventory = useInstruments();
-  const instruments = { ...inventory, data: inventory.data?.filter(ordinaryInstrument) };
+  const inventory = useInstruments(Boolean(fixActivityId));
+  const instruments = { ...inventory, data: inventory.data?.filter(instrument => ordinaryInstrument(instrument) || Boolean(fixActivityId && instrument.id === initial?.instrumentId && !instrument.managedProductId)) };
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
   const settings = useSettings();
@@ -368,7 +368,7 @@ function RecordChangeFormReady({
   const mutationAllowed = useHistoryMutationAllowed();
   const effectiveOrigin = originOverride ?? origin.data;
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
-  const allHoldings = useAllHoldingsFlat(allAccountIds);
+  const allHoldings = useAllHoldingsFlat(allAccountIds, fixActivityId ? initial?.holdingId : undefined);
   const eligibleIds = new Set((instruments.data ?? []).map(item => item.id));
   const holdings = { ...allHoldings, data: allHoldings.data.filter(item => eligibleIds.has(item.instrumentId)) };
   const preview = usePreviewChange();
@@ -495,7 +495,8 @@ function RecordChangeFormReady({
 
   const accountRecords = useMemo(() => accounts.data ?? [], [accounts.data]);
   const accountById = useMemo(() => new Map(accountRecords.map((record) => [record.account.id, record])), [accountRecords]);
-  const activeAccountRecords = accountRecords.filter((record) => !record.account.archivedAt);
+  const originalAccountIds = fixActivityId ? [initial?.accountId, initial?.settlementAccountId, initial?.fromAccountId, initial?.toAccountId] : [];
+  const activeAccountRecords = accountRecords.filter((record) => !record.account.archivedAt || originalAccountIds.includes(record.account.id));
   const holdingsAccountRecords = activeAccountRecords.filter((record) => record.account.trackingMode === "holdings");
   const investmentAccountRecords = holdingsAccountRecords.filter((record) => record.account.accountType !== "cash_on_hand");
   const valueAccountRecords = activeAccountRecords.filter((record) => record.account.trackingMode === "balance" || record.account.trackingMode === "manual_value");
@@ -547,10 +548,10 @@ function RecordChangeFormReady({
   const dividendHoldingOptions = dividendHoldings.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
   const lockedDividendHolding = dividendHoldings.find((holding) => holding.id === (lock?.holdingId ?? request.holdingId));
   const selectedSettlement = request.settlementAccountId ?? "";
-  const positiveSettlementHoldings = holdings.data.filter((holding) => holding.accountId === selectedSettlement && isPositiveCanonical(holding.quantity));
+  const positiveSettlementHoldings = holdings.data.filter((holding) => holding.accountId === selectedSettlement && (isPositiveCanonical(holding.quantity) || Boolean(fixActivityId && holding.id === initial?.holdingId)));
   const sellHoldingOptions = positiveSettlementHoldings.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
   const activeInstrumentOptions = (instruments.data ?? [])
-    .filter((instrument) => !instrument.archivedAt)
+    .filter((instrument) => !instrument.archivedAt || Boolean(fixActivityId && instrument.id === initial?.instrumentId))
     .map((instrument) => ({ id: instrument.id, name: selectionLabels.get(instrument.id) ?? instrument.name }));
   const selectedInstrument = (instruments.data ?? []).find((instrument) => instrument.id === request.instrumentId);
   const tradeOptions = request.side === "sell" ? sellHoldingOptions : activeInstrumentOptions;
@@ -635,12 +636,12 @@ function RecordChangeFormReady({
 
   useEffect(() => {
     if (sheetConfirmation?.read() || confirmBusy.current) return;
-    if (kind === ChangeCommandKind.ChangeTrade && request.side === "sell" && request.holdingId && !positiveSettlementHoldings.some((holding) => holding.id === request.holdingId)) {
+    if (kind === ChangeCommandKind.ChangeTrade && request.side === "sell" && request.holdingId && !(fixActivityId && request.holdingId === initial?.holdingId) && !holdings.isLoading && !positiveSettlementHoldings.some((holding) => holding.id === request.holdingId)) {
       // A refreshed holdings list can invalidate a previously selected settlement holding.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRequest((current) => ({ ...current, holdingId: "", instrumentId: "" }));
     }
-  }, [kind, positiveSettlementHoldings, request.holdingId, request.side, sheetConfirmation]);
+  }, [fixActivityId, holdings.isLoading, initial?.holdingId, kind, positiveSettlementHoldings, request.holdingId, request.side, sheetConfirmation]);
 
   useEffect(() => {
     if (sheetConfirmation?.read() || confirmBusy.current) return;
@@ -1117,6 +1118,7 @@ function RecordChangeFormReady({
             />
           )}
           <MoneyFields prefix="change-transfer-fee" label={t("history.feeOptional")} amount={request.fee ?? ""} currency={request.feeCurrency ?? request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency onAmount={(fee) => patch({ fee })} />
+          {fixActivityId && <p className="text-xs text-muted-foreground">{t("history.correctionFeeHint")}</p>}
         </>
       )}
 

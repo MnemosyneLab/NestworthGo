@@ -117,3 +117,21 @@ describe("ordinary Repeat allowlist", () => {
     expect(activityToRepeatDraft(attributed)).toBeNull();
   });
 });
+
+
+describe("historical correction economics", () => {
+  it.each(["1200", "800", "0"])("restores absolute value %s rather than the recorded delta", target => {
+    const activity = { kind: "value_update", reason: "other", effects: [{ target: "account_value", accountId: "acc", money: { amount: "200", currency: "USD" } }], resulting: [{ target: "account_value", accountId: "acc", amount: target, currency: "USD" }] } as ActivityDTO;
+    expect(activityToInitialCommand(activity)).toMatchObject({ newValue: target, newValueCurrency: "USD" });
+  });
+  it("leaves the target empty when a legacy record has no historical observation", () => {
+    expect(activityToInitialCommand({ kind: "value_update", effects: [{ accountId: "acc", money: { amount: "200", currency: "USD" } }] } as ActivityDTO).newValue).toBe("");
+  });
+  it("restores an observation even when replay removed its zero delta", () => {
+    expect(activityToInitialCommand({ kind: "value_update", effects: [], resulting: [{ target: "account_value", accountId: "acc", amount: "1200", currency: "USD" }] } as unknown as ActivityDTO)).toMatchObject({ accountId: "acc", newValue: "1200" });
+  });
+  it.each(["USD", "EUR"])("preserves transfer fees from the source %s cash balance", currency => {
+    const activity = { kind: "cash_transfer", effects: [{ role: "transfer_from", accountId: "a", money: { amount: "100", currency } }, { role: "transfer_to", accountId: "b", money: { amount: "90", currency: "CNY" } }, { role: "fee", accountId: "a", money: { amount: "5", currency } }] } as ActivityDTO;
+    expect(activityToInitialCommand(activity)).toMatchObject({ sent: "100", fee: "5", feeCurrency: currency });
+  });
+});

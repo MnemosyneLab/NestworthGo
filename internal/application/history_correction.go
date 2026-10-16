@@ -55,7 +55,11 @@ func (s *Service) replayCorrection(ctx context.Context, original domain.Activity
 	// The reversal is audit evidence. Its original magnitudes may now be a
 	// no-op economically (for example after an earlier balance correction).
 	inverse := correctionReversal(auditOriginal, original, s.clock())
-	replacement, err := previewCorrectionAt(state, command, original.EffectiveAt)
+	// Only endpoints of this original record may bypass today's archive flag.
+	// Quantities/balances remain those replayed at the original effective time.
+	state = correctionOriginalEndpoints(state, original)
+	command = correctionTransferFee(command, original)
+	replacement, err := previewCorrectionAt(state, command, original.EffectiveAt, original.Kind == domain.ActivityValueUpdate)
 	if err != nil {
 		return correctionPlan{}, err
 	}
@@ -117,7 +121,7 @@ func correctionEndpointViews(state domain.ChangeState, effects []domain.Activity
 	return views
 }
 
-func previewCorrectionAt(state domain.ChangeState, command any, at time.Time) (domain.ChangePreview, error) {
+func previewCorrectionAt(state domain.ChangeState, command any, at time.Time, existingValueObservation bool) (domain.ChangePreview, error) {
 	switch input := command.(type) {
 	case domain.MoneyAddedInput:
 		input.EffectiveAt = at
@@ -148,6 +152,9 @@ func previewCorrectionAt(state domain.ChangeState, command any, at time.Time) (d
 		command = input
 	case domain.ValueUpdateInput:
 		input.EffectiveAt = at
+		if existingValueObservation {
+			return domain.PreviewValueUpdateCorrection(state, input)
+		}
 		command = input
 	case domain.DebtDrawInput:
 		input.EffectiveAt = at
@@ -212,4 +219,51 @@ func correctionReversal(audit, effective domain.Activity, now time.Time) domain.
 	}
 	activity.Effects = effects
 	return domain.ChangePreview{Activity: activity, Effects: effects}
+}
+
+// A missing fee on a correction retains the recorded source fee. Explicit zero
+// clears it; a positive value replaces it. New transactions retain their normal
+// validation and optional-fee semantics.
+func correctionTransferFee(command any, original domain.Activity) any {
+	input, ok := command.(domain.CashTransferInput)
+	if !ok || original.Kind != domain.ActivityCashTransfer {
+		return command
+	}
+	if input.Fee == nil {
+		for _, effect := range original.Effects {
+			if effect.Role == domain.EffectRoleFee {
+				input.Fee = effect.Money
+				break
+			}
+		}
+	} else if input.Fee.IsZero() && input.Fee.Currency() == input.Sent.Currency() {
+		input.Fee = nil
+	}
+	return input
+}
+
+func correctionOriginalEndpoints(state domain.ChangeState, original domain.Activity) domain.ChangeState {
+	effects := original.RecordedEffects
+	if effects == nil {
+		effects = original.Effects
+	}
+	for _, effect := range effects {
+		if effect.AccountID != nil {
+			if account, ok := state.Accounts[*effect.AccountID]; ok {
+				account.Archived = false
+				state.Accounts[account.ID] = account
+			}
+		}
+		if effect.HoldingID != nil {
+			if holding, ok := state.Holdings[*effect.HoldingID]; ok {
+				holding.Archived = false
+				state.Holdings[holding.ID] = holding
+				if account, ok := state.Accounts[holding.AccountID]; ok {
+					account.Archived = false
+					state.Accounts[account.ID] = account
+				}
+			}
+		}
+	}
+	return state
 }

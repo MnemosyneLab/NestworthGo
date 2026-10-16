@@ -1,4 +1,6 @@
 import { RecordChangeForm } from "./RecordChangeForm";
+import { activityToInitialCommand } from "./activityToCommand";
+import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { emptyChangeRequest } from "./activityToCommand";
 import { useFixChange } from "@/queries/history";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -812,9 +814,9 @@ describe("HistoryPage", () => {
 
   it("uses archived account names in history but excludes them from the account filter", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-    listAccounts.mockResolvedValue([
+    listAccounts.mockImplementation(async (filter?: { includeArchived?: boolean }) => [
       { account: { id: "active", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
-      { account: { id: "archived", name: "Closed Savings", trackingMode: "balance", archivedAt: "2026-01-02" }, ownership: [], latestValue: null },
+      ...(filter?.includeArchived ? [{ account: { id: "archived", name: "Closed Savings", trackingMode: "balance", archivedAt: "2026-01-02" }, ownership: [], latestValue: null }] : []),
     ]);
     listActivities.mockResolvedValue([
       {
@@ -2057,4 +2059,61 @@ it("assigns distinct hook intents to identical Fix payloads for different source
 it.each(["reconciliationLink", "financialRevision", "expectedRevision"])("releases Record after receipt-first reconciliation refusal %s",async field=>{
  recordChange.mockRejectedValueOnce(new Error(JSON.stringify({code:"conflict",field,message:"renewed review required"})));
  const {form}=await openOrdinaryRecoveryForm("record");await userEvent.click(within(form).getByRole("button",{name:"Confirm"}));await within(form).findByRole("button",{name:"Preview"});expect(hasUnresolvedSheetConfirmation()).toBe(false);expect(screen.getByRole("button",{name:"Close"})).toBeEnabled();await userEvent.keyboard("{Escape}");
+});
+
+it.each([false, true])("retains the original sold-out holding in Fix (archived=%s)", async archived => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  const archivedAt = archived ? "2026-03-01T00:00:00Z" : null;
+  listAccounts.mockImplementation(async (filter?: { includeArchived?: boolean }) => !archived || filter?.includeArchived ? [{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "USD", archivedAt }, ownership: [], latestValue: null }] : []);
+  listInstruments.mockResolvedValue([{ id: "instrument-1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual", archivedAt }]);
+  holdingsByAccounts.mockResolvedValue({ "brokerage-1": [{ id: "holding-1", accountId: "brokerage-1", instrumentId: "instrument-1", quantity: "0", archivedAt }] });
+  previewFixChange.mockResolvedValue({ resulting: [] });
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><RecordChangeForm initial={{ kind: ChangeCommandKind.ChangeTrade, side: "sell", settlementAccountId: "brokerage-1", holdingId: "holding-1", instrumentId: "instrument-1", quantity: "10", gross: "100", grossCurrency: "USD", feeCurrency: "USD", added: true }} fixActivityId="sold" onRecorded={vi.fn()} /></QueryClientProvider>);
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await waitFor(() => expect(within(form).getByLabelText("Instrument")).toHaveValue("holding-1"));
+  expect(within(form).getByLabelText("Instrument")).toHaveTextContent("Brokerage");
+  await userEvent.type(within(form).getByLabelText("Note"), "Corrected note");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewFixChange).toHaveBeenCalledWith("sold", expect.objectContaining({ holdingId: "holding-1", instrumentId: "instrument-1", quantity: "10", gross: "100" })));
+  expect(fixChange).not.toHaveBeenCalled();
+});
+
+it.each(["1200", ""])("uses the historical absolute target for note-only Fix (%s)", async target => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  listAccounts.mockResolvedValue([{ account: { id: "acc-1", name: "Checking", trackingMode: "balance", defaultCurrency: "USD" }, ownership: [], latestValue: { amount: { amount: "9999", currency: "USD" } } }]);
+  previewFixChange.mockResolvedValue({ resulting: [] });
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><RecordChangeForm initial={{ kind: ChangeCommandKind.ChangeValueUpdate, accountId: "acc-1", newValue: target, newValueCurrency: "USD", reason: "other", note: "Original", added: true }} fixActivityId="observation" onRecorded={vi.fn()} /></QueryClientProvider>);
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.type(within(form).getByLabelText("Note"), " updated");
+  expect(within(form).getByLabelText("New value")).toHaveValue(target);
+  const preview = within(form).getByRole("button", { name: "Preview" });
+  if (!target) { expect(preview).toBeDisabled(); expect(previewFixChange).not.toHaveBeenCalled(); }
+  else { await userEvent.click(preview); expect(previewFixChange).toHaveBeenCalledWith("observation", expect.objectContaining({ newValue: "1200", note: "Original updated" })); }
+  expect(fixChange).not.toHaveBeenCalled();
+});
+
+// Set VITE_NESTWORTH_TEST_DTO_JSON after TestValueCorrectionDTOIntegration to
+// exercise the same flow with its real isolated SQLite DTO.
+it("previews and confirms a historical DTO through the Fix form", async () => {
+  const dto = import.meta.env.VITE_NESTWORTH_TEST_DTO_JSON
+    ? JSON.parse(import.meta.env.VITE_NESTWORTH_TEST_DTO_JSON) as ActivityDTO
+    : { id: "observation", kind: "value_update", reason: "other", effects: [], resulting: [{ target: "account_value", accountId: "acc-1", amount: "1200", currency: "USD" }] } as unknown as ActivityDTO;
+  const accountId = dto.resulting![0].accountId!;
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  listAccounts.mockResolvedValue([{ account: { id: accountId, name: "Checking", trackingMode: "balance", defaultCurrency: "USD" }, ownership: [], latestValue: { amount: { amount: "9999", currency: "USD" } } }]);
+  previewFixChange.mockResolvedValue({ resulting: dto.resulting });
+  fixChange.mockResolvedValue({ activity: { id: "fixed" }, resulting: dto.resulting });
+  const client = createTestQueryClient();
+  const recorded = vi.fn();
+  render(<QueryClientProvider client={client}><Sheet open><SheetContent><SheetHeader><SheetTitle>Fix synthetic observation</SheetTitle></SheetHeader><RecordChangeForm initial={activityToInitialCommand(dto)} fixActivityId={dto.id} onRecorded={recorded} /></SheetContent></Sheet></QueryClientProvider>);
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByLabelText("New value")).toHaveValue("1200");
+  await userEvent.type(within(form).getByLabelText("Note"), "Updated from DTO");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewFixChange).toHaveBeenCalledWith(dto.id, expect.objectContaining({ accountId, newValue: "1200", note: "Updated from DTO" })));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(fixChange).toHaveBeenCalledWith(dto.id, expect.objectContaining({ accountId, newValue: "1200", note: "Updated from DTO", mutationId: expect.any(String) })));
+  await waitFor(() => expect(recorded).toHaveBeenCalledTimes(1));
 });
