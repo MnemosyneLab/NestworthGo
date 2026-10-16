@@ -18,12 +18,14 @@ type cachedReviewPosition struct {
 // The cache never outlives the immutable capture that supplied its facts.
 type reviewProjectionCache struct {
 	capture            domain.ReviewProjectionCapture
+	reviewHistory      *domain.HistoricalSnapshotBatch
 	providerKey        string
 	snapshots          map[string]domain.PortfolioSnapshot
 	inputs             map[string]cachedReviewInput
 	positions          map[domain.InstrumentID]cachedReviewPosition
 	positionActivities map[domain.InstrumentID][]domain.Activity
 	historicalQuotes   *historicalQuoteCache
+	quoteSeries        map[domain.InstrumentID]domain.ReviewDailyQuoteSeries
 	dailyEvidence      map[reviewDailyEvidenceScopeKey]reviewDailyEvidenceScope
 	snapshotReads      int
 	inputProjections   int
@@ -51,17 +53,29 @@ type reviewDailyEvidenceScope struct {
 
 func newReviewProjectionCache(capture domain.ReviewProjectionCapture, providerKey string) *reviewProjectionCache {
 	history := capture.Historical.History
+	// The review-specific repository capture selects position-changing
+	// activities and loads cost events separately. Replaying those selected
+	// position effects is sufficient for daily quantities; cash-only activity
+	// effects cannot change the review input. Mixed activities remain available
+	// in full whenever they carry a holding quantity effect.
+	reviewHistory := history
+	reviewHistory.Activities = reviewSnapshotActivities(history.Activities)
 	quotes := &historicalQuoteCache{instrumentQuotes: make(map[domain.InstrumentID][]domain.InstrumentQuote), fxQuotes: history.FXQuoteFacts}
 	for _, quote := range history.InstrumentQuoteFacts {
 		quotes.instrumentQuotes[quote.InstrumentID] = append(quotes.instrumentQuotes[quote.InstrumentID], quote)
 	}
+	quoteSeries := make(map[domain.InstrumentID]domain.ReviewDailyQuoteSeries, len(quotes.instrumentQuotes))
+	for instrumentID, instrumentQuotes := range quotes.instrumentQuotes {
+		quoteSeries[instrumentID] = domain.NewReviewDailyQuoteSeries(instrumentID, instrumentQuotes)
+	}
 	cache := &reviewProjectionCache{
-		capture: capture, providerKey: providerKey,
+		capture: capture, reviewHistory: &reviewHistory, providerKey: providerKey,
 		snapshots:          make(map[string]domain.PortfolioSnapshot),
 		inputs:             make(map[string]cachedReviewInput),
 		positions:          make(map[domain.InstrumentID]cachedReviewPosition),
 		positionActivities: make(map[domain.InstrumentID][]domain.Activity),
 		historicalQuotes:   quotes,
+		quoteSeries:        quoteSeries,
 		dailyEvidence:      make(map[reviewDailyEvidenceScopeKey]reviewDailyEvidenceScope),
 	}
 	for key, item := range capture.ReusableDailyEvidence {
@@ -82,6 +96,19 @@ func newReviewProjectionCache(capture domain.ReviewProjectionCapture, providerKe
 	}
 	cache.indexPositionActivities()
 	return cache
+}
+
+func reviewSnapshotActivities(activities []domain.Activity) []domain.Activity {
+	result := make([]domain.Activity, 0, len(activities))
+	for _, activity := range activities {
+		for _, effect := range activity.Effects {
+			if effect.Quantity != nil && effect.HoldingID != nil {
+				result = append(result, activity)
+				break
+			}
+		}
+	}
+	return result
 }
 
 // reusableLatestOn reports the final contiguous date already cached for one
@@ -199,7 +226,7 @@ func (c *reviewProjectionCache) dailyInput(ctx context.Context, spec domain.Revi
 	// copying every quote into each cached day snapshot.
 	portfolio.InstrumentQuotes = c.historicalQuotes.instrumentQuotes[instrumentID]
 	portfolio.FXQuotes = c.historicalQuotes.fxQuotes
-	input, coverage, err := projectReviewHistoricalDayFromPortfolio(ctx, history, c.providerKey, spec, instrumentID, on, cutoff, portfolio)
+	input, coverage, err := projectReviewHistoricalDayFromPortfolioWithQuoteSeries(ctx, history, c.providerKey, spec, instrumentID, on, cutoff, portfolio, c.quoteSeries[instrumentID])
 	if err != nil {
 		return domain.ReviewDailyInput{}, ReviewHistoricalCoverage{}, err
 	}
@@ -216,8 +243,8 @@ func (c *reviewProjectionCache) portfolioForDay(ctx context.Context, timezone, o
 	if err := ctx.Err(); err != nil {
 		return domain.PortfolioSnapshot{}, err
 	}
-	batch := c.capture.Historical.History
-	snapshot, err := (HistoricalReplay{batch: &batch, quotes: c.historicalQuotes, omitQuoteProjection: true}).Snapshot(ctx, &batch.Origin, cutoff.Add(-time.Nanosecond))
+	batch := c.reviewHistory
+	snapshot, err := (HistoricalReplay{batch: batch, quotes: c.historicalQuotes, omitQuoteProjection: true}).Snapshot(ctx, &batch.Origin, cutoff.Add(-time.Nanosecond))
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
 	}

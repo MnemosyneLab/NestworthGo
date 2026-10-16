@@ -33,7 +33,7 @@ func (r *Repository) LoadReviewHistoricalBatch(ctx context.Context, householdID 
 // transaction checks the authoritative facts rather than a review-only
 // generation that may not have observed a recent ledger or quote change.
 func loadReviewHistoricalBatchQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) (domain.ReviewHistoricalBatch, error) {
-	history, err := loadHistoricalSnapshotBatchQuery(ctx, query, householdID, cutoff)
+	history, err := loadReviewHistoricalSnapshotBatchQuery(ctx, query, householdID, cutoff)
 	if err != nil {
 		return domain.ReviewHistoricalBatch{}, err
 	}

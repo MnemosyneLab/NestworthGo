@@ -75,8 +75,18 @@ func (r *Repository) PublishReviewProjection(ctx context.Context, publication do
 			return err
 		}
 	}
+	inputStatement, err := tx.PrepareContext(ctx, `INSERT INTO investment_review_daily_inputs(household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint,computed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(household_id,instrument_id,timezone_version,on_date,input_policy) DO UPDATE SET quantity=excluded.quantity,native_currency=excluded.native_currency,instrument_type=excluded.instrument_type,amount_exact=excluded.amount_exact,cost_exact=excluded.cost_exact,evidence_json=excluded.evidence_json,coverage_json=excluded.coverage_json,input_fingerprint=excluded.input_fingerprint,computed_at=excluded.computed_at WHERE input_fingerprint<>excluded.input_fingerprint`)
+	if err != nil {
+		return err
+	}
+	defer inputStatement.Close()
+	resultStatement, err := tx.PrepareContext(ctx, `INSERT INTO investment_review_daily_results(rule_id,condition_version,instrument_id,timezone_version,on_date,predicate_truth,reason,evidence_json,input_fingerprint,evaluated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(rule_id,condition_version,instrument_id,timezone_version,on_date) DO UPDATE SET predicate_truth=excluded.predicate_truth,reason=excluded.reason,evidence_json=excluded.evidence_json,input_fingerprint=excluded.input_fingerprint,revised_at=excluded.evaluated_at WHERE predicate_truth<>excluded.predicate_truth OR input_fingerprint<>excluded.input_fingerprint OR evidence_json<>excluded.evidence_json`)
+	if err != nil {
+		return err
+	}
+	defer resultStatement.Close()
 	for _, item := range publication.Rules {
-		if err := publishReviewRule(ctx, tx, capture, item, publication.At); err != nil {
+		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement); err != nil {
 			return err
 		}
 	}
@@ -172,7 +182,7 @@ func verifyReviewOpenEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Re
 	return nil
 }
 
-func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time) error {
+func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt) error {
 	if item.TargetExcluded {
 		if len(item.Days) != 0 || len(item.Epochs) != 0 || item.CurrentEpisode != nil || item.OpenedEpisode {
 			return &domain.Error{Code: domain.ErrValidation, Field: "target", Message: "an excluded target cannot publish daily evidence or an open episode"}
@@ -216,7 +226,7 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 		if day.Input.NativeCurrency != nil {
 			currency = day.Input.NativeCurrency.String()
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO investment_review_daily_inputs(household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint,computed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(household_id,instrument_id,timezone_version,on_date,input_policy) DO UPDATE SET quantity=excluded.quantity,native_currency=excluded.native_currency,instrument_type=excluded.instrument_type,amount_exact=excluded.amount_exact,cost_exact=excluded.cost_exact,evidence_json=excluded.evidence_json,coverage_json=excluded.coverage_json,input_fingerprint=excluded.input_fingerprint,computed_at=excluded.computed_at WHERE input_fingerprint<>excluded.input_fingerprint`, capture.HouseholdID.String(), item.InstrumentID.String(), item.TimezoneVersion, day.On, inputPolicy, nullableReviewPointer(day.Input.Quantity), currency, kind, nullableReviewPointer(day.Input.AmountExact), nullableReviewPointer(day.Input.CostExact), string(inputJSON), string(coverageJSON), day.InputFingerprint, atText)
+		_, err = inputStatement.ExecContext(ctx, capture.HouseholdID.String(), item.InstrumentID.String(), item.TimezoneVersion, day.On, inputPolicy, nullableReviewPointer(day.Input.Quantity), currency, kind, nullableReviewPointer(day.Input.AmountExact), nullableReviewPointer(day.Input.CostExact), string(inputJSON), string(coverageJSON), day.InputFingerprint, atText)
 		if err != nil {
 			return err
 		}
@@ -225,7 +235,7 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 			return err
 		}
 		truth := reviewTruthSQL(day.Result.Truth)
-		_, err = tx.ExecContext(ctx, `INSERT INTO investment_review_daily_results(rule_id,condition_version,instrument_id,timezone_version,on_date,predicate_truth,reason,evidence_json,input_fingerprint,evaluated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(rule_id,condition_version,instrument_id,timezone_version,on_date) DO UPDATE SET predicate_truth=excluded.predicate_truth,reason=excluded.reason,evidence_json=excluded.evidence_json,input_fingerprint=excluded.input_fingerprint,revised_at=excluded.evaluated_at WHERE predicate_truth<>excluded.predicate_truth OR input_fingerprint<>excluded.input_fingerprint OR evidence_json<>excluded.evidence_json`, string(item.RuleID), item.ConditionVersion, item.InstrumentID.String(), item.TimezoneVersion, day.On, truth, nullableEmpty(strings.Join(day.CoverageMissing, ",")), string(resultJSON), day.InputFingerprint, atText)
+		_, err = resultStatement.ExecContext(ctx, string(item.RuleID), item.ConditionVersion, item.InstrumentID.String(), item.TimezoneVersion, day.On, truth, nullableEmpty(strings.Join(day.CoverageMissing, ",")), string(resultJSON), day.InputFingerprint, atText)
 		if err != nil {
 			return err
 		}

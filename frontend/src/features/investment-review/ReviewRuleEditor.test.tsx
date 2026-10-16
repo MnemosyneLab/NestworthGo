@@ -69,6 +69,42 @@ describe("investment review rule editor", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(state.save).not.toHaveBeenCalled();
   });
+  it.each([
+    [0, "1e2"],
+    [1, "not-a-number"],
+    [0, "1.123456789"],
+  ])("blocks invalid numeric thresholds before preview or save", async (valueIndex, value) => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const threshold = screen.getAllByRole("textbox", { name: "Value" })[valueIndex];
+    await userEvent.clear(threshold);
+    await userEvent.type(threshold, value);
+    expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
+  });
+  it("allows exactly twenty conditions and disables another condition", async () => {
+    const nineteenConditions = { all: Array.from({ length: 19 }, (_, index) => ({ leaf: { metric: "amount", operator: ">", value: String(index + 1), currency: "CNY", fxMode: "native" } })) };
+    const nineteenConditionRule = { ...rule, spec: { ...rule.spec, predicate: nineteenConditions } } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={nineteenConditionRule} />);
+    const addGroup = screen.getByRole("button", { name: "Add condition group" });
+    expect(addGroup).toBeEnabled();
+    await userEvent.click(addGroup);
+    expect(screen.getByRole("button", { name: "Add condition to group 2" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: { all: unknown[] } } };
+    expect(saved.spec.predicate.all).toHaveLength(20);
+    expect(saved.spec.predicate.all[19]).toEqual({ all: [{ leaf: expect.objectContaining({ metric: "amount", value: "1000" }) }] });
+  });
+  it.each([
+    { all: Array.from({ length: 21 }, (_, index) => ({ leaf: { metric: "amount", operator: ">", value: String(index + 1), currency: "CNY", fxMode: "native" } })) },
+    { all: [{ any: [{ all: [{ leaf: { metric: "amount", operator: ">", value: "1", currency: "CNY", fxMode: "native" } }] }] }] },
+  ])("rejects predicates beyond the supported leaf count or group depth", predicateValue => {
+    const invalid = { ...rule, spec: { ...rule.spec, predicate: predicateValue } } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={invalid} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
+  });
   it("keeps saving disabled when an annualized leaf has no bank-product all gate", async () => {
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
     const metrics = screen.getAllByRole("combobox", { name: "Metric" });

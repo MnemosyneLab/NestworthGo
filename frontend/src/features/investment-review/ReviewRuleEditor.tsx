@@ -19,6 +19,8 @@ type PredicateTreeChange = (update: (node: ReviewPredicateNode) => ReviewPredica
 const choices = Object.values(InstrumentType).filter(value => value !== InstrumentType.$zero);
 const defaultCondition = (): Condition => ({ metric: "amount", operator: ">", value: "1000", currency: "CNY", fxMode: "native" });
 const defaultPredicate = (): ReviewPredicateNode => ({ all: [{ leaf: defaultCondition() }] });
+const moneyThresholdPattern = /^-?\d+(?:\.\d+)?$/;
+const percentageThresholdPattern = /^-?(0|[1-9]\d{0,4})(?:\.\d{1,8})?$/;
 const isGroup = (node: ReviewPredicateNode) => node.all !== undefined || node.any !== undefined;
 const groupMode = (node: ReviewPredicateNode): GroupMode => node.any !== undefined ? "any" : "all";
 const groupChildren = (node: ReviewPredicateNode) => node.all ?? node.any ?? [];
@@ -87,8 +89,8 @@ function predicateIsValid(node: ReviewPredicateNode): boolean {
       if (leaf.metric === "type") return (leaf.types?.length ?? 0) > 0;
       if (leaf.metric === "instrument") return (leaf.instrumentIds?.length ?? 0) > 0;
       if (!leaf.value?.trim()) return false;
-      if (leaf.metric === "amount" || leaf.metric === "cost") return Boolean(leaf.currency?.trim()) && Boolean(leaf.fxMode);
-      if (leaf.metric === "price_change" || leaf.metric === "annualized") return [7, 30, 90, 180, 365].includes(leaf.lookbackDays ?? 0);
+      if (leaf.metric === "amount" || leaf.metric === "cost") return moneyThresholdPattern.test(leaf.value.trim()) && Boolean(leaf.currency?.trim()) && Boolean(leaf.fxMode);
+      if (leaf.metric === "price_change" || leaf.metric === "annualized") return percentageThresholdPattern.test(leaf.value.trim()) && [7, 30, 90, 180, 365].includes(leaf.lookbackDays ?? 0);
       return false;
     }
     if (depth >= 2) return false;

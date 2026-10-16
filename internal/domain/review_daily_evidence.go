@@ -53,63 +53,14 @@ func ReviewCivilCutoff(on, timezone string) (time.Time, error) {
 // and arithmetic. Alerts add an exact endpoint-day and baseline-gap admission
 // rule; they never fill a missing close with an earlier observation.
 func ResolveReviewDailyPerformance(instrument Instrument, quotes []InstrumentQuote, on string, lookbackDays, maxBaselineGapDays int) (*QuotePerformance, string) {
-	if _, err := time.Parse(time.DateOnly, on); err != nil || !ValidQuotePeriodWindow(lookbackDays) || lookbackDays == 0 || maxBaselineGapDays < 0 {
-		return nil, "invalid_request"
-	}
-	prior := make([]InstrumentQuote, 0, len(quotes))
-	for _, q := range quotes {
-		if q.InstrumentID == instrument.ID && q.EffectiveDate <= on {
-			prior = append(prior, q)
-		}
-	}
-	points := dailyPerformanceQuotes(prior)
-	if len(points) == 0 || points[len(points)-1].EffectiveDate != on {
-		return nil, "daily_close_missing"
-	}
-	items := ProjectQuotePerformanceWindows(instrument, prior, []int{lookbackDays})
-	if len(items) == 0 {
-		return nil, "baseline_missing_or_incomparable"
-	}
-	item := items[0]
-	end, _ := time.Parse(time.DateOnly, on)
-	target := end.AddDate(0, 0, -lookbackDays).Format(time.DateOnly)
-	gap, err := CivilDaysBetween(item.BaselineOn, target)
-	if err != nil || gap < 0 || gap > maxBaselineGapDays {
-		return nil, "baseline_too_old"
-	}
-	return &item, ""
+	return NewReviewDailyQuoteSeries(instrument.ID, quotes).ResolveDailyPerformance(instrument, on, lookbackDays, maxBaselineGapDays)
 }
 
 // ResolveReviewDailyClose chooses the same one-per-date price as the
 // descriptive series. A balance threshold requires a real eligible close
 // labelled D; an older market day is never carried into D.
 func ResolveReviewDailyClose(instrument Instrument, quotes []InstrumentQuote, on string) (*InstrumentQuote, string) {
-	if _, err := time.Parse(time.DateOnly, on); err != nil {
-		return nil, "invalid_request"
-	}
-	filtered := make([]InstrumentQuote, 0, len(quotes))
-	for _, quote := range quotes {
-		if quote.InstrumentID == instrument.ID && quote.EffectiveDate <= on {
-			filtered = append(filtered, quote)
-		}
-	}
-	points := dailyPerformanceQuotes(filtered)
-	if len(points) == 0 || points[len(points)-1].EffectiveDate != on {
-		return nil, "daily_close_missing"
-	}
-	quote := points[len(points)-1]
-	mode, supported := quotePerformanceMode(instrument.Type)
-	if !supported || quote.Currency != instrument.QuoteCurrency || quote.BindingRevision != instrument.ProviderBindingRevision || !performanceSource(quote.SourceKind) || !performanceTimestamp(instrument.Type, quote.TimestampBasis) {
-		return nil, "daily_close_ineligible"
-	}
-	if mode == quotePerformanceNAV {
-		if !quote.UnitPrice.Decimal().IsPositive() || quote.PriceBasis != "agent_unit_nav_v1" || reviewNonzero(quote.DividendCash) || (reviewNonzero(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
-			return nil, "daily_close_ineligible"
-		}
-	} else if quote.UnitPrice.Decimal().IsNegative() || !performancePriceBasis(instrument.Type, quote.PriceBasis) || (reviewNonzero(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
-		return nil, "daily_close_ineligible"
-	}
-	return &quote, ""
+	return NewReviewDailyQuoteSeries(instrument.ID, quotes).ResolveDailyClose(instrument, on)
 }
 
 // ReviewSelectedFX is the already-authoritatively-selected source result.

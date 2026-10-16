@@ -146,6 +146,44 @@ func TestReviewDailyCloseDoesNotCarryPrices(t *testing.T) {
 	}
 }
 
+func TestReviewDailyQuoteSeriesMatchesSameDateSelectionAndExactEndpoint(t *testing.T) {
+	_, instrument := reviewFixture(t)
+	instrument.Type = InstrumentStock
+	makeClose := func(on, price string, source QuoteSourceKind) InstrumentQuote {
+		quote := reviewQuote(t, instrument, on, price)
+		quote.SourceKind = source
+		quote.PriceBasis = "agent_raw_close_v1"
+		return quote
+	}
+	base := makeClose("2026-09-10", "10", QuoteSourceAgent)
+	provider := makeClose("2026-10-10", "100", QuoteSourceProvider)
+	agent := makeClose("2026-10-10", "11", QuoteSourceAgent)
+	olderAgent := agent
+	olderAgent.ID = NewInstrumentQuoteID()
+	olderAgent.Revision = -1
+	olderAgent.UnitPrice, _ = ParseUnitPrice("12")
+	foreign := makeClose("2026-10-10", "999", QuoteSourceAgent)
+	foreign.InstrumentID = NewInstrumentID()
+	future := makeClose("2026-10-11", "13", QuoteSourceAgent)
+	quotes := []InstrumentQuote{future, provider, base, foreign, olderAgent, agent}
+	series := NewReviewDailyQuoteSeries(instrument.ID, quotes)
+
+	gotClose, reason := series.ResolveDailyClose(instrument, "2026-10-10")
+	if reason != "" || gotClose == nil || gotClose.ID != agent.ID {
+		t.Fatalf("daily source rank/revision selection: %+v %s", gotClose, reason)
+	}
+	gotPerformance, reason := series.ResolveDailyPerformance(instrument, "2026-10-10", 30, 7)
+	if reason != "" || gotPerformance == nil || gotPerformance.BaselineOn != "2026-09-10" || gotPerformance.PeriodPercent != "10" {
+		t.Fatalf("daily indexed performance: %+v %s", gotPerformance, reason)
+	}
+	if got, reason := series.ResolveDailyClose(instrument, "2026-10-11"); reason != "" || got == nil || got.ID != future.ID {
+		t.Fatalf("future quote was lost from the immutable series: %+v %s", got, reason)
+	}
+	if got, reason := series.ResolveDailyPerformance(instrument, "2026-10-12", 30, 7); got != nil || reason != "daily_close_missing" {
+		t.Fatalf("future data was carried forward: %+v %s", got, reason)
+	}
+}
+
 func TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes(t *testing.T) {
 	_, target := reviewFixture(t)
 	target.Type, target.QuoteCurrency = InstrumentStock, "CNY"

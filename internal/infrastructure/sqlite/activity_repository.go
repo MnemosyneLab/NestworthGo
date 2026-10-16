@@ -359,7 +359,30 @@ func (r *Repository) ListActivitiesUntil(ctx context.Context, householdID domain
 }
 
 func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.Activity, error) {
-	rows, err := query.QueryContext(ctx, correctedActivityCTE+`SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ? ORDER BY effective_at ASC, created_at ASC, ordering_id ASC`, householdID.String(), formatTimestamp(cutoff))
+	return listActivitiesUntilQueryMode(ctx, query, householdID, cutoff, false)
+}
+
+// Review capture consumes dated effects and cost events but never the
+// endpoint values attached to Activity.Resulting. Keep those derived values
+// out of the review read path; hydrating them for every historical activity
+// otherwise adds a large union query to each capture and publication recheck.
+func listReviewActivitiesUntilQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.Activity, error) {
+	return listActivitiesUntilQueryMode(ctx, query, householdID, cutoff, true)
+}
+
+func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time, reviewRead bool) ([]domain.Activity, error) {
+	statement := correctedActivityCTE + `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ?`
+	if reviewRead {
+		// Daily review consumes only position changes from the activity ledger;
+		// cost adjustments are loaded separately as cost-basis events. Cash,
+		// account-value, dividend and fee activities cannot change a rule's
+		// quantity, type, daily quote or FX input, so omit them from this token
+		// and replay path. A mixed trade still remains complete in the ledger
+		// and is retained because it carries a holding-quantity effect.
+		statement += ` AND EXISTS(SELECT 1 FROM activity_effects review_effect WHERE review_effect.activity_id=economic_activities.id AND review_effect.target='holding_quantity')`
+	}
+	statement += ` ORDER BY effective_at ASC, created_at ASC, ordering_id ASC`
+	rows, err := query.QueryContext(ctx, statement, householdID.String(), formatTimestamp(cutoff))
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +404,11 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	if err := hydrateHistoricalActivities(ctx, query, activities); err != nil {
+	hydrate := hydrateHistoricalActivities
+	if reviewRead {
+		hydrate = hydrateReviewHistoricalActivities
+	}
+	if err := hydrate(ctx, query, activities); err != nil {
 		return nil, err
 	}
 	// Use the same adjusted balance deltas for snapshots and analysis.
@@ -414,6 +441,13 @@ func hydrateActivities(ctx context.Context, query queryer, activities []domain.A
 		return err
 	}
 	return attachActivityResulting(ctx, query, activities)
+}
+
+func hydrateReviewActivities(ctx context.Context, query queryer, activities []domain.Activity) error {
+	// Position replay needs the dated effect rows and activity correction
+	// identities only. Trade, dividend, product and resulting endpoint views
+	// are separate read models and do not participate in daily rule inputs.
+	return attachActivityEffects(ctx, query, activities)
 }
 
 func activityIDs(activities []domain.Activity) []string {

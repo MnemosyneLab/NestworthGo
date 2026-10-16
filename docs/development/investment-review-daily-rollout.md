@@ -4,10 +4,13 @@ The authoritative design is Library item
 `libfile_da0cbd81b3c08191a4bdc7c9b6bee201`, version 2 (design 1.2),
 114254 bytes, SHA256
 `acddcc6e6eb82806c1d67156dd89d2e4e9b63af0a5e337df56a228ce1c34e56e`.
-It was downloaded and read in full. The original rollout checkpoint was based
-on main with PR97 at commit `d23c01f4f9b59b64b7f83d4b246a8d6b37252f91`.
-This continuation verified the existing PR98 branch at remote head
-`d602d7c9d258b6ace5cd72b74e067dd17e12acb1` and preserves its earlier work.
+The current executor's Library search/materialize flow returned that exact
+file ID and version. It was materialized at
+`/workspace/NestworthGo-investment-review-design-2026-10-16.md`; byte count and
+SHA256 match the values above. The repository had no saved exact-name copy.
+The original rollout checkpoint was based on main with PR97 at commit
+`d23c01f4f9b59b64b7f83d4b246a8d6b37252f91`. This continuation verified the
+existing PR98 worktree and retains its earlier implementation.
 
 ## Implemented on this branch
 
@@ -110,20 +113,20 @@ rolling pass. Tests assert zero snapshot/input projections on unchanged
 source, exact invalidation on source change, and unchanged atomic-transfer
 epoch evidence.
 
-This is incremental reuse for unchanged history and new date slots. A source
-correction still triggers a full historical rebuild; dirty-range invalidation
-for individual source families and user-visible long-gap progress are outside
-this change. The application planning stage has now been measured against a
-synthetic 100-holding/20-rule/100k-quote/50k-activity fixture: 30 one-shot runs
-had a 445.17 ms nearest-rank p95, within the 500 ms planning-stage target. The
-benchmark excludes SQLite capture and publication, so the overall incremental
-request and 150 ms first-page targets remain unaccepted. Full measurements are
-in `docs/testing/investment-review-daily-acceptance-2026-10-16.md`. A complete
-independent rule-template import/export remains optional in design stage 5.
-The native macOS Wails window, VoiceOver,
-Chinese IME, narrow/high-zoom layout, restart and backup-restore acceptance
-have not been exercised in this Linux environment. This checkpoint is for
-draft review, not merge or release.
+This is incremental reuse for unchanged history and new date slots. Quote
+selection is now indexed once per instrument for a full replay, so same-date
+deduplication and sorting are not repeated for every daily vote. The opt-in
+SQLite measurements use the design-sized 100-holding/20-rule/100k-quote/
+50k-activity synthetic fixture. On this Linux executor, 365-day cold reconcile
+took 85.304s against the 3s target; 30-day full warm reconcile p95 was 9.211s
+against 500ms; the separately measured 30-day first-alert-page p95 was
+27.191ms against 150ms. The planning slice was 294ms, while capture and
+publication dominate the warm request. No 365-day warm/page pass is inferred
+from the 30-day measurement. The first-page target passes at 30 days; full warm
+and cold targets remain performance acceptance blockers. Full fixture counts
+and phase timings are in `docs/testing/investment-review-daily-acceptance-2026-10-16.md`.
+Native macOS Wails, VoiceOver, Chinese IME, high-zoom layout, restart and
+backup-restore acceptance have not been exercised in this Linux environment.
 
 ## Parallel frontend ownership
 
@@ -141,15 +144,19 @@ remains `com.nestworth.dev` / `Nestworth`. No real ledger has been opened.
 
 ## Latest automated verification
 
-Pinned Go 1.27.2 server-profile `go test -short -p 1 ./...`, `go vet -p 1
-./...`, and `go build ./cmd/nestworth` passed. The T→U lifecycle, full streak
-carry-forward, corrected-epoch cleanup and concurrent expired-ignore
-regressions passed under the race detector. Direct Vitest execution passed all
-137 files/1451 tests; ESLint, TypeScript no-emit checking and the production
-frontend build passed. The older draft head CI run 38900264828 completed
-successfully; the new commit still needs its own exact-SHA CI result. This
-Linux server-profile verification does not establish native macOS Wails
-packaging or accessibility acceptance.
+Local verification after the quote-series and activity-hydration changes:
+Go 1.27.2 `go test -short -p 1 ./...`, `go vet -p 1 ./...`, and server-profile
+`go build ./cmd/nestworth` passed. Direct Vitest execution passed all 137 files
+and 1,457 tests. TypeScript no-emit checking and the production Vite build
+passed, ESLint passed, and the generated Wails bindings check passed against
+v3.0.0-beta.28. The standalone screenshot capture attempt did not produce an image;
+the synthetic nested-editor interaction and invalid-value tests did pass in
+Vitest. This Linux server-profile verification does not establish native
+macOS Wails packaging or accessibility acceptance.
+
+The older draft head CI run 38900264828 completed successfully. The final
+commit still needs its exact-SHA CI result. Native macOS Wails, VoiceOver,
+Chinese IME, zoom/theme/layout, restart and backup-restore remain unrun.
 
 The first remote CI run of the older draft head stopped at the standalone
 user-skill check after Go tests passed: `skills/nestworth/SKILL.md` had 905

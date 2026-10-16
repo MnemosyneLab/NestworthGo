@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -103,5 +104,26 @@ func TestReviewSpecOneDayPoliciesNormalizeTogether(t *testing.T) {
 		if err != nil || got != hash {
 			t.Fatalf("%+v hash: %s %v", p, got, err)
 		}
+	}
+}
+
+func TestReviewPredicateTwentyLeafLimitIncludesNestedGroups(t *testing.T) {
+	makeGroup := func(count int) ReviewPredicateNode {
+		children := make([]ReviewPredicateNode, count)
+		for index := range children {
+			children[index] = ReviewPredicateNode{Leaf: &ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: fmt.Sprintf("%d", index+1), Currency: "CNY", FXMode: "native"}}
+		}
+		return ReviewPredicateNode{All: children}
+	}
+	spec := syntheticReviewSpec()
+	// Keep root fanout below 20 so the test exercises the global leaf cap
+	// across the allowed nested groups rather than a single group's fanout cap.
+	spec.Predicate = ReviewPredicateNode{All: []ReviewPredicateNode{makeGroup(10), makeGroup(10)}}
+	if _, err := spec.Normalize(); err != nil {
+		t.Fatalf("exactly 20 nested leaves should be accepted: %v", err)
+	}
+	spec.Predicate.All = append(spec.Predicate.All, ReviewPredicateNode{Leaf: &ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "21", Currency: "CNY", FXMode: "native"}})
+	if _, err := spec.Normalize(); err == nil {
+		t.Fatal("accepted 21 leaves spread across nested groups")
 	}
 }
