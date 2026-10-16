@@ -948,7 +948,7 @@ it("names added-unit and whole-holding costs precisely and retains an unfixed ch
     wireError: {
       code: "cost_basis_required",
       field: "targets[0].unitCost",
-      message: "choose cost",
+      message: "an explicit per-unit cost is required for added quantity",
     },
   });
   mount("session-one");
@@ -971,4 +971,158 @@ it("names added-unit and whole-holding costs precisely and retains an unfixed ch
   );
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(unit).not.toHaveAttribute("aria-invalid");
+});
+
+for (const locale of ["en", "zh-CN", "zh-TW"]) {
+  it.each([
+    [
+      "unitCost",
+      "validation",
+      "must be a canonical non-negative decimal with up to eight fractional digits",
+      "costUnitInvalid",
+      "3",
+      "oops",
+      "",
+    ],
+    [
+      "totalCost",
+      "validation",
+      "must be a canonical non-negative decimal with up to four fractional digits",
+      "costTotalInvalid",
+      "3",
+      "",
+      "bad",
+    ],
+    [
+      "unitCost",
+      "validation",
+      "unit cost cannot be changed by reducing quantity",
+      "costUnitIncreaseOnly",
+      "1",
+      "10",
+      "",
+    ],
+    [
+      "unitCost",
+      "invalid_change",
+      "cost-only reconciliation requires totalCost",
+      "costOnlyTotal",
+      "2",
+      "10",
+      "",
+    ],
+    [
+      "totalCost",
+      "validation",
+      "total cost currency must match the Holding's Instrument currency",
+      "costCurrency",
+      "3",
+      "",
+      "30",
+    ],
+    [
+      "totalCost",
+      "validation",
+      "a zero-quantity Holding must have zero total cost",
+      "costZeroQuantity",
+      "0",
+      "",
+      "10",
+    ],
+    [
+      "unitCost",
+      "validation",
+      "unitCost and totalCost cannot be supplied together",
+      "costChoice",
+      "3",
+      "10",
+      "30",
+    ],
+    [
+      "unitCost",
+      "cost_basis_required",
+      "an explicit per-unit cost is required for added quantity",
+      "costChoice",
+      "3",
+      "",
+      "",
+    ],
+    [
+      "totalCost",
+      "validation",
+      "total cost cannot be represented at the supported cost precision",
+      "costPrecision",
+      "3",
+      "",
+      "10",
+    ],
+  ])(
+    `shows accurate ${locale} adjustment guidance for %s: %s / %s`,
+    async (field, code, message, key, quantity, unitCost, totalCost) => {
+      await i18n.changeLanguage(locale);
+      Object.assign(q.session!.accounts![0].items![0], {
+        kind: "holding",
+        holdingId: "held-one",
+        value: "2",
+        cost: "10",
+      });
+      q.adjust.mockRejectedValueOnce({
+        wireError: { code, field: `targets[0].${field}`, message },
+      });
+      mount("session-one");
+      await userEvent.click(
+        screen.getByRole("button", { name: i18n.t("reconciliation.adjust") }),
+      );
+      fireEvent.change(screen.getByLabelText(i18n.t("reconciliation.target")), {
+        target: { value: quantity },
+      });
+      const unit = screen.getByLabelText(
+        i18n.t("reconciliation.addedUnitCost"),
+      );
+      const total = screen.getByLabelText(i18n.t("reconciliation.totalCost"));
+      fireEvent.change(unit, { target: { value: unitCost } });
+      fireEvent.change(total, { target: { value: totalCost } });
+      await userEvent.click(
+        screen.getByRole("button", { name: i18n.t("reconciliation.preview") }),
+      );
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        i18n.t(`reconciliation.${key}`),
+      );
+      expect(field === "unitCost" ? unit : total).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
+      if (key !== "costChoice") {
+        fireEvent.change(total, { target: { value: "11" } });
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          i18n.t(`reconciliation.${key}`),
+        );
+      }
+    },
+  );
+}
+
+it("preserves an unrecognized localized cost error instead of inventing a choice error", async () => {
+  Object.assign(q.session!.accounts![0].items![0], {
+    kind: "holding",
+    holdingId: "held-one",
+    value: "2",
+  });
+  q.adjust.mockRejectedValueOnce(
+    Object.assign(new Error("Specific localized validation guidance"), {
+      wireError: {
+        code: "validation",
+        field: "targets[0].totalCost",
+        message: "new backend reason",
+      },
+    }),
+  );
+  mount("session-one");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Correct current balance or holding" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Specific localized validation guidance",
+  );
 });

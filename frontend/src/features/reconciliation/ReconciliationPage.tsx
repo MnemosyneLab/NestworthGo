@@ -1,6 +1,7 @@
 import { useHistoryOrigin } from "@/queries/history";
 import { localDateTimeInTimeZone } from "@/lib/time";
 import {
+  adjustmentErrorKey,
   knownReconciliationConflict,
   completedReconciliation,
 } from "./reconciliationErrors";
@@ -802,6 +803,7 @@ export function ReconciliationPage({
                   ),
                   accountId: editing.account.accountId,
                   holdingId: editing.item.holdingId,
+                  instrumentId: editing.item.instrumentId,
                   side: editing.item.kind === "holding" ? "buy" : undefined,
                   settlementAccountId: editing.account.accountId,
                   reconciliationLink: {
@@ -1146,16 +1148,14 @@ function AdjustmentForm({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [errorField, setErrorField] = useState("");
+  const [costChoiceError, setCostChoiceError] = useState(false);
   const clearCostChoiceError = (nextUnit: string, nextTotal: string) => {
     const validDecimal = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
     const hasOne = Boolean(nextUnit) !== Boolean(nextTotal);
-    if (
-      ["unitCost", "totalCost"].includes(errorField) &&
-      hasOne &&
-      validDecimal.test(nextUnit || nextTotal)
-    ) {
+    if (costChoiceError && hasOne && validDecimal.test(nextUnit || nextTotal)) {
       setError("");
       setErrorField("");
+      setCostChoiceError(false);
     }
   };
   const invalid = (field: string) => errorField === field;
@@ -1260,14 +1260,16 @@ function AdjustmentForm({
             .catch((e) => {
               const wire = (e as { wireError?: WireError })?.wireError;
               const field = (wire?.field ?? "").split(".").slice(-1)[0] ?? "";
+              const errorKey = adjustmentErrorKey(wire);
+              setCostChoiceError(errorKey === "reconciliation.costChoice");
               setErrorField(field);
               if (knownReconciliationConflict(wire))
                 void client.invalidateQueries({ queryKey: ["reconciliation"] });
               setError(
                 knownReconciliationConflict(wire)
                   ? t("reconciliation.changedReview")
-                  : ["unitCost", "totalCost"].includes(field)
-                    ? t("reconciliation.costChoice")
+                  : errorKey
+                    ? t(errorKey)
                     : displayError(e, t("reconciliation.error")),
               );
             })

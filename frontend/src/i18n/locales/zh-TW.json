@@ -1777,6 +1777,13 @@
     "noChanges": "此區間沒有記帳變更。",
     "noLinkedChanges": "尚無關聯的更正。",
     "maturityHelp": "到期日是合約日期，不代表已經入帳。實際收到現金後再記錄入帳。",
-    "retry": "重試"
+    "retry": "重試",
+    "costUnitInvalid": "請輸入非負的每單位成本，最多保留八位小數。",
+    "costUnitIncreaseOnly": "新增單位的每單位成本僅適用於增加數量。此次更正請填寫剩餘持倉總成本。",
+    "costOnlyTotal": "僅更正成本而不改變數量時，請填寫剩餘持倉總成本。",
+    "costZeroQuantity": "數量為零的持倉，總成本必須為零。",
+    "costCurrency": "總成本必須使用標的的幣別。",
+    "costPrecision": "此總成本無法以支援的每單位成本精度表示，請調整總成本。",
+    "costTotalInvalid": "請輸入非負的總成本，最多保留四位小數。"
   }
 }

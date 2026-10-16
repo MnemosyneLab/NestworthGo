@@ -1777,6 +1777,13 @@
     "noChanges": "此区间没有记账变更。",
     "noLinkedChanges": "还没有关联的更正。",
     "maturityHelp": "到期日是合同日期，不代表已经到账。实际收到现金后再记录到账。",
-    "retry": "重试"
+    "retry": "重试",
+    "costUnitInvalid": "请输入非负单位成本，最多保留八位小数。",
+    "costUnitIncreaseOnly": "新增份额的单位成本仅适用于增加数量。此次更正请填写剩余持仓总成本。",
+    "costOnlyTotal": "仅更正成本而不改变数量时，请填写剩余持仓总成本。",
+    "costZeroQuantity": "数量为零的持仓，总成本必须为零。",
+    "costCurrency": "总成本必须使用标的的币种。",
+    "costPrecision": "此总成本无法按支持的单位成本精度表示，请调整总成本。",
+    "costTotalInvalid": "请输入非负总成本，最多保留四位小数。"
   }
 }

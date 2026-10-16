@@ -154,3 +154,31 @@ This case is also covered under the race detector:
 ```sh
 CGO_ENABLED=1 go test -race -p 1 -parallel 4 ./internal/application -run 'TestReconciliationArchiveGuardAndLegacyVisibility|TestReconciliationSessionEvidenceDurabilityPartialAndImmutable|TestReconciliationRemovedItems' -count=1 -timeout 3m
 ```
+
+The subsequent UI review fixes pass the selected item's `instrumentId` into the
+shared missing-trade form, in addition to its holding/account/link context.
+`ReconciliationRecordFlow.test.tsx` retains the real RecordChangeForm, Sheet,
+selects and inputs; in en/zh-CN/zh-TW it verifies the known instrument is selected
+and that a buy preview needs no instrument reselection.
+
+Adjustment error coverage uses real correction fields with service-boundary
+failures. Missing/both cost choices receive the choice message; malformed unit
+or total costs, quantity reductions, cost-only corrections, zero-quantity costs,
+currency mismatches and precision failures receive their corresponding localized
+guidance. Unknown reasons retain the normal wire-error fallback. Editing an
+unrelated cost does not clear a non-choice error. No backend financial validation,
+decimal arithmetic or wire protocol changed in this UI follow-up.
+
+UI review follow-up validation: `pnpm exec vitest run --maxWorkers=2` passed
+133 files / 1,399 tests, including 31 new regressions. The initial default
+four-worker `CGO_ENABLED=0 pnpm run test` had 1,398 passes and the same existing
+historical-overview missing `Bank` button failure documented above; the complete
+two-worker run passed without altering that test or its deadlines.
+`pnpm run lint`, `CGO_ENABLED=0 pnpm run typecheck`, and
+`CGO_ENABLED=0 pnpm run build` passed. Vite retains its existing chunk-size warning.
+The Go source is unchanged from `6f11e3f532a7038ec35648148986d32e39e02432`;
+the full Go suite and focused race checks above were not rerun for this
+frontend-only delta. `CGO_ENABLED=0 go build -o
+/tmp/nestworth-reconciliation-server ./cmd/nestworth` passed again with the new
+frontend bundle, using the server-tag GOFLAGS shown above.
+Native GUI/macOS and manual accessibility gates remain unperformed.

@@ -1777,6 +1777,13 @@
     "noChanges": "No bookkeeping changes in this interval.",
     "noLinkedChanges": "No linked corrections.",
     "maturityHelp": "Maturity changes the contract date; it does not record money received. Record receipt only when cash actually arrives.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "costUnitInvalid": "Enter a non-negative cost per unit with up to eight decimal places.",
+    "costUnitIncreaseOnly": "Added-unit cost applies only when increasing quantity. Use total remaining cost for this correction.",
+    "costOnlyTotal": "To change cost without changing quantity, enter the total remaining cost.",
+    "costZeroQuantity": "A holding with zero quantity must have zero total cost.",
+    "costCurrency": "Total cost must use the instrument’s currency.",
+    "costPrecision": "This total cost cannot be represented at the supported per-unit precision. Adjust the total cost.",
+    "costTotalInvalid": "Enter a non-negative total cost with up to four decimal places."
   }
 }
