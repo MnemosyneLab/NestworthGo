@@ -185,3 +185,57 @@ func TestConvertFXAmountRejectsUnsupportedReciprocalPrecision(t *testing.T) {
 		t.Fatal("reciprocal conversion accepted an amount scale beyond the supported bridge precision")
 	}
 }
+
+func TestConvertFXAmountViaQuotesRoundsOnlyAfterBothLegs(t *testing.T) {
+	inverseRate, _ := ParseFxRate("3")
+	directRate, _ := ParseFxRate("0.03045")
+	first := FXQuote{BaseCurrency: "USD", QuoteCurrency: "EUR", Rate: inverseRate}
+	second := FXQuote{BaseCurrency: "USD", QuoteCurrency: "GBP", Rate: directRate}
+	for _, testCase := range []struct{ input, want string }{
+		{input: "1", want: "0.0102"},
+		{input: "-1", want: "-0.0102"},
+	} {
+		converted, err := ConvertFXAmountViaQuotes(decimal.RequireFromString(testCase.input), "EUR", "USD", "GBP", first, second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		projected, err := NewSignedMoney(converted, "GBP")
+		if err != nil || projected.CanonicalAmount() != testCase.want {
+			t.Fatalf("two-leg conversion of %s = %s, want %s (err=%v)", testCase.input, projected.CanonicalAmount(), testCase.want, err)
+		}
+	}
+}
+
+func TestConvertFXAmountPrecisionAccountsForPositiveRateExponent(t *testing.T) {
+	canonicalRate, err := ParseFxRate("10000000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exponentRate, err := NewFxRate(decimal.New(1, 7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rate := range []FxRate{canonicalRate, exponentRate} {
+		quote := FXQuote{BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate}
+		converted, convertErr := ConvertFXAmount(decimal.RequireFromString("500.1"), "USD", "CNY", quote)
+		if convertErr != nil {
+			t.Fatal(convertErr)
+		}
+		projected, projectErr := NewSignedMoney(converted, "CNY")
+		if projectErr != nil || projected.CanonicalAmount() != "0.0001" {
+			t.Fatalf("rate %s conversion = %s, want 0.0001 (err=%v)", rate, projected.CanonicalAmount(), projectErr)
+		}
+	}
+}
+
+func TestConvertFXAmountRetainsIntermediatePrecisionForAggregation(t *testing.T) {
+	rate, _ := ParseFxRate("3")
+	quote := FXQuote{BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate}
+	converted, err := ConvertFXAmount(decimal.NewFromInt(1), "USD", "CNY", quote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if converted.String() != "0.3333333333333333" {
+		t.Fatalf("reciprocal intermediate precision = %s, want at least 16 fractional digits", converted)
+	}
+}

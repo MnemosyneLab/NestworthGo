@@ -9,6 +9,7 @@ import (
 
 const (
 	moneyAmountFractionDigits     = 4
+	minimumFXDivisionPrecision    = 16 // Preserve the existing decimal intermediate precision for later aggregation.
 	maxNativeAmountFractionDigits = 16
 	maxFXRateCoefficientDigits    = 8 + 12 // FX rates allow eight integer and twelve fractional digits.
 	// One bridge conversion can produce at most this many decimal places from a
@@ -192,21 +193,16 @@ func ConvertFXAmount(value decimal.Decimal, from, to CurrencyCode, quote FXQuote
 	if from == to {
 		return value, nil
 	}
-	if quote.Rate.value.IsZero() {
-		return decimal.Zero, validation("fxRate", "must be greater than zero")
+	multiplier, divisor, err := fxConversionFactors(from, to, quote)
+	if err != nil {
+		return decimal.Zero, err
 	}
-	var converted decimal.Decimal
-	switch {
-	case quote.BaseCurrency == from && quote.QuoteCurrency == to:
-		converted = value.Mul(quote.Rate.value)
-	case quote.BaseCurrency == to && quote.QuoteCurrency == from:
-		var err error
-		converted, err = divideFXAmountByRate(value, quote.Rate.value)
+	converted := value.Mul(multiplier)
+	if !divisor.Equal(decimal.NewFromInt(1)) {
+		converted, err = divideFXAmountByRate(converted, divisor)
 		if err != nil {
 			return decimal.Zero, err
 		}
-	default:
-		return decimal.Zero, validation("fxRate", "quote currencies do not match the conversion")
 	}
 	if converted.Abs().GreaterThan(maxMoney) {
 		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
@@ -214,14 +210,63 @@ func ConvertFXAmount(value decimal.Decimal, from, to CurrencyCode, quote FXQuote
 	return converted, nil
 }
 
+// ConvertFXAmountViaQuotes composes two quote legs before dividing. Keeping
+// both exact rates in the same expression avoids rounding the intermediate
+// currency amount before the final projection.
+func ConvertFXAmountViaQuotes(value decimal.Decimal, from, via, to CurrencyCode, first, second FXQuote) (decimal.Decimal, error) {
+	if value.Abs().GreaterThan(maxMoney) {
+		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	if from == via || via == to {
+		return decimal.Zero, validation("fxRate", "quote currencies do not match the conversion")
+	}
+	firstMultiplier, firstDivisor, err := fxConversionFactors(from, via, first)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	secondMultiplier, secondDivisor, err := fxConversionFactors(via, to, second)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	multiplier := firstMultiplier.Mul(secondMultiplier)
+	divisor := firstDivisor.Mul(secondDivisor)
+	converted := value.Mul(multiplier)
+	if !divisor.Equal(decimal.NewFromInt(1)) {
+		converted, err = divideFXAmountByRate(converted, divisor)
+		if err != nil {
+			return decimal.Zero, err
+		}
+	}
+	if converted.Abs().GreaterThan(maxMoney) {
+		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	return converted, nil
+}
+
+func fxConversionFactors(from, to CurrencyCode, quote FXQuote) (multiplier, divisor decimal.Decimal, err error) {
+	one := decimal.NewFromInt(1)
+	if quote.Rate.value.IsZero() {
+		return decimal.Zero, decimal.Zero, validation("fxRate", "must be greater than zero")
+	}
+	switch {
+	case quote.BaseCurrency == from && quote.QuoteCurrency == to:
+		return quote.Rate.value, one, nil
+	case quote.BaseCurrency == to && quote.QuoteCurrency == from:
+		return one, quote.Rate.value, nil
+	default:
+		return decimal.Zero, decimal.Zero, validation("fxRate", "quote currencies do not match the conversion")
+	}
+}
+
 // divideFXAmountByRate keeps reciprocal whole-amount conversion precise
-// enough for the eventual four-place Money half-even boundary. If value has
-// scale s and the rate coefficient has d digits, the exact quotient's
-// denominator is less than 10^(s+d). Any non-tie distance from a four-place
-// rounding midpoint is therefore greater than 0.5*10^-(s+d+4). DivRound's
-// error at s+d+4 places is at most that bound, so it cannot cross a Money
-// midpoint. Exact Money ties terminate by five places, and this precision is
-// always at least five, preserving the tie for RoundBank.
+// enough for the eventual four-place Money half-even boundary. If value is
+// A*10^-s and rate is C*10^e with d coefficient digits, the exact quotient's
+// denominator is less than 10^(d+max(0,s+e)). Any non-tie distance from a
+// four-place Money midpoint is therefore greater than 0.5*10^-(d+max(0,s+e)+4).
+// DivRound's error at that many places is below the bound, so it cannot cross
+// a Money midpoint. The 16-place minimum retains the existing intermediate
+// precision when converted components are summed before the Money boundary.
+// Exact Money ties terminate by five places and are preserved by RoundBank.
 func divideFXAmountByRate(value, rate decimal.Decimal) (decimal.Decimal, error) {
 	if rate.IsZero() {
 		return decimal.Zero, validation("fxRate", "must be greater than zero")
@@ -230,7 +275,14 @@ func divideFXAmountByRate(value, rate decimal.Decimal) (decimal.Decimal, error) 
 	if scale > maxFXConversionInputFractionDigits {
 		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
 	}
-	precision := int64(scale) + int64(len(rate.Coefficient().String())) + moneyAmountFractionDigits
+	denominatorScale := int64(scale) + int64(rate.Exponent())
+	if denominatorScale < 0 {
+		denominatorScale = 0
+	}
+	precision := int64(len(rate.Coefficient().String())) + denominatorScale + moneyAmountFractionDigits
+	if precision < minimumFXDivisionPrecision {
+		precision = minimumFXDivisionPrecision
+	}
 	if precision > math.MaxInt32 {
 		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
 	}

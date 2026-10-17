@@ -690,6 +690,58 @@ func TestValuationFXNearHalfRetainsNativePrecisionForPositiveAndNegativeAmounts(
 	}
 }
 
+func TestValuationAggregatesFiveReciprocalAmountsBeforeMoneyRounding(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	householdID := domain.NewHouseholdID()
+	account := domain.Account{
+		ID: domain.NewAccountID(), HouseholdID: householdID, Name: "Synthetic brokerage",
+		AccountType: domain.TypeBrokerage, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingHoldings,
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+	}
+	quantity, err := domain.ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unitPrice, err := domain.ParseUnitPrice("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rate, err := domain.ParseFxRate("3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	preference, err := domain.NewFXPreference(householdID, "CNY", "USD", domain.QuoteSourceManual, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.PortfolioSnapshot{
+		Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
+		Accounts:  []domain.AccountRecord{{Account: account}},
+		FXQuotes: []domain.FXQuote{{
+			ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate,
+			SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now,
+		}},
+		FXPreferences: []domain.FXPreference{preference},
+	}
+	for index := 0; index < 5; index++ {
+		instrumentID := domain.NewInstrumentID()
+		instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Synthetic holding", Type: domain.InstrumentETF, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceManual}
+		holding := domain.Holding{ID: domain.NewHoldingID(), AccountID: account.ID, InstrumentID: instrumentID, Quantity: quantity, SortOrder: index}
+		instrumentQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: unitPrice, Currency: "USD", SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now}
+		snapshot.Instruments = append(snapshot.Instruments, instrument)
+		snapshot.Holdings = append(snapshot.Holdings, holding)
+		snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, instrumentQuote)
+	}
+	accounts, _, err := NewValuationService(nil, func() time.Time { return now }).ValueAccounts(snapshot)
+	if err != nil || len(accounts) != 1 || accounts[0].BaseValue == nil {
+		t.Fatalf("five-holding valuation = %+v err=%v", accounts, err)
+	}
+	if accounts[0].BaseValue.Amount != "1.6667" {
+		t.Fatalf("aggregated reciprocal holding value = %s, want 1.6667", accounts[0].BaseValue.Amount)
+	}
+}
+
 func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -533,13 +533,22 @@ func (v *ValuationService) convertTo(snapshot domain.PortfolioSnapshot, accountI
 		return native, nil, nil, nil
 	}
 	quote := v.selectFXQuoteTo(snapshot, snapshot.FXQuotes, currency, baseCurrency, nil)
+	return v.convertUsingFXQuote(snapshot, accountID, native, currency, baseCurrency, quote)
+}
+
+func (v *ValuationService) convertUsingFXQuote(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, amount decimal.Decimal, currency, baseCurrency domain.CurrencyCode, quote *domain.FXQuote) (decimal.Decimal, *domain.QuoteEvidenceView, *domain.MissingInputView, error) {
 	if quote == nil {
 		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, QuoteSource: implicitFXPreferenceTo(snapshot, currency, baseCurrency).SourceKind, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
-	converted, err := domain.ConvertFXAmount(native, currency, baseCurrency, *quote)
+	converted, err := domain.ConvertFXAmount(amount, currency, baseCurrency, *quote)
 	if err != nil {
 		return decimal.Zero, nil, nil, err
 	}
+	evidence := v.quoteEvidenceForFXConversion(snapshot, *quote)
+	return converted, &evidence, nil, nil
+}
+
+func (v *ValuationService) quoteEvidenceForFXConversion(snapshot domain.PortfolioSnapshot, quote domain.FXQuote) domain.QuoteEvidenceView {
 	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now(), v.quoteTTL())
 	evidence.EffectiveDate, evidence.ValueEffectiveAt, evidence.FetchedAt = quote.EffectiveDate, quote.ValueEffectiveAt, quote.FetchedAt
 	targetDate := v.historicalDate()
@@ -547,7 +556,7 @@ func (v *ValuationService) convertTo(snapshot domain.PortfolioSnapshot, accountI
 		targetDate = displayDate(snapshot, v.now())
 	}
 	evidence.Carried = quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
-	return converted, &evidence, nil, nil
+	return evidence
 }
 
 func (v *ValuationService) providerKey() string {

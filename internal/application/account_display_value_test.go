@@ -67,6 +67,26 @@ func TestAccountDisplayValueFXPolicy(t *testing.T) {
 	}
 }
 
+func TestAccountDisplayBridgeRoundsOnceAfterReciprocalLeg(t *testing.T) {
+	v := NewValuationService(nil)
+	snapshot := displayTestSnapshot()
+	snapshot.FXQuotes = []domain.FXQuote{
+		displayTestQuote(t, "CNY", "SGD", "3"),
+		displayTestQuote(t, "CNY", "USD", "0.03045"),
+	}
+	converted, evidence, missing, err := v.convertAccountDisplay(snapshot, "account", decimal.NewFromInt(1), "SGD", "USD")
+	if err != nil || len(missing) != 0 || len(evidence) != 2 {
+		t.Fatalf("bridged conversion = %s, evidence=%+v missing=%+v err=%v", converted, evidence, missing, err)
+	}
+	if converted.String() != "0.01015" {
+		t.Fatalf("exact bridged amount = %s, want 0.01015", converted)
+	}
+	projected, err := domain.NewMoney(converted, "USD")
+	if err != nil || projected.CanonicalAmount() != "0.0102" {
+		t.Fatalf("final projected amount = %s, want 0.0102 (err=%v)", projected.CanonicalAmount(), err)
+	}
+}
+
 func TestAccountDisplayValuePrecisionAndIndependentCompleteness(t *testing.T) {
 	v := NewValuationService(nil)
 	snapshot := displayTestSnapshot()
