@@ -28,7 +28,6 @@ type ReviewRuleInstrumentPlan struct {
 	LatestWindow      domain.ReviewPolicyWindow
 	LatestResult      *domain.ReviewDailyResult
 	LatestCoverage    []string
-	FirstHitOn        string
 	Incremental       bool
 	PreviousLatestOn  string
 	Position          ReviewPositionTimeline
@@ -98,12 +97,6 @@ func planReviewRuleInstrument(ctx context.Context, capture domain.ReviewProjecti
 		latestResult := last.Result
 		result.LatestResult = &latestResult
 		result.LatestCoverage = append([]string{}, last.Coverage.Missing...)
-		for _, day := range result.Days {
-			if day.On >= result.LatestWindow.WindowStart && day.On <= latest && day.Result.Truth == domain.ReviewTrue {
-				result.FirstHitOn = day.On
-				break
-			}
-		}
 	}
 	// Position identity and current eligibility use authoritative effects up
 	// to the capture time. Daily predicate votes above remain closed at L.
@@ -198,12 +191,6 @@ func planReviewRuleInstrumentIncremental(ctx context.Context, capture domain.Rev
 		}
 	}
 	result.LatestWindow.ConsecutiveCount = consecutiveCount
-	for _, daily := range dailyResults {
-		if daily.On >= result.LatestWindow.WindowStart && daily.On <= latest && daily.Truth == domain.ReviewTrue {
-			result.FirstHitOn = daily.On
-			break
-		}
-	}
 	result.Position, result.EpochIDs, err = cache.position(ctx, instrumentID, now.Add(time.Nanosecond))
 	if err != nil {
 		return ReviewRuleInstrumentPlan{}, err

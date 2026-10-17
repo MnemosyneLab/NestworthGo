@@ -155,6 +155,58 @@ func TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs(t *test
 	}
 }
 
+func TestManualPriceRepairKeepsOutdatedSnapshotIssueUntilRebuild(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	service, db, owner, now := overviewFixture(t)
+	account := overviewAccount(t, service, owner, "Synthetic brokerage", "brokerage", "asset", "holdings", "CNY", "")
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-01", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+		t.Fatal(err)
+	}
+	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+	if _, err := db.SQL.Exec(`DELETE FROM instrument_quotes WHERE instrument_id=?`, instrument.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-02")
+	if err != nil || !appended || snapshot.Complete {
+		t.Fatalf("missing-price fixture snapshot: complete=%v appended=%v err=%v", snapshot.Complete, appended, err)
+	}
+	before, err := service.ScanMarketDataHealth(ctx)
+	if err != nil || !hasKind(before, HealthKindMissingManualPrice) {
+		t.Fatalf("missing opening price was not reported: %+v %v", before, err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-01", false); err != nil {
+		t.Fatal(err)
+	}
+	afterQuote, err := service.ScanMarketDataHealth(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasKind(afterQuote, HealthKindMissingManualPrice) {
+		t.Fatalf("manual opening-price issue remained after the quote was saved: %+v", afterQuote.Issues)
+	}
+	if afterQuote.Healthy || afterQuote.IssueCount != 1 || !hasKind(afterQuote, HealthKindSnapshotOutdated) || afterQuote.SnapshotDays != 2 {
+		t.Fatalf("legitimate outdated snapshot must remain the one repair issue: %+v", afterQuote)
+	}
+	if _, err := service.RebuildDirtySnapshots(ctx); err != nil {
+		t.Fatal(err)
+	}
+	afterRebuild, err := service.ScanMarketDataHealth(ctx)
+	if err != nil || !afterRebuild.Healthy || afterRebuild.IssueCount != 0 || afterRebuild.SnapshotDays != 0 {
+		t.Fatalf("snapshot rebuild did not clear the final health issue: %+v %v", afterRebuild, err)
+	}
+}
+
 func TestScanMarketDataHealthVerifiesRepairClearsExecutableGaps(t *testing.T) {
 	t.Parallel()
 	tiingoInner := &syncFakeProvider{key: TiingoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {

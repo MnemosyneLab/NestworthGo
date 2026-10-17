@@ -161,18 +161,26 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	if err != nil {
 		return empty, err
 	}
-	episodeRows, err := tx.QueryContext(ctx, `SELECT e.id,e.rule_id,e.instrument_id,e.position_epoch_id,e.opened_condition_version,e.first_hit_on,e.triggered_on,e.first_detected_at,e.acknowledged_at,e.revision FROM investment_review_episodes e JOIN investment_review_rules r ON r.id=e.rule_id WHERE r.household_id=? AND e.resolved_at IS NULL ORDER BY e.rule_id,e.instrument_id,e.position_epoch_id`, householdID.String())
+	episodeRows, err := tx.QueryContext(ctx, `SELECT e.id,e.rule_id,e.instrument_id,e.position_epoch_id,e.opened_condition_version,e.first_hit_on,e.triggered_on,e.first_detected_at,e.acknowledged_at,e.revision,e.evidence_json FROM investment_review_episodes e JOIN investment_review_rules r ON r.id=e.rule_id WHERE r.household_id=? AND e.resolved_at IS NULL ORDER BY e.rule_id,e.instrument_id,e.position_epoch_id`, householdID.String())
 	if err != nil {
 		return empty, err
 	}
 	for episodeRows.Next() {
 		var item domain.ReviewStoredEpisode
-		var id, ruleID, instrumentID, detected string
+		var id, ruleID, instrumentID, detected, evidenceJSON string
 		var acknowledged sql.NullString
-		if err := episodeRows.Scan(&id, &ruleID, &instrumentID, &item.PositionEpochID, &item.OpenedConditionVersion, &item.FirstHitOn, &item.TriggeredOn, &detected, &acknowledged, &item.Revision); err != nil {
+		if err := episodeRows.Scan(&id, &ruleID, &instrumentID, &item.PositionEpochID, &item.OpenedConditionVersion, &item.FirstHitOn, &item.TriggeredOn, &detected, &acknowledged, &item.Revision, &evidenceJSON); err != nil {
 			episodeRows.Close()
 			return empty, err
 		}
+		var episodeEvidence reviewEpisodeEvidence
+		if err := json.Unmarshal([]byte(evidenceJSON), &episodeEvidence); err != nil {
+			episodeRows.Close()
+			return empty, fmt.Errorf("decode review episode evidence: %w", err)
+		}
+		item.TriggerWindow = episodeEvidence.TriggerWindow
+		item.TriggerResult = episodeEvidence.TriggerResult
+		item.TriggerCoverage = episodeEvidence.TriggerCoverage
 		if item.ID, err = domain.ParseReviewEpisodeID(id); err != nil {
 			episodeRows.Close()
 			return empty, err

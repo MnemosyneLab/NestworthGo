@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import { NavigationContext } from "@/app/NavigationContext";
 import type { ReviewAlertPage, ReviewCoveragePage } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { InvestmentReviewPage } from "./InvestmentReviewPage";
 
 const state = vi.hoisted(() => {
-  const mutation = () => ({ mutateAsync: vi.fn(async () => ({})), isPending: false });
+  const mutation = () => ({ mutateAsync: vi.fn(async () => ({})), get isPending() { return state.suppressPending; } });
   return {
+    suppressPending: false,
+    origin: { timezone: "Asia/Singapore" },
     filter: null as unknown,
     coverageFilter: null as unknown,
     alert: { data: null as ReviewAlertPage | null, isPending: false, isError: false, isFetching: false, error: null, refetch: vi.fn() },
@@ -27,6 +30,8 @@ vi.mock("@/queries/investmentReviewV2", () => ({
   useReviewSuppressionsV2: () => state.suppressions,
   useReviewV2Commands: () => state.commands,
 }));
+vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: state.origin }) }));
+vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { weekStart: "monday", dateFormat: "iso" } }) }));
 vi.mock("./ReviewRuleEditor", () => ({ ReviewRuleEditor: () => null }));
 
 function report(): ReviewAlertPage {
@@ -46,6 +51,8 @@ function tree() { return <NavigationContext.Provider value={{ open, openHealth: 
 function mount() { return render(tree()); }
 beforeEach(async () => {
   vi.clearAllMocks();
+  state.suppressPending = false;
+  state.origin = { timezone: "Asia/Singapore" };
   await i18n.changeLanguage("en");
   state.alert.data = report(); state.alert.isPending = state.alert.isError = state.alert.isFetching = false;
   state.rules.data = [];
@@ -127,6 +134,73 @@ describe("daily investment review page", () => {
     expect(state.commands.suppress.mutateAsync).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Ignore permanently" }));
     await waitFor(() => expect(state.commands.suppress.mutateAsync).toHaveBeenCalledWith({ instrumentId: "synthetic-investment", mode: "permanent" }));
+  });
+  it("uses the household civil date to block today and earlier resume dates", async () => {
+    const today = localDateInTimeZone("Asia/Singapore")!;
+    const yesterdayValue = new Date(`${today}T00:00:00Z`);
+    yesterdayValue.setUTCDate(yesterdayValue.getUTCDate() - 1);
+    const yesterday = yesterdayValue.toISOString().slice(0, 10);
+    const tomorrowValue = new Date(`${today}T00:00:00Z`);
+    tomorrowValue.setUTCDate(tomorrowValue.getUTCDate() + 1);
+    const tomorrow = tomorrowValue.toISOString().slice(0, 10);
+    const dateLabel = (value: string) => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
+    const user = userEvent.setup();
+    mount();
+    await user.click(screen.getByRole("button", { name: "More actions for Synthetic fund" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Ignore until date" }));
+    expect(screen.getByText("Choose a resume date after today in Asia/Singapore.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Resume on" }));
+    expect(screen.getByRole("button", { name: new RegExp(dateLabel(yesterday)) })).toBeDisabled();
+    expect(screen.getByRole("button", { name: new RegExp(dateLabel(today)) })).toBeDisabled();
+    expect(screen.getByRole("button", { name: new RegExp(dateLabel(tomorrow)) })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: new RegExp(dateLabel(tomorrow)) }));
+    expect(screen.getByRole("button", { name: "Ignore until this date" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Ignore until this date" }));
+    await waitFor(() => expect(state.commands.suppress.mutateAsync).toHaveBeenCalledWith({ instrumentId: "synthetic-investment", mode: "until_date", untilOn: tomorrow }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("keeps the resume date sheet open after structured validation and allows retry or cancel", async () => {
+    const today = localDateInTimeZone("Asia/Singapore")!;
+    const tomorrowValue = new Date(`${today}T00:00:00Z`);
+    tomorrowValue.setUTCDate(tomorrowValue.getUTCDate() + 1);
+    const tomorrow = tomorrowValue.toISOString().slice(0, 10);
+    const dateLabel = (value: string) => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
+    const wireError = { code: "validation", field: "untilOn", message: "secret raw backend message" };
+    state.commands.suppress.mutateAsync.mockRejectedValueOnce(Object.assign(new Error(JSON.stringify(wireError)), { wireError }));
+    const user = userEvent.setup();
+    mount();
+    await user.click(screen.getByRole("button", { name: "More actions for Synthetic fund" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Ignore until date" }));
+    await user.click(screen.getByRole("button", { name: "Resume on" }));
+    await user.click(screen.getByRole("button", { name: new RegExp(dateLabel(tomorrow)) }));
+    await user.click(screen.getByRole("button", { name: "Ignore until this date" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose a resume date after today in Asia/Singapore.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("secret raw backend message");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const resumeOn = screen.getByRole("button", { name: "Resume on" });
+    expect(resumeOn).toHaveTextContent(tomorrow);
+    expect(resumeOn).toHaveAttribute("aria-invalid", "true");
+    expect(resumeOn).toHaveAttribute("aria-describedby", "review-ignore-until-help review-ignore-until-error");
+    expect(document.getElementById("review-ignore-until-error")).toHaveTextContent("Choose a resume date after today in Asia/Singapore.");
+    let complete!: () => void;
+    state.commands.suppress.mutateAsync.mockImplementationOnce(() => {
+      state.suppressPending = true;
+      return new Promise<object>(resolve => { complete = () => resolve({}); });
+    });
+    const save = screen.getByRole("button", { name: "Ignore until this date" });
+    await user.click(save);
+    await waitFor(() => expect(save).toBeDisabled());
+    await user.click(save);
+    expect(state.commands.suppress.mutateAsync).toHaveBeenCalledTimes(2);
+    state.suppressPending = false;
+    complete();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "More actions for Synthetic fund" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Ignore until date" }));
+    expect(screen.getByRole("button", { name: "Resume on" })).not.toHaveTextContent(tomorrow);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
   it("returns focus to the active filter after the acknowledged row leaves the report", async () => {
     const view = mount();

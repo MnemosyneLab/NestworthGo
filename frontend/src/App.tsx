@@ -11,7 +11,7 @@ import { useStartup } from "@/queries/app";
 import { useSettings } from "@/queries/settings";
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
-import { resolveLegacyTarget, targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus, type HistoricalNavigationContext, type InstrumentDetailContext, type PortfolioView } from "@/app/navigation";
+import { resolveLegacyTarget, targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus, type HistoricalNavigationContext, type InstrumentDetailContext, type PortfolioView, type UpcomingActionsTab } from "@/app/navigation";
 import { useAnalysisStore } from "@/stores/analysis";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,6 +54,7 @@ function App() {
   const [activePageId, setActivePageId] = useState<PageId>(DEFAULT_PAGE_ID);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [portfolioView, setPortfolioView] = useState<PortfolioView>("holdings");
+  const [upcomingTab, setUpcomingTab] = useState<UpcomingActionsTab>("recent");
   const [accountCreateRequestId, setAccountCreateRequestId] = useState(0);
   const [returnToHoldingsAfterCreate, setReturnToHoldingsAfterCreate] = useState(false);
   const [holdingDraftRequest, setHoldingDraftRequest] = useState<{ requestId: number; accountId: string }>();
@@ -70,6 +71,8 @@ function App() {
   const [healthFocus, setHealthFocus] = useState<HealthFocus>();
   const [marketFocus, setMarketFocus] = useState<HealthFocus>();
   const [marketFocusRequestId, setMarketFocusRequestId] = useState(0);
+  const [marketSearchQuery, setMarketSearchQuery] = useState("");
+  const marketSearchByRequest = useRef(new Map<number, string>());
   const nextMarketFocusRequestId = useRef(0);
   const [visitedMaintenance, setVisitedMaintenance] = useState({ market: false, health: false });
   const [historicalDate, setHistoricalDate] = useState<string>();
@@ -80,7 +83,7 @@ function App() {
   const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
   const [liquidityRequestId, setLiquidityRequestId] = useState(0);
   const nextLiquidityRequestId = useRef(0);
-  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; portfolioView: PortfolioView; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
+  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; upcomingTab: UpcomingActionsTab; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
   const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
@@ -143,6 +146,7 @@ function App() {
     if (!retainSource) { setTrail([]); setReturnToHoldingsAfterCreate(false); }
     const navigation = resolveLegacyTarget(typeof target === "string" ? targetForPage(target) : target);
     const pageId = navigation.page;
+    if (navigation.page === "upcoming-actions") setUpcomingTab(navigation.tab ?? "recent");
     if (navigation.page === "historical-overview") { setHistoricalDate(navigation.date); setHistoricalContext(navigation.historical); setHistoricalRequest(previous => previous + 1); }
     // Top-level Accounts navigation always returns to the list. Opening a
     // specific account uses openAccount, which sets selectedAccountId first.
@@ -154,7 +158,11 @@ function App() {
     }
     if (navigation.page === "market-data") {
       setMarketFocus(navigation.focus);
-      setMarketFocusRequestId(++nextMarketFocusRequestId.current);
+      const nextRequestId = ++nextMarketFocusRequestId.current;
+      const nextSearch = navigation.focus?.instrumentId ? "" : marketSearchQuery;
+      marketSearchByRequest.current.set(nextRequestId, nextSearch);
+      setMarketSearchQuery(nextSearch);
+      setMarketFocusRequestId(nextRequestId);
       setVisitedMaintenance(previous => ({ ...previous, market: true }));
     }
     if (navigation.page === "data-health") { setHealthFocus(navigation.focus); setVisitedMaintenance(previous => ({ ...previous, health: true })); }
@@ -187,9 +195,9 @@ function App() {
     if (hasUnresolvedSheetConfirmation()) return;
     if (target.page === "available-funds" && target.page === activePageId) { handleNavigate(target, true); return; }
     setReturnToHoldingsAfterCreate(target.page === "accounts" && target.create === true && activePageId === "portfolio");
-    setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, instrumentDetail,
+    setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, upcomingTab, instrumentDetail,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
-      marketFocusRequestId, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
+      marketFocusRequestId, marketSearchQuery, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
     handleNavigate(target, true);
   };
   const openHealth = (focus: HealthFocus) => {
@@ -197,6 +205,10 @@ function App() {
     else if (focus.action === "provider_settings") open({ page: "settings" });
     else if (focus.instrumentId || (focus.currencyA && focus.currencyB)) open({ page: "market-data", focus });
     else open({ page: "data-health", focus });
+  };
+  const updateMarketSearchQuery = (query: string) => {
+    marketSearchByRequest.current.set(marketFocusRequestId, query);
+    setMarketSearchQuery(query);
   };
   const back = () => {
     if (hasUnresolvedSheetConfirmation()) return;
@@ -208,7 +220,8 @@ function App() {
     setSelectedAccountId(previous.accountId); setAccountFilter(previous.filter); setUpdateValue(false);
     setHealthFocus(previous.health); setMarketFocus(previous.market);
     setMarketFocusRequestId(previous.marketFocusRequestId);
-    setPortfolioView(previous.portfolioView); setInstrumentDetail(previous.instrumentDetail);
+    setMarketSearchQuery(marketSearchByRequest.current.get(previous.marketFocusRequestId) ?? previous.marketSearchQuery);
+    setPortfolioView(previous.portfolioView); setUpcomingTab(previous.upcomingTab); setInstrumentDetail(previous.instrumentDetail);
     setLiquidityProductId(previous.liquidityProduct); setLiquidityAccountId(previous.liquidityAccount); setLiquidityFocus(previous.liquidityFocus); setLiquidityRequestId(previous.liquidityRequest ?? 0);
     setActivePageId(previous.page); setTrail(trail.slice(0, -1));
   };
@@ -251,7 +264,7 @@ function App() {
         </div>
       )}
       {retained("reconciliation") && <div hidden={activePageId !== "reconciliation"}><WorkspaceLazy><ReconciliationPage key={`${reconciliationFocus.accountId}:${reconciliationFocus.sessionId}`} {...reconciliationFocus} /></WorkspaceLazy></div>}
-      {retained("upcoming-actions") && <div hidden={activePageId !== "upcoming-actions"}><WorkspaceLazy><UpcomingActionsPage isActive={activePageId === "upcoming-actions"} /></WorkspaceLazy></div>}
+      {retained("upcoming-actions") && <div hidden={activePageId !== "upcoming-actions"}><WorkspaceLazy><UpcomingActionsPage isActive={activePageId === "upcoming-actions"} tab={upcomingTab} onTabChange={setUpcomingTab} /></WorkspaceLazy></div>}
       {retained("portfolio") && (
         <div hidden={activePageId !== "portfolio"}>
         <WorkspaceLazy>
@@ -282,7 +295,7 @@ function App() {
           </TabsList>
           <TabsContent value="market-data" keepMounted>
             {visitedMaintenance.market && <WorkspaceLazy>
-              <MarketDataPage focus={marketFocus} focusRequestId={marketFocusRequestId} isActive={activePageId === "market-data"} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
+              <MarketDataPage focus={marketFocus} focusRequestId={marketFocusRequestId} searchQuery={marketSearchQuery} onSearchQueryChange={updateMarketSearchQuery} isActive={activePageId === "market-data"} onOpenDataHealth={() => open({ page: "data-health", focus: marketFocus })} />
             </WorkspaceLazy>}
           </TabsContent>
           <TabsContent value="data-health" keepMounted>

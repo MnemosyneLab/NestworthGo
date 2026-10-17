@@ -1,7 +1,7 @@
 import type { HealthFocus } from "@/app/navigation";
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { metalPriceSuffix } from "@/lib/preciousMetals";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -205,6 +205,8 @@ export function InstrumentManagement({
   onSyncInstrument,
   syncingInstrumentId,
   browseAll = false,
+  searchQuery: controlledSearchQuery,
+  onSearchQueryChange,
 }: {
   focus?: HealthFocus;
   /** Monotonic App navigation request; backtracking restores the prior value. */
@@ -218,6 +220,8 @@ export function InstrumentManagement({
   syncingInstrumentId?: string;
   /** Investment browser includes unowned, archived and product-owned records. */
   browseAll?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }) {
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
@@ -239,7 +243,22 @@ export function InstrumentManagement({
     : focus?.action === "manual_entry";
   const setEditTarget = (value: InstrumentDTO | null) => setEditOverrides((previous) => new Map(previous).set(focusRequestId, value));
   const setShowPriceForm = (value: boolean) => setPriceFormOverrides((previous) => new Map(previous).set(focusRequestId, value));
-  const [query, setQuery] = useState("");
+  const [localQuery, setLocalQuery] = useState("");
+  const query = controlledSearchQuery ?? localQuery;
+  const searchContextByRequest = useRef(new Map<number, string>());
+  const activeSearchRequest = useRef(focusRequestId);
+  useEffect(() => {
+    if (controlledSearchQuery !== undefined) return;
+    if (activeSearchRequest.current === focusRequestId) return;
+    searchContextByRequest.current.set(activeSearchRequest.current, query);
+    activeSearchRequest.current = focusRequestId;
+    // Restore the page's search context when App's Back stack restores its request ID.
+    setLocalQuery(searchContextByRequest.current.get(focusRequestId) ?? "");
+  }, [controlledSearchQuery, focusRequestId, query]);
+  const setQuery = (value: string) => {
+    setLocalQuery(value);
+    onSearchQueryChange?.(value);
+  };
   const productByInstrument = useMemo(
     () => new Map((products.data ?? []).map((detail) => [detail.product.instrumentId, detail.product])),
     [products.data],
@@ -257,6 +276,10 @@ export function InstrumentManagement({
       return haystack.includes(needle);
     });
   }, [instruments.data, query, focus, browseAll]);
+  const availableCatalog = useMemo(
+    () => (instruments.data ?? []).filter(item => browseAll || !item.managedProductId),
+    [instruments.data, browseAll],
+  );
 
   if (instruments.isLoading || products.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
@@ -317,7 +340,9 @@ export function InstrumentManagement({
       )}
 
       {filtered.length === 0 ? (
-        <EmptyState title={t("portfolio.noInstruments")} description={t("portfolio.noInstrumentsDescription")} />
+        availableCatalog.length === 0
+          ? <EmptyState title={t("portfolio.noInstruments")} description={t("portfolio.noInstrumentsDescription")} />
+          : <EmptyState title={t("marketData.noInstrumentMatches")} description={t("marketData.noInstrumentMatchesDescription")} />
       ) : (
         <div className="flex flex-col gap-4">
           {groupByInstrumentType(filtered).map((group) => (
@@ -333,7 +358,7 @@ export function InstrumentManagement({
                     onView={navigation ? () => navigation.open({
                       page: "instrument-detail",
                       instrumentId: instrument.id,
-                      section: focus ? "data" : "holdings",
+                      section: pageId === "market-data" ? "data" : "holdings",
                       from: focus?.rangeStart,
                       to: focus?.rangeEnd,
                       healthFocus: focus,

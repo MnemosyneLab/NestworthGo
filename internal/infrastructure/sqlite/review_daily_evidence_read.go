@@ -35,14 +35,14 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 	if err != nil {
 		return empty, err
 	}
-	var ruleID, instrumentID, triggeredOn, windowStart, latest, specJSON string
+	var ruleID, instrumentID, triggeredOn, latest, specJSON, episodeEvidenceJSON string
 	var episodeRevision, conditionVersion int
-	err = tx.QueryRowContext(ctx, `SELECT e.rule_id,e.instrument_id,e.triggered_on,e.window_start,e.latest_closed_on,e.revision,
+	err = tx.QueryRowContext(ctx, `SELECT e.rule_id,e.instrument_id,e.triggered_on,e.latest_closed_on,e.revision,e.evidence_json,
 	 r.current_condition_version,
 	 v.canonical_spec_json
 	 FROM investment_review_episodes e JOIN investment_review_rules r ON r.id=e.rule_id
 	 JOIN investment_review_rule_versions v ON v.rule_id=e.rule_id AND v.condition_version=r.current_condition_version
-	 WHERE e.id=? AND e.resolved_at IS NULL AND r.household_id=? AND r.evaluator=?`, string(episodeID), householdID.String(), domain.ReviewEvaluator).Scan(&ruleID, &instrumentID, &triggeredOn, &windowStart, &latest, &episodeRevision, &conditionVersion, &specJSON)
+	 WHERE e.id=? AND e.resolved_at IS NULL AND r.household_id=? AND r.evaluator=?`, string(episodeID), householdID.String(), domain.ReviewEvaluator).Scan(&ruleID, &instrumentID, &triggeredOn, &latest, &episodeRevision, &episodeEvidenceJSON, &conditionVersion, &specJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return empty, &domain.Error{Code: domain.ErrNotFound, Field: "episodeId", Message: "review episode not found"}
 	}
@@ -54,14 +54,25 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 		return empty, err
 	}
 	timezoneVersion := spec.Schedule.Timezone + "/" + spec.Schedule.CutoffVersion
-	// The trigger day is the end of a policy window, not the first vote that
-	// established it. Preserve the earlier window votes for consecutive and
-	// rolling rules; long-lived episodes can still show their trigger history.
-	firstOn := triggeredOn
-	if windowStart < firstOn {
-		firstOn = windowStart
+	// The latest rolling window advances as the episode continues. Evidence
+	// pagination instead starts at the window that originally caused this
+	// episode to open, including its false and unknown votes.
+	var storedEvidence reviewEpisodeEvidence
+	if err := json.Unmarshal([]byte(episodeEvidenceJSON), &storedEvidence); err != nil {
+		return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review episode evidence is invalid"}
 	}
-	if _, err := time.Parse(time.DateOnly, firstOn); err != nil || firstOn > latest {
+	firstOn := storedEvidence.TriggerWindow.WindowStart
+	if firstOn == "" {
+		// Compatibility for an episode created before trigger windows were
+		// stored. A normal reconciliation rebuilds its projection from history.
+		width := reviewDailyEvidenceWindowWidth(spec.TriggerPolicy)
+		triggerDay, err := time.Parse(time.DateOnly, triggeredOn)
+		if err != nil {
+			return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review trigger date is invalid"}
+		}
+		firstOn = triggerDay.AddDate(0, 0, 1-width).Format(time.DateOnly)
+	}
+	if _, err := time.Parse(time.DateOnly, firstOn); err != nil || firstOn > triggeredOn || firstOn > latest {
 		return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review evidence range is invalid"}
 	}
 	revisionBytes, err := json.Marshal(struct {
@@ -131,4 +142,15 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 		return empty, err
 	}
 	return result, nil
+}
+
+func reviewDailyEvidenceWindowWidth(policy domain.ReviewTriggerPolicy) int {
+	switch policy.Kind {
+	case "consecutive":
+		return policy.Count
+	case "rolling":
+		return policy.WindowDays
+	default:
+		return 1
+	}
 }

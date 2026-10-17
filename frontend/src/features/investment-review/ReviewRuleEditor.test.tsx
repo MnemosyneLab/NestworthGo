@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
+import { timeZoneOptions } from "@/lib/time";
 import type { ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { ReviewRuleEditor } from "./ReviewRuleEditor";
 
-const state = vi.hoisted(() => ({ save: vi.fn(async (_value: unknown) => ({})) }));
+const state = vi.hoisted(() => ({ save: vi.fn(async (_value: unknown) => ({})), preview: vi.fn(async (_value: unknown) => ({ window: { hitCount: 0, falseCount: 0, unknownCount: 0, windowStart: "2026-10-01", windowEnd: "2026-10-01" } })), origin: { timezone: "Asia/Singapore" }, bootstrap: { household: { baseCurrency: "USD" } }, catalog: { currencies: ["USD", "CNY", "EUR"] } as { currencies: string[] } | undefined, catalogError: false, catalogRefetch: vi.fn() }));
 vi.mock("@/queries/investments", () => ({ useInstruments: () => ({ data: [{ id: "synthetic-fund", name: "Synthetic fund" }] }) }));
-vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "UTC" } }) }));
+vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "system" } }) }));
+vi.mock("@/queries/catalog", () => ({ useCatalog: () => ({ data: state.catalog, isError: state.catalogError, refetch: state.catalogRefetch }) }));
+vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: state.origin }) }));
+vi.mock("@/queries/household", () => ({ useBootstrap: () => ({ data: state.bootstrap }) }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({ Service: { PreviewReviewRuleV2: state.preview } }));
 vi.mock("@/queries/investmentReviewV2", () => ({ useReviewV2Commands: () => ({
   createRule: { mutateAsync: state.save, isPending: false }, updateRule: { mutateAsync: state.save, isPending: false },
 }) }));
@@ -24,7 +29,7 @@ const rule = {
   spec: { target: { kind: "all_current" }, predicate, schedule: { timezone: "UTC" }, triggerPolicy: { kind: "single" } },
 } as unknown as ReviewRule;
 
-beforeEach(async () => { vi.clearAllMocks(); await i18n.changeLanguage("en"); });
+beforeEach(async () => { vi.clearAllMocks(); state.origin = { timezone: "Asia/Singapore" }; state.bootstrap = { household: { baseCurrency: "USD" } }; state.catalog = { currencies: ["USD", "CNY", "EUR"] }; state.catalogError = false; await i18n.changeLanguage("en"); });
 
 describe("investment review rule editor", () => {
   it("visually edits a nested predicate without flattening its groups or sibling leaves", async () => {
@@ -36,6 +41,7 @@ describe("investment review rule editor", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
     const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("UTC");
     expect(saved.spec.predicate).toEqual({ any: [
       { all: [
         { leaf: { metric: "type", operator: "in", types: ["mutual_fund", "etf"] } },
@@ -53,6 +59,262 @@ describe("investment review rule editor", () => {
     const saved = state.save.mock.calls[0][0] as { spec: { predicate: { any: unknown[] } } };
     expect(saved.spec.predicate.any).toHaveLength(3);
     expect(saved.spec.predicate.any[2]).toEqual({ all: [{ leaf: expect.objectContaining({ metric: "amount", value: "1000" }) }] });
+  });
+  it("allows an existing rule timezone to be edited and submits the changed value", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
+    expect(timezone).toHaveValue("UTC");
+    await userEvent.click(timezone);
+    await userEvent.type(timezone, "Asia/Singapore");
+    expect(screen.getByRole("option", { name: "Asia/Singapore" })).toBeVisible();
+    await userEvent.keyboard("{Enter}");
+    expect(timezone).toHaveFocus();
+    expect(timezone).toHaveValue("Asia/Singapore");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("Asia/Singapore");
+  });
+  it("preserves a valid stored timezone that is absent from Intl's supported options", async () => {
+    const alias = ["US/Eastern", "US/Pacific", "America/Atka", "America/Shiprock", "Etc/GMT+5"].find(candidate => {
+      try { new Intl.DateTimeFormat("en", { timeZone: candidate }); return !timeZoneOptions().includes(candidate); }
+      catch { return false; }
+    });
+    expect(alias).toBeDefined();
+    if (!alias) throw new Error("No valid timezone alias is absent from Intl's supported options");
+    const aliasRule = { ...rule, spec: { ...rule.spec, schedule: { timezone: alias } } } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={aliasRule} />);
+    const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
+    expect(timezone).toHaveValue(alias);
+    await userEvent.click(timezone);
+    expect(screen.getByRole("option", { name: alias })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe(alias);
+  });
+  it("uses the IANA timezone chooser and cancels search text on Escape and Tab", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
+    expect(timezone).toHaveValue("Asia/Singapore");
+    await userEvent.click(timezone);
+    expect(screen.queryByRole("option", { name: "system" })).not.toBeInTheDocument();
+    await userEvent.type(timezone, "Pacific/Auckland");
+    await userEvent.keyboard("{Escape}");
+    expect(timezone).toHaveValue("Asia/Singapore");
+    expect(timezone).toHaveFocus();
+    await userEvent.click(timezone);
+    await userEvent.type(timezone, "Pacific/Auckland");
+    await userEvent.tab();
+    expect(timezone).toHaveValue("Asia/Singapore");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+  it("snapshots the household timezone and defaults new money conditions to its base currency", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    expect(screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") })).toHaveValue("Asia/Singapore");
+    expect(screen.getByRole("combobox", { name: "Currency" })).toHaveValue("USD");
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic threshold");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string }; predicate: { all: Array<{ leaf: { currency?: string } }> } } };
+    expect(saved.spec.schedule.timezone).toBe("Asia/Singapore");
+    expect(saved.spec.predicate.all[0].leaf.currency).toBe("USD");
+  });
+  it("keeps a cleared new-rule currency blank until the user selects a replacement", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveValue("USD");
+    await userEvent.selectOptions(currency, "");
+    expect(currency).toHaveValue("");
+    expect(currency).toHaveAttribute("aria-invalid", "true");
+    expect(document.getElementById(currency.getAttribute("aria-describedby")!)).toHaveTextContent(i18n.t("reviewV2.currencyInvalid"));
+    await userEvent.selectOptions(currency, "EUR");
+    expect(currency).toHaveValue("EUR");
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic EUR threshold");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { currency?: string } }> } } }).spec.predicate.all[0].leaf.currency).toBe("EUR");
+  });
+  it("keeps the saved currency visible while the catalog is loading and preserves it on save", async () => {
+    state.catalog = undefined;
+    const onOpenChange = vi.fn();
+    render(<ReviewRuleEditor open onOpenChange={onOpenChange} rule={rule} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveValue("CNY");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect(saved.spec.predicate.any?.[1].leaf?.currency).toBe("CNY");
+  });
+  it("reports currency catalog errors and retries while retaining the household fallback", async () => {
+    state.catalog = undefined;
+    state.catalogError = true;
+    const view = render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    expect(screen.getByText(i18n.t("reviewV2.currencyCatalogError"))).toBeVisible();
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveValue("CNY");
+    const costValue = screen.getAllByRole("textbox", { name: "Value" })[1];
+    await userEvent.clear(costValue);
+    await userEvent.type(costValue, "1250");
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(state.catalogRefetch).toHaveBeenCalledOnce();
+    state.catalog = { currencies: ["USD", "CNY", "EUR"] };
+    state.catalogError = false;
+    view.rerender(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    expect(currency).toHaveValue("CNY");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect(saved.spec.predicate.any?.[1].leaf).toEqual({ metric: "cost", operator: ">", value: "1250", currency: "CNY", fxMode: "native" });
+  });
+  it("blocks unsupported saved currencies from preview and save, then allows a supported correction", async () => {
+    const unsupportedRule = {
+      ...rule,
+      spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "amount", operator: ">", value: "1000", currency: "XYZ", fxMode: "native" } }] } },
+    } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={unsupportedRule} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: i18n.t("reviewV2.previewInstrument") }), "synthetic-fund");
+    expect(currency).toHaveValue("XYZ");
+    expect(currency).toHaveAttribute("aria-invalid", "true");
+    expect(document.getElementById(currency.getAttribute("aria-describedby")!)).toHaveTextContent(i18n.t("reviewV2.currencyInvalid"));
+    const previewButton = screen.getByRole("button", { name: "Preview" });
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(previewButton).toBeDisabled();
+    expect(saveButton).toBeDisabled();
+    await userEvent.click(previewButton);
+    await userEvent.click(saveButton);
+    expect(state.preview).not.toHaveBeenCalled();
+    expect(state.save).not.toHaveBeenCalled();
+
+    await userEvent.selectOptions(currency, "EUR");
+    expect(currency).toHaveValue("EUR");
+    expect(currency).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(state.preview).toHaveBeenCalledOnce());
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { currency: string } }> } } };
+    expect(saved.spec.predicate.all[0].leaf.currency).toBe("EUR");
+  });
+  it("preserves an unsupported value during loading, then marks it invalid when the catalog arrives", async () => {
+    state.catalog = undefined;
+    const unsupportedRule = {
+      ...rule,
+      spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "cost", operator: ">", value: "1000", currency: "XYZ", fxMode: "native" } }] } },
+    } as unknown as ReviewRule;
+    const view = render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={unsupportedRule} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveValue("XYZ");
+    expect(currency).not.toHaveAttribute("aria-invalid", "true");
+    state.catalog = { currencies: ["USD", "CNY", "EUR"] };
+    view.rerender(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={unsupportedRule} />);
+    expect(currency).toHaveValue("XYZ");
+    expect(currency).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+  it("allows a catalog currency to replace an existing monetary condition currency", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const currency = screen.getAllByRole("combobox", { name: "Currency" })[0];
+    expect(currency).toHaveValue("CNY");
+    await userEvent.selectOptions(currency, "EUR");
+    expect(currency).toHaveValue("EUR");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect(saved.spec.predicate.any[1].leaf).toEqual({ metric: "cost", operator: ">", value: "1000", currency: "EUR", fxMode: "native" });
+  });
+  it("seeds an untouched new currency when bootstrap arrives after the editor mounts", async () => {
+    state.bootstrap = undefined as unknown as { household: { baseCurrency: string } };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveValue("");
+    state.bootstrap = { household: { baseCurrency: "USD" } };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(currency).toHaveValue("USD"));
+  });
+  it("seeds additional conditions added before delayed bootstrap", async () => {
+    state.bootstrap = undefined as unknown as { household: { baseCurrency: string } };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "Add condition to group 1" }));
+    expect(screen.getAllByRole("combobox", { name: "Currency" }).map(input => (input as HTMLSelectElement).value)).toEqual(["", ""]);
+    state.bootstrap = { household: { baseCurrency: "USD" } };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(screen.getAllByRole("combobox", { name: "Currency" }).map(input => (input as HTMLSelectElement).value)).toEqual(["USD", "USD"]));
+  });
+  it("preserves a currency selected before delayed bootstrap completes", async () => {
+    state.bootstrap = undefined as unknown as { household: { baseCurrency: string } };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    await userEvent.selectOptions(currency, "EUR");
+    state.bootstrap = { household: { baseCurrency: "USD" } };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(currency).toHaveValue("EUR"));
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic delayed EUR threshold");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { currency?: string } }> } } }).spec.predicate.all[0].leaf.currency).toBe("EUR");
+  });
+  it("blocks saving while a monetary currency is intentionally blank", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic blank currency");
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    await userEvent.selectOptions(currency, "");
+    expect(currency).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
+  });
+  it("keeps new-rule submission disabled until the household timezone is loaded", async () => {
+    state.origin = undefined as unknown as { timezone: string };
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic threshold");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
+  });
+  it("initializes timezone after delayed history bootstrap without locking user edits", async () => {
+    state.origin = undefined as unknown as { timezone: string };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
+    expect(timezone).toHaveValue("");
+    state.origin = { timezone: "Asia/Singapore" };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(timezone).toHaveValue("Asia/Singapore"));
+    await userEvent.click(timezone);
+    await userEvent.type(timezone, "Pacific/Auckland");
+    await userEvent.keyboard("{Enter}");
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic delayed timezone");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("Pacific/Auckland");
+  });
+  it("does not select a timezone or submit when Enter is part of IME composition", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
+    await userEvent.click(timezone);
+    fireEvent.compositionStart(timezone);
+    fireEvent.change(timezone, { target: { value: "Asia/Singapore" } });
+    fireEvent.keyDown(timezone, { key: "Enter", code: "Enter", keyCode: 229, isComposing: true });
+    expect(state.save).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(timezone);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("UTC");
+  });
+  it("blocks nonnumeric amounts in a new rule after household timezone initialization", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic threshold");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: i18n.t("reviewV2.previewInstrument") }), "synthetic-fund");
+    const amount = screen.getByRole("textbox", { name: "Value" });
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "not-a-number");
+    expect(screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") })).toHaveValue("Asia/Singapore");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
   });
   it("keeps every selected instrument type in a simple daily condition", async () => {
     const simple = { ...rule, spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "type", operator: "in", types: ["mutual_fund"] } }] } } } as unknown as ReviewRule;
@@ -111,5 +373,46 @@ describe("investment review rule editor", () => {
     await userEvent.selectOptions(metrics[0], "annualized");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(state.save).not.toHaveBeenCalled();
+  });
+  it.each([7, 30, 90, 180, 365])("submits the supported %s-day performance lookback", async days => {
+    const lookbackRule = {
+      ...rule,
+      spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "price_change", operator: "<", value: "-5", lookbackDays: 30 } }] } },
+    } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={lookbackRule} />);
+    const lookback = screen.getByRole("combobox", { name: i18n.t("reviewV2.lookbackDays") });
+    expect(Array.from((lookback as HTMLSelectElement).options).map(option => Number(option.value))).toEqual([7, 30, 90, 180, 365]);
+    await userEvent.selectOptions(lookback, String(days));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { lookbackDays?: number } }> } } }).spec.predicate.all[0].leaf.lookbackDays).toBe(days);
+  });
+  it("defaults the lookback when switching to a performance metric and requires an explicit supported correction for legacy values", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: i18n.t("reviewV2.metric") }), "price_change");
+    const newLookback = screen.getByRole("combobox", { name: i18n.t("reviewV2.lookbackDays") });
+    expect(newLookback).toHaveValue("30");
+    await userEvent.selectOptions(newLookback, "90");
+    expect(newLookback).toHaveValue("90");
+    await userEvent.type(screen.getByLabelText("Name"), "Lookback condition");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { lookbackDays?: number } }> } } }).spec.predicate.all[0].leaf.lookbackDays).toBe(90);
+  });
+
+  it("requires an explicit supported correction for an unsupported saved lookback", async () => {
+    const invalidRule = {
+      ...rule,
+      spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "price_change", operator: "<", value: "-5", lookbackDays: 31 } }] } },
+    } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={invalidRule} />);
+    const legacyLookback = screen.getByRole("combobox", { name: i18n.t("reviewV2.lookbackDays") });
+    expect(legacyLookback).toHaveValue("31");
+    expect(legacyLookback).toHaveAttribute("aria-invalid", "true");
+    expect(document.getElementById(legacyLookback.getAttribute("aria-describedby")!)).toHaveTextContent(i18n.t("reviewV2.lookbackInvalid"));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.selectOptions(legacyLookback, "180");
+    expect(legacyLookback).toHaveValue("180");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 });

@@ -117,6 +117,14 @@ func (c *reviewProjectionCache) reusableLatestOn(rule domain.ReviewRule, instrum
 	if c.capture.Control.ProjectionStatus != "complete" || c.capture.Control.PublishedFingerprint != c.capture.HistoricalFingerprint {
 		return "", false
 	}
+	// Older episode projections kept only the latest rolling window. Rebuild
+	// that history once so the episode's original trigger window and first hit
+	// can be reconstructed before allowing bounded incremental replay again.
+	for _, episode := range c.capture.OpenEpisodes {
+		if episode.RuleID == rule.ID && episode.InstrumentID == instrumentID && episode.TriggerWindow.WindowStart == "" {
+			return "", false
+		}
+	}
 	key := reviewDailyEvidenceScopeKey{ruleID: rule.ID, conditionVersion: rule.CurrentConditionVersion, instrumentID: instrumentID, timezoneVersion: timezoneVersion}
 	scope, ok := c.dailyEvidence[key]
 	if !ok || !scope.complete || scope.count == 0 || width < 1 || scope.latestOn > latestOn {

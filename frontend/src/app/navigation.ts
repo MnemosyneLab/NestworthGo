@@ -21,6 +21,7 @@ export type PageId =
 
 export type AnalysisTab = "calendar" | "trend" | "contribution";
 export type AssetChangesTab = "drivers" | "trend" | "categories";
+export type UpcomingActionsTab = "recent" | "review";
 
 export interface AnalysisNavigationContext {
   scope?: "portfolio" | "account" | "instrument";
@@ -104,13 +105,14 @@ export type NavigationTarget =
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "reconciliation"; accountId?: string; sessionId?: string }
+  | { page: "upcoming-actions"; tab?: UpcomingActionsTab }
   | { page: "history"; filters?: HistoryNavigationFilters; activityId?: string }
   | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean; create?: boolean }
   | { page: "portfolio"; view?: PortfolioView }
   | ({ page: "instrument-detail" } & InstrumentDetailContext)
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
   | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }
-  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "reconciliation" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds"> };
+  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "reconciliation" | "upcoming-actions" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the
