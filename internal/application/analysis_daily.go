@@ -608,14 +608,25 @@ func (u analysisUniverse) convertAmount(value decimal.Decimal, currency domain.C
 	if currency == base {
 		return value, nil
 	}
-	rate, ok := fxRateAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, currency, base, at)
-	if !ok {
+	quote := fxQuoteAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, currency, base, at)
+	if quote == nil {
 		return decimal.Zero, &domain.Error{Code: domain.ErrUnavailable, Field: "fxRate", Message: "an FX rate is unavailable for the activity"}
 	}
-	return value.Mul(rate), nil
+	return domain.ConvertFXAmount(value, currency, base, *quote)
 }
 
 func fxRateAt(quotes []domain.FXQuote, preferences []domain.FXPreference, householdID domain.HouseholdID, native, base domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
+	selected := fxQuoteAt(quotes, preferences, householdID, native, base, cutoff)
+	if selected == nil {
+		return decimal.Zero, false
+	}
+	if selected.BaseCurrency == native && selected.QuoteCurrency == base {
+		return selected.Rate.Decimal(), true
+	}
+	return decimal.NewFromInt(1).Div(selected.Rate.Decimal()), true
+}
+
+func fxQuoteAt(quotes []domain.FXQuote, preferences []domain.FXPreference, householdID domain.HouseholdID, native, base domain.CurrencyCode, cutoff time.Time) *domain.FXQuote {
 	preferred := domain.QuoteSourceKind("")
 	for _, preference := range preferences {
 		if preference.HouseholdID == householdID && ((preference.CurrencyA == native && preference.CurrencyB == base) || (preference.CurrencyA == base && preference.CurrencyB == native)) {
@@ -635,13 +646,7 @@ func fxRateAt(quotes []domain.FXQuote, preferences []domain.FXPreference, househ
 		selection.add(quote, fxQuoteOrder(*quote))
 	}
 	selected := selection.selected()
-	if selected == nil {
-		return decimal.Zero, false
-	}
-	if selected.BaseCurrency == native && selected.QuoteCurrency == base {
-		return selected.Rate.Decimal(), true
-	}
-	return decimal.NewFromInt(1).Div(selected.Rate.Decimal()), true
+	return selected
 }
 
 func (u analysisUniverse) quoteForItem(item domain.DailyValuationSnapshotItem, quotes []domain.InstrumentQuote, cutoff time.Time) *domain.InstrumentQuote {

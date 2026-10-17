@@ -108,3 +108,71 @@ func TestUnitPriceFromExactRoundsOnlyWhenScaleExceedsEight(t *testing.T) {
 		t.Fatalf("exact quotient = %q err=%v", exactQuotient.Canonical(), err)
 	}
 }
+
+func TestConvertFXAmountUsesWholeAmountAndQuoteOrientation(t *testing.T) {
+	quoteRate, err := ParseFxRate("8.123456789012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote := FXQuote{BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: quoteRate}
+	value, err := ConvertFXAmount(decimal.RequireFromString("18236001.8236"), "USD", "CNY", quote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rounded, err := NewSignedMoney(value, "CNY")
+	if err != nil || rounded.CanonicalAmount() != "2244857.3677" {
+		t.Fatalf("whole amount division = %s, rounded=%s err=%v", value, rounded.CanonicalAmount(), err)
+	}
+
+	maxAmount := decimal.RequireFromString("999999999999.9999")
+	seven, _ := ParseFxRate("7")
+	quote.Rate = seven
+	value, err = ConvertFXAmount(maxAmount, "USD", "CNY", quote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rounded, err = NewSignedMoney(value, "CNY")
+	if err != nil || rounded.CanonicalAmount() != "142857142857.1428" {
+		t.Fatalf("maximum amount division = %s, rounded=%s err=%v", value, rounded.CanonicalAmount(), err)
+	}
+
+	// The opposite quote orientation multiplies directly.
+	quote.BaseCurrency, quote.QuoteCurrency = "USD", "CNY"
+	quote.Rate, _ = ParseFxRate("7")
+	value, err = ConvertFXAmount(decimal.RequireFromString("2.5"), "USD", "CNY", quote)
+	if err != nil || !value.Equal(decimal.RequireFromString("17.5")) {
+		t.Fatalf("direct quote conversion = %s err=%v", value, err)
+	}
+
+	quote.Rate, _ = ParseFxRate("1")
+	for _, testCase := range []struct{ input, want string }{
+		{input: "0.01025", want: "0.0102"},
+		{input: "0.01035", want: "0.0104"},
+		{input: "-0.01025", want: "-0.0102"},
+		{input: "-0.01035", want: "-0.0104"},
+	} {
+		value, err := ConvertFXAmount(decimal.RequireFromString(testCase.input), "USD", "CNY", quote)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rounded, err := NewSignedMoney(value, "CNY")
+		if err != nil || rounded.CanonicalAmount() != testCase.want {
+			t.Errorf("conversion of %s rounded to %s, want %s (err=%v)", testCase.input, rounded.CanonicalAmount(), testCase.want, err)
+		}
+	}
+}
+
+func TestConvertFXAmountRejectsInvalidPairsRatesAndOverflow(t *testing.T) {
+	rate, _ := ParseFxRate("2")
+	quote := FXQuote{BaseCurrency: "EUR", QuoteCurrency: "GBP", Rate: rate}
+	if _, err := ConvertFXAmount(decimal.NewFromInt(1), "USD", "CNY", quote); err == nil {
+		t.Fatal("mismatched quote pair converted an amount")
+	}
+	if _, err := ConvertFXAmount(decimal.NewFromInt(1), "USD", "CNY", FXQuote{BaseCurrency: "CNY", QuoteCurrency: "USD"}); err == nil {
+		t.Fatal("zero FX rate converted an amount")
+	}
+	quote = FXQuote{BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate}
+	if _, err := ConvertFXAmount(decimal.RequireFromString("999999999999.9999"), "USD", "CNY", quote); err == nil {
+		t.Fatal("out-of-range conversion succeeded")
+	}
+}

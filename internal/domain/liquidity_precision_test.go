@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"github.com/shopspring/decimal"
 	"testing"
+
+	"github.com/shopspring/decimal"
 )
 
 func TestLiquidityRetainsValuationPrecisionThroughFeesReservationsAndFX(t *testing.T) {
@@ -33,7 +34,10 @@ func TestLiquidityRetainsValuationPrecisionThroughFeesReservationsAndFX(t *testi
 				reservations = append(reservations, LiquidityReservation{ID: NewLiquidityReservationID(), HouseholdID: policy.HouseholdID, Source: s.Ref, Label: "Reserve", Amount: mustTestMoney(t, "0.5", "USD"), Currency: "USD", Revision: 1, CreatedAt: q.AsOf, UpdatedAt: q.AsOf})
 			}
 			rate := decimal.RequireFromString("7.12345678")
-			convert := func(m Money) (*decimal.Decimal, bool, error) { v := m.Amount().Mul(rate); return &v, true, nil }
+			convert := func(amount decimal.Decimal, _ CurrencyCode) (*decimal.Decimal, bool, error) {
+				v := amount.Mul(rate)
+				return &v, true, nil
+			}
 			got, err := EvaluateLiquidity(q, sources, reservations, convert)
 			if err != nil {
 				t.Fatal(err)
@@ -56,6 +60,24 @@ func TestLiquidityRetainsValuationPrecisionThroughFeesReservationsAndFX(t *testi
 				}
 			}
 		})
+	}
+}
+
+func TestLiquidityConvertsExactWholeAmountThroughReciprocalQuote(t *testing.T) {
+	rate, _ := ParseFxRate("7")
+	quote := FXQuote{BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate}
+	convert := func(amount decimal.Decimal, currency CurrencyCode) (*decimal.Decimal, bool, error) {
+		converted, err := ConvertFXAmount(amount, currency, "CNY", quote)
+		return &converted, err == nil, err
+	}
+	amount := decimal.RequireFromString("999999999999.9999")
+	converted, complete, err := convertLiquidityExact(convert, amount, "USD")
+	if err != nil || !complete || converted == nil {
+		t.Fatalf("liquidity conversion = %v complete=%v err=%v", converted, complete, err)
+	}
+	projection, err := NewMoney(*converted, "CNY")
+	if err != nil || projection.CanonicalAmount() != "142857142857.1428" {
+		t.Fatalf("liquidity projection = %v err=%v", projection.CanonicalAmount(), err)
 	}
 }
 

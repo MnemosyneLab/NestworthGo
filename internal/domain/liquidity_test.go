@@ -151,11 +151,11 @@ func fixtureA(t *testing.T) (LiquidityQuery, []LiquiditySource, []LiquidityReser
 }
 
 func identityFX(base CurrencyCode) ConvertToBase {
-	return func(amount Money) (*decimal.Decimal, bool, error) {
-		if amount.Currency() != base {
+	return func(amount decimal.Decimal, currency CurrencyCode) (*decimal.Decimal, bool, error) {
+		if currency != base {
 			return nil, false, nil
 		}
-		value := amount.Amount()
+		value := amount
 		return &value, true, nil
 	}
 }

@@ -536,13 +536,7 @@ func (v *ValuationService) convertTo(snapshot domain.PortfolioSnapshot, accountI
 	if quote == nil {
 		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, QuoteSource: implicitFXPreferenceTo(snapshot, currency, baseCurrency).SourceKind, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
-	var converted decimal.Decimal
-	var err error
-	if quote.BaseCurrency == currency && quote.QuoteCurrency == baseCurrency {
-		converted, err = domain.MultiplyByFxRate(native, quote.Rate)
-	} else {
-		converted, err = domain.DivideByFxRate(native, quote.Rate)
-	}
+	converted, err := domain.ConvertFXAmount(native, currency, baseCurrency, *quote)
 	if err != nil {
 		return decimal.Zero, nil, nil, err
 	}

@@ -601,6 +601,37 @@ func TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing(t *testing.T) {
 	}
 }
 
+func TestValuationConvertAmountDividesWholeAmountForReciprocalQuote(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	householdID := domain.NewHouseholdID()
+	rate, err := domain.ParseFxRate("8.123456789012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote := domain.FXQuote{
+		ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate,
+		SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now,
+	}
+	preference, err := domain.NewFXPreference(householdID, "USD", "CNY", domain.QuoteSourceManual, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.PortfolioSnapshot{
+		Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
+		FXQuotes:  []domain.FXQuote{quote}, FXPreferences: []domain.FXPreference{preference},
+	}
+	valuation := NewValuationService(nil, func() time.Time { return now })
+	converted, complete, err := valuation.ConvertExactAmount(snapshot, decimal.RequireFromString("18236001.8236"), "USD")
+	if err != nil || !complete || converted == nil {
+		t.Fatalf("valuation conversion = %v complete=%v err=%v", converted, complete, err)
+	}
+	projected, err := domain.NewMoney(*converted, "CNY")
+	if err != nil || projected.CanonicalAmount() != "2244857.3677" {
+		t.Fatalf("valuation projection = %v err=%v", projected.CanonicalAmount(), err)
+	}
+}
+
 func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

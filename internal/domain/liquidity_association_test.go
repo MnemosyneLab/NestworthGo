@@ -109,12 +109,12 @@ func TestLiquidityReservationAssociationParity(t *testing.T) {
 			if tc.mutate != nil {
 				tc.mutate(&q, &s, &r)
 			}
-			for _, convert := range []ConvertToBase{nil, func(amount Money) (*decimal.Decimal, bool, error) {
+			for _, convert := range []ConvertToBase{nil, func(amount decimal.Decimal, currency CurrencyCode) (*decimal.Decimal, bool, error) {
 				rate := decimal.NewFromInt(1)
-				if amount.Currency() == "EUR" {
+				if currency == "EUR" {
 					rate = decimal.NewFromInt(2)
 				}
-				value := amount.Amount().Mul(rate)
+				value := amount.Mul(rate)
 				return &value, true, nil
 			}} {
 				got, err := EvaluateLiquidity(q, s, r, convert)

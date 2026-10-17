@@ -57,7 +57,7 @@ func TestLiquidityReviewNativeFullValueIndependentOfFX(t *testing.T) {
 	q, s, _ := fixtureA(t)
 	p := s[0]
 	q.BaseCurrency = "EUR"
-	got, e := EvaluateLiquidity(q, []LiquiditySource{p}, nil, func(Money) (*decimal.Decimal, bool, error) { return nil, false, nil })
+	got, e := EvaluateLiquidity(q, []LiquiditySource{p}, nil, func(decimal.Decimal, CurrencyCode) (*decimal.Decimal, bool, error) { return nil, false, nil })
 	if e != nil {
 		t.Fatal(e)
 	}

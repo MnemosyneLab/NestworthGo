@@ -167,6 +167,34 @@ func DivideByFxRate(value decimal.Decimal, rate FxRate) (decimal.Decimal, error)
 	return checkedIntermediate(value.Div(rate.value))
 }
 
+// ConvertFXAmount converts one signed whole amount using the stored quote
+// orientation. It keeps the quote rate un-inverted for division paths so the
+// amount is rounded only at its eventual Money projection boundary.
+func ConvertFXAmount(value decimal.Decimal, from, to CurrencyCode, quote FXQuote) (decimal.Decimal, error) {
+	if value.Abs().GreaterThan(maxMoney) {
+		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	if from == to {
+		return value, nil
+	}
+	if quote.Rate.value.IsZero() {
+		return decimal.Zero, validation("fxRate", "must be greater than zero")
+	}
+	var converted decimal.Decimal
+	switch {
+	case quote.BaseCurrency == from && quote.QuoteCurrency == to:
+		converted = value.Mul(quote.Rate.value)
+	case quote.BaseCurrency == to && quote.QuoteCurrency == from:
+		converted = value.Div(quote.Rate.value)
+	default:
+		return decimal.Zero, validation("fxRate", "quote currencies do not match the conversion")
+	}
+	if converted.Abs().GreaterThan(maxMoney) {
+		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	return converted, nil
+}
+
 func validateBoundedDecimal(field string, value, maximum decimal.Decimal, maxIntegerDigits, maxScale int, positive bool) error {
 	if value.IsNegative() {
 		return validation(field, "must not be negative")
