@@ -12,7 +12,6 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { PageChrome } from "@/components/layout/PageChrome";
 import { LoadingState, ErrorState } from "@/components/layout/PageState";
 import { useObjectNavigation } from "@/app/NavigationContext";
-import type { NavigationTarget } from "@/app/navigation";
 import { useReviewAlertPage, useReviewCoveragePage, useReviewDailyEvidencePage, useReviewRulesV2, useReviewSuppressionsV2, useReviewV2Commands } from "@/queries/investmentReviewV2";
 import type { ReviewAlertGroup, ReviewAlertRule, ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { ReviewRuleEditor } from "./ReviewRuleEditor";
@@ -118,7 +117,7 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
     catch (cause) { focusReturn.current = null; setMessage(String(cause)); }
   };
   const ignore = (group: ReviewAlertGroup, mode: "permanent" | "until_date", days = 0, date = "") => { trackFocus(group.instrumentId); return handle(() => commands.suppress.mutateAsync({ instrumentId: group.instrumentId, mode, ...(days ? { days } : {}), ...(date ? { untilOn: date } : {}) }), t("reviewV2.ignoredMessage", { name: group.displayName })); };
-  const openInstrument = (instrumentId: string, section: "holdings" | "performance") => navigation?.open({ page: "instrument-detail", instrumentId, section } as unknown as NavigationTarget);
+  const openInstrument = (instrumentId: string, section: "holdings" | "performance") => navigation?.open({ page: "instrument-detail", instrumentId, section });
   const content = alerts.data;
   const items = content?.items ?? [];
   const trackFocus = (instrumentId: string) => { focusReturn.current = { element: document.activeElement, instrumentId, revision: content?.reportRevision ?? "" }; };
