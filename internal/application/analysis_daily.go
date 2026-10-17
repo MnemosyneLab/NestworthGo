@@ -44,10 +44,14 @@ func computeAnalysisForValuationUniverseContext(ctx context.Context, input Analy
 	if input.Origin.Timezone == "" {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires the History Origin timezone"}
 	}
-	if _, err := time.LoadLocation(input.Origin.Timezone); err != nil {
+	location, err := time.LoadLocation(input.Origin.Timezone)
+	if err != nil {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires a valid History Origin timezone"}
 	}
-	input.Snapshots = snapshotsInAnalysisWindow(input.Snapshots, query.From, query.To)
+	input.Snapshots, err = snapshotsInAnalysisWindow(input.Snapshots, query.From, query.To, location)
+	if err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
 	universe, err := resolveAnalysisUniverse(input, query)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
@@ -65,10 +69,6 @@ func computeAnalysisForValuationUniverseContext(ctx context.Context, input Analy
 	for _, snapshot := range input.Snapshots {
 		byDate[snapshot.LocalDate] = snapshot
 	}
-	location, err := time.LoadLocation(input.Origin.Timezone)
-	if err != nil {
-		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires a valid History Origin timezone"}
-	}
 	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0, totalDays*len(valuationComponents)), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
 	activitiesByDate := make(map[string][]domain.Activity, len(input.Activities))
 	for _, activity := range input.Activities {
@@ -76,13 +76,12 @@ func computeAnalysisForValuationUniverseContext(ctx context.Context, input Analy
 		activitiesByDate[localDate] = append(activitiesByDate[localDate], activity)
 	}
 	previousItems := make(map[string]domain.DailyValuationSnapshotItem)
-	firstPreviousLabel := start.AddDate(0, 0, -1)
-	firstPreviousDate := firstPreviousLabel.Format("2006-01-02")
-	_, _, firstPreviousExists, boundsErr := analysisCivilDayBounds(firstPreviousLabel, location)
-	if boundsErr != nil {
-		return domain.PeriodAnalysisResult{}, boundsErr
+	firstPreviousLabel, err := analysisPreviousExistingCivilDateLabel(start, location)
+	if err != nil {
+		return domain.PeriodAnalysisResult{}, err
 	}
-	if previousSnapshot, ok := byDate[firstPreviousDate]; ok && firstPreviousExists {
+	firstPreviousDate := firstPreviousLabel.Format("2006-01-02")
+	if previousSnapshot, ok := byDate[firstPreviousDate]; ok {
 		previousItems = snapshotItemsByComponent(previousSnapshot, universe.accounts, universe.instruments)
 	}
 	for dayIndex := 0; dayIndex < totalDays; dayIndex++ {
@@ -100,15 +99,12 @@ func computeAnalysisForValuationUniverseContext(ctx context.Context, input Analy
 		if !hasDay {
 			daySnapshot = domain.DailyValuationSnapshot{}
 		}
-		previousDate := date.AddDate(0, 0, -1).Format("2006-01-02")
-		previousSnapshot, hasPrevious := byDate[previousDate]
-		if hasPrevious {
-			_, _, previousCivilDateExists, previousBoundsErr := analysisCivilDayBounds(date.AddDate(0, 0, -1), location)
-			if previousBoundsErr != nil {
-				return domain.PeriodAnalysisResult{}, previousBoundsErr
-			}
-			hasPrevious = previousCivilDateExists
+		previousLabel, previousLabelErr := analysisPreviousExistingCivilDateLabel(date, location)
+		if previousLabelErr != nil {
+			return domain.PeriodAnalysisResult{}, previousLabelErr
 		}
+		previousDate := previousLabel.Format("2006-01-02")
+		previousSnapshot, hasPrevious := byDate[previousDate]
 		var previous *domain.DailyValuationSnapshot
 		if hasPrevious {
 			previous = &previousSnapshot
@@ -145,7 +141,12 @@ func computeAnalysisForValuationUniverseContext(ctx context.Context, input Analy
 			}
 			result.Days = append(result.Days, day)
 		}
-		previousItems = endItems
+		// A skipped label has no observation and must not break continuity between
+		// its surrounding existing days. A missing observation on an existing
+		// day still clears the baseline so analysis never bridges a genuine gap.
+		if civilDateExists {
+			previousItems = endItems
+		}
 	}
 	if err := finalizeAnalysisReturns(ctx, &result, universe, input, query); err != nil {
 		return domain.PeriodAnalysisResult{}, err

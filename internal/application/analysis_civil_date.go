@@ -44,6 +44,25 @@ func analysisCivilDateCutoffAtOrBefore(day time.Time, location *time.Location) (
 	return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "localDate", Message: "cannot find a preceding civil date in the household timezone"}
 }
 
+// analysisPreviousExistingCivilDateLabel returns the nearest preceding date
+// label that existed in the household timezone. A stored snapshot on a
+// skipped label must never act as a return baseline.
+func analysisPreviousExistingCivilDateLabel(day time.Time, location *time.Location) (time.Time, error) {
+	label := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
+	for skipped := 0; skipped <= 2; skipped++ {
+		_, err := historicalOverviewDayCutoff(label, location)
+		if nonexistentHistoricalCivilDate(err) {
+			label = label.AddDate(0, 0, -1)
+			continue
+		}
+		if err != nil {
+			return time.Time{}, err
+		}
+		return label, nil
+	}
+	return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "localDate", Message: "cannot find a preceding civil date in the household timezone"}
+}
+
 // analysisCivilDayBounds treats date as a UTC date label. It returns no bounds
 // for a completely skipped civil date; callers keep its label unavailable and
 // do not value an observation on that nonexistent day.

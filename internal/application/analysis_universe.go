@@ -142,10 +142,10 @@ func (u analysisUniverse) hasUnknownAccount(localDate string) bool {
 	return ok
 }
 
-func snapshotsInAnalysisWindow(snapshots []domain.DailyValuationSnapshot, from, to domain.LocalDate) []domain.DailyValuationSnapshot {
-	start, end := analysisSnapshotBounds(from, to)
-	if start == "" {
-		return snapshots
+func snapshotsInAnalysisWindow(snapshots []domain.DailyValuationSnapshot, from, to domain.LocalDate, location *time.Location) ([]domain.DailyValuationSnapshot, error) {
+	start, end, err := analysisSnapshotBounds(from, to, location)
+	if err != nil {
+		return nil, err
 	}
 	filtered := make([]domain.DailyValuationSnapshot, 0, len(snapshots))
 	for _, snapshot := range snapshots {
@@ -154,15 +154,19 @@ func snapshotsInAnalysisWindow(snapshots []domain.DailyValuationSnapshot, from, 
 		}
 		filtered = append(filtered, snapshot)
 	}
-	return filtered
+	return filtered, nil
 }
 
-func analysisSnapshotBounds(from, to domain.LocalDate) (string, string) {
+func analysisSnapshotBounds(from, to domain.LocalDate, location *time.Location) (string, string, error) {
 	parsed, err := time.Parse("2006-01-02", string(from))
 	if err != nil {
-		return "", string(to)
+		return "", "", &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "date must use YYYY-MM-DD"}
 	}
-	return parsed.AddDate(0, 0, -1).Format("2006-01-02"), string(to)
+	previous, err := analysisPreviousExistingCivilDateLabel(parsed, location)
+	if err != nil {
+		return "", "", err
+	}
+	return previous.Format("2006-01-02"), string(to), nil
 }
 
 func analysisItemMatches(query domain.AnalysisQuery, account domain.Account, instrument *domain.Instrument, item domain.DailyValuationSnapshotItem, ownership domain.Ownership) bool {
