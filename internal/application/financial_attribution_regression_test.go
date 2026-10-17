@@ -84,11 +84,15 @@ func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// Seed all synthetic pre-history quotes while they are in the past,
+			// then restore the intended history origin before starting history.
+			*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
 			for day := 1; day <= 11; day++ {
 				if _, err := s.AppendManualInstrumentQuote(t.Context(), instrument.ID, fmt.Sprint(day+4), fmt.Sprintf("2026-08-%02d", day), false); err != nil {
 					t.Fatal(err)
 				}
 			}
+			*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 			holding, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 			if err != nil {
 				t.Fatal(err)
@@ -315,11 +319,13 @@ func TestFinancialAttributionPrecisionSixDecimalFX(t *testing.T) {
 				kind = "loan"
 			}
 			a := overviewAccount(t, s, owner, "Synthetic USD", kind, tc.role, "balance", "USD", "1")
+			*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
 			for _, quote := range []struct{ date, fx string }{{"2026-08-01", tc.leftFX}, {"2026-08-02", tc.rightFX}} {
 				if _, err := s.AppendManualFXQuote(t.Context(), "USD", "CNY", quote.fx, quote.date); err != nil {
 					t.Fatal(err)
 				}
 			}
+			*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 			if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
@@ -362,11 +368,13 @@ func TestFinancialAttributionPrecisionComponentTiesAndMultiDay(t *testing.T) {
 				}
 				overviewAccount(t, s, owner, "Synthetic tie", kind, account.role, "balance", "USD", account.amount)
 			}
+			*now = time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)
 			for index, fx := range []string{"1.00005", "1.00010", "1.00015"} {
 				if _, err := s.AppendManualFXQuote(t.Context(), "USD", "CNY", fx, fmt.Sprintf("2026-08-%02d", index+1)); err != nil {
 					t.Fatal(err)
 				}
 			}
+			*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 			if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}

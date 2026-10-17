@@ -211,6 +211,10 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 		t.Fatalf("manual provenance = %+v", manualQQQ)
 	}
 
+	// This quote is the next day's synthetic observation, so move the household
+	// clock forward before appending it.
+	valuationNow := fixture.now.AddDate(0, 0, 1)
+	fixture.service.setClock(func() time.Time { return valuationNow })
 	if _, err := fixture.service.AppendManualFXQuote(ctx, "CNY", "USD", "0.144927536232", "2026-08-24"); err != nil {
 		t.Fatal(err)
 	}
@@ -277,8 +281,8 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 
 	delayedQuote, err := domain.NewInstrumentQuote(fixture.qqq, domain.InstrumentQuoteInput{
 		UnitPrice: providerPrice, Currency: fixture.qqq.QuoteCurrency, SourceKind: domain.QuoteSourceProvider,
-		SourceKey: "yahoo_finance", QuotedAt: fixture.now.Add(-time.Hour), Delayed: true,
-	}, fixture.now.Add(-50*time.Minute))
+		SourceKey: "yahoo_finance", QuotedAt: valuationNow.Add(-time.Hour), Delayed: true,
+	}, valuationNow.Add(-50*time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}

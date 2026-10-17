@@ -184,6 +184,8 @@ func TestFinancialAttributionPriceFXAndMissingPrice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Seed both observations in the past, then restore the history origin.
+	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
 	for _, q := range []struct{ date, price, fx string }{{"2026-08-01", "5", "7"}, {"2026-08-02", "6", "8"}} {
 		if _, err := s.AppendManualInstrumentQuote(t.Context(), i.ID, q.price, q.date, false); err != nil {
 			t.Fatal(err)
@@ -192,6 +194,7 @@ func TestFinancialAttributionPriceFXAndMissingPrice(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}

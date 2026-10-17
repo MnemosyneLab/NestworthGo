@@ -80,6 +80,7 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	}); err != nil {
 		t.Fatal(err)
 	}
+	service.setClock(func() time.Time { return now.Add(3 * time.Hour) })
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "200", "2026-08-24T15:00:00Z", false); err != nil {
 		t.Fatal(err)
 	}
