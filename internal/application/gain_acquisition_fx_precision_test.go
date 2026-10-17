@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -95,5 +96,20 @@ func TestAcquisitionFXWeightedRatioRemainsExactAcrossCorrectionAndSale(t *testin
 	oracle := new(big.Rat).Mul(rationalFromDecimal(nativeCost), new(big.Rat).SetFrac64(23, 3))
 	if !projected.Equal(decimalAtMoneyBoundary(oracle)) {
 		t.Fatalf("exact weighted cost = %s, oracle = %s", projected, decimalAtMoneyBoundary(oracle))
+	}
+}
+
+func TestAcquisitionFXRatioPropagatesTransferReplayFailure(t *testing.T) {
+	t.Parallel()
+	householdID := domain.NewHouseholdID()
+	snapshot := domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}}
+	quantity := reconciliationQuantity(t, "1")
+	sourceID := domain.NewHoldingID()
+	events := []domain.CostBasisEvent{{Kind: domain.CostBasisTransferIn, Quantity: quantity, SourceHoldingID: &sourceID, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)}}
+	replay := &costBasisReplayContext{events: make(map[domain.HoldingID][]domain.CostBasisEvent), starting: make(map[domain.HoldingID]*domain.UnitPrice)}
+	_, available, err := NewGainService(nil).acquisitionFXRatio(context.Background(), snapshot, "USD", nil, events, replay, nil, nil)
+	var problem *domain.Error
+	if available || !errors.As(err, &problem) || problem.Code != domain.ErrIntegrity {
+		t.Fatalf("transfer replay failure: available=%v err=%v, want propagated ErrIntegrity", available, err)
 	}
 }
