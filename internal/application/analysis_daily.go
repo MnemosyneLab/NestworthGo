@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -15,11 +16,26 @@ type holdingBridge struct {
 }
 
 func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
-	return computeAnalysisForValuationUniverse(input, query, false)
+	return computeAnalysisContext(context.Background(), input, query)
+}
+
+func computeAnalysisContext(ctx context.Context, input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
+	return computeAnalysisForValuationUniverseContext(ctx, input, query, false)
 }
 
 func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
+	return computeAnalysisForValuationUniverseContext(context.Background(), input, query, investmentOnly)
+}
+
+func computeAnalysisForValuationUniverseContext(ctx context.Context, input AnalysisInputs, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
+	if err := ctx.Err(); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
 	if err := query.Validate(); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
+	start, _, totalDays, err := analysisDateRange(query.From, query.To)
+	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
 	if input.Portfolio.Household == nil {
@@ -53,18 +69,6 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires a valid History Origin timezone"}
 	}
-	start, err := time.ParseInLocation("2006-01-02", query.From, location)
-	if err != nil {
-		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "date must use YYYY-MM-DD"}
-	}
-	end, err := time.ParseInLocation("2006-01-02", query.To, location)
-	if err != nil {
-		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "date must use YYYY-MM-DD"}
-	}
-	totalDays := 0
-	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
-		totalDays++
-	}
 	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0, totalDays*len(valuationComponents)), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
 	activitiesByDate := make(map[string][]domain.Activity, len(input.Activities))
 	for _, activity := range input.Activities {
@@ -72,15 +76,39 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 		activitiesByDate[localDate] = append(activitiesByDate[localDate], activity)
 	}
 	previousItems := make(map[string]domain.DailyValuationSnapshotItem)
-	firstPreviousDate := start.AddDate(0, 0, -1).Format("2006-01-02")
-	if previousSnapshot, ok := byDate[firstPreviousDate]; ok {
+	firstPreviousLabel := start.AddDate(0, 0, -1)
+	firstPreviousDate := firstPreviousLabel.Format("2006-01-02")
+	_, _, firstPreviousExists, boundsErr := analysisCivilDayBounds(firstPreviousLabel, location)
+	if boundsErr != nil {
+		return domain.PeriodAnalysisResult{}, boundsErr
+	}
+	if previousSnapshot, ok := byDate[firstPreviousDate]; ok && firstPreviousExists {
 		previousItems = snapshotItemsByComponent(previousSnapshot, universe.accounts, universe.instruments)
 	}
-	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+	for dayIndex := 0; dayIndex < totalDays; dayIndex++ {
+		if err := ctx.Err(); err != nil {
+			return domain.PeriodAnalysisResult{}, err
+		}
+		date := start.AddDate(0, 0, dayIndex)
 		localDate := date.Format("2006-01-02")
 		daySnapshot, hasDay := byDate[localDate]
+		_, _, civilDateExists, boundsErr := analysisCivilDayBounds(date, location)
+		if boundsErr != nil {
+			return domain.PeriodAnalysisResult{}, boundsErr
+		}
+		hasDay = hasDay && civilDateExists
+		if !hasDay {
+			daySnapshot = domain.DailyValuationSnapshot{}
+		}
 		previousDate := date.AddDate(0, 0, -1).Format("2006-01-02")
 		previousSnapshot, hasPrevious := byDate[previousDate]
+		if hasPrevious {
+			_, _, previousCivilDateExists, previousBoundsErr := analysisCivilDayBounds(date.AddDate(0, 0, -1), location)
+			if previousBoundsErr != nil {
+				return domain.PeriodAnalysisResult{}, previousBoundsErr
+			}
+			hasPrevious = previousCivilDateExists
+		}
 		var previous *domain.DailyValuationSnapshot
 		if hasPrevious {
 			previous = &previousSnapshot
@@ -119,7 +147,7 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 		}
 		previousItems = endItems
 	}
-	if err := finalizeAnalysisReturns(&result, universe, input, query); err != nil {
+	if err := finalizeAnalysisReturns(ctx, &result, universe, input, query); err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
 	return result, nil

@@ -843,6 +843,13 @@ Stale-memo behaviour is a regression test, not just a convention: mutate an acti
 
 Reuse [`ensureClosedDaySnapshots`](../../../internal/application/trend.go) (31-day chunks). Long All / 3Y windows may rebuild on first open; the UI keeps chrome and section skeletons.
 
+Analysis ranges are inclusive civil-date labels and are iterated in UTC so
+household timezones cannot stall or duplicate labels at midnight transitions.
+Actual observation cutoffs use the historical civil-day resolver. A completely
+skipped household date remains unavailable and never receives a fabricated
+observation. Requests are bounded to 36,600 labels (100 years), and the
+calculation checks cancellation while traversing the daily range.
+
 ---
 
 ## 12. Wails surface (view-shaped projections)
