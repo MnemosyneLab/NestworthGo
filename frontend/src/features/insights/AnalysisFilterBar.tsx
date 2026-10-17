@@ -131,15 +131,17 @@ export function AnalysisFilterBar({
           <ul className="mt-3 flex flex-wrap gap-2" aria-label={t("insights.moreFilters")}>
             {filterChips.map(([key, label]) => (
               <li key={key}>
-                <button
+                <Button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  variant="soft"
+                  size="sm"
+                  className="rounded-full px-3 text-xs"
                   aria-label={`${t("connections.clearFilter")}: ${label}`}
                   onClick={() => update({ moreFilters: { [key]: undefined } })}
                 >
                   {label}
                   <X className="size-3" aria-hidden="true" />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

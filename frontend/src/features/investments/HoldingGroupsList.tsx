@@ -6,6 +6,7 @@ import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChangeText } from "@/components/ui/change-text";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { displayEnum } from "@/lib/display";
 import { compareCanonical, formatAmount, formatSignedMoney } from "@/lib/money";
@@ -78,7 +79,7 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
     return <>
       <td className={cn("px-3 py-3 align-top", child && "pl-12")}>
         {child ? <span className="flex min-w-0 flex-col">
-          <button type="button" className="w-fit max-w-full truncate rounded text-sm text-primary underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</button>
+          <Button type="button" variant="link" size="sm" className="h-auto w-fit max-w-full justify-start truncate whitespace-normal p-0 text-left" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</Button>
         </span> : <>
           <div className="flex items-center gap-2">
             <HoldingDisclosure name={row.instrument.name} shortName={row.instrument.shortName} symbol={row.instrument.symbol}
@@ -87,7 +88,7 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
           </div>
           {portfolio && <p className="mt-0.5 pl-11 text-xs text-muted-foreground">
             {row.accountId
-              ? <button type="button" className="rounded text-primary underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</button>
+              ? <Button type="button" variant="link" size="sm" className="h-auto justify-start p-0 text-left" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</Button>
               : t("holdingsSummary.accountCount", { count: accountCount })}
           </p>}
         </>}
@@ -117,10 +118,12 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
   ];
 
   return <div className="flex min-w-0 flex-col gap-4">
-    {!portfolio && <div role="group" aria-label={t("investmentAssets.accountPositions")} className="flex flex-wrap gap-1">
-      {(["current", "closed", "all"] as const).map((choice) => <Button key={choice} type="button" size="sm" variant={accountPositions === choice ? "default" : "outline"}
-        aria-pressed={accountPositions === choice} onClick={() => setAccountPositions(choice)}>{t(`investmentAssets.positions.${choice}`)}</Button>)}
-    </div>}
+    {!portfolio && <SegmentedControl
+      label={t("investmentAssets.accountPositions")}
+      value={accountPositions}
+      onChange={value => setAccountPositions(value as HoldingQuantityFilter)}
+      options={(["current", "closed", "all"] as const).map(choice => ({ value: choice, label: t(`investmentAssets.positions.${choice}`) }))}
+    />}
     {!portfolio && accountPositions === "all" && <p className="text-xs text-muted-foreground">{t("investmentAssets.positions.allSubtotalHelp")}</p>}
     {portfolio && <div className="flex flex-wrap items-center justify-between gap-3">
       <div role="group" aria-label={t("holdingsSummary.view")} className="flex gap-2">

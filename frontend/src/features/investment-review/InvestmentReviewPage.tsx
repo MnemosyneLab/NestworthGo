@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -220,9 +221,9 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
     <AlertDialog open={archiveFor !== null} onOpenChange={open => { if (!open) setArchiveFor(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t("reviewV2.archive")}</AlertDialogTitle><AlertDialogDescription>{t("reviewV2.archiveConfirm", { name: archiveFor?.name ?? "" })}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><Button disabled={busy} onClick={() => { if (archiveFor) void handle(() => commands.archiveRule.mutateAsync({ ruleId: archiveFor.id, expectedRevision: archiveFor.rowRevision }), t("reviewV2.archived")); setArchiveFor(null); }}>{t("reviewV2.archive")}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
     <AlertDialog open={permanent !== null} onOpenChange={open => { if (!open) setPermanent(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t("reviewV2.ignorePermanent")}</AlertDialogTitle><AlertDialogDescription>{t("reviewV2.permanentConfirm", { name: permanent?.displayName ?? "" })}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><Button disabled={busy} onClick={() => { if (permanent) void ignore(permanent, "permanent"); setPermanent(null); }}>{t("reviewV2.ignorePermanent")}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
     <Sheet open={dateFor !== null} onOpenChange={open => { if (!open) { setDateFor(null); setUntilError(""); } }}><SheetContent size="md"><SheetHeader><SheetTitle>{t("reviewV2.ignoreUntil")}</SheetTitle></SheetHeader>
-      <DatePicker aria-label={t("reviewV2.resumeOn")} aria-invalid={Boolean(untilError)} aria-describedby="review-ignore-until-help" value={untilOn} min={firstResumeDate} onChange={value => { setUntilOn(value); setUntilError(""); }} allowFuture />
+      <DatePicker aria-label={t("reviewV2.resumeOn")} aria-invalid={Boolean(untilError)} aria-describedby={untilError ? "review-ignore-until-help review-ignore-until-error" : "review-ignore-until-help"} value={untilOn} min={firstResumeDate} onChange={value => { setUntilOn(value); setUntilError(""); }} allowFuture />
       <p id="review-ignore-until-help" className="text-sm text-muted-foreground">{t("reviewV2.ignoreUntilDateHelp", { timezone: householdTimezone || "…" })}</p>
-      {untilError && <p role="alert" className="text-sm">{untilError}</p>}
+      <FieldError id="review-ignore-until-error" className="text-sm">{untilError}</FieldError>
       <Button disabled={!untilOn || !firstResumeDate || untilOn < firstResumeDate || busy} onClick={() => void saveIgnoreUntil()}>{t("reviewV2.saveIgnore")}</Button>
     </SheetContent></Sheet>
   </div>;

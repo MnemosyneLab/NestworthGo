@@ -177,7 +177,11 @@ describe("daily investment review page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Choose a resume date after today in Asia/Singapore.");
     expect(screen.getByRole("alert")).not.toHaveTextContent("secret raw backend message");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Resume on" })).toHaveTextContent(tomorrow);
+    const resumeOn = screen.getByRole("button", { name: "Resume on" });
+    expect(resumeOn).toHaveTextContent(tomorrow);
+    expect(resumeOn).toHaveAttribute("aria-invalid", "true");
+    expect(resumeOn).toHaveAttribute("aria-describedby", "review-ignore-until-help review-ignore-until-error");
+    expect(document.getElementById("review-ignore-until-error")).toHaveTextContent("Choose a resume date after today in Asia/Singapore.");
     let complete!: () => void;
     state.commands.suppress.mutateAsync.mockImplementationOnce(() => {
       state.suppressPending = true;
