@@ -10,7 +10,8 @@ type SignedMoneyView struct {
 // HoldingGainView is a read model for one active Holding. Cost values are in
 // the Instrument's quote currency. CurrentValue and UnrealizedGain are nil
 // when the current quote or required FX input is unavailable; they are never
-// replaced with a misleading zero.
+// replaced with a misleading zero. RealizedGain remains in the Instrument's
+// quote currency and is derived from historical replay.
 type HoldingGainView struct {
 	HoldingID           HoldingID
 	AccountID           AccountID
@@ -33,9 +34,11 @@ type HoldingGainView struct {
 	MissingReason       string
 }
 
-// AccountGainView groups the Holding gain read models for one account. The
-// account totals are expressed in the Household base currency when every
-// required current input is available.
+// AccountGainView groups the Holding gain read models for one account.
+// RealizedGain is expressed in the Household base currency using FX available
+// at each sale's effective time; it is independent of current quote inputs.
+// CurrentValue, TotalCost, and UnrealizedGain use current inputs and can be
+// unavailable while RealizedGain remains known, or vice versa.
 type AccountGainView struct {
 	AccountID      AccountID
 	Holdings       []HoldingGainView

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -114,6 +115,14 @@ func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot doma
 			continue
 		}
 		amounts := &exactHoldingGain{}
+		replayed, replayErr := replay.replay(ctx, holding.ID, nil)
+		if replayErr != nil {
+			return domain.AccountGainView{}, replayErr
+		}
+		amounts.RealizedBase, amounts.RealizedBaseAvailable, replayErr = g.realizedGainInBaseAtEventFX(snapshot, fxQuotes, replayed.Realized)
+		if replayErr != nil {
+			return domain.AccountGainView{}, replayErr
+		}
 		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin, amounts)
 		exact[holding.ID] = amounts
 		if viewErr != nil {
@@ -253,6 +262,8 @@ func (g *GainService) RealizedGain(ctx context.Context, scope domain.GainScope, 
 }
 
 const dividendIncomeMissingFX = "dividend income foreign-exchange rate is unavailable"
+
+const historicalRealizedGainMissingFX = "historical realized-gain foreign-exchange rate is unavailable"
 
 // DividendIncomeInRange sums cash-dividend income in the inclusive local-date
 // range. Amounts convert with the FX observation available at each activity's
@@ -499,6 +510,27 @@ type exactHoldingGain struct {
 	Cost, Value, Unrealized             decimal.Decimal
 	CostBase, ValueBase, UnrealizedBase decimal.Decimal
 	Realized                            decimal.Decimal
+	RealizedBase                        decimal.Decimal
+	RealizedBaseAvailable               bool
+}
+
+// realizedGainInBaseAtEventFX preserves AccountGainView's historical meaning:
+// each replayed sale uses only the FX observation available at that sale's
+// EffectiveAt. It returns no subtotal if any required observation is missing;
+// the caller applies one Money projection after aggregating the account.
+func (g *GainService) realizedGainInBaseAtEventFX(snapshot domain.PortfolioSnapshot, fxQuotes []domain.FXQuote, events []domain.RealizedGainEvent) (decimal.Decimal, bool, error) {
+	total := decimal.Zero
+	for _, event := range events {
+		converted, available, err := g.convertFXAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Amount(), event.RealizedGain.Currency(), event.EffectiveAt)
+		if err != nil {
+			return decimal.Zero, false, err
+		}
+		if !available {
+			return decimal.Zero, false, nil
+		}
+		total = total.Add(converted)
+	}
+	return total, true, nil
 }
 
 func (g *GainService) holdingGain(ctx context.Context, snapshot domain.PortfolioSnapshot, holding domain.Holding, instrument domain.Instrument, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin, exact *exactHoldingGain) (domain.HoldingGainView, error) {
@@ -785,15 +817,16 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 		} else {
 			totalCost = totalCost.Add(amounts.CostBase)
 		}
-		gain, gainErr := convertSignedGain(g.valuation, snapshot, result.AccountID, domain.SignedMoneyView{Amount: amounts.Realized.String(), Currency: holding.RealizedGain.Currency})
-		if gainErr != nil {
-			if isGainUnavailable(gainErr) {
-				hasRealized = false
-			} else {
-				return domain.AccountGainView{}, gainErr
+		if !amounts.RealizedBaseAvailable {
+			hasRealized = false
+			result.Available = false
+			if result.MissingReason == "" {
+				result.MissingReason = historicalRealizedGainMissingFX
+			} else if !strings.Contains(result.MissingReason, historicalRealizedGainMissingFX) {
+				result.MissingReason += "; " + historicalRealizedGainMissingFX
 			}
 		} else {
-			realized = realized.Add(gain)
+			realized = realized.Add(amounts.RealizedBase)
 		}
 		if holding.CurrentValueBase == nil || holding.UnrealizedGainBase == nil {
 			hasCurrent = false
@@ -834,11 +867,6 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 	return result, nil
 }
 
-func isGainUnavailable(err error) bool {
-	appErr, ok := err.(*domain.Error)
-	return ok && appErr.Code == domain.ErrUnavailable
-}
-
 func gainHolding(snapshot domain.PortfolioSnapshot, id domain.HoldingID) (domain.Holding, domain.Instrument, error) {
 	for _, holding := range snapshot.Holdings {
 		if holding.ID != id || holding.ArchivedAt != nil {
@@ -871,30 +899,6 @@ func realizedGainView(events []domain.RealizedGainEvent, currency domain.Currenc
 		total = total.Add(event.RealizedGain.Amount())
 	}
 	return signedMoneyView(total, currency)
-}
-
-func convertGainAmount(valuation *ValuationService, snapshot domain.PortfolioSnapshot, accountID domain.AccountID, amount string, currency domain.CurrencyCode) (decimal.Decimal, error) {
-	native, err := decimal.NewFromString(amount)
-	if err != nil {
-		return decimal.Zero, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "gain amount is invalid"}
-	}
-	negative := native.IsNegative()
-	converted, _, missing, err := valuation.convert(snapshot, accountID, native.Abs(), currency)
-	if err != nil {
-		return decimal.Zero, err
-	}
-	if missing != nil {
-		return decimal.Zero, &domain.Error{Code: domain.ErrUnavailable, Field: "fxRate", Message: "current foreign-exchange rate is unavailable"}
-	}
-	if negative {
-		converted = converted.Neg()
-	}
-	return converted, nil
-}
-
-func convertSignedGain(valuation *ValuationService, snapshot domain.PortfolioSnapshot, accountID domain.AccountID, amount domain.SignedMoneyView) (decimal.Decimal, error) {
-	converted, err := convertGainAmount(valuation, snapshot, accountID, amount.Amount, amount.Currency)
-	return converted, err
 }
 
 func signedMoneyView(value decimal.Decimal, currency domain.CurrencyCode) (domain.SignedMoneyView, error) {
