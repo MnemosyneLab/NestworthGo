@@ -277,6 +277,16 @@ func TestAccountGainHistoricalFXFailureNeverUsesCurrentRateOrPartialSubtotal(t *
 	if view.Holdings[2].HoldingID != activeCNY.ID {
 		t.Fatalf("base holding order changed: %+v", view.Holdings)
 	}
+	period, err := f.service().RealizedGainInRange(context.Background(), domain.GainScope{AccountID: &account.ID}, "2026-08-02", "2026-08-02")
+	if err != nil || period.Available || period.Total == nil || period.Total.Amount != "70" {
+		t.Fatalf("period with a missing historical group = %+v err=%v, want known USD subtotal 70 and unavailable result", period, err)
+	}
+	if len(period.ByInstrument) != 2 || !period.ByInstrument[0].Available || period.ByInstrument[0].Gain.Amount != "70" || period.ByInstrument[1].Available || period.ByInstrument[1].Gain.Amount != "0" {
+		t.Fatalf("period instrument groups = %+v, want known USD and unavailable EUR subtotals", period.ByInstrument)
+	}
+	if len(period.ByAccount) != 1 || period.ByAccount[0].Available || period.ByAccount[0].Gain.Amount != "70" {
+		t.Fatalf("period account group = %+v, want unavailable account with known subtotal 70", period.ByAccount)
+	}
 }
 
 func TestAccountGainKnownZeroNeedsNoHistoricalFXAndBaseCurrencyNeedsNoQuote(t *testing.T) {
@@ -472,32 +482,72 @@ func TestAccountGainAggregatesMixedInverseFXAndHoldingsExactly(t *testing.T) {
 	assertSignedGain(t, mixedView.RealizedGain, "0", "CNY")
 }
 
-func TestAccountGainInverseTieKeepsPeriodPathScopeSemantics(t *testing.T) {
+func TestAccountGainAndPeriodUseSameExactInverseFXBoundary(t *testing.T) {
 	t.Parallel()
-	f := newGainReadModelFixture(t, "CNY")
-	account := f.addAccount("Matching scope inverse tie")
-	events := []domain.CostBasisEvent{
-		f.sale("USD", "2026-08-02", 10, "1", "0.0001"),
-		f.sale("USD", "2026-08-03", 10, "1", "0.0001"),
-		f.sale("USD", "2026-08-04", 10, "1", "0.0001"),
-	}
-	f.addHolding(account, "Three inverse tie sales", "USD", "3", "0", "", events...)
-	f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+	t.Run("positive tie", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Positive inverse tie")
+		events := []domain.CostBasisEvent{
+			f.sale("USD", "2026-08-02", 10, "1", "0.0001"),
+			f.sale("USD", "2026-08-03", 10, "1", "0.0001"),
+			f.sale("USD", "2026-08-04", 10, "1", "0.0001"),
+		}
+		f.addHolding(account, "Three inverse tie sales", "USD", "3", "0", "", events...)
+		f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+		assertPeriodMatchesAccount(t, f, account.ID, "2026-08-02", "2026-08-04", "0")
+	})
+	t.Run("negative tie", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Negative inverse tie")
+		events := []domain.CostBasisEvent{
+			f.sale("USD", "2026-08-02", 10, "1", "0"),
+			f.sale("USD", "2026-08-03", 10, "1", "0"),
+			f.sale("USD", "2026-08-04", 10, "1", "0"),
+		}
+		f.addHolding(account, "Three inverse tie losses", "USD", "3", "0.0001", "", events...)
+		f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+		assertPeriodMatchesAccount(t, f, account.ID, "2026-08-02", "2026-08-04", "0")
+	})
+	t.Run("mixed currencies", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Mixed inverse tie")
+		f.addHolding(account, "USD gain", "USD", "1", "0", "", f.sale("USD", "2026-08-02", 10, "1", "0.0001"))
+		f.addHolding(account, "EUR gain", "EUR", "1", "0", "", f.sale("EUR", "2026-08-02", 11, "1", "0.0001"))
+		f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+		f.addInverseFX("EUR", "CNY", "3", f.inputs.Portfolio.Origin.StartedAt)
+		assertPeriodMatchesAccount(t, f, account.ID, "2026-08-02", "2026-08-02", "0")
+	})
+	t.Run("multiple holdings retain one account boundary", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Multiple inverse holdings")
+		for holdingIndex := 0; holdingIndex < 2; holdingIndex++ {
+			var events []domain.CostBasisEvent
+			for day := 2; day <= 4; day++ {
+				events = append(events, f.sale("USD", time.Date(2026, 8, day, 10, 0, 0, 0, time.UTC).Format("2006-01-02"), 10, "1", "0.0001"))
+			}
+			f.addHolding(account, "Multiple sale holding", "USD", "3", "0", "", events...)
+		}
+		f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+		assertPeriodMatchesAccount(t, f, account.ID, "2026-08-02", "2026-08-04", "0.0001")
+	})
+}
+
+func assertPeriodMatchesAccount(t *testing.T, f *gainReadModelFixture, accountID domain.AccountID, from, to, want string) {
+	t.Helper()
 	service := f.service()
-	view, err := service.AccountGain(context.Background(), account.ID)
+	account, err := service.AccountGain(context.Background(), accountID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertSignedGain(t, view.RealizedGain, "0", "CNY")
-	period, err := service.RealizedGainInRange(context.Background(), domain.GainScope{AccountID: &account.ID}, "2026-08-02", "2026-08-04")
-	if err != nil || !period.Available || period.Total == nil {
-		t.Fatalf("matching-scope period = %+v err=%v", period, err)
+	assertSignedGain(t, account.RealizedGain, want, "CNY")
+	period, err := service.RealizedGainInRange(context.Background(), domain.GainScope{AccountID: &accountID}, from, to)
+	if err != nil || !period.Available {
+		t.Fatalf("period gain=%+v err=%v, want available exact result", period, err)
 	}
-	// The period endpoint still projects each conversion through its existing
-	// finite-decimal path, which lies just above this exact half-even tie. This
-	// related behavior is intentionally kept in scope as a documented limit of
-	// this repair batch rather than silently changing period endpoint semantics.
-	assertSignedGain(t, period.Total, "0.0001", "CNY")
+	assertSignedGain(t, period.Total, want, "CNY")
+	if len(period.ByAccount) != 1 || !period.ByAccount[0].Available || period.ByAccount[0].Gain.Amount != want {
+		t.Fatalf("period account groups=%+v, want exact account subtotal %s", period.ByAccount, want)
+	}
 }
 
 func TestAccountGainRejectsExactAggregateJustOverMoneyLimit(t *testing.T) {

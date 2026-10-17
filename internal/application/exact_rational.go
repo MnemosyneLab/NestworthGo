@@ -9,18 +9,10 @@ import (
 
 const exactMoneyScale = 4
 
-// rationalFromDecimal preserves a decimal's exact coefficient and exponent.
-// It is used only in acquisition-FX weighting, where a rounded average rate can
-// later be multiplied by a much larger position amount.
+// rationalFromDecimal preserves a decimal's exact coefficient and exponent for
+// calculations that defer rounding until the final Money boundary.
 func rationalFromDecimal(value decimal.Decimal) *big.Rat {
-	numerator := new(big.Int).Set(value.Coefficient())
-	exponent := value.Exponent()
-	if exponent >= 0 {
-		numerator.Mul(numerator, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(exponent)), nil))
-		return new(big.Rat).SetInt(numerator)
-	}
-	denominator := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(-exponent)), nil)
-	return new(big.Rat).SetFrac(numerator, denominator)
+	return domain.RationalFromDecimal(value)
 }
 
 // decimalAtMoneyBoundary rounds an exact ratio directly to the supported
@@ -48,7 +40,7 @@ func decimalAtMoneyBoundary(value *big.Rat) decimal.Decimal {
 }
 
 func rationalMoneyView(value *big.Rat, currency domain.CurrencyCode) (domain.MoneyView, error) {
-	if err := domain.CheckExactMoneyRange(value); err != nil {
+	if err := domain.CheckExactUnsignedMoneyRange(value); err != nil {
 		return domain.MoneyView{}, err
 	}
 	return moneyView(decimalAtMoneyBoundary(value), currency)

@@ -212,7 +212,7 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain
 			}
 			instrumentGroup := groupForInstrument(byInstrument, instrument.ID, instrument.DisplayLabel())
 			accountGroup := groupForAccount(byAccount, holding.AccountID, accounts[holding.AccountID])
-			converted, rateAvailable, conversionErr := g.convertFXAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Amount(), event.RealizedGain.Currency(), event.EffectiveAt)
+			converted, rateAvailable, conversionErr := g.convertFXExactAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Amount(), event.RealizedGain.Currency(), event.EffectiveAt)
 			if conversionErr != nil {
 				return domain.RealizedGainView{}, conversionErr
 			}
@@ -227,19 +227,19 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain
 				accountGroup.MissingReason = "realized gain foreign-exchange rate is unavailable"
 				continue
 			}
-			instrumentGroup.Total = instrumentGroup.Total.Add(converted)
-			accountGroup.Total = accountGroup.Total.Add(converted)
+			addExactRealizedGain(instrumentGroup, converted)
+			addExactRealizedGain(accountGroup, converted)
 		}
 	}
-	result.ByInstrument, err = finishGainGroups(byInstrument, snapshot.Household.BaseCurrency)
+	result.ByInstrument, err = finishExactGainGroups(byInstrument, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
-	result.ByAccount, err = finishGainGroups(byAccount, snapshot.Household.BaseCurrency)
+	result.ByAccount, err = finishExactGainGroups(byAccount, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
-	result.Total, err = totalFromGainGroups(byInstrument, snapshot.Household.BaseCurrency)
+	result.Total, err = totalFromExactGainGroups(byInstrument, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
@@ -445,8 +445,16 @@ type gainGroupAccumulator struct {
 	Key           string
 	Label         string
 	Total         decimal.Decimal
+	ExactRealized *big.Rat
 	Available     bool
 	MissingReason string
+}
+
+func addExactRealizedGain(group *gainGroupAccumulator, amount *big.Rat) {
+	if group.ExactRealized == nil {
+		group.ExactRealized = new(big.Rat)
+	}
+	group.ExactRealized.Add(group.ExactRealized, amount)
 }
 
 func groupForInstrument(groups map[domain.InstrumentID]*gainGroupAccumulator, id domain.InstrumentID, label string) *gainGroupAccumulator {
@@ -507,6 +515,52 @@ func finishGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency
 	return result, nil
 }
 
+func totalFromExactGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency domain.CurrencyCode) (*domain.SignedMoneyView, error) {
+	sum := new(big.Rat)
+	hasAvailable := false
+	for _, group := range groups {
+		if !group.Available {
+			continue
+		}
+		if group.ExactRealized != nil {
+			sum.Add(sum, group.ExactRealized)
+		}
+		hasAvailable = true
+	}
+	if !hasAvailable && len(groups) > 0 {
+		return nil, nil
+	}
+	view, err := rationalSignedMoneyView(sum, currency)
+	if err != nil {
+		return nil, err
+	}
+	return &view, nil
+}
+
+func finishExactGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency domain.CurrencyCode) ([]domain.GainGroupView, error) {
+	result := make([]domain.GainGroupView, 0, len(groups))
+	for _, group := range groups {
+		amount := group.ExactRealized
+		if amount == nil {
+			amount = new(big.Rat)
+		}
+		gain, err := rationalSignedMoneyView(amount, currency)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, domain.GainGroupView{Key: group.Key, Label: group.Label, Gain: gain, Available: group.Available, MissingReason: group.MissingReason})
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		left, leftErr := decimal.NewFromString(result[i].Gain.Amount)
+		right, rightErr := decimal.NewFromString(result[j].Gain.Amount)
+		if leftErr != nil || rightErr != nil || left.Equal(right) {
+			return result[i].Key < result[j].Key
+		}
+		return left.GreaterThan(right)
+	})
+	return result, nil
+}
+
 // exactHoldingGain is internal calculation data, never a wire/view value.
 // Aggregation uses these decimals rather than reparsing rounded MoneyViews.
 type exactHoldingGain struct {
@@ -524,18 +578,12 @@ type exactHoldingGain struct {
 func (g *GainService) realizedGainInBaseAtEventFX(snapshot domain.PortfolioSnapshot, fxQuotes []domain.FXQuote, events []domain.RealizedGainEvent) (*big.Rat, bool, error) {
 	total := new(big.Rat)
 	for _, event := range events {
-		base := snapshot.Household.BaseCurrency
-		if event.RealizedGain.Currency() == base {
-			total.Add(total, rationalFromDecimal(event.RealizedGain.Amount()))
-			continue
-		}
-		quote := g.fxQuoteAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
-		if quote == nil {
-			return nil, false, nil
-		}
-		converted, err := domain.ConvertFXAmountExact(event.RealizedGain.Amount(), event.RealizedGain.Currency(), base, *quote)
+		converted, available, err := g.convertFXExactAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Amount(), event.RealizedGain.Currency(), event.EffectiveAt)
 		if err != nil {
 			return nil, false, err
+		}
+		if !available {
+			return nil, false, nil
 		}
 		total.Add(total, converted)
 	}
@@ -838,6 +886,25 @@ func (g *GainService) convertFXAtOrBefore(snapshot domain.PortfolioSnapshot, quo
 	}
 	converted, err := domain.ConvertFXAmount(amount, native, base, *quote)
 	return converted, err == nil, err
+}
+
+func (g *GainService) convertFXExactAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, amount decimal.Decimal, native domain.CurrencyCode, cutoff time.Time) (*big.Rat, bool, error) {
+	if snapshot.Household == nil {
+		return nil, false, nil
+	}
+	base := snapshot.Household.BaseCurrency
+	if native == base {
+		return rationalFromDecimal(amount), true, nil
+	}
+	quote := g.fxQuoteAtOrBefore(snapshot, quotes, native, cutoff)
+	if quote == nil {
+		return nil, false, nil
+	}
+	converted, err := domain.ConvertFXAmountExact(amount, native, base, *quote)
+	if err != nil {
+		return nil, false, err
+	}
+	return converted, true, nil
 }
 
 func (g *GainService) fxQuoteAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) *domain.FXQuote {

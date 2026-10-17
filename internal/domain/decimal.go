@@ -218,7 +218,7 @@ func ConvertFXAmountExact(value decimal.Decimal, from, to CurrencyCode, quote FX
 	if value.Abs().GreaterThan(maxMoney) {
 		return nil, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
 	}
-	converted := exactRationalFromDecimal(value)
+	converted := RationalFromDecimal(value)
 	if from == to {
 		if err := CheckExactMoneyRange(converted); err != nil {
 			return nil, err
@@ -229,9 +229,9 @@ func ConvertFXAmountExact(value decimal.Decimal, from, to CurrencyCode, quote FX
 	if err != nil {
 		return nil, err
 	}
-	converted.Mul(converted, exactRationalFromDecimal(multiplier))
+	converted.Mul(converted, RationalFromDecimal(multiplier))
 	if !divisor.Equal(decimal.NewFromInt(1)) {
-		converted.Quo(converted, exactRationalFromDecimal(divisor))
+		converted.Quo(converted, RationalFromDecimal(divisor))
 	}
 	if err := CheckExactMoneyRange(converted); err != nil {
 		return nil, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
@@ -256,6 +256,15 @@ func CheckExactMoneyRange(value *big.Rat) error {
 	return nil
 }
 
+// CheckExactUnsignedMoneyRange applies the non-negative Money contract before
+// any rounding can erase a negative fractional amount.
+func CheckExactUnsignedMoneyRange(value *big.Rat) error {
+	if value != nil && value.Sign() < 0 {
+		return &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "amount is outside the supported range"}
+	}
+	return CheckExactMoneyRange(value)
+}
+
 // ExactFXIntermediateDecimal projects an exact FX bridge ratio into the
 // existing bounded decimal intermediate precision. Callers must retain the
 // rational value through their sums and differences and apply Money rounding
@@ -272,7 +281,9 @@ func ExactFXIntermediateDecimal(value *big.Rat) (decimal.Decimal, error) {
 	return numerator.DivRound(denominator, maxFXConversionInputFractionDigits), nil
 }
 
-func exactRationalFromDecimal(value decimal.Decimal) *big.Rat {
+// RationalFromDecimal preserves the exact coefficient and exponent of a
+// decimal amount for calculations that need to defer rounding.
+func RationalFromDecimal(value decimal.Decimal) *big.Rat {
 	numerator := new(big.Int).Set(value.Coefficient())
 	exponent := value.Exponent()
 	if exponent >= 0 {
