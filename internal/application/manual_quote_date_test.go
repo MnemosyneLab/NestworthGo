@@ -52,6 +52,78 @@ func TestManualQuoteDatesUseHistoryTimezone(t *testing.T) {
 	}
 }
 
+func TestManualQuoteDateOnlyUsesFirstActualInstantAfterSkippedMidnight(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		zone, date, want string
+	}{
+		{zone: "America/Santiago", date: "2024-09-08", want: "2024-09-08T04:00:00Z"},
+		{zone: "America/Havana", date: "2026-03-08", want: "2026-03-08T05:00:00Z"},
+		{zone: "America/Havana", date: "2026-11-01", want: "2026-11-01T04:00:00Z"},
+	} {
+		t.Run(test.zone+"/"+test.date, func(t *testing.T) {
+			service, ctx, _, setClock := newOnboardedService(t, "manual-date-gap", nil)
+			setClock(time.Date(2026, time.November, 2, 12, 0, 0, 0, time.UTC))
+			instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic skipped-midnight quote", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.StartHistory(ctx, test.zone); err != nil {
+				t.Fatal(err)
+			}
+			want, err := time.Parse(time.RFC3339, test.want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			instrumentQuote, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12", test.date, false)
+			if err != nil || !instrumentQuote.QuotedAt.Equal(want) {
+				t.Fatalf("instrument quote at %s = %s err=%v, want %s", test.date, instrumentQuote.QuotedAt, err, want)
+			}
+			fxQuote, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", test.date)
+			if err != nil || !fxQuote.QuotedAt.Equal(want) {
+				t.Fatalf("FX quote at %s = %s err=%v, want %s", test.date, fxQuote.QuotedAt, err, want)
+			}
+		})
+	}
+}
+
+func TestManualQuotesRejectEntirelySkippedCivilDateWithoutWriting(t *testing.T) {
+	t.Parallel()
+	service, ctx, _, setClock := newOnboardedService(t, "manual-date-skipped", nil)
+	setClock(time.Date(2026, time.November, 2, 12, 0, 0, 0, time.UTC))
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic skipped-day quote", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "Pacific/Apia"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "2011-12-30", false); err == nil {
+		t.Fatal("accepted an instrument quote dated on an entirely skipped civil date")
+	} else {
+		var problem *domain.Error
+		if !errors.As(err, &problem) || problem.Code != domain.ErrInvalidChangeTime {
+			t.Fatalf("skipped instrument date error=%v, want ErrInvalidChangeTime", err)
+		}
+	}
+	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2011-12-30"); err == nil {
+		t.Fatal("accepted an FX quote dated on an entirely skipped civil date")
+	} else {
+		var problem *domain.Error
+		if !errors.As(err, &problem) || problem.Code != domain.ErrInvalidChangeTime {
+			t.Fatalf("skipped FX date error=%v, want ErrInvalidChangeTime", err)
+		}
+	}
+	instrumentQuotes, err := service.InstrumentQuoteHistory(ctx, instrument.ID)
+	if err != nil || len(instrumentQuotes) != 0 {
+		t.Fatalf("instrument quote rows after rejection=%d err=%v", len(instrumentQuotes), err)
+	}
+	fxQuotes, err := service.FXQuoteHistory(ctx)
+	if err != nil || len(fxQuotes) != 0 {
+		t.Fatalf("FX quote rows after rejection=%d err=%v", len(fxQuotes), err)
+	}
+}
+
 func TestManualFutureQuotesCannotEnterCurrentValuation(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "manual-future-date", nil)
