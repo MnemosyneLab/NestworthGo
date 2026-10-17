@@ -18,10 +18,11 @@ type Condition = ReviewRuleLeaf;
 type GroupMode = "all" | "any";
 type PredicateTreeChange = (update: (node: ReviewPredicateNode) => ReviewPredicateNode) => void;
 const choices = Object.values(InstrumentType).filter(value => value !== InstrumentType.$zero);
-const defaultCondition = (currency: string): Condition => ({ metric: "amount", operator: ">", value: "1000", currency, fxMode: "native" });
+const defaultCondition = (currency: string): Condition => ({ metric: "amount", operator: ">", value: "1000", ...(currency ? { currency } : {}), fxMode: "native" });
 const defaultPredicate = (currency: string): ReviewPredicateNode => ({ all: [{ leaf: defaultCondition(currency) }] });
 const moneyThresholdPattern = /^-?\d+(?:\.\d+)?$/;
 const percentageThresholdPattern = /^-?(0|[1-9]\d{0,4})(?:\.\d{1,8})?$/;
+const currencyCodePattern = /^[A-Z]{3}$/;
 const isGroup = (node: ReviewPredicateNode) => node.all !== undefined || node.any !== undefined;
 const groupMode = (node: ReviewPredicateNode): GroupMode => node.any !== undefined ? "any" : "all";
 const groupChildren = (node: ReviewPredicateNode) => node.all ?? node.any ?? [];
@@ -45,12 +46,23 @@ function cleanCondition(value: Condition, defaultCurrency: string): Condition {
   if (value.metric === "type") return { metric: "type", operator: "in", types: value.types?.length ? value.types : [InstrumentType.InstrumentBankInvestmentProduct] };
   if (value.metric === "instrument") return { metric: "instrument", operator: value.operator === "not_in" ? "not_in" : "in", instrumentIds: value.instrumentIds ?? [] };
   if (value.metric === "price_change" || value.metric === "annualized") return { metric: value.metric, operator: value.operator || "<", value: value.value ?? "", lookbackDays: value.lookbackDays ?? 30 };
-  return { metric: value.metric, operator: value.operator || ">", value: value.value ?? "", currency: value.currency?.trim() ? value.currency : defaultCurrency, fxMode: value.fxMode ?? "native" };
+  return { metric: value.metric, operator: value.operator || ">", value: value.value ?? "", currency: value.currency ?? (defaultCurrency || undefined), fxMode: value.fxMode ?? "native" };
 }
 
 function cleanPredicate(node: ReviewPredicateNode, defaultCurrency: string): ReviewPredicateNode {
   if (node.leaf) return { leaf: cleanCondition(node.leaf, defaultCurrency) };
   const children = groupChildren(node).map(child => cleanPredicate(child, defaultCurrency));
+  return groupMode(node) === "any" ? { any: children } : { all: children };
+}
+
+function seedMissingCurrencies(node: ReviewPredicateNode, currency: string): ReviewPredicateNode {
+  if (node.leaf) {
+    if ((node.leaf.metric === "amount" || node.leaf.metric === "cost") && node.leaf.currency === undefined) {
+      return { leaf: { ...node.leaf, currency } };
+    }
+    return node;
+  }
+  const children = groupChildren(node).map(child => seedMissingCurrencies(child, currency));
   return groupMode(node) === "any" ? { any: children } : { all: children };
 }
 
@@ -90,7 +102,7 @@ function predicateIsValid(node: ReviewPredicateNode, defaultCurrency: string): b
       if (leaf.metric === "type") return (leaf.types?.length ?? 0) > 0;
       if (leaf.metric === "instrument") return (leaf.instrumentIds?.length ?? 0) > 0;
       if (!leaf.value?.trim()) return false;
-      if (leaf.metric === "amount" || leaf.metric === "cost") return moneyThresholdPattern.test(leaf.value.trim()) && Boolean((leaf.currency || defaultCurrency).trim()) && Boolean(leaf.fxMode);
+      if (leaf.metric === "amount" || leaf.metric === "cost") return moneyThresholdPattern.test(leaf.value.trim()) && currencyCodePattern.test(leaf.currency ?? defaultCurrency) && Boolean(leaf.fxMode);
       if (leaf.metric === "price_change" || leaf.metric === "annualized") return percentageThresholdPattern.test(leaf.value.trim()) && [7, 30, 90, 180, 365].includes(leaf.lookbackDays ?? 0);
       return false;
     }
@@ -127,7 +139,7 @@ function ReviewLeafEditor({ leaf, depth, index, canRemove, instruments, defaultC
     if (metric === "type") change({ metric, operator: "in", types: [InstrumentType.InstrumentBankInvestmentProduct] });
     else if (metric === "instrument") change({ metric, operator: "in", instrumentIds: instruments[0] ? [instruments[0].id] : [] });
     else if (metric === "annualized" || metric === "price_change") change({ metric, operator: "<", value: "0", lookbackDays: 30 });
-    else change({ metric, operator: ">", value: "1000", currency: defaultCurrency, fxMode: "native" });
+    else change({ metric, operator: ">", value: "1000", currency: defaultCurrency || undefined, fxMode: "native" });
   };
   const knownInstrumentIds = new Set(instruments.map(item => item.id));
   const missingInstrumentIds = (leaf.instrumentIds ?? []).filter(id => !knownInstrumentIds.has(id));
@@ -145,7 +157,7 @@ function ReviewLeafEditor({ leaf, depth, index, canRemove, instruments, defaultC
       : <>
         <NativeSelect aria-label={t("reviewV2.operator")} value={leaf.operator} onChange={event => change({ operator: event.target.value })}>{[">", ">=", "<", "<="].map(op => <option key={op} value={op}>{op}</option>)}</NativeSelect>
         <Input aria-label={t("reviewV2.value")} className="w-24" inputMode="decimal" value={leaf.value ?? ""} onChange={event => change({ value: event.target.value })} />
-        {leaf.metric === "amount" || leaf.metric === "cost" ? <><Input aria-label={t("reviewV2.currency")} className="w-20" maxLength={3} value={leaf.currency || defaultCurrency} onChange={event => change({ currency: event.target.value.toUpperCase() })} /><NativeSelect aria-label={t("reviewV2.fxMode")} value={leaf.fxMode ?? "native"} onChange={event => change({ fxMode: event.target.value })}><option value="native">{t("reviewV2.nativeCurrency")}</option><option value="convert_on_day">{t("reviewV2.convertOnDay")}</option></NativeSelect></> : <><span className="text-sm">%</span><Input aria-label={t("reviewV2.lookbackDays")} className="w-20" type="number" min={1} max={365} value={leaf.lookbackDays ?? 30} onChange={event => change({ lookbackDays: Number(event.target.value) })} /><span className="text-sm">{t("reviewV2.days")}</span></>}
+        {leaf.metric === "amount" || leaf.metric === "cost" ? <><Input aria-label={t("reviewV2.currency")} className="w-20" maxLength={3} value={leaf.currency ?? defaultCurrency} onChange={event => change({ currency: event.target.value.toUpperCase() })} /><NativeSelect aria-label={t("reviewV2.fxMode")} value={leaf.fxMode ?? "native"} onChange={event => change({ fxMode: event.target.value })}><option value="native">{t("reviewV2.nativeCurrency")}</option><option value="convert_on_day">{t("reviewV2.convertOnDay")}</option></NativeSelect></> : <><span className="text-sm">%</span><Input aria-label={t("reviewV2.lookbackDays")} className="w-20" type="number" min={1} max={365} value={leaf.lookbackDays ?? 30} onChange={event => change({ lookbackDays: Number(event.target.value) })} /><span className="text-sm">{t("reviewV2.days")}</span></>}
       </>}
     <Button type="button" variant="ghost" disabled={!canRemove} aria-label={t("reviewV2.removeConditionFromGroup", { group: depth + 1, index: index + 1 })} onClick={remove}>{t("reviewV2.remove")}</Button>
   </div>;
@@ -208,7 +220,7 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
   const [severity, setSeverity] = useState(rule?.severity ?? "notice");
   const [timezone, setTimezone] = useState<string | null>(ruleSpec?.schedule?.timezone ?? null);
-  const selectedTimezone = ruleSpec?.schedule?.timezone ?? timezone ?? householdTimezone;
+  const selectedTimezone = timezone ?? householdTimezone;
   const [targetKind, setTargetKind] = useState(ruleSpec?.target?.kind ?? "all_current");
   const [target, setTarget] = useState<string[]>(ruleSpec?.target?.instrumentIds ?? []);
   const [predicateTree, setPredicateTree] = useState<ReviewPredicateNode>(() => isPredicateNode(ruleSpec?.predicate) ? ruleSpec.predicate : defaultPredicate(defaultCurrency));
@@ -225,6 +237,7 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
   const [previewKey, setPreviewKey] = useState("");
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof Service.PreviewReviewRuleV2>> | null>(null);
   const [error, setError] = useState("");
+  const predicateTreeWithCurrencyDefaults = useMemo(() => defaultCurrency ? seedMissingCurrencies(predicateTree, defaultCurrency) : predicateTree, [predicateTree, defaultCurrency]);
   const cleanedPredicate = useMemo(() => cleanPredicate(predicateTree, defaultCurrency), [predicateTree, defaultCurrency]);
   const spec = useMemo(() => makeSpec(selectedTimezone, targetKind, target, cleanedPredicate, policy, count, windowDays, minHits), [selectedTimezone, targetKind, target, cleanedPredicate, policy, count, windowDays, minHits]);
   const timezoneInitialized = rule ? Boolean(ruleSpec?.schedule?.timezone) : Boolean(householdTimezone);
@@ -249,7 +262,7 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
       <div className="flex flex-wrap gap-4"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} />{t("reviewV2.enabled")}</label><label className="flex items-center gap-2 text-sm">{t("reviewV2.severity")}<NativeSelect value={severity} onChange={event => setSeverity(event.target.value)}><option value="notice">{t("reviewV2.notice")}</option><option value="warning">{t("reviewV2.warning")}</option></NativeSelect></label></div>
       <fieldset className="space-y-2"><legend className="font-medium">{t("reviewV2.target")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.positiveHoldings")}</p><NativeSelect aria-label={t("reviewV2.targetMode")} value={targetKind} onChange={event => { const kind = event.target.value; setTargetKind(kind); if (kind === "instruments" && !target.length && instruments.data?.[0]) setTarget([instruments.data[0].id]); }}><option value="all_current">{t("reviewV2.allCurrent")}</option><option value="instruments">{t("reviewV2.selectedInstruments")}</option></NativeSelect>
       {targetKind === "instruments" && <div className="max-h-36 overflow-auto rounded-lg border p-2">{(instruments.data ?? []).map(item => <label key={item.id} className="flex gap-2 p-1 text-sm"><input type="checkbox" checked={target.includes(item.id)} onChange={event => setTarget(ids => event.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id))} />{item.name}</label>)}</div>}</fieldset>
-      <fieldset className="space-y-3"><legend className="font-medium">{t("reviewV2.dailyConditions")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.predicateBuilderHelp")}</p><PredicateGroupEditor node={predicateTree} path={[]} depth={0} tree={predicateTree} onTreeChange={changePredicateTree} instruments={instruments.data ?? []} defaultCurrency={defaultCurrency} /></fieldset>
+      <fieldset className="space-y-3"><legend className="font-medium">{t("reviewV2.dailyConditions")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.predicateBuilderHelp")}</p><PredicateGroupEditor node={predicateTreeWithCurrencyDefaults} path={[]} depth={0} tree={predicateTreeWithCurrencyDefaults} onTreeChange={changePredicateTree} instruments={instruments.data ?? []} defaultCurrency={defaultCurrency} /></fieldset>
       <fieldset className="space-y-3"><legend className="font-medium">{t("reviewV2.trigger")}</legend><NativeSelect aria-label={t("reviewV2.trigger")} value={policy} onChange={event => setPolicy(event.target.value)}><option value="single">{t("reviewV2.single")}</option><option value="consecutive">{t("reviewV2.consecutive")}</option><option value="rolling">{t("reviewV2.rolling")}</option></NativeSelect>
       {policy === "consecutive" && <label className="flex items-center gap-2 text-sm">{t("reviewV2.consecutiveDays")}<Input className="w-20" type="number" min={1} max={365} value={count} onChange={event => setCount(Number(event.target.value))} /></label>}
       {policy === "rolling" && <div className="flex flex-wrap gap-3"><label className="flex items-center gap-2 text-sm">{t("reviewV2.windowDays")}<Input className="w-20" type="number" min={1} max={365} value={windowDays} onChange={event => setWindowDays(Number(event.target.value))} /></label><label className="flex items-center gap-2 text-sm">{t("reviewV2.minHits")}<Input className="w-20" type="number" min={1} max={windowDays} value={minHits} onChange={event => setMinHits(Number(event.target.value))} /></label></div>}</fieldset>

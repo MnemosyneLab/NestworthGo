@@ -57,6 +57,16 @@ describe("investment review rule editor", () => {
     expect(saved.spec.predicate.any).toHaveLength(3);
     expect(saved.spec.predicate.any[2]).toEqual({ all: [{ leaf: expect.objectContaining({ metric: "amount", value: "1000" }) }] });
   });
+  it("allows an existing rule timezone to be edited and submits the changed value", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const timezone = screen.getByRole("textbox", { name: i18n.t("reviewV2.timezone") });
+    expect(timezone).toHaveValue("UTC");
+    await userEvent.clear(timezone);
+    await userEvent.type(timezone, "Asia/Singapore");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("Asia/Singapore");
+  });
   it("snapshots the household timezone and defaults new money conditions to its base currency", async () => {
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
     expect(screen.getByLabelText(i18n.t("reviewV2.timezone"))).toHaveValue("Asia/Singapore");
@@ -68,6 +78,75 @@ describe("investment review rule editor", () => {
     expect(saved.spec.schedule.timezone).toBe("Asia/Singapore");
     expect(saved.spec.predicate.all[0].leaf.currency).toBe("USD");
   });
+  it("keeps a cleared new-rule currency blank until the user types its replacement", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    const currency = screen.getByRole("textbox", { name: "Currency" });
+    expect(currency).toHaveValue("USD");
+    await userEvent.clear(currency);
+    expect(currency).toHaveValue("");
+    await userEvent.type(currency, "eur");
+    expect(currency).toHaveValue("EUR");
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic EUR threshold");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { currency?: string } }> } } }).spec.predicate.all[0].leaf.currency).toBe("EUR");
+  });
+  it("allows clear-then-type currency edits on an existing monetary condition", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const currency = screen.getAllByRole("textbox", { name: "Currency" })[0];
+    expect(currency).toHaveValue("CNY");
+    await userEvent.clear(currency);
+    expect(currency).toHaveValue("");
+    await userEvent.type(currency, "eur");
+    expect(currency).toHaveValue("EUR");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect(saved.spec.predicate.any[1].leaf).toEqual({ metric: "cost", operator: ">", value: "1000", currency: "EUR", fxMode: "native" });
+  });
+  it("seeds an untouched new currency when bootstrap arrives after the editor mounts", async () => {
+    state.bootstrap = undefined as unknown as { household: { baseCurrency: string } };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    const currency = screen.getByRole("textbox", { name: "Currency" });
+    expect(currency).toHaveValue("");
+    state.bootstrap = { household: { baseCurrency: "USD" } };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(currency).toHaveValue("USD"));
+  });
+  it("seeds additional conditions added before delayed bootstrap", async () => {
+    state.bootstrap = undefined as unknown as { household: { baseCurrency: string } };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "Add condition to group 1" }));
+    expect(screen.getAllByRole("textbox", { name: "Currency" }).map(input => (input as HTMLInputElement).value)).toEqual(["", ""]);
+    state.bootstrap = { household: { baseCurrency: "USD" } };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(screen.getAllByRole("textbox", { name: "Currency" }).map(input => (input as HTMLInputElement).value)).toEqual(["USD", "USD"]));
+  });
+  it("preserves a currency entered before delayed bootstrap completes", async () => {
+    state.bootstrap = undefined as unknown as { household: { baseCurrency: string } };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    const currency = screen.getByRole("textbox", { name: "Currency" });
+    await userEvent.type(currency, "eur");
+    state.bootstrap = { household: { baseCurrency: "USD" } };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(currency).toHaveValue("EUR"));
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic delayed EUR threshold");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { currency?: string } }> } } }).spec.predicate.all[0].leaf.currency).toBe("EUR");
+  });
+  it("blocks saving while a monetary currency is intentionally blank", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic blank currency");
+    const currency = screen.getByRole("textbox", { name: "Currency" });
+    await userEvent.clear(currency);
+    expect(currency).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
+  });
   it("keeps new-rule submission disabled until the household timezone is loaded", async () => {
     state.origin = undefined as unknown as { timezone: string };
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
@@ -75,9 +154,26 @@ describe("investment review rule editor", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(state.save).not.toHaveBeenCalled();
   });
+  it("initializes timezone after delayed history bootstrap without locking user edits", async () => {
+    state.origin = undefined as unknown as { timezone: string };
+    const onOpenChange = vi.fn();
+    const view = render(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    const timezone = screen.getByRole("textbox", { name: i18n.t("reviewV2.timezone") });
+    expect(timezone).toHaveValue("");
+    state.origin = { timezone: "Asia/Singapore" };
+    view.rerender(<ReviewRuleEditor open onOpenChange={onOpenChange} />);
+    await waitFor(() => expect(timezone).toHaveValue("Asia/Singapore"));
+    await userEvent.clear(timezone);
+    await userEvent.type(timezone, "Pacific/Auckland");
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic delayed timezone");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("Pacific/Auckland");
+  });
   it("blocks nonnumeric amounts in a new rule after household timezone initialization", async () => {
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
     await userEvent.type(screen.getByLabelText("Name"), "Synthetic threshold");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: i18n.t("reviewV2.previewInstrument") }), "synthetic-fund");
     const amount = screen.getByRole("textbox", { name: "Value" });
     await userEvent.clear(amount);
     await userEvent.type(amount, "not-a-number");
