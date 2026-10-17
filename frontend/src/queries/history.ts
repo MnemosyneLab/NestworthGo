@@ -4,7 +4,7 @@ import { Service as HistoryService } from "../../bindings/github.com/waltwang/ne
 import type { ActivityQueryRequest, ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
-import { invalidateActivityChange, invalidateHistoryReads, invalidateLiquidityReads, invalidateMarketDataSync } from "@/queries/invalidation";
+import { invalidateActivityChange, invalidateHistoryReads, invalidateHistoryStart, invalidateMarketDataSync } from "@/queries/invalidation";
 
 export function useHistoryOrigin() {
   return useQuery({
@@ -44,7 +44,7 @@ export function useStartHistory() {
         : costOverrides
           ? callService(() => HistoryService.StartHistoryWithCosts(timezone, costOverrides))
           : callService(() => HistoryService.StartHistory(timezone)),
-    onSuccess: () => { invalidateHistoryReads(queryClient); invalidateLiquidityReads(queryClient); },
+    onSuccess: () => invalidateHistoryStart(queryClient),
   });
 }
 
