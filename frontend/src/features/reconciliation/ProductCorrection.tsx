@@ -27,6 +27,7 @@ import { useHistoryOrigin } from "@/queries/history";
 import { ReconciliationService } from "@/queries/reconciliation";
 import { callService } from "@/lib/wails";
 import { displayError } from "@/lib/display";
+import { ymdInTimeZone } from "@/features/insights/calendar";
 import type { ReconciliationLink } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import type { ProductPreview } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation/models";
 import type { ProductDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
@@ -73,6 +74,7 @@ function ProductCorrectionForm({
 }) {
   const { t } = useTranslation();
   const history = useHistoryOrigin();
+  const today = ymdInTimeZone(new Date(), history.data?.timezone ?? "UTC");
   const client = useQueryClient();
   const [mode, setMode] = useState("terms");
   const [terms, setTerms] = useState(() => termsFromProduct(product));
@@ -326,6 +328,7 @@ function ProductCorrectionForm({
           </Label>
           <DatePicker
             id="receipt-paid-through"
+            max={today}
             value={paidThrough}
             onChange={setPaidThrough}
             clearable

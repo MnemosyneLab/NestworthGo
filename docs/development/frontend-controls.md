@@ -16,13 +16,16 @@ Extend these wrappers before adding a new primitive dependency or local clone.
 
 Keep civil days as validated `YYYY-MM-DD` strings; do not parse them as UTC
 instants or round-trip them through `toISOString()`. The ledger timezone owns
-"today", closed-day and transaction boundaries; callers supply those bounds.
-Keep timestamp conversion in the existing time/domain helpers. `allowFuture`
-controls calendar navigation, not business validation; explicit min/max own
-allowed dates. Preserve empty strings versus null at each existing boundary,
-clearability, disabled state, form errors and server-side validation. Explicit
-future contract dates must remain reachable. Do not silently normalize invalid
-dates or replace an intentionally empty selection with today.
+"today", closed-day and transaction boundaries; callers supply the household
+date as `max` when browser-local today could differ. With no explicit max,
+DatePicker disables dates after browser-local today unless `allowFuture` is
+set. An explicit min/max takes precedence. Keep timestamp conversion in the
+existing time/domain helpers. These calendar limits guide entry; backend
+validation remains authoritative. Preserve empty strings versus null at each
+existing boundary, clearability, disabled state, and form errors. Explicit
+future contract dates and ignore-until dates must remain reachable. Do not
+silently normalize invalid dates or replace an intentionally empty selection
+with today.
 
 For UTF-8 byte bounds, use Input's `maxBytes` counter/field error and
 `utf8ByteLength` to guard submission. HTML `maxLength` counts UTF-16 code units;

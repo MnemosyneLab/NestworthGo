@@ -946,7 +946,14 @@ func holdingFromSnapshot(snapshot domain.PortfolioSnapshot, id domain.HoldingID)
 func (s *Service) parseManualQuoteTimestamp(ctx context.Context, value string) (time.Time, error) {
 	value = strings.TrimSpace(value)
 	if len(value) != len("2006-01-02") {
-		return parsePortfolioTimestamp(value, s.clock())
+		parsed, err := parsePortfolioTimestamp(value, s.clock())
+		if err != nil {
+			return time.Time{}, err
+		}
+		if parsed.After(s.clock()) {
+			return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "quotedAt", Message: "manual quotes cannot be dated in the future"}
+		}
+		return parsed, nil
 	}
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
@@ -963,7 +970,11 @@ func (s *Service) parseManualQuoteTimestamp(ctx context.Context, value string) (
 	if err != nil || parsed.In(location).Format("2006-01-02") != value {
 		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "quotedAt", Message: "must be a valid date in the History timezone"}
 	}
-	return parsed.UTC(), nil
+	parsed = parsed.UTC()
+	if parsed.After(s.clock()) {
+		return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "quotedAt", Message: "manual quotes cannot be dated in the future"}
+	}
+	return parsed, nil
 }
 
 func parsePortfolioTimestamp(value string, fallback time.Time) (time.Time, error) {

@@ -28,9 +28,11 @@ import {
 import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useOverview } from "@/queries/portfolio";
+import { useHistoryOrigin } from "@/queries/history";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatQuotePrice, formatAmount } from "@/lib/money";
 import { formatQuoteAsOf, formatTimestamp } from "@/lib/time";
+import { ymdInTimeZone } from "@/features/insights/calendar";
 import { sortFxPairs } from "@/lib/groupByInstrumentType";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -357,6 +359,8 @@ function SavedFXRow({
 function ManualFXQuoteForm({ onSaved, focus }: { onSaved: () => void; focus?: HealthFocus }) {
   const { t } = useTranslation();
   const currencies = useSupportedCurrencies();
+  const origin = useHistoryOrigin();
+  const today = ymdInTimeZone(new Date(), origin.data?.timezone ?? "UTC");
   const appendQuote = useAppendManualFXQuote();
   const options = currencies.data ?? [];
   const [baseCurrency, setBaseCurrency] = useState(focus?.currencyA ?? "");
@@ -398,7 +402,7 @@ function ManualFXQuoteForm({ onSaved, focus }: { onSaved: () => void; focus?: He
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="manual-fx-date">{t("marketData.effectiveDate")}</Label>
-        <DatePicker id="manual-fx-date" value={effectiveDate} onChange={setEffectiveDate} />
+        <DatePicker id="manual-fx-date" max={today} value={effectiveDate} onChange={setEffectiveDate} />
         <p className="text-xs text-muted-foreground">{t("connections.manualDateZone")}</p>
       </div>
       {invalidPair && <p className="text-sm text-destructive">{t("marketData.invalidPair")}</p>}

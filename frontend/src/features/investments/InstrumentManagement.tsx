@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useSettings } from "@/queries/settings";
+import { useHistoryOrigin } from "@/queries/history";
 import { useInstruments,
   useCreateInstrument,
   useUpdateInstrument,
@@ -29,6 +30,7 @@ import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatQuotePrice } from "@/lib/money";
 import { formatQuoteAsOf } from "@/lib/time";
+import { ymdInTimeZone } from "@/features/insights/calendar";
 import { groupByInstrumentType } from "@/lib/groupByInstrumentType";
 import { cn } from "@/lib/utils";
 import { EntityIcon } from "@/components/icons/EntityIcon";
@@ -58,6 +60,8 @@ function ManualQuoteForm({
   initialDate?: string;
 }) {
   const { t } = useTranslation();
+  const origin = useHistoryOrigin();
+  const today = ymdInTimeZone(new Date(), origin.data?.timezone ?? "UTC");
   const appendQuote = useAppendManualInstrumentQuote();
   const [unitPrice, setUnitPrice] = useState("");
   const [quotedAt, setQuotedAt] = useState(initialDate ?? "");
@@ -91,7 +95,7 @@ function ManualQuoteForm({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`quote-date-${instrumentId}`}>{t("portfolio.quotedAt")}</Label>
-        <DatePicker id={`quote-date-${instrumentId}`} value={quotedAt} onChange={setQuotedAt} />
+        <DatePicker id={`quote-date-${instrumentId}`} max={today} value={quotedAt} onChange={setQuotedAt} />
         <p className="text-xs text-muted-foreground">{t("connections.manualDateZone")}</p>
       </div>
       {appendQuote.isError && (
