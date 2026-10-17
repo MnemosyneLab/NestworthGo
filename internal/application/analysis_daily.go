@@ -342,12 +342,13 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		bridgeFXExact = rationalFromDecimal(bridge.fx)
 	}
 	if bridge.price.Sign() != 0 {
-		if err := addBucket(day.AssetBuckets, domain.BucketPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+		priceAmount := decimalAtMoneyBoundary(bridgePriceExact)
+		if err := addBucket(day.AssetBuckets, domain.BucketPriceChange, priceAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
 		addExactBucket(day.AssetBucketExact, domain.BucketPriceChange, bridge.price)
 		if universe.investmentComponentInUniverse(component) {
-			if err := addReturn(day.ReturnComponents, domain.ReturnPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+			if err := addReturn(day.ReturnComponents, domain.ReturnPriceChange, priceAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 				return domain.ComponentDay{}, err
 			}
 		}
@@ -364,12 +365,13 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{AssetBucket: &priceBucket, ReturnComponent: priceReturn, Amount: attributedAmount, Component: component})
 	}
 	if bridge.fx.Sign() != 0 {
-		if err := addBucket(day.AssetBuckets, domain.BucketFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+		fxAmount := decimalAtMoneyBoundary(bridgeFXExact)
+		if err := addBucket(day.AssetBuckets, domain.BucketFXImpact, fxAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
 		addExactBucket(day.AssetBucketExact, domain.BucketFXImpact, bridge.fx)
 		if universe.investmentComponentInUniverse(component) {
-			if err := addReturn(day.ReturnComponents, domain.ReturnFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+			if err := addReturn(day.ReturnComponents, domain.ReturnFXImpact, fxAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 				return domain.ComponentDay{}, err
 			}
 		}

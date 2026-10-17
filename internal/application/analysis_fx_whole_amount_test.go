@@ -220,4 +220,107 @@ func TestAnalysisCashBridgeAggregatesInverseFXMovementsExactly(t *testing.T) {
 	}
 }
 
+func TestBuildComponentDayProjectsCashBridgeFromExactFXForBucketsReturnsAndEffects(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, opening, ending, want string
+		flows                       []struct {
+			amount    string
+			direction domain.EffectDirection
+			rate      string
+		}
+	}{
+		{
+			name: "positive just below half-even tie", opening: "0", ending: "0.0003", want: "0.0001",
+			flows: []struct {
+				amount    string
+				direction domain.EffectDirection
+				rate      string
+			}{
+				{amount: "1", direction: domain.EffectAdded, rate: "9999999.999999999999"},
+				{amount: "1", direction: domain.EffectAdded, rate: "10000000.000000000001"},
+				{amount: "2", direction: domain.EffectRemoved, rate: "10000000"},
+				{amount: "0.0003", direction: domain.EffectAdded, rate: "2"},
+			},
+		},
+		{
+			name: "negative just below half-even tie", opening: "2.0003", ending: "2", want: "-0.0001",
+			flows: []struct {
+				amount    string
+				direction domain.EffectDirection
+				rate      string
+			}{
+				{amount: "1", direction: domain.EffectRemoved, rate: "9999999.999999999999"},
+				{amount: "1", direction: domain.EffectRemoved, rate: "10000000.000000000001"},
+				{amount: "2", direction: domain.EffectAdded, rate: "10000000"},
+				{amount: "0.0003", direction: domain.EffectRemoved, rate: "2"},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			householdID := domain.NewHouseholdID()
+			account := analysisAccount(householdID, "USD", domain.TrackingBalance, domain.RoleAsset)
+			base, native := domain.CurrencyCode("CNY"), domain.CurrencyCode("USD")
+			previousCutoff := time.Date(2026, 8, 1, 23, 59, 0, 0, time.UTC)
+			currentCutoff := time.Date(2026, 8, 2, 23, 59, 0, 0, time.UTC)
+			openFX := analysisFXQuote(t, householdID, base, native, "1", previousCutoff)
+			closeFX := analysisFXQuote(t, householdID, base, native, "1", currentCutoff)
+			preferences := []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}}
+			quotes := []domain.FXQuote{openFX, closeFX}
+			activityEffects := make([]classifiedAnalysisEffect, 0, len(test.flows))
+			for index, flow := range test.flows {
+				effectiveAt := time.Date(2026, 8, 2, 12, index, 0, 0, time.UTC)
+				quote := analysisFXQuote(t, householdID, base, native, flow.rate, effectiveAt)
+				quotes = append(quotes, quote)
+				money := mustMoney(t, flow.amount, "USD")
+				activityEffects = append(activityEffects, classifiedAnalysisEffect{
+					activity:    domain.Activity{ID: domain.NewActivityID(), EffectiveAt: effectiveAt},
+					effect:      domain.ActivityEffect{Target: domain.EffectTargetAccountCash, Direction: flow.direction, Money: &money},
+					amountKnown: true,
+				})
+			}
+			openFXID, closeFXID := openFX.ID.String(), closeFX.ID.String()
+			previous := analysisItem(t, account.ID, "USD", test.opening, test.opening, nil, nil, "", openFXID)
+			current := analysisItem(t, account.ID, "USD", test.ending, test.ending, nil, nil, "", closeFXID)
+			previousSnapshot, currentSnapshot := analysisSnapshot("2026-08-01", previous), analysisSnapshot("2026-08-02", current)
+			previousSnapshot.CutoffAt, currentSnapshot.CutoffAt = previousCutoff, currentCutoff
+			component := domain.ComponentID{AccountID: account.ID, Currency: native, Cash: true}
+			universe := analysisUniverse{
+				accounts:                map[domain.AccountID]domain.Account{account.ID: account},
+				investmentComponentKeys: map[string]struct{}{component.Key(): {}},
+			}
+			input := AnalysisInputs{
+				Origin: analysisOrigin(t, householdID, "UTC"),
+				Portfolio: domain.PortfolioSnapshot{
+					Household:     &domain.Household{ID: householdID, BaseCurrency: base},
+					FXPreferences: preferences,
+				},
+				FXQuotes: quotes,
+			}
+			day, err := buildComponentDay("2026-08-02", component, previous, current, previousSnapshot, currentSnapshot, true, true, activityEffects, input, analysisBaseQuery(domain.ValuationBase), universe)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bucket := day.AssetBuckets[domain.BucketFXImpact]
+			ret := day.ReturnComponents[domain.ReturnFXImpact]
+			var attributed *domain.SignedMoney
+			for _, effect := range day.AttributedEffects {
+				if effect.AssetBucket != nil && *effect.AssetBucket == domain.BucketFXImpact {
+					copy := effect.Amount
+					attributed = &copy
+				}
+			}
+			if bucket.Amount().StringFixed(4) != test.want || ret.Amount().StringFixed(4) != test.want || attributed == nil || attributed.Amount().StringFixed(4) != test.want {
+				t.Fatalf("bucket=%s return=%s attributed=%v, want all projections %s", bucket.Amount(), ret.Amount(), attributed, test.want)
+			}
+			if day.ReturnAmount == nil || day.ReturnAmount.Amount().StringFixed(4) != test.want {
+				t.Fatalf("daily return amount=%v, want %s", day.ReturnAmount, test.want)
+			}
+			if got := day.AssetBucketExact[domain.BucketFXImpact]; !got.Equal(decimal.RequireFromString(test.want).Mul(decimal.RequireFromString("1.5"))) {
+				t.Fatalf("exact FX bucket=%s, want unrounded bridge about %s", got, decimal.RequireFromString(test.want).Mul(decimal.RequireFromString("1.5")))
+			}
+		})
+	}
+}
+
 func stringPointer(value string) *string { return &value }
