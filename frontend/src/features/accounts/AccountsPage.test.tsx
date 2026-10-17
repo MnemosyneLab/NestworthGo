@@ -683,6 +683,31 @@ describe("AccountsPage", () => {
     expect(screen.queryByRole("form", { name: "Account form" })).not.toBeInTheDocument();
   });
 
+  it.each([
+    [true, true, "accounts.archivedExcludedFromNetWorth"],
+    [true, false, "accounts.archivedExcludedFromNetWorth"],
+    [false, true, "accounts.includedInNetWorth"],
+    [false, false, "accounts.excludedFromNetWorth"],
+  ])("reports the effective net-worth state for archived=%s and configured inclusion=%s", async (archived, includeInNetWorth, translationKey) => {
+    const record = {
+      ...emptyAccount,
+      account: {
+        ...emptyAccount.account,
+        archivedAt: archived ? "2026-10-01T00:00:00Z" : null,
+        includeInNetWorth,
+      },
+    };
+    listAccounts.mockResolvedValue([record]);
+    accountValuations.mockResolvedValue([{
+      account: record.account, ownership: record.ownership, complete: true, components: [], missingInputs: [],
+      baseValue: { amount: "1000", currency: "USD" },
+    }]);
+    renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+    const detail = within(await screen.findByTestId("account-detail"));
+    expect(detail.getByText(i18n.t(translationKey))).toBeInTheDocument();
+    if (archived) expect(detail.getByText(i18n.t("accounts.archivedReadOnly"))).toBeInTheDocument();
+  });
+
   it("shows cash, holdings, and completeness on a composite account", async () => {
     listAccounts.mockResolvedValue([brokerageAccount]);
     accountValuations.mockResolvedValue([

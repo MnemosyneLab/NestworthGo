@@ -217,7 +217,9 @@ export function AccountDetail({
       />
 
       <p className="text-sm text-muted-foreground">
-        {record.account.includeInNetWorth ? t("accounts.includedInNetWorth") : t("accounts.excludedFromNetWorth")}
+        {archived
+          ? t("accounts.archivedExcludedFromNetWorth")
+          : record.account.includeInNetWorth ? t("accounts.includedInNetWorth") : t("accounts.excludedFromNetWorth")}
       </p>
       {archived && (
         <p role="status" className="rounded-xl border border-border bg-muted/60 px-4 py-2.5 text-sm">
