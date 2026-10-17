@@ -482,7 +482,7 @@ function SavedFXRates({
 
 /** MarketDataPage merges instrument management and FX rates onto one
  * destination, with Sync Data progress restored from the in-process job. */
-export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, isActive = true }: { onOpenDataHealth?: () => void; focus?: HealthFocus; focusRequestId?: number; isActive?: boolean } = {}) {
+export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, searchQuery, onSearchQueryChange, isActive = true }: { onOpenDataHealth?: () => void; focus?: HealthFocus; focusRequestId?: number; searchQuery?: string; onSearchQueryChange?: (query: string) => void; isActive?: boolean } = {}) {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const fxPreferences = useFXPreferences();
@@ -626,6 +626,8 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, is
             <InstrumentManagement
               focus={focus}
               focusRequestId={focusRequestId}
+              searchQuery={searchQuery}
+              onSearchQueryChange={onSearchQueryChange}
               pageId="market-data"
               active={isActive && tab === "instruments"}
               enableSearch

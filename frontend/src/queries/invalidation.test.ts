@@ -327,11 +327,13 @@ describe("mutation-hook invalidation", () => {
 
   it("invalidates quote and valuation after a manual quote, not raw holdings or History", async () => {
     const queryClient = seededClient();
+    queryClient.setQueryData(queryKeys.marketdata.health, "stale");
     const save = renderMutation(queryClient, useAppendManualInstrumentQuote);
     await act(async () => {
       await save.result.current.mutateAsync({ instrumentId: "instrument-1", unitPrice: "1", quotedAt: "" });
     });
     expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.marketdata.health)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);

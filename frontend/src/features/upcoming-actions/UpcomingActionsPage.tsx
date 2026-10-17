@@ -8,10 +8,17 @@ import { useUpcomingActions } from "@/queries/liquidity";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { UpcomingActionList } from "./UpcomingActionList";
 import { upcomingNavigation, upcomingButton, upcomingCountLabels, upcomingReadLabel } from "./upcomingActionPresentation";
+import type { UpcomingActionsTab } from "@/app/navigation";
 
-export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean }) {
+export function UpcomingActionsPage({ isActive = true, tab: controlledTab, onTabChange }: { isActive?: boolean; tab?: UpcomingActionsTab; onTabChange?: (tab: UpcomingActionsTab) => void }) {
   const { t, i18n } = useTranslation();
-  const [tab, setTab] = useState("recent");
+  const [localTab, setLocalTab] = useState<UpcomingActionsTab>("recent");
+  const tab = controlledTab ?? localTab;
+  const setTab = (value: string) => {
+    const next = value === "review" ? "review" : "recent";
+    setLocalTab(next);
+    onTabChange?.(next);
+  };
   const query = useUpcomingActions(isActive && tab === "recent");
   const navigation = useObjectNavigation();
   const [filter, setFilter] = useState("all");

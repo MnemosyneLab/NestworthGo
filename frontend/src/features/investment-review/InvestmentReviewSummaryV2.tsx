@@ -19,6 +19,6 @@ export function InvestmentReviewSummaryV2({ isActive = true, compact = false }: 
       {actionable.length > 0 && <ul className="space-y-1 text-sm">{actionable.map(group => <li key={group.instrumentId} className="break-words font-medium">{group.displayName}</li>)}</ul>}
       {!query.isFetching && summary.actionableRules === 0 && <p className="text-sm text-muted-foreground">{t("reviewV2.noAlerts")}</p>}
     </>}
-    {navigation && <Button className="h-auto max-w-full whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "upcoming-actions" })}>{t("reviewV2.openReview")}</Button>}
+    {navigation && <Button className="h-auto max-w-full whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "upcoming-actions", tab: "review" })}>{t("reviewV2.openReview")}</Button>}
   </section>;
 }

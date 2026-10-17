@@ -510,7 +510,7 @@ describe("App shell smoke test", () => {
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
   });
 
-  it("restores focus and keeps maintenance search across focused editor Back round trips", async () => {
+  it("restores each focused maintenance request and the prior search on Back", async () => {
     await i18n.changeLanguage("en");
     listInstruments.mockResolvedValue([
       { id: "fund-one", householdId: "synthetic", name: "Fund One", type: "fund", quoteCurrency: "USD", quoteSource: "manual", iconKey: "", sortOrder: 0 },
@@ -547,6 +547,9 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
     await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
 
+    expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("");
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
     await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Open Fund One details"));
 
@@ -927,16 +930,14 @@ it.each(SUPPORTED_LANGUAGES)("keeps investment review reachable from Overview wi
   await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
   expect(screen.getByText(i18n.t("upcomingActions.description"))).toBeVisible();
-  expect(await screen.findByText(i18n.t("upcomingActions.empty"))).toBeVisible();
-  const header = within(document.querySelector("header")!);
-  expect(header.getByRole("button", { name: i18n.t("upcomingActions.refresh") })).toBeVisible();
-  expect(header.queryByRole("button", { name: i18n.t("reviewV2.historyTitle") })).not.toBeInTheDocument();
-  expect(header.queryByRole("button", { name: i18n.t("reviewV2.ignoredList") })).not.toBeInTheDocument();
-  expect(header.queryByRole("button", { name: i18n.t("reviewV2.rules") })).not.toBeInTheDocument();
   const reviewTab = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
-  reviewTab.focus(); await userEvent.keyboard("{Enter}");
+  expect(reviewTab).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toBeVisible();
-  expect(screen.getByRole("button", { name: i18n.t("reviewV2.rules") })).toBeVisible();
+  const header = within(document.querySelector("header")!);
+  expect(header.getByRole("button", { name: i18n.t("reviewV2.refresh") })).toBeVisible();
+  expect(header.getByRole("button", { name: i18n.t("reviewV2.historyTitle") })).toBeVisible();
+  expect(header.getByRole("button", { name: i18n.t("reviewV2.ignoredList") })).toBeVisible();
+  expect(header.getByRole("button", { name: i18n.t("reviewV2.rules") })).toBeVisible();
   expect(reviewTab).toHaveAttribute("aria-selected", "true");
 });
 

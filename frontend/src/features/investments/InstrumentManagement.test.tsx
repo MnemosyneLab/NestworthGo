@@ -3,6 +3,8 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import type { HealthFocus } from "@/app/navigation";
+import { NavigationContext } from "@/app/NavigationContext";
 import i18n from "@/i18n";
 import { InstrumentManagement } from "./InstrumentManagement";
 import { TEST_CATALOG, selectValues } from "@/test/catalog";
@@ -60,11 +62,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
   Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
 }));
 
-function renderManagement(enableSearch = false) {
+function renderManagement(enableSearch = false, focus?: HealthFocus, focusRequestId = 0) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <InstrumentManagement pageId="market-data" active enableSearch={enableSearch} />
+      <InstrumentManagement pageId="market-data" active enableSearch={enableSearch} focus={focus} focusRequestId={focusRequestId} />
     </QueryClientProvider>,
   );
 }
@@ -86,6 +88,80 @@ beforeEach(() => {
 });
 
 describe("InstrumentManagement", () => {
+  it.each([
+    ["market-data", "data"],
+    ["portfolio", "holdings"],
+  ] as const)("opens instrument details in the %s context's %s section", async (pageId, section) => {
+    listInstruments.mockResolvedValue([{ id: "synthetic-instrument", name: "Synthetic fund", type: "etf", quoteCurrency: "USD", quoteSource: "manual" }]);
+    const open = vi.fn();
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <NavigationContext.Provider value={{ open, openHealth: vi.fn() }}>
+          <InstrumentManagement pageId={pageId} active enableSearch={pageId === "market-data"} browseAll={pageId === "portfolio"} />
+        </NavigationContext.Provider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Open Synthetic fund details" }));
+    expect(open).toHaveBeenCalledWith({ page: "instrument-detail", instrumentId: "synthetic-instrument", section });
+  });
+
+  it("clears an unrelated search for repair focus, reopens the editor, and restores the previous search on Back", async () => {
+    const catalog = Array.from({ length: 64 }, (_, index) => ({
+      id: `instrument-${index}`, name: `Synthetic instrument ${index}`, type: "stock", quoteCurrency: "USD", quoteSource: "manual",
+    }));
+    catalog[0] = { ...catalog[0], id: "qaf0", name: "QAF0" };
+    catalog[1] = { ...catalog[1], id: "qaspr", name: "QASPR" };
+    listInstruments.mockResolvedValue(catalog);
+    const view = renderManagement(true, undefined, 1);
+    const search = await screen.findByRole("textbox", { name: i18n.t("marketData.searchInstruments") });
+    await userEvent.type(search, "QAF0");
+    expect(await screen.findByText("QAF0")).toBeInTheDocument();
+    expect(screen.queryByText("QASPR")).not.toBeInTheDocument();
+
+    view.rerender(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <InstrumentManagement pageId="market-data" active enableSearch focus={{ instrumentId: "qaspr", action: "repair" }} focusRequestId={2} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Search instruments" })).toHaveValue(""));
+    expect(await screen.findByText("QASPR")).toBeInTheDocument();
+    expect(screen.queryByText("QAF0")).not.toBeInTheDocument();
+
+    const qasprRow = screen.getByText("QASPR").closest("li");
+    await userEvent.click(within(qasprRow!).getByRole("button", { name: "Edit" }));
+    expect(await screen.findByRole("form", { name: "Instrument form" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Instrument form" })).not.toBeInTheDocument());
+    await userEvent.click(within(screen.getByText("QASPR").closest("li")!).getByRole("button", { name: "Edit" }));
+    expect(await screen.findByRole("form", { name: "Instrument form" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+
+    view.rerender(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <InstrumentManagement pageId="market-data" active enableSearch focusRequestId={1} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Search instruments" })).toHaveValue("QAF0"));
+    expect(await screen.findByText("QAF0")).toBeInTheDocument();
+    expect(screen.queryByText("QASPR")).not.toBeInTheDocument();
+  });
+
+  it.each(["en", "zh-CN", "zh-TW"])("distinguishes an empty catalog from a search with no matches in %s", async language => {
+    await i18n.changeLanguage(language);
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    const view = renderManagement(true);
+    const search = await screen.findByRole("textbox", { name: i18n.t("marketData.searchInstruments") });
+    await userEvent.type(search, "no-such-instrument");
+    expect(await screen.findByText(i18n.t("marketData.noInstrumentMatches"))).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("portfolio.noInstruments"))).not.toBeInTheDocument();
+
+    view.unmount();
+    listInstruments.mockResolvedValue([]);
+    renderManagement(true);
+    expect(await screen.findByText(i18n.t("portfolio.noInstruments"))).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("marketData.noInstrumentMatches"))).not.toBeInTheDocument();
+  });
+
   it("shows the latest saved instrument price in the instrument list", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "provider" }]);
     currentInstrumentQuote.mockResolvedValue({

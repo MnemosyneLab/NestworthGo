@@ -320,7 +320,7 @@ it("pairs attention and upcoming cards below the financial row, preserving healt
   expect(within(screen.getByTestId("overview-upcoming-actions-card")).queryByRole("region", { name: "Investment review" })).not.toBeInTheDocument();
   expect(await screen.findByText("1 of 1 investments · 1 need attention · 1 actionable rules · 0 with missing data")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Open investment review" }));
-  expect(navigation.open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
+  expect(navigation.open).toHaveBeenLastCalledWith({ page: "upcoming-actions", tab: "review" });
   const financial = screen.getByTestId("overview-financial-row");
   expect(financial).not.toContainElement(row);
   expect(financial).toContainElement(screen.getByTestId("overview-net-worth"));
