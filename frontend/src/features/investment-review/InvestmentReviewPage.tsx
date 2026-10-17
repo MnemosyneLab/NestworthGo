@@ -13,6 +13,9 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { LoadingState, ErrorState } from "@/components/layout/PageState";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { useReviewAlertPage, useReviewCoveragePage, useReviewDailyEvidencePage, useReviewRulesV2, useReviewSuppressionsV2, useReviewV2Commands } from "@/queries/investmentReviewV2";
+import { useHistoryOrigin } from "@/queries/history";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
+import { parseWailsError, translateWailsError, type WireError } from "@/lib/wails";
 import type { ReviewAlertGroup, ReviewAlertRule, ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { ReviewRuleEditor } from "./ReviewRuleEditor";
 import { InvestmentReviewPanel } from "./InvestmentReviewPanel";
@@ -21,6 +24,14 @@ import { ReviewEpisodeHistorySheet } from "./ReviewEpisodeHistorySheet";
 
 const statusKeys = ["unignored", "all", "pending", "acknowledged", "ignored", "unknown", "confirming", "paused", "coverage"] as const;
 const typeKeys = ["all", "stock", "etf", "mutual_fund", "bank_investment_product", "bond", "precious_metal", "crypto", "other"] as const;
+
+function nextCivilDate(value: string | undefined): string | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return undefined;
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
 
 function ruleWindow(rule: ReviewAlertRule, t: (key: string, options?: Record<string, unknown>) => string) {
   const policy = rule.triggerPolicy;
@@ -54,6 +65,10 @@ function ReviewEvidenceDetails({ rule, isActive }: { rule: ReviewAlertRule; isAc
 export function InvestmentReviewPage({ isActive = true, embedded = false }: { isActive?: boolean; embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
+  const historyOrigin = useHistoryOrigin();
+  const householdTimezone = historyOrigin.data?.timezone ?? "";
+  const householdToday = householdTimezone ? localDateInTimeZone(householdTimezone) : undefined;
+  const firstResumeDate = nextCivilDate(householdToday);
   const [status, setStatus] = useState("unignored");
   const [instrumentType, setInstrumentType] = useState("all");
   const [query, setQuery] = useState("");
@@ -68,6 +83,7 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
   const [permanent, setPermanent] = useState<ReviewAlertGroup | null>(null);
   const [dateFor, setDateFor] = useState<ReviewAlertGroup | null>(null);
   const [untilOn, setUntilOn] = useState("");
+  const [untilError, setUntilError] = useState("");
   const [legacyOpen, setLegacyOpen] = useState(false);
   const [message, setMessage] = useState("");
   const statusRoot = useRef<HTMLDivElement>(null);
@@ -121,6 +137,27 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
   const content = alerts.data;
   const items = content?.items ?? [];
   const trackFocus = (instrumentId: string) => { focusReturn.current = { element: document.activeElement, instrumentId, revision: content?.reportRevision ?? "" }; };
+  const saveIgnoreUntil = async () => {
+    if (!dateFor || !untilOn || !firstResumeDate || busy) return;
+    trackFocus(dateFor.instrumentId);
+    setMessage("");
+    setUntilError("");
+    if (untilOn < firstResumeDate) {
+      setUntilError(t("reviewV2.ignoreUntilFutureDate", { timezone: householdTimezone }));
+      return;
+    }
+    try {
+      await commands.suppress.mutateAsync({ instrumentId: dateFor.instrumentId, mode: "until_date", untilOn });
+      setMessage(t("reviewV2.ignoredMessage", { name: dateFor.displayName }));
+      resetCursor();
+      setDateFor(null);
+    } catch (cause) {
+      const wire = (cause as Error & { wireError?: WireError } | null)?.wireError ?? parseWailsError(cause);
+      setUntilError(wire.code === "validation" && wire.field === "untilOn"
+        ? t("reviewV2.ignoreUntilFutureDate", { timezone: householdTimezone })
+        : translateWailsError(wire));
+    }
+  };
   useLayoutEffect(() => {
     const pending = focusReturn.current;
     if (!pending || !content || pending.revision === content.reportRevision) return;
@@ -140,7 +177,7 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
       <div className="flex items-center gap-2"><Badge variant={group.status === "pending" ? "warning" : "secondary"}>{t(`reviewV2.status.${group.status}`)}</Badge><ActionMenu label={t("reviewV2.moreFor", { name: group.displayName })} items={[
         { id: "ignore7", label: t("reviewV2.ignoreDays", { days: 7 }), onSelect: () => void ignore(group, "until_date", 7), disabled: busy || alerts.isError || group.status === "ignored" },
         { id: "ignore30", label: t("reviewV2.ignoreDays", { days: 30 }), onSelect: () => void ignore(group, "until_date", 30), disabled: busy || alerts.isError || group.status === "ignored" },
-        { id: "ignoreUntil", label: t("reviewV2.ignoreUntil"), onSelect: () => { setDateFor(group); setUntilOn(""); }, disabled: busy || alerts.isError || group.status === "ignored" },
+        { id: "ignoreUntil", label: t("reviewV2.ignoreUntil"), onSelect: () => { setDateFor(group); setUntilOn(""); setUntilError(""); }, disabled: busy || alerts.isError || group.status === "ignored" },
         { id: "ignorePermanent", label: t("reviewV2.ignorePermanent"), onSelect: () => setPermanent(group), disabled: busy || alerts.isError || group.status === "ignored" },
         { id: "holdings", label: t("reviewV2.viewHoldings"), onSelect: () => openInstrument(group.instrumentId, "holdings") },
         { id: "performance", label: t("reviewV2.viewPerformance"), onSelect: () => openInstrument(group.instrumentId, "performance") },
@@ -182,7 +219,12 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
     <Sheet open={suppressionsOpen} onOpenChange={setSuppressionsOpen}><SheetContent size="lg"><SheetHeader><SheetTitle>{t("reviewV2.ignoredList")}</SheetTitle></SheetHeader>{suppressions.isError && <p role="alert">{t("reviewV2.loadError")}</p>}<ul className="space-y-2">{(suppressions.data ?? []).map(item => <li key={item.ID} className="flex flex-wrap justify-between gap-2 rounded-lg border p-3 text-sm"><span>{item.InstrumentID} · {item.Mode === "permanent" ? t("reviewV2.ignorePermanent") : t("reviewV2.suppressedUntil", { date: item.UntilOn })}</span><Button size="sm" variant="outline" disabled={busy} onClick={() => void handle(() => commands.clearSuppression.mutateAsync({ suppressionId: item.ID, expectedRevision: item.Revision }), t("reviewV2.resumed"))}>{t("reviewV2.resume")}</Button></li>)}</ul>{suppressions.hasNextPage && <Button variant="outline" disabled={suppressions.isFetchingNextPage} onClick={() => void suppressions.fetchNextPage()}>{t("reviewV2.loadMore")}</Button>}{!suppressions.isPending && !suppressions.data?.length && <p>{t("reviewV2.noSuppressions")}</p>}</SheetContent></Sheet>
     <AlertDialog open={archiveFor !== null} onOpenChange={open => { if (!open) setArchiveFor(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t("reviewV2.archive")}</AlertDialogTitle><AlertDialogDescription>{t("reviewV2.archiveConfirm", { name: archiveFor?.name ?? "" })}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><Button disabled={busy} onClick={() => { if (archiveFor) void handle(() => commands.archiveRule.mutateAsync({ ruleId: archiveFor.id, expectedRevision: archiveFor.rowRevision }), t("reviewV2.archived")); setArchiveFor(null); }}>{t("reviewV2.archive")}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
     <AlertDialog open={permanent !== null} onOpenChange={open => { if (!open) setPermanent(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t("reviewV2.ignorePermanent")}</AlertDialogTitle><AlertDialogDescription>{t("reviewV2.permanentConfirm", { name: permanent?.displayName ?? "" })}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><Button disabled={busy} onClick={() => { if (permanent) void ignore(permanent, "permanent"); setPermanent(null); }}>{t("reviewV2.ignorePermanent")}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    <Sheet open={dateFor !== null} onOpenChange={open => { if (!open) setDateFor(null); }}><SheetContent size="md"><SheetHeader><SheetTitle>{t("reviewV2.ignoreUntil")}</SheetTitle></SheetHeader><DatePicker aria-label={t("reviewV2.resumeOn")} value={untilOn} onChange={setUntilOn} allowFuture /><Button disabled={!untilOn || busy} onClick={() => { if (dateFor) void ignore(dateFor, "until_date", 0, untilOn); setDateFor(null); }}>{t("reviewV2.saveIgnore")}</Button></SheetContent></Sheet>
+    <Sheet open={dateFor !== null} onOpenChange={open => { if (!open) { setDateFor(null); setUntilError(""); } }}><SheetContent size="md"><SheetHeader><SheetTitle>{t("reviewV2.ignoreUntil")}</SheetTitle></SheetHeader>
+      <DatePicker aria-label={t("reviewV2.resumeOn")} aria-invalid={Boolean(untilError)} aria-describedby="review-ignore-until-help" value={untilOn} min={firstResumeDate} onChange={value => { setUntilOn(value); setUntilError(""); }} allowFuture />
+      <p id="review-ignore-until-help" className="text-sm text-muted-foreground">{t("reviewV2.ignoreUntilDateHelp", { timezone: householdTimezone || "…" })}</p>
+      {untilError && <p role="alert" className="text-sm">{untilError}</p>}
+      <Button disabled={!untilOn || !firstResumeDate || untilOn < firstResumeDate || busy} onClick={() => void saveIgnoreUntil()}>{t("reviewV2.saveIgnore")}</Button>
+    </SheetContent></Sheet>
   </div>;
 }
 

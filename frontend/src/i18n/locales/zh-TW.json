@@ -1639,6 +1639,8 @@
       "resumed": "已恢復提醒。",
       "permanentConfirm": "永久忽略{{name}}？該標的所有目前及未來規則都不會再次提醒，直到你恢復提醒。",
       "resumeOn": "恢復日期",
+      "ignoreUntilDateHelp": "請選擇 {{timezone}} 時區中晚於今天的恢復日期。",
+      "ignoreUntilFutureDate": "請選擇 {{timezone}} 時區中晚於今天的恢復日期。",
       "saveIgnore": "忽略至所選日期",
       "status": {
       "unignored": "未忽略",

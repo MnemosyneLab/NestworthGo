@@ -1639,6 +1639,8 @@
       "resumed": "Alerts resumed.",
       "permanentConfirm": "Ignore {{name}} for all current and future rules until you resume alerts?",
       "resumeOn": "Resume on",
+      "ignoreUntilDateHelp": "Choose a resume date after today in {{timezone}}.",
+      "ignoreUntilFutureDate": "Choose a resume date after today in {{timezone}}.",
       "saveIgnore": "Ignore until this date",
       "status": {
       "unignored": "Not ignored",

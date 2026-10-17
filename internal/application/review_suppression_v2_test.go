@@ -147,3 +147,38 @@ func TestReviewSuppressionV2CanBeSetAgainAfterExpiryConcurrently(t *testing.T) {
 		t.Fatalf("concurrent re-ignore created or changed multiple rows: %+v %v", entries, err)
 	}
 }
+
+func TestReviewSuppressionV2ExpiresAtHouseholdCivilDateWithFakeClock(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "Asia/Singapore", "2026-10-01", "1")
+	f.day(t, "2026-10-02")
+	spec := syntheticHistoricalReviewSpec()
+	spec.Schedule.Timezone = "Asia/Singapore"
+	rule := saveSyntheticReviewRule(t, f, "Synthetic suppression expiry", spec)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	page, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "pending"}, "", 10)
+	if err != nil || len(page.Items) != 1 || len(page.Items[0].Rules) != 1 || page.Items[0].Rules[0].RuleID != rule.ID {
+		t.Fatalf("synthetic alert: %+v %v", page, err)
+	}
+	episode := page.Items[0].Rules[0]
+	if _, err := f.s.SetReviewSuppressionV2(t.Context(), SetReviewSuppressionV2Input{
+		SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()),
+		InstrumentID: f.instrument.ID.String(), Mode: "until_date", UntilOn: "2026-10-03",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Singapore is UTC+8: the resume civil date starts at 16:00 UTC on Oct 2.
+	f.s.SetClock(func() time.Time { return time.Date(2026, 10, 2, 15, 59, 59, 0, time.UTC) })
+	ignored, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "ignored"}, "", 10)
+	if err != nil || len(ignored.Items) != 1 || ignored.Items[0].Rules[0].SuppressionID == "" || ignored.Items[0].Rules[0].Actionable {
+		t.Fatalf("still ignored immediately before local expiry: %+v %v", ignored, err)
+	}
+
+	f.s.SetClock(func() time.Time { return time.Date(2026, 10, 2, 16, 0, 0, 0, time.UTC) })
+	pending, err := f.s.ListReviewAlertGroupsV2(t.Context(), domain.ReviewAlertFilter{Status: "pending"}, "", 10)
+	if err != nil || len(pending.Items) != 1 || pending.Items[0].Rules[0].EpisodeID != episode.EpisodeID || !pending.Items[0].Rules[0].Actionable {
+		t.Fatalf("alert did not resume at Singapore midnight: %+v %v", pending, err)
+	}
+}
