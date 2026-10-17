@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"math/big"
 	"sort"
 	"strings"
 	"time"
@@ -119,10 +120,12 @@ func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot doma
 		if replayErr != nil {
 			return domain.AccountGainView{}, replayErr
 		}
-		amounts.RealizedBase, amounts.RealizedBaseAvailable, replayErr = g.realizedGainInBaseAtEventFX(snapshot, fxQuotes, replayed.Realized)
-		if replayErr != nil {
-			return domain.AccountGainView{}, replayErr
+		realizedBase, realizedAvailable, realizedErr := g.realizedGainInBaseAtEventFX(snapshot, fxQuotes, replayed.Realized)
+		if realizedErr != nil {
+			return domain.AccountGainView{}, realizedErr
 		}
+		amounts.RealizedBase = rationalFromDecimal(realizedBase)
+		amounts.RealizedBaseAvailable = realizedAvailable
 		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin, amounts)
 		exact[holding.ID] = amounts
 		if viewErr != nil {
@@ -508,9 +511,9 @@ func finishGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency
 // Aggregation uses these decimals rather than reparsing rounded MoneyViews.
 type exactHoldingGain struct {
 	Cost, Value, Unrealized             decimal.Decimal
-	CostBase, ValueBase, UnrealizedBase decimal.Decimal
+	CostBase, ValueBase, UnrealizedBase *big.Rat
 	Realized                            decimal.Decimal
-	RealizedBase                        decimal.Decimal
+	RealizedBase                        *big.Rat
 	RealizedBaseAvailable               bool
 }
 
@@ -583,6 +586,9 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 		view.UnrealizedGainBase = signedMoneyViewPointer(decimal.Zero, snapshot.Household.BaseCurrency)
 		view.InstrumentMovement = signedMoneyViewPointer(decimal.Zero, snapshot.Household.BaseCurrency)
 		view.CurrencyMovement = signedMoneyViewPointer(decimal.Zero, snapshot.Household.BaseCurrency)
+		exact.CostBase = new(big.Rat)
+		exact.ValueBase = new(big.Rat)
+		exact.UnrealizedBase = new(big.Rat)
 		return view, nil
 	}
 	quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
@@ -621,7 +627,7 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 	if err != nil {
 		return domain.HoldingGainView{}, err
 	}
-	exact.ValueBase = currentBase
+	exact.ValueBase = rationalFromDecimal(currentBase)
 	view.CurrentValueBase = &currentBaseView
 	decomposition, decompositionErr := g.decomposeHolding(ctx, snapshot, holding, instrument, result, replay, fxQuotes, origin)
 	if decompositionErr != nil {
@@ -632,8 +638,8 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 		view.MissingReason = decomposition.MissingReason
 		return view, nil
 	}
-	exact.CostBase = decomposition.exactCostBase
-	exact.UnrealizedBase = decomposition.exactUnrealized
+	exact.CostBase = new(big.Rat).Set(decomposition.exactCostBase)
+	exact.UnrealizedBase = new(big.Rat).Set(decomposition.exactUnrealized)
 	view.TotalCostBase = &decomposition.CostBase
 	view.UnrealizedGainBase = &decomposition.UnrealizedGain
 	view.InstrumentMovement = &decomposition.InstrumentMovement
@@ -642,7 +648,7 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 }
 
 type holdingDecomposition struct {
-	exactCostBase, exactUnrealized decimal.Decimal
+	exactCostBase, exactUnrealized *big.Rat
 	Available                      bool
 	MissingReason                  string
 	CostBase                       domain.MoneyView
@@ -656,11 +662,18 @@ func (g *GainService) decomposeHolding(ctx context.Context, snapshot domain.Port
 	if err != nil {
 		return holdingDecomposition{}, err
 	}
-	acquisitionRate, available := g.acquisitionFXRate(ctx, snapshot, instrument.QuoteCurrency, startingCost, events, replay, fxQuotes, origin)
+	acquisitionRate, available, err := g.acquisitionFXRatio(ctx, snapshot, instrument.QuoteCurrency, startingCost, events, replay, fxQuotes, origin)
+	if err != nil {
+		return holdingDecomposition{}, err
+	}
 	if !available {
 		return holdingDecomposition{Available: false, MissingReason: "acquisition foreign-exchange rate is unavailable"}, nil
 	}
-	baseCost := replayResult.Current.AverageUnitCost.Decimal().Mul(holding.Quantity.Decimal()).Mul(acquisitionRate)
+	nativeCost, err := holding.Quantity.Multiply(replayResult.Current.AverageUnitCost)
+	if err != nil {
+		return holdingDecomposition{}, err
+	}
+	baseCost := new(big.Rat).Mul(rationalFromDecimal(nativeCost), acquisitionRate)
 	// The current value is converted through ValuationService so the current
 	// quote and FX orientation remain exactly the same as Portfolio valuation.
 	currentQuote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
@@ -678,36 +691,42 @@ func (g *GainService) decomposeHolding(ctx context.Context, snapshot domain.Port
 	if missing != nil {
 		return holdingDecomposition{Available: false, MissingReason: "current foreign-exchange rate is unavailable"}, nil
 	}
-	unrealized := currentBase.Sub(baseCost)
-	instrumentMovement := currentQuote.UnitPrice.Decimal().Sub(replayResult.Current.AverageUnitCost.Decimal()).Mul(holding.Quantity.Decimal()).Mul(acquisitionRate)
-	currencyMovement := unrealized.Sub(instrumentMovement)
-	costView, err := moneyView(baseCost, snapshot.Household.BaseCurrency)
+	currentBaseExact := rationalFromDecimal(currentBase)
+	unrealized := new(big.Rat).Sub(currentBaseExact, baseCost)
+	nativePriceMovement := new(big.Rat).Sub(rationalFromDecimal(currentQuote.UnitPrice.Decimal()), rationalFromDecimal(replayResult.Current.AverageUnitCost.Decimal()))
+	nativePriceMovement.Mul(nativePriceMovement, rationalFromDecimal(holding.Quantity.Decimal()))
+	instrumentMovement := new(big.Rat).Mul(nativePriceMovement, acquisitionRate)
+	currencyMovement := new(big.Rat).Sub(unrealized, instrumentMovement)
+	costView, err := rationalMoneyView(baseCost, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return holdingDecomposition{}, err
 	}
-	unrealizedView, err := signedMoneyView(unrealized, snapshot.Household.BaseCurrency)
+	unrealizedView, err := rationalSignedMoneyView(unrealized, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return holdingDecomposition{}, err
 	}
-	instrumentView, err := signedMoneyView(instrumentMovement, snapshot.Household.BaseCurrency)
+	instrumentView, err := rationalSignedMoneyView(instrumentMovement, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return holdingDecomposition{}, err
 	}
-	currencyView, err := signedMoneyView(currencyMovement, snapshot.Household.BaseCurrency)
+	currencyView, err := rationalSignedMoneyView(currencyMovement, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return holdingDecomposition{}, err
 	}
 	return holdingDecomposition{exactCostBase: baseCost, exactUnrealized: unrealized, Available: true, CostBase: costView, UnrealizedGain: unrealizedView, InstrumentMovement: instrumentView, CurrencyMovement: currencyView}, nil
 }
 
-func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.PortfolioSnapshot, native domain.CurrencyCode, startingCost *domain.UnitPrice, events []domain.CostBasisEvent, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (decimal.Decimal, bool) {
+func (g *GainService) acquisitionFXRatio(ctx context.Context, snapshot domain.PortfolioSnapshot, native domain.CurrencyCode, startingCost *domain.UnitPrice, events []domain.CostBasisEvent, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (*big.Rat, bool, error) {
 	base := snapshot.Household.BaseCurrency
 	if native == base {
-		return decimal.NewFromInt(1), true
+		return new(big.Rat).SetInt64(1), true, nil
 	}
-	currentRate := decimal.Zero
-	currentQuantity := decimal.Zero
+	weightedRate := new(big.Rat)
+	currentQuantity := new(big.Rat)
 	for _, event := range events {
+		if err := ctx.Err(); err != nil {
+			return nil, false, err
+		}
 		effectiveAt := event.EffectiveAt
 		if event.Kind == domain.CostBasisStartingPoint && effectiveAt.IsZero() && origin != nil {
 			effectiveAt = origin.StartedAt
@@ -717,50 +736,82 @@ func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.Por
 			// A corrected native cost does not represent a new acquisition or
 			// currency exchange. Keep the existing acquisition FX provenance.
 		case domain.CostBasisStartingPoint, domain.CostBasisBuy, domain.CostBasisAdjustmentIn:
-			rate, ok := g.fxRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
+			rate, ok := g.acquisitionQuoteRatio(snapshot, fxQuotes, native, effectiveAt)
 			if !ok {
-				return decimal.Zero, false
+				return nil, false, nil
 			}
-			currentRate, currentQuantity = blendFXRate(currentRate, currentQuantity, rate, event.Quantity.Decimal())
+			weightedRate, currentQuantity = blendExactFXRatio(weightedRate, currentQuantity, rate, event.Quantity.Decimal())
 		case domain.CostBasisTransferIn:
-			rate := decimal.Zero
-			ok := false
+			var rate *big.Rat
+			var ok bool
 			if event.SourceHoldingID != nil {
 				cutoff := event.Boundary()
 				starting, sourceEvents, err := replay.preparedEvents(ctx, *event.SourceHoldingID, &cutoff)
 				if err != nil {
-					return decimal.Zero, false
+					return nil, false, err
 				}
-				rate, ok = g.acquisitionFXRate(ctx, snapshot, native, starting, sourceEvents, replay, fxQuotes, origin)
+				rate, ok, err = g.acquisitionFXRatio(ctx, snapshot, native, starting, sourceEvents, replay, fxQuotes, origin)
+				if err != nil {
+					return nil, false, err
+				}
 			} else {
-				rate, ok = g.fxRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
+				rate, ok = g.acquisitionQuoteRatio(snapshot, fxQuotes, native, effectiveAt)
 			}
 			if !ok {
-				return decimal.Zero, false
+				return nil, false, nil
 			}
-			currentRate, currentQuantity = blendFXRate(currentRate, currentQuantity, rate, event.Quantity.Decimal())
+			weightedRate, currentQuantity = blendExactFXRatio(weightedRate, currentQuantity, rate, event.Quantity.Decimal())
 		case domain.CostBasisSell, domain.CostBasisTransferOut, domain.CostBasisAdjustmentOut:
-			currentQuantity = currentQuantity.Sub(event.Quantity.Decimal())
-			if currentQuantity.IsZero() {
-				currentRate = decimal.Zero
+			outQuantity := rationalFromDecimal(event.Quantity.Decimal())
+			remaining := new(big.Rat).Sub(currentQuantity, outQuantity)
+			if remaining.Sign() < 0 {
+				return nil, false, &domain.Error{Code: domain.ErrIntegrity, Field: "quantity", Message: "acquisition FX replay quantity is negative"}
+			}
+			if remaining.Sign() == 0 {
+				weightedRate = new(big.Rat)
+				currentQuantity = new(big.Rat)
+			} else if currentQuantity.Sign() > 0 {
+				average := new(big.Rat).Quo(weightedRate, currentQuantity)
+				weightedRate = new(big.Rat).Mul(average, remaining)
+				currentQuantity = remaining
 			}
 		}
 	}
-	if startingCost != nil && currentQuantity.IsZero() && len(events) == 0 {
-		return decimal.Zero, false
+	if startingCost != nil && currentQuantity.Sign() == 0 && len(events) == 0 {
+		return nil, false, nil
 	}
-	if currentQuantity.IsZero() {
-		return decimal.Zero, false
+	if currentQuantity.Sign() <= 0 {
+		return nil, false, nil
 	}
-	return currentRate, true
+	return new(big.Rat).Quo(weightedRate, currentQuantity), true, nil
 }
 
-func blendFXRate(currentRate, currentQuantity, incomingRate, incomingQuantity decimal.Decimal) (decimal.Decimal, decimal.Decimal) {
-	if currentQuantity.IsZero() {
-		return incomingRate, incomingQuantity
+func (g *GainService) acquisitionQuoteRatio(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (*big.Rat, bool) {
+	if snapshot.Household == nil {
+		return nil, false
 	}
-	totalQuantity := currentQuantity.Add(incomingQuantity)
-	return currentRate.Mul(currentQuantity).Add(incomingRate.Mul(incomingQuantity)).Div(totalQuantity), totalQuantity
+	base := snapshot.Household.BaseCurrency
+	if native == base {
+		return new(big.Rat).SetInt64(1), true
+	}
+	quote := g.valuation.selectFXQuote(snapshot, quotes, native, &cutoff)
+	if quote == nil || quote.Rate.Decimal().IsZero() {
+		return nil, false
+	}
+	rate := rationalFromDecimal(quote.Rate.Decimal())
+	if quote.BaseCurrency == native && quote.QuoteCurrency == base {
+		return rate, true
+	}
+	if quote.BaseCurrency == base && quote.QuoteCurrency == native {
+		return new(big.Rat).Inv(rate), true
+	}
+	return nil, false
+}
+
+func blendExactFXRatio(weightedRate, currentQuantity, incomingRate *big.Rat, incomingQuantity decimal.Decimal) (*big.Rat, *big.Rat) {
+	quantity := rationalFromDecimal(incomingQuantity)
+	weighted := new(big.Rat).Add(weightedRate, new(big.Rat).Mul(incomingRate, quantity))
+	return weighted, new(big.Rat).Add(currentQuantity, quantity)
 }
 
 func (g *GainService) fxRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
@@ -803,10 +854,10 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 	if snapshot.Household == nil {
 		return result, nil
 	}
-	totalCost := decimal.Zero
-	currentValue := decimal.Zero
-	realized := decimal.Zero
-	unrealized := decimal.Zero
+	totalCost := new(big.Rat)
+	currentValue := new(big.Rat)
+	realized := new(big.Rat)
+	unrealized := new(big.Rat)
 	hasTotalCost := true
 	hasRealized := true
 	hasCurrent := true
@@ -815,7 +866,7 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 		if holding.TotalCostBase == nil {
 			hasTotalCost = false
 		} else {
-			totalCost = totalCost.Add(amounts.CostBase)
+			totalCost.Add(totalCost, amounts.CostBase)
 		}
 		if !amounts.RealizedBaseAvailable {
 			hasRealized = false
@@ -826,37 +877,37 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 				result.MissingReason += "; " + historicalRealizedGainMissingFX
 			}
 		} else {
-			realized = realized.Add(amounts.RealizedBase)
+			realized.Add(realized, amounts.RealizedBase)
 		}
 		if holding.CurrentValueBase == nil || holding.UnrealizedGainBase == nil {
 			hasCurrent = false
 			continue
 		}
-		currentValue = currentValue.Add(amounts.ValueBase)
-		unrealized = unrealized.Add(amounts.UnrealizedBase)
+		currentValue.Add(currentValue, amounts.ValueBase)
+		unrealized.Add(unrealized, amounts.UnrealizedBase)
 	}
 	base := snapshot.Household.BaseCurrency
 	if hasTotalCost {
-		totalCostView, err := moneyView(totalCost, base)
+		totalCostView, err := rationalMoneyView(totalCost, base)
 		if err != nil {
 			return domain.AccountGainView{}, err
 		}
 		result.TotalCost = &totalCostView
 	}
 	if hasRealized {
-		realizedView, err := signedMoneyView(realized, base)
+		realizedView, err := rationalSignedMoneyView(realized, base)
 		if err != nil {
 			return domain.AccountGainView{}, err
 		}
 		result.RealizedGain = &realizedView
 	}
 	if hasCurrent {
-		valueView, valueErr := moneyView(currentValue, base)
+		valueView, valueErr := rationalMoneyView(currentValue, base)
 		if valueErr != nil {
 			return domain.AccountGainView{}, valueErr
 		}
 		result.CurrentValue = &valueView
-		unrealView, unrealErr := signedMoneyView(unrealized, base)
+		unrealView, unrealErr := rationalSignedMoneyView(unrealized, base)
 		if unrealErr != nil {
 			return domain.AccountGainView{}, unrealErr
 		}
