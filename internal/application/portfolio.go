@@ -966,11 +966,14 @@ func (s *Service) parseManualQuoteTimestamp(ctx context.Context, value string) (
 			return time.Time{}, err
 		}
 	}
-	parsed, err := time.ParseInLocation("2006-01-02", value, location)
-	if err != nil || parsed.In(location).Format("2006-01-02") != value {
+	dateLabel, err := time.Parse("2006-01-02", value)
+	if err != nil {
 		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "quotedAt", Message: "must be a valid date in the History timezone"}
 	}
-	parsed = parsed.UTC()
+	parsed, err := domain.ResolveCivilDateStart(dateLabel, location)
+	if err != nil {
+		return time.Time{}, err
+	}
 	if parsed.After(s.clock()) {
 		return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "quotedAt", Message: "manual quotes cannot be dated in the future"}
 	}

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"math"
+	"math/big"
 	"regexp"
 
 	"github.com/shopspring/decimal"
@@ -208,6 +209,89 @@ func ConvertFXAmount(value decimal.Decimal, from, to CurrencyCode, quote FXQuote
 		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
 	}
 	return converted, nil
+}
+
+// ConvertFXAmountExact applies the same oriented quote and per-event magnitude
+// guards as ConvertFXAmount, but retains the exact rational amount until its
+// caller reaches the final Money boundary.
+func ConvertFXAmountExact(value decimal.Decimal, from, to CurrencyCode, quote FXQuote) (*big.Rat, error) {
+	if value.Abs().GreaterThan(maxMoney) {
+		return nil, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	converted := RationalFromDecimal(value)
+	if from == to {
+		if err := CheckExactMoneyRange(converted); err != nil {
+			return nil, err
+		}
+		return converted, nil
+	}
+	multiplier, divisor, err := fxConversionFactors(from, to, quote)
+	if err != nil {
+		return nil, err
+	}
+	converted.Mul(converted, RationalFromDecimal(multiplier))
+	if !divisor.Equal(decimal.NewFromInt(1)) {
+		converted.Quo(converted, RationalFromDecimal(divisor))
+	}
+	if err := CheckExactMoneyRange(converted); err != nil {
+		return nil, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	return converted, nil
+}
+
+// CheckExactMoneyRange applies the shared Money magnitude limit to an exact
+// rational result before rounding. The denominator is never approximated, so
+// a value just outside the supported range cannot round back into it.
+func CheckExactMoneyRange(value *big.Rat) error {
+	if value == nil {
+		return nil
+	}
+	limit, ok := new(big.Rat).SetString(maxMoney.String())
+	if !ok {
+		return &Error{Code: ErrIntegrity, Field: "amount", Message: "money range could not be resolved"}
+	}
+	if new(big.Rat).Abs(value).Cmp(limit) > 0 {
+		return &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "amount is outside the supported range"}
+	}
+	return nil
+}
+
+// CheckExactUnsignedMoneyRange applies the non-negative Money contract before
+// any rounding can erase a negative fractional amount.
+func CheckExactUnsignedMoneyRange(value *big.Rat) error {
+	if value != nil && value.Sign() < 0 {
+		return &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "amount is outside the supported range"}
+	}
+	return CheckExactMoneyRange(value)
+}
+
+// ExactFXIntermediateDecimal projects an exact FX bridge ratio into the
+// existing bounded decimal intermediate precision. Callers must retain the
+// rational value through their sums and differences and apply Money rounding
+// only at the actual amount boundary.
+func ExactFXIntermediateDecimal(value *big.Rat) (decimal.Decimal, error) {
+	if value == nil || value.Sign() == 0 {
+		return decimal.Zero, nil
+	}
+	if err := CheckExactMoneyRange(value); err != nil {
+		return decimal.Zero, err
+	}
+	numerator := decimal.NewFromBigInt(value.Num(), 0)
+	denominator := decimal.NewFromBigInt(value.Denom(), 0)
+	return numerator.DivRound(denominator, maxFXConversionInputFractionDigits), nil
+}
+
+// RationalFromDecimal preserves the exact coefficient and exponent of a
+// decimal amount for calculations that need to defer rounding.
+func RationalFromDecimal(value decimal.Decimal) *big.Rat {
+	numerator := new(big.Int).Set(value.Coefficient())
+	exponent := value.Exponent()
+	if exponent >= 0 {
+		numerator.Mul(numerator, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(exponent)), nil))
+		return new(big.Rat).SetInt(numerator)
+	}
+	denominator := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(-exponent)), nil)
+	return new(big.Rat).SetFrac(numerator, denominator)
 }
 
 // ConvertFXAmountViaQuotes composes two quote legs before dividing. Keeping

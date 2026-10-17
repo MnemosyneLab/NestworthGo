@@ -44,13 +44,13 @@ func TestCostCorrectionPreservesAcquisitionFXThroughTransfer(t *testing.T) {
 	}
 	replay := &costBasisReplayContext{events: map[domain.HoldingID][]domain.CostBasisEvent{sourceID: sourceEvents}, starting: map[domain.HoldingID]*domain.UnitPrice{sourceID: &initialCost}}
 	gain := NewGainService(nil)
-	sourceFX, ok := gain.acquisitionFXRate(context.Background(), snapshot, "USD", &initialCost, sourceEvents, replay, quotes, nil)
-	if !ok || sourceFX.String() != "7" {
-		t.Fatalf("source acquisition FX=%s available=%v, want 7", sourceFX, ok)
+	sourceFX, ok, err := gain.acquisitionFXRatio(context.Background(), snapshot, "USD", &initialCost, sourceEvents, replay, quotes, nil)
+	if err != nil || !ok || sourceFX.RatString() != "7" {
+		t.Fatalf("source acquisition FX=%v available=%v err=%v, want 7", sourceFX, ok, err)
 	}
 	destinationEvents := []domain.CostBasisEvent{{Kind: domain.CostBasisTransferIn, Quantity: quantity2, UnitCost: &correctedCost, SourceHoldingID: &sourceID, EffectiveAt: transferred}}
-	destinationFX, ok := gain.acquisitionFXRate(context.Background(), snapshot, "USD", nil, destinationEvents, replay, quotes, nil)
-	if !ok || destinationFX.String() != "7" {
-		t.Fatalf("transferred acquisition FX=%s available=%v, want 7", destinationFX, ok)
+	destinationFX, ok, err := gain.acquisitionFXRatio(context.Background(), snapshot, "USD", nil, destinationEvents, replay, quotes, nil)
+	if err != nil || !ok || destinationFX.RatString() != "7" {
+		t.Fatalf("transferred acquisition FX=%v available=%v err=%v, want 7", destinationFX, ok, err)
 	}
 }

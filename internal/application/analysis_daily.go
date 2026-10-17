@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -10,9 +11,11 @@ import (
 )
 
 type holdingBridge struct {
-	price   decimal.Decimal
-	fx      decimal.Decimal
-	partial bool
+	price      decimal.Decimal
+	fx         decimal.Decimal
+	exactPrice *big.Rat
+	exactFX    *big.Rat
+	partial    bool
 }
 
 func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
@@ -331,20 +334,29 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		return domain.ComponentDay{}, err
 	}
 	if bridge.price.Sign() != 0 {
-		if err := addBucket(day.AssetBuckets, domain.BucketPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+		priceAmount := bridge.price
+		var attributedAmount domain.SignedMoney
+		if bridge.exactPrice != nil {
+			priceAmount = decimalAtMoneyBoundary(bridge.exactPrice)
+			attributedAmount, err = newSignedRational(bridge.exactPrice, valueCurrency(current, query.Valuation, baseCurrency))
+		} else {
+			bridgePriceExact := rationalFromDecimal(bridge.price)
+			priceAmount = decimalAtMoneyBoundary(bridgePriceExact)
+			attributedAmount, err = newSignedRational(bridgePriceExact, valueCurrency(current, query.Valuation, baseCurrency))
+		}
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
+		if err := addBucket(day.AssetBuckets, domain.BucketPriceChange, priceAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
 		addExactBucket(day.AssetBucketExact, domain.BucketPriceChange, bridge.price)
 		if universe.investmentComponentInUniverse(component) {
-			if err := addReturn(day.ReturnComponents, domain.ReturnPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+			if err := addReturn(day.ReturnComponents, domain.ReturnPriceChange, priceAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 				return domain.ComponentDay{}, err
 			}
 		}
 		priceBucket := domain.BucketPriceChange
-		attributedAmount, amountErr := newSigned(bridge.price, valueCurrency(current, query.Valuation, baseCurrency))
-		if amountErr != nil {
-			return domain.ComponentDay{}, amountErr
-		}
 		var priceReturn *domain.ReturnComponent
 		if universe.investmentComponentInUniverse(component) {
 			value := domain.ReturnPriceChange
@@ -353,20 +365,29 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{AssetBucket: &priceBucket, ReturnComponent: priceReturn, Amount: attributedAmount, Component: component})
 	}
 	if bridge.fx.Sign() != 0 {
-		if err := addBucket(day.AssetBuckets, domain.BucketFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+		fxAmount := bridge.fx
+		var attributedAmount domain.SignedMoney
+		if bridge.exactFX != nil {
+			fxAmount = decimalAtMoneyBoundary(bridge.exactFX)
+			attributedAmount, err = newSignedRational(bridge.exactFX, valueCurrency(current, query.Valuation, baseCurrency))
+		} else {
+			bridgeFXExact := rationalFromDecimal(bridge.fx)
+			fxAmount = decimalAtMoneyBoundary(bridgeFXExact)
+			attributedAmount, err = newSignedRational(bridgeFXExact, valueCurrency(current, query.Valuation, baseCurrency))
+		}
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
+		if err := addBucket(day.AssetBuckets, domain.BucketFXImpact, fxAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
 		addExactBucket(day.AssetBucketExact, domain.BucketFXImpact, bridge.fx)
 		if universe.investmentComponentInUniverse(component) {
-			if err := addReturn(day.ReturnComponents, domain.ReturnFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+			if err := addReturn(day.ReturnComponents, domain.ReturnFXImpact, fxAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 				return domain.ComponentDay{}, err
 			}
 		}
 		fxBucket := domain.BucketFXImpact
-		attributedAmount, amountErr := newSigned(bridge.fx, valueCurrency(current, query.Valuation, baseCurrency))
-		if amountErr != nil {
-			return domain.ComponentDay{}, amountErr
-		}
 		var fxReturn *domain.ReturnComponent
 		if universe.investmentComponentInUniverse(component) {
 			value := domain.ReturnFXImpact
@@ -374,18 +395,52 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		}
 		day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{AssetBucket: &fxBucket, ReturnComponent: fxReturn, Amount: attributedAmount, Component: component})
 	}
-	driverTotal := directTotal.Add(bridge.price).Add(bridge.fx)
 	knownInternal := neutralTotal
-	unexplained := delta.Sub(driverTotal).Sub(knownInternal)
-	tolerance := residualTolerance(valueCurrency(current, query.Valuation, baseCurrency), begin)
-	residualMoney, residualErr := newSigned(unexplained, valueCurrency(current, query.Valuation, baseCurrency))
-	if residualErr != nil {
-		return domain.ComponentDay{}, residualErr
+	currency := valueCurrency(current, query.Valuation, baseCurrency)
+	tolerance := residualTolerance(currency, begin)
+	var unexplained decimal.Decimal
+	var residualMoney domain.SignedMoney
+	var hasResidual bool
+	if bridge.exactPrice == nil && bridge.exactFX == nil {
+		// Components without an exact FX bridge (notably base-currency cash)
+		// already have finite decimal drivers. Keep their high-volume residual
+		// reconciliation on the decimal path instead of constructing and
+		// reducing exact Rat values that cannot improve the result.
+		unexplained = delta.Sub(directTotal).Sub(knownInternal).Sub(bridge.price).Sub(bridge.fx)
+		residualMoney, err = newSigned(unexplained, currency)
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
+		hasResidual = unexplained.Abs().GreaterThan(tolerance)
+	} else {
+		bridgePriceExact := bridge.exactPrice
+		if bridgePriceExact == nil {
+			bridgePriceExact = rationalFromDecimal(bridge.price)
+		}
+		bridgeFXExact := bridge.exactFX
+		if bridgeFXExact == nil {
+			bridgeFXExact = rationalFromDecimal(bridge.fx)
+		}
+		unexplainedExact := rationalFromDecimal(delta)
+		unexplainedExact.Sub(unexplainedExact, rationalFromDecimal(directTotal))
+		unexplainedExact.Sub(unexplainedExact, rationalFromDecimal(knownInternal))
+		unexplainedExact.Sub(unexplainedExact, bridgePriceExact)
+		unexplainedExact.Sub(unexplainedExact, bridgeFXExact)
+		var projectionErr error
+		unexplained, projectionErr = analysisRationalDecimal(unexplainedExact)
+		if projectionErr != nil {
+			return domain.ComponentDay{}, projectionErr
+		}
+		residualMoney, err = newSignedRational(unexplainedExact, currency)
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
+		hasResidual = new(big.Rat).Abs(new(big.Rat).Set(unexplainedExact)).Cmp(rationalFromDecimal(tolerance)) > 0
 	}
-	if unexplained.Abs().GreaterThan(tolerance) {
+	if hasResidual {
 		day.Status = domain.CompletenessPartial
 		bucket := domain.BucketResidual
-		if err := addBucket(day.AssetBuckets, bucket, unexplained, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+		if err := addBucket(day.AssetBuckets, bucket, residualMoney.Amount(), valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
 		addExactBucket(day.AssetBucketExact, bucket, unexplained)
@@ -532,6 +587,17 @@ func newSigned(value decimal.Decimal, currency domain.CurrencyCode) (domain.Sign
 	return domain.NewSignedMoney(value, currency)
 }
 
+func newSignedRational(value *big.Rat, currency domain.CurrencyCode) (domain.SignedMoney, error) {
+	if err := domain.CheckExactMoneyRange(value); err != nil {
+		return domain.SignedMoney{}, err
+	}
+	return domain.NewSignedMoney(decimalAtMoneyBoundary(value), currency)
+}
+
+func analysisRationalDecimal(value *big.Rat) (decimal.Decimal, error) {
+	return domain.ExactFXIntermediateDecimal(value)
+}
+
 func addBucket(buckets map[domain.AttributionBucket]domain.SignedMoney, bucket domain.AttributionBucket, amount decimal.Decimal, currency domain.CurrencyCode) error {
 	if amount.IsZero() {
 		return nil
@@ -616,17 +682,6 @@ func (u analysisUniverse) convertAmount(value decimal.Decimal, currency domain.C
 	return domain.ConvertFXAmount(value, currency, base, *quote)
 }
 
-func fxRateAt(quotes []domain.FXQuote, preferences []domain.FXPreference, householdID domain.HouseholdID, native, base domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
-	selected := fxQuoteAt(quotes, preferences, householdID, native, base, cutoff)
-	if selected == nil {
-		return decimal.Zero, false
-	}
-	if selected.BaseCurrency == native && selected.QuoteCurrency == base {
-		return selected.Rate.Decimal(), true
-	}
-	return decimal.NewFromInt(1).Div(selected.Rate.Decimal()), true
-}
-
 func fxQuoteAt(quotes []domain.FXQuote, preferences []domain.FXPreference, householdID domain.HouseholdID, native, base domain.CurrencyCode, cutoff time.Time) *domain.FXQuote {
 	preferred := domain.QuoteSourceKind("")
 	for _, preference := range preferences {
@@ -673,26 +728,54 @@ func (u analysisUniverse) quoteForItem(item domain.DailyValuationSnapshotItem, q
 	return selection.selected()
 }
 
-func (u analysisUniverse) fxForItem(item domain.DailyValuationSnapshotItem, input AnalysisInputs, cutoff time.Time) (decimal.Decimal, bool) {
+func (u analysisUniverse) fxQuoteForItem(item domain.DailyValuationSnapshotItem, input AnalysisInputs, cutoff time.Time) (*domain.FXQuote, bool) {
 	base := input.Portfolio.Household.BaseCurrency
 	if item.NativeCurrency == base {
-		return decimal.NewFromInt(1), true
+		return nil, true
 	}
 	if item.FXQuoteID != nil {
 		for _, quote := range input.FXQuotes {
 			if quote.ID.String() == *item.FXQuoteID {
-				if quote.BaseCurrency == item.NativeCurrency && quote.QuoteCurrency == base {
-					return quote.Rate.Decimal(), true
+				if quote.HouseholdID == input.Portfolio.Household.ID && ((quote.BaseCurrency == item.NativeCurrency && quote.QuoteCurrency == base) || (quote.BaseCurrency == base && quote.QuoteCurrency == item.NativeCurrency)) {
+					return &quote, true
 				}
-				if quote.BaseCurrency == base && quote.QuoteCurrency == item.NativeCurrency {
-					return decimal.NewFromInt(1).Div(quote.Rate.Decimal()), true
-				}
-				return decimal.Zero, false
+				return nil, false
 			}
 		}
-		return decimal.Zero, false
+		return nil, false
 	}
-	return fxRateAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, item.NativeCurrency, base, cutoff)
+	quote := fxQuoteAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, item.NativeCurrency, base, cutoff)
+	return quote, quote != nil
+}
+
+func convertAtFXQuote(amount decimal.Decimal, native, base domain.CurrencyCode, quote *domain.FXQuote) (*big.Rat, bool, error) {
+	if native == base {
+		return rationalFromDecimal(amount), true, nil
+	}
+	if quote == nil {
+		return nil, false, nil
+	}
+	converted, err := domain.ConvertFXAmountExact(amount, native, base, *quote)
+	return converted, err == nil, err
+}
+
+func convertForAnalysis(amount decimal.Decimal, native, base domain.CurrencyCode, quote *domain.FXQuote, valuation domain.Valuation) (*big.Rat, bool, error) {
+	if valuation == domain.ValuationNative {
+		return rationalFromDecimal(amount), true, nil
+	}
+	return convertAtFXQuote(amount, native, base, quote)
+}
+
+func projectedHoldingBridge(price, fx *big.Rat, partial bool) (holdingBridge, error) {
+	priceProjection, err := analysisRationalDecimal(price)
+	if err != nil {
+		return holdingBridge{}, err
+	}
+	fxProjection, err := analysisRationalDecimal(fx)
+	if err != nil {
+		return holdingBridge{}, err
+	}
+	return holdingBridge{price: priceProjection, fx: fxProjection, exactPrice: price, exactFX: fx, partial: partial}, nil
 }
 
 func computeCashBridge(component domain.ComponentID, previous, current domain.DailyValuationSnapshotItem, previousCutoff, currentCutoff time.Time, effects []classifiedAnalysisEffect, input AnalysisInputs, query domain.AnalysisQuery, universe analysisUniverse) (holdingBridge, error) {
@@ -718,20 +801,40 @@ func computeCashBridge(component domain.ComponentID, previous, current domain.Da
 	if account, ok := universe.accounts[component.AccountID]; ok && account.IsLiability() {
 		openingNative = openingNative.Neg()
 	}
-	openFX, openOK := decimal.NewFromInt(1), true
+	var openFXQuote *domain.FXQuote
+	openOK := true
 	if previous.NativeCurrency != base && !openingNative.IsZero() {
-		openFX, openOK = universe.fxForItem(previous, input, previousCutoff)
+		openFXQuote, openOK = universe.fxQuoteForItem(previous, input, previousCutoff)
 	}
-	closeFX, closeOK := decimal.NewFromInt(1), true
+	var closeFXQuote *domain.FXQuote
+	closeOK := true
 	if current.NativeCurrency != base {
-		closeFX, closeOK = universe.fxForItem(current, input, currentCutoff)
+		closeFXQuote, closeOK = universe.fxQuoteForItem(current, input, currentCutoff)
 	}
 	if !closeOK || (!openOK && !openingNative.IsZero()) {
 		return holdingBridge{partial: true}, nil
 	}
-	// The opening balance is translated from Xopen to Xc.  The expression is
-	// written separately to make the architecture contract explicit.
-	fxImpact := openingNative.Mul(closeFX.Sub(openFX))
+	openingAtClose, closeAvailable, err := convertAtFXQuote(openingNative, component.Currency, base, closeFXQuote)
+	if err != nil {
+		return holdingBridge{}, err
+	}
+	if !closeAvailable {
+		return holdingBridge{partial: true}, nil
+	}
+	openingAtOpen := new(big.Rat)
+	if openingNative.IsZero() {
+		openingAtOpen.SetInt64(0)
+	} else {
+		convertedOpening, openAvailable, conversionErr := convertAtFXQuote(openingNative, component.Currency, base, openFXQuote)
+		if conversionErr != nil {
+			return holdingBridge{}, conversionErr
+		}
+		if !openAvailable {
+			return holdingBridge{partial: true}, nil
+		}
+		openingAtOpen.Set(convertedOpening)
+	}
+	fxImpact := new(big.Rat).Sub(openingAtClose, openingAtOpen)
 	partial := false
 	for _, effect := range effects {
 		if !effect.amountKnown || effect.effect.Money == nil {
@@ -747,19 +850,31 @@ func computeCashBridge(component domain.ComponentID, previous, current domain.Da
 		if account, ok := universe.accounts[component.AccountID]; ok && account.IsLiability() && effect.effect.Target == domain.EffectTargetAccountValue {
 			movementNative = movementNative.Neg()
 		}
-		var eventFX decimal.Decimal
+		var eventFXQuote *domain.FXQuote
 		var eventOK bool
 		if component.Currency == base {
-			eventFX, eventOK = decimal.NewFromInt(1), true
+			eventOK = true
 		} else {
-			eventFX, eventOK = fxRateAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, component.Currency, base, effect.activity.EffectiveAt)
+			eventFXQuote = fxQuoteAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, component.Currency, base, effect.activity.EffectiveAt)
+			eventOK = eventFXQuote != nil
 		}
 		if !eventOK {
 			return holdingBridge{partial: true}, nil
 		}
-		fxImpact = fxImpact.Add(movementNative.Mul(closeFX.Sub(eventFX)))
+		movementAtClose, closeAvailable, conversionErr := convertAtFXQuote(movementNative, component.Currency, base, closeFXQuote)
+		if conversionErr != nil {
+			return holdingBridge{}, conversionErr
+		}
+		movementAtEvent, eventAvailable, conversionErr := convertAtFXQuote(movementNative, component.Currency, base, eventFXQuote)
+		if conversionErr != nil {
+			return holdingBridge{}, conversionErr
+		}
+		if !closeAvailable || !eventAvailable {
+			return holdingBridge{partial: true}, nil
+		}
+		fxImpact.Add(fxImpact, new(big.Rat).Sub(movementAtClose, movementAtEvent))
 	}
-	return holdingBridge{fx: fxImpact, partial: partial}, nil
+	return projectedHoldingBridge(new(big.Rat), fxImpact, partial)
 }
 
 func computeHoldingBridge(component domain.ComponentID, previous, current domain.DailyValuationSnapshotItem, previousCutoff, currentCutoff time.Time, effects []classifiedAnalysisEffect, input AnalysisInputs, query domain.AnalysisQuery, universe analysisUniverse) (holdingBridge, error) {
@@ -795,22 +910,25 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 		return holdingBridge{partial: true}, nil
 	}
 	qc := closing.Div(closeQuote.UnitPrice.Decimal())
-	type segment struct{ quantity, price, fx decimal.Decimal }
+	type segment struct {
+		quantity, price decimal.Decimal
+		fxQuote         *domain.FXQuote
+	}
 	segments := make([]segment, 0, 1+len(effects))
 	seenTrades := make(map[domain.ActivityID]bool)
-	openFX, openOK := decimal.NewFromInt(1), true
-	closeFX, closeOK := decimal.NewFromInt(1), true
+	var openFXQuote, closeFXQuote *domain.FXQuote
+	openOK, closeOK := true, true
 	if query.Valuation == domain.ValuationBase && !q0.IsZero() {
-		openFX, openOK = universe.fxForItem(previous, input, previousCutoff)
-		closeFX, closeOK = universe.fxForItem(current, input, currentCutoff)
+		openFXQuote, openOK = universe.fxQuoteForItem(previous, input, previousCutoff)
+		closeFXQuote, closeOK = universe.fxQuoteForItem(current, input, currentCutoff)
 	} else if query.Valuation == domain.ValuationBase {
-		closeFX, closeOK = universe.fxForItem(current, input, currentCutoff)
+		closeFXQuote, closeOK = universe.fxQuoteForItem(current, input, currentCutoff)
 	}
 	if !openOK || !closeOK {
 		return holdingBridge{partial: true}, nil
 	}
 	if !q0.IsZero() {
-		segments = append(segments, segment{quantity: q0, price: openQuote.UnitPrice.Decimal(), fx: openFX})
+		segments = append(segments, segment{quantity: q0, price: openQuote.UnitPrice.Decimal(), fxQuote: openFXQuote})
 	}
 	expected := q0
 	transferredOut := decimal.Zero
@@ -827,20 +945,18 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 			if effect.activity.TradeDetail.Side == domain.TradeSell {
 				quantity = quantity.Neg()
 			}
-			eventFX := decimal.NewFromInt(1)
+			var eventFXQuote *domain.FXQuote
 			eventOK := true
 			if query.Valuation == domain.ValuationBase {
-				if effect.activity.TradeDetail.Gross.Currency() == input.Portfolio.Household.BaseCurrency {
-					eventFX = decimal.NewFromInt(1)
-					eventOK = true
-				} else {
-					eventFX, eventOK = fxRateAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, effect.activity.TradeDetail.Gross.Currency(), input.Portfolio.Household.BaseCurrency, effect.activity.EffectiveAt)
+				if effect.activity.TradeDetail.Gross.Currency() != input.Portfolio.Household.BaseCurrency {
+					eventFXQuote = fxQuoteAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, effect.activity.TradeDetail.Gross.Currency(), input.Portfolio.Household.BaseCurrency, effect.activity.EffectiveAt)
+					eventOK = eventFXQuote != nil
 				}
 			}
 			if !eventOK {
 				return holdingBridge{partial: true}, nil
 			}
-			segments = append(segments, segment{quantity: quantity, price: effect.activity.TradeDetail.UnitPrice.Decimal(), fx: eventFX})
+			segments = append(segments, segment{quantity: quantity, price: effect.activity.TradeDetail.UnitPrice.Decimal(), fxQuote: eventFXQuote})
 			expected = expected.Add(quantity)
 		}
 		if effect.activity.Kind == domain.ActivityPositionTransfer && effect.effect.Quantity != nil && effect.effect.HoldingID != nil && *effect.effect.HoldingID == *component.HoldingID {
@@ -852,14 +968,14 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 				if effect.effect.Direction == domain.EffectRemoved {
 					quantity = quantity.Neg()
 				}
-				eventFX, available, conversionErr := universe.convertValuationAmount(decimal.NewFromInt(1), component.Currency, effect.activity.EffectiveAt, input, query, component.Currency)
-				if conversionErr != nil {
-					return holdingBridge{}, conversionErr
+				var eventFXQuote *domain.FXQuote
+				if query.Valuation == domain.ValuationBase && component.Currency != input.Portfolio.Household.BaseCurrency {
+					eventFXQuote = fxQuoteAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, component.Currency, input.Portfolio.Household.BaseCurrency, effect.activity.EffectiveAt)
+					if eventFXQuote == nil {
+						return holdingBridge{partial: true}, nil
+					}
 				}
-				if !available {
-					return holdingBridge{partial: true}, nil
-				}
-				segments = append(segments, segment{quantity: quantity, price: effect.effect.CostUnitPrice.Decimal(), fx: eventFX})
+				segments = append(segments, segment{quantity: quantity, price: effect.effect.CostUnitPrice.Decimal(), fxQuote: eventFXQuote})
 			}
 			if effect.effect.Direction == domain.EffectAdded {
 				expected = expected.Add(effect.effect.Quantity.Decimal())
@@ -888,15 +1004,34 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 			return holdingBridge{partial: true}, nil
 		}
 	}
-	price, fx := decimal.Zero, decimal.Zero
+	price, fx := new(big.Rat), new(big.Rat)
 	for _, item := range segments {
-		price = price.Add(item.quantity.Mul(closeQuote.UnitPrice.Decimal().Sub(item.price)).Mul(item.fx))
+		priceNative := item.quantity.Mul(closeQuote.UnitPrice.Decimal().Sub(item.price))
+		priceBase, available, conversionErr := convertForAnalysis(priceNative, component.Currency, input.Portfolio.Household.BaseCurrency, item.fxQuote, query.Valuation)
+		if conversionErr != nil {
+			return holdingBridge{}, conversionErr
+		}
+		if !available {
+			return holdingBridge{partial: true}, nil
+		}
+		price.Add(price, priceBase)
 		if query.Valuation == domain.ValuationBase {
-			fx = fx.Add(item.quantity.Mul(item.price).Mul(closeFX.Sub(item.fx)))
-			fx = fx.Add(item.quantity.Mul(closeQuote.UnitPrice.Decimal().Sub(item.price)).Mul(closeFX.Sub(item.fx)))
+			closingNotional := item.quantity.Mul(closeQuote.UnitPrice.Decimal())
+			closingAtClose, closeAvailable, conversionErr := convertAtFXQuote(closingNotional, component.Currency, input.Portfolio.Household.BaseCurrency, closeFXQuote)
+			if conversionErr != nil {
+				return holdingBridge{}, conversionErr
+			}
+			closingAtSegment, segmentAvailable, conversionErr := convertAtFXQuote(closingNotional, component.Currency, input.Portfolio.Household.BaseCurrency, item.fxQuote)
+			if conversionErr != nil {
+				return holdingBridge{}, conversionErr
+			}
+			if !closeAvailable || !segmentAvailable {
+				return holdingBridge{partial: true}, nil
+			}
+			fx.Add(fx, new(big.Rat).Sub(closingAtClose, closingAtSegment))
 		}
 	}
-	return holdingBridge{price: price, fx: fx, partial: quantityMismatch}, nil
+	return projectedHoldingBridge(price, fx, quantityMismatch)
 }
 
 func corporateActionRestatement(component domain.ComponentID, effects []classifiedAnalysisEffect, openingQuantity, closingQuantity, openingPrice, closingPrice decimal.Decimal) bool {
