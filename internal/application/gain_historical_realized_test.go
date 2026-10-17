@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -237,7 +238,7 @@ func TestAccountGainKeepsKnownRealizedGainIndependentOfCurrentInputs(t *testing.
 	priceMissing.addHolding(priceMissingAccount, "No current price", "USD", "2", "1", "", priceSale)
 	priceMissing.addFX("USD", "CNY", "7", "2026-08-02T09:00:00Z")
 	priceView, err := priceMissing.service().AccountGain(context.Background(), priceMissingAccount.ID)
-	if err != nil || view.RealizedGain == nil || priceView.Available {
+	if err != nil || priceView.RealizedGain == nil || priceView.Available {
 		t.Fatalf("missing-price account = %+v err=%v", priceView, err)
 	}
 	assertSignedGain(t, priceView.RealizedGain, "70", "CNY")
@@ -246,14 +247,16 @@ func TestAccountGainKeepsKnownRealizedGainIndependentOfCurrentInputs(t *testing.
 func TestAccountGainHistoricalFXFailureNeverUsesCurrentRateOrPartialSubtotal(t *testing.T) {
 	t.Parallel()
 	f := newGainReadModelFixture(t, "CNY")
-	account := f.addAccount("Missing history FX")
-	sale1 := f.sale("USD", "2026-08-02", 10, "1", "11")
-	sale2 := f.sale("USD", "2026-08-03", 10, "1", "11")
-	holding := f.addHolding(account, "Synthetic USD holding", "USD", "2", "1", "", sale1, sale2)
+	account := f.addAccount("Known and missing historical FX")
+	knownSale := f.sale("USD", "2026-08-02", 10, "1", "11")
+	knownUSD := f.addHolding(account, "Known USD realized gain", "USD", "1", "1", "", knownSale)
+	missingSale := f.sale("EUR", "2026-08-02", 10, "1", "6")
+	missingEUR := f.addHolding(account, "Missing EUR historical FX", "EUR", "1", "1", "", missingSale)
 	f.addFX("USD", "CNY", "7", "2026-08-02T09:00:00Z")
-	current := f.addFX("USD", "CNY", "9", "2026-08-04T09:00:00Z")
-	f.inputs.HistoricalFXQuotes = []domain.FXQuote{current}
-	f.inputs.Portfolio.FXQuotes = []domain.FXQuote{current}
+	currentUSD := f.addFX("USD", "CNY", "9", "2026-08-04T09:00:00Z")
+	currentEUR := f.addFX("EUR", "CNY", "10", "2026-08-04T09:00:00Z")
+	activeCNY := f.addHolding(account, "Independent base value", "CNY", "1", "2", "3")
+	f.inputs.Portfolio.FXQuotes = []domain.FXQuote{currentUSD, currentEUR}
 	view, err := f.service().AccountGain(context.Background(), account.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -261,10 +264,19 @@ func TestAccountGainHistoricalFXFailureNeverUsesCurrentRateOrPartialSubtotal(t *
 	if view.RealizedGain != nil || view.Available || !strings.Contains(view.MissingReason, "historical") {
 		t.Fatalf("missing historical FX result = %+v, want unavailable historical-FX reason", view)
 	}
-	if len(view.Holdings) != 1 || view.Holdings[0].RealizedGain.Amount != "20" {
-		t.Fatalf("native realized gain was lost: %+v", view.Holdings)
+	if len(view.Holdings) != 3 {
+		t.Fatalf("holdings = %+v, want USD, EUR, and independent CNY holdings", view.Holdings)
 	}
-	_ = holding
+	if view.Holdings[0].HoldingID != knownUSD.ID || view.Holdings[0].RealizedGain.Amount != "10" ||
+		view.Holdings[1].HoldingID != missingEUR.ID || view.Holdings[1].RealizedGain.Amount != "5" {
+		t.Fatalf("known native holding gains were lost: %+v", view.Holdings)
+	}
+	if view.TotalCost == nil || view.TotalCost.Amount != "2" || view.CurrentValue == nil || view.CurrentValue.Amount != "3" || view.UnrealizedGain == nil || view.UnrealizedGain.Amount != "1" {
+		t.Fatalf("independent account fields were erased by missing realized FX: %+v", view)
+	}
+	if view.Holdings[2].HoldingID != activeCNY.ID {
+		t.Fatalf("base holding order changed: %+v", view.Holdings)
+	}
 }
 
 func TestAccountGainKnownZeroNeedsNoHistoricalFXAndBaseCurrencyNeedsNoQuote(t *testing.T) {
@@ -387,5 +399,206 @@ func TestAccountGainRetainsFractionalAggregateUntilOneMoneyBoundary(t *testing.T
 	assertSignedGain(t, view.RealizedGain, "0.0001", "CNY")
 	if !decimal.RequireFromString("0.00005").Add(decimal.RequireFromString("0.00005")).Equal(decimal.RequireFromString("0.0001")) {
 		t.Fatal("synthetic decimal oracle is inconsistent")
+	}
+}
+
+func TestAccountGainKeepsInverseFXSaleRationalsUntilAccountBoundary(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, proceeds, startingCost string
+		count                        int
+		want                         string
+	}{
+		{name: "positive three event tie", proceeds: "0.0001", startingCost: "0", count: 3, want: "0"},
+		{name: "negative three event tie", proceeds: "0", startingCost: "0.0001", count: 3, want: "0"},
+		{name: "below tie", proceeds: "0.0001", startingCost: "0", count: 2, want: "0"},
+		{name: "above tie", proceeds: "0.0001", startingCost: "0", count: 4, want: "0.0001"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f := newGainReadModelFixture(t, "CNY")
+			account := f.addAccount("Inverse sale FX")
+			events := make([]domain.CostBasisEvent, 0, test.count)
+			for index := 0; index < test.count; index++ {
+				date := time.Date(2026, 8, 2+index, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+				events = append(events, f.sale("USD", date, 10, "1", test.proceeds))
+			}
+			f.addHolding(account, "Synthetic inverse FX sales", "USD", decimal.NewFromInt(int64(test.count)).String(), test.startingCost, "", events...)
+			f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+			view, err := f.service().AccountGain(context.Background(), account.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertSignedGain(t, view.RealizedGain, test.want, "CNY")
+		})
+	}
+}
+
+func TestAccountGainAggregatesMixedInverseFXAndHoldingsExactly(t *testing.T) {
+	t.Parallel()
+	f := newGainReadModelFixture(t, "CNY")
+	account := f.addAccount("Mixed exact realized FX")
+	usdSales := []domain.CostBasisEvent{
+		f.sale("USD", "2026-08-02", 10, "1", "0.0001"),
+		f.sale("USD", "2026-08-03", 10, "1", "0.0001"),
+		f.sale("USD", "2026-08-04", 10, "1", "0.0001"),
+	}
+	f.addHolding(account, "USD sales A", "USD", "3", "0", "", usdSales...)
+	// A second holding contributes the same exact 0.00005 total. Rounding each
+	// holding first would lose both halves, while one account boundary yields
+	// 0.0001.
+	otherUSDSales := []domain.CostBasisEvent{
+		f.sale("USD", "2026-08-02", 11, "1", "0.0001"),
+		f.sale("USD", "2026-08-03", 11, "1", "0.0001"),
+		f.sale("USD", "2026-08-04", 11, "1", "0.0001"),
+	}
+	f.addHolding(account, "USD sales B", "USD", "3", "0", "", otherUSDSales...)
+	f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+	view, err := f.service().AccountGain(context.Background(), account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSignedGain(t, view.RealizedGain, "0.0001", "CNY")
+
+	mixed := newGainReadModelFixture(t, "CNY")
+	mixedAccount := mixed.addAccount("Mixed native currencies")
+	mixed.addHolding(mixedAccount, "USD sale", "USD", "1", "0", "", mixed.sale("USD", "2026-08-02", 10, "1", "0.0001"))
+	mixed.addHolding(mixedAccount, "EUR sale", "EUR", "1", "0", "", mixed.sale("EUR", "2026-08-02", 10, "1", "0.0001"))
+	mixed.addInverseFX("USD", "CNY", "6", mixed.inputs.Portfolio.Origin.StartedAt)
+	mixed.addInverseFX("EUR", "CNY", "3", mixed.inputs.Portfolio.Origin.StartedAt)
+	mixedView, err := mixed.service().AccountGain(context.Background(), mixedAccount.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSignedGain(t, mixedView.RealizedGain, "0", "CNY")
+}
+
+func TestAccountGainInverseTieKeepsPeriodPathScopeSemantics(t *testing.T) {
+	t.Parallel()
+	f := newGainReadModelFixture(t, "CNY")
+	account := f.addAccount("Matching scope inverse tie")
+	events := []domain.CostBasisEvent{
+		f.sale("USD", "2026-08-02", 10, "1", "0.0001"),
+		f.sale("USD", "2026-08-03", 10, "1", "0.0001"),
+		f.sale("USD", "2026-08-04", 10, "1", "0.0001"),
+	}
+	f.addHolding(account, "Three inverse tie sales", "USD", "3", "0", "", events...)
+	f.addInverseFX("USD", "CNY", "6", f.inputs.Portfolio.Origin.StartedAt)
+	service := f.service()
+	view, err := service.AccountGain(context.Background(), account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSignedGain(t, view.RealizedGain, "0", "CNY")
+	period, err := service.RealizedGainInRange(context.Background(), domain.GainScope{AccountID: &account.ID}, "2026-08-02", "2026-08-04")
+	if err != nil || !period.Available || period.Total == nil {
+		t.Fatalf("matching-scope period = %+v err=%v", period, err)
+	}
+	// The period endpoint still projects each conversion through its existing
+	// finite-decimal path, which lies just above this exact half-even tie. This
+	// related behavior is intentionally kept in scope as a documented limit of
+	// this repair batch rather than silently changing period endpoint semantics.
+	assertSignedGain(t, period.Total, "0.0001", "CNY")
+}
+
+func TestAccountGainRejectsExactAggregateJustOverMoneyLimit(t *testing.T) {
+	t.Parallel()
+	const max = "999999999999.9999"
+	t.Run("cost", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Cost aggregate range")
+		f.addHolding(account, "At limit", "CNY", max, "1", "0")
+		f.addHolding(account, "Just over", "CNY", "0.00001", "1", "0")
+		_, err := f.service().AccountGain(context.Background(), account.ID)
+		assertExactMoneyOverflow(t, err)
+	})
+	t.Run("current value", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Value aggregate range")
+		f.addHolding(account, "At limit", "CNY", max, "0", "1")
+		f.addHolding(account, "Just over", "CNY", "0.00000001", "0", "1")
+		_, err := f.service().AccountGain(context.Background(), account.ID)
+		assertExactMoneyOverflow(t, err)
+	})
+	t.Run("exact limit accepted", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Exact aggregate limit")
+		f.addHolding(account, "At limit", "CNY", max, "1", "0")
+		view, err := f.service().AccountGain(context.Background(), account.ID)
+		if err != nil || view.TotalCost == nil || view.TotalCost.Amount != max {
+			t.Fatalf("exact limit account gain=%+v err=%v, want %s CNY", view, err, max)
+		}
+	})
+	t.Run("realized exact limit accepted", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Exact realized limit")
+		sale := f.sale("CNY", "2026-08-02", 10, "1", max)
+		f.addHolding(account, "At limit realized gain", "CNY", "1", "0", "0", sale)
+		view, err := f.service().AccountGain(context.Background(), account.ID)
+		if err != nil || view.RealizedGain == nil || view.RealizedGain.Amount != max {
+			t.Fatalf("exact realized limit account gain=%+v err=%v, want %s CNY", view.RealizedGain, err, max)
+		}
+	})
+}
+
+func TestAccountGainRejectsPositiveAndNegativeRealizedAggregateBeyondMoneyLimit(t *testing.T) {
+	t.Parallel()
+	const max = "999999999999.9999"
+	t.Run("positive", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Positive realized aggregate")
+		f.addHolding(account, "Maximum gain", "CNY", "1", "0", "0", f.sale("CNY", "2026-08-02", 10, "1", max))
+		f.addHolding(account, "Additional gain", "CNY", "1", "0", "0", f.sale("CNY", "2026-08-02", 11, "1", "0.0001"))
+		_, err := f.service().AccountGain(context.Background(), account.ID)
+		assertExactMoneyOverflow(t, err)
+	})
+	t.Run("negative", func(t *testing.T) {
+		f := newGainReadModelFixture(t, "CNY")
+		account := f.addAccount("Negative realized aggregate")
+		f.addHolding(account, "Maximum loss", "CNY", "1", max, "0", f.sale("CNY", "2026-08-02", 10, "1", "0"))
+		f.addHolding(account, "Additional loss", "CNY", "0.0001", "1", "0", f.sale("CNY", "2026-08-02", 11, "0.0001", "0"))
+		_, err := f.service().AccountGain(context.Background(), account.ID)
+		assertExactMoneyOverflow(t, err)
+	})
+}
+
+func assertExactMoneyOverflow(t *testing.T, err error) {
+	t.Helper()
+	var problem *domain.Error
+	if !errors.As(err, &problem) || problem.Code != domain.ErrDecimalOverflow {
+		t.Fatalf("aggregate range error=%v, want ErrDecimalOverflow", err)
+	}
+}
+
+func TestRationalMoneyViewsCheckExactRangeBeforeRounding(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, value, want string
+	}{
+		{name: "positive limit", value: "999999999999.9999", want: "999999999999.9999"},
+		{name: "negative limit", value: "-999999999999.9999", want: "-999999999999.9999"},
+		{name: "positive tie", value: "0.01005", want: "0.01"},
+		{name: "positive odd tie", value: "0.01015", want: "0.0102"},
+		{name: "negative tie", value: "-0.01005", want: "-0.01"},
+		{name: "negative odd tie", value: "-0.01015", want: "-0.0102"},
+		{name: "zero", value: "0", want: "0"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			value, ok := new(big.Rat).SetString(test.value)
+			if !ok {
+				t.Fatal("invalid rational test input")
+			}
+			view, err := rationalSignedMoneyView(value, "CNY")
+			if err != nil || view.Amount != test.want {
+				t.Fatalf("rational view=%+v err=%v, want %s", view, err, test.want)
+			}
+		})
+	}
+	for _, value := range []string{"999999999999.99991", "-999999999999.99991"} {
+		rational, _ := new(big.Rat).SetString(value)
+		if _, err := rationalSignedMoneyView(rational, "CNY"); err == nil {
+			t.Fatalf("rational value %s rounded inside the domain limit", value)
+		} else {
+			assertExactMoneyOverflow(t, err)
+		}
 	}
 }

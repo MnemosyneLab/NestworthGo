@@ -124,7 +124,7 @@ func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot doma
 		if realizedErr != nil {
 			return domain.AccountGainView{}, realizedErr
 		}
-		amounts.RealizedBase = rationalFromDecimal(realizedBase)
+		amounts.RealizedBase = realizedBase
 		amounts.RealizedBaseAvailable = realizedAvailable
 		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin, amounts)
 		exact[holding.ID] = amounts
@@ -521,17 +521,23 @@ type exactHoldingGain struct {
 // each replayed sale uses only the FX observation available at that sale's
 // EffectiveAt. It returns no subtotal if any required observation is missing;
 // the caller applies one Money projection after aggregating the account.
-func (g *GainService) realizedGainInBaseAtEventFX(snapshot domain.PortfolioSnapshot, fxQuotes []domain.FXQuote, events []domain.RealizedGainEvent) (decimal.Decimal, bool, error) {
-	total := decimal.Zero
+func (g *GainService) realizedGainInBaseAtEventFX(snapshot domain.PortfolioSnapshot, fxQuotes []domain.FXQuote, events []domain.RealizedGainEvent) (*big.Rat, bool, error) {
+	total := new(big.Rat)
 	for _, event := range events {
-		converted, available, err := g.convertFXAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Amount(), event.RealizedGain.Currency(), event.EffectiveAt)
+		base := snapshot.Household.BaseCurrency
+		if event.RealizedGain.Currency() == base {
+			total.Add(total, rationalFromDecimal(event.RealizedGain.Amount()))
+			continue
+		}
+		quote := g.fxQuoteAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
+		if quote == nil {
+			return nil, false, nil
+		}
+		converted, err := domain.ConvertFXAmountExact(event.RealizedGain.Amount(), event.RealizedGain.Currency(), base, *quote)
 		if err != nil {
-			return decimal.Zero, false, err
+			return nil, false, err
 		}
-		if !available {
-			return decimal.Zero, false, nil
-		}
-		total = total.Add(converted)
+		total.Add(total, converted)
 	}
 	return total, true, nil
 }
@@ -826,12 +832,19 @@ func (g *GainService) convertFXAtOrBefore(snapshot domain.PortfolioSnapshot, quo
 	if native == base {
 		return amount, true, nil
 	}
-	quote := g.valuation.selectFXQuote(snapshot, quotes, native, &cutoff)
+	quote := g.fxQuoteAtOrBefore(snapshot, quotes, native, cutoff)
 	if quote == nil {
 		return decimal.Zero, false, nil
 	}
 	converted, err := domain.ConvertFXAmount(amount, native, base, *quote)
 	return converted, err == nil, err
+}
+
+func (g *GainService) fxQuoteAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) *domain.FXQuote {
+	if snapshot.Household == nil || native == snapshot.Household.BaseCurrency {
+		return nil
+	}
+	return g.valuation.selectFXQuote(snapshot, quotes, native, &cutoff)
 }
 
 func moneyViewPointer(value decimal.Decimal, currency domain.CurrencyCode) *domain.MoneyView {

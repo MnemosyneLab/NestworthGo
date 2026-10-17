@@ -48,9 +48,15 @@ func decimalAtMoneyBoundary(value *big.Rat) decimal.Decimal {
 }
 
 func rationalMoneyView(value *big.Rat, currency domain.CurrencyCode) (domain.MoneyView, error) {
+	if err := domain.CheckExactMoneyRange(value); err != nil {
+		return domain.MoneyView{}, err
+	}
 	return moneyView(decimalAtMoneyBoundary(value), currency)
 }
 
 func rationalSignedMoneyView(value *big.Rat, currency domain.CurrencyCode) (domain.SignedMoneyView, error) {
+	if err := domain.CheckExactMoneyRange(value); err != nil {
+		return domain.SignedMoneyView{}, err
+	}
 	return signedMoneyView(decimalAtMoneyBoundary(value), currency)
 }

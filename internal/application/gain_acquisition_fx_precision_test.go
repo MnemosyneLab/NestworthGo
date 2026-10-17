@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -112,4 +113,87 @@ func TestAcquisitionFXRatioPropagatesTransferReplayFailure(t *testing.T) {
 	if available || !errors.As(err, &problem) || problem.Code != domain.ErrIntegrity {
 		t.Fatalf("transfer replay failure: available=%v err=%v, want propagated ErrIntegrity", available, err)
 	}
+}
+
+func TestAcquisitionFXRatioCancellationIsPropagated(t *testing.T) {
+	t.Parallel()
+	householdID := domain.NewHouseholdID()
+	snapshot := domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}}
+	quantity, err := domain.ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	starting := domain.CostBasisEvent{Kind: domain.CostBasisStartingPoint, Quantity: quantity, EffectiveAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, available, err := NewGainService(nil).acquisitionFXRatio(ctx, snapshot, "USD", nil, []domain.CostBasisEvent{starting}, &costBasisReplayContext{}, nil, nil)
+	if available || !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled acquisition ratio available=%v err=%v, want context.Canceled", available, err)
+	}
+}
+
+func BenchmarkAcquisitionFXRatioManyInverseQuotes(b *testing.B) {
+	householdID := domain.NewHouseholdID()
+	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	snapshot := domain.PortfolioSnapshot{
+		Household:     &domain.Household{ID: householdID, BaseCurrency: "CNY"},
+		FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}},
+	}
+	quantity, err := domain.ParseQuantity("1")
+	if err != nil {
+		b.Fatal(err)
+	}
+	sellQuantity, err := domain.ParseQuantity("8")
+	if err != nil {
+		b.Fatal(err)
+	}
+	remainingSell, err := domain.ParseQuantity("9")
+	if err != nil {
+		b.Fatal(err)
+	}
+	quotes := make([]domain.FXQuote, 32)
+	events := make([]domain.CostBasisEvent, 0, 34)
+	for index := 0; index < 32; index++ {
+		at := start.Add(time.Duration(index) * time.Hour)
+		rate, parseErr := domain.ParseFxRate(fmt.Sprintf("6.%012d", index+1))
+		if parseErr != nil {
+			b.Fatal(parseErr)
+		}
+		quotes[index] = domain.FXQuote{
+			ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "CNY", QuoteCurrency: "USD",
+			Rate: rate, SourceKind: domain.QuoteSourceManual, QuotedAt: at, CreatedAt: at,
+		}
+		kind := domain.CostBasisBuy
+		if index == 0 {
+			kind = domain.CostBasisStartingPoint
+		} else {
+			events = append(events, domain.CostBasisEvent{Kind: kind, Quantity: quantity, EffectiveAt: at})
+			continue
+		}
+		events = append(events, domain.CostBasisEvent{Kind: kind, Quantity: quantity, EffectiveAt: at})
+	}
+	events = append(events,
+		domain.CostBasisEvent{Kind: domain.CostBasisSell, Quantity: sellQuantity, EffectiveAt: start.Add(33 * time.Hour)},
+		domain.CostBasisEvent{Kind: domain.CostBasisSell, Quantity: remainingSell, EffectiveAt: start.Add(34 * time.Hour)},
+	)
+	startingCost, err := domain.ParseUnitPrice("1")
+	if err != nil {
+		b.Fatal(err)
+	}
+	replay := &costBasisReplayContext{events: make(map[domain.HoldingID][]domain.CostBasisEvent), starting: make(map[domain.HoldingID]*domain.UnitPrice)}
+	service := NewGainService(nil)
+	ctx := context.Background()
+	result, available, err := service.acquisitionFXRatio(ctx, snapshot, "USD", &startingCost, events, replay, quotes, nil)
+	if err != nil || !available {
+		b.Fatalf("benchmark setup acquisition ratio available=%v err=%v", available, err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for index := 0; index < b.N; index++ {
+		if _, available, err := service.acquisitionFXRatio(ctx, snapshot, "USD", &startingCost, events, replay, quotes, nil); err != nil || !available {
+			b.Fatalf("acquisition ratio available=%v err=%v", available, err)
+		}
+	}
+	b.ReportMetric(float64(len(events)), "events/op")
+	b.ReportMetric(float64(result.Denom().BitLen()), "denom-bits")
 }

@@ -345,14 +345,14 @@ func ParseMoney(amount string, currency CurrencyCode) (Money, error) {
 		return Money{}, validation("amount", "must be a canonical non-negative decimal with up to four fractional digits")
 	}
 	value, err := decimal.NewFromString(amount)
-	if err != nil || value.IsNegative() || value.GreaterThan(decimal.RequireFromString("999999999999.9999")) {
+	if err != nil || value.IsNegative() || value.GreaterThan(maxMoney) {
 		return Money{}, validation("amount", "is outside the supported range")
 	}
 	return Money{amount: value, currency: canonicalCurrency}, nil
 }
 
 func NewMoney(value decimal.Decimal, currency CurrencyCode) (Money, error) {
-	if value.IsNegative() || value.GreaterThan(decimal.RequireFromString("999999999999.9999")) {
+	if value.IsNegative() || value.GreaterThan(maxMoney) {
 		return Money{}, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "amount is outside the supported range"}
 	}
 	value = value.RoundBank(4)
