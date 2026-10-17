@@ -147,11 +147,15 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Seed the second synthetic historical quote while it is in the past, then
+	// restore the intended history origin before starting the household history.
+	now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
 	for _, quote := range []struct{ date, fx string }{{"2026-08-01", "7.123456"}, {"2026-08-02", "7.234567"}} {
 		if _, err := app.AppendManualFXQuote(t.Context(), "CNY", "USD", quote.fx, quote.date); err != nil {
 			t.Fatal(err)
 		}
 	}
+	now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	if _, err := app.SetFXPreference(t.Context(), "CNY", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
