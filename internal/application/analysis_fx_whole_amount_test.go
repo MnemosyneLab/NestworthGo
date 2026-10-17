@@ -345,4 +345,89 @@ func TestBuildComponentDayReconcilesNonFXResidualOnDecimalPath(t *testing.T) {
 	}
 }
 
+func TestAnalysisExactCashResidualUsesRoundedMoneyForItsBucket(t *testing.T) {
+	t.Parallel()
+	householdID := domain.NewHouseholdID()
+	account := analysisAccount(householdID, "USD", domain.TrackingBalance, domain.RoleAsset)
+	base, native := domain.CurrencyCode("CNY"), domain.CurrencyCode("USD")
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "0.1", "0.05", nil, nil, "", ""))
+	rates := []struct {
+		amount, rate string
+		direction    domain.EffectDirection
+		class        domain.ActivityClassification
+	}{
+		{amount: "1", rate: "9999999.999999999999", direction: domain.EffectAdded, class: domain.ClassificationExternalInflow},
+		{amount: "1", rate: "10000000.000000000001", direction: domain.EffectAdded, class: domain.ClassificationExternalInflow},
+		{amount: "2", rate: "10000000", direction: domain.EffectRemoved, class: domain.ClassificationExternalOutflow},
+		{amount: "0.0003", rate: "2", direction: domain.EffectAdded, class: domain.ClassificationExternalInflow},
+	}
+	activities := make([]domain.Activity, 0, len(rates))
+	quotes := make([]domain.FXQuote, 0, len(rates)+1)
+	for index, rate := range rates {
+		at := time.Date(2026, 8, 2, 12, index, 0, 0, time.UTC)
+		activityID := domain.NewActivityID()
+		kind := domain.ActivityCashIn
+		if rate.direction == domain.EffectRemoved {
+			kind = domain.ActivityCashOut
+		}
+		activities = append(activities, domain.Activity{
+			ID: activityID, Kind: kind, Reason: domain.ReasonContribution,
+			EffectiveAt: at, EffectiveLocalDate: "2026-08-02",
+			Effects: []domain.ActivityEffect{analysisEffect(t, activityID, 1, account.ID, rate.amount, "USD", rate.direction, domain.EffectTargetAccountCash, rate.class)},
+		})
+		quotes = append(quotes, analysisFXQuote(t, householdID, base, native, rate.rate, at))
+	}
+	closeFX := analysisFXQuote(t, householdID, base, native, "2", current.CutoffAt)
+	quotes = append(quotes, closeFX)
+	current.Items[0].FXQuoteID = stringPointer(closeFX.ID.String())
+	input := AnalysisInputs{
+		Origin: analysisOrigin(t, householdID, "UTC"),
+		Portfolio: domain.PortfolioSnapshot{
+			Household:     &domain.Household{ID: householdID, BaseCurrency: base},
+			Accounts:      []domain.AccountRecord{{Account: account}},
+			FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: base, CurrencyB: native, SourceKind: domain.QuoteSourceManual}},
+		},
+		Snapshots:  []domain.DailyValuationSnapshot{previous, current},
+		Activities: activities,
+		FXQuotes:   quotes,
+	}
+	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	component := domain.ComponentID{AccountID: account.ID, Currency: native, Cash: true}
+	day := analysisFindDay(t, result, component)
+	if day.Residual == nil || day.Residual.Amount.Amount().StringFixed(4) != "0.0499" {
+		t.Fatalf("residual=%+v, want exact residual above the half-even tie to round to 0.0499", day.Residual)
+	}
+	residualBucket, ok := day.AssetBuckets[domain.BucketResidual]
+	if !ok || residualBucket.Amount().StringFixed(4) != day.Residual.Amount.Amount().StringFixed(4) {
+		t.Fatalf("residual bucket=%+v residual=%+v, want equal rounded amounts", residualBucket, day.Residual)
+	}
+	if exact := day.AssetBucketExact[domain.BucketResidual]; !exact.Equal(decimal.RequireFromString("0.04985")) || exact.Equal(residualBucket.Amount()) {
+		t.Fatalf("exact residual bucket=%s public residual bucket=%s, want retained bounded decimal 0.04985", exact, residualBucket.Amount())
+	}
+	directEffects := decimal.Zero
+	for _, effect := range day.AttributedEffects {
+		if effect.AssetBucket != nil && *effect.AssetBucket == domain.BucketExternalFlow {
+			directEffects = directEffects.Add(effect.Amount.Amount())
+		}
+	}
+	directBucket, ok := day.AssetBuckets[domain.BucketExternalFlow]
+	if !ok || directBucket.Amount().StringFixed(4) != "0.0002" || !directEffects.Equal(directBucket.Amount()) {
+		t.Fatalf("classified direct effects=%s direct bucket=%+v, want matching 0.0002 projections", directEffects, directBucket)
+	}
+	if exactDirect := day.AssetBucketExact[domain.BucketExternalFlow]; !exactDirect.Equal(decimal.RequireFromString("0.00015")) {
+		t.Fatalf("exact classified direct bucket=%s, want unrounded 0.00015", exactDirect)
+	}
+	exactTotal := decimal.Zero
+	for _, amount := range day.AssetBucketExact {
+		exactTotal = exactTotal.Add(amount)
+	}
+	if want := day.EndingValue.Amount().Sub(day.BeginningValue.Amount()); !exactTotal.Equal(want) {
+		t.Fatalf("exact effects plus residual=%s, snapshot change=%s; want exact attribution identity", exactTotal, want)
+	}
+}
+
 func stringPointer(value string) *string { return &value }

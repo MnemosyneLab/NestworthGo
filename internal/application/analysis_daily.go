@@ -440,7 +440,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 	if hasResidual {
 		day.Status = domain.CompletenessPartial
 		bucket := domain.BucketResidual
-		if err := addBucket(day.AssetBuckets, bucket, unexplained, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+		if err := addBucket(day.AssetBuckets, bucket, residualMoney.Amount(), valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
 		addExactBucket(day.AssetBucketExact, bucket, unexplained)
