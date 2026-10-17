@@ -375,7 +375,8 @@ export function formatAuditMoney(amount: string, currency: string): string {
 }
 
 export function formatPercent(shareBps: number): string {
-  return `${(shareBps / 100).toFixed(1)}%`;
+	if (!Number.isSafeInteger(shareBps)) return "—";
+	return formatPercentageValue(roundedRational(BigInt(shareBps), 100n, 1), 1, false, false);
 }
 
 /** Unit prices, NAV, quantities and rates retain their canonical precision. */
@@ -412,4 +413,58 @@ export function formatDecimalPercent(value: string): string {
   const [integer, fraction] = roundDecimal(parts.integer, parts.fraction, 2);
   const negative = parts.negative && /[1-9]/.test(integer + fraction);
   return `${formatAmount(`${negative ? "-" : ""}${integer}.${fraction}`)}%`;
+}
+
+/** Formats a decimal return ratio as a percentage without binary floating point. */
+export function formatDecimalRatioPercent(
+  value: string | number | null | undefined,
+  places = 2,
+  showPositive = false,
+  trimTrailingZeros = true,
+): string {
+  if (value == null) return "—";
+  const canonical = typeof value === "number" ? decimalStringFromNumber(value) : value;
+  const parts = parseCanonicalParts(canonical);
+  if (!parts) return "—";
+  return formatPercentageValue(shiftDecimalRight(canonical, 2), places, showPositive, trimTrailingZeros);
+}
+
+function shiftDecimalRight(value: string, places: number): string {
+  const parts = parseCanonicalParts(value);
+  if (!parts) return "";
+  const digits = `${parts.integer}${parts.fraction}`;
+  const point = parts.integer.length + places;
+  const rawInteger = point >= digits.length ? `${digits}${"0".repeat(point - digits.length)}` : digits.slice(0, point);
+  const integer = rawInteger.replace(/^0+(?=\d)/, "") || "0";
+  const fraction = point >= digits.length ? "" : digits.slice(point);
+  const unsigned = fraction ? `${integer}.${fraction}` : integer;
+  return canonicalDecimal(`${parts.negative ? "-" : ""}${unsigned}`);
+}
+
+function decimalStringFromNumber(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  const raw = String(value);
+  const match = /^(-?)(\d+)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(raw);
+  if (!match) return "";
+  const [, sign, integer, fraction = "", exponentText = "0"] = match;
+  const digits = `${integer}${fraction}`;
+  const point = integer.length + Number(exponentText);
+  const expanded = point <= 0
+    ? `0.${"0".repeat(-point)}${digits}`
+    : point >= digits.length
+      ? `${digits}${"0".repeat(point - digits.length)}`
+      : `${digits.slice(0, point)}.${digits.slice(point)}`;
+  return `${sign}${expanded}`;
+}
+
+function formatPercentageValue(value: string, places: number, showPositive: boolean, trimTrailingZeros: boolean): string {
+  const parts = parseCanonicalParts(value);
+  if (!parts) return "—";
+  const [integer, roundedFraction] = roundDecimal(parts.integer, parts.fraction, places);
+  const fraction = trimTrailingZeros ? roundedFraction.replace(/0+$/, "") : roundedFraction;
+  const nonzero = /[1-9]/.test(integer + roundedFraction);
+  const negative = parts.negative && nonzero;
+  const prefix = negative ? "-" : showPositive && nonzero ? "+" : "";
+  const magnitude = `${integer}${fraction ? `.${fraction}` : ""}`;
+  return `${prefix}${formatAmount(magnitude)}%`;
 }

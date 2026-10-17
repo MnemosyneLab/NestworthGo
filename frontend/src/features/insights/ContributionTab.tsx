@@ -13,7 +13,7 @@ import type { HistoryNavigationFilters } from "@/app/navigation";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
 import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
 import { analysisCashLabel, analysisReason } from "@/features/insights/analysisText";
-import { compareCanonical, divideCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
+import { compareCanonical, divideCanonical, formatAmount, formatDecimalRatioPercent, multiplyCanonical } from "@/lib/money";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
 import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
@@ -35,11 +35,7 @@ function amountText(value?: SignedMoneyView | null): string {
 }
 
 function rateText(value: string | null | undefined): string {
-  if (value == null) return "—";
-  const numeric = Number(value) * 100;
-  if (!Number.isFinite(numeric)) return "—";
-  const rounded = numeric.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
-  return numeric > 0 ? `+${rounded}%` : `${rounded}%`;
+  return formatDecimalRatioPercent(value, 2, true);
 }
 
 function coverageMark(ratedDays: number, totalDays: number) {

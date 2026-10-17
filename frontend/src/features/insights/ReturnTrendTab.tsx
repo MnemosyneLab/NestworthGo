@@ -1,4 +1,3 @@
-import { compareCanonical } from "@/lib/money";
 import { addDays } from "date-fns";
 import { parseYmd, ymd } from "./calendar";
 import { AnalysisHealthLink } from "./AnalysisHealthLink";
@@ -14,7 +13,7 @@ import { useReturnTrend } from "@/queries/returnAnalysis";
 import type { AnalysisSessionState } from "@/stores/analysis";
 import type { ReturnTrendDTO, SignedMoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
-import { formatAmount } from "@/lib/money";
+import { compareCanonical, formatAmount, formatDecimalRatioPercent } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { signToneClass } from "@/components/ui/money-text";
 
@@ -25,27 +24,18 @@ function amountText(value?: SignedMoneyView | null): string {
 }
 
 function rateText(value: string | null | undefined): string {
-  if (value == null) return "—";
-  const numeric = Number(value) * 100;
-  if (!Number.isFinite(numeric)) return "—";
-  const rounded = numeric.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
-  return numeric > 0 ? `+${rounded}%` : `${rounded}%`;
+  return formatDecimalRatioPercent(value, 2, true);
 }
 
 function rateAxisText(value: string | number): string {
-  const numeric = Number(value) * 100;
-  if (!Number.isFinite(numeric)) return "";
-  const precision = Math.abs(numeric) < 0.1 ? 4 : Math.abs(numeric) < 1 ? 3 : 2;
-  const rounded = numeric.toFixed(precision).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
-  return `${numeric > 0 ? "+" : ""}${rounded}%`;
+  const canonical = String(value);
+  const magnitude = canonical.startsWith("-") ? canonical.slice(1) : canonical;
+  const precision = compareCanonical(magnitude, "0.001") < 0 ? 4 : compareCanonical(magnitude, "0.01") < 0 ? 3 : 2;
+  return formatDecimalRatioPercent(value, precision, true);
 }
 
 function shareText(value: string | null | undefined): string {
-  if (value == null) return "—";
-  const numeric = Number(value) * 100;
-  if (!Number.isFinite(numeric)) return "—";
-  const rounded = numeric.toFixed(1).replace(/\.0$/, "");
-  return `${rounded}%`;
+  return formatDecimalRatioPercent(value, 1);
 }
 
 function availabilityEmpty(data: ReturnTrendDTO | undefined, t: (key: string) => string) {

@@ -13,7 +13,7 @@ import type { AnalysisSessionState } from "@/stores/analysis";
 import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
 import { useSettings } from "@/queries/settings";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, formatDecimalRatioPercent } from "@/lib/money";
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
@@ -22,11 +22,7 @@ function amountText(value?: SignedMoneyView | null): string {
 }
 
 function rateText(value: string | null | undefined): string {
-  if (value == null) return "—";
-  const numeric = Number(value) * 100;
-  if (!Number.isFinite(numeric)) return "—";
-  const rounded = numeric.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
-  return numeric > 0 ? `+${rounded}%` : `${rounded}%`;
+  return formatDecimalRatioPercent(value, 2, true);
 }
 
 function metricLabel(t: (key: string) => string, value: string): string {
@@ -79,7 +75,7 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
           <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
         </CardHeader>
-        <CardContent>{dates.length === 0 || (values.every((value) => value == null) && !hasLevelDisplay) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:isLevel && point.displayValuation?.quality?.coverage === "provisional",qualityLabel:isLevel ? valuationDetails(t,point.displayValuation) : ""})) }]} extraTableColumns={[t("charts.date"),metricLabel(t,metric),t("connections.coverage")]} extraTableRows={(data.points ?? []).map(point=>[point.period,metric === "return_rate" ? rateText(point.rate) : valuationTableAmount(t,isLevel ? point.displayValuation : null,point.value,metric === "net_worth"),(isLevel ? valuationDetails(t,point.displayValuation) : "") || point.missingReason || point.status])} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
+        <CardContent>{dates.length === 0 || (values.every((value) => value == null) && !hasLevelDisplay) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:isLevel && point.displayValuation?.quality?.coverage === "provisional",qualityLabel:isLevel ? valuationDetails(t,point.displayValuation) : ""})) }]} extraTableColumns={[t("charts.date"),metricLabel(t,metric),t("connections.coverage")]} extraTableRows={(data.points ?? []).map(point=>[point.period,metric === "return_rate" ? rateText(point.rate) : valuationTableAmount(t,isLevel ? point.displayValuation : null,point.value,metric === "net_worth"),(isLevel ? valuationDetails(t,point.displayValuation) : "") || point.missingReason || point.status])} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => formatDecimalRatioPercent(value, 1, false, false) : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
       </Card>
       {!data.valueChange && <Card>
         <CardContent className="pt-6">

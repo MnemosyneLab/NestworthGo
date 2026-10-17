@@ -1,14 +1,14 @@
 import { useTranslation } from "react-i18next";
 import type { AssetChangeSummaryDTO, SignedMoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
-import { formatAmount, formatSignedMoney } from "@/lib/money";
+import { formatAmount, formatDecimalRatioPercent, formatSignedMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { signToneClass } from "@/components/ui/money-text";
 
 export function AssetValueSummary({ summary }: { summary: AssetChangeSummaryDTO }) {
   const { t } = useTranslation();
   const amount = (value?: SignedMoneyView | null, signed = false) => value ? (signed ? formatSignedMoney(value.amount, value.currency) : formatAmount(value.amount, value.currency)) : "—";
-  const rate = summary.changeRate == null ? null : Number(summary.changeRate) * 100;
-  const rateText = rate != null && Number.isFinite(rate) ? `${rate > 0 ? "+" : ""}${rate.toFixed(2)}%` : "—";
+  const rate = summary.changeRate;
+  const rateText = formatDecimalRatioPercent(rate, 2, true, false);
   const reason = summary.changeRateMissingReason === "nonpositive_beginning" ? "changeRateNonpositive" : "changeRateIncomplete";
   const fields: Array<[string, string, string | undefined]> = [
     [t("insights.beginningValue"), amount(summary.beginningValue), undefined],
