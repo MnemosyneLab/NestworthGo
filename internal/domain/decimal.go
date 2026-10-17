@@ -1,9 +1,20 @@
 package domain
 
 import (
+	"math"
 	"regexp"
 
 	"github.com/shopspring/decimal"
+)
+
+const (
+	moneyAmountFractionDigits     = 4
+	maxNativeAmountFractionDigits = 16
+	maxFXRateCoefficientDigits    = 8 + 12 // FX rates allow eight integer and twelve fractional digits.
+	// One bridge conversion can produce at most this many decimal places from a
+	// 16-place native amount and a maximum-size rate; a second conversion can
+	// consume that result before the final Money projection.
+	maxFXConversionInputFractionDigits = maxNativeAmountFractionDigits + maxFXRateCoefficientDigits + moneyAmountFractionDigits
 )
 
 var (
@@ -164,7 +175,11 @@ func DivideByFxRate(value decimal.Decimal, rate FxRate) (decimal.Decimal, error)
 	if rate.value.IsZero() {
 		return decimal.Zero, validation("fxRate", "must be greater than zero")
 	}
-	return checkedIntermediate(value.Div(rate.value))
+	converted, err := divideFXAmountByRate(value, rate.value)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	return checkedIntermediate(converted)
 }
 
 // ConvertFXAmount converts one signed whole amount using the stored quote
@@ -185,7 +200,11 @@ func ConvertFXAmount(value decimal.Decimal, from, to CurrencyCode, quote FXQuote
 	case quote.BaseCurrency == from && quote.QuoteCurrency == to:
 		converted = value.Mul(quote.Rate.value)
 	case quote.BaseCurrency == to && quote.QuoteCurrency == from:
-		converted = value.Div(quote.Rate.value)
+		var err error
+		converted, err = divideFXAmountByRate(value, quote.Rate.value)
+		if err != nil {
+			return decimal.Zero, err
+		}
 	default:
 		return decimal.Zero, validation("fxRate", "quote currencies do not match the conversion")
 	}
@@ -193,6 +212,29 @@ func ConvertFXAmount(value decimal.Decimal, from, to CurrencyCode, quote FXQuote
 		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
 	}
 	return converted, nil
+}
+
+// divideFXAmountByRate keeps reciprocal whole-amount conversion precise
+// enough for the eventual four-place Money half-even boundary. If value has
+// scale s and the rate coefficient has d digits, the exact quotient's
+// denominator is less than 10^(s+d). Any non-tie distance from a four-place
+// rounding midpoint is therefore greater than 0.5*10^-(s+d+4). DivRound's
+// error at s+d+4 places is at most that bound, so it cannot cross a Money
+// midpoint. Exact Money ties terminate by five places, and this precision is
+// always at least five, preserving the tie for RoundBank.
+func divideFXAmountByRate(value, rate decimal.Decimal) (decimal.Decimal, error) {
+	if rate.IsZero() {
+		return decimal.Zero, validation("fxRate", "must be greater than zero")
+	}
+	scale, _ := decimalShape(value)
+	if scale > maxFXConversionInputFractionDigits {
+		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	precision := int64(scale) + int64(len(rate.Coefficient().String())) + moneyAmountFractionDigits
+	if precision > math.MaxInt32 {
+		return decimal.Zero, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "calculation is outside the supported range"}
+	}
+	return value.DivRound(rate, int32(precision)), nil
 }
 
 func validateBoundedDecimal(field string, value, maximum decimal.Decimal, maxIntegerDigits, maxScale int, positive bool) error {

@@ -636,6 +636,60 @@ func TestValuationConvertAmountDividesWholeAmountForReciprocalQuote(t *testing.T
 	}
 }
 
+func TestValuationFXNearHalfRetainsNativePrecisionForPositiveAndNegativeAmounts(t *testing.T) {
+	t.Parallel()
+	quantity, err := domain.ParseQuantity("0.00000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	price, err := domain.ParseUnitPrice("250000.00000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	native, err := quantity.Multiply(price)
+	if err != nil || native.String() != "0.0025000000000001" {
+		t.Fatalf("exact synthetic native amount = %s err=%v", native, err)
+	}
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	householdID := domain.NewHouseholdID()
+	rate, err := domain.ParseFxRate("10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote := domain.FXQuote{
+		ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate,
+		SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now,
+	}
+	preference, err := domain.NewFXPreference(householdID, "CNY", "USD", domain.QuoteSourceManual, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.PortfolioSnapshot{
+		Household: &domain.Household{ID: householdID, BaseCurrency: "USD"},
+		FXQuotes:  []domain.FXQuote{quote}, FXPreferences: []domain.FXPreference{preference},
+	}
+	valuation := NewValuationService(nil, func() time.Time { return now })
+	for _, testCase := range []struct {
+		name   string
+		amount decimal.Decimal
+		want   string
+	}{
+		{name: "positive just above half", amount: native, want: "0.0003"},
+		{name: "negative just below half", amount: native.Neg(), want: "-0.0003"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			converted, complete, err := valuation.ConvertExactAmount(snapshot, testCase.amount, "CNY")
+			if err != nil || !complete || converted == nil {
+				t.Fatalf("valuation conversion = %v complete=%v err=%v", converted, complete, err)
+			}
+			projected, err := domain.NewSignedMoney(*converted, "USD")
+			if err != nil || projected.CanonicalAmount() != testCase.want {
+				t.Fatalf("valuation projection = %v err=%v, want %s", projected.CanonicalAmount(), err, testCase.want)
+			}
+		})
+	}
+}
+
 func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

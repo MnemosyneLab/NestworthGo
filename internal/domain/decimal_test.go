@@ -176,3 +176,12 @@ func TestConvertFXAmountRejectsInvalidPairsRatesAndOverflow(t *testing.T) {
 		t.Fatal("out-of-range conversion succeeded")
 	}
 }
+
+func TestConvertFXAmountRejectsUnsupportedReciprocalPrecision(t *testing.T) {
+	rate, _ := ParseFxRate("2")
+	quote := FXQuote{BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate}
+	value := decimal.RequireFromString("0.00000000000000000000000000000000000000001")
+	if _, err := ConvertFXAmount(value, "USD", "CNY", quote); err == nil {
+		t.Fatal("reciprocal conversion accepted an amount scale beyond the supported bridge precision")
+	}
+}
