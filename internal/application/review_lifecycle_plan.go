@@ -97,7 +97,7 @@ func PlanReviewLifecycle(capture domain.ReviewProjectionCapture, rule domain.Rev
 			firstOn = openedOn
 		}
 	}
-	if reusable != nil && reusable.TriggeredOn > firstOn {
+	if reusable != nil && reusable.TriggeredOn > firstOn && capture.Control.PublishedFingerprint == capture.HistoricalFingerprint {
 		firstOn = reusable.TriggeredOn
 	}
 	// Re-evaluate the complete new condition over the old open interval.
@@ -117,6 +117,30 @@ func PlanReviewLifecycle(capture domain.ReviewProjectionCapture, rule domain.Rev
 	}
 	if decision.Closed != nil {
 		result.Closed = append(result.Closed, *decision.Closed)
+	}
+	if decision.Current != nil {
+		// Reconstruct the earliest policy-true date in the current run. This
+		// permits historical enrichment to correct an episode's trigger date
+		// while its stable identity and acknowledgement remain intact.
+		reconstructedTrigger := ""
+		for _, day := range plan.Days {
+			if day.On < firstOn {
+				continue
+			}
+			switch day.PolicyWindow.Truth {
+			case domain.ReviewFalse:
+				reconstructedTrigger = ""
+			case domain.ReviewTrue:
+				if reconstructedTrigger == "" {
+					reconstructedTrigger = day.On
+				}
+			case domain.ReviewUnknown:
+				// Unknown pauses the run but does not prove recovery.
+			}
+		}
+		if reconstructedTrigger != "" {
+			decision.Current.TriggeredOn = reconstructedTrigger
+		}
 	}
 	result.Current, result.Opened = decision.Current, decision.Opened
 	result.Actionable = result.Current != nil && domain.ReviewEpisodeActionable(capture.Control.Enabled, rule.Enabled, true, result.Current.AcknowledgedAt != nil, plan.LatestWindow.Truth, plan.ActiveSuppression)

@@ -56,6 +56,9 @@ type ReviewStoredEpisode struct {
 	OpenedConditionVersion int
 	FirstHitOn             string
 	TriggeredOn            string
+	TriggerWindow          ReviewPolicyWindow
+	TriggerResult          *ReviewDailyResult
+	TriggerCoverage        []string
 	FirstDetectedAt        time.Time
 	AcknowledgedAt         *time.Time
 	Revision               int
@@ -78,6 +81,9 @@ type ReviewRulePublication struct {
 	LatestResult     *ReviewDailyResult
 	LatestCoverage   []string
 	FirstHitOn       string
+	TriggerWindow    ReviewPolicyWindow
+	TriggerResult    *ReviewDailyResult
+	TriggerCoverage  []string
 	Epochs           []ReviewPublicationEpoch
 	PositionKnown    bool
 	CurrentEpochID   string

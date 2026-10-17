@@ -316,12 +316,11 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 	if item.CurrentEpochID == "" {
 		return reviewRuleConflict("open review episode has no current position epoch")
 	}
-	evidence := struct {
-		Window       domain.ReviewPolicyWindow
-		LatestResult *domain.ReviewDailyResult
-		Coverage     []string
-	}{Window: item.LatestWindow, Coverage: item.LatestCoverage}
-	evidence.LatestResult = item.LatestResult
+	evidence := reviewEpisodeEvidence{
+		Window: item.LatestWindow, TriggerWindow: item.TriggerWindow, FirstHitOn: item.FirstHitOn,
+		TriggerResult: item.TriggerResult, TriggerCoverage: item.TriggerCoverage,
+		LatestResult: item.LatestResult, Coverage: item.LatestCoverage,
+	}
 	payload, fingerprint, err := reviewEvidenceFingerprint(evidence)
 	if err != nil {
 		return err
@@ -334,11 +333,22 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 		if _, exists := expected[domain.ReviewEpisodeID(current.ID)]; exists || current.AcknowledgedAt != nil || item.LatestWindow.Truth != domain.ReviewTrue {
 			return reviewRuleConflict("invalid new review episode")
 		}
+		if item.TriggerWindow.WindowStart == "" || item.TriggerWindow.WindowEnd != current.TriggeredOn || item.FirstHitOn == "" {
+			return reviewRuleConflict("new review episode has no initial trigger evidence")
+		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO investment_review_episodes(id,rule_id,instrument_id,position_epoch_id,opened_condition_version,first_hit_on,triggered_on,first_detected_at,window_start,window_end,latest_closed_on,hit_count,false_count,unknown_count,consecutive_count,evidence_json,evidence_fingerprint,revision) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`, current.ID, string(item.RuleID), item.InstrumentID.String(), item.CurrentEpochID, item.ConditionVersion, firstHit, current.TriggeredOn, current.FirstDetectedAt.UTC().Format(time.RFC3339Nano), item.LatestWindow.WindowStart, item.LatestWindow.WindowEnd, item.LatestClosedOn, item.LatestWindow.HitCount, item.LatestWindow.FalseCount, item.LatestWindow.UnknownCount, item.LatestWindow.ConsecutiveCount, payload, fingerprint)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_episode_events(id,episode_id,event_key,kind,payload_json,created_at) VALUES(?,?,?,?,?,?)`, string(domain.NewReviewEpisodeID()), current.ID, "open/"+current.ID, "opened", payload, atText); err != nil {
+		openedEvidence := evidence
+		openedEvidence.Window = item.TriggerWindow
+		openedEvidence.LatestResult = item.TriggerResult
+		openedEvidence.Coverage = item.TriggerCoverage
+		openedPayload, _, err := reviewEvidenceFingerprint(openedEvidence)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_episode_events(id,episode_id,event_key,kind,payload_json,created_at) VALUES(?,?,?,?,?,?)`, string(domain.NewReviewEpisodeID()), current.ID, "open/"+current.ID, "opened", openedPayload, atText); err != nil {
 			return err
 		}
 		return nil
@@ -347,20 +357,37 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 	if !exists || stored.PositionEpochID != item.CurrentEpochID || stored.RuleID != item.RuleID || stored.InstrumentID != item.InstrumentID {
 		return reviewRuleConflict("review episode identity changed")
 	}
-	var previousFingerprint, previousFirstHit, previousLatest string
-	if err := tx.QueryRowContext(ctx, `SELECT evidence_fingerprint,first_hit_on,latest_closed_on FROM investment_review_episodes WHERE id=? AND revision=? AND resolved_at IS NULL`, current.ID, stored.Revision).Scan(&previousFingerprint, &previousFirstHit, &previousLatest); err != nil {
+	var previousFingerprint, previousFirstHit, previousTriggered, previousLatest string
+	if err := tx.QueryRowContext(ctx, `SELECT evidence_fingerprint,first_hit_on,triggered_on,latest_closed_on FROM investment_review_episodes WHERE id=? AND revision=? AND resolved_at IS NULL`, current.ID, stored.Revision).Scan(&previousFingerprint, &previousFirstHit, &previousTriggered, &previousLatest); err != nil {
 		return err
 	}
-	if previousFingerprint == fingerprint && previousFirstHit == firstHit && previousLatest == item.LatestClosedOn {
+	if previousFingerprint == fingerprint && previousFirstHit == firstHit && previousTriggered == current.TriggeredOn && previousLatest == item.LatestClosedOn {
 		return nil
 	}
-	changed, err := tx.ExecContext(ctx, `UPDATE investment_review_episodes SET first_hit_on=?,window_start=?,window_end=?,latest_closed_on=?,hit_count=?,false_count=?,unknown_count=?,consecutive_count=?,evidence_json=?,evidence_fingerprint=?,revision=revision+1 WHERE id=? AND revision=? AND resolved_at IS NULL`, firstHit, item.LatestWindow.WindowStart, item.LatestWindow.WindowEnd, item.LatestClosedOn, item.LatestWindow.HitCount, item.LatestWindow.FalseCount, item.LatestWindow.UnknownCount, item.LatestWindow.ConsecutiveCount, payload, fingerprint, current.ID, stored.Revision)
+	changed, err := tx.ExecContext(ctx, `UPDATE investment_review_episodes SET first_hit_on=?,triggered_on=?,window_start=?,window_end=?,latest_closed_on=?,hit_count=?,false_count=?,unknown_count=?,consecutive_count=?,evidence_json=?,evidence_fingerprint=?,revision=revision+1 WHERE id=? AND revision=? AND resolved_at IS NULL`, firstHit, current.TriggeredOn, item.LatestWindow.WindowStart, item.LatestWindow.WindowEnd, item.LatestClosedOn, item.LatestWindow.HitCount, item.LatestWindow.FalseCount, item.LatestWindow.UnknownCount, item.LatestWindow.ConsecutiveCount, payload, fingerprint, current.ID, stored.Revision)
 	if err != nil {
 		return err
 	}
 	count, err := changed.RowsAffected()
 	if err != nil || count != 1 {
 		return reviewRuleConflict("review episode changed during evidence update")
+	}
+	openedEvidence := evidence
+	openedEvidence.Window = item.TriggerWindow
+	openedEvidence.LatestResult = item.TriggerResult
+	openedEvidence.Coverage = item.TriggerCoverage
+	openedPayload, _, err := reviewEvidenceFingerprint(openedEvidence)
+	if err != nil {
+		return err
+	}
+	var previousOpenedPayload string
+	if err := tx.QueryRowContext(ctx, `SELECT payload_json FROM investment_review_episode_events WHERE episode_id=? AND kind='opened'`, current.ID).Scan(&previousOpenedPayload); err != nil {
+		return err
+	}
+	if previousOpenedPayload != openedPayload {
+		if _, err := tx.ExecContext(ctx, `UPDATE investment_review_episode_events SET payload_json=? WHERE episode_id=? AND kind='opened'`, openedPayload, current.ID); err != nil {
+			return err
+		}
 	}
 	if previousLatest == item.LatestClosedOn && (previousFingerprint != fingerprint || previousFirstHit != firstHit) {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_episode_events(id,episode_id,event_key,kind,payload_json,created_at) VALUES(?,?,?,?,?,?)`, string(domain.NewReviewEpisodeID()), current.ID, "evidence/"+current.ID+"/"+strconv.Itoa(stored.Revision+1), "evidence_corrected", payload, atText); err != nil {
