@@ -1,6 +1,7 @@
 package application
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
@@ -45,20 +46,22 @@ func TestAnalysisCashBridgeUsesWholeAmountConversionForInverseQuotes(t *testing.
 	if err != nil || bridge.partial {
 		t.Fatalf("cash bridge=%+v err=%v", bridge, err)
 	}
-	wantEvent, err := domain.ConvertFXAmount(amount, native, base, eventFX)
+	wantEvent, err := domain.ConvertFXAmountExact(amount, native, base, eventFX)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantClose, err := domain.ConvertFXAmount(amount, native, base, closeFX)
+	wantClose, err := domain.ConvertFXAmountExact(amount, native, base, closeFX)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wholeEvent, err := moneyView(wantEvent, base)
+	wholeEvent, err := moneyView(decimalAtMoneyBoundary(wantEvent), base)
 	if err != nil || wholeEvent.Amount != "2244857.3677" {
 		t.Fatalf("whole movement at event FX=%+v err=%v, want 2244857.3677 CNY", wholeEvent, err)
 	}
-	if !bridge.fx.Equal(wantClose.Sub(wantEvent)) {
-		t.Fatalf("cash FX impact=%s, want full-amount difference %s", bridge.fx, wantClose.Sub(wantEvent))
+	wantFX := new(big.Rat).Sub(wantClose, wantEvent)
+	wantFXDecimal, projectionErr := analysisRationalDecimal(wantFX)
+	if projectionErr != nil || !bridge.fx.Equal(wantFXDecimal) || bridge.exactFX.Cmp(wantFX) != 0 {
+		t.Fatalf("cash FX impact=%s, want exact full-amount difference %s", bridge.exactFX.RatString(), wantFX.RatString())
 	}
 }
 
@@ -89,25 +92,28 @@ func TestAnalysisHoldingBridgeConvertsWholePriceAndClosingAmounts(t *testing.T) 
 	if err != nil || bridge.partial {
 		t.Fatalf("holding bridge=%+v err=%v", bridge, err)
 	}
-	wantPrice, err := domain.ConvertFXAmount(decimal.RequireFromString(quantity.Canonical()), native, base, eventFX)
+	wantPrice, err := domain.ConvertFXAmountExact(decimal.RequireFromString(quantity.Canonical()), native, base, eventFX)
 	if err != nil {
 		t.Fatal(err)
 	}
 	closingNotional := closingNative
-	wantAtClose, err := domain.ConvertFXAmount(closingNotional, native, base, closeFX)
+	wantAtClose, err := domain.ConvertFXAmountExact(closingNotional, native, base, closeFX)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantAtBuy, err := domain.ConvertFXAmount(closingNotional, native, base, eventFX)
+	wantAtBuy, err := domain.ConvertFXAmountExact(closingNotional, native, base, eventFX)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wholePrice, err := moneyView(wantPrice, base)
-	if err != nil || wholePrice.Amount != "2244857.3677" || !bridge.price.Equal(wantPrice) {
+	wholePrice, err := moneyView(decimalAtMoneyBoundary(wantPrice), base)
+	wantPriceDecimal, projectionErr := analysisRationalDecimal(wantPrice)
+	if err != nil || projectionErr != nil || wholePrice.Amount != "2244857.3677" || bridge.exactPrice.Cmp(wantPrice) != 0 || !bridge.price.Equal(wantPriceDecimal) {
 		t.Fatalf("holding price=%s, direct whole conversion=%+v err=%v, want 2244857.3677 CNY", bridge.price, wholePrice, err)
 	}
-	if !bridge.fx.Equal(wantAtClose.Sub(wantAtBuy)) {
-		t.Fatalf("holding FX=%s, want whole closing amount difference %s", bridge.fx, wantAtClose.Sub(wantAtBuy))
+	wantFX := new(big.Rat).Sub(wantAtClose, wantAtBuy)
+	wantFXDecimal, projectionErr := analysisRationalDecimal(wantFX)
+	if projectionErr != nil || !bridge.fx.Equal(wantFXDecimal) || bridge.exactFX.Cmp(wantFX) != 0 {
+		t.Fatalf("holding FX=%s, want exact whole closing amount difference %s", bridge.exactFX.RatString(), wantFX.RatString())
 	}
 }
 
@@ -128,7 +134,7 @@ func TestAnalysisWholeAmountConversionPreservesDirectionAndPropagatesOverflow(t 
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got, available, err := convertAtFXQuote(decimal.RequireFromString(test.amount), domain.CurrencyCode(test.from), "CNY", &test.quote)
-			view, viewErr := signedMoneyView(got, "CNY")
+			view, viewErr := signedMoneyView(decimalAtMoneyBoundary(got), "CNY")
 			if err != nil || viewErr != nil || !available || view.Amount != test.want {
 				t.Fatalf("whole conversion=%s view=%+v available=%v err=%v viewErr=%v, want %s", got, view, available, err, viewErr, test.want)
 			}
@@ -142,7 +148,7 @@ func TestAnalysisWholeAmountConversionPreservesDirectionAndPropagatesOverflow(t 
 		{amount: "-0.01005", want: "-0.01"},
 	} {
 		converted, available, err := convertAtFXQuote(decimal.RequireFromString(test.amount), "USD", "CNY", &tieQuote)
-		view, viewErr := signedMoneyView(converted, "CNY")
+		view, viewErr := signedMoneyView(decimalAtMoneyBoundary(converted), "CNY")
 		if err != nil || viewErr != nil || !available || view.Amount != test.want {
 			t.Fatalf("signed tie %s -> %s available=%v err=%v viewErr=%v, want %s", test.amount, view.Amount, available, err, viewErr, test.want)
 		}
@@ -150,6 +156,67 @@ func TestAnalysisWholeAmountConversionPreservesDirectionAndPropagatesOverflow(t 
 	maxAmount := decimal.RequireFromString("999999999999.9999")
 	if _, available, err := convertAtFXQuote(maxAmount, "USD", "CNY", &direct); err == nil || available {
 		t.Fatalf("overflowing direct conversion error=%v available=%v, want propagated range failure", err, available)
+	}
+}
+
+func TestAnalysisCashBridgeAggregatesInverseFXMovementsExactly(t *testing.T) {
+	t.Parallel()
+	householdID := domain.NewHouseholdID()
+	accountID := domain.NewAccountID()
+	base, native := domain.CurrencyCode("CNY"), domain.CurrencyCode("USD")
+	eventAt := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	closeAt := eventAt.Add(time.Hour)
+	eventFX := analysisFXQuote(t, householdID, base, native, "6", eventAt)
+	closeFX := analysisFXQuote(t, householdID, base, native, "1", closeAt)
+	preferences := []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}}
+	effects := make([]classifiedAnalysisEffect, 9)
+	for index := range effects {
+		money := mustMoney(t, "0.0001", "USD")
+		effects[index] = classifiedAnalysisEffect{
+			activity:    domain.Activity{ID: domain.NewActivityID(), EffectiveAt: eventAt.Add(time.Duration(index) * time.Minute)},
+			effect:      domain.ActivityEffect{Target: domain.EffectTargetAccountCash, Direction: domain.EffectAdded, Money: &money},
+			amountKnown: true,
+		}
+	}
+	previous := domain.DailyValuationSnapshotItem{NativeAmount: "0", NativeCurrency: native}
+	current := domain.DailyValuationSnapshotItem{NativeAmount: "0.0009", NativeCurrency: native, FXQuoteID: stringPointer(closeFX.ID.String())}
+	input := AnalysisInputs{
+		Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: base}, FXPreferences: preferences},
+		FXQuotes:  []domain.FXQuote{eventFX, closeFX},
+	}
+	component := domain.ComponentID{AccountID: accountID, Currency: native}
+	bridge, err := computeCashBridge(component, previous, current, eventAt.Add(-time.Hour), closeAt, effects, input, domain.AnalysisQuery{Valuation: domain.ValuationBase}, analysisUniverse{})
+	if err != nil || bridge.partial {
+		t.Fatalf("nine movement cash bridge=%+v err=%v", bridge, err)
+	}
+	if bridge.fx.String() != "0.00075" || decimalAtMoneyBoundary(bridge.exactFX).String() != "0.0008" {
+		t.Fatalf("nine movement FX=%s exact=%s, want exact 0.00075 and one half-even projection => 0.0008", bridge.fx, bridge.exactFX.RatString())
+	}
+	if bridge.exactFX.RatString() != "3/4000" {
+		t.Fatalf("nine movement exact FX=%s, want 3/4000", bridge.exactFX.RatString())
+	}
+	for _, test := range []struct {
+		name, rate, want string
+		direction        domain.EffectDirection
+	}{
+		{name: "positive below tie", direction: domain.EffectAdded, rate: "1.99", want: "0"},
+		{name: "positive above tie", direction: domain.EffectAdded, rate: "2.01", want: "0.0001"},
+		{name: "negative tie", direction: domain.EffectRemoved, rate: "2", want: "0"},
+		{name: "negative below tie", direction: domain.EffectRemoved, rate: "1.99", want: "0"},
+		{name: "negative above tie", direction: domain.EffectRemoved, rate: "2.01", want: "-0.0001"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			quotedEvent := analysisFXQuote(t, householdID, base, native, test.rate, eventAt)
+			one := mustMoney(t, "0.0001", "USD")
+			oneEffect := []classifiedAnalysisEffect{{activity: domain.Activity{EffectiveAt: eventAt}, effect: domain.ActivityEffect{Target: domain.EffectTargetAccountCash, Direction: test.direction, Money: &one}, amountKnown: true}}
+			oneCurrent := domain.DailyValuationSnapshotItem{NativeAmount: "0.0001", NativeCurrency: native, FXQuoteID: stringPointer(closeFX.ID.String())}
+			input.FXQuotes = []domain.FXQuote{quotedEvent, closeFX}
+			bridge, err := computeCashBridge(component, previous, oneCurrent, eventAt.Add(-time.Hour), closeAt, oneEffect, input, domain.AnalysisQuery{Valuation: domain.ValuationBase}, analysisUniverse{})
+			money, moneyErr := signedMoneyView(decimalAtMoneyBoundary(bridge.exactFX), base)
+			if err != nil || moneyErr != nil || bridge.partial || money.Amount != test.want {
+				t.Fatalf("bridge=%+v money=%+v err=%v moneyErr=%v, want FX %s", bridge, money, err, moneyErr, test.want)
+			}
+		})
 	}
 }
 
