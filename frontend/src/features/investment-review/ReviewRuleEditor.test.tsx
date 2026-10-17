@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
+import { timeZoneOptions } from "@/lib/time";
 import type { ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { ReviewRuleEditor } from "./ReviewRuleEditor";
 
-const state = vi.hoisted(() => ({ save: vi.fn(async (_value: unknown) => ({})), origin: { timezone: "Asia/Singapore" }, bootstrap: { household: { baseCurrency: "USD" } }, catalog: { currencies: ["USD", "CNY", "EUR"] } as { currencies: string[] } | undefined, catalogError: false, catalogRefetch: vi.fn() }));
+const state = vi.hoisted(() => ({ save: vi.fn(async (_value: unknown) => ({})), preview: vi.fn(async (_value: unknown) => ({ window: { hitCount: 0, falseCount: 0, unknownCount: 0, windowStart: "2026-10-01", windowEnd: "2026-10-01" } })), origin: { timezone: "Asia/Singapore" }, bootstrap: { household: { baseCurrency: "USD" } }, catalog: { currencies: ["USD", "CNY", "EUR"] } as { currencies: string[] } | undefined, catalogError: false, catalogRefetch: vi.fn() }));
 vi.mock("@/queries/investments", () => ({ useInstruments: () => ({ data: [{ id: "synthetic-fund", name: "Synthetic fund" }] }) }));
 vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "system" } }) }));
 vi.mock("@/queries/catalog", () => ({ useCatalog: () => ({ data: state.catalog, isError: state.catalogError, refetch: state.catalogRefetch }) }));
 vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: state.origin }) }));
 vi.mock("@/queries/household", () => ({ useBootstrap: () => ({ data: state.bootstrap }) }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({ Service: { PreviewReviewRuleV2: state.preview } }));
 vi.mock("@/queries/investmentReviewV2", () => ({ useReviewV2Commands: () => ({
   createRule: { mutateAsync: state.save, isPending: false }, updateRule: { mutateAsync: state.save, isPending: false },
 }) }));
@@ -72,6 +74,23 @@ describe("investment review rule editor", () => {
     await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
     expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("Asia/Singapore");
   });
+  it("preserves a valid stored timezone that is absent from Intl's supported options", async () => {
+    const alias = ["US/Eastern", "US/Pacific", "America/Atka", "America/Shiprock", "Etc/GMT+5"].find(candidate => {
+      try { new Intl.DateTimeFormat("en", { timeZone: candidate }); return !timeZoneOptions().includes(candidate); }
+      catch { return false; }
+    });
+    expect(alias).toBeDefined();
+    if (!alias) throw new Error("No valid timezone alias is absent from Intl's supported options");
+    const aliasRule = { ...rule, spec: { ...rule.spec, schedule: { timezone: alias } } } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={aliasRule} />);
+    const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
+    expect(timezone).toHaveValue(alias);
+    await userEvent.click(timezone);
+    expect(screen.getByRole("option", { name: alias })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe(alias);
+  });
   it("uses the IANA timezone chooser and cancels search text on Escape and Tab", async () => {
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
     const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
@@ -128,11 +147,71 @@ describe("investment review rule editor", () => {
   it("reports currency catalog errors and retries while retaining the household fallback", async () => {
     state.catalog = undefined;
     state.catalogError = true;
-    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    const view = render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
     expect(screen.getByText(i18n.t("reviewV2.currencyCatalogError"))).toBeVisible();
-    expect(screen.getByRole("combobox", { name: "Currency" })).toHaveValue("USD");
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveValue("CNY");
+    const costValue = screen.getAllByRole("textbox", { name: "Value" })[1];
+    await userEvent.clear(costValue);
+    await userEvent.type(costValue, "1250");
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(state.catalogRefetch).toHaveBeenCalledOnce();
+    state.catalog = { currencies: ["USD", "CNY", "EUR"] };
+    state.catalogError = false;
+    view.rerender(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    expect(currency).toHaveValue("CNY");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect(saved.spec.predicate.any?.[1].leaf).toEqual({ metric: "cost", operator: ">", value: "1250", currency: "CNY", fxMode: "native" });
+  });
+  it("blocks unsupported saved currencies from preview and save, then allows a supported correction", async () => {
+    const unsupportedRule = {
+      ...rule,
+      spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "amount", operator: ">", value: "1000", currency: "XYZ", fxMode: "native" } }] } },
+    } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={unsupportedRule} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: i18n.t("reviewV2.previewInstrument") }), "synthetic-fund");
+    expect(currency).toHaveValue("XYZ");
+    expect(currency).toHaveAttribute("aria-invalid", "true");
+    expect(document.getElementById(currency.getAttribute("aria-describedby")!)).toHaveTextContent(i18n.t("reviewV2.currencyInvalid"));
+    const previewButton = screen.getByRole("button", { name: "Preview" });
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(previewButton).toBeDisabled();
+    expect(saveButton).toBeDisabled();
+    await userEvent.click(previewButton);
+    await userEvent.click(saveButton);
+    expect(state.preview).not.toHaveBeenCalled();
+    expect(state.save).not.toHaveBeenCalled();
+
+    await userEvent.selectOptions(currency, "EUR");
+    expect(currency).toHaveValue("EUR");
+    expect(currency).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(state.preview).toHaveBeenCalledOnce());
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { predicate: { all: Array<{ leaf: { currency: string } }> } } };
+    expect(saved.spec.predicate.all[0].leaf.currency).toBe("EUR");
+  });
+  it("preserves an unsupported value during loading, then marks it invalid when the catalog arrives", async () => {
+    state.catalog = undefined;
+    const unsupportedRule = {
+      ...rule,
+      spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "cost", operator: ">", value: "1000", currency: "XYZ", fxMode: "native" } }] } },
+    } as unknown as ReviewRule;
+    const view = render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={unsupportedRule} />);
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveValue("XYZ");
+    expect(currency).not.toHaveAttribute("aria-invalid", "true");
+    state.catalog = { currencies: ["USD", "CNY", "EUR"] };
+    view.rerender(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={unsupportedRule} />);
+    expect(currency).toHaveValue("XYZ");
+    expect(currency).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
   it("allows a catalog currency to replace an existing monetary condition currency", async () => {
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
@@ -211,6 +290,19 @@ describe("investment review rule editor", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
     expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("Pacific/Auckland");
+  });
+  it("does not select a timezone or submit when Enter is part of IME composition", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={rule} />);
+    const timezone = screen.getByRole("combobox", { name: i18n.t("reviewV2.timezone") });
+    await userEvent.click(timezone);
+    fireEvent.compositionStart(timezone);
+    fireEvent.change(timezone, { target: { value: "Asia/Singapore" } });
+    fireEvent.keyDown(timezone, { key: "Enter", code: "Enter", keyCode: 229, isComposing: true });
+    expect(state.save).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(timezone);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("UTC");
   });
   it("blocks nonnumeric amounts in a new rule after household timezone initialization", async () => {
     render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);

@@ -105,7 +105,11 @@ function annualizedLeavesAreScoped(node: ReviewPredicateNode, bankOnly = false):
   return children.every(child => annualizedLeavesAreScoped(child, bankOnly || scoped));
 }
 
-function predicateIsValid(node: ReviewPredicateNode, defaultCurrency: string): boolean {
+function currencyIsValid(value: string, currencies: string[], currencyCatalogLoaded: boolean): boolean {
+  return currencyCodePattern.test(value) && (!currencyCatalogLoaded || currencies.includes(value));
+}
+
+function predicateIsValid(node: ReviewPredicateNode, defaultCurrency: string, currencies: string[], currencyCatalogLoaded: boolean): boolean {
   let leafCount = 0;
   const visit = (current: ReviewPredicateNode, depth: number): boolean => {
     const shapes = Number(current.all !== undefined) + Number(current.any !== undefined) + Number(current.leaf !== undefined);
@@ -118,7 +122,7 @@ function predicateIsValid(node: ReviewPredicateNode, defaultCurrency: string): b
       if (leaf.metric === "type") return (leaf.types?.length ?? 0) > 0;
       if (leaf.metric === "instrument") return (leaf.instrumentIds?.length ?? 0) > 0;
       if (!leaf.value?.trim()) return false;
-      if (leaf.metric === "amount" || leaf.metric === "cost") return moneyThresholdPattern.test(leaf.value.trim()) && currencyCodePattern.test(leaf.currency ?? defaultCurrency) && Boolean(leaf.fxMode);
+      if (leaf.metric === "amount" || leaf.metric === "cost") return moneyThresholdPattern.test(leaf.value.trim()) && currencyIsValid(leaf.currency ?? defaultCurrency, currencies, currencyCatalogLoaded) && Boolean(leaf.fxMode);
       if (leaf.metric === "price_change" || leaf.metric === "annualized") return percentageThresholdPattern.test(leaf.value.trim()) && [7, 30, 90, 180, 365].includes(leaf.lookbackDays ?? 0);
       return false;
     }
@@ -171,9 +175,7 @@ function ReviewLeafEditor({ leaf, depth, index, idPath, canRemove, instruments, 
       : false;
   const currentCurrency = leaf.currency ?? defaultCurrency;
   const currencyOptions = Array.from(new Set([...currencies, ...(defaultCurrency ? [defaultCurrency] : []), ...(currentCurrency ? [currentCurrency] : [])]));
-  const currencyInvalid = (leaf.metric === "amount" || leaf.metric === "cost") && (
-    !currencyCodePattern.test(currentCurrency) || (currencyCatalogLoaded && !currencies.includes(currentCurrency))
-  );
+  const currencyInvalid = (leaf.metric === "amount" || leaf.metric === "cost") && !currencyIsValid(currentCurrency, currencies, currencyCatalogLoaded);
   const currentLookbackDays = leaf.lookbackDays ?? 30;
   const lookbackInvalid = (leaf.metric === "price_change" || leaf.metric === "annualized") && !supportedLookbackDays.includes(currentLookbackDays as typeof supportedLookbackDays[number]);
   const selectionErrorId = `${fieldId}-selection-error`;
@@ -292,7 +294,8 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
   const nameInvalid = !name.trim();
   const timezoneInvalid = !timezoneInitialized || !isValidTimeZone(selectedTimezone);
   const targetInvalid = targetKind === "instruments" && !target.length;
-  const predicateInvalid = !predicateSourceValid || !predicateIsValid(predicateTree, defaultCurrency);
+  const currencyCatalogLoaded = catalog.data !== undefined;
+  const predicateInvalid = !predicateSourceValid || !predicateIsValid(predicateTree, defaultCurrency, currencies, currencyCatalogLoaded);
   const countInvalid = policy === "consecutive" && (!Number.isInteger(count) || count < 1 || count > 365);
   const windowInvalid = policy === "rolling" && (!Number.isInteger(windowDays) || windowDays < 1 || windowDays > 365);
   const minHitsInvalid = policy === "rolling" && (!Number.isInteger(minHits) || minHits < 1 || minHits > windowDays);
@@ -317,7 +320,7 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
       <div className="flex flex-wrap gap-4"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} />{t("reviewV2.enabled")}</label><label className="flex items-center gap-2 text-sm">{t("reviewV2.severity")}<NativeSelect value={severity} onChange={event => setSeverity(event.target.value)}><option value="notice">{t("reviewV2.notice")}</option><option value="warning">{t("reviewV2.warning")}</option></NativeSelect></label></div>
       <fieldset className="space-y-2" aria-invalid={targetInvalid || undefined} aria-describedby={targetInvalid ? "review-rule-target-error" : undefined}><legend className="font-medium">{t("reviewV2.target")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.positiveHoldings")}</p><NativeSelect aria-label={t("reviewV2.targetMode")} value={targetKind} aria-invalid={targetInvalid || undefined} aria-describedby={targetInvalid ? "review-rule-target-error" : undefined} onChange={event => { const kind = event.target.value; setTargetKind(kind); if (kind === "instruments" && !target.length && instruments.data?.[0]) setTarget([instruments.data[0].id]); }}><option value="all_current">{t("reviewV2.allCurrent")}</option><option value="instruments">{t("reviewV2.selectedInstruments")}</option></NativeSelect>
       {targetKind === "instruments" && <div className="max-h-36 overflow-auto rounded-lg border p-2">{(instruments.data ?? []).map(item => <label key={item.id} className="flex gap-2 p-1 text-sm"><input type="checkbox" checked={target.includes(item.id)} onChange={event => setTarget(ids => event.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id))} />{item.name}</label>)}</div>}<FieldError id="review-rule-target-error">{targetInvalid ? t("reviewV2.targetRequired") : undefined}</FieldError></fieldset>
-      <fieldset className="space-y-3"><legend className="font-medium">{t("reviewV2.dailyConditions")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.predicateBuilderHelp")}</p>{catalog.isError && <p role="alert" className="text-sm text-destructive">{t("reviewV2.currencyCatalogError")} <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => void catalog.refetch()}>{t("common.retry")}</Button></p>}<PredicateGroupEditor node={predicateTreeWithCurrencyDefaults} path={[]} depth={0} tree={predicateTreeWithCurrencyDefaults} onTreeChange={changePredicateTree} instruments={instruments.data ?? []} currencies={currencies} currencyCatalogLoaded={catalog.data !== undefined} defaultCurrency={defaultCurrency} invalid={predicateInvalid} /></fieldset>
+      <fieldset className="space-y-3"><legend className="font-medium">{t("reviewV2.dailyConditions")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.predicateBuilderHelp")}</p>{catalog.isError && <p role="alert" className="text-sm text-destructive">{t("reviewV2.currencyCatalogError")} <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => void catalog.refetch()}>{t("common.retry")}</Button></p>}<PredicateGroupEditor node={predicateTreeWithCurrencyDefaults} path={[]} depth={0} tree={predicateTreeWithCurrencyDefaults} onTreeChange={changePredicateTree} instruments={instruments.data ?? []} currencies={currencies} currencyCatalogLoaded={currencyCatalogLoaded} defaultCurrency={defaultCurrency} invalid={predicateInvalid} /></fieldset>
       <fieldset className="space-y-3"><legend className="font-medium">{t("reviewV2.trigger")}</legend><NativeSelect aria-label={t("reviewV2.trigger")} value={policy} onChange={event => setPolicy(event.target.value)}><option value="single">{t("reviewV2.single")}</option><option value="consecutive">{t("reviewV2.consecutive")}</option><option value="rolling">{t("reviewV2.rolling")}</option></NativeSelect>
       {policy === "consecutive" && <div className="flex flex-col gap-1"><label className="flex items-center gap-2 text-sm">{t("reviewV2.consecutiveDays")}<Input className="w-20" type="number" min={1} max={365} value={count} aria-invalid={countInvalid || undefined} aria-describedby={countInvalid ? "review-rule-count-error" : undefined} onChange={event => setCount(Number(event.target.value))} /></label><FieldError id="review-rule-count-error">{countInvalid ? t("reviewV2.triggerValueInvalid") : undefined}</FieldError></div>}
       {policy === "rolling" && <div className="flex flex-wrap gap-3"><div className="flex flex-col gap-1"><label className="flex items-center gap-2 text-sm">{t("reviewV2.windowDays")}<Input className="w-20" type="number" min={1} max={365} value={windowDays} aria-invalid={windowInvalid || undefined} aria-describedby={windowInvalid ? "review-rule-window-error" : undefined} onChange={event => setWindowDays(Number(event.target.value))} /></label><FieldError id="review-rule-window-error">{windowInvalid ? t("reviewV2.triggerValueInvalid") : undefined}</FieldError></div><div className="flex flex-col gap-1"><label className="flex items-center gap-2 text-sm">{t("reviewV2.minHits")}<Input className="w-20" type="number" min={1} max={windowDays} value={minHits} aria-invalid={minHitsInvalid || undefined} aria-describedby={minHitsInvalid ? "review-rule-hits-error" : undefined} onChange={event => setMinHits(Number(event.target.value))} /></label><FieldError id="review-rule-hits-error">{minHitsInvalid ? t("reviewV2.triggerValueInvalid") : undefined}</FieldError></div></div>}</fieldset>
