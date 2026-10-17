@@ -121,6 +121,13 @@ func reviewEpisodeTriggerEvidence(capture domain.ReviewProjectionCapture, rule d
 			return stored.TriggerWindow, stored.FirstHitOn, stored.TriggerResult, append([]string{}, stored.TriggerCoverage...), nil
 		}
 	}
+	if stored != nil && stored.OpenedConditionVersion != plan.ConditionVersion {
+		// Legacy episodes have no opening snapshot to reuse. Evidence evaluated
+		// under a later edited condition cannot stand in for that original
+		// snapshot, so keep it explicitly unavailable until a same-version replay
+		// can reconstruct the opening date.
+		return domain.ReviewPolicyWindow{}, stored.FirstHitOn, nil, append([]string{}, stored.TriggerCoverage...), nil
+	}
 
 	type dayEvidence struct {
 		result   domain.ReviewDailyResult
@@ -189,6 +196,13 @@ func reviewEpisodeTriggerEvidence(capture domain.ReviewProjectionCapture, rule d
 		// A timezone change can temporarily put the latest closed date before
 		// an existing trigger date. Preserve its captured opening evidence.
 		return stored.TriggerWindow, stored.FirstHitOn, stored.TriggerResult, append([]string{}, stored.TriggerCoverage...), nil
+	}
+	if stored != nil {
+		// Pre-snapshot open episodes remain valid identities even when the
+		// opening day's evidence is no longer reproducible. An empty trigger
+		// window/result represents unavailable legacy evidence; a later replay
+		// at the same opened condition version replaces it once reconstructable.
+		return domain.ReviewPolicyWindow{}, stored.FirstHitOn, nil, append([]string{}, stored.TriggerCoverage...), nil
 	}
 	return domain.ReviewPolicyWindow{}, "", nil, nil, fmt.Errorf("review episode %s has no reconstructable trigger window", current.ID)
 }

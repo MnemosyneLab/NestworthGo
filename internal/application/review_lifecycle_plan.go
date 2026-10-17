@@ -119,27 +119,38 @@ func PlanReviewLifecycle(capture domain.ReviewProjectionCapture, rule domain.Rev
 		result.Closed = append(result.Closed, *decision.Closed)
 	}
 	if decision.Current != nil {
-		// Reconstruct the earliest policy-true date in the current run. This
-		// permits historical enrichment to correct an episode's trigger date
-		// while its stable identity and acknowledgement remain intact.
-		reconstructedTrigger := ""
-		for _, day := range plan.Days {
-			if day.On < firstOn {
-				continue
-			}
-			switch day.PolicyWindow.Truth {
-			case domain.ReviewFalse:
-				reconstructedTrigger = ""
-			case domain.ReviewTrue:
-				if reconstructedTrigger == "" {
-					reconstructedTrigger = day.On
-				}
-			case domain.ReviewUnknown:
-				// Unknown pauses the run but does not prove recovery.
+		// Only re-date an episode from a replay of the condition version that
+		// opened it. A material condition edit can leave the same unresolved
+		// episode connected through U days, but its opening date/evidence still
+		// describe the original condition. Same-version source corrections can
+		// legitimately move the reconstructed trigger and its evidence together.
+		openedConditionVersion := plan.ConditionVersion
+		for _, stored := range capture.OpenEpisodes {
+			if string(stored.ID) == decision.Current.ID {
+				openedConditionVersion = stored.OpenedConditionVersion
+				break
 			}
 		}
-		if reconstructedTrigger != "" {
-			decision.Current.TriggeredOn = reconstructedTrigger
+		if openedConditionVersion == plan.ConditionVersion {
+			reconstructedTrigger := ""
+			for _, day := range plan.Days {
+				if day.On < firstOn {
+					continue
+				}
+				switch day.PolicyWindow.Truth {
+				case domain.ReviewFalse:
+					reconstructedTrigger = ""
+				case domain.ReviewTrue:
+					if reconstructedTrigger == "" {
+						reconstructedTrigger = day.On
+					}
+				case domain.ReviewUnknown:
+					// Unknown pauses the run but does not prove recovery.
+				}
+			}
+			if reconstructedTrigger != "" {
+				decision.Current.TriggeredOn = reconstructedTrigger
+			}
 		}
 	}
 	result.Current, result.Opened = decision.Current, decision.Opened
