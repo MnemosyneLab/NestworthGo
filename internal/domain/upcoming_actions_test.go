@@ -222,7 +222,7 @@ func TestUpcomingMissingFXRetainsNativeShortfall(t *testing.T) {
 	s.ExplicitPolicy.UnlockOn = nil
 	s.ExplicitPolicy.AccessKind = AccessOnRequest
 	rs := []LiquidityReservation{{ID: NewLiquidityReservationID(), HouseholdID: s.ExplicitPolicy.HouseholdID, Source: s.Ref, Label: "USD reserve", Amount: mustTestMoney(t, "6000", "USD"), Currency: "USD", Revision: 1}}
-	o, e := EvaluateLiquidity(q, []LiquiditySource{s}, rs, func(Money) (*decimal.Decimal, bool, error) { return nil, false, nil })
+	o, e := EvaluateLiquidity(q, []LiquiditySource{s}, rs, func(decimal.Decimal, CurrencyCode) (*decimal.Decimal, bool, error) { return nil, false, nil })
 	if e != nil {
 		t.Fatal(e)
 	}

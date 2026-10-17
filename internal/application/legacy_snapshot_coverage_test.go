@@ -61,6 +61,10 @@ func legacyCoverageFixtureDays(t *testing.T, quoteDays int) (*Service, *sqlite.D
 	if err != nil {
 		t.Fatal(err)
 	}
+	// These synthetic pre-history observations include dates after the history
+	// origin. Build them while they are already in the past, then restore the
+	// household clock before starting history at its intended origin date.
+	*now = time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 	for day := 1; day <= quoteDays; day++ {
 		date := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, day-1).Format("2006-01-02")
 		when, err := s.parseManualQuoteTimestamp(t.Context(), date)
@@ -82,6 +86,7 @@ func legacyCoverageFixtureDays(t *testing.T, quoteDays int) (*Service, *sqlite.D
 			t.Fatal(err)
 		}
 	}
+	*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	holding, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)

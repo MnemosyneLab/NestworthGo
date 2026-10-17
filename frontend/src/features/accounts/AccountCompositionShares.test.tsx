@@ -16,8 +16,9 @@ vi.mock("@/components/charts/EChart", async (importOriginal) => {
 });
 
 // Go asserts this shared synthetic wire fixture equals its actual projection.
-// The two 178 amounts tie at a display rounding boundary; independently
-// allocating collapsed slices used to change item-01 from 13.3% to 13.2%.
+// The two 178 amounts receive 1325 and 1324 bps. Exact half-even formatting
+// renders both as 13.2%; independently allocating collapsed slices used to
+// change item-01's displayed share.
 it("keeps tied original shares identical across collapse, expansion, source table and tooltip", async () => {
   const user = userEvent.setup();
   render(<AccountCompositionPanel composition={fixture} />);
@@ -30,9 +31,9 @@ it("keeps tied original shares identical across collapse, expansion, source tabl
     return option.tooltip.formatter({ name: key });
   };
   const assertOriginalShares = () => {
-    expect(screen.getByTestId(`composition-slice-${firstTie}`)).toHaveTextContent("13.3%");
+    expect(screen.getByTestId(`composition-slice-${firstTie}`)).toHaveTextContent("13.2%");
     expect(screen.getByTestId(`composition-slice-${secondTie}`)).toHaveTextContent("13.2%");
-    expect(tooltip(firstTie)).toContain("$178.00 (13.3%)");
+    expect(tooltip(firstTie)).toContain("$178.00 (13.2%)");
     expect(tooltip(secondTie)).toContain("$178.00 (13.2%)");
   };
   assertOriginalShares();
@@ -41,14 +42,14 @@ it("keeps tied original shares identical across collapse, expansion, source tabl
   await user.click(screen.getByText("View data table"));
   const table = screen.getByRole("table");
   expect(within(table).getAllByRole("row")).toHaveLength(13);
-  expect(within(table).getByText("item-01").closest("tr")).toHaveTextContent("13.3%");
+  expect(within(table).getByText("item-01").closest("tr")).toHaveTextContent("13.2%");
   expect(within(table).getByText("item-02").closest("tr")).toHaveTextContent("13.2%");
   expect(within(table).queryByText(/Remaining/)).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Show all 12 items" }));
   assertOriginalShares();
   expect(screen.queryByTestId(`composition-slice-${remainder}`)).not.toBeInTheDocument();
-  expect(within(screen.getByRole("table")).getByText("item-01").closest("tr")).toHaveTextContent("13.3%");
+  expect(within(screen.getByRole("table")).getByText("item-01").closest("tr")).toHaveTextContent("13.2%");
   expect(tooltip(remainder)).toContain("$40.00 (3.0%)");
 
   await user.click(screen.getByRole("button", { name: "Show top 10" }));

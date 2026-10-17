@@ -49,10 +49,17 @@ export function invalidateCurrentValuation(queryClient: QueryClient, _accountIds
   invalidate(queryClient, queryKeys.analytics.accountGains.all);
   invalidate(queryClient, queryKeys.analytics.instrumentHoldings);
   invalidate(queryClient, queryKeys.liquidity.all);
+  invalidate(queryClient, queryKeys.reviewV2.all);
 }
 
 export function invalidateHistoryReads(queryClient: QueryClient) {
   invalidate(queryClient, queryKeys.history.all);
+}
+
+export function invalidateHistoryStart(queryClient: QueryClient) {
+  invalidateHistoryReads(queryClient);
+  invalidateHoldingReads(queryClient);
+  invalidateCurrentValuation(queryClient);
 }
 
 export function invalidateAccountChange(queryClient: QueryClient, accountId?: string) {
@@ -108,4 +115,12 @@ export function invalidateInstrumentChange(queryClient: QueryClient, instrumentI
   invalidate(queryClient, queryKeys.analytics.all);
   invalidate(queryClient, queryKeys.marketdata.all);
   invalidate(queryClient, queryKeys.history.snapshotState);
+}
+
+export function invalidateInstrumentArchiveChange(queryClient: QueryClient) {
+  invalidateInstrumentReads(queryClient);
+  invalidateHoldingReads(queryClient);
+  invalidateHistoryReads(queryClient);
+  invalidateCurrentValuation(queryClient);
+  invalidate(queryClient, queryKeys.marketdata.all);
 }

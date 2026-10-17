@@ -43,7 +43,7 @@ type LiquidityQuery struct {
 // ConvertToBase converts a native amount using the same eligible current FX
 // path as valuation. Conversion must be linear under a fixed FX snapshot.
 // A nil result means the FX observation is missing.
-type ConvertToBase func(amount Money) (*decimal.Decimal, bool, error)
+type ConvertToBase func(amount decimal.Decimal, currency CurrencyCode) (*decimal.Decimal, bool, error)
 
 type LiquidityRoute struct {
 	netExact       *decimal.Decimal

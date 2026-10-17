@@ -36,8 +36,8 @@ func (s *Service) prepareLiquidity(ctx context.Context, query LiquidityOverviewQ
 	if err != nil {
 		return domain.LiquidityOverview{}, snapshot, nil, err
 	}
-	convert := func(amount domain.Money) (*decimal.Decimal, bool, error) {
-		return valuation.ConvertAmount(snapshot.Portfolio, amount)
+	convert := func(amount decimal.Decimal, currency domain.CurrencyCode) (*decimal.Decimal, bool, error) {
+		return valuation.ConvertExactAmount(snapshot.Portfolio, amount, currency)
 	}
 	overview, err := domain.EvaluateLiquidity(domain.LiquidityQuery{
 		AsOf: asOf, Timezone: timezoneOrUTC(snapshot.Portfolio.Origin), BaseCurrency: snapshot.Portfolio.Household.BaseCurrency,
@@ -47,10 +47,14 @@ func (s *Service) prepareLiquidity(ctx context.Context, query LiquidityOverviewQ
 }
 
 func (v *ValuationService) ConvertAmount(snapshot domain.PortfolioSnapshot, amount domain.Money) (*decimal.Decimal, bool, error) {
+	return v.ConvertExactAmount(snapshot, amount.Amount(), amount.Currency())
+}
+
+func (v *ValuationService) ConvertExactAmount(snapshot domain.PortfolioSnapshot, amount decimal.Decimal, currency domain.CurrencyCode) (*decimal.Decimal, bool, error) {
 	if snapshot.Household == nil {
 		return nil, false, nil
 	}
-	converted, _, missing, err := v.convert(snapshot, "", amount.Amount(), amount.Currency())
+	converted, _, missing, err := v.convert(snapshot, "", amount, currency)
 	if err != nil {
 		return nil, false, err
 	}

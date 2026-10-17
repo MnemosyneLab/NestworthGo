@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -15,11 +16,26 @@ type holdingBridge struct {
 }
 
 func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
-	return computeAnalysisForValuationUniverse(input, query, false)
+	return computeAnalysisContext(context.Background(), input, query)
+}
+
+func computeAnalysisContext(ctx context.Context, input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
+	return computeAnalysisForValuationUniverseContext(ctx, input, query, false)
 }
 
 func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
+	return computeAnalysisForValuationUniverseContext(context.Background(), input, query, investmentOnly)
+}
+
+func computeAnalysisForValuationUniverseContext(ctx context.Context, input AnalysisInputs, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
+	if err := ctx.Err(); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
 	if err := query.Validate(); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
+	start, _, totalDays, err := analysisDateRange(query.From, query.To)
+	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
 	if input.Portfolio.Household == nil {
@@ -28,10 +44,14 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 	if input.Origin.Timezone == "" {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires the History Origin timezone"}
 	}
-	if _, err := time.LoadLocation(input.Origin.Timezone); err != nil {
+	location, err := time.LoadLocation(input.Origin.Timezone)
+	if err != nil {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires a valid History Origin timezone"}
 	}
-	input.Snapshots = snapshotsInAnalysisWindow(input.Snapshots, query.From, query.To)
+	input.Snapshots, err = snapshotsInAnalysisWindow(input.Snapshots, query.From, query.To, location)
+	if err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
 	universe, err := resolveAnalysisUniverse(input, query)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
@@ -49,22 +69,6 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 	for _, snapshot := range input.Snapshots {
 		byDate[snapshot.LocalDate] = snapshot
 	}
-	location, err := time.LoadLocation(input.Origin.Timezone)
-	if err != nil {
-		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires a valid History Origin timezone"}
-	}
-	start, err := time.ParseInLocation("2006-01-02", query.From, location)
-	if err != nil {
-		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "date must use YYYY-MM-DD"}
-	}
-	end, err := time.ParseInLocation("2006-01-02", query.To, location)
-	if err != nil {
-		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "date must use YYYY-MM-DD"}
-	}
-	totalDays := 0
-	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
-		totalDays++
-	}
 	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0, totalDays*len(valuationComponents)), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
 	activitiesByDate := make(map[string][]domain.Activity, len(input.Activities))
 	for _, activity := range input.Activities {
@@ -72,14 +76,34 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 		activitiesByDate[localDate] = append(activitiesByDate[localDate], activity)
 	}
 	previousItems := make(map[string]domain.DailyValuationSnapshotItem)
-	firstPreviousDate := start.AddDate(0, 0, -1).Format("2006-01-02")
+	firstPreviousLabel, err := analysisPreviousExistingCivilDateLabel(start, location)
+	if err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
+	firstPreviousDate := firstPreviousLabel.Format("2006-01-02")
 	if previousSnapshot, ok := byDate[firstPreviousDate]; ok {
 		previousItems = snapshotItemsByComponent(previousSnapshot, universe.accounts, universe.instruments)
 	}
-	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+	for dayIndex := 0; dayIndex < totalDays; dayIndex++ {
+		if err := ctx.Err(); err != nil {
+			return domain.PeriodAnalysisResult{}, err
+		}
+		date := start.AddDate(0, 0, dayIndex)
 		localDate := date.Format("2006-01-02")
 		daySnapshot, hasDay := byDate[localDate]
-		previousDate := date.AddDate(0, 0, -1).Format("2006-01-02")
+		_, _, civilDateExists, boundsErr := analysisCivilDayBounds(date, location)
+		if boundsErr != nil {
+			return domain.PeriodAnalysisResult{}, boundsErr
+		}
+		hasDay = hasDay && civilDateExists
+		if !hasDay {
+			daySnapshot = domain.DailyValuationSnapshot{}
+		}
+		previousLabel, previousLabelErr := analysisPreviousExistingCivilDateLabel(date, location)
+		if previousLabelErr != nil {
+			return domain.PeriodAnalysisResult{}, previousLabelErr
+		}
+		previousDate := previousLabel.Format("2006-01-02")
 		previousSnapshot, hasPrevious := byDate[previousDate]
 		var previous *domain.DailyValuationSnapshot
 		if hasPrevious {
@@ -117,9 +141,14 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 			}
 			result.Days = append(result.Days, day)
 		}
-		previousItems = endItems
+		// A skipped label has no observation and must not break continuity between
+		// its surrounding existing days. A missing observation on an existing
+		// day still clears the baseline so analysis never bridges a genuine gap.
+		if civilDateExists {
+			previousItems = endItems
+		}
 	}
-	if err := finalizeAnalysisReturns(&result, universe, input, query); err != nil {
+	if err := finalizeAnalysisReturns(ctx, &result, universe, input, query); err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
 	return result, nil
@@ -580,14 +609,25 @@ func (u analysisUniverse) convertAmount(value decimal.Decimal, currency domain.C
 	if currency == base {
 		return value, nil
 	}
-	rate, ok := fxRateAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, currency, base, at)
-	if !ok {
+	quote := fxQuoteAt(input.FXQuotes, input.Portfolio.FXPreferences, input.Portfolio.Household.ID, currency, base, at)
+	if quote == nil {
 		return decimal.Zero, &domain.Error{Code: domain.ErrUnavailable, Field: "fxRate", Message: "an FX rate is unavailable for the activity"}
 	}
-	return value.Mul(rate), nil
+	return domain.ConvertFXAmount(value, currency, base, *quote)
 }
 
 func fxRateAt(quotes []domain.FXQuote, preferences []domain.FXPreference, householdID domain.HouseholdID, native, base domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
+	selected := fxQuoteAt(quotes, preferences, householdID, native, base, cutoff)
+	if selected == nil {
+		return decimal.Zero, false
+	}
+	if selected.BaseCurrency == native && selected.QuoteCurrency == base {
+		return selected.Rate.Decimal(), true
+	}
+	return decimal.NewFromInt(1).Div(selected.Rate.Decimal()), true
+}
+
+func fxQuoteAt(quotes []domain.FXQuote, preferences []domain.FXPreference, householdID domain.HouseholdID, native, base domain.CurrencyCode, cutoff time.Time) *domain.FXQuote {
 	preferred := domain.QuoteSourceKind("")
 	for _, preference := range preferences {
 		if preference.HouseholdID == householdID && ((preference.CurrencyA == native && preference.CurrencyB == base) || (preference.CurrencyA == base && preference.CurrencyB == native)) {
@@ -607,13 +647,7 @@ func fxRateAt(quotes []domain.FXQuote, preferences []domain.FXPreference, househ
 		selection.add(quote, fxQuoteOrder(*quote))
 	}
 	selected := selection.selected()
-	if selected == nil {
-		return decimal.Zero, false
-	}
-	if selected.BaseCurrency == native && selected.QuoteCurrency == base {
-		return selected.Rate.Decimal(), true
-	}
-	return decimal.NewFromInt(1).Div(selected.Rate.Decimal()), true
+	return selected
 }
 
 func (u analysisUniverse) quoteForItem(item domain.DailyValuationSnapshotItem, quotes []domain.InstrumentQuote, cutoff time.Time) *domain.InstrumentQuote {

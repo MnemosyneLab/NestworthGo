@@ -121,6 +121,20 @@ describe("Upcoming Actions investment review entry", () => {
     await waitFor(() => expect(services.alerts.mock.calls.length).toBeGreaterThan(beforeInvalidate));
   });
 
+  it("surfaces a failed automatic reconciliation with the shared retry state", async () => {
+    const user = userEvent.setup();
+    services.reconcile.mockRejectedValueOnce(new Error("synthetic reconcile failure"));
+    services.reconcile.mockResolvedValueOnce({});
+    render(tree());
+    await user.click(screen.getByRole("tab", { name: "Investment review" }));
+    expect(await screen.findByRole("heading", { name: "Unable to load investment reviews." })).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("We could not load this part of your workspace.");
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(services.reconcile).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("heading", { name: "Unable to load investment reviews." })).not.toBeInTheDocument();
+  });
+
   it("opens holdings and performance from the new review page with only an instrument id and section", async () => {
     const user = userEvent.setup();
     render(tree());

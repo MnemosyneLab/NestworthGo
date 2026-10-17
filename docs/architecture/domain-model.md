@@ -293,6 +293,8 @@ The Portfolio total is the sum of complete holding components (InstrumentID pres
 
 The Go service retains full checked decimal precision through quantity × price, FX conversion, and aggregation. Only application view-model construction rounds to four fractional digits with midpoint-nearest-even. Overview, Account detail, and Investments never reconstruct aggregate inputs from rounded strings.
 
+Whole-amount conversions preserve the stored quote orientation: multiply when the quote is native-to-base and divide the amount directly when the quote is base-to-native. Do not round a reciprocal unit rate and multiply the amount by that intermediate; valuation, liquidity, realized gain, dividends, and analysis classification share the same final amount-rounding boundary.
+
 The latest Account Value or Account Cash observation is selected deterministically by:
 
 1. `effective_at` descending

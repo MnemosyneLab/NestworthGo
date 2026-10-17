@@ -101,6 +101,9 @@ export const queryKeys = {
     categoryDetail: (request: unknown, categoryType: string, rowKey: string) =>
       ["analysis", "categoryDetail", request, categoryType, rowKey] as const,
   },
+  reviewV2: {
+    all: ["investment-review", "v2"] as const,
+  },
   history: {
     all: ["history"] as const,
     origin: ["history", "origin"] as const,

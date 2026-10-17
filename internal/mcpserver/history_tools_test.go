@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -184,4 +185,30 @@ func TestAnalyzePeriodReturnsExistingDTOsAndCoverage(t *testing.T) {
 	}}, false)
 	call(t, c, "analyze_period", AnalyzePeriodInput{Query: PeriodAnalysisQuery{From: "invalid", To: "2025-03-03"}}, true)
 	call(t, c, "analyze_period", AnalyzePeriodInput{Query: PeriodAnalysisQuery{From: "2025-03-03", To: "2025-03-05"}}, true)
+}
+
+func TestAnalyzePeriodCancellationReleasesWritePermit(t *testing.T) {
+	t.Parallel()
+	s, app, _, _ := historyFixture(t)
+	c := connectHistoryTools(t, s)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var clockObserved atomic.Bool
+	app.SetClock(func() time.Time {
+		clockObserved.Store(true)
+		cancel()
+		return time.Date(2025, 3, 5, 12, 0, 0, 0, time.UTC)
+	})
+	result, callErr := c.CallTool(ctx, &mcp.CallToolParams{Name: "analyze_period", Arguments: map[string]any{
+		"query": map[string]any{"from": "2025-03-02", "to": "2025-03-03", "includeCash": true},
+	}})
+	if !clockObserved.Load() {
+		t.Fatal("analyze_period canceled before entering the application analysis path")
+	}
+	if callErr == nil && (result == nil || !result.IsError) {
+		t.Fatalf("canceled analyze_period returned success: result=%+v", result)
+	}
+	if err := app.WithWrite(context.Background(), func(context.Context) error { return nil }); err != nil {
+		t.Fatalf("write permit remained held after canceled analyze_period: %v", err)
+	}
 }

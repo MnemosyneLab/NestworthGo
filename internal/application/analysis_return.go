@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -13,9 +14,12 @@ import (
 // into one daily Modified Dietz series and a geometrically linked period rate.
 // AssetBuckets are intentionally not read here: return amount and Dietz
 // capital are independent projections of the same classified effects.
-func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analysisUniverse, input AnalysisInputs, query domain.AnalysisQuery) error {
+func finalizeAnalysisReturns(ctx context.Context, result *domain.PeriodAnalysisResult, universe analysisUniverse, input AnalysisInputs, query domain.AnalysisQuery) error {
 	if result == nil {
 		return fmt.Errorf("analysis result is nil")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	location, err := time.LoadLocation(input.Origin.Timezone)
 	if err != nil {
@@ -30,11 +34,7 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 			}
 		}
 	}
-	start, err := time.ParseInLocation("2006-01-02", string(query.From), location)
-	if err != nil {
-		return err
-	}
-	end, err := time.ParseInLocation("2006-01-02", string(query.To), location)
+	start, _, totalDays, err := analysisDateRange(query.From, query.To)
 	if err != nil {
 		return err
 	}
@@ -52,10 +52,22 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 	hasPeriodBeginning := false
 	hasPeriodCurrency := false
 	linked := decimal.NewFromInt(1)
-	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+	for dayIndex := 0; dayIndex < totalDays; dayIndex++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		date := start.AddDate(0, 0, dayIndex)
 		localDate := domain.LocalDate(date.Format("2006-01-02"))
 		componentDays := byDate[localDate]
 		daily := domain.DailyReturn{Date: localDate, Status: domain.CompletenessUnavailable}
+		dayStart, dayEnd, civilDateExists, boundsErr := analysisCivilDayBounds(date, location)
+		if boundsErr != nil {
+			return boundsErr
+		}
+		if !civilDateExists {
+			result.DailyReturns = append(result.DailyReturns, daily)
+			continue
+		}
 		amount := decimal.Zero
 		beginning := decimal.Zero
 		flows := make([]domain.DietzCapitalFlow, 0)
@@ -100,7 +112,6 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 			periodReturn = periodReturn.Add(amount)
 		}
 
-		dayStart, dayEnd := localDayBounds(date, location)
 		capital := beginning
 		for _, flow := range flows {
 			capital = capital.Add(flow.Amount.Amount().Mul(dietzFlowWeight(flow.EffectiveAt, dayStart, dayEnd)))
@@ -158,8 +169,10 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 }
 
 func localDayBounds(date time.Time, location *time.Location) (time.Time, time.Time) {
-	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, location)
-	end := start.AddDate(0, 0, 1)
+	start, end, exists, err := analysisCivilDayBounds(date, location)
+	if err != nil || !exists {
+		return time.Time{}, time.Time{}
+	}
 	return start, end
 }
 
@@ -168,7 +181,7 @@ func analysisDayFlowWeight(date, timezone string, effectiveAt time.Time) decimal
 	if err != nil {
 		return decimal.Zero
 	}
-	localDate, err := time.ParseInLocation("2006-01-02", date, location)
+	localDate, err := time.Parse(time.DateOnly, date)
 	if err != nil {
 		return decimal.Zero
 	}
@@ -346,7 +359,7 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 			group.ReturnAmount = group.ReturnAmount.Add(daily.amount)
 			capital := daily.beginning.Add(daily.legacyCapital)
 			if len(daily.flows) > 0 {
-				localDate, err := time.ParseInLocation("2006-01-02", string(date), location)
+				localDate, err := time.Parse(time.DateOnly, string(date))
 				if err != nil {
 					return nil, err
 				}

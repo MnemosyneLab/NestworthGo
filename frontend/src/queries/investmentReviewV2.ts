@@ -3,9 +3,10 @@ import { Service } from "../../bindings/github.com/waltwang/nestworth-go/interna
 import type { ReviewAlertFilter, ReviewCoverageFilter } from "../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import type { SaveReviewRuleV2Input, SetReviewSuppressionV2Input, ReviewLegacyConversionDraft, ConvertReviewLegacyRuleV2Input } from "../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { callService } from "@/lib/wails";
+import { queryKeys } from "@/queries/keys";
 import { investmentReviewKey } from "./investmentReview";
 
-export const reviewV2Key = ["investment-review", "v2"] as const;
+export const reviewV2Key = queryKeys.reviewV2.all;
 
 export function useReviewAlertPage(filter: ReviewAlertFilter, cursor = "", active = true) {
   return useQuery({

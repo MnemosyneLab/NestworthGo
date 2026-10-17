@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement, type ReactNode } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { queryKeys } from "@/queries/keys";
 import {
   invalidateCurrentValuation,
@@ -16,6 +16,7 @@ import { useArchiveAccount, useCreateAccount, useUpdateAccount } from "@/queries
 import { useAppendManualInstrumentQuote, useArchiveInstrument, useUpdateInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
 import { useFixChange, useRecordChange, useStartHistory, useUndoChange } from "@/queries/history";
 import { useRefreshAll, useRefreshFX } from "@/queries/marketdata";
+import { reviewV2Key } from "@/queries/investmentReviewV2";
 
 const refreshHarness = vi.hoisted(() => {
   const listeners = new Map<string, (event: { data: unknown }) => void>();
@@ -223,6 +224,18 @@ describe("query keys and dependency invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.liquidity.overview("", false))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.liquidity.products("", false))).toBe(true);
   });
+
+  it("invalidates V2 review reads with current valuation", () => {
+    const queryClient = clientWith(
+      [...reviewV2Key, "alerts", { status: "pending" }, ""],
+      [...reviewV2Key, "coverage", { status: "unknown" }, ""],
+    );
+
+    invalidateCurrentValuation(queryClient);
+
+    expect(isInvalidated(queryClient, [...reviewV2Key, "alerts", { status: "pending" }, ""])).toBe(true);
+    expect(isInvalidated(queryClient, [...reviewV2Key, "coverage", { status: "unknown" }, ""])).toBe(true);
+  });
 });
 
 function seededClient() {
@@ -232,6 +245,7 @@ function seededClient() {
     queryKeys.overview.all,
     queryKeys.liquidity.upcomingActions,
     queryKeys.portfolio.all,
+    queryKeys.portfolio.trend("30d"),
     queryKeys.analytics.accountGains.all,
     queryKeys.analytics.instrumentHoldings,
     queryKeys.analysis.returnCalendar({}, "2026-09"),
@@ -242,6 +256,7 @@ function seededClient() {
     queryKeys.quote.instrument.current("instrument-1"),
     queryKeys.history.origin,
     queryKeys.history.activityPage({ limit: 50 }),
+    queryKeys.reviewV2.all,
   );
 }
 
@@ -339,14 +354,17 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
   });
 
-  it("invalidates liquidity after Start History and keeps identity-only instrument writes off valuation", async () => {
+  it("invalidates history, holdings, portfolio, analysis, and review after Start History", async () => {
     const historyClient = seededClient();
     const start = renderMutation(historyClient, useStartHistory);
     await act(async () => {
       await start.result.current.mutateAsync({ timezone: "UTC" });
     });
     expect(isInvalidated(historyClient, queryKeys.history.origin)).toBe(true);
-    expect(isInvalidated(historyClient, queryKeys.accounts.list())).toBe(false);
+    expect(isInvalidated(historyClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(true);
+    expect(isInvalidated(historyClient, queryKeys.portfolio.trend("30d"))).toBe(true);
+    expect(isInvalidated(historyClient, queryKeys.analysis.returnTrend({}, "cumulative_amount"))).toBe(true);
+    expect(isInvalidated(historyClient, reviewV2Key)).toBe(true);
     expect(isInvalidated(historyClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(historyClient, queryKeys.liquidity.upcomingActions)).toBe(true);
 
@@ -364,7 +382,12 @@ describe("mutation-hook invalidation", () => {
       await archive.result.current.mutateAsync({ id: "instrument-1", archived: true });
     });
     expect(isInvalidated(archiveClient, queryKeys.instruments.list())).toBe(true);
-    expect(isInvalidated(archiveClient, queryKeys.overview.all)).toBe(false);
+    expect(isInvalidated(archiveClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(true);
+    expect(isInvalidated(archiveClient, queryKeys.portfolio.all)).toBe(true);
+    expect(isInvalidated(archiveClient, queryKeys.analysis.returnTrend({}, "cumulative_amount"))).toBe(true);
+    expect(isInvalidated(archiveClient, queryKeys.history.origin)).toBe(true);
+    expect(isInvalidated(archiveClient, reviewV2Key)).toBe(true);
+    expect(isInvalidated(archiveClient, queryKeys.overview.all)).toBe(true);
   });
 
   it("refreshes FX-only and Refresh All through their mutation hooks", async () => {
@@ -386,6 +409,46 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(refreshClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
     expect(isInvalidated(refreshClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
   });
+});
+
+function HiddenMountedReader({ queryKey, read }: { queryKey: readonly unknown[]; read: () => Promise<string> }) {
+  useQuery({ queryKey, queryFn: read, staleTime: Infinity });
+  return createElement("span", { hidden: true });
+}
+
+function renderHiddenReaders(queryClient: QueryClient, reads: Array<{ key: readonly unknown[]; read: () => Promise<string> }>) {
+  return render(
+    createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      ...reads.map(({ key, read }, index) => createElement(HiddenMountedReader, { key: index, queryKey: key, read })),
+    ),
+  );
+}
+
+it("refetches hidden-but-mounted holdings, portfolio, analysis, history, and review reads after relevant mutations", async () => {
+  const keys = [
+    queryKeys.holdings.byAccounts(["account-1"]),
+    queryKeys.portfolio.trend("30d"),
+    queryKeys.analysis.returnTrend({}, "cumulative_amount"),
+    queryKeys.history.origin,
+    [...reviewV2Key, "alerts", { status: "pending" }, ""],
+  ];
+  const reads = keys.map((key) => ({ key, read: vi.fn(async () => "synthetic") }));
+  const historyClient = createTestQueryClient();
+  renderHiddenReaders(historyClient, reads);
+  await waitFor(() => reads.forEach(({ read }) => expect(read).toHaveBeenCalledTimes(1)));
+  const start = renderMutation(historyClient, useStartHistory);
+  await act(async () => { await start.result.current.mutateAsync({ timezone: "UTC" }); });
+  await waitFor(() => reads.forEach(({ read }) => expect(read).toHaveBeenCalledTimes(2)));
+
+  const archiveReads = keys.map((key) => ({ key, read: vi.fn(async () => "synthetic") }));
+  const archiveClient = createTestQueryClient();
+  renderHiddenReaders(archiveClient, archiveReads);
+  await waitFor(() => archiveReads.forEach(({ read }) => expect(read).toHaveBeenCalledTimes(1)));
+  const archive = renderMutation(archiveClient, useArchiveInstrument);
+  await act(async () => { await archive.result.current.mutateAsync({ id: "instrument-1", archived: true }); });
+  await waitFor(() => archiveReads.forEach(({ read }) => expect(read).toHaveBeenCalledTimes(2)));
 });
 
 

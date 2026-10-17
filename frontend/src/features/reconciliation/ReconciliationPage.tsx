@@ -1083,6 +1083,7 @@ function CheckForm({
       <DatePicker
         id="check-date"
         value={date}
+        max={today}
         onChange={(value) => {
           setDate(value);
           onEdit();

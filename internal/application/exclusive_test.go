@@ -78,6 +78,22 @@ func TestWithExclusiveRejectsOverlap(t *testing.T) {
 	}
 }
 
+func TestWithWriteReleasesAfterCanceledAnalysisCallback(t *testing.T) {
+	t.Parallel()
+	service, ctx, _, _ := newOnboardedService(t, "canceled-analysis-write", nil)
+	canceled, cancel := context.WithCancel(ctx)
+	err := service.WithWrite(canceled, func(callbackCtx context.Context) error {
+		cancel()
+		return callbackCtx.Err()
+	})
+	if err != context.Canceled {
+		t.Fatalf("canceled WithWrite error = %v, want context.Canceled", err)
+	}
+	if err := service.WithWrite(ctx, func(context.Context) error { return nil }); err != nil {
+		t.Fatalf("write permit remained held after canceled callback: %v", err)
+	}
+}
+
 func TestExclusiveBackupRejectsActivityDirectoryIconAndSettingsWriters(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "exclusive-writers", []string{"Alice"})

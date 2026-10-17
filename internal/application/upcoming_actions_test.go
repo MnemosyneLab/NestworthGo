@@ -75,8 +75,8 @@ func TestUpcomingOverviewRegressionCompleteOutput(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	old, e := domain.EvaluateLiquidity(domain.LiquidityQuery{AsOf: s.clock(), Timezone: timezoneOrUTC(snapshot.Portfolio.Origin), BaseCurrency: snapshot.Portfolio.Household.BaseCurrency}, sources, snapshot.Reservations, func(m domain.Money) (*decimal.Decimal, bool, error) {
-		return s.valuation.ConvertAmount(snapshot.Portfolio, m)
+	old, e := domain.EvaluateLiquidity(domain.LiquidityQuery{AsOf: s.clock(), Timezone: timezoneOrUTC(snapshot.Portfolio.Origin), BaseCurrency: snapshot.Portfolio.Household.BaseCurrency}, sources, snapshot.Reservations, func(amount decimal.Decimal, currency domain.CurrencyCode) (*decimal.Decimal, bool, error) {
+		return s.valuation.ConvertExactAmount(snapshot.Portfolio, amount, currency)
 	})
 	if e != nil {
 		t.Fatal(e)

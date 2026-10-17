@@ -200,7 +200,10 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain
 			}
 			instrumentGroup := groupForInstrument(byInstrument, instrument.ID, instrument.DisplayLabel())
 			accountGroup := groupForAccount(byAccount, holding.AccountID, accounts[holding.AccountID])
-			rate, rateAvailable := g.fxRateAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
+			converted, rateAvailable, conversionErr := g.convertFXAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Amount(), event.RealizedGain.Currency(), event.EffectiveAt)
+			if conversionErr != nil {
+				return domain.RealizedGainView{}, conversionErr
+			}
 			if !rateAvailable {
 				result.Available = false
 				if result.MissingReason == "" {
@@ -212,7 +215,6 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain
 				accountGroup.MissingReason = "realized gain foreign-exchange rate is unavailable"
 				continue
 			}
-			converted := event.RealizedGain.Amount().Mul(rate)
 			instrumentGroup.Total = instrumentGroup.Total.Add(converted)
 			accountGroup.Total = accountGroup.Total.Add(converted)
 		}
@@ -327,7 +329,10 @@ func (g *GainService) dividendIncomeFromSnapshot(ctx context.Context, scope doma
 		}
 		instrumentGroup := groupForInstrument(byInstrument, detail.InstrumentID, instrumentLabel)
 		accountGroup := groupForAccount(byAccount, accountID, accountLabel)
-		rate, rateAvailable := g.fxRateAtOrBefore(snapshot, fxQuotes, detail.Amount.Currency(), activity.EffectiveAt)
+		converted, rateAvailable, conversionErr := g.convertFXAtOrBefore(snapshot, fxQuotes, detail.Amount.Amount(), detail.Amount.Currency(), activity.EffectiveAt)
+		if conversionErr != nil {
+			return domain.DividendIncomeView{}, conversionErr
+		}
 		if !rateAvailable {
 			result.Available = false
 			if result.MissingReason == "" {
@@ -339,7 +344,6 @@ func (g *GainService) dividendIncomeFromSnapshot(ctx context.Context, scope doma
 			accountGroup.MissingReason = dividendIncomeMissingFX
 			continue
 		}
-		converted := detail.Amount.Amount().Mul(rate)
 		instrumentGroup.Total = instrumentGroup.Total.Add(converted)
 		accountGroup.Total = accountGroup.Total.Add(converted)
 	}
@@ -729,6 +733,22 @@ func blendFXRate(currentRate, currentQuantity, incomingRate, incomingQuantity de
 
 func (g *GainService) fxRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
 	return g.valuation.fxRateAtOrBefore(snapshot, quotes, native, cutoff)
+}
+
+func (g *GainService) convertFXAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, amount decimal.Decimal, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool, error) {
+	if snapshot.Household == nil {
+		return decimal.Zero, false, nil
+	}
+	base := snapshot.Household.BaseCurrency
+	if native == base {
+		return amount, true, nil
+	}
+	quote := g.valuation.selectFXQuote(snapshot, quotes, native, &cutoff)
+	if quote == nil {
+		return decimal.Zero, false, nil
+	}
+	converted, err := domain.ConvertFXAmount(amount, native, base, *quote)
+	return converted, err == nil, err
 }
 
 func moneyViewPointer(value decimal.Decimal, currency domain.CurrencyCode) *domain.MoneyView {

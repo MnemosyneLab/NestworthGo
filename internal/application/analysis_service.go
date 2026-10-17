@@ -58,7 +58,13 @@ func (s *AnalysisService) SetSnapshotEnsurer(ensure func(context.Context, string
 }
 
 func (s *AnalysisService) Compute(ctx context.Context, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
+	if err := ctx.Err(); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
 	if err := query.Validate(); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
+	if _, _, _, err := analysisDateRange(query.From, query.To); err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
 	if s == nil || s.repository == nil {
@@ -95,7 +101,13 @@ func (s *AnalysisService) ComputeWithInvestmentValuationFallback(ctx context.Con
 }
 
 func (s *AnalysisService) computeWithValuationFallback(ctx context.Context, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, string, error) {
+	if err := ctx.Err(); err != nil {
+		return domain.PeriodAnalysisResult{}, "", err
+	}
 	if err := query.Validate(); err != nil {
+		return domain.PeriodAnalysisResult{}, "", err
+	}
+	if _, _, _, err := analysisDateRange(query.From, query.To); err != nil {
 		return domain.PeriodAnalysisResult{}, "", err
 	}
 	if s == nil || s.repository == nil {
@@ -128,7 +140,7 @@ func (s *AnalysisService) computeWithValuationFallback(ctx context.Context, quer
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, "", err
 	}
-	result, err := computeAnalysisForValuationUniverse(input, query, investmentOnly)
+	result, err := computeAnalysisForValuationUniverseContext(ctx, input, query, investmentOnly)
 	if err == nil {
 		s.memoize(generation, analysisMemoEntry{key: nativeKey, generation: generation, result: result})
 		return result, "", nil
@@ -139,7 +151,7 @@ func (s *AnalysisService) computeWithValuationFallback(ctx context.Context, quer
 
 	baseQuery := query
 	baseQuery.Valuation = domain.ValuationBase
-	result, err = computeAnalysisForValuationUniverse(input, baseQuery, investmentOnly)
+	result, err = computeAnalysisForValuationUniverseContext(ctx, input, baseQuery, investmentOnly)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, "", err
 	}
@@ -272,6 +284,9 @@ func optionalAnalysisCurrency(value *domain.CurrencyCode) string {
 }
 
 func (s *AnalysisService) computeUncachedUniverse(ctx context.Context, query domain.AnalysisQuery, investmentOnly bool) (result domain.PeriodAnalysisResult, resultErr error) {
+	if err := ctx.Err(); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
 	started := time.Now()
 	defer func() {
 		slog.Debug("analysis computed", "from", query.From, "to", query.To, "scope", query.Scope.Kind, "investment_only", investmentOnly, "status", result.Status, "failed", resultErr != nil, "elapsed_ms", time.Since(started).Milliseconds())
@@ -280,10 +295,16 @@ func (s *AnalysisService) computeUncachedUniverse(ctx context.Context, query dom
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
-	return computeAnalysisForValuationUniverse(input, query, investmentOnly)
+	return computeAnalysisForValuationUniverseContext(ctx, input, query, investmentOnly)
 }
 
 func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQuery) (AnalysisInputs, error) {
+	if err := ctx.Err(); err != nil {
+		return AnalysisInputs{}, err
+	}
+	if _, _, _, err := analysisDateRange(query.From, query.To); err != nil {
+		return AnalysisInputs{}, err
+	}
 	portfolio, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return AnalysisInputs{}, err
@@ -316,13 +337,18 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 	snapshotFrom := string(query.From)
 	if query.From > domain.LocalDate(originDate) {
 		fromDate, parseErr := time.Parse("2006-01-02", string(query.From))
-		if parseErr == nil {
-			candidate := fromDate.AddDate(0, 0, -1).Format("2006-01-02")
-			if candidate > originDate {
-				snapshotFrom = candidate
-			} else {
-				snapshotFrom = originDate
-			}
+		if parseErr != nil {
+			return AnalysisInputs{}, &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "date must use YYYY-MM-DD"}
+		}
+		previousDate, previousErr := analysisPreviousExistingCivilDateLabel(fromDate, location)
+		if previousErr != nil {
+			return AnalysisInputs{}, previousErr
+		}
+		candidate := previousDate.Format("2006-01-02")
+		if candidate > originDate {
+			snapshotFrom = candidate
+		} else {
+			snapshotFrom = originDate
 		}
 	}
 	if s.ensureSnapshots != nil {
@@ -342,15 +368,15 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 	if err != nil {
 		return AnalysisInputs{}, err
 	}
-	endLocal, err := time.ParseInLocation("2006-01-02", string(query.To), location)
+	endLabel, err := time.Parse(time.DateOnly, string(query.To))
 	if err != nil {
 		return AnalysisInputs{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "date must use YYYY-MM-DD"}
 	}
-	nextMidnight, err := domain.ResolveLocalDateTime(endLocal.AddDate(0, 0, 1).Format("2006-01-02"), "00:00", origin.Timezone)
+	activityCutoff, err := analysisCivilDateCutoffAtOrBefore(endLabel, location)
 	if err != nil {
 		return AnalysisInputs{}, err
 	}
-	activities, err := s.repository.ListActivitiesUntil(ctx, portfolio.Household.ID, nextMidnight.Add(-time.Millisecond))
+	activities, err := s.repository.ListActivitiesUntil(ctx, portfolio.Household.ID, activityCutoff)
 	if err != nil {
 		return AnalysisInputs{}, err
 	}

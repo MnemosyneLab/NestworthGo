@@ -211,6 +211,10 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 		t.Fatalf("manual provenance = %+v", manualQQQ)
 	}
 
+	// This quote is the next day's synthetic observation, so move the household
+	// clock forward before appending it.
+	valuationNow := fixture.now.AddDate(0, 0, 1)
+	fixture.service.setClock(func() time.Time { return valuationNow })
 	if _, err := fixture.service.AppendManualFXQuote(ctx, "CNY", "USD", "0.144927536232", "2026-08-24"); err != nil {
 		t.Fatal(err)
 	}
@@ -277,8 +281,8 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 
 	delayedQuote, err := domain.NewInstrumentQuote(fixture.qqq, domain.InstrumentQuoteInput{
 		UnitPrice: providerPrice, Currency: fixture.qqq.QuoteCurrency, SourceKind: domain.QuoteSourceProvider,
-		SourceKey: "yahoo_finance", QuotedAt: fixture.now.Add(-time.Hour), Delayed: true,
-	}, fixture.now.Add(-50*time.Minute))
+		SourceKey: "yahoo_finance", QuotedAt: valuationNow.Add(-time.Hour), Delayed: true,
+	}, valuationNow.Add(-50*time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -598,6 +602,143 @@ func TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing(t *testing.T) {
 	cutoff := now.Add(-time.Hour)
 	if later := selectFXQuote(implicit, []domain.FXQuote{quote}, "USD", "CNY", "frankfurter", &cutoff); later != nil {
 		t.Fatalf("quote after cutoff was selected: %+v", later)
+	}
+}
+
+func TestValuationConvertAmountDividesWholeAmountForReciprocalQuote(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	householdID := domain.NewHouseholdID()
+	rate, err := domain.ParseFxRate("8.123456789012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote := domain.FXQuote{
+		ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate,
+		SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now,
+	}
+	preference, err := domain.NewFXPreference(householdID, "USD", "CNY", domain.QuoteSourceManual, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.PortfolioSnapshot{
+		Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
+		FXQuotes:  []domain.FXQuote{quote}, FXPreferences: []domain.FXPreference{preference},
+	}
+	valuation := NewValuationService(nil, func() time.Time { return now })
+	converted, complete, err := valuation.ConvertExactAmount(snapshot, decimal.RequireFromString("18236001.8236"), "USD")
+	if err != nil || !complete || converted == nil {
+		t.Fatalf("valuation conversion = %v complete=%v err=%v", converted, complete, err)
+	}
+	projected, err := domain.NewMoney(*converted, "CNY")
+	if err != nil || projected.CanonicalAmount() != "2244857.3677" {
+		t.Fatalf("valuation projection = %v err=%v", projected.CanonicalAmount(), err)
+	}
+}
+
+func TestValuationFXNearHalfRetainsNativePrecisionForPositiveAndNegativeAmounts(t *testing.T) {
+	t.Parallel()
+	quantity, err := domain.ParseQuantity("0.00000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	price, err := domain.ParseUnitPrice("250000.00000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	native, err := quantity.Multiply(price)
+	if err != nil || native.String() != "0.0025000000000001" {
+		t.Fatalf("exact synthetic native amount = %s err=%v", native, err)
+	}
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	householdID := domain.NewHouseholdID()
+	rate, err := domain.ParseFxRate("10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote := domain.FXQuote{
+		ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate,
+		SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now,
+	}
+	preference, err := domain.NewFXPreference(householdID, "CNY", "USD", domain.QuoteSourceManual, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.PortfolioSnapshot{
+		Household: &domain.Household{ID: householdID, BaseCurrency: "USD"},
+		FXQuotes:  []domain.FXQuote{quote}, FXPreferences: []domain.FXPreference{preference},
+	}
+	valuation := NewValuationService(nil, func() time.Time { return now })
+	for _, testCase := range []struct {
+		name   string
+		amount decimal.Decimal
+		want   string
+	}{
+		{name: "positive just above half", amount: native, want: "0.0003"},
+		{name: "negative just below half", amount: native.Neg(), want: "-0.0003"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			converted, complete, err := valuation.ConvertExactAmount(snapshot, testCase.amount, "CNY")
+			if err != nil || !complete || converted == nil {
+				t.Fatalf("valuation conversion = %v complete=%v err=%v", converted, complete, err)
+			}
+			projected, err := domain.NewSignedMoney(*converted, "USD")
+			if err != nil || projected.CanonicalAmount() != testCase.want {
+				t.Fatalf("valuation projection = %v err=%v, want %s", projected.CanonicalAmount(), err, testCase.want)
+			}
+		})
+	}
+}
+
+func TestValuationAggregatesFiveReciprocalAmountsBeforeMoneyRounding(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	householdID := domain.NewHouseholdID()
+	account := domain.Account{
+		ID: domain.NewAccountID(), HouseholdID: householdID, Name: "Synthetic brokerage",
+		AccountType: domain.TypeBrokerage, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingHoldings,
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+	}
+	quantity, err := domain.ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unitPrice, err := domain.ParseUnitPrice("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rate, err := domain.ParseFxRate("3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	preference, err := domain.NewFXPreference(householdID, "CNY", "USD", domain.QuoteSourceManual, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.PortfolioSnapshot{
+		Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
+		Accounts:  []domain.AccountRecord{{Account: account}},
+		FXQuotes: []domain.FXQuote{{
+			ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "CNY", QuoteCurrency: "USD", Rate: rate,
+			SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now,
+		}},
+		FXPreferences: []domain.FXPreference{preference},
+	}
+	for index := 0; index < 5; index++ {
+		instrumentID := domain.NewInstrumentID()
+		instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Synthetic holding", Type: domain.InstrumentETF, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceManual}
+		holding := domain.Holding{ID: domain.NewHoldingID(), AccountID: account.ID, InstrumentID: instrumentID, Quantity: quantity, SortOrder: index}
+		instrumentQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: unitPrice, Currency: "USD", SourceKind: domain.QuoteSourceManual, QuotedAt: now, CreatedAt: now}
+		snapshot.Instruments = append(snapshot.Instruments, instrument)
+		snapshot.Holdings = append(snapshot.Holdings, holding)
+		snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, instrumentQuote)
+	}
+	accounts, _, err := NewValuationService(nil, func() time.Time { return now }).ValueAccounts(snapshot)
+	if err != nil || len(accounts) != 1 || accounts[0].BaseValue == nil {
+		t.Fatalf("five-holding valuation = %+v err=%v", accounts, err)
+	}
+	if accounts[0].BaseValue.Amount != "1.6667" {
+		t.Fatalf("aggregated reciprocal holding value = %s, want 1.6667", accounts[0].BaseValue.Amount)
 	}
 }
 

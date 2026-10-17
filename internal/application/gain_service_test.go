@@ -80,6 +80,7 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	}); err != nil {
 		t.Fatal(err)
 	}
+	service.setClock(func() time.Time { return now.Add(3 * time.Hour) })
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "200", "2026-08-24T15:00:00Z", false); err != nil {
 		t.Fatal(err)
 	}
@@ -822,6 +823,97 @@ func TestFXQuoteWithoutPreferenceAgreesAcrossOverviewGainAndDividend(t *testing.
 	}
 	if !realized.Available || len(realized.ByInstrument) != 1 || realized.ByInstrument[0].Gain.Amount != "350" {
 		t.Fatalf("realized gain without explicit FX preference = %+v", realized)
+	}
+}
+
+func TestWholeAmountFXConversionForRealizedGainAndDividend(t *testing.T) {
+	t.Parallel()
+	database, err := sqlite.Open(t.TempDir() + "/whole-amount-gain-fx.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Whole amount FX", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Synthetic USD Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic USD Asset", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "1", "2026-08-24T12:00:00Z", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualFXQuote(ctx, "CNY", "USD", "8.123456789012", "2026-08-24T12:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "20000000", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	service.setClock(func() time.Time { return now.Add(time.Hour) })
+	if _, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: account.Account.ID,
+		HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "1"),
+		Gross: mustMoney(t, "1", "USD"), EffectiveAt: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dividendAmount := mustMoney(t, "18236001.8236", "USD")
+	service.setClock(func() time.Time { return now.Add(90 * time.Minute) })
+	if _, err := service.RecordChange(ctx, domain.CashDividendInput{
+		HouseholdID: bootstrap.Household.ID, HoldingID: holding.ID, Amount: dividendAmount, EffectiveAt: now.Add(90 * time.Minute),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	service.setClock(func() time.Time { return now.Add(2 * time.Hour) })
+	if _, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeSell, SettlementAccountID: account.Account.ID,
+		HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "1"),
+		Gross: mustMoney(t, "18236002.8236", "USD"), EffectiveAt: now.Add(2 * time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	dividends, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !dividends.Available || len(dividends.ByInstrument) != 1 || dividends.ByInstrument[0].Gain.Amount != "2244857.3677" {
+		t.Fatalf("whole-amount dividend conversion = %+v", dividends)
+	}
+	realized, err := service.RealizedGainInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !realized.Available || len(realized.ByInstrument) != 1 || realized.ByInstrument[0].Gain.Amount != "2244857.3677" {
+		t.Fatalf("whole-amount realized-gain conversion = %+v", realized)
 	}
 }
 

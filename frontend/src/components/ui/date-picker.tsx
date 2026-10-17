@@ -79,14 +79,18 @@ export const DatePicker = forwardRef<HTMLButtonElement, {
   const [open, setOpen] = useState(false);
   const selected = parseYmd(value);
   const weekStartsOn = settings.data?.weekStart === "sunday" ? (0 as const) : (1 as const);
+  const maxDate = useMemo(
+    () => parseYmd(max) ?? (allowFuture ? undefined : parseYmd(formatYmd(new Date()))),
+    [allowFuture, max],
+  );
   const startMonth = useMemo(
     () => parseYmd(min) ?? new Date(new Date().getFullYear() - 50, 0),
     [min],
   );
-  const endMonth = useMemo(() => parseYmd(max) ?? (allowFuture ? new Date(new Date().getFullYear() + 50, 11) : new Date()), [max, allowFuture]);
+  const endMonth = useMemo(() => maxDate ?? new Date(new Date().getFullYear() + 50, 11), [maxDate]);
   const disabledMatcher = useMemo(() => {
     const before = min ? parseYmd(min) : undefined;
-    const after = max ? parseYmd(max) : undefined;
+    const after = maxDate;
     if (before && after) {
       return [{ before }, { after }];
     }
@@ -97,7 +101,7 @@ export const DatePicker = forwardRef<HTMLButtonElement, {
       return { after };
     }
     return undefined;
-  }, [max, min]);
+  }, [maxDate, min]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

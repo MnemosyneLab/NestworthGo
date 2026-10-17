@@ -70,8 +70,8 @@ func applyLiquidityReservation(net decimal.Decimal, currency CurrencyCode, reque
 }
 
 // ConvertToBase is a linear FX conversion under one fixed valuation snapshot.
-// Convert one native unit to retain its full rate, then apply it to the exact
-// valuation. Passing the rounded Money projection would lose precision twice.
+// Pass the exact whole amount so reciprocal quotes divide the amount directly
+// without first rounding a unit reciprocal.
 func convertLiquidityExact(convert ConvertToBase, amount decimal.Decimal, currency CurrencyCode) (*decimal.Decimal, bool, error) {
 	// A proven zero stays zero in every currency. Looking up a unit rate here
 	// would incorrectly turn empty cash or fully restricted proceeds into a gap.
@@ -79,14 +79,5 @@ func convertLiquidityExact(convert ConvertToBase, amount decimal.Decimal, curren
 		zero := decimal.Zero
 		return &zero, true, nil
 	}
-	unit, err := NewMoney(decimal.NewFromInt(1), currency)
-	if err != nil {
-		return nil, false, err
-	}
-	rate, ok, err := convert(unit)
-	if err != nil || !ok || rate == nil {
-		return nil, false, err
-	}
-	result := amount.Mul(*rate)
-	return &result, true, nil
+	return convert(amount, currency)
 }

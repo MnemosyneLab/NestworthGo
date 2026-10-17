@@ -12,6 +12,7 @@ import { normalizeAccountIds, queryKeys } from "@/queries/keys";
 import {
   invalidateHoldingChange,
   invalidateInstrumentChange,
+  invalidateInstrumentArchiveChange,
   invalidateInstrumentQuoteChange,
   invalidateInstrumentReads,
   invalidateRequiredFX,
@@ -54,7 +55,7 @@ export function useArchiveInstrument() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) => callService(() => InstrumentService.ArchiveInstrument(id, archived)),
-    onSuccess: () => invalidateInstrumentReads(queryClient),
+    onSuccess: () => invalidateInstrumentArchiveChange(queryClient),
   });
 }
 

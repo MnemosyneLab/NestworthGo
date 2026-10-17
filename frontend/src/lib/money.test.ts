@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAuditMoney, formatDecimalPercent, formatSignedMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
+import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAuditMoney, formatDecimalPercent, formatDecimalRatioPercent, formatPercent, formatSignedMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
@@ -183,4 +183,25 @@ it("keeps percentage presentation concise and signed rounded money zero neutral"
  expect(formatSignedMoney("0.004", "USD")).toBe("$0.00 · + nonzero, below 0.01");
  expect(formatSignedMoney("-0.004", "USD")).toBe("$0.00 · − nonzero, below 0.01");
  expect(formatSignedMoney("1.23", "USD")).toBe("+$1.23");
+});
+
+it("formats return ratios with decimal half-even rounding and preserves display precision", () => {
+  expect(formatDecimalRatioPercent("0.01015", 2, false, false)).toBe("1.02%");
+  expect(formatDecimalRatioPercent("0.01005", 2, false, false)).toBe("1.00%");
+  expect(formatDecimalRatioPercent("-0.01015", 2, false, false)).toBe("-1.02%");
+  expect(formatDecimalRatioPercent("-0.01005", 2, false, false)).toBe("-1.00%");
+  expect(formatDecimalRatioPercent("0.01015", 2, true)).toBe("+1.02%");
+  expect(formatDecimalRatioPercent("-0.01015", 2, true)).toBe("-1.02%");
+  expect(formatDecimalRatioPercent("0.00001", 2, true, false)).toBe("0.00%");
+  expect(formatDecimalRatioPercent("0", 2, true, false)).toBe("0.00%");
+  expect(formatDecimalRatioPercent(null)).toBe("—");
+  expect(formatDecimalRatioPercent("not-a-rate")).toBe("—");
+  expect(formatDecimalRatioPercent(1e-7, 2, false, false)).toBe("0.00%");
+});
+
+it("formats integer basis-point percentages with exact half-even rounding", () => {
+  expect(formatPercent(15)).toBe("0.2%");
+  expect(formatPercent(25)).toBe("0.2%");
+  expect(formatPercent(35)).toBe("0.4%");
+  expect(formatPercent(-25)).toBe("-0.2%");
 });

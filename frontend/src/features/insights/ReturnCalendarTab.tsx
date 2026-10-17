@@ -14,7 +14,7 @@ import type { AnalysisSessionState } from "@/stores/analysis";
 import { CompletenessBanner } from "@/features/insights/CompletenessBanner";
 import { analysisRequest, currentMonthAwaitingClose, effectiveRange, periodRange } from "@/features/insights/analysisRequest";
 import { addMonths, currentMonth, isFuture, isToday, lastClosedDate, monthDays, monthLabel, yearLabel, yearMonths } from "@/features/insights/calendar";
-import { addCanonical, formatAmount, formatSignedMoney, multiplyCanonical } from "@/lib/money";
+import { addCanonical, formatAmount, formatDecimalRatioPercent, formatSignedMoney, multiplyCanonical } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { signToneClass } from "@/components/ui/money-text";
 import { useHistoryOrigin } from "@/queries/history";
@@ -29,11 +29,7 @@ function amountText(value?: { amount: string; currency: string } | null): string
 }
 
 function rateText(value: string | null | undefined): string {
-  if (value == null) return "—";
-  const numeric = Number(value) * 100;
-  if (!Number.isFinite(numeric)) return "—";
-  const rounded = numeric.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
-  return numeric > 0 ? `+${rounded}%` : `${rounded}%`;
+  return formatDecimalRatioPercent(value, 2, true);
 }
 
 function amountNumber(value?: { amount: string } | null): number {

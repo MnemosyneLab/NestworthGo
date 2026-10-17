@@ -88,19 +88,25 @@ func (v *ValuationService) convertAccountDisplay(snapshot domain.PortfolioSnapsh
 	if from == base || to == base || findFXPreference(snapshot.FXPreferences, from, to) != nil {
 		return decimal.Zero, nil, []domain.MissingInputView{*missing}, nil
 	}
-	intermediate, first, firstMissing, err := v.convertTo(snapshot, accountID, native, from, base)
+	firstQuote := v.selectFXQuoteTo(snapshot, snapshot.FXQuotes, from, base, nil)
+	_, first, firstMissing, err := v.convertUsingFXQuote(snapshot, accountID, native, from, base, firstQuote)
 	if err != nil {
 		return decimal.Zero, nil, nil, err
 	}
 	if firstMissing != nil {
 		return decimal.Zero, nil, []domain.MissingInputView{*firstMissing}, nil
 	}
-	converted, second, secondMissing, err := v.convertTo(snapshot, accountID, intermediate, base, to)
+	secondQuote := v.selectFXQuoteTo(snapshot, snapshot.FXQuotes, base, to, nil)
+	_, second, secondMissing, err := v.convertUsingFXQuote(snapshot, accountID, decimal.Zero, base, to, secondQuote)
 	if err != nil {
 		return decimal.Zero, nil, nil, err
 	}
 	if secondMissing != nil {
 		return decimal.Zero, nil, []domain.MissingInputView{*secondMissing}, nil
+	}
+	converted, err := domain.ConvertFXAmountViaQuotes(native, from, base, to, *firstQuote, *secondQuote)
+	if err != nil {
+		return decimal.Zero, nil, nil, err
 	}
 	return converted, []domain.QuoteEvidenceView{*first, *second}, nil, nil
 }
