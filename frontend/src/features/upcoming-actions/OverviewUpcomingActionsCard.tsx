@@ -1,4 +1,4 @@
-import { InvestmentReviewSummary } from "@/features/investment-review/InvestmentReviewPanel";
+import { InvestmentReviewSummaryV2 } from "@/features/investment-review/InvestmentReviewSummaryV2";
 import { upcomingCountLabels, upcomingReadLabel } from "./upcomingActionPresentation";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +35,7 @@ export function OverviewUpcomingActionsCard({ isActive = true, context = "overvi
       </>}
       {navigation && data && (!homepage || data.counts.total > 0) && <Button className="h-auto max-w-full whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "upcoming-actions" })}>{t("upcomingActions.viewAll", { count: data.counts.total })}</Button>}
       {homepage && navigation && data && data.counts.total === 0 && (data.counts.eligible > 0 || data.counts.dataChecks > 0 || data.counts.scopeNotes > 0) && <Button className="h-auto whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "upcoming-actions" })}>{t("homepage.reviewActionDetails")}</Button>}
-      {!homepage && <InvestmentReviewSummary isActive={isActive} />}
+      {!homepage && <InvestmentReviewSummaryV2 isActive={isActive} />}
     </CardContent>
   </Card>;
 }

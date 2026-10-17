@@ -1,0 +1,49 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "synthetic_only": true,
+  "app_navigation_stubbed": false,
+  "page_two_request": {
+    "filter": {
+      "status": "pending",
+      "instrumentType": "mutual_fund",
+      "query": "Synthetic"
+    },
+    "cursor": "synthetic-page-two",
+    "pageSize": 50
+  },
+  "filters_visible_on_page_two": {
+    "search": "Synthetic",
+    "type": "mutual_fund",
+    "pendingPressed": "true",
+    "secondPageHeading": "Synthetic Second Holding"
+  },
+  "detail": {
+    "instrument": "SYN2",
+    "holdingsSelected": "true",
+    "syntheticHoldingVisible": true
+  },
+  "hidden_route_review_calls": {
+    "before_invalidate": 7,
+    "after_invalidate": 7
+  },
+  "first_back_focus": {
+    "tag": "H2",
+    "id": "upcoming-actions-heading",
+    "text": "Upcoming actions",
+    "ariaLabel": "",
+    "hiddenAncestor": false,
+    "visible": true
+  },
+  "second_back_focus": {
+    "tag": "BUTTON",
+    "id": "",
+    "text": "Open investment review",
+    "ariaLabel": "",
+    "hiddenAncestor": false,
+    "visible": true
+  },
+  "page_errors": []
+}

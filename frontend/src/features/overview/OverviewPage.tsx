@@ -28,7 +28,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
-import { InvestmentReviewSummary } from "@/features/investment-review/InvestmentReviewPanel";
+import { InvestmentReviewSummaryV2 } from "@/features/investment-review/InvestmentReviewSummaryV2";
 import { OverviewUpcomingActionsCard } from "@/features/upcoming-actions/OverviewUpcomingActionsCard";
 import { OverviewLiquidityCard } from "@/features/liquidity/OverviewLiquidityCard";
 import { healthIssueLabel } from "@/features/data-health/healthIssueLabel";
@@ -403,7 +403,7 @@ export function OverviewPage({
                 {healthIssueCount > listedIssues.length && <span className="num text-muted-foreground">({healthIssueCount})</span>}
               </Button>
             )}
-            <InvestmentReviewSummary isActive={isActive} compact />
+            <InvestmentReviewSummaryV2 isActive={isActive} compact />
           </CardContent>
         </Card>
         <OverviewUpcomingActionsCard isActive={isActive} presentation="homepage" />

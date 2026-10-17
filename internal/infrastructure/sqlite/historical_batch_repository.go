@@ -52,7 +52,32 @@ func hydrateHistoricalActivities(ctx context.Context, query queryer, activities 
 	return ctx.Err()
 }
 
+func hydrateReviewHistoricalActivities(ctx context.Context, query queryer, activities []domain.Activity) error {
+	// Review hydration omits the four-way Resulting union, so one activity ID
+	// appears only once per child query. Keep below SQLite's traditional 999
+	// host-parameter ceiling while reducing round trips for large ledgers.
+	const batchSize = 900
+	for start := 0; start < len(activities); start += batchSize {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		end := min(start+batchSize, len(activities))
+		if err := hydrateReviewActivities(ctx, query, activities[start:end]); err != nil {
+			return err
+		}
+	}
+	return ctx.Err()
+}
+
 func loadHistoricalSnapshotBatchQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) (domain.HistoricalSnapshotBatch, error) {
+	return loadHistoricalSnapshotBatchQueryMode(ctx, query, householdID, cutoff, false)
+}
+
+func loadReviewHistoricalSnapshotBatchQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) (domain.HistoricalSnapshotBatch, error) {
+	return loadHistoricalSnapshotBatchQueryMode(ctx, query, householdID, cutoff, true)
+}
+
+func loadHistoricalSnapshotBatchQueryMode(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time, reviewRead bool) (domain.HistoricalSnapshotBatch, error) {
 	var origin domain.HistoryOrigin
 	if _, err := scanHistoryOrigin(query.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String()), &origin); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -63,7 +88,11 @@ func loadHistoricalSnapshotBatchQuery(ctx context.Context, query queryer, househ
 	if cutoff.IsZero() {
 		return domain.HistoricalSnapshotBatch{}, &domain.Error{Code: domain.ErrValidation, Field: "cutoff", Message: "historical batch cutoff is required"}
 	}
-	portfolio, err := readPortfolioSnapshotQuery(ctx, query, domain.AccountFilter{IncludeArchived: true})
+	loadPortfolio := readPortfolioSnapshotQuery
+	if reviewRead {
+		loadPortfolio = readPortfolioReviewSnapshotQuery
+	}
+	portfolio, err := loadPortfolio(ctx, query, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}
@@ -103,7 +132,11 @@ func loadHistoricalSnapshotBatchQuery(ctx context.Context, query queryer, househ
 	if err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}
-	activities, err := listActivitiesUntilQuery(ctx, query, householdID, cutoff)
+	loadActivities := listActivitiesUntilQuery
+	if reviewRead {
+		loadActivities = listReviewActivitiesUntilQuery
+	}
+	activities, err := loadActivities(ctx, query, householdID, cutoff)
 	if err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}

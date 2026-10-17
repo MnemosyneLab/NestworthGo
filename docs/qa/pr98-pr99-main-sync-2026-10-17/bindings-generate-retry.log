@@ -1,0 +1,5 @@
+$ node ./scripts/ensure-bindings.mjs
+Generating Wails TypeScript bindings...
+Wails v3.0.0-beta.28 › Generate Bindings
+ INFO  Processed: 594 Packages, 20 Services, 182 Methods, 11 Enums, 293 Models, 8 Events in 12.620359009s.
+ INFO  Output directory: /workspace/NestworthGo/frontend/bindings

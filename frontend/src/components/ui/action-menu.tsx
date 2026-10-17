@@ -3,7 +3,7 @@ import { Ellipsis } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./button";
 
-export type ActionMenuItem = { id: string; label: string; onSelect: () => void };
+export type ActionMenuItem = { id: string; label: string; onSelect: () => void; disabled?: boolean };
 
 export function ActionMenu({ label, items }: { label: string; items: ActionMenuItem[] }) {
   const [open, setOpen] = useState(false);
@@ -17,7 +17,7 @@ export function ActionMenu({ label, items }: { label: string; items: ActionMenuI
         <Menu.Positioner sideOffset={4} align="end" className="z-50">
           <Menu.Popup className="min-w-44 rounded-xl border border-border bg-card p-1 text-foreground shadow-lg outline-none">
             {items.map((item) => (
-              <Menu.Item key={item.id} className="cursor-default rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-primary/10" onClick={() => {
+              <Menu.Item key={item.id} disabled={item.disabled} className="cursor-default rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-primary/10 data-[disabled]:opacity-50" onClick={() => {
                 setOpen(false);
                 item.onSelect();
               }}>{item.label}</Menu.Item>

@@ -6,8 +6,7 @@ description: Use a running Nestworth App through its local MCP to manage account
 # Nestworth
 
 Use the App's MCP as the authority for financial records and calculations. This
-skill is self-contained: the user does not need Nestworth source code or a
-development environment. Answer in the user's language.
+skill needs no source checkout. Answer in the user's language.
 
 ## Start with the connected App
 
@@ -100,9 +99,10 @@ finish every cursor, and verify versions before atomic writes.
 Use the App for setup, history starting-point changes, backups/restores
 and reservation mutations. Managed lifecycle, terms and locked-product value
 facts use their respective dedicated preview/commit with ledger_write; contract/history
-and liquidity reads use [products.md](references/products.md). Investment review
-preferences and reminders use their dedicated ledger_write tools and never create
-sell recommendations or ledger entries.
+and liquidity reads use [products.md](references/products.md). Daily investment
+review v2 and legacy v1 have separate tools described in
+[analysis.md](references/analysis.md); review writes require ledger_write and
+never create sell recommendations or ledger entries.
 Ordinary NAV-priced fund/wealth-product holdings use
 the documented instrument/holding path only when they are not App-managed
 products. Do not substitute general trades for a managed product operation.

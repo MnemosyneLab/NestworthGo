@@ -60,7 +60,7 @@ func ledgerWriteTool[I any](s *Service, server *mcp.Server, name, description st
 
 func (s *Service) featureTools(server *mcp.Server, mode string) {
 	generation := s.contextGeneration
-	readTool(server, "get_investment_reviews", "Read opt-in investment review episodes and policy. responseMode=paged keeps report header/policy/revision and pages filtered globally sorted items; follow every cursor. Uses the same exact unit-NAV history, eligibility, freshness, household civil-date and stale-source safeguards as the App; this is not a sell recommendation and it never writes ledger facts.", func(ctx context.Context, in ReviewReadInput) (any, error) {
+	readTool(server, "get_investment_reviews", "Read legacy v1 opt-in investment review episodes and policy only; daily v2 rules and alerts use list_investment_review_rules/list_investment_review_alerts. responseMode=paged keeps report header/policy/revision and pages filtered globally sorted items; follow every cursor. Uses the same exact unit-NAV history, eligibility, freshness, household civil-date and stale-source safeguards as the App; this is not a sell recommendation and it never writes ledger facts.", func(ctx context.Context, in ReviewReadInput) (any, error) {
 		if err := validateResponseMode(in.ResponseMode, in.Filter != nil || in.Sort != nil || in.Limit != 0); err != nil {
 			return nil, err
 		}
@@ -87,16 +87,16 @@ func (s *Service) featureTools(server *mcp.Server, mode string) {
 	if mode != LedgerWrite {
 		return
 	}
-	ledgerWriteTool(s, server, "save_investment_review_policy", "Save the full household investment-review policy with revision compare-and-swap. Policy thresholds are percentages; preserve the 7/30-day window and existing eligibility safeguards.", func(ctx context.Context, in SaveInvestmentReviewPolicyInput) (any, error) {
+	ledgerWriteTool(s, server, "save_investment_review_policy", "Save the legacy v1 investment-review policy only with revision compare-and-swap; daily v2 rules are unchanged. Policy thresholds are percentages; preserve the 7/30-day window and existing eligibility safeguards.", func(ctx context.Context, in SaveInvestmentReviewPolicyInput) (any, error) {
 		return s.app.SaveInvestmentReviewPolicy(ctx, in.Policy, in.ExpectedRevision)
 	})
-	ledgerWriteTool(s, server, "acknowledge_investment_review", "Acknowledge one currently active episode using its current episodeId. Stale or no-longer-eligible episodes are rejected by the application service.", func(ctx context.Context, in AcknowledgeInvestmentReviewInput) (any, error) {
+	ledgerWriteTool(s, server, "acknowledge_investment_review", "Acknowledge one legacy v1 active episode using its current episodeId; v2 episodes use acknowledge_investment_review_alert. Stale or no-longer-eligible episodes are rejected by the application service.", func(ctx context.Context, in AcknowledgeInvestmentReviewInput) (any, error) {
 		return s.app.AcknowledgeInvestmentReview(ctx, in.EpisodeID)
 	})
-	ledgerWriteTool(s, server, "set_investment_review_enrollment", "Enable or disable per-instrument investment review enrollment. Requires the current report revision; disabling does not delete holdings or modify the policy.", func(ctx context.Context, in SetInvestmentReviewEnrollmentInput) (any, error) {
+	ledgerWriteTool(s, server, "set_investment_review_enrollment", "Enable or disable legacy v1 per-instrument investment review enrollment; this does not suppress v2 rules. Requires the current report revision; disabling does not delete holdings or modify the policy.", func(ctx context.Context, in SetInvestmentReviewEnrollmentInput) (any, error) {
 		return s.app.SetInvestmentReviewEnrollment(ctx, in.InstrumentID, in.Enabled, in.ExpectedRevision)
 	})
-	ledgerWriteTool(s, server, "set_investment_review_snooze", "Snooze one eligible instrument for 7 or 30 household civil days, or resume now with days=0. Requires the current report revision; this does not acknowledge an episode or alter enrollment.", func(ctx context.Context, in SetInvestmentReviewSnoozeInput) (any, error) {
+	ledgerWriteTool(s, server, "set_investment_review_snooze", "Snooze one legacy v1 eligible instrument for 7 or 30 household civil days, or resume now with days=0; v2 suppressions are separate. Requires the current report revision; this does not acknowledge an episode or alter enrollment.", func(ctx context.Context, in SetInvestmentReviewSnoozeInput) (any, error) {
 		return s.app.SetInvestmentReviewSnooze(ctx, in.InstrumentID, in.Days, in.ExpectedRevision)
 	})
 }

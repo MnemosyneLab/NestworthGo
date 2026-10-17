@@ -79,7 +79,8 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; corresponding institution/group tools; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
-| Opt-in investment review | `get_investment_reviews`; ledger_write: `save_investment_review_policy`, `acknowledge_investment_review`, `set_investment_review_enrollment`, `set_investment_review_snooze` |
+| Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_suppressions`; ledger_write: create/update/archive rule, acknowledge alert, set/clear suppression, refresh |
+| Legacy opt-in investment review v1 | `get_investment_reviews`; ledger_write: `save_investment_review_policy`, `acknowledge_investment_review`, `set_investment_review_enrollment`, `set_investment_review_snooze` |
 | Read-only historical view | `get_historical_overview`, `get_historical_overview_series` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
@@ -109,7 +110,9 @@ Managed capabilities are managed_product_read, liquidity_read and, only with
 ledger_write, managed_product_lifecycle, managed_product_terms and
 managed_product_valuation. Investment review reads are available in all modes;
 its policy, enrollment, snooze/resume and acknowledgement tools require
-ledger_write. These update review preferences/episodes, not financial facts.
+ledger_write. Daily v2 rule, acknowledgement, suppression and explicit refresh
+tools also require ledger_write. These update review preferences/episodes and
+derived projections, not financial facts.
 Discover each actual pair; an older App may expose only a subset. Skill updates
 do not install/update the connected App or client.
 

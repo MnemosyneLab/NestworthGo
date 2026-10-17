@@ -31,6 +31,18 @@ func (r *Repository) ReadPortfolioSnapshot(ctx context.Context, filter domain.Ac
 }
 
 func readPortfolioSnapshotQuery(ctx context.Context, query queryer, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+	return readPortfolioSnapshotQueryMode(ctx, query, filter, true)
+}
+
+// Review historical batches also carry the complete immutable quote history.
+// Their consumers replay quotes as of each civil day, so the latest-only
+// portfolio quote projection is redundant and only adds a second scan of the
+// same quote table.
+func readPortfolioReviewSnapshotQuery(ctx context.Context, query queryer, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+	return readPortfolioSnapshotQueryMode(ctx, query, filter, false)
+}
+
+func readPortfolioSnapshotQueryMode(ctx context.Context, query queryer, filter domain.AccountFilter, includeCurrentInstrumentQuotes bool) (domain.PortfolioSnapshot, error) {
 	household, err := scanHousehold(query.QueryRowContext(ctx, `SELECT id, name, base_currency, created_at, updated_at FROM households WHERE singleton_key = 1`))
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
@@ -70,9 +82,12 @@ func readPortfolioSnapshotQuery(ctx context.Context, query queryer, filter domai
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
 	}
-	instrumentQuotes, err := listInstrumentQuotesQuery(ctx, query, household.ID)
-	if err != nil {
-		return domain.PortfolioSnapshot{}, err
+	var instrumentQuotes []domain.InstrumentQuote
+	if includeCurrentInstrumentQuotes {
+		instrumentQuotes, err = listInstrumentQuotesQuery(ctx, query, household.ID)
+		if err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 	}
 	fxQuotes, err := listLatestFXQuotesQuery(ctx, query, household.ID)
 	if err != nil {

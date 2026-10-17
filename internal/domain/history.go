@@ -276,6 +276,14 @@ type HistoricalSnapshotBatch struct {
 	ResolverPolicyVersion          string
 }
 
+// ReviewHistoricalBatch captures position, quote, FX, and cost facts in one
+// read transaction. CostEvents contains an entry for every captured holding;
+// a nil slice is a known empty event history, while a missing entry is unknown.
+type ReviewHistoricalBatch struct {
+	History    HistoricalSnapshotBatch
+	CostEvents map[HoldingID][]CostBasisEvent
+}
+
 type DailySnapshotState struct {
 	HouseholdID           HouseholdID
 	DirtyFrom             *string

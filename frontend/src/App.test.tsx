@@ -1,5 +1,5 @@
 import { upcomingData, upcomingItem } from "@/test/upcomingActions";
-vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), InstrumentHoldingGroups: () => Promise.resolve([]), HistoricalOverview: (...args: unknown[]) => historicalRead(...args), HistoricalOverviewSeries: (...args: unknown[]) => seriesRead(...args) } }));
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), InstrumentHoldingGroups: () => instrumentGroups(), HistoricalOverview: (...args: unknown[]) => historicalRead(...args), HistoricalOverviewSeries: (...args: unknown[]) => seriesRead(...args) } }));
 /* default historical fixture */
 const defaultHistorical = { capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] };
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,13 +9,17 @@ import App from "./App";
 import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { queryKeys } from "./queries/keys";
+import { reviewV2Key } from "./queries/investmentReviewV2";
 import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
 import { useObjectNavigation } from "./app/NavigationContext";
 
-const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord, useRealInstrumentDetail, reviewAlerts, instrumentGroups } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
   ordinaryRecord: vi.fn(),
+  useRealInstrumentDetail: { enabled: false },
+  reviewAlerts: vi.fn(),
+  instrumentGroups: vi.fn(),
   historyOrigin: vi.fn(),
   historicalRead: vi.fn(),
   upcomingRead: vi.fn(),
@@ -180,17 +184,20 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account"
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: { ListInstruments: (...args: unknown[]) => listInstruments(...args) },
 }));
-vi.mock("@/features/investments/InstrumentDetailPage", () => ({
-  InstrumentDetailPage: ({ context, onContextChange }: { context: { instrumentId: string; accountId?: string; section?: string; from?: string; to?: string }; onContextChange: (next: unknown) => void }) => {
+vi.mock("@/features/investments/InstrumentDetailPage", async () => {
+  const actual = await vi.importActual<typeof import("@/features/investments/InstrumentDetailPage")>("@/features/investments/InstrumentDetailPage");
+  return { InstrumentDetailPage: (props: Parameters<typeof actual.InstrumentDetailPage>[0]) => {
     const navigation = useObjectNavigation();
+    if (useRealInstrumentDetail.enabled) return <actual.InstrumentDetailPage {...props} />;
+    const { context, onContextChange } = props;
     return <section data-testid="instrument-detail-page"><pre>{JSON.stringify(context)}</pre>
       <button onClick={() => onContextChange({ ...context, section: "data" })}>Show data records</button>
       <button onClick={() => onContextChange({ ...context, from: "2026-07-01", to: "2026-07-31" })}>Set synthetic quote period</button>
       <button id="instrument-detail-maintain" onClick={() => navigation?.open({ page: "market-data", focus: { instrumentId: context.instrumentId, action: "instrument_editor", rangeStart: "2026-07-01", rangeEnd: "2026-07-31" } })}>Maintain data</button>
       <button onClick={() => navigation?.open({ page: "history", filters: { instrumentId: context.instrumentId, from: context.from, to: context.to } })}>Related transactions</button>
     </section>;
-  },
-}));
+  } };
+});
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
   Service: {
@@ -201,6 +208,10 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {
     InstrumentQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
+    CurrentInstrumentQuote: () => Promise.resolve(null),
+    InstrumentQuotePerformance: () => Promise.resolve({ item: null, points: [], unavailableReason: "insufficient_daily_history" }),
+    InstrumentQuoteReturns: () => Promise.resolve({ items: [] }),
+    InstrumentQuotePerformanceSeries: () => Promise.resolve({ item: null, points: [] }),
     FXQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
     ListFXPreferences: () => Promise.resolve([]),
   },
@@ -232,6 +243,9 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidit
   Service: {
     UpcomingActions: () => upcomingRead(),
     InvestmentReviews: () => Promise.resolve({ items: [], policy: { enabled: true, windowDays: 30, lowAnnualizedPercent: "1", lossPercent: "-1", sustainDays: 7, maxAgeDays: 7 }, asOf: "2026-10-15T12:00:00Z", timezone: "UTC" }),
+    ListReviewAlertsV2: (...args: unknown[]) => reviewAlerts(...args),
+    ListReviewRulesV2: () => Promise.resolve([]),
+    ReconcileInvestmentReviewsV2: () => Promise.resolve({}),
     Overview: () => Promise.resolve({
       asOf: "",
       localDate: "2026-09-20",
@@ -276,6 +290,9 @@ beforeEach(() => {
   portfolio.mockResolvedValue({ ...emptyPortfolio });
   holdingsByAccounts.mockReset();
   holdingsByAccounts.mockResolvedValue({});
+  useRealInstrumentDetail.enabled = false;
+  reviewAlerts.mockReset().mockResolvedValue({ items: [], nextCursor: "", summary: { totalGroups: 0, matchedGroups: 0, pendingGroups: 0, acknowledgedGroups: 0, ignoredGroups: 0, unknownGroups: 0, pausedGroups: 0, actionableRules: 0 }, reportRevision: "synthetic-review-v2", projectionStatus: "complete", publishedOn: "2026-10-15" });
+  instrumentGroups.mockReset().mockResolvedValue([]);
   useUiStore.setState({ appearance: "system", accent: "indigo" });
   window.matchMedia =
     window.matchMedia ||
@@ -905,14 +922,87 @@ it.each(SUPPORTED_LANGUAGES)("keeps investment review reachable from Overview wi
   settingsLoad.mockResolvedValue({ ...defaultSettings, language });
   upcomingRead.mockResolvedValue(upcomingData());
   render(<AppProviders><App /></AppProviders>);
-  const entry = await screen.findByRole("button", { name: i18n.t("investmentReview.view") });
+  const entry = await screen.findByRole("button", { name: i18n.t("reviewV2.openReview") });
   entry.focus();
   await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
   expect(screen.getByText(i18n.t("upcomingActions.description"))).toBeVisible();
   expect(await screen.findByText(i18n.t("upcomingActions.empty"))).toBeVisible();
+  const header = within(document.querySelector("header")!);
+  expect(header.getByRole("button", { name: i18n.t("upcomingActions.refresh") })).toBeVisible();
+  expect(header.queryByRole("button", { name: i18n.t("reviewV2.historyTitle") })).not.toBeInTheDocument();
+  expect(header.queryByRole("button", { name: i18n.t("reviewV2.ignoredList") })).not.toBeInTheDocument();
+  expect(header.queryByRole("button", { name: i18n.t("reviewV2.rules") })).not.toBeInTheDocument();
   const reviewTab = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
   reviewTab.focus(); await userEvent.keyboard("{Enter}");
-  expect(await screen.findByRole("heading", { name: i18n.t("investmentReview.title") })).toBeVisible();
+  expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toBeVisible();
+  expect(screen.getByRole("button", { name: i18n.t("reviewV2.rules") })).toBeVisible();
   expect(reviewTab).toHaveAttribute("aria-selected", "true");
+});
+
+it("preserves filtered page two through the real instrument route and focuses both Back destinations", async () => {
+  const user = userEvent.setup();
+  await i18n.changeLanguage("en");
+  const instrument = { id: "synthetic-second", householdId: "synthetic-household", name: "Synthetic Second Holding", type: "mutual_fund", quoteCurrency: "USD", symbol: "SYN2", iconKey: "", sortOrder: 0, quoteSource: "manual", createdAt: "2026-01-01", updatedAt: "2026-01-01" };
+  const firstInstrument = { ...instrument, id: "synthetic-first", name: "Synthetic First Holding", symbol: "SYN1" };
+  const amounts = { quantity: "3", totalCost: { amount: "30", currency: "USD" }, currentValue: { amount: "36", currency: "USD" }, unrealizedGain: { amount: "6", currency: "USD" } };
+  listInstruments.mockResolvedValue([firstInstrument, instrument]);
+  listAccounts.mockResolvedValue([{ account: { id: "synthetic-broker", name: "Synthetic Broker" } }]);
+  instrumentGroups.mockResolvedValue([{ key: "mutual_fund", subtotals: [], instruments: [{ instrumentId: instrument.id, name: instrument.name, type: instrument.type, symbol: instrument.symbol, quoteCurrency: "USD", quantityUnit: "shares", archived: false, amounts, holdings: [{ holdingId: "synthetic-position", accountId: "synthetic-broker", accountName: "Synthetic Broker", amounts }] }] }]);
+  reviewAlerts.mockImplementation(async (request: { cursor?: string; filter: { status: string; instrumentType: string; query: string } }) => {
+    const secondPage = request.cursor === "synthetic-page-two";
+    const row = secondPage ? instrument : firstInstrument;
+    return {
+      items: [{ instrumentId: row.id, displayName: row.name, instrumentType: row.type, currency: "USD", status: "pending", rules: [] }],
+      nextCursor: secondPage ? "" : "synthetic-page-two", summary: { totalGroups: 2, matchedGroups: 2, pendingGroups: 2, acknowledgedGroups: 0, ignoredGroups: 0, unknownGroups: 0, pausedGroups: 0, actionableRules: 0 },
+      reportRevision: "synthetic-review-page", projectionStatus: "complete", publishedOn: "2026-10-15",
+    };
+  });
+  useRealInstrumentDetail.enabled = true;
+  upcomingRead.mockResolvedValue(upcomingData());
+
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const overviewReviewTrigger = screen.getByRole("button", { name: i18n.t("reviewV2.openReview") });
+  await user.click(overviewReviewTrigger);
+  await user.click(await screen.findByRole("tab", { name: i18n.t("investmentReview.title") }));
+  await screen.findByRole("heading", { name: "Synthetic First Holding" });
+  await user.type(screen.getByRole("textbox", { name: i18n.t("reviewV2.search") }), "Synthetic");
+  await user.selectOptions(screen.getByRole("combobox", { name: i18n.t("reviewV2.typeFilter") }), "mutual_fund");
+  await user.click(screen.getByRole("button", { name: i18n.t("reviewV2.status.pending") }));
+  const selectedFilter = { status: "pending", instrumentType: "mutual_fund", query: "Synthetic" };
+  await waitFor(() => expect(reviewAlerts).toHaveBeenCalledWith(expect.objectContaining({ filter: selectedFilter })));
+  await user.click(screen.getByRole("button", { name: i18n.t("reviewV2.next") }));
+  await screen.findByRole("heading", { name: "Synthetic Second Holding" });
+  await waitFor(() => expect(reviewAlerts).toHaveBeenCalledWith(expect.objectContaining({ cursor: "synthetic-page-two", filter: selectedFilter })));
+  const reviewReadCount = reviewAlerts.mock.calls.length;
+
+  const secondActions = screen.getByRole("button", { name: i18n.t("reviewV2.moreFor", { name: "Synthetic Second Holding" }) });
+  await user.click(secondActions);
+  await user.click(await screen.findByRole("menuitem", { name: i18n.t("reviewV2.viewHoldings") }));
+  expect(await screen.findByTestId("instrument-detail-page")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "SYN2", level: 2 })).toBeVisible();
+  expect(screen.getByRole("tab", { name: i18n.t("instrumentDetail.holdings") })).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByText("$36.00")).toBeVisible();
+  expect(instrumentGroups).toHaveBeenCalledWith();
+
+  await queryClient.invalidateQueries({ queryKey: reviewV2Key });
+  expect(reviewAlerts).toHaveBeenCalledTimes(reviewReadCount);
+  await user.click(screen.getByRole("button", { name: /Back to/ }));
+  expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toHaveValue("Synthetic");
+  expect(screen.getByRole("combobox", { name: i18n.t("reviewV2.typeFilter") })).toHaveValue("mutual_fund");
+  expect(screen.getByRole("button", { name: i18n.t("reviewV2.status.pending") })).toHaveAttribute("aria-pressed", "true");
+  expect(await screen.findByRole("heading", { name: "Synthetic Second Holding" })).toBeVisible();
+  const reviewHeading = document.getElementById("upcoming-actions-heading");
+  expect(reviewHeading).not.toBeNull();
+  await waitFor(() => expect(reviewHeading).toHaveFocus());
+  expect(reviewHeading).toBeVisible();
+  expect(reviewHeading?.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
+  await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(reviewReadCount));
+
+  await user.click(screen.getByRole("button", { name: /Back to/ }));
+  expect(await screen.findByTestId("overview-net-worth")).toBeVisible();
+  await waitFor(() => expect(overviewReviewTrigger).toHaveFocus());
+  expect(overviewReviewTrigger).toBeVisible();
+  expect(overviewReviewTrigger.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
 });

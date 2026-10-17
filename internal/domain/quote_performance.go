@@ -131,22 +131,29 @@ func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote) []QuotePerf
 // window is omitted, never filled, when its baseline is missing or any
 // observation from baseline to latest is not economically comparable.
 func ProjectQuotePerformanceWindows(i Instrument, quotes []InstrumentQuote, windows []int) []QuotePerformance {
+	return projectQuotePerformanceWindowsFromPoints(i, dailyPerformanceQuotes(quotes), windows)
+}
+
+func projectQuotePerformanceWindowsFromPoints(i Instrument, points []InstrumentQuote, windows []int) []QuotePerformance {
+	return projectQuotePerformanceWindowsThroughIndex(i, points, len(points)-1, windows)
+}
+
+func projectQuotePerformanceWindowsThroughIndex(i Instrument, points []InstrumentQuote, latestIndex int, windows []int) []QuotePerformance {
 	result := []QuotePerformance{}
 	mode, supported := quotePerformanceMode(i.Type)
-	if !supported {
+	if !supported || latestIndex < 0 || latestIndex >= len(points) {
 		return result
 	}
-	points := dailyPerformanceQuotes(quotes)
-	if len(points) < 2 {
+	if latestIndex < 1 {
 		return result
 	}
-	latest := points[len(points)-1]
+	latest := points[latestIndex]
 	anchor, _ := time.Parse(time.DateOnly, latest.EffectiveDate)
 	for _, window := range windows {
 		base := 0
 		if window > 0 {
 			target := anchor.AddDate(0, 0, -window).Format(time.DateOnly)
-			base = sort.Search(len(points), func(n int) bool { return points[n].EffectiveDate > target }) - 1
+			base = sort.Search(latestIndex+1, func(n int) bool { return points[n].EffectiveDate > target }) - 1
 		}
 		if base < 0 {
 			continue
@@ -154,7 +161,7 @@ func ProjectQuotePerformanceWindows(i Instrument, quotes []InstrumentQuote, wind
 		first := points[base]
 		elapsed := reviewDays(first.EffectiveDate, latest.EffectiveDate)
 		comparable := elapsed > 0 && first.UnitPrice.Decimal().IsPositive()
-		for _, q := range points[base:] {
+		for _, q := range points[base : latestIndex+1] {
 			comparable = comparable && q.Currency == i.QuoteCurrency && q.BindingRevision == i.ProviderBindingRevision && performanceSource(q.SourceKind) && performanceTimestamp(i.Type, q.TimestampBasis)
 			if mode == quotePerformanceNAV {
 				comparable = comparable && q.UnitPrice.Decimal().IsPositive() && q.PriceBasis == "agent_unit_nav_v1" && !reviewNonzero(q.DividendCash) && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
@@ -173,6 +180,76 @@ func ProjectQuotePerformanceWindows(i Instrument, quotes []InstrumentQuote, wind
 		result = append(result, item)
 	}
 	return result
+}
+
+// ReviewDailyQuoteSeries is the immutable, one-observation-per-civil-day quote
+// selection shared across a historical review replay. Construct it once per
+// instrument so each daily vote does not repeatedly filter and sort the same
+// source history.
+type ReviewDailyQuoteSeries struct {
+	points []InstrumentQuote
+}
+
+// NewReviewDailyQuoteSeries applies the same date and source-priority rules as
+// the descriptive performance projection.
+func NewReviewDailyQuoteSeries(instrumentID InstrumentID, quotes []InstrumentQuote) ReviewDailyQuoteSeries {
+	filtered := make([]InstrumentQuote, 0, len(quotes))
+	for _, quote := range quotes {
+		if quote.InstrumentID != instrumentID {
+			continue
+		}
+		filtered = append(filtered, quote)
+	}
+	return ReviewDailyQuoteSeries{points: dailyPerformanceQuotes(filtered)}
+}
+
+// ResolveDailyClose requires the selected source observation to be labelled
+// with the exact requested civil date. It never carries a prior close forward.
+func (s ReviewDailyQuoteSeries) ResolveDailyClose(instrument Instrument, on string) (*InstrumentQuote, string) {
+	if _, err := time.Parse(time.DateOnly, on); err != nil {
+		return nil, "invalid_request"
+	}
+	index := sort.Search(len(s.points), func(n int) bool { return s.points[n].EffectiveDate >= on })
+	if index == len(s.points) || s.points[index].EffectiveDate != on {
+		return nil, "daily_close_missing"
+	}
+	quote := s.points[index]
+	mode, supported := quotePerformanceMode(instrument.Type)
+	if !supported || quote.Currency != instrument.QuoteCurrency || quote.BindingRevision != instrument.ProviderBindingRevision || !performanceSource(quote.SourceKind) || !performanceTimestamp(instrument.Type, quote.TimestampBasis) {
+		return nil, "daily_close_ineligible"
+	}
+	if mode == quotePerformanceNAV {
+		if !quote.UnitPrice.Decimal().IsPositive() || quote.PriceBasis != "agent_unit_nav_v1" || reviewNonzero(quote.DividendCash) || (reviewNonzero(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
+			return nil, "daily_close_ineligible"
+		}
+	} else if quote.UnitPrice.Decimal().IsNegative() || !performancePriceBasis(instrument.Type, quote.PriceBasis) || (reviewNonzero(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
+		return nil, "daily_close_ineligible"
+	}
+	return &quote, ""
+}
+
+// ResolveDailyPerformance uses the exact dated endpoint and the same baseline,
+// comparability and arithmetic rules as the descriptive series.
+func (s ReviewDailyQuoteSeries) ResolveDailyPerformance(instrument Instrument, on string, lookbackDays, maxBaselineGapDays int) (*QuotePerformance, string) {
+	if _, err := time.Parse(time.DateOnly, on); err != nil || !ValidQuotePeriodWindow(lookbackDays) || lookbackDays == 0 || maxBaselineGapDays < 0 {
+		return nil, "invalid_request"
+	}
+	latest := sort.Search(len(s.points), func(n int) bool { return s.points[n].EffectiveDate >= on })
+	if latest == len(s.points) || s.points[latest].EffectiveDate != on {
+		return nil, "daily_close_missing"
+	}
+	items := projectQuotePerformanceWindowsThroughIndex(instrument, s.points, latest, []int{lookbackDays})
+	if len(items) == 0 {
+		return nil, "baseline_missing_or_incomparable"
+	}
+	item := items[0]
+	end, _ := time.Parse(time.DateOnly, on)
+	target := end.AddDate(0, 0, -lookbackDays).Format(time.DateOnly)
+	gap, err := CivilDaysBetween(item.BaselineOn, target)
+	if err != nil || gap < 0 || gap > maxBaselineGapDays {
+		return nil, "baseline_too_old"
+	}
+	return &item, ""
 }
 
 // Sources identify provenance, not economic units. Explicit raw-close bases from

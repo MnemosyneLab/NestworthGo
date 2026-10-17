@@ -93,14 +93,27 @@ history result and PR68 `endpoint_bridge/1` convention, including exact values,
 completeness, timestamp basis, later-endpoint FX and no-write behavior. It does
 not replace closed-period `compare_financial_attribution`.
 
-`get_investment_reviews` exposes the App's opt-in unit-NAV reminder report in all
+Daily investment review v2 has pure read tools for named rules, one-rule
+preview, grouped paged alerts, current alert detail, positive-holding coverage
+(including unknown and uncomputed results), and suppressions. MCP reads only
+the last complete publication. They never implicitly reconcile or fetch
+quotes. Ledger-write tools create/update/archive rules, acknowledge one
+episode, set/clear rule-scoped or all-rule suppressions, and explicitly
+reconcile. The v2 rule spec separates predicate from single, consecutive and
+rolling trigger policies; each result is for a closed civil date in its fixed
+timezone. Empty or missing daily evidence is unknown. The MCP outer
+`operationId` and the application's inner `mutationId` must both remain stable
+for exact retries; CAS revisions protect each edited object. v2 reports are
+cursor-bound to their filter and publication revision.
+
+`get_investment_reviews` exposes the legacy v1 opt-in unit-NAV reminder report in all
 modes. `ledger_write` additionally exposes policy save, episode acknowledgement,
 instrument enrollment and snooze/resume. The application retains revision,
 eligibility, stale-evidence and household civil-date checks. Unit-NAV rates use
 instrument quotes and metadata only; personal dividends, imports, calibrations
 and trades cannot alter or suppress them. Held positions select review eligibility,
 not rate comparability. Recorded quote distributions/unit changes remain guarded.
-These changes are
+These legacy tools do not edit named v2 rules or all-rule suppressions. These changes are
 preferences/reminder state, never sell recommendations or financial facts. MCP
 operation receipts use conservative same-operation retry behavior; unknown
 setting-write outcomes are not replayed automatically. Short-name and PR70

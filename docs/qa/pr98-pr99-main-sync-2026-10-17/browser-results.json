@@ -1,0 +1,51 @@
+{
+  "combined_sha": "36a2366c9a0f8408eac6325fac43ec3c61fde061",
+  "merge_parents": [
+    "9e59d795663a37e87d097140fb6e90581bcc144f",
+    "221bc429a1f6df37538547db668e086ad305c8ff"
+  ],
+  "targeted_app_test": {
+    "test": "preserves filtered page two through the real instrument route and focuses both Back destinations",
+    "result": "passed",
+    "test_files": 1,
+    "tests_passed": 1,
+    "tests_skipped": 39,
+    "focus_after_detail_back": { "tag": "H2", "id": "upcoming-actions-heading", "text": "Upcoming actions", "visible": true, "hidden_ancestor": false },
+    "focus_after_overview_back": { "tag": "BUTTON", "text": "Open investment review", "visible": true, "hidden_ancestor": false },
+    "raw_stdout": "targeted-app-vitest.raw.log"
+  },
+  "browser": {
+    "engine": "Chromium /usr/bin/chromium, Playwright headless",
+    "viewport": { "width": 390, "height": 844 },
+    "synthetic_only": true,
+    "app_navigation_stubbed": false,
+    "flow": ["Overview", "Open investment review", "V2 Investment Review", "Filtered page two", "Instrument Detail Holdings", "Back to Upcoming Actions", "Back to Overview"],
+    "page_two_request": {
+      "filter": { "status": "pending", "instrumentType": "mutual_fund", "query": "Synthetic" },
+      "cursor": "synthetic-page-two",
+      "pageSize": 50
+    },
+    "filters_visible_after_detail_back": {
+      "search": "Synthetic",
+      "type": "mutual_fund",
+      "pendingPressed": "true",
+      "secondPageHeading": "Synthetic Second Holding"
+    },
+    "hidden_route_review_calls": { "before_invalidate": 7, "after_invalidate": 7 },
+    "focus_after_first_back": { "tag": "H2", "id": "upcoming-actions-heading", "text": "Upcoming actions", "hiddenAncestor": false, "visible": true },
+    "focus_after_second_back": { "tag": "BUTTON", "text": "Open investment review", "hiddenAncestor": false, "visible": true },
+    "page_errors": [],
+    "raw_stdout": "pr98-pr99-playwright-flow.raw.log",
+    "trace": "pr98-pr99-second-page.trace.zip",
+    "complete_flow_assertions": "pr98-pr99-playwright-flow.mjs",
+    "phone_screenshot": "07-review-phone-390.png"
+  },
+  "prior_full_frontend_suite": {
+    "result": "previously reported; not rerun for this addendum",
+    "test_files": 140,
+    "tests": 1507,
+    "failed": 0,
+    "raw_stdout_retained": false,
+    "summary_record": "frontend-full-suite.log"
+  }
+}

@@ -1,4 +1,4 @@
-import { InvestmentReviewPanel } from "@/features/investment-review/InvestmentReviewPanel";
+import { InvestmentReviewPage } from "@/features/investment-review/InvestmentReviewPage";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,7 +30,7 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
   const scheduledItems = items.filter(item => item.group === "scheduled");
   const hasMore = filter === "all" ? attentionItems.length > limit || scheduledItems.length > limit : items.length > limit;
   return <div className="space-y-5" aria-busy={query.isFetching}>
-    <PageChrome pageId="upcoming-actions" title={t("upcomingActions.title")} actions={<Button variant="outline" disabled={query.isFetching} onClick={() => { void query.refetch(); }}>{t("upcomingActions.refresh")}</Button>} />
+    <PageChrome pageId="upcoming-actions" title={t("upcomingActions.title")} actions={tab === "recent" ? <Button variant="outline" disabled={query.isFetching} onClick={() => { void query.refetch(); }}>{t("upcomingActions.refresh")}</Button> : undefined} />
     <h2 id="upcoming-actions-heading" tabIndex={-1} className="text-xl font-semibold">{t("upcomingActions.title")}</h2>
     <p className="text-sm text-muted-foreground">{t("upcomingActions.description")}</p>
     <Tabs value={tab} onValueChange={value => setTab(String(value))}>
@@ -38,7 +38,7 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
         <TabsTrigger value="recent">{t("upcomingActions.title")}</TabsTrigger>
         <TabsTrigger value="review">{t("investmentReview.title")}</TabsTrigger>
       </TabsList>
-      <TabsContent value="review"><InvestmentReviewPanel isActive={isActive && tab === "review"} /></TabsContent>
+      <TabsContent value="review" keepMounted><InvestmentReviewPage embedded isActive={isActive && tab === "review"} /></TabsContent>
       <TabsContent value="recent" keepMounted>
     {!data && query.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
     {query.isError && <p role="alert">{t(data ? "upcomingActions.stale" : "upcomingActions.loadError")}</p>}

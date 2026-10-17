@@ -76,6 +76,60 @@ convention for the other.
 
 ## Opt-in investment review reminders
 
+Daily investment review v2 uses named rules. A rule evaluates its **daily
+condition** on each closed civil date in its fixed timezone; the separate
+`triggerPolicy` chooses one hit, consecutive hits, or N hits in M calendar
+days. Missing data is unknown and contributes no hit. Today's unclosed value
+is only a preview. `list_investment_review_rules` pages definitions (at most
+100; continue from the last ID on a full page), while
+`list_investment_review_alerts` pages current open alerts in whole instrument
+groups (at most 100; follow `nextCursor`), and
+`get_investment_review_coverage` includes current positive holdings whose
+rules are unknown, confirming, healthy or uncomputed without an open alert.
+`get_investment_review_alert` reads one current episode by ID;
+`list_investment_review_suppressions` lists ignored scopes and absolute resume
+dates. All these reads, and `preview_investment_review_rule`, are read-only:
+they never refresh source data or publish an evaluation. A cursor expires when
+its report or filter changes; restart from page one.
+`list_investment_review_episode_history` pages open and resolved episodes for
+one daily rule, including an archived rule. Use
+`list_investment_review_episode_events` with an episode ID to page its opening,
+acknowledgement, evidence-correction and resolution events. These historical
+reads preserve the original condition version and never reinterpret it as the
+current rule; a changed publication expires their cursors.
+
+With `ledger_write`, v2 uses `create_investment_review_rule`,
+`update_investment_review_rule`, `archive_investment_review_rule`,
+`acknowledge_investment_review_alert`, `set_investment_review_suppression`,
+`clear_investment_review_suppression` and `refresh_investment_reviews`.
+Rule/alert/suppression edits require their own `expectedRevision` and inner
+`mutationId`; the MCP envelope also requires `operationId`. Reuse both IDs and
+the exact input on a retry. Inspect `get_operation` and the relevant v2 read
+after an unknown outcome before issuing a new operation. Refresh is explicit
+and uses existing local facts; it does not fetch quotes. An all-rule permanent
+suppression also applies to rules created later; acknowledgement applies only
+to one episode. Neither action changes holdings.
+
+Use `preview_legacy_investment_review_conversion` before changing a migrated
+`legacy_v1` rule. Choose an explicit new daily trigger and target: the default
+keeps only investments enrolled in v1, while all current holdings expands it.
+The preview reports two proposed rules, new alerts, unknown outcomes and the
+source/configuration/handling revisions and a temporal token. With `ledger_write`,
+`convert_legacy_investment_review_rule` archives the old rule and creates the
+new low-yield and loss rules in one transaction using those exact revisions and
+both `sourceToken` and `temporalToken` from the preview,
+new distinct rule IDs and one mutation ID. Old acknowledgements stay in
+history rather than silencing different predicates; absolute snoozes and
+all-rule ignores remain effective. A local-day rollover or ignore expiry also
+stales the preview. If the preview becomes stale, re-preview
+before submitting a new conversion. If a submission's outcome is unknown,
+retry the identical operation and IDs before creating another.
+
+The tools below are **legacy v1** compatibility tools. They preserve the old
+7/30-day combined NAV policy and its enrollment, acknowledgement and snooze;
+they do not edit v2 named rules or suppressions. Do not represent an old
+`sustainDays` span as a v2 consecutive-hit count.
+
 `get_investment_reviews` reads the App's unit-NAV review projection for held
 mutual funds and ordinary NAV-priced wealth products. It returns the household
 `localDate` and `timezone`, a policy `revision`, full policy thresholds and

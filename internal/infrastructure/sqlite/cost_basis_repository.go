@@ -13,7 +13,7 @@ const costBasisEventsSelect = `
 		SELECT e.activity_id, a.effective_at, a.created_at, a.ordering_id, e.sequence, a.kind, a.reason,
 		       e.direction, e.role, e.classification, e.quantity, e.cost_unit_price,
 		       t.side, t.unit_price, t.gross_amount, t.gross_currency, t.fee_amount, t.fee_currency,
-		       source_effect.holding_id
+		       source_effect.holding_id, a.reverses_activity_id
 		FROM activity_effects e
 		JOIN economic_activities a ON a.id = e.activity_id
 		JOIN holdings h ON h.id = e.holding_id
@@ -29,6 +29,13 @@ const validCostBasisEvents = `
 		  AND a.household_id = owner_account.household_id
 		  AND a.reverses_activity_id IS NULL
 		  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = a.id)`
+
+// Daily review needs the dated reversal event and its original event together.
+// ReplayCostBasis drops both only after the reversal is inside the requested
+// day; excluding a pair here would erase the original cost from earlier days.
+const reviewCostBasisEvents = `
+		  AND e.target IN ('holding_quantity', 'holding_cost')
+		  AND a.household_id = owner_account.household_id`
 const costBasisEventOrder = `
 		ORDER BY a.effective_at ASC, a.created_at ASC, a.ordering_id ASC, e.sequence ASC`
 
@@ -68,8 +75,8 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	var activityID, effectiveAt, createdAt, orderingID, activityKind, reason string
 	var sequence int
 	var direction, role, classification, quantity, costUnitPrice sql.NullString
-	var side, unitPrice, grossAmount, grossCurrency, feeAmount, feeCurrency, sourceHoldingID sql.NullString
-	if err := scanner.Scan(&activityID, &effectiveAt, &createdAt, &orderingID, &sequence, &activityKind, &reason, &direction, &role, &classification, &quantity, &costUnitPrice, &side, &unitPrice, &grossAmount, &grossCurrency, &feeAmount, &feeCurrency, &sourceHoldingID); err != nil {
+	var side, unitPrice, grossAmount, grossCurrency, feeAmount, feeCurrency, sourceHoldingID, reversesActivityID sql.NullString
+	if err := scanner.Scan(&activityID, &effectiveAt, &createdAt, &orderingID, &sequence, &activityKind, &reason, &direction, &role, &classification, &quantity, &costUnitPrice, &side, &unitPrice, &grossAmount, &grossCurrency, &feeAmount, &feeCurrency, &sourceHoldingID, &reversesActivityID); err != nil {
 		return domain.CostBasisEvent{}, err
 	}
 	parsedActivityID, err := domain.ParseActivityID(activityID)
@@ -84,6 +91,21 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	if err != nil {
 		return domain.CostBasisEvent{}, err
 	}
+	parsedOrderingID, err := domain.ParseActivityID(orderingID)
+	if err != nil {
+		return domain.CostBasisEvent{}, err
+	}
+	event := domain.CostBasisEvent{ActivityID: parsedActivityID, EffectiveAt: effective.UTC(), CreatedAt: created.UTC(), OrderingID: parsedOrderingID, Sequence: sequence}
+	if reversesActivityID.Valid {
+		parsedReversesID, parseErr := domain.ParseActivityID(reversesActivityID.String)
+		if parseErr != nil {
+			return domain.CostBasisEvent{}, parseErr
+		}
+		event.ReversesActivityID = &parsedReversesID
+		// ReplayCostBasis excludes a reversal and its original by identity. Its
+		// inverse effect shape need not be interpreted as another trade event.
+		return event, nil
+	}
 	quantityText := quantity.String
 	if !quantity.Valid && activityKind == string(domain.ActivityCostAdjustment) {
 		quantityText = "0"
@@ -92,11 +114,7 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	if err != nil {
 		return domain.CostBasisEvent{}, err
 	}
-	parsedOrderingID, err := domain.ParseActivityID(orderingID)
-	if err != nil {
-		return domain.CostBasisEvent{}, err
-	}
-	event := domain.CostBasisEvent{ActivityID: parsedActivityID, EffectiveAt: effective.UTC(), CreatedAt: created.UTC(), OrderingID: parsedOrderingID, Sequence: sequence, Quantity: parsedQuantity}
+	event.Quantity = parsedQuantity
 	if costUnitPrice.Valid {
 		parsed, parseErr := domain.ParseUnitPrice(costUnitPrice.String)
 		if parseErr != nil {

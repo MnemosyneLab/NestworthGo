@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { UpcomingActionsPage } from "./UpcomingActionsPage";
 import { OverviewUpcomingActionsCard } from "./OverviewUpcomingActionsCard";
 import { upcomingData, upcomingItem } from "@/test/upcomingActions";
 import { NavigationContext } from "@/app/NavigationContext";
+import { createTestQueryClient } from "@/test/queryClient";
 import i18n from "@/i18n";
-vi.mock("@/features/investment-review/InvestmentReviewPanel", () => ({ InvestmentReviewPanel: () => null, InvestmentReviewSummary: () => null }));
 const query = vi.hoisted(() => ({ data: undefined as ReturnType<typeof upcomingData> | undefined, isPending: false, isError: false, isFetching: false, refetch: vi.fn() }));
 vi.mock("@/queries/liquidity", () => ({ useUpcomingActions: () => query }));
-beforeEach(async () => { await i18n.changeLanguage("en"); query.data = upcomingData([upcomingItem()]); query.isError = false; query.isPending = false; });
+const queryClient = createTestQueryClient({ retry: false });
+beforeEach(async () => { await i18n.changeLanguage("en"); queryClient.clear(); query.data = upcomingData([upcomingItem()]); query.isError = false; query.isPending = false; });
 const open = vi.fn();
-function mount(component: React.ReactNode) { return render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}>{component}</NavigationContext.Provider>); }
+function tree(component: React.ReactNode) { return <QueryClientProvider client={queryClient}><NavigationContext.Provider value={{ open, openHealth: vi.fn() }}>{component}</NavigationContext.Provider></QueryClientProvider>; }
+function mount(component: React.ReactNode) { return render(tree(component)); }
 describe("upcoming UI", () => {
   it("limits summary to three while showing the full count and safe navigation", async () => {
     query.data = upcomingData(Array.from({ length: 5 }, (_, i) => upcomingItem({ id: `item-${i}`, displayName: `Deposit ${i}` })));
@@ -29,7 +32,7 @@ describe("upcoming UI", () => {
     query.data = upcomingData([upcomingItem()]); view.rerender(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.getByRole("alert")).toHaveTextContent("last successfully read");
     expect(screen.getByText("Synthetic deposit")).toBeInTheDocument();
-    query.isError = false; query.data = upcomingData(); query.data.completeness = "partial"; query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard presentation="homepage" /></NavigationContext.Provider>);
+    query.isError = false; query.data = upcomingData(); query.data.completeness = "partial"; query.data.counts.dataChecks = 1; view.rerender(tree(<OverviewUpcomingActionsCard presentation="homepage" />));
     expect(screen.getByText(/information needed to assess/)).toBeInTheDocument();
   });
   it("pages in fifty-item increments and keeps eligible items collapsed", async () => {
@@ -89,7 +92,7 @@ it.each(["en", "zh-CN", "zh-TW"])("shows the same human household timestamp in c
   const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
   expect(screen.getByText(expected)).toBeInTheDocument();
   expect(screen.queryByText(precise)).not.toBeInTheDocument();
-  view.rerender(<UpcomingActionsPage />);
+  view.rerender(tree(<UpcomingActionsPage />));
   expect(screen.getByText(expected)).toBeInTheDocument();
   expect(query.data.asOf).toBe(precise);
 });
@@ -101,7 +104,7 @@ it("renders unavailable timestamps and singular counts without changing their va
   expect(screen.getByText("Read time unavailable")).toBeInTheDocument();
   expect(screen.getByText("1 needs attention · 0 schedules")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "View all 1 action" })).toBeInTheDocument();
-  view.rerender(<UpcomingActionsPage />);
+  view.rerender(tree(<UpcomingActionsPage />));
   expect(screen.getByText("Read time unavailable")).toBeInTheDocument();
   expect(screen.getByText("1 needs attention · 0 schedules · 1 receipt to verify · 0 reservation issues")).toBeInTheDocument();
   expect(query.data.counts.total).toBe(1);
@@ -115,7 +118,7 @@ it("keeps scheduled access visible with no attention and routes merged terms and
   expect(screen.getByText("Later deposit")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "View all 1 action" }));
   expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
-  view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><UpcomingActionsPage /></NavigationContext.Provider>);
+  view.rerender(tree(<UpcomingActionsPage />));
   expect(screen.getByText("Later deposit")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "View terms · Later deposit" }));
   expect(open).toHaveBeenLastCalledWith({ page: "available-funds", focus: { kind: "product", productId: "product-1" } });
@@ -181,7 +184,7 @@ it("mounts large disclosure lists independently, unmounts on close, and reopens 
   }
   const refresh = (prefix: string) => {
     query.data = { ...query.data!, items: query.data!.items!.map(item => ({ ...item, displayName: `${prefix} eligible` })), dataChecks: query.data!.dataChecks!.map(check => ({ ...check, displayName: `${prefix} check` })) };
-    view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><UpcomingActionsPage /></NavigationContext.Provider>);
+    view.rerender(tree(<UpcomingActionsPage />));
   };
   refresh("Fresh");
   expect(screen.queryByText("Fresh eligible")).not.toBeInTheDocument();
@@ -201,7 +204,7 @@ it.each(["en", "zh-CN", "zh-TW"])("compresses homepage empty results and preserv
   expect(screen.getByText(i18n.t("homepage.noScheduledActions"))).toBeVisible();
   expect(screen.queryByRole("button", { name: i18n.t("upcomingActions.viewAll", { count: 0 }) })).not.toBeInTheDocument();
   expect(screen.queryByText(i18n.t("upcomingActions.overviewCounts", { attentionText: i18n.t("upcomingActions.attentionCount", { count: 0 }), schedules: i18n.t("upcomingActions.scheduleCount", { count: 0 }) }))).not.toBeInTheDocument();
-  query.data.counts.dataChecks = 1; view.rerender(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><OverviewUpcomingActionsCard presentation="homepage" /></NavigationContext.Provider>);
+  query.data.counts.dataChecks = 1; view.rerender(tree(<OverviewUpcomingActionsCard presentation="homepage" />));
   const action = screen.getByRole("button", { name: i18n.t("homepage.reviewActionDetails") });
   action.focus(); await userEvent.keyboard("{Enter}");
   expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });

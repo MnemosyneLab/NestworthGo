@@ -118,5 +118,5 @@ func applyV17Upgrade(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, string(schema)); err != nil {
 		return err
 	}
-	return verifySchema(ctx, tx)
+	return verifySchemaVersion(ctx, tx, 18)
 }
