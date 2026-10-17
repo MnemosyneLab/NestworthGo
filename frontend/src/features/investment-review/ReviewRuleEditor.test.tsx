@@ -5,9 +5,11 @@ import i18n from "@/i18n";
 import type { ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { ReviewRuleEditor } from "./ReviewRuleEditor";
 
-const state = vi.hoisted(() => ({ save: vi.fn(async (_value: unknown) => ({})) }));
+const state = vi.hoisted(() => ({ save: vi.fn(async (_value: unknown) => ({})), origin: { timezone: "Asia/Singapore" }, bootstrap: { household: { baseCurrency: "USD" } } }));
 vi.mock("@/queries/investments", () => ({ useInstruments: () => ({ data: [{ id: "synthetic-fund", name: "Synthetic fund" }] }) }));
-vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "UTC" } }) }));
+vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "system" } }) }));
+vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: state.origin }) }));
+vi.mock("@/queries/household", () => ({ useBootstrap: () => ({ data: state.bootstrap }) }));
 vi.mock("@/queries/investmentReviewV2", () => ({ useReviewV2Commands: () => ({
   createRule: { mutateAsync: state.save, isPending: false }, updateRule: { mutateAsync: state.save, isPending: false },
 }) }));
@@ -24,7 +26,7 @@ const rule = {
   spec: { target: { kind: "all_current" }, predicate, schedule: { timezone: "UTC" }, triggerPolicy: { kind: "single" } },
 } as unknown as ReviewRule;
 
-beforeEach(async () => { vi.clearAllMocks(); await i18n.changeLanguage("en"); });
+beforeEach(async () => { vi.clearAllMocks(); state.origin = { timezone: "Asia/Singapore" }; state.bootstrap = { household: { baseCurrency: "USD" } }; await i18n.changeLanguage("en"); });
 
 describe("investment review rule editor", () => {
   it("visually edits a nested predicate without flattening its groups or sibling leaves", async () => {
@@ -36,6 +38,7 @@ describe("investment review rule editor", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
     const saved = state.save.mock.calls[0][0] as { spec: { predicate: typeof predicate } };
+    expect((state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string } } }).spec.schedule.timezone).toBe("UTC");
     expect(saved.spec.predicate).toEqual({ any: [
       { all: [
         { leaf: { metric: "type", operator: "in", types: ["mutual_fund", "etf"] } },
@@ -53,6 +56,35 @@ describe("investment review rule editor", () => {
     const saved = state.save.mock.calls[0][0] as { spec: { predicate: { any: unknown[] } } };
     expect(saved.spec.predicate.any).toHaveLength(3);
     expect(saved.spec.predicate.any[2]).toEqual({ all: [{ leaf: expect.objectContaining({ metric: "amount", value: "1000" }) }] });
+  });
+  it("snapshots the household timezone and defaults new money conditions to its base currency", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    expect(screen.getByLabelText(i18n.t("reviewV2.timezone"))).toHaveValue("Asia/Singapore");
+    expect(screen.getByLabelText("Currency")).toHaveValue("USD");
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic threshold");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    const saved = state.save.mock.calls[0][0] as { spec: { schedule: { timezone: string }; predicate: { all: Array<{ leaf: { currency?: string } }> } } };
+    expect(saved.spec.schedule.timezone).toBe("Asia/Singapore");
+    expect(saved.spec.predicate.all[0].leaf.currency).toBe("USD");
+  });
+  it("keeps new-rule submission disabled until the household timezone is loaded", async () => {
+    state.origin = undefined as unknown as { timezone: string };
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic threshold");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
+  });
+  it("blocks nonnumeric amounts in a new rule after household timezone initialization", async () => {
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Synthetic threshold");
+    const amount = screen.getByRole("textbox", { name: "Value" });
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "not-a-number");
+    expect(screen.getByLabelText(i18n.t("reviewV2.timezone"))).toHaveValue("Asia/Singapore");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(state.save).not.toHaveBeenCalled();
   });
   it("keeps every selected instrument type in a simple daily condition", async () => {
     const simple = { ...rule, spec: { ...rule.spec, predicate: { all: [{ leaf: { metric: "type", operator: "in", types: ["mutual_fund"] } }] } } } as unknown as ReviewRule;
