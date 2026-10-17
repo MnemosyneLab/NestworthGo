@@ -323,4 +323,26 @@ func TestBuildComponentDayProjectsCashBridgeFromExactFXForBucketsReturnsAndEffec
 	}
 }
 
+func TestBuildComponentDayReconcilesNonFXResidualOnDecimalPath(t *testing.T) {
+	t.Parallel()
+	householdID := domain.NewHouseholdID()
+	account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	previous := analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", "")
+	current := analysisItem(t, account.ID, "CNY", "110", "110", nil, nil, "", "")
+	previousSnapshot, currentSnapshot := analysisSnapshot("2026-08-01", previous), analysisSnapshot("2026-08-02", current)
+	component := domain.ComponentID{AccountID: account.ID, Currency: "CNY", Cash: true}
+	universe := analysisUniverse{accounts: map[domain.AccountID]domain.Account{account.ID: account}}
+	input := AnalysisInputs{
+		Origin:    analysisOrigin(t, householdID, "UTC"),
+		Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}},
+	}
+	day, err := buildComponentDay("2026-08-02", component, previous, current, previousSnapshot, currentSnapshot, true, true, nil, input, analysisBaseQuery(domain.ValuationBase), universe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if day.Residual == nil || day.Residual.Amount.Amount().StringFixed(4) != "10.0000" || day.AssetBuckets[domain.BucketResidual].Amount().StringFixed(4) != "10.0000" {
+		t.Fatalf("base-currency residual=%+v buckets=%+v, want decimal residual 10.0000", day.Residual, day.AssetBuckets)
+	}
+}
+
 func stringPointer(value string) *string { return &value }

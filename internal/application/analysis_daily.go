@@ -333,16 +333,20 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 	if err != nil {
 		return domain.ComponentDay{}, err
 	}
-	bridgePriceExact := bridge.exactPrice
-	if bridgePriceExact == nil {
-		bridgePriceExact = rationalFromDecimal(bridge.price)
-	}
-	bridgeFXExact := bridge.exactFX
-	if bridgeFXExact == nil {
-		bridgeFXExact = rationalFromDecimal(bridge.fx)
-	}
 	if bridge.price.Sign() != 0 {
-		priceAmount := decimalAtMoneyBoundary(bridgePriceExact)
+		priceAmount := bridge.price
+		var attributedAmount domain.SignedMoney
+		if bridge.exactPrice != nil {
+			priceAmount = decimalAtMoneyBoundary(bridge.exactPrice)
+			attributedAmount, err = newSignedRational(bridge.exactPrice, valueCurrency(current, query.Valuation, baseCurrency))
+		} else {
+			bridgePriceExact := rationalFromDecimal(bridge.price)
+			priceAmount = decimalAtMoneyBoundary(bridgePriceExact)
+			attributedAmount, err = newSignedRational(bridgePriceExact, valueCurrency(current, query.Valuation, baseCurrency))
+		}
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
 		if err := addBucket(day.AssetBuckets, domain.BucketPriceChange, priceAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
@@ -353,10 +357,6 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 			}
 		}
 		priceBucket := domain.BucketPriceChange
-		attributedAmount, amountErr := newSignedRational(bridgePriceExact, valueCurrency(current, query.Valuation, baseCurrency))
-		if amountErr != nil {
-			return domain.ComponentDay{}, amountErr
-		}
 		var priceReturn *domain.ReturnComponent
 		if universe.investmentComponentInUniverse(component) {
 			value := domain.ReturnPriceChange
@@ -365,7 +365,19 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{AssetBucket: &priceBucket, ReturnComponent: priceReturn, Amount: attributedAmount, Component: component})
 	}
 	if bridge.fx.Sign() != 0 {
-		fxAmount := decimalAtMoneyBoundary(bridgeFXExact)
+		fxAmount := bridge.fx
+		var attributedAmount domain.SignedMoney
+		if bridge.exactFX != nil {
+			fxAmount = decimalAtMoneyBoundary(bridge.exactFX)
+			attributedAmount, err = newSignedRational(bridge.exactFX, valueCurrency(current, query.Valuation, baseCurrency))
+		} else {
+			bridgeFXExact := rationalFromDecimal(bridge.fx)
+			fxAmount = decimalAtMoneyBoundary(bridgeFXExact)
+			attributedAmount, err = newSignedRational(bridgeFXExact, valueCurrency(current, query.Valuation, baseCurrency))
+		}
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
 		if err := addBucket(day.AssetBuckets, domain.BucketFXImpact, fxAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
@@ -376,10 +388,6 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 			}
 		}
 		fxBucket := domain.BucketFXImpact
-		attributedAmount, amountErr := newSignedRational(bridgeFXExact, valueCurrency(current, query.Valuation, baseCurrency))
-		if amountErr != nil {
-			return domain.ComponentDay{}, amountErr
-		}
 		var fxReturn *domain.ReturnComponent
 		if universe.investmentComponentInUniverse(component) {
 			value := domain.ReturnFXImpact
@@ -388,21 +396,48 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{AssetBucket: &fxBucket, ReturnComponent: fxReturn, Amount: attributedAmount, Component: component})
 	}
 	knownInternal := neutralTotal
-	unexplainedExact := rationalFromDecimal(delta)
-	unexplainedExact.Sub(unexplainedExact, rationalFromDecimal(directTotal))
-	unexplainedExact.Sub(unexplainedExact, rationalFromDecimal(knownInternal))
-	unexplainedExact.Sub(unexplainedExact, bridgePriceExact)
-	unexplainedExact.Sub(unexplainedExact, bridgeFXExact)
-	unexplained, projectionErr := analysisRationalDecimal(unexplainedExact)
-	if projectionErr != nil {
-		return domain.ComponentDay{}, projectionErr
+	currency := valueCurrency(current, query.Valuation, baseCurrency)
+	tolerance := residualTolerance(currency, begin)
+	var unexplained decimal.Decimal
+	var residualMoney domain.SignedMoney
+	var hasResidual bool
+	if bridge.exactPrice == nil && bridge.exactFX == nil {
+		// Components without an exact FX bridge (notably base-currency cash)
+		// already have finite decimal drivers. Keep their high-volume residual
+		// reconciliation on the decimal path instead of constructing and
+		// reducing exact Rat values that cannot improve the result.
+		unexplained = delta.Sub(directTotal).Sub(knownInternal).Sub(bridge.price).Sub(bridge.fx)
+		residualMoney, err = newSigned(unexplained, currency)
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
+		hasResidual = unexplained.Abs().GreaterThan(tolerance)
+	} else {
+		bridgePriceExact := bridge.exactPrice
+		if bridgePriceExact == nil {
+			bridgePriceExact = rationalFromDecimal(bridge.price)
+		}
+		bridgeFXExact := bridge.exactFX
+		if bridgeFXExact == nil {
+			bridgeFXExact = rationalFromDecimal(bridge.fx)
+		}
+		unexplainedExact := rationalFromDecimal(delta)
+		unexplainedExact.Sub(unexplainedExact, rationalFromDecimal(directTotal))
+		unexplainedExact.Sub(unexplainedExact, rationalFromDecimal(knownInternal))
+		unexplainedExact.Sub(unexplainedExact, bridgePriceExact)
+		unexplainedExact.Sub(unexplainedExact, bridgeFXExact)
+		var projectionErr error
+		unexplained, projectionErr = analysisRationalDecimal(unexplainedExact)
+		if projectionErr != nil {
+			return domain.ComponentDay{}, projectionErr
+		}
+		residualMoney, err = newSignedRational(unexplainedExact, currency)
+		if err != nil {
+			return domain.ComponentDay{}, err
+		}
+		hasResidual = new(big.Rat).Abs(new(big.Rat).Set(unexplainedExact)).Cmp(rationalFromDecimal(tolerance)) > 0
 	}
-	tolerance := residualTolerance(valueCurrency(current, query.Valuation, baseCurrency), begin)
-	residualMoney, residualErr := newSignedRational(unexplainedExact, valueCurrency(current, query.Valuation, baseCurrency))
-	if residualErr != nil {
-		return domain.ComponentDay{}, residualErr
-	}
-	if new(big.Rat).Abs(new(big.Rat).Set(unexplainedExact)).Cmp(rationalFromDecimal(tolerance)) > 0 {
+	if hasResidual {
 		day.Status = domain.CompletenessPartial
 		bucket := domain.BucketResidual
 		if err := addBucket(day.AssetBuckets, bucket, unexplained, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
