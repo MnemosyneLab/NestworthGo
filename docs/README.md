@@ -27,6 +27,7 @@ implementation branches or visual prototype bundles.
 | Design | [Available Funds, Term Deposits, and Locked Products](design/available-funds.md) | Implemented liquidity estimates, reservations, explicit product operations, and current limits |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
+| Development | [Real Browser Acceptance](development/real-browser-acceptance.md) | Server-mode launch, isolated synthetic fixtures, cloud-browser evidence, and native-only boundaries |
 | Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Current published release, historical release contracts, and closeout evidence |
@@ -38,6 +39,7 @@ implementation branches or visual prototype bundles.
 | QA | [Real MCP and skill acceptance](testing/qa-mcp-skill-acceptance-2026-10-09.md) | Scoped Mac mini client acceptance, source SHA, provenance, and exclusions |
 | QA | [v0.3.7 package acceptance](testing/qa-v0.3.7-release-package-2026-10-09.md) | Published asset digests and scoped synthetic package checks |
 | QA | [v0.3.8 Mac package verification](qa/v0.3.8-release-package-2026-10-14.md) | Published arm64 asset hashes, non-interactive integrity checks, signature status, and owner-deferred acceptance |
+| QA | [PR101/PR102 post-merge browser acceptance](qa/post-merge-pr101-pr102-2026-10-17/REPORT.md) | Real backend and cloud-browser results for the merged interaction/review changes; includes one reproducible P2 replay defect |
 | QA | [QA Archive](qa/README.md) | Selected historical verification reports; current release gates remain in the release contract |
 
 ## Source of truth
