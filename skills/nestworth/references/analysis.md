@@ -110,72 +110,6 @@ and uses existing local facts; it does not fetch quotes. An all-rule permanent
 suppression also applies to rules created later; acknowledgement applies only
 to one episode. Neither action changes holdings.
 
-Use `preview_legacy_investment_review_conversion` before changing a migrated
-`legacy_v1` rule. Choose an explicit new daily trigger and target: the default
-keeps only investments enrolled in v1, while all current holdings expands it.
-The preview reports two proposed rules, new alerts, unknown outcomes and the
-source/configuration/handling revisions and a temporal token. With `ledger_write`,
-`convert_legacy_investment_review_rule` archives the old rule and creates the
-new low-yield and loss rules in one transaction using those exact revisions and
-both `sourceToken` and `temporalToken` from the preview,
-new distinct rule IDs and one mutation ID. Old acknowledgements stay in
-history rather than silencing different predicates; absolute snoozes and
-all-rule ignores remain effective. A local-day rollover or ignore expiry also
-stales the preview. If the preview becomes stale, re-preview
-before submitting a new conversion. If a submission's outcome is unknown,
-retry the identical operation and IDs before creating another.
-
-The tools below are **legacy v1** compatibility tools. They preserve the old
-7/30-day combined NAV policy and its enrollment, acknowledgement and snooze;
-they do not edit v2 named rules or suppressions. Do not represent an old
-`sustainDays` span as a v2 consecutive-hit count.
-
-`get_investment_reviews` reads the App's unit-NAV review projection for held
-mutual funds and ordinary NAV-priced wealth products. It returns the household
-`localDate` and `timezone`, a policy `revision`, full policy thresholds and
-per-instrument status/reasons. It uses source civil-date labels, exact NAV
-history and App eligibility/freshness safeguards. Missing or stale NAV and
-recorded quote distributions/unit changes stay unavailable; do not substitute
-holding balances, guess a sell, or turn a reminder into investment advice. The
-review read is available in all permission modes and never writes ledger facts.
-Rates use instrument quote/NAV evidence only: personal dividends, existing-position
-imports, quantity/cost calibrations, trades and transfers cannot change them.
-Holdings select reminder eligibility; they do not establish issuer distributions.
-Descriptive history shares the exact decimal rate calculation and actual elapsed
-days, with separate window availability and no reminder freshness cutoff.
-
-Only with `ledger_write` are these preference/episode changes available:
-
-- `save_investment_review_policy` replaces the full master policy using the
-  current report's `revision`; thresholds are exact percentage values and the
-  window is 7 or 30 days.
-- `set_investment_review_enrollment` enables or disables monitoring for one
-  returned instrument and requires the current revision. Monitoring is opt-in.
-- `acknowledge_investment_review` accepts only a current `episodeId`; stale
-  episodes are rejected.
-- `set_investment_review_snooze` uses 7 or 30 household civil days; `days: 0`
-  resumes immediately without acknowledging or changing enrollment.
-
-These tools use durable MCP operation receipts: retain the `operationId` and
-exact input on retry. If the outcome is unknown, inspect `get_operation` and
-the current review report before starting a new intentional change. Revision
-conflicts require a fresh report; do not repeat a stale save. These edits change
-review settings only, not holdings, quotes or financial records.
-
-<!-- example: investment-review-read -->
-```json
-{}
-```
-
-<!-- example: investment-review-policy-save -->
-```json
-{"operationId":"${operationId}","input":{"policy":{"enabled":true,"windowDays":30,"lowAnnualizedPercent":"1","lossPercent":"-1","sustainDays":7,"maxAgeDays":7},"expectedRevision":0}}
-```
-
-Replace `expectedRevision` with the latest report revision and supply a fresh
-operation UUID for this intentional settings change. To disable enrollment,
-send `enabled:false`; to resume a snoozed instrument, send `days:0`.
-
 For investment returns, income/expense or an inclusive period report, call
 `analyze_period`. For two-state value differences use `compare_financial_context`;
 for “why did two closed-date states change; was that profit?”, use
@@ -618,20 +552,6 @@ choice for differences alone. A repository skill update does not install or
 update the user's App, client skill or MCP connection.
 
 ## Frozen review and upcoming pages
-
-See [paging and batches](paging-and-batches.md). `get_investment_reviews` paged
-mode preserves policy, revision, asOf/localDate/timezone; filter instrumentIds,
-monitored/snoozed/acknowledged and statuses. Sort instrumentId (default asc),
-displayName, latestOn, ageDays, annualizedPercent or periodPercent with exact
-percentages and null-last ties. Settings revision is CAS; captureId is frozen
-read identity and changes independently with quote evidence.
-
-Review enrollment, snooze/resume and acknowledgement batch tools require
-ledger_write and one expectedRevision. Validate all instrument IDs/current
-eligible episode IDs, then send 1–100 items atomically. Snooze days is 0/7/30
-from one household local date. A changed batch advances revision once; all no-op
-preserves revision. Ack does not replace snooze, snooze does not change enrollment,
-and none changes global policy. Short receipts require a separate fresh read.
 
 Upcoming paged mode keeps global counts/completeness/warnings and the shared
 30-civil-day window, with independent items/dataChecks sections. Filter actions

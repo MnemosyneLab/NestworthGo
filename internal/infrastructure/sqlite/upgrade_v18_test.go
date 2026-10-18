@@ -72,7 +72,7 @@ func TestV18UpgradePreservesLegacyReviewAndRecovery(t *testing.T) {
 			if tc.status == "compatible" {
 				var evaluator, spec string
 				if err := upgraded.SQL.QueryRow(`SELECT r.evaluator,v.canonical_spec_json FROM investment_review_rules r JOIN investment_review_rule_versions v ON v.rule_id=r.id`).Scan(&evaluator, &spec); err != nil || evaluator != "legacy_v1" || spec == "" {
-					t.Fatalf("legacy policy was not converted to a named compatibility rule: %q %q %v", evaluator, spec, err)
+					t.Fatalf("legacy policy migration changed: %q %q %v", evaluator, spec, err)
 				}
 				var targets int
 				if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM investment_review_rule_targets WHERE instrument_id='00000000-0000-4000-8000-000000000051'`).Scan(&targets); err != nil || targets != 1 {
@@ -81,18 +81,14 @@ func TestV18UpgradePreservesLegacyReviewAndRecovery(t *testing.T) {
 				if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM investment_review_rule_targets WHERE instrument_id='00000000-0000-4000-8000-000000000050'`).Scan(&targets); err != nil || targets != 0 {
 					t.Fatalf("false enrollment became a monitored target: %d %v", targets, err)
 				}
-				store := NewConfigurationRepository(upgraded)
-				loaded, found, err := store.LoadConfiguration(key)
-				if err != nil || !found || len(loaded) == 0 {
-					t.Fatalf("compatible v1 settings read: %s %t %v", loaded, found, err)
+				loaded, found, err := NewConfigurationRepository(upgraded).LoadConfiguration(key)
+				if err != nil || !found || string(loaded) != tc.raw {
+					t.Fatalf("read-only legacy settings recovery: %s %t %v", loaded, found, err)
 				}
-				if err := store.SaveConfiguration(key, loaded); err != nil {
-					t.Fatal(err)
-				}
-				var unchanged string
-				if err := upgraded.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key=?`, key).Scan(&unchanged); err != nil || unchanged != tc.raw {
-					t.Fatalf("v18 source was rewritten: %q %v", unchanged, err)
-				}
+			}
+			var unchanged string
+			if err := upgraded.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key=?`, key).Scan(&unchanged); err != nil || unchanged != tc.raw {
+				t.Fatalf("migration changed its source bytes: %q %v", unchanged, err)
 			}
 			if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM investment_review_suppressions`).Scan(&count); err != nil || count != 0 {
 				t.Fatalf("inferred a permanent ignore from legacy enrollment: %d %v", count, err)
@@ -101,6 +97,9 @@ func TestV18UpgradePreservesLegacyReviewAndRecovery(t *testing.T) {
 				var projection string
 				if err := upgraded.SQL.QueryRow(`SELECT projection_status FROM investment_review_control WHERE household_id=?`, household).Scan(&projection); err != nil || projection != "needs_repair" {
 					t.Fatalf("repair state: %q %v", projection, err)
+				}
+				if _, found, err := NewConfigurationRepository(upgraded).LoadConfiguration(key); err == nil || found {
+					t.Fatalf("malformed legacy settings read did not fail closed: found=%t err=%v", found, err)
 				}
 			}
 			copies, err := filepath.Glob(filepath.Join(filepath.Dir(path), ".nestworth-v18-recovery-*", "original-v18.sqlite"))
@@ -120,47 +119,6 @@ func TestV18UpgradePreservesLegacyReviewAndRecovery(t *testing.T) {
 				t.Fatalf("recovery changed legacy state: %q %v", recovered, err)
 			}
 		})
-	}
-}
-
-func TestLegacyReviewPreferencesAdvanceCompatibilityRuleWithoutRewritingSource(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "synthetic-v19.db")
-	db, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	const household = "00000000-0000-4000-8000-000000000001"
-	if _, err := db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES(?,'Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, household); err != nil {
-		t.Fatal(err)
-	}
-	store := NewConfigurationRepository(db)
-	key := "investment_review/" + household
-	initial := []byte(`{"revision":1,"policy":{"enabled":true,"windowDays":30,"lowAnnualizedPercent":"1","lossPercent":"-1","sustainDays":7,"maxAgeDays":7},"enrolled":{"00000000-0000-4000-8000-000000000050":false},"acknowledged":{"old-run":true},"snoozedUntil":{"00000000-0000-4000-8000-000000000050":"2026-10-30"}}`)
-	if err := store.SaveConfiguration(key, initial); err != nil {
-		t.Fatal(err)
-	}
-	loaded, found, err := store.LoadConfiguration(key)
-	if err != nil || !found || len(loaded) == 0 {
-		t.Fatalf("legacy rule read: %s %t %v", loaded, found, err)
-	}
-	var oldSource int
-	if err := db.SQL.QueryRow(`SELECT count(*) FROM app_configuration WHERE key=?`, key).Scan(&oldSource); err != nil || oldSource != 0 {
-		t.Fatalf("v1 preference wrote a second mutable source: %d %v", oldSource, err)
-	}
-	updated := []byte(`{"revision":2,"policy":{"enabled":false,"windowDays":30,"lowAnnualizedPercent":"1","lossPercent":"-1","sustainDays":7,"maxAgeDays":7},"enrolled":{"00000000-0000-4000-8000-000000000050":false},"acknowledged":{"old-run":true},"snoozedUntil":{"00000000-0000-4000-8000-000000000050":"2026-10-30"}}`)
-	if err := store.SaveConfiguration(key, updated); err != nil {
-		t.Fatal(err)
-	}
-	var versions, enabled int
-	if err := db.SQL.QueryRow(`SELECT count(*) FROM investment_review_rule_versions`).Scan(&versions); err != nil || versions != 2 {
-		t.Fatalf("legacy versions: %d %v", versions, err)
-	}
-	if err := db.SQL.QueryRow(`SELECT enabled FROM investment_review_rules WHERE evaluator='legacy_v1'`).Scan(&enabled); err != nil || enabled != 0 {
-		t.Fatalf("legacy master pause lost: %d %v", enabled, err)
-	}
-	if err := db.SQL.QueryRow(`SELECT count(*) FROM investment_review_suppressions`).Scan(&oldSource); err != nil || oldSource != 0 {
-		t.Fatalf("legacy false enrollment became global ignore: %d %v", oldSource, err)
 	}
 }
 

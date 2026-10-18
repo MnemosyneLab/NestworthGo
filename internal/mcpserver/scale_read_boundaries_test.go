@@ -16,38 +16,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
 
-func TestScaleReviewSortNullTieAcrossPageBoundaries(t *testing.T) {
-	fx := newLedgerFixture(t)
-	ids := seedScaleReviewTargets(t, fx)
-	missing, err := fx.app.CreateInstrument(t.Context(), application.InstrumentInput{Name: "No NAV", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := fx.app.CreateHolding(t.Context(), application.HoldingInput{AccountID: fx.brokerage, InstrumentID: missing.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
-		t.Fatal(err)
-	}
-	seedScaleNAVSeries(t, fx, ids)
-	c := ledgerSession(t, fx)
-	for _, field := range []string{"annualizedPercent", "periodPercent", "latestOn"} {
-		for _, direction := range []string{"asc", "desc"} {
-			args := map[string]any{"responseMode": "paged", "sort": map[string]any{"field": field, "direction": direction}, "limit": 1}
-			small := scaleCapture(t, c, "get_investment_reviews", args)
-			a := scaleSection(t, c, small, "items")
-			args["limit"] = 100
-			large := scaleCapture(t, c, "get_investment_reviews", args)
-			b := scaleSection(t, c, large, "items")
-			if !reflect.DeepEqual(a, b) || len(a) != 3 {
-				t.Fatal("review order changed with page boundary")
-			}
-			if a[2].(map[string]any)["instrumentId"] != missing.ID.String() {
-				t.Fatalf("%s %s unknown did not sort last", field, direction)
-			}
-			if a[0].(map[string]any)["instrumentId"].(string) > a[1].(map[string]any)["instrumentId"].(string) {
-				t.Fatal("equal review values did not tie by instrument ID")
-			}
-		}
-	}
-}
 func TestMarketHistoryDateNullTieAcrossPageBoundaries(t *testing.T) {
 	c := newBoundedReadCache()
 	c.activate(1)

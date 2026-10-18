@@ -420,8 +420,7 @@ func isFinancialContextTool(name string) bool {
 
 func isFeatureTool(name string) bool {
 	switch name {
-	case "get_investment_reviews", "get_upcoming_actions", "get_historical_overview", "get_historical_overview_series",
-		"save_investment_review_policy", "acknowledge_investment_review", "set_investment_review_enrollment", "set_investment_review_snooze":
+	case "get_upcoming_actions", "get_historical_overview", "get_historical_overview_series":
 		return true
 	default:
 		return false

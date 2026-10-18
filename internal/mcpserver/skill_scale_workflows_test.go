@@ -12,7 +12,6 @@ import (
 func TestSkillScaleExamplesActualCalls(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
-	fx.app.SetInvestmentReviewConfiguration(&memoryInvestmentReviewStore{})
 	fund, err := fx.app.CreateInstrument(t.Context(), application.InstrumentInput{Name: "Example NAV fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
@@ -63,19 +62,4 @@ func TestSkillScaleExamplesActualCalls(t *testing.T) {
 	values["metadataVersion"] = rows[0].(map[string]any)["metadataVersion"].(string)
 	values["operationId"] = uuid.NewString()
 	call(t, c, "update_instruments_batch", skillExample(t, "paging-and-batches", "scale-metadata", values), false)
-	for _, name := range []string{"enrollment", "snooze", "resume"} {
-		values["operationId"] = uuid.NewString()
-		tool := "set_investment_review_snooze_batch"
-		if name == "enrollment" {
-			tool = "set_investment_review_enrollment_batch"
-		}
-		call(t, c, tool, skillExample(t, "paging-and-batches", "scale-review-"+name, values), false)
-	}
-	report, err := fx.app.InvestmentReviews(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	values["episodeId"] = report.Items[0].EpisodeID
-	values["operationId"] = uuid.NewString()
-	call(t, c, "acknowledge_investment_reviews_batch", skillExample(t, "paging-and-batches", "scale-review-ack", values), false)
 }

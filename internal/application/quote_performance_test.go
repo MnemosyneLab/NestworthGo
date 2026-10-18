@@ -10,6 +10,13 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
+func importQuoteNAV(t *testing.T, s *Service, i domain.Instrument, date, value string) {
+	t.Helper()
+	if _, err := s.ImportAgentMarketData(t.Context(), uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{agentNAV(i, value, date)}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Exercise real writers: existing-position imports and calibrations must not
 // become instrument comparability evidence, regardless of their stored reason.
 func TestInstrumentPerformanceIndependentOfPersonalLedger(t *testing.T) {
@@ -30,7 +37,7 @@ func TestInstrumentPerformanceIndependentOfPersonalLedger(t *testing.T) {
 			}
 			setClock(time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC))
 			for _, p := range []struct{ on, value string }{{"2026-09-01", "1"}, {"2026-10-01", "1.01"}, {"2026-10-14", "1.02"}} {
-				importReviewNAV(t, s, i, p.on, p.value)
+				importQuoteNAV(t, s, i, p.on, p.value)
 			}
 			want, err := s.InstrumentQuotePerformance(ctx, i.ID)
 			if err != nil || len(want.Items) != 2 || want.Items[0].ElapsedDays != 13 || want.Items[1].ElapsedDays != 43 {
@@ -70,25 +77,6 @@ func TestInstrumentPerformanceIndependentOfPersonalLedger(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			s.SetInvestmentReviewConfiguration(sqlite.NewConfigurationRepository(db))
-			p := domain.DefaultInvestmentReviewPolicy()
-			p.WindowDays = 7
-			review, err := s.InvestmentReviews(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			review, err = s.SaveInvestmentReviewPolicy(ctx, p, review.Revision)
-			if err != nil {
-				t.Fatal(err)
-			}
-			checkReview := func() {
-				t.Helper()
-				r, err := s.InvestmentReviews(ctx)
-				if err != nil || len(r.Items) != 1 || r.Items[0].PeriodPercent == nil || *r.Items[0].PeriodPercent != want.Items[0].PeriodPercent || r.Items[0].AnnualizedPercent == nil || *r.Items[0].AnnualizedPercent != "27.798933739528" {
-					t.Fatalf("review rate differs %+v: %v", r, err)
-				}
-			}
-			checkReview()
 			post("quantity calibration", domain.PositionAdjustmentInput{HouseholdID: b.Household.ID, HoldingID: h.ID, Quantity: mustQuantity(t, "2"), Added: true, UnitCost: &cost, EffectiveAt: at.Add(time.Hour)})
 			post("cost calibration", domain.PositionCostAdjustmentInput{HouseholdID: b.Household.ID, HoldingID: h.ID, UnitCost: reconciliationUnitCost(t, "0.9"), EffectiveAt: at.Add(2 * time.Hour)})
 			for n, side := range []domain.TradeSide{domain.TradeBuy, domain.TradeSell} {
@@ -96,7 +84,6 @@ func TestInstrumentPerformanceIndependentOfPersonalLedger(t *testing.T) {
 			}
 			post("transfer", domain.PositionTransferInput{HouseholdID: b.Household.ID, FromHoldingID: h.ID, ToAccountID: &second.Account.ID, Quantity: mustQuantity(t, "1"), EffectiveAt: at.Add(5 * time.Hour)})
 			post("personal cash dividend", domain.CashDividendInput{HouseholdID: b.Household.ID, HoldingID: h.ID, Amount: reconciliationMoney(t, "0.5", "USD"), EffectiveAt: at.Add(6 * time.Hour)})
-			checkReview()
 			// Verify the actual import metadata, including its instrument-only basis.
 			quotes, err := s.repository.(quotePerformanceReader).ReadQuotePerformanceEvidence(ctx, i, "2026-10-14")
 			if err != nil || len(quotes) != 3 {
@@ -123,7 +110,6 @@ func TestInstrumentPerformanceIndependentOfPersonalLedger(t *testing.T) {
 			}
 			check("personal ledger tables absent")
 			setClock(time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC))
-			checkReview()
 			for _, table := range []string{"holdings", "accounts", "history_origin_components", "history_origins"} {
 				if _, err = db.SQL.Exec("DROP TABLE " + table); err != nil {
 					t.Fatal(err)
@@ -146,8 +132,8 @@ func TestInstrumentPerformanceImportedCorporateActionsAndRetraction(t *testing.T
 				t.Fatal(err)
 			}
 			setClock(time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC))
-			importReviewNAV(t, s, i, "2026-10-01", "1")
-			importReviewNAV(t, s, i, "2026-10-14", "1.013")
+			importQuoteNAV(t, s, i, "2026-10-01", "1")
+			importQuoteNAV(t, s, i, "2026-10-14", "1.013")
 			report, err := s.InstrumentQuotePerformance(t.Context(), i.ID)
 			if err != nil || len(report.Items) != 1 || report.Items[0].ElapsedDays != 13 || *report.Items[0].AnnualizedPercent != "36.5" {
 				t.Fatalf("short holiday history %+v %v", report, err)

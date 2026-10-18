@@ -99,8 +99,7 @@ finish every cursor, and verify versions before atomic writes.
 Use the App for setup, history starting-point changes, backups/restores
 and reservation mutations. Managed lifecycle, terms and locked-product value
 facts use their respective dedicated preview/commit with ledger_write; contract/history
-and liquidity reads use [products.md](references/products.md). Daily investment
-review v2 and legacy v1 have separate tools described in
+and liquidity reads use [products.md](references/products.md). Daily investment review uses the V2 rule and alert tools described in
 [analysis.md](references/analysis.md); review writes require ledger_write and
 never create sell recommendations or ledger entries.
 Ordinary NAV-priced fund/wealth-product holdings use

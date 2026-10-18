@@ -43,7 +43,7 @@ export function UpcomingActionsPage({ isActive = true, tab: controlledTab, onTab
     <Tabs value={tab} onValueChange={value => setTab(String(value))}>
       <TabsList aria-label={t("upcomingActions.description")}>
         <TabsTrigger value="recent">{t("upcomingActions.title")}</TabsTrigger>
-        <TabsTrigger value="review">{t("investmentReview.title")}</TabsTrigger>
+        <TabsTrigger value="review">{t("reviewV2.title")}</TabsTrigger>
       </TabsList>
       <TabsContent value="review" keepMounted><InvestmentReviewPage embedded isActive={isActive && tab === "review"} /></TabsContent>
       <TabsContent value="recent" keepMounted>

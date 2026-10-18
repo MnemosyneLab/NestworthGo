@@ -106,20 +106,6 @@ timezone. Empty or missing daily evidence is unknown. The MCP outer
 for exact retries; CAS revisions protect each edited object. v2 reports are
 cursor-bound to their filter and publication revision.
 
-`get_investment_reviews` exposes the legacy v1 opt-in unit-NAV reminder report in all
-modes. `ledger_write` additionally exposes policy save, episode acknowledgement,
-instrument enrollment and snooze/resume. The application retains revision,
-eligibility, stale-evidence and household civil-date checks. Unit-NAV rates use
-instrument quotes and metadata only; personal dividends, imports, calibrations
-and trades cannot alter or suppress them. Held positions select review eligibility,
-not rate comparability. Recorded quote distributions/unit changes remain guarded.
-These legacy tools do not edit named v2 rules or all-rule suppressions. These changes are
-preferences/reminder state, never sell recommendations or financial facts. MCP
-operation receipts use conservative same-operation retry behavior; unknown
-setting-write outcomes are not replayed automatically. Short-name and PR70
-liquidity-policy tool contracts remain unchanged. Repeat-change confirmation,
-backup/restore and broad SQL/write surfaces stay outside MCP.
-
 `cmd/nestworth` owns the MCP service and passes the same `application.Service`
 instance used by the desktop bindings. `internal/mcpserver` registers an explicit
 allowlist of typed tools using the official Go SDK. It reuses the runtime-free
@@ -781,7 +767,7 @@ UI, external client, provider, credentials or real financial data is required.
 
 Legacy no-option results keep their original shapes. Explicit responseMode=paged
 is required for new filter/sort/limit options on get_liquidity_overview,
-list_products, get_product, get_investment_reviews, get_upcoming_actions and
+list_products, get_product, get_upcoming_actions and
 list_instruments. list_agent_market_data keeps its original offset/limit path;
 filter/sort require paged mode and offset cannot be combined with it.
 
@@ -826,7 +812,6 @@ money/percentages, never float values or different native currencies.
 | Liquidity | accountIds, sourceRefs, sourceKinds, instrumentIds, instrumentTypes, accessKinds, policyOrigins, hasRule, earlyKinds, currencies, excluded, query | sourceKey asc; displayName, instrumentType, accessKind, policyOrigin, normalReceiptOn, currentValueBase, availableBase | sources, unresolvedReservations |
 | Products | accountId/includeClosed; productKinds, states, query | startOn desc; maturityOn, displayName, state | products; reservations/<productId> via item |
 | Instruments | includeArchived; types, ids, query | displayName asc; name, type, updatedAt, id | instruments |
-| Reviews | instrumentIds, monitored, snoozed, acknowledged, statuses | instrumentId asc; displayName, latestOn, ageDays, annualizedPercent, periodPercent | items |
 | Upcoming | accountIds, productIds, kinds, groups | priority desc then sortOn asc; sortOn, displayName | items; dataChecks filtered only by accountIds/productIds |
 | Agent records | instrumentIds, oriented fxPairs, operations, active, observationKinds, fromDate/toDate, createdFrom/createdTo | createdAt desc; observationDate, operation | records |
 
@@ -847,10 +832,9 @@ permission. Managed rules still require dedicated product terms.
 Product compact rows include identity, kind/name/shortName/symbol, currency,
 principal/value/cost, state/displayState, revision and reservationCount. Full
 terms/long notes/policy remain in same-capture detail; reservations sort createdAt
-asc then reservationId asc. Product live history and global undo are unchanged.
-Review revision remains settings CAS rather than capture identity. Upcoming
-keeps shared projection counts, completeness, window and scopeWarnings. An
-extreme action's nested targets can still exceed a single item and fail safely.
+asc then reservationId asc. Product live history and global undo are unchanged. Upcoming keeps shared
+projection counts, completeness, window and scopeWarnings. An extreme action's
+nested targets can still exceed a single item and fail safely.
 
 ### Multi-target market protocol
 
@@ -894,22 +878,6 @@ protections, then executes metadata-only SQL for all changed items. Other
 instrument fields, source preferences, quotes and ledger facts are retained.
 Managed/archived targets reject every item. The short result has requestedCount,
 changedCount and items {id,changed,metadataVersion}.
-
-Review batches require ledger_write:
-
-- set_investment_review_enrollment_batch input {expectedRevision,items:[{instrumentId,enabled}]}.
-- set_investment_review_snooze_batch input {expectedRevision,items:[{instrumentId,days}]} with days 0/7/30.
-- acknowledge_investment_reviews_batch input {expectedRevision,items:[{instrumentId,episodeId}]}.
-
-One shared write permit/review lock, current report/state, expectedRevision check
-and atomic configuration Save cover every item. One changed batch increments
-revision once; all no-op skips Save/revision increment. Ack revalidates current
-eligible episodes; snooze uses one household civil date and does not alter
-policy/enrollment/ack. The short result contains previousRevision,revision,
-requestedCount,changedCount and item identities/change flags. Existing single
-writes preserve their contracts. Native App/real-client acceptance and real
-ledger writes are separate and are not implied by synthetic tests or skill
-bundle packaging.
 
 ### Remaining scale boundaries
 

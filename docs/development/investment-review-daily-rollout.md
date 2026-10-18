@@ -1,5 +1,12 @@
 # Daily investment review implementation checkpoint
 
+> Historical implementation notes below record the feature rollout before the
+> cleanup on 2026-10-18. The active runtime now exposes V2 daily rules only. V1
+> panels, conversion, app APIs, MCP tools and batch tools are retired. The
+> existing v18-to-v19 migration is unchanged: it preserves preference bytes,
+> quarantine records and migration-only `legacy_v1` compatibility rules. V2
+> queries expose daily rules only; the old settings reader remains read-only.
+
 The authoritative design is Library item
 `libfile_da0cbd81b3c08191a4bdc7c9b6bee201`, version 2 (design 1.2),
 114254 bytes, SHA256
@@ -24,21 +31,20 @@ existing PR98 worktree and retains its earlier implementation.
   distinct date admission rules. Position epochs and T/U/F transitions
   preserve an acknowledged episode across U and resolve it on proven F.
 - Schema 19 with a verified, flushed schema-18 recovery copy before upgrade;
-  explicit 15–19 verification and full-backup compatibility. Valid v1
-  preferences become one deterministic `legacy_v1` compatibility rule inside
-  the upgrade transaction, with explicit true enrollment targets only. The
-  original JSON and hash remain immutable; later v1 preference writes advance
-  the rule's versions without rewriting that source. Malformed values remain
-  quarantined for repair. Publication stages outside the write transaction, rechecks the
+  explicit 15–19 verification and full-backup compatibility. Historical v1
+  preference JSON remains byte-for-byte preserved in migration state with its
+  hash; malformed/orphaned values remain quarantined. Valid v1 values continue
+  to produce migration-only compatibility rules, hidden from V2 reads. The
+  settings recovery reader is retained and no V1 preference writer remains.
+  Publication stages outside the write transaction, rechecks the
   authoritative source fingerprint, and commits days, states and episodes
   atomically with mutation receipts and same-day idempotence.
 - Bounded read APIs for rules, current alert groups, one alert detail,
   positive-holding coverage and suppressions; explicit reconciliation,
-  acknowledgement and suppression writes. Wails and MCP v2 expose these
-  separately from the legacy v1 tools. The dedicated review page and rule
-  editor offer grouped alerts, filters, local refresh, dated evidence, three
-  trigger modes, acknowledgement and ignore management in en/zh-CN/zh-TW.
-  The legacy panel remains available as a secondary section.
+  acknowledgement and suppression writes. Wails and MCP expose the V2 rule, alert, evidence, history, acknowledgement
+  and suppression APIs. The dedicated V2 page and rule editor offer grouped
+  alerts, filters, explicit refresh, dated evidence, three trigger modes,
+  acknowledgement and ignore management in en/zh-CN/zh-TW.
 
 The general `.nestworth.json` export remains version 2 as specified. No
 independent rule-template export/import format has been added.
@@ -74,20 +80,7 @@ starts at the trigger window's first date, so a consecutive or rolling rule
 retains the earlier votes needed to explain why it fired. Tests page through
 consecutive, rolling, and same-day clear/rebuy episodes.
 
-## Conversion flow, history UI, nested editor, and incremental replay
-
-The migrated compatibility rule now has an explicit conversion sheet. A pure
-preview proposes separate low-yield and loss daily rules, states the changed
-calendar-span semantics, and estimates new alerts and unknown outcomes. The
-user chooses the daily trigger and may explicitly expand from old enrolled
-investments to all current holdings. Save checks source and handling revisions,
-then atomically archives the v1 rule and creates both new rules with a mutation
-receipt. The old acknowledgements remain in history; original absolute snooze
-dates become scoped suppressions. A retry uses the same IDs and receipt.
-The conversion preview also carries a temporal token over the rule day,
-history-origin day, and all-rule temporary-ignore days. Save rejects a token
-that expired across any of those civil-midnight boundaries, even when no
-financial row or revision changed; the user must preview again.
+## History UI, nested editor, and incremental replay
 
 The dedicated page now offers a rule-scoped historical episode list and a
 paged event timeline for each episode, including resolved and archived-rule

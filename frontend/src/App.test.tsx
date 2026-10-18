@@ -242,7 +242,6 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
     UpcomingActions: () => upcomingRead(),
-    InvestmentReviews: () => Promise.resolve({ items: [], policy: { enabled: true, windowDays: 30, lowAnnualizedPercent: "1", lossPercent: "-1", sustainDays: 7, maxAgeDays: 7 }, asOf: "2026-10-15T12:00:00Z", timezone: "UTC" }),
     ListReviewAlertsV2: (...args: unknown[]) => reviewAlerts(...args),
     ListReviewRulesV2: () => Promise.resolve([]),
     ReconcileInvestmentReviewsV2: () => Promise.resolve({}),
@@ -930,7 +929,7 @@ it.each(SUPPORTED_LANGUAGES)("keeps investment review reachable from Overview wi
   await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
   expect(screen.getByText(i18n.t("upcomingActions.description"))).toBeVisible();
-  const reviewTab = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
+  const reviewTab = screen.getByRole("tab", { name: i18n.t("reviewV2.title") });
   expect(reviewTab).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toBeVisible();
   const header = within(document.querySelector("header")!);
@@ -966,7 +965,7 @@ it("preserves filtered page two through the real instrument route and focuses bo
   await screen.findByTestId("overview-net-worth");
   const overviewReviewTrigger = screen.getByRole("button", { name: i18n.t("reviewV2.openReview") });
   await user.click(overviewReviewTrigger);
-  await user.click(await screen.findByRole("tab", { name: i18n.t("investmentReview.title") }));
+  await user.click(await screen.findByRole("tab", { name: i18n.t("reviewV2.title") }));
   await screen.findByRole("heading", { name: "Synthetic First Holding" });
   await user.type(screen.getByRole("textbox", { name: i18n.t("reviewV2.search") }), "Synthetic");
   await user.selectOptions(screen.getByRole("combobox", { name: i18n.t("reviewV2.typeFilter") }), "mutual_fund");

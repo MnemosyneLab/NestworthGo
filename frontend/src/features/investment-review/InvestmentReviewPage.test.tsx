@@ -85,13 +85,6 @@ describe("daily investment review page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Load more" }));
     expect(state.suppressions.fetchNextPage).toHaveBeenCalledOnce();
   });
-  it("labels a migrated legacy rule without opening the daily rule editor for it", async () => {
-    state.rules.data = [{ id: "legacy-rule", evaluator: "legacy_v1", enabled: true, rowRevision: 1, archivedAt: null }] as never;
-    mount();
-    await userEvent.click(screen.getByRole("button", { name: "Rules" }));
-    expect(screen.getByText(i18n.t("reviewV2.legacyRuleHelp"))).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-  });
   it.each(["en", "zh-CN", "zh-TW"])("groups every alert for one investment and explains its fixed window in %s", async language => {
     await i18n.changeLanguage(language);
     mount();
