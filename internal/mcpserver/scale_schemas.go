@@ -1,15 +1,13 @@
 package mcpserver
 
 import (
-	"strings"
-
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	fields := map[string][]string{
-		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_investment_reviews": {"instrumentId", "displayName", "latestOn", "ageDays", "annualizedPercent", "periodPercent"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data_batch": {"targetKey", "displayName"}, "get_read_page": {}, "get_read_item": {}}
+		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data_batch": {"targetKey", "displayName"}, "get_read_page": {}, "get_read_item": {}}
 	sortFields, ok := fields[name]
 	if !ok {
 		return nil
@@ -81,8 +79,6 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 				types = append(types, string(t))
 			}
 			enums = map[string][]string{"types": types}
-		case "get_investment_reviews":
-			enums = map[string][]string{"statuses": {"unavailable", "healthy", "confirming", "stale", "loss", "low_yield"}}
 		case "get_upcoming_actions":
 			enums = map[string][]string{"kinds": {"reservation_unresolved", "reservation_shortfall", "source_access", "product_schedule"}, "groups": {"attention", "scheduled", "eligible"}}
 		case "list_agent_market_data":
@@ -137,27 +133,4 @@ func walkScaleSchema(s *jsonschema.Schema) {
 		walkScaleSchema(p)
 	}
 	walkScaleSchema(s.Items)
-}
-func reviewBatchSchema[I any](name string) *jsonschema.Schema {
-	if !strings.HasSuffix(name, "_batch") || !strings.Contains(name, "investment_review") {
-		return nil
-	}
-	schema, err := jsonschema.For[Mutation[I]](nil)
-	if err != nil {
-		panic(err)
-	}
-	input := schema.Properties["input"]
-	items := input.Properties["items"]
-	min, max := 1, 100
-	items.MinItems, items.MaxItems = &min, &max
-	zero := float64(0)
-	input.Properties["expectedRevision"].Minimum = &zero
-	if p := items.Items.Properties["days"]; p != nil {
-		p.Enum = []any{0, 7, 30}
-	}
-	if p := items.Items.Properties["episodeId"]; p != nil {
-		max := 512
-		p.MaxLength = &max
-	}
-	return schema
 }

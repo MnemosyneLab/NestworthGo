@@ -1,79 +1,14 @@
 package mcpserver
 
 import (
-	"context"
-	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-type failingReviewStore struct {
-	memoryInvestmentReviewStore
-	fail  bool
-	saves int
-}
-
-func (s *failingReviewStore) SaveConfiguration(key string, value []byte) error {
-	s.saves++
-	if s.fail {
-		return errors.New("synthetic configuration failure")
-	}
-	return s.memoryInvestmentReviewStore.SaveConfiguration(key, value)
-}
-func TestScaleReviewSaveFailureAndNoop(t *testing.T) {
-	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
-	store := &failingReviewStore{}
-	fx.app.SetInvestmentReviewConfiguration(store)
-	ids := []string{}
-	for range 2 {
-		i, err := fx.app.CreateInstrument(t.Context(), application.InstrumentInput{Name: "Review fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		ids = append(ids, i.ID.String())
-		if _, err := fx.app.CreateHolding(t.Context(), application.HoldingInput{AccountID: fx.brokerage, InstrumentID: i.ID.String(), Quantity: "10", UnitCost: "1"}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	in := application.ReviewEnrollmentBatchInput{ExpectedRevision: 0, Items: []application.ReviewEnrollmentItem{{InstrumentID: ids[0], Enabled: true}, {InstrumentID: ids[1], Enabled: true}}}
-	store.fail = true
-	if _, err := fx.app.SetInvestmentReviewEnrollmentBatch(t.Context(), in); err == nil {
-		t.Fatal("save failure accepted")
-	}
-	r, err := fx.app.InvestmentReviews(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r.Revision != 0 || r.Items[0].Monitored || r.Items[1].Monitored {
-		t.Fatal("partial configuration")
-	}
-	store.fail = false
-	receipt, err := fx.app.SetInvestmentReviewEnrollmentBatch(t.Context(), in)
-	if err != nil || receipt.Revision != 1 || receipt.ChangedCount != 2 {
-		t.Fatal(receipt, err)
-	}
-	saves := store.saves
-	in.ExpectedRevision = 1
-	receipt, err = fx.app.SetInvestmentReviewEnrollmentBatch(t.Context(), in)
-	if err != nil || receipt.ChangedCount != 0 || store.saves != saves {
-		t.Fatal("noop saved state", receipt, err)
-	}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	in.Items[0].Enabled = false
-	if _, err := fx.app.SetInvestmentReviewEnrollmentBatch(ctx, in); err == nil {
-		t.Fatal("cancel accepted")
-	}
-	if store.saves != saves {
-		t.Fatal("cancel saved")
-	}
-}
 func TestScaleMetadataUnknownReceiptAndProtectedTargets(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
@@ -133,7 +68,7 @@ func TestScalePermissionMatrix(t *testing.T) {
 					t.Fatalf("read tool unavailable %s", name)
 				}
 			}
-			writes := map[string]bool{"update_instruments_batch": mode != ReadOnly, "set_investment_review_enrollment_batch": mode == LedgerWrite, "set_investment_review_snooze_batch": mode == LedgerWrite, "acknowledge_investment_reviews_batch": mode == LedgerWrite}
+			writes := map[string]bool{"update_instruments_batch": mode != ReadOnly}
 			for name, allowed := range writes {
 				if (tools[name] != nil) != allowed {
 					t.Fatalf("permission %s %s", mode, name)

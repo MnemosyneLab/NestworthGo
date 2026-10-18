@@ -214,7 +214,7 @@ it.each(["en", "zh-CN", "zh-TW"])("switches between the existing actions and rev
   await i18n.changeLanguage(language);
   mount(<UpcomingActionsPage />);
   const recent = screen.getByRole("tab", { name: i18n.t("upcomingActions.title") });
-  const review = screen.getByRole("tab", { name: i18n.t("investmentReview.title") });
+  const review = screen.getByRole("tab", { name: i18n.t("reviewV2.title") });
   expect(recent).toHaveAttribute("aria-selected", "true");
   expect(screen.getByText("Synthetic deposit")).toBeVisible();
   recent.focus(); await userEvent.keyboard("{ArrowRight}{Enter}");

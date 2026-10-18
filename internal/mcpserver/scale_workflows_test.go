@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -167,7 +166,7 @@ func TestScaleHTTPMetadataAtomicCASAndReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	tools := featureToolList(t, connect(t, fx.service))
-	if tools["update_instruments_batch"] != nil || tools["set_investment_review_enrollment_batch"] != nil {
+	if tools["update_instruments_batch"] != nil {
 		t.Fatal("read-only write discovery")
 	}
 }
@@ -222,81 +221,4 @@ func TestScaleHTTPMarketCurrentHistoryAndAgentRetraction(t *testing.T) {
 	}
 	call(t, c, "get_market_data_batch", map[string]any{"targets": []any{targets[0], targets[0]}}, true)
 	call(t, c, "list_agent_market_data", map[string]any{"responseMode": "paged", "offset": 1}, true)
-}
-func TestScaleHTTPReviewBatchesSingleRevisionAndAtomicity(t *testing.T) {
-	t.Parallel()
-	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
-	store := &memoryInvestmentReviewStore{}
-	fx.app.SetInvestmentReviewConfiguration(store)
-	ids := []string{}
-	for range 2 {
-		fx.app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
-		i, err := fx.app.CreateInstrument(t.Context(), application.InstrumentInput{Name: "Synthetic review fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		ids = append(ids, i.ID.String())
-		if _, err := fx.app.CreateHolding(t.Context(), application.HoldingInput{AccountID: fx.brokerage, InstrumentID: i.ID.String(), Quantity: "10", UnitCost: "1"}); err != nil {
-			t.Fatal(err)
-		}
-		fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
-		quotes := []application.AgentMarketDataItem{}
-		for n := 0; n < 43; n++ {
-			quotes = append(quotes, application.AgentMarketDataItem{InstrumentID: i.ID.String(), Currency: "USD", Value: "1", Kind: "nav", Date: time.Date(2026, 9, 1+n, 0, 0, 0, 0, time.UTC).Format(time.DateOnly), Timezone: "UTC", SourceTitle: "Synthetic NAV"})
-		}
-		if _, err := fx.app.ImportAgentMarketData(t.Context(), uuid.NewString(), application.AgentMarketDataInput{Items: quotes}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 13, 23, 59, 0, 0, time.UTC) })
-	c := ledgerSession(t, fx)
-	items := []any{}
-	for _, id := range ids {
-		items = append(items, map[string]any{"instrumentId": id, "enabled": true})
-	}
-	items[1].(map[string]any)["instrumentId"] = uuid.NewString()
-	call(t, c, "set_investment_review_enrollment_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"expectedRevision": 0, "items": items}}, true)
-	r, _ := fx.app.InvestmentReviews(t.Context())
-	if r.Revision != 0 || r.Items[0].Monitored {
-		t.Fatal("partial enrollment")
-	}
-	items[1].(map[string]any)["instrumentId"] = ids[1]
-	receipt := mutate(t, c, "set_investment_review_enrollment_batch", map[string]any{"expectedRevision": 0, "items": items})
-	if receipt["revision"] != float64(1) || receipt["changedCount"] != float64(2) {
-		t.Fatal(receipt)
-	}
-	noop := mutate(t, c, "set_investment_review_enrollment_batch", map[string]any{"expectedRevision": 1, "items": items})
-	if noop["revision"] != float64(1) || noop["changedCount"] != float64(0) {
-		t.Fatal(noop)
-	}
-	r, _ = fx.app.InvestmentReviews(t.Context())
-	ack := []any{}
-	snooze := []any{}
-	for _, v := range r.Items {
-		ack = append(ack, map[string]any{"instrumentId": v.InstrumentID, "episodeId": v.EpisodeID})
-		snooze = append(snooze, map[string]any{"instrumentId": v.InstrumentID, "days": 7})
-	}
-	receipt = mutate(t, c, "acknowledge_investment_reviews_batch", map[string]any{"expectedRevision": 1, "items": ack})
-	if receipt["revision"] != float64(2) {
-		t.Fatal(receipt)
-	}
-	receipt = mutate(t, c, "set_investment_review_snooze_batch", map[string]any{"expectedRevision": 2, "items": snooze})
-	if receipt["revision"] != float64(3) {
-		t.Fatal(receipt)
-	}
-	cap := scaleCapture(t, c, "get_investment_reviews", map[string]any{"responseMode": "paged", "limit": 1})
-	if len(scaleSection(t, c, cap, "items")) != 2 {
-		t.Fatal("review pages")
-	}
-	for _, v := range snooze {
-		v.(map[string]any)["days"] = 0
-	}
-	receipt = mutate(t, c, "set_investment_review_snooze_batch", map[string]any{"expectedRevision": 3, "items": snooze})
-	if receipt["revision"] != float64(4) {
-		t.Fatal(receipt)
-	}
-	call(t, c, "set_investment_review_snooze_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"expectedRevision": 3, "items": snooze}}, true)
-	upcoming := scaleCapture(t, c, "get_upcoming_actions", map[string]any{"responseMode": "paged", "limit": 1})
-	scaleSection(t, c, upcoming, "items")
-	scaleSection(t, c, upcoming, "dataChecks")
 }

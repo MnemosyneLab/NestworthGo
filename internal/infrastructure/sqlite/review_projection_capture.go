@@ -42,7 +42,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return empty, err
 	}
-	ruleRows, err := tx.QueryContext(ctx, reviewRuleSelect+` WHERE r.household_id=? ORDER BY r.id`, householdID.String())
+	ruleRows, err := tx.QueryContext(ctx, reviewRuleSelect+` WHERE r.household_id=? AND r.evaluator=? ORDER BY r.id`, householdID.String(), domain.ReviewEvaluator)
 	if err != nil {
 		return empty, err
 	}

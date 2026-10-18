@@ -9,7 +9,6 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AvailableFundsPage } from "./AvailableFundsPage";
 import type { LiquidityOverviewDTO, LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
-const investmentReviews = vi.fn();
 const upcomingActions = vi.fn(() => Promise.resolve(upcomingData()));
 const overview = vi.fn();
 const listProducts = vi.fn();
@@ -17,7 +16,6 @@ const listAccounts = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
-    InvestmentReviews: () => investmentReviews(),
     UpcomingActions: () => upcomingActions(),
     Overview: (...args: unknown[]) => overview(...args),
     ListProducts: (...args: unknown[]) => listProducts(...args),
@@ -317,7 +315,6 @@ it("shows a known future lock clearly and keeps the normal route when early acce
 describe("Available Funds scope", () => {
   it.each(["en", "zh-CN", "zh-TW"])("omits upcoming actions and investment review panels and entries in %s", async language => {
     await i18n.changeLanguage(language);
-    investmentReviews.mockClear();
     upcomingActions.mockClear();
     overview.mockResolvedValue(fixtureOverview());
     listProducts.mockResolvedValue([]);
@@ -326,10 +323,7 @@ describe("Available Funds scope", () => {
     await screen.findByTestId("available-funds-page");
     expect(screen.queryByTestId("overview-upcoming-actions-card")).not.toBeInTheDocument();
     expect(screen.queryByText(i18n.t("upcomingActions.title"))).not.toBeInTheDocument();
-    expect(screen.queryByText(i18n.t("investmentReview.title"))).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: i18n.t("investmentReview.view") })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: i18n.t("upcomingActions.viewAll", { count: 0 }) })).not.toBeInTheDocument();
-    expect(investmentReviews).not.toHaveBeenCalled();
     expect(upcomingActions).not.toHaveBeenCalled();
     expect(screen.getByLabelText(i18n.t("availableFunds.customDate"))).toBeVisible();
     expect(screen.getByTestId("horizon-2026-09-20")).toBeVisible();

@@ -392,7 +392,7 @@ func (s *Service) boundedReadTools(server *mcp.Server, g uint64) {
 }
 func isReadScaleTool(name string) bool {
 	switch name {
-	case "get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch", "set_investment_review_enrollment_batch", "set_investment_review_snooze_batch", "acknowledge_investment_reviews_batch":
+	case "get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch":
 		return true
 	}
 	return false

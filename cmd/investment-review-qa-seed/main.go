@@ -43,7 +43,6 @@ func seed(dir, date string) error {
 	}
 	defer db.Close()
 	s := application.NewService(sqlite.NewRepository(db))
-	s.SetInvestmentReviewConfiguration(sqlite.NewConfigurationRepository(db))
 	s.SetClock(func() time.Time { return day.Add(-100 * 24 * time.Hour) })
 	ctx := context.Background()
 	if err = s.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic investment review QA", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}}); err != nil {

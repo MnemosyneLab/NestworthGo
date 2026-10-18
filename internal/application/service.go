@@ -31,9 +31,6 @@ type Service struct {
 
 	changeMu sync.Mutex
 
-	reviewMu    sync.Mutex
-	reviewStore InvestmentReviewConfiguration
-
 	writes       WriteCoordinator
 	refreshEpoch atomic.Uint64
 
