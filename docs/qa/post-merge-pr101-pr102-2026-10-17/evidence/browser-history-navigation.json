@@ -1,0 +1,31 @@
+{
+  "browser": "Cloud Chromium 151.0.7922.173",
+  "backend": "real Wails server at 127.0.0.1:18734",
+  "sandboxRequested": false,
+  "steps": [
+    {
+      "action": "Open Return Analysis and select the synthetic review account",
+      "url": "http://127.0.0.1:18734/",
+      "heading": "Return Analysis",
+      "accountFilterVisible": true
+    },
+    {
+      "action": "Navigate to Asset Changes using the app navigation",
+      "url": "http://127.0.0.1:18734/",
+      "heading": "Asset Changes"
+    },
+    {
+      "action": "Browser Back",
+      "url": "about:blank",
+      "heading": "",
+      "observation": "The app route was not restored."
+    },
+    {
+      "action": "Browser Forward",
+      "url": "http://127.0.0.1:18734/",
+      "heading": "Overview",
+      "observation": "The app reopened at Overview, not Asset Changes or the filtered Return Analysis view."
+    }
+  ],
+  "inAppBack": "A separate Analysis-to-History in-app Back flow restored the Return Analysis Contribution tab, date range, and scope; see evidence/46-back-to-analysis-context.png."
+}

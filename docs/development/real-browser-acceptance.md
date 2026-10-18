@@ -79,11 +79,15 @@ npm exec --yes --package=pnpm@12.2.1 -- pnpm --version
 
 Do not let a mismatched package-manager wrapper silently determine the build.
 Use the cloud environment's browser executable. The verified Chromium was
-`/usr/bin/chromium`; Playwright launched it with its default sandbox enabled
-for the final persistence check. The broad first-pass scripts also used
-`--no-sandbox` in the hosted container; that disables Chromium's OS sandbox and
-should be avoided when the default launch works. It does not alter Nestworth
-service behavior, but record it whenever used.
+`/usr/bin/chromium`. Playwright's `chromium_sandbox` launch option defaults to
+`false`; omitting it does not enable Chromium's OS sandbox. For a sandboxed
+run, pass `chromium_sandbox=True` explicitly and verify the launch succeeds
+and Chromium reports sandboxing as active (for example, with
+`chrome://sandbox`). See the [Playwright launch option documentation](https://playwright.dev/python/docs/api/class-browsertype#browser-type-launch-option-chromium-sandbox).
+If the cloud container blocks sandbox startup, keep the failure as evidence;
+do not retry by weakening the sandbox and call that run sandboxed. If the
+browser checks are then continued with sandboxing disabled, record that mode
+in the report and screenshots.
 
 After installing the pinned Go, Wails and frontend tools, run the repository's
 documented one-time setup in a clean checkout:
@@ -122,6 +126,7 @@ mkdir -p "$QA_ROOT/empty-data" "$QA_ROOT/settings" "$QA_ROOT/xdg" "$QA_ROOT/tmp"
 NESTWORTH_QA_OUTPUT_DIR="$QA_ROOT/analytics" \
 NESTWORTH_QA_SCENARIO=complete-cny \
 NESTWORTH_QA_ANCHOR=2026-07-26T00:00:00Z \
+NESTWORTH_DATABASE_PATH="$QA_ROOT/analytics/data/nestworth.db" \
 go run ./cmd/analytics-qa-seed
 ```
 
@@ -137,7 +142,8 @@ a new target directory:
 
 ```bash
 EVAL_DATE="$(date -u +%F)"
-go run ./cmd/investment-review-qa-seed -dir "$QA_ROOT/review" -date "$EVAL_DATE"
+NESTWORTH_DATABASE_PATH="$QA_ROOT/review/household.db" \
+  go run ./cmd/investment-review-qa-seed -dir "$QA_ROOT/review" -date "$EVAL_DATE"
 ```
 
 That helper creates a synthetic household and flat/loss/missing/distribution/
@@ -147,6 +153,11 @@ seeder, a temporary harness may onboard and seed through real
 then import synthetic market data). Keep it out of the permanent source tree
 afterward; do not bypass service validation or fabricate repository state with
 SQL.
+
+For the PR101/PR102 cash-effect replay finding, a maintained docs-only
+reproducer creates a minimal historical-review household through real
+`application.Service` methods, then drives the rule preview through the actual
+browser. See [`docs/qa/post-merge-pr101-pr102-2026-10-17/repro/README.md`](../qa/post-merge-pr101-pr102-2026-10-17/repro/README.md).
 
 ## Build and start the real HTTP backend
 
@@ -196,6 +207,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(
         headless=True,
         executable_path="/usr/bin/chromium",
+        chromium_sandbox=True,
     )
     page = browser.new_page(viewport={"width": 1440, "height": 1000})
     runtime_calls = []

@@ -1,0 +1,122 @@
+{
+  "syntheticHouseholds": 1,
+  "origin": {
+    "timezone": "UTC",
+    "started_at": "2026-10-01T00:00:00.000Z",
+    "created_at": "2026-10-18T00:35:19.076Z"
+  },
+  "originComponents": 0,
+  "account": {
+    "name": "Synthetic review account opened Oct 1",
+    "opened_on": "2026-10-01",
+    "created_at": "2026-10-18T00:35:37.890Z",
+    "default_currency": "USD"
+  },
+  "instrument": {
+    "name": "Synthetic opened daily NAV fund",
+    "created_at": "2026-10-18T00:35:47.462Z",
+    "quote_currency": "USD"
+  },
+  "activities": [
+    {
+      "kind": "cash_in",
+      "reason": "contribution",
+      "effective_at": "2026-10-01T00:10:00.000Z",
+      "effective_local_date": "2026-10-01",
+      "created_at": "2026-10-18T00:36:21.100Z",
+      "effects": [
+        {
+          "role": "amount",
+          "direction": "added",
+          "target": "account_cash",
+          "classification": "external_inflow",
+          "amount": "2000",
+          "currency": "USD",
+          "quantity": null
+        }
+      ]
+    },
+    {
+      "kind": "buy",
+      "reason": "principal",
+      "effective_at": "2026-10-01T00:20:00.000Z",
+      "effective_local_date": "2026-10-01",
+      "created_at": "2026-10-18T00:36:24.077Z",
+      "effects": [
+        {
+          "role": "quantity",
+          "direction": "added",
+          "target": "holding_quantity",
+          "classification": "trade_principal",
+          "amount": null,
+          "currency": null,
+          "quantity": "10"
+        },
+        {
+          "role": "principal",
+          "direction": "removed",
+          "target": "account_cash",
+          "classification": "trade_principal",
+          "amount": "1000",
+          "currency": "USD",
+          "quantity": null
+        },
+        {
+          "role": "fee",
+          "direction": "removed",
+          "target": "account_cash",
+          "classification": "fee",
+          "amount": "5",
+          "currency": "USD",
+          "quantity": null
+        }
+      ]
+    }
+  ],
+  "eventCashProjections": [
+    {
+      "amount": "2000",
+      "currency": "USD",
+      "effective_at": "2026-10-01T00:10:00.000Z",
+      "projection_kind": "event"
+    },
+    {
+      "amount": "995",
+      "currency": "USD",
+      "effective_at": "2026-10-01T00:20:00.000Z",
+      "projection_kind": "event"
+    },
+    {
+      "amount": "995",
+      "currency": "USD",
+      "effective_at": "2026-10-01T00:20:00.000Z",
+      "projection_kind": "event"
+    }
+  ],
+  "quotes": {
+    "count": 17,
+    "from_date": "2026-10-01",
+    "through_date": "2026-10-17",
+    "first_created_at": "2026-10-18T12:00:00.000Z",
+    "last_created_at": "2026-10-18T12:00:00.000Z",
+    "first_fetched_at": "2026-10-18T12:00:00.000Z",
+    "last_fetched_at": "2026-10-18T12:00:00.000Z",
+    "min_price": "100",
+    "max_price": "100"
+  },
+  "snapshots": {
+    "row_count": 17,
+    "day_count": 17,
+    "from_date": "2026-10-01",
+    "through_date": "2026-10-17",
+    "all_complete": 1,
+    "highest_revision": 1
+  },
+  "snapshotState": {
+    "dirty_from": "2026-10-18",
+    "last_completed_closed_on": "2026-10-17",
+    "updated_at": "2026-10-18T12:00:00.000Z",
+    "input_generation": 21
+  },
+  "finalCash": "995 USD"
+}

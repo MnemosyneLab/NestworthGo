@@ -1,0 +1,18 @@
+Playwright Python 1.62.0; /usr/bin/chromium 151.0.7922.173
+
+Requested launch:
+  playwright.chromium.launch(headless=True,
+      executable_path="/usr/bin/chromium", chromium_sandbox=True)
+
+Observed failure:
+  BrowserType.launch: TargetClosedError
+  FATAL: The SUID sandbox helper binary was found, but is not configured
+  correctly. Rather than run without sandboxing I'm aborting now. You need to
+  make sure /usr/lib/chromium/chrome-sandbox is owned by root and has mode 4755.
+
+Container metadata:
+  /usr/lib/chromium/chrome-sandbox: mode 4755, owner nobody:nogroup
+
+Chromium did not launch, so chrome://sandbox could not be inspected. No host
+ownership or permission changes were made. Browser acceptance continued with
+chromium_sandbox=False, explicitly recorded in the reproducer JSON.
