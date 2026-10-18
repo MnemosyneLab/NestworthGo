@@ -107,9 +107,12 @@ func TestReturnCalendarMonthlySummaryMatchesSameIntervalPeriodAndPreservesPartia
 	t.Parallel()
 	firstAmount, lastAmount := testReturnMoney(t, "10"), testReturnMoney(t, "20")
 	firstRate, lastRate := decimal.RequireFromString("0.1"), decimal.RequireFromString("0.2")
+	incompleteRate := decimal.RequireFromString("9")
 	daily := []domain.DailyReturn{
 		{Date: "2026-08-01", Amount: &firstAmount, Rate: &firstRate, Status: domain.CompletenessOK},
-		{Date: "2026-08-02", Status: domain.CompletenessUnavailable},
+		// Malformed/legacy input must not make an incomplete day count merely
+		// because it happens to carry a non-nil rate.
+		{Date: "2026-08-02", Rate: &incompleteRate, Status: domain.CompletenessUnavailable},
 		{Date: "2026-08-03", Amount: &lastAmount, Rate: &lastRate, Status: domain.CompletenessOK},
 	}
 	linkedRate, coverage := aggregateDailyReturnRate(daily)
