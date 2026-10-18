@@ -280,7 +280,10 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 			return ContributionItemResult{}, err
 		}
 		item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: contribution.AnalysisAvailability, HistoryHint: realizedContributionHistoryHint(query, groupBy, groupKey)}
-		if contribution.Status == domain.CompletenessUnavailable {
+		// Unsupported dimensions have no realized rows to drill into. A
+		// supported scope may still contain rows with missing FX evidence;
+		// retain those rows and their unavailable amounts for inspection.
+		if _, supported := realizedScope(query); !supported {
 			return item, nil
 		}
 		var matched *ContributionRow
