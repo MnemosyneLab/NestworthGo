@@ -57,6 +57,24 @@ type GainScope struct {
 	InstrumentID *InstrumentID
 }
 
+// RealizedGainSelector filters realized sale events after cost basis has been
+// replayed from the complete gain snapshot. A selector does not limit the
+// replay inputs: prior acquisitions, archived holdings and transfer sources
+// may still be needed to calculate a selected event's basis. NoMatch records
+// contradictory scope/filter constraints, which produce an available empty
+// result instead of widening to a broader scope.
+//
+// AssetClass is the instrument's current Type metadata, matching analysis
+// universe classification. Currency is the realized sale event's native
+// denomination, not account default or output currency.
+type RealizedGainSelector struct {
+	AccountID    *AccountID
+	InstrumentID *InstrumentID
+	Currency     *CurrencyCode
+	AssetClass   string
+	NoMatch      bool
+}
+
 // LocalDate is the canonical YYYY-MM-DD value already used by activities and
 // historical snapshots. It is an alias so existing string-based application
 // callers remain source-compatible.

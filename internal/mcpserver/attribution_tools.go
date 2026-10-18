@@ -13,7 +13,7 @@ import (
 )
 
 type ListContributionsInput struct {
-	Query      PeriodAnalysisQuery `json:"query" jsonschema:"Inclusive closed-day YYYY-MM-DD range in the History Origin timezone, with optional scope and filters"`
+	Query      PeriodAnalysisQuery `json:"query" jsonschema:"Inclusive closed-day YYYY-MM-DD range in the History Origin timezone. Scope and filters intersect. For realized, currency matches the sell event's native denomination and assetClass matches current Instrument.Type; member filtering is unsupported."`
 	ReturnType string              `json:"returnType" jsonschema:"One of total_return, realized, unrealized, dividend_interest; unrealized currently reports unavailable"`
 	GroupBy    string              `json:"groupBy" jsonschema:"One of instrument, account, currency, asset_class"`
 	Ordering   string              `json:"ordering,omitempty" jsonschema:"One of amount_desc, amount_asc, rate_desc, rate_asc, name_asc; defaults to amount_desc"`
@@ -31,7 +31,7 @@ type ContributionPageDTO struct {
 }
 
 type GetContributionItemInput struct {
-	Query      PeriodAnalysisQuery `json:"query" jsonschema:"Use the same query as list_contributions"`
+	Query      PeriodAnalysisQuery `json:"query" jsonschema:"Use the same query as list_contributions, including all realized scope and filters"`
 	ReturnType string              `json:"returnType" jsonschema:"Use the same returnType as list_contributions"`
 	GroupBy    string              `json:"groupBy" jsonschema:"Use the same groupBy as list_contributions"`
 	GroupKey   string              `json:"groupKey" jsonschema:"Exact key from a list_contributions row"`
@@ -83,7 +83,7 @@ func readAttributionTool[I any](server *mcp.Server, name, description string, en
 }
 
 func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service) {
-	readAttributionTool(server, "list_contributions", "Page investment return contributions by instrument, account, currency or asset class. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Use a row key with get_contribution_item; repeat the same query, returnType and groupBy. Dates are inclusive closed days in the History Origin timezone.", map[string][]any{
+	readAttributionTool(server, "list_contributions", "Page investment return contributions by instrument, account, currency or asset class. Realized contributions can be filtered by scope and filters, which intersect: currency selects the native sell-event denomination, asset class selects the instrument's current Type, and account/instrument constraints also intersect. Member filtering remains unsupported. Realized rows group by instrument or account only; currency and asset-class filters do not add grouping modes. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Use a row key with get_contribution_item; repeat the same query, returnType and groupBy. Dates are inclusive closed days in the History Origin timezone.", map[string][]any{
 		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},
 		"groupBy":    {"instrument", "account", "currency", "asset_class"},
 		"ordering":   {"amount_desc", "amount_asc", "rate_desc", "rate_asc", "name_asc"},
@@ -118,7 +118,7 @@ func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service
 		}
 		return page, nil
 	})
-	readAttributionTool(server, "get_contribution_item", "Read the full components, account breakdown and History activity hint for one contribution row. Use an exact key from list_contributions with the same query, returnType and groupBy; the hint identifies related records and is not a second calculation of the amount.", map[string][]any{
+	readAttributionTool(server, "get_contribution_item", "Read the full components, account breakdown and related History activity hint for one contribution row. Use an exact key from list_contributions with the same query, returnType and groupBy; the hint may identify a broader set of related records when currency or asset-class filters are active, and is not an exact matching breakdown or a second calculation of the amount.", map[string][]any{
 		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},
 		"groupBy":    {"instrument", "account", "currency", "asset_class"},
 	}, func(ctx context.Context, in GetContributionItemInput) (any, error) {

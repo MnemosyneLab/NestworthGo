@@ -329,7 +329,14 @@ Contribution return types are `total_return`, `realized`, `unrealized`,
 `dividend_interest`; grouping is instrument/account/currency/asset_class.
 Use the response's available/status/missingReason and ratedDays/totalDays.
 The current backend can report unrealized attribution as unavailable; querying
-that option is not proof it can be fully calculated.
+that option is not proof it can be fully calculated. Realized attribution keeps
+household base currency as its output regardless of valuation. Currency scopes
+and filters match the sell event's native denomination; asset-class scopes and
+filters match current instrument `Type` metadata. Scope and explicit filters
+intersect, including on the same dimension. Contradictions yield available
+empty results. Realized grouping remains instrument/account, and member filters
+remain unsupported. Detail hints identify related history and may be broader
+than a currency/class-filtered row's exact activity set.
 
 Asset drivers include external flow, income, spending, dividend/interest, price,
 FX impact, conversion spread, fees, liabilities, adjustments and residual.

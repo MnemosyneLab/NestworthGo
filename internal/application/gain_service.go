@@ -149,6 +149,16 @@ func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot doma
 // range. Each sale is converted with the FX observation available at that
 // sale's own effective time; a missing observation affects only its groups.
 func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate) (domain.RealizedGainView, error) {
+	selector := domain.RealizedGainSelector{AccountID: scope.AccountID, InstrumentID: scope.InstrumentID}
+	return g.RealizedGainSelectedInRange(ctx, selector, from, to)
+}
+
+// RealizedGainSelectedInRange returns realized gains filtered by the event's
+// native currency and current instrument type, in addition to account and
+// instrument dimensions. Selection is applied after complete cost replay so
+// pre-range acquisitions and transfer-source holdings remain available to
+// determine basis.
+func (g *GainService) RealizedGainSelectedInRange(ctx context.Context, selector domain.RealizedGainSelector, from, to domain.LocalDate) (domain.RealizedGainView, error) {
 	fromTime, err := time.Parse("2006-01-02", from)
 	if err != nil {
 		return domain.RealizedGainView{}, &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "from date must use YYYY-MM-DD"}
@@ -164,10 +174,10 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
-	return g.realizedGainFromSnapshot(ctx, scope, from, to, inputs)
+	return g.realizedGainFromSnapshot(ctx, selector, from, to, inputs)
 }
 
-func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate, inputs domain.GainSnapshot) (domain.RealizedGainView, error) {
+func (g *GainService) realizedGainFromSnapshot(ctx context.Context, selector domain.RealizedGainSelector, from, to domain.LocalDate, inputs domain.GainSnapshot) (domain.RealizedGainView, error) {
 	snapshot := inputs.Portfolio
 	var err error
 	if snapshot.Household == nil {
@@ -193,8 +203,14 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain
 	byInstrument := make(map[domain.InstrumentID]*gainGroupAccumulator)
 	byAccount := make(map[domain.AccountID]*gainGroupAccumulator)
 	result := domain.RealizedGainView{From: from, To: to, Currency: snapshot.Household.BaseCurrency, Available: true}
+	if selector.NoMatch {
+		result.ByInstrument = []domain.GainGroupView{}
+		result.ByAccount = []domain.GainGroupView{}
+		result.Total, err = totalFromExactGainGroups(byInstrument, snapshot.Household.BaseCurrency)
+		return result, err
+	}
 	for _, holding := range snapshot.Holdings {
-		if (scope.AccountID != nil && holding.AccountID != *scope.AccountID) || (scope.InstrumentID != nil && holding.InstrumentID != *scope.InstrumentID) {
+		if (selector.AccountID != nil && holding.AccountID != *selector.AccountID) || (selector.InstrumentID != nil && holding.InstrumentID != *selector.InstrumentID) {
 			continue
 		}
 		instrument, ok := instruments[holding.InstrumentID]
@@ -208,6 +224,12 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, scope domain
 		for _, event := range replayed.Realized {
 			localDate := event.EffectiveAt.In(location).Format("2006-01-02")
 			if localDate < from || localDate > to {
+				continue
+			}
+			if selector.Currency != nil && event.RealizedGain.Currency() != *selector.Currency {
+				continue
+			}
+			if selector.AssetClass != "" && !strings.EqualFold(selector.AssetClass, string(instrument.Type)) {
 				continue
 			}
 			instrumentGroup := groupForInstrument(byInstrument, instrument.ID, instrument.DisplayLabel())
@@ -261,7 +283,7 @@ func (g *GainService) RealizedGain(ctx context.Context, scope domain.GainScope, 
 	if from == "" {
 		return domain.RealizedGainView{Available: true}, nil
 	}
-	return g.realizedGainFromSnapshot(ctx, scope, from, to, inputs)
+	return g.realizedGainFromSnapshot(ctx, domain.RealizedGainSelector{AccountID: scope.AccountID, InstrumentID: scope.InstrumentID}, from, to, inputs)
 }
 
 const dividendIncomeMissingFX = "dividend income foreign-exchange rate is unavailable"
