@@ -45,6 +45,20 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 				t.Fatalf("%s write tool visibility: %s", mode, name)
 			}
 		}
+		for _, name := range []string{
+			"get_investment_reviews",
+			"save_investment_review_policy",
+			"acknowledge_investment_review",
+			"set_investment_review_enrollment",
+			"set_investment_review_snooze",
+			"set_investment_review_enrollment_batch",
+			"set_investment_review_snooze_batch",
+			"acknowledge_investment_reviews_batch",
+		} {
+			if found[name] != nil {
+				t.Fatalf("retired legacy review tool %s is still discoverable in %s mode", name, mode)
+			}
+		}
 		call(t, client, "list_investment_review_rules", ReviewV2PageInput{PageSize: 10}, false)
 		call(t, client, "list_investment_review_alerts", ReviewV2AlertPageInput{Filter: domain.ReviewAlertFilter{Status: "all"}, PageSize: 10}, false)
 		call(t, client, "get_investment_review_coverage", ReviewV2CoverageInput{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 10}, false)
