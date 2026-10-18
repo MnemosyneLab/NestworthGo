@@ -2,13 +2,68 @@ package mcpserver
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
+
+func TestReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T) {
+	f := newLedgerFixture(t)
+	client := ledgerSession(t, f)
+	bootstrap, err := f.app.Bootstrap(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	accountID, err := domain.ParseAccountID(f.brokerage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrumentID, err := domain.ParseInstrumentID(f.instrument)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cash, _ := domain.ParseMoney("2000", "USD")
+	if _, err := f.app.RecordChange(t.Context(), domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: accountID, Amount: cash, Reason: domain.ReasonContribution, EffectiveAt: time.Date(2026, 9, 2, 0, 10, 0, 0, time.UTC)}); err != nil {
+		t.Fatal(err)
+	}
+	qty, _ := domain.ParseQuantity("10")
+	gross, _ := domain.ParseMoney("1000", "USD")
+	fee, _ := domain.ParseMoney("5", "USD")
+	if _, err := f.app.RecordChange(t.Context(), domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: accountID, InstrumentID: instrumentID, Quantity: qty, Gross: gross, Fee: &fee, EffectiveAt: time.Date(2026, 9, 2, 0, 20, 0, 0, time.UTC)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.app.ImportAgentMarketData(t.Context(), uuid.NewString(), application.AgentMarketDataInput{Items: []application.AgentMarketDataItem{{InstrumentID: instrumentID.String(), Currency: "USD", Value: "100", Kind: "close", Date: "2026-09-02", Timezone: "UTC", SourceTitle: "Synthetic close"}}}); err != nil {
+		t.Fatal(err)
+	}
+	spec := testReviewV2Spec()
+	encoded, _ := json.Marshal(spec)
+	var object map[string]any
+	if err := json.Unmarshal(encoded, &object); err != nil {
+		t.Fatal(err)
+	}
+	request := ReviewV2PreviewInput{Spec: object, InstrumentID: instrumentID.String(), LatestClosedOn: "2026-09-02"}
+	wails, err := liquidity.NewService(f.app).PreviewReviewRuleV2(t.Context(), liquidity.PreviewReviewRuleV2Request{Spec: spec, InstrumentID: request.InstrumentID, LatestClosedOn: request.LatestClosedOn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpPreview := call(t, client, "preview_investment_review_rule", request, false)["data"]
+	if !reflect.DeepEqual(mcpPreview, jsonObject(t, wails)) {
+		t.Fatalf("MCP and Wails preview differ: MCP=%+v Wails=%+v", mcpPreview, wails)
+	}
+	call(t, client, "create_investment_review_rule", map[string]any{"operationId": uuid.NewString(), "input": ReviewV2RuleInput{RuleID: uuid.NewString(), MutationID: uuid.NewString(), Name: "Synthetic funded trade", Enabled: true, Severity: "notice", Spec: object}}, false)
+	refreshed := call(t, client, "refresh_investment_reviews", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{}}, false)["data"].(map[string]any)["result"]
+	wailsRefresh, err := liquidity.NewService(f.app).ReconcileInvestmentReviewsV2(t.Context())
+	if err != nil || refreshed.(map[string]any)["sourceFingerprint"] != wailsRefresh.SourceFingerprint || refreshed.(map[string]any)["ruleInstrumentCount"] != float64(wailsRefresh.RuleInstrumentCount) || refreshed.(map[string]any)["latestClosedOn"] != wailsRefresh.LatestClosedOn || wailsRefresh.DayCount != 0 {
+		t.Fatalf("MCP and Wails refresh differ: MCP=%+v Wails=%+v err=%v", refreshed, wailsRefresh, err)
+	}
+}
 
 func testReviewV2Spec() domain.ReviewRuleSpec {
 	return domain.ReviewRuleSpec{
