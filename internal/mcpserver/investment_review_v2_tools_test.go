@@ -15,7 +15,9 @@ import (
 )
 
 func TestReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T) {
-	f := newLedgerFixture(t)
+	now := time.Date(2026, 9, 1, 0, 5, 0, 0, time.UTC)
+	f := newLedgerFixtureWithClock(t, func() time.Time { return now })
+	now = time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	client := ledgerSession(t, f)
 	bootstrap, err := f.app.Bootstrap(t.Context())
 	if err != nil {
@@ -39,23 +41,38 @@ func TestReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T) {
 	if _, err := f.app.RecordChange(t.Context(), domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: accountID, InstrumentID: instrumentID, Quantity: qty, Gross: gross, Fee: &fee, EffectiveAt: time.Date(2026, 9, 2, 0, 20, 0, 0, time.UTC)}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.app.ImportAgentMarketData(t.Context(), uuid.NewString(), application.AgentMarketDataInput{Items: []application.AgentMarketDataItem{{InstrumentID: instrumentID.String(), Currency: "USD", Value: "100", Kind: "close", Date: "2026-09-02", Timezone: "UTC", SourceTitle: "Synthetic close"}}}); err != nil {
+	if _, err := f.app.ImportAgentMarketData(t.Context(), uuid.NewString(), application.AgentMarketDataInput{Items: []application.AgentMarketDataItem{
+		{InstrumentID: instrumentID.String(), Currency: "USD", Value: "100", Kind: "close", Date: "2026-09-02", Timezone: "UTC", SourceTitle: "Synthetic close"},
+		{InstrumentID: instrumentID.String(), Currency: "USD", Value: "100", Kind: "close", Date: "2026-09-03", Timezone: "UTC", SourceTitle: "Synthetic close"},
+		{InstrumentID: instrumentID.String(), Currency: "USD", Value: "100", Kind: "close", Date: "2026-09-04", Timezone: "UTC", SourceTitle: "Synthetic close"},
+	}}); err != nil {
 		t.Fatal(err)
 	}
 	spec := testReviewV2Spec()
-	encoded, _ := json.Marshal(spec)
+	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{
+		{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "900", Currency: "USD", FXMode: "native"}},
+		{Leaf: &domain.ReviewRuleLeaf{Metric: "cost", Operator: ">", Value: "1002", Currency: "USD", FXMode: "native"}},
+	}}
 	var object map[string]any
-	if err := json.Unmarshal(encoded, &object); err != nil {
-		t.Fatal(err)
-	}
-	request := ReviewV2PreviewInput{Spec: object, InstrumentID: instrumentID.String(), LatestClosedOn: "2026-09-02"}
-	wails, err := liquidity.NewService(f.app).PreviewReviewRuleV2(t.Context(), liquidity.PreviewReviewRuleV2Request{Spec: spec, InstrumentID: request.InstrumentID, LatestClosedOn: request.LatestClosedOn})
-	if err != nil {
-		t.Fatal(err)
-	}
-	mcpPreview := call(t, client, "preview_investment_review_rule", request, false)["data"]
-	if !reflect.DeepEqual(mcpPreview, jsonObject(t, wails)) {
-		t.Fatalf("MCP and Wails preview differ: MCP=%+v Wails=%+v", mcpPreview, wails)
+	for _, policy := range []domain.ReviewTriggerPolicy{{Kind: "single"}, {Kind: "consecutive", Count: 2}, {Kind: "rolling", WindowDays: 3, MinHits: 2}} {
+		spec.TriggerPolicy = policy
+		encoded, _ := json.Marshal(spec)
+		if err := json.Unmarshal(encoded, &object); err != nil {
+			t.Fatal(err)
+		}
+		request := ReviewV2PreviewInput{Spec: object, InstrumentID: instrumentID.String(), LatestClosedOn: "2026-09-04"}
+		wails, err := liquidity.NewService(f.app).PreviewReviewRuleV2(t.Context(), liquidity.PreviewReviewRuleV2Request{Spec: spec, InstrumentID: request.InstrumentID, LatestClosedOn: request.LatestClosedOn})
+		if err != nil || wails.Window.Truth != domain.ReviewTrue || len(wails.Days) == 0 {
+			t.Fatalf("%s known window: %+v %v", policy.Kind, wails, err)
+		}
+		latest := wails.Days[len(wails.Days)-1].Result
+		if latest.Truth != domain.ReviewTrue || len(latest.Leaves) != 2 || latest.Leaves[0].Actual != "1000.0000" || latest.Leaves[1].Actual != "1005.0000" {
+			t.Fatalf("%s metrics: %+v", policy.Kind, latest)
+		}
+		mcpPreview := call(t, client, "preview_investment_review_rule", request, false)["data"]
+		if !reflect.DeepEqual(mcpPreview, jsonObject(t, wails)) {
+			t.Fatalf("%s MCP and Wails preview differ: MCP=%+v Wails=%+v", policy.Kind, mcpPreview, wails)
+		}
 	}
 	call(t, client, "create_investment_review_rule", map[string]any{"operationId": uuid.NewString(), "input": ReviewV2RuleInput{RuleID: uuid.NewString(), MutationID: uuid.NewString(), Name: "Synthetic funded trade", Enabled: true, Severity: "notice", Spec: object}}, false)
 	refreshed := call(t, client, "refresh_investment_reviews", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{}}, false)["data"].(map[string]any)["result"]
