@@ -16,7 +16,7 @@ balances; after restore they may refer to changes no longer present.
 | Single/batch/reconciliation/correction/product lifecycle/terms/value commit may already have posted | Retry the exact original operation/input/plan; atomic ledger mutation recovery prevents duplicate posting even after expiry/restart |
 | A successful receipt exists | Read the affected current state; do not repost merely because today's state differs |
 | Agent quote import was interrupted | Reuse the same operation UUID and exact input; durable import batch identity returns original quote IDs; then inspect derived statuses/current quotes/health |
-| Investment review setting/episode write outcome is unknown | Inspect `get_operation` and `get_investment_reviews`; do not replay an unknown receipt automatically or change input under the same UUID |
+| Investment review rule/episode/suppression write outcome is unknown | Inspect `get_operation` and the relevant V2 rule, alert or suppression read; retry the same operation and input only when confirming that receipt |
 | Daily v2 rule/alert/suppression/refresh outcome is unknown | Inspect `get_operation` plus the matching v2 list/detail tool; reuse the exact outer operationId and inner mutationId only for the same intended input |
 | Directory create/update/archive outcome is unknown | Inspect operation receipt and actual definitions before a new operation; directory writes are not automatically replayed |
 | Repair submission outcome is unknown or job disappeared after restart | Rescan health and inspect the App before a new intentional submission; do not replay blindly |

@@ -102,10 +102,10 @@ type ReviewV2ClearSuppressionInput struct {
 	ExpectedRevision int    `json:"expectedRevision"`
 }
 
-// New v2 tools never call the legacy report or policy writer. Read tools
-// return only the last complete publication and leave the database untouched.
+// Daily investment review tools use the V2 rule projection. Read tools return
+// only the last complete publication and leave the database untouched.
 func (s *Service) reviewV2Tools(server *mcp.Server, mode string) {
-	readTool(server, "list_investment_review_rules", "List named investment review rules, including separately marked legacy_v1 compatibility rules. Daily rules have independent predicate and triggerPolicy; legacy_v1 keeps its original calendar-span semantics and cannot be updated with the daily-rule tools. Read-only, 1–100 at a time; use the last rule ID as cursor when a full page is returned.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
+	readTool(server, "list_investment_review_rules", "List named daily investment review rules with independent predicates and trigger policies. Read-only, 1–100 at a time; use the last rule ID as cursor when a full page is returned.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
 		return s.app.ListReviewRulesV2(ctx, in.Cursor, in.PageSize)
 	})
 	readTool(server, "preview_investment_review_rule", "Preview a v2 rule on closed historical civil days for one instrument, without saving it or writing projections. Unknown days do not count as hits. sourceToken can be supplied to reject changed input.", func(ctx context.Context, in ReviewV2PreviewInput) (any, error) {
@@ -114,9 +114,6 @@ func (s *Service) reviewV2Tools(server *mcp.Server, mode string) {
 			return nil, err
 		}
 		return s.app.PreviewReviewRuleV2(ctx, spec, in.InstrumentID, in.LatestClosedOn, in.ExpectedSourceToken)
-	})
-	readTool(server, "preview_legacy_investment_review_conversion", "Preview an explicit legacy_v1 conversion into separate low-yield and loss daily rules. Returns the proposed specs, new alert counts and source token; v1 calendar-span semantics are not equivalent to the selected daily trigger. Read-only.", func(ctx context.Context, in application.ReviewLegacyConversionDraft) (any, error) {
-		return s.app.PreviewReviewLegacyConversionV2(ctx, in)
 	})
 	readTool(server, "list_investment_review_alerts", "Read a published rule-aware investment review report v2. Groups are paged by instrument, never split by rule; cursor is bound to report revision and filters. This read does not reconcile or update data.", func(ctx context.Context, in ReviewV2AlertPageInput) (any, error) {
 		return s.app.ListReviewAlertGroupsV2(ctx, in.Filter, in.Cursor, in.PageSize)
@@ -158,9 +155,6 @@ func (s *Service) reviewV2Tools(server *mcp.Server, mode string) {
 	})
 	ledgerWriteTool(s, server, "archive_investment_review_rule", "Archive a v2 rule without deleting evidence or other rules.", func(ctx context.Context, in ReviewV2ArchiveInput) (any, error) {
 		return s.app.ArchiveReviewRuleV2(ctx, in.RuleID, in.MutationID, in.ExpectedRevision)
-	})
-	ledgerWriteTool(s, server, "convert_legacy_investment_review_rule", "Atomically archive one legacy_v1 rule and create new independent daily low-yield and loss rules after an explicit preview. Requires expected legacy, configuration and handling revisions plus the source token; preserves old acknowledgements only in history and keeps absolute snooze dates.", func(ctx context.Context, in application.ConvertReviewLegacyRuleV2Input) (any, error) {
-		return s.app.ConvertReviewLegacyRuleV2(ctx, in)
 	})
 	ledgerWriteTool(s, server, "acknowledge_investment_review_alert", "Acknowledge exactly one v2 episode at its expected revision. A new episode can still alert after the condition clears and returns.", func(ctx context.Context, in ReviewV2AcknowledgeInput) (any, error) {
 		return s.app.AcknowledgeReviewEpisodeV2(ctx, in.EpisodeID, in.MutationID, in.ExpectedRevision)

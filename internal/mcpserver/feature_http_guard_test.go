@@ -10,14 +10,9 @@ import (
 )
 
 var featureHTTPTools = []string{
-	"get_investment_reviews",
 	"get_upcoming_actions",
 	"get_historical_overview",
 	"get_historical_overview_series",
-	"save_investment_review_policy",
-	"acknowledge_investment_review",
-	"set_investment_review_enrollment",
-	"set_investment_review_snooze",
 }
 
 func TestFeatureHTTPBoundaries(t *testing.T) {

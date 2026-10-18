@@ -5,13 +5,40 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
+// ReviewLegacyEvaluator identifies migration-only compatibility rules. V2
+// runtime queries intentionally select only ReviewEvaluator.
 const ReviewLegacyEvaluator = "legacy_v1"
 
-// ReviewLegacyConfiguration is the exact v1 preference set. Enrollment false
-// remains distinct from an absent entry; neither becomes a v2 suppression.
+// InvestmentReviewPolicy is retained only to validate historical v1 preference
+// JSON while the v18 upgrade stores its original bytes in the recovery tables.
+type InvestmentReviewPolicy struct {
+	Enabled              bool   `json:"enabled"`
+	WindowDays           int    `json:"windowDays"`
+	LowAnnualizedPercent string `json:"lowAnnualizedPercent"`
+	LossPercent          string `json:"lossPercent"`
+	SustainDays          int    `json:"sustainDays"`
+	MaxAgeDays           int    `json:"maxAgeDays"`
+}
+
+var reviewThresholdSyntax = regexp.MustCompile(`^-?(0|[1-9][0-9]?)(\.[0-9]{1,8})?$`)
+
+func (p InvestmentReviewPolicy) Validate() error {
+	low, e1 := decimal.NewFromString(p.LowAnnualizedPercent)
+	loss, e2 := decimal.NewFromString(p.LossPercent)
+	if !reviewThresholdSyntax.MatchString(p.LowAnnualizedPercent) || !reviewThresholdSyntax.MatchString(p.LossPercent) || (p.WindowDays != 7 && p.WindowDays != 30) || p.SustainDays < 2 || p.SustainDays > 30 || p.MaxAgeDays < 1 || p.MaxAgeDays > 30 || e1 != nil || e2 != nil || low.IsNegative() || low.GreaterThan(decimal.NewFromInt(10)) || !loss.IsNegative() || loss.LessThan(decimal.NewFromInt(-50)) {
+		return validation("investmentReviewPolicy", "use a 7/30-day window, 2–30 sustained days, 1–30 age days, low threshold 0–10%, and loss threshold -50% to below 0%")
+	}
+	return nil
+}
+
+// ReviewLegacyConfiguration names the exact v1 preference shape for migration
+// validation and read-only recovery; live application writes are retired.
 type ReviewLegacyConfiguration struct {
 	PriorPolicies []InvestmentReviewPolicy `json:"priorPolicies,omitempty"`
 	SnoozedUntil  map[string]string        `json:"snoozedUntil"`
@@ -78,6 +105,8 @@ func DecodeReviewLegacyConfiguration(raw []byte) (ReviewLegacyConfiguration, err
 	return value, nil
 }
 
+// DecodeReviewLegacySpec remains available to the read-only settings recovery
+// path for rules imported by the schema-v19 migration.
 func DecodeReviewLegacySpec(raw []byte) (ReviewLegacySpec, error) {
 	var value ReviewLegacySpec
 	decoder := json.NewDecoder(bytes.NewReader(raw))

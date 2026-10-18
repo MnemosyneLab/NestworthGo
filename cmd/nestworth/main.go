@@ -181,7 +181,6 @@ func run() error {
 			)
 			repo := sqlite.NewRepository(database)
 			service = nestworthapp.NewService(repo, registry)
-			service.SetInvestmentReviewConfiguration(sqlite.NewConfigurationRepository(database))
 			appports.Wire(service)
 			appports.AttachSQLiteHistory(service, repo)
 			service.SetLiveDatabasePath(databasePath)

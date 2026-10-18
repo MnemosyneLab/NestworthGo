@@ -45,8 +45,10 @@ func ProjectQuotePerformanceReportWindows(i Instrument, quotes []InstrumentQuote
 	}
 	sort.Strings(dates)
 	report.UnavailableReason = "insufficient_daily_history"
-	if len(dates) >= 2 && reviewDays(dates[0], dates[len(dates)-1]) >= 7 {
-		report.UnavailableReason = "incomparable_daily_prices"
+	if len(dates) >= 2 {
+		if elapsed, err := CivilDaysBetween(dates[0], dates[len(dates)-1]); err == nil && elapsed >= 7 {
+			report.UnavailableReason = "incomparable_daily_prices"
+		}
 	}
 	return report
 }
@@ -60,8 +62,8 @@ func priceWindowPercent(base, latest decimal.Decimal, elapsed int) (string, stri
 	return period.String(), annual.String()
 }
 
-// QuotePerformanceWindows are the windows used by alerts and the legacy
-// descriptive projection.
+// QuotePerformanceWindows are the windows used by alerts and descriptive
+// performance projections.
 var QuotePerformanceWindows = []int{7, 30}
 
 // QuotePeriodWindows are the history periods offered by the performance
@@ -159,14 +161,14 @@ func projectQuotePerformanceWindowsThroughIndex(i Instrument, points []Instrumen
 			continue
 		}
 		first := points[base]
-		elapsed := reviewDays(first.EffectiveDate, latest.EffectiveDate)
-		comparable := elapsed > 0 && first.UnitPrice.Decimal().IsPositive()
+		elapsed, elapsedErr := CivilDaysBetween(first.EffectiveDate, latest.EffectiveDate)
+		comparable := elapsedErr == nil && elapsed > 0 && first.UnitPrice.Decimal().IsPositive()
 		for _, q := range points[base : latestIndex+1] {
 			comparable = comparable && q.Currency == i.QuoteCurrency && q.BindingRevision == i.ProviderBindingRevision && performanceSource(q.SourceKind) && performanceTimestamp(i.Type, q.TimestampBasis)
 			if mode == quotePerformanceNAV {
-				comparable = comparable && q.UnitPrice.Decimal().IsPositive() && q.PriceBasis == "agent_unit_nav_v1" && !reviewNonzero(q.DividendCash) && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
+				comparable = comparable && q.UnitPrice.Decimal().IsPositive() && q.PriceBasis == "agent_unit_nav_v1" && !quoteAdjustmentPresent(q.DividendCash) && (!quoteAdjustmentPresent(q.SplitFactor) || splitFactorOne(q.SplitFactor))
 			} else {
-				comparable = comparable && !q.UnitPrice.Decimal().IsNegative() && performancePriceBasis(i.Type, q.PriceBasis) && (!reviewNonzero(q.SplitFactor) || splitFactorOne(q.SplitFactor))
+				comparable = comparable && !q.UnitPrice.Decimal().IsNegative() && performancePriceBasis(i.Type, q.PriceBasis) && (!quoteAdjustmentPresent(q.SplitFactor) || splitFactorOne(q.SplitFactor))
 			}
 		}
 		if !comparable {
@@ -219,10 +221,10 @@ func (s ReviewDailyQuoteSeries) ResolveDailyClose(instrument Instrument, on stri
 		return nil, "daily_close_ineligible"
 	}
 	if mode == quotePerformanceNAV {
-		if !quote.UnitPrice.Decimal().IsPositive() || quote.PriceBasis != "agent_unit_nav_v1" || reviewNonzero(quote.DividendCash) || (reviewNonzero(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
+		if !quote.UnitPrice.Decimal().IsPositive() || quote.PriceBasis != "agent_unit_nav_v1" || quoteAdjustmentPresent(quote.DividendCash) || (quoteAdjustmentPresent(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
 			return nil, "daily_close_ineligible"
 		}
-	} else if quote.UnitPrice.Decimal().IsNegative() || !performancePriceBasis(instrument.Type, quote.PriceBasis) || (reviewNonzero(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
+	} else if quote.UnitPrice.Decimal().IsNegative() || !performancePriceBasis(instrument.Type, quote.PriceBasis) || (quoteAdjustmentPresent(quote.SplitFactor) && !splitFactorOne(quote.SplitFactor)) {
 		return nil, "daily_close_ineligible"
 	}
 	return &quote, ""
@@ -284,16 +286,43 @@ func splitFactorOne(text string) bool {
 // one observation per civil date chosen by source rank. Intraday and realtime
 // facts never enter, so they cannot be aggregated or downsampled into a day.
 func dailyPerformanceQuotes(quotes []InstrumentQuote) []InstrumentQuote {
-	valid := make([]InstrumentQuote, 0, len(quotes))
+	byDate := make(map[string]InstrumentQuote, len(quotes))
 	for _, q := range quotes {
 		if _, err := time.Parse(time.DateOnly, q.EffectiveDate); err != nil {
 			continue
 		}
 		if q.ObservationKind == "close" {
-			valid = append(valid, q)
+			old, exists := byDate[q.EffectiveDate]
+			if !exists || performanceSourceRank(q.SourceKind) > performanceSourceRank(old.SourceKind) || (q.SourceKind == old.SourceKind && (q.Revision > old.Revision || (q.Revision == old.Revision && (q.CreatedAt.After(old.CreatedAt) || (q.CreatedAt.Equal(old.CreatedAt) && q.ID > old.ID))))) {
+				byDate[q.EffectiveDate] = q
+			}
 		}
 	}
-	return reviewDailyQuotes(valid)
+	points := make([]InstrumentQuote, 0, len(byDate))
+	for _, quote := range byDate {
+		points = append(points, quote)
+	}
+	sort.Slice(points, func(a, b int) bool { return points[a].EffectiveDate < points[b].EffectiveDate })
+	return points
+}
+
+func performanceSourceRank(source QuoteSourceKind) int {
+	switch source {
+	case QuoteSourceAgent:
+		return 3
+	case QuoteSourceManual:
+		return 2
+	default:
+		return 1
+	}
+}
+
+func quoteAdjustmentPresent(text string) bool {
+	if text == "" {
+		return false
+	}
+	value, err := decimal.NewFromString(text)
+	return err != nil || !value.IsZero()
 }
 
 // QuotePerformancePoint is one daily observation of the performance chart.

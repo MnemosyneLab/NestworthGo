@@ -10,7 +10,7 @@ import (
 )
 
 func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
-	for _, name := range []string{"get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch", "set_investment_review_enrollment_batch", "set_investment_review_snooze_batch", "acknowledge_investment_reviews_batch", "list_instruments", "list_agent_market_data"} {
+	for _, name := range []string{"get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch", "list_instruments", "list_agent_market_data"} {
 		for _, size := range []int{contextWireLimit, contextWireLimit + 1} {
 			request := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{"responseMode": "paged"}}}
 			b, _ := json.Marshal(request)
@@ -102,7 +102,7 @@ func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 func TestBoundedReadPagedOptionPresenceAndLegacyAgentLimit(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	for _, name := range []string{"get_liquidity_overview", "list_products", "get_investment_reviews", "get_upcoming_actions", "list_instruments"} {
+	for _, name := range []string{"get_liquidity_overview", "list_products", "get_upcoming_actions", "list_instruments"} {
 		for _, option := range []string{"filter", "sort", "limit"} {
 			value := any(nil)
 			if option == "limit" {
