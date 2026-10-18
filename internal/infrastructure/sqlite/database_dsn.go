@@ -19,7 +19,9 @@ func sqliteDSN(path string, query url.Values) (string, error) {
 }
 
 func sqliteFileURL(path string) (string, error) {
-	uri := url.URL{Scheme: "file"}
+	// Keep relative names in the URI path: file://name.db parses name.db as an
+	// authority and modernc.org/sqlite rejects it instead of opening CWD/name.db.
+	uri := url.URL{Scheme: "file", OmitHost: !filepath.IsAbs(path)}
 	uriPath := filepath.ToSlash(path)
 	if runtime.GOOS == "windows" && filepath.IsAbs(path) {
 		volume := filepath.VolumeName(path)

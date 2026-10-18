@@ -83,6 +83,38 @@ func TestInspectBackupPreviewFromValidPackage(t *testing.T) {
 	}
 }
 
+func TestRestoreWorksWithRelativeDatabasePathAndSpecialParent(t *testing.T) {
+	directory := t.TempDir()
+	t.Chdir(directory)
+	backupPath, _ := writeTestBackup(t, directory)
+	live := filepath.Join("data space 東京 ? #", "ledger space ? #.db")
+	if err := os.MkdirAll(filepath.Dir(live), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	service := newTestRecovery(t, live, memoryDialogs{open: backupPath}, native.NoopQuitter{})
+	preview, err := service.InspectBackup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.ConfirmRestore(RestoreConfirmRequest{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.RestartRequired {
+		t.Fatalf("restore result = %+v, want restart required", result)
+	}
+
+	verified, err := sqlite.OpenReadOnlyForVerify(live)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verified.Close()
+	if err := verified.Verify(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRestorePreviewTokenIsSingleUse(t *testing.T) {
 	dir := t.TempDir()
 	backupPath, live := writeTestBackup(t, dir)

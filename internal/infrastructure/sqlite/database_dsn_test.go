@@ -50,6 +50,101 @@ func TestSQLiteFileURLEncodesAbsoluteFilesystemPath(t *testing.T) {
 	}
 }
 
+func TestSQLiteFileURLKeepsRelativePathsOutOfURIAuthority(t *testing.T) {
+	for _, path := range []string{
+		"ledger.db",
+		filepath.Join("data", "ledger.db"),
+		filepath.Join("data", "ledger space 東京 ? #.db"),
+	} {
+		t.Run(path, func(t *testing.T) {
+			fileURL, err := sqliteFileURL(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			parsed, err := url.Parse(fileURL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			parsedPath := parsed.Path
+			if parsed.Opaque != "" {
+				parsedPath, err = url.PathUnescape(parsed.Opaque)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if parsed.Scheme != "file" || parsed.Host != "" || parsedPath != filepath.ToSlash(path) || parsed.RawQuery != "" || parsed.Fragment != "" {
+				t.Fatalf("relative file URL = %q, parsed as %+v; want a host-free relative file URI", fileURL, parsed)
+			}
+		})
+	}
+}
+
+func TestOpenReadOnlyForVerifyEncodesSpecialParentAndFileCharacters(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "parent space 東京 ? #", "ledger space 東京 ? #.db")
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	verified, err := OpenReadOnlyForVerify(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verified.Close()
+	if err := verified.Verify(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSQLiteOpenReopensRelativePaths(t *testing.T) {
+	directory := t.TempDir()
+	t.Chdir(directory)
+
+	for _, path := range []string{
+		"ledger.db",
+		filepath.Join("data", "ledger.db"),
+		filepath.Join("nested", "ledger space 東京 ? #.db"),
+	} {
+		t.Run(path, func(t *testing.T) {
+			ctx := context.Background()
+			database, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := database.SQL.ExecContext(ctx, "CREATE TABLE path_probe (value TEXT NOT NULL)"); err != nil {
+				database.Close()
+				t.Fatal(err)
+			}
+			if _, err := database.SQL.ExecContext(ctx, "INSERT INTO path_probe(value) VALUES (?)", "relative file"); err != nil {
+				database.Close()
+				t.Fatal(err)
+			}
+			if err := database.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := os.Stat(path); err != nil {
+				t.Fatalf("database was not created at relative path %q: %v", path, err)
+			}
+			reopened, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reopened.Close()
+			var value string
+			if err := reopened.SQL.QueryRowContext(ctx, "SELECT value FROM path_probe").Scan(&value); err != nil {
+				t.Fatal(err)
+			}
+			if value != "relative file" {
+				t.Fatalf("reopened relative file marker = %q", value)
+			}
+		})
+	}
+}
+
 func TestSQLiteOpenReopensPathWithSpaceUnicodeQueryAndFragmentCharacters(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "ledger space 東京 ? #.db")

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -96,6 +97,113 @@ func TestProductOperationRejectsInvalidWhitespaceDateBeforeWrite(t *testing.T) {
 	}}
 	if _, err := s.PreviewProductOperation(ctx, command); err == nil {
 		t.Fatal("invalid contract date unexpectedly accepted")
+	}
+}
+
+func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.T) {
+	clock := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
+	path := filepath.Join(t.TempDir(), "legacy-product.db")
+	database, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	service := NewService(sqlite.NewRepository(database))
+	service.setClock(func() time.Time { return clock })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Legacy dates", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	account := seedHoldingsCash(t, service, ctx, "150000")
+	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Legacy padded start", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	created := recordRegressionProduct(t, service, ctx, command)
+	product, err := service.Product(ctx, created.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE product_contracts SET start_on=? WHERE id=?`, " 2026-09-20 ", product.Contract.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+
+	input := UpdateProductTermsInput{
+		ProductID: product.Contract.ID, ExpectedRevision: product.Contract.Revision,
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Legacy start updated", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}
+	preview, token, err := service.PreviewProductTermsGuarded(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CommitProductTermsGuarded(ctx, input, domain.NewProductOperationID().String(), preview.ReviewedStateHash, token); err != nil {
+		t.Fatal(err)
+	}
+	var storedStart string
+	if err := database.SQL.QueryRowContext(ctx, `SELECT start_on FROM product_contracts WHERE id=?`, product.Contract.ID.String()).Scan(&storedStart); err != nil {
+		t.Fatal(err)
+	}
+	if storedStart != " 2026-09-20 " {
+		t.Fatalf("terms update rewrote immutable legacy start date as %q", storedStart)
+	}
+	var mutationKey string
+	var rawMutation []byte
+	if err := database.SQL.QueryRowContext(ctx, `SELECT key,value FROM app_configuration WHERE key LIKE 'product.terms-mutation.%'`).Scan(&mutationKey, &rawMutation); err != nil {
+		t.Fatal(err)
+	}
+	var mutation domain.ProductTermsMutation
+	if err := json.Unmarshal(rawMutation, &mutation); err != nil {
+		t.Fatal(err)
+	}
+	var legacyCommand UpdateProductTermsInput
+	if err := json.Unmarshal(mutation.CommandJSON, &legacyCommand); err != nil {
+		t.Fatal(err)
+	}
+	legacyCommand.Terms.StartOn = " 2026-09-20 "
+	legacyCommandJSON, err := json.Marshal(legacyCommand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyReceipt := mutation.Receipt
+	legacyReceipt.Contract.StartOn = " 2026-09-20 "
+	legacyMutation, err := domain.NewProductTermsMutation(mutation.ID, mutation.HouseholdID, legacyCommandJSON, legacyReceipt, mutation.CreatedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyRaw, err := json.Marshal(legacyMutation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE app_configuration SET value=? WHERE key=?`, string(legacyRaw), mutationKey); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatalf("reopen and startup integrity verification: %v", err)
+	}
+	var preservedMutation []byte
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT value FROM app_configuration WHERE key=?`, mutationKey).Scan(&preservedMutation); err != nil || string(preservedMutation) != string(legacyRaw) {
+		t.Fatalf("startup verification rewrote the sealed legacy receipt: %v", err)
+	}
+	if err := reopened.Close(); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := sqlite.OpenReadOnlyForVerify(path)
+	if err != nil {
+		t.Fatalf("read-only backup integrity verification: %v", err)
+	}
+	defer verified.Close()
+	if err := verified.Verify(ctx); err != nil {
+		t.Fatal(err)
 	}
 }
 
