@@ -1,7 +1,7 @@
 # Frozen management reads and atomic batches
 
 Discover support first. Skill 1.9.0 prefers `responseMode:"paged"` for liquidity,
-products, instruments, investment reviews, upcoming actions and Agent records.
+products, instruments, upcoming actions and Agent records.
 Keep pure minimal financial-context workflows on their existing disclosure path.
 Older Apps retain their existing reads and single-item writes; do not infer new
 support from version text or bypass permissions, managed guards or an overflow.
@@ -43,8 +43,8 @@ not current state. Same operationId and identical input return the original
 receipt; changed input conflicts. Pending/unknown must be checked with
 `get_operation` and fresh reads before another intentional operation; no automatic
 replay across the business-write/outer-receipt crash window. Metadata requires
-directory_write or ledger_write; review batches require ledger_write. No generic
-arbitrary executor, provider refresh or financial posting is introduced.
+directory_write or ledger_write. No generic arbitrary executor, provider refresh or
+financial posting is introduced.
 
 ## Executable argument examples
 
@@ -105,26 +105,6 @@ names exactly, including reservations/<productId> or a market target section.
 <!-- example: scale-metadata -->
 ```json
 {"operationId":"${operationId}","input":{"items":[{"id":"${instrumentId}","expectedMetadataVersion":"${metadataVersion}","changes":{"shortName":"Fund A","name":"Synthetic fund","note":null}}]}}
-```
-
-<!-- example: scale-review-enrollment -->
-```json
-{"operationId":"${operationId}","input":{"expectedRevision":0,"items":[{"instrumentId":"${instrumentId}","enabled":true}]}}
-```
-
-<!-- example: scale-review-snooze -->
-```json
-{"operationId":"${operationId}","input":{"expectedRevision":1,"items":[{"instrumentId":"${instrumentId}","days":7}]}}
-```
-
-<!-- example: scale-review-resume -->
-```json
-{"operationId":"${operationId}","input":{"expectedRevision":2,"items":[{"instrumentId":"${instrumentId}","days":0}]}}
-```
-
-<!-- example: scale-review-ack -->
-```json
-{"operationId":"${operationId}","input":{"expectedRevision":3,"items":[{"instrumentId":"${instrumentId}","episodeId":"${episodeId}"}]}}
 ```
 
 <!-- example: scale-empty-match -->

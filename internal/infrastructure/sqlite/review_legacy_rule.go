@@ -27,10 +27,8 @@ func legacyReviewHousehold(key string) (domain.HouseholdID, bool) {
 	return id, err == nil && key == "investment_review/"+id.String()
 }
 
-// UpsertReviewLegacyRule is used inside the schema upgrade transaction and by
-// later v1 preference writes. The v18 app_configuration row and captured raw
-// legacy_state are never rewritten after upgrade. Only a new immutable rule
-// version represents each subsequent v1 preference state.
+// upsertReviewLegacyRule is retained unchanged for the v18-to-v19 migration.
+// Its result is hidden from live V2 reads by the evaluator filter.
 func upsertReviewLegacyRule(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, raw []byte, at time.Time) error {
 	configuration, err := domain.DecodeReviewLegacyConfiguration(raw)
 	if err != nil {
@@ -126,16 +124,4 @@ func (r *ConfigurationRepository) loadLegacyReviewConfiguration(householdID doma
 	spec.Configuration.Policy.Enabled = false
 	data, err := json.Marshal(spec.Configuration)
 	return data, err == nil, err
-}
-
-func (r *ConfigurationRepository) saveLegacyReviewConfiguration(householdID domain.HouseholdID, value []byte) error {
-	tx, err := r.database.SQL.BeginTx(context.Background(), nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if err := upsertReviewLegacyRule(context.Background(), tx, householdID, value, time.Now()); err != nil {
-		return err
-	}
-	return tx.Commit()
 }

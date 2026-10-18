@@ -47,13 +47,7 @@ func scanReviewRule(row rowScanner) (domain.ReviewRule, error) {
 		}
 		result.ArchivedAt = &at
 	}
-	if result.Evaluator == domain.ReviewLegacyEvaluator {
-		var legacy domain.ReviewLegacySpec
-		legacy, err = domain.DecodeReviewLegacySpec([]byte(specJSON))
-		result.LegacySpec = &legacy
-	} else {
-		result.Spec, err = domain.DecodeReviewRuleSpec([]byte(specJSON))
-	}
+	result.Spec, err = domain.DecodeReviewRuleSpec([]byte(specJSON))
 	return result, err
 }
 
@@ -66,7 +60,7 @@ func (r *Repository) ListReviewRulesV2(ctx context.Context, householdID domain.H
 			return nil, err
 		}
 	}
-	rows, err := r.database.SQL.QueryContext(ctx, reviewRuleSelect+` WHERE r.household_id=? AND r.id>? ORDER BY r.id LIMIT ?`, householdID.String(), after, limit)
+	rows, err := r.database.SQL.QueryContext(ctx, reviewRuleSelect+` WHERE r.household_id=? AND r.evaluator=? AND r.id>? ORDER BY r.id LIMIT ?`, householdID.String(), domain.ReviewEvaluator, after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +169,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 		}
 		changed = true
 	case "update", "archive":
-		current, err := scanReviewRule(tx.QueryRowContext(ctx, reviewRuleSelect+` WHERE r.household_id=? AND r.id=?`, m.HouseholdID.String(), string(m.RuleID)))
+		current, err := scanReviewRule(tx.QueryRowContext(ctx, reviewRuleSelect+` WHERE r.household_id=? AND r.evaluator=? AND r.id=?`, m.HouseholdID.String(), domain.ReviewEvaluator, string(m.RuleID)))
 		if errors.Is(err, sql.ErrNoRows) {
 			return empty, reviewRuleConflict("rule no longer exists")
 		}
@@ -225,7 +219,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 			return empty, err
 		}
 	}
-	result, err = scanReviewRule(tx.QueryRowContext(ctx, reviewRuleSelect+` WHERE r.household_id=? AND r.id=?`, m.HouseholdID.String(), string(m.RuleID)))
+	result, err = scanReviewRule(tx.QueryRowContext(ctx, reviewRuleSelect+` WHERE r.household_id=? AND r.evaluator=? AND r.id=?`, m.HouseholdID.String(), domain.ReviewEvaluator, string(m.RuleID)))
 	if err != nil {
 		return empty, err
 	}

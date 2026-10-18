@@ -1,10 +1,9 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity";
 import type { ReviewAlertFilter, ReviewCoverageFilter } from "../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
-import type { SaveReviewRuleV2Input, SetReviewSuppressionV2Input, ReviewLegacyConversionDraft, ConvertReviewLegacyRuleV2Input } from "../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { SaveReviewRuleV2Input, SetReviewSuppressionV2Input } from "../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
-import { investmentReviewKey } from "./investmentReview";
 
 export const reviewV2Key = queryKeys.reviewV2.all;
 
@@ -104,16 +103,4 @@ export function useReviewV2Commands() {
     onSuccess: invalidate,
   });
   return { acknowledge, suppress, clearSuppression, reconcile, createRule, updateRule, archiveRule };
-}
-
-export function useReviewLegacyConversionCommands() {
-  const client = useQueryClient();
-  const preview = useMutation({
-    mutationFn: (draft: ReviewLegacyConversionDraft) => callService(() => Service.PreviewReviewLegacyConversionV2(draft)),
-  });
-  const convert = useMutation({
-    mutationFn: (request: ConvertReviewLegacyRuleV2Input) => callService(() => Service.ConvertReviewLegacyRuleV2(request)),
-    onSuccess: () => { void client.invalidateQueries({ queryKey: reviewV2Key }); void client.invalidateQueries({ queryKey: investmentReviewKey }); },
-  });
-  return { preview, convert };
 }

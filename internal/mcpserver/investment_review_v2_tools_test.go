@@ -35,12 +35,12 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = tool
 		}
-		for _, name := range []string{"list_investment_review_rules", "preview_investment_review_rule", "preview_legacy_investment_review_conversion", "list_investment_review_alerts", "get_investment_review_alert", "list_investment_review_daily_evidence", "list_investment_review_episode_history", "list_investment_review_episode_events", "get_investment_review_coverage", "list_investment_review_suppressions"} {
+		for _, name := range []string{"list_investment_review_rules", "preview_investment_review_rule", "list_investment_review_alerts", "get_investment_review_alert", "list_investment_review_daily_evidence", "list_investment_review_episode_history", "list_investment_review_episode_events", "get_investment_review_coverage", "list_investment_review_suppressions"} {
 			if found[name] == nil || !found[name].Annotations.ReadOnlyHint {
 				t.Fatalf("%s missing pure read tool %s", mode, name)
 			}
 		}
-		for _, name := range []string{"create_investment_review_rule", "update_investment_review_rule", "archive_investment_review_rule", "convert_legacy_investment_review_rule", "acknowledge_investment_review_alert", "set_investment_review_suppression", "clear_investment_review_suppression", "refresh_investment_reviews"} {
+		for _, name := range []string{"create_investment_review_rule", "update_investment_review_rule", "archive_investment_review_rule", "acknowledge_investment_review_alert", "set_investment_review_suppression", "clear_investment_review_suppression", "refresh_investment_reviews"} {
 			if (found[name] != nil) != (mode == LedgerWrite) {
 				t.Fatalf("%s write tool visibility: %s", mode, name)
 			}

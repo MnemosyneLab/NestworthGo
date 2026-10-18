@@ -49,9 +49,9 @@ rather than changing disclosure or bypassing request validation.
 
 | Mode | Available operations |
 | --- | --- |
-| `read_only` | Financial context and frozen pages, current valuation, managed products/history, liquidity and upcoming-action reads, investment review reads, historical overview/series, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
+| `read_only` | Financial context and frozen pages, current valuation, managed products/history, liquidity and upcoming-action reads, daily investment-review reads, historical overview/series, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
-| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, investment review policy/enrollment/snooze/acknowledgement, managed lifecycle/terms/value pairs and starting data repair |
+| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, daily investment-review rule/acknowledgement/suppression/refresh writes, managed lifecycle/terms/value pairs and starting data repair |
 
 Discover the actual tools before choosing a workflow. An absent tool may reflect
 permissions or an older App. Explain the specific needed setting/update; do not
@@ -80,7 +80,6 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
 | Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_suppressions`; ledger_write: create/update/archive rule, acknowledge alert, set/clear suppression, refresh |
-| Legacy opt-in investment review v1 | `get_investment_reviews`; ledger_write: `save_investment_review_policy`, `acknowledge_investment_review`, `set_investment_review_enrollment`, `set_investment_review_snooze` |
 | Read-only historical view | `get_historical_overview`, `get_historical_overview_series` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
@@ -108,11 +107,10 @@ not provisional IDs in a preview.
 
 Managed capabilities are managed_product_read, liquidity_read and, only with
 ledger_write, managed_product_lifecycle, managed_product_terms and
-managed_product_valuation. Investment review reads are available in all modes;
-its policy, enrollment, snooze/resume and acknowledgement tools require
-ledger_write. Daily v2 rule, acknowledgement, suppression and explicit refresh
-tools also require ledger_write. These update review preferences/episodes and
-derived projections, not financial facts.
+managed_product_valuation. Daily investment-review reads are available in all
+modes; rule, acknowledgement, suppression and explicit refresh tools require
+ledger_write. These update review rules/episodes and derived projections, not
+financial facts.
 Discover each actual pair; an older App may expose only a subset. Skill updates
 do not install/update the connected App or client.
 
@@ -121,8 +119,7 @@ do not install/update the connected App or client.
 See [paging and batches](paging-and-batches.md). Discover bounded_read,
 instrument_paging and market_data_batch. `get_read_page`/`get_read_item` and
 paged modes are available in every permission mode. instrument_metadata_batch
-and `update_instruments_batch` require directory_write or ledger_write;
-investment_review_batch and the three review batch tools require ledger_write.
+and `update_instruments_batch` require directory_write or ledger_write.
 Older Apps keep legacy paths; missing tools do not authorize filesystem/provider
 workarounds. Repository bundle updates do not install or enable a real client.
 

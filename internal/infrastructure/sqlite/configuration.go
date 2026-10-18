@@ -47,15 +47,6 @@ func (r *ConfigurationRepository) SaveConfiguration(key string, value []byte) er
 	if r.database == nil || r.database.SQL == nil {
 		return sql.ErrConnDone
 	}
-	if householdID, ok := legacyReviewHousehold(key); ok {
-		var schema int
-		if err := r.database.SQL.QueryRow("PRAGMA user_version").Scan(&schema); err != nil {
-			return err
-		}
-		if schema >= 19 {
-			return r.saveLegacyReviewConfiguration(householdID, value)
-		}
-	}
 	_, err := r.database.SQL.Exec("INSERT INTO app_configuration(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", key, string(value))
 	return err
 }

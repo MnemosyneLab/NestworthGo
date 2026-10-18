@@ -7,23 +7,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
-type ReviewReadFilter struct {
-	InstrumentIDs []string `json:"instrumentIds,omitempty"`
-	Monitored     *bool    `json:"monitored,omitempty"`
-	Snoozed       *bool    `json:"snoozed,omitempty"`
-	Acknowledged  *bool    `json:"acknowledged,omitempty"`
-	Statuses      []string `json:"statuses,omitempty"`
-}
-type ReviewReadInput struct {
-	ResponseMode string            `json:"responseMode,omitempty"`
-	Filter       *ReviewReadFilter `json:"filter,omitempty"`
-	Sort         *ReadSort         `json:"sort,omitempty"`
-	Limit        int               `json:"limit,omitempty"`
-}
 type UpcomingReadFilter struct {
 	AccountIDs []string `json:"accountIds,omitempty"`
 	ProductIDs []string `json:"productIds,omitempty"`
@@ -43,27 +29,6 @@ func ptrString(s *string) string {
 	}
 	return *s
 }
-func compareReadDecimal(a, b *string, direction string) int {
-	if a == nil && b != nil {
-		return 1
-	}
-	if b == nil && a != nil {
-		return -1
-	}
-	if a == nil {
-		return 0
-	}
-	av, ae := decimal.NewFromString(*a)
-	bv, be := decimal.NewFromString(*b)
-	if ae != nil || be != nil {
-		return 0
-	}
-	v := av.Cmp(bv)
-	if direction == "desc" {
-		v = -v
-	}
-	return v
-}
 func readSummary(v any, remove ...string) (map[string]any, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -77,84 +42,6 @@ func readSummary(v any, remove ...string) (map[string]any, error) {
 		delete(out, k)
 	}
 	return out, nil
-}
-func (s *Service) pagedReviews(ctx context.Context, g uint64, in ReviewReadInput) (ReadEnvelope, error) {
-	f := ReviewReadFilter{}
-	if in.Filter != nil {
-		f = *in.Filter
-	}
-	if e := validateReadValues(f.InstrumentIDs, nil, true); e != nil {
-		return ReadEnvelope{}, e
-	}
-	if e := validateReadValues(f.Statuses, []string{"unavailable", "healthy", "low_yield", "loss", "confirming", "stale"}, false); e != nil {
-		return ReadEnvelope{}, e
-	}
-	order := ReadSort{}
-	if in.Sort != nil {
-		order = *in.Sort
-	}
-	if e := validateReadSort(&order, []string{"instrumentId", "displayName", "latestOn", "ageDays", "annualizedPercent", "periodPercent"}, "instrumentId", "asc"); e != nil {
-		return ReadEnvelope{}, e
-	}
-	if order.HorizonOn != "" {
-		return ReadEnvelope{}, fail("validation", "review sort does not accept horizonOn")
-	}
-	return s.buildRead(ctx, g, in.Limit, func(ctx context.Context) (readCapture, error) {
-		r, err := s.app.InvestmentReviews(ctx)
-		if err != nil {
-			return readCapture{}, err
-		}
-		total := len(r.Items)
-		selected := r.Items[:0]
-		for _, v := range r.Items {
-			if !hasString(f.InstrumentIDs, v.InstrumentID) || !hasString(f.Statuses, v.Status) || (f.Monitored != nil && *f.Monitored != v.Monitored) || (f.Snoozed != nil && *f.Snoozed != v.Snoozed) || (f.Acknowledged != nil && *f.Acknowledged != v.Acknowledged) {
-				continue
-			}
-			selected = append(selected, v)
-		}
-		sort.SliceStable(selected, func(i, j int) bool {
-			a, b := selected[i], selected[j]
-			cmp := 0
-			switch order.Field {
-			case "annualizedPercent":
-				cmp = compareReadDecimal(a.AnnualizedPercent, b.AnnualizedPercent, order.Direction)
-			case "periodPercent":
-				cmp = compareReadDecimal(a.PeriodPercent, b.PeriodPercent, order.Direction)
-			case "ageDays":
-				if (a.LatestOn == "") != (b.LatestOn == "") {
-					return a.LatestOn != ""
-				}
-				cmp = a.AgeDays - b.AgeDays
-				if order.Direction == "desc" {
-					cmp = -cmp
-				}
-			default:
-				av, bv := a.InstrumentID, b.InstrumentID
-				if order.Field == "displayName" {
-					av, bv = normalizedReadName(a.DisplayName), normalizedReadName(b.DisplayName)
-				}
-				if order.Field == "latestOn" {
-					av, bv = a.LatestOn, b.LatestOn
-				}
-				cmp = compareReadText(av, bv, order.Direction)
-			}
-			if cmp == 0 {
-				return a.InstrumentID < b.InstrumentID
-			}
-			return cmp < 0
-		})
-		rows, err := readRows(selected)
-		if err != nil {
-			return readCapture{}, err
-		}
-		summary, err := readSummary(r, "items")
-		if err != nil {
-			return readCapture{}, err
-		}
-		summary["totalItemCount"], summary["matchedItemCount"], summary["itemsScope"] = total, len(rows), "filtered"
-		captured, _ := time.Parse(time.RFC3339Nano, r.AsOf)
-		return readCapture{Kind: "investment_reviews", CapturedAt: captured, Query: map[string]any{"filter": f, "sort": order}, Summary: summary, Sections: map[string][]json.RawMessage{"items": rows}}, nil
-	})
 }
 func (s *Service) pagedUpcoming(ctx context.Context, g uint64, in UpcomingReadInput) (ReadEnvelope, error) {
 	f := UpcomingReadFilter{}
