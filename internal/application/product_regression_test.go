@@ -31,6 +31,74 @@ func recordRegressionProduct(t *testing.T, s *Service, ctx context.Context, c Pr
 	}
 	return r
 }
+
+func TestProductContractDatesNormalizeAcrossCreateAndTermsUpdate(t *testing.T) {
+	t.Parallel()
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, s, ctx, "150000")
+	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000",
+		Terms: ProductTermsInput{
+			Kind: "term_deposit", Name: "Whitespace dates", StartOn: " 2026-09-20 ", MaturityOn: strPtr(" 2026-12-20 "),
+			InterestMode: "simple_act_365", AnnualRatePercent: strPtr("2.5"), InterestPaidThroughOn: strPtr(" 2026-09-20 "),
+		},
+		Policy: depositPolicy(),
+	}}
+	receipt := recordRegressionProduct(t, s, ctx, command)
+	product, err := s.Product(ctx, receipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if product.Contract.StartOn != "2026-09-20" || product.Contract.MaturityOn == nil || *product.Contract.MaturityOn != "2026-12-20" || product.Contract.InterestPaidThroughOn == nil || *product.Contract.InterestPaidThroughOn != "2026-09-20" {
+		t.Fatalf("created contract dates = start %q maturity %v paid-through %v", product.Contract.StartOn, product.Contract.MaturityOn, product.Contract.InterestPaidThroughOn)
+	}
+
+	updated, err := s.UpdateProductTerms(ctx, UpdateProductTermsInput{
+		ProductID: product.Contract.ID, ExpectedRevision: product.Contract.Revision,
+		Terms: ProductTermsInput{
+			Kind: "term_deposit", Name: product.Contract.Name, StartOn: " 2026-09-20 ", MaturityOn: strPtr(" 2026-12-20 "),
+			InterestMode: "simple_act_365", AnnualRatePercent: strPtr("2.5"), InterestPaidThroughOn: strPtr(" 2026-10-01 "),
+		},
+		Policy: depositPolicy(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Contract.StartOn != "2026-09-20" || updated.Contract.MaturityOn == nil || *updated.Contract.MaturityOn != "2026-12-20" || updated.Contract.InterestPaidThroughOn == nil || *updated.Contract.InterestPaidThroughOn != "2026-10-01" {
+		t.Fatalf("updated contract dates = start %q maturity %v paid-through %v", updated.Contract.StartOn, updated.Contract.MaturityOn, updated.Contract.InterestPaidThroughOn)
+	}
+	interest, err := updated.Contract.EstimatedUnpaidMaturityInterest()
+	if err != nil || interest == nil || !interest.Amount().IsPositive() {
+		t.Fatalf("normalized dates were not usable by interest accrual: amount=%v err=%v", interest, err)
+	}
+
+	badTerms := ProductTermsInput{Kind: "term_deposit", Name: updated.Contract.Name, StartOn: updated.Contract.StartOn, MaturityOn: strPtr(" 2026-02-30 "), InterestMode: "none"}
+	if _, err := s.UpdateProductTerms(ctx, UpdateProductTermsInput{ProductID: updated.Contract.ID, ExpectedRevision: updated.Contract.Revision, Terms: badTerms, Policy: depositPolicy()}); err == nil {
+		t.Fatal("invalid date update unexpectedly succeeded")
+	}
+	unchanged, err := s.Product(ctx, updated.Contract.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Contract.Revision != updated.Contract.Revision || unchanged.Contract.InterestPaidThroughOn == nil || *unchanged.Contract.InterestPaidThroughOn != "2026-10-01" {
+		t.Fatalf("failed date update changed contract: %+v", unchanged.Contract)
+	}
+}
+
+func TestProductOperationRejectsInvalidWhitespaceDateBeforeWrite(t *testing.T) {
+	t.Parallel()
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, s, ctx, "150000")
+	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Invalid date", StartOn: " 2026-02-30 ", MaturityOn: strPtr(" 2026-12-20 "), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	if _, err := s.PreviewProductOperation(ctx, command); err == nil {
+		t.Fatal("invalid contract date unexpectedly accepted")
+	}
+}
+
 func TestProductRegressionUndoRejectsEditedReservation(t *testing.T) {
 	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)

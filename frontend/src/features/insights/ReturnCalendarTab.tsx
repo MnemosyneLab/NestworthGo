@@ -8,13 +8,13 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useReturnCalendar, useReturnDay } from "@/queries/returnAnalysis";
 import type { AnalysisQueryRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis/models";
-import type { ReturnCalendarDTO, ReturnComponentAmountDTO, ReturnContributorDTO, ReturnDayDTO, SignedMoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { ReturnCalendarDTO, ReturnCalendarMonthDTO, ReturnComponentAmountDTO, ReturnContributorDTO, ReturnDayDTO, SignedMoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 import { CompletenessBanner } from "@/features/insights/CompletenessBanner";
 import { analysisRequest, currentMonthAwaitingClose, effectiveRange, periodRange } from "@/features/insights/analysisRequest";
 import { addMonths, currentMonth, isFuture, isToday, lastClosedDate, monthDays, monthLabel, yearLabel, yearMonths } from "@/features/insights/calendar";
-import { addCanonical, formatAmount, formatDecimalRatioPercent, formatSignedMoney, multiplyCanonical } from "@/lib/money";
+import { addCanonical, formatAmount, formatDecimalRatioPercent, formatSignedMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { signToneClass } from "@/components/ui/money-text";
 import { useHistoryOrigin } from "@/queries/history";
@@ -47,72 +47,20 @@ interface MonthReturnSummary {
   returnRate: string | null;
   ratedDays: number;
   totalDays: number;
-  available: boolean;
-}
-
-function monthAmountStatus(cells: ReturnDayDTO[]): MonthReturnSummary["amountStatus"] {
-  let hasKnownAmount = false;
-  let hasIncompleteAmount = false;
-  for (const cell of cells) {
-    if (cell.amountStatus === "complete") {
-      hasKnownAmount = true;
-    } else if (cell.amountStatus === "partial") {
-      hasKnownAmount = true;
-      hasIncompleteAmount = true;
-    } else {
-      hasIncompleteAmount = true;
-    }
-  }
-  if (!hasKnownAmount) return "unavailable";
-  return hasIncompleteAmount ? "partial" : "complete";
-}
-
-function aggregateMonth(cells: ReturnDayDTO[]): MonthReturnSummary {
-  let amount = "0";
-  let currency = "";
-  let hasAmount = false;
-  let factor = "1";
-  let hasRate = false;
-  let ratedDays = 0;
-  let totalDays = 0;
-  let available = false;
-  for (const cell of cells) {
-    ratedDays += cell.ratedDays;
-    totalDays += cell.totalDays;
-    available ||= cell.available;
-    if (cell.returnAmount) {
-      amount = addCanonical(amount, cell.returnAmount.amount);
-      currency ||= cell.returnAmount.currency;
-      hasAmount = true;
-    }
-    if (cell.returnRate != null) {
-      const dailyFactor = addCanonical("1", cell.returnRate);
-      const linkedFactor = dailyFactor ? multiplyCanonical(factor, dailyFactor) : "";
-      if (linkedFactor) {
-        factor = linkedFactor;
-        hasRate = true;
-      }
-    }
-  }
-  return {
-    returnAmount: hasAmount ? { amount, currency } : null,
-    amountStatus: monthAmountStatus(cells),
-    returnRate: hasRate && ratedDays > 0 && ratedDays * 2 >= totalDays ? addCanonical(factor, "-1") : null,
-    ratedDays,
-    totalDays,
-    available,
-  };
 }
 
 function aggregateYearMonths(data: ReturnCalendarDTO | undefined, year: number): Map<string, MonthReturnSummary> {
-  const cellsByMonth = new Map<string, ReturnDayDTO[]>();
-  for (const cell of data?.cells ?? []) {
-    const month = cell.date.slice(0, 7);
-    const cells = cellsByMonth.get(month) ?? [];
-    cells.push(cell);
-    cellsByMonth.set(month, cells);
-  }
-  return new Map(yearMonths(year).map((month) => [month, aggregateMonth(cellsByMonth.get(month) ?? [])]));
+  const months = new Map<string, ReturnCalendarMonthDTO>((data?.months ?? []).map((month) => [month.month, month]));
+  return new Map(yearMonths(year).map((month) => {
+    const summary = months.get(month);
+    return [month, {
+      returnAmount: summary?.returnAmount ?? null,
+      amountStatus: (summary?.amountStatus ?? "unavailable") as MonthReturnSummary["amountStatus"],
+      returnRate: summary?.returnRate ?? null,
+      ratedDays: summary?.ratedDays ?? 0,
+      totalDays: summary?.totalDays ?? 0,
+    }];
+  }));
 }
 
 function CalendarEmptyState({ data }: { data?: ReturnCalendarDTO }) {
@@ -263,7 +211,7 @@ function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDT
   return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
 }
 
-export { aggregateMonth, aggregateYearMonths };
+export { aggregateYearMonths };
 
 export function ReturnCalendarTab({ session, view, onViewChange: setView, onCursorChange, onOpenAssetChanges }: { session: AnalysisSessionState; view: "month" | "year"; onViewChange: (view: "month" | "year") => void; onCursorChange: (cursor: string) => void; onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
   const { t, i18n } = useTranslation();

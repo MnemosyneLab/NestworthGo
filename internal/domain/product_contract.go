@@ -376,10 +376,39 @@ func NewProductContract(input ProductContractInput, now time.Time) (ProductContr
 	if contract.State == "" {
 		contract.State = ProductStateOpen
 	}
+	if err := contract.NormalizeCivilDates(); err != nil {
+		return ProductContract{}, err
+	}
 	if err := contract.Validate(); err != nil {
 		return ProductContract{}, err
 	}
 	return contract, nil
+}
+
+// NormalizeCivilDates canonicalizes the contract's date-only fields before a
+// caller persists or returns the contract. Validate remains a read-only
+// invariant check; normalizing a value receiver there would only change a
+// discarded copy.
+func (c *ProductContract) NormalizeCivilDates() error {
+	if c == nil {
+		return validation("product", "is required")
+	}
+	startOn, err := ParseCivilDate("startOn", c.StartOn)
+	if err != nil {
+		return err
+	}
+	maturityOn, err := optionalCivilDate("maturityOn", c.MaturityOn)
+	if err != nil {
+		return err
+	}
+	paidThroughOn, err := optionalCivilDate("interestPaidThroughOn", c.InterestPaidThroughOn)
+	if err != nil {
+		return err
+	}
+	c.StartOn = startOn
+	c.MaturityOn = maturityOn
+	c.InterestPaidThroughOn = paidThroughOn
+	return nil
 }
 
 func (c ProductContract) Validate() error {

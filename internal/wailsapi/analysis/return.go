@@ -80,15 +80,30 @@ func (s *Service) ContributionItem(ctx context.Context, request AnalysisQueryReq
 func fromReturnCalendar(value application.ReturnCalendarResult) wire.ReturnCalendarDTO {
 	result := wire.ReturnCalendarDTO{
 		Summary:         fromReturnCalendarSummary(value.Summary),
+		Months:          make([]wire.ReturnCalendarMonthDTO, 0, len(value.Months)),
 		Cells:           make([]wire.ReturnDayDTO, 0, len(value.Days)),
 		TopContributors: fromReturnContributors(value.TopContributors),
 		Issues:          fromReturnIssues(value.Issues),
+	}
+	for _, month := range value.Months {
+		result.Months = append(result.Months, fromReturnCalendarMonth(month))
 	}
 	for _, day := range value.Days {
 		result.Cells = append(result.Cells, fromReturnDay(day))
 	}
 	setAvailability(&result.Available, &result.Status, &result.MissingReason, &result.ValuationForced, value.AnalysisAvailability)
 	return result
+}
+
+func fromReturnCalendarMonth(value application.ReturnCalendarMonthResult) wire.ReturnCalendarMonthDTO {
+	return wire.ReturnCalendarMonthDTO{
+		Month:        value.Month,
+		ReturnAmount: wire.FromSignedMoneyPtr(value.ReturnAmount),
+		AmountStatus: value.AmountStatus,
+		ReturnRate:   decimalStringPtr(value.ReturnRate),
+		RatedDays:    value.Coverage.RatedDays,
+		TotalDays:    value.Coverage.TotalDays,
+	}
 }
 
 func fromReturnCalendarSummary(value application.ReturnCalendarSummary) wire.ReturnCalendarSummaryDTO {

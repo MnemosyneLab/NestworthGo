@@ -10,6 +10,23 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+func aggregateDailyReturnRate(dailyReturns []domain.DailyReturn) (*decimal.Decimal, domain.RateCoverage) {
+	coverage := domain.RateCoverage{TotalDays: len(dailyReturns)}
+	linked := decimal.NewFromInt(1)
+	for _, daily := range dailyReturns {
+		if daily.Rate == nil || daily.Status != domain.CompletenessOK {
+			continue
+		}
+		linked = linked.Mul(decimal.NewFromInt(1).Add(*daily.Rate))
+		coverage.RatedDays++
+	}
+	if coverage.RatedDays == 0 || coverage.RatedDays*2 < coverage.TotalDays {
+		return nil, coverage
+	}
+	rate := linked.Sub(decimal.NewFromInt(1))
+	return &rate, coverage
+}
+
 // finalizeAnalysisReturns turns the component-level orthogonal projections
 // into one daily Modified Dietz series and a geometrically linked period rate.
 // AssetBuckets are intentionally not read here: return amount and Dietz
@@ -51,7 +68,6 @@ func finalizeAnalysisReturns(ctx context.Context, result *domain.PeriodAnalysisR
 	periodBeginning := decimal.Zero
 	hasPeriodBeginning := false
 	hasPeriodCurrency := false
-	linked := decimal.NewFromInt(1)
 	for dayIndex := 0; dayIndex < totalDays; dayIndex++ {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -109,6 +125,7 @@ func finalizeAnalysisReturns(ctx context.Context, result *domain.PeriodAnalysisR
 				return moneyErr
 			}
 			daily.Amount = &amountMoney
+			daily.AmountExact = &amount
 			periodReturn = periodReturn.Add(amount)
 		}
 
@@ -126,8 +143,6 @@ func finalizeAnalysisReturns(ctx context.Context, result *domain.PeriodAnalysisR
 				rate := amount.Div(capital)
 				daily.Rate = &rate
 				daily.Status = domain.CompletenessOK
-				linked = linked.Mul(decimal.NewFromInt(1).Add(rate))
-				result.Coverage.RatedDays++
 			}
 		}
 		result.DailyReturns = append(result.DailyReturns, daily)
@@ -161,10 +176,7 @@ func finalizeAnalysisReturns(ctx context.Context, result *domain.PeriodAnalysisR
 			result.Status = domain.CompletenessPartial
 		}
 	}
-	if result.Coverage.RatedDays*2 >= result.Coverage.TotalDays && result.Coverage.RatedDays > 0 {
-		result.ReturnRate = &linked
-		*result.ReturnRate = result.ReturnRate.Sub(decimal.NewFromInt(1))
-	}
+	result.ReturnRate, result.Coverage = aggregateDailyReturnRate(result.DailyReturns)
 	return nil
 }
 

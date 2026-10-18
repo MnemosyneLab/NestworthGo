@@ -349,6 +349,10 @@ func (s *Service) planOpen(ctx context.Context, origin *domain.HistoryOrigin, sn
 	if err := domain.ProductAccountEligible(record.Account); err != nil {
 		return productPlan{}, err
 	}
+	input.Terms, err = normalizeProductTermDates(input.Terms)
+	if err != nil {
+		return productPlan{}, err
+	}
 	kind, mode, rate, maturityInterest, paidThrough, err := resolveProductTerms(input.Terms, currency, principal)
 	if err != nil {
 		return productPlan{}, err
@@ -396,6 +400,9 @@ func (s *Service) planOpen(ctx context.Context, origin *domain.HistoryOrigin, sn
 		Principal: principal, StartOn: input.Terms.StartOn, MaturityOn: input.Terms.MaturityOn, InterestMode: mode,
 		AnnualRate: rate, MaturityInterest: maturityInterest, InterestPaidThroughOn: paidThrough,
 		State: domain.ProductStateOpen, OpenedOperationID: operationID, Revision: 1, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := contract.NormalizeCivilDates(); err != nil {
+		return productPlan{}, err
 	}
 	if err := contract.Validate(); err != nil {
 		return productPlan{}, err
@@ -469,6 +476,10 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 	if err := domain.ProductAccountEligible(record.Account); err != nil {
 		return productPlan{}, err
 	}
+	input.Terms, err = normalizeProductTermDates(input.Terms)
+	if err != nil {
+		return productPlan{}, err
+	}
 	kind, mode, rate, maturityInterest, paidThrough, err := resolveProductTerms(input.Terms, currency, principal)
 	if err != nil {
 		return productPlan{}, err
@@ -515,6 +526,9 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 		Principal: principal, StartOn: input.Terms.StartOn, MaturityOn: input.Terms.MaturityOn, InterestMode: mode,
 		AnnualRate: rate, MaturityInterest: maturityInterest, InterestPaidThroughOn: paidThrough,
 		State: domain.ProductStateOpen, OpenedOperationID: operationID, Revision: 1, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := contract.NormalizeCivilDates(); err != nil {
+		return productPlan{}, err
 	}
 	if err := contract.Validate(); err != nil {
 		return productPlan{}, err

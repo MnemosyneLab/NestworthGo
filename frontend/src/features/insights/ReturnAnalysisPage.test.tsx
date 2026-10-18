@@ -63,6 +63,7 @@ describe("ReturnAnalysisPage", () => {
         ratedDays: 1,
         totalDays: 2,
       },
+      months: [{ month: "2026-09", returnAmount: { amount: "100", currency: "USD" }, amountStatus: "partial", returnRate: "1.0099", ratedDays: 3, totalDays: 4 }],
       cells: [{
         date: "2026-09-01",
         beginningInvestedValue: { amount: "100", currency: "USD" },
@@ -326,7 +327,7 @@ describe("ReturnAnalysisPage", () => {
     expect(screen.getByTestId("return-day-2026-09-03")).not.toHaveClass("bg-destructive/7");
   });
 
-  it("folds year cells into monthly cards with one ReturnCalendar request", async () => {
+  it("uses backend monthly summaries in the year view with one ReturnCalendar request", async () => {
     const user = userEvent.setup();
     useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
     renderPage();

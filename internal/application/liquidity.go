@@ -612,12 +612,20 @@ func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTe
 	// Match the authoritative SQLite/IPC UTC millisecond representation before
 	// constructing either the preview or the durable terms receipt.
 	now = normalizeNow(now)
+	terms, err := normalizeProductTermDates(input.Terms)
+	if err != nil {
+		return preparedProductTerms{}, err
+	}
+	input.Terms = terms
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return preparedProductTerms{}, err
 	}
 	contract, err := s.repository.Product(ctx, household.ID, input.ProductID)
 	if err != nil {
+		return preparedProductTerms{}, err
+	}
+	if err := contract.NormalizeCivilDates(); err != nil {
 		return preparedProductTerms{}, err
 	}
 	if contract.Revision != input.ExpectedRevision {
@@ -633,11 +641,11 @@ func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTe
 	if contract.State != domain.ProductStateOpen && input.Terms.Name == "" {
 		return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Field: "productId", Message: "settled contracts only accept name and note edits"}
 	}
-	kind, mode, rate, maturityInterest, paidThrough, err := resolveProductTerms(input.Terms, contract.Currency, contract.Principal)
+	kind, mode, rate, maturityInterest, paidThrough, err := resolveProductTerms(terms, contract.Currency, contract.Principal)
 	if err != nil {
 		return preparedProductTerms{}, err
 	}
-	if kind != contract.Kind || input.Terms.StartOn != contract.StartOn {
+	if kind != contract.Kind || terms.StartOn != contract.StartOn {
 		return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Field: "terms", Message: "product kind and start date are immutable"}
 	}
 	if input.Terms.Name != "" {
@@ -645,7 +653,7 @@ func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTe
 	}
 	contract.Note = input.Terms.Note
 	if contract.State == domain.ProductStateOpen {
-		contract.MaturityOn = input.Terms.MaturityOn
+		contract.MaturityOn = terms.MaturityOn
 		contract.InterestMode = mode
 		contract.AnnualRate = rate
 		contract.MaturityInterest = maturityInterest
@@ -653,6 +661,9 @@ func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTe
 	}
 	contract.Revision++
 	contract.UpdatedAt = now
+	if err := contract.NormalizeCivilDates(); err != nil {
+		return preparedProductTerms{}, err
+	}
 	if err := contract.Validate(); err != nil {
 		return preparedProductTerms{}, err
 	}
@@ -678,7 +689,7 @@ func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTe
 			return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Message: "closed product policy is missing"}
 		}
 		candidate := before
-		candidate.MaturityOn = input.Terms.MaturityOn
+		candidate.MaturityOn = terms.MaturityOn
 		candidate.InterestMode = mode
 		candidate.AnnualRate = rate
 		if rate != nil && before.AnnualRate != nil && rate.Canonical() == before.AnnualRate.Canonical() {

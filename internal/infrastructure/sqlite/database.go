@@ -8,6 +8,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,7 +107,14 @@ func Open(path string) (*DB, error) {
 	// Inspect existing files before opening a writable connection. Every existing
 	// database, including version zero, must use the current schema or verified v15.
 	if existed {
-		probe, err := sql.Open("sqlite", path+"?mode=ro&_pragma=query_only%3d1&_pragma=foreign_keys%3d1")
+		probeDSN, dsnErr := sqliteDSN(path, url.Values{
+			"mode":    {"ro"},
+			"_pragma": {"query_only=1", "foreign_keys=1"},
+		})
+		if dsnErr != nil {
+			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: dsnErr}
+		}
+		probe, err := sql.Open("sqlite", probeDSN)
 		if err != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
@@ -130,7 +138,13 @@ func Open(path string) (*DB, error) {
 			return nil, &BootstrapError{Status: status, Found: found, Supported: CurrentSchemaVersion, Path: path}
 		}
 	}
-	dsn := path + "?_txlock=immediate&_pragma=busy_timeout%3d5000&_pragma=foreign_keys%3d1"
+	dsn, err := sqliteDSN(path, url.Values{
+		"_txlock": {"immediate"},
+		"_pragma": {"busy_timeout=5000", "foreign_keys=1"},
+	})
+	if err != nil {
+		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
+	}
 	database, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, &BootstrapError{Status: StatusUnavailable, Err: err}
