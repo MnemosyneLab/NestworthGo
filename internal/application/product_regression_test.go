@@ -107,7 +107,11 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = database.Close() })
+	t.Cleanup(func() {
+		if database != nil {
+			_ = database.Close()
+		}
+	})
 	service := NewService(sqlite.NewRepository(database))
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
@@ -160,6 +164,42 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 	if err := json.Unmarshal(rawMutation, &mutation); err != nil {
 		t.Fatal(err)
 	}
+	if mutation.Receipt.Contract.StartOn != "2026-09-20" {
+		t.Fatalf("new guarded receipt StartOn = %q, want canonical date", mutation.Receipt.Contract.StartOn)
+	}
+
+	// Exercise the original mismatch directly: the live row still contains a
+	// valid padded legacy value while its newly sealed receipt is canonical.
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatalf("reopen padded legacy row with canonical receipt: %v", err)
+	}
+	database = reopened
+	legacyRead, err := sqlite.NewRepository(reopened).Product(ctx, product.Contract.HouseholdID, product.Contract.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacyRead.StartOn != " 2026-09-20 " {
+		t.Fatalf("ordinary legacy row read = %q, want stored spelling to remain padded", legacyRead.StartOn)
+	}
+	var preservedCanonical []byte
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT value FROM app_configuration WHERE key=?`, mutationKey).Scan(&preservedCanonical); err != nil || string(preservedCanonical) != string(rawMutation) {
+		t.Fatalf("startup verification rewrote the canonical sealed receipt: %v", err)
+	}
+	canonicalVerifier, err := sqlite.OpenReadOnlyForVerify(path)
+	if err != nil {
+		t.Fatalf("read-only verification of padded legacy row and canonical receipt: %v", err)
+	}
+	if err := canonicalVerifier.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate a previously sealed receipt whose command and result both kept
+	// the valid padded spelling; verification must accept it without rewriting
+	// the original record or its digest.
 	var legacyCommand UpdateProductTermsInput
 	if err := json.Unmarshal(mutation.CommandJSON, &legacyCommand); err != nil {
 		t.Fatal(err)
@@ -185,25 +225,44 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
+	database = nil
 
-	reopened, err := sqlite.Open(path)
+	legacyReopened, err := sqlite.Open(path)
 	if err != nil {
-		t.Fatalf("reopen and startup integrity verification: %v", err)
+		t.Fatalf("reopen padded legacy receipt: %v", err)
 	}
+	database = legacyReopened
 	var preservedMutation []byte
-	if err := reopened.SQL.QueryRowContext(ctx, `SELECT value FROM app_configuration WHERE key=?`, mutationKey).Scan(&preservedMutation); err != nil || string(preservedMutation) != string(legacyRaw) {
+	if err := legacyReopened.SQL.QueryRowContext(ctx, `SELECT value FROM app_configuration WHERE key=?`, mutationKey).Scan(&preservedMutation); err != nil || string(preservedMutation) != string(legacyRaw) {
 		t.Fatalf("startup verification rewrote the sealed legacy receipt: %v", err)
-	}
-	if err := reopened.Close(); err != nil {
-		t.Fatal(err)
 	}
 	verified, err := sqlite.OpenReadOnlyForVerify(path)
 	if err != nil {
-		t.Fatalf("read-only backup integrity verification: %v", err)
+		t.Fatalf("read-only verification of padded legacy receipt: %v", err)
 	}
-	defer verified.Close()
 	if err := verified.Verify(ctx); err != nil {
 		t.Fatal(err)
+	}
+	if err := verified.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Canonicalization must not make a genuinely different valid date compare
+	// equal. Reject the altered live fact on writable and read-only paths.
+	if _, err := legacyReopened.SQL.ExecContext(ctx, `UPDATE product_contracts SET start_on=? WHERE id=?`, "2026-09-21", product.Contract.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacyReopened.Close(); err != nil {
+		t.Fatal(err)
+	}
+	database = nil
+	if unexpected, err := sqlite.OpenReadOnlyForVerify(path); err == nil {
+		_ = unexpected.Close()
+		t.Fatal("read-only verifier accepted a genuinely different product start date")
+	}
+	if unexpected, err := sqlite.Open(path); err == nil {
+		_ = unexpected.Close()
+		t.Fatal("startup verifier accepted a genuinely different product start date")
 	}
 }
 
