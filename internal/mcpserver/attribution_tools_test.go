@@ -70,6 +70,30 @@ func addDividendAttribution(t *testing.T, app *application.Service, suffix, divi
 	return record.Account.ID
 }
 
+func TestRealizedContributionUnsupportedScopesHTTPAndWails(t *testing.T) {
+	s, app, _, _ := historyFixture(t)
+	t.Cleanup(s.Close)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	client := connect(t, s)
+	for _, tc := range []struct{ kind, id string }{{"currency", "USD"}, {"asset_class", "stock"}} {
+		query := map[string]any{"from": "2025-03-02", "to": "2025-03-03", "scopeKind": tc.kind, "scopeId": tc.id, "valuation": "base", "basis": "investment"}
+		got := call(t, client, "list_contributions", map[string]any{"query": query, "returnType": "realized", "groupBy": "instrument", "ordering": "amount_desc", "limit": 100}, false)["data"].(map[string]any)
+		want, err := analysis.NewService(app).Contribution(t.Context(), analysis.AnalysisQueryRequest{From: "2025-03-02", To: "2025-03-03", ScopeKind: tc.kind, ScopeID: tc.id, Valuation: "base", Basis: "investment"}, "realized", "instrument", "amount_desc")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got["status"] != string(want.Status) || got["status"] != "unavailable" || len(got["rows"].([]any)) != 0 {
+			t.Fatalf("%s widened realized scope: MCP=%+v Wails=%+v", tc.kind, got, want)
+		}
+		item := call(t, client, "get_contribution_item", map[string]any{"query": query, "returnType": "realized", "groupBy": "instrument", "groupKey": "synthetic-instrument"}, false)["data"].(map[string]any)
+		if item["status"] != "unavailable" || item["amount"] != nil {
+			t.Fatalf("%s detail widened realized scope: %+v", tc.kind, item)
+		}
+	}
+}
+
 func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	t.Parallel()
 	s, app, _, _ := historyFixture(t)

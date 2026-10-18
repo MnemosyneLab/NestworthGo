@@ -592,6 +592,10 @@ records. Preserve nullable amounts, availability and coverage fields. The
 existing analysis backend reports unrealized contribution as unavailable; MCP
 preserves that limitation rather than inventing an attribution. Analysis reads
 can materialize snapshots and invalidate an outstanding preview, so query first.
+Realized contribution supports household, account, and instrument scopes with
+account/instrument filters. Currency, asset-class, and member scopes or filters
+return `unavailable` with no rows; they never widen to household gains. The
+detail tool returns the same unavailable state for those queries.
 
 ## Acceptance criteria
 

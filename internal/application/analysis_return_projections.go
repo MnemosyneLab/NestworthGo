@@ -280,6 +280,9 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 			return ContributionItemResult{}, err
 		}
 		item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: contribution.AnalysisAvailability, HistoryHint: realizedContributionHistoryHint(query, groupBy, groupKey)}
+		if contribution.Status == domain.CompletenessUnavailable {
+			return item, nil
+		}
 		var matched *ContributionRow
 		for _, row := range contribution.Rows {
 			if row.Key == groupKey {
@@ -928,6 +931,9 @@ func periodEndingValue(result domain.PeriodAnalysisResult) *domain.SignedMoney {
 }
 func realizedScope(query domain.AnalysisQuery) (domain.GainScope, bool) {
 	scope := domain.GainScope{}
+	if query.Scope.Kind != domain.ScopeHousehold && query.Scope.Kind != domain.ScopeAccount && query.Scope.Kind != domain.ScopeInstrument {
+		return scope, false
+	}
 	if query.Filters.Currency != nil || query.Filters.AssetClass != "" || query.Filters.MemberID != nil {
 		return scope, false
 	}

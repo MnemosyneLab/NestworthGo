@@ -555,3 +555,25 @@ func TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions(t *
 		t.Fatalf("instrument-filtered account hint = %+v, want both dimensions", accountHint)
 	}
 }
+
+func TestRealizedScopeNeverWidensCurrencyOrAssetClass(t *testing.T) {
+	t.Parallel()
+	query := testReturnQuery("2026-08-01", "2026-08-31")
+	for _, kind := range []domain.ScopeKind{domain.ScopeCurrency, domain.ScopeAssetClass} {
+		query.Scope = domain.AnalysisScope{Kind: kind, ID: "USD"}
+		if _, ok := realizedScope(query); ok {
+			t.Fatalf("%s silently widened to household", kind)
+		}
+	}
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeHousehold}
+	if _, ok := realizedScope(query); !ok {
+		t.Fatal("household scope rejected")
+	}
+	account, instrument := domain.NewAccountID(), domain.NewInstrumentID()
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeAccount, ID: account.String()}
+	query.Filters.InstrumentID = &instrument
+	scope, ok := realizedScope(query)
+	if !ok || scope.AccountID == nil || *scope.AccountID != account || scope.InstrumentID == nil || *scope.InstrumentID != instrument {
+		t.Fatalf("supported combined scope changed: %+v, %v", scope, ok)
+	}
+}
