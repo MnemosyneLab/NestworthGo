@@ -4,11 +4,47 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
+
+func TestAgentSkippedMidnightImportHTTP(t *testing.T) {
+	s, app, _ := fixture(t)
+	app.SetClock(func() time.Time { return time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC) })
+	instrument, err := app.CreateInstrument(t.Context(), application.InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Enable(LedgerWrite); err != nil {
+		t.Fatal(err)
+	}
+	client := connect(t, s)
+	for _, tc := range []struct{ date, zone string }{{"2024-09-08", "America/Santiago"}, {"2026-03-08", "America/Havana"}} {
+		items := []any{
+			map[string]any{"instrumentId": instrument.ID.String(), "currency": "USD", "value": "2", "kind": "nav", "date": tc.date, "timezone": tc.zone, "sourceTitle": "Synthetic NAV"},
+			map[string]any{"baseCurrency": "USD", "quoteCurrency": "SGD", "value": "1.4", "kind": "daily_reference", "date": tc.date, "timezone": tc.zone, "sourceTitle": "Synthetic FX"},
+		}
+		args := map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": items}}
+		first := call(t, client, "import_market_data", args, false)["data"]
+		again := call(t, client, "import_market_data", args, false)["data"]
+		if !reflect.DeepEqual(first, again) {
+			t.Fatalf("%s retry changed receipt", tc.zone)
+		}
+	}
+	before, err := app.AgentMarketDataRecords(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	call(t, client, "import_market_data", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{map[string]any{"instrumentId": instrument.ID.String(), "currency": "USD", "value": "3", "kind": "nav", "date": "2011-12-30", "timezone": "Pacific/Apia", "sourceTitle": "Synthetic invalid"}}}}, true)
+	after, err := app.AgentMarketDataRecords(t.Context())
+	if err != nil || len(after) != len(before) {
+		t.Fatalf("rejected HTTP write changed records: before=%d after=%d err=%v", len(before), len(after), err)
+	}
+}
 
 func TestAgentMarketDataPermissions(t *testing.T) {
 	t.Parallel()
