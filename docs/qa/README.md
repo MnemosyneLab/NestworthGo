@@ -6,6 +6,7 @@ board. For current v0.3.5 acceptance, use the [release contract](../releases/v0.
 
 ## Product validation
 
+- [PR101/PR102 post-merge browser acceptance — 2026-10-17–18](post-merge-pr101-pr102-2026-10-17/REPORT.md) — Real Wails server and cloud Chromium against isolated synthetic households; partial pass with a reproducible investment-review replay defect. See the maintained [real-browser workflow](../development/real-browser-acceptance.md).
 - [Available Funds validation record — 2026-09-28](available-funds-validation-2026-09-28.md) — Sanitized summary of a dated closeout report; its source revision and local logs were not recorded in the repository.
 - [Analytics QA — 2026-09-08](analytics-linux-2026-09-08/REPORT.md)
 - [Analytics QA, round 2 — 2026-09-09](analytics-linux-2026-09-09/REPORT.md)

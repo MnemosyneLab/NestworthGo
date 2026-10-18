@@ -9,6 +9,9 @@ validation.
 The [Wails version upgrade guide](wails-version-upgrade.md) covers synchronized
 Wails module/runtime/CLI upgrades, bindings regeneration, automated checks, and
 native/package validation boundaries.
+The [Real Browser Acceptance guide](real-browser-acceptance.md) documents the
+repository-supported HTTP server workflow, synthetic fixtures, cloud-browser
+verification, evidence capture, and native-only limits.
 
 Development documents should describe reproducible work against the current
 tree. Maintained documentation is English. Temporary investigations belong in

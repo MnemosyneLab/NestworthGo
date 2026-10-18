@@ -1,0 +1,21 @@
+{
+  "url": "http://127.0.0.1:18735/",
+  "chromiumVersion": "151.0.7922.173",
+  "chromiumSandboxRequested": false,
+  "previewStatus": 422,
+  "previewResponse": "{\"message\":\"{\\\"code\\\":\\\"history_update_failed\\\",\\\"field\\\":\\\"amount\\\",\\\"message\\\":\\\"historical replay reached a negative balance\\\"}\",\"cause\":{\"code\":\"history_update_failed\",\"field\":\"amount\",\"message\":\"historical replay reached a negative balance\"},\"kind\":\"RuntimeError\"}",
+  "previewRequest": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"JKN8JW_Hty_5VuxSmu6lO\",\"methodID\":2292729084,\"args\":[{\"spec\":{\"specVersion\":1,\"metricPolicyVersion\":\"daily_metrics_v1\",\"evaluator\":\"daily_predicate_v1\",\"target\":{\"kind\":\"all_current\"},\"predicate\":{\"all\":[{\"leaf\":{\"metric\":\"amount\",\"operator\":\">\",\"value\":\"900\",\"currency\":\"USD\",\"fxMode\":\"native\"}},{\"leaf\":{\"metric\":\"cost\",\"operator\":\">\",\"value\":\"1002\",\"currency\":\"USD\",\"fxMode\":\"native\"}}]},\"schedule\":{\"period\":\"calendar_day\",\"timezone\":\"UTC\",\"cutoffVersion\":\"civil_day_end_v1\"},\"triggerPolicy\":{\"kind\":\"single\"},\"dataPolicy\":{\"missing\":\"unknown\",\"calendar\":\"all_civil_days\",\"quoteCarry\":\"forbid_for_daily_signal\",\"baselineMaxGapDays\":7,\"fxReferenceMaxAgeDays\":7,\"fxTimestampMaxAgeHours\":12}},\"instrumentId\":\"01a14c8b-16ea-7710-a2ff-b575275176ab\",\"latestClosedOn\":\"\",\"expectedSourceToken\":\"\"}]}}",
+  "dialogText": "New rule\nClose\nName\nEnabled\nPriority\nNotice\nWarning\nApplies to\n\nOnly investments with a positive holding on each evaluated day.\n\nAll current holdings\nSelected investments\nDaily conditions\n\nBuild nested all/any groups visually. A rule can use up to 20 conditions and two group levels.\n\nMeet all\nMeet any\nType\nInvestment\nHolding amount\nCost\nPrice change\nEstimated annualized return\n>\n>=\n<\n<=\nSelect a currency\nAUD\nCNY\nEUR\nGBP\nHKD\nJPY\nSGD\nTWD\nUSD\nKRW\nCHF\nNative currency only\nConvert using the day\u2019s FX\nRemove\nType\nInvestment\nHolding amount\nCost\nPrice change\nEstimated annualized return\n>\n>=\n<\n<=\nSelect a currency\nAUD\nCNY\nEUR\nGBP\nHKD\nJPY\nSGD\nTWD\nUSD\nKRW\nCHF\nNative currency only\nConvert using the day\u2019s FX\nRemove\nAdd condition\nAdd condition group\nAlert after\nOne daily hit\nConsecutive hits\nHits in a period\nRule timezone\n\nCheck each closed day in UTC; missing data is unknown and does not count as a hit. Today is preview only.\n\nPreview\n\nSelect an investment\nSynthetic opened daily NAV fund\nPreview\n\nError: Amount: The history could not be updated.\n\nCancel\nSave",
+  "failedResponses": [
+    {
+      "status": 422,
+      "url": "http://127.0.0.1:18735/wails/runtime",
+      "body": "{\"message\":\"{\\\"code\\\":\\\"history_update_failed\\\",\\\"field\\\":\\\"amount\\\",\\\"message\\\":\\\"historical replay reached a negative balance\\\"}\",\"cause\":{\"code\":\"history_update_failed\",\"field\":\"amount\",\"message\":\"historical replay reached a negative balance\"},\"kind\":\"RuntimeError\"}"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+  ],
+  "pageErrors": []
+}

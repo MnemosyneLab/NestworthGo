@@ -1,0 +1,986 @@
+{
+  "pages": [
+    {
+      "label": "Accounts",
+      "status": "ok",
+      "screenshot": "02-accounts.png",
+      "headings": [
+        "Accounts",
+        "No institution"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nAccounts\nAdd account\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\n\nSee where money is held and what is inside each account.\n\nShow archived\nAccounts grouped by institution\nNo institution\nCN\u00a5285,331.58\nUS Brokerage\nBrokerage\nComplete\n$21,848.72\nCN\u00a5157,503.07\nAUD Cash\nBank account\nComplete\nA$17,485.00\nCN\u00a583,540.48\nSG Brokerage\nBrokerage\nComplete\nSGD\u00a07,999.20\nCN\u00a544,288.03",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        " Add account",
+        "",
+        "US BrokerageBrokerageComplete$21,848.72CN\u00a5157,503.07",
+        "AUD CashBank accountCompleteA$17,485.00CN\u00a583,540.48",
+        "SG BrokerageBrokerageCompleteSGD\u00a07,999.20CN\u00a544,288.03"
+      ]
+    },
+    {
+      "label": "Available funds",
+      "status": "ok",
+      "screenshot": "03-available-funds.png",
+      "headings": [
+        "Available funds",
+        "Available funds",
+        "Selected date breakdown",
+        "Assets \u00b7 by 2026-10-18"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nAvailable funds\nAdd product\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\n\nAs of 2026-10-18 \u00b7 Asia/Singapore\n\nCustom date\nSelect a date\nConsider early withdrawal\nAvailable funds\nCNY\nToday\n2026-10-18\nCN\u00a583,540.48\nPartial\nWithin 7 days\n2026-10-25\nCN\u00a583,540.48\nPartial\nWithin 30 days\n2026-11-17\nCN\u00a583,540.48\nPartial\nSelected date breakdown\nToday \u00b7 2026-10-18\nSelected date breakdown\nCurrency\tAccessible cash before reservations\tEstimated sale or redemption proceeds\tApplied\tAvailable by date\nAUD\tUnknown\tA$0.00\tA$0.00\tA$17,485.00Partial\nSGD\tUnknown\tUnknown\tUnknown\tUnknownPartial\nUSD\tUnknown\tUnknown\tUnknown\tUnknownPartial\nAssets \u00b7 by 2026-10-18\nManage reservations\nAvailability needs more information\nShow items\nAll\n7\nAvailable by date\n1\nNeeds information\n6\nAvailability by source\nAsset\tCurrent value\tExpected access\tAvailable by date\t\nActions\n\n\nAAPL\nUS Brokerage\nNeeds information\n\t$2,424.00\t\nUnknown\nCost: Unknown\n\t\nUnknown\n\t\nComplete availability rules\n\n\nAUD Cash\nAUD Cash\nCash available\n\tA$17,485.00\t\n2026-10-18\n\t\nA$17,485.00\n\t\n\n\nES3\nSG Brokerage\nNeeds information\n\tSGD\u00a034.20\t\nUnknown\nCost: Unknown\n\t\nUnknown\n\t\nComplete availability rules\n\n\nQQQ\nUS Brokerage\nNeeds information\n\t$822.00\t\nUnknown\nCost: Unknown\n\t\nUnknown\n\t\nComplete availability rules\n\n\nSG Brokerage cash\nSG Brokerage\nNeeds information\n\tSGD\u00a07,965.00\t\nUnknown\nCost: Unknown\n\t\nUnknown\n\t\nComplete availability rules\n\n\nUS Brokerage cash\nUS Brokerage\nNeeds information\n\tA$800.00\t\nUnknown\nCost: Unknown\n\t\nUnknown\n\t\nComplete availability rules\n\n\nUS Brokerage cash\nUS Brokerage\nNeeds information\n\t$18,072.50\t\nUnknown\nCost: Unknown\n\t\nUnknown\n\t\nComplete availability rules",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "Add product",
+        "",
+        "Select a date",
+        "",
+        "",
+        "Today2026-10-18CN\u00a583,540.48Partial",
+        "Within 7 days2026-10-25CN\u00a583,540.48Partial",
+        "Within 30 days2026-11-17CN\u00a583,540.48Partial",
+        "",
+        "Manage reservations",
+        "Show items",
+        "All 7",
+        "Available by date 1",
+        "Needs information 6",
+        "Complete availability rules",
+        "",
+        "",
+        "Complete availability rules",
+        "",
+        "Complete availability rules",
+        "",
+        "Complete availability rules",
+        "",
+        "Complete availability rules",
+        "",
+        "Complete availability rules",
+        ""
+      ]
+    },
+    {
+      "label": "Investment assets",
+      "status": "ok",
+      "screenshot": "04-investment-assets.png",
+      "headings": [
+        "Investment assets"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nInvestment assets\nRecord existing holding\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\n\nCurrent investment value\n\nCN\u00a523,589.12\n\nCurrent estimate\nCurrent estimate \u00b7 Market / reference date: 2026-09-08\nMy holdings\nAll instruments\nAllocation & trend\nBy instrument\nAccount details\nShow zero holdings\nCollapse all\nStocks\n1 holding\nCOST\n$2,204.00\nVALUE\n$2,424.00\nGAIN / LOSS\nUp\n+$220.00\nHoldings, cost, current value, and gain \u00b7 Stocks\nInstrument\n\tQuantity\tCost\tCurrent value\tUnrealized gain\t\nActions\n\n\nAAPL\nApple Inc\n\n1 account\n\n\t12\t$2,204.00\t$2,424.00\t\nUp\n+$220.00\n\t\nFunds & ETFs\n2 holdings\nCOST\nSGD\u00a035.00\n$810.00\nVALUE\nSGD\u00a034.20\n$822.00\nGAIN / LOSS\nDown\n-SGD\u00a00.80\nUp\n+$12.00\nHoldings, cost, current value, and gain \u00b7 Funds & ETFs\nInstrument\n\tQuantity\tCost\tCurrent value\tUnrealized gain\t\nActions\n\n\nES3\nSPDR STI ETF\n\n1 account\n\n\t10\tSGD\u00a035.00\tSGD\u00a034.20\t\nDown\n-SGD\u00a00.80\n\t\n\n\nQQQ\nInvesco QQQ Trust\n\n1 account\n\n\t2\t$810.00\t$822.00\t\nUp\n+$12.00\n\t",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        " Record existing holding",
+        "",
+        "My holdings",
+        "All instruments",
+        "Allocation & trend",
+        "By instrument",
+        "Account details",
+        "Collapse all",
+        "Stocks1 holding",
+        "Instrument",
+        "Quantity",
+        "Cost",
+        "Current value",
+        "Unrealized gain",
+        "",
+        "",
+        "",
+        "Funds & ETFs2 holdings",
+        "Instrument",
+        "Quantity",
+        "Cost",
+        "Current value",
+        "Unrealized gain",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "label": "Upcoming actions",
+      "status": "ok",
+      "screenshot": "05-upcoming-actions.png",
+      "headings": [
+        "Upcoming actions",
+        "Upcoming actions",
+        "Needs attention \u00b7 0",
+        "Scheduled \u00b7 0"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nUpcoming actions\nRefresh\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\nUpcoming actions\n\nReview receipts, reservations and investment reminders.\n\nUpcoming actions\nInvestment review\n\nToday and the next 30 days \u00b7 2026-10-18 \u00b7 Asia/Singapore\n\nRead at Oct 18, 2026, 8:00 AM \u00b7 Asia/Singapore\n\n0 need attention \u00b7 0 schedules \u00b7 0 receipts to verify \u00b7 0 reservation issues\n\nAll\nReceipts to verify\nReservation issues\nSchedules\nNeeds attention \u00b7 0\nScheduled \u00b7 0\n\nNo known attention or scheduled items. See eligible items and data checks below.\n\nEligible to request access (0)\nInformation affecting assessment (0 data issues, 0 notes)\n\nNormal routes only. Estimates do not confirm cash received or initiate a financial action.",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "Refresh",
+        "",
+        "Upcoming actions",
+        "Investment review",
+        "Not ignored",
+        "All",
+        "To review",
+        "Acknowledged",
+        "Ignored",
+        "Data missing",
+        "Counting hits",
+        "Paused",
+        "Coverage",
+        "Previous",
+        "Next",
+        "Previous review settings",
+        "All",
+        "Receipts to verify",
+        "Reservation issues",
+        "Schedules"
+      ]
+    },
+    {
+      "label": "History",
+      "status": "ok",
+      "screenshot": "06-history.png",
+      "headings": [
+        "History",
+        "2026-08-29",
+        "2026-08-28",
+        "2026-08-27",
+        "2026-08-25",
+        "2026-08-16",
+        "2026-08-15",
+        "2026-08-13",
+        "2026-08-10",
+        "2026-08-07",
+        "2026-08-05",
+        "2026-08-03",
+        "2026-08-02",
+        "2026-07-31",
+        "2026-07-30",
+        "2026-07-29",
+        "2026-07-28",
+        "2026-07-27"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nHistory\nRecord change\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\n\nReview financial changes in plain language and correct them without losing the audit trail.\n\nHistory Origin timezone: Asia/Singapore\n\nKind\nAll\nMoney added\nMoney removed\nCash dividend\nCash transfer\nCurrency conversion\nInvestment transfer\nBuy\nSell\nValue update\nDebt draw\nDebt payment\nAccount\nAll\nAUD Cash\nSG Brokerage\nUS Brokerage\nInstrument\nAll\nAAPL\nQQQ\nES3\nFrom date\nSelect a date\nTo date\nSelect a date\n1D\nLast week\n1 month\n3 months\n6 months\n1 year\nAll history\n2026-07-26 \u2013 2026-10-18\n\nActivity\n\n2026-08-29\n\nRemoved A$15.00 from AUD Cash (Fee)\n\nDetails\n2026-08-28\n\nDividend $12.50 from AAPL into US Brokerage\n\nDetails\n2026-08-27\n\nSold 3 AAPL in US Brokerage for $615.00\n\nDetails\n2026-08-25\n\nAdded $1,000.00 to US Brokerage (Contribution)\n\nDetails\n2026-08-16\n\nTransferred A$200.00 from US Brokerage to AUD Cash\n\nDetails\n2026-08-15\n\nBought 5 AAPL in US Brokerage for $950.00\n\nDetails\n2026-08-13\n\nBought 10 ES3 in SG Brokerage for SGD\u00a035.00\n\nDetails\n2026-08-10\n\nRemoved A$200.00 from AUD Cash (Expense)\n\nDetails\n2026-08-07\n\nBought 2 QQQ in US Brokerage for $810.00\n\nDetails\n2026-08-05\n\nAdded A$3,000.00 to AUD Cash (Income)\n\nDetails\n2026-08-03\n\nSold 1 QQQ in US Brokerage for $410.00\n\nDetails\n\nBought 1 QQQ in US Brokerage for $400.00\n\nDetails\n2026-08-02\n\nAdded A$500.00 to AUD Cash (Interest)\n\nDetails\n2026-07-31\n\nBought 10 AAPL in US Brokerage for $1,800.00 (fee $5.00)\n\nDetails\n2026-07-30\n\nAdded SGD\u00a08,000.00 to SG Brokerage (Contribution)\n\nDetails\n2026-07-29\n\nTransferred A$1,000.00 from AUD Cash to US Brokerage\n\nDetails\n2026-07-28\n\nAdded A$5,000.00 to AUD Cash (Contribution)\n\nDetails\n2026-07-27\n\nAdded $20,000.00 to US Brokerage (Contribution)\n\nDetails\n\nSnapshot health\n\nSnapshots need repair from 2026-09-09.\n\nRepair snapshots",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        " Record change",
+        "",
+        "Select a date",
+        "Select a date",
+        "1D",
+        "Last week",
+        "1 month",
+        "3 months",
+        "6 months",
+        "1 year",
+        "All history",
+        "",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Details",
+        "",
+        "Repair snapshots"
+      ]
+    },
+    {
+      "label": "Reconciliation",
+      "status": "ok",
+      "screenshot": "07-reconciliation.png",
+      "headings": [
+        "Reconciliation",
+        "No reconciliation sessions yet."
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nReconciliation\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\n\nCheck your records against Nestworth. Corrections update this local ledger, not your bank or broker. Market prices and FX can lag without invalidating cash or quantity checks.\n\nSelect accounts to check\nSelect all\nAUD Cash \u00b7 AUD\nSG Brokerage \u00b7 SGD\nUS Brokerage \u00b7 USD\nStart reconciliation\nSaved sessions and history\nAll sessions\nIn progress\nPaused\nCompleted\nNo reconciliation sessions yet.\nPrevious\nNext",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "",
+        "Select all",
+        "Start reconciliation",
+        "Previous",
+        "Next"
+      ]
+    },
+    {
+      "label": "Historical overview",
+      "status": "ok",
+      "screenshot": "08-historical-overview.png",
+      "headings": [
+        "Historical overview",
+        "Net worth",
+        "Assets",
+        "Liabilities",
+        "Asset allocation"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nHistorical overview\nBack to current\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\nSingle date\nCompare dates\nDate vs. now\nRead only\nAsia/Singapore\nHistorical date\n2026-09-30\nLast month end\nLast closed day\nStarting point\n\nAvailable dates: 2026-07-26\u20132026-10-17 \u00b7 Asia/Singapore\n\nCaptured at: Oct 18, 2026, 08:01:01 AM GMT+8 \u00b7 Refresh to include new records or quotes.\n\nNet worth\nA \u00b7 2026-09-30\nCN\u00a5285,331.58\nCoverage verified\nAssets\nA \u00b7 2026-09-30\nCN\u00a5285,331.58\nCoverage verified\nLiabilities\nA \u00b7 2026-09-30\nCN\u00a50.00\nCoverage verified\nA \u00b7 2026-09-30: Complete\nView account evidence\nAsset composition\nAccount details\nTime trend\nAsset allocation\n\nShares of valued, included assets only. Debt is separate. Incomplete estimates can understate the full allocation. \u00b7 Assets only; original currency amounts converted to base currency \u00b7 CNY\n\nAsset class (current classification)\nOriginal currency\nValued assets\nCN\u00a5285,331.58\nAsset amounts in CNY; A and B share a scale. Exact values are in the full data table.\nCash\nETF\nStock\nFull source data table",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "Back to current",
+        "",
+        "Single date",
+        "Compare dates",
+        "Date vs. now",
+        "",
+        "",
+        "2026-09-30",
+        "",
+        "",
+        "Last month end",
+        "Last closed day",
+        "Starting point",
+        "View account evidence",
+        "Asset composition",
+        "Account details",
+        "Time trend",
+        "Asset class (current classification)",
+        "Original currency",
+        "Cash",
+        "ETF",
+        "Stock"
+      ]
+    },
+    {
+      "label": "Return Analysis",
+      "status": "ok",
+      "screenshot": "09-return-analysis.png",
+      "headings": [
+        "Return Analysis",
+        "October 2026",
+        "Return summary"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nReturn Analysis\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\nReturn Calendar\nReturn Trend\nContribution\nScope\nPortfolio\nAccount\nInstrument\nFrom\n2026-10-01\nTo\n2026-10-17\nPortfolio defaults\n1D\nLast week\n1 month\n3 months\n6 months\n1 year\nAll history\n2026-10-01 \u2013 2026-10-17\nMore filters\nBase (CNY) \u00b7 Include cash\nOctober 2026\nToday\nMonth\nYear\n\n2026-10-01 \u2013 2026-10-17\n\nReturn summary\n\nReturn amount\n\nCN\u00a50.00\n\nReturn rate\n\n0%\n\nBeginning invested value\n\nCN\u00a5285,331.58\n\nEnding invested value\n\nCN\u00a5285,331.58\n\nMon\nTue\nWed\nThu\nFri\nSat\nSun\n28\nNo data is available for this day.\n29\nNo data is available for this day.\n30\nNo data is available for this day.\n1\n0%\nCN\u00a50.00\n2\n0%\nCN\u00a50.00\n3\n0%\nCN\u00a50.00\n4\n0%\nCN\u00a50.00\n5\n0%\nCN\u00a50.00\n6\n0%\nCN\u00a50.00\n7\n0%\nCN\u00a50.00\n8\n0%\nCN\u00a50.00\n9\n0%\nCN\u00a50.00\n10\n0%\nCN\u00a50.00\n11\n0%\nCN\u00a50.00\n12\n0%\nCN\u00a50.00\n13\n0%\nCN\u00a50.00\n14\n0%\nCN\u00a50.00\n15\n0%\nCN\u00a50.00\n16\n0%\nCN\u00a50.00\n17\n0%\nCN\u00a50.00\n18\nToday\nToday is not closed yet\n19\n\u2014\n20\n\u2014\n21\n\u2014\n22\n\u2014\n23\n\u2014\n24\n\u2014\n25\n\u2014\n26\n\u2014\n27\n\u2014\n28\n\u2014\n29\n\u2014\n30\n\u2014\n31\n\u2014\n1\n\u2014",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "",
+        "Return Calendar",
+        "Return Trend",
+        "Contribution",
+        "2026-10-01",
+        "2026-10-17",
+        "Portfolio defaults",
+        "1D",
+        "Last week",
+        "1 month",
+        "3 months",
+        "6 months",
+        "1 year",
+        "All history",
+        "",
+        "",
+        "",
+        "",
+        "Today",
+        "Month",
+        "Year",
+        "28No data is available for this day.",
+        "29No data is available for this day.",
+        "30No data is available for this day.",
+        "10%CN\u00a50.00",
+        "20%CN\u00a50.00",
+        "30%CN\u00a50.00",
+        "40%CN\u00a50.00",
+        "50%CN\u00a50.00",
+        "60%CN\u00a50.00",
+        "70%CN\u00a50.00",
+        "80%CN\u00a50.00",
+        "90%CN\u00a50.00",
+        "100%CN\u00a50.00",
+        "110%CN\u00a50.00",
+        "120%CN\u00a50.00",
+        "130%CN\u00a50.00",
+        "140%CN\u00a50.00",
+        "150%CN\u00a50.00",
+        "160%CN\u00a50.00",
+        "170%CN\u00a50.00",
+        "18TodayToday is not closed yet",
+        "19\u2014",
+        "20\u2014",
+        "21\u2014",
+        "22\u2014",
+        "23\u2014",
+        "24\u2014",
+        "25\u2014",
+        "26\u2014",
+        "27\u2014",
+        "28\u2014",
+        "29\u2014",
+        "30\u2014",
+        "31\u2014",
+        "1\u2014"
+      ]
+    },
+    {
+      "label": "Asset Changes",
+      "status": "ok",
+      "screenshot": "10-asset-changes.png",
+      "headings": [
+        "Asset Changes",
+        "Net Worth \u00b7 CNY"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nAsset Changes\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\nAsset Trend\nChange Drivers\nCategories\nScope\nPortfolio\nAccount\nInstrument\nFrom\n2026-10-01\nTo\n2026-10-17\nPortfolio defaults\n1D\nLast week\n1 month\n3 months\n6 months\n1 year\nAll history\n2026-10-01 \u2013 2026-10-17\nMore filters\nBase (CNY) \u00b7 Include cash\nBeginning value\nCN\u00a5285,331.58\nEnding value\nCN\u00a5285,331.58\nChange\nCN\u00a50.00\nPeriod change (%)\n0.00%\n\nChange = (ending value \u2212 beginning value) \u00f7 beginning value. Includes cash flows; this is not an investment return.\n\nNet Worth \u00b7 CNY\nGranularity\nDay\nWeek\nMonth\nMetric\nNet Worth\nTotal Assets\nTotal Liabilities\nExternal flows\nIncome\nSpending\nFees\nInvestment Return\nReturn %\nDividend & Interest\nPrice Change\nHolding-period FX change\nFX conversion spread\nNet Change\nUnexplained difference\nAsset trend for the selected metric.\nView data table",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "",
+        "Asset Trend",
+        "Change Drivers",
+        "Categories",
+        "2026-10-01",
+        "2026-10-17",
+        "Portfolio defaults",
+        "1D",
+        "Last week",
+        "1 month",
+        "3 months",
+        "6 months",
+        "1 year",
+        "All history",
+        "",
+        ""
+      ]
+    },
+    {
+      "label": "Directory",
+      "status": "ok",
+      "screenshot": "11-directory.png",
+      "headings": [
+        "Directory"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nDirectory\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\n\nManage the people, institutions, and groups that give your accounts useful context.\n\nMembers\nInstitutions\nGroups\nShow archived\nAdd a member\nWeichen\nEdit\nArchive",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "",
+        "Members",
+        "Institutions",
+        "Groups",
+        " Add a member",
+        "Edit",
+        "Archive"
+      ]
+    },
+    {
+      "label": "Data maintenance",
+      "status": "ok",
+      "screenshot": "12-data-maintenance.png",
+      "headings": [
+        "Data maintenance",
+        "Stock",
+        "ETF",
+        "FX rates"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nData maintenance\nAdd instrument\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\nIssues & repair\nQuotes & FX\n\nManage instrument prices, FX rates, and historical observations. Provider fetches run only when you ask.\n\nData Health \u00b7 1 issue\nUpdate latest prices\nMore actions\nInstruments\nFX rates\nSearch instruments\nStock\nAAPL\nApple Inc\nUSD\nManual\nLatest: $202.00as of Sep 8, 2026, 8:00 AM\nManual\nDetails\nEdit\nETF\nES3\nSPDR STI ETF\nSGD\nManual\nLatest: SGD\u00a03.42as of Sep 8, 2026, 8:00 AM\nManual\nDetails\nEdit\nQQQ\nInvesco QQQ Trust\nUSD\nManual\nLatest: $411.00as of Sep 8, 2026, 8:00 AM\nManual\nDetails\nEdit\n\nMarket and FX values are refreshed only when you ask. Local observations remain available while providers are unavailable.",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        " Add instrument",
+        "",
+        "Issues & repair",
+        "Quotes & FX",
+        "Data Health \u00b7 1 issue",
+        " Update latest prices",
+        "More actions",
+        "Instruments",
+        "FX rates",
+        "Details",
+        "Edit",
+        "Details",
+        "Edit",
+        "Details",
+        "Edit",
+        "View history",
+        "View history",
+        "View history"
+      ]
+    },
+    {
+      "label": "Settings",
+      "status": "ok",
+      "screenshot": "13-settings.png",
+      "headings": [
+        "Settings",
+        "Appearance & language",
+        "Market data & connections",
+        "CoinGecko",
+        "Tiingo",
+        "AI / MCP",
+        "Local connection",
+        "Recent agent operations",
+        "Data management",
+        "Recalculate history and balances",
+        "Diagnostics",
+        "Nestworth"
+      ],
+      "body": "Overview\nAccounts\nAvailable funds\nInvestment assets\n\nActivity\n\nUpcoming actions\nHistory\nReconciliation\n\nInsights\n\nHistorical overview\nReturn Analysis\nAsset Changes\n\nManage\n\nDirectory\n\nSettings\n\nData maintenance\nSettings\nSettings\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\n\nShape the way Nestworth reads and presents your household picture.\n\nAppearance\nMarket data\nAI \u00b7 MCP\nData\nDiagnostics\nAbout\nAppearance & language\nAppearance\nSystem\nLight\nDark\nColor theme\nIndigo\nLavender\nMint\nSky\nPeach\nLanguage\nSystem\nEnglish\n\u7b80\u4f53\u4e2d\u6587\n\u7e41\u9ad4\u4e2d\u6587\nTimezone\n\nSystem timezone resolves to Asia/Singapore.\n\nHousehold base currency\n\nAmounts use the household base currency or their explicitly shown original currency.\n\nRestore all preference defaults\n\nSave applies to appearance, language, market preferences, and diagnostics.\n\nSave changes",
+      "buttons": [
+        "",
+        "Overview",
+        "Accounts",
+        "Available funds",
+        "Investment assets",
+        "Upcoming actions",
+        "History",
+        "Reconciliation",
+        "Historical overview",
+        "Return Analysis",
+        "Asset Changes",
+        "Directory",
+        "Data maintenance",
+        "Settings",
+        "",
+        "Appearance",
+        "Market data",
+        "AI \u00b7 MCP",
+        "Data",
+        "Diagnostics",
+        "About",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "Show new input",
+        "Save key",
+        "Show new input",
+        "Save key",
+        "Enable MCP",
+        "Back up data",
+        "Restore from backup",
+        "Export data",
+        "Recalculate all data",
+        "Try again",
+        "Restore all preference defaults",
+        "Save changes"
+      ]
+    }
+  ],
+  "events": {
+    "console": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "page_errors": [],
+    "failed_requests": [
+      {
+        "url": "http://127.0.0.1:18724/wails/custom.js",
+        "error": "net::ERR_ABORTED"
+      }
+    ],
+    "bad_responses": [],
+    "websockets": [
+      "ws://127.0.0.1:18724/wails/events?clientId=igQJxo0Zvnxzn2DzgNqQl"
+    ],
+    "service_calls": [
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"jXyOsF0eXodl45c5M6qFx\",\"methodID\":1866289316,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"FEJ_A2CloTVXYHQVE3zPx\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"mzAH2_SHDLT13rD7SShFs\",\"methodID\":3178430509,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"lFC4rIDtTGp90qZYXOMDo\",\"methodID\":1063436565,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"vuvY6HFxfXqd1gGqTlkKl\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"LJUoyfKesj_lDY-TC49CR\",\"methodID\":3181417489,\"args\":[{}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"1BgiMm2Yj53-MKUwLFkr-\",\"methodID\":247455835,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"e9DzIbFWnuHWlxeQE_VGF\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"wQ7ShrzjXHi3rE33jEU8M\",\"methodID\":1188744533,\"args\":[{\"includeEarlyWithdrawal\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"aVg8JpUr5QiYrKAYASFY1\",\"methodID\":3406455045,\"args\":[{\"filter\":{\"status\":\"unignored\",\"instrumentType\":\"\",\"query\":\"\"},\"cursor\":\"\",\"pageSize\":50}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"UCqZJiQYevHet3jDLAoQP\",\"methodID\":1263833643,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"1Bqs4hhYJz5HV82MM_5p2\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"0K3PiE0nw0vUi4icCJEts\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"jUVKfsifAT0oih61OlQjQ\",\"methodID\":3771424334,\"args\":[\"2026-09-19:2026-10-18\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"j1BFdPdtvohoP9llqK_Iz\",\"methodID\":1600073255,\"args\":[{\"includeArchived\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"p8pm5kXeTWqtdjW3oJaYn\",\"methodID\":2700983538,\"args\":[{\"includeArchived\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"F4VbeMdH0gZRaAgxF3xdo\",\"methodID\":4173405712,\"args\":[true]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"U10lEXXqa670U7vjQq2XP\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"amQf70rrGoZm_xuTy3SOI\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"6TbCMmkb0rulqu-1cmU1_\",\"methodID\":1188744533,\"args\":[{\"includeEarlyWithdrawal\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"_TbBla4bSjKEyBZeBYxEk\",\"methodID\":1600073255,\"args\":[{\"includeArchived\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"sgEk9Bny_ipuQQ4xjHWp3\",\"methodID\":1600073255,\"args\":[{\"includeArchived\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"uLG7rGwuUzPXKVzh9GSn4\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"mqnJmYwlx5sFmeJrBhb_v\",\"methodID\":3717597159,\"args\":[false]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"5bVS7OyRJ73GQ6Kzvb6F8\",\"methodID\":1074245374,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"GkamXv84g0-X-eL2s0TSh\",\"methodID\":841124278,\"args\":[{\"includeClosed\":true}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"biU1pA6HMC44Ni7bzV4HJ\",\"methodID\":3154183370,\"args\":[{}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"zY-0GStZoGyXcZDFPpeLq\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"pKkYb0kRy1VZ_BjX1Lkxa\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"xxKqHuxUb9del0irI6TTh\",\"methodID\":1263833643,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"PHYb7bBqvHQRvs8GGIvy9\",\"methodID\":1600073255,\"args\":[{\"includeArchived\":true}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"0WDKyc04KsAVjou_2vD7Z\",\"methodID\":3717597159,\"args\":[true]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"wDi7YHIM7tzbcRvlm-1IZ\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"TvBEEbZ1c2wJMaYI3xOOI\",\"methodID\":1791038100,\"args\":[{\"limit\":50}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"JgyrOs0BW-Tv9mlBS2HWo\",\"methodID\":3301983652,\"args\":[\"\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"me1Onosa5qBfSxCv16jEH\",\"methodID\":247455835,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"qb2mTNswvat5XGAm5Z9A9\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"oD0OqgbtAuIKLaXhmgJ8N\",\"methodID\":756240794,\"args\":[[\"01a14c4d-7b7d-79d1-a983-1f3d36cef938\",\"01a14c4d-7b7e-7a7a-bb03-ed033a09606b\",\"01a14c4d-7b7f-74ef-977d-681c49a7d293\"]]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"MDcLhG01nOUeZUsF5NNnl\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"KuCcb5z7HVNaPdXkVYI6h\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"VjBrt9HyNYpD85BPeaK7E\",\"methodID\":1600073255,\"args\":[{\"includeArchived\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"8qhjLINwQRDNFHIMdGlZB\",\"methodID\":4127727439,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"TQ1_NDDylIbVYApSACuSu\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"FQpRXBQmQLOmZCd7eMXkD\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"BX4Td2K_bDhGRGj1Ao71a\",\"methodID\":1841438157,\"args\":[\"2026-09-30\",\"\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"puJ2gDj51QQ7H9ij-M2RX\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"O_ajwp3pr6T4lGhvdyh2f\",\"methodID\":3178430509,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"B-uH98l7L1DFtikW3S92f\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"DWC_5__mdtzXDBpJ3oCKV\",\"methodID\":1600073255,\"args\":[{\"includeArchived\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"7IF1toYamFfLzGq5MLGTS\",\"methodID\":2943667174,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"b9J2y2ZCwn3J3pNzJkQ38\",\"methodID\":4105724226,\"args\":[false]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"5k2I1TE3HQKULmjIujF2U\",\"methodID\":3528800486,\"args\":[{\"scopeKind\":\"household\",\"from\":\"2026-10-01\",\"to\":\"2026-10-17\",\"valuation\":\"base\",\"basis\":\"investment\",\"includeCash\":true},\"2026-10\",\"day\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"_ylKRoptztgpJiscZdPi1\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"oGvjrpaA84eh4y32yuqzH\",\"methodID\":3178430509,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"tX6ETuJIBXeYmhTJmOMg4\",\"methodID\":4016513528,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"ZMqFObCmEZHJq0lnqtH2_\",\"methodID\":1600073255,\"args\":[{\"includeArchived\":false}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"YgV65Al5gCQC9Y0d6fCBf\",\"methodID\":4105724226,\"args\":[false]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"77ku0fqgx886oxGoq59nk\",\"methodID\":1351440837,\"args\":[{\"scopeKind\":\"household\",\"from\":\"2026-10-01\",\"to\":\"2026-10-17\",\"valuation\":\"base\",\"basis\":\"investment\",\"includeCash\":true},\"day\",\"net_worth\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"I_SGN6AESpLaFKl25CzUQ\",\"methodID\":4105724226,\"args\":[false]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"CMb89AKUIdEBAqeEqhwZC\",\"methodID\":4173405712,\"args\":[false]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"mePALePxbt5uJRggE1t5A\",\"methodID\":1226754055,\"args\":[false]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"BX7Cr5OkXMhPxKUcway8t\",\"methodID\":247455835,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"4Vj0qGQjW8pF8gdvLcxLx\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"I4_n8ngdagV4m9C2e88VQ\",\"methodID\":1063436565,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"HbXRsiAQzZ9dMEdpGNKgN\",\"methodID\":762255110,\"args\":[\"01a14c4d-7b7f-7d7b-9ee1-1140e821ad8f\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"SzFHgZeRatMVGLmfgcsx6\",\"methodID\":762255110,\"args\":[\"01a14c4d-7b80-7588-8e8e-34519a37987c\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"lSpSM0nzHxTSFpaVTfBYO\",\"methodID\":762255110,\"args\":[\"01a14c4d-7b80-71dc-a038-168dab5e82b6\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"xhVvDbqEkRim1cNPGRN52\",\"methodID\":841124278,\"args\":[{\"includeClosed\":true}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"u6OIBuMD742BQ69BFYmGD\",\"methodID\":4067275526,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"RtjTwSQby8TQWGhmqEnq5\",\"methodID\":3181417489,\"args\":[{}]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"tiYG5NGmpjMiXrZPN44pv\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"py1ws-HUExovmFvOwhGjE\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"k0yOBqyTaMiaOUGuCiRCw\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"CSEXGd3W_G7yV5BNLfnn_\",\"methodID\":431736251,\"args\":[\"AUD\",\"CNY\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"XZtD5pzwBjsjrlPi2jqIa\",\"methodID\":431736251,\"args\":[\"CNY\",\"SGD\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"Fa0RU5b8bo90J0xVuSof_\",\"methodID\":431736251,\"args\":[\"CNY\",\"USD\"]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"KnYo5bQb6ygt0lLEuicMj\",\"methodID\":3491009104,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"eXrkvoiz-1Q8vOisNAevu\",\"methodID\":2979313974,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"6mbgNc096V32dsxI5Oyn_\",\"methodID\":3744917947,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"a5I72FagnU7QOAJdN4LBQ\",\"methodID\":3178430509,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"hPcVpQbaX9DMcWVnDllqU\",\"methodID\":2653696533,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"j3WouNybu3WcXAKIWviDo\",\"methodID\":4152863214,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"Yr0HnIl2Ub4nVr1jL9js2\",\"methodID\":152636482,\"args\":[]}}"
+      },
+      {
+        "url": "http://127.0.0.1:18724/wails/runtime",
+        "body": "{\"object\":0,\"method\":0,\"args\":{\"call-id\":\"mT45hJuIbNRkXb7MCZ0Ht\",\"methodID\":4016513528,\"args\":[]}}"
+      }
+    ]
+  }
+}
