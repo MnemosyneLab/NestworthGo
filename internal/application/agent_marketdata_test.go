@@ -79,6 +79,55 @@ func TestAgentMarketDataDateBoundaryAndAtomicValidation(t *testing.T) {
 	}
 }
 
+func TestAgentMarketDataSkippedMidnightDates(t *testing.T) {
+	service, instrument, setClock := newAgentMarketDataFixture(t)
+	setClock(time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC))
+	for _, tc := range []struct {
+		date, zone string
+		want       time.Time
+	}{
+		{"2024-09-08", "America/Santiago", time.Date(2024, 9, 8, 4, 0, 0, 0, time.UTC)},
+		{"2026-03-08", "America/Havana", time.Date(2026, 3, 8, 5, 0, 0, 0, time.UTC)},
+	} {
+		item := agentNAV(instrument, "2", tc.date)
+		item.Timezone = tc.zone
+		key := uuid.NewString()
+		first, err := service.ImportAgentMarketData(t.Context(), key, AgentMarketDataInput{Items: []AgentMarketDataItem{item}})
+		if err != nil || first.Inserted != 1 {
+			t.Fatalf("%s instrument import: %+v, %v", tc.zone, first, err)
+		}
+		quote, err := service.CurrentInstrumentQuote(t.Context(), instrument.ID)
+		if err != nil || quote == nil || !quote.QuotedAt.Equal(tc.want) || quote.TimestampBasis != "date_label" {
+			t.Fatalf("%s date anchor: %+v, %v", tc.zone, quote, err)
+		}
+		again, err := service.ImportAgentMarketData(t.Context(), key, AgentMarketDataInput{Items: []AgentMarketDataItem{item}})
+		if err != nil || !again.Replayed || again.QuoteIDs[0] != first.QuoteIDs[0] {
+			t.Fatalf("%s idempotency: %+v, %v", tc.zone, again, err)
+		}
+		fx := AgentMarketDataItem{BaseCurrency: "USD", QuoteCurrency: "SGD", Value: "1.4", Kind: "daily_reference", Date: tc.date, Timezone: tc.zone, SourceTitle: "Synthetic FX source"}
+		if _, err := service.ImportAgentMarketData(t.Context(), uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{fx}}); err != nil {
+			t.Fatalf("%s FX import: %v", tc.zone, err)
+		}
+		currentFX, err := service.CurrentFXQuote(t.Context(), "USD", "SGD")
+		if err != nil || currentFX == nil || !currentFX.QuotedAt.Equal(tc.want) {
+			t.Fatalf("%s FX date anchor: %+v, %v", tc.zone, currentFX, err)
+		}
+	}
+	before, err := service.AgentMarketDataRecords(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid := agentNAV(instrument, "3", "2011-12-30")
+	invalid.Timezone = "Pacific/Apia"
+	if _, err := service.ImportAgentMarketData(t.Context(), uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{invalid}}); !hasDomainCode(err, domain.ErrValidation) {
+		t.Fatalf("accepted nonexistent date: %v", err)
+	}
+	after, err := service.AgentMarketDataRecords(t.Context())
+	if err != nil || len(after) != len(before) {
+		t.Fatalf("rejected import mutated records: before=%d after=%d err=%v", len(before), len(after), err)
+	}
+}
+
 func TestAgentMarketDataZeroPriceRemainsAnAvailableObservation(t *testing.T) {
 	t.Parallel()
 	service, instrument, _ := newAgentMarketDataFixture(t)

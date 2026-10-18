@@ -328,11 +328,15 @@ func (s *Service) agentMarketDataTime(ctx context.Context, item AgentMarketDataI
 		}
 		when = parsed
 	} else {
-		date, err := time.ParseInLocation("2006-01-02", item.Date, location)
+		date, err := time.Parse("2006-01-02", item.Date)
 		if err != nil || date.Format("2006-01-02") != item.Date {
 			return when, basis, agentDataValidation("date", "must be a valid YYYY-MM-DD observation date")
 		}
-		when, basis = date, "date_label"
+		when, err = domain.ResolveCivilDateStart(date, location)
+		if err != nil {
+			return when, basis, agentDataValidation("date", "observation date does not exist in its timezone")
+		}
+		basis = "date_label"
 		if item.QuotedAt != "" {
 			parsed, err := time.Parse(time.RFC3339Nano, item.QuotedAt)
 			if err != nil || parsed.In(location).Format("2006-01-02") != item.Date {

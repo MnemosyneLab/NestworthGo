@@ -376,12 +376,8 @@ func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdI
 	if reviewRead {
 		statement = reviewFactActivityCTE + `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ?`
 		args = []any{householdID.String(), householdID.String(), formatTimestamp(cutoff)}
-		// Daily review consumes only position changes from the activity ledger;
-		// cost adjustments are loaded separately as cost-basis events. Cash,
-		// account-value, dividend and fee activities cannot change a rule's
-		// quantity, type, daily quote or FX input, so omit them from this token
-		// and replay path. A mixed trade still remains complete in the ledger
-		// and is retained because it carries a holding-quantity effect.
+		// Review replay projects holding quantities only. Cost basis is read
+		// separately; money effects cannot be replayed from this sparse slice.
 		statement += ` AND EXISTS(SELECT 1 FROM activity_effects review_effect WHERE review_effect.activity_id=economic_activities.id AND review_effect.target='holding_quantity')`
 	}
 	statement += ` ORDER BY effective_at ASC, created_at ASC, ordering_id ASC`
@@ -450,7 +446,7 @@ func hydrateReviewActivities(ctx context.Context, query queryer, activities []do
 	// Position replay needs the dated effect rows and activity correction
 	// identities only. Trade, dividend, product and resulting endpoint views
 	// are separate read models and do not participate in daily rule inputs.
-	return attachActivityEffects(ctx, query, activities)
+	return attachActivityEffectsMode(ctx, query, activities, true)
 }
 
 func activityIDs(activities []domain.Activity) []string {
@@ -470,11 +466,19 @@ func activityIndexByID(activities []domain.Activity) map[string]int {
 }
 
 func attachActivityEffects(ctx context.Context, query queryer, activities []domain.Activity) error {
+	return attachActivityEffectsMode(ctx, query, activities, false)
+}
+
+func attachActivityEffectsMode(ctx context.Context, query queryer, activities []domain.Activity, reviewRead bool) error {
 	if len(activities) == 0 {
 		return nil
 	}
 	clause, args := sqlInArgs(activityIDs(activities))
-	rows, err := query.QueryContext(ctx, `SELECT id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity, cost_unit_price FROM activity_effects WHERE activity_id IN (`+clause+`) ORDER BY activity_id, sequence ASC`, args...)
+	statement := `SELECT id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity, cost_unit_price FROM activity_effects WHERE activity_id IN (` + clause + `)`
+	if reviewRead {
+		statement += ` AND target='holding_quantity'`
+	}
+	rows, err := query.QueryContext(ctx, statement+` ORDER BY activity_id, sequence ASC`, args...)
 	if err != nil {
 		return err
 	}
