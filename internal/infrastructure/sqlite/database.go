@@ -279,6 +279,7 @@ func (db *DB) Close() error {
 	if db == nil || db.SQL == nil {
 		return nil
 	}
+	db.releaseReviewCommitHook()
 	err := db.SQL.Close()
 	db.SQL = nil
 	return err

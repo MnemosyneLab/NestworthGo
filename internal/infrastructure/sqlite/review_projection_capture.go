@@ -39,7 +39,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	if r.CertifiedReviewEnabled() {
 		// Sample before any financial snapshot reads. A later external commit
 		// must not be absorbed into the proof of an older read snapshot.
-		connectionProof, err = certifiedConnectionCheckpoint(ctx, tx, connectionID)
+		connectionProof, err = r.certifiedConnectionCheckpoint(ctx, tx, connectionID)
 		if err != nil {
 			return empty, err
 		}

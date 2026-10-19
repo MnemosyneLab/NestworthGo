@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"reflect"
+	"sync/atomic"
+
+	modernsqlite "modernc.org/sqlite"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -22,6 +25,12 @@ func (r *Repository) certifiedConnection(ctx context.Context) (*sql.Conn, uint64
 		if !reflect.TypeOf(raw).Comparable() {
 			return nil
 		}
+		hooker, ok := raw.(interface {
+			RegisterCommitHook(modernsqlite.CommitHookFn)
+		})
+		if !ok {
+			return nil
+		} // Unknown driver capability cannot grant continuity.
 		key := &r.database.reviewCertificateKey
 		key.connMu.Lock()
 		defer key.connMu.Unlock()
@@ -31,6 +40,19 @@ func (r *Repository) certifiedConnection(ctx context.Context) (*sql.Conn, uint64
 			}
 			key.connection = raw // Strong reference prevents address-reuse ABA.
 			key.connectionID++
+			counter := &atomic.Uint64{}
+			key.commits = counter
+			// This candidate owns the driver's single commit hook. No SQL and
+			// no connection reentry are permitted inside this callback. A hook
+			// invocation before a failed COMMIT conservatively invalidates reuse.
+			hooker.RegisterCommitHook(func() int32 {
+				for {
+					old := counter.Load()
+					if old == ^uint64(0) || counter.CompareAndSwap(old, old+1) {
+						return 0
+					}
+				}
+			})
 		}
 		id = key.connectionID
 		return nil
@@ -42,7 +64,7 @@ func (r *Repository) certifiedConnection(ctx context.Context) (*sql.Conn, uint64
 	return conn, id, nil
 }
 
-func certifiedConnectionCheckpoint(ctx context.Context, q schemaQuery, id uint64) (domain.ReviewConnectionCheckpoint, error) {
+func (r *Repository) certifiedConnectionCheckpoint(ctx context.Context, q schemaQuery, id uint64) (domain.ReviewConnectionCheckpoint, error) {
 	proof := domain.ReviewConnectionCheckpoint{Connection: id}
 	if err := q.QueryRowContext(ctx, `PRAGMA data_version`).Scan(&proof.DataVersion); err != nil {
 		return proof, err
@@ -50,15 +72,54 @@ func certifiedConnectionCheckpoint(ctx context.Context, q schemaQuery, id uint64
 	if err := q.QueryRowContext(ctx, `SELECT total_changes()`).Scan(&proof.OwnChanges); err != nil {
 		return proof, err
 	}
+	key := &r.database.reviewCertificateKey
+	key.connMu.Lock()
+	if id == 0 || id != key.connectionID || key.commits == nil {
+		proof.Connection = 0
+	} else {
+		proof.OwnCommits = key.commits.Load()
+	}
+	key.connMu.Unlock()
 	return proof, nil
 }
 
 func validCertifiedConnection(p domain.ReviewConnectionCheckpoint) bool {
-	return p.Connection != 0 && p.DataVersion >= 0 && p.OwnChanges >= 0 && p.OwnChanges < int64(^uint64(0)>>1)
+	return p.Connection != 0 && p.OwnCommits < ^uint64(0) && p.DataVersion >= 0 && p.OwnChanges >= 0 && p.OwnChanges < int64(^uint64(0)>>1)
+}
+
+// The driver retains registered Go callbacks. Unregister the current hook on a
+// live connection before normal DB shutdown; the callback itself captures only
+// its small atomic counter, never a DB handle or ledger data.
+func (db *DB) releaseReviewCommitHook() {
+	key := &db.reviewCertificateKey
+	key.connMu.Lock()
+	registered := key.commits != nil
+	key.connMu.Unlock()
+	if !registered {
+		return
+	}
+	conn, err := db.SQL.Conn(context.Background())
+	if err != nil {
+		return
+	} // Already closed/replaced pools cannot be reentered.
+	defer conn.Close()
+	_ = conn.Raw(func(raw any) error {
+		key.connMu.Lock()
+		defer key.connMu.Unlock()
+		if reflect.TypeOf(raw).Comparable() && raw == key.connection {
+			if hooker, ok := raw.(interface {
+				RegisterCommitHook(modernsqlite.CommitHookFn)
+			}); ok {
+				hooker.RegisterCommitHook(nil)
+				key.commits = nil
+			}
+		}
+		return nil
+	})
 }
 
 func (r *Repository) prepareCertifiedCounter(ctx context.Context, tx *sql.Tx, c *domain.ReviewTemporalCertificate, id uint64) error {
-	proof, err := certifiedConnectionCheckpoint(ctx, tx, id)
+	proof, err := r.certifiedConnectionCheckpoint(ctx, tx, id)
 	if err != nil {
 		return err
 	}
@@ -68,6 +129,7 @@ func (r *Repository) prepareCertifiedCounter(ctx context.Context, tx *sql.Tx, c 
 	// Mandatory checkpoint INSERT/UPDATE is the final row write and must affect
 	// exactly one row. Unknown TEMP triggers cannot add hidden writes.
 	proof.OwnChanges++
+	proof.OwnCommits++ // This publication always writes, then commits exactly once.
 	c.CertifiedConnection = proof
 	return nil
 }

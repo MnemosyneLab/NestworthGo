@@ -1,11 +1,12 @@
 package domain
 
-const ReviewCertifiedCompletenessVersion = "certified-full-review-v2"
+const ReviewCertifiedCompletenessVersion = "certified-full-review-v3"
 
 type ReviewConnectionCheckpoint struct {
 	Connection  uint64
 	DataVersion int64
 	OwnChanges  int64
+	OwnCommits  uint64 // Driver commit hook includes same-connection DDL.
 }
 
 // Provider revisions are process-local and include same-key/ABA assignments.

@@ -126,7 +126,7 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 		if selection == nil || !selection.Pinned || certificate.CertifiedProvider != *selection {
 			return empty, false, nil
 		}
-		connection, e := certifiedConnectionCheckpoint(ctx, tx, connectionID)
+		connection, e := r.certifiedConnectionCheckpoint(ctx, tx, connectionID)
 		if e != nil {
 			return empty, false, e
 		}
@@ -134,7 +134,8 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 			return empty, false, nil
 		}
 		// The signed post-commit connection counters prove that no SQLite
-		// DML or external commit has intervened since the complete row seal.
+		// DML, own commit (including DDL) or external commit has intervened
+		// since the complete row seal.
 		// Reading every historical JSON again would defeat same-day no-op.
 		if certificate.CertifiedProjectionSeal == "" || !r.validReviewMAC(certificate) {
 			return empty, false, nil

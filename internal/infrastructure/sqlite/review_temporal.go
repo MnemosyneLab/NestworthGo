@@ -160,7 +160,7 @@ func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery
 		fresh = current != nil && current.Valid() && current.Token == certificate.Source.Token && certificate.Source.Token.Revision >= current.JournalFloor
 	}
 	if fresh && r.CertifiedReviewEnabled() && certificate.NoChangeCompletenessVersion == domain.ReviewCertifiedCompletenessVersion {
-		observed, err := certifiedConnectionCheckpoint(ctx, q, connectionID)
+		observed, err := r.certifiedConnectionCheckpoint(ctx, q, connectionID)
 		if err != nil {
 			return err
 		}

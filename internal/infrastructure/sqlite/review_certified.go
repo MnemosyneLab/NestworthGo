@@ -40,6 +40,7 @@ type reviewCertificateKey struct {
 	connMu       sync.Mutex
 	connection   any
 	connectionID uint64
+	commits      *atomic.Uint64
 }
 
 func (r *Repository) reviewMAC(value any) (string, error) {
@@ -261,7 +262,7 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 	if current == nil || c.SourceRevision == nil || *current != *c.SourceRevision {
 		return nil, false, false, reviewRuleConflict("certified financial namespace changed")
 	}
-	observed, err := certifiedConnectionCheckpoint(ctx, tx, connectionID)
+	observed, err := r.certifiedConnectionCheckpoint(ctx, tx, connectionID)
 	if err != nil {
 		return nil, false, false, err
 	}
@@ -283,7 +284,7 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 	if seal != c.Certified.ProjectionSeal || meta != c.Certified.ReviewFingerprint {
 		return nil, false, false, reviewRuleConflict("certified projection or review changed")
 	}
-	return current, false, true, nil
+	return current, false, validCertifiedConnection(observed), nil
 }
 
 // Initial empty namespaces and authenticated same-session chains may certify.
@@ -362,12 +363,10 @@ func (r *Repository) afterCertifiedHandling(ctx context.Context, tx *sql.Tx, id 
 	if err != nil {
 		return err
 	}
-	r.database.reviewCertificateKey.connMu.Lock()
-	connectionID := r.database.reviewCertificateKey.connectionID
-	r.database.reviewCertificateKey.connMu.Unlock()
-	if err := r.prepareCertifiedCounter(ctx, tx, c, connectionID); err != nil {
-		return err
-	}
+	// Handling may use a different pooled physical connection. The full
+	// authenticated row seal remains valid, but no connection continuity is
+	// asserted until the mandatory full reconciliation publishes afresh.
+	c.CertifiedConnection = domain.ReviewConnectionCheckpoint{}
 	c.CertifiedMAC, err = r.certifiedMAC(*c)
 	if err != nil {
 		return err
