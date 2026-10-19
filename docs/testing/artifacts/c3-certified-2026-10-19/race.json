@@ -1,0 +1,32 @@
+{
+  "check": "final-relevant-race",
+  "source": "53dbd180c3d75884a0132c9400a5a14f94015d7b",
+  "review_code": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+  "command": [
+    "/tmp/go/bin/go",
+    "test",
+    "-race",
+    "-p",
+    "1",
+    "-parallel",
+    "4",
+    "./internal/application",
+    "./internal/domain",
+    "./internal/infrastructure/sqlite",
+    "-run",
+    "^(TestReview|TestFinancialSource|TestFXProvider|TestSetFXProvider)",
+    "-count=1",
+    "-timeout=20m",
+    "-v"
+  ],
+  "race_invocations": 1,
+  "status": "failed",
+  "exit_code": 1,
+  "elapsed_seconds": 1457.805,
+  "package_results": {
+    "application": "failed: global 20m timeout at TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/holding",
+    "domain": "passed (1.052s)",
+    "sqlite": "passed (214.737s)"
+  },
+  "data_race_warnings_observed": 0
+}

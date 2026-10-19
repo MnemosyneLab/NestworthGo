@@ -130,8 +130,21 @@ the rechecked frontier earlier and asserts that PR121's minimum is persisted.
 Final command logs, exact source provenance and the deferred final race result
 are recorded alongside the measurements in
 [artifacts](artifacts/c3-certified-2026-10-19/). Development used ordinary focused
-tests only; race is deferred until implementation and the single draft PR are
-complete. Native package/UI acceptance is a separate gate.
+tests only. After the completed draft PR, **one** final related race invocation
+ran on `53dbd180c3d75884a0132c9400a5a14f94015d7b`. Its application package hit the
+**global 20-minute timeout**, at
+`TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/holding` (that child
+had run for only 1s). This is a package budget exhaustion, not evidence of a
+hung child or an observed data-race assertion. New certified/window-oracle
+application cases completed beforehand; the remaining application coverage is
+incomplete. **The overall race gate is not passed.** No rerun is claimed and the
+budget was not raised. Domain passed (1.052s), and SQLite passed (214.737s),
+including the new unknown-connection fallback case. The whole command exited 1
+in 1,457.805s. Per-case completion and actual outcomes are recorded in the
+[coverage record](artifacts/c3-certified-2026-10-19/race-coverage.json), final
+[race metadata](artifacts/c3-certified-2026-10-19/race.json)
+and [raw log](artifacts/c3-certified-2026-10-19/final-relevant-race.log).
+Native package/UI acceptance is a separate gate.
 
 Final ordinary checks on frozen code `e112f58` passed: all `./internal/...`
 tests (application 120.267s), internal vet/build, gofmt, diff and workflow
@@ -192,7 +205,13 @@ post-publication persisted-row comparison are outside those timing intervals;
 the **runtime** full oracle is inside them. Arms rotate order by sample.
 Bootstrap/activation use independent full pre-publication preparation and check
 that activation did not change the source token. Every sample starts fresh;
-there is no sequential-growth inference. SQL counts are returned rows and driver
+there is no sequential-growth inference. Correction uses the existing helper's
+deterministic sample variant: instrument 0, origin + (5 + sample % 20) days,
+new price 250 + sample (zero-based). Both arms receive the identical mutation
+within each pair; variants can produce different lifecycle write counts across
+pairs. Their n=3 median is diagnostic across those variants, not an identical-
+workload p95. Other paired scenarios apply the same mutation per fresh sample.
+SQL counts are returned rows and driver
 executions, not SQLite VM visited-key counts. Allocated bytes/allocs are
 `runtime.MemStats` deltas, not RSS. Whole-process VmHWM includes setup/clones/
 oracles and is explicitly unsuitable for per-arm RSS acceptance. n=3 medians
@@ -251,13 +270,15 @@ and all raw samples remain available; no n=3 p95 or per-arm RSS claim is made.
 
 ## Activation gates and native handoff
 
-Default enablement remains blocked by all of the following:
+Default enablement remains off. The gate status is:
 
 1. Independent review of C1 coverage, temporal closure, authenticated provenance
    and provider/connection/atomic publication proof, including this session-only
    trust limitation. Existing/restarted ledgers need a separately reviewed,
    non-laundering provenance/bootstrap design before shortcuts apply to them.
-2. Final relevant race and ordinary backend checks on the completed code.
+2. Ordinary internal backend tests/vet/build passed, but the final related race
+   hit its application package's global 20m budget. Race acceptance remains
+   incomplete; this check is not marked passed.
 3. Paired 30-sample p95 and isolated per-arm peak RSS on the target platform,
    with no unexplained >10% regression. Any measured changed-path overhead
    blocks default enablement; keeping full runtime audit is intentional until

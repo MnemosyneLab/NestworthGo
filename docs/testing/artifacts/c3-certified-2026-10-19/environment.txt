@@ -1,22 +1,44 @@
-Paired workload source: fa1bd47f858b09c3bc0c34c7a2a637173a8a29ae
-Implementation source: 4ebd63e (parent 6604f3a, base 2fa0a34f59e577b81e80c5cef81dc962315d6319)
-Linux 6.18.55 x86_64; Go 1.26.1 linux/amd64; SQLite version and fixture manifests in logs.
-Cgroup CPU quota: 400000/100000 (4 CPUs). Memory limit: 17179869184 bytes.
-GOMAXPROCS=4. TMPDIR=/tmp/nestworth-c3-scratch on tmpfs (8.8 GiB volume).
-PATH=/tmp/go/bin:$PATH GOCACHE=/tmp/nestworth-c3-cache GOMODCACHE=/tmp/nestworth-c3-mod GOPATH=/tmp/nestworth-c3-path
-All synthetic fixtures. No network provider calls, production ledgers or credentials.
-Paired measurements serialize both arms and do not overlap build/test/race processes.
-UUIDs generated once in the fact source and full bootstrap, then cloned. Future activation has an independent source fixture.
-B/op-style values are cumulative allocated bytes from runtime.MemStats, never peak RSS.
-Process VmHWM includes fixture generation/clones/oracles and is not per-arm RSS.
-The first attempted /usr/bin/time wrapper was unavailable (exit 127); measurements were then run directly with Go. It produced no measurements.
-Paired measurements were built at fa1bd47; later implementation delta 498d34f adds only staged-provider-key equality rejection plus import formatting, and a separate bootstrap/activation test. 7c70c31 adds the external-writer test only. Legitimate paired fixtures use identical provider keys. These later sources are validated by final ordinary/race checks, not retroactively attributed to the paired binary.
-A later safety tightening samples capture connection counters before financial snapshot reads rather than after them. It adds no SQL calls to the workload (the same two reads move earlier); a deterministic external-commit-during-capture test and final ordinary/race checks validate the final implementation. Paired timings remain attributed solely to fa1bd47.
-Full ordinary internal suite, internal vet/build and native Linux build attempt source: 28f2c8f (all code committed; only evidence/docs dirty). Ordinary checks may overlap each other; they never overlap the paired measurements. Final race has not started yet.
-Final freshness reads pin and compare their actual physical connection (e91214b), rather than using a persisted identity with unrelated pooled counters.
-Frozen code head: e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a.
-Focused certified application/SQLite unit checks on this exact head passed (focused-unit.log); the unknown-connection namespace keeps full publication available without authority.
-Bootstrap/activation measurements are built from e112f58 and use explicitly labeled C2-full (forced full recomputation) versus the certified candidate. No other test/build processes overlap them.
-The first broad ordinary run began at 28f2c8f and passed. It will be superseded by an immutable-head full run; it is not used to claim exact final-source validation after the last counter guard/test was added.
-Final immutable-head validation begins at e112f58: go test -p 1 -parallel 4 ./internal/... -count=1 -timeout=10m; go vet ./internal/...; go build ./internal/...; gofmt; diff/CI preservation checks. See validation.json for actual completed results.
-Final same-code paired measurement binary: c11030c (git diff --exit-code e112f58 -- internal cmd go.mod go.sum returned 0). All ordinary checks finished before this run, with no local build/test/race overlap. Draft PR129 existed before the deferred final race; no workflow was manually dispatched.
+C3 evidence provenance (all isolated synthetic fixtures)
+
+Base at branch creation: PR127 main 2fa0a34f59e577b81e80c5cef81dc962315d6319.
+Required exact ancestors:
+ PR119 c3867c626d3b6a0cdbcf669a0047ff8d07d4215f
+ PR121 09d6276bb0f0be6ebdbfa4afacfcca843c1e623a (conservative temporal minimum preserved)
+Main later advanced to PR128 326688ce86d35216a9fe55a3bee63bcbb379683d.
+Local merge 7853e7e423b704fd03e86c4baf56ec3cd03b79b9 inherits only its three continuousbackup test changes unchanged. No CI/workflow change.
+
+Frozen review implementation/test source: e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a.
+Per-check source:
+ paired-prior-fa1bd47.log: fa1bd47f858b09c3bc0c34c7a2a637173a8a29ae (archived ancestry diagnostic only)
+ paired-small-large.log: c11030c5d0ede060d71e7edc0856b6c9038b75db (final primary n=3 paired evidence)
+ bootstrap-activation.log: e112f58 (final n=3, explicitly forced-full C2 reference)
+ focused-unit.log: e112f58 (certified application and SQLite tests)
+ internal-unit/vet/build, gofmt, diff and workflow-preservation: e112f58 (passed; exact commands in validation.json)
+ native-build.log: 28f2c8f2d2aabc1436880c504de055c21963adc2 (failed; missing native development packages)
+ main-pr128-unit.log: 7853e7e (passed, inherited continuousbackup package)
+ final-relevant-race.log: 53dbd180c3d75884a0132c9400a5a14f94015d7b (one invocation; actual result in race.json)
+The review production/test sources in c11030c, 7853e7e and 53dbd18 equal e112f58 (git diff --exit-code on internal/application, internal/domain and internal/infrastructure/sqlite). The main sync affects only unrelated continuousbackup tests. No source attribution is retroactively changed to a later documentation commit.
+
+Environment:
+ Linux 6.18.55 x86_64; Go 1.26.1 linux/amd64; SQLite 3.53.0.
+ Cgroup CPU quota 400000/100000 (4 CPUs), memory limit 17179869184 bytes.
+ GOMAXPROCS=4. TMPDIR=/tmp/nestworth-c3-scratch on tmpfs (8.8 GiB volume).
+ PATH=/tmp/go/bin:$PATH
+ GOCACHE=/tmp/nestworth-c3-cache GOMODCACHE=/tmp/nestworth-c3-mod GOPATH=/tmp/nestworth-c3-path
+No ledger/provider credentials, production databases, settings or provider network calls.
+
+Measurement contract:
+ Each sample clones authoritative facts before projections. Shared bootstrap episode identities and fresh per-handle private keys/proofs; no authority exported to another handle.
+ Both arms receive the complete exact-FX bootstrap codec; this favors C2.
+ Arms rotate order. No measurement overlaps a local build/test/race process.
+ Runtime full oracle is included in elapsed time; separate pre-publication test oracles and setup/GC/output comparisons are excluded.
+ Correction variants: instrument 0, origin + (5 + sample % 20) days, new price 250 + sample (zero-based). Both arms get the same mutation per pair; variants can have different lifecycle write counts. These are diagnostic medians, not identical-workload p95 samples.
+ Allocation deltas are cumulative runtime.MemStats bytes/allocations, not RSS.
+ VmHWM includes shared bootstrap graphs, fixture generation, clones and oracles; it is not per-arm RSS acceptance.
+
+Default initialization remains C2. No activation, merge to main or release.
+Draft PR129 existed before the final race; it remains a single branch/PR.
+No manual workflow dispatch or CI restructuring. Native Linux build is blocked by missing GTK4, WebKitGTK6, GLib/GObject/GIO and libsoup3 development packages. No native macOS, root/full-backend race, 30-sample native p95 or isolated per-arm RSS acceptance is claimed.
+
+Final race outcome: exit 1 in 1457.805s; application global 20m timeout, Domain pass 1.052s, SQLite pass 214.737s. New C3 application cases completed (24), new SQLite unknown-connection fallback case passed; no data-race warning observed. Overall race acceptance remains incomplete. No rerun.
+Automatic PR checks were observed read-only on 53dbd18; see ci-pr129-53dbd18.json. They are not treated as passed. The final documentation-only push may create a new automatic run; no manual workflow dispatch occurs.
