@@ -272,6 +272,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
             <p>{t("historicalOverview.reconstructed")}</p>
             <p className="mt-2">{t("historicalOverview.metadataNote")}</p>
             <p className="mt-2">{t("historicalOverview.cutoffNote")}</p>
+            <p>{t("moneyDisplay.roundingHelp")}</p>
           </InfoPopover>
         </div>
       </div>

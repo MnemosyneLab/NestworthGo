@@ -148,7 +148,13 @@ DTOs, persisted decimals, inputs, or submitted/retried payloads for presentation
 for tooltips/tables and numbers only for geometry. Known zero is money, missing
 is unavailable, and a known subtotal is never a fabricated full total. Rounded
 nonzero sub-cent values carry a direction/size hint without a signed zero;
-explicit exact audit/confirmation detail retains the canonical value.
+explicit exact audit/confirmation detail retains the canonical value. Aggregates
+keep their existing exact-sum-then-round semantics. Displayed two-decimal rows
+may therefore differ from the displayed total (for example, two exact 0.004
+values display as 0.00 each while their 0.008 total displays as 0.01). Explain
+this through the shared rounding info popover on holdings and analysis, and
+existing amount/help popovers on liquidity and historical overview; never
+change stored values, API precision or accounting formulas to force equality.
 
 GUI labels use business instrument/account/source/date information. UUIDs,
 observation IDs, internal row keys and protocol/version tokens stay in backend,

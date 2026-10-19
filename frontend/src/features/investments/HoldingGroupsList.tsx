@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowDown, ArrowUp, ArrowUpRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
+import { MoneyRoundingHelp } from "@/components/ui/money-rounding-help";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChangeText } from "@/components/ui/change-text";
@@ -118,12 +119,12 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
   ];
 
   return <div className="flex min-w-0 flex-col gap-4">
-    {!portfolio && <SegmentedControl
+    {!portfolio && <div className="flex flex-wrap items-center gap-2"><SegmentedControl
       label={t("investmentAssets.accountPositions")}
       value={accountPositions}
       onChange={value => setAccountPositions(value as HoldingQuantityFilter)}
       options={(["current", "closed", "all"] as const).map(choice => ({ value: choice, label: t(`investmentAssets.positions.${choice}`) }))}
-    />}
+    /><MoneyRoundingHelp /></div>}
     {!portfolio && accountPositions === "all" && <p className="text-xs text-muted-foreground">{t("investmentAssets.positions.allSubtotalHelp")}</p>}
     {portfolio && <div className="flex flex-wrap items-center justify-between gap-3">
       <div role="group" aria-label={t("holdingsSummary.view")} className="flex gap-2">
@@ -131,6 +132,7 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
         <Button size="sm" variant={view === "account" ? "default" : "outline"} aria-pressed={view === "account"} onClick={() => setView("account")}>{t("holdingsSummary.byAccount")}</Button>
       </div>
       <div className="flex flex-wrap items-center gap-3">
+        <MoneyRoundingHelp />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 rounded accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" checked={showZero} onChange={(event) => setShowZero(event.target.checked)} />{t("holdingsSummary.showZero")}</label>
         {visible.length > 1 && <Button size="sm" variant="ghost" onClick={() => setCollapsed(scope, allCollapsed ? [] : visible.map((group) => group.key))}>
           {allCollapsed ? <ChevronsUpDown aria-hidden="true" /> : <ChevronsDownUp aria-hidden="true" />}

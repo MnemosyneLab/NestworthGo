@@ -205,3 +205,13 @@ it("formats integer basis-point percentages with exact half-even rounding", () =
   expect(formatPercent(35)).toBe("0.4%");
   expect(formatPercent(-25)).toBe("-0.2%");
 });
+
+
+it.each([
+  ["0.004", "0.008", "$0.01", "+"],
+  ["-0.004", "-0.008", "-$0.01", "−"],
+])("formats exact rows %s independently of the authoritative aggregate %s", (row, aggregate, total, direction) => {
+  expect(formatAmount(row, "USD")).toBe(`$0.00 · ${direction} nonzero, below 0.01`);
+  expect(formatAmount(aggregate, "USD")).toBe(total);
+  expect(formatSignedMoney(aggregate, "USD")).toBe(aggregate.startsWith("-") ? total : `+${total}`);
+});

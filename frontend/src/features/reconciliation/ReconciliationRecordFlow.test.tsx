@@ -110,10 +110,10 @@ vi.mock("@/queries/history", () => ({
     data: { id: "origin", startedAt: "2026-09-01T00:00:00Z", timezone: "UTC" },
   }),
   useHistoryMutationAllowed: () => ({ data: {} }),
-  usePreviewChange: () => ({ mutate: q.previewChange }),
-  usePreviewRepeatChange: () => ({}),
+  usePreviewChange: () => ({ mutate: q.previewChange, reset: vi.fn() }),
+  usePreviewRepeatChange: () => ({ reset: vi.fn() }),
   useConfirmRepeatChange: () => ({}),
-  usePreviewFixChange: () => ({}),
+  usePreviewFixChange: () => ({ reset: vi.fn() }),
   useRecordChange: () => ({}),
   useFixChange: () => ({}),
 }));

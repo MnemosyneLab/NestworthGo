@@ -189,3 +189,23 @@ describe("HoldingGroupsList", () => {
     expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("$1,200.00")).toBeInTheDocument();
   });
 });
+
+
+it.each(["portfolio", "account"] as const)("explains rounding by keyboard in the %s holdings surface without changing authoritative amounts", async (scope) => {
+  const instrument = apple();
+  instrument.amounts = amounts("2", "0.008", "USD", "-0.008");
+  instrument.holdings = instrument.holdings!.slice(0, 2).map((holding) => ({ ...holding, amounts: amounts("1", "0.004", "USD", "-0.004") }));
+  const group = stockGroup(instrument);
+  group.subtotals = [{ ...subtotal(), currentValue: { amount: "0.008", currency: "USD" }, unrealizedGain: { amount: "-0.008", currency: "USD" } }];
+  const before = JSON.stringify(group);
+  render(<HoldingGroupsList scope={scope} accountId="a1" groups={[group]} />);
+  expect(screen.getAllByText("$0.01").length).toBeGreaterThan(0);
+  const help = screen.getByRole("button", { name: "About rounded amounts" });
+  expect(screen.queryByText(/Totals use exact values before rounding/)).not.toBeInTheDocument();
+  help.focus();
+  await userEvent.keyboard("{Enter}");
+  expect(await screen.findByText(/Totals use exact values before rounding/)).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  expect(help).toHaveFocus();
+  expect(JSON.stringify(group)).toBe(before);
+});

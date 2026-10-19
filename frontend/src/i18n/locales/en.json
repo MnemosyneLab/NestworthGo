@@ -1675,6 +1675,8 @@
       }
     },
   "moneyDisplay": {
+    "aboutRounding": "About rounded amounts",
+    "roundingHelp": "Amounts are rounded for display. Totals use exact values before rounding, so visible rows may not add up to the displayed total.",
     "tiny": "{{direction}} nonzero, below 0.01",
     "missingCount": "{{count}} items need attention"
   },

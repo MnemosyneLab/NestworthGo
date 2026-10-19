@@ -60,6 +60,7 @@ export function FundsComparison({ horizons, selected, onSelect, sources, baseCur
         <div className="flex flex-col gap-2">
           <p>{t("availableFunds.cumulativeHint")}</p>
           <p>{t("availableFunds.currentFxEstimate")}</p>
+            <p>{t("moneyDisplay.roundingHelp")}</p>
           {notes}
         </div>
       </InfoPopover>

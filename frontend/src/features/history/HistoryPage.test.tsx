@@ -2208,3 +2208,98 @@ it("previews and confirms a historical DTO through the Fix form", async () => {
   await waitFor(() => expect(fixChange).toHaveBeenCalledWith(dto.id, expect.objectContaining({ accountId, newValue: "1200", note: "Updated from DTO", mutationId: expect.any(String) })));
   await waitFor(() => expect(recorded).toHaveBeenCalledTimes(1));
 });
+
+
+// F12: every completion is controlled explicitly; no timers or network races.
+for (const flow of ["record", "fix", "repeat"] as const) {
+  async function mountPreviewDraft() {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+    const initial = { ...emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "USD"), accountId: "acc-1", amount: "100", effectiveAt: "2026-09-17T12:00:00Z" };
+    const view = render(<QueryClientProvider client={createTestQueryClient()}><RecordChangeForm initial={initial} fixActivityId={flow === "fix" ? "source" : undefined} repeat={flow === "repeat"} repeatSourceId="source" onRecorded={vi.fn()} /></QueryClientProvider>);
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await waitFor(() => expect(within(form).getByRole("button", { name: "Preview" })).toBeEnabled());
+    return { ...view, form, call: flow === "fix" ? previewFixChange : flow === "repeat" ? previewRepeat : previewChange };
+  }
+
+  it(`clears a failed ${flow} preview on edit and permits a fresh preview`, async () => {
+    const { form, call } = await mountPreviewDraft();
+    call.mockRejectedValueOnce(new Error("CURRENT PREVIEW FAILURE"));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await within(form).findByText(i18n.t("internal", { ns: "errorCode" }))).toBeInTheDocument();
+    await userEvent.type(within(form).getByLabelText("Amount"), "1");
+    expect(within(form).queryByText(i18n.t("internal", { ns: "errorCode" }))).not.toBeInTheDocument();
+    call.mockResolvedValueOnce({ planId: "fresh", resulting: [{ name: "FRESH REVIEW", amount: "1200", currency: "USD" }] });
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
+    expect(within(form).getByRole("status")).toHaveTextContent("FRESH REVIEW");
+  });
+
+  it.each(["success", "failure"] as const)(`invalidates a pending ${flow} preview before its late %s`, async (outcome) => {
+    const { form, call } = await mountPreviewDraft();
+    let resolve!: (value: unknown) => void;
+    let reject!: (cause: unknown) => void;
+    call.mockImplementationOnce(() => new Promise((yes, no) => { resolve = yes; reject = no; }));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(call).toHaveBeenCalledTimes(1));
+    await userEvent.type(within(form).getByLabelText("Amount"), "1");
+    // A fresh request can run before the invalidated request completes.
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeEnabled();
+    call.mockResolvedValueOnce({ planId: "current", resulting: [{ name: "CURRENT REVIEW", amount: "1200", currency: "USD" }] });
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
+    await act(async () => outcome === "success" ? resolve({ planId: "old", resulting: [{ name: "OBSOLETE REVIEW", amount: "1100", currency: "USD" }] }) : reject(new Error("OBSOLETE FAILURE")));
+    expect(within(form).getByRole("status")).toHaveTextContent("CURRENT REVIEW");
+    expect(within(form).queryByText(/OBSOLETE/)).not.toBeInTheDocument();
+    expect(within(form).queryByText(i18n.t("internal", { ns: "errorCode" }))).not.toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Confirm" })).toBeEnabled();
+  });
+
+  it(`ignores a late ${flow} failure after editing without another request`, async () => {
+    const { form, call } = await mountPreviewDraft();
+    let reject!: (cause: unknown) => void;
+    call.mockImplementationOnce(() => new Promise((_, no) => { reject = no; }));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(call).toHaveBeenCalledTimes(1));
+    await userEvent.type(within(form).getByLabelText("Amount"), "1");
+    await act(async () => reject(new Error(JSON.stringify({ code: "already_undone", field: "sourceActivityId", message: "obsolete source refusal" }))));
+    expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(form).queryByText(i18n.t("history.repeatSourceRejectedHelp"))).not.toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeEnabled();
+  });
+
+  it.each(["success", "failure"] as const)(`preserves the newer ${flow} failure when the obsolete preview finishes with %s`, async (outcome) => {
+    const { form, call } = await mountPreviewDraft();
+    let resolve!: (value: unknown) => void;
+    let reject!: (cause: unknown) => void;
+    call.mockImplementationOnce(() => new Promise((yes, no) => { resolve = yes; reject = no; }));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(call).toHaveBeenCalledTimes(1));
+    await userEvent.type(within(form).getByLabelText("Amount"), "1");
+    call.mockRejectedValueOnce(new Error(JSON.stringify({ code: "invalid_change", message: "current failure" })));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    const currentError = i18n.t("invalid_change", { ns: "errorCode" });
+    expect(await within(form).findByText(currentError)).toBeInTheDocument();
+    await act(async () => outcome === "success" ? resolve({ planId: "old", resulting: [{ name: "OBSOLETE REVIEW", amount: "1100", currency: "USD" }] }) : reject(new Error("obsolete failure")));
+    expect(within(form).getByText(currentError)).toBeInTheDocument();
+    expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeEnabled();
+    // Repeated preview without another edit replaces the current failure.
+    call.mockResolvedValueOnce({ planId: "retry", resulting: [{ name: "RETRIED REVIEW", amount: "1200", currency: "USD" }] });
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
+    expect(within(form).queryByText(currentError)).not.toBeInTheDocument();
+  });
+
+  it(`ignores a ${flow} preview failure after unmount`, async () => {
+    const { form, call, unmount } = await mountPreviewDraft();
+    let reject!: (cause: unknown) => void;
+    call.mockImplementationOnce(() => new Promise((_, no) => { reject = no; }));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(call).toHaveBeenCalledTimes(1));
+    unmount();
+    const next = await mountPreviewDraft();
+    await act(async () => reject(new Error("UNMOUNTED FAILURE")));
+    expect(within(next.form).queryByText(i18n.t("internal", { ns: "errorCode" }))).not.toBeInTheDocument();
+    expect(within(next.form).getByRole("button", { name: "Preview" })).toBeEnabled();
+  });
+}
