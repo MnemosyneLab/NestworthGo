@@ -952,7 +952,7 @@ Shared: `AnalysisFilterBar`, `CompletenessBanner`, `SignedAmount`, scope option 
 
 Return Analysis:
 
-- `ReturnCalendarTab` — CSS 7-column grid. Cell shows daily Dietz % and amount. Year view is a 4→3→2 month grid with geometrically linked monthly %. Day click opens a right `Sheet`.
+- `ReturnCalendarTab` — CSS 7-column grid. Cell shows daily Dietz % and amount. Year view is a 4→3→2 month grid whose backend monthly summaries fold the same authoritative daily return series and complete-day coverage rules used by period summaries; the UI does not relink daily rates. Day click opens a right `Sheet`.
 - `ReturnTrendTab` — existing [`TrendChart`](../../../frontend/src/components/charts/TrendChart.tsx), one series; display = cumulative amount | linked Dietz % | period return amount.
 - `ContributionTab` — ranked rows with inline bars; return-type tabs are independent views; % column only where §9.1 defines it.
 

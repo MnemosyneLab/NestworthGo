@@ -79,10 +79,17 @@ func (r *Repository) CommitProductTermsMutation(ctx context.Context, contract do
 }
 
 // Compare every persisted contract/policy field through the receipt's exact
-// money-aware encoder, with timestamps projected to SQLite's UTC millisecond
-// precision. Older sealed receipts may retain nanoseconds or an offset: never
-// rewrite their original evidence or digest, nor discard any non-time field.
+// money-aware encoder, with civil dates canonicalized and timestamps projected
+// to SQLite's UTC millisecond precision. Older sealed receipts may retain
+// padded dates, nanoseconds, or an offset: compare copies only; never rewrite
+// their original evidence or digest, nor discard any non-date field.
 func sameProductTermsFacts(receipt domain.ProductTermsReceipt, contract domain.ProductContract, policy domain.LiquidityPolicy) (bool, error) {
+	if err := receipt.Contract.NormalizeCivilDates(); err != nil {
+		return false, err
+	}
+	if err := contract.NormalizeCivilDates(); err != nil {
+		return false, err
+	}
 	normalize := func(c *domain.ProductContract, p *domain.LiquidityPolicy) {
 		c.CreatedAt, c.UpdatedAt = productFactTime(c.CreatedAt), productFactTime(c.UpdatedAt)
 		p.CreatedAt, p.UpdatedAt = productFactTime(p.CreatedAt), productFactTime(p.UpdatedAt)
@@ -183,7 +190,17 @@ func verifyProductTermsMutations(ctx context.Context, query schemaQuery) error {
 	for _, m := range mutations {
 		c, ok := current[m.ProductID]
 		r := m.Receipt.Contract
-		if !ok || c.Revision < r.Revision || c.HouseholdID != r.HouseholdID || c.AccountID != r.AccountID || c.HoldingID != r.HoldingID || c.InstrumentID != r.InstrumentID || c.Currency != r.Currency || c.Kind != r.Kind || c.StartOn != r.StartOn || c.OpenedOperationID != r.OpenedOperationID || !c.Principal.Amount().Equal(r.Principal.Amount()) {
+		if !ok {
+			return storedIntegrity("product", "terms receipt does not belong to current facts")
+		}
+		currentIdentity, receiptIdentity := c, r
+		if err := currentIdentity.NormalizeCivilDates(); err != nil {
+			return storedIntegrity("product", "current product dates are invalid")
+		}
+		if err := receiptIdentity.NormalizeCivilDates(); err != nil {
+			return storedIntegrity("product", "terms receipt dates are invalid")
+		}
+		if c.Revision < r.Revision || c.HouseholdID != r.HouseholdID || c.AccountID != r.AccountID || c.HoldingID != r.HoldingID || c.InstrumentID != r.InstrumentID || c.Currency != r.Currency || c.Kind != r.Kind || currentIdentity.StartOn != receiptIdentity.StartOn || c.OpenedOperationID != r.OpenedOperationID || !c.Principal.Amount().Equal(r.Principal.Amount()) {
 			return storedIntegrity("product", "terms receipt does not belong to current facts")
 		}
 

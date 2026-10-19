@@ -263,6 +263,13 @@ unexpected data during a smoke test, set isolated `NESTWORTH_DATABASE_PATH`
 and `NESTWORTH_SETTINGS_PATH` values; never use real financial data for a
 package check.
 
+Desktop runs use the operating system's user config directory by default, at
+`Nestworth/nestworth.db`. Set `NESTWORTH_DATABASE_PATH` to an explicit writable
+database file when the OS config directory is unavailable or for an isolated
+synthetic test. Startup stops with an actionable error if it cannot determine
+a persistent database path; it does not create a temporary ledger that could
+look like an empty household.
+
 ## Release artifacts and isolated Mac acceptance
 
 Use the exact reviewed source commit with passing CI before packaging. When

@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -80,6 +79,7 @@ func (e *lazyEventEmitter) Emit(name string, data any) {
 
 func main() {
 	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Nestworth could not start:", err)
 		os.Exit(1)
 	}
 }
@@ -99,11 +99,18 @@ func run() error {
 		slog.Warn("could not load saved settings; using defaults")
 	}
 
-	databasePath := defaultDatabasePath()
+	databasePath, err := defaultDatabasePath()
+	if err != nil {
+		slog.Error("could not determine the persistent local database path", "error", err)
+		return err
+	}
 	unlockInstance, lockErr := backup.AcquireInstanceLock(databasePath)
 	if lockErr != nil {
 		slog.Error("could not acquire the local database instance lock")
-		return lockErr
+		if errors.Is(lockErr, backup.ErrAlreadyRunning) {
+			return lockErr
+		}
+		return fmt.Errorf("cannot access the persistent local database at %q: %w; check permissions or set NESTWORTH_DATABASE_PATH to a writable database file and restart", databasePath, lockErr)
 	}
 	defer unlockInstance()
 	var database *sqlite.DB
@@ -388,13 +395,20 @@ func persistWindowSizeValue(store *settings.Store, width, height int) error {
 	return store.Save(preference)
 }
 
-func defaultDatabasePath() string {
-	if explicitPath := strings.TrimSpace(os.Getenv("NESTWORTH_DATABASE_PATH")); explicitPath != "" {
-		return explicitPath
+func defaultDatabasePath() (string, error) {
+	return defaultDatabasePathFrom(os.Getenv("NESTWORTH_DATABASE_PATH"), os.UserConfigDir)
+}
+
+func defaultDatabasePathFrom(explicitPath string, userConfigDir func() (string, error)) (string, error) {
+	if explicitPath != "" {
+		return explicitPath, nil
 	}
-	configDir, err := os.UserConfigDir()
-	if err == nil && configDir != "" {
-		return filepath.Join(configDir, "Nestworth", "nestworth.db")
+	configDir, err := userConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine the persistent database location: %w; set NESTWORTH_DATABASE_PATH to a writable database file and restart", err)
 	}
-	return filepath.Join(os.TempDir(), "Nestworth", "nestworth.db")
+	if configDir == "" {
+		return "", errors.New("cannot determine the persistent database location: the operating system returned an empty config directory; set NESTWORTH_DATABASE_PATH to a writable database file and restart")
+	}
+	return filepath.Join(configDir, "Nestworth", "nestworth.db"), nil
 }

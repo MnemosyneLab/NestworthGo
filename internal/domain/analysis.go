@@ -231,8 +231,11 @@ type ComponentDay struct {
 	Residual          *Residual
 }
 type DailyReturn struct {
-	Date            LocalDate
-	Amount          *SignedMoney
+	Date   LocalDate
+	Amount *SignedMoney
+	// AmountExact preserves the unrounded daily aggregate for higher-period
+	// projections. Amount is the four-decimal display/value boundary.
+	AmountExact     *decimal.Decimal
 	InvestedCapital *SignedMoney
 	Rate            *decimal.Decimal
 	Status          Completeness

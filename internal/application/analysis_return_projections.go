@@ -56,9 +56,21 @@ type ReturnCalendarSummary struct {
 	Coverage               domain.RateCoverage
 }
 
+// ReturnCalendarMonthResult is the backend's monthly fold of its authoritative
+// daily return series. The calendar's year and month views use the same
+// summary, so the UI never recomputes linked returns or rounded amount totals.
+type ReturnCalendarMonthResult struct {
+	Month        string
+	ReturnAmount *domain.SignedMoney
+	AmountStatus string
+	ReturnRate   *decimal.Decimal
+	Coverage     domain.RateCoverage
+}
+
 type ReturnCalendarResult struct {
 	AnalysisAvailability
 	Summary         ReturnCalendarSummary
+	Months          []ReturnCalendarMonthResult
 	Days            []ReturnDayResult
 	TopContributors []ReturnContributor
 	Issues          []ReturnIssue
@@ -425,7 +437,11 @@ func projectReturnCalendar(result domain.PeriodAnalysisResult, forced, cursor st
 	if err != nil {
 		return ReturnCalendarResult{}, err
 	}
-	calendar := ReturnCalendarResult{AnalysisAvailability: returnAvailability(result, forced), Days: days, Issues: make([]ReturnIssue, 0), TopContributors: topContributors}
+	months, err := projectReturnCalendarMonths(result.DailyReturns)
+	if err != nil {
+		return ReturnCalendarResult{}, err
+	}
+	calendar := ReturnCalendarResult{AnalysisAvailability: returnAvailability(result, forced), Months: months, Days: days, Issues: make([]ReturnIssue, 0), TopContributors: topContributors}
 	for _, day := range allDays {
 		calendar.Issues = append(calendar.Issues, day.Issues...)
 	}
@@ -433,6 +449,67 @@ func projectReturnCalendar(result domain.PeriodAnalysisResult, forced, cursor st
 	calendar.Summary = ReturnCalendarSummary{BeginningInvestedValue: result.InvestedCapital, ReturnAmount: result.ReturnAmount, AmountStatus: amountStatus, ReturnRate: result.ReturnRate, Coverage: result.Coverage}
 	calendar.Summary.EndingInvestedValue = periodEndingValue(result)
 	return calendar, nil
+}
+
+func projectReturnCalendarMonths(dailyReturns []domain.DailyReturn) ([]ReturnCalendarMonthResult, error) {
+	byMonth := make(map[string][]domain.DailyReturn)
+	for _, daily := range dailyReturns {
+		date := string(daily.Date)
+		if len(date) < len("2006-01") {
+			return nil, &domain.Error{Code: domain.ErrValidation, Field: "date", Message: "daily return date must use YYYY-MM-DD"}
+		}
+		month := date[:len("2006-01")]
+		byMonth[month] = append(byMonth[month], daily)
+	}
+	months := make([]string, 0, len(byMonth))
+	for month := range byMonth {
+		months = append(months, month)
+	}
+	sort.Strings(months)
+	result := make([]ReturnCalendarMonthResult, 0, len(months))
+	for _, month := range months {
+		daily := byMonth[month]
+		amount := decimal.Zero
+		currency := domain.CurrencyCode("")
+		hasAmount := false
+		partialAmount := false
+		for _, day := range daily {
+			if day.Amount == nil {
+				partialAmount = true
+				continue
+			}
+			if currency == "" {
+				currency = day.Amount.Currency()
+			} else if currency != day.Amount.Currency() {
+				return nil, &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "monthly return amounts must use one valuation currency"}
+			}
+			dayAmount := day.Amount.Amount()
+			if day.AmountExact != nil {
+				dayAmount = *day.AmountExact
+			}
+			amount = amount.Add(dayAmount)
+			hasAmount = true
+			if day.Status != domain.CompletenessOK {
+				partialAmount = true
+			}
+		}
+		var monthlyAmount *domain.SignedMoney
+		amountStatus := ReturnAmountUnavailable
+		if hasAmount {
+			value, err := newSigned(amount, currency)
+			if err != nil {
+				return nil, err
+			}
+			monthlyAmount = &value
+			amountStatus = ReturnAmountComplete
+			if partialAmount {
+				amountStatus = ReturnAmountPartial
+			}
+		}
+		monthlyRate, coverage := aggregateDailyReturnRate(daily)
+		result = append(result, ReturnCalendarMonthResult{Month: month, ReturnAmount: monthlyAmount, AmountStatus: amountStatus, ReturnRate: monthlyRate, Coverage: coverage})
+	}
+	return result, nil
 }
 
 func returnAmountStatus(result domain.PeriodAnalysisResult) string {

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -31,6 +32,240 @@ func recordRegressionProduct(t *testing.T, s *Service, ctx context.Context, c Pr
 	}
 	return r
 }
+
+func TestProductContractDatesNormalizeAcrossCreateAndTermsUpdate(t *testing.T) {
+	t.Parallel()
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, s, ctx, "150000")
+	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000",
+		Terms: ProductTermsInput{
+			Kind: "term_deposit", Name: "Whitespace dates", StartOn: " 2026-09-20 ", MaturityOn: strPtr(" 2026-12-20 "),
+			InterestMode: "simple_act_365", AnnualRatePercent: strPtr("2.5"), InterestPaidThroughOn: strPtr(" 2026-09-20 "),
+		},
+		Policy: depositPolicy(),
+	}}
+	receipt := recordRegressionProduct(t, s, ctx, command)
+	product, err := s.Product(ctx, receipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if product.Contract.StartOn != "2026-09-20" || product.Contract.MaturityOn == nil || *product.Contract.MaturityOn != "2026-12-20" || product.Contract.InterestPaidThroughOn == nil || *product.Contract.InterestPaidThroughOn != "2026-09-20" {
+		t.Fatalf("created contract dates = start %q maturity %v paid-through %v", product.Contract.StartOn, product.Contract.MaturityOn, product.Contract.InterestPaidThroughOn)
+	}
+
+	updated, err := s.UpdateProductTerms(ctx, UpdateProductTermsInput{
+		ProductID: product.Contract.ID, ExpectedRevision: product.Contract.Revision,
+		Terms: ProductTermsInput{
+			Kind: "term_deposit", Name: product.Contract.Name, StartOn: " 2026-09-20 ", MaturityOn: strPtr(" 2026-12-20 "),
+			InterestMode: "simple_act_365", AnnualRatePercent: strPtr("2.5"), InterestPaidThroughOn: strPtr(" 2026-10-01 "),
+		},
+		Policy: depositPolicy(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Contract.StartOn != "2026-09-20" || updated.Contract.MaturityOn == nil || *updated.Contract.MaturityOn != "2026-12-20" || updated.Contract.InterestPaidThroughOn == nil || *updated.Contract.InterestPaidThroughOn != "2026-10-01" {
+		t.Fatalf("updated contract dates = start %q maturity %v paid-through %v", updated.Contract.StartOn, updated.Contract.MaturityOn, updated.Contract.InterestPaidThroughOn)
+	}
+	interest, err := updated.Contract.EstimatedUnpaidMaturityInterest()
+	if err != nil || interest == nil || !interest.Amount().IsPositive() {
+		t.Fatalf("normalized dates were not usable by interest accrual: amount=%v err=%v", interest, err)
+	}
+
+	badTerms := ProductTermsInput{Kind: "term_deposit", Name: updated.Contract.Name, StartOn: updated.Contract.StartOn, MaturityOn: strPtr(" 2026-02-30 "), InterestMode: "none"}
+	if _, err := s.UpdateProductTerms(ctx, UpdateProductTermsInput{ProductID: updated.Contract.ID, ExpectedRevision: updated.Contract.Revision, Terms: badTerms, Policy: depositPolicy()}); err == nil {
+		t.Fatal("invalid date update unexpectedly succeeded")
+	}
+	unchanged, err := s.Product(ctx, updated.Contract.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Contract.Revision != updated.Contract.Revision || unchanged.Contract.InterestPaidThroughOn == nil || *unchanged.Contract.InterestPaidThroughOn != "2026-10-01" {
+		t.Fatalf("failed date update changed contract: %+v", unchanged.Contract)
+	}
+}
+
+func TestProductOperationRejectsInvalidWhitespaceDateBeforeWrite(t *testing.T) {
+	t.Parallel()
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, s, ctx, "150000")
+	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Invalid date", StartOn: " 2026-02-30 ", MaturityOn: strPtr(" 2026-12-20 "), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	if _, err := s.PreviewProductOperation(ctx, command); err == nil {
+		t.Fatal("invalid contract date unexpectedly accepted")
+	}
+}
+
+func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.T) {
+	clock := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
+	path := filepath.Join(t.TempDir(), "legacy-product.db")
+	database, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if database != nil {
+			_ = database.Close()
+		}
+	})
+	service := NewService(sqlite.NewRepository(database))
+	service.setClock(func() time.Time { return clock })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Legacy dates", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	account := seedHoldingsCash(t, service, ctx, "150000")
+	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Legacy padded start", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	created := recordRegressionProduct(t, service, ctx, command)
+	product, err := service.Product(ctx, created.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE product_contracts SET start_on=? WHERE id=?`, " 2026-09-20 ", product.Contract.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+
+	input := UpdateProductTermsInput{
+		ProductID: product.Contract.ID, ExpectedRevision: product.Contract.Revision,
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Legacy start updated", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}
+	preview, token, err := service.PreviewProductTermsGuarded(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CommitProductTermsGuarded(ctx, input, domain.NewProductOperationID().String(), preview.ReviewedStateHash, token); err != nil {
+		t.Fatal(err)
+	}
+	var storedStart string
+	if err := database.SQL.QueryRowContext(ctx, `SELECT start_on FROM product_contracts WHERE id=?`, product.Contract.ID.String()).Scan(&storedStart); err != nil {
+		t.Fatal(err)
+	}
+	if storedStart != " 2026-09-20 " {
+		t.Fatalf("terms update rewrote immutable legacy start date as %q", storedStart)
+	}
+	var mutationKey string
+	var rawMutation []byte
+	if err := database.SQL.QueryRowContext(ctx, `SELECT key,value FROM app_configuration WHERE key LIKE 'product.terms-mutation.%'`).Scan(&mutationKey, &rawMutation); err != nil {
+		t.Fatal(err)
+	}
+	var mutation domain.ProductTermsMutation
+	if err := json.Unmarshal(rawMutation, &mutation); err != nil {
+		t.Fatal(err)
+	}
+	if mutation.Receipt.Contract.StartOn != "2026-09-20" {
+		t.Fatalf("new guarded receipt StartOn = %q, want canonical date", mutation.Receipt.Contract.StartOn)
+	}
+
+	// Exercise the original mismatch directly: the live row still contains a
+	// valid padded legacy value while its newly sealed receipt is canonical.
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatalf("reopen padded legacy row with canonical receipt: %v", err)
+	}
+	database = reopened
+	legacyRead, err := sqlite.NewRepository(reopened).Product(ctx, product.Contract.HouseholdID, product.Contract.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacyRead.StartOn != " 2026-09-20 " {
+		t.Fatalf("ordinary legacy row read = %q, want stored spelling to remain padded", legacyRead.StartOn)
+	}
+	var preservedCanonical []byte
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT value FROM app_configuration WHERE key=?`, mutationKey).Scan(&preservedCanonical); err != nil || string(preservedCanonical) != string(rawMutation) {
+		t.Fatalf("startup verification rewrote the canonical sealed receipt: %v", err)
+	}
+	canonicalVerifier, err := sqlite.OpenReadOnlyForVerify(path)
+	if err != nil {
+		t.Fatalf("read-only verification of padded legacy row and canonical receipt: %v", err)
+	}
+	if err := canonicalVerifier.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate a previously sealed receipt whose command and result both kept
+	// the valid padded spelling; verification must accept it without rewriting
+	// the original record or its digest.
+	var legacyCommand UpdateProductTermsInput
+	if err := json.Unmarshal(mutation.CommandJSON, &legacyCommand); err != nil {
+		t.Fatal(err)
+	}
+	legacyCommand.Terms.StartOn = " 2026-09-20 "
+	legacyCommandJSON, err := json.Marshal(legacyCommand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyReceipt := mutation.Receipt
+	legacyReceipt.Contract.StartOn = " 2026-09-20 "
+	legacyMutation, err := domain.NewProductTermsMutation(mutation.ID, mutation.HouseholdID, legacyCommandJSON, legacyReceipt, mutation.CreatedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyRaw, err := json.Marshal(legacyMutation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE app_configuration SET value=? WHERE key=?`, string(legacyRaw), mutationKey); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	database = nil
+
+	legacyReopened, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatalf("reopen padded legacy receipt: %v", err)
+	}
+	database = legacyReopened
+	var preservedMutation []byte
+	if err := legacyReopened.SQL.QueryRowContext(ctx, `SELECT value FROM app_configuration WHERE key=?`, mutationKey).Scan(&preservedMutation); err != nil || string(preservedMutation) != string(legacyRaw) {
+		t.Fatalf("startup verification rewrote the sealed legacy receipt: %v", err)
+	}
+	verified, err := sqlite.OpenReadOnlyForVerify(path)
+	if err != nil {
+		t.Fatalf("read-only verification of padded legacy receipt: %v", err)
+	}
+	if err := verified.Verify(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := verified.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Canonicalization must not make a genuinely different valid date compare
+	// equal. Reject the altered live fact on writable and read-only paths.
+	if _, err := legacyReopened.SQL.ExecContext(ctx, `UPDATE product_contracts SET start_on=? WHERE id=?`, "2026-09-21", product.Contract.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacyReopened.Close(); err != nil {
+		t.Fatal(err)
+	}
+	database = nil
+	if unexpected, err := sqlite.OpenReadOnlyForVerify(path); err == nil {
+		_ = unexpected.Close()
+		t.Fatal("read-only verifier accepted a genuinely different product start date")
+	}
+	if unexpected, err := sqlite.Open(path); err == nil {
+		_ = unexpected.Close()
+		t.Fatal("startup verifier accepted a genuinely different product start date")
+	}
+}
+
 func TestProductRegressionUndoRejectsEditedReservation(t *testing.T) {
 	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)

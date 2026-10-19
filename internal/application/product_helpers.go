@@ -74,6 +74,34 @@ func parseAnnualRate(input ProductTermsInput) (*domain.AnnualRate, error) {
 	return nil, nil
 }
 
+func normalizeProductTermDates(input ProductTermsInput) (ProductTermsInput, error) {
+	startOn, err := domain.ParseCivilDate("startOn", input.StartOn)
+	if err != nil {
+		return ProductTermsInput{}, err
+	}
+	input.StartOn = startOn
+	input.MaturityOn, err = normalizeOptionalCivilDate("maturityOn", input.MaturityOn)
+	if err != nil {
+		return ProductTermsInput{}, err
+	}
+	input.InterestPaidThroughOn, err = normalizeOptionalCivilDate("interestPaidThroughOn", input.InterestPaidThroughOn)
+	if err != nil {
+		return ProductTermsInput{}, err
+	}
+	return input, nil
+}
+
+func normalizeOptionalCivilDate(field string, value *string) (*string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	canonical, err := domain.ParseCivilDate(field, *value)
+	if err != nil {
+		return nil, err
+	}
+	return &canonical, nil
+}
+
 func resolveProductTerms(input ProductTermsInput, currency domain.CurrencyCode, principal domain.Money) (domain.ProductKind, domain.InterestMode, *domain.AnnualRate, *domain.Money, *string, error) {
 	kind, err := domain.ParseProductKind(input.Kind)
 	if err != nil {

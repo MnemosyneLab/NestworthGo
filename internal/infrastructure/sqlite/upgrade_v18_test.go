@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -119,6 +120,57 @@ func TestV18UpgradePreservesLegacyReviewAndRecovery(t *testing.T) {
 				t.Fatalf("recovery changed legacy state: %q %v", recovered, err)
 			}
 		})
+	}
+}
+
+func TestV18UpgradeVerifiesRecoveryCopyUnderSpecialPath(t *testing.T) {
+	parent := filepath.Join(t.TempDir(), "parent space 東京 ? #")
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(parent, "ledger space 東京 ? #.db")
+	dsn, err := sqliteDSN(path, url.Values{"_pragma": {"foreign_keys=1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema, err := os.ReadFile("testdata/schema_v18.sql")
+	if err != nil {
+		base.Close()
+		t.Fatal(err)
+	}
+	if _, err := base.Exec(string(schema)); err != nil {
+		base.Close()
+		t.Fatal(err)
+	}
+	if err := base.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	upgraded, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgraded.Close()
+	if err := upgraded.Verify(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	copies, err := filepath.Glob(filepath.Join(parent, ".nestworth-v18-recovery-*", "original-v18.sqlite"))
+	if err != nil || len(copies) != 1 {
+		t.Fatalf("recovery copy: %v %v", copies, err)
+	}
+	verified, err := OpenReadOnlyForVerify(copies[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verified.Close()
+	var recoveredVersion int
+	if err := verified.SQL.QueryRowContext(context.Background(), "PRAGMA user_version").Scan(&recoveredVersion); err != nil || recoveredVersion != 18 {
+		t.Fatalf("verified recovery snapshot version = %d, want 18: %v", recoveredVersion, err)
 	}
 }
 

@@ -508,6 +508,10 @@ func scanProductOperation(row scanner) (domain.ProductOperation, error) {
 	return operation, nil
 }
 
+// Keep the stored date spelling in this read projection for legacy
+// compatibility. Valid padded civil dates are normalized by write workflows
+// before comparison or receipt creation; reading an immutable StartOn does not
+// rewrite its stored value.
 func scanProductContract(row scanner) (domain.ProductContract, error) {
 	var shortName, id, householdID, accountID, holdingID, instrumentID, kind, name, currency, principal, startOn, interestMode, state, openedID, createdAt, updatedAt string
 	var note, maturityOn, annualRate, maturityInterest, paidThrough, renewedFrom, closedID sql.NullString

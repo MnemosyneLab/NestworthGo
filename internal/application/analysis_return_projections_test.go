@@ -95,8 +95,114 @@ func TestReturnCalendarCursorFiltersCellsButKeepsPeriodSummary(t *testing.T) {
 	if calendar.Summary.Coverage != result.Coverage || calendar.Summary.ReturnAmount == nil || !calendar.Summary.ReturnAmount.Amount().Equal(amount.Amount()) {
 		t.Fatalf("cursor summary = %+v", calendar.Summary)
 	}
+	if len(calendar.Months) != 2 || calendar.Months[0].Month != "2026-07" || calendar.Months[1].Month != "2026-08" {
+		t.Fatalf("cursor filtered monthly summaries: %+v", calendar.Months)
+	}
 	if _, err := projectReturnCalendar(result, "", "2026-8"); err == nil {
 		t.Fatal("invalid cursor unexpectedly accepted")
+	}
+}
+
+func TestReturnCalendarMonthlySummaryMatchesSameIntervalPeriodAndPreservesPartialCoverage(t *testing.T) {
+	t.Parallel()
+	firstAmount, lastAmount := testReturnMoney(t, "10"), testReturnMoney(t, "20")
+	firstRate, lastRate := decimal.RequireFromString("0.1"), decimal.RequireFromString("0.2")
+	incompleteRate := decimal.RequireFromString("9")
+	daily := []domain.DailyReturn{
+		{Date: "2026-08-01", Amount: &firstAmount, Rate: &firstRate, Status: domain.CompletenessOK},
+		// Malformed/legacy input must not make an incomplete day count merely
+		// because it happens to carry a non-nil rate.
+		{Date: "2026-08-02", Rate: &incompleteRate, Status: domain.CompletenessUnavailable},
+		{Date: "2026-08-03", Amount: &lastAmount, Rate: &lastRate, Status: domain.CompletenessOK},
+	}
+	linkedRate, coverage := aggregateDailyReturnRate(daily)
+	periodAmount := testReturnMoney(t, "30")
+	result := domain.PeriodAnalysisResult{
+		Query: testReturnQuery("2026-08-01", "2026-08-03"), DailyReturns: daily,
+		ReturnAmount: &periodAmount, ReturnRate: linkedRate, Coverage: coverage,
+		Status: domain.CompletenessPartial,
+	}
+	calendar, err := projectReturnCalendar(result, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(calendar.Months) != 1 {
+		t.Fatalf("monthly summaries = %+v", calendar.Months)
+	}
+	month := calendar.Months[0]
+	wantRate := decimal.RequireFromString("0.32")
+	if month.Month != "2026-08" || month.ReturnAmount == nil || !month.ReturnAmount.Amount().Equal(periodAmount.Amount()) || month.AmountStatus != ReturnAmountPartial {
+		t.Fatalf("monthly amount summary = %+v", month)
+	}
+	if month.ReturnRate == nil || !month.ReturnRate.Equal(wantRate) || calendar.Summary.ReturnRate == nil || !month.ReturnRate.Equal(*calendar.Summary.ReturnRate) {
+		t.Fatalf("monthly linked rate = %v, period rate = %v; want %s", month.ReturnRate, calendar.Summary.ReturnRate, wantRate)
+	}
+	if month.Coverage != (domain.RateCoverage{RatedDays: 2, TotalDays: 3}) {
+		t.Fatalf("monthly coverage = %+v; missing day must remain unrated", month.Coverage)
+	}
+}
+
+func TestReturnCalendarMonthlyAmountPreservesExactDailyAggregates(t *testing.T) {
+	t.Parallel()
+	rounded := testReturnMoney(t, "0")
+	firstExact, secondExact := decimal.RequireFromString("0.00004"), decimal.RequireFromString("0.00004")
+	periodAmount, err := newSigned(decimal.RequireFromString("0.00008"), "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := domain.PeriodAnalysisResult{
+		Query: testReturnQuery("2026-08-01", "2026-08-02"),
+		DailyReturns: []domain.DailyReturn{
+			{Date: "2026-08-01", Amount: &rounded, AmountExact: &firstExact, Status: domain.CompletenessOK},
+			{Date: "2026-08-02", Amount: &rounded, AmountExact: &secondExact, Status: domain.CompletenessOK},
+		},
+		ReturnAmount: &periodAmount, Status: domain.CompletenessOK,
+	}
+	calendar, err := projectReturnCalendar(result, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	month := calendar.Months[0]
+	if month.ReturnAmount == nil || !month.ReturnAmount.Amount().Equal(periodAmount.Amount()) || month.ReturnAmount.CanonicalAmount() != "0.0001" {
+		t.Fatalf("month rounded displayed days instead of their exact aggregates: month=%v period=%v", month.ReturnAmount, periodAmount.CanonicalAmount())
+	}
+}
+
+func TestReturnCalendarMonthlySummariesRespectBoundaryMonthsAndNoPosition(t *testing.T) {
+	t.Parallel()
+	augustAmount, septemberAmount := testReturnMoney(t, "4"), testReturnMoney(t, "5")
+	augustRate, septemberRate := decimal.RequireFromString("0.04"), decimal.RequireFromString("0.05")
+	calendar, err := projectReturnCalendar(domain.PeriodAnalysisResult{
+		Query: testReturnQuery("2026-08-31", "2026-09-02"),
+		DailyReturns: []domain.DailyReturn{
+			{Date: "2026-08-31", Amount: &augustAmount, Rate: &augustRate, Status: domain.CompletenessOK},
+			{Date: "2026-09-01", Status: domain.CompletenessUnavailable},
+			{Date: "2026-09-02", Amount: &septemberAmount, Rate: &septemberRate, Status: domain.CompletenessOK},
+		},
+	}, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(calendar.Months) != 2 || calendar.Months[0].Month != "2026-08" || calendar.Months[1].Month != "2026-09" {
+		t.Fatalf("boundary monthly summaries = %+v", calendar.Months)
+	}
+	if calendar.Months[0].Coverage.TotalDays != 1 || calendar.Months[1].Coverage.TotalDays != 2 || calendar.Months[1].Coverage.RatedDays != 1 || calendar.Months[1].AmountStatus != ReturnAmountPartial {
+		t.Fatalf("boundary coverage/amount completeness = %+v", calendar.Months)
+	}
+
+	noPosition, err := projectReturnCalendar(domain.PeriodAnalysisResult{
+		Query: testReturnQuery("2026-10-01", "2026-10-02"),
+		DailyReturns: []domain.DailyReturn{
+			{Date: "2026-10-01", Status: domain.CompletenessUnavailable},
+			{Date: "2026-10-02", Status: domain.CompletenessUnavailable},
+		},
+	}, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	month := noPosition.Months[0]
+	if month.ReturnAmount != nil || month.ReturnRate != nil || month.AmountStatus != ReturnAmountUnavailable || month.Coverage != (domain.RateCoverage{RatedDays: 0, TotalDays: 2}) {
+		t.Fatalf("empty/no-position month fabricated a result: %+v", month)
 	}
 }
 

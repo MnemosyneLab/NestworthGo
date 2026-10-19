@@ -59,8 +59,18 @@ type ReturnCalendarSummaryDTO struct {
 	TotalDays              int              `json:"totalDays"`
 }
 
+type ReturnCalendarMonthDTO struct {
+	Month        string           `json:"month"`
+	ReturnAmount *SignedMoneyView `json:"returnAmount,omitempty"`
+	AmountStatus string           `json:"amountStatus"`
+	ReturnRate   *string          `json:"returnRate"`
+	RatedDays    int              `json:"ratedDays"`
+	TotalDays    int              `json:"totalDays"`
+}
+
 type ReturnCalendarDTO struct {
 	Summary         ReturnCalendarSummaryDTO `json:"summary"`
+	Months          []ReturnCalendarMonthDTO `json:"months"`
 	Cells           []ReturnDayDTO           `json:"cells"`
 	TopContributors []ReturnContributorDTO   `json:"topContributors"`
 	Issues          []ReturnIssueDTO         `json:"issues"`

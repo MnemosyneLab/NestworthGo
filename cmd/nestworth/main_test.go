@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -137,5 +138,43 @@ func TestPersistWindowSizeLogsOmitErrorAndPath(t *testing.T) {
 	logged := buf.String()
 	if strings.Contains(logged, path) || strings.Contains(logged, "error=") || strings.Contains(logged, "width=") {
 		t.Fatalf("log leaked forbidden fields: %s", logged)
+	}
+}
+
+func TestDefaultDatabasePathKeepsExplicitTestAndUserPaths(t *testing.T) {
+	explicit := filepath.Join(t.TempDir(), "ledger with spaces - 東京 ? #.db")
+	path, err := defaultDatabasePathFrom(explicit, func() (string, error) {
+		t.Fatal("explicit database path should not consult the user config directory")
+		return "", nil
+	})
+	if err != nil || path != explicit {
+		t.Fatalf("explicit path = %q, err=%v; want %q", path, err, explicit)
+	}
+
+	configDir := filepath.Join(t.TempDir(), "App Data")
+	path, err = defaultDatabasePathFrom("", func() (string, error) { return configDir, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(configDir, "Nestworth", "nestworth.db")
+	if path != want {
+		t.Fatalf("default path = %q, want %q", path, want)
+	}
+}
+
+func TestDefaultDatabasePathFailsActionablyWhenConfigLocationIsUnavailable(t *testing.T) {
+	path, err := defaultDatabasePathFrom("", func() (string, error) {
+		return "", errors.New("synthetic config directory failure")
+	})
+	if err == nil || path != "" {
+		t.Fatalf("path = %q, err=%v; expected a failure", path, err)
+	}
+	if !strings.Contains(err.Error(), "NESTWORTH_DATABASE_PATH") || !strings.Contains(err.Error(), "persistent database location") || strings.Contains(strings.ToLower(err.Error()), "temporary") {
+		t.Fatalf("error is not actionable without suggesting a temporary ledger: %v", err)
+	}
+
+	_, err = defaultDatabasePathFrom("", func() (string, error) { return "", nil })
+	if err == nil || !strings.Contains(err.Error(), "NESTWORTH_DATABASE_PATH") {
+		t.Fatalf("empty config directory error = %v", err)
 	}
 }

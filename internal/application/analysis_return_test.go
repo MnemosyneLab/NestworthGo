@@ -315,6 +315,14 @@ func TestAnalysisReturnDividendAndTradeFeeFollowInvestmentAssociation(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	feeCalendar, err := projectReturnCalendar(feeResult, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	monthRateMatches := len(feeCalendar.Months) == 1 && ((feeCalendar.Months[0].ReturnRate == nil && feeResult.ReturnRate == nil) || (feeCalendar.Months[0].ReturnRate != nil && feeResult.ReturnRate != nil && feeCalendar.Months[0].ReturnRate.Equal(*feeResult.ReturnRate)))
+	if len(feeCalendar.Months) != 1 || feeCalendar.Months[0].ReturnAmount == nil || feeResult.ReturnAmount == nil || !feeCalendar.Months[0].ReturnAmount.Amount().Equal(feeResult.ReturnAmount.Amount()) || !monthRateMatches || feeCalendar.Months[0].AmountStatus != ReturnAmountPartial {
+		t.Fatalf("monthly summary changed the finalized fee-aware return: month=%+v period=%+v", feeCalendar.Months, feeResult)
+	}
 	feeDay := feeResult.Days[0]
 	if got := feeDay.ReturnComponents[domain.ReturnInvestmentFee].Amount(); !got.Equal(decimal.NewFromInt(-2)) {
 		t.Fatalf("associated trade fee return = %s, want -2", got)

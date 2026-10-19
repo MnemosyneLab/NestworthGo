@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +37,13 @@ func OpenReadOnlyForVerifyContext(ctx context.Context, path string) (*DB, error)
 	if info.IsDir() {
 		return nil, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "database path is a directory"}
 	}
-	dsn := path + "?mode=ro&_pragma=query_only%3d1&_pragma=foreign_keys%3d1&_pragma=busy_timeout%3d5000"
+	dsn, err := sqliteDSN(path, url.Values{
+		"mode":    {"ro"},
+		"_pragma": {"query_only=1", "foreign_keys=1", "busy_timeout=5000"},
+	})
+	if err != nil {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Message: "database could not be opened"}
+	}
 	database, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, &domain.Error{Code: domain.ErrUnavailable, Message: "database could not be opened"}

@@ -19,6 +19,10 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	value := application.ReturnCalendarResult{
 		AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessPartial, MissingReason: "missing quote", ValuationForced: &forced},
 		Summary:              application.ReturnCalendarSummary{ReturnAmount: &amount, ReturnRate: &rate, Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 3}},
+		Months: []application.ReturnCalendarMonthResult{{
+			Month: "2026-08", ReturnAmount: &amount, AmountStatus: application.ReturnAmountPartial,
+			ReturnRate: &rate, Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 3},
+		}},
 		Days: []application.ReturnDayResult{{
 			Date:         "2026-08-01",
 			ReturnAmount: &amount,
@@ -42,6 +46,11 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	summary := shape["summary"].(map[string]any)
 	if summary["returnRate"] != "0.125" || summary["ratedDays"] != float64(2) || summary["totalDays"] != float64(3) {
 		t.Fatalf("calendar summary = %s", encoded)
+	}
+	months := shape["months"].([]any)
+	month := months[0].(map[string]any)
+	if month["month"] != "2026-08" || month["amountStatus"] != application.ReturnAmountPartial || month["returnRate"] != "0.125" || month["ratedDays"] != float64(2) || month["totalDays"] != float64(3) {
+		t.Fatalf("calendar monthly summary = %s", encoded)
 	}
 	cells := shape["cells"].([]any)
 	cell := cells[0].(map[string]any)
