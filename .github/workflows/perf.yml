@@ -44,7 +44,7 @@ jobs:
   # fails this job; it must not be reported as "no changes".
   changes:
     name: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       actions: read
@@ -52,7 +52,7 @@ jobs:
     outputs:
       should_run: ${{ steps.decide.outputs.should_run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Compare the default branch with the last successful scheduled run
         id: decide
         shell: bash
@@ -103,7 +103,7 @@ jobs:
     name: perf (${{ matrix.label }})
     needs: changes
     if: needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
@@ -137,11 +137,13 @@ jobs:
             run: ^TestReviewEpochStageDiagnostics$
             bench: ""
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
       - name: Install native Go build dependencies
         timeout-minutes: 15
         run: bash tools/ci-install-native-deps.sh
@@ -168,7 +170,7 @@ jobs:
     name: race (${{ matrix.label }})
     needs: changes
     if: needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -239,11 +241,13 @@ jobs:
             parts: 1
             label: remainder
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
       - name: Install native Go build dependencies
         timeout-minutes: 15
         run: bash tools/ci-install-native-deps.sh
@@ -339,7 +343,7 @@ jobs:
           go test -race -count=1 -json -timeout 10m "${pkg_parallel[@]}" "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/race-results.jsonl"
       - name: Retain race test timings and failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: race-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/race-results.jsonl
@@ -352,7 +356,7 @@ jobs:
   # changes failure remains the workflow result.
   race:
     needs: [changes, race-shard]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     if: always() && needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'
     steps:
       - name: Require every race shard
