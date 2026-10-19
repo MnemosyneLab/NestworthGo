@@ -20,7 +20,7 @@ func TestReviewNoChangePerformanceEvidence(t *testing.T) {
 	if os.Getenv("NW_C3_PERF_EVIDENCE") != "1" {
 		t.Skip("opt-in synthetic C3 evidence")
 	}
-	for _, size := range []string{"small", "large"} {
+	for _, size := range c3PerfSizes(t) {
 		t.Run(size, func(t *testing.T) {
 			config := reviewPerfConfig{Accounts: 1, Instruments: 10, Holdings: 10, Rules: 1, HistoryDays: 30, Quotes: 310, CashActivities: 100}
 			if size == "large" {
@@ -39,10 +39,14 @@ func TestReviewNoChangePerformanceEvidence(t *testing.T) {
 			}
 			baseline.service.repository = sqlite.NewRepository(baseline.db).WithBoundedReviewWindow()
 			candidate.service.repository = sqlite.NewRepository(candidate.db).WithBoundedReviewWindow().WithReviewNoChangeCandidate()
-			for _, f := range []reviewFullPipelineFixture{baseline, candidate} {
-				if _, err := f.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+			for index, f := range []reviewFullPipelineFixture{baseline, candidate} {
+				started := time.Now()
+				result, err := f.service.ReconcileInvestmentReviewsV2(t.Context())
+				elapsed := time.Since(started)
+				if err != nil {
 					t.Fatal(err)
 				}
+				t.Logf("session-bootstrap size=%s arm=%s n=1 elapsed=%s pairDays=%d (full preparation; excluded from warm samples)", size, []string{"baseline", "candidate"}[index], elapsed, result.DayCount)
 			}
 			if !reflect.DeepEqual(noChangeProjectionRows(t, baseline.db), noChangeProjectionRows(t, candidate.db)) {
 				t.Fatal("paired initial projection differs")
