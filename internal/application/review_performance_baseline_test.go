@@ -277,7 +277,7 @@ func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
 	runReviewPerfEpochPairs(t, config, samples, 0)
 }
 
-func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cycles int) {
+func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cycles int, scenarios ...string) {
 	t.Helper()
 	source := newReviewPerfFixture(t, config)
 	logReviewPerfManifest(t, source, config)
@@ -303,7 +303,11 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 		t.Fatal(err)
 	}
 
-	for _, scenario := range []string{"no-op", "clock-only", "append", "correction"} {
+	if len(scenarios) == 0 {
+		scenarios = []string{"no-op", "clock-only", "append", "correction"}
+	}
+	traceStages := os.Getenv("NW_REVIEW_PERF_STAGE_TRACE") == "1"
+	for _, scenario := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
 			durations := [2][]time.Duration{}
 			fullDurations := [2][]time.Duration{}
@@ -358,9 +362,18 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 							if path == 0 {
 								repo = repo.WithReviewWindowBaseline()
 							}
-							service := NewService(repo)
+							var measuredRepository Repository = repo
+							var stages *reviewPerfStageRepository
+							if traceStages {
+								stages = &reviewPerfStageRepository{Repository: repo}
+								measuredRepository = stages
+							}
+							service := NewService(measuredRepository)
 							service.setClock(func() time.Time { return *run.now })
 							metrics := enableReviewSQLMetrics(t, run)
+							if stages != nil {
+								stages.metrics = metrics
+							}
 							var before, after runtime.MemStats
 							runtime.ReadMemStats(&before)
 							started := time.Now()
@@ -371,6 +384,9 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 							elapsed := time.Since(started)
 							runtime.ReadMemStats(&after)
 							fullDurations[path] = append(fullDurations[path], elapsed)
+							if stages != nil {
+								stages.log(t, path, sample, elapsed, before, after)
+							}
 							t.Logf("full reconcile path=%d sample=%d elapsed=%s pairDays=%d allocatedBytes=%d allocations=%d %s", path, sample, elapsed, result.DayCount, after.TotalAlloc-before.TotalAlloc, after.Mallocs-before.Mallocs, metrics.snapshot(8).summary())
 							published[path] = reviewPerfPublishedRows(t, run, source)
 						})

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -101,7 +102,9 @@ func TestReviewRepeatedEpochWindowOracle(t *testing.T) {
 func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	spec := syntheticHistoricalReviewSpec()
-	spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 6, MinHits: 5}
+	// All six votes are required, so a corrected false vote on October 7
+	// independently proves recovery (five T plus one F), without an oracle.
+	spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 6, MinHits: 6}
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic re-entry interval", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
 		t.Fatal(err)
 	}
@@ -109,9 +112,14 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	var oldID string
+	if err := f.db.SQL.QueryRow(`SELECT id FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&oldID); err != nil {
+		t.Fatal(err)
+	}
 	f.quantity(t, false)
 	*f.now = f.now.Add(time.Second)
 	f.quantity(t, true)
+	detectedAt := *f.now
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -120,25 +128,164 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 	if err := f.db.SQL.QueryRow(`SELECT id,revision FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&id, &revision); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), id, string(domain.NewMutationID()), revision); err != nil {
-		t.Fatal(err)
+	if id == oldID || revision != 1 {
+		t.Fatalf("re-entry did not open a fresh episode: id=%s old=%s revision=%d", id, oldID, revision)
+	}
+	*f.now = f.now.Add(2*time.Minute + 345*time.Nanosecond)
+	acknowledgedAt := *f.now
+	ack, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), id, string(domain.NewMutationID()), revision)
+	if err != nil || ack.Revision != 2 || !ack.AcknowledgedAt.Equal(acknowledgedAt) {
+		t.Fatalf("acknowledgement: %+v %v", ack, err)
+	}
+	type episodeRecord struct {
+		id, triggered, detected, acknowledged, latest, resolved, reason string
+		revision                                                        int
+	}
+	readEpisode := func(t *testing.T, db *sqlite.DB) episodeRecord {
+		t.Helper()
+		var row episodeRecord
+		if err := db.SQL.QueryRow(`SELECT id,triggered_on,first_detected_at,acknowledged_at,latest_closed_on,COALESCE(resolved_at,''),COALESCE(resolved_reason,''),revision FROM investment_review_episodes WHERE id=?`, id).Scan(&row.id, &row.triggered, &row.detected, &row.acknowledged, &row.latest, &row.resolved, &row.reason, &row.revision); err != nil {
+			t.Fatal(err)
+		}
+		return row
+	}
+	type eventRecord struct{ id, episode, key, kind, payload, created string }
+	readEvents := func(t *testing.T, db *sqlite.DB) []eventRecord {
+		t.Helper()
+		rows, err := db.SQL.Query(`SELECT id,episode_id,event_key,kind,payload_json,created_at FROM investment_review_episode_events WHERE episode_id=? ORDER BY event_key`, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var events []eventRecord
+		for rows.Next() {
+			var e eventRecord
+			if err := rows.Scan(&e.id, &e.episode, &e.key, &e.kind, &e.payload, &e.created); err != nil {
+				t.Fatal(err)
+			}
+			events = append(events, e)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return events
+	}
+	want := episodeRecord{id: id, triggered: "2026-10-06", detected: detectedAt.UTC().Format(time.RFC3339Nano), acknowledged: acknowledgedAt.UTC().Format(time.RFC3339Nano), latest: "2026-10-06", revision: 2}
+	if got := readEpisode(t, f.db); got != want {
+		t.Fatalf("stored re-entry/ack: got=%+v want=%+v", got, want)
+	}
+	wantEvents := readEvents(t, f.db)
+	if len(wantEvents) != 2 || wantEvents[0].kind != "acknowledged" || wantEvents[0].key != "ack/"+id || wantEvents[0].created != want.acknowledged || wantEvents[1].kind != "opened" || wantEvents[1].key != "open/"+id || wantEvents[1].created != want.detected {
+		t.Fatalf("unexpected initial audit events: %+v", wantEvents)
 	}
 	f.day(t, "2026-10-08")
-	for _, repo := range []*sqlite.Repository{sqlite.NewRepository(f.db).WithFullReviewRecompute(), sqlite.NewRepository(f.db).WithReviewWindowBaseline(), sqlite.NewRepository(f.db).WithBoundedReviewWindow()} {
-		capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
-		if err != nil {
-			t.Fatal(err)
-		}
-		publication, err := PrepareReviewPublication(t.Context(), capture, *f.now, f.s.FXProviderKey())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(publication.Rules) != 1 {
-			t.Fatalf("missing rule: %+v", publication.Rules)
-		}
-		current := publication.Rules[0].CurrentEpisode
-		if current == nil || current.ID != id || current.TriggeredOn != "2026-10-06" || current.AcknowledgedAt == nil || len(publication.Rules[0].ClosedEpisodes) != 0 {
-			t.Fatalf("clock advance changed re-entry identity/trigger/ack: %+v", publication.Rules[0])
-		}
+	source := reviewFullPipelineFixture{service: f.s, db: f.db, now: f.now, householdID: f.account.Account.HouseholdID, instruments: []domain.Instrument{f.instrument}}
+	for _, mode := range []string{"full", "baseline", "bounded"} {
+		t.Run(mode, func(t *testing.T) {
+			run := cloneReviewPerfFixture(t, source)
+			repo := sqlite.NewRepository(run.db)
+			switch mode {
+			case "full":
+				repo = repo.WithFullReviewRecompute()
+			case "baseline":
+				repo = repo.WithReviewWindowBaseline()
+			case "bounded":
+				repo = repo.WithBoundedReviewWindow()
+			}
+			prepare := func() domain.ReviewPublication {
+				t.Helper()
+				capture, err := repo.CaptureReviewProjection(t.Context(), run.householdID, *run.now)
+				if err != nil {
+					t.Fatal(err)
+				}
+				p, err := PrepareReviewPublication(t.Context(), capture, *run.now, run.service.FXProviderKey())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(p.Rules) != 1 {
+					t.Fatalf("missing rule: %+v", p.Rules)
+				}
+				return p
+			}
+			p := prepare()
+			current := p.Rules[0].CurrentEpisode
+			if current == nil || current.ID != id || current.TriggeredOn != "2026-10-06" || !current.FirstDetectedAt.Equal(detectedAt) || current.AcknowledgedAt == nil || !current.AcknowledgedAt.Equal(acknowledgedAt) || p.Rules[0].OpenedEpisode || len(p.Rules[0].ClosedEpisodes) != 0 {
+				t.Fatalf("midnight changed re-entry identity/times: %+v", p.Rules[0])
+			}
+			if err := repo.PublishReviewProjection(t.Context(), p, *run.now); err != nil {
+				t.Fatal(err)
+			}
+			midnightWant := want
+			midnightWant.latest = "2026-10-07"
+			midnightWant.revision = 3
+			if got := readEpisode(t, run.db); got != midnightWant {
+				t.Fatalf("midnight publication: got=%+v want=%+v", got, midnightWant)
+			}
+			if got := readEvents(t, run.db); !reflect.DeepEqual(got, wantEvents) {
+				t.Fatalf("midnight changed audit events: got=%+v want=%+v", got, wantEvents)
+			}
+			// Repeating publication must not bump revision or rewrite/add audit events.
+			if err := repo.PublishReviewProjection(t.Context(), prepare(), *run.now); err != nil {
+				t.Fatal(err)
+			}
+			if got := readEpisode(t, run.db); got != midnightWant {
+				t.Fatalf("repeat changed episode: %+v", got)
+			}
+			if got := readEvents(t, run.db); !reflect.DeepEqual(got, wantEvents) {
+				t.Fatalf("repeat changed events: %+v", got)
+			}
+			cost, err := domain.ParseUnitPrice("300")
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Append a legitimate backdated correction after re-entry. October 7's
+			// cost becomes 300, making cost<250 false, while October 2..6 remain true.
+			if _, err := run.service.RecordChange(t.Context(), domain.PositionCostAdjustmentInput{HouseholdID: run.householdID, HoldingID: f.holding.ID, UnitCost: cost, EffectiveAt: time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)}); err != nil {
+				t.Fatal(err)
+			}
+			corrected := prepare()
+			item := corrected.Rules[0]
+			if item.LatestResult == nil || item.LatestResult.Truth != domain.ReviewFalse || item.LatestWindow.Truth != domain.ReviewFalse || item.LatestWindow.HitCount != 5 || item.LatestWindow.FalseCount != 1 || item.LatestWindow.UnknownCount != 0 || item.CurrentEpisode != nil || item.OpenedEpisode || len(item.ClosedEpisodes) != 1 {
+				t.Fatalf("false correction must close the episode: %+v", item)
+			}
+			closed := item.ClosedEpisodes[0]
+			if closed.ID != id || closed.TriggeredOn != "2026-10-06" || !closed.FirstDetectedAt.Equal(detectedAt) || closed.AcknowledgedAt == nil || !closed.AcknowledgedAt.Equal(acknowledgedAt) || closed.ResolvedAt == nil || !closed.ResolvedAt.Equal(*run.now) || closed.ResolvedReason != "recovered" {
+				t.Fatalf("closure changed original identity/times: %+v", closed)
+			}
+			if err := repo.PublishReviewProjection(t.Context(), corrected, *run.now); err != nil {
+				t.Fatal(err)
+			}
+			closedWant := midnightWant
+			closedWant.resolved = run.now.UTC().Format(time.RFC3339Nano)
+			closedWant.reason = "recovered"
+			closedWant.revision = 4
+			if got := readEpisode(t, run.db); got != closedWant {
+				t.Fatalf("stored closure: got=%+v want=%+v", got, closedWant)
+			}
+			gotEvents := readEvents(t, run.db)
+			if len(gotEvents) != 3 || gotEvents[1].kind != "resolved" || gotEvents[1].key != "close/"+id || gotEvents[1].created != closedWant.resolved || !reflect.DeepEqual([]eventRecord{gotEvents[0], gotEvents[2]}, wantEvents) {
+				t.Fatalf("closure must append one event and preserve history: %+v", gotEvents)
+			}
+			var resolution domain.ReviewEpisodeIdentity
+			if err := json.Unmarshal([]byte(gotEvents[1].payload), &resolution); err != nil {
+				t.Fatal(err)
+			}
+			if resolution.ID != id || resolution.TriggeredOn != "2026-10-06" || !resolution.FirstDetectedAt.Equal(detectedAt) || resolution.AcknowledgedAt == nil || !resolution.AcknowledgedAt.Equal(acknowledgedAt) || resolution.ResolvedAt == nil || !resolution.ResolvedAt.Equal(*run.now) || resolution.ResolvedReason != "recovered" {
+				t.Fatalf("resolution event lost exact identity/times: %+v", resolution)
+			}
+			if err := repo.PublishReviewProjection(t.Context(), prepare(), *run.now); err != nil {
+				t.Fatal(err)
+			}
+			if got := readEpisode(t, run.db); got != closedWant {
+				t.Fatalf("repeat closure changed episode: %+v", got)
+			}
+			if got := readEvents(t, run.db); !reflect.DeepEqual(got, gotEvents) {
+				t.Fatalf("repeat closure changed audit history: %+v", got)
+			}
+			var open int
+			if err := run.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&open); err != nil || open != 0 {
+				t.Fatalf("false correction reopened an episode: count=%d err=%v", open, err)
+			}
+		})
 	}
 }
