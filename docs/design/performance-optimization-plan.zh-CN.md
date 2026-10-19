@@ -166,7 +166,7 @@ C1 交付一张逐表/逐字段/write-owner 的依赖清单，逐一对照 `load
 ### 5.3 分阶段接入与 CAS
 
 - **C1（仅跟踪）**：新增存储、触发器、migration/backup 测试；保留旧算法。测写入耗时与日志大小，避免一次性引入增量 planner。
-- **C2（影子验证）**：`domain/review_projection.go` 新增 `SourceRevisionToken`（household、epoch、revision、tracking/resolver/evaluator versions）；capture 同一个 read transaction 读取 token 与全量源；publish 同时验证新 token 和原全量指纹。任意“token 相等但指纹不同”阻止默认启用，定位漏记；token 不同但结果相同属于保守失效。
+- **C2（影子验证）**：`domain/review_projection.go` 新增 `SourceRevisionToken`（household、epoch、revision、tracking/resolver/evaluator versions）；capture 同一个 read transaction 读取 token 与全量源；publish 同时验证新 token 和原全量指纹。任意“相同 capture cutoff 下 token 相等但指纹不同”阻止默认启用，定位漏记；token 不同但结果相同属于保守失效。
 - **C3（切换）**：新 `review_source_revision.go` 提供事务内读 token 和 journal；修改 capture/publish/reconcile。受 verifier、tracking version、完整 checkpoint 约束后启用 fast path。保留配置开关与完整旧重算路径，不只是保留测试代码。
 
 ```text
@@ -174,7 +174,8 @@ read transaction:
   token := read source revision + epoch + semantic versions
   control/rules/handling := read one coherent snapshot
   if token == published token AND per-rule closed-date frontier unchanged
-     AND rule/config/state revisions unchanged AND projection complete:
+     AND rule/config/state revisions unchanged AND projection complete
+     AND published temporal certificate covers captureNow (no clock rollback):
        prepare no-op confirmation
   else:
        load full inputs (C3 初版) / journal + dirty inputs (PR-D)
@@ -183,6 +184,7 @@ write transaction:
   acquire SQLite write reservation before checking (driver-specific implementation tested)
   verify token, control, every rule revision, handling/episode revision
   verify current per-rule closed-date vector (timezone/cutoff/午夜)
+  verify capture temporal certificate covers publishNow; otherwise discard and recapture
   CAS published/control revision using captured expected values; require affectedRows == 1
   write staged rows, episodes, checkpoint and published token atomically
   commit
@@ -190,9 +192,37 @@ write transaction:
 
 源版本的检查必须在持有写事务保护后进行；Go ledger mutex 不能保护其他连接/进程。不能先在读事务检查，再另开事务写。SQLite deferred snapshot 升级冲突应作为整个事务 conflict 重试，禁止以旧 snapshot 重试写；若使用 `BEGIN IMMEDIATE`，通过专用连接事务封装实现，不能在已 `BeginTx` 的事务里再次 BEGIN。具体驱动事务方式在 C2 合成双连接测试中确定。
 
-C3 初版只加速相同闭市日的 no-op 和 publish 重检；clock-only 若还需未持久化的历史财务输入，仍会全量 capture。避免该扫描依赖 D 的受控 dirty input loader 或 E 的完整共享事实，不能提前计入 C3 收益。
+C3 初版只加速已证明时间依赖不变的同日 no-op 和 publish 重检；clock-only 若还需未持久化的历史财务输入，仍会全量 capture。避免该扫描依赖 D 的受控 dirty input loader 或 E 的完整共享事实，不能提前计入 C3 收益。
 
-no-op 也需短事务确认，以避免 capture 后变更被当作“最新完成”；无变化不重复写 daily rows。clock-only 不是 no-op，闭市日期推进或 suppression 到期必须计算。发生三次 conflict 后沿用明确冲突返回，不无限占锁。配置、规则、ack/suppression 与时间向量检查不能被 financial token 替代。
+no-op 也需短事务确认，以避免 capture 后变更被当作“最新完成”；无变化不重复写 daily rows。clock-only 不是 no-op，闭市日期推进、suppression 到期或财务生效时间激活都必须重新评估。发生三次 conflict 后沿用明确冲突返回，不无限占锁。配置、规则、ack/suppression 与时间向量检查不能被 financial token 替代。
+
+### 5.4 时间生效边界：同日且无 DML 也可能变化
+
+已核对 `internal/infrastructure/sqlite/activity_repository.go:listActivitiesUntilQueryMode`：capture 只读取 `effective_at <= capture cutoff` 的 economic activities；`review_projection_plan.go:planReviewRuleInstrument` 及增量分支使用 `now + 1ns` 调用半开区间的 position replay，使恰在 now 生效的效果被包含。因此，预先写入的未来 quantity event 可以在同一 civil day 内变为有效，改变当前 eligibility、清仓/重新进入 epoch；此时 source revision 和 latest closed day 都可不变。仅比较上述两个值不构成 no-op 证明。数据库写锁也不能阻止墙上时钟跨过生效时间。
+
+**保守默认**：未完成时间依赖闭包审计、无法给出完整有效区间时，禁止同日 no-op，执行全量 capture/plan；不得把空 future-event 查询或未发现边界当作证明。用于替代 publish 全量重检的 token 仍需保留时间校验，不能顺带删除 existing cutoff/time 验证。若 publish 时刻已越过 capture 的有效区间，丢弃 stage 并重新 capture，不能只用同一旧 cutoff 再算一遍指纹。
+
+可选安全优化是同一个 capture 读事务内建立持久化 `ReviewTemporalCertificate`，与 published token/checkpoint 原子保存：`evaluated_at`、`next_effective_transition_at`、`temporal_policy_version`、依赖 scope 和 source token。边界使用 UTC instant 和现有纳秒精度，不按日期字符串或 wall-clock 秒取整；有效区间是 `[evaluated_at, next_effective_transition_at)`。`next_effective_transition_at` 必须从**未被当前 cutoff 截掉的权威源**查询得到，不能只遍历已捕获的 Activities。没有下一边界仅在完整审计证明后表示正无穷，缺失 certificate 表示不可复用。
+
+必须审计并纳入的时间相关输入包括：
+
+- 当前 position/eligibility/epoch 所需的 quantity activities、transfer 双端、reversal/replacement 与更正链；从预先存在的未来经济事件求边界，不能仅查未来新插入时间。
+- 参与 capture 或 replay 选择的 account/holding/instrument 状态、ownership、origin/baseline、成本与偏好/provider binding 的有效时间；按真实 resolver 的 inclusive/half-open 规则映射激活点。即使某类仅影响已闭市历史，也需证明它不影响当前 scope 后才可排除。
+- 行情/FX 的 quoted/value-effective/provider 时间、有效日期、slot 和 coverage 状态中受 capture cutoff/当前时刻筛选的部分；规则 timezone/cutoff、calendar/tzdata、闭市日期向量，以及 suppression expiry。配置版本变化使证书失效，不能用一个 household midnight 代替各规则/市场边界。
+
+第一版可取全 household 的最早边界，接受过早失效；不要求一开始精确到 instrument。任何未审计 source/时间谓词使证书不可用。边界跨越无需写入 journal：调度器把它当作时间失效事件，重新捕获并重建当前 position/eligibility/epoch；只有证明历史 daily facts 未变时才复用那些事实。D 的 dirty planner 必须接受这种没有 DML 的失效来源，不能只遍历 journal。
+
+读取 no-op 时要求 `published.evaluated_at <= captureNow < published.next_transition`；publish 的最终时间检查要求 `captureNow <= publishNow < capture.next_transition`，同时检查所有 revision 和闭市日期向量。将最终检查时刻定义为该 publication 的逻辑 as-of，并返回/保存该时刻；提交完成后已跨边界的读取必须标 stale，不能把 as-of 结果宣称为较晚时刻仍最新。检查后或 commit 后墙上时间继续前进不延长证书有效区间。
+
+任何观测到的时钟回退（包括同日回退、回到上一闭市日、重启后 now 小于持久 evaluated_at）都禁止复用旧证书/当前 epoch，重新 capture 和全量 oracle 路径；不以 `max(now, oldNow)` 掩盖回退。进程内另外记录最后观测时刻，发现回退即失效，即便仍高于上次 publication 时间。重新计算依旧遵守已有 episode/ack 生命周期语义，不通过删除处理记录来“回到过去”；无跨边界的前进才允许证书复用。
+
+C2/C3 必须新增以下确定性合成测试（注入 clock，不 sleep），作为默认启用的阻断门槛：
+
+1. 首次 capture 之前就写入 T 时刻的未来 quantity event；在同 civil day 的 T−1ns、T、T+1ns reconcile，期间无 DML，明确断言 source revision 与 closed-date vector 相等。T−1ns 可复用，T 起必须重新评估，与分别在各时刻全量 capture/plan 的 oracle 全等。
+2. 分别测试退出正持仓、从零进入、clear/rebuy 与 transfer，比较 eligibility、position epochs、episode 关联/ack、coverage 和结果，不只比较 daily bool；即使已闭市 votes 完全不变，当前状态仍需更新。
+3. capture 在 T 前、publish 在 T 或 T 后，断言旧 stage 被拒绝并重新 capture；故障/重试不能产生部分 episode 更新。增加边界后无新写入的重开进程测试，确保 certificate 和 token 组合不误判。
+4. 注入同日向后跨 T、跨午夜回退、重启后早于 evaluated_at，以及进程内回退但仍晚于 published evaluated_at；全部禁用 no-op。与同一目标时刻和相同处理历史的完整 oracle 比较，并验证 ack 不丢失。
+5. 对上述每类时间输入分别做边界用例；未支持的类别必须走保守路径。证明边界前复用和边界后失效、精确纳秒端点、DST 与每规则时区均正确；测量中把 activation 与普通 no-op 分列。
 
 ## 6. 依赖与后缀重算（PR-D1/D2，依赖 C3、B）
 
@@ -288,8 +318,8 @@ E1 建新表和投影 adapter，先影子写入/比较、旧读不变；E2 修�
 | A 基线 | 无 | 参数化矩阵、计量口径、固定数据和 oracle；无新延迟结论直到运行 | 原夹具 |
 | B 有界查询 | A | 同集合、新旧 EXPLAIN/行数/耗时；无 migration | 原 key-first SQL |
 | C1 跟踪 schema | A | 全 writer 审计、trigger verifier、恢复/导入、写放大报告 | 原 fingerprint 算法继续用 |
-| C2 影子 token | C1 | 逐表 DML + 并发/rollback，token 相等不能漏 fingerprint 变化 | 只记录诊断 |
-| C3 CAS/no-op | C2 | 等价事务证明、no-op 与 clock-only 分开测；默认开启需人工审查覆盖矩阵 | 全源 recheck |
+| C2 影子 token | C1 | 逐表 DML + 并发/rollback + 时间生效边界/回退，token 相等不能漏 fingerprint 变化 | 只记录诊断 |
+| C3 CAS/no-op | C2 | 等价事务与时间证书证明、no-op/activation/clock-only 分开测；默认开启需人工审查覆盖矩阵 | 全源 recheck |
 | D1 dirty planner | C3 | 纯依赖计划、保守失效与 oracle | 全 history |
 | D2 suffix | D1、B | 每日期/生命周期全等；不相关结果不写 | 全 history |
 | E1/E2 shared facts | D2 | 独立迁移 + 双写对照，再读切换；磁盘峰值及 evidence 不变 | 旧 input/result layout |
