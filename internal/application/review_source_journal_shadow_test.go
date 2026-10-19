@@ -1,6 +1,7 @@
 package application
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -151,5 +152,81 @@ func TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal(t *testing.T) {
 	}
 	if capture() != before || revision() != n+2 {
 		t.Fatal("withdrawal deletion not tracked or failed to restore facts")
+	}
+}
+
+func TestSourceJournalPairedFullOracle(t *testing.T) {
+	source := newReviewPerfFixture(t, reviewPerfConfig{Accounts: 1, Instruments: 2, Holdings: 2, Rules: 2, HistoryDays: 30, Quotes: 60})
+	if _, err := source.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	for _, scenario := range []string{"no-op", "append", "correction"} {
+		t.Run(scenario, func(t *testing.T) {
+			// Apply the scenario once, then clone the exact same financial IDs/values.
+			changed := cloneReviewPerfFixture(t, source)
+			switch scenario {
+			case "append":
+				*changed.now = changed.now.AddDate(0, 0, 1)
+				if err := appendReviewPerfDailyMarketData(t.Context(), changed, changed.now.AddDate(0, 0, -1)); err != nil {
+					t.Fatal(err)
+				}
+			case "correction":
+				if err := correctReviewPerfHistoricalQuote(t.Context(), changed, 0); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var persisted [2]string
+			var captures [2]domain.ReviewProjectionCapture
+			for path := 0; path < 2; path++ {
+				run := cloneReviewPerfFixture(t, changed)
+				if path == 0 {
+					// Isolated pre-C1 counterfactual: drop only C1 triggers after verified
+					// opening. This deliberately invalid clone is never a production mode.
+					rows, err := run.db.SQL.Query(`SELECT name FROM sqlite_master WHERE type='trigger' AND substr(name,1,length('financial_source_'))='financial_source_'`)
+					if err != nil {
+						t.Fatal(err)
+					}
+					names := []string{}
+					for rows.Next() {
+						var name string
+						if err = rows.Scan(&name); err != nil {
+							t.Fatal(err)
+						}
+						names = append(names, name)
+					}
+					err = rows.Err()
+					rows.Close()
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, name := range names {
+						if _, err = run.db.SQL.Exec(`DROP TRIGGER ` + name); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				repo := sqlite.NewRepository(run.db)
+				capture, err := repo.CaptureReviewProjection(t.Context(), run.householdID, *run.now)
+				if err != nil {
+					t.Fatal(err)
+				}
+				captures[path] = capture
+				publication, err := PrepareReviewPublication(t.Context(), capture, *run.now, run.service.FXProviderKey())
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertReviewFullOracle(t, run, publication)
+				if _, err = run.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				persisted[path] = reviewPerfPublishedRows(t, run, source)
+			}
+			if !reflect.DeepEqual(captures[0], captures[1]) {
+				t.Fatal("C1 changed full capture")
+			}
+			if persisted[0] != persisted[1] {
+				t.Fatal("C1 changed persisted daily evidence or complete episode lifecycle")
+			}
+		})
 	}
 }

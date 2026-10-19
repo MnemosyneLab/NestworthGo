@@ -61,9 +61,11 @@ func sourceRevision(t *testing.T, q schemaQuery) int64 {
 	return n
 }
 func TestFinancialSourceEveryTableColumnAndOperation(t *testing.T) {
+	// Sequential cases remove their source row and retain the journal so every
+	// column is checked without recompiling all trigger DDL once per table.
+	db := sourceProbe(t)
 	for _, table := range financialSourceTables {
 		t.Run(table, func(t *testing.T) {
-			db := sourceProbe(t)
 			if table != "households" {
 				cols, values, args := []string{}, []string{}, []any{}
 				for _, c := range financialSourceColumns(table) {
@@ -87,7 +89,8 @@ func TestFinancialSourceEveryTableColumnAndOperation(t *testing.T) {
 				}
 			}
 			for _, c := range financialSourceColumns(table) {
-				if c.primaryKey > 0 {
+				if table == "households" && c.primaryKey > 0 {
+					// The revision FK deliberately rejects changing the household ID.
 					continue
 				}
 				before := sourceRevision(t, db)
@@ -295,6 +298,10 @@ func TestFinancialSourceActualCascadeAndOldNewIdentity(t *testing.T) {
 		t.Fatalf("cascade lost: count=%d err=%v", deletes, err)
 	}
 	if err = db.Verify(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	// Exercise household deletion with live cascading source children too.
+	if _, err = db.SQL.Exec(`INSERT INTO instruments(id,household_id,name,instrument_type,quote_currency,icon_key,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','Synthetic','stock','CNY','chart-line','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z'); INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at) VALUES('00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000002','1.0001','CNY','manual','manual','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = db.SQL.Exec(`DELETE FROM households`); err != nil {
