@@ -17,7 +17,20 @@ import (
 func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID domain.HouseholdID, cutoff time.Time) (domain.ReviewProjectionCapture, error) {
 	var empty domain.ReviewProjectionCapture
 	epoch, rollback := r.database.reviewClock.observe(cutoff)
-	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	var tx *sql.Tx
+	var err error
+	var connectionID uint64
+	if r.CertifiedReviewEnabled() {
+		var conn *sql.Conn
+		conn, connectionID, err = r.certifiedConnection(ctx)
+		if err != nil {
+			return empty, err
+		}
+		defer conn.Close()
+		tx, err = conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	} else {
+		tx, err = r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	}
 	if err != nil {
 		return empty, err
 	}
@@ -179,6 +192,14 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	// Lineage shadow also requires an independent full preparation oracle.
 	if r.ReviewNoChangeEnabled() || r.ReviewCompletenessLineageShadowEnabled() {
 		result.TemporalFullRecompute = true
+	}
+	if r.CertifiedReviewEnabled() {
+		if err := r.captureCertifiedReview(ctx, tx, &result, connectionID); err != nil {
+			return empty, err
+		}
+		if result.Certified.MayReuse {
+			result.TemporalFullRecompute = false
+		}
 	}
 	if err := r.loadReusableReviewWindow(ctx, tx, &result); err != nil {
 		return empty, err

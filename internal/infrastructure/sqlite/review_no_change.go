@@ -14,7 +14,10 @@ import (
 )
 
 // WithReviewNoChangeCandidate is deliberately opt-in pending manual review of
-// C3 correctness/performance gates. Ordinary repositories retain every C2 full
+// C3 correctness/performance gates.
+// Deprecated for activation: this retains the counting-only historical
+// experiment. Only WithCertifiedReviewCandidate supplies integrity authority.
+// Ordinary repositories retain every C2 full
 // capture/recheck. Changed-source publication is never accelerated here.
 func (r *Repository) WithReviewNoChangeCandidate() *Repository {
 	copy := *r
@@ -30,6 +33,17 @@ func (r *Repository) ReviewNoChangeEnabled() bool {
 // entire proof and CAS. There is no unprotected read-to-write snapshot upgrade.
 // A false result authorizes only the existing full capture/prepare/publish path.
 func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.HouseholdID, captureNow time.Time, clock func() time.Time, providerKey func() string) (domain.ReviewNoChangeResult, bool, error) {
+	if r.CertifiedReviewEnabled() {
+		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, nil
+	}
+	return r.confirmReviewNoChange(ctx, id, captureNow, clock, providerKey, nil)
+}
+
+func (r *Repository) ConfirmCertifiedReviewNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time, selection domain.ReviewProviderSelection) (domain.ReviewNoChangeResult, bool, error) {
+	return r.confirmReviewNoChange(ctx, id, now, clock, func() string { return selection.Key }, &selection)
+}
+
+func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.HouseholdID, captureNow time.Time, clock func() time.Time, providerKey func() string, selection *domain.ReviewProviderSelection) (domain.ReviewNoChangeResult, bool, error) {
 	var empty domain.ReviewNoChangeResult
 	if !r.ReviewNoChangeEnabled() {
 		return empty, false, nil
@@ -45,7 +59,20 @@ func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.Househ
 	if rollback {
 		return empty, false, nil
 	}
-	tx, err := r.database.SQL.BeginTx(ctx, nil)
+	var tx *sql.Tx
+	var err error
+	var connectionID uint64
+	if r.CertifiedReviewEnabled() {
+		var conn *sql.Conn
+		conn, connectionID, err = r.certifiedConnection(ctx)
+		if err != nil {
+			return empty, false, err
+		}
+		defer conn.Close()
+		tx, err = conn.BeginTx(ctx, nil)
+	} else {
+		tx, err = r.database.SQL.BeginTx(ctx, nil)
+	}
 	if err != nil {
 		return empty, false, err
 	}
@@ -64,8 +91,18 @@ func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.Househ
 	}
 	// Reuse the C1 verifier, including exact trigger definitions, PRAGMA,
 	// classified closure and bounded journal continuity. No financial JSON.
-	if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
-		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, ctx.Err()
+	if r.CertifiedReviewEnabled() {
+		_, ok, err := r.verifiedCertifiedTracking(ctx, tx)
+		if err != nil {
+			return empty, false, err
+		}
+		if !ok {
+			return empty, false, nil
+		}
+	} else {
+		if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
+			return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, ctx.Err()
+		}
 	}
 	control, found, err := reviewControlInTx(ctx, tx, id)
 	if err != nil || !found || control.ProjectionStatus != "complete" || control.PublishedFingerprint == "" {
@@ -75,8 +112,33 @@ func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.Househ
 	if err != nil {
 		return empty, false, err
 	}
-	if !certificate.Covers(captureNow) || certificate.NoChangeCompletenessVersion != domain.ReviewNoChangeCompletenessVersion || certificate.ClockEpoch != epoch || certificate.Source == nil || certificate.NoChangeReviewFingerprint == "" || certificate.NoChangeFXProviderKey != providerKey() {
+	completenessVersion := domain.ReviewNoChangeCompletenessVersion
+	if r.CertifiedReviewEnabled() {
+		completenessVersion = domain.ReviewCertifiedCompletenessVersion
+	}
+	if !certificate.Covers(captureNow) || certificate.NoChangeCompletenessVersion != completenessVersion || certificate.ClockEpoch != epoch || certificate.Source == nil || certificate.NoChangeReviewFingerprint == "" || certificate.NoChangeFXProviderKey != providerKey() {
 		return empty, false, nil
+	}
+	if r.CertifiedReviewEnabled() {
+		if certificate.CertifiedNeedsReconcile {
+			return empty, false, nil
+		}
+		if selection == nil || !selection.Pinned || certificate.CertifiedProvider != *selection {
+			return empty, false, nil
+		}
+		connection, e := certifiedConnectionCheckpoint(ctx, tx, connectionID)
+		if e != nil {
+			return empty, false, e
+		}
+		if connectionID == 0 || connection != certificate.CertifiedConnection {
+			return empty, false, nil
+		}
+		// The signed post-commit connection counters prove that no SQLite
+		// DML or external commit has intervened since the complete row seal.
+		// Reading every historical JSON again would defeat same-day no-op.
+		if certificate.CertifiedProjectionSeal == "" || !r.validReviewMAC(certificate) {
+			return empty, false, nil
+		}
 	}
 	var resolver string
 	if err := tx.QueryRowContext(ctx, `SELECT resolver_policy_version FROM history_snapshot_state WHERE household_id=?`, id.String()).Scan(&resolver); err != nil {
@@ -164,6 +226,15 @@ func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.Househ
 		return empty, false, err
 	}
 	certificate.EvaluatedAt = now
+	if r.CertifiedReviewEnabled() {
+		if err := r.prepareCertifiedCounter(ctx, tx, certificate, connectionID); err != nil {
+			return empty, false, err
+		}
+		certificate.CertifiedMAC, err = r.certifiedMAC(*certificate)
+		if err != nil {
+			return empty, false, err
+		}
+	}
 	newJSON, err := json.Marshal(certificate)
 	if err != nil {
 		return empty, false, err

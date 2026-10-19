@@ -23,10 +23,15 @@ type ReviewTemporalCertificate struct {
 	RuleRevisions    map[ReviewRuleID]int
 	// C3a proof is minted only by a full publication on an opt-in repository.
 	// Older C2 checkpoints cannot authorize the candidate no-change path.
-	NoChangeReviewFingerprint   string  `json:",omitempty"`
-	NoChangeProjectionCounts    []int64 `json:",omitempty"`
-	NoChangeCompletenessVersion string  `json:",omitempty"`
-	NoChangeFXProviderKey       string  `json:",omitempty"`
+	NoChangeReviewFingerprint   string                     `json:",omitempty"`
+	NoChangeProjectionCounts    []int64                    `json:",omitempty"`
+	NoChangeCompletenessVersion string                     `json:",omitempty"`
+	NoChangeFXProviderKey       string                     `json:",omitempty"`
+	CertifiedProjectionSeal     string                     `json:",omitempty"`
+	CertifiedMAC                string                     `json:",omitempty"`
+	CertifiedProvider           ReviewProviderSelection    `json:",omitempty"`
+	CertifiedConnection         ReviewConnectionCheckpoint `json:",omitempty"`
+	CertifiedNeedsReconcile     bool                       `json:",omitempty"`
 }
 
 func (c *ReviewTemporalCertificate) Covers(now time.Time) bool {

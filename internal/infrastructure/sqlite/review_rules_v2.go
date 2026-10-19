@@ -146,6 +146,10 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 	if !errors.Is(err, sql.ErrNoRows) {
 		return empty, err
 	}
+	integrity, err := r.beforeCertifiedHandling(ctx, tx, m.HouseholdID)
+	if err != nil {
+		return empty, err
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_control(household_id) VALUES(?) ON CONFLICT(household_id) DO NOTHING`, m.HouseholdID.String()); err != nil {
 		return empty, err
 	}
@@ -228,6 +232,9 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 		return empty, err
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_mutation_receipts(household_id,mutation_id,request_hash,result_json,created_at) VALUES(?,?,?,?,?)`, m.HouseholdID.String(), string(m.MutationID), requestHash, string(serialized), m.At.UTC().Format(time.RFC3339Nano)); err != nil {
+		return empty, err
+	}
+	if err := r.afterCertifiedHandling(ctx, tx, m.HouseholdID, integrity); err != nil {
 		return empty, err
 	}
 	if err := tx.Commit(); err != nil {

@@ -178,7 +178,7 @@ func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVe
 			return err
 		}
 		var item domain.ReviewReusableDailyEvidence
-		if err := json.Unmarshal([]byte(inputJSON), &item.Input); err != nil {
+		if err := decodeReviewInput([]byte(inputJSON), &item.Input); err != nil {
 			rows.Close()
 			return err
 		}

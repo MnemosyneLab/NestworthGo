@@ -60,13 +60,29 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 			return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 		}
 		now := s.reviewNow()
+		certified, certifiedMode := s.repository.(ReviewCertifiedRepository)
+		certifiedMode = certifiedMode && certified.CertifiedReviewEnabled()
+		selection := domain.ReviewProviderSelection{}
+		if certifiedMode {
+			selection = s.reviewProviderSnapshot()
+		}
 		requireFull := false
 		if noChange, ok := s.repository.(ReviewNoChangeRepository); ok && noChange.ReviewNoChangeEnabled() {
 			writeCtx, unlock, err := s.beginLedgerWrite(ctx)
 			if err != nil {
 				return empty, err
 			}
-			confirmed, unchanged, err := noChange.ConfirmReviewNoChange(writeCtx, household.ID, now, s.reviewNow, s.FXProviderKey)
+			var confirmed domain.ReviewNoChangeResult
+			var unchanged bool
+			if certifiedMode {
+				err = s.withReviewProviderLease(selection, func() error {
+					var e error
+					confirmed, unchanged, e = certified.ConfirmCertifiedReviewNoChange(writeCtx, household.ID, now, s.reviewNow, selection)
+					return e
+				})
+			} else {
+				confirmed, unchanged, err = noChange.ConfirmReviewNoChange(writeCtx, household.ID, now, s.reviewNow, s.FXProviderKey)
+			}
 			unlock()
 			if err != nil {
 				var conflict *domain.Error
@@ -84,11 +100,21 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 		if err != nil {
 			return empty, err
 		}
-		if requireFull {
+		if requireFull && !certifiedMode {
 			capture.TemporalFullRecompute = true
 			capture.ReusableDailyEvidence = nil
 		}
-		stage, err := PrepareReviewPublication(ctx, capture, now, s.FXProviderKey())
+		providerKey := s.FXProviderKey()
+		if certifiedMode {
+			providerKey = selection.Key
+			if capture.Certified != nil {
+				capture.Certified.Provider = selection
+			} else {
+				capture.TemporalFullRecompute = true
+				capture.ReusableDailyEvidence = nil
+			}
+		}
+		stage, err := PrepareReviewPublication(ctx, capture, now, providerKey)
 		if err != nil {
 			return empty, err
 		}
@@ -96,7 +122,11 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 		if err != nil {
 			return empty, err
 		}
-		err = port.PublishReviewProjectionWithClock(writeCtx, stage, s.reviewNow)
+		if certifiedMode {
+			err = certified.PublishCertifiedReviewProjection(writeCtx, stage, s.reviewNow, func(fn func() error) error { return s.withReviewProviderLease(selection, fn) })
+		} else {
+			err = port.PublishReviewProjectionWithClock(writeCtx, stage, s.reviewNow)
+		}
 		unlock()
 		if err == nil {
 			result := ReviewReconcileResult{RuleInstrumentCount: len(stage.Rules), SourceFingerprint: capture.HistoricalFingerprint}

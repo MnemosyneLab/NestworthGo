@@ -83,10 +83,11 @@ func (e *BootstrapError) SafeError() *domain.Error {
 // DB is a single local SQLite connection pool. It is intentionally capped at
 // one writer connection to make transaction boundaries and snapshots explicit.
 type DB struct {
-	SQL         *sql.DB
-	Path        string
-	Status      BootstrapStatus
-	reviewClock reviewTemporalClock
+	SQL                  *sql.DB
+	Path                 string
+	Status               BootstrapStatus
+	reviewClock          reviewTemporalClock
+	reviewCertificateKey reviewCertificateKey
 	// Any DDL after verified open conservatively disables no-change reuse for
 	// this handle, including drop/recreate of a tracking trigger around DML.
 	reviewVerifiedSchemaVersion int

@@ -36,7 +36,11 @@ func (r *Repository) observeReviewLineage(phase, verdict string) {
 func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, epoch string) (*domain.ReviewCompletenessLineage, error) {
 	l := &domain.ReviewCompletenessLineage{Version: domain.ReviewCompletenessLineageVersion, Reason: "untrusted_checkpoint"}
 	previous := capture.PublishedTemporal
-	if previous == nil || previous.EvaluatedAt.IsZero() || !previous.NextTransitionAt.After(previous.EvaluatedAt) || previous.NoChangeCompletenessVersion != domain.ReviewNoChangeCompletenessVersion || previous.NoChangeReviewFingerprint == "" || capture.Control.ProjectionStatus != "complete" || capture.Control.PublishedFingerprint == "" {
+	completenessVersion := domain.ReviewNoChangeCompletenessVersion
+	if r.CertifiedReviewEnabled() {
+		completenessVersion = domain.ReviewCertifiedCompletenessVersion
+	}
+	if previous == nil || previous.EvaluatedAt.IsZero() || !previous.NextTransitionAt.After(previous.EvaluatedAt) || previous.NoChangeCompletenessVersion != completenessVersion || previous.NoChangeReviewFingerprint == "" || capture.Control.ProjectionStatus != "complete" || capture.Control.PublishedFingerprint == "" {
 		return l, nil
 	}
 	if previous.PolicyVersion != domain.ReviewTemporalPolicyVersion || previous.DependencyScope != domain.ReviewTemporalDependencyScope || previous.ClockEpoch != epoch || capture.SourceCutoff.Before(previous.EvaluatedAt) {

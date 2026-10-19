@@ -18,16 +18,19 @@ type Service struct {
 	gain       *GainService
 	analysis   *AnalysisService
 
-	// stateMu guards the mutable service configuration below so a refresh
-	// worker reading it never races a concurrent setter.
-	stateMu       sync.RWMutex
-	now           func() time.Time
-	marketData    MarketDataRegistryPort
-	backup        BackupRuntime
-	liveDBPath    string
-	fxProviderKey string
-	quoteCacheTTL time.Duration
-	uiLanguage    string
+	// Provider leases fence selection changes through review COMMIT. Setters
+	// acquire this lock before stateMu; ordinary refresh getters need only stateMu.
+	reviewProviderMu        sync.RWMutex
+	reviewProviderRevision  uint64
+	reviewProviderExhausted bool
+	stateMu                 sync.RWMutex
+	now                     func() time.Time
+	marketData              MarketDataRegistryPort
+	backup                  BackupRuntime
+	liveDBPath              string
+	fxProviderKey           string
+	quoteCacheTTL           time.Duration
+	uiLanguage              string
 
 	changeMu sync.Mutex
 
@@ -69,14 +72,20 @@ func (s *Service) MarketDataRegistry() MarketDataRegistryPort {
 }
 
 func (s *Service) SetMarketDataRegistry(registry MarketDataRegistryPort) {
+	s.reviewProviderMu.Lock()
+	defer s.reviewProviderMu.Unlock()
+	s.advanceReviewProviderLocked()
 	s.stateMu.Lock()
-	defer s.stateMu.Unlock()
 	s.marketData = registry
+	s.stateMu.Unlock()
+	s.notifyReviewProviderSelection()
 }
 
 // SetFXProvider selects the registered provider used by explicit FX refresh.
 // Instrument refresh continues to use each Instrument's own binding.
 func (s *Service) SetFXProvider(key string) error {
+	s.reviewProviderMu.Lock()
+	defer s.reviewProviderMu.Unlock()
 	key = strings.ToLower(strings.TrimSpace(key))
 	if key == "" {
 		key = FrankfurterProviderKey
@@ -93,8 +102,10 @@ func (s *Service) SetFXProvider(key string) error {
 		return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider does not support FX refresh"}
 	}
 	s.stateMu.Lock()
+	s.advanceReviewProviderLocked()
 	s.fxProviderKey = key
 	s.stateMu.Unlock()
+	s.notifyReviewProviderSelection()
 	return nil
 }
 

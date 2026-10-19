@@ -1,0 +1,393 @@
+package sqlite
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+)
+
+// This is a separate, default-off C3 candidate. Legacy counting-only
+// experiments grant it no authority. It has no persistent cache or trigger.
+func (r *Repository) WithCertifiedReviewCandidate() *Repository {
+	copy := *r
+	copy.reviewCertifiedCandidate = true
+	copy.reviewNoChangeCandidate = true
+	copy.reviewCompletenessLineageShadow = true
+	return &copy
+}
+func (r *Repository) CertifiedReviewEnabled() bool {
+	return r.reviewCertifiedCandidate && !r.reviewFullRecompute
+}
+
+// The private key never leaves this DB handle or enters backup/export. A
+// restart/another handle cannot bless arbitrary preexisting projection data.
+type reviewCertificateKey struct {
+	once         sync.Once
+	key          [32]byte
+	err          error
+	issued       atomic.Bool
+	connMu       sync.Mutex
+	connection   any
+	connectionID uint64
+}
+
+func (r *Repository) reviewMAC(value any) (string, error) {
+	k := &r.database.reviewCertificateKey
+	k.once.Do(func() { _, k.err = rand.Read(k.key[:]) })
+	if k.err != nil {
+		return "", k.err
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, k.key[:])
+	mac.Write([]byte("certified-review-session-v1\x00"))
+	mac.Write(raw)
+	return hex.EncodeToString(mac.Sum(nil)), nil
+}
+func (r *Repository) certifiedMAC(c domain.ReviewTemporalCertificate) (string, error) {
+	c.CertifiedMAC = ""
+	return r.reviewMAC(c)
+}
+func (r *Repository) validReviewMAC(c *domain.ReviewTemporalCertificate) bool {
+	if c == nil || c.NoChangeCompletenessVersion != domain.ReviewCertifiedCompletenessVersion || c.CertifiedMAC == "" {
+		return false
+	}
+	mac, err := r.certifiedMAC(*c)
+	return err == nil && hmac.Equal([]byte(mac), []byte(c.CertifiedMAC))
+}
+func (r *Repository) authenticReview(c *domain.ReviewTemporalCertificate, seal string) bool {
+	return c != nil && c.CertifiedProjectionSeal == seal && r.validReviewMAC(c)
+}
+
+func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string, error) {
+	proof := *c.Certified
+	proof.SourceMAC = ""
+	proof.Provider = domain.ReviewProviderSelection{}
+	return r.reviewMAC(struct {
+		Household   domain.HouseholdID
+		Fingerprint string
+		Cutoff      any
+		Source      *domain.ReviewSourceCheckpoint
+		Control     domain.ReviewProjectionControl
+		Temporal    string
+		Proof       domain.ReviewCertifiedCapture
+	}{c.HouseholdID, c.HistoricalFingerprint, c.SourceCutoff, c.SourceRevision, c.Control, reviewTemporalDigest(c.Temporal), proof})
+}
+
+// Complete row bytes, including all daily JSON, historical conditions, frozen
+// lifecycle JSON and acknowledgement identities. This is deliberately O(rows),
+// not a narrow fingerprint or an assumption that conditional writes repair it.
+func certifiedProjectionSeal(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (string, error) {
+	digest := sha256.New()
+	enc := json.NewEncoder(digest)
+	queries := []string{
+		`SELECT * FROM investment_review_control WHERE household_id=? ORDER BY household_id`,
+		`SELECT * FROM investment_review_rules WHERE household_id=? ORDER BY id`,
+		`SELECT v.* FROM investment_review_rule_versions v JOIN investment_review_rules r ON r.id=v.rule_id WHERE r.household_id=? ORDER BY v.rule_id,v.condition_version`,
+		`SELECT t.* FROM investment_review_rule_targets t JOIN investment_review_rules r ON r.id=t.rule_id WHERE r.household_id=? ORDER BY t.rule_id,t.instrument_id`,
+		`SELECT * FROM investment_review_suppressions WHERE household_id=? ORDER BY id`,
+		`SELECT * FROM investment_review_daily_inputs WHERE household_id=? ORDER BY instrument_id,timezone_version,on_date,input_policy`,
+		`SELECT d.* FROM investment_review_daily_results d JOIN investment_review_rules r ON r.id=d.rule_id WHERE r.household_id=? ORDER BY d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date`,
+		`SELECT * FROM investment_review_position_epochs WHERE household_id=? ORDER BY id`,
+		`SELECT s.* FROM investment_review_evaluation_state s JOIN investment_review_rules r ON r.id=s.rule_id WHERE r.household_id=? ORDER BY s.rule_id,s.instrument_id,s.position_epoch_id`,
+		`SELECT e.* FROM investment_review_episodes e JOIN investment_review_rules r ON r.id=e.rule_id WHERE r.household_id=? ORDER BY e.id`,
+		`SELECT v.* FROM investment_review_episode_events v JOIN investment_review_episodes e ON e.id=v.episode_id JOIN investment_review_rules r ON r.id=e.rule_id WHERE r.household_id=? ORDER BY v.id`,
+	}
+	for i, q := range queries {
+		if err := enc.Encode(i); err != nil {
+			return "", err
+		}
+		rows, err := tx.QueryContext(ctx, q, id.String())
+		if err != nil {
+			return "", err
+		}
+		cols, err := rows.Columns()
+		if err != nil {
+			rows.Close()
+			return "", err
+		}
+		values, ptrs := make([]any, len(cols)), make([]any, len(cols))
+		for j := range values {
+			ptrs[j] = &values[j]
+		}
+		for rows.Next() {
+			if err = rows.Scan(ptrs...); err != nil {
+				break
+			}
+			if err = enc.Encode(values); err != nil {
+				break
+			}
+		}
+		if err = errors.Join(err, rows.Err(), rows.Close()); err != nil {
+			return "", err
+		}
+	}
+	return hex.EncodeToString(digest.Sum(nil)), nil
+}
+
+func (r *Repository) verifiedCertifiedTracking(ctx context.Context, tx schemaQuery) (int, bool, error) {
+	var cookie, fk, version int
+	for _, p := range []struct {
+		sql  string
+		into *int
+	}{{`PRAGMA schema_version`, &cookie}, {`PRAGMA foreign_keys`, &fk}, {`PRAGMA user_version`, &version}} {
+		if err := tx.QueryRowContext(ctx, p.sql).Scan(p.into); err != nil {
+			return 0, false, err
+		}
+	}
+	if cookie == 0 || cookie != r.database.reviewVerifiedSchemaVersion || fk != 1 || version != CurrentSchemaVersion {
+		return cookie, false, nil
+	}
+	var temporaryTriggers int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_temp_master WHERE name NOT LIKE 'sqlite_%'`).Scan(&temporaryTriggers); err != nil {
+		return cookie, false, err
+	}
+	if temporaryTriggers != 0 {
+		return cookie, false, nil
+	}
+	if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
+		return cookie, false, ctx.Err()
+	}
+	return cookie, true, nil
+}
+
+func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, connectionID uint64) error {
+	proof := &domain.ReviewCertifiedCapture{}
+	var err error
+	proof.Connection, err = certifiedConnectionCheckpoint(ctx, tx, connectionID)
+	if err != nil {
+		return err
+	}
+	c.Certified = proof
+	seal, err := certifiedProjectionSeal(ctx, tx, c.HouseholdID)
+	if err != nil {
+		return err
+	}
+	proof.ProjectionSeal = seal
+	err = tx.QueryRowContext(ctx, `SELECT certificate_json FROM review_temporal_checkpoints WHERE household_id=?`, c.HouseholdID.String()).Scan(&proof.TemporalJSON)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	proof.ReviewFingerprint, err = noChangeReviewFingerprint(ctx, tx, c.HouseholdID)
+	if err != nil {
+		return err
+	}
+	counts, err := noChangeProjectionCounts(ctx, tx, c.HouseholdID)
+	if err != nil {
+		return err
+	}
+	empty := true
+	for _, n := range counts {
+		empty = empty && n == 0
+	}
+	empty = empty && c.PublishedTemporal == nil && c.Control.PublishedFingerprint == "" && !r.database.reviewCertificateKey.issued.Load()
+	proof.MayCertify = empty || r.authenticReview(c.PublishedTemporal, seal)
+	var verified bool
+	proof.SchemaCookie, verified, err = r.verifiedCertifiedTracking(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if !verified || c.SourceRevision == nil || !c.SourceRevision.Valid() {
+		return nil
+	}
+	if c.PublishedTemporal != nil {
+		proof.PreviousProvider = c.PublishedTemporal.CertifiedProvider
+	}
+	proof.MayReuse = proof.MayCertify && r.authenticReview(c.PublishedTemporal, seal) && c.CompletenessLineage != nil && c.CompletenessLineage.Candidate
+	proof.SourceMAC, err = r.sourceCaptureMAC(*c)
+	return err
+}
+
+// The caller holds the application provider lease through COMMIT. Direct
+// legacy publication never enters this shortcut. Any current projection or
+// review mutation conflicts, even when row counts/revisions were not advanced.
+func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, leased bool, connectionID uint64) (*domain.ReviewSourceCheckpoint, bool, bool, error) {
+	if !r.CertifiedReviewEnabled() || !leased || c.Certified == nil || !c.Certified.Provider.Pinned {
+		return nil, false, false, nil
+	}
+	mac, err := r.sourceCaptureMAC(c)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if c.Certified.SourceMAC == "" || !hmac.Equal([]byte(mac), []byte(c.Certified.SourceMAC)) {
+		return nil, false, false, nil
+	}
+	cookie, ok, err := r.verifiedCertifiedTracking(ctx, tx)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if !ok || cookie != c.Certified.SchemaCookie {
+		return nil, false, false, nil
+	}
+	var resolver string
+	if err := tx.QueryRowContext(ctx, `SELECT resolver_policy_version FROM history_snapshot_state WHERE household_id=?`, c.HouseholdID.String()).Scan(&resolver); err != nil {
+		return nil, false, false, err
+	}
+	current, err := readReviewSourceCheckpoint(ctx, tx, c.HouseholdID, resolver)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if current == nil || c.SourceRevision == nil || *current != *c.SourceRevision {
+		return nil, false, false, reviewRuleConflict("certified financial namespace changed")
+	}
+	seal, err := certifiedProjectionSeal(ctx, tx, c.HouseholdID)
+	if err != nil {
+		return nil, false, false, err
+	}
+	meta, err := noChangeReviewFingerprint(ctx, tx, c.HouseholdID)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if seal != c.Certified.ProjectionSeal || meta != c.Certified.ReviewFingerprint {
+		return nil, false, false, reviewRuleConflict("certified projection or review changed")
+	}
+	observed, err := certifiedConnectionCheckpoint(ctx, tx, connectionID)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if connectionID == 0 || observed != c.Certified.Connection {
+		return current, false, true, nil
+	}
+	return current, true, true, nil
+}
+
+// Only initial empty derived namespaces or an authenticated same-session chain
+// may mint integrity authority. Unknown legacy/restarted/damaged history stays
+// on full fallback; a fresh checksum never launders preexisting corruption.
+func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, out *domain.ReviewTemporalCertificate, leased bool, connectionID uint64) error {
+	if r.CertifiedReviewEnabled() {
+		out.NoChangeCompletenessVersion = ""
+	}
+	out.CertifiedNeedsReconcile = false
+	out.CertifiedMAC = ""
+	out.CertifiedProjectionSeal = ""
+	out.CertifiedProvider = domain.ReviewProviderSelection{}
+	out.CertifiedConnection = domain.ReviewConnectionCheckpoint{}
+	if !r.CertifiedReviewEnabled() || !leased || c.Certified == nil || !c.Certified.MayCertify || !c.Certified.Provider.Pinned {
+		return nil
+	}
+	mac, err := r.sourceCaptureMAC(c)
+	if err != nil {
+		return err
+	}
+	if !hmac.Equal([]byte(mac), []byte(c.Certified.SourceMAC)) {
+		return nil
+	}
+	out.CertifiedProjectionSeal, err = certifiedProjectionSeal(ctx, tx, c.HouseholdID)
+	if err != nil {
+		return err
+	}
+	out.CertifiedProvider = c.Certified.Provider
+	out.NoChangeCompletenessVersion = domain.ReviewCertifiedCompletenessVersion
+	if err := r.prepareCertifiedCounter(ctx, tx, out, connectionID); err != nil {
+		return err
+	}
+	out.CertifiedMAC, err = r.certifiedMAC(*out)
+	return err
+}
+
+// Revisioned review commands are the non-publication writers of sealed
+// control/configuration/handling rows. Preserve a valid chain inside its existing transaction, never heal an
+// invalid one. Temporal state/rule revisions stay old, forcing reconciliation.
+func (r *Repository) beforeCertifiedHandling(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (*domain.ReviewTemporalCertificate, error) {
+	if !r.CertifiedReviewEnabled() {
+		return nil, nil
+	}
+	c, err := readReviewTemporal(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	seal, err := certifiedProjectionSeal(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	if !r.authenticReview(c, seal) {
+		return nil, nil
+	}
+	return c, nil
+}
+func (r *Repository) afterCertifiedHandling(ctx context.Context, tx *sql.Tx, id domain.HouseholdID, c *domain.ReviewTemporalCertificate) error {
+	if c == nil {
+		return nil
+	}
+	old, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	c.CertifiedNeedsReconcile = true
+	c.CertifiedProjectionSeal, err = certifiedProjectionSeal(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	r.database.reviewCertificateKey.connMu.Lock()
+	connectionID := r.database.reviewCertificateKey.connectionID
+	r.database.reviewCertificateKey.connMu.Unlock()
+	if err := r.prepareCertifiedCounter(ctx, tx, c, connectionID); err != nil {
+		return err
+	}
+	c.CertifiedMAC, err = r.certifiedMAC(*c)
+	if err != nil {
+		return err
+	}
+	raw, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE review_temporal_checkpoints SET certificate_json=? WHERE household_id=? AND certificate_json=?`, string(raw), id.String(), string(old))
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return reviewRuleConflict("certified handling CAS failed")
+	}
+	return nil
+}
+
+func (r *Repository) persistCertifiedTemporal(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, out domain.ReviewTemporalCertificate, now time.Time) error {
+	expected := ""
+	if c.Certified != nil {
+		expected = c.Certified.TemporalJSON
+	} else {
+		err := tx.QueryRowContext(ctx, `SELECT certificate_json FROM review_temporal_checkpoints WHERE household_id=?`, c.HouseholdID.String()).Scan(&expected)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+	}
+	raw, err := json.Marshal(out)
+	if err != nil {
+		return err
+	}
+	var result sql.Result
+	if expected == "" {
+		result, err = tx.ExecContext(ctx, `INSERT INTO review_temporal_checkpoints(household_id,evaluated_at,next_transition_at,certificate_json) VALUES(?,?,?,?)`, c.HouseholdID.String(), now.UTC().Format(time.RFC3339Nano), out.NextTransitionAt.UTC().Format(time.RFC3339Nano), string(raw))
+	} else {
+		result, err = tx.ExecContext(ctx, `UPDATE review_temporal_checkpoints SET evaluated_at=?,next_transition_at=?,certificate_json=? WHERE household_id=? AND certificate_json=?`, now.UTC().Format(time.RFC3339Nano), out.NextTransitionAt.UTC().Format(time.RFC3339Nano), string(raw), c.HouseholdID.String(), expected)
+	}
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return reviewRuleConflict("certified temporal CAS failed")
+	}
+	return nil
+}
