@@ -6,7 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools/race-shard-select.sh"
-WORKFLOW = ROOT / ".github/workflows/check.yml"
+CHECK = ROOT / ".github/workflows/check.yml"
+PERF = ROOT / ".github/workflows/perf.yml"
 
 # Representative -list lines. Benchmarks and noise must stay out of -run.
 LISTING = "\n".join([
@@ -83,8 +84,7 @@ class RaceShardSelectTests(unittest.TestCase):
         covered = {prefix for name in union for prefix in ("Test", "Example", "Fuzz") if name.startswith(prefix)}
         self.assertEqual(covered, {"Test", "Example", "Fuzz"})
 
-    def test_workflow_split_parts_cover_every_name_once(self):
-        workflow = WORKFLOW.read_text()
+    def assert_split_covers_names(self, workflow, totals):
         entries = re.findall(
             r"- shard: (application|mcpserver|sqlite)\s+part: (\d+)\s+parts: (\d+)\s+label: ([^\n]+)",
             workflow,
@@ -93,7 +93,7 @@ class RaceShardSelectTests(unittest.TestCase):
         # inconsistent denominators, rather than another hardcoded 2-part run.
         listing = LISTING + "".join(f"TestGenerated{i}\n" for i in range(80))
         expected = RUNNABLE + [f"TestGenerated{i}" for i in range(80)]
-        for shard, total in (("application", 8), ("mcpserver", 4), ("sqlite", 2)):
+        for shard, total in totals:
             parts = [(int(part), int(count), label) for kind, part, count, label in entries if kind == shard]
             self.assertEqual(sorted(part for part, _, _ in parts), list(range(total)))
             union = []
@@ -106,8 +106,12 @@ class RaceShardSelectTests(unittest.TestCase):
             self.assertCountEqual(union, expected)
             self.assertEqual(len(union), len(set(union)))
 
+    def test_workflow_split_parts_cover_every_name_once(self):
+        self.assert_split_covers_names(CHECK.read_text(), (("application", 4), ("mcpserver", 2), ("sqlite", 2)))
+        self.assert_split_covers_names(PERF.read_text(), (("application", 8), ("mcpserver", 4), ("sqlite", 2)))
+
     def test_workflow_keeps_bounded_race_execution_and_fail_closed_aggregate(self):
-        workflow = WORKFLOW.read_text()
+        workflow = PERF.read_text()
         self.assertIn("timeout-minutes: 30", workflow)
         self.assertIn("fail-fast: false", workflow)
         self.assertIn("set -euo pipefail", workflow)
@@ -183,22 +187,32 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("not a Go identifier", result.stderr)
 
     def test_workflow_delegates_to_race_list_selector(self):
-        workflow = WORKFLOW.read_text()
+        check = CHECK.read_text()
+        perf = PERF.read_text()
         script = SCRIPT.read_text()
-        self.assertNotIn("go test -list .", workflow)
-        self.assertNotIn("grep '^Test'", workflow)
-        self.assertIn("bash tools/race-shard-select.sh", workflow)
+        self.assertNotIn("go test -race", check)
+        self.assertIn("go test -count=1 -list .", check)
+        self.assertNotIn("go test -list .", perf)
+        self.assertNotIn("grep '^Test'", check)
+        self.assertNotIn("grep '^Test'", perf)
+        self.assertIn("bash tools/race-shard-select.sh --enumerate", check)
+        self.assertIn('bash tools/race-shard-select.sh "$part" "$parts"', perf)
         self.assertIn('go test -race -list . "$1"', script)
         self.assertIn("discarding partial list", script)
 
     def test_workflow_keeps_every_gate_and_partitions_infrastructure(self):
-        workflow = WORKFLOW.read_text()
-        self.assertIn("needs: [go, frontend]", workflow)
+        workflow = CHECK.read_text()
+        self.assertIn("push:", workflow)
+        self.assertIn("branches: [main]", workflow)
+        self.assertIn("pull_request:", workflow)
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("needs: [meta, frontend, go-shard]", workflow)
         self.assertIn("name: test", workflow)
         self.assertIn("pnpm exec vitest run", workflow)
         self.assertNotIn("--shard=", workflow)
         self.assertIn("NESTWORTH_WAILS_GOCACHE=$GOCACHE", workflow)
-        self.assertIn("go test ./...", workflow)
+        self.assertIn("go test -count=1 -json -timeout 20m", workflow)
+        self.assertNotIn("go test ./...", workflow)
         self.assertIn("go vet ./...", workflow)
         self.assertIn("go build ./cmd/nestworth", workflow)
         self.assertIn("pnpm run lint", workflow)
@@ -213,8 +227,15 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("go list ./internal/infrastructure/...", workflow)
         self.assertIn("infrastructure partition does not cover go list", workflow)
         self.assertIn("infrastructure package missing from remainder", workflow)
+        self.assertIn("go list does not contain exactly the four dedicated packages", workflow)
         self.assertIn('if [ "${item#*=}" != "success" ]; then', workflow)
+        self.assertIn("go shard selected no packages", workflow)
         # Remainder may overlap package builds. Heavy shards stay at -p 1.
         remainder = workflow.split("remainder)", 1)[1].split("*)", 1)[0]
         self.assertIn("pkg_parallel=(-p 2)", remainder)
         self.assertNotIn("-parallel", remainder)
+        perf = PERF.read_text()
+        self.assertNotIn("push:", perf)
+        self.assertNotIn("pull_request:", perf)
+        self.assertIn('cron: "0 18 * * 0"', perf)
+        self.assertIn("NESTWORTH_PERF: \"1\"", perf)

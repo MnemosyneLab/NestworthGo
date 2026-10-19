@@ -1,11 +1,12 @@
 # Temporary GitHub Actions CI Pause
 
-**Status:** Active as of 2026-10-19. **Owner:** Engineering.
+**Status:** Historical. PR #118 restores `push` to `main` and `pull_request`
+on `.github/workflows/check.yml`, and keeps `workflow_dispatch`. **Owner:** Engineering.
 
 This note records the temporary pause requested while performance optimization
-is in progress. The repository's only registered Actions workflow is changed
-in this branch to manual-only triggering, and GitHub has also manually disabled
-the workflow while older pull request branches are reviewed:
+was in progress. At that time the branch's only registered Actions workflow
+was manual-only, and GitHub had also manually disabled the workflow while
+older pull request branches were reviewed:
 
 | Workflow | ID | Path | Previous state | Current state |
 | --- | ---: | --- | --- | --- |

@@ -1,20 +1,21 @@
 name: check
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Wall clock is the slowest job, not the sum. The old `test` job ran every
-# non-race gate serially (median ~785s over 20 runs). Go and frontend now run
-# together. This host starts about 12 jobs at once, so skill stays inside the
-# Go job and Vitest stays one job: extra runners would queue behind race.
-# Aggregate check names stay `test` and `race`.
+# Wall clock is the slowest job. Race detection is weekly in perf.yml.
+# Non-race Go tests are checksum shards so one package cannot hold the run.
+# The aggregate check name stays `test`.
 jobs:
-  go:
-    name: go
+  meta:
+    name: meta
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -28,8 +29,6 @@ jobs:
         run: bash tools/ci-install-native-deps.sh
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal)"
-      - name: Go tests
-        run: go test ./...
       - name: Go vet
         run: go vet ./...
       - name: Go build
@@ -92,46 +91,10 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
-  # Required check name. Fails closed unless every gate job succeeded.
-  test:
-    name: test
-    needs: [go, frontend]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every test gate
-        run: |
-          set -euo pipefail
-          results=(
-            "go=${{ needs.go.result }}"
-            "frontend=${{ needs.frontend.result }}"
-          )
-          printf '%s\n' "${results[@]}"
-          for item in "${results[@]}"; do
-            if [ "${item#*=}" != "success" ]; then
-              echo "test gate failed: $item" >&2
-              exit 1
-            fi
-          done
-          echo "all test gates passed"
-
-  # Application 2/2 repeatedly exhausted Go's cumulative 10m test budget
-  # (PR #60, main, PR #61); no assertion or race detector failure preceded it.
-  # Name-hash parts spread one package across runners without increasing
-  # in-process concurrency or skipping tests. On 176bfb0, four application
-  # parts and the single infrastructure job still hit that 10m budget, and a
-  # six-way application split left part 6/6 over the budget because
-  # TestHistoricalSeriesBenchmarkCancellationEvidence took about 6 minutes.
-  # Eight application parts and four MCP parts are the smallest hash splits
-  # whose buckets stay under 10m on that run. sqlite alone also exceeded 10m
-  # once continuousbackup no longer shared its runner, so sqlite is two parts.
-  # -p stays 1 on those shards. Remainder, including the smaller infrastructure
-  # packages, uses -p 2 so package builds overlap. -parallel stays 4 and only
-  # for application and MCP. Fault injection and uncontended performance tests
-  # retain their sequential status.
-  # Test/Example/Fuzz names come from the same race build as the run.
-  race-shard:
-    name: race (${{ matrix.label }})
+  # Name-hash parts spread one package across runners. Enumeration is the
+  # non-race test binary. An empty part or an empty package list fails the shard.
+  go-shard:
+    name: go (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -140,52 +103,28 @@ jobs:
         include:
           - shard: application
             part: 0
-            parts: 8
-            label: application 1/8
+            parts: 4
+            label: application 1/4
           - shard: application
             part: 1
-            parts: 8
-            label: application 2/8
+            parts: 4
+            label: application 2/4
           - shard: application
             part: 2
-            parts: 8
-            label: application 3/8
+            parts: 4
+            label: application 3/4
           - shard: application
             part: 3
-            parts: 8
-            label: application 4/8
-          - shard: application
-            part: 4
-            parts: 8
-            label: application 5/8
-          - shard: application
-            part: 5
-            parts: 8
-            label: application 6/8
-          - shard: application
-            part: 6
-            parts: 8
-            label: application 7/8
-          - shard: application
-            part: 7
-            parts: 8
-            label: application 8/8
+            parts: 4
+            label: application 4/4
           - shard: mcpserver
             part: 0
-            parts: 4
-            label: mcpserver 1/4
+            parts: 2
+            label: mcpserver 1/2
           - shard: mcpserver
             part: 1
-            parts: 4
-            label: mcpserver 2/4
-          - shard: mcpserver
-            part: 2
-            parts: 4
-            label: mcpserver 3/4
-          - shard: mcpserver
-            part: 3
-            parts: 4
-            label: mcpserver 4/4
+            parts: 2
+            label: mcpserver 2/2
           - shard: sqlite
             part: 0
             parts: 2
@@ -211,26 +150,20 @@ jobs:
       - name: Install native Go build dependencies
         timeout-minutes: 15
         run: bash tools/ci-install-native-deps.sh
-      - name: Go tests with race detector
+      - name: Go tests
         run: |
           set -euo pipefail
           shard="${{ matrix.shard }}"
           part="${{ matrix.part }}"
           parts="${{ matrix.parts }}"
-          # One package at a time for the heavy shards. Remainder is many
-          # small packages, so -p 2 overlaps their race builds only.
-          # -parallel stays 4 and only for application and MCP.
           pkg_parallel=(-p 1)
-          parallel=()
           run_args=()
           case "$shard" in
             application)
               pkgs=(./internal/application)
-              parallel=(-parallel 4)
               ;;
             mcpserver)
               pkgs=(./internal/mcpserver)
-              parallel=(-parallel 4)
               ;;
             sqlite)
               pkgs=(./internal/infrastructure/sqlite)
@@ -242,8 +175,8 @@ jobs:
               pkg_parallel=(-p 2)
               # Check enumeration before filtering; process substitution hides
               # a failed go list and can silently drop packages.
-              go list ./... > "$RUNNER_TEMP/race-packages.txt"
-              mapfile -t pkgs < <(grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure/sqlite($|/)|infrastructure/continuousbackup($|/))' "$RUNNER_TEMP/race-packages.txt")
+              go list ./... > "$RUNNER_TEMP/go-packages.txt"
+              mapfile -t pkgs < <(grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure/sqlite($|/)|infrastructure/continuousbackup($|/))' "$RUNNER_TEMP/go-packages.txt")
               go list ./internal/infrastructure/... > "$RUNNER_TEMP/infrastructure-packages.txt"
               covered=0
               while IFS= read -r pkg || [ -n "$pkg" ]; do
@@ -270,54 +203,77 @@ jobs:
                 echo "infrastructure partition does not cover go list" >&2
                 exit 1
               fi
+              dedicated=0
+              while IFS= read -r pkg || [ -n "$pkg" ]; do
+                case "$pkg" in
+                  */internal/application|*/internal/mcpserver|*/infrastructure/sqlite|*/infrastructure/continuousbackup)
+                    dedicated=$((dedicated + 1))
+                    ;;
+                esac
+              done < "$RUNNER_TEMP/go-packages.txt"
+              if [ "$dedicated" -ne 4 ]; then
+                echo "go list does not contain exactly the four dedicated packages" >&2
+                exit 1
+              fi
               ;;
             *)
-              echo "unknown race shard: $shard" >&2
+              echo "unknown go shard: $shard" >&2
               exit 1
               ;;
           esac
           if [ "${#pkgs[@]}" -eq 0 ]; then
-            echo "race shard selected no packages" >&2
+            echo "go shard selected no packages" >&2
             exit 1
           fi
           if [ "$parts" != "1" ]; then
             if [ "${#pkgs[@]}" -ne 1 ]; then
-              echo "split race shard must list exactly one package" >&2
+              echo "split go shard must list exactly one package" >&2
               exit 1
             fi
-            # stdout is only the -run regex. A non-zero selector status
-            # (list failure, empty runnable set, or empty part) fails the shard.
-            if ! regex=$(bash tools/race-shard-select.sh "$part" "$parts" "${pkgs[0]}"); then
-              echo "race shard $shard part $part selector failed" >&2
+            # Non-race list. A non-zero selector status fails the shard,
+            # including an empty part.
+            if ! regex=$(bash tools/race-shard-select.sh --enumerate "$part" "$parts" -- go test -count=1 -list . "${pkgs[0]}"); then
+              echo "go shard $shard part $part selector failed" >&2
               exit 1
             fi
             if [ -z "$regex" ]; then
-              echo "race shard $shard part $part selector returned an empty regex" >&2
+              echo "go shard $shard part $part selector returned an empty regex" >&2
               exit 1
             fi
             run_args=(-run "$regex")
           fi
           printf 'shard %s packages:\n' "$shard"
           printf '  %s\n' "${pkgs[@]}"
-          go test -race -count=1 -json -timeout 10m "${pkg_parallel[@]}" "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/race-results.jsonl"
-      - name: Retain race test timings and failures
+          go test -count=1 -json -timeout 20m "${pkg_parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/go-results.jsonl"
+      - name: Retain Go test timings and failures
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: race-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/race-results.jsonl
+          name: go-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/go-results.jsonl
           if-no-files-found: error
           retention-days: 7
 
-  race:
-    needs: race-shard
-    runs-on: ubuntu-latest
+  # Required check name. Fails closed unless every gate job succeeded.
+  test:
+    name: test
+    needs: [meta, frontend, go-shard]
     if: always()
+    runs-on: ubuntu-latest
     steps:
-      - name: Require every race shard
+      - name: Require every test gate
         run: |
-          if [ "${{ needs.race-shard.result }}" != "success" ]; then
-            echo "race shards result: ${{ needs.race-shard.result }}"
-            exit 1
-          fi
-          echo "all race shards passed"
+          set -euo pipefail
+          results=(
+            "meta=${{ needs.meta.result }}"
+            "frontend=${{ needs.frontend.result }}"
+            "go-shard=${{ needs.go-shard.result }}"
+          )
+          printf '%s\n' "${results[@]}"
+          for item in "${results[@]}"; do
+            if [ "${item#*=}" != "success" ]; then
+              echo "test gate failed: $item" >&2
+              exit 1
+            fi
+          done
+          echo "all test gates passed"
