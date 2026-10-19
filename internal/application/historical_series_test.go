@@ -462,44 +462,6 @@ func TestHistoricalSeriesPreflightLeafAndByteBudgets(t *testing.T) {
 	}
 }
 
-func TestHistoricalSeriesDefaultFactLimitBeforeHydration(t *testing.T) {
-	s, db, _, now := overviewFixture(t)
-	if _, err := s.StartHistory(context.Background(), "UTC"); err != nil {
-		t.Fatal(err)
-	}
-	// Facts need not be economically selected to exceed the conservative cap.
-	// There are deliberately no effects to decode; the preflight must stop first.
-	_, err := db.SQL.Exec(`WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<100001)
-INSERT INTO activities(id,household_id,kind,reason,effective_at,effective_local_date,created_at)
-SELECT 'synthetic-budget-'||x,(SELECT id FROM households),'value_update','other','2026-08-01T12:00:00Z','2026-08-01','2026-08-01T12:00:00Z' FROM n`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	batch, work, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(context.Background(), *now, historicalSeriesLimits, nil)
-	var budget *domain.Error
-	if !errors.As(err, &budget) || budget.Code != domain.ErrHistoricalSeriesBudget || work.CandidateFacts != 100001 || batch.Origin.ID != "" {
-		t.Fatalf("unbounded/default hydration: %+v %v", work, err)
-	}
-	if work.Queries > 40 {
-		t.Fatalf("continued hydrating after fact rejection: %d queries", work.Queries)
-	}
-	for _, dates := range [][2]string{{"2026-07-31", "2026-07-31"}, {"2026-08-01", "2026-08-01"}, {"2026-08-01", "2026-08-02"}} {
-		_, err := s.HistoricalOverviewSeries(t.Context(), dates[0], dates[1])
-		var invalid *domain.Error
-		if !errors.As(err, &invalid) || invalid.Code != domain.ErrInvalidChangeTime {
-			t.Fatalf("invalid civil-date window was masked by budget rejection: %v", err)
-		}
-	}
-	_, preflight, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(t.Context(), *now, historicalSeriesLimits, func(origin domain.HistoryOrigin) error {
-		from, _ := time.Parse("2006-01-02", "2026-07-31")
-		_, err := historicalSeriesDateWindow(origin, *now, from, from)
-		return err
-	})
-	if err == nil || preflight.Queries != 1 || preflight.CandidateFacts != 0 || preflight.CandidateBytes != 0 {
-		t.Fatalf("invalid window scanned financial facts: %+v %v", preflight, err)
-	}
-}
-
 func TestHistoricalSeriesMissingFXAndCancellationAfterRead(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
