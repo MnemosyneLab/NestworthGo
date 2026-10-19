@@ -6,23 +6,24 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// Private to one reserved publication transaction. These are byte images for
+// Private to one reserved publication transaction. These are SQL value images for
 // deciding whether an UPSERT would affect zero rows, never computation inputs.
 // Eligibility and authenticated provenance are checked by the caller first.
 type reviewPublicationEquality struct {
-	inputs, results map[string][]byte
-	keybuf, rowbuf  []byte
+	inputs, results map[string][]any
+	keybuf          []byte
 }
 
 func loadReviewPublicationEquality(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (*reviewPublicationEquality, error) {
-	e := &reviewPublicationEquality{inputs: map[string][]byte{}, results: map[string][]byte{}}
+	e := &reviewPublicationEquality{inputs: map[string][]any{}, results: map[string][]any{}}
 	queries := []struct {
 		sql    string
-		images map[string][]byte
+		images map[string][]any
 	}{
 		{`SELECT household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint FROM investment_review_daily_inputs WHERE household_id=? ORDER BY instrument_id,timezone_version,on_date,input_policy`, e.inputs},
 		{`SELECT d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date,d.predicate_truth,d.reason,d.evidence_json,d.input_fingerprint FROM investment_review_daily_results d JOIN investment_review_rules r ON r.id=d.rule_id WHERE r.household_id=? ORDER BY d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date`, e.results},
@@ -49,10 +50,14 @@ func loadReviewPublicationEquality(ctx context.Context, tx *sql.Tx, id domain.Ho
 			if err != nil {
 				break
 			}
-			var image []byte
-			image, err = appendCertifiedRow(nil, values)
-			if err != nil {
-				break
+			// Scan into *any owns byte slices; copy the tuple because the scan
+			// destinations are reused. Strings (including JSON) are immutable,
+			// so retaining them needs no second payload encoding/copy.
+			image := append([]any(nil), values...)
+			for i, value := range image {
+				if blob, ok := value.([]byte); ok {
+					image[i] = bytes.Clone(blob)
+				}
 			}
 			query.images[string(e.keybuf)] = image
 		}
@@ -77,7 +82,7 @@ func (e *reviewPublicationEquality) omitResult(values []any) (bool, error) {
 	return e.omit(e.results, values, 10)
 }
 
-func (e *reviewPublicationEquality) omit(images map[string][]byte, values []any, size int) (bool, error) {
+func (e *reviewPublicationEquality) omit(images map[string][]any, values []any, size int) (bool, error) {
 	if len(values) != size {
 		return false, fmt.Errorf("incomplete daily publication parameter image")
 	}
@@ -96,9 +101,8 @@ func (e *reviewPublicationEquality) omit(images map[string][]byte, values []any,
 	}
 	// The insertion timestamp is the final argument. Equal payloads make the
 	// existing UPSERT WHERE false, retaining computed/evaluated/revised times.
-	e.rowbuf, err = appendCertifiedRow(e.rowbuf[:0], values[:len(values)-1])
-	if err != nil {
-		return false, err
-	}
-	return bytes.Equal(stored, e.rowbuf), nil
+	// The verified columns and constructed parameters are strings, int64 or
+	// NULL. Deep equality retains types and compares complete string/BLOB bytes;
+	// it never substitutes a fingerprint or JSON-semantic comparison.
+	return reflect.DeepEqual(stored, values[:len(values)-1]), nil
 }

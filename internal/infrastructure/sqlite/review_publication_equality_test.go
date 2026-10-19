@@ -11,11 +11,8 @@ func publicationEqualityFixture(t *testing.T, values []any, result bool) *review
 	if err != nil {
 		t.Fatal(err)
 	}
-	image, err := appendCertifiedRow(nil, values[:len(values)-1])
-	if err != nil {
-		t.Fatal(err)
-	}
-	e := &reviewPublicationEquality{inputs: map[string][]byte{}, results: map[string][]byte{}}
+	image := append([]any(nil), values[:len(values)-1]...)
+	e := &reviewPublicationEquality{inputs: map[string][]any{}, results: map[string][]any{}}
 	if result {
 		e.results[string(key)] = image
 	} else {
