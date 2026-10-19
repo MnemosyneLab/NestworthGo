@@ -1,0 +1,17 @@
+=== RUN   TestReviewCompletenessLineagePerformanceEvidence
+=== RUN   TestReviewCompletenessLineagePerformanceEvidence/small
+    review_completeness_lineage_perf_test.go:34: manifest={"Accounts":1,"Instruments":10,"Holdings":10,"Rules":1,"HistoryDays":30,"Quotes":310,"CashActivities":100,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a15439-6ba6-7365-8c96-67a4a92c78cb
+    review_completeness_lineage_perf_test.go:110: lineage size=small arm=full n=1 total=69.915217ms capture=26.359505ms prepare=7.51554ms publish=36.040172ms allocatedBytes=13076008 actualPairDays=310 prefixKeys=0 windowKeys=0 hypotheticalPairDays=0 verdict=off sql queries=117 returnedRows=2184 Query-to-Rows.Close=36.61408ms execs=643 writeStatements=643 rowsAffected=33 driverExecTime=12.133291ms prepares=2 prepareTime=124.037µs writeTransactions=1 reserved-to-finish=35.982165ms
+    review_completeness_lineage_perf_test.go:92: lineage shadow declined result_prefix_missing_or_changed
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	   37352 kB
+=== RUN   TestReviewCompletenessLineagePerformanceEvidence/large
+    review_completeness_lineage_perf_test.go:34: manifest={"Accounts":1,"Instruments":100,"Holdings":100,"Rules":20,"HistoryDays":30,"Quotes":100000,"CashActivities":50000,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a15439-6e78-7e6f-8f61-0e7e28ae285b
+    review_completeness_lineage_perf_test.go:110: lineage size=large arm=full n=1 total=9.845632887s capture=2.313155527s prepare=1.881951009s publish=5.650526351s allocatedBytes=3924936344 actualPairDays=62000 prefixKeys=0 windowKeys=0 hypotheticalPairDays=0 verdict=off sql queries=614 returnedRows=507416 Query-to-Rows.Close=3.249004175s execs=128242 writeStatements=128242 rowsAffected=6242 driverExecTime=2.367636608s prepares=2 prepareTime=209.525µs writeTransactions=1 reserved-to-finish=5.650420701s
+    review_completeness_lineage_perf_test.go:92: lineage shadow declined result_prefix_missing_or_changed
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	  954628 kB
+--- FAIL: TestReviewCompletenessLineagePerformanceEvidence (86.26s)
+    --- FAIL: TestReviewCompletenessLineagePerformanceEvidence/small (0.72s)
+    --- FAIL: TestReviewCompletenessLineagePerformanceEvidence/large (85.54s)
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	86.299s
+FAIL

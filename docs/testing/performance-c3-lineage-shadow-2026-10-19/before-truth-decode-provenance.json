@@ -1,0 +1,20 @@
+{
+  "implementation": "b07e08e6f8fa06b997dd593ef66e0bda13584333",
+  "base": "2cb6c1cf2f09e22a8935aed612fc2c23c11d51c8",
+  "go": "go version go1.26.1 linux/amd64",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "gomaxprocs": 4,
+  "cpuCount": 5,
+  "scope": "isolated synthetic fixtures; no external provider network/native app; no workflow dispatch",
+  "goDiffFromImplementation": "",
+  "goBuildEnvironment": {
+    "CGO_ENABLED": "1",
+    "GOARCH": "amd64",
+    "GOFLAGS": "",
+    "GOOS": "linux"
+  },
+  "runtimeEnvironment": {
+    "GOGC": null,
+    "GOMEMLIMIT": null
+  }
+}
