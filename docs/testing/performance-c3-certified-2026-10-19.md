@@ -13,6 +13,11 @@ PR119 `c3867c626d3b6a0cdbcf669a0047ff8d07d4215f` and PR121
 user-owned test deletion and main's workflows are preserved. Main's automatic
 [check run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/39260731976)
 succeeded on the PR127 merge; this task did not dispatch a workflow.
+Main later advanced to PR128 `326688ce86d35216a9fe55a3bee63bcbb379683d`, changing
+only three continuousbackup test files. It is incorporated unchanged in merge
+`7853e7e423b704fd03e86c4baf56ec3cd03b79b9`; review production/test sources and CI
+files are unchanged by that merge. The affected ordinary package is checked
+separately; its provenance is recorded with final validation.
 
 ## Authority and fallback
 
@@ -138,10 +143,11 @@ is a failed gate, not an app build pass. No macOS build, package or UI run was
 performed. Full-project/frontend/binding checks and full-backend race are not
 claimed. The historical dense 10s full-backend race deadline is not waived.
 
-The first paired n=3 run below is explicitly attributed to `fa1bd47`. After the
-last safety guards, the same paired workloads are being rerun on frozen final
-code before the deferred race. Until that finishes these timings remain
-preliminary ancestry evidence; stage-two acceptance remains blocked.
+Final paired measurements below were built at `c11030c`, with the review source
+and tests identical to frozen implementation `e112f58`. The earlier
+[fa1bd47 run](artifacts/c3-certified-2026-10-19/paired-prior-fa1bd47.log) is archived
+ancestry evidence and is not used as the final result. Stage-two rollout
+acceptance remains blocked.
 
 ## Reproduction and measurement contract
 
@@ -195,24 +201,24 @@ are diagnostic, with raw values retained; no p95 acceptance is inferred.
 ## Paired Linux results
 
 The four-workload experiment passed all pre-publication typed full-oracle and
-paired persisted-row comparisons (3 samples per arm/scenario/size). Source is
-`fa1bd47f858b09c3bc0c34c7a2a637173a8a29ae`; later guard/counter-read placement
-and freshness-connection safety changes are attributed separately in
+paired persisted-row comparisons (3 samples per arm/scenario/size). Binary
+source is `c11030c5d0ede060d71e7edc0856b6c9038b75db`, review code identical to
+`e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a`. Exact per-check attribution is in
 [environment/provenance](artifacts/c3-certified-2026-10-19/environment.txt).
 Raw samples and allocated-byte/SQL diagnostics are in the
-[paired log](artifacts/c3-certified-2026-10-19/paired-prior-fa1bd47.log) and
+[paired log](artifacts/c3-certified-2026-10-19/paired-small-large.log) and
 [generated summary](artifacts/c3-certified-2026-10-19/summary.md).
 
 | Size | Scenario | C2 median | Certified median |
 |---|---|---:|---:|
-| Small | same-day warm | 41.547 ms | 12.792 ms |
-| Small | clock-only | 41.754 ms | 110.212 ms |
-| Small | append | 64.626 ms | 84.800 ms |
-| Small | correction | 53.611 ms | 93.422 ms |
-| Large | same-day warm | 5.378 s | 38.900 ms |
-| Large | clock-only | 6.291 s | 12.678 s |
-| Large | append | 10.069 s | 12.179 s |
-| Large | correction | 9.900 s | 11.819 s |
+| Small | same-day warm | 38.366 ms | 12.322 ms |
+| Small | clock-only | 39.208 ms | 113.056 ms |
+| Small | append | 53.714 ms | 91.202 ms |
+| Small | correction | 56.040 ms | 100.779 ms |
+| Large | same-day warm | 5.676 s | 39.646 ms |
+| Large | clock-only | 5.913 s | 12.312 s |
+| Large | append | 10.059 s | 12.076 s |
+| Large | correction | 9.582 s | 11.197 s |
 
 **Changed/clock-only paths regress; default enablement is blocked.** Warm gains
 are not a waiver for those regressions. The full runtime audit, repeated

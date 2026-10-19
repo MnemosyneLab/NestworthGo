@@ -68,5 +68,31 @@
     ],
     "source": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
     "exit_code": 0
+  },
+  {
+    "check": "native-linux-build",
+    "command": [
+      "/tmp/go/bin/go",
+      "build",
+      "./cmd/nestworth"
+    ],
+    "source": "28f2c8f2d2aabc1436880c504de055c21963adc2",
+    "exit_code": 1,
+    "status": "blocked",
+    "reason": "pkg-config cannot find GTK4, WebKitGTK6, GLib/GObject/GIO and libsoup3 development packages; no native app build/run claimed"
+  },
+  {
+    "check": "main-pr128-unit",
+    "command": [
+      "/tmp/go/bin/go",
+      "test",
+      "-p",
+      "1",
+      "./internal/infrastructure/continuousbackup",
+      "-count=1",
+      "-timeout=5m"
+    ],
+    "source": "7853e7e423b704fd03e86c4baf56ec3cd03b79b9",
+    "exit_code": 0
   }
 ]
