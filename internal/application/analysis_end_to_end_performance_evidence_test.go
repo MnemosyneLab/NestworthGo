@@ -19,13 +19,13 @@ func TestAnalysisEndToEndPerformanceEvidence(t *testing.T) {
 	c := reviewPerfEnvironmentConfig(t)
 	fixture := newReviewPerfFixture(t, c)
 	logReviewPerfManifest(t, fixture, c)
-	query := domain.AnalysisQuery{From: domain.LocalDate(fixture.start.Format(time.DateOnly)), To: domain.LocalDate(fixture.now.AddDate(0, 0, -1).Format(time.DateOnly)), Valuation: domain.ValuationBase}
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, Basis: domain.ReturnBasisInvestment, From: domain.LocalDate(fixture.start.Format(time.DateOnly)), To: domain.LocalDate(fixture.now.AddDate(0, 0, -1).Format(time.DateOnly)), Valuation: domain.ValuationBase}
 	var previous ReturnCalendarResult
 	for sample := 0; sample < 2; sample++ {
 		run := cloneReviewPerfFixture(t, fixture)
 		metrics := enableReviewSQLMetrics(t, run)
 		started := time.Now()
-		result, err := run.service.ReturnCalendar(t.Context(), query, "", "month")
+		result, err := run.service.ReturnCalendar(t.Context(), query, "", "day")
 		elapsed := time.Since(started)
 		if err != nil {
 			t.Fatal(err)

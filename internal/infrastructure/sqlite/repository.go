@@ -34,7 +34,17 @@ func (r *Repository) WithReviewWindowBaseline() *Repository {
 	return &copy
 }
 
-func NewRepository(database *DB) *Repository { return &Repository{database: database} }
+// WithBoundedReviewWindow enables the P0 bounded-query candidate. It remains
+// opt-in until the paired latency/RSS and native rollout gates are reviewed.
+func (r *Repository) WithBoundedReviewWindow() *Repository {
+	copy := *r
+	copy.reviewWindowBaseline = false
+	return &copy
+}
+
+func NewRepository(database *DB) *Repository {
+	return &Repository{database: database, reviewWindowBaseline: true}
+}
 
 type queryer interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
