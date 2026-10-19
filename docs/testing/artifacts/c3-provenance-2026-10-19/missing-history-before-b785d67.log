@@ -1,0 +1,19 @@
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap/open-ack
+    review_certified_missing_history_test.go:89: deleted lifecycle/ack history acquired bootstrap eligibility
+    review_certified_missing_history_test.go:96: pre-corruption acknowledged identity 01a1555b-53d4-7e48-9cff-f26b2672c5c6 at 2026-10-12T12:00:00Z differs from newly planned unacknowledged identity 01a1555b-541c-7bc0-8596-88be01f2bfb6
+    review_certified_missing_history_test.go:101: unknown or damaged state acquired integrity authority
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap/resolved-ack
+    review_certified_missing_history_test.go:89: deleted lifecycle/ack history acquired bootstrap eligibility
+    review_certified_missing_history_test.go:101: unknown or damaged state acquired integrity authority
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap/empty-namespace-with-ack-receipt
+    review_certified_missing_history_test.go:89: deleted lifecycle/ack history acquired bootstrap eligibility
+    review_certified_missing_history_test.go:96: pre-corruption acknowledged identity 01a1555b-551e-71be-8e63-e321ad31d30b at 2026-10-12T12:00:00Z differs from newly planned unacknowledged identity 01a1555b-5562-7601-a8a0-22bdaaf8e1d4
+    review_certified_missing_history_test.go:101: unknown or damaged state acquired integrity authority
+--- FAIL: TestReviewCertifiedDeletedHistoryCannotBootstrap (0.49s)
+    --- FAIL: TestReviewCertifiedDeletedHistoryCannotBootstrap/open-ack (0.17s)
+    --- FAIL: TestReviewCertifiedDeletedHistoryCannotBootstrap/resolved-ack (0.17s)
+    --- FAIL: TestReviewCertifiedDeletedHistoryCannotBootstrap/empty-namespace-with-ack-receipt (0.16s)
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	0.503s
+FAIL

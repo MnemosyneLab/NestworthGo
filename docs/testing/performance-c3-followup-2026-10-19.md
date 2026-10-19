@@ -1,5 +1,11 @@
 # C3 follow-up: implementation boundaries and trigger integrity
 
+**Superseded bootstrap claim:** the [missing-history correction](performance-c3-provenance-2026-10-19.md)
+disproves the history-free bootstrap below. Legacy/restart certification is now
+hard-disabled; only a private, controlled fresh initialization may establish
+initial authority. This document retains the earlier rejected experiment and
+frozen measurements for provenance, not as activation evidence.
+
 PR129 remains an intermediate, default-off delivery. This follow-up stays on
 `perf/c3-runtime-window-oracle` and the same PR. No race rerun, timeout increase,
 CI change, workflow dispatch, activation, merge to main or release is performed.
@@ -129,7 +135,7 @@ passes all four (including rollback). The ordinary certified suite also covers
 unknown identity, missing driver hook and saturated commit counter, all retaining
 successful full publication without a MAC. No race was rerun.
 
-## Supported provenance bootstrap
+## Rejected provenance bootstrap (historical experiment)
 
 `27ad1b9` permits a new handle to establish authority only by **complete
 replacement from full preparation**, subject to all these gates:

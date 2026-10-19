@@ -1,0 +1,51 @@
+{
+  "source": "7932837d5d8b5b454de55b070058e2284af32506",
+  "recorded_at_utc": "2026-10-19T18:12:15.328273+00:00",
+  "legacy_restart_bootstrap_enabled": false,
+  "initial_authority": "private fresh schema/original connection/no external commits/no prior publication handling or import; signed capture plus atomic write-reserved claim",
+  "ordinary_all_internal": {
+    "exit_code": 0,
+    "command": "go test -p 1 ./internal/... -count=1 -timeout=10m",
+    "log": "all-internal.log"
+  },
+  "certified": {
+    "exit_code": 0,
+    "log": "certified.log"
+  },
+  "focused_provenance": {
+    "exit_code": 0,
+    "log": "provenance-focused.log"
+  },
+  "vet": {
+    "exit_code": 0,
+    "command": "go vet -p 1 ./internal/..."
+  },
+  "build": {
+    "exit_code": 0,
+    "command": "go build -p 1 ./internal/..."
+  },
+  "before_reproduction": {
+    "source": "b785d677412cf764482aa6e7e2241c8e30b1e876",
+    "method": "immutable git archive plus current review_certified_missing_history_test.go only",
+    "exit_code": 1,
+    "expected_failures": 3
+  },
+  "measurements": {
+    "small": {
+      "n": 3,
+      "exit_code": 0,
+      "log": "perf-small.log"
+    },
+    "large": {
+      "n": 1,
+      "status": "running; not claimed passed"
+    }
+  },
+  "race": {
+    "rerun": false,
+    "prior_overall_gate": "incomplete application global20m timeout; no race warning observed; follow-up not race-validated"
+  },
+  "native_acceptance": false,
+  "default_activation": false,
+  "stage_two_acceptance": "incomplete"
+}
