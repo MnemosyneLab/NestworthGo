@@ -1,0 +1,10 @@
+=== RUN   TestAnalysisPerformanceBudgets
+=== RUN   TestAnalysisPerformanceBudgets/warm-memo
+=== RUN   TestAnalysisPerformanceBudgets/cold-month
+=== RUN   TestAnalysisPerformanceBudgets/cold-3y
+--- PASS: TestAnalysisPerformanceBudgets (3.78s)
+    --- PASS: TestAnalysisPerformanceBudgets/warm-memo (0.02s)
+    --- PASS: TestAnalysisPerformanceBudgets/cold-month (0.07s)
+    --- PASS: TestAnalysisPerformanceBudgets/cold-3y (3.70s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	3.854s

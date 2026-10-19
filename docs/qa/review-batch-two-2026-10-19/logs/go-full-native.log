@@ -1,0 +1,102 @@
+ok  	github.com/waltwang/nestworth-go	0.005s
+# github.com/wailsapp/wails/v3/internal/operatingsystem
+# [pkg-config --cflags  -- gtk4 webkitgtk-6.0]
+Package gtk4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `gtk4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-probe	0.009s
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-seed	0.008s
+ok  	github.com/waltwang/nestworth-go/cmd/investment-review-qa-seed	0.004s
+# github.com/wailsapp/wails/v3/internal/assetserver/webview
+# [pkg-config --cflags  -- glib-2.0 glib-2.0 gobject-2.0 gtk4 webkitgtk-6.0 gio-unix-2.0 gtk4 webkitgtk-6.0 gtk4 webkitgtk-6.0 libsoup-3.0 gio-unix-2.0]
+Package glib-2.0 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `glib-2.0.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'gobject-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'libsoup-3.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+FAIL	github.com/waltwang/nestworth-go/cmd/nestworth [build failed]
+?   	github.com/waltwang/nestworth-go/docs/qa/post-merge-pr101-pr102-2026-10-17/repro	[no test files]
+--- FAIL: TestAnalysisPerformanceBudgets (19.98s)
+    --- FAIL: TestAnalysisPerformanceBudgets/cold-month (0.43s)
+        analysis_projections_test.go:684: cold 1-month/200-component took 403.371358ms, want < 300ms
+    --- FAIL: TestAnalysisPerformanceBudgets/cold-3y (19.39s)
+        analysis_projections_test.go:697: cold 3Y/500-component took 18.900789249s, want < 10s
+2026/10/19 01:43:49 INFO market data sync started targets=1 estimated_requests=3
+2026/10/19 01:43:49 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=0 snapshot_days=0 blockers=3
+2026/10/19 01:43:51 INFO market data sync started targets=1 estimated_requests=2
+2026/10/19 01:43:51 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=1 snapshot_days=4 blockers=1
+2026/10/19 01:43:59 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 01:43:59 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=0 snapshot_days=4 blockers=3
+2026/10/19 01:44:00 INFO market data sync started targets=1 estimated_requests=3
+2026/10/19 01:44:00 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 01:44:00 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=3
+2026/10/19 01:44:00 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=2
+2026/10/19 01:44:00 INFO market data sync started targets=1 estimated_requests=3
+2026/10/19 01:44:00 INFO market data sync started targets=1 estimated_requests=5
+2026/10/19 01:44:00 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=2 batches=0 snapshot_days=0 blockers=3
+2026/10/19 01:44:00 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=1 batches=1 snapshot_days=0 blockers=1
+2026/10/19 01:44:00 INFO market data sync started targets=2 estimated_requests=5
+2026/10/19 01:44:00 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 01:44:00 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=4
+2026/10/19 01:44:01 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=2
+2026/10/19 01:44:01 INFO market data sync started targets=3 estimated_requests=6
+2026/10/19 01:44:02 INFO market data sync event=completed phase=complete outcome=partial requests=3 batches=3 snapshot_days=4 blockers=1
+2026/10/19 01:44:02 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 01:44:02 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=2 snapshot_days=4 blockers=1
+2026/10/19 01:44:03 INFO market data sync started targets=1 estimated_requests=2
+2026/10/19 01:44:03 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=1 snapshot_days=4 blockers=1
+2026/10/19 01:44:05 INFO market data sync started targets=1 estimated_requests=2
+2026/10/19 01:44:05 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=1 batches=1 snapshot_days=0 blockers=0
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	273.251s
+ok  	github.com/waltwang/nestworth-go/internal/architecture	0.015s
+ok  	github.com/waltwang/nestworth-go/internal/diagnostics	0.092s
+ok  	github.com/waltwang/nestworth-go/internal/domain	0.191s
+ok  	github.com/waltwang/nestworth-go/internal/format	0.046s
+?   	github.com/waltwang/nestworth-go/internal/infrastructure	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/appports	3.808s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	8.886s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup	83.702s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/marketdata	6.747s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	49.108s
+ok  	github.com/waltwang/nestworth-go/internal/mcpserver	104.928s
+ok  	github.com/waltwang/nestworth-go/internal/settings	0.383s
+ok  	github.com/waltwang/nestworth-go/internal/version	0.005s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/account	3.100s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/agent	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analysis	0.386s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analytics	1.092s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/apierror	0.015s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/app	0.016s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/catalog	0.020s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup	0.041s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/data	0.412s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/directory	1.281s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/history	7.982s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/holding	2.146s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/household	1.240s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/instrument	1.197s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/liquidity	0.604s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/marketdata	2.015s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/native	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/portfolio	2.988s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/preview	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/quote	4.812s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation	1.699s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/recovery	5.466s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/settings	2.028s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/wailstest	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/wire	0.017s
+FAIL

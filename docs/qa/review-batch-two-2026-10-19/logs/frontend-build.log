@@ -1,0 +1,98 @@
+$ node ./scripts/ensure-bindings.mjs && tsc && vite build --mode production
+Generating Wails TypeScript bindings...
+Wails v3.0.0-beta.28 › Generate Bindings
+ INFO  Processed: 595 Packages, 20 Services, 175 Methods, 11 Enums, 283 Models, 8 Events in 4.174015317s.
+ INFO  Output directory: /workspace/NestworthGo/frontend/bindings
+vite v8.2.1 building client environment for production...
+[2K
+transforming...✓ 4051 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                        4.79 kB │ gzip:   1.15 kB
+dist/assets/plus-jakarta-sans-vietnamese-wght-normal-qRpaaN48.woff2    8.35 kB
+dist/assets/plus-jakarta-sans-latin-ext-wght-normal-DmpS2jIq.woff2    21.72 kB
+dist/assets/plus-jakarta-sans-latin-wght-normal-eXO_dkmS.woff2        27.34 kB
+dist/assets/logo-mark-qCCT58MW.png                                    34.15 kB
+dist/assets/wordmark-UoPGCP5V.png                                     36.51 kB
+dist/assets/index-C-MUrpmg.css                                        89.78 kB │ gzip:  17.60 kB
+dist/assets/chevron-down-iu6cLC1e.js                                   0.12 kB │ gzip:   0.13 kB
+dist/assets/preciousMetals-NqDVaazS.js                                 0.14 kB │ gzip:   0.13 kB
+dist/assets/NavigationContext-BMhWKRRn.js                              0.18 kB │ gzip:   0.16 kB
+dist/assets/info-DOhoAo6t.js                                           0.19 kB │ gzip:   0.17 kB
+dist/assets/analytics-BpknjtlK.js                                      0.21 kB │ gzip:   0.16 kB
+dist/assets/rotate-ccw-clock-Dl30paLD.js                               0.24 kB │ gzip:   0.19 kB
+dist/assets/arrow-left-right-DNA5gAcL.js                               0.24 kB │ gzip:   0.18 kB
+dist/assets/calendar-3FCuyu7W.js                                       0.24 kB │ gzip:   0.19 kB
+dist/assets/triangle-alert-D1P6jY4n.js                                 0.25 kB │ gzip:   0.21 kB
+dist/assets/shield-check-C9o46fuz.js                                   0.31 kB │ gzip:   0.24 kB
+dist/assets/calendar-clock-MHd4aUpZ.js                                 0.37 kB │ gzip:   0.25 kB
+dist/assets/household-Cv77eU8X.js                                      0.46 kB │ gzip:   0.29 kB
+dist/assets/quoteEvidencePresentation-CY8_skba.js                      0.59 kB │ gzip:   0.34 kB
+dist/assets/react-Bj80CWa6.js                                          0.69 kB │ gzip:   0.42 kB
+dist/assets/info-popover-DXQG9ws2.js                                   0.70 kB │ gzip:   0.41 kB
+dist/assets/rolldown-runtime-hePW80VL.js                               0.71 kB │ gzip:   0.42 kB
+dist/assets/change-text-jukl6KXJ.js                                    0.83 kB │ gzip:   0.48 kB
+dist/assets/useValuationDayBoundary-5Xw8ayxk.js                        0.84 kB │ gzip:   0.48 kB
+dist/assets/label-BjizhoN4.js                                          0.86 kB │ gzip:   0.47 kB
+dist/assets/useTrendDateRange-_lBEruiA.js                              0.87 kB │ gzip:   0.52 kB
+dist/assets/segmented-control-Car8Mv7t.js                              0.98 kB │ gzip:   0.58 kB
+dist/assets/events-hKZC1WSC.js                                         1.02 kB │ gzip:   0.52 kB
+dist/assets/catalog-ZPyzPmib.js                                        1.04 kB │ gzip:   0.46 kB
+dist/assets/quoteTrend-CPxdi7DG.js                                     1.25 kB │ gzip:   0.67 kB
+dist/assets/differenceInCalendarDays-DiTLM8Ek.js                       1.29 kB │ gzip:   0.66 kB
+dist/assets/valuationQuality-CaRav-WA.js                               1.30 kB │ gzip:   0.64 kB
+dist/assets/input-C1ev3m8Y.js                                          1.45 kB │ gzip:   0.78 kB
+dist/assets/instrumentDisplay-DjhWBEVn.js                              1.45 kB │ gzip:   0.73 kB
+dist/assets/calendar-Ble90dZt.js                                       1.50 kB │ gzip:   0.68 kB
+dist/assets/time-picker-BRhmhT6v.js                                    1.87 kB │ gzip:   0.90 kB
+dist/assets/time-nbHze2UH.js                                           2.11 kB │ gzip:   0.95 kB
+dist/assets/HoldingDetailPanel-CoxMxux3.js                             2.16 kB │ gzip:   1.07 kB
+dist/assets/settings-BBRrxEIj.js                                       2.21 kB │ gzip:   0.75 kB
+dist/assets/tone-Cf5DQTbp.js                                           2.68 kB │ gzip:   1.06 kB
+dist/assets/liquidityDisplay-CJvde2o9.js                               2.84 kB │ gzip:   1.14 kB
+dist/assets/filterable-select-mOa5FFN0.js                              3.24 kB │ gzip:   1.57 kB
+dist/assets/useCompositeItem-BmQwrBL_.js                               3.41 kB │ gzip:   1.55 kB
+dist/assets/QuoteHistorySheet-CZjaW8W9.js                              3.71 kB │ gzip:   1.63 kB
+dist/assets/history-DEIo5fyg.js                                        4.41 kB │ gzip:   1.68 kB
+dist/assets/analysisRequest-gftN8vyf.js                                4.56 kB │ gzip:   1.92 kB
+dist/assets/liquidity-BNu_QokQ.js                                      4.84 kB │ gzip:   1.82 kB
+dist/assets/EChart-BmtzRq6B.js                                         5.91 kB │ gzip:   2.45 kB
+dist/assets/money-U4gVRtaR.js                                          6.14 kB │ gzip:   2.46 kB
+dist/assets/PricePerformancePanel-BThiZuxh.js                          6.32 kB │ gzip:   2.24 kB
+dist/assets/MarketDataSyncBar-BeoTJSrD.js                              7.91 kB │ gzip:   2.53 kB
+dist/assets/InstrumentDetailPage-BoRSFWEj.js                           8.42 kB │ gzip:   2.57 kB
+dist/assets/DialogTrigger-CK_HKpNi.js                                  8.48 kB │ gzip:   3.23 kB
+dist/assets/DirectoryPage-CfkgthhD.js                                  9.22 kB │ gzip:   3.04 kB
+dist/assets/investments-CbeZ4SNQ.js                                    9.86 kB │ gzip:   3.49 kB
+dist/assets/sheet-D1yh_2Xi.js                                          9.92 kB │ gzip:   4.00 kB
+dist/assets/InstrumentManagement-DBDkQcg6.js                          12.24 kB │ gzip:   4.22 kB
+dist/assets/PortfolioPage-BAoMN4qW.js                                 12.51 kB │ gzip:   3.89 kB
+dist/assets/DataHealthPage-DalYPgtG.js                                12.85 kB │ gzip:   4.05 kB
+dist/assets/analysisProjectionContext-Ua8PZAWi.js                     14.83 kB │ gzip:   4.21 kB
+dist/assets/MarketDataPage-BBl0_LQo.js                                18.90 kB │ gzip:   5.37 kB
+dist/assets/HistoryPage--AqL1BGe.js                                   23.80 kB │ gzip:   6.30 kB
+dist/assets/ProductFormSheet-CICWn3mJ.js                              27.02 kB │ gzip:   6.31 kB
+dist/assets/SettingsPage-D5pVyDmd.js                                  27.53 kB │ gzip:   6.72 kB
+dist/assets/AvailableFundsPage-G0ws2sxE.js                            27.67 kB │ gzip:   7.89 kB
+dist/assets/AssetChangesPage-CRPXgg-Z.js                              30.02 kB │ gzip:   7.40 kB
+dist/assets/action-menu-BdAEbv9p.js                                   30.69 kB │ gzip:  10.82 kB
+dist/assets/dist-9mGyVztC.js                                          33.56 kB │ gzip:   9.36 kB
+dist/assets/ReturnAnalysisPage-CCpnEMqN.js                            34.49 kB │ gzip:   8.43 kB
+dist/assets/ReconciliationPage-Buy4W1ln.js                            37.49 kB │ gzip:   9.41 kB
+dist/assets/wailsCancellation-DtnGWtML.js                             47.76 kB │ gzip:  17.36 kB
+dist/assets/RecordChangeForm-BiO_4bCt.js                              50.32 kB │ gzip:  13.40 kB
+dist/assets/UpcomingActionsPage-D8_Gu1mv.js                           51.04 kB │ gzip:  12.61 kB
+dist/assets/HistoricalOverviewPage-CbZXbp_6.js                        74.14 kB │ gzip:  16.91 kB
+dist/assets/date-picker-ChxAR5YF.js                                   81.72 kB │ gzip:  23.09 kB
+dist/assets/InstrumentForm-iExL2-6s.js                               115.95 kB │ gzip:  34.21 kB
+dist/assets/defaultIcons-DBrrrdIJ.js                                 192.47 kB │ gzip:  34.43 kB
+dist/assets/index-Bt6aE_7F.js                                        257.41 kB │ gzip:  68.06 kB
+dist/assets/echarts-BW7iQbiW.js                                      588.40 kB │ gzip: 198.78 kB
+dist/assets/PageState-Uf3r6UiW.js                                    787.48 kB │ gzip: 264.54 kB
+
+✓ built in 1.06s
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
