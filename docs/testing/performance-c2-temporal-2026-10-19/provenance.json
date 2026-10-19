@@ -1,0 +1,14 @@
+{
+  "implementation": "669ea13",
+  "base_pr": 119,
+  "base_head": "6bbb499bc6c03ee23ba7579736f3749118c4ee94",
+  "data": "isolated synthetic only",
+  "native_app_launched": false,
+  "C3_enabled": false,
+  "new_CI_run": "not triggered",
+  "baseline_distribution": "deferred by parent to keep temporal slice focused",
+  "full_backend_rerun": "known unchanged dense endpoint 10.01s deadline failure; final log may still be in progress at first checkpoint",
+  "native_build_bindings": "blocked: missing GTK4/WebKitGTK/GLib/libsoup pkg-config dependencies",
+  "frontend_lint": "passed pinned pnpm12.2.1",
+  "internal_vet": "passed"
+}

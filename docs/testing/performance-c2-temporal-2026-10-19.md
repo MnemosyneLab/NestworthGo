@@ -1,6 +1,6 @@
 # C2b temporal validation and publication fence
 
-Stacked on C2a/PR119 (`6bbb499bc6c03ee23ba7579736f3749118c4ee94`), including main's CI declaration from PR120. Implementation checkpoint: `c258a80c8fe6bbac1ff889cafa4254876a69b449`; subsequent evidence commits identify final changes. Contract: [performance plan §5.4](../design/performance-optimization-plan.zh-CN.md#54-时间生效边界同日且无-dml-也可能变化). C3 remains disabled. Full source capture, exact financial fingerprints, publication rechecks and control/rule/handling checks remain authoritative.
+Stacked on C2a/PR119 (`6bbb499bc6c03ee23ba7579736f3749118c4ee94`), including main's CI declaration from PR120. Implementation checkpoints: `c258a80c8fe6bbac1ff889cafa4254876a69b449`, `dde7a3dfa76d20ea22adbdacafeda2ab5680cf10`, and `669ea13`; subsequent evidence commits identify final changes. Contract: [performance plan §5.4](../design/performance-optimization-plan.zh-CN.md#54-时间生效边界同日且无-dml-也可能变化). C3 remains disabled. Full source capture, exact financial fingerprints, publication rechecks and control/rule/handling checks remain authoritative.
 
 ## Publication interval and logical time
 
@@ -61,6 +61,6 @@ Gates include preexisting future exit/entry/clear-rebuy/transfer with unchanged 
 
 Raw logs/provenance/final timings accompany draft delivery. The first broad race run retained an incorrect new assertion that a future quote edit escaped the old-cutoff fingerprint. Application failed that assertion after596.184s; it was corrected to assert actual uncut-quote behavior. Domain/SQLite/backup/MCP passed that invocation. It is not a canonical green race result. Final focused checks are separate evidence.
 
-Opt-in `TestReviewTemporalPerformanceEvidence` compares no-op, no-DML activation, append and correction separately, with the same synthetic source IDs/facts, independent clones and an untimed warm publication in each session. Oracle checks are outside the timed service call. This stage adds validation work and makes no compute-speedup or native 3s/500ms claim. Native/build/bindings limitations and absent new CI runs are reported explicitly.
+New C2 before/after timing distributions are deferred to keep this slice focused on temporal correctness. Existing performance budgets are unchanged. No compute-speedup or native3s/500ms claim is made. Native build/bindings generation are blocked by missing GTK/WebKit dependencies; frontend typecheck/test/build and binding freshness therefore remain unverified. Frontend lint passed. No new CI run is triggered by this task.
 
 Parent review precedes merge/C3. Replacing full reads with journal CAS, no-op confirmation, dirty suffixes, shared facts and analysis scope remain later stages.

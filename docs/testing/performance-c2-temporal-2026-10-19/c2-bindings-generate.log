@@ -1,0 +1,12 @@
+$ node ./scripts/ensure-bindings.mjs
+Generating Wails TypeScript bindings...
+# github.com/wailsapp/wails/v3/internal/operatingsystem
+# [pkg-config --cflags  -- gtk4 webkitgtk-6.0]
+Package gtk4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `gtk4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Failed to generate frontend/bindings. Install Wails v3.0.0-beta.32 and retry from the repository root:
+  wails3 generate bindings -ts -i -d frontend/bindings ./...
+[ELIFECYCLE] Command failed with exit code 1.

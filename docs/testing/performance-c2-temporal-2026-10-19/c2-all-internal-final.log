@@ -1,0 +1,41 @@
+--- FAIL: TestHistoricalOverviewDenseEntrySingleAndComparison (41.65s)
+    --- FAIL: TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence (10.01s)
+        historical_overview_dense_test.go:79: local trend exceeded its computation deadline
+2026/10/19 09:53:27 INFO market data sync started targets=1 estimated_requests=3
+2026/10/19 09:53:27 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 09:53:27 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=3
+2026/10/19 09:53:27 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=0 snapshot_days=4 blockers=3
+2026/10/19 09:53:27 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 09:53:27 INFO market data sync started targets=1 estimated_requests=3
+2026/10/19 09:53:27 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=2 batches=0 snapshot_days=0 blockers=3
+2026/10/19 09:53:27 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=2
+2026/10/19 09:53:27 INFO market data sync started targets=2 estimated_requests=5
+2026/10/19 09:53:27 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=4
+2026/10/19 09:53:28 INFO market data sync started targets=1 estimated_requests=5
+2026/10/19 09:53:28 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 09:53:28 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=1 batches=1 snapshot_days=0 blockers=1
+2026/10/19 09:53:28 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=2
+2026/10/19 09:53:30 INFO market data sync started targets=3 estimated_requests=6
+2026/10/19 09:53:30 INFO market data sync event=completed phase=complete outcome=partial requests=3 batches=3 snapshot_days=4 blockers=1
+2026/10/19 09:53:30 INFO market data sync started targets=2 estimated_requests=4
+2026/10/19 09:53:30 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=2 snapshot_days=4 blockers=1
+2026/10/19 09:53:34 INFO market data sync started targets=1 estimated_requests=2
+2026/10/19 09:53:34 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=1 batches=1 snapshot_days=0 blockers=0
+2026/10/19 09:53:43 INFO market data sync started targets=1 estimated_requests=2
+2026/10/19 09:53:43 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=1 snapshot_days=4 blockers=1
+2026/10/19 09:54:19 INFO market data sync started targets=1 estimated_requests=3
+2026/10/19 09:54:19 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=0 snapshot_days=0 blockers=3
+2026/10/19 09:54:22 INFO market data sync started targets=1 estimated_requests=2
+2026/10/19 09:54:22 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=1 snapshot_days=4 blockers=1
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	206.127s
+ok  	github.com/waltwang/nestworth-go/internal/architecture	0.013s
+ok  	github.com/waltwang/nestworth-go/internal/diagnostics	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/domain	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/format	(cached)
+?   	github.com/waltwang/nestworth-go/internal/infrastructure	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/appports	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup	32.496s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/marketdata	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	39.133s

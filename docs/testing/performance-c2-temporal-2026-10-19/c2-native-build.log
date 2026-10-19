@@ -1,0 +1,24 @@
+# github.com/wailsapp/wails/v3/internal/operatingsystem
+# [pkg-config --cflags  -- gtk4 webkitgtk-6.0]
+Package gtk4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `gtk4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+# github.com/wailsapp/wails/v3/internal/assetserver/webview
+# [pkg-config --cflags  -- glib-2.0 glib-2.0 gobject-2.0 gtk4 webkitgtk-6.0 gio-unix-2.0 gtk4 webkitgtk-6.0 gtk4 webkitgtk-6.0 libsoup-3.0 gio-unix-2.0]
+Package glib-2.0 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `glib-2.0.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'gobject-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'libsoup-3.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
