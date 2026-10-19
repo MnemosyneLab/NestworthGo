@@ -186,12 +186,21 @@ func TestPartialDeleteRestartResumesIdempotently(t *testing.T) {
 	}
 }
 func TestStalePreviewAndUnknownObjectsAbortBeforeDeletion(t *testing.T) {
+	// n=3 keeps one expired stream beside the two verified survivors. One
+	// replica build is reused; each mode undoes its own persistent mutation
+	// so a later rejection still sees that eligible stream.
+	m, c, root, streams := sealedFixture(t, 3)
+	b := &cleanupFault{fileBackend: fileBackend{root}}
+	m.factory = func(config) backend { return b }
+	activateCleanup(t, m)
+	records, err := m.store.streams(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalSeal := records[streams[0]].SealedAt
+	unknown := filepath.Join(root, filepath.FromSlash(streams[0]), "unexpected.txt")
 	for _, mode := range []string{"expired", "unknown", "changed", "config", "pin", "disabled", "unacknowledged"} {
 		t.Run(mode, func(t *testing.T) {
-			m, c, root, streams := sealedFixture(t, 3)
-			b := &cleanupFault{fileBackend: fileBackend{root}}
-			m.factory = func(config) backend { return b }
-			activateCleanup(t, m)
 			p, err := m.PreviewRetention(context.Background(), 30)
 			if err != nil {
 				t.Fatal(err)
@@ -201,12 +210,16 @@ func TestStalePreviewAndUnknownObjectsAbortBeforeDeletion(t *testing.T) {
 			case "expired":
 				m.retentionPreview.View.ScannedAt = time.Now().Add(-time.Hour).Format(time.RFC3339Nano)
 			case "unknown":
-				os.WriteFile(filepath.Join(root, filepath.FromSlash(streams[0]), "unexpected.txt"), []byte("test"), 0600)
+				if err = os.WriteFile(unknown, []byte("test"), 0600); err != nil {
+					t.Fatal(err)
+				}
 			case "changed":
 				records, _ := m.store.streams(c)
 				r := records[streams[0]]
 				r.SealedAt = time.Now().Format(time.RFC3339Nano)
-				m.store.writeStream(c, r)
+				if err = m.store.writeStream(c, r); err != nil {
+					t.Fatal(err)
+				}
 			case "config":
 				u := testUpdate(false)
 				u.Bucket = "other-target"
@@ -227,6 +240,27 @@ func TestStalePreviewAndUnknownObjectsAbortBeforeDeletion(t *testing.T) {
 			}
 			if len(b.deleted) != 0 {
 				t.Fatal("objects deleted before revalidation")
+			}
+			switch mode {
+			case "unknown":
+				if err = os.Remove(unknown); err != nil {
+					t.Fatal(err)
+				}
+			case "changed":
+				records, _ = m.store.streams(c)
+				r := records[streams[0]]
+				r.SealedAt = originalSeal
+				if err = m.store.writeStream(c, r); err != nil {
+					t.Fatal(err)
+				}
+			case "config":
+				if err = m.Configure(context.Background(), testUpdate(false)); err != nil {
+					t.Fatal(err)
+				}
+			case "pin":
+				delete(m.previewPins, streams[0])
+			case "disabled":
+				activateCleanup(t, m)
 			}
 		})
 	}
