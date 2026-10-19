@@ -1,6 +1,9 @@
 # C3 certified no-change and publication candidate (2026-10-19)
 
-This completes the default-off C3 implementation paths for stage two review.
+This records the intermediate default-off C3 implementation and frozen evidence.
+The [current follow-up](performance-c3-followup-2026-10-19.md) adds trigger
+integrity fixes, reduced repeated verification and restricted history-free
+legacy/restart bootstrap; it supersedes the older bootstrap limitation below.
 **Stage-two rollout acceptance is still blocked.** Production initialization
 keeps C2. `WithCertifiedReviewCandidate()` is an internal synthetic experiment;
 `WithFullReviewRecompute()` disables it. No UI/MCP setting enables it. There is
@@ -37,7 +40,7 @@ seal of control, current and historical rule configuration, targets,
 suppressions, daily inputs/results, epochs, evaluation state, episodes and
 events. A freshly computed checksum never blesses unknown history.
 
-Existing/restarted/restored/corrupted projections therefore **cannot bootstrap
+On the frozen `e112f58` implementation, existing/restarted/restored/corrupted projections **cannot bootstrap
 no-op or bounded authority**. They retain full financial capture, full
 preparation and conservative publication, including the original full source
 recheck whenever tracking/proof is unavailable. A new coherent full capture
@@ -273,9 +276,9 @@ and all raw samples remain available; no n=3 p95 or per-arm RSS claim is made.
 Default enablement remains off. The gate status is:
 
 1. Independent review of C1 coverage, temporal closure, authenticated provenance
-   and provider/connection/atomic publication proof, including this session-only
-   trust limitation. Existing/restarted ledgers need a separately reviewed,
-   non-laundering provenance/bootstrap design before shortcuts apply to them.
+   and provider/connection/atomic publication proof, including the follow-up's
+   restricted complete-replacement bootstrap. Existing/restarted ledgers with
+   frozen lifecycle history still fall back; a checksum cannot authenticate it.
 2. Ordinary internal backend tests/vet/build passed, but the final related race
    hit its application package's global 20m budget. Race acceptance remains
    incomplete; this check is not marked passed.
