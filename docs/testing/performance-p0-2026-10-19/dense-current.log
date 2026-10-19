@@ -1,0 +1,12 @@
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison/single-day
+    historical_overview_dense_test.go:61: dense single-day read=5.006939416s, rows=1100
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison/comparison
+    historical_overview_dense_test.go:61: dense comparison read=5.731205326s, rows=1100
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence
+--- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison (29.97s)
+    --- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison/single-day (5.01s)
+    --- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison/comparison (5.73s)
+    --- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence (5.35s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	29.980s

@@ -1,0 +1,8 @@
+npm warn Unknown project config "minimum-release-age". This will stop working in the next major version of npm.
+npm warn Unknown project config "minimum-release-age-exclude". This will stop working in the next major version of npm.
+$ node ./scripts/ensure-bindings.mjs
+Generating Wails TypeScript bindings...
+go: github.com/wailsapp/wails/v3@v3.0.0-beta.28: verifying module: github.com/wailsapp/wails/v3@v3.0.0-beta.28: open /home/agent/go/pkg/sumdb/sum.golang.org/latest: no such file or directory
+Failed to generate frontend/bindings. Install Wails v3.0.0-beta.28 and retry from the repository root:
+  wails3 generate bindings -ts -i -d frontend/bindings ./...
+[ELIFECYCLE] Command failed with exit code 1.

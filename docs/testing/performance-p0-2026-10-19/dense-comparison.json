@@ -1,0 +1,30 @@
+[
+  {
+    "name": "dense-current",
+    "command": [
+      "go",
+      "test",
+      "./internal/application",
+      "-run",
+      "^TestHistoricalOverviewDenseEntrySingleAndComparison$",
+      "-count=1",
+      "-v"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 43.386
+  },
+  {
+    "name": "dense-main",
+    "command": [
+      "go",
+      "test",
+      "./internal/application",
+      "-run",
+      "^TestHistoricalOverviewDenseEntrySingleAndComparison$",
+      "-count=1",
+      "-v"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 44.708
+  }
+]
