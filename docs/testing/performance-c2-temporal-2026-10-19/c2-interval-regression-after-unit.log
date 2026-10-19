@@ -1,0 +1,87 @@
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/later-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/expired-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-tracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/quantity-untracked
+--- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection (0.96s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-untracked (0.25s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/later-untracked (0.18s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/expired-untracked (0.19s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-tracked (0.20s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/quantity-untracked (0.13s)
+=== RUN   TestReviewTemporalRequiresFinalClockAwarePublicationPort
+--- PASS: TestReviewTemporalRequiresFinalClockAwarePublicationPort (0.11s)
+=== RUN   TestReviewTemporalCrashPublicationChild
+    review_temporal_recovery_test.go:50: subprocess crash helper
+--- SKIP: TestReviewTemporalCrashPublicationChild (0.00s)
+=== RUN   TestReviewTemporalCrashBeforeCommitRollsBackCompletePublication
+--- PASS: TestReviewTemporalCrashBeforeCommitRollsBackCompletePublication (0.32s)
+=== RUN   TestReviewTemporalMetadataFailureIsAtomicAndUnknownPolicyUsesOracle
+--- PASS: TestReviewTemporalMetadataFailureIsAtomicAndUnknownPolicyUsesOracle (0.19s)
+=== RUN   TestReviewTemporalFutureSourceEditsRetainFullOracleFallback
+=== RUN   TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/unknown-source
+=== RUN   TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/untracked-future
+--- PASS: TestReviewTemporalFutureSourceEditsRetainFullOracleFallback (0.24s)
+    --- PASS: TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/unknown-source (0.12s)
+    --- PASS: TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/untracked-future (0.12s)
+=== RUN   TestReviewTemporalLogicalAsOfDoesNotExtendValidityPastCommit
+--- PASS: TestReviewTemporalLogicalAsOfDoesNotExtendValidityPastCommit (0.14s)
+=== RUN   TestReviewTemporalPreviewObservationInvalidatesRollbackAbovePublication
+--- PASS: TestReviewTemporalPreviewObservationInvalidatesRollbackAbovePublication (0.15s)
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00Z
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00.123456789Z
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T15:30:00+02:30
+--- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision (0.36s)
+    --- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00Z (0.11s)
+    --- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00.123456789Z (0.13s)
+    --- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T15:30:00+02:30 (0.12s)
+=== RUN   TestReviewTemporalMixedPrecisionRetainsEconomicReplayOrder
+--- PASS: TestReviewTemporalMixedPrecisionRetainsEconomicReplayOrder (0.16s)
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/exit
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/entry
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/clear-rebuy
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/transfer
+--- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle (1.32s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/exit (0.34s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/entry (0.36s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/clear-rebuy (0.35s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/transfer (0.26s)
+=== RUN   TestReviewTemporalFinalClockRejectsActivationDuringFullRecheck
+--- PASS: TestReviewTemporalFinalClockRejectsActivationDuringFullRecheck (0.17s)
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/instrument-quote
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/fx-quote
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/origin
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/holding
+--- PASS: TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers (0.52s)
+    --- PASS: TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/instrument-quote (0.13s)
+    --- PASS: TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/fx-quote (0.15s)
+    --- PASS: TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/origin (0.12s)
+    --- PASS: TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/holding (0.13s)
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/account-state-ownership
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/instrument-state
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/holding-state
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/instrument-preference
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/fx-preference
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/provider-binding
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/quote-provider-times
+=== RUN   TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/coverage-expiry
+--- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock (1.04s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/account-state-ownership (0.13s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/instrument-state (0.14s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/holding-state (0.13s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/instrument-preference (0.13s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/fx-preference (0.13s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/provider-binding (0.13s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/quote-provider-times (0.13s)
+    --- PASS: TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock/coverage-expiry (0.13s)
+=== RUN   TestReviewTemporalPerRuleAndSuppressionCalendarsAndStaleReads
+--- PASS: TestReviewTemporalPerRuleAndSuppressionCalendarsAndStaleReads (0.14s)
+=== RUN   TestReviewTemporalRollbackRestartFloorAndRestoreForceFullOracle
+--- PASS: TestReviewTemporalRollbackRestartFloorAndRestoreForceFullOracle (0.27s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	6.114s

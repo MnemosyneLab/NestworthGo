@@ -101,8 +101,8 @@ func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publi
 		}
 	}
 	// C2 also repeats the uncut future-source fence inside this write
-	// reservation. An old-cutoff fingerprint cannot detect a newly inserted
-	// future activation, including the damaged-trigger negative control.
+	// reservation. The conservative all-activity fence can change without a
+	// fingerprint change when an excluded future fact has untracked DML.
 	frontier, err := buildReviewTemporal(ctx, tx, capture, capture.Temporal.ClockEpoch)
 	if err != nil {
 		return err
@@ -111,6 +111,14 @@ func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publi
 	epoch, rollback := r.database.reviewClock.observe(now)
 	if rollback || capture.Temporal == nil || capture.Temporal.ClockEpoch != epoch || !capture.Temporal.Covers(now) || !frontier.Covers(now) {
 		return reviewRuleConflict("review temporal boundary or clock changed during calculation")
+	}
+	// Persist the intersection of both proofs. Keeping only the captured end
+	// could overrun a newly discovered boundary; keeping only the refreshed
+	// end could extend the staged calculation past its original proof. Copy
+	// the certificate so publication never mutates the caller's capture.
+	publishedTemporal := *capture.Temporal
+	if frontier.NextTransitionAt.Before(publishedTemporal.NextTransitionAt) {
+		publishedTemporal.NextTransitionAt = frontier.NextTransitionAt
 	}
 	if err := validateReviewPublicationTime(capture, publication.Rules, now); err != nil {
 		return err
@@ -156,7 +164,7 @@ func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publi
 	if _, err := tx.ExecContext(ctx, `UPDATE investment_review_control SET input_generation=?,projection_status=?,published_on=?,published_input_fingerprint=? WHERE household_id=? AND (input_generation<>? OR projection_status<>? OR published_on IS NOT ? OR published_input_fingerprint IS NOT ?)`, generation, status, nullableEmpty(publishedOn), actualFingerprint, capture.HouseholdID.String(), generation, status, nullableEmpty(publishedOn), actualFingerprint); err != nil {
 		return err
 	}
-	if err := persistReviewTemporal(ctx, tx, capture.HouseholdID, *capture.Temporal, now); err != nil {
+	if err := persistReviewTemporal(ctx, tx, capture.HouseholdID, publishedTemporal, now); err != nil {
 		return err
 	}
 	return tx.Commit()

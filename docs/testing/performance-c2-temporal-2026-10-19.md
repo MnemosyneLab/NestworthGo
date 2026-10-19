@@ -1,6 +1,6 @@
 # C2b temporal validation and publication fence
 
-Stacked on C2a/PR119 (`6bbb499bc6c03ee23ba7579736f3749118c4ee94`), including main's CI declaration from PR120. Implementation checkpoints: `c258a80c8fe6bbac1ff889cafa4254876a69b449`, `dde7a3dfa76d20ea22adbdacafeda2ab5680cf10`, and `669ea13`; subsequent evidence commits identify final changes. Contract: [performance plan §5.4](../design/performance-optimization-plan.zh-CN.md#54-时间生效边界同日且无-dml-也可能变化). C3 remains disabled. Full source capture, exact financial fingerprints, publication rechecks and control/rule/handling checks remain authoritative.
+Originally stacked on C2a/PR119 (`6bbb499bc6c03ee23ba7579736f3749118c4ee94`), now based on its main squash merge `c3867c626d3b6a0cdbcf669a0047ff8d07d4215f`, including main's CI declaration from PR120. Original implementation checkpoints: `c258a80c8fe6bbac1ff889cafa4254876a69b449`, `dde7a3dfa76d20ea22adbdacafeda2ab5680cf10`, and `669ea13`; subsequent evidence commits identify final changes. Contract: [performance plan §5.4](../design/performance-optimization-plan.zh-CN.md#54-时间生效边界同日且无-dml-也可能变化). C3 remains disabled. Full source capture, exact financial fingerprints, publication rechecks and control/rule/handling checks remain authoritative.
 
 ## Publication interval and logical time
 
@@ -8,7 +8,7 @@ A preexisting quantity event can activate at T without another financial write. 
 
 Capture builds a finite `ReviewTemporalCertificate` in the same transaction as all financial/review inputs: UTC `[EvaluatedAt, NextTransitionAt)` at nanosecond precision, temporal policy/scope, source checkpoint, config/state/rule revisions, and DB session/clock generation. `Eligible` is diagnostic; production C2 never uses it to skip work.
 
-Publication retains the existing immediate write reservation, full old-cutoff recapture/fingerprint, source checkpoint and review revision checks. It also repeats the uncut future-source fence there. The injected clock is sampled **after** those checks and before projection writes. Both captured/current intervals must cover that instant, clock generation must match, and existing per-rule closed-day checks must pass. A conflict discards the entire stage and uses the existing three-attempt recapture limit.
+Publication retains the existing immediate write reservation, full old-cutoff recapture/fingerprint, source checkpoint and review revision checks. It also repeats the uncut future-source fence there. The injected clock is sampled **after** those checks and before projection writes. Both captured/current intervals must cover that instant, clock generation must match, and existing per-rule closed-day checks must pass. Publication saves their intersection: its end is the earlier captured/rechecked boundary, never an extension of either proof. The caller's captured certificate remains unchanged. A conflict discards the entire stage and uses the existing three-attempt recapture limit.
 
 The clock-aware publication port is required by the shared service. An adapter lacking that capability is unavailable; it cannot fall back to a time sampled before the recheck. The explicit-time repository method remains for deterministic direct callers/tests.
 
@@ -64,3 +64,11 @@ Raw logs/provenance/final timings accompany draft delivery. The first broad race
 New C2 before/after timing distributions are deferred to keep this slice focused on temporal correctness. Existing performance budgets are unchanged. No compute-speedup or native3s/500ms claim is made. Native build/bindings generation are blocked by missing GTK/WebKit dependencies; frontend typecheck/test/build and binding freshness therefore remain unverified. Frontend lint passed. No new CI run is triggered by this task.
 
 Parent review precedes merge/C3. Replacing full reads with journal CAS, no-op confirmation, dirty suffixes, shared facts and analysis scope remain later stages.
+
+## Review correction: persist the rechecked interval
+
+At reviewed head `62ad9fb21a1ec7a46a39cd2f017910302973f080`, publication checked a rebuilt frontier but saved the original captured end. The focused regression reproduces an untracked future cash activity moving from T2 to T1, with only `financial_source_activities_update` deliberately dropped. Both old-cutoff review fingerprint and source token remain equal because cash activities are outside the review quantity/cost closure. Publishing before T1 saved T2 and the read at T1 incorrectly returned `complete`. This proves a conservative certificate-bound defect; it does not prove changed review financial output from a cash activation.
+
+The suggested quantity-only move is also tested with no holding-cost effect. It changes the retained uncut cost-event fingerprint and rejects publication even with the activity update trigger dropped. Intact tracking rejects the cash edit through its changed source token. The fix keeps both checks and persists `min(captured end, rechecked end)`. Five synthetic cases cover earlier/later untracked boundaries, exact-boundary rejection before writes, tracked-edit rejection, and the quantity fingerprint fallback. Successful cases assert `complete` at T1−1ns, `stale` at T1, the saved boundary, unchanged caller capture, and independent full-recompute oracles before/after the edit.
+
+The [before log](performance-c2-temporal-2026-10-19/c2-interval-regression-before.log) retains the expected failure on the reviewed implementation (only the new test was added). The [after unit log](performance-c2-temporal-2026-10-19/c2-interval-regression-after-unit.log) covers every application temporal regression. These are correctness runs, not performance samples. No CI configuration, schema, budget or financial calculation changes accompany this correction.
