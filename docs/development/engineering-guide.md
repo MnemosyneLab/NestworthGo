@@ -130,6 +130,9 @@ reconciliation (17), reconciliation evidence/revisions (18), investment review
 retains a verified read-only recovery copy. Schema20 keeps the full financial
 fingerprint/recheck algorithm authoritative; see the
 [source coverage, recovery and rollback contract](../testing/performance-c1-source-coverage-2026-10-19.md).
+C2 shadow capture/publication also compares typed source checkpoints alongside the
+full fingerprint; see the [C2 validation boundary](../testing/performance-c2-2026-10-19.md).
+This does not enable a source-token fast path or remove full source rechecks.
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)

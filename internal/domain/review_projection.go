@@ -10,6 +10,7 @@ type ReviewProjectionCapture struct {
 	SourceCutoff          time.Time
 	Historical            ReviewHistoricalBatch
 	HistoricalFingerprint string
+	SourceRevision        *ReviewSourceCheckpoint
 	Control               ReviewProjectionControl
 	Rules                 []ReviewRule
 	Suppressions          []ReviewSuppression
