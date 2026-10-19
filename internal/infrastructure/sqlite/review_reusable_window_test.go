@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -19,8 +20,13 @@ import (
 )
 
 var reviewWindowKeyVisits atomic.Int64
+var reviewWindowEpochVisits atomic.Int64
 
 func init() {
+	modernsqlite.MustRegisterScalarFunction("nw_review_test_epoch_visit", 1, func(_ *modernsqlite.FunctionContext, _ []driver.Value) (driver.Value, error) {
+		reviewWindowEpochVisits.Add(1)
+		return int64(1), nil
+	})
 	modernsqlite.MustRegisterScalarFunction("nw_review_test_key_visit", 1, func(_ *modernsqlite.FunctionContext, _ []driver.Value) (driver.Value, error) {
 		reviewWindowKeyVisits.Add(1)
 		return int64(1), nil
@@ -28,6 +34,15 @@ func init() {
 }
 
 func TestReviewReusableWindowEquivalent(t *testing.T) {
+	epochs := 128
+	if value := os.Getenv("NW_REVIEW_PERF_EPOCHS"); value != "" {
+		var err error
+		epochs, err = strconv.Atoi(value)
+		if err != nil || epochs < 3 {
+			t.Fatal("invalid NW_REVIEW_PERF_EPOCHS")
+		}
+	}
+	t.Logf("epoch fixture: %d stored states per instrument (production primary key, no extra index)", epochs)
 	for _, days := range []int{30, 365, 1095} {
 		t.Run(fmt.Sprintf("days-%d", days), func(t *testing.T) {
 			db, err := sql.Open("sqlite", ":memory:")
@@ -91,6 +106,11 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 				var latest string
 				if err := tx.QueryRow(`SELECT MAX(on_date) FROM investment_review_daily_inputs WHERE instrument_id=?`, id.String()).Scan(&latest); err != nil {
 					t.Fatal(err)
+				}
+				for epoch := 3; epoch < epochs; epoch++ {
+					if _, err := tx.Exec(`INSERT INTO investment_review_evaluation_state VALUES(?,?,?,?,?)`, string(rule.ID), id.String(), fmt.Sprintf("closed-epoch-%d", epoch), latest, 0); err != nil {
+						t.Fatal(err)
+					}
 				}
 				for _, state := range []struct {
 					on    string
@@ -161,6 +181,16 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 			measureReviewWindowKeyVisits(t, db, capture)
 			boundedSQL, boundedArgs := reviewWindowChunkQuery(capture, capture.Rules[0], reviewWindowInstruments(capture, capture.Rules[0]))
 			logReviewWindowExplain(t, db, "bounded-chunk", boundedSQL, boundedArgs)
+			probe := strings.ReplaceAll(boundedSQL, "s.rule_id=?", "nw_review_test_epoch_visit(s.position_epoch_id) AND s.rule_id=?")
+			reviewWindowEpochVisits.Store(0)
+			rows, err = db.Query(probe, boundedArgs...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := scanReusableReviewWindow(rows, capture.Rules[0], tz, map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("bounded epoch predicate visits=%d storedStates=%d returnedDays=%d", reviewWindowEpochVisits.Load(), 2*epochs, 14)
 			logReviewWindowExplain(t, db, "baseline-ranking", reviewWindowBaselineSQL, []any{household.String(), "rule:" + string(rule.ID) + "/v:4", tz, string(rule.ID), household.String(), "rule:" + string(rule.ID) + "/v:4", tz, string(rule.ID), 4, tz, 7})
 
 			if os.Getenv("NW_REVIEW_PERF_EVIDENCE") == "1" {

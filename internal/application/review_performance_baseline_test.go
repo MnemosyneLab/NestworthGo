@@ -262,10 +262,22 @@ func TestReviewPairedPerformanceEvidence(t *testing.T) {
 		}
 		samples = parsed
 	}
-	runReviewPerfPairs(t, reviewPerfEnvironmentConfig(t), samples)
+	cycles := 0
+	if value := os.Getenv("NW_REVIEW_PERF_EPOCH_CYCLES"); value != "" {
+		var err error
+		cycles, err = strconv.Atoi(value)
+		if err != nil || cycles < 0 {
+			t.Fatal("invalid NW_REVIEW_PERF_EPOCH_CYCLES")
+		}
+	}
+	runReviewPerfEpochPairs(t, reviewPerfEnvironmentConfig(t), samples, cycles)
 }
 
 func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
+	runReviewPerfEpochPairs(t, config, samples, 0)
+}
+
+func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cycles int) {
 	t.Helper()
 	source := newReviewPerfFixture(t, config)
 	logReviewPerfManifest(t, source, config)
@@ -283,6 +295,9 @@ func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
 		}
 	} else if err != sql.ErrNoRows {
 		t.Fatal(err)
+	}
+	if cycles > 0 {
+		seedReviewPerfEpochCycles(t, source, cycles)
 	}
 	if _, err := source.service.SetReviewSuppressionV2(t.Context(), SetReviewSuppressionV2Input{SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()), InstrumentID: source.instruments[0].ID.String(), Mode: "permanent"}); err != nil {
 		t.Fatal(err)
