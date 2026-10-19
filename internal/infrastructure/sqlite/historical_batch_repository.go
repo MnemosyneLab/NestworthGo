@@ -34,12 +34,12 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	return batch, nil
 }
 
-// Bound the historical child queries (the resulting-endpoint union repeats
-// every ID four times). Reuse the caller's queryer and original slice order;
+// Bound the historical child queries to 900 variables. The resulting-endpoint
+// query shares its requested ID set across all four arms. Keep slice order;
 // the caller is responsible for supplying a consistent read transaction.
 // economic replay must still run once over all hydrated activities afterwards.
 func hydrateHistoricalActivities(ctx context.Context, query queryer, activities []domain.Activity) error {
-	const batchSize = 256
+	const batchSize = 900
 	for start := 0; start < len(activities); start += batchSize {
 		if err := ctx.Err(); err != nil {
 			return err

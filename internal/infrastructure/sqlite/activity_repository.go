@@ -601,29 +601,27 @@ func attachActivityResulting(ctx context.Context, query queryer, activities []do
 		return nil
 	}
 	clause, args := sqlInArgs(activityIDs(activities))
-	unionArgs := make([]any, 0, len(args)*4)
-	unionArgs = append(unionArgs, args...)
-	unionArgs = append(unionArgs, args...)
-	unionArgs = append(unionArgs, args...)
-	unionArgs = append(unionArgs, args...)
-	rows, err := query.QueryContext(ctx, `SELECT e.activity_id, e.target, e.account_id, e.holding_id, av.amount, av.currency, '', ''
+	// Bind each ID once, shared by all four endpoint arms. Historical callers
+	// can then hydrate 900 IDs without exceeding the traditional 999 variables.
+	requested := `WITH requested_activity(id) AS (VALUES (` + strings.ReplaceAll(clause, ",", "),(") + `)) `
+	rows, err := query.QueryContext(ctx, requested+`SELECT e.activity_id, e.target, e.account_id, e.holding_id, av.amount, av.currency, '', ''
 FROM activity_effects e
 JOIN account_values av ON av.activity_effect_id = e.id AND av.projection_kind = 'event'
-WHERE e.activity_id IN (`+clause+`)
+WHERE e.activity_id IN (SELECT id FROM requested_activity)
 UNION ALL
 SELECT e.activity_id, e.target, e.account_id, e.holding_id, ac.amount, ac.currency, '', ''
 FROM activity_effects e
 JOIN account_cash_values ac ON ac.activity_effect_id = e.id AND ac.projection_kind = 'event'
-WHERE e.activity_id IN (`+clause+`)
+WHERE e.activity_id IN (SELECT id FROM requested_activity)
 UNION ALL
 SELECT e.activity_id, e.target, e.account_id, e.holding_id, '', '', hq.quantity, ''
 FROM activity_effects e
 JOIN holding_quantity_values hq ON hq.activity_effect_id = e.id AND hq.projection_kind = 'event'
-WHERE e.activity_id IN (`+clause+`)
+WHERE e.activity_id IN (SELECT id FROM requested_activity)
 UNION ALL
 SELECT e.activity_id, e.target, e.account_id, e.holding_id, '', '', '', e.cost_unit_price
 FROM activity_effects e
-WHERE e.activity_id IN (`+clause+`) AND e.target = 'holding_cost'`, unionArgs...)
+WHERE e.activity_id IN (SELECT id FROM requested_activity) AND e.target = 'holding_cost'`, args...)
 	if err != nil {
 		return err
 	}

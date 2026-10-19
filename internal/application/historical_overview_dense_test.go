@@ -108,7 +108,7 @@ func TestHistoricalOverviewHydrationChunksPreserveEconomicReplay(t *testing.T) {
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	ids := make([]domain.ActivityID, 513)
+	ids := make([]domain.ActivityID, 1801)
 	tx, err := db.SQL.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -120,10 +120,10 @@ func TestHistoricalOverviewHydrationChunksPreserveEconomicReplay(t *testing.T) {
 		fx := domain.NewActivityEffectID()
 		at := now.Add(time.Duration(n) * time.Second).Format(time.RFC3339Nano)
 		kind, classification, amount := "cash_in", "income", 1
-		if n == 256 || n == 513 {
-			target := 1000
-			if n == 513 {
-				target = 1500
+		if n == 900 || n == 1801 {
+			target := 2000
+			if n == 1801 {
+				target = 4000
 			}
 			kind, classification, amount = "value_update", "remeasurement", target-balance
 			balance = target
@@ -155,7 +155,7 @@ func TestHistoricalOverviewHydrationChunksPreserveEconomicReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(batch.Activities) != 513 || batch.Activities[9].ID != fixed.Activity.ID {
+	if len(batch.Activities) != 1801 || batch.Activities[9].ID != fixed.Activity.ID {
 		t.Fatalf("correction was duplicated or lost economic position: count=%d", len(batch.Activities))
 	}
 	seen := map[domain.ActivityID]bool{}
@@ -168,12 +168,12 @@ func TestHistoricalOverviewHydrationChunksPreserveEconomicReplay(t *testing.T) {
 			t.Fatalf("economic order changed at %d", i)
 		}
 	}
-	if batch.Activities[255].Effects[0].Money.CanonicalAmount() != "644" || batch.Activities[255].RecordedEffects[0].Money.CanonicalAmount() != "645" || batch.Activities[512].Effects[0].Money.CanonicalAmount() != "244" {
+	if batch.Activities[899].Effects[0].Money.CanonicalAmount() != "1000" || batch.Activities[899].RecordedEffects[0].Money.CanonicalAmount() != "1001" || batch.Activities[1800].Effects[0].Money.CanonicalAmount() != "1100" {
 		t.Fatal("absolute balances were replayed independently per hydration chunk")
 	}
 	out, err := s.HistoricalOverview(t.Context(), "2026-08-01", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantOverviewAmount(t, out.Left.NetWorth, "1500")
+	wantOverviewAmount(t, out.Left.NetWorth, "4000")
 }
