@@ -138,6 +138,12 @@ The [C2 temporal contract](../testing/performance-c2-temporal-2026-10-19.md)
 adds a final injected-clock fence, session-bound calendar/rollback invalidation,
 and stale status for expired reads. Full financial and future-source rechecks
 remain authoritative; C3 is not enabled.
+An internal [C3a no-change candidate](../testing/performance-c3-no-change-2026-10-19.md)
+is opt-in only for reviewed synthetic experiments. It confirms a complete,
+unchanged source/review/temporal checkpoint under the SQLite write reservation,
+without reading financial/evidence JSON or rewriting daily/lifecycle rows.
+Production initialization keeps C2; forced full recomputation disables the
+candidate. Changed-source publication retains all existing rechecks.
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)

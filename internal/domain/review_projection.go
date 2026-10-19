@@ -70,9 +70,10 @@ type ReviewStoredEpisode struct {
 }
 
 type ReviewPublication struct {
-	Capture ReviewProjectionCapture
-	At      time.Time
-	Rules   []ReviewRulePublication
+	Capture       ReviewProjectionCapture
+	At            time.Time
+	Rules         []ReviewRulePublication
+	FXProviderKey string
 }
 
 type ReviewRulePublication struct {

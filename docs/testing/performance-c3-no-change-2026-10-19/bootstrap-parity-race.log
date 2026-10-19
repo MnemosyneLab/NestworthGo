@@ -1,0 +1,4 @@
+=== RUN   TestReviewNoChangeMCPWailsParity
+--- PASS: TestReviewNoChangeMCPWailsParity (5.87s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/mcpserver	6.887s

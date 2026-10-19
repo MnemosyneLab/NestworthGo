@@ -87,6 +87,9 @@ type DB struct {
 	Path        string
 	Status      BootstrapStatus
 	reviewClock reviewTemporalClock
+	// Any DDL after verified open conservatively disables no-change reuse for
+	// this handle, including drop/recreate of a tracking trigger around DML.
+	reviewVerifiedSchemaVersion int
 }
 
 func Open(path string) (*DB, error) {
@@ -264,7 +267,11 @@ func Open(path string) (*DB, error) {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
 	}
-	return &DB{SQL: database, Path: path, Status: StatusReady}, nil
+	var schemaVersion int
+	if err := database.QueryRow(`PRAGMA schema_version`).Scan(&schemaVersion); err != nil {
+		return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+	}
+	return &DB{SQL: database, Path: path, Status: StatusReady, reviewVerifiedSchemaVersion: schemaVersion}, nil
 }
 
 func (db *DB) Close() error {
