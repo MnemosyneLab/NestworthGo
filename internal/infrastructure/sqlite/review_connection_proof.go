@@ -67,3 +67,23 @@ func (r *Repository) prepareCertifiedCounter(ctx context.Context, tx *sql.Tx, c 
 	c.CertifiedConnection = proof
 	return nil
 }
+
+// Status readers must compare data_version only on the certified physical
+// connection too. Passing a stored identity into a different pooled connection
+// would give unrelated counters the appearance of provenance.
+func (r *Repository) beginReviewStatusRead(ctx context.Context) (*sql.Tx, func(), uint64, error) {
+	if !r.CertifiedReviewEnabled() {
+		tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		return tx, func() {}, 0, err
+	}
+	conn, id, err := r.certifiedConnection(ctx)
+	if err != nil {
+		return nil, func() {}, 0, err
+	}
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		conn.Close()
+		return nil, func() {}, 0, err
+	}
+	return tx, func() { _ = conn.Close() }, id, nil
+}

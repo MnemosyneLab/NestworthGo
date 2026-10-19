@@ -43,16 +43,17 @@ func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domai
 	filterBytes, _ := json.Marshal(filter)
 	filterDigest := sha256.Sum256(filterBytes)
 	filterHash := hex.EncodeToString(filterDigest[:])
-	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, release, connectionID, err := r.beginReviewStatusRead(ctx)
 	if err != nil {
 		return empty, err
 	}
+	defer release()
 	defer tx.Rollback()
 	control, _, err := reviewControlInTx(ctx, tx, householdID)
 	if err != nil {
 		return empty, err
 	}
-	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now); err != nil {
+	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now, connectionID); err != nil {
 		return empty, err
 	}
 	stateBytes, _ := json.Marshal(control)

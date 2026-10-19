@@ -65,6 +65,10 @@ func TestReviewCertifiedConnectionRenewalAndNoopCancellation(t *testing.T) {
 	f, r := certifiedFixture(t)
 	f.db.SQL.SetMaxIdleConns(0)
 	f.db.SQL.SetMaxIdleConns(1)
+	page, err := f.s.ListReviewCoverageV2(t.Context(), domain.ReviewCoverageFilter{}, "", 10)
+	if err != nil || page.ProjectionStatus != "stale" {
+		t.Fatal("connection renewal retained read freshness", page.ProjectionStatus, err)
+	}
 	*f.now = f.now.Add(time.Nanosecond)
 	_, unchanged, err := r.ConfirmCertifiedReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.reviewProviderSnapshot())
 	if err != nil || unchanged {

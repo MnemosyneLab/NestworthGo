@@ -142,7 +142,7 @@ func reviewTemporalDigest(certificate *domain.ReviewTemporalCertificate) string 
 
 // Pure DB read plus the shared clock observation. It never refreshes financial
 // data or rewrites the old publication. A changed status expires page cursors.
-func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery, id domain.HouseholdID, control *domain.ReviewProjectionControl, now time.Time) error {
+func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery, id domain.HouseholdID, control *domain.ReviewProjectionControl, now time.Time, connectionID uint64) error {
 	epoch, rollback := r.database.reviewClock.observe(now)
 	certificate, err := readReviewTemporal(ctx, q, id)
 	if err != nil {
@@ -160,7 +160,7 @@ func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery
 		fresh = current != nil && current.Valid() && current.Token == certificate.Source.Token && certificate.Source.Token.Revision >= current.JournalFloor
 	}
 	if fresh && r.CertifiedReviewEnabled() && certificate.NoChangeCompletenessVersion == domain.ReviewCertifiedCompletenessVersion {
-		observed, err := certifiedConnectionCheckpoint(ctx, q, certificate.CertifiedConnection.Connection)
+		observed, err := certifiedConnectionCheckpoint(ctx, q, connectionID)
 		if err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery
 		if err != nil {
 			return err
 		}
-		fresh = tracking && r.validReviewMAC(certificate) && !certificate.CertifiedNeedsReconcile && observed == certificate.CertifiedConnection && certificate.ConfigRevision == control.ConfigRevision && certificate.StateRevision == control.ReviewStateRevision
+		fresh = connectionID != 0 && tracking && r.validReviewMAC(certificate) && !certificate.CertifiedNeedsReconcile && observed == certificate.CertifiedConnection && certificate.ConfigRevision == control.ConfigRevision && certificate.StateRevision == control.ReviewStateRevision
 	}
 	if !fresh {
 		control.ProjectionStatus = "stale"
