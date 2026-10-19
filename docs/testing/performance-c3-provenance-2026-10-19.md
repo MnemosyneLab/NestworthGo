@@ -94,14 +94,34 @@ and durable-output oracles: same-day C2 32.893ms / candidate 3.192ms;
 clock-only 36.308ms / 56.466ms; append 60.052ms / 51.913ms; correction
 51.252ms / 50.653ms. The distinct history-free restart **fallback** case is
 57.138ms / 48.483ms, explicitly requiring no MAC and continued no-op refusal.
-The current large serial diagnostic is still running at this checkpoint; no
-current large result or p95 is claimed yet.
+The current large serial diagnostic (n=1 individual values) also passes all
+independent pre-publication and durable-output oracles:
+
+| Large scenario / n=1 | C2 | Certified |
+|---|---:|---:|
+| same-day | 6.039s | 28.497ms |
+| clock-only | 6.283s | 10.512s |
+| append | 9.696s | 8.890s |
+| correction | 9.686s | 9.295s |
+| restarted full fallback, no authority | 8.232s | 8.661s |
+
+These are serial Linux diagnostics, not 30-sample p95 or isolated per-arm RSS.
+The unchanged runtime audit still causes clock-only regression, blocking default
+activation. Cumulative `allocatedBytes` is not RSS; whole-process VmHWM includes
+fixture seeding, clones, oracles and both arms. No cross-commit controlled speedup
+claim is made. Fresh initialization seeding changes setup and may affect physical
+layout, so prior iteration timings are not treated as a matched before/after.
+The same small/large manifests and exact paired financial IDs/data remain in
+force; the harness checks source fingerprint equality and all financial/lifecycle
+outputs before publication.
 
 [Before-fix deletion reproduction](artifacts/c3-provenance-2026-10-19/missing-history-before-b785d67.log),
 [focused provenance cases](artifacts/c3-provenance-2026-10-19/provenance-focused.log),
 [certified tests](artifacts/c3-provenance-2026-10-19/certified.log),
 [all internal](artifacts/c3-provenance-2026-10-19/all-internal.log) and
-[small raw measurements](artifacts/c3-provenance-2026-10-19/perf-small.log)
+[small raw measurements](artifacts/c3-provenance-2026-10-19/perf-small.log),
+[large raw measurements](artifacts/c3-provenance-2026-10-19/perf-large.log) and
+[command/result metadata](artifacts/c3-provenance-2026-10-19/validation.json)
 retain exact observations. All fixtures/providers are isolated and synthetic.
 No race was rerun. No macOS/native or 30-sample p95/per-arm RSS pass is claimed.
 
@@ -123,3 +143,15 @@ existing/restarted ledgers can certify, C3's full runtime-oracle overhead and
 changed-path regressions, the earlier incomplete race gate, native Apple Silicon
 acceptance and paired 30-sample p95/isolated per-arm RSS. They remain incomplete;
 no merge, activation, workflow dispatch or release is performed.
+
+The read-only audit of that runtime cost found a separate proof obligation.
+Daily inputs use a fixed civil cutoff (`review_projection_cache.go`), while
+current position/eligibility uses capture time plus one nanosecond
+(`review_projection_plan.go`). Financial fingerprint equality therefore does
+not by itself prove unchanged current position epochs or lifecycle replay
+boundaries. A faster path using the existing C2 calculator would need explicit
+authenticated target/position/policy continuity and independent future-time,
+handling and output-mutation oracles. That path has not been enabled; the
+current candidate retains its complete runtime audit. This is an implementation
+proof/performance issue, not a claim that D/E or native dependencies are required
+to investigate it.
