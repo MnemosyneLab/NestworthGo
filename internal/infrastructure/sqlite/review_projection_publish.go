@@ -113,6 +113,9 @@ func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publi
 	if r.ReviewCompletenessLineageShadowEnabled() {
 		lineageVerdict = domain.ValidateReviewCompletenessPrefix(publication)
 		if lineageVerdict == "prefix_validated" {
+			lineageVerdict = domain.ValidateReviewWindowOracle(publication)
+		}
+		if lineageVerdict == "window_oracle_matched" {
 			current := capture
 			current.Control, current.SourceRevision, current.HistoricalFingerprint = control, checkpoint, actualFingerprint
 			current.PublishedTemporal, err = readReviewTemporal(ctx, tx, capture.HouseholdID)

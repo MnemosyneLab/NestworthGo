@@ -75,6 +75,7 @@ type ReviewPublication struct {
 	At            time.Time
 	Rules         []ReviewRulePublication
 	FXProviderKey string
+	WindowOracle  *ReviewWindowOracle
 }
 
 type ReviewRulePublication struct {

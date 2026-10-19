@@ -13,6 +13,31 @@ import (
 // will reject this entire staged result if any authoritative fact, rule,
 // acknowledgement or ignore changed before publication.
 func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
+	full, err := prepareReviewPublication(ctx, capture, now, providerKey)
+	if err != nil || capture.CompletenessLineage == nil || domain.ValidateReviewCompletenessPrefix(full) != "prefix_validated" {
+		return full, err
+	}
+	// Only the opt-in shadow has lineage. Always keep full as the actual
+	// publication, and use a separate cache/planner for the hypothetical path.
+	boundedCapture := capture
+	boundedCapture.CompletenessLineage = nil
+	boundedCapture.TemporalFullRecompute = false
+	boundedCapture.ReusableDailyEvidence = capture.CompletenessLineage.Window
+	bounded, err := prepareReviewPublication(ctx, boundedCapture, now, providerKey)
+	if ctx.Err() != nil {
+		return domain.ReviewPublication{}, ctx.Err()
+	}
+	full.WindowOracle = &domain.ReviewWindowOracle{Version: domain.ReviewWindowOracleVersion, Failed: err != nil, Rules: bounded.Rules}
+	// Compute the comparison now, then recompute it in the publisher before
+	// any successful diagnostic verdict. It never selects publication rows.
+	full.WindowOracle.PreparedVerdict = domain.ValidateReviewWindowOracle(full)
+	if err := ctx.Err(); err != nil {
+		return domain.ReviewPublication{}, err
+	}
+	return full, nil
+}
+
+func prepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
 	result := domain.ReviewPublication{Capture: capture, At: now, Rules: []domain.ReviewRulePublication{}, FXProviderKey: providerKey}
 	cache := newReviewProjectionCache(capture, providerKey)
 	for _, rule := range capture.Rules {
