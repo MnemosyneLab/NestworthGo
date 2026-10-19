@@ -1,0 +1,20 @@
+=== RUN   TestAnalysisPerformanceBudgets
+=== RUN   TestAnalysisPerformanceBudgets/warm-memo
+=== RUN   TestAnalysisPerformanceBudgets/cold-month
+=== RUN   TestAnalysisPerformanceBudgets/cold-3y
+--- PASS: TestAnalysisPerformanceBudgets (5.45s)
+    --- PASS: TestAnalysisPerformanceBudgets/warm-memo (0.02s)
+    --- PASS: TestAnalysisPerformanceBudgets/cold-month (0.06s)
+    --- PASS: TestAnalysisPerformanceBudgets/cold-3y (5.36s)
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison/single-day
+    historical_overview_dense_test.go:61: dense single-day read=5.573375406s, rows=1100
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison/comparison
+    historical_overview_dense_test.go:61: dense comparison read=6.13071703s, rows=1100
+=== RUN   TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence
+--- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison (38.05s)
+    --- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison/single-day (5.57s)
+    --- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison/comparison (6.13s)
+    --- PASS: TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence (5.62s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	43.526s

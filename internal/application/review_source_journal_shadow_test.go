@@ -230,3 +230,53 @@ func TestSourceJournalPairedFullOracle(t *testing.T) {
 		})
 	}
 }
+
+func TestSourceJournalStaleFloorStillUsesFullFingerprintOracle(t *testing.T) {
+	source := newReviewPerfFixture(t, reviewPerfConfig{Accounts: 1, Instruments: 2, Holdings: 2, Rules: 2, HistoryDays: 30, Quotes: 60})
+	if _, err := source.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewRepository(source.db)
+	before, err := repo.CaptureReviewProjection(t.Context(), source.householdID, *source.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var staleRevision int64
+	if err = source.db.SQL.QueryRow(`SELECT revision FROM financial_source_revision`).Scan(&staleRevision); err != nil {
+		t.Fatal(err)
+	}
+	if err = correctReviewPerfHistoricalQuote(t.Context(), source, 0); err != nil {
+		t.Fatal(err)
+	}
+	var revision int64
+	if err = source.db.SQL.QueryRow(`SELECT revision FROM financial_source_revision`).Scan(&revision); err != nil {
+		t.Fatal(err)
+	}
+	// C1 has no token consumer. This models one lagging below the retained floor
+	// and verifies that an empty journal never bypasses current authoritative reads.
+	if err = source.db.PruneFinancialSourceChanges(t.Context(), source.householdID.String(), revision); err != nil {
+		t.Fatal(err)
+	}
+	var floor, count int64
+	if err = source.db.SQL.QueryRow(`SELECT journal_floor,(SELECT count(*) FROM financial_source_changes) FROM financial_source_revision`).Scan(&floor, &count); err != nil || staleRevision >= floor || count != 0 {
+		t.Fatalf("stale consumer fixture: revision=%d floor=%d rows=%d err=%v", staleRevision, floor, count, err)
+	}
+	after, err := repo.CaptureReviewProjection(t.Context(), source.householdID, *source.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.HistoricalFingerprint == after.HistoricalFingerprint {
+		t.Fatal("empty retained journal hid corrected source")
+	}
+	publication, err := PrepareReviewPublication(t.Context(), after, *source.now, source.service.FXProviderKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertReviewFullOracle(t, source, publication)
+	if _, err = source.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err = source.db.Verify(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,0 +1,5 @@
+=== RUN   TestSourceTrackingProviderRefreshEvidence
+    review_source_refresh_evidence_test.go:97: batch=service-refresh-100-repeat-0 sample=single elapsed_ns=59274938 targets=100-instrument+1-FX providerCallsCumulative=101 totalChangedRows=303 revisionDelta=101 floor=0 retainedRows=509 quotes=100 WALBeforeCheckpoint=2912872 DBBefore=1613824 DBAfter=1736704 DBGrowth=122880 items=101 status=fetched
+    review_source_refresh_evidence_test.go:97: batch=service-refresh-100-repeat-1 sample=single elapsed_ns=76105704 targets=100-instrument+1-FX providerCallsCumulative=202 totalChangedRows=101 revisionDelta=0 floor=0 retainedRows=509 quotes=100 WALBeforeCheckpoint=0 DBBefore=1736704 DBAfter=1736704 DBGrowth=0 items=101 status=cached
+--- PASS: TestSourceTrackingProviderRefreshEvidence (0.85s)
+PASS

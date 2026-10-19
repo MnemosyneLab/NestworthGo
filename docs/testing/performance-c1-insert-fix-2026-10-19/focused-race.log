@@ -1,0 +1,277 @@
+=== RUN   TestFinancialSourceWriteAmplificationEvidence
+    financial_source_benchmark_test.go:18: set NW_SOURCE_PERF=1; run alone without build/race/profile work
+--- SKIP: TestFinancialSourceWriteAmplificationEvidence (0.00s)
+=== RUN   TestFinancialSourceInsertConflictSemantics
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/fresh-insert
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/identical-upsert
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/changed-upsert
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/ignored-insert
+=== RUN   TestFinancialSourceInsertConflictSemantics/instrument_quotes
+=== RUN   TestFinancialSourceInsertConflictSemantics/instrument_quotes/fresh-insert
+=== RUN   TestFinancialSourceInsertConflictSemantics/instrument_quotes/identical-upsert
+=== RUN   TestFinancialSourceInsertConflictSemantics/instrument_quotes/changed-upsert
+=== RUN   TestFinancialSourceInsertConflictSemantics/instrument_quotes/ignored-insert
+--- PASS: TestFinancialSourceInsertConflictSemantics (67.94s)
+    --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration (31.45s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/fresh-insert (8.51s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/identical-upsert (6.97s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/changed-upsert (8.88s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/ignored-insert (7.09s)
+    --- PASS: TestFinancialSourceInsertConflictSemantics/instrument_quotes (36.49s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/instrument_quotes/fresh-insert (9.87s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/instrument_quotes/identical-upsert (7.48s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/instrument_quotes/changed-upsert (8.08s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/instrument_quotes/ignored-insert (11.06s)
+=== RUN   TestFinancialSourceReplaceAndRollback
+=== RUN   TestFinancialSourceReplaceAndRollback/app_configuration
+=== RUN   TestFinancialSourceReplaceAndRollback/app_configuration/recursive-0
+=== RUN   TestFinancialSourceReplaceAndRollback/app_configuration/recursive-1
+=== RUN   TestFinancialSourceReplaceAndRollback/instrument_quotes
+=== RUN   TestFinancialSourceReplaceAndRollback/instrument_quotes/recursive-0
+=== RUN   TestFinancialSourceReplaceAndRollback/instrument_quotes/recursive-1
+--- PASS: TestFinancialSourceReplaceAndRollback (43.12s)
+    --- PASS: TestFinancialSourceReplaceAndRollback/app_configuration (21.67s)
+        --- PASS: TestFinancialSourceReplaceAndRollback/app_configuration/recursive-0 (10.56s)
+        --- PASS: TestFinancialSourceReplaceAndRollback/app_configuration/recursive-1 (11.11s)
+    --- PASS: TestFinancialSourceReplaceAndRollback/instrument_quotes (21.44s)
+        --- PASS: TestFinancialSourceReplaceAndRollback/instrument_quotes/recursive-0 (9.46s)
+        --- PASS: TestFinancialSourceReplaceAndRollback/instrument_quotes/recursive-1 (11.98s)
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-insert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-ignored-insert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/changed-upsert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/replace
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/delete
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/fresh-insert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/fresh-ignored-insert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/changed-upsert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/replace
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/delete
+--- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource (14.28s)
+    --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration (6.74s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-insert (0.01s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-ignored-insert (0.01s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/changed-upsert (0.02s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/replace (0.01s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/delete (0.02s)
+    --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes (7.54s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/fresh-insert (0.02s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/fresh-ignored-insert (0.04s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/changed-upsert (0.04s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/replace (0.01s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/instrument_quotes/delete (0.01s)
+=== RUN   TestFinancialSourceVerifierRejectsBeforeInsertDefinition
+--- PASS: TestFinancialSourceVerifierRejectsBeforeInsertDefinition (5.32s)
+=== RUN   TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer
+=== RUN   TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-0
+=== RUN   TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-1
+--- PASS: TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer (128.83s)
+    --- PASS: TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-0 (57.87s)
+    --- PASS: TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-1 (70.96s)
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic/delete-abort
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic/delete-ignore
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic/floor-ignore
+--- PASS: TestFinancialSourceRetentionFailureIsAtomic (89.10s)
+    --- PASS: TestFinancialSourceRetentionFailureIsAtomic/delete-abort (29.60s)
+    --- PASS: TestFinancialSourceRetentionFailureIsAtomic/delete-ignore (28.63s)
+    --- PASS: TestFinancialSourceRetentionFailureIsAtomic/floor-ignore (30.87s)
+=== RUN   TestFinancialSourceIgnoredJournalPublicationAbortsSource
+--- PASS: TestFinancialSourceIgnoredJournalPublicationAbortsSource (3.65s)
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/households
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/members
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/institutions
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/account_groups
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/accounts
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/account_ownership
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/account_values
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instruments
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/holdings
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/account_cash_values
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instrument_quotes
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/fx_quotes
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/fx_preferences
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_origins
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_origin_components
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_origin_account_states
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_origin_ownership
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_origin_instrument_preferences
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_origin_fx_preferences
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/activities
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/activity_effects
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/activity_trade_details
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/activity_dividend_details
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/activity_correction_groups
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/holding_quantity_values
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/account_state_observations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/account_state_ownership
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instrument_preference_observations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/fx_preference_observations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_snapshot_state
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instrument_state_observations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/holding_state_observations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instrument_provider_bindings
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instrument_provider_binding_revisions
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instrument_observation_slots
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/fx_observation_slots
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/market_data_day_status
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/product_operations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/product_contracts
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/liquidity_policies
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/liquidity_reservations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/product_operation_products
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/product_operation_activities
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/product_operation_reservations
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/agent_quote_records
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/app_configuration
+--- PASS: TestFinancialSourceEveryTableColumnAndOperation (8.33s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/households (0.05s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/members (0.11s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/institutions (0.15s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/account_groups (0.13s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/accounts (0.27s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/account_ownership (0.04s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/account_values (0.12s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instruments (0.33s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/holdings (0.13s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/account_cash_values (0.10s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instrument_quotes (0.64s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/fx_quotes (0.42s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/fx_preferences (0.13s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_origins (0.10s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_origin_components (0.37s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_origin_account_states (0.11s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_origin_ownership (0.07s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_origin_instrument_preferences (0.06s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_origin_fx_preferences (0.07s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/activities (0.16s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/activity_effects (0.21s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/activity_trade_details (0.14s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/activity_dividend_details (0.07s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/activity_correction_groups (0.08s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/holding_quantity_values (0.09s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/account_state_observations (0.13s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/account_state_ownership (0.05s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instrument_preference_observations (0.08s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/fx_preference_observations (0.11s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_snapshot_state (0.08s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instrument_state_observations (0.07s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/holding_state_observations (0.08s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instrument_provider_bindings (0.13s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instrument_provider_binding_revisions (0.12s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instrument_observation_slots (0.12s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/fx_observation_slots (0.13s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/market_data_day_status (0.18s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/product_operations (0.13s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/product_contracts (0.36s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/liquidity_policies (0.35s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/liquidity_reservations (0.18s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/product_operation_products (0.05s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/product_operation_activities (0.07s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/product_operation_reservations (0.08s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/agent_quote_records (0.14s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/app_configuration (0.03s)
+=== RUN   TestFinancialSourceOldNewRollbackReplaceAndReplay
+--- PASS: TestFinancialSourceOldNewRollbackReplaceAndReplay (1.04s)
+=== RUN   TestFinancialSourceActualDatabaseConcurrentRollbackAndVerifier
+--- PASS: TestFinancialSourceActualDatabaseConcurrentRollbackAndVerifier (4.57s)
+=== RUN   TestFinancialSourceActualCascadeAndOldNewIdentity
+--- PASS: TestFinancialSourceActualCascadeAndOldNewIdentity (4.59s)
+=== RUN   TestFinancialSourceParentTimesAndTamperedVerifier
+--- PASS: TestFinancialSourceParentTimesAndTamperedVerifier (3.89s)
+=== RUN   TestFinancialSourceManifestMatchesActualSchema
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	households	id,singleton_key,name,base_currency,created_at,updated_at	json_object('id',OLD.id,'base_currency',OLD.base_currency,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	members	id,household_id,name,icon_key,note,sort_order,created_at,updated_at,archived_at	json_object('id',OLD.id,'household_id',OLD.household_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	institutions	id,household_id,name,institution_type,country_code,website,note,sort_order,created_at,updated_at,archived_at,icon_key	json_object('id',OLD.id,'household_id',OLD.household_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	account_groups	id,household_id,name,icon_key,color,description,sort_order,created_at,updated_at,archived_at	json_object('id',OLD.id,'household_id',OLD.household_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	accounts	id,household_id,institution_id,group_id,name,account_type,balance_sheet_role,tracking_mode,default_currency,note,include_in_net_worth,include_in_portfolio,include_in_liquid_assets,opened_on,closed_on,sort_order,created_at,updated_at,archived_at,icon_key	json_object('id',OLD.id,'household_id',OLD.household_id,'institution_id',OLD.institution_id,'group_id',OLD.group_id,'opened_on',OLD.opened_on,'closed_on',OLD.closed_on,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	account_ownership	account_id,member_id,share_bps	json_object('account_id',OLD.account_id,'member_id',OLD.member_id)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	account_values	id,account_id,value_kind,amount,currency,effective_at,created_at,activity_effect_id,projection_kind	json_object('id',OLD.id,'account_id',OLD.account_id,'currency',OLD.currency,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'activity_effect_id',OLD.activity_effect_id,'projection_kind',OLD.projection_kind)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	instruments	id,household_id,name,instrument_type,quote_currency,symbol,market_code,country_code,isin,note,icon_key,sort_order,quote_source,provider_key,provider_symbol,created_at,updated_at,archived_at,metal_template,quantity_unit,short_name	json_object('id',OLD.id,'household_id',OLD.household_id,'quote_currency',OLD.quote_currency,'provider_key',OLD.provider_key,'provider_symbol',OLD.provider_symbol,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	holdings	id,account_id,instrument_id,quantity,note,sort_order,created_at,updated_at,archived_at	json_object('id',OLD.id,'account_id',OLD.account_id,'instrument_id',OLD.instrument_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	account_cash_values	id,account_id,amount,currency,effective_at,created_at,activity_effect_id,projection_kind	json_object('id',OLD.id,'account_id',OLD.account_id,'currency',OLD.currency,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'activity_effect_id',OLD.activity_effect_id,'projection_kind',OLD.projection_kind)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	instrument_quotes	id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at,delayed,observation_kind,effective_date,provider_timestamp,fetched_at,value_effective_at,binding_revision,source_policy_version,price_basis,timestamp_basis,revision,supersedes_quote_id,split_factor,dividend_cash,conversion_json	json_object('id',OLD.id,'instrument_id',OLD.instrument_id,'currency',OLD.currency,'source_kind',OLD.source_kind,'quoted_at',OLD.quoted_at,'created_at',OLD.created_at,'observation_kind',OLD.observation_kind,'effective_date',OLD.effective_date,'provider_timestamp',OLD.provider_timestamp,'value_effective_at',OLD.value_effective_at,'binding_revision',OLD.binding_revision,'source_policy_version',OLD.source_policy_version,'price_basis',OLD.price_basis,'timestamp_basis',OLD.timestamp_basis,'supersedes_quote_id',OLD.supersedes_quote_id)	COALESCE(OLD.value_effective_at,OLD.effective_date,OLD.quoted_at)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	fx_quotes	id,household_id,base_currency,quote_currency,rate,source_kind,source_key,quoted_at,created_at,delayed,observation_kind,effective_date,fetched_at,value_effective_at,source_policy_version,timestamp_basis,revision,supersedes_quote_id	json_object('id',OLD.id,'household_id',OLD.household_id,'base_currency',OLD.base_currency,'quote_currency',OLD.quote_currency,'source_kind',OLD.source_kind,'quoted_at',OLD.quoted_at,'created_at',OLD.created_at,'observation_kind',OLD.observation_kind,'effective_date',OLD.effective_date,'value_effective_at',OLD.value_effective_at,'source_policy_version',OLD.source_policy_version,'timestamp_basis',OLD.timestamp_basis,'supersedes_quote_id',OLD.supersedes_quote_id)	COALESCE(OLD.value_effective_at,OLD.effective_date,OLD.quoted_at)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	fx_preferences	household_id,currency_a,currency_b,source_kind,created_at,updated_at	json_object('household_id',OLD.household_id,'currency_a',OLD.currency_a,'currency_b',OLD.currency_b,'source_kind',OLD.source_kind,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	history_origins	id,household_id,timezone,started_at,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'timezone',OLD.timezone,'started_at',OLD.started_at,'created_at',OLD.created_at)	OLD.started_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	history_origin_components	id,origin_id,component_kind,account_id,holding_id,instrument_id,amount,currency,quantity,created_at,unit_cost	json_object('id',OLD.id,'origin_id',OLD.origin_id,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'currency',OLD.currency,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	history_origin_account_states	origin_id,account_id,archived_at,include_in_net_worth,include_in_portfolio,include_in_liquid_assets,created_at	json_object('origin_id',OLD.origin_id,'account_id',OLD.account_id,'archived_at',OLD.archived_at,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	history_origin_ownership	origin_id,account_id,member_id,share_bps	json_object('origin_id',OLD.origin_id,'account_id',OLD.account_id,'member_id',OLD.member_id)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	history_origin_instrument_preferences	origin_id,instrument_id,source_kind,created_at	json_object('origin_id',OLD.origin_id,'instrument_id',OLD.instrument_id,'source_kind',OLD.source_kind,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	history_origin_fx_preferences	origin_id,currency_a,currency_b,source_kind,created_at	json_object('origin_id',OLD.origin_id,'currency_a',OLD.currency_a,'currency_b',OLD.currency_b,'source_kind',OLD.source_kind,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	activities	id,household_id,kind,reason,effective_at,effective_local_date,created_at,note,reverses_activity_id,correction_group_id,transaction_fx_rate	json_object('id',OLD.id,'household_id',OLD.household_id,'kind',OLD.kind,'effective_at',OLD.effective_at,'effective_local_date',OLD.effective_local_date,'created_at',OLD.created_at,'reverses_activity_id',OLD.reverses_activity_id,'correction_group_id',OLD.correction_group_id)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	activity_effects	id,activity_id,sequence,role,direction,target,classification,account_id,holding_id,instrument_id,amount,currency,quantity,cost_unit_price	json_object('id',OLD.id,'activity_id',OLD.activity_id,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'currency',OLD.currency)	(SELECT effective_at FROM activities WHERE id=OLD.activity_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	activity_trade_details	activity_id,side,instrument_id,holding_id,quantity,gross_amount,gross_currency,unit_price,fee_amount,fee_currency	json_object('activity_id',OLD.activity_id,'instrument_id',OLD.instrument_id,'holding_id',OLD.holding_id)	(SELECT effective_at FROM activities WHERE id=OLD.activity_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	activity_dividend_details	activity_id,holding_id,instrument_id,amount,currency	json_object('activity_id',OLD.activity_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'currency',OLD.currency)	(SELECT effective_at FROM activities WHERE id=OLD.activity_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	activity_correction_groups	id,household_id,original_activity_id,replacement_activity_id,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'original_activity_id',OLD.original_activity_id,'replacement_activity_id',OLD.replacement_activity_id,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	holding_quantity_values	id,holding_id,quantity,effective_at,created_at,activity_effect_id,projection_kind	json_object('id',OLD.id,'holding_id',OLD.holding_id,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'activity_effect_id',OLD.activity_effect_id,'projection_kind',OLD.projection_kind)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	account_state_observations	id,account_id,effective_at,archived_at,include_in_net_worth,include_in_portfolio,include_in_liquid_assets,activity_id,created_at	json_object('id',OLD.id,'account_id',OLD.account_id,'effective_at',OLD.effective_at,'archived_at',OLD.archived_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	account_state_ownership	observation_id,member_id,share_bps	json_object('observation_id',OLD.observation_id,'member_id',OLD.member_id)	(SELECT effective_at FROM account_state_observations WHERE id=OLD.observation_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	instrument_preference_observations	id,instrument_id,source_kind,effective_at,activity_id,created_at	json_object('id',OLD.id,'instrument_id',OLD.instrument_id,'source_kind',OLD.source_kind,'effective_at',OLD.effective_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	fx_preference_observations	id,household_id,currency_a,currency_b,source_kind,effective_at,activity_id,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'currency_a',OLD.currency_a,'currency_b',OLD.currency_b,'source_kind',OLD.source_kind,'effective_at',OLD.effective_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	history_snapshot_state	household_id,dirty_from,last_completed_closed_on,updated_at,dirty_to,input_generation,resolver_policy_version	json_object('household_id',OLD.household_id)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	instrument_state_observations	id,instrument_id,effective_at,archived_at,activity_id,created_at	json_object('id',OLD.id,'instrument_id',OLD.instrument_id,'effective_at',OLD.effective_at,'archived_at',OLD.archived_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	holding_state_observations	id,holding_id,effective_at,archived_at,activity_id,created_at	json_object('id',OLD.id,'holding_id',OLD.holding_id,'effective_at',OLD.effective_at,'archived_at',OLD.archived_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	instrument_provider_bindings	instrument_id,provider_key,provider_symbol,market,currency,enabled,created_at,updated_at,binding_revision,effective_from	json_object('instrument_id',OLD.instrument_id,'provider_key',OLD.provider_key,'provider_symbol',OLD.provider_symbol,'currency',OLD.currency,'created_at',OLD.created_at,'binding_revision',OLD.binding_revision,'effective_from',OLD.effective_from)	OLD.effective_from
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	instrument_provider_binding_revisions	instrument_id,provider_key,binding_revision,provider_symbol,market,currency,enabled,effective_from,created_at	json_object('instrument_id',OLD.instrument_id,'provider_key',OLD.provider_key,'binding_revision',OLD.binding_revision,'provider_symbol',OLD.provider_symbol,'currency',OLD.currency,'effective_from',OLD.effective_from,'created_at',OLD.created_at)	OLD.effective_from
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	instrument_observation_slots	instrument_id,provider_key,binding_revision,source_policy_version,market_date,observation_kind,quote_id,updated_at	json_object('instrument_id',OLD.instrument_id,'provider_key',OLD.provider_key,'binding_revision',OLD.binding_revision,'source_policy_version',OLD.source_policy_version,'market_date',OLD.market_date,'observation_kind',OLD.observation_kind,'quote_id',OLD.quote_id)	OLD.market_date
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	fx_observation_slots	household_id,base_currency,quote_currency,provider_key,source_policy_version,market_date,observation_kind,quote_id,updated_at	json_object('household_id',OLD.household_id,'base_currency',OLD.base_currency,'quote_currency',OLD.quote_currency,'provider_key',OLD.provider_key,'source_policy_version',OLD.source_policy_version,'market_date',OLD.market_date,'observation_kind',OLD.observation_kind,'quote_id',OLD.quote_id)	OLD.market_date
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	market_data_day_status	target_type,target_id,provider_key,household_id,binding_revision,source_policy_version,effective_date,status,reason,checked_at,next_check_at,expires_at	json_object('target_type',OLD.target_type,'target_id',OLD.target_id,'provider_key',OLD.provider_key,'household_id',OLD.household_id,'binding_revision',OLD.binding_revision,'source_policy_version',OLD.source_policy_version,'effective_date',OLD.effective_date,'next_check_at',OLD.next_check_at,'expires_at',OLD.expires_at)	OLD.effective_date
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	product_operations	id,household_id,kind,payload_sha256,request_version,request_json,result_json,effective_at,created_at,reverses_operation_id	json_object('id',OLD.id,'household_id',OLD.household_id,'kind',OLD.kind,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'reverses_operation_id',OLD.reverses_operation_id)	OLD.effective_at
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	product_contracts	id,household_id,account_id,holding_id,instrument_id,kind,name,note,currency,principal,start_on,maturity_on,interest_mode,annual_rate,maturity_interest,interest_paid_through_on,renewed_from_id,state,opened_operation_id,closed_operation_id,revision,created_at,updated_at	json_object('id',OLD.id,'household_id',OLD.household_id,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'kind',OLD.kind,'currency',OLD.currency,'renewed_from_id',OLD.renewed_from_id,'opened_operation_id',OLD.opened_operation_id,'closed_operation_id',OLD.closed_operation_id,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	liquidity_policies	id,household_id,source_kind,account_id,holding_id,currency,access_kind,unlock_on,settlement_days,day_basis,receipt_on_override,accessible_amount_cap,normal_exit_fee,early_kind,early_settlement_days,early_day_basis,early_fee,early_amount_mode,early_gross_amount,confirmed_at,note,revision,created_at,updated_at	json_object('id',OLD.id,'household_id',OLD.household_id,'source_kind',OLD.source_kind,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'currency',OLD.currency,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	liquidity_reservations	id,household_id,source_kind,account_id,holding_id,currency,label,amount,revision,created_at,updated_at,released_at	json_object('id',OLD.id,'household_id',OLD.household_id,'source_kind',OLD.source_kind,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'currency',OLD.currency,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	product_operation_products	operation_id,product_id,role	json_object('operation_id',OLD.operation_id,'product_id',OLD.product_id,'role',OLD.role)	(SELECT effective_at FROM product_operations WHERE id=OLD.operation_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	product_operation_activities	operation_id,activity_id,sequence,purpose,product_id	json_object('operation_id',OLD.operation_id,'activity_id',OLD.activity_id,'product_id',OLD.product_id)	(SELECT effective_at FROM product_operations WHERE id=OLD.operation_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	product_operation_reservations	operation_id,reservation_id,previous_released_at,resulting_released_at,resulting_revision	json_object('operation_id',OLD.operation_id,'reservation_id',OLD.reservation_id)	(SELECT effective_at FROM product_operations WHERE id=OLD.operation_id)
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	agent_quote_records	id,request_key,household_id,target_type,operation,quote_id,target_quote_id,source_title,source_url,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'target_type',OLD.target_type,'quote_id',OLD.quote_id,'target_quote_id',OLD.target_quote_id,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:379: SOURCE_MANIFEST	app_configuration	key,value	json_object('configuration',1)	NULL
+--- PASS: TestFinancialSourceManifestMatchesActualSchema (2.26s)
+=== RUN   TestV19UpgradeInitializesWithoutHistoryBackfillAndKeepsRecovery
+--- PASS: TestV19UpgradeInitializesWithoutHistoryBackfillAndKeepsRecovery (8.67s)
+=== RUN   TestV19UpgradeRejectsConcurrentWriterAfterRecovery
+--- PASS: TestV19UpgradeRejectsConcurrentWriterAfterRecovery (2.06s)
+=== RUN   TestFinancialSourceSnapshotReadonlyResetAndIntegrity
+--- PASS: TestFinancialSourceSnapshotReadonlyResetAndIntegrity (6.62s)
+=== RUN   TestFinancialSourcePruneAndFinanceOnlyImportEpoch
+--- PASS: TestFinancialSourcePruneAndFinanceOnlyImportEpoch (6.29s)
+=== RUN   TestV19UpgradeRecoveryIOFailureLeavesSourceUntouched
+=== RUN   TestV19UpgradeRecoveryIOFailureLeavesSourceUntouched/file-sync
+=== RUN   TestV19UpgradeRecoveryIOFailureLeavesSourceUntouched/directory-sync
+--- PASS: TestV19UpgradeRecoveryIOFailureLeavesSourceUntouched (5.59s)
+    --- PASS: TestV19UpgradeRecoveryIOFailureLeavesSourceUntouched/file-sync (2.95s)
+    --- PASS: TestV19UpgradeRecoveryIOFailureLeavesSourceUntouched/directory-sync (2.64s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	407.204s
+=== RUN   TestSourceTrackingRestoreRotatesLiveEpochBeforeResume
+=== RUN   TestSourceTrackingRestoreRotatesLiveEpochBeforeResume/source-writes-0
+=== RUN   TestSourceTrackingRestoreRotatesLiveEpochBeforeResume/source-writes-4608
+--- PASS: TestSourceTrackingRestoreRotatesLiveEpochBeforeResume (127.85s)
+    --- PASS: TestSourceTrackingRestoreRotatesLiveEpochBeforeResume/source-writes-0 (24.15s)
+    --- PASS: TestSourceTrackingRestoreRotatesLiveEpochBeforeResume/source-writes-4608 (103.70s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	128.950s
+=== RUN   TestSourceJournalShadowPreservesFingerprintAndPublication
+--- PASS: TestSourceJournalShadowPreservesFingerprintAndPublication (8.46s)
+=== RUN   TestSourceJournalEqualityDoesNotCertifyFutureActivation
+--- PASS: TestSourceJournalEqualityDoesNotCertifyFutureActivation (7.37s)
+=== RUN   TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal
+=== RUN   TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal/account_values
+=== RUN   TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal/account_cash_values
+--- PASS: TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal (10.26s)
+    --- PASS: TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal/account_values (0.58s)
+    --- PASS: TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal/account_cash_values (0.69s)
+=== RUN   TestSourceJournalPairedFullOracle
+=== RUN   TestSourceJournalPairedFullOracle/no-op
+=== RUN   TestSourceJournalPairedFullOracle/append
+=== RUN   TestSourceJournalPairedFullOracle/correction
+--- PASS: TestSourceJournalPairedFullOracle (75.40s)
+    --- PASS: TestSourceJournalPairedFullOracle/no-op (22.85s)
+    --- PASS: TestSourceJournalPairedFullOracle/append (23.69s)
+    --- PASS: TestSourceJournalPairedFullOracle/correction (16.66s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	102.921s

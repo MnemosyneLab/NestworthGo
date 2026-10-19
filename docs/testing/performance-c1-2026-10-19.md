@@ -1,5 +1,7 @@
 # C1 source revision/journal evidence — 2026-10-19
 
+Historical evidence at the commits below is preserved. The subsequent [PR114 insert/retention review fix](performance-c1-insert-fix-2026-10-19.md) corrects UPSERT/IGNORE journaling and adds bounded automatic retention; use that follow-up for the current contract and new measurements.
+
 This implements **PR-C1 tracking only**, from [plan §5](../design/performance-optimization-plan.zh-CN.md#5-事务版本和变更日志pr-c1c2c3依赖-a). It adds schema20 revision/journal metadata, database triggers and verification, without replacing full fingerprints, publication rechecks, review algorithms, CAS or no-op behavior. See the [complete source/field/writer and recovery audit](performance-c1-source-coverage-2026-10-19.md). C2/C3 and later stages await separate review. No merge or release is part of this delivery.
 
 ## Provenance and method
