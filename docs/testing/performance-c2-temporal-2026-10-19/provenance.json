@@ -5,10 +5,47 @@
   "data": "isolated synthetic only",
   "native_app_launched": false,
   "C3_enabled": false,
-  "new_CI_run": "not triggered",
+  "new_CI_run": "no manual workflow dispatch; automatic checks follow inherited main/PR118 configuration",
   "baseline_distribution": "deferred by parent to keep temporal slice focused",
   "full_backend_rerun": "completed: only TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence failed at unchanged10.01s deadline; all other package results passed",
   "native_build_bindings": "blocked: missing GTK4/WebKitGTK/GLib/libsoup pkg-config dependencies",
   "frontend_lint": "passed pinned pnpm12.2.1",
-  "internal_vet": "passed"
+  "internal_vet": "passed",
+  "interval_review_correction": {
+    "reviewed_head": "62ad9fb21a1ec7a46a39cd2f017910302973f080",
+    "fixed_implementation": "adda90686ee126a827308db84a6efc0dfdb581e0",
+    "integrated_main": "c3867c626d3b6a0cdbcf669a0047ff8d07d4215f",
+    "original_fix_before_rebase": "991ecbb",
+    "go": "go1.26.0 linux/amd64",
+    "data": "synthetic isolated SQLite only; deliberately dropped activity update trigger in negative controls",
+    "before": "reviewed implementation plus new regression: earlier-untracked cash case fails (T2 persisted; complete at T1); other four cases pass",
+    "quantity_rebuttal": "quantity-only removal without holding_cost effect still changes the uncut CostEvents fingerprint when moved; publication conflicts",
+    "fix": "save minimum captured/rechecked end after both cover the final logical sample; no caller mutation",
+    "unit_command_before": "go test -p 1 ./internal/application -run ^TestReviewTemporalPublicationPersistsIntervalIntersection$ -count=1 -v",
+    "unit_command_after_before_main_rebase": "go test -p 1 ./internal/application -run ^TestReviewTemporal -count=1 -v",
+    "race_command_after_main_rebase": "go test -race -p 1 ./internal/domain ./internal/infrastructure/sqlite ./internal/application ./internal/mcpserver -run ^TestReviewTemporal -count=1 -v",
+    "parity_command_after_main_rebase": "go test -race -p 1 ./internal/mcpserver -run ^TestReviewV2FundedTradeHTTPPreviewAndRefresh$ -count=1 -v",
+    "vet_command_after_main_rebase": "go vet ./internal/...",
+    "environment": {
+      "GOMAXPROCS": "4",
+      "GOMODCACHE": "/tmp/nestworth-gomod",
+      "GOCACHE": "/workspace/nestworth-perf-go-cache",
+      "GOPATH": "/tmp/nestworth-gopath",
+      "TMPDIR": "/workspace/go-scratch"
+    },
+    "full_backend_current_base": "not rerun for this focused correction; previous full result retained separately",
+    "CI_configuration": "no diff from integrated main; no dispatch or workflow mutation",
+    "results": {
+      "unit_before": "expected exit1; only earlier-untracked cash case failed",
+      "unit_after": "exit0; application6.114s before main rebase",
+      "race_after": "exit0; domain1.022s SQLite1.026s application168.054s; MCP selector no tests",
+      "MCP_Wails_parity_race": "exit0; MCP7.681s",
+      "internal_vet": "exit0",
+      "gofmt_and_diff_check": "passed"
+    },
+    "source_sha256": {
+      "internal/infrastructure/sqlite/review_projection_publish.go": "16ad3836bf84aa809aa5f4076288ffb9cbe5b12147b6debec691c7d566cfb73c",
+      "internal/application/review_temporal_publication_interval_test.go": "797b7db8719273bef782fc52b9f116d72975196aef700022421f73d4ef10e507"
+    }
+  }
 }
