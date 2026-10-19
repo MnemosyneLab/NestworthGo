@@ -247,7 +247,7 @@ func (item DailyValuationSnapshotItem) ValidateBaseAmountExact() error {
 	if item.BaseAmountExact == "" {
 		return nil
 	}
-	_, err := ParseNativeAmount(item.BaseAmountExact)
+	_, err := ParseBaseAmountExact(item.BaseAmountExact)
 	return err
 }
 
