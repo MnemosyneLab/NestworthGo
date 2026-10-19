@@ -72,3 +72,26 @@ it("distinguishes NAV from a daily close while keeping the line label independen
   expect(props.series.map(series => series.name)).toEqual(["quoteDetails.kinds.close", "quoteDetails.kinds.nav"]);
   expect(props.series.map(series => series.pointIndices)).toEqual([[0, 2], [1]]);
 });
+
+it.each([
+  ["en", "Oct 15, 2026", /5:00\s*PM/],
+  ["zh-CN", "2026年10月15日", /17:00/],
+  ["zh-TW", "2026年10月15日", /下午5:00/],
+])("localizes both date columns in %s while preserving observation precision", (language, date, time) => {
+  const points = [
+    point({ quotedAt: "2026-10-15T09:00:00Z", effectiveDate: "2026-10-15", timestampBasis: "session_close", sourceKey: "yahoo_finance" }),
+    point({ quotedAt: "2026-10-14T16:00:00Z", effectiveDate: "2026-10-15", timestampBasis: "date_label", sourceKind: "agent" }),
+    point({ quotedAt: "2026-10-15T06:05:00Z", effectiveDate: "", observationKind: "realtime" }),
+  ];
+  for (const kind of ["instrument", "fx"] as const) {
+    const props = quoteTrendProps({ ...base, kind, language, timezone: "Asia/Singapore", series: { points, observations: points } });
+    const rows = props.extraTableRows!;
+    expect(rows[0][0]).toContain(date);
+    expect(rows[0][0]).toMatch(time);
+    expect(rows[0][3]).toBe(date);
+    expect(rows[1][0]).toBe(date);
+    expect(rows[1][3]).toBe(date);
+    expect(rows[2][3]).toBe("—");
+  }
+  expect(points[0].effectiveDate).toBe("2026-10-15");
+});

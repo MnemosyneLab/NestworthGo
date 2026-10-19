@@ -27,6 +27,13 @@ future contract dates and ignore-until dates must remain reachable. Do not
 silently normalize invalid dates or replace an intentionally empty selection
 with today.
 
+Read-only quote observation dates and market/reference dates use the same
+localized medium date style in English, Simplified Chinese and Traditional
+Chinese. Use `formatCivilDate` for civil labels and `formatQuoteAsOf` for quote
+evidence: date-only observations never acquire an invented time or shift with
+the viewer's timezone. Actual quote instants retain their localized time in the
+configured timezone. Keep canonical dates unchanged in DTOs, inputs and queries.
+
 For UTF-8 byte bounds, use Input's `maxBytes` counter/field error and
 `utf8ByteLength` to guard submission. HTML `maxLength` counts UTF-16 code units;
 it cannot enforce storage byte budgets. Keep backend validation authoritative.

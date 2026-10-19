@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { TrendChartProps, TrendSeries } from "@/components/charts/TrendChart";
 import { quoteObservationLabel, quoteSourceLabel } from "@/lib/quoteEvidencePresentation";
 import { formatAmount, formatQuotePrice } from "@/lib/money";
-import { formatQuoteAsOf } from "@/lib/time";
+import { formatCivilDate, formatQuoteAsOf } from "@/lib/time";
 import type { QuoteSeriesPointDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote/models";
 
 /** A stored observation; the holding performance read model adds an explicit discontinuity flag. */
@@ -85,7 +85,7 @@ export function quoteTrendProps(input: {
       formatQuoteAsOf(item, timezone, language),
       currency ? formatQuotePrice(item.value, item.currency || currency) + priceSuffix : formatAmount(item.value),
       observationLabel(item),
-      item.effectiveDate || "—",
+      item.effectiveDate ? formatCivilDate(item.effectiveDate, language) : "—",
       sourceLabel(item.sourceKind, item.sourceKey),
       item.delayed ? t("charts.delayed") : t("charts.onTime"),
     ]),
