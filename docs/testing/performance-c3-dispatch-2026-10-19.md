@@ -5,6 +5,10 @@ This follows the [private provenance correction](performance-c3-provenance-2026-
 Production remains C2. PR129 stays a default-off draft. This checkpoint does not
 claim stage-two rollout acceptance or enable legacy/restart certification.
 
+The [subsequent exact-publication equality slice](performance-c3-publication-equality-2026-10-19.md)
+supplies a transaction-local proof for omitting identical daily UPSERTs after
+full preparation. The measurements below remain frozen evidence for `08a5b02`.
+
 ## Exact FK reproduction and fix
 
 The independent reviewer supplied a feasible internal writer missed by the user

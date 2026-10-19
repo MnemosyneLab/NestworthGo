@@ -164,6 +164,13 @@ oracle for bounded experiments. Observation alone can use
 `WithReviewLineageObserver(...)` without changing dispatch. Certification verifies
 the complete compiled table/index contract as well as all user triggers, including
 FK and deferred-action definitions; unknown schema objects disable authority.
+Full preparation may omit an individual daily UPSERT only after an authenticated
+same-handle publication recheck and exact comparison of its actual SQL parameter
+image with the persisted row under the writer reservation. This transaction-local
+comparison never supplies computation facts or omits lifecycle/checkpoint work.
+Unsafe `writable_schema` forgery of SQLite's stored versus cached schema is outside
+the documented SQLite engine/connection trust contract; this is not engine
+attestation or an authenticated hostile-database protocol.
 Legacy/restarted/damaged projections
 cannot acquire reuse authority from a fresh checksum; legitimate handling preserves
 only an already valid chain. Production initialization still uses C2, and native,

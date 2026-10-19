@@ -167,6 +167,11 @@ C1 交付一张逐表/逐字段/write-owner 的依赖清单，逐一对照 `load
 
 ### 5.3 分阶段接入与 CAS
 
+The [C3 exact daily-publication proof](../testing/performance-c3-publication-equality-2026-10-19.md)
+keeps full capture/preparation and compares actual SQL parameter images against
+authenticated same-handle rows under the writer reservation. It permits only
+zero-row daily UPSERT omission, with no computational fact reuse or suffix plan.
+
 - **C1（仅跟踪）**：新增存储、触发器、migration/backup 测试；保留旧算法。测写入耗时与日志大小，避免一次性引入增量 planner。
 - **C2（影子验证）**：`domain/review_projection.go` 新增 `SourceRevisionToken`（household、epoch、revision、tracking/resolver/evaluator versions）；capture 同一个 read transaction 读取 token 与全量源；publish 同时验证新 token 和原全量指纹。任意“相同 capture cutoff 下 token 相等但指纹不同”阻止默认启用，定位漏记；token 不同但结果相同属于保守失效。
 - **C3（切换）**：新 `review_source_revision.go` 提供事务内读 token 和 journal；修改 capture/publish/reconcile。受 verifier、tracking version、完整 checkpoint 约束后启用 fast path。保留配置开关与完整旧重算路径，不只是保留测试代码。

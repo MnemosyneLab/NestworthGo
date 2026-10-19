@@ -121,6 +121,11 @@ Privileged SQLite file/schema-version manipulation, counter wrap combined with
 intentional metadata forgery, or hostile in-process mutation of private keys
 are not an authenticated hostile-database protocol. Unknown tracking or
 connection provenance must never be interpreted as unchanged data.
+In particular, unsafe `writable_schema` edits that forge stored SQL independently
+of SQLite's cached parsed schema are excluded privileged schema manipulation;
+the complete text contract does not attest engine internals. That unexecuted
+reviewer scenario is recorded with the
+[exact publication-equality proof](performance-c3-publication-equality-2026-10-19.md).
 
 ## Correctness and validation
 

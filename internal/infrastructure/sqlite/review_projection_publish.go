@@ -211,6 +211,16 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 			}
 		}
 	}
+	var equalDaily *reviewPublicationEquality
+	if certified && mayCertify && capture.Certified != nil && capture.Certified.MayCertify && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil && r.authenticReview(capture.PublishedTemporal, capture.Certified.ProjectionSeal) {
+		// Load exact row images only from an already authenticated same-handle
+		// namespace under this reservation, before the final injected clock.
+		// Missing/unknown/restarted state retains every original UPSERT.
+		equalDaily, err = loadReviewPublicationEquality(ctx, tx, capture.HouseholdID)
+		if err != nil {
+			return err
+		}
+	}
 	// C2 also repeats the uncut future-source fence inside this write
 	// reservation. The conservative all-activity fence can change without a
 	// fingerprint change when an excluded future fact has untracked DML.
@@ -279,7 +289,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		return err
 	}
 	for _, item := range publication.Rules {
-		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement, existingStateEpochs[reviewEvaluationStateKey(item.RuleID, item.InstrumentID)], bootstrap); err != nil {
+		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement, existingStateEpochs[reviewEvaluationStateKey(item.RuleID, item.InstrumentID)], bootstrap, equalDaily); err != nil {
 			return err
 		}
 	}
@@ -440,7 +450,7 @@ func verifyReviewOpenEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Re
 	return nil
 }
 
-func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt, existingStateEpochs []string, bootstrap bool) error {
+func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt, existingStateEpochs []string, bootstrap bool, equalDaily *reviewPublicationEquality) error {
 	if item.TargetExcluded {
 		if len(item.Days) != 0 || len(item.Epochs) != 0 || item.CurrentEpisode != nil || item.OpenedEpisode {
 			return &domain.Error{Code: domain.ErrValidation, Field: "target", Message: "an excluded target cannot publish daily evidence or an open episode"}
@@ -491,18 +501,30 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 		if day.Input.NativeCurrency != nil {
 			currency = day.Input.NativeCurrency.String()
 		}
-		_, err = inputStatement.ExecContext(ctx, capture.HouseholdID.String(), item.InstrumentID.String(), item.TimezoneVersion, day.On, inputPolicy, nullableReviewPointer(day.Input.Quantity), currency, kind, nullableReviewPointer(day.Input.AmountExact), nullableReviewPointer(day.Input.CostExact), string(inputJSON), string(coverageJSON), day.InputFingerprint, atText)
+		inputValues := []any{capture.HouseholdID.String(), item.InstrumentID.String(), item.TimezoneVersion, day.On, inputPolicy, nullableReviewPointer(day.Input.Quantity), currency, kind, nullableReviewPointer(day.Input.AmountExact), nullableReviewPointer(day.Input.CostExact), string(inputJSON), string(coverageJSON), day.InputFingerprint, atText}
+		omit, err := equalDaily.omitInput(inputValues)
 		if err != nil {
 			return err
+		}
+		if !omit {
+			if _, err := inputStatement.ExecContext(ctx, inputValues...); err != nil {
+				return err
+			}
 		}
 		resultJSON, err := json.Marshal(day.Result)
 		if err != nil {
 			return err
 		}
 		truth := reviewTruthSQL(day.Result.Truth)
-		_, err = resultStatement.ExecContext(ctx, string(item.RuleID), item.ConditionVersion, item.InstrumentID.String(), item.TimezoneVersion, day.On, truth, nullableEmpty(strings.Join(day.CoverageMissing, ",")), string(resultJSON), day.InputFingerprint, atText)
+		resultValues := []any{string(item.RuleID), int64(item.ConditionVersion), item.InstrumentID.String(), item.TimezoneVersion, day.On, truth, nullableEmpty(strings.Join(day.CoverageMissing, ",")), string(resultJSON), day.InputFingerprint, atText}
+		omit, err = equalDaily.omitResult(resultValues)
 		if err != nil {
 			return err
+		}
+		if !omit {
+			if _, err := resultStatement.ExecContext(ctx, resultValues...); err != nil {
+				return err
+			}
 		}
 	}
 	if err := publishReviewEpisodes(ctx, tx, capture, item, at); err != nil {
