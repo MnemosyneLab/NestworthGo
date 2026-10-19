@@ -292,10 +292,10 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 			return ContributionItemResult{}, err
 		}
 		item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: contribution.AnalysisAvailability, HistoryHint: realizedContributionHistoryHint(query, groupBy, groupKey)}
-		// Unsupported dimensions have no realized rows to drill into. A
-		// supported scope may still contain rows with missing FX evidence;
-		// retain those rows and their unavailable amounts for inspection.
-		if _, supported := realizedScope(query); !supported {
+		// Member filters remain unsupported. A supported selector may still
+		// contain rows with missing FX evidence; retain those rows and their
+		// unavailable amounts for inspection.
+		if _, supported := realizedSelector(query); !supported {
 			return item, nil
 		}
 		var matched *ContributionRow
@@ -802,11 +802,11 @@ func (s *Service) projectRealizedContribution(ctx context.Context, query domain.
 	if s.gain == nil {
 		return ContributionResult{AnalysisAvailability: unavailableReturn("realized gain service is unavailable"), ReturnType: ContributionRealized, GroupBy: groupBy}, nil
 	}
-	scope, ok := realizedScope(query)
+	selector, ok := realizedSelector(query)
 	if !ok {
-		return ContributionResult{AnalysisAvailability: unavailableReturn("realized gain grouping does not support the requested currency or asset-class filter"), ReturnType: ContributionRealized, GroupBy: groupBy}, nil
+		return ContributionResult{AnalysisAvailability: unavailableReturn("realized gain does not support member filtering"), ReturnType: ContributionRealized, GroupBy: groupBy}, nil
 	}
-	view, err := s.gain.RealizedGainInRange(ctx, scope, query.From, query.To)
+	view, err := s.gain.RealizedGainSelectedInRange(ctx, selector, query.From, query.To)
 	if err != nil {
 		return ContributionResult{}, err
 	}
@@ -1009,42 +1009,78 @@ func periodEndingValue(result domain.PeriodAnalysisResult) *domain.SignedMoney {
 	}
 	return signedPointer(total, resultCurrency(result))
 }
-func realizedScope(query domain.AnalysisQuery) (domain.GainScope, bool) {
-	scope := domain.GainScope{}
+func realizedSelector(query domain.AnalysisQuery) (domain.RealizedGainSelector, bool) {
+	selector := domain.RealizedGainSelector{}
 	if query.Scope.Kind != domain.ScopeHousehold && query.Scope.Kind != domain.ScopeAccount && query.Scope.Kind != domain.ScopeInstrument {
-		return scope, false
+		if query.Scope.Kind != domain.ScopeCurrency && query.Scope.Kind != domain.ScopeAssetClass {
+			return selector, false
+		}
 	}
-	if query.Filters.Currency != nil || query.Filters.AssetClass != "" || query.Filters.MemberID != nil {
-		return scope, false
+	if query.Filters.MemberID != nil {
+		return selector, false
 	}
 	if query.Scope.Kind == domain.ScopeAccount {
 		id, err := domain.ParseAccountID(query.Scope.ID)
 		if err != nil {
-			return scope, false
+			return selector, false
 		}
-		scope.AccountID = &id
+		selector.AccountID = &id
 	}
 	if query.Scope.Kind == domain.ScopeInstrument {
 		id, err := domain.ParseInstrumentID(query.Scope.ID)
 		if err != nil {
-			return scope, false
+			return selector, false
 		}
-		scope.InstrumentID = &id
+		selector.InstrumentID = &id
+	}
+	if query.Scope.Kind == domain.ScopeCurrency {
+		currency, err := domain.ParseCurrency(query.Scope.ID)
+		if err != nil {
+			return selector, false
+		}
+		selector.Currency = &currency
+	}
+	if query.Scope.Kind == domain.ScopeAssetClass {
+		selector.AssetClass = strings.ToLower(strings.TrimSpace(query.Scope.ID))
 	}
 	if query.Filters.AccountID != nil {
-		scope.AccountID = query.Filters.AccountID
+		if selector.AccountID != nil && *selector.AccountID != *query.Filters.AccountID {
+			selector.NoMatch = true
+		} else {
+			selector.AccountID = query.Filters.AccountID
+		}
 	}
 	if query.Filters.InstrumentID != nil {
-		scope.InstrumentID = query.Filters.InstrumentID
+		if selector.InstrumentID != nil && *selector.InstrumentID != *query.Filters.InstrumentID {
+			selector.NoMatch = true
+		} else {
+			selector.InstrumentID = query.Filters.InstrumentID
+		}
 	}
-	return scope, true
+	if query.Filters.Currency != nil {
+		if selector.Currency != nil && *selector.Currency != *query.Filters.Currency {
+			selector.NoMatch = true
+		} else {
+			selector.Currency = query.Filters.Currency
+		}
+	}
+	if filterClass := strings.ToLower(strings.TrimSpace(query.Filters.AssetClass)); filterClass != "" {
+		if selector.AssetClass != "" && !strings.EqualFold(selector.AssetClass, filterClass) {
+			selector.NoMatch = true
+		} else {
+			selector.AssetClass = filterClass
+		}
+	}
+	return selector, true
 }
 
-// realizedContributionHistoryHint carries only dimensions that are known to
-// be part of the realized-gain query. The selected group is always safe to
-// retain; the other dimension is retained only when the query explicitly
-// constrained it. Inferring it from a label would hide cash interest when a
-// group contains both cash and securities.
+// realizedContributionHistoryHint carries the account/instrument dimensions
+// that can be represented by the existing History filters. It cannot encode
+// currency or asset-class selection, so it is a related-history hint and is
+// not an exact activity breakdown for those realized queries. The selected
+// group is safe to retain; the other dimension is retained only when the query
+// explicitly constrained it. Inferring it from a label would hide cash
+// interest when a group contains both cash and securities.
 func realizedContributionHistoryHint(query domain.AnalysisQuery, groupBy ContributionGroupBy, groupKey string) ContributionHistoryHint {
 	hint := ContributionHistoryHint{From: query.From, To: query.To}
 	if query.Scope.Kind == domain.ScopeAccount {

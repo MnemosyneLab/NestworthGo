@@ -62,6 +62,26 @@ function ConnectedContributionTab({ onOpenHistory }: { onOpenHistory?: Component
 
 const available = { available: true, status: "ok", valuationForced: null };
 
+function mockRealizedContribution() {
+  contribution.mockResolvedValue({
+    returnType: "realized",
+    groupBy: "instrument",
+    rows: [{ key: "instrument-1", label: "instrument-1", amount: { amount: "-3", currency: "USD" }, ratedDays: 0, totalDays: 0, ...available }],
+    ratedDays: 0,
+    totalDays: 0,
+    ...available,
+  });
+  contributionItem.mockResolvedValue({
+    key: "instrument-1",
+    label: "instrument-1",
+    amount: { amount: "-3", currency: "USD" },
+    components: [],
+    byAccount: [{ key: "account-1", accountId: "account-1", amount: { amount: "-3", currency: "USD" } }],
+    historyHint: { kinds: ["buy", "sell"], from: "2026-09-01", to: "2026-09-01", accountId: "account-1", instrumentId: "instrument-1" },
+    ...available,
+  });
+}
+
 describe("insight tabs", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -181,6 +201,36 @@ describe("insight tabs", () => {
       accountId: "account-1",
       instrumentId: "instrument-1",
       kinds: undefined,
+    });
+  });
+
+  it.each([
+    ["currency", { currency: "USD" }, true],
+    ["asset class", { assetClass: "stock" }, true],
+    ["exact date, account, and instrument filters", {}, false],
+  ] as const)("reports History drilldown filter loss for realized contributions when applicable (%s)", async (_context, moreFilters, warns) => {
+    useAnalysisStore.getState().replaceFilters({ returnType: "realized", moreFilters });
+    mockRealizedContribution();
+    const onOpenHistory = vi.fn();
+
+    renderWithClient(<ConnectedContributionTab onOpenHistory={onOpenHistory} />);
+    fireEvent.click(await screen.findByRole("button", { name: /QQQ/ }));
+    const historyButton = await screen.findByRole("button", { name: "View in History" });
+    const historyFilterWarning = "History keeps the date, account, and instrument filters, but not the currency or asset-class filter used for this contribution.";
+    if (warns) {
+      expect(await screen.findByText(historyFilterWarning)).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText(historyFilterWarning)).not.toBeInTheDocument();
+      expect(screen.queryByText("History will open for the full selected period, not a single account or instrument.")).not.toBeInTheDocument();
+    }
+
+    fireEvent.click(historyButton);
+    expect(onOpenHistory).toHaveBeenCalledWith({
+      from: "2026-09-01",
+      to: "2026-09-01",
+      accountId: "account-1",
+      instrumentId: "instrument-1",
+      kinds: ["buy", "sell"],
     });
   });
 
