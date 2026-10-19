@@ -1,0 +1,10 @@
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight/full
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight/baseline
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight/bounded
+--- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight (0.34s)
+    --- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight/full (0.08s)
+    --- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight/baseline (0.09s)
+    --- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight/bounded (0.09s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	0.351s
