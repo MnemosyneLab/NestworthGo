@@ -22,6 +22,9 @@ export interface TrendSeries {
   color: string;
   values: Array<string | null | undefined>;
   pointMeta?: Array<TrendPointMeta | undefined>;
+  /** Select observations without treating other series' dates as missing values. */
+  pointIndices?: number[];
+  presentation?: "line" | "points";
 }
 
 export interface TrendChartProps {
@@ -116,11 +119,13 @@ export function trendLegendLabel(name: string, item: TrendSeries, mixedSources: 
 // Split only geometry: any edge touching an estimate is dashed. True gaps
 // remain gaps, and each rendered datum retains its original tooltip index.
 export function trendQualitySegments(item: TrendSeries): Array<{ indices: number[]; provisional: boolean }> {
-  if (!(item.pointMeta ?? []).some(meta => meta?.provisional || meta?.breakBefore)) return [{ indices: item.values.map((_, index) => index), provisional: false }];
+  const indices = item.pointIndices ?? item.values.map((_, index) => index);
+  if (!indices.some(index => item.pointMeta?.[index]?.provisional || item.pointMeta?.[index]?.breakBefore)) return [{ indices, provisional: false }];
   const segments: Array<{ indices: number[]; provisional: boolean }> = [];
   let last = -1;
   let active: { indices: number[]; provisional: boolean } | undefined;
-  item.values.forEach((value, index) => {
+  indices.forEach(index => {
+    const value = item.values[index];
     if (item.pointMeta?.[index]?.breakBefore) { last = -1; active = undefined; }
     if (value == null) { last = -1; active = undefined; return; }
     const provisional = Boolean(item.pointMeta?.[index]?.provisional || (last >= 0 && item.pointMeta?.[last]?.provisional));
@@ -167,6 +172,7 @@ export function TrendChart({
     color: series.map((item) => resolveSeriesColor(item.color)),
     // ECharts 6 moved the default legend to the bottom, where it collides with the time axis.
     legend: minimal ? { show: false } : {
+      type: "scroll",
       top: 0,
       left: 0,
       icon: "roundRect",
@@ -228,6 +234,7 @@ export function TrendChart({
       splitLine: { lineStyle: minimal ? { color: theme.border, opacity: 0.5, type: "dashed" as const } : { color: theme.border } },
     },
     series: segments.map(({ item, segment, segmentIndex }) => {
+      const pointsOnly = item.presentation === "points";
       const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed || meta?.provisional);
       return {
         type: "line" as const,
@@ -240,7 +247,7 @@ export function TrendChart({
             originalIndex:index,
  value: [trendChartTimestamp(dates[index]), chartNumber(value)],
             symbol: meta?.provisional ? "diamond" : meta?.observationKind === "close" || meta?.observationKind === "daily_reference" ? "rect" : meta?.observationKind === "manual" || meta?.delayed ? "diamond" : "circle",
-            itemStyle: { color: meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : resolveSeriesColor(item.color) },
+            itemStyle: { color: !item.pointIndices && meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : resolveSeriesColor(item.color) },
           };
         }),
         // ECharts cannot brighten CSS OKLCH colors. Explicit emphasis colors
@@ -248,16 +255,16 @@ export function TrendChart({
         emphasis: {
           focus: "series" as const,
           scale: 1.4,
-          lineStyle: { color: resolveSeriesColor(item.color), width: 2.5, opacity: 1 },
-          areaStyle: { color: resolveSeriesColor(item.color), opacity: 0.1 },
+          lineStyle: { color: resolveSeriesColor(item.color), width: pointsOnly ? 0 : 2.5, opacity: 1 },
+          areaStyle: { color: resolveSeriesColor(item.color), opacity: pointsOnly ? 0 : 0.1 },
         },
         connectNulls: false,
         // An isolated observation has no line to draw, so its segment always
         // keeps the marker regardless of how many dates the chart has overall.
-        showSymbol: segment.indices.length === 1 || (!minimal && (dates.length < 24 || showSourceMarks)),
+        showSymbol: pointsOnly || segment.indices.length === 1 || (!minimal && (dates.length < 24 || showSourceMarks)),
         ...(minimal ? { symbolSize: 7, smooth: 0.15 } : {}),
-        lineStyle: { color: resolveSeriesColor(item.color), width: 2.5, type: segment.provisional ? "dashed" as const : "solid" as const },
-        ...(series.length === 1 ? { areaStyle: { color: resolveSeriesColor(item.color), opacity: minimal ? 0.14 : 0.1 } } : {}),
+        lineStyle: { color: resolveSeriesColor(item.color), width: pointsOnly ? 0 : 2.5, type: segment.provisional ? "dashed" as const : "solid" as const },
+        ...(!pointsOnly && series.length === 1 ? { areaStyle: { color: resolveSeriesColor(item.color), opacity: minimal ? 0.14 : 0.1 } } : {}),
         itemStyle: { color: resolveSeriesColor(item.color) },
       };
     }),
