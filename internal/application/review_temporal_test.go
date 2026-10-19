@@ -204,6 +204,35 @@ func TestReviewTemporalPreexistingFutureQuantityLifecycleOracle(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			// Reopen after activation without DML, then roll the original session
+			// backwards across T and publish the full oracle with handling intact.
+			path := filepath.Join(t.TempDir(), "synthetic-after-activation.db")
+			if err := f.db.SnapshotTo(t.Context(), path); err != nil {
+				t.Fatal(err)
+			}
+			reopened, err := sqlite.Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			run := f
+			run.db = reopened
+			run.s = NewService(sqlite.NewRepository(reopened))
+			run.s.setClock(func() time.Time { return *run.now })
+			fresh := temporalCapture(t, run)
+			if !fresh.TemporalFullRecompute || fresh.PublishedTemporal.Eligible(*run.now, fresh.Temporal) || fresh.SourceRevision.Token != before.SourceRevision.Token {
+				t.Fatal("post-activation restart reused old certificate")
+			}
+			temporalPublicationOracle(t, run, fresh)
+			reopened.Close()
+			*f.now = at.Add(-time.Nanosecond)
+			back := temporalCapture(t, f)
+			if !back.TemporalFullRecompute || len(back.ReusableDailyEvidence) != 0 || back.SourceRevision.Token != before.SourceRevision.Token {
+				t.Fatal("rollback across activation reused old epoch evidence")
+			}
+			rollback := temporalPublicationOracle(t, f, back)
+			if err := sqlite.NewRepository(f.db).PublishReviewProjection(t.Context(), rollback, *f.now); err != nil {
+				t.Fatal(err)
+			}
 			if oldEpisode != "" {
 				var ack string
 				if err := f.db.SQL.QueryRow(`SELECT acknowledged_at FROM investment_review_episodes WHERE id=?`, oldEpisode).Scan(&ack); err != nil || ack == "" {
@@ -317,13 +346,24 @@ func TestReviewTemporalFixedDayDependencyClosureDoesNotFollowCurrentClock(t *tes
 			case "quote-provider-times":
 				_, err = f.db.SQL.Exec(`UPDATE instrument_quotes SET provider_timestamp=?,fetched_at=?,value_effective_at=?`, stamp, stamp, stamp)
 			case "coverage-expiry":
-				_, err = f.db.SQL.Exec(`INSERT INTO market_data_day_status(target_type,target_id,provider_key,household_id,binding_revision,source_policy_version,effective_date,status,reason,checked_at,next_check_at,expires_at) VALUES('instrument',?,'synthetic',?,1,?,'2026-10-02','complete','synthetic',?,?,?)`, f.instrument.ID.String(), f.account.Account.HouseholdID.String(), domain.MarketDataResolverPolicy, stamp, stamp, stamp)
+				_, err = f.db.SQL.Exec(`INSERT INTO market_data_day_status(target_type,target_id,provider_key,household_id,binding_revision,source_policy_version,effective_date,status,reason,checked_at,next_check_at,expires_at) VALUES('fx','USD/CNY','manual',?,0,?,'2026-10-02','no_observation','synthetic',?,?,?)`, f.account.Account.HouseholdID.String(), domain.MarketDataResolverPolicy, f.now.AddDate(0, 0, -1).Format(time.RFC3339Nano), stamp, stamp)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
 			*f.now = at.Add(-time.Nanosecond)
 			before := temporalCapture(t, f)
+			if kind == "coverage-expiry" {
+				found := false
+				for _, coverage := range before.Historical.History.FXHistoryCoverage {
+					if expiry, ok := coverage.NoObservationExpiresAt["2026-10-02"]; ok && expiry.Equal(at) {
+						found = true
+					}
+				}
+				if !found {
+					t.Fatal("expiry fixture was not in the captured resolver closure")
+				}
+			}
 			if !before.Temporal.Covers(at.Add(time.Nanosecond)) {
 				t.Fatal("fixed-day-only fact treated as a current-instant dependency")
 			}
