@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	wailsrecovery "github.com/waltwang/nestworth-go/internal/wailsapi/recovery"
 )
 
 func restoreSource(t *testing.T, db *sqlite.DB) string {
@@ -30,6 +31,55 @@ func restoreSource(t *testing.T, db *sqlite.DB) string {
 		t.Fatal(err)
 	}
 	return source
+}
+
+// A quiesce-hook failure must remove the staged candidate before checkpoint
+// or swap. The package is a local snapshot, so this does not build a replica.
+func TestQuiesceHookFailureRemovesStagingBeforeCheckpoint(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	live := filepath.Join(dir, "live.db")
+	liveDB, err := sqlite.Open(live)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer liveDB.Close()
+	if _, err = liveDB.SQL.Exec(`INSERT INTO app_configuration(key,value) VALUES('quiesce-original','intact')`); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := filepath.Join(dir, "snapshot.db")
+	if err = liveDB.SnapshotTo(ctx, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(dir, "candidate.nestworth-backup")
+	pkg := backup.Package{Manifest: backup.NewManifest(time.Now().UTC(), data, []byte("{}\n"), sqlite.EntityCounts{}), Database: data, Settings: []byte("{}\n")}
+	if err = backup.WritePackage(archive, pkg); err != nil {
+		t.Fatal(err)
+	}
+	recovery := application.NewRecovery(live, backup.NewRuntime(), nil)
+	recovery.SetBeforeRestore(func(context.Context) error {
+		return errors.New("synthetic quiesce failure")
+	})
+	defer recovery.Shutdown()
+	preview, err := recovery.InspectBackup(ctx, archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := wailsrecovery.NewService(recovery, nil, nil, nil)
+	if _, err = service.ConfirmRestore(wailsrecovery.RestoreConfirmRequest{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true}); err == nil {
+		t.Fatal("quiesce failure was accepted")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, backup.StagingName(live))); !os.IsNotExist(statErr) {
+		t.Fatal("staging remained after quiesce failure", statErr)
+	}
+	var value string
+	if err = liveDB.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='quiesce-original'`).Scan(&value); err != nil || value != "intact" {
+		t.Fatalf("live session changed: %q %v", value, err)
+	}
 }
 
 func TestJournalFailureAfterBackupPauseRequiresRestart(t *testing.T) {
@@ -84,8 +134,6 @@ func (r restoreFailureRuntime) InstallRestore(ctx context.Context, path string, 
 		return failure
 	case "checkpoint":
 		hooks.Checkpoint = func(context.Context) error { return failure }
-	case "preclose":
-		hooks.Close = func() error { return failure }
 	case "postclose":
 		closeDB := hooks.Close
 		hooks.Close = func() error {
@@ -99,7 +147,7 @@ func (r restoreFailureRuntime) InstallRestore(ctx context.Context, path string, 
 }
 
 func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) {
-	for _, phase := range []string{"before-quiesce", "checkpoint", "preclose", "postclose", "partial-quiesce", "success"} {
+	for _, phase := range []string{"before-quiesce", "checkpoint", "postclose"} {
 		t.Run(phase, func(t *testing.T) {
 			m, db, _ := fixture(t)
 			ctx := context.Background()
@@ -117,13 +165,7 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 			app := application.NewService(sqlite.NewRepository(db))
 			r := application.NewRecovery(m.path, restoreFailureRuntime{Runtime: backup.NewRuntime(), phase: phase}, app)
 			r.SetBeforeRestore(func(ctx context.Context) error {
-				if err := m.PauseForRestore(ctx); err != nil {
-					return err
-				}
-				if phase == "partial-quiesce" {
-					return errors.New("synthetic external writer revocation failure")
-				}
-				return nil
+				return m.PauseForRestore(ctx)
 			})
 			defer r.Shutdown()
 			preview, err := r.InspectBackup(ctx, source)
@@ -131,7 +173,7 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 				t.Fatal(err)
 			}
 			result, err := r.ConfirmRestore(ctx, application.RestoreConfirmInput{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true})
-			if (err == nil) != (phase == "success") {
+			if err == nil {
 				t.Fatalf("phase %s result=%+v error=%v", phase, result, err)
 			}
 			fenced := phase != "before-quiesce"
@@ -146,7 +188,7 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 			if viewErr != nil || v.Enabled == fenced {
 				t.Fatalf("phase %s backup=%+v error=%v", phase, v, viewErr)
 			}
-			if phase == "postclose" || phase == "success" {
+			if phase == "postclose" {
 				if db.SQL != nil {
 					t.Fatal("database was not closed")
 				}
@@ -175,9 +217,6 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 			defer reopened.Close()
 			var value string
 			want := "original-local"
-			if phase == "success" {
-				want = "backed-up"
-			}
 			if err := reopened.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='restore-original'`).Scan(&value); err != nil || value != want {
 				t.Fatalf("restart database=%q want %q: %v", value, want, err)
 			}

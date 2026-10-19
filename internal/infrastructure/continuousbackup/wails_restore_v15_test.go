@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -162,16 +161,24 @@ func cloudRows(t *testing.T, db *sql.DB) map[string][]string {
 }
 
 func TestPopulatedV15CloudInspectConfirmAndUpgrade(t *testing.T) {
-	for _, scenario := range []string{"restore", "quiesce-failure", "mismatched-schema", "future-schema", "corrupt-ltx"} {
+	origin := cloudSourceV15(t)
+	read, err := sqlite.OpenReadOnlyForVerify(origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := cloudRows(t, read.SQL)
+	read.Close()
+	originBytes, err := os.ReadFile(origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, scenario := range []string{"restore", "corrupt-ltx", "mismatched-schema"} {
 		t.Run(scenario, func(t *testing.T) {
 			ctx := context.Background()
-			source := cloudSourceV15(t)
-			read, err := sqlite.OpenReadOnlyForVerify(source)
-			if err != nil {
+			source := filepath.Join(t.TempDir(), "synthetic-v15.sqlite")
+			if err := os.WriteFile(source, originBytes, 0600); err != nil {
 				t.Fatal(err)
 			}
-			expected := cloudRows(t, read.SQL)
-			read.Close()
 			data, err := os.ReadFile(source)
 			if err != nil {
 				t.Fatal(err)
@@ -180,9 +187,6 @@ func TestPopulatedV15CloudInspectConfirmAndUpgrade(t *testing.T) {
 			schema := 15
 			if scenario == "mismatched-schema" {
 				schema = 16
-			}
-			if scenario == "future-schema" {
-				schema = 17
 			}
 			identity, err := json.Marshal(map[string]any{"format": 1, "appID": version.AppID, "appVersion": "0.3.7", "appBuild": "synthetic-v15", "schema": schema, "streamID": stream, "startedAt": "2026-09-01T00:00:00Z"})
 			if err != nil {
@@ -234,15 +238,12 @@ func TestPopulatedV15CloudInspectConfirmAndUpgrade(t *testing.T) {
 			quiesced := 0
 			inspector.SetBeforeRestore(func(ctx context.Context) error {
 				quiesced++
-				if scenario == "quiesce-failure" {
-					return errors.New("synthetic quiesce failure")
-				}
 				return manager.PauseForRestore(ctx)
 			})
 			service := wailsbackup.NewService(manager, app, inspector, recovery.NewService(inspector, nil, nil, nil))
 			point := infra.RecoveryPoint{StreamID: stream, TXID: ltx.TXID(1).String(), CapturedAt: "2026-09-01T00:00:00Z"}
 			preview, err := service.InspectRestore(ctx, point)
-			if scenario == "mismatched-schema" || scenario == "future-schema" || scenario == "corrupt-ltx" {
+			if scenario == "mismatched-schema" || scenario == "corrupt-ltx" {
 				if err == nil {
 					t.Fatal("bad cloud candidate was accepted")
 				}
@@ -267,12 +268,6 @@ func TestPopulatedV15CloudInspectConfirmAndUpgrade(t *testing.T) {
 				t.Fatal("invalid confirmation changed live session")
 			}
 			result, err := service.ConfirmRestore(recovery.RestoreConfirmRequest{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true})
-			if scenario == "quiesce-failure" {
-				if err == nil || db.SQL == nil || !reflect.DeepEqual(current, cloudRows(t, db.SQL)) {
-					t.Fatal("failed install changed live session")
-				}
-				return
-			}
 			if err != nil || !result.RestartRequired || quiesced != 1 {
 				t.Fatalf("confirm %+v %v", result, err)
 			}

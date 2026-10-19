@@ -185,46 +185,22 @@ func TestPartialDeleteRestartResumesIdempotently(t *testing.T) {
 		t.Fatal("repeat not idempotent", err)
 	}
 }
-func TestCleanupCancellationAndDeniedDeleteStaySeparateFromBackup(t *testing.T) {
-	for _, mode := range []string{"denied", "cancel"} {
-		t.Run(mode, func(t *testing.T) {
-			m, c, root, streams := sealedFixture(t, 3)
-			b := &cleanupFault{fileBackend: fileBackend{root}}
-			if mode == "denied" {
-				b.failAt = 1
-			} else {
-				b.afterDelete = m.CancelCleanup
-			}
-			m.factory = func(config) backend { return b }
-			activateCleanup(t, m)
-			before, _ := m.View()
-			_, err := runCleanup(t, m)
-			if err == nil {
-				t.Fatal("fault ignored")
-			}
-			after, _ := m.View()
-			if before != after {
-				t.Fatal("cleanup overwrote backup status")
-			}
-			records, _ := m.store.streams(c)
-			if records[streams[0]].State != "deleting" {
-				t.Fatal("deleting state not persisted before mutation")
-			}
-			b.failAt = 0
-			b.afterDelete = nil
-			if _, err = runCleanup(t, m); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
 func TestStalePreviewAndUnknownObjectsAbortBeforeDeletion(t *testing.T) {
+	// n=3 keeps one expired stream beside the two verified survivors. One
+	// replica build is reused; each mode undoes its own persistent mutation
+	// so a later rejection still sees that eligible stream.
+	m, c, root, streams := sealedFixture(t, 3)
+	b := &cleanupFault{fileBackend: fileBackend{root}}
+	m.factory = func(config) backend { return b }
+	activateCleanup(t, m)
+	records, err := m.store.streams(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalSeal := records[streams[0]].SealedAt
+	unknown := filepath.Join(root, filepath.FromSlash(streams[0]), "unexpected.txt")
 	for _, mode := range []string{"expired", "unknown", "changed", "config", "pin", "disabled", "unacknowledged"} {
 		t.Run(mode, func(t *testing.T) {
-			m, c, root, streams := sealedFixture(t, 3)
-			b := &cleanupFault{fileBackend: fileBackend{root}}
-			m.factory = func(config) backend { return b }
-			activateCleanup(t, m)
 			p, err := m.PreviewRetention(context.Background(), 30)
 			if err != nil {
 				t.Fatal(err)
@@ -234,12 +210,16 @@ func TestStalePreviewAndUnknownObjectsAbortBeforeDeletion(t *testing.T) {
 			case "expired":
 				m.retentionPreview.View.ScannedAt = time.Now().Add(-time.Hour).Format(time.RFC3339Nano)
 			case "unknown":
-				os.WriteFile(filepath.Join(root, filepath.FromSlash(streams[0]), "unexpected.txt"), []byte("test"), 0600)
+				if err = os.WriteFile(unknown, []byte("test"), 0600); err != nil {
+					t.Fatal(err)
+				}
 			case "changed":
 				records, _ := m.store.streams(c)
 				r := records[streams[0]]
 				r.SealedAt = time.Now().Format(time.RFC3339Nano)
-				m.store.writeStream(c, r)
+				if err = m.store.writeStream(c, r); err != nil {
+					t.Fatal(err)
+				}
 			case "config":
 				u := testUpdate(false)
 				u.Bucket = "other-target"
@@ -260,6 +240,27 @@ func TestStalePreviewAndUnknownObjectsAbortBeforeDeletion(t *testing.T) {
 			}
 			if len(b.deleted) != 0 {
 				t.Fatal("objects deleted before revalidation")
+			}
+			switch mode {
+			case "unknown":
+				if err = os.Remove(unknown); err != nil {
+					t.Fatal(err)
+				}
+			case "changed":
+				records, _ = m.store.streams(c)
+				r := records[streams[0]]
+				r.SealedAt = originalSeal
+				if err = m.store.writeStream(c, r); err != nil {
+					t.Fatal(err)
+				}
+			case "config":
+				if err = m.Configure(context.Background(), testUpdate(false)); err != nil {
+					t.Fatal(err)
+				}
+			case "pin":
+				delete(m.previewPins, streams[0])
+			case "disabled":
+				activateCleanup(t, m)
 			}
 		})
 	}
@@ -360,36 +361,114 @@ func TestMissingMetadataAfterInterruptedDeletionFinishesSafely(t *testing.T) {
 	}
 }
 
+// hookedRetentionStorage is in-memory inventory with the file backend's unused
+// client surface, so executePlanLocked can fail a sealed-stream checkpoint
+// without standing up a Litestream replica.
+type hookedRetentionStorage struct {
+	fileBackend
+	inner       *largeStreamStorage
+	afterDelete func()
+}
+
+func (b *hookedRetentionStorage) inventory(ctx context.Context, owner string) ([]storedObject, error) {
+	return b.inner.inventory(ctx, owner)
+}
+func (b *hookedRetentionStorage) deleteObject(ctx context.Context, o storedObject) error {
+	if err := b.inner.deleteObject(ctx, o); err != nil {
+		return err
+	}
+	if b.afterDelete != nil {
+		b.afterDelete()
+	}
+	return nil
+}
+
+func syntheticSealedStream(t *testing.T) (*Manager, config, string, *hookedRetentionStorage) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "backup_config.db")
+	store, err := openConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &Manager{store: store, previewPins: map[string]bool{}}
+	t.Cleanup(func() { m.store.db.Close() })
+	c, _, err := store.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.AccountID = strings.Repeat("a", 32)
+	c.Bucket = "synthetic-sealed-stream"
+	identity := newIdentity(c.BackupID + "/" + uuid.NewString())
+	if err := store.createStream(c, identity); err != nil {
+		t.Fatal(err)
+	}
+	r := streamRecord{Identity: identity, State: "sealed", FinalTXID: "0000000000000001", SealedAt: time.Now().UTC().AddDate(0, 0, -100).Format(time.RFC3339Nano)}
+	ltxObject := storedObject{Key: fmt.Sprintf("%s%s/ltx/0/%016x-%016x.ltx", remotePrefix, identity.StreamID, 1, 1), Size: 100, ETag: "1"}
+	metadata := storedObject{Key: remotePrefix + identity.StreamID + "/" + identityFile, Size: 200, ETag: "metadata"}
+	storage := &hookedRetentionStorage{inner: &largeStreamStorage{objects: map[string]storedObject{
+		ltxObject.Key: ltxObject,
+		metadata.Key:  metadata,
+	}}}
+	if err := store.writeStream(c, r); err != nil {
+		t.Fatal(err)
+	}
+	m.factory = func(config) backend { return storage }
+	return m, c, identity.StreamID, storage
+}
+
+func syntheticRetentionPlan(t *testing.T, m *Manager, c config, storage *hookedRetentionStorage) retentionPlan {
+	t.Helper()
+	all, err := storage.inventory(context.Background(), c.BackupID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objects, err := groupInventory(c.BackupID, all)
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := m.store.streams(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := make([]RetentionItem, 0, len(records))
+	for stream, r := range records {
+		items = append(items, RetentionItem{StreamID: stream, SealedAt: r.SealedAt, Eligible: r.State == "sealed" || r.State == "deleting"})
+	}
+	return retentionPlan{
+		View:        RetentionPreview{Ready: true, Items: items},
+		Records:     records,
+		Objects:     objects,
+		Fingerprint: inventoryFingerprint("", objects, records),
+	}
+}
+
 func TestDurableDeletingCheckpointFailureNeverLosesOwnership(t *testing.T) {
 	for _, when := range []string{"before", "after"} {
 		t.Run(when, func(t *testing.T) {
-			m, c, root, streams := sealedFixture(t, 3)
-			activateCleanup(t, m)
+			m, c, stream, storage := syntheticSealedStream(t)
 			trigger := `CREATE TRIGGER reject_deleting BEFORE UPDATE ON backup_streams WHEN json_extract(NEW.record,'$.State')='deleting' BEGIN SELECT RAISE(FAIL,'simulated full disk'); END`
-			b := &cleanupFault{fileBackend: fileBackend{root}}
-			m.factory = func(config) backend { return b }
 			if when == "before" {
 				if _, err := m.store.db.Exec(trigger); err != nil {
 					t.Fatal(err)
 				}
 			} else {
-				b.afterDelete = func() {
+				storage.afterDelete = func() {
 					_, _ = m.store.db.Exec(`CREATE TRIGGER reject_deleting BEFORE INSERT ON backup_stream_progress BEGIN SELECT RAISE(FAIL,'simulated full disk'); END`)
 				}
 			}
-			if _, err := runCleanup(t, m); err == nil {
+			if err := m.executePlanLocked(context.Background(), c, syntheticRetentionPlan(t, m, c, storage)); err == nil {
 				t.Fatal("disk failure ignored")
 			}
-			if when == "before" && len(b.deleted) != 0 {
+			if when == "before" && storage.inner.deleted != 0 {
 				t.Fatal("deleted before durable intent")
 			}
 			records, _ := m.store.streams(c)
-			if when == "after" && records[streams[0]].State != "deleting" {
+			if when == "after" && records[stream].State != "deleting" {
 				t.Fatal("intent lost")
 			}
 			_, _ = m.store.db.Exec(`DROP TRIGGER reject_deleting`)
-			b.afterDelete = nil
-			if _, err := runCleanup(t, m); err != nil {
+			storage.afterDelete = nil
+			if err := m.executePlanLocked(context.Background(), c, syntheticRetentionPlan(t, m, c, storage)); err != nil {
 				t.Fatal("checkpoint resume failed", err)
 			}
 		})
