@@ -132,10 +132,12 @@ native Mac or physical-disk performance; no OS cold-page claim is made.
   process startup and fixture generation; a new process is not OS cold pages.
 
 The SQL probe uses a non-deterministic test-only function in the date-key WHERE
-predicate. It reports predicate evaluations, not VM instructions or disk reads;
+predicate. It reports only date-selection predicate evaluations, not VM
+instructions, disk reads, or all correlated chunk-query work;
 measurements use unprobed SQL. With two instruments, W=7 and four input versions,
 old/new evaluations were 216/50 (30 days), 2688/50 (365) and 8080/50 (1095), with
-14 returned rows in each case. EXPLAIN confirms the covering primary-key prefix
+14 returned rows in each case. It does not count payload/result seeks, CTE
+materialization/grouping/sorting, or evaluation-state aggregate scans. EXPLAIN confirms the covering primary-key prefix
 for date selection and complete date keys for payload lookup. Old versions still
 increase key work because `input_policy` follows `on_date` in the existing PK;
 this stage makes no claim of independence from unbounded version count.
@@ -180,7 +182,10 @@ permanent suppression. Median and p95 below both use nearest rank.
 | append | 699.150 / 1055.302 | 711.631 / 994.101 | 24.499 / 36.979 | 24.244 / 27.820 |
 | correction | 805.578 / 853.356 | 805.301 / 865.771 | 24.009 / 25.707 | 23.701 / 27.554 |
 
-No semantic differences were observed in the 120 paired scenarios. At measured
+These are **120 repeated paired samples: 30 repetitions of each of four fixed
+workload scenarios**, not 120 distinct semantic edge cases or mutation histories.
+The scenario source snapshot is reset for each repetition. No differences were
+observed in the fields checked by the then-current oracle. At measured
 commit `0a691b3`, event row UUIDs were normalized; subsequent test-only commit
 `cf4e537` strengthens the current oracle to preserve existing event IDs and
 explicitly reject replacement of an existing identity. Query/production code is
@@ -209,9 +214,10 @@ identical to the reference/application measurements at `0a691b3`.
 | 365 | 3.273 / 4.687 | 0.898 / 1.184 | 0.764 / 1.093 |
 | 1095 | 8.447 / 11.362 | 0.898 / 1.643 | 0.798 / 1.432 |
 
-All returned typed evidence maps are identical. Instrumented key predicate
-evaluations remain 216/50, 2688/50 and 8080/50 (baseline/bounded); these probes
-are not included in timings. This in-memory SQL fixture measures two instruments
+All returned typed evidence maps are identical. Instrumented **date-selection**
+predicate evaluations remain 216/50, 2688/50 and 8080/50 (baseline/bounded); these
+probes are not included in timings and do not measure all correlated chunk-query
+work, particularly the per-returned-date evaluation-state aggregate. This in-memory SQL fixture measures two instruments
 and four input versions, not the full reference workload. Its per-instrument
 trial does not include the 2,000 request overhead observed in the actual R30
 trial; production candidate selection uses chunks.
@@ -220,6 +226,28 @@ Final measured synthetic p95 regressions are below 10%; this does not authorize
 default activation. Earlier unreviewed exploratory results varied, and native
 Apple Silicon distributions, workload-specific peak RSS and the remaining matrix
 are still missing. The default remains the original query until parent review.
+
+### Remaining epoch-history performance risk before activation
+
+The bounded payload query still performs a correlated `MAX(consecutive_count)`
+lookup for **each returned date**. Evaluation-state rows are keyed by
+`(rule_id, instrument_id, position_epoch_id)`; filtering `latest_closed_on` does
+not provide a date-key seek. Searching the rule/instrument prefix can therefore
+visit many historical epochs, repeatedly across W returned slots. Bounded input
+date selection is not a proof that total query work is independent of epoch
+history. The date predicate counters above do not measure these state scans.
+
+The reduced SQL fixture has only **three state epochs per instrument**. The
+mixed workload buys/sells small quantities while remaining positive and uses
+cash transfers; it does not repeatedly fully close and re-enter a position.
+Neither it nor the repeated 30 samples establishes scaling under many epochs.
+Before default activation, add actual-schema repeated close/re-entry stress,
+varying epoch count while holding instruments/rules/days/window width fixed.
+Compare old/new typed evidence and full lifecycle/ack/epoch results from identical
+snapshots, and measure consumed-query and complete-reconcile distributions,
+state-row/aggregate work with an explicitly scoped counter, and RSS. Treat that
+as an open rollout gate. This review fix does not introduce another query
+optimization or claim the stress gate is already satisfied.
 
 ### Analysis baseline only
 
@@ -273,6 +301,76 @@ Local dependency installation cannot acquire root privileges, so native headers
 remain unavailable. Initial binding generation also hit the read-only default Go
 checksum cache; the final attempt uses `GOPATH=/tmp/nestworth-gopath` and retains
 checksum verification. No generated bindings or frontend bundle is committed.
+
+## Independent-review oracle correction
+
+Review identified a real test-oracle gap: comparing only the candidate's emitted
+`Days` and then clearing both day slices did not prove expected dates were emitted.
+The checker now derives the expected emission independently from full-oracle dates
+and a complete, source-equal cached anchor window. It requires every full date on
+rebuild/repair, only dates after the latest valid anchor on incremental continuation,
+and an empty suffix for an unchanged closed date. Missing/extra/duplicate/reordered
+emitted dates are rejected before lifecycle summaries are compared. Every cached
+key must match a full day in the complete rule/version/instrument/timezone namespace.
+The production cache's incremental eligibility helper is not called to derive the
+expected suffix.
+
+Mutation regressions retain legitimate full, no-op, two-day suffix and sparse-window
+repair publications, then remove an expected day while leaving summaries unchanged.
+They also cover empty day lists, duplicate replacement, wrong dates at the same count,
+extra no-op output, and cached date/namespace keys with no full match. An intentional
+test-only restoration of the old one-way comparison makes the missing-suffix
+regression fail; the fixed checker rejects that mutation. These are new correctness
+checks, not changes to budgets, production SQL, financial rules or the default.
+
+The old timing logs remain historical observations at their recorded commits. Their
+then-current oracle did **not** prove emitted-date completeness. Follow-up validation
+logs below explicitly distinguish the fixed oracle and mutation proof; repeated
+performance samples are not reclassified as new semantic edge cases.
+
+Follow-up checks (same Go 1.26.0 / four-CPU environment, original dependency graph):
+
+- Fixed unit selection: passed in 1.451s, covering the new day-set mutations,
+  existing paired full oracle, cached-gap repair and existing-event identity.
+- Intentional one-way-comparison mutant: expected failure in 0.155s, specifically
+  `incremental-missing-first-new-day` reporting that the mutation escaped rejection.
+  The fixed source was restored automatically before further validation.
+- Same fixed selection under `-race -count=1 -timeout 10m -p 1 -parallel 4`:
+  passed in 38.033s. No timeout or assertion was changed.
+- Full-sized S correctness rerun: eight repeated paired samples (two of each of
+  no-op/clock-only/append/correction, both execution orders) passed in 23.828s with
+  the stronger emitted-date checker. Its n=2-per-scenario timing lines are **not**
+  a replacement for the original n=30 performance distributions or a new p95 claim.
+- `go vet ./internal/application`, gofmt and diff checks passed for this follow-up.
+
+See `oracle-review-*.log` in the [raw evidence directory](performance-p0-2026-10-19/).
+The earlier broad-suite/native failures remain recorded; this focused follow-up
+neither reruns nor reclassifies those broader gates. Production defaults and SQL
+are unchanged.
+
+## Newer main relevance: `4c3dc34`
+
+Inspected `4c3dc34ea5cce823193b937a1b4cff0c29fdf2bb` against the original
+`bca85a8` baseline. It upgrades backend/CLI/frontend Wails beta.28 to beta.32,
+updates supporting `x/crypto`, `x/net`, `x/sync`, `x/sys`, `x/text`/tools dependencies,
+and changes the native minimum/SDK target to macOS 27. Go remains 1.26 and
+modernc SQLite remains 1.49.1. No application/domain/SQLite production files,
+review SQL, financial schema or correctness tests are changed by that commit.
+The established development bundle identity remains unchanged.
+
+It does not alter this oracle fix or demonstrate a new bounded-query logic issue.
+It **does affect validation applicability**: the retained timings, isolated main
+comparison and local frontend/binding attempts used the earlier dependency graph
+(beta.28), not beta.32/macOS 27. Dependency/runtime changes, including SQLite's
+low-level dependencies, can affect timings; do not promote old numbers to that
+new graph without measurement. After integration with current main, regenerate
+beta.32 bindings and rerun applicable correctness/race, frontend and native
+acceptance/performance gates under the updated target. The local missing Linux
+GTK/WebKit headers are not fixed by a Wails version bump.
+
+This focused follow-up does not merge/rebase the SDK upgrade into the benchmark
+branch, change dependency pins, enable the candidate or start another optimization.
+Original failures and the exact older comparison revision remain visible above.
 
 ## Reproduction and remaining stages
 

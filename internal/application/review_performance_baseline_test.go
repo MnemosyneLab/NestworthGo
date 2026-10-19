@@ -112,31 +112,59 @@ func assertReviewFullOracle(t *testing.T, f reviewFullPipelineFixture, candidate
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := compareReviewFullOracle(candidate, full, f.service.FXProviderKey()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Compare against independently rebuilt inputs. Derive the emitted suffix from
+// authoritative full dates and the complete captured anchor window, never from
+// whichever days the candidate happened to emit or the incremental planner.
+func compareReviewFullOracle(candidate, full domain.ReviewPublication, providerKey string) error {
 	if len(candidate.Rules) != len(full.Rules) {
-		t.Fatal("oracle rule count differs")
+		return fmt.Errorf("oracle rule count differs")
+	}
+	fullDays := map[domain.ReviewDailyEvidenceKey]domain.ReviewPublicationDay{}
+	for _, rule := range full.Rules {
+		for _, day := range rule.Days {
+			key := domain.ReviewDailyEvidenceKey{RuleID: rule.RuleID, ConditionVersion: rule.ConditionVersion, InstrumentID: rule.InstrumentID, TimezoneVersion: rule.TimezoneVersion, On: day.On}
+			if _, exists := fullDays[key]; exists {
+				return fmt.Errorf("oracle duplicate full day: %+v", key)
+			}
+			fullDays[key] = day
+		}
+	}
+	for key, cached := range candidate.Capture.ReusableDailyEvidence {
+		day, exists := fullDays[key]
+		if !exists {
+			return fmt.Errorf("oracle cached key has no full day: %+v", key)
+		}
+		if !reflect.DeepEqual(cached.Input, day.Input) || !reflect.DeepEqual(cached.CoverageMissing, day.CoverageMissing) || cached.InputFingerprint != day.InputFingerprint || (cached.HasResult && !reflect.DeepEqual(cached.Result, day.Result)) {
+			return fmt.Errorf("cached evidence differs from full recompute: %+v", key)
+		}
 	}
 	for i, got := range candidate.Rules {
 		want := full.Rules[i]
-		for key, cached := range candidate.Capture.ReusableDailyEvidence {
-			if key.RuleID != want.RuleID || key.InstrumentID != want.InstrumentID {
-				continue
-			}
-			for _, day := range want.Days {
-				if day.On == key.On {
-					if !reflect.DeepEqual(cached.Input, day.Input) || !reflect.DeepEqual(cached.CoverageMissing, day.CoverageMissing) || cached.InputFingerprint != day.InputFingerprint || (cached.HasResult && !reflect.DeepEqual(cached.Result, day.Result)) {
-						t.Fatalf("cached evidence differs from full recompute on %s", day.On)
-					}
-				}
-			}
+		expected, err := expectedReviewOracleDays(candidate.Capture.ReusableDailyEvidence, full.Capture, want, providerKey)
+		if err != nil {
+			return err
 		}
-
-		byDay := map[string]domain.ReviewPublicationDay{}
-		for _, day := range want.Days {
-			byDay[day.On] = day
-		}
+		seen := map[string]bool{}
 		for _, day := range got.Days {
-			if !reflect.DeepEqual(day, byDay[day.On]) {
-				t.Fatalf("oracle day differs rule=%s instrument=%s on=%s\ngot=%+v\nwant=%+v", got.RuleID, got.InstrumentID, day.On, day, byDay[day.On])
+			if seen[day.On] {
+				return fmt.Errorf("oracle duplicate emitted day rule=%s instrument=%s on=%s", got.RuleID, got.InstrumentID, day.On)
+			}
+			seen[day.On] = true
+		}
+		if len(got.Days) != len(expected) {
+			return fmt.Errorf("oracle emitted day count differs rule=%s instrument=%s: got=%d want=%d", got.RuleID, got.InstrumentID, len(got.Days), len(expected))
+		}
+		for index, day := range got.Days {
+			if day.On != expected[index].On {
+				return fmt.Errorf("oracle emitted date differs rule=%s instrument=%s: got=%s want=%s", got.RuleID, got.InstrumentID, day.On, expected[index].On)
+			}
+			if !reflect.DeepEqual(day, expected[index]) {
+				return fmt.Errorf("oracle day differs rule=%s instrument=%s on=%s\ngot=%+v\nwant=%+v", got.RuleID, got.InstrumentID, day.On, day, expected[index])
 			}
 		}
 		got.Days, want.Days = nil, nil
@@ -146,9 +174,74 @@ func assertReviewFullOracle(t *testing.T, f reviewFullPipelineFixture, candidate
 			got.CurrentEpisode = &copied
 		}
 		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("oracle lifecycle differs rule=%s instrument=%s\ngot=%+v\nwant=%+v", got.RuleID, got.InstrumentID, got, want)
+			return fmt.Errorf("oracle lifecycle differs rule=%s instrument=%s\ngot=%+v\nwant=%+v", got.RuleID, got.InstrumentID, got, want)
 		}
 	}
+	return nil
+}
+
+func expectedReviewOracleDays(cached map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, authoritative domain.ReviewProjectionCapture, rule domain.ReviewRulePublication, providerKey string) ([]domain.ReviewPublicationDay, error) {
+	// Without a complete, source-equal projection every full-oracle date is due.
+	if len(rule.Days) == 0 || authoritative.Control.ProjectionStatus != "complete" || authoritative.Control.PublishedFingerprint != authoritative.HistoricalFingerprint {
+		return rule.Days, nil
+	}
+	width := 0
+	for _, spec := range authoritative.Rules {
+		if spec.ID != rule.RuleID {
+			continue
+		}
+		switch spec.Spec.TriggerPolicy.Kind {
+		case "consecutive":
+			width = spec.Spec.TriggerPolicy.Count
+		case "rolling":
+			width = spec.Spec.TriggerPolicy.WindowDays
+		default:
+			width = 1
+		}
+		break
+	}
+	if width < 1 {
+		return nil, fmt.Errorf("oracle missing/invalid policy for rule %s", rule.RuleID)
+	}
+	for _, episode := range authoritative.OpenEpisodes {
+		if episode.RuleID == rule.RuleID && episode.InstrumentID == rule.InstrumentID && episode.TriggerWindow.WindowStart == "" {
+			return rule.Days, nil
+		}
+	}
+	anchors := map[string]bool{}
+	for key, item := range cached {
+		if key.RuleID != rule.RuleID || key.ConditionVersion != rule.ConditionVersion || key.InstrumentID != rule.InstrumentID || key.TimezoneVersion != rule.TimezoneVersion {
+			continue
+		}
+		if !item.HasResult || item.Input.FXProviderKey != providerKey {
+			return rule.Days, nil
+		}
+		anchors[key.On] = true
+	}
+	if len(anchors) == 0 {
+		return rule.Days, nil
+	}
+	last := -1
+	for index, day := range rule.Days {
+		if anchors[day.On] {
+			last = index
+		}
+	}
+	first := last - width + 1
+	if first < 0 {
+		first = 0
+	}
+	// A hole, truncated window, or extra anchor forces the full reconstruction,
+	// matching the contract's contiguous date coverage gate independently.
+	if last < 0 || len(anchors) != last-first+1 {
+		return rule.Days, nil
+	}
+	for _, day := range rule.Days[first : last+1] {
+		if !anchors[day.On] {
+			return rule.Days, nil
+		}
+	}
+	return rule.Days[last+1:], nil
 }
 
 func TestReviewPerformanceFullOracle(t *testing.T) {
