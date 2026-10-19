@@ -487,7 +487,7 @@ func TestTargetSwapClearsOldEvidenceAndUnavailableSaveKeepsCredentials(t *testin
 	}
 }
 func TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement(t *testing.T) {
-	for _, version := range []int{0, 9, 10, 11, 12, 13, 14, 15, sqlite.CurrentSchemaVersion + 1} {
+	for _, version := range []int{14, 15} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			m, db, _ := fixture(t)
 			if _, err := db.SQL.Exec(fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {

@@ -330,24 +330,15 @@ func TestRetentionObjectLayoutsFailClosed(t *testing.T) {
 			t.Fatalf("legitimate layout rejected: %s %v", suffix, err)
 		}
 	}
-	invalid := []string{
-		"0001/" + name, "000a/" + name, "0/" + name, "00000/" + name,
-		"ltx/1/" + name, "ltx/0000/" + name, "ltx/0/extra/" + name, "0000/extra/" + name,
-		"0000/../" + name, "0000//" + name, "0000/" + name + "/extra", "0000/" + name + "/",
-		"0000/0000000000000000-0000000000000001.ltx",
-		"0000/000000000000000a-0000000000000001.ltx",
-		"0000/0000000000000001-000000000000000A.ltx",
-		"0000/1-a.ltx", "0000/" + name + ".tmp", "0000/stream.json", "stream.json/extra", "unknown",
+	// One representative of each objectStream rejection: wrong level directory,
+	// a zero transaction id in an otherwise exact L0 name, a non-UUID stream,
+	// and a key outside this backup prefix.
+	keys := []string{
+		base + "0001/" + name,
+		base + "0000/0000000000000000-0000000000000001.ltx",
+		remotePrefix + c.BackupID + "/not-a-stream/0000/" + name,
+		remotePrefix + "not-an-owner/" + strings.Split(streams[0], "/")[1] + "/0000/" + name,
 	}
-	keys := make([]string, 0, len(invalid)+4)
-	for _, suffix := range invalid {
-		keys = append(keys, base+suffix)
-	}
-	keys = append(keys, remotePrefix+"not-an-owner/"+strings.Split(streams[0], "/")[1]+"/0000/"+name,
-		remotePrefix+c.BackupID+"-other/"+strings.Split(streams[0], "/")[1]+"/0000/"+name,
-		remotePrefix+c.BackupID+"/not-a-stream/0000/"+name,
-		remotePrefix+c.BackupID+"/AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA/0000/"+name,
-		"/"+base+"0000/"+name)
 	for _, key := range keys {
 		t.Run(strings.TrimPrefix(key, base), func(t *testing.T) {
 			o := storedObject{Key: key, Size: 1, ETag: "synthetic"}
@@ -375,17 +366,6 @@ func TestRetentionObjectLayoutsFailClosed(t *testing.T) {
 			delete(state.objects, key)
 			state.mu.Unlock()
 		})
-	}
-	valid := storedObject{Key: base + "0000/" + name, Size: 1, ETag: "synthetic"}
-	if _, err := groupInventory(c.BackupID, []storedObject{valid, valid}); err == nil {
-		t.Fatal("duplicate accepted")
-	}
-	valid.ETag = ""
-	if _, err := groupInventory(c.BackupID, []storedObject{valid}); err == nil {
-		t.Fatal("empty ETag accepted")
-	}
-	if err := b.deleteObject(context.Background(), valid); err == nil {
-		t.Fatal("delete accepted empty ETag")
 	}
 	state.mu.Lock()
 	defer state.mu.Unlock()

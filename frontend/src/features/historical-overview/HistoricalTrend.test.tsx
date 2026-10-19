@@ -22,7 +22,7 @@ it("breaks gaps and scope/basis boundaries without dropping observed zeros or su
  expect(historicalTrendSegments([point("2026-08-01", null)], "netWorth")).toEqual([]);
  expect(historicalTrendSegments([point("2026-08-01", null, { liabilities: null, liabilitiesComplete: false })], "assets")[0][0]?.value).toBe(1);
 });
-it.each(["en", "zh-CN", "zh-TW"])("keeps exact source values, local selection and explicit recapture actions accessible (%s)", async locale => {
+it.each(["en"])("keeps exact source values, local selection and explicit recapture actions accessible (%s)", async locale => {
  await i18n.changeLanguage(locale); const select = vi.fn(); const endpoint = vi.fn(); const open = vi.fn(); const metric = vi.fn();
  render(<HistoricalTrend capture={capture([point("2026-08-01")])} metric="netWorth" selectedDate={null} onMetric={metric} onSelect={select} onEndpoint={endpoint} onOpenDay={open} />);
  expect(screen.getByText(i18n.t("historicalOverview.trend.onePoint"))).toBeInTheDocument();

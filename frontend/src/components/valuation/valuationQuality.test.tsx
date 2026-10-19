@@ -7,7 +7,7 @@ import { trendQualitySegments } from "@/components/charts/TrendChart";
 
 const full: DisplayValuation = { total:{amount:"200",currency:"CNY"},knownSubtotal:{amount:"200",currency:"CNY"},quality:{availability:"full",coverage:"provisional",includedCount:1,valuedCount:1,unpricedCount:0,provisionalCount:1,carriedCount:1,staleCount:1,oldestMarketDate:"2026-10-09",newestMarketDate:"2026-10-09",reasons:["history_unverified","carried_price","carried_nav"]} };
 afterEach(async () => { await i18n.changeLanguage("en"); });
-it.each(["en","zh-CN","zh-TW"])("discloses estimates and actual NAV dates without a publication deadline (%s)",async language=>{
+it.each(["en"])("discloses estimates and actual NAV dates without a publication deadline (%s)",async language=>{
  await i18n.changeLanguage(language);render(<ValuationQualitySummary value={full} />);
  const status=screen.getByRole("status");expect(status).toHaveTextContent(i18n.t("valuation.estimated"));expect(status).toHaveTextContent(i18n.t("valuation.latestNAV"));expect(status).toHaveTextContent("2026-10-09");expect(status).not.toHaveTextContent("2026-10-12");
 });

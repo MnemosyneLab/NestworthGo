@@ -140,8 +140,10 @@ It regenerates the frontend bundle, then runs `gofmt` validation, Go tests,
 frontend tests, and `git diff --check`.
 
 The same automated gates run in GitHub Actions on `main` and pull requests
-(`.github/workflows/check.yml`), with race detection as a separate job. Native
-packaging, signing, and notarization remain manual.
+(`.github/workflows/check.yml`). Non-race Go tests are checksum shards. Race
+detection and `//go:build perf` evidence run weekly in
+`.github/workflows/perf.yml`, not on every pull request. Native packaging,
+signing, and notarization remain manual.
 
 The release task also runs `python3 -m unittest discover -s tools/tests -v`
 through `skill:check`. Native-dependency helper tests discover GNU `timeout`
@@ -162,12 +164,18 @@ with both backends. These timings do not change production apt budgets.
 
 ## CI race budgets and SDK test lifetime
 
-The required `race` aggregate fails unless every matrix part succeeds.
-Application tests use four checksum partitions; MCP uses two. Infrastructure
-and all remaining packages also run with the detector. Enumeration uses the
-race build and includes Test, Example, and Fuzz names. Each process has an
-explicit 10-minute test budget, `-parallel 4` for the split packages, and
-`-p 1`; each race job has a 30-minute outer bound including setup. Sequential
+The weekly `race` aggregate fails unless every matrix part succeeds.
+Application tests use eight checksum partitions; MCP uses four; sqlite uses
+two. Infrastructure and all remaining packages also run with the detector.
+Enumeration uses the race build and includes Test, Example, and Fuzz names.
+Each process has an explicit 10-minute test budget, `-parallel 4` for
+application and MCP, and `-p 1` on the heavy shards; each race job has a
+30-minute outer bound including setup. Pull-request `check` bins non-race
+tests into three jobs from measured whole-job times: application in two
+checksum parts, paired with continuous backup and the remainder, plus one
+job for MCP and sqlite. Vitest runs as `--shard=1/2` and `--shard=2/2`,
+with lint/typecheck on the first shard and the production build on the
+second. Sequential
 fault-injection and performance tests remain sequential. Matrix regression
 checks require every part exactly once and a complete, disjoint name union.
 There are no automatic test retries. Seven-day

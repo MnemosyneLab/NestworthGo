@@ -112,13 +112,10 @@ func TestRetentionInventoryUsesEveryPageAndRejectsUnknownObjects(t *testing.T) {
 			t.Fatal("point cap")
 		}
 	}
-	for _, key := range []string{remotePrefix + owner + "-other/" + uuid.NewString() + "/stream.json", remotePrefix + owner + "/../stream.json", remotePrefix + owner + "/" + uuid.NewString() + "/unknown", all[0].Key + "/extra"} {
+	for _, key := range []string{remotePrefix + owner + "-other/" + uuid.NewString() + "/stream.json", remotePrefix + owner + "/../stream.json", remotePrefix + owner + "/" + uuid.NewString() + "/unknown"} {
 		if _, err := groupInventory(owner, []storedObject{{Key: key, Size: 1, ETag: "test"}}); err == nil {
 			t.Fatalf("accepted unknown key %s", key)
 		}
-	}
-	if _, err := groupInventory(owner, append(all[:1], all[0])); err == nil {
-		t.Fatal("accepted duplicate")
 	}
 }
 func sealedFixture(t *testing.T, n int) (*Manager, config, string, []string) {

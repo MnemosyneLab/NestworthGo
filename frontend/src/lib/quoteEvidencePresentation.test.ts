@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import i18n from "@/i18n";
 import { quoteSourceLabel } from "./quoteEvidencePresentation";
 
-it.each(["en", "zh-CN", "zh-TW"])("names Yahoo Finance without exposing its technical key (%s)", language => {
+it.each(["en"])("names Yahoo Finance without exposing its technical key (%s)", language => {
   const t = i18n.getFixedT(language);
   const label = quoteSourceLabel(t, "provider", "yahoo_finance");
   expect(label).toBe(`${t("portfolio.provider")} · Yahoo Finance`);

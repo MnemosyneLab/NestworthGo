@@ -1,3 +1,5 @@
+//go:build perf
+
 package sqlite
 
 import (
@@ -14,9 +16,6 @@ import (
 )
 
 func TestFinancialSourceWriteAmplificationEvidence(t *testing.T) {
-	if os.Getenv("NW_SOURCE_PERF") != "1" {
-		t.Skip("set NW_SOURCE_PERF=1; run alone without build/race/profile work")
-	}
 	source, err := Open(filepath.Join(t.TempDir(), "synthetic-source.db"))
 	if err != nil {
 		t.Fatal(err)

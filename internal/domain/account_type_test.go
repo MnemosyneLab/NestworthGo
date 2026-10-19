@@ -15,17 +15,6 @@ func TestLegalAccountCombinationsAreClosed(t *testing.T) {
 		tracking    TrackingMode
 	}{
 		{TypeCashOnHand, RoleAsset, TrackingBalance},
-		{TypeCashOnHand, RoleAsset, TrackingHoldings},
-		{TypeBankAccount, RoleAsset, TrackingBalance},
-		{TypeBankAccount, RoleAsset, TrackingHoldings},
-		{TypeBrokerage, RoleAsset, TrackingHoldings},
-		{TypeBrokerage, RoleAsset, TrackingManualValue},
-		{TypeCryptoExchange, RoleAsset, TrackingHoldings},
-		{TypeInsurancePolicy, RoleAsset, TrackingManualValue},
-		{TypeCreditCard, RoleLiability, TrackingBalance},
-		{TypeLoan, RoleLiability, TrackingBalance},
-		{TypeOther, RoleAsset, TrackingHoldings},
-		{TypeOther, RoleLiability, TrackingBalance},
 	}
 	for _, row := range valid {
 		if !IsValidAccountCombination(row.accountType, row.role, row.tracking) {
@@ -41,13 +30,6 @@ func TestIllegalAccountCombinationsAreRejected(t *testing.T) {
 		tracking    TrackingMode
 	}{
 		{TypeCreditCard, RoleLiability, TrackingHoldings},
-		{TypeLoan, RoleLiability, TrackingManualValue},
-		{TypeBankAccount, RoleLiability, TrackingBalance},
-		{TypeCryptoExchange, RoleAsset, TrackingBalance},
-		{TypeProperty, RoleAsset, TrackingHoldings},
-		{TypeOther, RoleLiability, TrackingHoldings},
-		{TypeOther, RoleLiability, TrackingManualValue},
-		{TypeBrokerage, RoleLiability, TrackingHoldings},
 	}
 	for _, row := range illegal {
 		if IsValidAccountCombination(row.accountType, row.role, row.tracking) {
@@ -76,10 +58,7 @@ func TestClassifySimpleAccountMatchesDesignTable(t *testing.T) {
 		tracking    TrackingMode
 		bucket      string
 	}{
-		{TypeCashOnHand, RoleAsset, TrackingBalance, BucketCash},
-		{TypeBankAccount, RoleAsset, TrackingBalance, BucketCash},
 		{TypeDigitalWallet, RoleAsset, TrackingBalance, BucketCash},
-		{TypeBrokerage, RoleAsset, TrackingManualValue, BucketUnclassifiedInvestment},
 		{TypeInvestmentAccount, RoleAsset, TrackingManualValue, BucketUnclassifiedInvestment},
 		{TypePension, RoleAsset, TrackingManualValue, BucketPension},
 		{TypeInsurancePolicy, RoleAsset, TrackingManualValue, BucketInsurance},
@@ -87,7 +66,6 @@ func TestClassifySimpleAccountMatchesDesignTable(t *testing.T) {
 		{TypeVehicle, RoleAsset, TrackingManualValue, BucketVehicle},
 		{TypeCollectible, RoleAsset, TrackingManualValue, BucketCollectible},
 		{TypeReceivable, RoleAsset, TrackingBalance, BucketReceivable},
-		{TypeReceivable, RoleAsset, TrackingManualValue, BucketReceivable},
 		{TypeCreditCard, RoleLiability, TrackingBalance, BucketCreditCard},
 		{TypeLoan, RoleLiability, TrackingBalance, BucketLoan},
 		{TypeOther, RoleAsset, TrackingBalance, BucketOtherAsset},

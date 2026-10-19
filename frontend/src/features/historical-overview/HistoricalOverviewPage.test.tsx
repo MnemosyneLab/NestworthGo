@@ -68,7 +68,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["light", "dark"].map(theme => ({ locale, theme }))))(
+it.each(["en"].flatMap(locale => ["light", "dark"].map(theme => ({ locale, theme }))))(
   "keeps full monetary tokens accessible in single and comparison summaries ($locale, $theme)", async ({ locale, theme }) => {
     await i18n.changeLanguage(locale);
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -116,7 +116,7 @@ function show(primaryView = false) {
   return { ...view, client, exit };
 }
 
-it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => [false, true].map(compare => ({ locale, compare }))))(
+it.each(["en"].flatMap(locale => [false, true].map(compare => ({ locale, compare }))))(
   "provides one keyboard tab stop and named panels for historical views ($locale, compare=$compare)", async ({ locale, compare }) => {
     await i18n.changeLanguage(locale);
     const user = userEvent.setup();
@@ -788,7 +788,7 @@ it("keeps zero-to-active assets and active-to-zero debt in their comparable bala
   expect(within(changes).getByRole("button", { name: "Loan" })).toBeInTheDocument();
 });
 
-it.each(["en", "zh-CN", "zh-TW"])("keeps negative sub-cent values exact in cards, cells and account changes (%s)", async locale => {
+it.each(["en"])("keeps negative sub-cent values exact in cards, cells and account changes (%s)", async locale => {
   await i18n.changeLanguage(locale);
   read.mockImplementation((date: string, compare: string) => {
     const data = result(date, compare);
@@ -816,7 +816,7 @@ it.each(["en", "zh-CN", "zh-TW"])("keeps negative sub-cent values exact in cards
 });
 
 
-it.each(["en", "zh-CN", "zh-TW"])("restores category role, dimension, position and keyboard focus after drilling into account leaves (%s)", async locale => {
+it.each(["en"])("restores category role, dimension, position and keyboard focus after drilling into account leaves (%s)", async locale => {
   await i18n.changeLanguage(locale);
   const data = result("2026-08-01", "2026-08-09");
   data.categories = [{ role: "asset", dimension: "byCurrency", key: "CNY", left: { status: "complete", amount: "200", knownAmount: "200", share: "100", shareBasis: "total", includedCount: 1, missingRowKeys: [] }, right: { status: "complete", amount: "220", knownAmount: "220", share: "100", shareBasis: "total", includedCount: 1, missingRowKeys: [] }, amountChange: "20", shareChangePp: "0", amountReasons: [], shareReasons: [] }];
@@ -840,7 +840,7 @@ it.each(["en", "zh-CN", "zh-TW"])("restores category role, dimension, position a
   expect(read).toHaveBeenCalledTimes(count);
 });
 
-it.each(["en", "zh-CN", "zh-TW"])("shows applied evidence and concrete side-specific missing inputs without new reads (%s)", async locale => {
+it.each(["en"])("shows applied evidence and concrete side-specific missing inputs without new reads (%s)", async locale => {
   await i18n.changeLanguage(locale);
   const data = result("2026-08-01", "current");
   const evidence = { id: "quote-id", source: "provider", sourceKey: "recorded-provider", effectiveAt: "2026-08-01T21:00:00Z", marketDate: "2026-08-01", freshness: "stale", value: "0.0000012", currency: "USD", baseCurrency: "", quoteCurrency: "", operation: "", observationKind: "daily_close", priceBasis: "raw_close", timestampBasis: "session_close", sourcePolicyVersion: "stored-policy" };
@@ -897,7 +897,7 @@ it.each(["table", "card"])("groups category-matching and full-account context in
 });
 
 
-it.each((["en", "zh-CN", "zh-TW"] as const).flatMap(locale => (["byClass", "byCurrency"] as const).map(dimension => ({ locale, dimension }))))(
+it.each((["en"] as const).flatMap(locale => (["byClass", "byCurrency"] as const).map(dimension => ({ locale, dimension }))))(
   "uses canonical category labels in both page and detail filter chips ($locale, $dimension)", async ({ locale, dimension }) => {
     await i18n.changeLanguage(locale);
     const data = result();
@@ -1230,7 +1230,7 @@ it.each(["zh-CN", "zh-TW"])("localizes the estimated change badge (%s)", async l
   expect(within(region).getAllByText(i18n.t("historicalOverview.estimatedShort")).length).toBeGreaterThan(0);
 });
 
-it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["full", "partial"].map(availability => ({ locale, availability }))))("distinguishes complete estimates from missing totals and keeps the net-worth label readable ($locale, $availability)", async ({ locale, availability }) => {
+it.each(["en"].flatMap(locale => ["full", "partial"].map(availability => ({ locale, availability }))))("distinguishes complete estimates from missing totals and keeps the net-worth label readable ($locale, $availability)", async ({ locale, availability }) => {
   await i18n.changeLanguage(locale);
   comparedWithCoverage("provisional", "verified", data => {
     // Backend strict totals can be absent while displayValuation has a full

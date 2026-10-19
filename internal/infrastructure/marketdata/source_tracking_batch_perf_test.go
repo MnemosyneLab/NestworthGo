@@ -1,3 +1,5 @@
+//go:build perf
+
 package marketdata
 
 import (
@@ -12,9 +14,6 @@ import (
 // Opt-in complete repository persistence calls, including validation, binding,
 // quote/slot/coverage UPSERTs, dirty generation and Commit. No live provider.
 func TestSourceTrackingProviderImportBatchEvidence(t *testing.T) {
-	if os.Getenv("NW_SOURCE_BATCH_PERF") != "1" {
-		t.Skip("synthetic end-to-end batch evidence; run alone")
-	}
 	db, repo, household, instrument := seedHistoryWorkspace(t)
 	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
 	outcome, err := QualifyTiingoHistory(meta, body)

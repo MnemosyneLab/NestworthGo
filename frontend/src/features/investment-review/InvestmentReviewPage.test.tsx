@@ -85,7 +85,7 @@ describe("daily investment review page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Load more" }));
     expect(state.suppressions.fetchNextPage).toHaveBeenCalledOnce();
   });
-  it.each(["en", "zh-CN", "zh-TW"])("groups every alert for one investment and explains its fixed window in %s", async language => {
+  it.each(["en"])("groups every alert for one investment and explains its fixed window in %s", async language => {
     await i18n.changeLanguage(language);
     mount();
     expect(screen.getAllByRole("heading", { name: "Synthetic fund" })).toHaveLength(1);

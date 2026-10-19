@@ -152,10 +152,19 @@ presentation preferences.
 Use sanitized deterministic fixtures. Provider tests use fakes and must not
 depend on live network responses.
 
-GitHub Actions workflow `.github/workflows/check.yml` runs the same automated
-gates on `main` and pull requests: gofmt, `go test ./...`, a separate race job,
-vet, `go build ./cmd/nestworth`, frontend build/lint/typecheck/test, and
-`git diff --check`. Native `.app`/DMG packaging, signing, and notarization stay
+GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to
+`main`, on pull requests, and on manual dispatch. Its gates are gofmt, binned
+non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
+build/lint/typecheck/test, and `git diff --check`. Go tests are three parallel
+jobs and Vitest is two shards, sized from measured whole-job times so each
+lands near 4–5 minutes. The required aggregate check name is `test`. Race detection is not part
+of that workflow. `.github/workflows/perf.yml` runs on Sunday 18:00 UTC and on
+manual dispatch. Performance evidence is compiled only with `go test -tags perf`
+in that workflow (scale, 365-day pipeline, paired samples, and epoch
+diagnostics as separate jobs). The same workflow runs the sharded
+`go test -race` suite without the perf tag. The race aggregate is `race`.
+[ci-pause.md](ci-pause.md) records an earlier manual-only pause; this branch
+restores automatic `check` triggers. Native `.app`/DMG packaging, signing, and notarization stay
 manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
 `3.0.0-beta.32`); upgrade those versions only in a dedicated change.
 

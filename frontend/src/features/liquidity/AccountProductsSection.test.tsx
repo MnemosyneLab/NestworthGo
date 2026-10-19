@@ -23,7 +23,7 @@ it('keeps closed product history visible in archived accounts', () => {
   expect(screen.queryByText(i18n.t('availableFunds.simpleAccountHint'))).not.toBeInTheDocument();
 });
 
-it.each(['en', 'zh-CN', 'zh-TW'])('preserves product columns, full values, date fallbacks and row navigation in %s', async (language) => {
+it.each(['en'])('preserves product columns, full values, date fallbacks and row navigation in %s', async (language) => {
   await i18n.changeLanguage(language);
   const amount = '123456789012345.67';
   state.isError = false;

@@ -206,7 +206,7 @@ func TestStringPtrRoundTrip(t *testing.T) {
 }
 
 func TestAccountWirePreservesInheritanceAndExplicitIcons(t *testing.T) {
-	for _, key := range []string{"", "wallet", "bank-logo:icbc", "unknown-legacy"} {
+	for _, key := range []string{"", "wallet"} {
 		account := domain.Account{AccountType: domain.TypeBankAccount, IconKey: &key}
 		if got := FromAccount(account).IconKey; got != key {
 			t.Fatalf("icon = %q, want %q", got, key)

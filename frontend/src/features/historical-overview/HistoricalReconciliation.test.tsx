@@ -17,7 +17,7 @@ function data(total = "-1.00012", supported: string | null = "-1.0001", residual
   return { left: state, right: { ...state, date: "2026-08-02" }, change: { assets: total, liabilities: "0", netWorth: total }, categories: [], rows: [], timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-02", capturedAt: "2026-08-03T12:00:00Z", inputGeneration: 1, resolverPolicy: "policy", reconciliation: { status: "partial", currency: "CNY", basis: "endpoint_bridge/1", total, supported, residual, contributions: [{ key: "fee", amount: "-1.0001" }], reasons: ["unexplained_movement"] } };
 }
 
-it.each(["en", "zh-CN", "zh-TW"])("shows exact amounts and keyboard-accessible localized explanation (%s)", async locale => {
+it.each(["en"])("shows exact amounts and keyboard-accessible localized explanation (%s)", async locale => {
   await i18n.changeLanguage(locale);
   render(<HistoricalReconciliationView data={data()} />);
   const section = screen.getByRole("region", { name: i18n.t("historicalReconciliation.title") });

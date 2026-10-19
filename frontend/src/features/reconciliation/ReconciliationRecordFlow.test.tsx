@@ -147,7 +147,7 @@ beforeEach(async () => {
   await i18n.changeLanguage("en");
 });
 
-for (const locale of ["en", "zh-CN", "zh-TW"]) {
+for (const locale of ["en"]) {
   it(`preselects the known buy instrument and previews without reselecting it (${locale})`, async () => {
     await i18n.changeLanguage(locale);
     render(

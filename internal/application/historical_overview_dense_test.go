@@ -9,27 +9,21 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 func TestHistoricalOverviewDenseEntrySingleAndComparison(t *testing.T) {
 	if testing.Short() {
-		t.Skip("1000-leaf/25000-activity synthetic entry regression")
+		t.Skip("SQLite parameter-boundary synthetic entry regression")
 	}
-	var s *Service
-	var db *sqlite.DB
-	wantFacts := 86433
-	wantLeaves, wantRows, wantAmount := 1000, 1100, "0.108"
-	if analysisRaceDetector {
-		// Keep cross-account hydration and exceed the actual SQLite boundary:
-		// 8,300 activities require 33,200 parameters in the old four-way union.
-		// Unrelated 9,000 quote backfills belong to the mandatory non-race scale
-		// case; instrumenting their SQLite sorter exhausted the whole race shard.
-		s, db = seriesHistoryScaleFixture(t, 2, 0, 8300)
-		wantFacts, wantLeaves, wantRows, wantAmount = 24981, 20, 22, "0.00216"
-	} else {
-		s, db = seriesBenchmarkFixture(t, true)
-	}
+	// 8,300 activities require 33,200 parameters in the old four-way union.
+	// That is the chunk boundary. The 1,000-leaf/25,000-activity profile is
+	// TestHistoricalOverviewDenseFullScale in the weekly perf workflow.
+	runHistoricalOverviewDenseScale(t, 2, 0, 8300, 24981, 20, 22, "0.00216")
+}
+
+func runHistoricalOverviewDenseScale(t *testing.T, accounts, backfills, activities, wantFacts, wantLeaves, wantRows int, wantAmount string) {
+	t.Helper()
+	s, db := seriesHistoryScaleFixture(t, accounts, backfills, activities)
 	var before, after int
 	if err := db.SQL.QueryRow(`SELECT total_changes()`).Scan(&before); err != nil {
 		t.Fatal(err)
@@ -69,8 +63,9 @@ func TestHistoricalOverviewDenseEntrySingleAndComparison(t *testing.T) {
 		out, err := s.HistoricalOverviewSeries(t.Context(), "2026-08-01", "2026-08-31")
 		if err != nil {
 			// Race instrumentation can consume the unchanged production runtime
-			// deadline. Accept only that explicit deadline rejection with no partial
-			// bundle; full 25,000-activity success/equality remains mandatory normally.
+			// deadline on this parameter-boundary fixture. Accept only that explicit
+			// deadline rejection with no partial bundle. The 25,000-activity profile
+			// is TestHistoricalOverviewDenseFullScale and must succeed without -race.
 			var budget *domain.Error
 			if analysisRaceDetector && errors.As(err, &budget) && budget.Code == domain.ErrHistoricalSeriesBudget && budget.Message == "local trend exceeded its computation deadline" && time.Since(start) >= historicalSeriesTimeout && len(out.Points) == 0 && out.Overview.CapturedAt == "" {
 				t.Log("race-instrumented series reached its unchanged production deadline; no partial bundle returned")

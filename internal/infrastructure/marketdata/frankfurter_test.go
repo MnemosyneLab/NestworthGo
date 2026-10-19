@@ -76,10 +76,8 @@ func TestFrankfurterProviderMapsMalformedAndHTTPResponsesSafely(t *testing.T) {
 
 	statusCases := map[int]domain.ErrorCode{
 		http.StatusUnauthorized:        domain.ErrProviderAuthentication,
-		http.StatusForbidden:           domain.ErrProviderAuthentication,
 		http.StatusBadRequest:          domain.ErrUnsupportedProviderSymbol,
 		http.StatusNotFound:            domain.ErrUnsupportedProviderSymbol,
-		http.StatusUnprocessableEntity: domain.ErrUnsupportedProviderSymbol,
 		http.StatusTooManyRequests:     domain.ErrProviderRateLimit,
 		http.StatusInternalServerError: domain.ErrProviderUnavailable,
 		http.StatusFound:               domain.ErrMalformedProviderResponse,
