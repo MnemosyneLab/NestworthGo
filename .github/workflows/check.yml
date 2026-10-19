@@ -16,16 +16,18 @@ concurrency:
 jobs:
   meta:
     name: meta
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
       - name: Install native Go build dependencies
-        timeout-minutes: 15
+        timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal)"
@@ -45,7 +47,7 @@ jobs:
   # production build rides on shard 2, so neither job repeats those steps.
   frontend:
     name: frontend (${{ matrix.label }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -64,21 +66,23 @@ jobs:
             typecheck: false
             build: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
-      - uses: pnpm/action-setup@v4
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@v6
         with:
           version: 12.2.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install native Go build dependencies
-        timeout-minutes: 15
+        timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
       - name: Install frontend dependencies
         working-directory: frontend
@@ -117,7 +121,7 @@ jobs:
   # MCP and sqlite are whole packages. Each part is still selected once.
   go-shard:
     name: go (${{ matrix.label }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -139,13 +143,15 @@ jobs:
               mcpserver 0 1
               sqlite 0 1
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
       - name: Install native Go build dependencies
-        timeout-minutes: 15
+        timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
       - name: Go tests
         run: |
@@ -256,7 +262,7 @@ jobs:
           fi
       - name: Retain Go test timings and failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: go-${{ matrix.artifact }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/go-results.jsonl
@@ -268,7 +274,7 @@ jobs:
     name: test
     needs: [meta, frontend, go-shard]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Require every test gate
         run: |

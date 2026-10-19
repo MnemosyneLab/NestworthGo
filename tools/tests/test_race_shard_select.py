@@ -134,7 +134,7 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertNotIn("pkg_parallel=(-p 4)", workflow)
         self.assertIn('go list ./... > "$RUNNER_TEMP/race-packages.txt"', workflow)
         self.assertNotIn("< <(go list", workflow)
-        self.assertIn("actions/upload-artifact@v4", workflow)
+        self.assertIn("actions/upload-artifact@v7", workflow)
         self.assertIn("name: race-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}", workflow)
         aggregate = workflow.split("\n  race:\n", 1)[1]
         self.assertIn("needs: [changes, race-shard]", aggregate)
