@@ -27,9 +27,44 @@ func TestReviewPerfConfiguration(t *testing.T) {
 			t.Fatalf("invalid config accepted: %+v", c)
 		}
 	}
-	if durationPercentile([]time.Duration{3, 1, 2}, .95) != 3 {
+	if durationPercentile([]time.Duration{3, 1, 2}, .95) != 3 || durationPercentile([]time.Duration{3, 1, 2}, .5) != 2 {
 		t.Fatal("nearest-rank percentile")
 	}
+	if durationPercentile([]time.Duration{5}, .95) != 5 || durationPercentile(nil, .95) != 0 {
+		t.Fatal("nearest-rank percentile n=1")
+	}
+	ten := make([]time.Duration, 10)
+	for index := range ten {
+		ten[index] = time.Duration(index + 1)
+	}
+	if durationPercentile(ten, .95) != 10 || durationPercentile(ten, .5) != 5 {
+		t.Fatal("nearest-rank percentile n=10")
+	}
+}
+
+func TestReviewPerfSampleCount(t *testing.T) {
+	if reviewPerfSampleCount(t, 3) != 3 || reviewPerfSampleCount(t, 10) != 10 {
+		t.Fatal("sample default")
+	}
+	t.Run("override", func(t *testing.T) {
+		t.Setenv("NW_REVIEW_PERF_SAMPLES", "30")
+		if reviewPerfSampleCount(t, 3) != 30 || reviewPerfSampleCount(t, 10) != 30 {
+			t.Fatal("sample override")
+		}
+	})
+}
+
+func reviewPerfSampleCount(t *testing.T, fallback int) int {
+	t.Helper()
+	value := os.Getenv("NW_REVIEW_PERF_SAMPLES")
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		t.Fatal("invalid NW_REVIEW_PERF_SAMPLES")
+	}
+	return parsed
 }
 
 // Each measured mutation starts from this identical, checkpointed synthetic

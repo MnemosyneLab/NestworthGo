@@ -141,9 +141,11 @@ frontend tests, and `git diff --check`.
 
 The same automated gates run in GitHub Actions on `main` and pull requests
 (`.github/workflows/check.yml`). Non-race Go tests are checksum shards. Race
-detection and `//go:build perf` evidence run weekly in
-`.github/workflows/perf.yml`, not on every pull request. Native packaging,
-signing, and notarization remain manual.
+detection and `//go:build perf` evidence run daily at 21:00 UTC, and on
+manual dispatch, in `.github/workflows/perf.yml`, not on every pull request.
+The daily run skips those jobs when the default branch is unchanged since the
+last successful scheduled run. Manual dispatch always runs them. Native
+packaging, signing, and notarization remain manual.
 
 The release task also runs `python3 -m unittest discover -s tools/tests -v`
 through `skill:check`. Native-dependency helper tests discover GNU `timeout`
@@ -164,7 +166,7 @@ with both backends. These timings do not change production apt budgets.
 
 ## CI race budgets and SDK test lifetime
 
-The weekly `race` aggregate fails unless every matrix part succeeds.
+The daily `race` aggregate fails unless every matrix part succeeds.
 Application tests use eight checksum partitions; MCP uses four; sqlite uses
 two. Infrastructure and all remaining packages also run with the detector.
 Enumeration uses the race build and includes Test, Example, and Fuzz names.

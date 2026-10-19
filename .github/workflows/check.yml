@@ -10,7 +10,7 @@ concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Wall clock is the slowest job. Race detection is weekly in perf.yml.
+# Wall clock is the slowest job. Race detection is daily in perf.yml.
 # Non-race Go tests are checksum shards so one package cannot hold the run.
 # The aggregate check name stays `test`.
 jobs:

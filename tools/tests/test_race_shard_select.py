@@ -137,8 +137,11 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("actions/upload-artifact@v4", workflow)
         self.assertIn("name: race-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}", workflow)
         aggregate = workflow.split("\n  race:\n", 1)[1]
-        self.assertIn("needs: race-shard", aggregate)
-        self.assertIn("if: always()", aggregate)
+        self.assertIn("needs: [changes, race-shard]", aggregate)
+        self.assertIn(
+            "if: always() && needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'",
+            aggregate,
+        )
         self.assertIn('if [ "${{ needs.race-shard.result }}" != "success" ]; then', aggregate)
         self.assertIn("exit 1", aggregate)
         self.assertNotIn("continue-on-error", workflow)
@@ -256,14 +259,14 @@ class RaceShardSelectTests(unittest.TestCase):
         perf = PERF.read_text()
         self.assertNotIn("push:", perf)
         self.assertNotIn("pull_request:", perf)
-        self.assertIn('cron: "0 18 * * 0"', perf)
+        self.assertIn('cron: "0 21 * * *"', perf)
         self.assertNotIn("NESTWORTH_PERF", perf)
         self.assertIn("go test -tags perf -count=1 -timeout", perf)
         self.assertIn("-benchtime=1x", perf)
         self.assertIn("TestReviewFullPipelinePerformanceEvidence", perf)
         self.assertIn("TestReviewPairedPerformanceEvidence", perf)
         self.assertIn("TestReviewEpochStageDiagnostics", perf)
-        self.assertIn("timeout: 120", perf)
+        self.assertIn("timeout: 110", perf)
         race = perf.split("\n  race-shard:\n", 1)[1]
         self.assertNotIn("-tags perf", race)
         self.assertNotIn("-bench", race)

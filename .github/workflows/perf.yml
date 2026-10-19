@@ -1,20 +1,31 @@
 name: perf
 
-# Weekly heavy checks. They do not run on push or pull_request.
-# Sunday 18:00 UTC, plus Actions → perf → Run workflow.
+# Daily and manual heavy checks. They do not run on push or pull_request.
+# 21:00 UTC, plus Actions → perf → Run workflow.
 #
 # Performance evidence lives in *_perf_test.go files behind //go:build perf.
 # The build tag is the gate. Per-PR check.yml does not compile or vet those
-# files. Weekly commands pass -tags perf and select only the perf tests and
-# benchmarks; without -run, -tags perf would also execute the normal suite.
+# files. Daily and manual commands pass -tags perf and select only the perf
+# tests and benchmarks; without -run, -tags perf would also execute the normal
+# suite.
 #
 # Expected durations (test time, after native dependencies):
-#   scale     15–40 min  (bounded profiles, memory, benchmarks once)
-#   pipeline  45–90 min  (365-day book, 2000 pairs, cold + 30 incrementals)
-#   paired    40–70 min  (30 samples of the reference R30 book)
-#   epoch     15–40 min  (30 samples, 64 no-op cycles, stage trace)
-# Job timeouts add the native-dependency step. The weekly wall clock is the
-# longest job, pipeline, because the perf matrix runs in parallel.
+#   scale     15–40 min  (bounded profiles, memory, benchmarks once;
+#                         financial-source writes default to 10 samples)
+#   pipeline  25–60 min  (365-day book, 2000 pairs, cold + 10 incrementals)
+#   paired    10–25 min  (3 samples of the reference R30 book)
+#   epoch     10–30 min  (10 samples, 64 no-op cycles, stage trace)
+# NW_REVIEW_PERF_SAMPLES overrides those counts; 30 restores the previous
+# sample size. Job timeouts include native-dependency install and stay above
+# the new upper estimates: pipeline 90m test / 110m job, paired 50m / 70m,
+# epoch 45m / 65m. Scale stays 50m / 75m because its other profiles did not
+# shrink with the write-sample count. The daily wall clock is the longest
+# job, pipeline, because the perf matrix runs in parallel.
+#
+# A scheduled run first asks whether the default branch moved since the last
+# successful scheduled run. The same commit skips perf and race and stays
+# green. The first scheduled run, a new commit, and every manual dispatch
+# execute the jobs. Failed and cancelled runs are not that baseline.
 #
 # Race shards stay on this schedule and do not pass -tags perf, so the
 # full-scale profiles stay out of the 10-minute race budget. JSON artifacts
@@ -22,11 +33,76 @@ name: perf
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 18 * * 0"
+    - cron: "0 21 * * *"
 
 jobs:
+  # Scheduled runs only. Manual dispatch always sets should_run=true.
+  # The baseline is the newest previous successful scheduled run on the
+  # default branch, not a manual run and not a failed or cancelled one.
+  # A no-change skip is itself a success whose head SHA was already tested,
+  # so it is the same baseline as that execution. An API or parse failure
+  # fails this job; it must not be reported as "no changes".
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the default branch with the last successful scheduled run
+        id: decide
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CURRENT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "event=${EVENT_NAME}; non-schedule runs always execute"
+            if ! decision=$(EVENT_NAME="$EVENT_NAME" CURRENT_SHA="$CURRENT_SHA" RUN_ID="$RUN_ID" bash tools/perf-schedule-gate.sh /dev/null); then
+              echo "schedule gate failed" >&2
+              exit 1
+            fi
+          else
+            if [ -z "$DEFAULT_BRANCH" ]; then
+              echo "schedule payload has no default branch" >&2
+              exit 1
+            fi
+            gh api --method GET \
+              -H "Accept: application/vnd.github+json" \
+              -f event=schedule \
+              -f status=success \
+              -f branch="$DEFAULT_BRANCH" \
+              -F per_page=20 \
+              "/repos/${REPOSITORY}/actions/workflows/perf.yml/runs" \
+              > "$RUNNER_TEMP/perf-schedule-runs.json"
+            if ! decision=$(EVENT_NAME="$EVENT_NAME" CURRENT_SHA="$CURRENT_SHA" RUN_ID="$RUN_ID" DEFAULT_BRANCH="$DEFAULT_BRANCH" bash tools/perf-schedule-gate.sh "$RUNNER_TEMP/perf-schedule-runs.json"); then
+              echo "schedule gate failed" >&2
+              exit 1
+            fi
+          fi
+          printf '%s\n' "$decision"
+          case "$decision" in
+            should_run=true|should_run=false) ;;
+            *)
+              echo "unexpected gate decision: ${decision}" >&2
+              exit 1
+              ;;
+          esac
+          printf '%s\n' "$decision" >> "$GITHUB_OUTPUT"
+
   perf:
     name: perf (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ matrix.timeout }}
     strategy:
@@ -43,20 +119,20 @@ jobs:
             run: ^(TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesMemoryEvidence|TestHistoricalSeriesBenchmarkCancellationEvidence|TestReviewRepeatedEpochWindowOracleScale|TestUpcomingActionsPerformanceReport|TestHistoricalOverviewDenseRapidSwitchEvidence|TestSourceTrackingProviderRefreshEvidence|TestAnalysisEndToEndPerformanceEvidence|TestSourceTrackingProviderImportBatchEvidence|TestFinancialSourceWriteAmplificationEvidence)$
             bench: ^(BenchmarkHistoricalSeriesBounded|BenchmarkHistoricalOverviewRapidSwitch|BenchmarkUpcomingActionsScale|BenchmarkReviewProjectionIncremental100x20|BenchmarkLegacySnapshotCoverageWarmBoundedTrend|BenchmarkLegacySnapshotCoverageColdBoundedTrend)$
           - label: pipeline
-            timeout: 120
-            test_timeout: 95m
+            timeout: 110
+            test_timeout: 90m
             packages: ./internal/application
             run: ^TestReviewFullPipelinePerformanceEvidence$
             bench: ""
           - label: paired
-            timeout: 105
-            test_timeout: 80m
+            timeout: 70
+            test_timeout: 50m
             packages: ./internal/application
             run: ^TestReviewPairedPerformanceEvidence$
             bench: ""
           - label: epoch
-            timeout: 75
-            test_timeout: 50m
+            timeout: 65
+            test_timeout: 45m
             packages: ./internal/application
             run: ^TestReviewEpochStageDiagnostics$
             bench: ""
@@ -90,6 +166,8 @@ jobs:
   # -parallel stays 4 and only for application and MCP.
   race-shard:
     name: race (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -268,10 +346,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # always() still evaluates a failed shard. should_run keeps a no-change
+  # schedule from turning skipped shards into a failure. A failed changes
+  # job leaves should_run unset, so this aggregate is skipped and the
+  # changes failure remains the workflow result.
   race:
-    needs: race-shard
+    needs: [changes, race-shard]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'
     steps:
       - name: Require every race shard
         run: |
