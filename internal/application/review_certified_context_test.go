@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -229,5 +230,42 @@ func TestReviewCertifiedCancelledPreparation(t *testing.T) {
 	cancel()
 	if _, err := PrepareReviewPublication(ctx, c, *f.now, c.Certified.Provider.Key); err == nil {
 		t.Fatal("cancelled candidate produced a stage")
+	}
+}
+
+func TestReviewCertifiedHoldsSQLiteWriteReservation(t *testing.T) {
+	for _, operation := range []string{"no-op", "publication"} {
+		t.Run(operation, func(t *testing.T) {
+			f, r := certifiedFixture(t)
+			writer, err := sql.Open("sqlite", f.db.Path+"?_txlock=immediate&_pragma=busy_timeout%3d0&_pragma=foreign_keys%3d1&_pragma=recursive_triggers%3d1")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer writer.Close()
+			reached := false
+			clock := func() time.Time {
+				reached = true
+				_, err := writer.Exec(`UPDATE instrument_quotes SET unit_price='999'`)
+				var coded interface{ Code() int }
+				if !errors.As(err, &coded) || coded.Code()&255 != 5 {
+					t.Errorf("external writer escaped SQLite reservation: %v", err)
+				}
+				return *f.now
+			}
+			if operation == "publication" {
+				f.day(t, "2026-10-13")
+				p := certifiedStage(t, f, r)
+				err = certifiedPublish(t.Context(), f, r, p, clock)
+			} else {
+				var ok bool
+				_, ok, err = r.ConfirmCertifiedReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, clock, f.s.reviewProviderSnapshot())
+				if !ok {
+					t.Error("valid no-op was not confirmed")
+				}
+			}
+			if err != nil || !reached {
+				t.Fatal("reservation probe failed", reached, err)
+			}
+		})
 	}
 }
