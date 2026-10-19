@@ -242,15 +242,15 @@ func expectedSnapshotWithSelected(localDate string, cutoff time.Time, quantity Q
 	if err != nil {
 		return OracleSnapshot{}, err
 	}
-	holdingExact, err := ParseNativeAmount(canonicalDecimal(baseHolding))
+	holdingExact, err := ParseBaseAmountExact(canonicalDecimal(baseHolding))
 	if err != nil {
 		return OracleSnapshot{}, err
 	}
-	cashExactText, err := ParseNativeAmount(canonicalDecimal(cashExact))
+	cashExactText, err := ParseBaseAmountExact(canonicalDecimal(cashExact))
 	if err != nil {
 		return OracleSnapshot{}, err
 	}
-	assetsExactText, err := ParseNativeAmount(canonicalDecimal(assetsExact))
+	assetsExactText, err := ParseBaseAmountExact(canonicalDecimal(assetsExact))
 	if err != nil {
 		return OracleSnapshot{}, err
 	}

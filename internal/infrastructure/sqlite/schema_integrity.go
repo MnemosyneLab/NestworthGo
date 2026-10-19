@@ -74,7 +74,7 @@ func verifyCanonicalNumericText(ctx context.Context, query schemaQuery) error {
 	if err := verifyParsedTextColumn(ctx, query, `SELECT native_amount FROM daily_valuation_snapshot_items WHERE native_amount IS NOT NULL AND native_amount != ''`, "nativeAmount", parseStoredNativeAmount); err != nil {
 		return err
 	}
-	if err := verifyParsedTextColumn(ctx, query, `SELECT base_amount FROM daily_valuation_snapshot_items WHERE base_amount IS NOT NULL AND base_amount != ''`, "baseAmount", parseStoredNativeAmount); err != nil {
+	if err := verifyParsedTextColumn(ctx, query, `SELECT base_amount FROM daily_valuation_snapshot_items WHERE base_amount IS NOT NULL AND base_amount != ''`, "baseAmount", parseStoredBaseAmountExact); err != nil {
 		return err
 	}
 	if err := verifyMoneyPairs(ctx, query, `SELECT principal, currency FROM product_contracts`, "amount", false); err != nil {
@@ -225,4 +225,9 @@ func requireHouseholdRow(ctx context.Context, tx *sql.Tx, statement, id, househo
 		return storedIntegrity(field, message)
 	}
 	return nil
+}
+
+func parseStoredBaseAmountExact(value string) error {
+	_, err := domain.ParseBaseAmountExact(value)
+	return err
 }

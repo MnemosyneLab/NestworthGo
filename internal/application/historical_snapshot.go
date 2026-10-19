@@ -136,7 +136,7 @@ func (s *Service) valueHistoricalSnapshot(ctx context.Context, origin *domain.Hi
 				item.FXQuoteID = &fxQuoteID
 			}
 			if component.BaseAmountExact != "" {
-				exact, parseErr := domain.ParseNativeAmount(component.BaseAmountExact)
+				exact, parseErr := domain.ParseBaseAmountExact(component.BaseAmountExact)
 				if parseErr != nil {
 					return domain.DailyValuationSnapshot{}, parseErr
 				}
