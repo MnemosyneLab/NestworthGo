@@ -151,7 +151,17 @@ An opt-in [completeness-lineage shadow](../testing/performance-c3-lineage-shadow
 compares narrow historical coverage and a separate bounded window with a full
 preparation oracle, then revalidates under the publication reservation. It
 forces full preparation and grants no reuse authority. Normal initialization
-remains unchanged; full recomputation disables both internal candidates.
+remains unchanged; full recomputation disables the internal candidates.
+The [certified C3 candidate](../testing/performance-c3-certified-2026-10-19.md)
+adds a separate default-off internal constructor, `WithCertifiedReviewCandidate()`.
+It binds complete projection integrity to one DB handle, fences explicit provider
+selection through commit, and verifies source publication CAS with full fallback.
+Same-day confirmation avoids financial/evidence JSON. Optional bounded publication
+retains an independent full runtime oracle. Legacy/restarted/damaged projections
+cannot acquire reuse authority from a fresh checksum; legitimate handling preserves
+only an already valid chain. Production initialization still uses C2, and native,
+performance and review gates remain blocking. The old counting-only constructor
+is retained for historical experiments, not activation.
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)

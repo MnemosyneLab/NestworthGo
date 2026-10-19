@@ -1,0 +1,72 @@
+[
+  {
+    "check": "internal-unit",
+    "command": [
+      "/tmp/go/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-parallel",
+      "4",
+      "./internal/...",
+      "-count=1",
+      "-timeout=10m"
+    ],
+    "source": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+    "exit_code": 0
+  },
+  {
+    "check": "internal-vet",
+    "command": [
+      "/tmp/go/bin/go",
+      "vet",
+      "./internal/..."
+    ],
+    "source": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+    "exit_code": 0
+  },
+  {
+    "check": "internal-build",
+    "command": [
+      "/tmp/go/bin/go",
+      "build",
+      "./internal/..."
+    ],
+    "source": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+    "exit_code": 0
+  },
+  {
+    "check": "gofmt",
+    "command": [
+      "/tmp/go/bin/gofmt",
+      "-l",
+      "cmd",
+      "internal"
+    ],
+    "source": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+    "exit_code": 0
+  },
+  {
+    "check": "diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "source": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+    "exit_code": 0
+  },
+  {
+    "check": "workflow-preservation",
+    "command": [
+      "git",
+      "diff",
+      "--exit-code",
+      "origin/main",
+      "--",
+      ".github"
+    ],
+    "source": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+    "exit_code": 0
+  }
+]

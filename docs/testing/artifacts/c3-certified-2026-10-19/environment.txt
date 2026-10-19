@@ -1,0 +1,21 @@
+Paired workload source: fa1bd47f858b09c3bc0c34c7a2a637173a8a29ae
+Implementation source: 4ebd63e (parent 6604f3a, base 2fa0a34f59e577b81e80c5cef81dc962315d6319)
+Linux 6.18.55 x86_64; Go 1.26.1 linux/amd64; SQLite version and fixture manifests in logs.
+Cgroup CPU quota: 400000/100000 (4 CPUs). Memory limit: 17179869184 bytes.
+GOMAXPROCS=4. TMPDIR=/tmp/nestworth-c3-scratch on tmpfs (8.8 GiB volume).
+PATH=/tmp/go/bin:$PATH GOCACHE=/tmp/nestworth-c3-cache GOMODCACHE=/tmp/nestworth-c3-mod GOPATH=/tmp/nestworth-c3-path
+All synthetic fixtures. No network provider calls, production ledgers or credentials.
+Paired measurements serialize both arms and do not overlap build/test/race processes.
+UUIDs generated once in the fact source and full bootstrap, then cloned. Future activation has an independent source fixture.
+B/op-style values are cumulative allocated bytes from runtime.MemStats, never peak RSS.
+Process VmHWM includes fixture generation/clones/oracles and is not per-arm RSS.
+The first attempted /usr/bin/time wrapper was unavailable (exit 127); measurements were then run directly with Go. It produced no measurements.
+Paired measurements were built at fa1bd47; later implementation delta 498d34f adds only staged-provider-key equality rejection plus import formatting, and a separate bootstrap/activation test. 7c70c31 adds the external-writer test only. Legitimate paired fixtures use identical provider keys. These later sources are validated by final ordinary/race checks, not retroactively attributed to the paired binary.
+A later safety tightening samples capture connection counters before financial snapshot reads rather than after them. It adds no SQL calls to the workload (the same two reads move earlier); a deterministic external-commit-during-capture test and final ordinary/race checks validate the final implementation. Paired timings remain attributed solely to fa1bd47.
+Full ordinary internal suite, internal vet/build and native Linux build attempt source: 28f2c8f (all code committed; only evidence/docs dirty). Ordinary checks may overlap each other; they never overlap the paired measurements. Final race has not started yet.
+Final freshness reads pin and compare their actual physical connection (e91214b), rather than using a persisted identity with unrelated pooled counters.
+Frozen code head: e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a.
+Focused certified application/SQLite unit checks on this exact head passed (focused-unit.log); the unknown-connection namespace keeps full publication available without authority.
+Bootstrap/activation measurements are built from e112f58 and use explicitly labeled C2-full (forced full recomputation) versus the certified candidate. No other test/build processes overlap them.
+The first broad ordinary run began at 28f2c8f and passed. It will be superseded by an immutable-head full run; it is not used to claim exact final-source validation after the last counter guard/test was added.
+Final immutable-head validation begins at e112f58: go test -p 1 -parallel 4 ./internal/... -count=1 -timeout=10m; go vet ./internal/...; go build ./internal/...; gofmt; diff/CI preservation checks. See validation.json for actual completed results.
