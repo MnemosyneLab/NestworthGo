@@ -67,8 +67,10 @@ jobs:
 
   # Application 2/2 repeatedly exhausted Go's cumulative 10m test budget
   # (PR #60, main, PR #61); no assertion or race detector failure preceded it.
-  # Four application parts reduce work per runner without increasing in-process
-  # concurrency or skipping tests. MCP remains two parts. Keep the 10m bound
+  # Eight application parts reduce cumulative package time per runner without
+  # increasing in-process concurrency or skipping tests. MCP remains two parts.
+  # SQLite also hit its 10m package budget, so split that package across two
+  # deterministic test-name parts. Keep the 10m bound
   # explicit and retain per-test JSON evidence for future distribution reviews.
   # Test/Example/Fuzz names come from the same race build as the run. Fault
   # injection and uncontended performance tests retain their sequential status.
@@ -82,20 +84,36 @@ jobs:
         include:
           - shard: application
             part: 0
-            parts: 4
-            label: application 1/4
+            parts: 8
+            label: application 1/8
           - shard: application
             part: 1
-            parts: 4
-            label: application 2/4
+            parts: 8
+            label: application 2/8
           - shard: application
             part: 2
-            parts: 4
-            label: application 3/4
+            parts: 8
+            label: application 3/8
           - shard: application
             part: 3
-            parts: 4
-            label: application 4/4
+            parts: 8
+            label: application 4/8
+          - shard: application
+            part: 4
+            parts: 8
+            label: application 5/8
+          - shard: application
+            part: 5
+            parts: 8
+            label: application 6/8
+          - shard: application
+            part: 6
+            parts: 8
+            label: application 7/8
+          - shard: application
+            part: 7
+            parts: 8
+            label: application 8/8
           - shard: mcpserver
             part: 0
             parts: 2
@@ -106,8 +124,12 @@ jobs:
             label: mcpserver 2/2
           - shard: infrastructure
             part: 0
-            parts: 1
-            label: infrastructure
+            parts: 2
+            label: infrastructure 1/2
+          - shard: infrastructure
+            part: 1
+            parts: 2
+            label: infrastructure 2/2
           - shard: remainder
             part: 0
             parts: 1
@@ -128,18 +150,21 @@ jobs:
           part="${{ matrix.part }}"
           parts="${{ matrix.parts }}"
           parallel=()
-          run_args=()
+          split_tests=false
           case "$shard" in
             application)
               pkgs=(./internal/application)
               parallel=(-parallel 4)
+              split_tests=true
               ;;
             mcpserver)
               pkgs=(./internal/mcpserver)
               parallel=(-parallel 4)
+              split_tests=true
               ;;
             infrastructure)
-              pkgs=(./internal/infrastructure/...)
+              go list ./internal/infrastructure/... > "$RUNNER_TEMP/race-packages.txt"
+              mapfile -t pkgs < "$RUNNER_TEMP/race-packages.txt"
               ;;
             remainder)
               # Check enumeration before filtering; process substitution hides
@@ -156,26 +181,49 @@ jobs:
             echo "race shard selected no packages" >&2
             exit 1
           fi
-          if [ "$parts" != "1" ]; then
-            if [ "${#pkgs[@]}" -ne 1 ]; then
-              echo "split race shard must list exactly one package" >&2
-              exit 1
-            fi
-            # stdout is only the -run regex. A non-zero selector status
-            # (list failure, empty runnable set, or empty part) fails the shard.
-            if ! regex=$(bash tools/race-shard-select.sh "$part" "$parts" "${pkgs[0]}"); then
-              echo "race shard $shard part $part selector failed" >&2
-              exit 1
-            fi
-            if [ -z "$regex" ]; then
-              echo "race shard $shard part $part selector returned an empty regex" >&2
-              exit 1
-            fi
-            run_args=(-run "$regex")
-          fi
           printf 'shard %s packages:\n' "$shard"
           printf '  %s\n' "${pkgs[@]}"
-          go test -race -count=1 -json -timeout 10m -p 1 "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/race-results.jsonl"
+          : > "$RUNNER_TEMP/race-results.jsonl"
+          ran=0
+          run_package() {
+            local pkg=$1 regex=${2:-}
+            local selection=()
+            if [ -n "$regex" ]; then
+              selection=(-run "$regex")
+            fi
+            go test -race -count=1 -json -timeout 10m -p 1 "${parallel[@]}" "${selection[@]}" "$pkg" | tee -a "$RUNNER_TEMP/race-results.jsonl"
+          }
+          if [ "$shard" = remainder ]; then
+            go test -race -count=1 -json -timeout 10m -p 1 "${pkgs[@]}" | tee -a "$RUNNER_TEMP/race-results.jsonl"
+            ran=1
+          else
+            for pkg in "${pkgs[@]}"; do
+              regex=""
+              if [ "$split_tests" = true ]; then
+                # stdout is only the -run regex. A failed enumeration, empty
+                # runnable set, or empty part fails closed.
+                if ! regex=$(bash tools/race-shard-select.sh "$part" "$parts" "$pkg"); then
+                  echo "race shard $shard part $part selector failed for $pkg" >&2
+                  exit 1
+                fi
+              elif [ "$shard" = infrastructure ] && [[ "$pkg" == */sqlite ]]; then
+                if ! regex=$(bash tools/race-shard-select.sh "$part" "$parts" "$pkg"); then
+                  echo "race shard $shard part $part selector failed for $pkg" >&2
+                  exit 1
+                fi
+              elif [ "$shard" = infrastructure ] && [ "$part" != 0 ]; then
+                # Non-SQLite infrastructure packages stay on part zero; only
+                # SQLite exceeded the per-package cumulative test budget.
+                continue
+              fi
+              run_package "$pkg" "$regex"
+              ran=$((ran + 1))
+            done
+          fi
+          if [ "$ran" -eq 0 ]; then
+            echo "race shard selected no packages/tests" >&2
+            exit 1
+          fi
       - name: Retain race test timings and failures
         if: always()
         uses: actions/upload-artifact@v4

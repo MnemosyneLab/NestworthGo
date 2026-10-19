@@ -100,6 +100,7 @@ case "$mode" in
 esac
 
 names=()
+declare -A seen_names=()
 while IFS= read -r line || [ -n "$line" ]; do
   case "$line" in
     Test*|Example*|Fuzz*)
@@ -109,6 +110,11 @@ while IFS= read -r line || [ -n "$line" ]; do
           exit 1
           ;;
       esac
+      if [[ -n "${seen_names[$line]+present}" ]]; then
+        echo "duplicate runnable name in enumeration: $line" >&2
+        exit 1
+      fi
+      seen_names[$line]=1
       names+=("$line")
       ;;
   esac
@@ -119,13 +125,49 @@ if [ "${#names[@]}" -eq 0 ]; then
   exit 1
 fi
 
-selected=()
-for name in "${names[@]}"; do
-  sum=$(printf '%s' "$name" | cksum | awk '{print $1}')
-  if [ $((sum % parts)) -eq "$part" ]; then
-    selected+=("$name")
-  fi
+weight() {
+  # Historical race timings from PR #114. New tests default to one unit and
+  # are included automatically. Keep known expensive fixtures apart while
+  # balancing the remaining tests deterministically.
+  case "$1" in
+    TestHistoricalOverviewCancellationReleasesConnection) echo 380 ;;
+    TestHistoricalOverviewDenseEntrySingleAndComparison) echo 124 ;;
+    *) echo 1 ;;
+  esac
+}
+
+# Longest-processing-time first, then lowest accumulated estimated cost.
+# Name and shard index break ties, so every invocation assigns the same
+# discovered test set identically. New names participate with unit weight.
+ordered=()
+while IFS=$'\t' read -r _ name; do
+  ordered+=("$name")
+done < <(for name in "${names[@]}"; do printf '%s\t%s\n' "$(weight "$name")" "$name"; done | LC_ALL=C sort -t $'\t' -k1,1nr -k2,2)
+
+loads=()
+selected_by_part=()
+for ((i=0; i<parts; i++)); do
+  loads[i]=0
+  selected_by_part[i]=""
 done
+for name in "${ordered[@]}"; do
+  target=0
+  for ((i=1; i<parts; i++)); do
+    if (( loads[i] < loads[target] )); then
+      target=$i
+    fi
+  done
+  loads[target]=$((loads[target] + $(weight "$name")))
+  if [ -n "${selected_by_part[target]}" ]; then
+    selected_by_part[target]+=$'\n'
+  fi
+  selected_by_part[target]+="$name"
+done
+
+selected=()
+while IFS= read -r name; do
+  [ -n "$name" ] && selected+=("$name")
+done <<< "${selected_by_part[$part]}"
 
 if [ "${#selected[@]}" -eq 0 ]; then
   echo "part $part/$parts selected no names from ${#names[@]} runnable" >&2

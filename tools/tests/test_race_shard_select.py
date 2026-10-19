@@ -19,6 +19,8 @@ LISTING = "\n".join([
     "ExampleFoo_Bar",
     "ok      github.com/example      0.1s",
     "TestWith_Underscore",
+    "TestHistoricalOverviewCancellationReleasesConnection",
+    "TestHistoricalOverviewDenseEntrySingleAndComparison",
     "not a test",
     "",
 ]) + "\n"
@@ -31,6 +33,8 @@ RUNNABLE = [
     "FuzzSeeded",
     "ExampleFoo_Bar",
     "TestWith_Underscore",
+    "TestHistoricalOverviewCancellationReleasesConnection",
+    "TestHistoricalOverviewDenseEntrySingleAndComparison",
 ]
 
 
@@ -50,16 +54,6 @@ class RaceShardSelectTests(unittest.TestCase):
         inner = regex[len("^("):-len(")$")]
         return inner.split("|") if inner else []
 
-    def assigned_part(self, name, parts):
-        completed = subprocess.run(
-            ["cksum"],
-            input=name.encode(),
-            capture_output=True,
-            check=True,
-        )
-        checksum = int(completed.stdout.split()[0])
-        return checksum % parts
-
     def test_representative_names_partition_is_disjoint_and_complete(self):
         parts = 2
         selected = {}
@@ -70,7 +64,6 @@ class RaceShardSelectTests(unittest.TestCase):
             selected[part] = names
             for name in names:
                 self.assertIn(name, RUNNABLE)
-                self.assertEqual(self.assigned_part(name, parts), part)
             self.assertRegex(result.stdout.strip(), r"^\^[()A-Za-z0-9_|]+\$")
 
         union = [name for names in selected.values() for name in names]
@@ -86,14 +79,14 @@ class RaceShardSelectTests(unittest.TestCase):
     def test_workflow_split_parts_cover_every_name_once(self):
         workflow = WORKFLOW.read_text()
         entries = re.findall(
-            r"- shard: (application|mcpserver)\s+part: (\d+)\s+parts: (\d+)\s+label: ([^\n]+)",
+            r"- shard: (application|mcpserver|infrastructure)\s+part: (\d+)\s+parts: (\d+)\s+label: ([^\n]+)",
             workflow,
         )
         # Exercise the actual matrix, including missing/duplicate parts and
         # inconsistent denominators, rather than another hardcoded 2-part run.
         listing = LISTING + "".join(f"TestGenerated{i}\n" for i in range(80))
         expected = RUNNABLE + [f"TestGenerated{i}" for i in range(80)]
-        for shard, total in (("application", 4), ("mcpserver", 2)):
+        for shard, total in (("application", 8), ("mcpserver", 2), ("infrastructure", 2)):
             parts = [(int(part), int(count), label) for kind, part, count, label in entries if kind == shard]
             self.assertEqual(sorted(part for part, _, _ in parts), list(range(total)))
             union = []
@@ -106,12 +99,27 @@ class RaceShardSelectTests(unittest.TestCase):
             self.assertCountEqual(union, expected)
             self.assertEqual(len(union), len(set(union)))
 
+    def test_known_slow_application_fixtures_are_separated(self):
+        listing = "\n".join(RUNNABLE) + "\n"
+        assignment = {}
+        for part in range(8):
+            result = self.run_select("--names", part, 8, stdin=listing)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for name in self.names_from_regex(result.stdout.strip()):
+                assignment[name] = part
+        self.assertNotEqual(
+            assignment["TestHistoricalOverviewCancellationReleasesConnection"],
+            assignment["TestHistoricalOverviewDenseEntrySingleAndComparison"],
+        )
+
     def test_workflow_keeps_bounded_race_execution_and_fail_closed_aggregate(self):
         workflow = WORKFLOW.read_text()
         self.assertIn("timeout-minutes: 30", workflow)
         self.assertIn("fail-fast: false", workflow)
         self.assertIn("set -euo pipefail", workflow)
         self.assertIn("go test -race -count=1 -json -timeout 10m -p 1", workflow)
+        self.assertIn('elif [ "$shard" = infrastructure ] && [[ "$pkg" == */sqlite ]]; then', workflow)
+        self.assertIn("bash tools/race-shard-select.sh \"$part\" \"$parts\" \"$pkg\"", workflow)
         self.assertIn('go list ./... > "$RUNNER_TEMP/race-packages.txt"', workflow)
         self.assertNotIn("< <(go list", workflow)
         self.assertIn("actions/upload-artifact@v4", workflow)
@@ -178,6 +186,12 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(result.stdout, "")
         self.assertIn("not a Go identifier", result.stderr)
+
+    def test_duplicate_names_fail_closed(self):
+        result = self.run_select("--names", "0", "2", stdin="TestDuplicate\nTestDuplicate\n")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("duplicate runnable name", result.stderr)
 
     def test_workflow_delegates_to_race_list_selector(self):
         workflow = WORKFLOW.read_text()

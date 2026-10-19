@@ -163,10 +163,18 @@ with both backends. These timings do not change production apt budgets.
 ## CI race budgets and SDK test lifetime
 
 The required `race` aggregate fails unless every matrix part succeeds.
-Application tests use four checksum partitions; MCP uses two. Infrastructure
-and all remaining packages also run with the detector. Enumeration uses the
-race build and includes Test, Example, and Fuzz names. Each process has an
-explicit 10-minute test budget, `-parallel 4` for the split packages, and
+Application tests use eight deterministic estimated-runtime-balanced
+partitions; MCP uses two. SQLite infrastructure tests use two
+deterministic test-count-balanced partitions, while the smaller infrastructure
+packages run once on the first infrastructure shard. Remaining packages also
+run with the detector. This expands the race matrix from eight jobs to thirteen:
+application 4 to 8 and infrastructure 1 to 2; the ordinary `go test ./...`
+job remains unchanged.
+Enumeration uses the race build and includes Test, Example, and Fuzz names;
+new names receive a default cost and are included automatically. The selector
+rejects duplicate names and balances known expensive application fixtures
+using retained durations from the reviewed PR #114 run. Each process keeps an
+explicit 10-minute test budget, `-parallel 4` for application and MCP, and
 `-p 1`; each race job has a 30-minute outer bound including setup. Sequential
 fault-injection and performance tests remain sequential. Matrix regression
 checks require every part exactly once and a complete, disjoint name union.
@@ -175,10 +183,11 @@ There are no automatic test retries. Seven-day
 (including elapsed times and failures) for diagnosis, with distinct names
 so a manual rerun cannot collide with an earlier attempt.
 
-The four application parts address repeated cumulative timeouts, not reported
-data races. Reviewed runs:
+The eight application parts address repeated cumulative package timeouts, not
+reported data races. The two SQLite parts address a separate package timeout.
+Reviewed runs:
 
-| Run | Frontend | Application race 1/2 | Application race 2/2 |
+| Run | Frontend | Application race part 1 | Application race part 2 |
 | --- | --- | --- | --- |
 | [PR60 initial](https://github.com/MnemosyneLab/NestworthGo/actions/runs/38335642341) | 1011 assertions passed; SDK teardown exception | 151.401s | 600.042s timeout |
 | [PR60 updated](https://github.com/MnemosyneLab/NestworthGo/actions/runs/38336865478) | 1031 passed | 164.995s | 383.947s |
@@ -186,12 +195,24 @@ data races. Reviewed runs:
 | [PR61](https://github.com/MnemosyneLab/NestworthGo/actions/runs/38338053581) | 1054 passed | 228.105s | 600.053s timeout |
 | [main 61604cb](https://github.com/MnemosyneLab/NestworthGo/actions/runs/38339294933) | 1054 assertions passed; SDK teardown exception | 230.543s | 600.042s timeout |
 
-All four timeout logs show active tests and queued parallel tests without an
-assertion failure or race detector report. The updated suite's old partition
-counts were 261/305; costs are unequal as well as counts. The same 305-test
-part succeeded in 383.947s on one runner, so runner throughput affects whether
-the cumulative budget expires. Review the retained timings when adding costly
-fixtures instead of raising concurrency or removing coverage.
+In [PR114](https://github.com/MnemosyneLab/NestworthGo/actions/runs/39214731606), the ordinary test job reported
+`TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence`
+exceeding its 10s local deadline. Application race parts 2/4 and 4/4 each hit
+600s cumulative package timeouts. The infrastructure race job's SQLite package
+also hit its 600s package timeout.
+
+The PR114 race failures show Go's cumulative 600-second package timeout, with
+active and queued tests but no assertion failure or race detector report. The
+SQLite package similarly reached its own 600-second `go test -timeout` while
+running `TestPopulatedV15UpgradeRecoveryAndReopen`; this was a package-level
+budget, not the 30-minute GitHub job bound. The ordinary test job separately
+reported the named 10-second dense-series deadline. These are distinct from
+individual assertion failures and do not justify raising test or job budgets.
+The updated suite's old application partition counts were 261/305; costs are
+unequal as well as counts. The same 305-test part succeeded in 383.947s on one
+runner, so runner throughput affects whether the cumulative budget expires.
+Review retained timings when adding costly fixtures instead of raising
+concurrency or removing coverage.
 
 The separate frontend failure was beta.28's 50ms startup interval in
 `drag.js:69` accessing `window` after jsdom teardown on Node 22.23.3. The SDK
