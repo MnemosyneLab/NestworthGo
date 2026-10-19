@@ -219,6 +219,8 @@ func installFinancialSourceTracking(ctx context.Context, tx *sql.Tx) error {
 // backup snapshots retain the original metadata; only the restored live copy
 // gets a new epoch and a floor invalidating every prior journal consumer.
 func (db *DB) ResetFinancialSourceTracking(ctx context.Context) error {
+	// Restore/import cannot create proof that prior review history never existed.
+	db.reviewInitialPublicationAllowed.Store(false)
 	return db.WithTx(ctx, func(tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE financial_source_revision SET tracking_epoch=lower(hex(randomblob(16))),journal_floor=revision`); err != nil {
 			return err

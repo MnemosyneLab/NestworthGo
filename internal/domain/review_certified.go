@@ -20,17 +20,18 @@ type ReviewProviderSelection struct {
 // Issued only by a coherent, fully loaded source capture. SourceMAC binds
 // these trust decisions to that database handle's private session key.
 type ReviewCertifiedCapture struct {
-	SourceMAC         string
-	Connection        ReviewConnectionCheckpoint
-	ProjectionSeal    string
-	TemporalJSON      string
-	ReviewFingerprint string
-	SchemaCookie      int
-	MayBootstrap      bool // Full replacement only; never authorizes reuse or no-op.
-	MayCertify        bool
-	MayReuse          bool
-	PreviousProvider  ReviewProviderSelection
-	Provider          ReviewProviderSelection // Supplied by the application provider lease.
+	SourceMAC          string
+	Connection         ReviewConnectionCheckpoint
+	ProjectionSeal     string
+	TemporalJSON       string
+	ReviewFingerprint  string
+	SchemaCookie       int
+	InitialPublication bool // Captured private genesis eligibility; publisher must claim it.
+	MayBootstrap       bool // Disabled: current absence does not prove historical absence.
+	MayCertify         bool
+	MayReuse           bool
+	PreviousProvider   ReviewProviderSelection
+	Provider           ReviewProviderSelection // Supplied by the application provider lease.
 }
 
 type ReviewCertifiedFullOracle struct{ Rules []ReviewRulePublication }

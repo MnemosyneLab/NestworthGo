@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	_ "modernc.org/sqlite"
@@ -88,12 +89,19 @@ type DB struct {
 	Status               BootstrapStatus
 	reviewClock          reviewTemporalClock
 	reviewCertificateKey reviewCertificateKey
+	// Process-private genesis evidence. Existing/upgraded files never get it;
+	// publication/handling/import consumes it before exposing review history.
+	reviewInitialPublicationAllowed atomic.Bool
+	reviewGenesisConnection         any
+	reviewGenesisDataVersion        int64
 	// Any DDL after verified open conservatively disables no-change reuse for
 	// this handle, including drop/recreate of a tracking trigger around DML.
 	reviewVerifiedSchemaVersion int
 }
 
-func Open(path string) (*DB, error) {
+func Open(path string) (*DB, error) { return openDatabase(path, "sqlite") }
+
+func openDatabase(path, driverName string) (*DB, error) {
 	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) || isV20RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
@@ -150,7 +158,7 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 	}
-	database, err := sql.Open("sqlite", dsn)
+	database, err := sql.Open(driverName, dsn)
 	if err != nil {
 		return nil, &BootstrapError{Status: StatusUnavailable, Err: err}
 	}
@@ -207,6 +215,7 @@ func Open(path string) (*DB, error) {
 	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)
 	}
+	initializedHere := false
 	if found == 0 {
 		tx, err := database.BeginTx(context.Background(), nil)
 		if err != nil {
@@ -245,6 +254,7 @@ func Open(path string) (*DB, error) {
 		if err := tx.Commit(); err != nil {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
+		initializedHere = !existed
 	} else {
 		if err := verifySchema(context.Background(), database); err != nil {
 			return closeOnError(StatusIntegrityFailed, found, err)
@@ -272,7 +282,11 @@ func Open(path string) (*DB, error) {
 	if err := database.QueryRow(`PRAGMA schema_version`).Scan(&schemaVersion); err != nil {
 		return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 	}
-	return &DB{SQL: database, Path: path, Status: StatusReady, reviewVerifiedSchemaVersion: schemaVersion}, nil
+	result := &DB{SQL: database, Path: path, Status: StatusReady, reviewVerifiedSchemaVersion: schemaVersion}
+	if initializedHere {
+		result.establishReviewGenesis()
+	}
+	return result, nil
 }
 
 func (db *DB) Close() error {

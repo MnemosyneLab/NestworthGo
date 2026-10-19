@@ -45,8 +45,13 @@ func TestReviewCertifiedPerformanceEvidence(t *testing.T) {
 					for sample := range samples {
 						fixtures := map[string]reviewFullPipelineFixture{}
 						for _, arm := range []string{"C2", "certified"} {
-							f := cloneReviewPerfFixture(t, source)
-							enableReviewSQLMetrics(t, f)
+							var f reviewFullPipelineFixture
+							if arm == "certified" {
+								f = cloneReviewGenesisPerfFixture(t, source)
+							} else {
+								f = cloneReviewPerfFixture(t, source)
+								enableReviewSQLMetrics(t, f)
+							}
 							r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
 							if arm == "certified" {
 								r = r.WithCertifiedReviewCandidate()
@@ -280,8 +285,13 @@ func TestReviewCertifiedBootstrapActivationEvidence(t *testing.T) {
 					order[0], order[1] = order[1], order[0]
 				}
 				for _, arm := range order {
-					f := cloneReviewPerfFixture(t, source)
-					enableReviewSQLMetrics(t, f)
+					var f reviewFullPipelineFixture
+					if arm == "certified" {
+						f = cloneReviewGenesisPerfFixture(t, source)
+					} else {
+						f = cloneReviewPerfFixture(t, source)
+						enableReviewSQLMetrics(t, f)
+					}
 					r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
 					if arm == "certified" {
 						r = r.WithCertifiedReviewCandidate()

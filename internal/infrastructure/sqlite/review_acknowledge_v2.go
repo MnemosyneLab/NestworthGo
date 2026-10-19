@@ -54,6 +54,7 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 		if err := json.Unmarshal([]byte(previousJSON), &previous); err != nil {
 			return empty, err
 		}
+		r.database.reviewInitialPublicationAllowed.Store(false)
 		if err := tx.Commit(); err != nil {
 			return empty, err
 		}
@@ -118,6 +119,7 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 	if err := r.afterCertifiedHandling(ctx, tx, m.HouseholdID, integrity); err != nil {
 		return empty, err
 	}
+	r.database.reviewInitialPublicationAllowed.Store(false)
 	if err := tx.Commit(); err != nil {
 		return empty, err
 	}

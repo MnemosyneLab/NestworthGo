@@ -234,6 +234,17 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err := validateReviewPublicationTime(capture, publication.Rules, now); err != nil {
 		return err
 	}
+	// Consume private genesis eligibility before any publication writes while
+	// holding the writer reservation. A captured initial claim cannot survive
+	// an intervening C2/C3 publication followed by SQL erasure of all markers.
+	if r.CertifiedReviewEnabled() && capture.Certified != nil && capture.Certified.InitialPublication {
+		if !certified || !mayCertify || !capture.Certified.MayCertify || !r.database.reviewInitialPublicationAllowed.CompareAndSwap(true, false) {
+			mayCertify = false
+			r.database.reviewInitialPublicationAllowed.Store(false)
+		}
+	} else {
+		r.database.reviewInitialPublicationAllowed.Store(false)
+	}
 	if !found {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_control(household_id) VALUES(?)`, capture.HouseholdID.String()); err != nil {
 			return err
@@ -241,7 +252,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	}
 	// Bootstrap never trusts retained derived values. Only a signed, supported
 	// history-free capture can request full replacement under this reservation.
-	bootstrap := certified && mayCertify && capture.Certified != nil && capture.Certified.MayBootstrap && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil
+	bootstrap := reviewBootstrapProvenanceEnabled && certified && mayCertify && capture.Certified != nil && capture.Certified.MayBootstrap && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil
 	inputSQL := `INSERT INTO investment_review_daily_inputs(household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint,computed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(household_id,instrument_id,timezone_version,on_date,input_policy) DO UPDATE SET quantity=excluded.quantity,native_currency=excluded.native_currency,instrument_type=excluded.instrument_type,amount_exact=excluded.amount_exact,cost_exact=excluded.cost_exact,evidence_json=excluded.evidence_json,coverage_json=excluded.coverage_json,input_fingerprint=excluded.input_fingerprint,computed_at=excluded.computed_at WHERE input_fingerprint<>excluded.input_fingerprint`
 	if r.CertifiedReviewEnabled() {
 		inputSQL += ` OR evidence_json<>excluded.evidence_json OR coverage_json<>excluded.coverage_json`

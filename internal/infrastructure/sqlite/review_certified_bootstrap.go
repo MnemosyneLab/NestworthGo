@@ -8,11 +8,19 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// A new handle has no authority over frozen evidence. Support only a namespace
-// with no lifecycle history and one active first condition per daily rule.
-// Such a namespace contains only recomputable projections. The signed flag
-// permits complete replacement, never bounded preparation or confirmation.
+// Current absence cannot prove that frozen episodes/acknowledgements never
+// existed. Full daily replay cannot reconstruct deleted handling history.
+// Keep this candidate disabled until an independent provenance root exists.
+const reviewBootstrapProvenanceEnabled = false
+
+// Rejected candidate retained for review/reproduction. These structural
+// checks can describe current rows, but cannot prove that deleted lifecycle
+// history never existed. They are not sufficient authorization even together
+// with full preparation and the namespace check below.
 func certifiedBootstrapSupported(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, counts []int64) (bool, error) {
+	if !reviewBootstrapProvenanceEnabled {
+		return false, nil
+	}
 	if len(counts) != 6 || counts[4] != 0 || counts[5] != 0 || len(c.OpenEpisodes) != 0 || len(c.Rules) == 0 || !c.Control.Enabled || c.Control.ProjectionStatus == "needs_repair" {
 		return false, nil
 	}

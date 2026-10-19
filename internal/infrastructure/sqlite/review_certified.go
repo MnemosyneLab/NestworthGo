@@ -207,7 +207,18 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 		empty = empty && n == 0
 	}
 	empty = empty && c.PublishedTemporal == nil && c.Control.PublishedFingerprint == "" && !r.database.reviewCertificateKey.issued.Load()
-	proof.MayCertify = validCertifiedConnection(connection) && (empty || r.authenticReview(c.PublishedTemporal, seal))
+	if empty && r.reviewInitialConnectionMatches(connection) {
+		var prior int
+		if err := tx.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM investment_review_mutation_receipts WHERE household_id=? AND json_type(result_json,'$.episodeId') IS NOT NULL)+(SELECT count(*) FROM investment_review_legacy_state WHERE household_id=?)+(SELECT count(*) FROM investment_review_legacy_quarantine)`, c.HouseholdID.String(), c.HouseholdID.String()).Scan(&prior); err != nil {
+			return err
+		}
+		if prior == 0 {
+			proof.InitialPublication = true
+		} else {
+			r.database.reviewInitialPublicationAllowed.Store(false)
+		}
+	}
+	proof.MayCertify = validCertifiedConnection(connection) && (proof.InitialPublication || r.authenticReview(c.PublishedTemporal, seal))
 	var verified bool
 	proof.SchemaCookie, verified, err = r.verifiedCertifiedTracking(ctx, tx)
 	if err != nil {
@@ -288,9 +299,11 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 }
 
 // Initial empty namespaces and authenticated same-session chains may certify.
-// A history-free legacy/restarted namespace may certify only after complete
-// replacement and namespace verification. A checksum alone never grants trust.
+// Legacy/restart bootstrap is disabled: complete replacement cannot prove
+// missing handling history. A private initial claim must also be consumed by
+// the publisher; a checksum or empty namespace alone never grants trust.
 func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, out *domain.ReviewTemporalCertificate, leased bool, connectionID uint64, bootstrap bool) error {
+	bootstrap = bootstrap && reviewBootstrapProvenanceEnabled
 	if r.CertifiedReviewEnabled() {
 		out.NoChangeCompletenessVersion = ""
 	}

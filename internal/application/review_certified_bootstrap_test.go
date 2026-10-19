@@ -41,15 +41,17 @@ func requireCertifiedNoop(t *testing.T, f seriesZeroFixture, r *sqlite.Repositor
 	}
 }
 
-func TestReviewCertifiedHistoryFreeLegacyAndRestartBootstrap(t *testing.T) {
+func TestReviewCertifiedHistoryFreeLegacyAndRestartRemainUntrusted(t *testing.T) {
 	for _, restart := range []bool{false, true} {
 		t.Run(map[bool]string{false: "legacy", true: "restart"}[restart], func(t *testing.T) {
-			f, r := historyFreeLegacyReview(t)
+			var f seriesZeroFixture
+			var r *sqlite.Repository
 			if restart {
-				// Establish a valid old-session signature, then lose the private key.
-				if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
-					t.Fatal(err)
-				}
+				spec := syntheticHistoricalReviewSpec()
+				spec.Predicate.All[1].Leaf.Value = "0"
+				f, r = certifiedConfiguredFixture(t, false, spec)
+				// A valid prior-session signature is not authority after key loss.
+				requireCertifiedNoop(t, f, r)
 				path := f.db.Path
 				if err := f.db.Close(); err != nil {
 					t.Fatal(err)
@@ -64,14 +66,16 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartBootstrap(t *testing.T) {
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
+			} else {
+				f, r = historyFreeLegacyReview(t)
 			}
 			_, ok, err := r.ConfirmCertifiedReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.reviewProviderSnapshot())
 			if err != nil || ok {
 				t.Fatal("new handle trusted an old certificate", ok, err)
 			}
 			p := certifiedStage(t, f, r)
-			if !p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse || p.CertifiedFullOracle != nil || len(p.Rules[0].Days) != 11 {
-				t.Fatal("legacy/restart did not select complete replacement")
+			if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse || p.CertifiedFullOracle != nil || len(p.Rules[0].Days) != 11 {
+				t.Fatal("legacy/restart escaped full untrusted fallback")
 			}
 			// Separate source-only full preparation predates candidate publication.
 			c, err := r.WithFullReviewRecompute().CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
@@ -88,13 +92,19 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartBootstrap(t *testing.T) {
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
 				t.Fatal(err)
 			}
-			requireCertifiedNoop(t, f, r)
+			assertNoCertifiedMAC(t, f)
+			for range 2 {
+				_, ok, err := r.ConfirmCertifiedReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.reviewProviderSnapshot())
+				if err != nil || ok {
+					t.Fatal("unproven absence acquired no-op authority", ok, err)
+				}
+			}
 			noChangeFullOracle(t, f)
 		})
 	}
 }
 
-func TestReviewCertifiedBootstrapReplacesAllDerivedScalars(t *testing.T) {
+func TestReviewCertifiedRecomputeDoesNotProveHistoricalProvenance(t *testing.T) {
 	f, r := historyFreeLegacyReview(t)
 	for _, q := range []string{
 		`UPDATE investment_review_daily_inputs SET quantity='999',amount_exact='999',cost_exact='999',instrument_type='fund',native_currency='USD',evidence_json='{}',coverage_json='["bad"]'`,
@@ -107,26 +117,20 @@ func TestReviewCertifiedBootstrapReplacesAllDerivedScalars(t *testing.T) {
 		}
 	}
 	p := certifiedStage(t, f, r)
-	if !p.Capture.Certified.MayBootstrap {
-		t.Fatal("recomputable corruption prevented full replacement")
+	if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+		t.Fatal("recomputation was mistaken for historical provenance")
 	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
 		t.Fatal(err)
 	}
-	var bad int
-	if err := f.db.SQL.QueryRow(`SELECT (SELECT count(*) FROM investment_review_daily_inputs WHERE quantity='999' OR amount_exact='999' OR cost_exact='999' OR instrument_type='fund' OR native_currency='USD' OR evidence_json='{}' OR coverage_json='["bad"]')+(SELECT count(*) FROM investment_review_daily_results WHERE reason='bad' OR evidence_json='{}')+(SELECT count(*) FROM investment_review_position_epochs WHERE source_fingerprint='bad')+(SELECT count(*) FROM investment_review_evaluation_state WHERE consecutive_count=999 OR dirty_from IS NOT NULL OR coverage_json='["bad"]')`).Scan(&bad); err != nil || bad != 0 {
-		t.Fatal("full replacement retained old scalar/JSON data", bad, err)
+	assertNoCertifiedMAC(t, f)
+	// Full fallback is not claimed to repair every retained scalar or frozen
+	// historical payload. In particular, a checksum after it grants no trust.
+	_, ok, err := r.ConfirmCertifiedReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.reviewProviderSnapshot())
+	if err != nil || ok {
+		t.Fatal("unknown projection acquired no-op authority", ok, err)
 	}
-	for _, item := range p.Rules {
-		for _, epoch := range item.Epochs {
-			var unknown bool
-			if err := f.db.SQL.QueryRow(`SELECT start_unknown FROM investment_review_position_epochs WHERE id=?`, epoch.ID).Scan(&unknown); err != nil || unknown != epoch.StartUnknown {
-				t.Fatal("epoch flag was not rebuilt", unknown, err)
-			}
-		}
-	}
-	requireCertifiedNoop(t, f, r)
-	noChangeFullOracle(t, f)
+
 }
 
 func TestReviewCertifiedBootstrapCannotBlessUnknownNamespace(t *testing.T) {

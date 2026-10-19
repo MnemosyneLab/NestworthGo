@@ -14,8 +14,7 @@ import (
 )
 
 // Reopen an existing C2 ledger whose complete derived namespace has no episode
-// history. Both arms must first prepare from full sources; the candidate may
-// establish its new private authority only after replacing every derived field.
+// history. Both arms must first prepare from full sources; the candidate remains untrusted: absence of lifecycle rows is not provenance.
 func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 	if os.Getenv("NW_C3_CERTIFIED_EVIDENCE") != "1" {
 		t.Skip("opt-in synthetic bootstrap evidence")
@@ -74,7 +73,7 @@ func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 						t.Fatal(err)
 					}
 					if arm == "certified" {
-						if !c.Certified.MayBootstrap || c.Certified.MayCertify || c.Certified.MayReuse {
+						if c.Certified.MayBootstrap || c.Certified.MayCertify || c.Certified.MayReuse {
 							t.Fatal("invalid bootstrap authority")
 						}
 						c.Certified.Provider = f.service.reviewProviderSnapshot()
@@ -95,25 +94,23 @@ func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 					if err != nil || got.DayCount == 0 {
 						t.Fatal("bootstrap did not fully recompute", got, err)
 					}
-					t.Logf("history-free-bootstrap size=%s arm=%s n=%d elapsed=%s allocatedBytes=%d allocs=%d publishedPairDays=%d %s", size, arm, sample+1, elapsed, a.TotalAlloc-b.TotalAlloc, a.Mallocs-b.Mallocs, got.DayCount, reviewPerfStats.snapshot(0).summary())
+					t.Logf("history-free-restart-fallback size=%s arm=%s n=%d elapsed=%s allocatedBytes=%d allocs=%d publishedPairDays=%d %s", size, arm, sample+1, elapsed, a.TotalAlloc-b.TotalAlloc, a.Mallocs-b.Mallocs, got.DayCount, reviewPerfStats.snapshot(0).summary())
 					if arm == "certified" {
 						_, ok, err := r.ConfirmCertifiedReviewNoChange(t.Context(), f.householdID, *f.now, func() time.Time { return *f.now }, f.service.reviewProviderSnapshot())
-						if err != nil || !ok {
-							t.Fatal("full replacement did not certify", ok, err)
+						if err != nil || ok {
+							t.Fatal("untrusted restart fallback acquired authority", ok, err)
 						}
 					}
 					rows := certifiedPerfRows(t, f)
-					// The candidate deliberately replaces all evaluation state rows;
-					// only this opaque publication counter differs (1 -> 2).
+					// The disabled bootstrap retains ordinary evaluation state writes;
+					// the publication counter stays at 1 in both arms.
 					for i, raw := range rows["investment_review_evaluation_state"] {
 						var values []any
 						if err := json.Unmarshal([]byte(raw), &values); err != nil {
 							t.Fatal(err)
 						}
 						want := float64(1)
-						if arm == "certified" {
-							want = 2
-						}
+
 						if values[len(values)-1] != want {
 							t.Fatal("unexpected publication counter", values[len(values)-1], want)
 						}
