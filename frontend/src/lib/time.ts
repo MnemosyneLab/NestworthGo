@@ -72,6 +72,22 @@ export function hasSubMinuteTime(value: string, timezone: string): boolean {
   }).formatToParts(instant).some((part) => part.type === "second" && Number(part.value) !== 0);
 }
 
+/** Localize a civil date using the same date style as timestamps, without
+ * interpreting it in the viewer's timezone or adding a time of day. */
+export function formatCivilDate(value: string, language = i18n.language || "en"): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  const [year, month, day] = match.slice(1).map(Number);
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  if (year < 1 || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return value;
+  try {
+    return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" }).format(date);
+  } catch {
+    return value;
+  }
+}
+
 /** Date-labelled quotes have a source date, but no observed time of day. */
 export function formatQuoteAsOf(
   quote: { quotedAt: string; effectiveDate?: string; timestampBasis?: string },
@@ -79,8 +95,9 @@ export function formatQuoteAsOf(
   language = i18n.language || "en",
 ): string {
   if (quote.timestampBasis === "date_label" && /^\d{4}-\d{2}-\d{2}$/.test(quote.effectiveDate ?? "")) {
-    return quote.effectiveDate!;
+    return formatCivilDate(quote.effectiveDate!, language);
   }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(quote.quotedAt)) return formatCivilDate(quote.quotedAt, language);
   return formatTimestamp(quote.quotedAt, timezone, language);
 }
 
