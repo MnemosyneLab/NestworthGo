@@ -16,6 +16,7 @@ type Repository struct {
 	reviewFullRecompute        bool
 	reviewWindowBaseline       bool
 	reviewSourceShadowObserver func(domain.ReviewSourceShadowObservation)
+	reviewNoChangeCandidate    bool
 }
 
 // WithFullReviewRecompute returns an independent repository configuration that

@@ -1,0 +1,69 @@
+=== RUN   TestReviewNoChangeOptInAndFullOracle
+--- PASS: TestReviewNoChangeOptInAndFullOracle (0.23s)
+=== RUN   TestReviewNoChangeConservativeFallbacks
+=== RUN   TestReviewNoChangeConservativeFallbacks/source
+=== RUN   TestReviewNoChangeConservativeFallbacks/config
+=== RUN   TestReviewNoChangeConservativeFallbacks/state
+=== RUN   TestReviewNoChangeConservativeFallbacks/rule-without-revision
+=== RUN   TestReviewNoChangeConservativeFallbacks/episode-without-state
+=== RUN   TestReviewNoChangeConservativeFallbacks/pending
+=== RUN   TestReviewNoChangeConservativeFallbacks/missing-proof
+=== RUN   TestReviewNoChangeConservativeFallbacks/unknown-policy
+=== RUN   TestReviewNoChangeConservativeFallbacks/journal-gap
+=== RUN   TestReviewNoChangeConservativeFallbacks/trigger-drop-recreate
+=== RUN   TestReviewNoChangeConservativeFallbacks/foreign-keys
+=== RUN   TestReviewNoChangeConservativeFallbacks/recursive-triggers
+=== RUN   TestReviewNoChangeConservativeFallbacks/rollback
+=== RUN   TestReviewNoChangeConservativeFallbacks/restart
+=== RUN   TestReviewNoChangeConservativeFallbacks/epoch-reset
+=== RUN   TestReviewNoChangeConservativeFallbacks/provider
+--- PASS: TestReviewNoChangeConservativeFallbacks (2.89s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/source (0.25s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/config (0.23s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/state (0.23s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/rule-without-revision (0.22s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/episode-without-state (0.25s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/pending (0.24s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/missing-proof (0.12s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/unknown-policy (0.12s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/journal-gap (0.12s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/trigger-drop-recreate (0.11s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/foreign-keys (0.13s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/recursive-triggers (0.12s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/rollback (0.11s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/restart (0.17s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/epoch-reset (0.22s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/provider (0.24s)
+=== RUN   TestReviewNoChangeCrashChild
+    review_no_change_test.go:224: subprocess crash helper
+--- SKIP: TestReviewNoChangeCrashChild (0.00s)
+=== RUN   TestReviewNoChangeCrashBeforeCommitAndRecovery
+--- PASS: TestReviewNoChangeCrashBeforeCommitAndRecovery (0.41s)
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/exit
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/entry
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/clear-rebuy
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/transfer
+--- PASS: TestReviewNoChangeActivationLifecycleFullOracle (2.01s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/exit (0.47s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/entry (0.42s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/clear-rebuy (0.67s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/transfer (0.45s)
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/control-ignore
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-ignore
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-abort
+--- PASS: TestReviewNoChangeCASFailureAndBoundedRetry (0.61s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/control-ignore (0.21s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-ignore (0.21s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-abort (0.19s)
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/boundary
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/cancel
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/writer
+--- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation (0.44s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/boundary (0.13s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/cancel (0.14s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/writer (0.17s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	6.600s

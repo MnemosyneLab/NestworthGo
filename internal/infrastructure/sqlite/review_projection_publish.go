@@ -164,6 +164,13 @@ func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publi
 	if _, err := tx.ExecContext(ctx, `UPDATE investment_review_control SET input_generation=?,projection_status=?,published_on=?,published_input_fingerprint=? WHERE household_id=? AND (input_generation<>? OR projection_status<>? OR published_on IS NOT ? OR published_input_fingerprint IS NOT ?)`, generation, status, nullableEmpty(publishedOn), actualFingerprint, capture.HouseholdID.String(), generation, status, nullableEmpty(publishedOn), actualFingerprint); err != nil {
 		return err
 	}
+	if r.ReviewNoChangeEnabled() {
+		publishedTemporal.NoChangeFXProviderKey = publication.FXProviderKey
+		publishedTemporal.NoChangeReviewFingerprint, err = noChangeReviewFingerprint(ctx, tx, capture.HouseholdID)
+		if err != nil {
+			return err
+		}
+	}
 	if err := persistReviewTemporal(ctx, tx, capture.HouseholdID, publishedTemporal, now); err != nil {
 		return err
 	}
