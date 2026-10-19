@@ -145,7 +145,7 @@ jobs:
           # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
           cache-dependency-path: go.sum
       - name: Install native Go build dependencies
-        timeout-minutes: 15
+        timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
       - name: Perf-tagged evidence
         run: |
@@ -249,7 +249,7 @@ jobs:
           # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
           cache-dependency-path: go.sum
       - name: Install native Go build dependencies
-        timeout-minutes: 15
+        timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
       - name: Go tests with race detector
         run: |
