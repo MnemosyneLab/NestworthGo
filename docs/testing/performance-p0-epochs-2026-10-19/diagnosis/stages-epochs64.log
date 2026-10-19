@@ -1,0 +1,949 @@
+=== RUN   TestReviewEpochStageDiagnostics
+    review_epoch_stage_diagnostics_test.go:23: manifest={"Accounts":1,"Instruments":1,"Holdings":1,"Rules":4,"HistoryDays":30,"Quotes":30,"CashActivities":0,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=19 Go=go1.26.0 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a152a2-e77a-74b1-80b8-43886ce2e0df
+    review_epoch_stage_diagnostics_test.go:23: cold initial projection (single sample, includes capture through atomic publish; excludes fixture generation)=39.549966ms
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#01
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#02
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#03
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#04
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#05
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#06
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#07
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#08
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#09
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#10
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#11
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#12
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#13
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#14
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#15
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#16
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#17
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#18
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#19
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#20
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#21
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#22
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#23
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#24
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#25
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#26
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#27
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#28
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#29
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#30
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#31
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#32
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#33
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#34
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#35
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#36
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#37
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#38
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#39
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#40
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#41
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#42
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#43
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#44
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#45
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#46
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#47
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#48
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#49
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#50
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#51
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#52
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#53
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#54
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#55
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#56
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#57
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#58
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#59
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#60
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#61
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#62
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#63
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#64
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#65
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#66
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#67
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#68
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#69
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#70
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#71
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#72
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#73
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#74
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#75
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#76
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#77
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#78
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#79
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#80
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#81
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#82
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#83
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#84
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#85
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#86
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#87
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#88
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#89
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#90
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#91
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#92
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#93
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#94
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#95
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#96
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#97
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#98
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#99
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#100
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#101
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#102
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#103
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#104
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#105
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#106
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#107
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#108
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#109
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#110
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#111
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#112
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#113
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#114
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#115
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#116
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#117
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#118
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#119
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#120
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#121
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#122
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#123
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#124
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#125
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#126
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#127
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#128
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#129
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#130
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#131
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#132
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#133
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#134
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#135
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#136
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#137
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#138
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#139
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#140
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#141
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#142
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#143
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#144
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#145
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#146
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#147
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#148
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#149
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#150
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#151
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#152
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#153
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#154
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#155
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#156
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#157
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#158
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#159
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#160
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#161
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#162
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#163
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#164
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#165
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#166
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#167
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#168
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#169
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#170
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#171
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#172
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#173
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#174
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#175
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#176
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#177
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#178
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#179
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#180
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#181
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#182
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#183
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#184
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#185
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#186
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#187
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#188
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#189
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#190
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#191
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#192
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#193
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#194
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#195
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#196
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#197
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#198
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#199
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#200
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#201
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#202
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#203
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#204
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#205
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#206
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#207
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#208
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#209
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#210
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#211
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#212
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#213
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#214
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#215
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#216
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#217
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#218
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#219
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#220
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#221
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#222
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#223
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#224
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#225
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#226
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#227
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#228
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#229
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#230
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#231
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#232
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#233
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#234
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#235
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#236
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#237
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#238
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#239
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#240
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#241
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#242
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#243
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#244
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#245
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#246
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#247
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#248
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#249
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#250
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#251
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#252
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#253
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#254
+=== RUN   TestReviewEpochStageDiagnostics/epoch-publish#255
+=== NAME  TestReviewEpochStageDiagnostics
+    review_epoch_stage_diagnostics_test.go:23: real epoch history cycles=64 positionEpochs=65 evaluationStates=260; both exit and re-entry checked against full oracle and durable baseline
+=== RUN   TestReviewEpochStageDiagnostics/no-op
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-00
+    review_performance_baseline_test.go:344: capture path=0 sample=0 elapsed=21.996613ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=0 elapsed=22.458295ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-00/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=0 total_ns=79906836 capture_ns=24518159 prepare_admission_ns=1623868 publish_ns=51025763 residual_ns=2739046 window_ns=3183354 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=629881 heap_before=1974568 heap_after=3080840 allocated_bytes=7391200 allocations=144419
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=0 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=21.623945ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=17.620021ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.096407ms prepares=2 prepareTime=118.89µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=0 elapsed=79.906836ms pairDays=0 allocatedBytes=7391200 allocations=144419 sql queries=105 returnedRows=1440 Query-to-Rows.Close=41.697095ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.096407ms prepares=2 prepareTime=118.89µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-00/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=0 total_ns=92218772 capture_ns=20974676 prepare_admission_ns=409255 publish_ns=68643809 residual_ns=2191032 window_ns=3007261 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=390789 heap_before=4694784 heap_after=3899224 allocated_bytes=6875656 allocations=144424
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=0 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.097824ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.541743ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=47.658831ms prepares=2 prepareTime=146.878µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=0 elapsed=92.218772ms pairDays=0 allocatedBytes=6875656 allocations=144424 sql queries=105 returnedRows=1440 Query-to-Rows.Close=33.707664ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=47.658831ms prepares=2 prepareTime=146.878µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-01
+    review_performance_baseline_test.go:344: capture path=1 sample=1 elapsed=23.916111ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=1 elapsed=22.816268ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-01/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=1 total_ns=74289968 capture_ns=21853907 prepare_admission_ns=1226104 publish_ns=48681612 residual_ns=2528345 window_ns=3569758 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=443979 heap_before=1219224 heap_after=2668680 allocated_bytes=7398912 allocations=144445
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=1 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.652728ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.815391ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.593472ms prepares=2 prepareTime=93.925µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=1 elapsed=74.289968ms pairDays=0 allocatedBytes=7398912 allocations=144445 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.792952ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.593472ms prepares=2 prepareTime=93.925µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-01/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=1 total_ns=78648861 capture_ns=20619294 prepare_admission_ns=459543 publish_ns=55135034 residual_ns=2434990 window_ns=2767332 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=205179 heap_before=4564064 heap_after=5147616 allocated_bytes=6341288 allocations=144355
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=1 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.880833ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=13.124466ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=36.611699ms prepares=2 prepareTime=92.563µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=1 elapsed=78.648861ms pairDays=0 allocatedBytes=6341288 allocations=144355 sql queries=105 returnedRows=1440 Query-to-Rows.Close=33.271ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=36.611699ms prepares=2 prepareTime=92.563µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-02
+    review_performance_baseline_test.go:344: capture path=0 sample=2 elapsed=22.735571ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=2 elapsed=23.965778ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-02/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=2 total_ns=76116091 capture_ns=22425933 prepare_admission_ns=1856188 publish_ns=49188268 residual_ns=2645702 window_ns=3747564 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=416016 heap_before=1948216 heap_after=2403976 allocated_bytes=7386816 allocations=144412
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=2 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.421776ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.025719ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=28.683712ms prepares=2 prepareTime=96.01µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=2 elapsed=76.116091ms pairDays=0 allocatedBytes=7386816 allocations=144412 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.928537ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=28.683712ms prepares=2 prepareTime=96.01µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-02/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=2 total_ns=104204022 capture_ns=28216097 prepare_admission_ns=555462 publish_ns=73271156 residual_ns=2161307 window_ns=3226436 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=401754 heap_before=5214312 heap_after=3176248 allocated_bytes=7396848 allocations=144440
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=2 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.432869ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=22.592038ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.941366ms prepares=2 prepareTime=97.892µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=2 elapsed=104.204022ms pairDays=0 allocatedBytes=7396848 allocations=144440 sql queries=105 returnedRows=1440 Query-to-Rows.Close=45.069851ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.941366ms prepares=2 prepareTime=97.892µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-03
+    review_performance_baseline_test.go:344: capture path=1 sample=3 elapsed=25.101865ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=3 elapsed=21.586941ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-03/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=3 total_ns=88651194 capture_ns=22429997 prepare_admission_ns=1130202 publish_ns=62830577 residual_ns=2260418 window_ns=2834052 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=457878 heap_before=936848 heap_after=2323072 allocated_bytes=6874272 allocations=144423
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=3 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.461959ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.50502ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.777977ms prepares=2 prepareTime=92.533µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=3 elapsed=88.651194ms pairDays=0 allocatedBytes=6874272 allocations=144423 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.076308ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.777977ms prepares=2 prepareTime=92.533µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-03/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=3 total_ns=92815073 capture_ns=21589224 prepare_admission_ns=425977 publish_ns=68551768 residual_ns=2248104 window_ns=2376431 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=332629 heap_before=6625424 heap_after=3464728 allocated_bytes=7388776 allocations=144403
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=3 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.229326ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.30544ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.674063ms prepares=2 prepareTime=134.531µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=3 elapsed=92.815073ms pairDays=0 allocatedBytes=7388776 allocations=144403 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.665773ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.674063ms prepares=2 prepareTime=134.531µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-04
+    review_performance_baseline_test.go:344: capture path=0 sample=4 elapsed=24.755948ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=4 elapsed=24.951938ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-04/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=4 total_ns=75180473 capture_ns=22409831 prepare_admission_ns=467959 publish_ns=49922619 residual_ns=2380064 window_ns=2786430 window_queries=4 window_rows=12 reused=12 gc_cycles=5 gc_pause_ns=483422 heap_before=2018576 heap_after=1322608 allocated_bytes=7391344 allocations=144421
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=4 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.710308ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.193752ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.386462ms prepares=2 prepareTime=93.533µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=4 elapsed=75.180473ms pairDays=0 allocatedBytes=7391344 allocations=144421 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.141154ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.386462ms prepares=2 prepareTime=93.533µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-04/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=4 total_ns=91644222 capture_ns=24286024 prepare_admission_ns=520642 publish_ns=64340784 residual_ns=2496772 window_ns=4522800 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=1351925 heap_before=4853656 heap_after=4422144 allocated_bytes=6872240 allocations=144413
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=4 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.801106ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.79681ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=40.69487ms prepares=2 prepareTime=312.746µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=4 elapsed=91.644222ms pairDays=0 allocatedBytes=6872240 allocations=144413 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.958823ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=40.69487ms prepares=2 prepareTime=312.746µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-05
+    review_performance_baseline_test.go:344: capture path=1 sample=5 elapsed=25.309087ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=5 elapsed=24.300558ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-05/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=5 total_ns=78110374 capture_ns=23560073 prepare_admission_ns=1740974 publish_ns=49765366 residual_ns=3043961 window_ns=3098322 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=1120837 heap_before=1272240 heap_after=3073520 allocated_bytes=7400384 allocations=144461
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=5 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.567587ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.925016ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.023627ms prepares=2 prepareTime=133.516µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=5 elapsed=78.110374ms pairDays=0 allocatedBytes=7400384 allocations=144461 sql queries=105 returnedRows=1440 Query-to-Rows.Close=37.414441ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.023627ms prepares=2 prepareTime=133.516µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-05/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=5 total_ns=80766478 capture_ns=20724147 prepare_admission_ns=453580 publish_ns=57058926 residual_ns=2529825 window_ns=2365212 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=166952 heap_before=9428128 heap_after=8054264 allocated_bytes=6857720 allocations=144361
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=5 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.665775ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.479163ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=37.216838ms prepares=2 prepareTime=92.953µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=5 elapsed=80.766478ms pairDays=0 allocatedBytes=6857720 allocations=144361 sql queries=105 returnedRows=1440 Query-to-Rows.Close=34.513828ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=37.216838ms prepares=2 prepareTime=92.953µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-06
+    review_performance_baseline_test.go:344: capture path=0 sample=6 elapsed=24.4908ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=6 elapsed=24.20886ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-06/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=6 total_ns=92073944 capture_ns=22457364 prepare_admission_ns=506675 publish_ns=66886738 residual_ns=2223167 window_ns=2581503 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=409106 heap_before=2214320 heap_after=3218304 allocated_bytes=7391096 allocations=144417
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=6 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.789ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.679062ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.533802ms prepares=2 prepareTime=155.545µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=6 elapsed=92.073944ms pairDays=0 allocatedBytes=7391096 allocations=144417 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.572951ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.533802ms prepares=2 prepareTime=155.545µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-06/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=6 total_ns=82433867 capture_ns=20569380 prepare_admission_ns=412682 publish_ns=59194852 residual_ns=2256953 window_ns=2913517 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=356114 heap_before=5217464 heap_after=3010104 allocated_bytes=6866904 allocations=144404
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=6 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.253921ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.363879ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.411196ms prepares=2 prepareTime=93.666µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=6 elapsed=82.433867ms pairDays=0 allocatedBytes=6866904 allocations=144404 sql queries=105 returnedRows=1440 Query-to-Rows.Close=34.71925ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.411196ms prepares=2 prepareTime=93.666µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-07
+    review_performance_baseline_test.go:344: capture path=1 sample=7 elapsed=21.36428ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=7 elapsed=23.477986ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-07/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=7 total_ns=74979218 capture_ns=23500884 prepare_admission_ns=1280815 publish_ns=47779367 residual_ns=2418152 window_ns=3565466 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=376154 heap_before=2099216 heap_after=2650296 allocated_bytes=7393616 allocations=144432
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=7 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.43898ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.933598ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=26.548508ms prepares=2 prepareTime=92.909µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=7 elapsed=74.979218ms pairDays=0 allocatedBytes=7393616 allocations=144432 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.601082ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=26.548508ms prepares=2 prepareTime=92.909µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-07/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=7 total_ns=95414728 capture_ns=21683479 prepare_admission_ns=459932 publish_ns=71018413 residual_ns=2252904 window_ns=3560412 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=361911 heap_before=4621024 heap_after=4522696 allocated_bytes=7390184 allocations=144417
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=7 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.060353ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.262492ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.860269ms prepares=2 prepareTime=135.158µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=7 elapsed=95.414728ms pairDays=0 allocatedBytes=7390184 allocations=144417 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.462857ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.860269ms prepares=2 prepareTime=135.158µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-08
+    review_performance_baseline_test.go:344: capture path=0 sample=8 elapsed=23.203159ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=8 elapsed=22.665598ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-08/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=8 total_ns=88716014 capture_ns=20328814 prepare_admission_ns=1595497 publish_ns=64577512 residual_ns=2214191 window_ns=2691134 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=595341 heap_before=1485744 heap_after=2383968 allocated_bytes=7390184 allocations=144413
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=8 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=16.666254ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.640958ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.299182ms prepares=2 prepareTime=133.335µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=8 elapsed=88.716014ms pairDays=0 allocatedBytes=7390184 allocations=144413 sql queries=105 returnedRows=1440 Query-to-Rows.Close=34.403461ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.299182ms prepares=2 prepareTime=133.335µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-08/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=8 total_ns=91131954 capture_ns=19850273 prepare_admission_ns=410177 publish_ns=68603865 residual_ns=2267639 window_ns=2861904 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=419365 heap_before=5221760 heap_after=3353336 allocated_bytes=7397016 allocations=144442
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=8 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=16.48793ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.467603ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=45.500701ms prepares=2 prepareTime=126.254µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=8 elapsed=91.131954ms pairDays=0 allocatedBytes=7397016 allocations=144442 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.102978ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=45.500701ms prepares=2 prepareTime=126.254µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-09
+    review_performance_baseline_test.go:344: capture path=1 sample=9 elapsed=22.24826ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=9 elapsed=24.276742ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-09/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=9 total_ns=77087979 capture_ns=24455323 prepare_admission_ns=554226 publish_ns=49719770 residual_ns=2358660 window_ns=3167566 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=583144 heap_before=944280 heap_after=1562336 allocated_bytes=7397048 allocations=144444
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=9 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.850859ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.005774ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.444701ms prepares=2 prepareTime=95.003µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=9 elapsed=77.087979ms pairDays=0 allocatedBytes=7397048 allocations=144444 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.064393ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.444701ms prepares=2 prepareTime=95.003µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-09/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=9 total_ns=85577853 capture_ns=21640753 prepare_admission_ns=493157 publish_ns=61159836 residual_ns=2284107 window_ns=3453700 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=321855 heap_before=4320296 heap_after=3389624 allocated_bytes=7388688 allocations=144405
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=9 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.841227ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.536171ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.937368ms prepares=2 prepareTime=93.089µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=9 elapsed=85.577853ms pairDays=0 allocatedBytes=7388688 allocations=144405 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.548811ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.937368ms prepares=2 prepareTime=93.089µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-10
+    review_performance_baseline_test.go:344: capture path=0 sample=10 elapsed=22.841364ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=10 elapsed=21.727003ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-10/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=10 total_ns=76343569 capture_ns=24175709 prepare_admission_ns=452228 publish_ns=49521273 residual_ns=2194359 window_ns=2589632 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=325518 heap_before=2123496 heap_after=3155640 allocated_bytes=7391448 allocations=144418
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=10 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.563844ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.177338ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.206048ms prepares=2 prepareTime=94.592µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=10 elapsed=76.343569ms pairDays=0 allocatedBytes=7391448 allocations=144418 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.811014ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.206048ms prepares=2 prepareTime=94.592µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-10/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=10 total_ns=83035575 capture_ns=22401847 prepare_admission_ns=455398 publish_ns=58012990 residual_ns=2165340 window_ns=3072356 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=206484 heap_before=5748136 heap_after=3694368 allocated_bytes=6874120 allocations=144417
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=10 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.893156ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.196521ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=36.925453ms prepares=2 prepareTime=168.241µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=10 elapsed=83.035575ms pairDays=0 allocatedBytes=6874120 allocations=144417 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.141716ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=36.925453ms prepares=2 prepareTime=168.241µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-11
+    review_performance_baseline_test.go:344: capture path=1 sample=11 elapsed=21.236687ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=11 elapsed=21.933123ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-11/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=11 total_ns=90680308 capture_ns=20651394 prepare_admission_ns=1650412 publish_ns=66194202 residual_ns=2184300 window_ns=3059945 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=367168 heap_before=2009760 heap_after=2606712 allocated_bytes=7398256 allocations=144449
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=11 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.591613ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.776111ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.803085ms prepares=2 prepareTime=95.813µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=11 elapsed=90.680308ms pairDays=0 allocatedBytes=7398256 allocations=144449 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.435049ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.803085ms prepares=2 prepareTime=95.813µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-11/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=11 total_ns=90008294 capture_ns=21336346 prepare_admission_ns=1092425 publish_ns=65089792 residual_ns=2489731 window_ns=3080956 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=224135 heap_before=4203872 heap_after=3480360 allocated_bytes=6862200 allocations=144374
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=11 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.54712ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=13.696466ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.451837ms prepares=2 prepareTime=91.307µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=11 elapsed=90.008294ms pairDays=0 allocatedBytes=6862200 allocations=144374 sql queries=105 returnedRows=1440 Query-to-Rows.Close=34.536818ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.451837ms prepares=2 prepareTime=91.307µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-12
+    review_performance_baseline_test.go:344: capture path=0 sample=12 elapsed=22.111709ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=12 elapsed=22.963936ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-12/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=12 total_ns=76896166 capture_ns=20713717 prepare_admission_ns=1408412 publish_ns=52624384 residual_ns=2149653 window_ns=2521440 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=519088 heap_before=2129152 heap_after=2400408 allocated_bytes=7386928 allocations=144410
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=12 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.220469ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.918739ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=31.345751ms prepares=2 prepareTime=93.155µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=12 elapsed=76.896166ms pairDays=0 allocatedBytes=7386928 allocations=144410 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.173943ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=31.345751ms prepares=2 prepareTime=93.155µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-12/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=12 total_ns=92202979 capture_ns=24104581 prepare_admission_ns=1561279 publish_ns=64269344 residual_ns=2267775 window_ns=3894587 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=263915 heap_before=6633752 heap_after=5549016 allocated_bytes=7393800 allocations=144446
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=12 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=21.183456ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.120131ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=40.95539ms prepares=2 prepareTime=152.527µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=12 elapsed=92.202979ms pairDays=0 allocatedBytes=7393800 allocations=144446 sql queries=105 returnedRows=1440 Query-to-Rows.Close=39.426799ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=40.95539ms prepares=2 prepareTime=152.527µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-13
+    review_performance_baseline_test.go:344: capture path=1 sample=13 elapsed=24.110303ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=13 elapsed=22.571857ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-13/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=13 total_ns=91023887 capture_ns=22545648 prepare_admission_ns=2122077 publish_ns=63762877 residual_ns=2593285 window_ns=4948643 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=1839909 heap_before=1441696 heap_after=2516128 allocated_bytes=7402288 allocations=144451
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=13 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.245114ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=17.774382ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=35.260355ms prepares=2 prepareTime=95.482µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=13 elapsed=91.023887ms pairDays=0 allocatedBytes=7402288 allocations=144451 sql queries=105 returnedRows=1440 Query-to-Rows.Close=39.434569ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=35.260355ms prepares=2 prepareTime=95.482µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-13/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=13 total_ns=93644965 capture_ns=21760768 prepare_admission_ns=446413 publish_ns=68868146 residual_ns=2569638 window_ns=2592041 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=360978 heap_before=4824448 heap_after=4799288 allocated_bytes=7389432 allocations=144404
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=13 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.300931ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.960405ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.481202ms prepares=2 prepareTime=94.311µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=13 elapsed=93.644965ms pairDays=0 allocatedBytes=7389432 allocations=144404 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.712967ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.481202ms prepares=2 prepareTime=94.311µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-14
+    review_performance_baseline_test.go:344: capture path=0 sample=14 elapsed=23.470242ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=14 elapsed=23.272766ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-14/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=14 total_ns=92545046 capture_ns=23583778 prepare_admission_ns=530325 publish_ns=66129413 residual_ns=2301530 window_ns=3345131 window_queries=4 window_rows=12 reused=12 gc_cycles=5 gc_pause_ns=448420 heap_before=2010688 heap_after=1496712 allocated_bytes=7395696 allocations=144425
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=14 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.862235ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.633899ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=42.287775ms prepares=2 prepareTime=138.518µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=14 elapsed=92.545046ms pairDays=0 allocatedBytes=7395696 allocations=144425 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.682414ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=42.287775ms prepares=2 prepareTime=138.518µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-14/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=14 total_ns=85008397 capture_ns=21730892 prepare_admission_ns=416703 publish_ns=60651141 residual_ns=2209661 window_ns=2926922 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=308685 heap_before=4714776 heap_after=4782432 allocated_bytes=7397904 allocations=144448
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=14 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.341308ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.910993ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.095309ms prepares=2 prepareTime=88.621µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=14 elapsed=85.008397ms pairDays=0 allocatedBytes=7397904 allocations=144448 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.349301ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.095309ms prepares=2 prepareTime=88.621µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-15
+    review_performance_baseline_test.go:344: capture path=1 sample=15 elapsed=22.468406ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=15 elapsed=24.410215ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-15/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=15 total_ns=90910316 capture_ns=22829685 prepare_admission_ns=436549 publish_ns=64847230 residual_ns=2796852 window_ns=2846041 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=435729 heap_before=932104 heap_after=3206920 allocated_bytes=7398016 allocations=144442
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=15 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.913127ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.127713ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=40.89718ms prepares=2 prepareTime=126.202µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=15 elapsed=90.910316ms pairDays=0 allocatedBytes=7398016 allocations=144442 sql queries=105 returnedRows=1440 Query-to-Rows.Close=37.686983ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=40.89718ms prepares=2 prepareTime=126.202µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-15/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=15 total_ns=96157688 capture_ns=22346730 prepare_admission_ns=481400 publish_ns=70969717 residual_ns=2359841 window_ns=2882744 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=358301 heap_before=9432072 heap_after=8349008 allocated_bytes=6857888 allocations=144364
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=15 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.720494ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.763299ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=48.37799ms prepares=2 prepareTime=130.089µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=15 elapsed=96.157688ms pairDays=0 allocatedBytes=6857888 allocations=144364 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.675564ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=48.37799ms prepares=2 prepareTime=130.089µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-16
+    review_performance_baseline_test.go:344: capture path=0 sample=16 elapsed=22.319097ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=16 elapsed=26.017247ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-16/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=16 total_ns=97467365 capture_ns=24234776 prepare_admission_ns=1835617 publish_ns=68783514 residual_ns=2613458 window_ns=3158426 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=445113 heap_before=2069872 heap_after=2686952 allocated_bytes=7389752 allocations=144403
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=16 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.765525ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=17.842597ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.417682ms prepares=2 prepareTime=470.025µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=16 elapsed=97.467365ms pairDays=0 allocatedBytes=7389752 allocations=144403 sql queries=105 returnedRows=1440 Query-to-Rows.Close=41.053326ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.417682ms prepares=2 prepareTime=470.025µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-16/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=16 total_ns=97036437 capture_ns=23200555 prepare_admission_ns=638722 publish_ns=70814704 residual_ns=2382456 window_ns=3764907 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=493488 heap_before=5221712 heap_after=3921424 allocated_bytes=7396360 allocations=144432
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=16 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.689776ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.262115ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=47.527285ms prepares=2 prepareTime=94.881µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=16 elapsed=97.036437ms pairDays=0 allocatedBytes=7396360 allocations=144432 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.15569ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=47.527285ms prepares=2 prepareTime=94.881µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-17
+    review_performance_baseline_test.go:344: capture path=1 sample=17 elapsed=22.408295ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=17 elapsed=23.484593ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-17/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=17 total_ns=83726379 capture_ns=23895183 prepare_admission_ns=515270 publish_ns=57155170 residual_ns=2160756 window_ns=3583999 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=419029 heap_before=2006784 heap_after=3050896 allocated_bytes=6873136 allocations=144421
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=17 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.106894ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.43424ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=34.788628ms prepares=2 prepareTime=188.287µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=17 elapsed=83.726379ms pairDays=0 allocatedBytes=6873136 allocations=144421 sql queries=105 returnedRows=1440 Query-to-Rows.Close=37.585569ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=34.788628ms prepares=2 prepareTime=188.287µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-17/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=17 total_ns=96572190 capture_ns=20123014 prepare_admission_ns=477005 publish_ns=73700689 residual_ns=2271482 window_ns=2330972 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=175194 heap_before=4471424 heap_after=5026720 allocated_bytes=6862744 allocations=144377
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=17 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.483571ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.774828ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=51.102462ms prepares=2 prepareTime=114.875µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=17 elapsed=96.57219ms pairDays=0 allocatedBytes=6862744 allocations=144377 sql queries=105 returnedRows=1440 Query-to-Rows.Close=34.416458ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=51.102462ms prepares=2 prepareTime=114.875µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-18
+    review_performance_baseline_test.go:344: capture path=0 sample=18 elapsed=21.411188ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=18 elapsed=22.875829ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-18/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=18 total_ns=84208583 capture_ns=23658358 prepare_admission_ns=513618 publish_ns=57810263 residual_ns=2226344 window_ns=2626703 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=493000 heap_before=963672 heap_after=1665512 allocated_bytes=7393464 allocations=144419
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=18 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.854429ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.634072ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=34.810769ms prepares=2 prepareTime=125.058µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=18 elapsed=84.208583ms pairDays=0 allocatedBytes=7393464 allocations=144419 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.5904ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=34.810769ms prepares=2 prepareTime=125.058µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-18/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=18 total_ns=93123985 capture_ns=23686168 prepare_admission_ns=464540 publish_ns=66619779 residual_ns=2353498 window_ns=4484825 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=400117 heap_before=6633904 heap_after=3630736 allocated_bytes=6873480 allocations=144424
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=18 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.296343ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.681045ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.133131ms prepares=2 prepareTime=87.033µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=18 elapsed=93.123985ms pairDays=0 allocatedBytes=6873480 allocations=144424 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.215362ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.133131ms prepares=2 prepareTime=87.033µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-19
+    review_performance_baseline_test.go:344: capture path=1 sample=19 elapsed=24.553315ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=19 elapsed=22.151314ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-19/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=19 total_ns=84367234 capture_ns=23471806 prepare_admission_ns=450125 publish_ns=58223581 residual_ns=2221722 window_ns=3177706 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=509105 heap_before=1064488 heap_after=2263320 allocated_bytes=7399520 allocations=144447
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=19 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.794085ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.906833ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=36.667925ms prepares=2 prepareTime=94.108µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=19 elapsed=84.367234ms pairDays=0 allocatedBytes=7399520 allocations=144447 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.773199ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=36.667925ms prepares=2 prepareTime=94.108µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-19/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=19 total_ns=88875183 capture_ns=19558307 prepare_admission_ns=630286 publish_ns=66432029 residual_ns=2254561 window_ns=2535572 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=315396 heap_before=6637064 heap_after=3162328 allocated_bytes=6859208 allocations=144371
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=19 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=16.217164ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.585149ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.899472ms prepares=2 prepareTime=97.264µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=19 elapsed=88.875183ms pairDays=0 allocatedBytes=6859208 allocations=144371 sql queries=105 returnedRows=1440 Query-to-Rows.Close=32.913721ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.899472ms prepares=2 prepareTime=97.264µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-20
+    review_performance_baseline_test.go:344: capture path=0 sample=20 elapsed=22.123088ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=20 elapsed=20.946643ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-20/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=20 total_ns=86743942 capture_ns=22809469 prepare_admission_ns=1257109 publish_ns=60471542 residual_ns=2205822 window_ns=3130537 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=421167 heap_before=2231248 heap_after=2417248 allocated_bytes=7390264 allocations=144410
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=20 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.905816ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.55977ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=39.690105ms prepares=2 prepareTime=93.065µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=20 elapsed=86.743942ms pairDays=0 allocatedBytes=7390264 allocations=144410 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.526716ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=39.690105ms prepares=2 prepareTime=93.065µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-20/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=20 total_ns=98881094 capture_ns=23126539 prepare_admission_ns=521876 publish_ns=72789058 residual_ns=2443621 window_ns=3881079 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=122705 heap_before=4373808 heap_after=5186112 allocated_bytes=6341320 allocations=144378
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=20 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.435552ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.321222ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.529186ms prepares=2 prepareTime=162.487µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=20 elapsed=98.881094ms pairDays=0 allocatedBytes=6341320 allocations=144378 sql queries=105 returnedRows=1440 Query-to-Rows.Close=39.081883ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.529186ms prepares=2 prepareTime=162.487µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-21
+    review_performance_baseline_test.go:344: capture path=1 sample=21 elapsed=25.742812ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=21 elapsed=20.882245ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-21/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=21 total_ns=94656632 capture_ns=23877302 prepare_admission_ns=483282 publish_ns=68115256 residual_ns=2180792 window_ns=3789845 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=475331 heap_before=2231424 heap_after=3078792 allocated_bytes=7399424 allocations=144459
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=21 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.771796ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.275885ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.193388ms prepares=2 prepareTime=154.619µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=21 elapsed=94.656632ms pairDays=0 allocatedBytes=7399424 allocations=144459 sql queries=105 returnedRows=1440 Query-to-Rows.Close=39.100057ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.193388ms prepares=2 prepareTime=154.619µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-21/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=21 total_ns=85969936 capture_ns=23483563 prepare_admission_ns=514164 publish_ns=59740436 residual_ns=2231773 window_ns=3188207 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=355309 heap_before=5228936 heap_after=3628968 allocated_bytes=6870344 allocations=144395
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=21 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.812113ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.039912ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.690242ms prepares=2 prepareTime=95.084µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=21 elapsed=85.969936ms pairDays=0 allocatedBytes=6870344 allocations=144395 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.966381ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=38.690242ms prepares=2 prepareTime=95.084µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-22
+    review_performance_baseline_test.go:344: capture path=0 sample=22 elapsed=24.69081ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=22 elapsed=22.032906ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-22/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=22 total_ns=88052992 capture_ns=21435466 prepare_admission_ns=1732725 publish_ns=62679064 residual_ns=2205737 window_ns=2862002 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=549743 heap_before=2082360 heap_after=2555568 allocated_bytes=6861712 allocations=144384
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=22 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.775058ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.679943ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.632103ms prepares=2 prepareTime=130.2µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=22 elapsed=88.052992ms pairDays=0 allocatedBytes=6861712 allocations=144384 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.544192ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.632103ms prepares=2 prepareTime=130.2µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-22/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=22 total_ns=96371644 capture_ns=22538822 prepare_admission_ns=405615 publish_ns=71032804 residual_ns=2394403 window_ns=3007801 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=525692 heap_before=4220264 heap_after=3196104 allocated_bytes=7396248 allocations=144434
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=22 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.235259ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.196128ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.17932ms prepares=2 prepareTime=132.887µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=22 elapsed=96.371644ms pairDays=0 allocatedBytes=7396248 allocations=144434 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.711802ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.17932ms prepares=2 prepareTime=132.887µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-23
+    review_performance_baseline_test.go:344: capture path=1 sample=23 elapsed=20.607593ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=23 elapsed=22.794874ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-23/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=23 total_ns=94163410 capture_ns=23037476 prepare_admission_ns=397025 publish_ns=68532533 residual_ns=2196376 window_ns=3743531 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=465074 heap_before=2202768 heap_after=2700312 allocated_bytes=7404928 allocations=144474
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=23 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.105058ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.577825ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=45.799517ms prepares=2 prepareTime=95.73µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=23 elapsed=94.16341ms pairDays=0 allocatedBytes=7404928 allocations=144474 sql queries=105 returnedRows=1440 Query-to-Rows.Close=37.761317ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=45.799517ms prepares=2 prepareTime=95.73µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-23/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=23 total_ns=98977432 capture_ns=21929959 prepare_admission_ns=573306 publish_ns=74244698 residual_ns=2229469 window_ns=3106297 window_queries=4 window_rows=12 reused=12 gc_cycles=2 gc_pause_ns=174742 heap_before=5231464 heap_after=5457992 allocated_bytes=6858856 allocations=144370
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=23 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.219454ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=15.168654ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=51.404321ms prepares=2 prepareTime=130.087µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=23 elapsed=98.977432ms pairDays=0 allocatedBytes=6858856 allocations=144370 sql queries=105 returnedRows=1440 Query-to-Rows.Close=35.499607ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=51.404321ms prepares=2 prepareTime=130.087µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-24
+    review_performance_baseline_test.go:344: capture path=0 sample=24 elapsed=25.29809ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=24 elapsed=23.76548ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-24/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=24 total_ns=95681651 capture_ns=24942113 prepare_admission_ns=485064 publish_ns=67914846 residual_ns=2339628 window_ns=3336669 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=655296 heap_before=2319360 heap_after=2334448 allocated_bytes=7386744 allocations=144408
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=24 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=22.021395ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=17.122388ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.140014ms prepares=2 prepareTime=131.043µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=24 elapsed=95.681651ms pairDays=0 allocatedBytes=7386744 allocations=144408 sql queries=105 returnedRows=1440 Query-to-Rows.Close=41.269203ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.140014ms prepares=2 prepareTime=131.043µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-24/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=24 total_ns=99180263 capture_ns=22978544 prepare_admission_ns=438879 publish_ns=73264108 residual_ns=2498732 window_ns=3142558 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=533046 heap_before=5764432 heap_after=3602928 allocated_bytes=7400736 allocations=144451
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=24 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.189263ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.938512ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.588103ms prepares=2 prepareTime=166.668µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=24 elapsed=99.180263ms pairDays=0 allocatedBytes=7400736 allocations=144451 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.48015ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.588103ms prepares=2 prepareTime=166.668µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-25
+    review_performance_baseline_test.go:344: capture path=1 sample=25 elapsed=24.11461ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=25 elapsed=25.474294ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-25/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=25 total_ns=92138764 capture_ns=24187314 prepare_admission_ns=1450151 publish_ns=64146919 residual_ns=2354380 window_ns=3714683 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=570504 heap_before=1540256 heap_after=2285984 allocated_bytes=6870864 allocations=144427
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=25 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.881795ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.431003ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.175965ms prepares=2 prepareTime=131.945µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=25 elapsed=92.138764ms pairDays=0 allocatedBytes=6870864 allocations=144427 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.499773ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=41.175965ms prepares=2 prepareTime=131.945µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-25/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=25 total_ns=100253461 capture_ns=23286649 prepare_admission_ns=498022 publish_ns=73828574 residual_ns=2640216 window_ns=3526107 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=402668 heap_before=4586736 heap_after=4083864 allocated_bytes=7387872 allocations=144393
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=25 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.49337ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=18.263351ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=48.94017ms prepares=2 prepareTime=128.073µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=25 elapsed=100.253461ms pairDays=0 allocatedBytes=7387872 allocations=144393 sql queries=105 returnedRows=1440 Query-to-Rows.Close=39.95924ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=48.94017ms prepares=2 prepareTime=128.073µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-26
+    review_performance_baseline_test.go:344: capture path=0 sample=26 elapsed=22.529321ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=26 elapsed=25.421351ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-26/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=26 total_ns=90106231 capture_ns=20135780 prepare_admission_ns=1280207 publish_ns=66529018 residual_ns=2161226 window_ns=2383962 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=434612 heap_before=2150848 heap_after=3201336 allocated_bytes=7389968 allocations=144401
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=26 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=16.895029ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.793966ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.063988ms prepares=2 prepareTime=158.52µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=26 elapsed=90.106231ms pairDays=0 allocatedBytes=7389968 allocations=144401 sql queries=105 returnedRows=1440 Query-to-Rows.Close=33.729501ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=44.063988ms prepares=2 prepareTime=158.52µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-26/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=26 total_ns=91356318 capture_ns=24447044 prepare_admission_ns=467047 publish_ns=64093643 residual_ns=2348584 window_ns=3573679 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=257701 heap_before=4277440 heap_after=3340728 allocated_bytes=7396080 allocations=144435
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=26 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.365744ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.239417ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.633048ms prepares=2 prepareTime=128.206µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=26 elapsed=91.356318ms pairDays=0 allocatedBytes=7396080 allocations=144435 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.792271ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=43.633048ms prepares=2 prepareTime=128.206µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-27
+    review_performance_baseline_test.go:344: capture path=1 sample=27 elapsed=22.773583ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=27 elapsed=23.356398ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-27/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=27 total_ns=74414490 capture_ns=23015172 prepare_admission_ns=473947 publish_ns=48648954 residual_ns=2276417 window_ns=2972748 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=373578 heap_before=1959976 heap_after=3606592 allocated_bytes=7393440 allocations=144433
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=27 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=19.148555ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.866427ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.753094ms prepares=2 prepareTime=94.881µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=27 elapsed=74.41449ms pairDays=0 allocatedBytes=7393440 allocations=144433 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.146216ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.753094ms prepares=2 prepareTime=94.881µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-27/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=27 total_ns=99244529 capture_ns=24038580 prepare_admission_ns=1359037 publish_ns=71461041 residual_ns=2385871 window_ns=2485216 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=400344 heap_before=6647424 heap_after=5727376 allocated_bytes=7385112 allocations=144398
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=27 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.994654ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.284122ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.509134ms prepares=2 prepareTime=136.056µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=27 elapsed=99.244529ms pairDays=0 allocatedBytes=7385112 allocations=144398 sql queries=105 returnedRows=1440 Query-to-Rows.Close=39.483831ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.509134ms prepares=2 prepareTime=136.056µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-28
+    review_performance_baseline_test.go:344: capture path=0 sample=28 elapsed=21.001484ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=1 sample=28 elapsed=22.547624ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-28/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=28 total_ns=77737214 capture_ns=26341472 prepare_admission_ns=1164300 publish_ns=47744021 residual_ns=2487421 window_ns=4002848 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=454744 heap_before=1363736 heap_after=2712080 allocated_bytes=7390376 allocations=144406
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=28 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.335978ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=14.972801ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.029092ms prepares=2 prepareTime=218.186µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=28 elapsed=77.737214ms pairDays=0 allocatedBytes=7390376 allocations=144406 sql queries=105 returnedRows=1440 Query-to-Rows.Close=37.679547ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=27.029092ms prepares=2 prepareTime=218.186µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-28/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=28 total_ns=100480650 capture_ns=23294784 prepare_admission_ns=1228144 publish_ns=73861599 residual_ns=2096123 window_ns=3834242 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=250469 heap_before=6646032 heap_after=5317000 allocated_bytes=7392640 allocations=144430
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=28 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=20.451862ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.881832ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.184815ms prepares=2 prepareTime=94.894µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=28 elapsed=100.48065ms pairDays=0 allocatedBytes=7392640 allocations=144430 sql queries=105 returnedRows=1440 Query-to-Rows.Close=39.318442ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=49.184815ms prepares=2 prepareTime=94.894µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-29
+    review_performance_baseline_test.go:344: capture path=1 sample=29 elapsed=22.393592ms reusableRows=12 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:344: capture path=0 sample=29 elapsed=21.586656ms reusableRows=12 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-29/publish-1
+    review_performance_baseline_test.go:388: stage path=1 sample=29 total_ns=80587093 capture_ns=22688807 prepare_admission_ns=614342 publish_ns=54341511 residual_ns=2942433 window_ns=4252250 window_queries=4 window_rows=12 reused=12 gc_cycles=4 gc_pause_ns=494653 heap_before=1387280 heap_after=1966736 allocated_bytes=6873880 allocations=144426
+    review_performance_baseline_test.go:388: stage SQL path=1 sample=29 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=18.988184ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=16.569856ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=31.518863ms prepares=2 prepareTime=91.006µs}
+    review_performance_baseline_test.go:390: full reconcile path=1 sample=29 elapsed=80.587093ms pairDays=0 allocatedBytes=6873880 allocations=144426 sql queries=105 returnedRows=1440 Query-to-Rows.Close=38.3477ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=31.518863ms prepares=2 prepareTime=91.006µs
+=== RUN   TestReviewEpochStageDiagnostics/no-op/sample-29/publish-0
+    review_performance_baseline_test.go:388: stage path=0 sample=29 total_ns=94782175 capture_ns=21663379 prepare_admission_ns=471132 publish_ns=70451318 residual_ns=2196346 window_ns=2498250 window_queries=4 window_rows=12 reused=12 gc_cycles=3 gc_pause_ns=336533 heap_before=4376640 heap_after=4005144 allocated_bytes=7387984 allocations=144395
+    review_performance_baseline_test.go:388: stage SQL path=0 sample=29 capture={sql queries=51 returnedRows=596 Query-to-Rows.Close=17.342579ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s} publish={sql queries=53 returnedRows=843 Query-to-Rows.Close=17.074836ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.433452ms prepares=2 prepareTime=120.02µs}
+    review_performance_baseline_test.go:390: full reconcile path=0 sample=29 elapsed=94.782175ms pairDays=0 allocatedBytes=7387984 allocations=144395 sql queries=105 returnedRows=1440 Query-to-Rows.Close=36.497595ms execs=521 writeStatements=521 rowsAffected=0 driverExecTime=46.433452ms prepares=2 prepareTime=120.02µs
+=== NAME  TestReviewEpochStageDiagnostics/no-op
+    review_performance_baseline_test.go:401: full reconcile distribution scenario=no-op path=0 n=30 median=88.875183ms nearest-rank-p95=99.244529ms raw=[79.906836ms 78.648861ms 76.116091ms 92.815073ms 75.180473ms 80.766478ms 92.073944ms 95.414728ms 88.716014ms 85.577853ms 76.343569ms 90.008294ms 76.896166ms 93.644965ms 92.545046ms 96.157688ms 97.467365ms 96.57219ms 84.208583ms 88.875183ms 86.743942ms 85.969936ms 88.052992ms 98.977432ms 95.681651ms 100.253461ms 90.106231ms 99.244529ms 77.737214ms 94.782175ms]
+    review_performance_baseline_test.go:401: full reconcile distribution scenario=no-op path=1 n=30 median=91.023887ms nearest-rank-p95=100.48065ms raw=[92.218772ms 74.289968ms 104.204022ms 88.651194ms 91.644222ms 78.110374ms 82.433867ms 74.979218ms 91.131954ms 77.087979ms 83.035575ms 90.680308ms 92.202979ms 91.023887ms 85.008397ms 90.910316ms 97.036437ms 83.726379ms 93.123985ms 84.367234ms 98.881094ms 94.656632ms 96.371644ms 94.16341ms 99.180263ms 92.138764ms 91.356318ms 74.41449ms 100.48065ms 80.587093ms]
+    review_performance_baseline_test.go:404: capture distribution scenario=no-op path=0 n=30 median=22.794874ms nearest-rank-p95=25.29809ms raw=[21.996613ms 22.816268ms 22.735571ms 21.586941ms 24.755948ms 24.300558ms 24.4908ms 23.477986ms 23.203159ms 24.276742ms 22.841364ms 21.933123ms 22.111709ms 22.571857ms 23.470242ms 24.410215ms 22.319097ms 23.484593ms 21.411188ms 22.151314ms 22.123088ms 20.882245ms 24.69081ms 22.794874ms 25.29809ms 25.474294ms 22.529321ms 23.356398ms 21.001484ms 21.586656ms]
+    review_performance_baseline_test.go:404: capture distribution scenario=no-op path=1 n=30 median=22.875829ms nearest-rank-p95=25.742812ms raw=[22.458295ms 23.916111ms 23.965778ms 25.101865ms 24.951938ms 25.309087ms 24.20886ms 21.36428ms 22.665598ms 22.24826ms 21.727003ms 21.236687ms 22.963936ms 24.110303ms 23.272766ms 22.468406ms 26.017247ms 22.408295ms 22.875829ms 24.553315ms 20.946643ms 25.742812ms 22.032906ms 20.607593ms 23.76548ms 24.11461ms 25.421351ms 22.773583ms 22.547624ms 22.393592ms]
+=== NAME  TestReviewEpochStageDiagnostics
+    review_performance_baseline_test.go:85: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	   48084 kB
+--- PASS: TestReviewEpochStageDiagnostics (73.05s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#01 (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#02 (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#03 (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#04 (0.07s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#05 (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#06 (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#07 (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#08 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#09 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#10 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#11 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#12 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#13 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#14 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#15 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#16 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#17 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#18 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#19 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#20 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#21 (0.08s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#22 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#23 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#24 (0.22s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#25 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#26 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#27 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#28 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#29 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#30 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#31 (0.20s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#32 (0.30s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#33 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#34 (0.23s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#35 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#36 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#37 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#38 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#39 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#40 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#41 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#42 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#43 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#44 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#45 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#46 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#47 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#48 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#49 (0.09s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#50 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#51 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#52 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#53 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#54 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#55 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#56 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#57 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#58 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#59 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#60 (0.10s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#61 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#62 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#63 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#64 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#65 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#66 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#67 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#68 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#69 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#70 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#71 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#72 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#73 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#74 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#75 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#76 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#77 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#78 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#79 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#80 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#81 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#82 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#83 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#84 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#85 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#86 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#87 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#88 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#89 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#90 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#91 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#92 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#93 (0.11s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#94 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#95 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#96 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#97 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#98 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#99 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#100 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#101 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#102 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#103 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#104 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#105 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#106 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#107 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#108 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#109 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#110 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#111 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#112 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#113 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#114 (0.12s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#115 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#116 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#117 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#118 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#119 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#120 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#121 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#122 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#123 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#124 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#125 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#126 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#127 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#128 (0.20s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#129 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#130 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#131 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#132 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#133 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#134 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#135 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#136 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#137 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#138 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#139 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#140 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#141 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#142 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#143 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#144 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#145 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#146 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#147 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#148 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#149 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#150 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#151 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#152 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#153 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#154 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#155 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#156 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#157 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#158 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#159 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#160 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#161 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#162 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#163 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#164 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#165 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#166 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#167 (0.13s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#168 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#169 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#170 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#171 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#172 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#173 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#174 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#175 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#176 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#177 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#178 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#179 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#180 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#181 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#182 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#183 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#184 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#185 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#186 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#187 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#188 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#189 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#190 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#191 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#192 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#193 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#194 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#195 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#196 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#197 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#198 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#199 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#200 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#201 (0.14s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#202 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#203 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#204 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#205 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#206 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#207 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#208 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#209 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#210 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#211 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#212 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#213 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#214 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#215 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#216 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#217 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#218 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#219 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#220 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#221 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#222 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#223 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#224 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#225 (0.15s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#226 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#227 (0.20s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#228 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#229 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#230 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#231 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#232 (0.20s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#233 (0.16s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#234 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#235 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#236 (0.24s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#237 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#238 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#239 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#240 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#241 (0.21s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#242 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#243 (0.20s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#244 (0.21s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#245 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#246 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#247 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#248 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#249 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#250 (0.18s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#251 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#252 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#253 (0.17s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#254 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/epoch-publish#255 (0.19s)
+    --- PASS: TestReviewEpochStageDiagnostics/no-op (14.57s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-00 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-00/publish-0 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-00/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-01 (0.47s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-01/publish-1 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-01/publish-0 (0.16s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-02 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-02/publish-0 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-02/publish-1 (0.19s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-03 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-03/publish-1 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-03/publish-0 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-04 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-04/publish-0 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-04/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-05 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-05/publish-1 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-05/publish-0 (0.16s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-06 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-06/publish-0 (0.18s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-06/publish-1 (0.16s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-07 (0.46s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-07/publish-1 (0.15s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-07/publish-0 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-08 (0.51s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-08/publish-0 (0.19s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-08/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-09 (0.47s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-09/publish-1 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-09/publish-0 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-10 (0.47s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-10/publish-0 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-10/publish-1 (0.16s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-11 (0.47s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-11/publish-1 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-11/publish-0 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-12 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-12/publish-0 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-12/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-13 (0.55s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-13/publish-1 (0.22s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-13/publish-0 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-14 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-14/publish-0 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-14/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-15 (0.53s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-15/publish-1 (0.18s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-15/publish-0 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-16 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-16/publish-0 (0.19s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-16/publish-1 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-17 (0.47s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-17/publish-1 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-17/publish-0 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-18 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-18/publish-0 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-18/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-19 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-19/publish-1 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-19/publish-0 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-20 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-20/publish-0 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-20/publish-1 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-21 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-21/publish-1 (0.18s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-21/publish-0 (0.17s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-22 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-22/publish-0 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-22/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-23 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-23/publish-1 (0.18s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-23/publish-0 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-24 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-24/publish-0 (0.18s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-24/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-25 (0.50s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-25/publish-1 (0.18s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-25/publish-0 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-26 (0.49s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-26/publish-0 (0.17s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-26/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-27 (0.47s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-27/publish-1 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-27/publish-0 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-28 (0.48s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-28/publish-0 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-28/publish-1 (0.18s)
+        --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-29 (0.47s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-29/publish-1 (0.16s)
+            --- PASS: TestReviewEpochStageDiagnostics/no-op/sample-29/publish-0 (0.17s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	73.071s

@@ -1,0 +1,70 @@
+npm warn Unknown project config "minimum-release-age". This will stop working in the next major version of npm.
+npm warn Unknown project config "minimum-release-age-exclude". This will stop working in the next major version of npm.
+? Verifying lockfile against supply-chain policies (334 entries)...
+Progress: resolved 289, reused 0, downloaded 1, added 0
+Progress: resolved 289, reused 0, downloaded 18, added 0
+Progress: resolved 289, reused 0, downloaded 41, added 32
+Progress: resolved 289, reused 0, downloaded 74, added 64
+Progress: resolved 289, reused 0, downloaded 106, added 96
+Progress: resolved 289, reused 0, downloaded 130, added 128
+Progress: resolved 289, reused 0, downloaded 138, added 128
+Downloading echarts@6.1.0: 0.00 B/12.17 MB
+Progress: resolved 289, reused 0, downloaded 191, added 160
+Progress: resolved 289, reused 0, downloaded 223, added 192
+Progress: resolved 289, reused 0, downloaded 257, added 256
+Downloading @rolldown/binding-linux-x64-gnu@1.2.4: 0.00 B/7.99 MB
+✓ Lockfile passes supply-chain policies (334 entries in 13.7s)
+Lockfile is up to date, resolution step is skipped
+Packages: +289 -1
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+Progress: resolved 289, reused 0, downloaded 289, added 289, done
+
+dependencies:
++ @base-ui/react 1.7.0
++ @date-fns/tz 1.5.0
++ @fontsource-variable/plus-jakarta-sans 5.3.0
++ @hookform/resolvers 5.9.1
++ @tailwindcss/vite 4.3.3
++ @tanstack/react-query 5.101.4
++ @tanstack/react-table 8.21.3
+- @wailsio/runtime 3.0.0-beta.28
++ @wailsio/runtime 3.0.0-beta.32
++ class-variance-authority 0.7.1
++ clsx 2.1.1
++ date-fns 4.4.0
++ echarts 6.1.0
++ i18next 26.3.6
++ i18next-browser-languagedetector 8.2.1
++ lucide-react 1.32.0
++ react 18.3.1
++ react-day-picker 9.14.0
++ react-dom 18.3.1
++ react-hook-form 7.85.0
++ react-i18next 17.0.11
++ sonner 2.0.8
++ tabbable 6.2.0
++ tailwind-merge 3.6.0
++ tailwindcss 4.3.3
++ zod 4.4.3
++ zustand 5.0.15
+
+devDependencies:
++ @eslint/js 10.0.1
++ @testing-library/jest-dom 7.0.1
++ @testing-library/react 16.3.2
++ @testing-library/user-event 14.6.5
++ @types/react 18.3.31
++ @types/react-dom 18.3.7
++ @vitejs/plugin-react 6.0.5
++ @vitest/ui 4.1.11
++ eslint 10.8.1
++ eslint-plugin-react-hooks 7.1.1
++ eslint-plugin-react-refresh 0.5.4
++ globals 17.11.0
++ jsdom 30.0.1
++ typescript 5.9.3
++ typescript-eslint 8.67.0
++ vite 8.2.1
++ vitest 4.1.11
+
+Done in 14.5s using pnpm v12.2.1

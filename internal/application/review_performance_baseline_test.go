@@ -262,10 +262,22 @@ func TestReviewPairedPerformanceEvidence(t *testing.T) {
 		}
 		samples = parsed
 	}
-	runReviewPerfPairs(t, reviewPerfEnvironmentConfig(t), samples)
+	cycles := 0
+	if value := os.Getenv("NW_REVIEW_PERF_EPOCH_CYCLES"); value != "" {
+		var err error
+		cycles, err = strconv.Atoi(value)
+		if err != nil || cycles < 0 {
+			t.Fatal("invalid NW_REVIEW_PERF_EPOCH_CYCLES")
+		}
+	}
+	runReviewPerfEpochPairs(t, reviewPerfEnvironmentConfig(t), samples, cycles)
 }
 
 func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
+	runReviewPerfEpochPairs(t, config, samples, 0)
+}
+
+func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cycles int, scenarios ...string) {
 	t.Helper()
 	source := newReviewPerfFixture(t, config)
 	logReviewPerfManifest(t, source, config)
@@ -284,11 +296,18 @@ func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
 	} else if err != sql.ErrNoRows {
 		t.Fatal(err)
 	}
+	if cycles > 0 {
+		seedReviewPerfEpochCycles(t, source, cycles)
+	}
 	if _, err := source.service.SetReviewSuppressionV2(t.Context(), SetReviewSuppressionV2Input{SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()), InstrumentID: source.instruments[0].ID.String(), Mode: "permanent"}); err != nil {
 		t.Fatal(err)
 	}
 
-	for _, scenario := range []string{"no-op", "clock-only", "append", "correction"} {
+	if len(scenarios) == 0 {
+		scenarios = []string{"no-op", "clock-only", "append", "correction"}
+	}
+	traceStages := os.Getenv("NW_REVIEW_PERF_STAGE_TRACE") == "1"
+	for _, scenario := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
 			durations := [2][]time.Duration{}
 			fullDurations := [2][]time.Duration{}
@@ -343,9 +362,18 @@ func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
 							if path == 0 {
 								repo = repo.WithReviewWindowBaseline()
 							}
-							service := NewService(repo)
+							var measuredRepository Repository = repo
+							var stages *reviewPerfStageRepository
+							if traceStages {
+								stages = &reviewPerfStageRepository{Repository: repo}
+								measuredRepository = stages
+							}
+							service := NewService(measuredRepository)
 							service.setClock(func() time.Time { return *run.now })
 							metrics := enableReviewSQLMetrics(t, run)
+							if stages != nil {
+								stages.metrics = metrics
+							}
 							var before, after runtime.MemStats
 							runtime.ReadMemStats(&before)
 							started := time.Now()
@@ -356,6 +384,9 @@ func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
 							elapsed := time.Since(started)
 							runtime.ReadMemStats(&after)
 							fullDurations[path] = append(fullDurations[path], elapsed)
+							if stages != nil {
+								stages.log(t, path, sample, elapsed, before, after)
+							}
 							t.Logf("full reconcile path=%d sample=%d elapsed=%s pairDays=%d allocatedBytes=%d allocations=%d %s", path, sample, elapsed, result.DayCount, after.TotalAlloc-before.TotalAlloc, after.Mallocs-before.Mallocs, metrics.snapshot(8).summary())
 							published[path] = reviewPerfPublishedRows(t, run, source)
 						})
