@@ -617,3 +617,32 @@ func TestReviewNoChangeInvalidatesOutstandingFullPublication(t *testing.T) {
 		t.Fatal("older full stage overwrote confirmation", err)
 	}
 }
+
+func TestReviewNoChangeDamagedTrackingRequiresFullRebuild(t *testing.T) {
+	for _, scenario := range []string{"journal-gap", "schema-cookie", "foreign-keys", "recursive-triggers"} {
+		t.Run(scenario, func(t *testing.T) {
+			f, r := noChangeFixture(t)
+			before := noChangeProjectionRows(t, f.db)
+			statement := map[string]string{
+				"journal-gap":        `DELETE FROM financial_source_changes WHERE revision=(SELECT max(revision) FROM financial_source_changes)`,
+				"schema-cookie":      `CREATE TABLE synthetic_c3_extension(id TEXT)`,
+				"foreign-keys":       `PRAGMA foreign_keys=0`,
+				"recursive-triggers": `PRAGMA recursive_triggers=0`,
+			}[scenario]
+			if _, err := f.db.SQL.Exec(statement); err != nil {
+				t.Fatal(err)
+			}
+			confirmation, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+			if err != nil || ok || !confirmation.RequireFullRecompute {
+				t.Fatal("damaged tracking did not require full rebuild", confirmation, ok, err)
+			}
+			result, err := f.s.ReconcileInvestmentReviewsV2(t.Context())
+			if err != nil || result.DayCount == 0 {
+				t.Fatal("damaged tracking reused a rolling window", result, err)
+			}
+			if !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
+				t.Fatal("full rebuild changed unchanged authoritative projection")
+			}
+		})
+	}
+}

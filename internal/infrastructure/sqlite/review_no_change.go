@@ -56,12 +56,12 @@ func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.Househ
 		}
 	}
 	if cookie != r.database.reviewVerifiedSchemaVersion || cookie == 0 || foreignKeys != 1 || version != CurrentSchemaVersion {
-		return empty, false, nil
+		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, nil
 	}
 	// Reuse the C1 verifier, including exact trigger definitions, PRAGMA,
 	// classified closure and bounded journal continuity. No financial JSON.
 	if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
-		return empty, false, ctx.Err()
+		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, ctx.Err()
 	}
 	control, found, err := reviewControlInTx(ctx, tx, id)
 	if err != nil || !found || control.ProjectionStatus != "complete" || control.PublishedFingerprint == "" {
