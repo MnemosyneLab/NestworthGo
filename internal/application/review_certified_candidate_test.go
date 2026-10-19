@@ -18,10 +18,18 @@ func certifiedConfiguredFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpe
 }
 func certifiedQuantityFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec, quantity string) (seriesZeroFixture, *sqlite.Repository) {
 	t.Helper()
+	return certifiedPublicationFixture(t, fx, spec, quantity, true)
+}
+func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec, quantity string, lineage bool) (seriesZeroFixture, *sqlite.Repository) {
+	t.Helper()
 	f := newSeriesZeroFixture(t, fx, "UTC", "2026-10-01", quantity)
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic certified review", spec)
 	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+	if lineage {
+		// Historical adversarial cases separately select the bounded experiment.
+		r = r.WithReviewCompletenessLineageShadow(nil)
+	}
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))

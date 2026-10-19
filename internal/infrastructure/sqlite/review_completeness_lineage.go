@@ -14,11 +14,21 @@ import (
 )
 
 // This immutable configuration enables diagnostic reads only. It does not
-// enable C3 confirmation, window reuse, new writes, or a publication shortcut.
+// enable C3 confirmation or a publication shortcut by itself. Combining this
+// explicit experiment with certified C3 audits bounded publication against an
+// independent full oracle; ordinary certified C3 does not run that experiment.
 // The synchronous observer must be concurrency-safe and must not reenter DB.
 func (r *Repository) WithReviewCompletenessLineageShadow(observer func(domain.ReviewCompletenessLineageObservation)) *Repository {
-	copy := *r
+	copy := *r.WithReviewLineageObserver(observer)
 	copy.reviewCompletenessLineageShadow = true
+	return &copy
+}
+
+// WithReviewLineageObserver observes existing decisions without enabling the
+// lineage/window experiment or changing calculation and publication dispatch.
+// The synchronous observer must be concurrency-safe and must not reenter DB.
+func (r *Repository) WithReviewLineageObserver(observer func(domain.ReviewCompletenessLineageObservation)) *Repository {
+	copy := *r
 	copy.reviewCompletenessLineageObserver = observer
 	return &copy
 }

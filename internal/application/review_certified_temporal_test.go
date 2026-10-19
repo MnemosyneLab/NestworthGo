@@ -9,13 +9,23 @@ import (
 )
 
 func TestReviewCertifiedFutureActivationAndPublicationFence(t *testing.T) {
+	for _, lineage := range []bool{false, true} {
+		name := "full_dispatch"
+		if lineage {
+			name = "bounded_experiment"
+		}
+		t.Run(name, func(t *testing.T) { testReviewCertifiedFutureActivationAndPublicationFence(t, lineage) })
+	}
+}
+
+func testReviewCertifiedFutureActivationAndPublicationFence(t *testing.T, lineage bool) {
 	for _, kind := range []string{"exit", "entry", "clear-rebuy", "transfer"} {
 		t.Run(kind, func(t *testing.T) {
 			quantity := "1"
 			if kind == "entry" {
 				quantity = "0"
 			}
-			f, r := certifiedQuantityFixture(t, false, syntheticHistoricalReviewSpec(), quantity)
+			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), quantity, lineage)
 			before, at := *f.now, f.now.Add(time.Hour)
 			if kind == "transfer" {
 				var owner domain.MemberID

@@ -19,11 +19,12 @@ import (
 
 // This is a separate, default-off C3 candidate. Legacy counting-only
 // experiments grant it no authority. It has no persistent cache or trigger.
+// A failed no-change confirmation uses one full preparation. The separate
+// lineage shadow must be explicitly selected to audit bounded publication.
 func (r *Repository) WithCertifiedReviewCandidate() *Repository {
 	copy := *r
 	copy.reviewCertifiedCandidate = true
 	copy.reviewNoChangeCandidate = true
-	copy.reviewCompletenessLineageShadow = true
 	return &copy
 }
 func (r *Repository) CertifiedReviewEnabled() bool {

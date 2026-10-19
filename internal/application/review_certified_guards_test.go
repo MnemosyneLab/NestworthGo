@@ -123,13 +123,23 @@ func TestReviewCertifiedLegitimateHandlingPreservesChain(t *testing.T) {
 }
 
 func TestReviewCertifiedPublicationGuardsAndAtomicity(t *testing.T) {
+	for _, lineage := range []bool{false, true} {
+		name := "full_dispatch"
+		if lineage {
+			name = "bounded_experiment"
+		}
+		t.Run(name, func(t *testing.T) { testReviewCertifiedPublicationGuardsAndAtomicity(t, lineage) })
+	}
+}
+
+func testReviewCertifiedPublicationGuardsAndAtomicity(t *testing.T, lineage bool) {
 	for _, scenario := range []string{"source", "projection", "review-without-revision", "provider", "staged-provider", "provider-aba", "floor", "clock", "cancel", "control-ignore", "checkpoint-ignore", "checkpoint-abort", "source-proof-forged"} {
 		t.Run(scenario, func(t *testing.T) {
-			f, r := certifiedFixture(t)
+			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", lineage)
 			f.day(t, "2026-10-13")
 			p := certifiedStage(t, f, r)
-			if p.CertifiedFullOracle == nil {
-				t.Fatal("missing bounded fixture")
+			if (p.CertifiedFullOracle != nil) != lineage {
+				t.Fatal("incorrect publication dispatch")
 			}
 			statement := ""
 			clock := func() time.Time { return *f.now }

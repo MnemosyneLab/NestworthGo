@@ -156,8 +156,15 @@ The [certified C3 candidate](../testing/performance-c3-certified-2026-10-19.md)
 adds a separate default-off internal constructor, `WithCertifiedReviewCandidate()`.
 It binds complete projection integrity to one DB handle, fences explicit provider
 selection through commit, and verifies source publication CAS with full fallback.
-Same-day confirmation avoids financial/evidence JSON. Optional bounded publication
-retains an independent full runtime oracle. Legacy/restarted/damaged projections
+Same-day confirmation avoids financial/evidence JSON. A missed confirmation uses
+one full preparation; `WithCertifiedReviewCandidate()` does not select the separate
+lineage/window experiment. Explicitly combining it with
+`WithReviewCompletenessLineageShadow(...)` retains the independent full runtime
+oracle for bounded experiments. Observation alone can use
+`WithReviewLineageObserver(...)` without changing dispatch. Certification verifies
+the complete compiled table/index contract as well as all user triggers, including
+FK and deferred-action definitions; unknown schema objects disable authority.
+Legacy/restarted/damaged projections
 cannot acquire reuse authority from a fresh checksum; legitimate handling preserves
 only an already valid chain. Production initialization still uses C2, and native,
 performance and review gates remain blocking. The old counting-only constructor

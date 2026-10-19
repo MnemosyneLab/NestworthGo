@@ -131,7 +131,7 @@ func TestReviewCertifiedPerformanceEvidence(t *testing.T) {
 							verdict := "none"
 							r := f.service.repository.(*sqlite.Repository)
 							if arm == "certified" {
-								f.service.repository = r.WithReviewCompletenessLineageShadow(func(o domain.ReviewCompletenessLineageObservation) {
+								f.service.repository = r.WithReviewLineageObserver(func(o domain.ReviewCompletenessLineageObservation) {
 									if o.Phase == "certified_publication" {
 										verdict = o.Verdict
 									}
