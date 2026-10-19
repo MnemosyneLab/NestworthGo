@@ -39,8 +39,7 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 			for _, statement := range []string{
 				`CREATE TABLE investment_review_daily_inputs(household_id TEXT,instrument_id TEXT,timezone_version TEXT,on_date TEXT,input_policy TEXT,input_fingerprint TEXT,evidence_json TEXT,coverage_json TEXT,PRIMARY KEY(household_id,instrument_id,timezone_version,on_date,input_policy))`,
 				`CREATE TABLE investment_review_daily_results(rule_id TEXT,condition_version INTEGER,instrument_id TEXT,timezone_version TEXT,on_date TEXT,evidence_json TEXT,input_fingerprint TEXT,PRIMARY KEY(rule_id,condition_version,instrument_id,timezone_version,on_date))`,
-				`CREATE TABLE investment_review_evaluation_state(rule_id TEXT,instrument_id TEXT,latest_closed_on TEXT,consecutive_count INTEGER)`,
-				`CREATE INDEX state_scope ON investment_review_evaluation_state(rule_id,instrument_id,latest_closed_on)`,
+				`CREATE TABLE investment_review_evaluation_state(rule_id TEXT,instrument_id TEXT,position_epoch_id TEXT,latest_closed_on TEXT,consecutive_count INTEGER,PRIMARY KEY(rule_id,instrument_id,position_epoch_id))`,
 			} {
 				if _, err := db.Exec(statement); err != nil {
 					t.Fatal(err)
@@ -97,7 +96,7 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 					on    string
 					count int
 				}{{latest, days}, {latest, days + 7}, {"1900-01-01", 99999}} {
-					if _, err := tx.Exec(`INSERT INTO investment_review_evaluation_state VALUES(?,?,?,?)`, string(rule.ID), id.String(), state.on, state.count); err != nil {
+					if _, err := tx.Exec(`INSERT INTO investment_review_evaluation_state VALUES(?,?,?,?,?)`, string(rule.ID), id.String(), fmt.Sprintf("epoch-%s-%d", state.on, state.count), state.on, state.count); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -355,7 +354,7 @@ func logReviewWindowExplain(t *testing.T, db *sql.DB, label, statement string, a
 	}
 	rows.Close()
 	t.Logf("EXPLAIN %s: %s", label, strings.Join(details, " | "))
-	if label == "bounded-chunk" && !strings.Contains(strings.Join(details, " "), "on_date=?") {
+	if label == "bounded-chunk" && !strings.Contains(strings.Join(details, " "), "SEARCH d USING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=? AND on_date=? AND input_policy=?)") {
 		t.Fatal("bounded JSON join lost complete date key")
 	}
 }
