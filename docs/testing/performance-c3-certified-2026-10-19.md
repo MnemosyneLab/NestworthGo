@@ -7,6 +7,9 @@ legacy/restart bootstrap; it supersedes the older bootstrap limitation below.
 That bootstrap was subsequently [disproved and disabled](performance-c3-provenance-2026-10-19.md):
 full daily replay cannot authenticate missing episode/ack history. Current
 initial authority requires a separate process-private fresh-creation receipt.
+The [current schema/dispatch checkpoint](performance-c3-dispatch-2026-10-19.md)
+also covers internal FK writers. Ordinary C3 now performs one full preparation
+after a missed confirmation; bounded auditing requires explicit lineage selection.
 **Stage-two rollout acceptance is still blocked.** Production initialization
 keeps C2. `WithCertifiedReviewCandidate()` is an internal synthetic experiment;
 `WithFullReviewRecompute()` disables it. No UI/MCP setting enables it. There is

@@ -5,6 +5,9 @@ disproves the history-free bootstrap below. Legacy/restart certification is now
 hard-disabled; only a private, controlled fresh initialization may establish
 initial authority. This document retains the earlier rejected experiment and
 frozen measurements for provenance, not as activation evidence.
+The [subsequent schema/dispatch checkpoint](performance-c3-dispatch-2026-10-19.md)
+fixes a reproduced FK cascade writer and removes implicit window auditing from
+ordinary C3; use its current-source measurements for that dispatch.
 
 PR129 remains an intermediate, default-off delivery. This follow-up stays on
 `perf/c3-runtime-window-oracle` and the same PR. No race rerun, timeout increase,

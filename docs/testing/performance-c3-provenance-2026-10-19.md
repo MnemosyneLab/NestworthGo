@@ -5,6 +5,11 @@ the earlier [follow-up checkpoint](performance-c3-followup-2026-10-19.md).
 **Legacy/restart certification is disabled.** Production remains C2 and the PR
 remains a default-off draft; this is not stage-two acceptance.
 
+The [subsequent schema-contract/dispatch checkpoint](performance-c3-dispatch-2026-10-19.md)
+fixes a separately reproduced FK cascade writer and removes implicit window
+auditing from ordinary C3. Measurements below remain evidence for `7932837`;
+use the linked checkpoint for current dispatch costs.
+
 ## Independent missing-history regression
 
 The reviewer identified a valid FK-safe deletion: NULL evaluation-state episode
