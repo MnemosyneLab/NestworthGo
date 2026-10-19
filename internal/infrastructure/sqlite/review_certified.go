@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -91,7 +92,8 @@ func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string,
 // not a narrow fingerprint or an assumption that conditional writes repair it.
 func certifiedProjectionSeal(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (string, error) {
 	digest := sha256.New()
-	enc := json.NewEncoder(digest)
+	digest.Write([]byte("certified-row-bytes-v2\x00"))
+	var rowbuf []byte
 	queries := []string{
 		`SELECT * FROM investment_review_control WHERE household_id=? ORDER BY household_id`,
 		`SELECT * FROM investment_review_rules WHERE household_id=? ORDER BY id`,
@@ -106,9 +108,9 @@ func certifiedProjectionSeal(ctx context.Context, tx *sql.Tx, id domain.Househol
 		`SELECT v.* FROM investment_review_episode_events v JOIN investment_review_episodes e ON e.id=v.episode_id JOIN investment_review_rules r ON r.id=e.rule_id WHERE r.household_id=? ORDER BY v.id`,
 	}
 	for i, q := range queries {
-		if err := enc.Encode(i); err != nil {
-			return "", err
-		}
+		rowbuf = append(rowbuf[:0], 0) // table boundary; row records start with 1
+		rowbuf = binary.LittleEndian.AppendUint64(rowbuf, uint64(i))
+		digest.Write(rowbuf)
 		rows, err := tx.QueryContext(ctx, q, id.String())
 		if err != nil {
 			return "", err
@@ -126,9 +128,11 @@ func certifiedProjectionSeal(ctx context.Context, tx *sql.Tx, id domain.Househol
 			if err = rows.Scan(ptrs...); err != nil {
 				break
 			}
-			if err = enc.Encode(values); err != nil {
+			rowbuf, err = appendCertifiedRow(rowbuf[:0], values)
+			if err != nil {
 				break
 			}
+			digest.Write(rowbuf)
 		}
 		if err = errors.Join(err, rows.Err(), rows.Close()); err != nil {
 			return "", err
@@ -157,20 +161,32 @@ func (r *Repository) verifiedCertifiedTracking(ctx context.Context, tx schemaQue
 	if temporaryTriggers != 0 {
 		return cookie, false, nil
 	}
-	if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
+	trusted, err := verifyCertifiedTriggers(ctx, tx)
+	if err != nil || !trusted {
+		return cookie, false, err
+	}
+	if err := verifyFinancialSourceTrackingState(ctx, tx, true); err != nil {
 		return cookie, false, ctx.Err()
 	}
-	trusted, err := verifyCertifiedTriggers(ctx, tx)
-	return cookie, trusted, err
+	return cookie, true, nil
 }
 
 func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, connection domain.ReviewConnectionCheckpoint) error {
 	proof := &domain.ReviewCertifiedCapture{Connection: connection}
 	var err error
 	c.Certified = proof
-	seal, err := certifiedProjectionSeal(ctx, tx, c.HouseholdID)
-	if err != nil {
-		return err
+	// Equality is meaningful only on this physical connection. A valid
+	// signed post-publication counter pair proves every stored row unchanged;
+	// TEMP/permanent writer assumptions are still checked below in this tx.
+	seal := ""
+	previous := c.PublishedTemporal
+	if previous != nil && previous.CertifiedProjectionSeal != "" && r.validReviewMAC(previous) && validCertifiedConnection(connection) && connection == previous.CertifiedConnection {
+		seal = previous.CertifiedProjectionSeal
+	} else {
+		seal, err = certifiedProjectionSeal(ctx, tx, c.HouseholdID)
+		if err != nil {
+			return err
+		}
 	}
 	proof.ProjectionSeal = seal
 	err = tx.QueryRowContext(ctx, `SELECT certificate_json FROM review_temporal_checkpoints WHERE household_id=?`, c.HouseholdID.String()).Scan(&proof.TemporalJSON)
@@ -197,6 +213,7 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 		return err
 	}
 	if !verified || c.SourceRevision == nil || !c.SourceRevision.Valid() {
+		proof.MayCertify = false
 		return nil
 	}
 	if c.PublishedTemporal != nil {
@@ -239,6 +256,17 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 	if current == nil || c.SourceRevision == nil || *current != *c.SourceRevision {
 		return nil, false, false, reviewRuleConflict("certified financial namespace changed")
 	}
+	observed, err := certifiedConnectionCheckpoint(ctx, tx, connectionID)
+	if err != nil {
+		return nil, false, false, err
+	}
+	if validCertifiedConnection(observed) && validCertifiedConnection(c.Certified.Connection) && observed == c.Certified.Connection {
+		// No intervening DML/commit since before capture's first financial
+		// read: its complete protected snapshot and metadata are unchanged.
+		return current, true, true, nil
+	}
+	// Different/unknown counters never assume the projection unchanged.
+	// Recheck its complete byte seal, then retain the original source reload.
 	seal, err := certifiedProjectionSeal(ctx, tx, c.HouseholdID)
 	if err != nil {
 		return nil, false, false, err
@@ -250,14 +278,7 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 	if seal != c.Certified.ProjectionSeal || meta != c.Certified.ReviewFingerprint {
 		return nil, false, false, reviewRuleConflict("certified projection or review changed")
 	}
-	observed, err := certifiedConnectionCheckpoint(ctx, tx, connectionID)
-	if err != nil {
-		return nil, false, false, err
-	}
-	if !validCertifiedConnection(observed) || !validCertifiedConnection(c.Certified.Connection) || observed != c.Certified.Connection {
-		return current, false, true, nil
-	}
-	return current, true, true, nil
+	return current, false, true, nil
 }
 
 // Only initial empty derived namespaces or an authenticated same-session chain

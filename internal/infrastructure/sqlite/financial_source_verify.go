@@ -7,6 +7,13 @@ import (
 )
 
 func verifyFinancialSourceTracking(ctx context.Context, q schemaQuery) error {
+	return verifyFinancialSourceTrackingState(ctx, q, false)
+}
+
+// verifiedTriggers may be true only after the exact complete certified writer
+// contract was checked in this same SQLite transaction/snapshot. It avoids
+// rereading every financial trigger body; no result survives the transaction.
+func verifyFinancialSourceTrackingState(ctx context.Context, q schemaQuery, verifiedTriggers bool) error {
 	var recursive int
 	if err := q.QueryRowContext(ctx, `PRAGMA recursive_triggers`).Scan(&recursive); err != nil {
 		return err
@@ -25,32 +32,35 @@ func verifyFinancialSourceTracking(ctx context.Context, q schemaQuery) error {
 			return err
 		}
 	}
-	expected := financialTriggerStatements()
-	for name, statement := range expected {
-		if err := verifyFinancialSourceDefinition(ctx, q, name, statement); err != nil {
+	if !verifiedTriggers {
+		expected := financialTriggerStatements()
+		for name, statement := range expected {
+			if err := verifyFinancialSourceDefinition(ctx, q, name, statement); err != nil {
+				return err
+			}
+		}
+		rows, err := q.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='trigger' AND substr(name,1,length('financial_source_'))='financial_source_'`)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var n string
+			if err = rows.Scan(&n); err != nil {
+				rows.Close()
+				return err
+			}
+			if _, ok := expected[n]; !ok {
+				rows.Close()
+				return fmt.Errorf("unknown financial source trigger %s", n)
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
 			return err
 		}
 	}
-	rows, err := q.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='trigger' AND substr(name,1,length('financial_source_'))='financial_source_'`)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var n string
-		if err = rows.Scan(&n); err != nil {
-			rows.Close()
-			return err
-		}
-		if _, ok := expected[n]; !ok {
-			rows.Close()
-			return fmt.Errorf("unknown financial source trigger %s", n)
-		}
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return err
-	}
+
 	classified := map[string]bool{}
 	for _, n := range financialSourceTables {
 		classified[n] = true

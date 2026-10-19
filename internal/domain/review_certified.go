@@ -1,6 +1,6 @@
 package domain
 
-const ReviewCertifiedCompletenessVersion = "certified-full-review-v1"
+const ReviewCertifiedCompletenessVersion = "certified-full-review-v2"
 
 type ReviewConnectionCheckpoint struct {
 	Connection  uint64
