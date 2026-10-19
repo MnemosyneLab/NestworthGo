@@ -302,3 +302,32 @@ func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) 
 		t.Fatal("rollback fallback differs from pre-publication full oracle")
 	}
 }
+
+func TestReviewCertifiedCaptureFencesExternalCommitDuringSnapshot(t *testing.T) {
+	f, r := certifiedFixture(t)
+	f.day(t, "2026-10-13")
+	initial := certifiedStage(t, f, r)
+	writer, err := sql.Open("sqlite", f.db.Path+"?_txlock=immediate&_pragma=busy_timeout%3d0&_pragma=foreign_keys%3d1&_pragma=recursive_triggers%3d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer writer.Close()
+	changed := false
+	r = r.WithReviewCompletenessLineageShadow(func(o domain.ReviewCompletenessLineageObservation) {
+		if o.Phase == "capture" && !changed {
+			changed = true
+			rewindCertifiedRevision(t, writer, initial.Capture.SourceRevision)
+		}
+	})
+	p := certifiedStage(t, f, r)
+	if !changed {
+		t.Fatal("snapshot mutation hook was not reached")
+	}
+	before := noChangeProjectionRows(t, f.db)
+	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err == nil {
+		t.Fatal("old read snapshot absorbed a later commit into its connection proof")
+	}
+	if !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
+		t.Fatal("concurrent snapshot edit partially published")
+	}
+}

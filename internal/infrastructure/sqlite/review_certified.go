@@ -163,13 +163,9 @@ func (r *Repository) verifiedCertifiedTracking(ctx context.Context, tx schemaQue
 	return cookie, true, nil
 }
 
-func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, connectionID uint64) error {
-	proof := &domain.ReviewCertifiedCapture{}
+func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, connection domain.ReviewConnectionCheckpoint) error {
+	proof := &domain.ReviewCertifiedCapture{Connection: connection}
 	var err error
-	proof.Connection, err = certifiedConnectionCheckpoint(ctx, tx, connectionID)
-	if err != nil {
-		return err
-	}
 	c.Certified = proof
 	seal, err := certifiedProjectionSeal(ctx, tx, c.HouseholdID)
 	if err != nil {

@@ -35,6 +35,15 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 		return empty, err
 	}
 	defer tx.Rollback()
+	var connectionProof domain.ReviewConnectionCheckpoint
+	if r.CertifiedReviewEnabled() {
+		// Sample before any financial snapshot reads. A later external commit
+		// must not be absorbed into the proof of an older read snapshot.
+		connectionProof, err = certifiedConnectionCheckpoint(ctx, tx, connectionID)
+		if err != nil {
+			return empty, err
+		}
+	}
 	result := domain.ReviewProjectionCapture{HouseholdID: householdID, SourceCutoff: cutoff, Rules: []domain.ReviewRule{}, Suppressions: []domain.ReviewSuppression{}, OpenEpisodes: []domain.ReviewStoredEpisode{}, EvaluatedInstruments: map[domain.ReviewRuleID][]domain.InstrumentID{}}
 	result.Historical, err = loadReviewHistoricalBatchQuery(ctx, tx, householdID, cutoff)
 	if err != nil {
@@ -194,7 +203,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 		result.TemporalFullRecompute = true
 	}
 	if r.CertifiedReviewEnabled() {
-		if err := r.captureCertifiedReview(ctx, tx, &result, connectionID); err != nil {
+		if err := r.captureCertifiedReview(ctx, tx, &result, connectionProof); err != nil {
 			return empty, err
 		}
 		if result.Certified.MayReuse {
