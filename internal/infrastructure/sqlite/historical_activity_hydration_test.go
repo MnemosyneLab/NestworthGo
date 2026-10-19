@@ -43,29 +43,62 @@ func TestActivityResultingSharedIDsMatchesLegacyAllEndpointKinds(t *testing.T) {
 	db, _, household, account, instrument := seedPortfolioRepository(t)
 	holding := domain.NewHoldingID()
 	stamp := "2026-08-23T12:00:00.000Z"
-	if _, err := db.SQL.Exec(`INSERT INTO holdings(id,account_id,instrument_id,quantity,created_at,updated_at) VALUES(?,?,?,'1',?,?)`, holding.String(), account.ID.String(), instrument.ID.String(), stamp, stamp); err != nil { t.Fatal(err) }
+	if _, err := db.SQL.Exec(`INSERT INTO holdings(id,account_id,instrument_id,quantity,created_at,updated_at) VALUES(?,?,?,'1',?,?)`, holding.String(), account.ID.String(), instrument.ID.String(), stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
 	activities := make([]domain.Activity, 5) // Last ID is deliberately absent.
-	for i := range activities { activities[i].ID = domain.NewActivityID() }
+	for i := range activities {
+		activities[i].ID = domain.NewActivityID()
+	}
 	for i, target := range []string{"account_value", "account_cash", "holding_quantity", "holding_cost"} {
 		id, effect := activities[i].ID.String(), domain.NewActivityEffectID().String()
-		if _, err := db.SQL.Exec(`INSERT INTO activities(id,household_id,kind,reason,effective_at,effective_local_date,created_at) VALUES(?,?,'value_update','other',?,'2026-08-23',?)`, id, household.ID.String(), stamp, stamp); err != nil { t.Fatal(err) }
+		if _, err := db.SQL.Exec(`INSERT INTO activities(id,household_id,kind,reason,effective_at,effective_local_date,created_at) VALUES(?,?,'value_update','other',?,'2026-08-23',?)`, id, household.ID.String(), stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
 		var accountID, holdingID, instrumentID, amount, currency, quantity, cost any
-		if i < 2 { accountID, amount, currency = account.ID.String(), "123.456789", "CNY" } else { holdingID, instrumentID = holding.String(), instrument.ID.String(); if i == 2 { quantity = "0.00000001" } else { cost = "987.654321" } }
-		if _, err := db.SQL.Exec(`INSERT INTO activity_effects(id,activity_id,sequence,role,direction,target,classification,account_id,holding_id,instrument_id,amount,currency,quantity,cost_unit_price) VALUES(?,?,1,'observation','added',?,'adjustment',?,?,?,?,?,?,?)`, effect, id, target, accountID, holdingID, instrumentID, amount, currency, quantity, cost); err != nil { t.Fatal(err) }
+		if i < 2 {
+			accountID, amount, currency = account.ID.String(), "123.456789", "CNY"
+		} else {
+			holdingID, instrumentID = holding.String(), instrument.ID.String()
+			if i == 2 {
+				quantity = "0.00000001"
+			} else {
+				cost = "987.654321"
+			}
+		}
+		if _, err := db.SQL.Exec(`INSERT INTO activity_effects(id,activity_id,sequence,role,direction,target,classification,account_id,holding_id,instrument_id,amount,currency,quantity,cost_unit_price) VALUES(?,?,1,'observation','added',?,'adjustment',?,?,?,?,?,?,?)`, effect, id, target, accountID, holdingID, instrumentID, amount, currency, quantity, cost); err != nil {
+			t.Fatal(err)
+		}
 		switch i {
 		case 0:
-			if _, err := db.SQL.Exec(`INSERT INTO account_values(id,account_id,value_kind,amount,currency,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'balance','123.456789','CNY',?,?,?,'event')`, domain.NewAccountValueID().String(), account.ID.String(), stamp, stamp, effect); err != nil { t.Fatal(err) }
+			if _, err := db.SQL.Exec(`INSERT INTO account_values(id,account_id,value_kind,amount,currency,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'balance','123.456789','CNY',?,?,?,'event')`, domain.NewAccountValueID().String(), account.ID.String(), stamp, stamp, effect); err != nil {
+				t.Fatal(err)
+			}
 		case 1:
-			if _, err := db.SQL.Exec(`INSERT INTO account_cash_values(id,account_id,amount,currency,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'123.456789','CNY',?,?,?,'event')`, domain.NewAccountCashValueID().String(), account.ID.String(), stamp, stamp, effect); err != nil { t.Fatal(err) }
+			if _, err := db.SQL.Exec(`INSERT INTO account_cash_values(id,account_id,amount,currency,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'123.456789','CNY',?,?,?,'event')`, domain.NewAccountCashValueID().String(), account.ID.String(), stamp, stamp, effect); err != nil {
+				t.Fatal(err)
+			}
 		case 2:
-			if _, err := db.SQL.Exec(`INSERT INTO holding_quantity_values(id,holding_id,quantity,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'0.00000001',?,?,?,'event')`, domain.NewHoldingQuantityValueID().String(), holding.String(), stamp, stamp, effect); err != nil { t.Fatal(err) }
+			if _, err := db.SQL.Exec(`INSERT INTO holding_quantity_values(id,holding_id,quantity,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'0.00000001',?,?,?,'event')`, domain.NewHoldingQuantityValueID().String(), holding.String(), stamp, stamp, effect); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	want := append([]domain.Activity(nil), activities...)
-	if err := attachActivityResulting(t.Context(), legacyResultingQuery{db.SQL}, want); err != nil { t.Fatal(err) }
-	if err := attachActivityResulting(t.Context(), db.SQL, activities); err != nil { t.Fatal(err) }
-	if !reflect.DeepEqual(activities, want) { t.Fatal("shared-ID query changed endpoint evidence") }
-	for i, a := range activities { if i < 4 && len(a.Resulting) != 1 || i == 4 && len(a.Resulting) != 0 { t.Fatalf("wrong endpoint count at %d", i) } }
+	if err := attachActivityResulting(t.Context(), legacyResultingQuery{db.SQL}, want); err != nil {
+		t.Fatal(err)
+	}
+	if err := attachActivityResulting(t.Context(), db.SQL, activities); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(activities, want) {
+		t.Fatal("shared-ID query changed endpoint evidence")
+	}
+	for i, a := range activities {
+		if i < 4 && len(a.Resulting) != 1 || i == 4 && len(a.Resulting) != 0 {
+			t.Fatalf("wrong endpoint count at %d", i)
+		}
+	}
 }
 
 func (q *historicalHydrationProbe) QueryContext(ctx context.Context, statement string, args ...any) (*sql.Rows, error) {
