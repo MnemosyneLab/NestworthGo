@@ -20,6 +20,7 @@ type ReviewProjectionCapture struct {
 	OpenEpisodes          []ReviewStoredEpisode
 	EvaluatedInstruments  map[ReviewRuleID][]InstrumentID
 	ReusableDailyEvidence map[ReviewDailyEvidenceKey]ReviewReusableDailyEvidence
+	CompletenessLineage   *ReviewCompletenessLineage
 }
 
 // ReviewDailyEvidenceKey identifies one persisted daily input/result for the
