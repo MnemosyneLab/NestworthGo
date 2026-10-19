@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	wailsrecovery "github.com/waltwang/nestworth-go/internal/wailsapi/recovery"
 )
 
 func restoreSource(t *testing.T, db *sqlite.DB) string {
@@ -30,6 +31,59 @@ func restoreSource(t *testing.T, db *sqlite.DB) string {
 		t.Fatal(err)
 	}
 	return source
+}
+
+// A quiesce-hook failure must remove the staged candidate before checkpoint
+// or swap. The package is a local snapshot, so this does not build a replica.
+func TestQuiesceHookFailureRemovesStagingBeforeCheckpoint(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "source.db")
+	source, err := sqlite.Open(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = source.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(dir, "candidate.nestworth-backup")
+	pkg := backup.Package{Manifest: backup.NewManifest(time.Now().UTC(), data, []byte("{}\n"), sqlite.EntityCounts{}), Database: data, Settings: []byte("{}\n")}
+	if err = backup.WritePackage(archive, pkg); err != nil {
+		t.Fatal(err)
+	}
+	live := filepath.Join(dir, "live.db")
+	liveDB, err := sqlite.Open(live)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer liveDB.Close()
+	if _, err = liveDB.SQL.Exec(`INSERT INTO app_configuration(key,value) VALUES('quiesce-original','intact')`); err != nil {
+		t.Fatal(err)
+	}
+	recovery := application.NewRecovery(live, backup.NewRuntime(), nil)
+	recovery.SetBeforeRestore(func(context.Context) error {
+		return errors.New("synthetic quiesce failure")
+	})
+	defer recovery.Shutdown()
+	preview, err := recovery.InspectBackup(ctx, archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := wailsrecovery.NewService(recovery, nil, nil, nil)
+	if _, err = service.ConfirmRestore(wailsrecovery.RestoreConfirmRequest{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true}); err == nil {
+		t.Fatal("quiesce failure was accepted")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, backup.StagingName(live))); !os.IsNotExist(statErr) {
+		t.Fatal("staging remained after quiesce failure", statErr)
+	}
+	var value string
+	if err = liveDB.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='quiesce-original'`).Scan(&value); err != nil || value != "intact" {
+		t.Fatalf("live session changed: %q %v", value, err)
+	}
 }
 
 func TestJournalFailureAfterBackupPauseRequiresRestart(t *testing.T) {
