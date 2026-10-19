@@ -152,7 +152,7 @@ func TestHistoricalSeriesEmptyScopeTransitions(t *testing.T) {
 		wantOverviewAmount(t, point.NetWorth, want)
 		changed := i == 1 || i == 2 || i == 4
 		connected := i == 3 || i == 5
-		if !point.Available || point.ScopeChanged != changed || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectLiabilities != connected || point.ConnectNetWorth != connected {
+		if !point.Available || point.ScopeChanged != changed || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectLiabilities != (i > 0) || point.ConnectNetWorth != connected {
 			t.Fatalf("day %d has incorrect transition: %+v", i+1, point)
 		}
 	}
@@ -203,6 +203,7 @@ func TestHistoricalSeriesSelectedEvidenceBasis(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			ctx := context.Background()
 			s, db, owner, now := overviewFixture(t)
+			overviewAccount(t, s, owner, "Synthetic stable debt", "loan", "liability", "balance", "CNY", "10")
 			var instrument domain.Instrument
 			if kind == "price" {
 				broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
@@ -272,10 +273,11 @@ func TestHistoricalSeriesSelectedEvidenceBasis(t *testing.T) {
 			}
 			for i, point := range out.Points {
 				wantOverviewAmount(t, point.Assets, fmt.Sprint(i+1))
-				wantOverviewAmount(t, point.NetWorth, fmt.Sprint(i+1))
-				changed := i == 2 || i == 4
-				connected := i == 1 || i == 3
-				if point.ScopeChanged || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectLiabilities != connected || point.ConnectNetWorth != connected {
+				wantOverviewAmount(t, point.NetWorth, fmt.Sprint(i+1-10))
+				wantOverviewAmount(t, point.Liabilities, "10")
+				changed := kind == "price" && i == 2 // Untyped manual price to explicit daily raw close.
+				connected := i > 0 && !changed
+				if point.ScopeChanged || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectLiabilities != (i > 0) || point.ConnectNetWorth != connected {
 					t.Fatalf("%s day %d selected evidence basis/continuity: %+v", kind, i+1, point)
 				}
 			}
@@ -284,7 +286,7 @@ func TestHistoricalSeriesSelectedEvidenceBasis(t *testing.T) {
 				t.Fatalf("selected %s changed P1 endpoints: %v", kind, err)
 			}
 			for _, row := range out.Overview.Rows {
-				if row.Kind == "account" {
+				if row.Kind == "account" || row.Role == "liability" {
 					continue
 				}
 				left, right := row.Left.Price, row.Right.Price
@@ -498,7 +500,7 @@ SELECT 'synthetic-budget-'||x,(SELECT id FROM households),'value_update','other'
 	}
 }
 
-func TestHistoricalSeriesBasisBreakAndCancellationAfterRead(t *testing.T) {
+func TestHistoricalSeriesMissingFXAndCancellationAfterRead(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
@@ -515,8 +517,8 @@ func TestHistoricalSeriesBasisBreakAndCancellationAfterRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !out.Points[1].BasisChanged || out.Points[1].ScopeChanged || out.Points[1].ConnectAssets {
-		t.Fatalf("FX basis not explicit: %+v", out.Points[1])
+	if out.Points[1].BasisChanged || out.Points[1].ScopeChanged || out.Points[1].ConnectAssets || !out.Points[1].ConnectLiabilities {
+		t.Fatalf("missing FX did not preserve the gap: %+v", out.Points[1])
 	}
 	cancelled, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -602,7 +604,7 @@ func TestHistoricalSeriesMarketCloseAndCoverageEquivalence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		point, state, _, _, selected, err := s.historicalSeriesPoint(ctx, portfolio, index, "2026-09-09", cutoff, "", 12*time.Hour, nil)
+		point, state, _, selected, err := s.historicalSeriesPoint(ctx, portfolio, index, "2026-09-09", cutoff, "", 12*time.Hour, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

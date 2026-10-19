@@ -397,22 +397,28 @@ and stable missing leaf keys/reasons. A subtotal is null when all included
 amounts are unknown; an empty role or observed zero is a known zero. Missing
 liabilities do not erase a complete asset series. Parent rows are never added
 to their component leaves. Unknown values are not substituted into the line.
-Scope and source/binding/native/base-currency basis changes conservatively break
-connections. An available empty portfolio has a valid empty scope; entering or
-leaving that scope breaks connections too. A missing civil date resets preceding
-point availability without comparing scope/basis across the gap. Selected price
-and FX evidence supply their actual source/key, observation kind, currency/pair,
-price/timestamp basis, source policy and price binding revision alongside saved
-preferences. Agent observations that supplement manual/provider preferences
-therefore break connections when their selected source/basis changes. Quote
-identity, dates, ordinary values, quote revisions and freshness do not change
-the basis signature. A known-zero exposure with no applied price/FX evidence is
-neutral: comparison state retains each included leaf's last actual semantic
-source across contiguous known-zero points, then compares actual evidence when
-exposure resumes. The first actual source after an initial zero has no earlier
-actual source to differ from. Scope removal, unknown evidence on nonzero
-exposure and nonexistent-date gaps clear the relevant comparison memory.
-Durable scope/preferences/binding/currency checks still apply at zero. This is
+Connections are evaluated independently for assets and liabilities; net worth
+connects only when both sides remain comparable and both net-worth totals exist.
+Scope, instrument type/unit, binding revision and native/base-currency changes
+break only the affected role's connection. An available empty role has a valid
+empty scope; entering or leaving it breaks that role's connection too. A missing
+civil date resets preceding point availability without comparing across the gap.
+Selected quote provenance (provider/Agent/manual source and key), supported
+raw-close provider policy names and timestamp encodings do not change economic
+units. Supported Yahoo, Tiingo and Agent raw closes can therefore connect across
+sources. FX rates compare their currency pair independently of source, saved
+source preference, timestamp encoding and stored pair direction; valuation still
+uses the authoritative oriented rate. Price types, unsupported/adjusted price
+bases, split evidence and conversion units/policies retain their distinct basis.
+The broad scope/basis flags remain explanatory summaries; they no longer force
+an unrelated asset or liability series to disconnect. Endpoint comparison,
+valuation amounts, evidence and source-selection policies remain unchanged.
+Quote identity, dates, ordinary values, revisions and freshness do not change
+the connection signature. A known-zero exposure with no applied price/FX evidence
+is neutral: comparison state retains each leaf's last actual economic basis
+across contiguous known-zero points. The first actual basis after an initial
+zero has no earlier actual basis to differ from. Scope removal, unknown evidence
+on nonzero exposure and nonexistent-date gaps clear the relevant memory. This is
 capture-local comparison state, never invented valuation evidence or amounts.
 Endpoint totals and rows use the P1 conventions and retained provenance.
 Series endpoint cards take nullable known subtotals from the same series points,

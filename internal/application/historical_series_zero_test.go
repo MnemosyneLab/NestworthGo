@@ -161,9 +161,9 @@ func TestHistoricalSeriesKnownZeroEvidenceContinuity(t *testing.T) {
 					}
 					wantOverviewAmount(t, point.Assets, want)
 					wantOverviewAmount(t, point.NetWorth, want)
-					changed := changeSource && i == 3
+					changed := !fx && changeSource && i == 3
 					connected := i > 0 && !changed
-					if point.ScopeChanged || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectNetWorth != connected || point.ConnectLiabilities != connected {
+					if point.ScopeChanged || point.BasisChanged != changed || point.ConnectAssets != connected || point.ConnectNetWorth != connected || point.ConnectLiabilities != (i > 0) {
 						t.Fatalf("zero transition %d: %+v", i, point)
 					}
 				}
@@ -230,7 +230,7 @@ func TestHistoricalSeriesZeroEvidenceMemoryResets(t *testing.T) {
 	}
 }
 
-func TestHistoricalSeriesKnownZeroKeepsDurableChecks(t *testing.T) {
+func TestHistoricalSeriesKnownZeroAllowsFXSourcePreferenceChange(t *testing.T) {
 	t.Parallel()
 	f := newSeriesZeroFixture(t, true, "UTC", "2026-08-01", "1")
 	f.agent(t) // Agent FX supplements the saved manual preference on day A.
@@ -245,8 +245,8 @@ func TestHistoricalSeriesKnownZeroKeepsDurableChecks(t *testing.T) {
 	f.day(t, "2026-08-04")
 	out := f.capture(t, "2026-08-01", "2026-08-03")
 	zero, resumed := out.Points[1], out.Points[2]
-	if zero.ScopeChanged || !zero.BasisChanged || zero.ConnectAssets || zero.ConnectNetWorth {
-		t.Fatalf("known zero hid a durable preference change: %+v", zero)
+	if zero.ScopeChanged || zero.BasisChanged || !zero.ConnectAssets || !zero.ConnectNetWorth {
+		t.Fatalf("source preference disconnected a comparable value: %+v", zero)
 	}
 	if resumed.BasisChanged || !resumed.ConnectAssets || !resumed.ConnectNetWorth {
 		t.Fatalf("unchanged actual Agent basis falsely changed on resume: %+v", resumed)
