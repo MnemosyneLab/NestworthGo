@@ -160,7 +160,8 @@ func (r *Repository) verifiedCertifiedTracking(ctx context.Context, tx schemaQue
 	if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
 		return cookie, false, ctx.Err()
 	}
-	return cookie, true, nil
+	trusted, err := verifyCertifiedTriggers(ctx, tx)
+	return cookie, trusted, err
 }
 
 func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, connection domain.ReviewConnectionCheckpoint) error {
@@ -301,6 +302,10 @@ func (r *Repository) beforeCertifiedHandling(ctx context.Context, tx *sql.Tx, id
 	if !r.CertifiedReviewEnabled() {
 		return nil, nil
 	}
+	_, trusted, err := r.verifiedCertifiedTracking(ctx, tx)
+	if err != nil || !trusted {
+		return nil, err
+	}
 	c, err := readReviewTemporal(ctx, tx, id)
 	if err != nil {
 		return nil, err
@@ -317,6 +322,10 @@ func (r *Repository) beforeCertifiedHandling(ctx context.Context, tx *sql.Tx, id
 func (r *Repository) afterCertifiedHandling(ctx context.Context, tx *sql.Tx, id domain.HouseholdID, c *domain.ReviewTemporalCertificate) error {
 	if c == nil {
 		return nil
+	}
+	_, trusted, err := r.verifiedCertifiedTracking(ctx, tx)
+	if err != nil || !trusted {
+		return err
 	}
 	old, err := json.Marshal(c)
 	if err != nil {
