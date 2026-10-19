@@ -1,8 +1,9 @@
 package application
 
 import (
-	"github.com/waltwang/nestworth-go/internal/domain"
 	"reflect"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 // Freeze the full DTO graph before running a second planner. Public pointers,

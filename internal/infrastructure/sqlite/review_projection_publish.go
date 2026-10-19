@@ -41,6 +41,9 @@ func (r *Repository) PublishCertifiedReviewProjection(ctx context.Context, publi
 }
 
 func (r *Repository) publishReviewProjection(ctx context.Context, publication domain.ReviewPublication, clock func() time.Time, providerLeased bool) (publishErr error) {
+	if r.CertifiedReviewEnabled() && providerLeased && publication.Capture.Certified != nil && publication.FXProviderKey != publication.Capture.Certified.Provider.Key {
+		return reviewRuleConflict("staged review provider differs from the held selection")
+	}
 	if r.CertifiedReviewEnabled() && len(publication.Capture.ReusableDailyEvidence) > 0 {
 		if publication.CertifiedFullOracle == nil {
 			return reviewRuleConflict("certified full oracle is missing")

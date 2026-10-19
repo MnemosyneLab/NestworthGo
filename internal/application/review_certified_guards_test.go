@@ -123,7 +123,7 @@ func TestReviewCertifiedLegitimateHandlingPreservesChain(t *testing.T) {
 }
 
 func TestReviewCertifiedPublicationGuardsAndAtomicity(t *testing.T) {
-	for _, scenario := range []string{"source", "projection", "review-without-revision", "provider", "provider-aba", "floor", "clock", "cancel", "control-ignore", "checkpoint-ignore", "checkpoint-abort", "source-proof-forged"} {
+	for _, scenario := range []string{"source", "projection", "review-without-revision", "provider", "staged-provider", "provider-aba", "floor", "clock", "cancel", "control-ignore", "checkpoint-ignore", "checkpoint-abort", "source-proof-forged"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r := certifiedFixture(t)
 			f.day(t, "2026-10-13")
@@ -141,6 +141,8 @@ func TestReviewCertifiedPublicationGuardsAndAtomicity(t *testing.T) {
 				statement = `UPDATE investment_review_daily_inputs SET evidence_json='{}' WHERE on_date='2026-10-01'`
 			case "review-without-revision":
 				statement = `UPDATE investment_review_rules SET name='Synthetic race'`
+			case "staged-provider":
+				p.FXProviderKey = "synthetic-other"
 			case "provider":
 				if err := f.s.SetFXProvider("synthetic-other"); err != nil {
 					t.Fatal(err)

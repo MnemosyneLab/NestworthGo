@@ -249,3 +249,92 @@ func certifiedPerfRows(t *testing.T, f reviewFullPipelineFixture) map[string][]s
 	sort.Strings(result[table])
 	return result
 }
+
+// Bootstrap and intra-day activation are reported separately from stable warm
+// and clock-only measurements. Each activation starts with the future event
+// already present, so its source token stays constant across T.
+func TestReviewCertifiedBootstrapActivationEvidence(t *testing.T) {
+	if os.Getenv("NW_C3_CERTIFIED_EVIDENCE") != "1" {
+		t.Skip("opt-in synthetic certified evidence")
+	}
+	for _, size := range c3PerfSizes(t) {
+		t.Run(size, func(t *testing.T) {
+			config := c3RefreshConfig(size)
+			source := newReviewPerfFixture(t, config)
+			logReviewPerfManifest(t, source, config)
+			before := *source.now
+			at := before.Add(time.Hour)
+			var holding domain.HoldingID
+			if err := source.db.SQL.QueryRow(`SELECT id FROM holdings WHERE instrument_id=? ORDER BY id LIMIT 1`, source.instruments[0].ID.String()).Scan(&holding); err != nil {
+				t.Fatal(err)
+			}
+			*source.now = at
+			_, err := source.service.RecordChange(t.Context(), domain.PositionAdjustmentInput{HouseholdID: source.householdID, HoldingID: holding, Quantity: mustQuantity(t, "2"), Added: false, EffectiveAt: at})
+			if err != nil {
+				t.Fatal(err)
+			}
+			*source.now = before
+			for sample := range reviewPerfSampleCount(t, 3) {
+				order := []string{"C2", "certified"}
+				if sample%2 == 1 {
+					order[0], order[1] = order[1], order[0]
+				}
+				for _, arm := range order {
+					f := cloneReviewPerfFixture(t, source)
+					enableReviewSQLMetrics(t, f)
+					r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
+					if arm == "certified" {
+						r = r.WithCertifiedReviewCandidate()
+					}
+					f.service = NewService(r)
+					f.service.fxProviderKey = "synthetic-pinned"
+					f.service.setClock(func() time.Time { return *f.now })
+					for _, scenario := range []string{"bootstrap", "activation"} {
+						if scenario == "activation" {
+							*f.now = at
+						}
+						c, err := r.CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if c.Certified != nil {
+							c.Certified.Provider = f.service.reviewProviderSnapshot()
+						}
+						p, err := PrepareReviewPublication(t.Context(), c, *f.now, "synthetic-pinned")
+						if err != nil {
+							t.Fatal(err)
+						}
+						assertReviewFullOracle(t, f, p)
+						if scenario == "activation" {
+							if c.PublishedTemporal == nil || c.PublishedTemporal.Source.Token != c.SourceRevision.Token {
+								t.Fatal("activation changed the token")
+							}
+							if p.CertifiedFullOracle != nil {
+								t.Fatal("intra-day activation reused bounded authority")
+							}
+						}
+						runtime.GC()
+						var b, a runtime.MemStats
+						runtime.ReadMemStats(&b)
+						reviewPerfStats.reset()
+						started := time.Now()
+						got, err := f.service.ReconcileInvestmentReviewsV2(t.Context())
+						elapsed := time.Since(started)
+						runtime.ReadMemStats(&a)
+						if err != nil || got.DayCount == 0 {
+							t.Fatal("expected full reconciliation", got, err)
+						}
+						metrics := reviewPerfStats.snapshot(0)
+						t.Logf("certified-lifecycle size=%s scenario=%s arm=%s n=%d elapsed=%s allocatedBytes=%d allocs=%d publishedPairDays=%d %s", size, scenario, arm, sample+1, elapsed, a.TotalAlloc-b.TotalAlloc, a.Mallocs-b.Mallocs, got.DayCount, metrics.summary())
+					}
+					if err := f.db.Close(); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Remove(f.dbPath); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+		})
+	}
+}
