@@ -21,6 +21,9 @@ used by this evidence adds an empty-input guard to `durationPercentile`, unused
 by the nonempty30-sample distributions. Post-sync integration checks are
 recorded separately rather than relabelling prior measurements.
 
+Review correction `8db20d6` fixes proof bootstrap and expiry recertification.
+Its before/after evidence and changed fallback contract are detailed below.
+
 ## Scope and activation gates
 
 **Disabled by default.** Only explicit internal
@@ -39,11 +42,12 @@ must hold in the same transaction:
 1. Current schema, verified-open schema cookie, FK and recursive-trigger
    PRAGMAs; exact C1 trigger/table definitions and bounded journal continuity.
    DDL after open, including trigger drop/recreate, disables reuse for that handle.
-   Failed tracking verification also discards reusable daily evidence on fallback.
+   Every failed C3 confirmation discards reusable daily evidence on fallback.
 2. Known source household/epoch/revision and tracking/resolver/evaluator/metric
    namespaces; consumed revision at/above the current journal floor. Pruning
    through the consumed revision is safe when the source token is unchanged.
-3. A complete publication and a C3 proof minted by full publication, unchanged
+3. A complete publication and a versioned C3 proof minted from preparation
+   without reusable daily evidence, unchanged
    control/config/handling state, complete rule revision set, raw rule/version/
    target/suppression metadata, open-episode identity/revision/ack metadata and
    FX provider selection. C2-only checkpoints cannot authorize confirmation.
@@ -140,7 +144,50 @@ Current validation results:
   evidence. Unit/race/build validation jobs overlapped and their runtimes are
   correctness evidence, never performance samples.
 
-## Results
+## Review correction: completeness proof bootstrap
+
+Independent review reproduced a gap at `8bd8fae`: after a same-session C2
+publication, delete Oct1 inputs/results while Oct9–11 still fill a rolling3
+window. C2-to-C3 opt-in or a missing review proof rejected confirmation before
+checking counts, but requested ordinary C2 reuse. Fallback emitted0 days and
+minted a manifest over the shortened history. An expired proof emitted only
+the new day; changed control metadata reproduced the same0-day case. All four
+then accepted another confirmation with Oct1 still absent. The retained
+`bootstrap-before.log` shows those failures and independent full-oracle
+differences. The missing-counts case already repaired history when the count
+comparison was reached, isolating the early-return defect.
+
+The correction makes every unsuccessful enabled C3 confirmation request full
+preparation. Opt-in repository captures also unconditionally suppress reusable
+daily evidence, covering direct callers that skip confirmation. An opt-in
+publisher refuses to mint a completeness proof for an incremental C2 capture
+with reusable evidence, and clears any incoming C3 proof fields before deciding
+whether certification is allowed. Normal C2 remains unchanged; PR121's temporal
+interval intersection and default-off activation remain intact.
+
+`NoChangeCompletenessVersion=full-review-projection-v1` is required and minted
+only from preparation without reused evidence. Earlier C3 manifests are not
+trusted, since the old bootstrap could already have certified shortened counts.
+Missing/unknown versions require rebuilding before another confirmation.
+
+Nine regressions cover C2 opt-in, missing proof/counts, expiry, metadata changes,
+legacy/unknown shortened manifests, direct capture and an incremental C2 stage
+passed to a C3 publisher. They restore the out-of-window row, assert11 full
+days (12 after expiry), then confirm no-change and compare complete projection/
+lifecycle rows with a cloned forced-full oracle. Final C3 units passed10.228s.
+Focused application race passed117.899s, including bootstrap, existing missing-
+row repair, CAS/cancellation/writer exclusion, superseded-stage rejection and
+all five PR121 interval-intersection cases. Domain calendar/certificate and
+SQLite clock race tests also passed. Candidate MCP/Wails parity race passed
+6.887s; internal vet/build, formatting and whitespace checks passed. No broader
+suite/native check is relabelled as a rerun of this correction.
+
+No new performance distribution was run for this correction. The historical
+measurements below retain their original source head. In particular, opt-in
+C3 clock-only and other rejected confirmations now deliberately rebuild all
+dates; earlier fallback diagnostics do not describe the corrected head.
+
+## Retained pre-bootstrap-correction results
 
 All60 invocation pairs (30 per fixture) and every diagnostic full oracle passed.
 The opt-in evidence test completed337.489s, serially after validation exited.

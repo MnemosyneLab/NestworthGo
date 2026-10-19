@@ -23,6 +23,12 @@
   checks; success logs are empty. `full-vet.log`/`native-build.log` retain actual
   missing GTK/WebKit/GLib/libsoup failures.
 - `main-sync-*.log`: integration checks after unchanged PR122/latest-main merge.
+- `bootstrap-before.log`: reproduced incomplete-history recertification on
+  PR123 head8bd8fae, including failed independent full oracles.
+- `bootstrap-after-{unit,race}.log`, `bootstrap-parity-race.log`,
+  `bootstrap-{vet,build}.log`: completeness bootstrap/expiry correction and
+  full-rebuild recertification evidence. Prior performance logs are historical;
+  corrected C3 fallbacks rebuild all dates and were not remeasured.
 - `*-format.log`, `*-whitespace.log` (and initial names): empty successful
   formatting/whitespace checks. `ci-preservation.log` is an empty successful diff
   against latest main's workflows and CI scripts. No workflow was dispatched.
