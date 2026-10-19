@@ -140,19 +140,26 @@ func reviewWindowChunkQuery(capture domain.ReviewProjectionCapture, rule domain.
 	policy := fmt.Sprintf("rule:%s/v:%d", rule.ID, rule.CurrentConditionVersion)
 	household := capture.HouseholdID.String()
 	args = append(args, household, tz, policy, household, tz, policy, reviewWindowWidth(rule), string(rule.ID), household, tz, policy, string(rule.ID), rule.CurrentConditionVersion, tz)
+	// Materialize the per-instrument aggregate once: retained closed epochs can
+	// be numerous, and a correlated scalar here would rescan them for every day.
 	statement := `WITH requested(instrument_id) AS (VALUES ` + strings.Join(values, ",") + `),
  window_keys AS MATERIALIZED (
  SELECT i.instrument_id,d.on_date FROM requested i CROSS JOIN investment_review_daily_inputs d
  ON d.household_id=? AND d.instrument_id=i.instrument_id AND d.timezone_version=? AND d.input_policy=?
  AND d.on_date IN (SELECT on_date FROM investment_review_daily_inputs k
  WHERE k.household_id=? AND k.instrument_id=i.instrument_id AND k.timezone_version=? AND k.input_policy=? ORDER BY on_date DESC LIMIT ?)
- ), latest_date AS (SELECT instrument_id,MAX(on_date) latest_on FROM window_keys GROUP BY instrument_id)
+ ), latest_date AS (SELECT instrument_id,MAX(on_date) latest_on FROM window_keys GROUP BY instrument_id),
+ latest_streak AS MATERIALIZED (
+ SELECT ld.instrument_id,COALESCE(MAX(s.consecutive_count),0) consecutive_count
+ FROM latest_date ld LEFT JOIN investment_review_evaluation_state s
+ ON s.rule_id=? AND s.instrument_id=ld.instrument_id AND s.latest_closed_on=ld.latest_on
+ GROUP BY ld.instrument_id)
  SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,
- r.evidence_json,r.input_fingerprint,COALESCE((SELECT MAX(s.consecutive_count) FROM investment_review_evaluation_state s WHERE s.rule_id=? AND s.instrument_id=d.instrument_id AND s.latest_closed_on=ld.latest_on),0)
+ r.evidence_json,r.input_fingerprint,s.consecutive_count
  FROM window_keys k
  CROSS JOIN investment_review_daily_inputs d ON d.household_id=? AND d.timezone_version=? AND d.input_policy=? AND d.instrument_id=k.instrument_id AND d.on_date=k.on_date
  LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.timezone_version=? AND r.instrument_id=k.instrument_id AND r.on_date=k.on_date
- JOIN latest_date ld ON ld.instrument_id=k.instrument_id ORDER BY k.instrument_id,k.on_date`
+ JOIN latest_streak s ON s.instrument_id=k.instrument_id ORDER BY k.instrument_id,k.on_date`
 	return statement, args
 }
 
