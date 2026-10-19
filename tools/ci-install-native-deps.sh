@@ -77,8 +77,16 @@ run_phase() {
 
 # Strict update avoids silently using stale indexes after a failed download.
 # Download-only never configures packages, so acquisition can be safely retried.
-# Worst case: 2*(120+10) + 2*(180+10) + (180+10) + 20 backoff
-# + <=21 diagnostics = <=871s; workflow's 15m cap is the final backstop.
+# Ubuntu 26.04 points /usr/bin/timeout at uutils. That build's SIGKILL does not
+# reach child processes, so a budget expiry can leave apt running, and the
+# Linux CI tests require a GNU timeout on PATH. coreutils-from-gnu restores
+# the GNU binary before the long install. Older images already have GNU timeout.
+# Worst case on Ubuntu 26: 90 + 2*(120+10) + 2*(180+10) + (180+10) + 20 backoff
+# + <=21 diagnostics = <=961s; the install step's 17m cap is the backstop.
 run_phase update 120 2 -o APT::Update::Error-Mode=any update
+if timeout --version 2>/dev/null | grep -q 'uutils'; then
+  run_phase coreutils 90 1 install -y --allow-remove-essential \
+    coreutils-from-gnu coreutils-from-uutils-
+fi
 run_phase download 180 2 install --download-only -y "${packages[@]}"
 run_phase configure 180 1 install --no-download -y "${packages[@]}"

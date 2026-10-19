@@ -154,7 +154,10 @@ When neither GNU tool is available, a Python POSIX timeout fixture exercises
 the same retry, failure, exit-code, and real TERM/KILL assertions. Every host
 also replays those tests with GNU discovery disabled. Linux GitHub Actions
 requires the GNU backend for the original tests, so the portable fixture does
-not replace validation of production timeout behavior. The fixture is only
+not replace validation of production timeout behavior. Ubuntu 26.04 ships
+uutils as `/usr/bin/timeout` and GNU coreutils as `gnutimeout`; the install
+script switches the provider with `coreutils-from-gnu` before the long apt
+install so `timeout` on `PATH` is GNU again. The fixture is only
 for synthetic tests, not the apt installation script. Mac packaging still
 requires its own full `wails3 task package:release` acceptance run.
 Synthetic apt commands have a 3-second test budget and 1-second TERM-to-KILL
