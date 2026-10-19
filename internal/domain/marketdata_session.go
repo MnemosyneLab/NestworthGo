@@ -214,7 +214,7 @@ func LastFinalizedEquityMarketDate(now time.Time, market string) (string, error)
 	if !supported {
 		return "", validation("market", "market is not supported for session policy")
 	}
-	location, err := time.LoadLocation(schedule.Timezone)
+	location, err := LoadFinancialLocation(schedule.Timezone)
 	if err != nil {
 		return "", err
 	}

@@ -634,7 +634,7 @@ func backdatedInstrumentHistoryRoute(instrument domain.Instrument, quotes []doma
 	if instrument.QuoteSource != domain.QuoteSourceProvider || instrument.ProviderSymbol == nil || instrument.MarketCode == nil {
 		return instrument
 	}
-	location, err := time.LoadLocation(timezone)
+	location, err := domain.LoadFinancialLocation(timezone)
 	if err != nil {
 		return instrument
 	}

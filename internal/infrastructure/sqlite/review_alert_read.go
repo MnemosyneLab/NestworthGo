@@ -42,6 +42,9 @@ func (r *Repository) GetReviewAlertV2(ctx context.Context, householdID domain.Ho
 	if err != nil {
 		return empty, err
 	}
+	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now); err != nil {
+		return empty, err
+	}
 	suppressions, err := reviewSuppressionsInTx(ctx, tx, householdID)
 	if err != nil {
 		return empty, err
@@ -58,6 +61,7 @@ func (r *Repository) GetReviewAlertV2(ctx context.Context, householdID domain.Ho
 	if !ok {
 		return empty, &domain.Error{Code: domain.ErrNotFound, Field: "episodeId", Message: "current review episode not found"}
 	}
+	group.ProjectionStatus = control.ProjectionStatus
 	found := false
 	for _, rule := range group.Rules {
 		found = found || rule.EpisodeID == episodeID
@@ -112,6 +116,9 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 	if err != nil {
 		return empty, err
 	}
+	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now); err != nil {
+		return empty, err
+	}
 	suppressions, err := reviewSuppressionsInTx(ctx, tx, householdID)
 	if err != nil {
 		return empty, err
@@ -125,7 +132,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 		if item.Mode != "until_date" {
 			continue
 		}
-		location, err := time.LoadLocation(item.Timezone)
+		location, err := domain.LoadFinancialLocation(item.Timezone)
 		if err != nil {
 			return empty, err
 		}
@@ -183,6 +190,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 			if !exists {
 				continue
 			}
+			group.ProjectionStatus = control.ProjectionStatus
 			result.Summary.TotalGroups++
 			switch group.Status {
 			case "pending":

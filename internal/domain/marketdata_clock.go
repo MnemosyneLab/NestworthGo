@@ -18,7 +18,7 @@ func NewMarketDataClock(now time.Time, timezone string) (MarketDataClock, error)
 	if timezone == "" {
 		return MarketDataClock{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "confirm a Household timezone before valuing market data"}
 	}
-	if _, err := time.LoadLocation(timezone); err != nil {
+	if _, err := LoadFinancialLocation(timezone); err != nil {
 		return MarketDataClock{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}
 	}
 	if now.IsZero() {
@@ -28,7 +28,7 @@ func NewMarketDataClock(now time.Time, timezone string) (MarketDataClock, error)
 }
 
 func (c MarketDataClock) Location() (*time.Location, error) {
-	return time.LoadLocation(c.HouseholdTimezone)
+	return LoadFinancialLocation(c.HouseholdTimezone)
 }
 
 func (c MarketDataClock) TodayLocal() (string, error) {

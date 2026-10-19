@@ -82,7 +82,7 @@ func PlanReviewLifecycle(capture domain.ReviewProjectionCapture, rule domain.Rev
 	}
 	firstOn := plan.Days[0].On
 	if currentEpoch.OpenedAt != nil {
-		location, err := time.LoadLocation(rule.Spec.Schedule.Timezone)
+		location, err := domain.LoadFinancialLocation(rule.Spec.Schedule.Timezone)
 		if err != nil {
 			return result, err
 		}

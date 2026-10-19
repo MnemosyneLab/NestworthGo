@@ -11,6 +11,9 @@ type ReviewProjectionCapture struct {
 	Historical            ReviewHistoricalBatch
 	HistoricalFingerprint string
 	SourceRevision        *ReviewSourceCheckpoint
+	Temporal              *ReviewTemporalCertificate
+	PublishedTemporal     *ReviewTemporalCertificate
+	TemporalFullRecompute bool
 	Control               ReviewProjectionControl
 	Rules                 []ReviewRule
 	Suppressions          []ReviewSuppression
@@ -40,13 +43,14 @@ type ReviewReusableDailyEvidence struct {
 }
 
 type ReviewProjectionControl struct {
-	Enabled              bool
-	ConfigRevision       int
-	InputGeneration      int
-	ReviewStateRevision  int
-	ProjectionStatus     string
-	PublishedOn          string
-	PublishedFingerprint string
+	Enabled                   bool
+	ConfigRevision            int
+	InputGeneration           int
+	ReviewStateRevision       int
+	ProjectionStatus          string
+	PublishedOn               string
+	PublishedFingerprint      string
+	PublishedTemporalRevision string
 }
 
 type ReviewStoredEpisode struct {

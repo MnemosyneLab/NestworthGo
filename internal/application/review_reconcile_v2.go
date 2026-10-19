@@ -13,6 +13,21 @@ type ReviewProjectionRepository interface {
 	PublishReviewProjection(context.Context, domain.ReviewPublication, time.Time) error
 }
 
+type reviewClockedPublicationRepository interface {
+	PublishReviewProjectionWithClock(context.Context, domain.ReviewPublication, func() time.Time) error
+}
+
+// Record every clock observation made by review commands/read models, including
+// preview and handling. A rollback observed outside reconcile must invalidate
+// the same outstanding certificates, even while still above published as-of.
+func (s *Service) reviewNow() time.Time {
+	now := s.clock()
+	if observer, ok := s.repository.(interface{ ObserveReviewClock(time.Time) }); ok {
+		observer.ObserveReviewClock(now)
+	}
+	return now
+}
+
 type ReviewReconcileResult struct {
 	RuleInstrumentCount int    `json:"ruleInstrumentCount"`
 	DayCount            int    `json:"dayCount"`
@@ -40,7 +55,7 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 		if household == nil {
 			return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 		}
-		now := s.clock()
+		now := s.reviewNow()
 		capture, err := port.CaptureReviewProjection(ctx, household.ID, now)
 		if err != nil {
 			return empty, err
@@ -53,7 +68,11 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 		if err != nil {
 			return empty, err
 		}
-		err = port.PublishReviewProjection(writeCtx, stage, s.clock())
+		if timed, ok := port.(reviewClockedPublicationRepository); ok {
+			err = timed.PublishReviewProjectionWithClock(writeCtx, stage, s.reviewNow)
+		} else {
+			err = port.PublishReviewProjection(writeCtx, stage, s.reviewNow())
+		}
 		unlock()
 		if err == nil {
 			result := ReviewReconcileResult{RuleInstrumentCount: len(stage.Rules), SourceFingerprint: capture.HistoricalFingerprint}

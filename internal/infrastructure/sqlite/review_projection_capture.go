@@ -16,6 +16,7 @@ import (
 // not create control rows or daily snapshots as a side effect of reading.
 func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID domain.HouseholdID, cutoff time.Time) (domain.ReviewProjectionCapture, error) {
 	var empty domain.ReviewProjectionCapture
+	epoch, rollback := r.database.reviewClock.observe(cutoff)
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return empty, err
@@ -146,6 +147,23 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	stateRows.Close()
 	if err != nil {
 		return empty, err
+	}
+	result.Temporal, err = buildReviewTemporal(ctx, tx, result, epoch)
+	if err != nil {
+		return empty, err
+	}
+	result.PublishedTemporal, err = readReviewTemporal(ctx, tx, householdID)
+	if err != nil {
+		return empty, err
+	}
+	previous := result.PublishedTemporal
+	result.Control.PublishedTemporalRevision = reviewTemporalDigest(previous)
+	// A full source capture still happens on EVERY C2 call. Normal forward
+	// calendar advancement may reuse independently proven fixed-day facts;
+	// restart, rollback and incompatible certificates require the full oracle.
+	result.TemporalFullRecompute = rollback || previous == nil || previous.ClockEpoch != epoch || previous.PolicyVersion != domain.ReviewTemporalPolicyVersion || previous.DependencyScope != domain.ReviewTemporalDependencyScope || cutoff.Before(previous.EvaluatedAt) || previous.Source == nil || result.SourceRevision == nil
+	if !result.TemporalFullRecompute {
+		result.TemporalFullRecompute = previous.Source.Token.Epoch != result.SourceRevision.Token.Epoch || previous.Source.Token.TrackingVersion != result.SourceRevision.Token.TrackingVersion || previous.Source.Token.ResolverPolicyVersion != result.SourceRevision.Token.ResolverPolicyVersion || previous.Source.Token.EvaluatorVersion != result.SourceRevision.Token.EvaluatorVersion || previous.Source.Token.MetricPolicyVersion != result.SourceRevision.Token.MetricPolicyVersion || previous.Source.Token.Revision < result.SourceRevision.JournalFloor
 	}
 	if err := r.loadReusableReviewWindow(ctx, tx, &result); err != nil {
 		return empty, err

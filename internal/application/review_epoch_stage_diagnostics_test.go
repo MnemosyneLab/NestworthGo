@@ -32,11 +32,11 @@ func (r *reviewPerfStageRepository) CaptureReviewProjection(ctx context.Context,
 	return capture, err
 }
 
-func (r *reviewPerfStageRepository) PublishReviewProjection(ctx context.Context, publication domain.ReviewPublication, at time.Time) error {
+func (r *reviewPerfStageRepository) PublishReviewProjectionWithClock(ctx context.Context, publication domain.ReviewPublication, clock func() time.Time) error {
 	start := time.Now()
 	r.prepareAdmission += start.Sub(r.captureEnd)
 	before := r.metrics.totals()
-	err := r.Repository.PublishReviewProjection(ctx, publication, at)
+	err := r.Repository.PublishReviewProjectionWithClock(ctx, publication, clock)
 	r.publish += time.Since(start)
 	r.publishSQL = reviewPerfSQLDifference(r.metrics.totals(), before)
 	r.publishCalls++
