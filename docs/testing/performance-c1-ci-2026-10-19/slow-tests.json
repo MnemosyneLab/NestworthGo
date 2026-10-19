@@ -1,0 +1,224 @@
+{
+  "117935865439": [
+    {
+      "test": "TestHistoricalSeriesBenchmarkCancellationEvidence",
+      "elapsed": 380.2
+    },
+    {
+      "test": "TestHistoricalOverviewDenseEntrySingleAndComparison",
+      "elapsed": 124.26
+    },
+    {
+      "test": "TestReconciliationCompletedCoverageIsDerivedAndReadOnly",
+      "elapsed": 33.51
+    },
+    {
+      "test": "TestProductHistoryRecordExistingAndArchivedHoldingInstrument",
+      "elapsed": 7.59
+    },
+    {
+      "test": "TestCorrectionSoldOutArchivedPosition",
+      "elapsed": 6.56
+    },
+    {
+      "test": "TestCashTransferLegacyLiabilityRecordsRemainReadableAndRecoverable",
+      "elapsed": 6.04
+    },
+    {
+      "test": "TestReconciliationMissingPositionsAndManagedProductUseExistingAtomicOperations",
+      "elapsed": 5.42
+    },
+    {
+      "test": "TestCashConfirmationRechecksLaterWinnerUnderWriteGate",
+      "elapsed": 4.76
+    },
+    {
+      "test": "TestReconciliationCompletionOrderingPreservesFractionalSeconds",
+      "elapsed": 4.24
+    },
+    {
+      "test": "TestReconciliationLinkedCorrectionAtomicReceiptAndExplicitRecheck",
+      "elapsed": 3.95
+    },
+    {
+      "test": "TestShortNameEditsPreserveIdentityAndProjections",
+      "elapsed": 3.72
+    },
+    {
+      "test": "TestProductListZeroLargeValuesAndFixedReadSettings",
+      "elapsed": 3.66
+    },
+    {
+      "test": "TestProductListWriterInterleavingAndMutationInvalidation",
+      "elapsed": 3.44
+    },
+    {
+      "test": "TestJSONExportExcludesSourceJournalAndDoesNotAdvanceIt",
+      "elapsed": 2.77
+    },
+    {
+      "test": "TestAgentMarketDataSkippedMidnightDates",
+      "elapsed": 2.37
+    },
+    {
+      "test": "TestAccountDisplayRefreshTargets",
+      "elapsed": 0.01
+    },
+    {
+      "test": "TestAccountCompositionCanonicalTypesAndUnknown",
+      "elapsed": 0
+    },
+    {
+      "test": "TestAccountCompositionMaxTinyAndCorruptAmount",
+      "elapsed": 0
+    }
+  ],
+  "117935865504": [
+    {
+      "test": "TestHistoricalSeriesDefaultFactLimitBeforeHydration",
+      "elapsed": 142.19
+    },
+    {
+      "test": "TestHistoricalOverviewCancellationReleasesConnection",
+      "elapsed": 115.91
+    },
+    {
+      "test": "TestProductListOneSnapshotIndependentOfCount",
+      "elapsed": 59.59
+    },
+    {
+      "test": "TestProductP2BackupLifecycleAndCorruption",
+      "elapsed": 48.75
+    },
+    {
+      "test": "TestSourceJournalPairedFullOracle",
+      "elapsed": 27.12
+    },
+    {
+      "test": "TestProductLongHistoryKeepsPaginationAndFinancialTimeChecks",
+      "elapsed": 24.97
+    },
+    {
+      "test": "TestInstrumentPerformanceIndependentOfPersonalLedger",
+      "elapsed": 24.89
+    },
+    {
+      "test": "TestAccountDisplayRefreshToValuation",
+      "elapsed": 21.23
+    },
+    {
+      "test": "TestProductP2MulticurrencyPreviewUsesProductCurrency",
+      "elapsed": 16.14
+    },
+    {
+      "test": "TestAccountDisplayArchivedInstrumentRefreshToValuation",
+      "elapsed": 15.73
+    },
+    {
+      "test": "TestCorrectionTransferFeeIntent",
+      "elapsed": 14.97
+    },
+    {
+      "test": "TestHistoryPlanReusesCoverageAndQuotes",
+      "elapsed": 13.19
+    },
+    {
+      "test": "TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute",
+      "elapsed": 8.68
+    },
+    {
+      "test": "TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen",
+      "elapsed": 8.63
+    },
+    {
+      "test": "TestProductRegressionPolicyCurrenciesForOrdinarySources",
+      "elapsed": 7.82
+    },
+    {
+      "test": "TestInstrumentHoldingGroupsOrderSubtotalsAndOwnership",
+      "elapsed": 7.09
+    },
+    {
+      "test": "TestProductHistoryReadAndFinalRevalidation",
+      "elapsed": 6.84
+    },
+    {
+      "test": "TestProductInterestAttributedOnceAcrossScopes",
+      "elapsed": 6.15
+    }
+  ],
+  "117935865511": [
+    {
+      "test": "TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer",
+      "elapsed": 98.16
+    },
+    {
+      "test": "TestFinancialSourceRetentionFailureIsAtomic",
+      "elapsed": 81.23
+    },
+    {
+      "test": "TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled",
+      "elapsed": 56.36
+    },
+    {
+      "test": "TestStalePreviewAndUnknownObjectsAbortBeforeDeletion",
+      "elapsed": 55.74
+    },
+    {
+      "test": "TestSourceTrackingRestoreRotatesLiveEpochBeforeResume",
+      "elapsed": 47.74
+    },
+    {
+      "test": "TestUnsupportedBackupSchemasNeverReplaceLiveDatabase",
+      "elapsed": 41.25
+    },
+    {
+      "test": "TestPopulatedV15CloudInspectConfirmAndUpgrade",
+      "elapsed": 36.68
+    },
+    {
+      "test": "TestMarketReadSnapshotConcurrentPairsReadOnlyAndBudget",
+      "elapsed": 30.49
+    },
+    {
+      "test": "TestDurableDeletingCheckpointFailureNeverLosesOwnership",
+      "elapsed": 29.38
+    },
+    {
+      "test": "TestCleanupCancellationAndDeniedDeleteStaySeparateFromBackup",
+      "elapsed": 29.37
+    },
+    {
+      "test": "TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement",
+      "elapsed": 28.25
+    },
+    {
+      "test": "TestCloudCandidateThroughExplicitJournalInstallAndRollback",
+      "elapsed": 26.45
+    },
+    {
+      "test": "TestFinancialSourceInsertConflictSemantics",
+      "elapsed": 24.12
+    },
+    {
+      "test": "TestConcurrentRestoreAndConfigCancelCleanup",
+      "elapsed": 21.7
+    },
+    {
+      "test": "TestProductHistorySnapshotBoundedPagesOrderingAndGlobalMetadata",
+      "elapsed": 20.5
+    },
+    {
+      "test": "TestPartialDeleteRestartResumesIdempotently",
+      "elapsed": 19.69
+    },
+    {
+      "test": "TestReconciliationProductValuationPreservesChecksInFreshAndUpgradedSchemas",
+      "elapsed": 19.56
+    },
+    {
+      "test": "TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy",
+      "elapsed": 15.72
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "job": 117935865504,
+  "failures": [
+    {
+      "pkg": "github.com/waltwang/nestworth-go/internal/application",
+      "elapsed": 600.036
+    }
+  ],
+  "slow": [
+    {
+      "test": "TestHistoricalSeriesDefaultFactLimitBeforeHydration",
+      "elapsed": 142.19
+    },
+    {
+      "test": "TestHistoricalOverviewCancellationReleasesConnection",
+      "elapsed": 115.91
+    },
+    {
+      "test": "TestProductListOneSnapshotIndependentOfCount",
+      "elapsed": 59.59
+    },
+    {
+      "test": "TestProductP2BackupLifecycleAndCorruption",
+      "elapsed": 48.75
+    },
+    {
+      "test": "TestSourceJournalPairedFullOracle",
+      "elapsed": 27.12
+    },
+    {
+      "test": "TestProductLongHistoryKeepsPaginationAndFinancialTimeChecks",
+      "elapsed": 24.97
+    },
+    {
+      "test": "TestInstrumentPerformanceIndependentOfPersonalLedger",
+      "elapsed": 24.89
+    },
+    {
+      "test": "TestAccountDisplayRefreshToValuation",
+      "elapsed": 21.23
+    },
+    {
+      "test": "TestProductP2MulticurrencyPreviewUsesProductCurrency",
+      "elapsed": 16.14
+    },
+    {
+      "test": "TestAccountDisplayArchivedInstrumentRefreshToValuation",
+      "elapsed": 15.73
+    },
+    {
+      "test": "TestCorrectionTransferFeeIntent",
+      "elapsed": 14.97
+    },
+    {
+      "test": "TestHistoryPlanReusesCoverageAndQuotes",
+      "elapsed": 13.19
+    },
+    {
+      "test": "TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute",
+      "elapsed": 8.68
+    },
+    {
+      "test": "TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen",
+      "elapsed": 8.63
+    },
+    {
+      "test": "TestProductRegressionPolicyCurrenciesForOrdinarySources",
+      "elapsed": 7.82
+    },
+    {
+      "test": "TestInstrumentHoldingGroupsOrderSubtotalsAndOwnership",
+      "elapsed": 7.09
+    },
+    {
+      "test": "TestProductHistoryReadAndFinalRevalidation",
+      "elapsed": 6.84
+    },
+    {
+      "test": "TestProductInterestAttributedOnceAcrossScopes",
+      "elapsed": 6.15
+    }
+  ],
+  "excerpts": [
+    "=== CONT  TestLiquidityReviewRejectInconsistentLock",
+    "panic: test timed out after 10m0s",
+    "\trunning tests:",
+    "\t\tTestLiquidityReviewMultipleUndoRestoresOriginalCash (3s)",
+    "\t\tTestLiquidityReviewRejectInconsistentLock (3s)",
+    "\t\tTestProductHistoryOffPageOpeningAndRestorationBeyond100 (46s)",
+    "\t\tTestRepairPreviewAndExecutionSkipRecentLatest (4s)",
+    "",
+    "goroutine 132345 [running]:",
+    "testing.(*M).startAlarm.func1()"
+  ]
+}

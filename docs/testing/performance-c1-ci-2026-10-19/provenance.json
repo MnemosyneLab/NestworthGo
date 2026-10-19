@@ -1,0 +1,15 @@
+{
+  "c1_failed_head": "0cfd711d9d61c37d5a28559e647c05b07e5f5806",
+  "c1_ci_run": 39214731606,
+  "comparison_base": "63fc5e1c16f835f56d13869375f3755f4bfe0767",
+  "merged_main_base": "176bfb0d215d06058c331f444f8a66cafc712e14",
+  "c2_implementation": "5ababa4028fdd771d1edde95f086d2cd150604ec",
+  "Go": "go1.26.0",
+  "SQLite": "3.53.0",
+  "GOMAXPROCS": 4,
+  "measurement": "single samples per unchanged existing test; separate immutable binaries, no concurrent build/test/race/profile during controlled pairs",
+  "data": "synthetic isolated only",
+  "fast_path_activated": false,
+  "native_app_launched": false,
+  "workflow_or_shard_files_modified": false
+}
