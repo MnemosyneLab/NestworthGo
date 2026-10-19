@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,10 +124,25 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	effective := f.now
+	buy := domain.TradeInput{
+		HouseholdID: f.boot.Household.ID, Side: domain.TradeBuy,
+		SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID,
+		InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "1"),
+		Gross: mustMoney(t, "10", "CNY"), EffectiveAt: f.now,
+	}
+	originalBuy, err := f.service.RecordChange(ctx, buy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.now = f.now.Add(time.Hour)
+	buy.Gross = mustMoney(t, "12", "CNY")
+	if _, err := f.service.FixChange(ctx, originalBuy.Activity.ID, buy); err != nil {
+		t.Fatal(err)
+	}
+	f.now = f.now.Add(time.Hour)
 	if _, err := f.service.RecordChange(ctx, domain.PositionCostAdjustmentInput{
 		HouseholdID: f.boot.Household.ID, HoldingID: f.holdings[0].ID,
-		UnitCost: reconciliationUnitCost(t, "20"), EffectiveAt: effective,
+		UnitCost: reconciliationUnitCost(t, "20"), EffectiveAt: f.now,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -146,21 +162,6 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 	if _, err := f.service.FixChange(ctx, posted.Activity.ID, sell); err != nil {
 		t.Fatal(err)
 	}
-	f.now = f.now.Add(time.Hour)
-	buy := domain.TradeInput{
-		HouseholdID: f.boot.Household.ID, Side: domain.TradeBuy,
-		SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID,
-		InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "1"),
-		Gross: mustMoney(t, "21", "CNY"), EffectiveAt: f.now,
-	}
-	reversed, err := f.service.RecordChange(ctx, buy)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.now = f.now.Add(time.Minute)
-	if _, err := f.service.UndoChange(ctx, reversed.Activity.ID); err != nil {
-		t.Fatal(err)
-	}
 	if err := f.service.ArchiveHolding(ctx, f.holdings[1].ID, true); err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +173,7 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 	checkOutputs := func() {
 		t.Helper()
 		gain, err := f.service.HoldingGain(ctx, f.holdings[0].ID)
-		if err != nil || gain.Quantity != "2" || gain.TotalCost.Amount != "40" || gain.RealizedGain.Amount != "13" {
+		if err != nil || gain.Quantity != "3" || gain.TotalCost.Amount != "60" || gain.RealizedGain.Amount != "13" {
 			t.Fatalf("cost basis after replay: gain=%+v err=%v", gain, err)
 		}
 		period, err := f.service.RealizedGainInRange(ctx, domain.GainScope{}, "2026-09-25", "2026-09-25")
@@ -189,7 +190,7 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 				cash = value.Amount.CanonicalAmount()
 			}
 		}
-		if cash != "1000000033" {
+		if cash != "1000000021" {
 			t.Fatalf("ordinary cash projection = %s", cash)
 		}
 		balance := ""
@@ -205,7 +206,7 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 		for _, holding := range portfolio.Holdings {
 			quantities[holding.ID] = holding.Quantity.String()
 		}
-		if len(quantities) != len(f.holdings) || quantities[f.holdings[0].ID] != "2" || quantities[f.holdings[1].ID] != "0" || quantities[f.holdings[2].ID] != "0" {
+		if len(quantities) != len(f.holdings) || quantities[f.holdings[0].ID] != "3" || quantities[f.holdings[1].ID] != "0" || quantities[f.holdings[2].ID] != "0" {
 			t.Fatalf("ordinary current quantities = %+v", quantities)
 		}
 	}
@@ -216,20 +217,64 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 		}
 		checkOutputs()
 	}
+	reversalBuy := domain.TradeInput{
+		HouseholdID: f.boot.Household.ID, Side: domain.TradeBuy,
+		SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID,
+		InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "1"),
+		Gross: mustMoney(t, "21", "CNY"), EffectiveAt: f.now,
+	}
+	reversed, err := f.service.RecordChange(ctx, reversalBuy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.now = f.now.Add(time.Minute)
+	if _, err := f.service.UndoChange(ctx, reversed.Activity.ID); err != nil {
+		t.Fatal(err)
+	}
+	f.now = f.now.Add(time.Hour)
+	fullExit := domain.TradeInput{
+		HouseholdID: f.boot.Household.ID, Side: domain.TradeSell,
+		SettlementAccountID: f.accounts[0].Account.ID, HoldingID: f.holdings[0].ID,
+		InstrumentID: f.instrument.ID, Quantity: mustQuantity(t, "3"),
+		Gross: mustMoney(t, "60", "CNY"), EffectiveAt: f.now,
+	}
+	if _, err := f.service.RecordChange(ctx, fullExit); err != nil {
+		t.Fatal(err)
+	}
+	f.now = f.now.Add(time.Minute)
+	if err := f.service.ArchiveHolding(ctx, f.holdings[0].ID, true); err != nil {
+		t.Fatal(err)
+	}
+	checkArchivedOutputs := func() {
+		t.Helper()
+		period, err := f.service.RealizedGainInRange(ctx, domain.GainScope{}, "2026-09-25", "2026-09-25")
+		if err != nil || !period.Available || period.Total == nil || period.Total.Amount != "13" {
+			t.Fatalf("realized gain after archived-holding replay: period=%+v err=%v", period, err)
+		}
+		portfolio, err := f.repo.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		quantities := map[domain.HoldingID]string{}
+		for _, holding := range portfolio.Holdings {
+			quantities[holding.ID] = holding.Quantity.String()
+		}
+		if quantities[f.holdings[0].ID] != "0" || quantities[f.holdings[1].ID] != "0" {
+			t.Fatalf("archived zero holding quantities = %+v", quantities)
+		}
+	}
+	if _, err := f.service.RebuildDerivedData(ctx); err != nil {
+		t.Fatalf("rebuild after archiving the sold out holding: %v", err)
+	}
+	checkArchivedOutputs()
 
 	// Force a late publication error after event/current rows have been staged.
 	// The whole transaction must preserve the prior projections, snapshots,
 	// generation state, holding quantities, and source activity facts.
-	if _, err := f.db.SQL.ExecContext(ctx, `UPDATE account_cash_values SET amount='777' WHERE projection_kind='event'`); err != nil {
+	if _, err := f.db.SQL.ExecContext(ctx, `CREATE TRIGGER fail_rebuild_snapshot BEFORE INSERT ON daily_valuation_snapshots BEGIN SELECT injected_snapshot_publication_failure(); END`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.db.SQL.ExecContext(ctx, `UPDATE holdings SET quantity='77' WHERE id=?`, f.holdings[0].ID.String()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.db.SQL.ExecContext(ctx, `UPDATE daily_valuation_snapshots SET net_worth_amount='777' WHERE household_id=?`, f.boot.Household.ID.String()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.db.SQL.ExecContext(ctx, `CREATE TRIGGER fail_rebuild_snapshot BEFORE INSERT ON daily_valuation_snapshots BEGIN SELECT RAISE(ABORT, 'injected snapshot publication failure'); END`); err != nil {
+	if _, err := f.db.SQL.ExecContext(ctx, `CREATE TRIGGER poison_rebuilt_event AFTER UPDATE OF amount ON account_cash_values WHEN NEW.projection_kind='event' AND NEW.amount<>'777' BEGIN UPDATE account_cash_values SET amount='777' WHERE id=NEW.id; END`); err != nil {
 		t.Fatal(err)
 	}
 	capture := func(query string, args ...any) []string {
@@ -278,12 +323,22 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 	for i, query := range queries {
 		before[i] = capture(query.sql, query.args...)
 	}
-	if _, err := f.service.RebuildDerivedData(ctx); err == nil {
-		t.Fatal("injected publication failure was not returned")
+	if _, err := f.service.RebuildDerivedData(ctx); err == nil || !strings.Contains(err.Error(), "injected_snapshot_publication_failure") {
+		t.Fatalf("expected the injected late publication error, got %v", err)
 	}
 	for i, query := range queries {
 		if after := capture(query.sql, query.args...); fmt.Sprint(after) != fmt.Sprint(before[i]) {
 			t.Errorf("%s changed across failed rebuild:\nbefore=%v\nafter=%v", query.name, before[i], after)
 		}
 	}
+	if _, err := f.db.SQL.ExecContext(ctx, `DROP TRIGGER fail_rebuild_snapshot`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.SQL.ExecContext(ctx, `DROP TRIGGER poison_rebuilt_event`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.service.RebuildDerivedData(ctx); err != nil {
+		t.Fatalf("rebuild after removing injected failure: %v", err)
+	}
+	checkArchivedOutputs()
 }
