@@ -1,6 +1,8 @@
 # Nestworth 性能优化实施设计
 
-状态：待评审设计；仅文档，尚未实现。日期：2026-10-19。
+状态：按阶段实现；P0 PR-A/PR-B 草稿供评审，默认切换及后续阶段尚待验收。日期：2026-10-19。
+
+Implementation tracking: [P0 PR-A/PR-B draft evidence and rollout gate](../testing/performance-p0-2026-10-19.md). Later stages remain unimplemented.
 基线：`2c585d1c3a26a55c94a5152d2c3f94275969d6b6`（main，已包含 PR #106、#107）。
 本文按任务要求使用简体中文，是仓库默认英文文档规范的明确例外。
 

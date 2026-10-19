@@ -1,0 +1,7 @@
+=== RUN   TestAnalysisEndToEndPerformanceEvidence
+    analysis_end_to_end_performance_evidence_test.go:21: manifest={"Accounts":2,"Instruments":10,"Holdings":10,"Rules":1,"HistoryDays":30,"Quotes":300,"CashActivities":0,"MixedActivities":100,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=19 Go=go1.26.0 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a15217-677f-77dc-a3e2-a122844b2a41
+    analysis_end_to_end_performance_evidence_test.go:33: analysis SQL -> ensure snapshots -> kernel -> calendar DTO: sample=0 elapsed=135.794008ms sql queries=494 returnedRows=3316 Query-to-Rows.Close=77.97275ms execs=421 writeStatements=421 rowsAffected=421 driverExecTime=16.063738ms prepares=0 prepareTime=0s (driver query duration includes consumption)
+    analysis_end_to_end_performance_evidence_test.go:33: analysis SQL -> ensure snapshots -> kernel -> calendar DTO: sample=1 elapsed=59.483852ms sql queries=85 returnedRows=2330 Query-to-Rows.Close=49.831139ms execs=0 writeStatements=0 rowsAffected=0 driverExecTime=0s prepares=0 prepareTime=0s (driver query duration includes consumption)
+    review_performance_baseline_test.go:85: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	   35584 kB
+--- PASS: TestAnalysisEndToEndPerformanceEvidence (1.98s)
+PASS

@@ -1,0 +1,21 @@
+{
+  "name": "review-race",
+  "command": [
+    "go",
+    "test",
+    "-race",
+    "-count=1",
+    "-timeout",
+    "10m",
+    "-p",
+    "1",
+    "-parallel",
+    "4",
+    "./internal/application",
+    "./internal/infrastructure/sqlite",
+    "-run",
+    "^TestReview"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 170.742
+}

@@ -11,9 +11,40 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-type Repository struct{ database *DB }
+type Repository struct {
+	database             *DB
+	reviewFullRecompute  bool
+	reviewWindowBaseline bool
+}
 
-func NewRepository(database *DB) *Repository { return &Repository{database: database} }
+// WithFullReviewRecompute returns an independent repository configuration that
+// rebuilds review inputs from authoritative sources without persisted reuse.
+// It retains handling/episode history and all publication concurrency checks.
+func (r *Repository) WithFullReviewRecompute() *Repository {
+	copy := *r
+	copy.reviewFullRecompute = true
+	return &copy
+}
+
+// WithReviewWindowBaseline retains the key-first history-ranking query for
+// diagnostics and rollback without changing the schema or publication protocol.
+func (r *Repository) WithReviewWindowBaseline() *Repository {
+	copy := *r
+	copy.reviewWindowBaseline = true
+	return &copy
+}
+
+// WithBoundedReviewWindow enables the P0 bounded-query candidate. It remains
+// opt-in until the paired latency/RSS and native rollout gates are reviewed.
+func (r *Repository) WithBoundedReviewWindow() *Repository {
+	copy := *r
+	copy.reviewWindowBaseline = false
+	return &copy
+}
+
+func NewRepository(database *DB) *Repository {
+	return &Repository{database: database, reviewWindowBaseline: true}
+}
 
 type queryer interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)

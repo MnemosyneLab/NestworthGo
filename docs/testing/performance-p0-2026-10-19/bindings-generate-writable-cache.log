@@ -1,0 +1,129 @@
+npm warn Unknown project config "minimum-release-age". This will stop working in the next major version of npm.
+npm warn Unknown project config "minimum-release-age-exclude". This will stop working in the next major version of npm.
+$ node ./scripts/ensure-bindings.mjs
+Generating Wails TypeScript bindings...
+go: downloading github.com/leaanthony/clir v1.7.0
+go: downloading github.com/pterm/pterm v0.12.82
+go: downloading github.com/ProtonMail/go-crypto v1.3.0
+go: downloading github.com/atterpac/refresh v1.1.4
+go: downloading github.com/charmbracelet/huh v0.8.0
+go: downloading github.com/jackmordaunt/icns/v2 v2.2.7
+go: downloading github.com/konoui/lipo v0.10.0
+go: downloading github.com/leaanthony/dmg v0.0.0-20260731074841-5c28840cf819
+go: downloading github.com/leaanthony/winicon v1.0.0
+go: downloading github.com/modelcontextprotocol/go-sdk v1.6.1
+go: downloading github.com/tc-hib/winres v0.3.1
+go: downloading github.com/wailsapp/task/v3 v3.40.1-patched3
+go: downloading golang.org/x/image v0.41.0
+go: downloading golang.org/x/mod v0.37.0
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading howett.net/plist v1.0.2-0.20250314012144-ee69052608d9
+go: downloading github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
+go: downloading github.com/muesli/termenv v0.16.0
+go: downloading golang.org/x/term v0.44.0
+go: downloading atomicgo.dev/cursor v0.2.0
+go: downloading atomicgo.dev/keyboard v0.2.9
+go: downloading atomicgo.dev/schedule v0.1.0
+go: downloading github.com/gookit/color v1.6.0
+go: downloading github.com/lithammer/fuzzysearch v1.1.8
+go: downloading github.com/mattn/go-runewidth v0.0.19
+go: downloading github.com/catppuccin/go v0.3.0
+go: downloading github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
+go: downloading github.com/charmbracelet/x/cellbuf v0.0.14
+go: downloading github.com/charmbracelet/x/exp/strings v0.0.0-20260122224438-b01af16209d9
+go: downloading github.com/charmbracelet/bubbletea v1.3.10
+go: downloading github.com/mitchellh/hashstructure/v2 v2.0.2
+go: downloading github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
+go: downloading github.com/BurntSushi/toml v1.6.0
+go: downloading github.com/rjeczalik/notify v0.9.3
+go: downloading gopkg.in/yaml.v2 v2.4.0
+go: downloading golang.org/x/oauth2 v0.35.0
+go: downloading github.com/jaypipes/ghw v0.21.3
+go: downloading golang.org/x/tools v0.47.0
+go: downloading github.com/charmbracelet/glamour v0.10.0
+go: downloading github.com/zalando/go-keyring v0.2.6
+go: downloading github.com/goreleaser/nfpm/v2 v2.44.1
+go: downloading github.com/atotto/clipboard v0.1.4
+go: downloading github.com/Ladicle/tabwriter v1.0.0
+go: downloading github.com/Masterminds/semver/v3 v3.4.0
+go: downloading github.com/joho/godotenv v1.5.1
+go: downloading github.com/radovskyb/watcher v1.0.7
+go: downloading github.com/sajari/fuzzy v1.0.0
+go: downloading mvdan.cc/sh/v3 v3.12.0
+go: downloading github.com/dominikbraun/graph v0.23.0
+go: downloading github.com/charmbracelet/x/ansi v0.11.4
+go: downloading github.com/rivo/uniseg v0.4.7
+go: downloading github.com/aymanbagabas/go-osc52/v2 v2.0.1
+go: downloading github.com/lucasb-eyer/go-colorful v1.3.0
+go: downloading github.com/containerd/console v1.0.5
+go: downloading github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e
+go: downloading github.com/clipperhouse/uax29/v2 v2.4.0
+go: downloading github.com/charmbracelet/x/term v0.2.2
+go: downloading github.com/charmbracelet/colorprofile v0.4.1
+go: downloading github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6
+go: downloading github.com/muesli/cancelreader v0.2.2
+go: downloading github.com/konoui/go-qsort v0.1.0
+go: downloading golang.org/x/exp/typeparams v0.0.0-20260112195511-716be5621a96
+go: downloading github.com/yuin/goldmark v1.7.16
+go: downloading github.com/yuin/goldmark-emoji v1.0.6
+go: downloading golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
+go: downloading github.com/AlekSi/pointer v1.2.0
+go: downloading dario.cat/mergo v1.0.2
+go: downloading github.com/goreleaser/chglog v0.7.4
+go: downloading go.yaml.in/yaml/v3 v3.0.4
+go: downloading github.com/blakesmith/ar v0.0.0-20190502131153-809d4375e1fb
+go: downloading github.com/ulikunitz/xz v0.5.15
+go: downloading github.com/klauspost/pgzip v1.2.6
+go: downloading github.com/google/rpmpack v0.7.1
+go: downloading github.com/alecthomas/chroma/v2 v2.23.1
+go: downloading github.com/fatih/color v1.18.0
+go: downloading github.com/mattn/go-zglob v0.0.6
+go: downloading github.com/zeebo/xxh3 v1.1.0
+go: downloading github.com/davecgh/go-spew v1.1.1
+go: downloading github.com/go-task/slim-sprig/v3 v3.0.0
+go: downloading github.com/go-task/template v0.2.0
+go: downloading github.com/chainguard-dev/git-urls v1.0.2
+go: downloading github.com/go-git/go-billy/v5 v5.9.0
+go: downloading github.com/go-git/go-git/v5 v5.19.2
+go: downloading github.com/spf13/pflag v1.0.10
+go: downloading github.com/clipperhouse/displaywidth v0.7.0
+go: downloading github.com/clipperhouse/stringish v0.1.1
+go: downloading github.com/jaypipes/pcidb v1.1.1
+go: downloading github.com/charmbracelet/x/exp/slice v0.0.0-20260122224438-b01af16209d9
+go: downloading github.com/microcosm-cc/bluemonday v1.0.27
+go: downloading github.com/muesli/reflow v0.3.0
+go: downloading github.com/Masterminds/sprig/v3 v3.3.0
+go: downloading gitlab.com/digitalxero/go-conventional-commit v1.0.7
+go: downloading github.com/cavaliergopher/cpio v1.0.1
+go: downloading github.com/dlclark/regexp2 v1.11.5
+go: downloading github.com/klauspost/cpuid/v2 v2.3.0
+go: downloading github.com/sergi/go-diff v1.4.0
+go: downloading github.com/goreleaser/fileglob v1.4.0
+go: downloading github.com/aymerick/douceur v0.2.0
+go: downloading github.com/emirpasic/gods v1.18.1
+go: downloading github.com/Masterminds/goutils v1.1.1
+go: downloading github.com/huandu/xstrings v1.5.0
+go: downloading github.com/mitchellh/copystructure v1.2.0
+go: downloading github.com/spf13/cast v1.10.0
+go: downloading github.com/pjbgf/sha1cd v0.6.0
+go: downloading github.com/cyphar/filepath-securejoin v0.6.1
+go: downloading github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376
+go: downloading github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99
+go: downloading github.com/gobwas/glob v0.2.3
+go: downloading github.com/gorilla/css v1.0.1
+go: downloading github.com/mitchellh/reflectwalk v1.0.2
+go: downloading github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
+go: downloading github.com/kevinburke/ssh_config v1.4.0
+go: downloading github.com/skeema/knownhosts v1.3.2
+go: downloading github.com/xanzy/ssh-agent v0.3.3
+go: downloading gopkg.in/warnings.v0 v0.1.2
+# github.com/wailsapp/wails/v3/internal/operatingsystem
+# [pkg-config --cflags  -- gtk4 webkitgtk-6.0]
+Package gtk4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `gtk4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Failed to generate frontend/bindings. Install Wails v3.0.0-beta.28 and retry from the repository root:
+  wails3 generate bindings -ts -i -d frontend/bindings ./...
+[ELIFECYCLE] Command failed with exit code 1.

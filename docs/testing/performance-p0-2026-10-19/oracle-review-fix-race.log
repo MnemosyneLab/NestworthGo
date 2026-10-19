@@ -1,0 +1,115 @@
+=== RUN   TestReviewFullOracleRejectsDaySetMutations
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/full-rebuild-missing-middle-day
+    review_full_oracle_regression_test.go:66: rejected mutation: oracle emitted day count differs rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020: got=9 want=10
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/full-rebuild-empty-days
+    review_full_oracle_regression_test.go:69: rejected mutation: oracle emitted day count differs rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020: got=0 want=10
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/full-rebuild-duplicate-replaces-required-day
+    review_full_oracle_regression_test.go:72: rejected mutation: oracle duplicate emitted day rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020 on=2025-10-22
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/no-op-unexpected-prefix
+    review_full_oracle_regression_test.go:84: rejected mutation: oracle emitted day count differs rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020: got=1 want=0
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-missing-first-new-day
+    review_full_oracle_regression_test.go:98: rejected mutation: oracle emitted day count differs rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020: got=1 want=2
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-empty-days
+    review_full_oracle_regression_test.go:101: rejected mutation: oracle emitted day count differs rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020: got=0 want=2
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-duplicate-replaces-new-day
+    review_full_oracle_regression_test.go:104: rejected mutation: oracle duplicate emitted day rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020 on=2025-10-28
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-wrong-date-same-count
+    review_full_oracle_regression_test.go:107: rejected mutation: oracle emitted date differs rule=01a15244-33a2-7061-aed7-43418a6a3412 instrument=01a15244-3191-73e9-b7ff-703dfba9d020: got=2025-10-17 want=2025-10-27
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-date
+    review_full_oracle_regression_test.go:111: rejected mutation: oracle cached key has no full day: {RuleID:01a15244-33a2-7061-aed7-43418a6a3412 ConditionVersion:1 InstrumentID:01a15244-3191-73e9-b7ff-703dfba9d020 TimezoneVersion:UTC/civil_day_end_v1 On:2099-01-01}
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-namespace
+    review_full_oracle_regression_test.go:111: rejected mutation: oracle cached key has no full day: {RuleID:01a15244-33a2-7061-aed7-43418a6a3412 ConditionVersion:2 InstrumentID:01a15244-3191-73e9-b7ff-703dfba9d020 TimezoneVersion:UTC/civil_day_end_v1 On:2025-10-26}
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/gap-repair-missing-required-day
+    review_full_oracle_regression_test.go:136: rejected mutation: oracle emitted day count differs rule=01a15244-33ab-72b3-a389-5c7d966e5f23 instrument=01a15244-3191-73e9-b7ff-703dfba9d020: got=11 want=12
+--- PASS: TestReviewFullOracleRejectsDaySetMutations (3.06s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/full-rebuild-missing-middle-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/full-rebuild-empty-days (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/full-rebuild-duplicate-replaces-required-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/no-op-unexpected-prefix (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-missing-first-new-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-empty-days (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-duplicate-replaces-new-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-wrong-date-same-count (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-date (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-namespace (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/gap-repair-missing-required-day (0.00s)
+=== RUN   TestReviewPerformanceFullOracle
+    review_performance_baseline_test.go:248: manifest={"Accounts":2,"Instruments":3,"Holdings":4,"Rules":4,"HistoryDays":10,"Quotes":30,"CashActivities":0,"MixedActivities":8,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-10-27T12:00:00Z schema=19 Go=go1.26.0 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a15244-3d8b-7a4c-9c15-d98d83898905
+    review_performance_baseline_test.go:248: cold initial projection (single sample, includes capture through atomic publish; excludes fixture generation)=641.145258ms
+=== RUN   TestReviewPerformanceFullOracle/no-op
+=== RUN   TestReviewPerformanceFullOracle/no-op/sample-00
+    review_performance_baseline_test.go:325: capture path=0 sample=0 elapsed=235.840163ms reusableRows=36 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:325: capture path=1 sample=0 elapsed=243.115246ms reusableRows=36 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/no-op/sample-00/publish-0
+    review_performance_baseline_test.go:359: full reconcile path=0 sample=0 elapsed=753.704198ms pairDays=0 allocatedBytes=3128016 allocations=39401 sql queries=105 returnedRows=372 Query-to-Rows.Close=646.710245ms execs=25 writeStatements=25 rowsAffected=0 driverExecTime=59.251379ms prepares=2 prepareTime=2.666375ms
+=== RUN   TestReviewPerformanceFullOracle/no-op/sample-00/publish-1
+    review_performance_baseline_test.go:359: full reconcile path=1 sample=0 elapsed=618.749627ms pairDays=0 allocatedBytes=3140440 allocations=39451 sql queries=105 returnedRows=372 Query-to-Rows.Close=514.738849ms execs=25 writeStatements=25 rowsAffected=0 driverExecTime=70.82789ms prepares=2 prepareTime=2.506605ms
+=== NAME  TestReviewPerformanceFullOracle/no-op
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=no-op path=0 n=1 median=753.704198ms nearest-rank-p95=753.704198ms raw=[753.704198ms]
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=no-op path=1 n=1 median=618.749627ms nearest-rank-p95=618.749627ms raw=[618.749627ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=no-op path=0 n=1 median=235.840163ms nearest-rank-p95=235.840163ms raw=[235.840163ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=no-op path=1 n=1 median=243.115246ms nearest-rank-p95=243.115246ms raw=[243.115246ms]
+=== RUN   TestReviewPerformanceFullOracle/clock-only
+=== RUN   TestReviewPerformanceFullOracle/clock-only/sample-00
+    review_performance_baseline_test.go:325: capture path=0 sample=0 elapsed=309.42879ms reusableRows=36 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:325: capture path=1 sample=0 elapsed=329.467209ms reusableRows=36 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/clock-only/sample-00/publish-0
+    review_performance_baseline_test.go:359: full reconcile path=0 sample=0 elapsed=920.753543ms pairDays=12 allocatedBytes=3605904 allocations=43134 sql queries=109 returnedRows=376 Query-to-Rows.Close=737.431587ms execs=53 writeStatements=53 rowsAffected=41 driverExecTime=121.80292ms prepares=2 prepareTime=3.025665ms
+=== RUN   TestReviewPerformanceFullOracle/clock-only/sample-00/publish-1
+    review_performance_baseline_test.go:359: full reconcile path=1 sample=0 elapsed=606.789364ms pairDays=12 allocatedBytes=3364880 allocations=43226 sql queries=109 returnedRows=376 Query-to-Rows.Close=470.401045ms execs=53 writeStatements=53 rowsAffected=41 driverExecTime=99.808291ms prepares=2 prepareTime=2.280172ms
+=== NAME  TestReviewPerformanceFullOracle/clock-only
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=clock-only path=0 n=1 median=920.753543ms nearest-rank-p95=920.753543ms raw=[920.753543ms]
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=clock-only path=1 n=1 median=606.789364ms nearest-rank-p95=606.789364ms raw=[606.789364ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=clock-only path=0 n=1 median=309.42879ms nearest-rank-p95=309.42879ms raw=[309.42879ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=clock-only path=1 n=1 median=329.467209ms nearest-rank-p95=329.467209ms raw=[329.467209ms]
+=== RUN   TestReviewPerformanceFullOracle/append
+=== RUN   TestReviewPerformanceFullOracle/append/sample-00
+    review_performance_baseline_test.go:325: capture path=0 sample=0 elapsed=248.014771ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:325: capture path=1 sample=0 elapsed=287.692401ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/append/sample-00/publish-0
+    review_performance_baseline_test.go:359: full reconcile path=0 sample=0 elapsed=730.337557ms pairDays=132 allocatedBytes=8933088 allocations=78076 sql queries=105 returnedRows=354 Query-to-Rows.Close=415.88538ms execs=293 writeStatements=293 rowsAffected=44 driverExecTime=203.76827ms prepares=2 prepareTime=2.412507ms
+=== RUN   TestReviewPerformanceFullOracle/append/sample-00/publish-1
+    review_performance_baseline_test.go:359: full reconcile path=1 sample=0 elapsed=727.686243ms pairDays=132 allocatedBytes=8952048 allocations=78328 sql queries=105 returnedRows=354 Query-to-Rows.Close=411.99449ms execs=293 writeStatements=293 rowsAffected=44 driverExecTime=205.278007ms prepares=2 prepareTime=2.444556ms
+=== NAME  TestReviewPerformanceFullOracle/append
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=append path=0 n=1 median=730.337557ms nearest-rank-p95=730.337557ms raw=[730.337557ms]
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=append path=1 n=1 median=727.686243ms nearest-rank-p95=727.686243ms raw=[727.686243ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=append path=0 n=1 median=248.014771ms nearest-rank-p95=248.014771ms raw=[248.014771ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=append path=1 n=1 median=287.692401ms nearest-rank-p95=287.692401ms raw=[287.692401ms]
+=== RUN   TestReviewPerformanceFullOracle/correction
+=== RUN   TestReviewPerformanceFullOracle/correction/sample-00
+    review_performance_baseline_test.go:325: capture path=0 sample=0 elapsed=186.717082ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:325: capture path=1 sample=0 elapsed=325.6939ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/correction/sample-00/publish-0
+    review_performance_baseline_test.go:359: full reconcile path=0 sample=0 elapsed=727.348241ms pairDays=120 allocatedBytes=8306640 allocations=72209 sql queries=101 returnedRows=336 Query-to-Rows.Close=400.106468ms execs=265 writeStatements=265 rowsAffected=12 driverExecTime=196.973506ms prepares=2 prepareTime=8.469965ms
+=== RUN   TestReviewPerformanceFullOracle/correction/sample-00/publish-1
+    review_performance_baseline_test.go:359: full reconcile path=1 sample=0 elapsed=683.544168ms pairDays=120 allocatedBytes=8270352 allocations=71975 sql queries=101 returnedRows=336 Query-to-Rows.Close=392.718051ms execs=265 writeStatements=265 rowsAffected=12 driverExecTime=183.240706ms prepares=2 prepareTime=2.437655ms
+=== NAME  TestReviewPerformanceFullOracle/correction
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=correction path=0 n=1 median=727.348241ms nearest-rank-p95=727.348241ms raw=[727.348241ms]
+    review_performance_baseline_test.go:370: full reconcile distribution scenario=correction path=1 n=1 median=683.544168ms nearest-rank-p95=683.544168ms raw=[683.544168ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=correction path=0 n=1 median=186.717082ms nearest-rank-p95=186.717082ms raw=[186.717082ms]
+    review_performance_baseline_test.go:373: capture distribution scenario=correction path=1 n=1 median=325.6939ms nearest-rank-p95=325.6939ms raw=[325.6939ms]
+=== NAME  TestReviewPerformanceFullOracle
+    review_performance_baseline_test.go:85: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	   85984 kB
+--- PASS: TestReviewPerformanceFullOracle (29.29s)
+    --- PASS: TestReviewPerformanceFullOracle/no-op (5.95s)
+        --- PASS: TestReviewPerformanceFullOracle/no-op/sample-00 (5.94s)
+            --- PASS: TestReviewPerformanceFullOracle/no-op/sample-00/publish-0 (2.09s)
+            --- PASS: TestReviewPerformanceFullOracle/no-op/sample-00/publish-1 (2.05s)
+    --- PASS: TestReviewPerformanceFullOracle/clock-only (6.52s)
+        --- PASS: TestReviewPerformanceFullOracle/clock-only/sample-00 (6.52s)
+            --- PASS: TestReviewPerformanceFullOracle/clock-only/sample-00/publish-0 (2.43s)
+            --- PASS: TestReviewPerformanceFullOracle/clock-only/sample-00/publish-1 (1.86s)
+    --- PASS: TestReviewPerformanceFullOracle/append (5.88s)
+        --- PASS: TestReviewPerformanceFullOracle/append/sample-00 (5.88s)
+            --- PASS: TestReviewPerformanceFullOracle/append/sample-00/publish-0 (2.00s)
+            --- PASS: TestReviewPerformanceFullOracle/append/sample-00/publish-1 (1.96s)
+    --- PASS: TestReviewPerformanceFullOracle/correction (6.60s)
+        --- PASS: TestReviewPerformanceFullOracle/correction/sample-00 (6.60s)
+            --- PASS: TestReviewPerformanceFullOracle/correction/sample-00/publish-0 (2.22s)
+            --- PASS: TestReviewPerformanceFullOracle/correction/sample-00/publish-1 (1.97s)
+=== RUN   TestReviewPerfDurableRowsPreserveExistingEventIdentity
+--- PASS: TestReviewPerfDurableRowsPreserveExistingEventIdentity (2.79s)
+=== RUN   TestReviewWindowGapFallsBackToFullOracle
+--- PASS: TestReviewWindowGapFallsBackToFullOracle (1.85s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	38.033s

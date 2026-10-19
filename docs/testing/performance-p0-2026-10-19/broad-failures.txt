@@ -1,0 +1,40 @@
+Full ordinary Go suite:
+command: go test ./...
+exit: 1
+
+Package gtk4 was not found in the pkg-config search path.
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package glib-2.0 was not found in the pkg-config search path.
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'gobject-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'libsoup-3.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+FAIL	github.com/waltwang/nestworth-go/cmd/nestworth [build failed]
+--- FAIL: TestHistoricalOverviewDenseEntrySingleAndComparison (50.32s)
+    --- FAIL: TestHistoricalOverviewDenseEntrySingleAndComparison/series-endpoint-equivalence (10.00s)
+        historical_overview_dense_test.go:79: local trend exceeded its computation deadline
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	174.053s
+FAIL
+
+Broad race attempt:
+command: go test -race -count=1 -timeout 10m -p 1 -parallel 4 ./...
+application timeout preserved; remaining broad attempt stopped after known failure (SIGTERM, exit -15)
+
+FAIL	github.com/waltwang/nestworth-go/cmd/nestworth [build failed]
+panic: test timed out after 10m0s
+	running tests:
+		TestHistoricalSeriesDefaultFactLimitBeforeHydration (34s)
+
+FAIL	github.com/waltwang/nestworth-go/internal/application	600.066s
+
+No WARNING: DATA RACE report observed before the interrupted remainder.

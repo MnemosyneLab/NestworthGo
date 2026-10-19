@@ -356,7 +356,7 @@ func (s *reviewSQLStats) snapshot(limit int) reviewSQLSnapshot {
 }
 
 func (s reviewSQLSnapshot) summary() string {
-	return fmt.Sprintf("sql queries=%d rowsRead=%d driverQueryTime=%s execs=%d writeStatements=%d rowsAffected=%d driverExecTime=%s prepares=%d prepareTime=%s", s.queries, s.rows, s.queryTime, s.execs, s.writes, s.affected, s.execTime, s.prepares, s.prepareTime)
+	return fmt.Sprintf("sql queries=%d returnedRows=%d Query-to-Rows.Close=%s execs=%d writeStatements=%d rowsAffected=%d driverExecTime=%s prepares=%d prepareTime=%s", s.queries, s.rows, s.queryTime, s.execs, s.writes, s.affected, s.execTime, s.prepares, s.prepareTime)
 }
 
 func (s reviewSQLSnapshot) slowest() string {

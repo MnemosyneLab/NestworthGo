@@ -26,7 +26,11 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	if os.Getenv("NW_REVIEW_PERF_EVIDENCE") != "1" {
 		t.Skip("set NW_REVIEW_PERF_EVIDENCE=1 to run full-scale SQLite evidence")
 	}
+	defer logReviewPerfProcessMemory(t)
 	mode := os.Getenv("NW_REVIEW_PERF_MODE")
+	if err := validateReviewPerfMode(mode); err != nil {
+		t.Fatal(err)
+	}
 	historyDays := 365
 	if mode == "warm" || mode == "stages" || mode == "warm-marketdata" || mode == "warm-correction" || mode == "stages-marketdata" || mode == "stages-correction" || mode == "profile" {
 		historyDays = 30
@@ -56,7 +60,7 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	}
 	if mode == "stages" || mode == "stages365" {
 		*fixture.now = fixture.now.AddDate(0, 0, 1)
-		repository := sqlite.NewRepository(fixture.db)
+		repository := reviewPerfRepository(t, fixture.db)
 		metrics.reset()
 		started = time.Now()
 		capture, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
@@ -131,7 +135,7 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		} else if err := correctReviewPerfHistoricalQuote(ctx, fixture, 0); err != nil {
 			t.Fatalf("correct synthetic historical quote: %v", err)
 		}
-		repository := sqlite.NewRepository(fixture.db)
+		repository := reviewPerfRepository(t, fixture.db)
 		metrics.reset()
 		started = time.Now()
 		capture, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
@@ -309,7 +313,7 @@ WHERE k.slot_rank<=? ORDER BY k.instrument_id,k.on_date`
 func profileReviewReusableEvidence(t *testing.T, fixture reviewFullPipelineFixture, metrics *reviewSQLStats) {
 	t.Helper()
 	ctx := context.Background()
-	repository := sqlite.NewRepository(fixture.db)
+	repository := reviewPerfRepository(t, fixture.db)
 	metrics.reset()
 	started := time.Now()
 	beforeCapture, err := repository.CaptureReviewProjection(ctx, fixture.householdID, *fixture.now)
@@ -568,8 +572,49 @@ type reviewFullPipelineFixture struct {
 	instruments []domain.Instrument
 }
 
+type reviewPerfConfig struct {
+	Accounts, Instruments, Holdings, Rules, HistoryDays, Quotes, CashActivities, MixedActivities int
+	MixedKind                                                                                    string
+}
+
+func referenceReviewPerfConfig(days int) reviewPerfConfig {
+	return reviewPerfConfig{Accounts: 1, Instruments: 100, Holdings: 100, Rules: 20, HistoryDays: days, Quotes: 100000, CashActivities: 50000}
+}
+
+func (c reviewPerfConfig) validate() error {
+	if c.Accounts < 1 || c.Instruments < 1 || c.Rules < 1 || c.HistoryDays < 1 || c.Quotes < 0 || c.CashActivities < 0 || c.MixedActivities < 0 || c.Holdings < 0 || c.Holdings > c.Accounts*c.Instruments || (c.MixedActivities > 0 && (c.MixedKind == "" || c.MixedKind == "mixed" || c.MixedKind == "transfer") && c.Accounts < 2) {
+		return fmt.Errorf("invalid synthetic review fixture: %+v", c)
+	}
+	switch c.MixedKind {
+	case "", "mixed", "trade", "transfer", "cost":
+	default:
+		return fmt.Errorf("unknown synthetic activity kind %q", c.MixedKind)
+	}
+	return nil
+}
+
+func validateReviewPerfMode(mode string) error {
+	switch mode {
+	case "", "cold", "warm", "warm365", "warm-marketdata", "warm-correction", "stages", "stages365", "stages-marketdata", "stages-correction", "profile", "profile365":
+		return nil
+	default:
+		return fmt.Errorf("unknown NW_REVIEW_PERF_MODE %q", mode)
+	}
+}
+
 func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipelineFixture {
+	return newReviewPerfFixture(t, referenceReviewPerfConfig(historyDays))
+}
+
+func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipelineFixture {
 	t.Helper()
+	if err := config.validate(); err != nil {
+		t.Fatal(err)
+	}
+	historyDays := config.HistoryDays
+	if config.Holdings == 0 {
+		config.Holdings = config.Instruments
+	}
 	ctx := context.Background()
 	start := time.Date(2025, 10, 17, 12, 0, 0, 0, time.UTC)
 	now := start
@@ -579,7 +624,7 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := NewService(sqlite.NewRepository(db))
+	service := NewService(reviewPerfRepository(t, db))
 	service.setClock(func() time.Time { return now })
 	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic review pipeline", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)
@@ -588,14 +633,18 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Synthetic broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
-	if err != nil {
-		t.Fatal(err)
+	accounts := make([]domain.AccountID, config.Accounts)
+	for index := range accounts {
+		account, err := service.CreateAccount(ctx, AccountInput{Name: fmt.Sprintf("Synthetic broker %03d", index), AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		accounts[index] = account.Account.ID
 	}
 	currencies := []string{"CNY", "USD", "EUR", "JPY", "SGD"}
 	types := []domain.InstrumentType{domain.InstrumentStock, domain.InstrumentMutualFund, domain.InstrumentCrypto, domain.InstrumentBond}
-	instruments := make([]domain.Instrument, 100)
-	costs := make(map[domain.HoldingID]string, 100)
+	instruments := make([]domain.Instrument, config.Instruments)
+	costs := make(map[domain.HoldingID]string, config.Instruments)
 	for index := range instruments {
 		currency := currencies[index%len(currencies)]
 		kind := types[index%len(types)]
@@ -607,10 +656,15 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 		if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", start.Format(time.RFC3339), false); err != nil {
 			t.Fatalf("add synthetic unit-cost seed quote %d: %v", index, err)
 		}
-		holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+	}
+	holdings := make([]domain.Holding, config.Holdings)
+	for index := range holdings {
+		instrument := instruments[index%len(instruments)]
+		holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[(index%len(instruments)+index/len(instruments))%len(accounts)].String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
 		if err != nil {
-			t.Fatalf("create holding %d: %v", index, err)
+			t.Fatal(err)
 		}
+		holdings[index] = holding
 		costs[holding.ID] = "10"
 	}
 	for _, currency := range currencies[1:] {
@@ -622,11 +676,14 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 		t.Fatal(err)
 	}
 
-	if err := seedReviewFullPipelineFacts(ctx, db, bootstrap.Household.ID, instruments, account.Account.ID, start, historyDays); err != nil {
+	if err := seedReviewFullPipelineFacts(ctx, db, bootstrap.Household.ID, instruments, accounts[0], start, historyDays, config.Quotes, config.CashActivities); err != nil {
 		t.Fatalf("seed synthetic source facts: %v", err)
 	}
 	now = start.AddDate(0, 0, historyDays)
-	for index := 0; index < 20; index++ {
+	if config.MixedActivities > 0 {
+		seedReviewPerfMixedActivities(t, service, bootstrap.Household.ID, accounts, holdings, instruments, start, config)
+	}
+	for index := 0; index < config.Rules; index++ {
 		spec := syntheticHistoricalReviewSpec()
 		spec.Schedule.Timezone = []string{"UTC", "America/Los_Angeles", "Asia/Shanghai", "Europe/London"}[index%4]
 		spec.Target = domain.ReviewRuleTarget{Kind: "all_current"}
@@ -762,7 +819,7 @@ func logReviewFullPipelineSourceCounts(t *testing.T, fixture reviewFullPipelineF
 	t.Logf("synthetic source rows: holdings=100 rules=20 quoteRows=%d activities=%d fxRows=%d historyDays=%d", quotes, activities, fx, historyDays)
 }
 
-func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID domain.HouseholdID, instruments []domain.Instrument, accountID domain.AccountID, start time.Time, historyDays int) error {
+func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID domain.HouseholdID, instruments []domain.Instrument, accountID domain.AccountID, start time.Time, historyDays, quoteCount, activityCount int) error {
 	tx, err := db.SQL.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -775,7 +832,7 @@ func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID
 	defer quoteStatement.Close()
 	quoteIndex := 0
 	quoteSlots := len(instruments) * historyDays
-	quotesPerSlot, quoteRemainder := 100_000/quoteSlots, 100_000%quoteSlots
+	quotesPerSlot, quoteRemainder := quoteCount/quoteSlots, quoteCount%quoteSlots
 	for day := 0; day < historyDays; day++ {
 		date := start.AddDate(0, 0, day)
 		for instrumentIndex, instrument := range instruments {
@@ -802,8 +859,8 @@ func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID
 			}
 		}
 	}
-	if quoteIndex != 100_000 {
-		return fmt.Errorf("seeded %d quote facts, want 100000", quoteIndex)
+	if quoteIndex != quoteCount {
+		return fmt.Errorf("seeded %d quote facts, want %d", quoteIndex, quoteCount)
 	}
 	fxStatement, err := tx.PrepareContext(ctx, `INSERT INTO fx_quotes(id,household_id,base_currency,quote_currency,rate,source_kind,source_key,quoted_at,created_at,observation_kind,effective_date,fetched_at,value_effective_at,timestamp_basis,revision) VALUES(?,?,?,'CNY',?,'manual','manual',?,?, 'daily_reference',?,?,?,'date_label',1)`)
 	if err != nil {
@@ -837,7 +894,7 @@ func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID
 		return err
 	}
 	defer valueStatement.Close()
-	for index := 0; index < 50_000; index++ {
+	for index := 0; index < activityCount; index++ {
 		when := start.AddDate(0, 0, index%historyDays).Add(time.Duration(index) * time.Microsecond)
 		at := formatReviewPerfTime(when)
 		activityID := fmt.Sprintf("00000000-0000-4000-8002-%012x", index+1)
@@ -869,4 +926,61 @@ func durationPercentile(values []time.Duration, percentile float64) time.Duratio
 		index = len(ordered) - 1
 	}
 	return ordered[index]
+}
+
+// Public financial commands keep effective replay/cost semantics in the mixed
+// workload. Fixture construction is excluded from all reported query timings.
+// Cash-only bulk rows remain a separate axis, never a proxy for trade replay.
+func seedReviewPerfMixedActivities(t *testing.T, s *Service, household domain.HouseholdID, accounts []domain.AccountID, holdings []domain.Holding, instruments []domain.Instrument, start time.Time, c reviewPerfConfig) {
+	t.Helper()
+	for _, account := range accounts {
+		if _, err := s.RecordChange(t.Context(), domain.MoneyAddedInput{HouseholdID: household, AccountID: account, Amount: mustMoney(t, "1000000", "CNY"), Reason: domain.ReasonContribution, EffectiveAt: start.Add(time.Nanosecond)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for index := 0; index < c.MixedActivities; index++ {
+		at := start.AddDate(0, 0, index*c.HistoryDays/c.MixedActivities).Add(time.Hour + time.Duration(index)*time.Nanosecond)
+		var change any
+		kind := index % 4
+		switch c.MixedKind {
+		case "trade":
+			kind = index % 2
+		case "transfer":
+			kind = 2
+		case "cost":
+			kind = 3
+		}
+		switch kind {
+		case 0, 1:
+			side := domain.TradeBuy
+			if kind == 1 {
+				side = domain.TradeSell
+			}
+			change = domain.TradeInput{HouseholdID: household, Side: side, SettlementAccountID: holdings[0].AccountID, HoldingID: holdings[0].ID, InstrumentID: instruments[0].ID, Quantity: mustQuantity(t, "0.001"), Gross: mustMoney(t, "0.10", "CNY"), EffectiveAt: at}
+		case 2:
+			change = domain.CashTransferInput{HouseholdID: household, FromAccountID: accounts[0], ToAccountID: accounts[1], Sent: mustMoney(t, "1", "CNY"), Received: mustMoney(t, "1", "CNY"), EffectiveAt: at}
+		case 3:
+			change = domain.PositionCostAdjustmentInput{HouseholdID: household, HoldingID: holdings[0].ID, UnitCost: reconciliationUnitCost(t, "10.000001"), EffectiveAt: at}
+		}
+		if _, err := s.RecordChange(t.Context(), change); err != nil {
+			t.Fatalf("mixed activity %d: %v", index, err)
+		}
+	}
+}
+
+// Opt-in evidence measures the candidate by default; production repositories
+// keep the baseline until rollout review. Explicit values make reproduction
+// and rollback independent of a process-global production flag.
+func reviewPerfRepository(t *testing.T, db *sqlite.DB) *sqlite.Repository {
+	t.Helper()
+	r := sqlite.NewRepository(db)
+	switch os.Getenv("NW_REVIEW_PERF_WINDOW") {
+	case "", "bounded":
+		return r.WithBoundedReviewWindow()
+	case "baseline":
+		return r.WithReviewWindowBaseline()
+	default:
+		t.Fatal("unknown NW_REVIEW_PERF_WINDOW")
+		return nil
+	}
 }
