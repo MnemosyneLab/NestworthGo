@@ -592,3 +592,28 @@ func TestReviewNoChangeResponseLossAndSuppressionExpiry(t *testing.T) {
 	}
 	noChangeFullOracle(t, f)
 }
+
+func TestReviewNoChangeInvalidatesOutstandingFullPublication(t *testing.T) {
+	f, r := noChangeFixture(t)
+	capture := temporalCapture(t, f)
+	stage, err := PrepareReviewPublication(t.Context(), capture, *f.now, f.s.FXProviderKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := noChangeProjectionRows(t, f.db)
+	*f.now = f.now.Add(time.Nanosecond)
+	if _, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	var certificate string
+	if err := f.db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&certificate); err != nil {
+		t.Fatal(err)
+	}
+	// Financial/control numeric revisions did not change. The certificate digest
+	// must still reject an older full stage instead of overwriting the new as-of.
+	temporalConflict(t, r.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now }))
+	var after string
+	if err := f.db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&after); err != nil || after != certificate || !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
+		t.Fatal("older full stage overwrote confirmation", err)
+	}
+}
