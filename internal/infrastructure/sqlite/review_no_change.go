@@ -34,6 +34,10 @@ func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.Househ
 	if !r.ReviewNoChangeEnabled() {
 		return empty, false, nil
 	}
+	// Any failed confirmation must rebuild all dates before recertification.
+	// This also covers early exits (missing/expired proof, metadata changes)
+	// that occur before the persisted count manifest can be compared.
+	empty.RequireFullRecompute = true
 	if id == "" || captureNow.IsZero() || clock == nil || providerKey == nil {
 		return empty, false, &domain.Error{Code: domain.ErrValidation, Message: "complete no-change confirmation arguments are required"}
 	}
@@ -71,7 +75,7 @@ func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.Househ
 	if err != nil {
 		return empty, false, err
 	}
-	if !certificate.Covers(captureNow) || certificate.ClockEpoch != epoch || certificate.Source == nil || certificate.NoChangeReviewFingerprint == "" || certificate.NoChangeFXProviderKey != providerKey() {
+	if !certificate.Covers(captureNow) || certificate.NoChangeCompletenessVersion != domain.ReviewNoChangeCompletenessVersion || certificate.ClockEpoch != epoch || certificate.Source == nil || certificate.NoChangeReviewFingerprint == "" || certificate.NoChangeFXProviderKey != providerKey() {
 		return empty, false, nil
 	}
 	var resolver string

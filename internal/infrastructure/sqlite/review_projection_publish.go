@@ -164,7 +164,14 @@ func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publi
 	if _, err := tx.ExecContext(ctx, `UPDATE investment_review_control SET input_generation=?,projection_status=?,published_on=?,published_input_fingerprint=? WHERE household_id=? AND (input_generation<>? OR projection_status<>? OR published_on IS NOT ? OR published_input_fingerprint IS NOT ?)`, generation, status, nullableEmpty(publishedOn), actualFingerprint, capture.HouseholdID.String(), generation, status, nullableEmpty(publishedOn), actualFingerprint); err != nil {
 		return err
 	}
-	if r.ReviewNoChangeEnabled() {
+	// Never bless an incremental C2 stage handed to an opt-in publisher. A
+	// fresh capture has no C3 fields; explicitly clear them for direct callers.
+	publishedTemporal.NoChangeCompletenessVersion = ""
+	publishedTemporal.NoChangeProjectionCounts = nil
+	publishedTemporal.NoChangeReviewFingerprint = ""
+	publishedTemporal.NoChangeFXProviderKey = ""
+	if r.ReviewNoChangeEnabled() && len(capture.ReusableDailyEvidence) == 0 {
+		publishedTemporal.NoChangeCompletenessVersion = domain.ReviewNoChangeCompletenessVersion
 		publishedTemporal.NoChangeProjectionCounts, err = noChangeProjectionCounts(ctx, tx, capture.HouseholdID)
 		if err != nil {
 			return err

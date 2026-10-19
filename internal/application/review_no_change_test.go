@@ -646,3 +646,97 @@ func TestReviewNoChangeDamagedTrackingRequiresFullRebuild(t *testing.T) {
 		})
 	}
 }
+
+func TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow(t *testing.T) {
+	for _, scenario := range []string{"c2-opt-in", "missing-proof", "missing-counts", "expired-proof", "changed-metadata", "legacy-manifest", "unknown-manifest", "direct-capture", "cross-repository-publication"} {
+		t.Run(scenario, func(t *testing.T) {
+			f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+			f.day(t, "2026-10-12")
+			spec := syntheticHistoricalReviewSpec()
+			spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 3, MinHits: 2}
+			saveSyntheticReviewRule(t, f, "Synthetic bootstrap", spec)
+			c2First := scenario == "c2-opt-in" || scenario == "direct-capture" || scenario == "cross-repository-publication"
+			if !c2First {
+				f.s, _ = noChangeService(f)
+			}
+			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if c2First {
+				f.s, _ = noChangeService(f)
+			}
+			r := f.s.repository.(*noChangeTestRepository)
+			// Ten newer slots survive; Oct1 is strictly outside the rolling3 window.
+			for _, table := range []string{"investment_review_daily_inputs", "investment_review_daily_results"} {
+				deleted, err := f.db.SQL.Exec(`DELETE FROM ` + table + ` WHERE on_date='2026-10-01'`)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if n, err := deleted.RowsAffected(); err != nil || n != 1 {
+					t.Fatal("fixture did not delete old day", n, err)
+				}
+			}
+			switch scenario {
+			case "missing-proof":
+				if _, err := f.db.SQL.Exec(`UPDATE review_temporal_checkpoints SET certificate_json=json_remove(certificate_json,'$.NoChangeReviewFingerprint')`); err != nil {
+					t.Fatal(err)
+				}
+			case "missing-counts":
+				if _, err := f.db.SQL.Exec(`UPDATE review_temporal_checkpoints SET certificate_json=json_remove(certificate_json,'$.NoChangeProjectionCounts')`); err != nil {
+					t.Fatal(err)
+				}
+			case "expired-proof":
+				*f.now = f.now.AddDate(0, 0, 1)
+			case "changed-metadata":
+				if _, err := f.db.SQL.Exec(`UPDATE investment_review_control SET config_revision=config_revision+1`); err != nil {
+					t.Fatal(err)
+				}
+			case "legacy-manifest", "unknown-manifest":
+				// Model an old bootstrap that already counted the shortened tables.
+				version := ""
+				if scenario == "unknown-manifest" {
+					version = "future-unreviewed-version"
+				}
+				if _, err := f.db.SQL.Exec(`UPDATE review_temporal_checkpoints SET certificate_json=json_set(certificate_json,'$.NoChangeProjectionCounts[0]',10,'$.NoChangeProjectionCounts[1]',10,'$.NoChangeCompletenessVersion',?)`, version); err != nil {
+					t.Fatal(err)
+				}
+			case "direct-capture":
+				capture, err := r.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+				if err != nil || !capture.TemporalFullRecompute || len(capture.ReusableDailyEvidence) != 0 {
+					t.Fatal("direct candidate capture trusted partial C2 history", err)
+				}
+			case "cross-repository-publication":
+				capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+				if err != nil || len(capture.ReusableDailyEvidence) == 0 {
+					t.Fatal("fixture did not capture a C2 rolling window", err)
+				}
+				stage, err := PrepareReviewPublication(t.Context(), capture, *f.now, f.s.FXProviderKey())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := r.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now }); err != nil {
+					t.Fatal(err)
+				}
+				confirmation, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+				if err != nil || ok || !confirmation.RequireFullRecompute {
+					t.Fatal("incremental C2 stage minted completeness proof", confirmation, ok, err)
+				}
+			}
+			result, err := f.s.ReconcileInvestmentReviewsV2(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var restored int
+			if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_daily_inputs WHERE on_date='2026-10-01'`).Scan(&restored); err != nil {
+				t.Fatal(err)
+			}
+			*f.now = f.now.Add(time.Nanosecond)
+			_, confirmed, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+			t.Logf("fallback emitted=%d oldDayRows=%d subsequentConfirmation=%t", result.DayCount, restored, confirmed)
+			if restored != 1 || err != nil || !confirmed {
+				t.Errorf("bootstrap certified incomplete history: oldDayRows=%d confirmed=%t err=%v", restored, confirmed, err)
+			}
+			noChangeFullOracle(t, f)
+		})
+	}
+}

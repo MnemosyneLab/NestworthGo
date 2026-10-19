@@ -1,5 +1,9 @@
 package domain
 
+// Only a publication prepared without reusable daily evidence can establish
+// this version. Earlier C3 manifests could have certified incomplete history.
+const ReviewNoChangeCompletenessVersion = "full-review-projection-v1"
+
 // Internal confirmation metadata; financial evidence and lifecycle rows are
 // retained verbatim. No new wire fields or financial algorithm are introduced.
 type ReviewNoChangeResult struct {
