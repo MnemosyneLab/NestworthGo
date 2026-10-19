@@ -152,6 +152,7 @@ describe("i18next locale coverage", () => {
     "insights.waterfallIncomplete",
     "insights.residualIssues",
     "insights.historyRangeWider",
+    "insights.historyContributionFilterWider",
   ];
 
   it("the ported translation catalog has identical keys across en/zh-CN/zh-TW", () => {

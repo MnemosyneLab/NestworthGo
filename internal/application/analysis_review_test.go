@@ -556,24 +556,43 @@ func TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions(t *
 	}
 }
 
-func TestRealizedScopeNeverWidensCurrencyOrAssetClass(t *testing.T) {
+func TestRealizedSelectorIntersectsScopeAndFilters(t *testing.T) {
 	t.Parallel()
 	query := testReturnQuery("2026-08-01", "2026-08-31")
-	for _, kind := range []domain.ScopeKind{domain.ScopeCurrency, domain.ScopeAssetClass} {
-		query.Scope = domain.AnalysisScope{Kind: kind, ID: "USD"}
-		if _, ok := realizedScope(query); ok {
-			t.Fatalf("%s silently widened to household", kind)
-		}
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeCurrency, ID: "USD"}
+	query.Filters.Currency = func() *domain.CurrencyCode { value := domain.CurrencyCode("USD"); return &value }()
+	selector, ok := realizedSelector(query)
+	if !ok || selector.Currency == nil || *selector.Currency != "USD" || selector.NoMatch {
+		t.Fatalf("currency scope+filter = %+v, %v", selector, ok)
 	}
-	query.Scope = domain.AnalysisScope{Kind: domain.ScopeHousehold}
-	if _, ok := realizedScope(query); !ok {
-		t.Fatal("household scope rejected")
+	query.Filters.Currency = func() *domain.CurrencyCode { value := domain.CurrencyCode("EUR"); return &value }()
+	selector, ok = realizedSelector(query)
+	if !ok || !selector.NoMatch {
+		t.Fatalf("contradictory currency selector = %+v, %v", selector, ok)
 	}
+	query = testReturnQuery("2026-08-01", "2026-08-31")
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeAssetClass, ID: "ETF"}
+	query.Filters.AssetClass = "etf"
+	selector, ok = realizedSelector(query)
+	if !ok || selector.AssetClass != "etf" || selector.NoMatch {
+		t.Fatalf("asset-class scope+filter = %+v, %v", selector, ok)
+	}
+	query.Filters.AssetClass = "stock"
+	selector, ok = realizedSelector(query)
+	if !ok || !selector.NoMatch {
+		t.Fatalf("contradictory asset-class selector = %+v, %v", selector, ok)
+	}
+	query = testReturnQuery("2026-08-01", "2026-08-31")
 	account, instrument := domain.NewAccountID(), domain.NewInstrumentID()
 	query.Scope = domain.AnalysisScope{Kind: domain.ScopeAccount, ID: account.String()}
 	query.Filters.InstrumentID = &instrument
-	scope, ok := realizedScope(query)
-	if !ok || scope.AccountID == nil || *scope.AccountID != account || scope.InstrumentID == nil || *scope.InstrumentID != instrument {
-		t.Fatalf("supported combined scope changed: %+v, %v", scope, ok)
+	selector, ok = realizedSelector(query)
+	if !ok || selector.AccountID == nil || *selector.AccountID != account || selector.InstrumentID == nil || *selector.InstrumentID != instrument {
+		t.Fatalf("supported combined scope changed: %+v, %v", selector, ok)
+	}
+	member := domain.NewMemberID()
+	query.Filters.MemberID = &member
+	if _, ok := realizedSelector(query); ok {
+		t.Fatal("member filter unexpectedly supported")
 	}
 }

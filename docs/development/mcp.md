@@ -578,11 +578,19 @@ records. Preserve nullable amounts, availability and coverage fields. The
 existing analysis backend reports unrealized contribution as unavailable; MCP
 preserves that limitation rather than inventing an attribution. Analysis reads
 can materialize snapshots and invalidate an outstanding preview, so query first.
-Realized contribution supports household, account, and instrument scopes with
-account/instrument filters. Currency and asset-class scopes, and currency,
-asset-class, or member filters, return `unavailable` with no rows; they never
-widen to household gains. Member is not a valid analysis scope. The detail tool
-returns the same unavailable state for those supported queries.
+Realized contribution supports household, account, currency, instrument, and
+asset-class scopes, plus account, instrument, currency, and asset-class filters.
+Scope and filters intersect (AND), including when they constrain the same
+dimension; contradictions return an available empty result. Currency filters
+match each sale's native event denomination, not account default or output
+currency. Asset-class filters match the instrument's current `Type`, as in the
+analysis universe; historical sales follow current metadata if that type is
+changed. Output stays in household base currency even when valuation is
+requested as native. List/detail share the filtered projection, and an excluded
+row key is not found. Realized grouping remains instrument or account only.
+Member filters remain explicitly unavailable, and member is not a valid
+analysis scope. History hints identify related activities and can be broader
+than an exact currency/class-filtered breakdown.
 
 ## Acceptance criteria
 

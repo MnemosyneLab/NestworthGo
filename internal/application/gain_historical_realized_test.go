@@ -156,6 +156,72 @@ func (f *gainReadModelFixture) service() *GainService {
 	return NewGainService(fixedGainSnapshotRepository{inputs: f.inputs}, func() time.Time { return f.now })
 }
 
+func TestRealizedSelectorFiltersBeforeFXAndUsesCurrentInstrumentType(t *testing.T) {
+	t.Parallel()
+	f := newGainReadModelFixture(t, "CNY")
+	account := f.addAccount("Primary")
+	usdSale := f.sale("USD", "2026-08-02", 10, "1", "11")
+	f.addHolding(account, "Selected USD holding", "USD", "1", "1", "", usdSale)
+	eurSale := f.sale("EUR", "2026-08-02", 11, "1", "2")
+	f.addHolding(account, "Excluded EUR holding", "EUR", "1", "1", "", eurSale)
+	f.addFX("USD", "CNY", "6", "2026-08-02T09:00:00Z")
+	// Historical events follow today's instrument classification, matching
+	// analysisUniverse rather than inventing a historical taxonomy.
+	f.inputs.Portfolio.Instruments[0].Type = domain.InstrumentStock
+	service := f.service()
+	usd, eur := domain.CurrencyCode("USD"), domain.CurrencyCode("EUR")
+	selected, err := service.RealizedGainSelectedInRange(context.Background(), domain.RealizedGainSelector{Currency: &usd}, "2026-08-02", "2026-08-02")
+	if err != nil || !selected.Available {
+		t.Fatalf("USD selection was poisoned by excluded missing-EUR FX: %+v err=%v", selected, err)
+	}
+	assertSignedGain(t, selected.Total, "60", "CNY")
+	missing, err := service.RealizedGainSelectedInRange(context.Background(), domain.RealizedGainSelector{Currency: &eur}, "2026-08-02", "2026-08-02")
+	if err != nil || missing.Available || missing.MissingReason == "" || len(missing.ByInstrument) != 1 || missing.ByInstrument[0].Available {
+		t.Fatalf("included missing-FX event should remain unavailable: %+v err=%v", missing, err)
+	}
+	stockClass := domain.RealizedGainSelector{Currency: &usd, AssetClass: "stock"}
+	classified, err := service.RealizedGainSelectedInRange(context.Background(), stockClass, "2026-08-02", "2026-08-02")
+	if err != nil || !classified.Available || len(classified.ByInstrument) != 1 {
+		t.Fatalf("current stock classification = %+v err=%v", classified, err)
+	}
+	etfClass := domain.RealizedGainSelector{Currency: &usd, AssetClass: "etf"}
+	oldClass, err := service.RealizedGainSelectedInRange(context.Background(), etfClass, "2026-08-02", "2026-08-02")
+	if err != nil || !oldClass.Available || len(oldClass.ByInstrument) != 0 {
+		t.Fatalf("historical sale retained stale ETF classification: %+v err=%v", oldClass, err)
+	}
+}
+
+func TestRealizedSelectorKeepsPreRangeTransferSourceOutsideAccountScope(t *testing.T) {
+	t.Parallel()
+	f := newGainReadModelFixture(t, "CNY")
+	sourceAccount, targetAccount := f.addAccount("Source"), f.addAccount("Target")
+	transferAt := time.Date(2026, 8, 2, 10, 0, 0, 0, time.UTC)
+	transferID := domain.NewActivityID()
+	transferOut := domain.CostBasisEvent{ActivityID: transferID, Kind: domain.CostBasisTransferOut, Quantity: mustQuantity(t, "1"), EffectiveAt: transferAt}
+	source := f.addHolding(sourceAccount, "Transferred holding", "USD", "1", "10", "", transferOut)
+	targetID := domain.NewHoldingID()
+	zero := mustQuantity(t, "0")
+	transferSourceID := source.ID
+	sale := f.sale("USD", "2026-08-03", 10, "1", "20")
+	targetEvents := []domain.CostBasisEvent{
+		{Kind: domain.CostBasisStartingPoint, Quantity: zero, EffectiveAt: f.inputs.Portfolio.Origin.StartedAt},
+		{ActivityID: transferID, Kind: domain.CostBasisTransferIn, Quantity: mustQuantity(t, "1"), SourceHoldingID: &transferSourceID, EffectiveAt: transferAt},
+		sale,
+	}
+	f.inputs.Portfolio.Holdings = append(f.inputs.Portfolio.Holdings, domain.Holding{ID: targetID, AccountID: targetAccount.ID, InstrumentID: source.InstrumentID, Quantity: zero})
+	f.inputs.CostEvents[targetID] = targetEvents
+	f.inputs.StartingCosts[targetID] = nil
+	f.addFX("USD", "CNY", "6", "2026-08-02T09:00:00Z")
+
+	selector := domain.RealizedGainSelector{AccountID: &targetAccount.ID, InstrumentID: &source.InstrumentID, Currency: ptrCurrency("USD"), AssetClass: "etf"}
+	selected, err := f.service().RealizedGainSelectedInRange(context.Background(), selector, "2026-08-03", "2026-08-03")
+	if err != nil || !selected.Available || selected.Total == nil || selected.Total.Amount != "60" || selected.Total.Currency != "CNY" {
+		t.Fatalf("target account realized sale = %+v err=%v, want CNY 60 using pre-range source cost 10", selected, err)
+	}
+}
+
+func ptrCurrency(value domain.CurrencyCode) *domain.CurrencyCode { return &value }
+
 func assertSignedGain(t *testing.T, got *domain.SignedMoneyView, amount string, currency domain.CurrencyCode) {
 	t.Helper()
 	if got == nil || got.Amount != amount || got.Currency != currency {

@@ -47,8 +47,8 @@ type PeriodAnalysisQuery struct {
 	Basis        string  `json:"basis,omitempty"`
 	IncludeCash  bool    `json:"includeCash,omitempty"`
 	AccountID    *string `json:"accountId,omitempty"`
-	Currency     *string `json:"currency,omitempty"`
-	AssetClass   string  `json:"assetClass,omitempty"`
+	Currency     *string `json:"currency,omitempty" jsonschema:"Currency filter. For realized contributions this matches the sell event's native denomination, not account default or output currency."`
+	AssetClass   string  `json:"assetClass,omitempty" jsonschema:"Asset-class filter. For realized contributions this matches the instrument's current Type metadata."`
 	InstrumentID *string `json:"instrumentId,omitempty"`
 	MemberID     *string `json:"memberId,omitempty"`
 }

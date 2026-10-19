@@ -333,8 +333,13 @@ does not store a reversed date range. Calendar month/year mode stays local to
 the mounted Return Analysis page.
 The contribution metric is part of the shared analysis state, so a retained
 page receiving a new navigation context updates both its selector and query.
-Realized contribution normalizes unsupported currency/asset-class grouping and
-rate sorting before either the query or controls consume the new metric.
+Realized contribution filters sale events by native event denomination and
+current instrument `Type` metadata. Scope and explicit filters intersect;
+contradictions return an available empty result. It groups only by instrument
+or account. Currency/class filtering does not add grouping modes, member
+filtering remains unsupported, and the household base currency remains the
+output currency regardless of requested valuation. History hints identify
+related activity and may be broader than a currency/class-filtered contribution.
 Clearing additional filters removes only those filters; restoring portfolio
 defaults also resets the scope, metric, valuation, cash choice and date range.
 
