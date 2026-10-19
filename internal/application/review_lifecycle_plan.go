@@ -100,6 +100,13 @@ func PlanReviewLifecycle(capture domain.ReviewProjectionCapture, rule domain.Rev
 	if reusable != nil && reusable.TriggeredOn > firstOn && capture.Control.PublishedFingerprint == capture.HistoricalFingerprint {
 		firstOn = reusable.TriggeredOn
 	}
+	if reusable != nil && reusable.TriggeredOn < firstOn {
+		// A same-day re-entry may have opened this episode using the prior
+		// closed day's votes. On a later day its trigger still precedes the
+		// epoch's opening civil date. Replay that established interval too;
+		// advancing the clock must not invalidate its identity or acknowledgement.
+		firstOn = reusable.TriggeredOn
+	}
 	// Re-evaluate the complete new condition over the old open interval.
 	// Only a proven policy F (or a different position epoch) can split it;
 	// conditionVersion alone is not an episode identity.

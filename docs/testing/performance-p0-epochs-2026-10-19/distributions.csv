@@ -1,0 +1,97 @@
+commit_phase,workload,measurement,scenario,path_0_baseline_1_candidate,n,nearest_rank_median_ms,nearest_rank_p95_ms
+before,small-r1,full reconcile,no-op,0,30,44.202435,62.050263
+before,small-r1,full reconcile,no-op,1,30,43.303894,54.506468
+before,small-r1,capture,no-op,0,30,20.279041,44.16007
+before,small-r1,capture,no-op,1,30,19.592676,58.416632
+before,small-r1,full reconcile,clock-only,0,30,47.412809,65.365649
+before,small-r1,full reconcile,clock-only,1,30,45.463998,63.303599
+before,small-r1,capture,clock-only,0,30,20.515927,35.274571
+before,small-r1,capture,clock-only,1,30,20.270735,35.100877
+before,small-r1,full reconcile,append,0,30,78.894175,138.122812
+before,small-r1,full reconcile,append,1,30,75.851398,122.460632
+before,small-r1,capture,append,0,30,21.597695,41.755775
+before,small-r1,capture,append,1,30,19.457901,37.68438
+before,small-r1,full reconcile,correction,0,30,80.654345,140.131173
+before,small-r1,full reconcile,correction,1,30,81.443077,254.459692
+before,small-r1,capture,correction,0,30,21.137892,42.268
+before,small-r1,capture,correction,1,30,20.748215,32.951154
+before,small-r20,full reconcile,no-op,0,30,176.93421,345.746517
+before,small-r20,full reconcile,no-op,1,30,142.316263,265.610689
+before,small-r20,capture,no-op,0,30,90.001911,115.144197
+before,small-r20,capture,no-op,1,30,57.434092,85.962921
+before,small-r20,full reconcile,clock-only,0,30,218.866986,271.397591
+before,small-r20,full reconcile,clock-only,1,30,196.381004,358.922764
+before,small-r20,capture,clock-only,0,30,88.027055,165.468989
+before,small-r20,capture,clock-only,1,30,56.420036,64.91169
+before,small-r20,full reconcile,append,0,30,803.768592,1099.492036
+before,small-r20,full reconcile,append,1,30,825.382706,1369.298094
+before,small-r20,capture,append,0,30,19.366951,21.246235
+before,small-r20,capture,append,1,30,18.637193,20.974173
+before,small-r20,full reconcile,correction,0,30,772.393912,1507.752387
+before,small-r20,full reconcile,correction,1,30,772.31438,878.528889
+before,small-r20,capture,correction,0,30,19.331823,24.879836
+before,small-r20,capture,correction,1,30,19.395129,21.687832
+before,real-epochs64,full reconcile,no-op,0,30,93.381276,125.141635
+before,real-epochs64,full reconcile,no-op,1,30,93.143308,121.962838
+before,real-epochs64,capture,no-op,0,30,23.346358,29.813877
+before,real-epochs64,capture,no-op,1,30,23.752948,27.889292
+before,real-epochs64,full reconcile,clock-only,0,30,102.771201,115.076785
+before,real-epochs64,full reconcile,clock-only,1,30,106.791801,117.377593
+before,real-epochs64,capture,clock-only,0,30,23.894236,26.407224
+before,real-epochs64,capture,clock-only,1,30,24.693325,28.849768
+before,real-epochs64,full reconcile,append,0,30,116.719138,133.125545
+before,real-epochs64,full reconcile,append,1,30,111.101761,131.619222
+before,real-epochs64,capture,append,0,30,21.075872,23.771629
+before,real-epochs64,capture,append,1,30,20.758878,24.252009
+before,real-epochs64,full reconcile,correction,0,30,106.874726,120.230082
+before,real-epochs64,full reconcile,correction,1,30,105.7733,120.796713
+before,real-epochs64,capture,correction,0,30,20.810949,24.295617
+before,real-epochs64,capture,correction,1,30,20.622543,23.799115
+after,small-r1,full reconcile,no-op,0,30,45.094008,59.460187
+after,small-r1,full reconcile,no-op,1,30,44.696134,57.004091
+after,small-r1,capture,no-op,0,30,20.119528,23.086771
+after,small-r1,capture,no-op,1,30,20.101795,21.888903
+after,small-r1,full reconcile,clock-only,0,30,45.381899,50.101211
+after,small-r1,full reconcile,clock-only,1,30,45.601954,51.117495
+after,small-r1,capture,clock-only,0,30,20.721987,24.065657
+after,small-r1,capture,clock-only,1,30,19.590949,22.306746
+after,small-r1,full reconcile,append,0,30,66.982462,73.323926
+after,small-r1,full reconcile,append,1,30,66.340566,75.672662
+after,small-r1,capture,append,0,30,18.096989,20.738977
+after,small-r1,capture,append,1,30,18.628092,44.795095
+after,small-r1,full reconcile,correction,0,30,64.583248,80.852464
+after,small-r1,full reconcile,correction,1,30,64.747993,74.94807
+after,small-r1,capture,correction,0,30,18.176015,21.300888
+after,small-r1,capture,correction,1,30,17.908157,24.146946
+after,small-r20,full reconcile,no-op,0,30,171.269,185.211191
+after,small-r20,full reconcile,no-op,1,30,140.29681,157.800264
+after,small-r20,capture,no-op,0,30,88.665654,94.455684
+after,small-r20,capture,no-op,1,30,56.0275,60.883763
+after,small-r20,full reconcile,clock-only,0,30,230.610862,291.092573
+after,small-r20,full reconcile,clock-only,1,30,193.11768,250.484719
+after,small-r20,capture,clock-only,0,30,89.634726,114.289089
+after,small-r20,capture,clock-only,1,30,57.020126,65.176745
+after,small-r20,full reconcile,append,0,30,882.557123,1532.9223160000001
+after,small-r20,full reconcile,append,1,30,900.661475,1770.79893
+after,small-r20,capture,append,0,30,19.301262,26.931933
+after,small-r20,capture,append,1,30,19.711506,23.587191
+after,small-r20,full reconcile,correction,0,30,815.559612,1256.327057
+after,small-r20,full reconcile,correction,1,30,835.089298,1411.953791
+after,small-r20,capture,correction,0,30,19.325075,57.332821
+after,small-r20,capture,correction,1,30,19.362449,27.022932
+after,real-epochs64,full reconcile,no-op,0,30,103.20563,173.337613
+after,real-epochs64,full reconcile,no-op,1,30,107.735824,252.268785
+after,real-epochs64,capture,no-op,0,30,24.988731,37.272231
+after,real-epochs64,capture,no-op,1,30,26.786427,51.731205
+after,real-epochs64,full reconcile,clock-only,0,30,107.973713,220.285031
+after,real-epochs64,full reconcile,clock-only,1,30,105.175508,174.808611
+after,real-epochs64,capture,clock-only,0,30,24.387433,31.338188
+after,real-epochs64,capture,clock-only,1,30,24.96852,37.764677
+after,real-epochs64,full reconcile,append,0,30,126.210627,363.125308
+after,real-epochs64,full reconcile,append,1,30,128.962595,297.374199
+after,real-epochs64,capture,append,0,30,21.794121,57.043435
+after,real-epochs64,capture,append,1,30,21.657658,87.876939
+after,real-epochs64,full reconcile,correction,0,30,113.345134,172.847622
+after,real-epochs64,full reconcile,correction,1,30,116.625349,214.460324
+after,real-epochs64,capture,correction,0,30,21.031785,40.885491
+after,real-epochs64,capture,correction,1,30,21.641163,41.339673
