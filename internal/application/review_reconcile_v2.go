@@ -14,6 +14,13 @@ type ReviewProjectionRepository interface {
 	PublishReviewProjectionWithClock(context.Context, domain.ReviewPublication, func() time.Time) error
 }
 
+// Optional C3a port. The repository candidate remains disabled by default;
+// missing/ineligible proof continues through full C2 capture and publication.
+type ReviewNoChangeRepository interface {
+	ReviewNoChangeEnabled() bool
+	ConfirmReviewNoChange(context.Context, domain.HouseholdID, time.Time, func() time.Time, func() string) (domain.ReviewNoChangeResult, bool, error)
+}
+
 // Record every clock observation made by review commands/read models, including
 // preview and handling. A rollback observed outside reconcile must invalidate
 // the same outstanding certificates, even while still above published as-of.
@@ -53,9 +60,33 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 			return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 		}
 		now := s.reviewNow()
+		requireFull := false
+		if noChange, ok := s.repository.(ReviewNoChangeRepository); ok && noChange.ReviewNoChangeEnabled() {
+			writeCtx, unlock, err := s.beginLedgerWrite(ctx)
+			if err != nil {
+				return empty, err
+			}
+			confirmed, unchanged, err := noChange.ConfirmReviewNoChange(writeCtx, household.ID, now, s.reviewNow, s.FXProviderKey)
+			unlock()
+			if err != nil {
+				var conflict *domain.Error
+				if errors.As(err, &conflict) && conflict.Code == domain.ErrConflict {
+					continue
+				}
+				return empty, err
+			}
+			if unchanged {
+				return ReviewReconcileResult{RuleInstrumentCount: confirmed.RuleInstrumentCount, LatestClosedOn: confirmed.LatestClosedOn, SourceFingerprint: confirmed.SourceFingerprint}, nil
+			}
+			requireFull = confirmed.RequireFullRecompute
+		}
 		capture, err := port.CaptureReviewProjection(ctx, household.ID, now)
 		if err != nil {
 			return empty, err
+		}
+		if requireFull {
+			capture.TemporalFullRecompute = true
+			capture.ReusableDailyEvidence = nil
 		}
 		stage, err := PrepareReviewPublication(ctx, capture, now, s.FXProviderKey())
 		if err != nil {
