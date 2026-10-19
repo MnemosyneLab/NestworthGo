@@ -183,12 +183,16 @@ func planReviewRuleInstrumentIncremental(ctx context.Context, capture domain.Rev
 	result.LatestResult = latestResult
 	result.LatestCoverage = latestCoverage
 	consecutiveCount := cache.reusableConsecutiveCount(rule, instrumentID, timezoneVersion, previousLatest)
-	for _, day := range result.Days {
+	for index := range result.Days {
+		day := &result.Days[index]
 		if day.Result.Truth == domain.ReviewTrue {
 			consecutiveCount++
 		} else {
 			consecutiveCount = 0
 		}
+		// The emitted daily window must carry the same complete streak as the
+		// summary, including the prefix outside this bounded overlap.
+		day.PolicyWindow.ConsecutiveCount = consecutiveCount
 	}
 	result.LatestWindow.ConsecutiveCount = consecutiveCount
 	result.Position, result.EpochIDs, err = cache.position(ctx, instrumentID, now.Add(time.Nanosecond))

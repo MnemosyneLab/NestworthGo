@@ -11,7 +11,28 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-type Repository struct{ database *DB }
+type Repository struct {
+	database             *DB
+	reviewFullRecompute  bool
+	reviewWindowBaseline bool
+}
+
+// WithFullReviewRecompute returns an independent repository configuration that
+// rebuilds review inputs from authoritative sources without persisted reuse.
+// It retains handling/episode history and all publication concurrency checks.
+func (r *Repository) WithFullReviewRecompute() *Repository {
+	copy := *r
+	copy.reviewFullRecompute = true
+	return &copy
+}
+
+// WithReviewWindowBaseline retains the key-first history-ranking query for
+// diagnostics and rollback without changing the schema or publication protocol.
+func (r *Repository) WithReviewWindowBaseline() *Repository {
+	copy := *r
+	copy.reviewWindowBaseline = true
+	return &copy
+}
 
 func NewRepository(database *DB) *Repository { return &Repository{database: database} }
 

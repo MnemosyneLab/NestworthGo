@@ -60,7 +60,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 		return empty, err
 	}
 	result.ReusableDailyEvidence = make(map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence)
-	if result.Control.ProjectionStatus == "complete" && result.Control.PublishedFingerprint == result.HistoricalFingerprint {
+	if !r.reviewFullRecompute && result.Control.ProjectionStatus == "complete" && result.Control.PublishedFingerprint == result.HistoricalFingerprint {
 		for _, rule := range result.Rules {
 			if rule.Evaluator != domain.ReviewEvaluator {
 				continue

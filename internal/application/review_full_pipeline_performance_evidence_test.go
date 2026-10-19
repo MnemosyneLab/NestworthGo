@@ -27,6 +27,9 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		t.Skip("set NW_REVIEW_PERF_EVIDENCE=1 to run full-scale SQLite evidence")
 	}
 	mode := os.Getenv("NW_REVIEW_PERF_MODE")
+	if err := validateReviewPerfMode(mode); err != nil {
+		t.Fatal(err)
+	}
 	historyDays := 365
 	if mode == "warm" || mode == "stages" || mode == "warm-marketdata" || mode == "warm-correction" || mode == "stages-marketdata" || mode == "stages-correction" || mode == "profile" {
 		historyDays = 30
@@ -568,8 +571,40 @@ type reviewFullPipelineFixture struct {
 	instruments []domain.Instrument
 }
 
+type reviewPerfConfig struct {
+	Accounts, Instruments, Rules, HistoryDays, Quotes, CashActivities int
+}
+
+func referenceReviewPerfConfig(days int) reviewPerfConfig {
+	return reviewPerfConfig{Accounts: 1, Instruments: 100, Rules: 20, HistoryDays: days, Quotes: 100000, CashActivities: 50000}
+}
+
+func (c reviewPerfConfig) validate() error {
+	if c.Accounts < 1 || c.Instruments < 1 || c.Rules < 1 || c.HistoryDays < 1 || c.Quotes < 0 || c.CashActivities < 0 {
+		return fmt.Errorf("invalid synthetic review fixture: %+v", c)
+	}
+	return nil
+}
+
+func validateReviewPerfMode(mode string) error {
+	switch mode {
+	case "", "cold", "warm", "warm365", "warm-marketdata", "warm-correction", "stages", "stages365", "stages-marketdata", "stages-correction", "profile", "profile365":
+		return nil
+	default:
+		return fmt.Errorf("unknown NW_REVIEW_PERF_MODE %q", mode)
+	}
+}
+
 func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipelineFixture {
+	return newReviewPerfFixture(t, referenceReviewPerfConfig(historyDays))
+}
+
+func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipelineFixture {
 	t.Helper()
+	if err := config.validate(); err != nil {
+		t.Fatal(err)
+	}
+	historyDays := config.HistoryDays
 	ctx := context.Background()
 	start := time.Date(2025, 10, 17, 12, 0, 0, 0, time.UTC)
 	now := start
@@ -588,14 +623,18 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Synthetic broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
-	if err != nil {
-		t.Fatal(err)
+	accounts := make([]domain.AccountID, config.Accounts)
+	for index := range accounts {
+		account, err := service.CreateAccount(ctx, AccountInput{Name: fmt.Sprintf("Synthetic broker %03d", index), AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		accounts[index] = account.Account.ID
 	}
 	currencies := []string{"CNY", "USD", "EUR", "JPY", "SGD"}
 	types := []domain.InstrumentType{domain.InstrumentStock, domain.InstrumentMutualFund, domain.InstrumentCrypto, domain.InstrumentBond}
-	instruments := make([]domain.Instrument, 100)
-	costs := make(map[domain.HoldingID]string, 100)
+	instruments := make([]domain.Instrument, config.Instruments)
+	costs := make(map[domain.HoldingID]string, config.Instruments)
 	for index := range instruments {
 		currency := currencies[index%len(currencies)]
 		kind := types[index%len(types)]
@@ -607,7 +646,7 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 		if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", start.Format(time.RFC3339), false); err != nil {
 			t.Fatalf("add synthetic unit-cost seed quote %d: %v", index, err)
 		}
-		holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+		holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[index%len(accounts)].String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
 		if err != nil {
 			t.Fatalf("create holding %d: %v", index, err)
 		}
@@ -622,11 +661,11 @@ func newReviewFullPipelineFixture(t *testing.T, historyDays int) reviewFullPipel
 		t.Fatal(err)
 	}
 
-	if err := seedReviewFullPipelineFacts(ctx, db, bootstrap.Household.ID, instruments, account.Account.ID, start, historyDays); err != nil {
+	if err := seedReviewFullPipelineFacts(ctx, db, bootstrap.Household.ID, instruments, accounts[0], start, historyDays, config.Quotes, config.CashActivities); err != nil {
 		t.Fatalf("seed synthetic source facts: %v", err)
 	}
 	now = start.AddDate(0, 0, historyDays)
-	for index := 0; index < 20; index++ {
+	for index := 0; index < config.Rules; index++ {
 		spec := syntheticHistoricalReviewSpec()
 		spec.Schedule.Timezone = []string{"UTC", "America/Los_Angeles", "Asia/Shanghai", "Europe/London"}[index%4]
 		spec.Target = domain.ReviewRuleTarget{Kind: "all_current"}
@@ -762,7 +801,7 @@ func logReviewFullPipelineSourceCounts(t *testing.T, fixture reviewFullPipelineF
 	t.Logf("synthetic source rows: holdings=100 rules=20 quoteRows=%d activities=%d fxRows=%d historyDays=%d", quotes, activities, fx, historyDays)
 }
 
-func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID domain.HouseholdID, instruments []domain.Instrument, accountID domain.AccountID, start time.Time, historyDays int) error {
+func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID domain.HouseholdID, instruments []domain.Instrument, accountID domain.AccountID, start time.Time, historyDays, quoteCount, activityCount int) error {
 	tx, err := db.SQL.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -775,7 +814,7 @@ func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID
 	defer quoteStatement.Close()
 	quoteIndex := 0
 	quoteSlots := len(instruments) * historyDays
-	quotesPerSlot, quoteRemainder := 100_000/quoteSlots, 100_000%quoteSlots
+	quotesPerSlot, quoteRemainder := quoteCount/quoteSlots, quoteCount%quoteSlots
 	for day := 0; day < historyDays; day++ {
 		date := start.AddDate(0, 0, day)
 		for instrumentIndex, instrument := range instruments {
@@ -802,8 +841,8 @@ func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID
 			}
 		}
 	}
-	if quoteIndex != 100_000 {
-		return fmt.Errorf("seeded %d quote facts, want 100000", quoteIndex)
+	if quoteIndex != quoteCount {
+		return fmt.Errorf("seeded %d quote facts, want %d", quoteIndex, quoteCount)
 	}
 	fxStatement, err := tx.PrepareContext(ctx, `INSERT INTO fx_quotes(id,household_id,base_currency,quote_currency,rate,source_kind,source_key,quoted_at,created_at,observation_kind,effective_date,fetched_at,value_effective_at,timestamp_basis,revision) VALUES(?,?,?,'CNY',?,'manual','manual',?,?, 'daily_reference',?,?,?,'date_label',1)`)
 	if err != nil {
@@ -837,7 +876,7 @@ func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID
 		return err
 	}
 	defer valueStatement.Close()
-	for index := 0; index < 50_000; index++ {
+	for index := 0; index < activityCount; index++ {
 		when := start.AddDate(0, 0, index%historyDays).Add(time.Duration(index) * time.Microsecond)
 		at := formatReviewPerfTime(when)
 		activityID := fmt.Sprintf("00000000-0000-4000-8002-%012x", index+1)
