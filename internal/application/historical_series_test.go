@@ -462,27 +462,77 @@ func TestHistoricalSeriesPreflightLeafAndByteBudgets(t *testing.T) {
 	}
 }
 
+// Tables scanned by LoadHistoricalOverviewSeriesBatch before activities.
+// One extra effect-less activity crosses the fact cap on that table (query 40)
+// when MaxFacts equals the row count of this prefix.
+var seriesFactTablesBeforeActivities = []string{
+	"households", "members", "institutions", "account_groups", "accounts", "account_ownership", "account_values",
+	"instruments", "holdings", "account_cash_values", "instrument_quotes", "fx_quotes", "fx_preferences",
+	"history_origins", "history_origin_components", "history_origin_account_states", "history_origin_ownership",
+	"history_origin_instrument_preferences", "history_origin_fx_preferences",
+}
+
+func seriesFactsBeforeActivities(db *sqlite.DB) (int, error) {
+	total := 0
+	for _, table := range seriesFactTablesBeforeActivities {
+		var n int
+		if err := db.SQL.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n); err != nil {
+			return 0, err
+		}
+		total += n
+	}
+	return total, nil
+}
+
+// historicalSeriesBudgetOverride is test-only. HistoricalOverviewSeries always
+// passes the production budget; this substitutes the scaled cap so a one-row
+// overflow still masks an invalid window if origin validation moves after the scan.
+type historicalSeriesBudgetOverride struct {
+	*sqlite.Repository
+	limits domain.HistoricalSeriesLimits
+}
+
+func (r historicalSeriesBudgetOverride) LoadHistoricalOverviewSeriesBatch(ctx context.Context, now time.Time, _ domain.HistoricalSeriesLimits, validate func(domain.HistoryOrigin) error) (domain.HistoricalSnapshotBatch, domain.HistoricalSeriesWork, error) {
+	return r.Repository.LoadHistoricalOverviewSeriesBatch(ctx, now, r.limits, validate)
+}
+
 func TestHistoricalSeriesDefaultFactLimitBeforeHydration(t *testing.T) {
+	if historicalSeriesLimits != (domain.HistoricalSeriesLimits{MaxLeaves: 1000, MaxFacts: 100000, MaxBytes: 32 << 20}) {
+		t.Fatalf("production series budget changed: %+v", historicalSeriesLimits)
+	}
 	s, db, _, now := overviewFixture(t)
 	if _, err := s.StartHistory(context.Background(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	// Facts need not be economically selected to exceed the conservative cap.
-	// There are deliberately no effects to decode; the preflight must stop first.
-	_, err := db.SQL.Exec(`WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<100001)
-INSERT INTO activities(id,household_id,kind,reason,effective_at,effective_local_date,created_at)
-SELECT 'synthetic-budget-'||x,(SELECT id FROM households),'value_update','other','2026-08-01T12:00:00Z','2026-08-01','2026-08-01T12:00:00Z' FROM n`)
+	before, err := seriesFactsBeforeActivities(db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch, work, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(context.Background(), *now, historicalSeriesLimits, nil)
+	if before < 1 {
+		t.Fatalf("fixture has no facts before activities: %d", before)
+	}
+	// Facts need not be economically selected to exceed the conservative cap.
+	// There are deliberately no effects to decode; the preflight must stop first.
+	// One activity is the lookahead row past a cap set to the rows already counted.
+	_, err = db.SQL.Exec(`INSERT INTO activities(id,household_id,kind,reason,effective_at,effective_local_date,created_at)
+SELECT 'synthetic-budget-1',(SELECT id FROM households),'value_update','other','2026-08-01T12:00:00Z','2026-08-01','2026-08-01T12:00:00Z'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	limits := historicalSeriesLimits
+	limits.MaxFacts = before
+	batch, work, err := sqlite.NewRepository(db).LoadHistoricalOverviewSeriesBatch(context.Background(), *now, limits, nil)
 	var budget *domain.Error
-	if !errors.As(err, &budget) || budget.Code != domain.ErrHistoricalSeriesBudget || work.CandidateFacts != 100001 || batch.Origin.ID != "" {
+	if !errors.As(err, &budget) || budget.Code != domain.ErrHistoricalSeriesBudget || work.CandidateFacts != limits.MaxFacts+1 || batch.Origin.ID != "" {
 		t.Fatalf("unbounded/default hydration: %+v %v", work, err)
 	}
 	if work.Queries > 40 {
 		t.Fatalf("continued hydrating after fact rejection: %d queries", work.Queries)
 	}
+	if work.Queries != 40 {
+		t.Fatalf("fact rejection left the activities table: %d queries", work.Queries)
+	}
+	s.repository = historicalSeriesBudgetOverride{Repository: s.repository.(*sqlite.Repository), limits: limits}
 	for _, dates := range [][2]string{{"2026-07-31", "2026-07-31"}, {"2026-08-01", "2026-08-01"}, {"2026-08-01", "2026-08-02"}} {
 		_, err := s.HistoricalOverviewSeries(t.Context(), dates[0], dates[1])
 		var invalid *domain.Error
