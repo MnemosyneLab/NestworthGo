@@ -30,6 +30,9 @@ func (r *Repository) ObserveReviewClock(now time.Time) {
 // Shared by repository copies using this DB; exact observed wall time is kept,
 // never max(now,last). A rollback invalidates every outstanding older stage.
 func (c *reviewTemporalClock) observe(now time.Time) (string, bool) {
+	// time.Now carries a monotonic reading. Wall-clock rollback must not be
+	// hidden by Time.Before preferring that still-increasing monotonic value.
+	now = now.UTC()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.session == "" {

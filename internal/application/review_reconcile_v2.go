@@ -11,9 +11,6 @@ import (
 type ReviewProjectionRepository interface {
 	CaptureReviewProjection(context.Context, domain.HouseholdID, time.Time) (domain.ReviewProjectionCapture, error)
 	PublishReviewProjection(context.Context, domain.ReviewPublication, time.Time) error
-}
-
-type reviewClockedPublicationRepository interface {
 	PublishReviewProjectionWithClock(context.Context, domain.ReviewPublication, func() time.Time) error
 }
 
@@ -68,11 +65,7 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 		if err != nil {
 			return empty, err
 		}
-		if timed, ok := port.(reviewClockedPublicationRepository); ok {
-			err = timed.PublishReviewProjectionWithClock(writeCtx, stage, s.reviewNow)
-		} else {
-			err = port.PublishReviewProjection(writeCtx, stage, s.reviewNow())
-		}
+		err = port.PublishReviewProjectionWithClock(writeCtx, stage, s.reviewNow)
 		unlock()
 		if err == nil {
 			result := ReviewReconcileResult{RuleInstrumentCount: len(stage.Rules), SourceFingerprint: capture.HistoricalFingerprint}

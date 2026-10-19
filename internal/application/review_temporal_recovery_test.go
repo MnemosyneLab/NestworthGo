@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"database/sql/driver"
 	"errors"
 	"os"
@@ -13,6 +14,36 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	modernsqlite "modernc.org/sqlite"
 )
+
+type reviewStaticOnlyProjectionPort struct {
+	Repository
+	delegate               *sqlite.Repository
+	captures, publications int
+}
+
+func (p *reviewStaticOnlyProjectionPort) CaptureReviewProjection(ctx context.Context, id domain.HouseholdID, at time.Time) (domain.ReviewProjectionCapture, error) {
+	p.captures++
+	return p.delegate.CaptureReviewProjection(ctx, id, at)
+}
+
+func (p *reviewStaticOnlyProjectionPort) PublishReviewProjection(ctx context.Context, publication domain.ReviewPublication, at time.Time) error {
+	p.publications++
+	return p.delegate.PublishReviewProjection(ctx, publication, at)
+}
+
+func TestReviewTemporalRequiresFinalClockAwarePublicationPort(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	f.day(t, "2026-10-03")
+	repo := sqlite.NewRepository(f.db)
+	port := &reviewStaticOnlyProjectionPort{Repository: repo, delegate: repo}
+	service := NewService(port)
+	service.setClock(func() time.Time { return *f.now })
+	_, err := service.ReconcileInvestmentReviewsV2(t.Context())
+	var unavailable *domain.Error
+	if !errors.As(err, &unavailable) || unavailable.Code != domain.ErrUnavailable || port.captures != 0 || port.publications != 0 {
+		t.Fatal("service fell back to a time sampled before publication rechecks")
+	}
+}
 
 func TestReviewTemporalCrashPublicationChild(t *testing.T) {
 	if os.Getenv("NW_TEMPORAL_CRASH_CHILD") != "1" {
