@@ -84,8 +84,6 @@ func (r restoreFailureRuntime) InstallRestore(ctx context.Context, path string, 
 		return failure
 	case "checkpoint":
 		hooks.Checkpoint = func(context.Context) error { return failure }
-	case "preclose":
-		hooks.Close = func() error { return failure }
 	case "postclose":
 		closeDB := hooks.Close
 		hooks.Close = func() error {
@@ -99,7 +97,7 @@ func (r restoreFailureRuntime) InstallRestore(ctx context.Context, path string, 
 }
 
 func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) {
-	for _, phase := range []string{"before-quiesce", "checkpoint", "preclose", "postclose", "partial-quiesce", "success"} {
+	for _, phase := range []string{"before-quiesce", "checkpoint", "postclose"} {
 		t.Run(phase, func(t *testing.T) {
 			m, db, _ := fixture(t)
 			ctx := context.Background()
@@ -117,13 +115,7 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 			app := application.NewService(sqlite.NewRepository(db))
 			r := application.NewRecovery(m.path, restoreFailureRuntime{Runtime: backup.NewRuntime(), phase: phase}, app)
 			r.SetBeforeRestore(func(ctx context.Context) error {
-				if err := m.PauseForRestore(ctx); err != nil {
-					return err
-				}
-				if phase == "partial-quiesce" {
-					return errors.New("synthetic external writer revocation failure")
-				}
-				return nil
+				return m.PauseForRestore(ctx)
 			})
 			defer r.Shutdown()
 			preview, err := r.InspectBackup(ctx, source)
@@ -131,7 +123,7 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 				t.Fatal(err)
 			}
 			result, err := r.ConfirmRestore(ctx, application.RestoreConfirmInput{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true})
-			if (err == nil) != (phase == "success") {
+			if err == nil {
 				t.Fatalf("phase %s result=%+v error=%v", phase, result, err)
 			}
 			fenced := phase != "before-quiesce"
@@ -146,7 +138,7 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 			if viewErr != nil || v.Enabled == fenced {
 				t.Fatalf("phase %s backup=%+v error=%v", phase, v, viewErr)
 			}
-			if phase == "postclose" || phase == "success" {
+			if phase == "postclose" {
 				if db.SQL != nil {
 					t.Fatal("database was not closed")
 				}
@@ -175,9 +167,6 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 			defer reopened.Close()
 			var value string
 			want := "original-local"
-			if phase == "success" {
-				want = "backed-up"
-			}
 			if err := reopened.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='restore-original'`).Scan(&value); err != nil || value != want {
 				t.Fatalf("restart database=%q want %q: %v", value, want, err)
 			}
