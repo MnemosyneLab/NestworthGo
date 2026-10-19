@@ -10,6 +10,12 @@ import (
 
 const financialTrackingVersion = "c1-household-all-v1"
 
+// A row bound avoids wall-clock/expiry ambiguity. At a pruning boundary keep
+// 4096 entries; at most 255 newer entries accrue before the next atomic prune.
+const financialJournalRetain = 4096
+const financialJournalPruneEvery = 256
+const financialJournalMaxRetained = financialJournalRetain + financialJournalPruneEvery - 1
+
 // This explicit roster is a conservative superset of the financial read closure.
 // C1 deliberately invalidates every household, including OLD/NEW owners and
 // consumers of shared instruments. Scope metadata is diagnostic, never a proof
@@ -116,7 +122,10 @@ func buildFinancialTriggerStatements() map[string]string {
 	for _, table := range financialSourceTables {
 		for _, op := range []string{"insert", "update", "delete"} {
 			timing := "BEFORE"
-			if table == "households" && op == "insert" {
+			// BEFORE INSERT also runs for ignored inserts and the UPDATE arm of
+			// UPSERT. Only AFTER INSERT proves that a source row was inserted.
+			// UPDATE/DELETE remain BEFORE to retain OLD/parent dependencies.
+			if op == "insert" {
 				timing = "AFTER"
 			}
 			name := "financial_source_" + table + "_" + op
@@ -158,10 +167,23 @@ func buildFinancialTriggerStatements() map[string]string {
 			// initialize above; ordinary writes never repair or reset a missing token.
 			body += `SELECT CASE WHEN (SELECT COUNT(*) FROM households)<>(SELECT COUNT(*) FROM financial_source_revision) THEN RAISE(ABORT,'financial source tracking incomplete') END;`
 			body += `UPDATE financial_source_revision SET revision=revision+1;`
+			body += `SELECT CASE WHEN changes()<>(SELECT COUNT(*) FROM households) THEN RAISE(ABORT,'financial source revision not advanced') END;`
 			body += `INSERT INTO financial_source_changes SELECT household_id,revision,0,'` + table + `',` + financialRowID(table, side) + `,'` + op + `',` + oldScope + `,` + newScope + `,` + oldAt + `,` + newAt + `,'household_all' FROM financial_source_revision;`
+			// An outer OR IGNORE policy must not turn failed bookkeeping into a
+			// successful source mutation. SQLite restores changes() after nested
+			// trigger execution, including the retention trigger below.
+			body += `SELECT CASE WHEN changes()<>(SELECT COUNT(*) FROM households) THEN RAISE(ABORT,'financial source journal not published') END;`
 			result[name] = "CREATE TRIGGER " + name + " " + timing + " " + strings.ToUpper(op) + " ON " + table + condition + " BEGIN " + body + " END"
 		}
 	}
+	// The PK bounds the prefix delete. No source-history or journal count scan
+	// runs per mutation; this trigger executes only once per 256 revisions.
+	result["financial_source_journal_retention"] = fmt.Sprintf(`CREATE TRIGGER financial_source_journal_retention AFTER INSERT ON financial_source_changes WHEN NEW.revision>%d AND NEW.revision%%%d=0 BEGIN
+UPDATE financial_source_revision SET journal_floor=MAX(journal_floor,NEW.revision-%d) WHERE household_id=NEW.household_id;
+SELECT CASE WHEN (SELECT journal_floor FROM financial_source_revision WHERE household_id=NEW.household_id)<NEW.revision-%d THEN RAISE(ABORT,'financial source journal floor not advanced') END;
+DELETE FROM financial_source_changes WHERE household_id=NEW.household_id AND revision<=(SELECT journal_floor FROM financial_source_revision WHERE household_id=NEW.household_id);
+SELECT CASE WHEN EXISTS(SELECT 1 FROM financial_source_changes WHERE household_id=NEW.household_id AND revision<=(SELECT journal_floor FROM financial_source_revision WHERE household_id=NEW.household_id)) THEN RAISE(ABORT,'financial source journal not pruned') END;
+END`, financialJournalRetain, financialJournalPruneEvery, financialJournalRetain, financialJournalRetain)
 	return result
 }
 func installFinancialSourceTracking(ctx context.Context, tx *sql.Tx) error {

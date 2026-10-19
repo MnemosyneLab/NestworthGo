@@ -67,12 +67,18 @@ func verifyFinancialSourceTracking(ctx context.Context, q schemaQuery) error {
 		}
 	}
 	var invalid int
-	err = q.QueryRowContext(ctx, `SELECT COUNT(*) FROM households h LEFT JOIN financial_source_revision r ON r.household_id=h.id WHERE r.household_id IS NULL OR r.tracking_version<>? OR length(r.tracking_epoch)<>32 OR r.tracking_epoch GLOB '*[^0-9a-f]*' OR typeof(r.revision)<>'integer' OR r.journal_floor<0 OR r.journal_floor>r.revision OR (SELECT COUNT(*) FROM financial_source_changes c WHERE c.household_id=h.id)<>r.revision-r.journal_floor OR COALESCE((SELECT MIN(c.revision) FROM financial_source_changes c WHERE c.household_id=h.id),r.revision+1)<>r.journal_floor+1 OR COALESCE((SELECT MAX(c.revision) FROM financial_source_changes c WHERE c.household_id=h.id),r.revision)<>r.revision`, financialTrackingVersion).Scan(&invalid)
+	err = q.QueryRowContext(ctx, `SELECT COUNT(*) FROM households h LEFT JOIN financial_source_revision r ON r.household_id=h.id WHERE r.household_id IS NULL OR r.tracking_version<>? OR length(r.tracking_epoch)<>32 OR r.tracking_epoch GLOB '*[^0-9a-f]*' OR typeof(r.revision)<>'integer' OR r.journal_floor<0 OR r.journal_floor>r.revision OR (SELECT COUNT(*) FROM (SELECT 1 FROM financial_source_changes c WHERE c.household_id=h.id LIMIT ?))<>r.revision-r.journal_floor OR COALESCE((SELECT MIN(c.revision) FROM financial_source_changes c WHERE c.household_id=h.id),r.revision+1)<>r.journal_floor+1 OR COALESCE((SELECT MAX(c.revision) FROM financial_source_changes c WHERE c.household_id=h.id),r.revision)<>r.revision`, financialTrackingVersion, financialJournalMaxRetained+1).Scan(&invalid)
 	if err != nil {
 		return err
 	}
 	if invalid != 0 {
 		return fmt.Errorf("incomplete financial source revision/journal")
+	}
+	if err = q.QueryRowContext(ctx, `SELECT count(*) FROM financial_source_revision WHERE revision-journal_floor>?`, financialJournalMaxRetained).Scan(&invalid); err != nil {
+		return err
+	}
+	if invalid != 0 {
+		return fmt.Errorf("financial source journal exceeds retention bound")
 	}
 	return nil
 }

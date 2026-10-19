@@ -2,6 +2,8 @@ package backup
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +13,12 @@ import (
 )
 
 func TestSourceTrackingRestoreRotatesLiveEpochBeforeResume(t *testing.T) {
+	for _, writes := range []int{0, 4608} {
+		t.Run(fmt.Sprintf("source-writes-%d", writes), func(t *testing.T) { sourceTrackingRestoreRotatesLiveEpoch(t, writes) })
+	}
+}
+
+func sourceTrackingRestoreRotatesLiveEpoch(t *testing.T, writes int) {
 	dir := t.TempDir()
 	source := filepath.Join(dir, "synthetic-source.db")
 	db, err := sqlite.Open(source)
@@ -19,6 +27,20 @@ func TestSourceTrackingRestoreRotatesLiveEpochBeforeResume(t *testing.T) {
 	}
 	if _, err = db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`); err != nil {
 		t.Fatal(err)
+	}
+	if err = db.WithTx(t.Context(), func(tx *sql.Tx) error {
+		for i := 0; i < writes; i++ {
+			if _, err := tx.Exec(`UPDATE households SET name=?`, fmt.Sprintf("Synthetic %d", i)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var retainedRows, floorBefore int64
+	if err = db.SQL.QueryRow(`SELECT journal_floor,(SELECT count(*) FROM financial_source_changes) FROM financial_source_revision`).Scan(&floorBefore, &retainedRows); err != nil || retainedRows > 4351 || (writes > 0 && floorBefore == 0) {
+		t.Fatalf("unbounded pre-restore journal floor=%d rows=%d err=%v", floorBefore, retainedRows, err)
 	}
 	var epoch string
 	var revision int64
