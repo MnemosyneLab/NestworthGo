@@ -102,7 +102,7 @@ func TestReviewRepeatedEpochWindowOracle(t *testing.T) {
 func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	spec := syntheticHistoricalReviewSpec()
-	// All six votes are required, so a corrected false vote on October 7
+	// All six votes are required, so a corrected false vote on October 6
 	// independently proves recovery (five T plus one F), without an oracle.
 	spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 6, MinHits: 6}
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic re-entry interval", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
@@ -238,15 +238,26 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// Append a legitimate backdated correction after re-entry. October 7's
-			// cost becomes 300, making cost<250 false, while October 2..6 remain true.
-			if _, err := run.service.RecordChange(t.Context(), domain.PositionCostAdjustmentInput{HouseholdID: run.householdID, HoldingID: f.holding.ID, UnitCost: cost, EffectiveAt: time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)}); err != nil {
+			// Record the correction after re-entry, effective on the old trigger
+			// date before this epoch opened. October 6 becomes false; re-entry
+			// resets cost to 100 on October 7, whose predicate remains true.
+			// The six-slot policy is nevertheless false (five T plus one F).
+			if _, err := run.service.RecordChange(t.Context(), domain.PositionCostAdjustmentInput{HouseholdID: run.householdID, HoldingID: f.holding.ID, UnitCost: cost, EffectiveAt: time.Date(2026, 10, 6, 13, 0, 0, 0, time.UTC)}); err != nil {
 				t.Fatal(err)
 			}
 			corrected := prepare()
 			item := corrected.Rules[0]
-			if item.LatestResult == nil || item.LatestResult.Truth != domain.ReviewFalse || item.LatestWindow.Truth != domain.ReviewFalse || item.LatestWindow.HitCount != 5 || item.LatestWindow.FalseCount != 1 || item.LatestWindow.UnknownCount != 0 || item.CurrentEpisode != nil || item.OpenedEpisode || len(item.ClosedEpisodes) != 1 {
+			if item.LatestResult == nil || item.LatestResult.Truth != domain.ReviewTrue || item.LatestWindow.Truth != domain.ReviewFalse || item.LatestWindow.HitCount != 5 || item.LatestWindow.FalseCount != 1 || item.LatestWindow.UnknownCount != 0 || item.CurrentEpisode != nil || item.OpenedEpisode || len(item.ClosedEpisodes) != 1 {
 				t.Fatalf("false correction must close the episode: %+v", item)
+			}
+			correctedTrigger := false
+			for _, day := range item.Days {
+				if day.On == "2026-10-06" {
+					correctedTrigger = day.Result.Truth == domain.ReviewFalse
+				}
+			}
+			if !correctedTrigger {
+				t.Fatal("the historical trigger vote was not corrected to false")
 			}
 			closed := item.ClosedEpisodes[0]
 			if closed.ID != id || closed.TriggeredOn != "2026-10-06" || !closed.FirstDetectedAt.Equal(detectedAt) || closed.AcknowledgedAt == nil || !closed.AcknowledgedAt.Equal(acknowledgedAt) || closed.ResolvedAt == nil || !closed.ResolvedAt.Equal(*run.now) || closed.ResolvedReason != "recovered" {

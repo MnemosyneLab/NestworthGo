@@ -1,5 +1,7 @@
 # P0 PR-B follow-up: repeated epochs and small-ledger activation evidence
 
+Later PR111 review: [64-cycle tail diagnosis and stronger publication regression](performance-p0-epochs-diagnosis-2026-10-19.md). The original distributions below remain unchanged.
+
 Contract: [approved plan](../design/performance-optimization-plan.zh-CN.md),
 PR-A/PR-B and §5.4. Base: PR110 squash merge
 `3b0902e893cd3eff8a5a15a341c1e7385590d00a` (latest main, Wails beta.32).
