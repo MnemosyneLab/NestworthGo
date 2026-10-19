@@ -1,0 +1,118 @@
+=== RUN   TestReviewNoChangePerformanceEvidence
+    review_no_change_performance_test.go:21: opt-in synthetic C3 evidence
+--- SKIP: TestReviewNoChangePerformanceEvidence (0.00s)
+=== RUN   TestReviewNoChangeOptInAndFullOracle
+--- PASS: TestReviewNoChangeOptInAndFullOracle (0.17s)
+=== RUN   TestReviewNoChangeConservativeFallbacks
+=== RUN   TestReviewNoChangeConservativeFallbacks/source
+=== RUN   TestReviewNoChangeConservativeFallbacks/config
+=== RUN   TestReviewNoChangeConservativeFallbacks/state
+=== RUN   TestReviewNoChangeConservativeFallbacks/rule-without-revision
+=== RUN   TestReviewNoChangeConservativeFallbacks/episode-without-state
+=== RUN   TestReviewNoChangeConservativeFallbacks/pending
+=== RUN   TestReviewNoChangeConservativeFallbacks/missing-proof
+=== RUN   TestReviewNoChangeConservativeFallbacks/unknown-policy
+=== RUN   TestReviewNoChangeConservativeFallbacks/journal-gap
+=== RUN   TestReviewNoChangeConservativeFallbacks/trigger-drop-recreate
+=== RUN   TestReviewNoChangeConservativeFallbacks/foreign-keys
+=== RUN   TestReviewNoChangeConservativeFallbacks/recursive-triggers
+=== RUN   TestReviewNoChangeConservativeFallbacks/rollback
+=== RUN   TestReviewNoChangeConservativeFallbacks/restart
+=== RUN   TestReviewNoChangeConservativeFallbacks/epoch-reset
+=== RUN   TestReviewNoChangeConservativeFallbacks/provider
+--- PASS: TestReviewNoChangeConservativeFallbacks (2.46s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/source (0.19s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/config (0.18s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/state (0.21s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/rule-without-revision (0.22s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/episode-without-state (0.21s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/pending (0.20s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/missing-proof (0.11s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/unknown-policy (0.10s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/journal-gap (0.11s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/trigger-drop-recreate (0.10s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/foreign-keys (0.10s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/recursive-triggers (0.11s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/rollback (0.09s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/restart (0.13s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/epoch-reset (0.18s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/provider (0.20s)
+=== RUN   TestReviewNoChangeCrashChild
+    review_no_change_test.go:226: subprocess crash helper
+--- SKIP: TestReviewNoChangeCrashChild (0.00s)
+=== RUN   TestReviewNoChangeCrashBeforeCommitAndRecovery
+--- PASS: TestReviewNoChangeCrashBeforeCommitAndRecovery (0.35s)
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/exit
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/entry
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/clear-rebuy
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/transfer
+--- PASS: TestReviewNoChangeActivationLifecycleFullOracle (1.77s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/exit (0.40s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/entry (0.42s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/clear-rebuy (0.59s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/transfer (0.36s)
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/control-ignore
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-ignore
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-abort
+--- PASS: TestReviewNoChangeCASFailureAndBoundedRetry (0.53s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/control-ignore (0.18s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-ignore (0.17s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-abort (0.17s)
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/boundary
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/cancel
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/writer
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/provider
+--- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation (0.52s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/boundary (0.10s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/cancel (0.12s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/writer (0.13s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/provider (0.17s)
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_inputs
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_results
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_evaluation_state
+--- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild (0.61s)
+    --- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_inputs (0.19s)
+    --- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_results (0.20s)
+    --- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_evaluation_state (0.22s)
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/pruned-floor
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/resolver
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/tracking-policy
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/evaluator-policy
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/metric-policy
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/temporal-scope
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/source-rollback
+--- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource (0.77s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/pruned-floor (0.10s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/resolver (0.11s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/tracking-policy (0.10s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/evaluator-policy (0.11s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/metric-policy (0.11s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/temporal-scope (0.12s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/source-rollback (0.12s)
+=== RUN   TestReviewNoChangeResponseLossAndSuppressionExpiry
+--- PASS: TestReviewNoChangeResponseLossAndSuppressionExpiry (0.24s)
+=== RUN   TestReviewNoChangeInvalidatesOutstandingFullPublication
+--- PASS: TestReviewNoChangeInvalidatesOutstandingFullPublication (0.11s)
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/journal-gap
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/schema-cookie
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/foreign-keys
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/recursive-triggers
+--- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild (0.46s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/journal-gap (0.12s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/schema-cookie (0.12s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/foreign-keys (0.10s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/recursive-triggers (0.12s)
+=== RUN   TestReviewPerfConfiguration
+--- PASS: TestReviewPerfConfiguration (0.00s)
+=== RUN   TestReviewPerfSampleCount
+=== RUN   TestReviewPerfSampleCount/override
+--- PASS: TestReviewPerfSampleCount (0.00s)
+    --- PASS: TestReviewPerfSampleCount/override (0.00s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	7.989s
