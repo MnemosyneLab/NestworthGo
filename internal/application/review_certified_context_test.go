@@ -269,3 +269,36 @@ func TestReviewCertifiedHoldsSQLiteWriteReservation(t *testing.T) {
 		})
 	}
 }
+
+func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) {
+	f, r := certifiedFixture(t)
+	f.day(t, "2026-10-13")
+	p := certifiedStage(t, f, r)
+	reference := windowOracleReference(t, f)
+	tx, err := f.db.SQL.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(t.Context(), `UPDATE instrument_quotes SET unit_price='999'`); err != nil {
+		tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	var verdict string
+	r = r.WithReviewCompletenessLineageShadow(func(o domain.ReviewCompletenessLineageObservation) {
+		if o.Phase == "certified_publication" {
+			verdict = o.Verdict
+		}
+	})
+	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
+		t.Fatal(err)
+	}
+	if verdict != "full_source_recheck" {
+		t.Fatal("rolled-back DML retained counter authority", verdict)
+	}
+	if !reflect.DeepEqual(noChangeProjectionRows(t, f.db), noChangeProjectionRows(t, reference)) {
+		t.Fatal("rollback fallback differs from pre-publication full oracle")
+	}
+}
