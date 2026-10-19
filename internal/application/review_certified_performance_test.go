@@ -285,6 +285,8 @@ func TestReviewCertifiedBootstrapActivationEvidence(t *testing.T) {
 					r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
 					if arm == "certified" {
 						r = r.WithCertifiedReviewCandidate()
+					} else {
+						r = r.WithFullReviewRecompute()
 					}
 					f.service = NewService(r)
 					f.service.fxProviderKey = "synthetic-pinned"
