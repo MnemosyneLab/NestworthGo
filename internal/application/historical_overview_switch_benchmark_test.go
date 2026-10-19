@@ -138,8 +138,17 @@ func runHistoricalSwitchBurst(t testing.TB, s *Service, db *sqlite.DB, count int
 	return result
 }
 
+// historicalOverviewCancellationActivities is the smallest measured tier whose
+// uncancelled race-detector read holds the single connection for about 4s.
+// That stays above the 2s SELECT 1 probe, so a passing probe is an interrupt
+// and not a read that already finished. 2,048 activities held the connection
+// for about 2.3s on a faster host and was too close to the probe. Activity
+// cash is zero, so assets stay 0.00216 at any count. The 8,300-activity SQL
+// parameter chunk boundary remains TestHistoricalOverviewDenseEntrySingleAndComparison.
+const historicalOverviewCancellationActivities = 3072
+
 func TestHistoricalOverviewCancellationReleasesConnection(t *testing.T) {
-	s, db := seriesHistoryScaleFixture(t, 2, 0, 8300)
+	s, db := seriesHistoryScaleFixture(t, 2, 0, historicalOverviewCancellationActivities)
 	for _, compare := range []string{"", "2026-08-31", "current"} {
 		t.Run(compare, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
