@@ -117,8 +117,16 @@ func (s *Service) RebuildDerivedData(ctx context.Context) (DerivedDataRebuildRes
 func replayCurrentViews(state domain.ChangeState, batch domain.HistoricalSnapshotBatch) []domain.EndpointView {
 	var effects []domain.ActivityEffect
 	for _, activity := range batch.Activities {
-		effects = append(effects, activity.RecordedEffects...)
-		effects = append(effects, activity.Effects...)
+		for _, effect := range activity.RecordedEffects {
+			if effect.Target != domain.EffectTargetHoldingCost {
+				effects = append(effects, effect)
+			}
+		}
+		for _, effect := range activity.Effects {
+			if effect.Target != domain.EffectTargetHoldingCost {
+				effects = append(effects, effect)
+			}
+		}
 	}
 	for _, component := range batch.OriginData.Components {
 		e := domain.ActivityEffect{AccountID: component.AccountID, HoldingID: component.HoldingID, Money: component.Amount, Quantity: component.Quantity}
