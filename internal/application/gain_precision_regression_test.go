@@ -127,3 +127,28 @@ func TestGainAggregatesKeepExactCostValueAndUnrealized(t *testing.T) {
 		}
 	}
 }
+
+func TestSubcentGainRowsKeepExactAggregate(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ quote, row, total string }{
+		{"1.004", "0.004", "0.008"},
+		{"0.996", "-0.004", "-0.008"},
+	} {
+		t.Run(test.row, func(t *testing.T) {
+			f := newGainReadModelFixture(t, "USD")
+			account := f.addAccount("Synthetic subcent gains")
+			for _, name := range []string{"A", "B"} {
+				holding := f.addHolding(account, name, "USD", "1", "1", test.quote)
+				gain, err := f.service().HoldingGain(t.Context(), holding.ID)
+				if err != nil || gain.UnrealizedGain == nil || gain.UnrealizedGain.Amount != test.row {
+					t.Fatalf("row=%+v err=%v", gain, err)
+				}
+			}
+			gain, err := f.service().AccountGain(t.Context(), account.ID)
+			if err != nil || !gain.Available {
+				t.Fatalf("aggregate=%+v err=%v", gain, err)
+			}
+			assertSignedGain(t, gain.UnrealizedGain, test.total, "USD")
+		})
+	}
+}

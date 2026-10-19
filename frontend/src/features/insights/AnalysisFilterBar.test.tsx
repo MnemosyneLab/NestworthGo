@@ -113,3 +113,16 @@ it.each(["scope", "filter"] as const)("keeps full instrument identity searchable
   view.rerender(<AnalysisFilterBar session={{ ...session, ...(mode === "scope" ? { scopeId: instrument.id } : { moreFilters: { instrumentId: instrument.id } }) }} onChange={onChange} onReset={vi.fn()} />);
   expect(input).toHaveValue("Family fund · ABC");
 });
+
+
+it("offers localized rounding help by keyboard without changing analysis filters", async () => {
+  const onChange = vi.fn();
+  render(<AnalysisFilterBar session={useAnalysisStore.getState()} onChange={onChange} onReset={vi.fn()} />);
+  const help = screen.getByRole("button", { name: "About rounded amounts" });
+  help.focus();
+  await userEvent.keyboard("{Enter}");
+  expect(await screen.findByText(/Totals use exact values before rounding/)).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  expect(help).toHaveFocus();
+  expect(onChange).not.toHaveBeenCalled();
+});

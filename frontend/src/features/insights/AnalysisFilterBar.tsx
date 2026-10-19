@@ -1,3 +1,4 @@
+import { MoneyRoundingHelp } from "@/components/ui/money-rounding-help";
 import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
@@ -118,6 +119,7 @@ export function AnalysisFilterBar({
           <DatePicker id="analysis-to" value={session.to || resolvedRange?.to || ""} min={toMin} max={closedDate} onChange={(to) => update({ to, from: session.from || resolvedRange?.from })} placeholder={t("common.selectOption")} />
         </div>
         <Button type="button" variant="outline" onClick={onReset}>{t("insights.resetPortfolio")}</Button>
+        <MoneyRoundingHelp />
       </div>
 
       <DateRangeControl value={{ from: session.from || resolvedRange?.from || "", to: session.to || resolvedRange?.to || closedDate }} min={originDate} max={closedDate} disabled={!origin.data} onChange={update} />

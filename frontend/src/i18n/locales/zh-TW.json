@@ -1675,6 +1675,8 @@
       }
     },
   "moneyDisplay": {
+    "aboutRounding": "關於金額捨入",
+    "roundingHelp": "金額僅在顯示時捨入。合計先彙總精確值再捨入，因此可見列的金額總和可能與顯示的合計不同。",
     "tiny": "{{direction}} 非零，小於 0.01",
     "missingCount": "{{count}} 項需要關注"
   },

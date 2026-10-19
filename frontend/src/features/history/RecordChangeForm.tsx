@@ -459,7 +459,15 @@ function RecordChangeFormReady({
   const previewSequence = useRef(0);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; previewSequence.current += 1; }; }, []);
-  const clearPreview = () => { previewSequence.current += 1; setReviewed(null); };
+  const clearPreview = () => {
+    previewSequence.current += 1;
+    setReviewed(null);
+    // Detach even pending mutations: an obsolete rejection must not restore
+    // an error (or pending state) after the user has edited this draft.
+    preview.reset();
+    previewFix.reset();
+    repeatPreview.reset();
+  };
 
   const markAutomaticFields = (current: ChangeCommandRequest, fields: string[]) => {
     fields.forEach((field) => {
@@ -486,10 +494,7 @@ function RecordChangeFormReady({
       return { ...current, ...next };
     });
     clearPreview();
-    if (repeatPreview.isError) repeatPreview.reset();
     if (repeatConfirm.isError) repeatConfirm.reset();
-    if (preview.isError) preview.reset();
-    if (previewFix.isError) previewFix.reset();
     if (record.isError) record.reset();
     if (fix.isError) fix.reset();
   };
