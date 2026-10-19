@@ -155,7 +155,8 @@ depend on live network responses.
 GitHub Actions workflow `.github/workflows/check.yml` runs the same automated
 gates on `main` and pull requests: gofmt, `go test ./...`, a separate race job,
 vet, `go build ./cmd/nestworth`, frontend build/lint/typecheck/test, and
-`git diff --check`. Native `.app`/DMG packaging, signing, and notarization stay
+`git diff --check`. Those gates run as parallel jobs; the aggregate check names
+remain `test` and `race`. Native `.app`/DMG packaging, signing, and notarization stay
 manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
 `3.0.0-beta.32`); upgrade those versions only in a dedicated change.
 

@@ -9,9 +9,39 @@ concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Wall clock is the slowest job, not the sum. The historical single `test` job
+# ran Go, frontend, and skill gates serially (median ~785s over 20 runs). Those
+# gates now run together. Aggregate job names stay `test` and `race` so branch
+# protection can keep depending on those two checks.
 jobs:
-  test:
+  go:
+    name: go
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install native Go build dependencies
+        timeout-minutes: 15
+        run: bash tools/ci-install-native-deps.sh
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Go tests
+        run: go test ./...
+      - name: Go vet
+        run: go vet ./...
+      - name: Go build
+        run: go build ./cmd/nestworth
+      - name: Trailing whitespace
+        run: git diff --check
+
+  frontend-static:
+    name: frontend static
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -32,46 +62,120 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
+      # setup-go cache never reused the Wails compile (~70s median).
+      - name: Reuse Go build cache for Wails bindings
+        run: echo "NESTWORTH_WAILS_GOCACHE=$GOCACHE" >> "$GITHUB_ENV"
       - name: Generate Wails bindings
         working-directory: frontend
         run: pnpm run generate:bindings
       - name: Verify generated Wails bindings
         working-directory: frontend
         run: pnpm run check:bindings
-      - name: gofmt
-        run: test -z "$(gofmt -l cmd internal)"
-      - name: Frontend build
-        working-directory: frontend
-        run: pnpm run build
-      - name: Go tests
-        run: go test ./...
-      - name: Validate user skill and installer
-        run: |
-          python3 tools/check-nestworth-skill.py
-          python3 -m unittest discover -s tools/tests -v
-      - name: Go vet
-        run: go vet ./...
-      - name: Go build
-        run: go build ./cmd/nestworth
       - name: Frontend lint
         working-directory: frontend
         run: pnpm run lint
       - name: Frontend typecheck
         working-directory: frontend
         run: pnpm run typecheck
-      - name: Frontend tests
+      - name: Frontend build
         working-directory: frontend
-        run: pnpm run test
+        run: pnpm run build
       - name: Trailing whitespace
         run: git diff --check
 
+  frontend-test:
+    name: frontend test (${{ matrix.shard }}/${{ matrix.shards }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+        shards: [2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install native Go build dependencies
+        timeout-minutes: 15
+        run: bash tools/ci-install-native-deps.sh
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Reuse Go build cache for Wails bindings
+        run: echo "NESTWORTH_WAILS_GOCACHE=$GOCACHE" >> "$GITHUB_ENV"
+      - name: Generate Wails bindings
+        working-directory: frontend
+        run: pnpm run generate:bindings
+      # Same vitest entry as `pnpm run test`, sharded by file. Args are not
+      # appended through that script's `&&` chain. Every test file still runs
+      # in exactly one shard; maxWorkers stays 4.
+      - name: Frontend tests
+        working-directory: frontend
+        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}
+      - name: Trailing whitespace
+        run: git diff --check
+
+  skill:
+    name: skill
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate user skill and installer
+        run: |
+          python3 tools/check-nestworth-skill.py
+          python3 -m unittest discover -s tools/tests -v
+      - name: Trailing whitespace
+        run: git diff --check
+
+  # Required check name. Fails closed unless every gate job succeeded.
+  test:
+    name: test
+    needs: [go, frontend-static, frontend-test, skill]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every test gate
+        run: |
+          set -euo pipefail
+          results=(
+            "go=${{ needs.go.result }}"
+            "frontend-static=${{ needs.frontend-static.result }}"
+            "frontend-test=${{ needs.frontend-test.result }}"
+            "skill=${{ needs.skill.result }}"
+          )
+          printf '%s\n' "${results[@]}"
+          for item in "${results[@]}"; do
+            if [ "${item#*=}" != "success" ]; then
+              echo "test gate failed: $item" >&2
+              exit 1
+            fi
+          done
+          echo "all test gates passed"
+
   # Application 2/2 repeatedly exhausted Go's cumulative 10m test budget
   # (PR #60, main, PR #61); no assertion or race detector failure preceded it.
-  # Four application parts reduce work per runner without increasing in-process
-  # concurrency or skipping tests. MCP remains two parts. Keep the 10m bound
-  # explicit and retain per-test JSON evidence for future distribution reviews.
-  # Test/Example/Fuzz names come from the same race build as the run. Fault
-  # injection and uncontended performance tests retain their sequential status.
+  # Name-hash parts spread application and MCP tests across runners without
+  # increasing in-process concurrency or skipping tests. Six application parts
+  # replace four after hash parts 2/4 and 4/4 stayed the long poles (median
+  # race jobs 562s and 622s). Infrastructure is not one package: sqlite and
+  # continuousbackup were each ~200s and ran back-to-back under -p 1 (median
+  # race job 704s). They are separate runners. MCP stays two parts because each
+  # half is already dominated by one ~180s test. Fault injection and uncontended
+  # performance tests retain their sequential status.
+  # Test/Example/Fuzz names come from the same race build as the run.
   race-shard:
     name: race (${{ matrix.label }})
     runs-on: ubuntu-latest
@@ -82,20 +186,28 @@ jobs:
         include:
           - shard: application
             part: 0
-            parts: 4
-            label: application 1/4
+            parts: 6
+            label: application 1/6
           - shard: application
             part: 1
-            parts: 4
-            label: application 2/4
+            parts: 6
+            label: application 2/6
           - shard: application
             part: 2
-            parts: 4
-            label: application 3/4
+            parts: 6
+            label: application 3/6
           - shard: application
             part: 3
-            parts: 4
-            label: application 4/4
+            parts: 6
+            label: application 4/6
+          - shard: application
+            part: 4
+            parts: 6
+            label: application 5/6
+          - shard: application
+            part: 5
+            parts: 6
+            label: application 6/6
           - shard: mcpserver
             part: 0
             parts: 2
@@ -107,7 +219,18 @@ jobs:
           - shard: infrastructure
             part: 0
             parts: 1
-            label: infrastructure
+            group: sqlite
+            label: infrastructure sqlite
+          - shard: infrastructure
+            part: 1
+            parts: 1
+            group: continuousbackup
+            label: infrastructure continuousbackup
+          - shard: infrastructure
+            part: 2
+            parts: 1
+            group: other
+            label: infrastructure other
           - shard: remainder
             part: 0
             parts: 1
@@ -122,11 +245,17 @@ jobs:
         timeout-minutes: 15
         run: bash tools/ci-install-native-deps.sh
       - name: Go tests with race detector
+        env:
+          RACE_GROUP: ${{ matrix.group || '' }}
         run: |
           set -euo pipefail
           shard="${{ matrix.shard }}"
           part="${{ matrix.part }}"
           parts="${{ matrix.parts }}"
+          # One package at a time for the heavy shards. Remainder is many
+          # small packages, so -p 2 overlaps their race builds only.
+          # -parallel stays 4 and only for application and MCP.
+          pkg_parallel=(-p 1)
           parallel=()
           run_args=()
           case "$shard" in
@@ -139,9 +268,48 @@ jobs:
               parallel=(-parallel 4)
               ;;
             infrastructure)
-              pkgs=(./internal/infrastructure/...)
+              case "$RACE_GROUP" in
+                sqlite)
+                  pkgs=(./internal/infrastructure/sqlite/...)
+                  ;;
+                continuousbackup)
+                  pkgs=(./internal/infrastructure/continuousbackup/...)
+                  ;;
+                other)
+                  # Write the list before reading it. Process substitution would
+                  # hide a failed go list and could silently drop packages.
+                  go list ./internal/infrastructure/... > "$RUNNER_TEMP/infrastructure-packages.txt"
+                  mapfile -t all < "$RUNNER_TEMP/infrastructure-packages.txt"
+                  if [ "${#all[@]}" -lt 3 ]; then
+                    echo "unexpected infrastructure package set" >&2
+                    exit 1
+                  fi
+                  pkgs=()
+                  excluded=0
+                  for pkg in "${all[@]}"; do
+                    case "$pkg" in
+                      */infrastructure/sqlite|*/infrastructure/sqlite/*|*/infrastructure/continuousbackup|*/infrastructure/continuousbackup/*)
+                        excluded=$((excluded + 1))
+                        ;;
+                      *)
+                        pkgs+=("$pkg")
+                        ;;
+                    esac
+                  done
+                  if [ "$excluded" -lt 2 ] || [ $((${#pkgs[@]} + excluded)) -ne ${#all[@]} ]; then
+                    echo "infrastructure partition does not cover go list" >&2
+                    printf '%s\n' "${all[@]}" >&2
+                    exit 1
+                  fi
+                  ;;
+                *)
+                  echo "unknown infrastructure group: $RACE_GROUP" >&2
+                  exit 1
+                  ;;
+              esac
               ;;
             remainder)
+              pkg_parallel=(-p 2)
               # Check enumeration before filtering; process substitution hides
               # a failed go list and can silently drop packages.
               go list ./... > "$RUNNER_TEMP/race-packages.txt"
@@ -175,7 +343,7 @@ jobs:
           fi
           printf 'shard %s packages:\n' "$shard"
           printf '  %s\n' "${pkgs[@]}"
-          go test -race -count=1 -json -timeout 10m -p 1 "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/race-results.jsonl"
+          go test -race -count=1 -json -timeout 10m "${pkg_parallel[@]}" "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/race-results.jsonl"
       - name: Retain race test timings and failures
         if: always()
         uses: actions/upload-artifact@v4

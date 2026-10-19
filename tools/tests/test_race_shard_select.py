@@ -93,7 +93,7 @@ class RaceShardSelectTests(unittest.TestCase):
         # inconsistent denominators, rather than another hardcoded 2-part run.
         listing = LISTING + "".join(f"TestGenerated{i}\n" for i in range(80))
         expected = RUNNABLE + [f"TestGenerated{i}" for i in range(80)]
-        for shard, total in (("application", 4), ("mcpserver", 2)):
+        for shard, total in (("application", 6), ("mcpserver", 2)):
             parts = [(int(part), int(count), label) for kind, part, count, label in entries if kind == shard]
             self.assertEqual(sorted(part for part, _, _ in parts), list(range(total)))
             union = []
@@ -111,7 +111,10 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("timeout-minutes: 30", workflow)
         self.assertIn("fail-fast: false", workflow)
         self.assertIn("set -euo pipefail", workflow)
-        self.assertIn("go test -race -count=1 -json -timeout 10m -p 1", workflow)
+        self.assertIn("go test -race -count=1 -json -timeout 10m", workflow)
+        self.assertIn("pkg_parallel=(-p 1)", workflow)
+        self.assertIn("pkg_parallel=(-p 2)", workflow)
+        self.assertNotIn("pkg_parallel=(-p 4)", workflow)
         self.assertIn('go list ./... > "$RUNNER_TEMP/race-packages.txt"', workflow)
         self.assertNotIn("< <(go list", workflow)
         self.assertIn("actions/upload-artifact@v4", workflow)
@@ -187,3 +190,35 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("bash tools/race-shard-select.sh", workflow)
         self.assertIn('go test -race -list . "$1"', script)
         self.assertIn("discarding partial list", script)
+
+    def test_workflow_keeps_every_gate_and_partitions_infrastructure(self):
+        workflow = WORKFLOW.read_text()
+        self.assertIn("needs: [go, frontend-static, frontend-test, skill]", workflow)
+        self.assertIn("name: test", workflow)
+        self.assertIn("pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}", workflow)
+        self.assertIn("shard: [1, 2]", workflow)
+        self.assertIn("shards: [2]", workflow)
+        self.assertIn("NESTWORTH_WAILS_GOCACHE=$GOCACHE", workflow)
+        self.assertIn("go test ./...", workflow)
+        self.assertIn("go vet ./...", workflow)
+        self.assertIn("go build ./cmd/nestworth", workflow)
+        self.assertIn("pnpm run lint", workflow)
+        self.assertIn("pnpm run typecheck", workflow)
+        self.assertIn("pnpm run build", workflow)
+        self.assertIn("pnpm run generate:bindings", workflow)
+        self.assertIn("pnpm run check:bindings", workflow)
+        self.assertIn("python3 -m unittest discover -s tools/tests -v", workflow)
+        for group, label in (
+            ("sqlite", "infrastructure sqlite"),
+            ("continuousbackup", "infrastructure continuousbackup"),
+            ("other", "infrastructure other"),
+        ):
+            self.assertIn(f"group: {group}", workflow)
+            self.assertIn(f"label: {label}", workflow)
+        self.assertIn("go list ./internal/infrastructure/...", workflow)
+        self.assertIn("infrastructure partition does not cover go list", workflow)
+        self.assertIn('if [ "${item#*=}" != "success" ]; then', workflow)
+        # Remainder may overlap package builds. Heavy shards stay at -p 1.
+        remainder = workflow.split("remainder)", 1)[1].split("*)", 1)[0]
+        self.assertIn("pkg_parallel=(-p 2)", remainder)
+        self.assertNotIn("-parallel", remainder)
