@@ -205,7 +205,13 @@ func reviewLineageProjectionSnapshot(ctx context.Context, tx *sql.Tx, capture do
 			} else if index == 1 {
 				condition, ok := values[1].(int64)
 				if rule, exists := rules[text(0)]; exists && ok && condition == int64(rule.CurrentConditionVersion) && text(3) == rule.Spec.Schedule.Timezone+"/"+rule.Spec.Schedule.CutoffVersion {
-					results[domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: domain.InstrumentID(text(2)), TimezoneVersion: text(3), On: text(4)}] = domain.ReviewLineageResult{InputFingerprint: text(5), Truth: domain.ReviewTruth(text(6)), Reason: text(7)}
+					truth := domain.ReviewTruth(text(6))
+					if text(6) == "unknown" {
+						// SQL uses a literal sentinel; the domain deliberately uses
+						// its empty value for unknown (also encoded in result JSON).
+						truth = domain.ReviewUnknown
+					}
+					results[domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: domain.InstrumentID(text(2)), TimezoneVersion: text(3), On: text(4)}] = domain.ReviewLineageResult{InputFingerprint: text(5), Truth: truth, Reason: text(7)}
 				}
 			}
 		}

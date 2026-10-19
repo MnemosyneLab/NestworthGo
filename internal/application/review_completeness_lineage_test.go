@@ -33,10 +33,15 @@ func (o *lineageObservations) last() domain.ReviewCompletenessLineageObservation
 
 func lineageFixture(t *testing.T, policy domain.ReviewTriggerPolicy) (seriesZeroFixture, *sqlite.Repository, *lineageObservations) {
 	t.Helper()
-	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
-	f.day(t, "2026-10-12")
 	spec := syntheticHistoricalReviewSpec()
 	spec.TriggerPolicy = policy
+	return lineageSpecFixture(t, spec)
+}
+
+func lineageSpecFixture(t *testing.T, spec domain.ReviewRuleSpec) (seriesZeroFixture, *sqlite.Repository, *lineageObservations) {
+	t.Helper()
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic completeness lineage", spec)
 	f.s, _ = noChangeService(f)
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -46,6 +51,40 @@ func lineageFixture(t *testing.T, policy domain.ReviewTriggerPolicy) (seriesZero
 	r := sqlite.NewRepository(f.db).WithBoundedReviewWindow().WithReviewCompletenessLineageShadow(o.observe)
 	f.day(t, "2026-10-13")
 	return f, r, o
+}
+
+func TestReviewCompletenessLineageStoredTruth(t *testing.T) {
+	for _, truth := range []domain.ReviewTruth{domain.ReviewTrue, domain.ReviewFalse, domain.ReviewUnknown} {
+		name := string(truth)
+		if truth == domain.ReviewUnknown {
+			name = "unknown"
+		}
+		t.Run(name, func(t *testing.T) {
+			spec := syntheticHistoricalReviewSpec()
+			if truth == domain.ReviewFalse {
+				spec.Predicate.All[1].Leaf.Operator = ">"
+			}
+			if truth == domain.ReviewUnknown {
+				// Manual realtime prices cannot stand in for missing daily closes.
+				spec.Predicate.All[1].Leaf.Metric = "amount"
+			}
+			f, r, o := lineageSpecFixture(t, spec)
+			p := lineagePublication(t, f, r)
+			if p.Rules[0].Days[0].Result.Truth != truth {
+				t.Fatal("fixture did not produce expected truth", truth)
+			}
+			if got := domain.ValidateReviewCompletenessPrefix(p); got != "prefix_validated" {
+				t.Fatal("stored truth encoding declined", name, got)
+			}
+			if err := r.PublishReviewProjection(t.Context(), p, *f.now); err != nil {
+				t.Fatal(err)
+			}
+			if got := o.last().Verdict; got != "lineage_validated_shadow" {
+				t.Fatal(got)
+			}
+			noChangeFullOracle(t, f)
+		})
+	}
 }
 
 func lineagePublication(t *testing.T, f seriesZeroFixture, r *sqlite.Repository) domain.ReviewPublication {
