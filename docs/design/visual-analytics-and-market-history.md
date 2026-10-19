@@ -117,6 +117,19 @@ sheet or page shows:
 - source filtering where supported; and
 - a complete accessible data table ordered by observation time.
 
+Raw quote history draws separate series for each observation type and
+currency, with distinct colors and a scrollable legend. Daily
+closes, NAVs and daily FX references connect within their own series even when
+other observations fall between them. Source and price-basis labels do not
+split the raw history line: Yahoo and Agent daily closes connect together.
+Provenance remains available per point in tooltips and the full data table.
+Intraday and latest FX quotes are dots without connecting lines or area fills.
+Explicit discontinuities and missing
+values still break lines; no observations or values are synthesized. Axis order
+uses the projected date label or instant, while the table retains all original
+observations (including revisions) and their exact values. The daily holding
+performance chart retains its backend discontinuity contract.
+
 FX inverse values are calculated by Go and returned with the selected direction.
 The frontend does not calculate reciprocal rates.
 

@@ -77,3 +77,17 @@ it("keeps an isolated observation visible when the default chart is too dense fo
   await waitFor(() => expect((latest().getOption() as unknown as SegmentedOption).series?.length).toBe(3));
   expect((latest().getOption() as unknown as SegmentedOption).series.map((item) => item.showSymbol)).toEqual([false, true, false]);
 });
+
+it("plots interleaved evidence groups without fake gaps and keeps quote dots unconnected even on hover", async () => {
+  render(<TrendChart {...props} series={[
+    { key: "close", name: "Daily close", color: "red", values: ["1", "9", "3"], pointIndices: [0, 2] },
+    { key: "intraday", name: "Intraday", color: "blue", values: ["1", "9", "3"], pointIndices: [1], presentation: "points" },
+  ]} />);
+  type EvidenceOption = { series: Array<{ data: Array<{ originalIndex: number }>; showSymbol: boolean; lineStyle: { width: number }; emphasis: { lineStyle: { width: number } }; areaStyle?: { opacity?: number } }> };
+  await waitFor(() => expect((latest().getOption() as unknown as EvidenceOption).series).toHaveLength(2));
+  const option = latest().getOption() as unknown as EvidenceOption;
+  expect(option.series.map(series => series.data.map(point => point.originalIndex))).toEqual([[0, 2], [1]]);
+  expect(option.series[0].lineStyle.width).toBe(2.5);
+  expect(option.series[1]).toMatchObject({ showSymbol: true, lineStyle: { width: 0 }, emphasis: { lineStyle: { width: 0 } } });
+  expect(option.series[1].areaStyle?.opacity ?? 0).toBe(0);
+});

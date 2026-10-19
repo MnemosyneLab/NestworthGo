@@ -25,7 +25,7 @@ export const additionsEn = {
   "quoteDetails": {
     "type": "Price type",
     "effectiveDate": "Market / reference date",
-    "help": "Intraday quotes and daily closes are different observations. A closed market does not create a new price; historical valuations may carry forward a prior close.",
+    "help": "Daily closes connect across sources in one line; other price types have their own series. Intraday and latest FX quotes are separate dots. The table retains all records; closed markets do not create new prices.",
     "kinds": {
       "manual": "Manual price",
       "realtime": "Intraday quote",
@@ -1182,7 +1182,7 @@ export const additionsZhCN = {
   "quoteDetails": {
     "type": "价格类型",
     "effectiveDate": "市场／参考日期",
-    "help": "盘中报价与日线收盘价是不同的记录。休市不会产生新的价格，历史估值可能沿用之前的收盘价。",
+    "help": "不同来源的收盘价连接为同一条曲线，其他价格类型分别显示；盘中报价和最新汇率单独显示为散点。数据表保留全部记录，休市不会产生新的价格。",
     "kinds": {
       "manual": "手工价格",
       "realtime": "盘中报价",
@@ -2323,7 +2323,7 @@ export const additionsZhTW = {
   "quoteDetails": {
     "type": "價格類型",
     "effectiveDate": "市場／參考日期",
-    "help": "盤中報價與日線收盤價是不同的記錄。休市不會產生新的價格，歷史估值可能沿用之前的收盤價。",
+    "help": "不同來源的收盤價連接為同一條曲線，其他價格類型分別顯示；盤中報價和最新匯率單獨顯示為散點。資料表保留全部記錄，休市不會產生新的價格。",
     "kinds": {
       "manual": "手動價格",
       "realtime": "盤中報價",
