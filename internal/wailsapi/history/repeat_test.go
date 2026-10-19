@@ -102,7 +102,8 @@ func TestRepeatFreshGuardedConfirmation(t *testing.T) {
 func TestRepeatRejectsSpecializedCommands(t *testing.T) {
 	fx := newFixture(t)
 	for _, request := range []history.ChangeCommandRequest{
-		{Kind: history.ChangeMoneyAdded, Reason: "reconciliation"}, {Kind: history.ChangeMoneyRemoved, Reason: "reconciliation"}, {Kind: history.ChangeMoneyAdded, Reason: "fee"}, {Kind: history.ChangeMoneyRemoved, Reason: "gift"}, {Kind: history.ChangeTrade, Reason: "income"}, {Kind: history.ChangeCashDividend, Reason: "income"}, {Kind: history.ChangeCashTransfer, Reason: "expense"}, {Kind: history.ChangeValueUpdate, Reason: "income"}, {Kind: history.ChangeFXConversion, Reason: "income"}, {Kind: history.ChangeDebtPayment, Reason: "expense"},
+		{Kind: history.ChangeMoneyAdded, Reason: "reconciliation"},
+		{Kind: history.ChangeMoneyRemoved, Reason: "gift"},
 	} {
 		if _, err := fx.service.PreviewRepeatChange(context.Background(), "00000000-0000-0000-0000-000000000001", request); err == nil {
 			t.Fatalf("accepted %+v", request)

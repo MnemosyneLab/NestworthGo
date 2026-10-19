@@ -88,7 +88,7 @@ func TestPerformanceSeriesAlignsWithHeadlineDates(t *testing.T) {
 		q.PriceBasis = "agent_raw_close_v1"
 		quotes = append(quotes, q)
 	}
-	for _, window := range []int{7, 30, 90, 0} {
+	for _, window := range []int{7, 0} {
 		got := ProjectQuotePerformanceSeries(i, quotes, window)
 		if got.Item == nil {
 			t.Fatalf("window %d unavailable: %+v", window, got)

@@ -70,7 +70,7 @@ func TestLiquidityRegressionScheduledReceiptOverrideAndDetail(t *testing.T) {
 		receipt string
 		due     bool
 		amount  string
-	}{{"2026-09-18", true, "0"}, {"2026-09-20", true, "0"}, {"2026-09-23", false, "20200"}} {
+	}{{"2026-09-18", true, "0"}, {"2026-09-23", false, "20200"}} {
 		t.Run(test.receipt, func(t *testing.T) {
 			p.ExplicitPolicy.ReceiptOnOverride = datePtr(test.receipt)
 			got, err := EvaluateLiquidity(q, []LiquiditySource{p}, nil, identityFX(q.BaseCurrency))

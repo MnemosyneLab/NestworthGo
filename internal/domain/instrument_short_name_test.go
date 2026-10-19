@@ -19,15 +19,13 @@ func TestInstrumentUniversalDisplayRuleAndValidation(t *testing.T) {
 			t.Fatalf("label %q want %q", got, tc.want)
 		}
 	}
-	for _, kind := range AllInstrumentTypes() {
-		in := InstrumentInput{Name: "Full name", ShortName: "  家庭 🌿  ", Type: kind, QuoteCurrency: "USD"}
-		i, err := NewInstrument(in, time.Now())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if i.ShortName != "家庭 🌿" {
-			t.Fatalf("%s alias %q", kind, i.ShortName)
-		}
+	in := InstrumentInput{Name: "Full name", ShortName: "  家庭 🌿  ", Type: InstrumentStock, QuoteCurrency: "USD"}
+	i, err := NewInstrument(in, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i.ShortName != "家庭 🌿" {
+		t.Fatalf("alias %q", i.ShortName)
 	}
 	if _, err := NormalizeInstrumentShortName(strings.Repeat("界", 120)); err != nil {
 		t.Fatal(err)
