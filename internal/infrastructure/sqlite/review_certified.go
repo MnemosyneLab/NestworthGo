@@ -162,7 +162,11 @@ func (r *Repository) verifiedCertifiedTracking(ctx context.Context, tx schemaQue
 	if temporaryTriggers != 0 {
 		return cookie, false, nil
 	}
-	trusted, err := verifyCertifiedTriggers(ctx, tx)
+	trusted, err := verifyCertifiedSchema(ctx, tx)
+	if err != nil || !trusted {
+		return cookie, false, err
+	}
+	trusted, err = verifyCertifiedTriggers(ctx, tx)
 	if err != nil || !trusted {
 		return cookie, false, err
 	}
