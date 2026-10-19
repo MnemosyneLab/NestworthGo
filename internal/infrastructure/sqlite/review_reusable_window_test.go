@@ -191,6 +191,11 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Logf("bounded epoch predicate visits=%d storedStates=%d returnedDays=%d", reviewWindowEpochVisits.Load(), 2*epochs, 14)
+			// This predicate probe counts evaluation-state candidates only, not all
+			// SQLite opcodes or source-row visits. Width must not multiply epoch work.
+			if got := reviewWindowEpochVisits.Load(); got != int64(2*epochs) {
+				t.Fatalf("epoch aggregate repeated across returned days: got=%d want=%d", got, 2*epochs)
+			}
 			logReviewWindowExplain(t, db, "baseline-ranking", reviewWindowBaselineSQL, []any{household.String(), "rule:" + string(rule.ID) + "/v:4", tz, string(rule.ID), household.String(), "rule:" + string(rule.ID) + "/v:4", tz, string(rule.ID), 4, tz, 7})
 
 			if os.Getenv("NW_REVIEW_PERF_EVIDENCE") == "1" {

@@ -95,3 +95,50 @@ func capturesRules(t *testing.T, source reviewFullPipelineFixture) []domain.Revi
 func TestReviewRepeatedEpochWindowOracle(t *testing.T) {
 	runReviewPerfEpochPairs(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Holdings: 1, Rules: 4, HistoryDays: 10, Quotes: 10}, 1, 8)
 }
+
+// A same-day re-entry can trigger on the last closed day before its opening
+// civil date. A later full replay must keep that established interval and ack.
+func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	spec := syntheticHistoricalReviewSpec()
+	spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 6, MinHits: 5}
+	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic re-entry interval", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-07")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	f.quantity(t, false)
+	*f.now = f.now.Add(time.Second)
+	f.quantity(t, true)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	var revision int
+	if err := f.db.SQL.QueryRow(`SELECT id,revision FROM investment_review_episodes WHERE resolved_at IS NULL`).Scan(&id, &revision); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.AcknowledgeReviewEpisodeV2(t.Context(), id, string(domain.NewMutationID()), revision); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-08")
+	for _, repo := range []*sqlite.Repository{sqlite.NewRepository(f.db).WithFullReviewRecompute(), sqlite.NewRepository(f.db).WithReviewWindowBaseline(), sqlite.NewRepository(f.db).WithBoundedReviewWindow()} {
+		capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		publication, err := PrepareReviewPublication(t.Context(), capture, *f.now, f.s.FXProviderKey())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(publication.Rules) != 1 {
+			t.Fatalf("missing rule: %+v", publication.Rules)
+		}
+		current := publication.Rules[0].CurrentEpisode
+		if current == nil || current.ID != id || current.TriggeredOn != "2026-10-06" || current.AcknowledgedAt == nil || len(publication.Rules[0].ClosedEpisodes) != 0 {
+			t.Fatalf("clock advance changed re-entry identity/trigger/ack: %+v", publication.Rules[0])
+		}
+	}
+}
