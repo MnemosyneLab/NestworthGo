@@ -166,8 +166,11 @@ non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
 build/lint/typecheck/test, and `git diff --check`. Go tests are three parallel
 jobs and Vitest is two shards, sized from measured whole-job times so each
 lands near 4–5 minutes. The required aggregate check name is `test`. Race detection is not part
-of that workflow. `.github/workflows/perf.yml` runs on Sunday 18:00 UTC and on
-manual dispatch. Performance evidence is compiled only with `go test -tags perf`
+of that workflow. `.github/workflows/perf.yml` runs daily at 21:00 UTC and on
+manual dispatch. A scheduled run skips the perf and race jobs when the
+default branch is still at the last successful scheduled run; the first
+scheduled run and every manual dispatch execute them. Performance evidence
+is compiled only with `go test -tags perf`
 in that workflow (scale, 365-day pipeline, paired samples, and epoch
 diagnostics as separate jobs). The same workflow runs the sharded
 `go test -race` suite without the perf tag. The race aggregate is `race`.

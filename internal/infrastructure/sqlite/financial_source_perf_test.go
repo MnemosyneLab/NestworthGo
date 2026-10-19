@@ -4,11 +4,13 @@ package sqlite
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,11 +31,12 @@ func TestFinancialSourceWriteAmplificationEvidence(t *testing.T) {
 	}
 	var version string
 	source.SQL.QueryRow(`SELECT sqlite_version()`).Scan(&version)
-	t.Logf("synthetic primitive-write evidence n=30 each path/scenario; Go=%s SQLite=%s GOMAXPROCS=%d schema=%d; 1 household, 1 instrument, 100 writes/transaction; alternating order, immutable source clones; all setup/checkpoints/oracles excluded", runtime.Version(), version, runtime.GOMAXPROCS(0), CurrentSchemaVersion)
+	samples := financialSourcePerfSamples(t)
+	t.Logf("synthetic primitive-write evidence n=%d each path/scenario; Go=%s SQLite=%s GOMAXPROCS=%d schema=%d; 1 household, 1 instrument, 100 writes/transaction; alternating order, immutable source clones; all setup/checkpoints/oracles excluded", samples, runtime.Version(), version, runtime.GOMAXPROCS(0), CurrentSchemaVersion)
 	for _, scenario := range []string{"quotes-100", "catalog-100"} {
 		t.Run(scenario, func(t *testing.T) {
 			durations := [2][]time.Duration{}
-			for sample := 0; sample < 30; sample++ {
+			for sample := 0; sample < samples; sample++ {
 				t.Run(fmt.Sprintf("sample-%02d", sample), func(t *testing.T) {
 					fingerprints := [2]string{}
 					for offset := 0; offset < 2; offset++ {
@@ -132,8 +135,60 @@ func TestFinancialSourceWriteAmplificationEvidence(t *testing.T) {
 			for mode, values := range durations {
 				sorted := append([]time.Duration{}, values...)
 				sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
-				t.Logf("write distribution scenario=%s path=%d n=%d nearest-rank-median=%s nearest-rank-p95=%s raw=%v", scenario, mode, len(values), sorted[14], sorted[28], values)
+				t.Logf("write distribution scenario=%s path=%d n=%d nearest-rank-median=%s nearest-rank-p95=%s raw=%v", scenario, mode, len(values), nearestRankDuration(sorted, 0.50), nearestRankDuration(sorted, 0.95), values)
 			}
 		})
+	}
+}
+
+func financialSourcePerfSamples(t *testing.T) int {
+	t.Helper()
+	samples := 10
+	if value := os.Getenv("NW_REVIEW_PERF_SAMPLES"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 {
+			t.Fatal("invalid NW_REVIEW_PERF_SAMPLES")
+		}
+		samples = parsed
+	}
+	return samples
+}
+
+func nearestRankDuration(sorted []time.Duration, percentile float64) time.Duration {
+	if len(sorted) == 0 {
+		return 0
+	}
+	index := int(math.Ceil(percentile*float64(len(sorted)))) - 1
+	if index < 0 {
+		index = 0
+	}
+	if index >= len(sorted) {
+		index = len(sorted) - 1
+	}
+	return sorted[index]
+}
+
+func TestFinancialSourceNearestRank(t *testing.T) {
+	if nearestRankDuration(nil, 0.95) != 0 {
+		t.Fatal("empty nearest rank")
+	}
+	three := []time.Duration{1, 2, 3}
+	if nearestRankDuration(three, 0.5) != 2 || nearestRankDuration(three, 0.95) != 3 {
+		t.Fatal("n=3 nearest rank")
+	}
+	ten := make([]time.Duration, 10)
+	for index := range ten {
+		ten[index] = time.Duration(index + 1)
+	}
+	if nearestRankDuration(ten, 0.5) != 5 || nearestRankDuration(ten, 0.95) != 10 {
+		t.Fatal("n=10 nearest rank")
+	}
+	thirty := make([]time.Duration, 30)
+	for index := range thirty {
+		thirty[index] = time.Duration(index + 1)
+	}
+	// Previous n=30 summary indexed sorted[14] and sorted[28].
+	if nearestRankDuration(thirty, 0.5) != 15 || nearestRankDuration(thirty, 0.95) != 29 {
+		t.Fatal("n=30 nearest rank")
 	}
 }

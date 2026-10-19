@@ -386,15 +386,15 @@ Representative commands (run serially):
 ```sh
 NW_REVIEW_PERF_EVIDENCE=1 NW_REVIEW_PERF_MODE=stages365 \
   NW_REVIEW_PERF_WINDOW=baseline GOMAXPROCS=4 \
-  go test ./internal/application -run '^TestReviewFullPipelinePerformanceEvidence$' -count=1 -v
+  go test -tags perf ./internal/application -run '^TestReviewFullPipelinePerformanceEvidence$' -count=1 -v
 NW_REVIEW_PERF_EVIDENCE=1 NW_REVIEW_PERF_MODE=stages365 \
   NW_REVIEW_PERF_WINDOW=bounded GOMAXPROCS=4 \
-  go test ./internal/application -run '^TestReviewFullPipelinePerformanceEvidence$' -count=1 -v
+  go test -tags perf ./internal/application -run '^TestReviewFullPipelinePerformanceEvidence$' -count=1 -v
 NW_REVIEW_PERF_EVIDENCE=1 NW_REVIEW_PERF_ACCOUNTS=2 \
   NW_REVIEW_PERF_INSTRUMENTS=10 NW_REVIEW_PERF_RULES=20 \
   NW_REVIEW_PERF_QUOTES=300 NW_REVIEW_PERF_ACTIVITIES=0 \
   NW_REVIEW_PERF_MIXED_ACTIVITIES=100 GOMAXPROCS=4 \
-  go test ./internal/application -run '^TestReviewPairedPerformanceEvidence$' -count=1 -v
+  go test -tags perf ./internal/application -run '^TestReviewPairedPerformanceEvidence$' -count=1 -v
 NW_REVIEW_PERF_EVIDENCE=1 GOMAXPROCS=4 go test ./internal/infrastructure/sqlite \
   -run '^TestReviewReusableWindowEquivalent$' -count=1 -v
 ```
@@ -402,9 +402,15 @@ NW_REVIEW_PERF_EVIDENCE=1 GOMAXPROCS=4 go test ./internal/infrastructure/sqlite 
 Optional paired fixture overrides: `NW_REVIEW_PERF_ACCOUNTS`, `INSTRUMENTS`,
 `HOLDINGS`, `RULES`, `DAYS`, `QUOTES`, `ACTIVITIES`, `MIXED_ACTIVITIES`,
 `MIX_KIND` (each with the same `NW_REVIEW_PERF_` prefix). Holdings default to
-instrument count; repeated instruments occupy distinct accounts. Samples default
-to 30; `NW_REVIEW_PERF_SAMPLES` may request a smaller **explicitly reported** n.
-Unknown original evidence modes and unknown window/mixed-kind values fail.
+instrument count; repeated instruments occupy distinct accounts. Paired samples
+default to 3. `NW_REVIEW_PERF_SAMPLES` overrides that count, including a request
+for the previous 30, and the logged distribution reports the n that ran. Tables
+earlier in this note were measured at n=30. Epoch stage diagnostics default to
+10 samples (64 no-op cycles unchanged). Full-pipeline warm incrementals and
+alert page reads default to 10. Financial-source write amplification defaults
+to 10 samples per path. Those three honor the same `NW_REVIEW_PERF_SAMPLES`
+override. Perf-tagged tests need `go test -tags perf`. Unknown original
+evidence modes and unknown window/mixed-kind values fail.
 
 The parameterized harness can construct the larger account, activity, quote,
 date and rule axes from the design. This draft does not claim execution of their
