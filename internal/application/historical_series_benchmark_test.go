@@ -202,6 +202,9 @@ func BenchmarkHistoricalSeriesBounded(b *testing.B) {
 }
 
 func TestHistoricalSeriesBenchmarkCancellationEvidence(t *testing.T) {
+	if os.Getenv("NESTWORTH_PERF") != "1" {
+		t.Skip("25,000-activity cancellation latency runs in the weekly perf workflow (NESTWORTH_PERF=1)")
+	}
 	if testing.Short() {
 		t.Skip("dense synthetic cancellation evidence")
 	}

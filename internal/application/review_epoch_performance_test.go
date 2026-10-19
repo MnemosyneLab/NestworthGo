@@ -2,6 +2,7 @@ package application
 
 import (
 	"encoding/json"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -94,6 +95,15 @@ func capturesRules(t *testing.T, source reviewFullPipelineFixture) []domain.Revi
 }
 
 func TestReviewRepeatedEpochWindowOracle(t *testing.T) {
+	// One exit/re-entry cycle hits the same oracle and durable-lifecycle branches
+	// as repeating the pair. Eight cycles stay in the weekly perf workflow.
+	runReviewPerfEpochPairs(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Holdings: 1, Rules: 4, HistoryDays: 10, Quotes: 10}, 1, 1)
+}
+
+func TestReviewRepeatedEpochWindowOracleScale(t *testing.T) {
+	if os.Getenv("NESTWORTH_PERF") != "1" {
+		t.Skip("eight epoch cycles run in the weekly perf workflow (NESTWORTH_PERF=1)")
+	}
 	runReviewPerfEpochPairs(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Holdings: 1, Rules: 4, HistoryDays: 10, Quotes: 10}, 1, 8)
 }
 

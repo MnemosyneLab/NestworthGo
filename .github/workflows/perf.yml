@@ -1,0 +1,33 @@
+name: perf
+
+# Heavy scale and latency checks. They do not run on push or pull_request.
+# Weekly: Sunday 18:00 UTC. Manual: Actions → perf → Run workflow.
+# Locally, from the repository root, after the native build dependencies:
+#   NESTWORTH_PERF=1 go test -count=1 -timeout 45m \
+#     -run 'TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesBenchmarkCancellationEvidence|TestReviewRepeatedEpochWindowOracleScale' \
+#     ./internal/application
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * 0"
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install native Go build dependencies
+        timeout-minutes: 15
+        run: bash tools/ci-install-native-deps.sh
+      - name: Full-scale application checks
+        env:
+          NESTWORTH_PERF: "1"
+        run: |
+          go test -count=1 -timeout 40m \
+            -run 'TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesBenchmarkCancellationEvidence|TestReviewRepeatedEpochWindowOracleScale' \
+            ./internal/application

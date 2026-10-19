@@ -152,11 +152,15 @@ presentation preferences.
 Use sanitized deterministic fixtures. Provider tests use fakes and must not
 depend on live network responses.
 
-GitHub Actions workflow `.github/workflows/check.yml` runs the same automated
-gates on `main` and pull requests: gofmt, `go test ./...`, a separate race job,
-vet, `go build ./cmd/nestworth`, frontend build/lint/typecheck/test, and
-`git diff --check`. Those gates run as parallel jobs; the aggregate check names
-remain `test` and `race`. Native `.app`/DMG packaging, signing, and notarization stay
+GitHub Actions workflow `.github/workflows/check.yml` contains the automated
+gates: gofmt, `go test ./...`, a separate race job, vet, `go build
+./cmd/nestworth`, frontend build/lint/typecheck/test, and `git diff --check`.
+Those gates run as parallel jobs; the aggregate check names remain `test` and
+`race`. Automatic `push` and `pull_request` triggers are paused; see
+[ci-pause.md](ci-pause.md). The workflow file itself is manual dispatch only
+until that pause is lifted. `.github/workflows/perf.yml` runs the full-scale
+profiles (`NESTWORTH_PERF=1`) only on a Sunday 18:00 UTC schedule and on
+manual dispatch. Native `.app`/DMG packaging, signing, and notarization stay
 manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
 `3.0.0-beta.32`); upgrade those versions only in a dedicated change.
 
