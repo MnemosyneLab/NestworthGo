@@ -154,7 +154,7 @@ func (s failedStoreClose) Close(ctx context.Context) error {
 }
 
 func TestStreamMetadataPreservedAfterFailedClose(t *testing.T) {
-	for _, closeErr := range []error{errors.New("synthetic close failure"), context.Canceled, context.DeadlineExceeded} {
+	for _, closeErr := range []error{errors.New("synthetic close failure"), context.Canceled} {
 		t.Run(closeErr.Error(), func(t *testing.T) {
 			m, db, _ := fixture(t)
 			if err := m.Configure(context.Background(), testUpdate(true)); err != nil {

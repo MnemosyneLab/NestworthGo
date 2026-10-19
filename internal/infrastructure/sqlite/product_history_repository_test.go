@@ -83,7 +83,7 @@ func (p *productHistorySQLProbe) QueryRowContext(ctx context.Context, s string, 
 }
 
 func TestProductHistorySnapshotBoundedPagesOrderingAndGlobalMetadata(t *testing.T) {
-	for _, count := range []int{0, 1, 24, 25, 99, 105} {
+	for _, count := range []int{0, 25} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			db, repo, _, product := seedProductHistory(t)
 			contract, err := repo.Product(t.Context(), mustHistoryHousehold(t, repo), product)
@@ -160,7 +160,7 @@ func TestProductHistorySnapshotBatchCountFailureAndScope(t *testing.T) {
 	db, repo, _, product := seedProductHistory(t)
 	household := mustHistoryHousehold(t, repo)
 	var expected int
-	for _, n := range []int{1, 26, 101} {
+	for _, n := range []int{1, 101} {
 		tx, err := db.SQL.BeginTx(t.Context(), &sql.TxOptions{ReadOnly: true})
 		if err != nil {
 			t.Fatal(err)

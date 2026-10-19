@@ -46,7 +46,7 @@ func TestActivitiesWithReversalsSQLCounts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, n := range []int{0, 100, 500, 501} {
+	for _, n := range []int{0, reversalReadChunkSize, reversalReadChunkSize + 1} {
 		p := &reversalQueryProbe{queryer: db.SQL}
 		input := append([]domain.ActivityID{}, ids[:n]...)
 		if n > 0 {
