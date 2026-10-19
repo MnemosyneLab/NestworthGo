@@ -12,9 +12,10 @@ import (
 )
 
 type Repository struct {
-	database             *DB
-	reviewFullRecompute  bool
-	reviewWindowBaseline bool
+	database                   *DB
+	reviewFullRecompute        bool
+	reviewWindowBaseline       bool
+	reviewSourceShadowObserver func(domain.ReviewSourceShadowObservation)
 }
 
 // WithFullReviewRecompute returns an independent repository configuration that

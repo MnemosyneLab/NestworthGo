@@ -40,8 +40,22 @@ func (r *Repository) PublishReviewProjection(ctx context.Context, publication do
 	if err != nil {
 		return err
 	}
+	checkpoint, err := readReviewSourceCheckpoint(ctx, tx, capture.HouseholdID, actual.History.ResolverPolicyVersion)
+	if err != nil {
+		return err
+	}
+	observation := domain.CompareReviewSourceCheckpoints(capture, domain.ReviewProjectionCapture{SourceCutoff: capture.SourceCutoff, HistoricalFingerprint: actualFingerprint, SourceRevision: checkpoint})
+	if r.reviewSourceShadowObserver != nil {
+		r.reviewSourceShadowObserver(observation)
+	}
+	// C2 retains the complete fingerprint check even when tokens agree. A
+	// known token changing is an additional conservative conflict, never a
+	// replacement for the control/rule/handling/time checks below.
 	if actualFingerprint != capture.HistoricalFingerprint {
 		return reviewRuleConflict("financial evidence changed during review calculation")
+	}
+	if capture.SourceRevision != nil && (checkpoint == nil || !observation.SameToken) {
+		return reviewRuleConflict("financial source revision changed during review calculation")
 	}
 	control, found, err := reviewControlInTx(ctx, tx, capture.HouseholdID)
 	if err != nil {

@@ -30,6 +30,10 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	if err != nil {
 		return empty, err
 	}
+	result.SourceRevision, err = readReviewSourceCheckpoint(ctx, tx, householdID, result.Historical.History.ResolverPolicyVersion)
+	if err != nil {
+		return empty, err
+	}
 	result.Control = domain.ReviewProjectionControl{Enabled: true, ConfigRevision: 1, ProjectionStatus: "pending"}
 	var enabled int
 	var published, fingerprint sql.NullString
