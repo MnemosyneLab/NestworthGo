@@ -1,0 +1,238 @@
+[
+  {
+    "scenario": "quotes-100",
+    "path": "0",
+    "n": 30,
+    "elapsed_ns": {
+      "min": 2232733,
+      "median": 2735203,
+      "p95": 3719173,
+      "max": 3744506
+    },
+    "sourceRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "totalChangedRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "journalRows": {
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "journalTextBytes": {
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "WALBeforeCheckpoint": {
+      "min": 65952,
+      "median": 65952,
+      "p95": 65952,
+      "max": 65952
+    },
+    "DBBytesAfterCheckpoint": {
+      "min": 1228800,
+      "median": 1228800,
+      "p95": 1228800,
+      "max": 1228800
+    },
+    "allocatedBytes": {
+      "min": 44056,
+      "median": 44056,
+      "p95": 44856,
+      "max": 45496
+    },
+    "allocations": {
+      "min": 1314,
+      "median": 1314,
+      "p95": 1317,
+      "max": 1319
+    }
+  },
+  {
+    "scenario": "quotes-100",
+    "path": "1",
+    "n": 30,
+    "elapsed_ns": {
+      "min": 21584525,
+      "median": 29319618,
+      "p95": 38312203,
+      "max": 38436157
+    },
+    "sourceRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "totalChangedRows": {
+      "min": 300,
+      "median": 300,
+      "p95": 300,
+      "max": 300
+    },
+    "journalRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "journalTextBytes": {
+      "min": 50800,
+      "median": 50800,
+      "p95": 50800,
+      "max": 50800
+    },
+    "WALBeforeCheckpoint": {
+      "min": 144232,
+      "median": 144232,
+      "p95": 144232,
+      "max": 144232
+    },
+    "DBBytesAfterCheckpoint": {
+      "min": 1343488,
+      "median": 1343488,
+      "p95": 1343488,
+      "max": 1343488
+    },
+    "allocatedBytes": {
+      "min": 44056,
+      "median": 44352,
+      "p95": 47264,
+      "max": 48328
+    },
+    "allocations": {
+      "min": 1314,
+      "median": 1317,
+      "p95": 1343,
+      "max": 1352
+    }
+  },
+  {
+    "scenario": "catalog-100",
+    "path": "0",
+    "n": 30,
+    "elapsed_ns": {
+      "min": 2941400,
+      "median": 3538421,
+      "p95": 4239513,
+      "max": 4350421
+    },
+    "sourceRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "totalChangedRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "journalRows": {
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "journalTextBytes": {
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "WALBeforeCheckpoint": {
+      "min": 4152,
+      "median": 4152,
+      "p95": 4152,
+      "max": 4152
+    },
+    "DBBytesAfterCheckpoint": {
+      "min": 1228800,
+      "median": 1228800,
+      "p95": 1228800,
+      "max": 1228800
+    },
+    "allocatedBytes": {
+      "min": 40056,
+      "median": 40280,
+      "p95": 41288,
+      "max": 41624
+    },
+    "allocations": {
+      "min": 1314,
+      "median": 1316,
+      "p95": 1325,
+      "max": 1328
+    }
+  },
+  {
+    "scenario": "catalog-100",
+    "path": "1",
+    "n": 30,
+    "elapsed_ns": {
+      "min": 16691588,
+      "median": 22162239,
+      "p95": 29233084,
+      "max": 29698782
+    },
+    "sourceRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "totalChangedRows": {
+      "min": 300,
+      "median": 300,
+      "p95": 300,
+      "max": 300
+    },
+    "journalRows": {
+      "min": 100,
+      "median": 100,
+      "p95": 100,
+      "max": 100
+    },
+    "journalTextBytes": {
+      "min": 25800,
+      "median": 25800,
+      "p95": 25800,
+      "max": 25800
+    },
+    "WALBeforeCheckpoint": {
+      "min": 65952,
+      "median": 65952,
+      "p95": 65952,
+      "max": 65952
+    },
+    "DBBytesAfterCheckpoint": {
+      "min": 1273856,
+      "median": 1273856,
+      "p95": 1273856,
+      "max": 1273856
+    },
+    "allocatedBytes": {
+      "min": 40056,
+      "median": 40072,
+      "p95": 42408,
+      "max": 43752
+    },
+    "allocations": {
+      "min": 1314,
+      "median": 1314,
+      "p95": 1335,
+      "max": 1347
+    }
+  }
+]

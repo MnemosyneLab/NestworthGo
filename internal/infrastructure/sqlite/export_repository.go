@@ -7,6 +7,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+// Source revision/journal tables are derived invalidation metadata and are
+// intentionally absent from JSON. A finance-only import creates fresh household
+// epochs; an import into an existing database must reset tracking before reuse.
 // Version 1's explicit projection is intentionally independent of schema discovery.
 // Adding a database column must never silently extend the public export contract.
 var exportQueries = []struct{ section, name, query string }{

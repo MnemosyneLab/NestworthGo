@@ -1,0 +1,4 @@
+=== RUN   TestSourceJournalStaleFloorStillUsesFullFingerprintOracle
+--- PASS: TestSourceJournalStaleFloorStillUsesFullFingerprintOracle (9.39s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	10.428s

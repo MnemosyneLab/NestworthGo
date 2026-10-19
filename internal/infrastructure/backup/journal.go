@@ -207,6 +207,17 @@ func verifyOrRollbackReplacement(liveDBPath string, journal Journal, store *sett
 		return RemoveJournal(liveDBPath)
 	}
 	_ = verified.Close()
+	// Rotate only the installed live copy. An interrupted reset is safely
+	// repeatable; the verified backup/safety artifacts retain their old epoch.
+	restored, err := sqlite.Open(liveDBPath)
+	if err != nil {
+		return err
+	}
+	resetErr := restored.ResetFinancialSourceTracking(context.Background())
+	closeErr := restored.Close()
+	if err := errors.Join(resetErr, closeErr); err != nil {
+		return err
+	}
 	journal.State = StateVerified
 	if err := WriteJournal(liveDBPath, journal); err != nil {
 		return err

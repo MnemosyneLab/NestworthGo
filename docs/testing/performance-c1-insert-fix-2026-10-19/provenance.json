@@ -1,0 +1,18 @@
+{
+  "measured_commit": "0a7c3061adbd12d8bec5246c261388c28659cfbe",
+  "prior_review_head": "2f8b4ecfc8829a087472f9e8b3c8ce81c64f27d4",
+  "schema": 20,
+  "tracking": "C1 only; full fingerprints/rechecks retained",
+  "retention_rows": 4096,
+  "prune_every_revisions": 256,
+  "max_retained_rows": 4351,
+  "verification_count_limit": 4352,
+  "bound_kind": "rows, not fixed bytes or latency",
+  "measurement_started_utc": "2026-10-19T07:03:09Z",
+  "GOMAXPROCS": 4,
+  "Go": "go1.26.0",
+  "SQLite": "3.53.0",
+  "native_app_launched": false,
+  "data": "synthetic isolated only",
+  "old_raw_evidence_preserved": true
+}

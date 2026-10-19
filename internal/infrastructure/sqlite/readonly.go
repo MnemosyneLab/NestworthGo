@@ -39,7 +39,7 @@ func OpenReadOnlyForVerifyContext(ctx context.Context, path string) (*DB, error)
 	}
 	dsn, err := sqliteDSN(path, url.Values{
 		"mode":    {"ro"},
-		"_pragma": {"query_only=1", "foreign_keys=1", "busy_timeout=5000"},
+		"_pragma": {"query_only=1", "foreign_keys=1", "busy_timeout=5000", "recursive_triggers=1"},
 	})
 	if err != nil {
 		return nil, &domain.Error{Code: domain.ErrUnavailable, Message: "database could not be opened"}
@@ -57,7 +57,7 @@ func OpenReadOnlyForVerifyContext(ctx context.Context, path string) (*DB, error)
 		_ = database.Close()
 		return nil, &domain.Error{Code: domain.ErrBackupIntegrityFailed, Message: "database could not be read"}
 	}
-	if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 {
+	if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 {
 		_ = database.Close()
 		return nil, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: fmt.Sprintf("database schema version is %d, want %d", found, CurrentSchemaVersion)}
 	}
