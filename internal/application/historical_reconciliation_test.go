@@ -405,7 +405,7 @@ func TestHistoricalReconciliationAgentCloseTimestampContinuity(t *testing.T) {
 				t.Fatal(err)
 			}
 			point := series.Points[1]
-			if point.ScopeChanged || point.BasisChanged != changed || point.ConnectNetWorth == changed {
+			if point.ScopeChanged || point.BasisChanged || !point.ConnectNetWorth {
 				t.Fatalf("trend continuity: %+v", point)
 			}
 			t.Logf("timestamp %s -> %s; trend basis_changed=%t connect_net_worth=%t", a.TimestampBasis, b.TimestampBasis, point.BasisChanged, point.ConnectNetWorth)

@@ -102,7 +102,7 @@ it("takes the headline and the chart from one daily response so both cover the s
  expect(await performance.findByText("Oct 5 – 14, 2026")).toBeInTheDocument();
  // The accessible data table lists the same daily points the headline interval spans.
  const rows=within(await performance.findByRole("table")).getAllByRole("row").slice(1);
- expect(rows.map(row=>within(row).getAllByRole("cell")[3].textContent)).toEqual(["2026-10-14","2026-10-05"]);
+ expect(rows.map(row=>within(row).getAllByRole("cell")[3].textContent)).toEqual(["Oct 14, 2026","Oct 5, 2026"]);
 });
 
 it("has no source filter because the chart only shows eligible daily closes",async()=>{

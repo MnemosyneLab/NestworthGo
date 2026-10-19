@@ -123,6 +123,15 @@ func performancePriceBasis(t InstrumentType, basis string) bool {
 	return false
 }
 
+// DailyPriceUnit identifies supported raw-close bases that measure the same
+// instrument unit. Unknown and adjusted bases retain their distinct identity.
+func DailyPriceUnit(t InstrumentType, basis string) string {
+	if performancePriceBasis(t, basis) {
+		return "raw_close"
+	}
+	return "basis:" + basis
+}
+
 // ProjectQuotePerformance accepts instrument evidence only. Personal positions,
 // cash dividends and ledger adjustments cannot establish issuer unit changes.
 func ProjectQuotePerformance(i Instrument, quotes []InstrumentQuote) []QuotePerformance {

@@ -97,7 +97,7 @@ export function QuoteHistoryContent({ target, focus, render, onRangeChange }: { 
             <TrendChart
               ariaLabel={title}
               summary={title}
-              {...quoteTrendProps({ series: series.data, kind: target.kind, currency, priceSuffix, color: theme.primary, timezone: settings.data?.timezone, language: i18n.language, t })}
+              {...quoteTrendProps({ series: series.data, kind: target.kind, currency, priceSuffix, color: theme.primary, colors: theme.palette, timezone: settings.data?.timezone, language: i18n.language, t })}
               height={300}
               emptyTitle={t("charts.insufficientHistory")}
             />
