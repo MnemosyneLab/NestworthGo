@@ -1,0 +1,36 @@
+=== RUN   TestReviewCertifiedPerformanceEvidence
+=== RUN   TestReviewCertifiedPerformanceEvidence/large
+    review_certified_performance_test.go:32: manifest={"Accounts":1,"Instruments":100,"Holdings":100,"Rules":20,"HistoryDays":30,"Quotes":100000,"CashActivities":50000,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a15587-02c7-7a55-8359-fab1dd87f16b
+=== RUN   TestReviewCertifiedPerformanceEvidence/large/warm
+    review_certified_performance_test.go:166: certified size=large scenario=warm arm=C2 n=1 elapsed=5.444352467s allocatedBytes=1944350088 allocs=29674473 publishedPairDays=0 publication=none sql queries=385 returnedRows=512911 Query-to-Rows.Close=3.293149526s execs=4002 writeStatements=4002 rowsAffected=1 driverExecTime=342.42967ms prepares=2 prepareTime=159.922µs writeTransactions=1 reserved-to-finish=2.97413994s
+    review_certified_performance_test.go:166: certified size=large scenario=warm arm=certified n=1 elapsed=35.982613ms allocatedBytes=2293336 allocs=34950 publishedPairDays=0 publication=none sql queries=40 returnedRows=2706 Query-to-Rows.Close=34.084238ms execs=2 writeStatements=2 rowsAffected=2 driverExecTime=258.299µs prepares=0 prepareTime=0s writeTransactions=1 reserved-to-finish=35.66205ms
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=warm arm=C2 n=1 median=5.444352467s raw=[5.444352467s] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=warm arm=certified n=1 median=35.982613ms raw=[35.982613ms] (diagnostic; no p95/RSS acceptance)
+=== RUN   TestReviewCertifiedPerformanceEvidence/large/clock-only
+    review_certified_performance_test.go:121: audit size=large scenario=clock-only sample=1 actualPublicationDays=62000 independentFullAuditDays=62000
+    review_certified_performance_test.go:166: certified size=large scenario=clock-only arm=C2 n=1 elapsed=5.786279617s allocatedBytes=2008285936 allocs=29968965 publishedPairDays=2000 publication=none sql queries=625 returnedRows=513151 Query-to-Rows.Close=3.47671154s execs=8242 writeStatements=8242 rowsAffected=6242 driverExecTime=594.571802ms prepares=2 prepareTime=137.166µs writeTransactions=1 reserved-to-finish=2.998755047s
+    review_certified_performance_test.go:166: certified size=large scenario=clock-only arm=certified n=1 elapsed=7.721772233s allocatedBytes=3616653288 allocs=33939518 publishedPairDays=62000 publication=verified_source_cas sql queries=646 returnedRows=654382 Query-to-Rows.Close=3.398550895s execs=8242 writeStatements=8242 rowsAffected=6242 driverExecTime=780.320353ms prepares=2 prepareTime=156.075µs writeTransactions=2 reserved-to-finish=3.190425346s
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=clock-only arm=C2 n=1 median=5.786279617s raw=[5.786279617s] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=clock-only arm=certified n=1 median=7.721772233s raw=[7.721772233s] (diagnostic; no p95/RSS acceptance)
+=== RUN   TestReviewCertifiedPerformanceEvidence/large/append
+    review_certified_performance_test.go:121: audit size=large scenario=append sample=1 actualPublicationDays=62000 independentFullAuditDays=62000
+    review_certified_performance_test.go:166: certified size=large scenario=append arm=C2 n=1 elapsed=10.341981044s allocatedBytes=3931710392 allocs=39179748 publishedPairDays=62000 publication=none sql queries=605 returnedRows=507567 Query-to-Rows.Close=3.664179448s execs=128242 writeStatements=128242 rowsAffected=6342 driverExecTime=2.317024661s prepares=2 prepareTime=143.746µs writeTransactions=1 reserved-to-finish=5.786312415s
+    review_certified_performance_test.go:166: certified size=large scenario=append arm=certified n=1 elapsed=7.820033517s allocatedBytes=3783925264 allocs=38549367 publishedPairDays=62000 publication=verified_source_cas sql queries=657 returnedRows=777315 Query-to-Rows.Close=3.88852321s execs=8242 writeStatements=8242 rowsAffected=6342 driverExecTime=677.846419ms prepares=2 prepareTime=173.632µs writeTransactions=2 reserved-to-finish=2.936925021s
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=append arm=C2 n=1 median=10.341981044s raw=[10.341981044s] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=append arm=certified n=1 median=7.820033517s raw=[7.820033517s] (diagnostic; no p95/RSS acceptance)
+=== RUN   TestReviewCertifiedPerformanceEvidence/large/correction
+    review_certified_performance_test.go:121: audit size=large scenario=correction sample=1 actualPublicationDays=60000 independentFullAuditDays=60000
+    review_certified_performance_test.go:166: certified size=large scenario=correction arm=C2 n=1 elapsed=9.566001596s allocatedBytes=3866004664 allocs=38803921 publishedPairDays=60000 publication=none sql queries=365 returnedRows=506911 Query-to-Rows.Close=3.543505846s execs=124002 writeStatements=124002 rowsAffected=156 driverExecTime=2.003518317s prepares=2 prepareTime=180.461µs writeTransactions=1 reserved-to-finish=5.465410726s
+    review_certified_performance_test.go:166: certified size=large scenario=correction arm=certified n=1 elapsed=7.251191576s allocatedBytes=3711444184 allocs=38030241 publishedPairDays=60000 publication=verified_source_cas sql queries=419 returnedRows=772765 Query-to-Rows.Close=3.828829756s execs=4056 writeStatements=4056 rowsAffected=156 driverExecTime=358.666257ms prepares=2 prepareTime=151.177µs writeTransactions=2 reserved-to-finish=2.583110352s
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=correction arm=C2 n=1 median=9.566001596s raw=[9.566001596s] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:185: certified-distribution size=large scenario=correction arm=certified n=1 median=7.251191576s raw=[7.251191576s] (diagnostic; no p95/RSS acceptance)
+=== NAME  TestReviewCertifiedPerformanceEvidence/large
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	 1066508 kB
+--- PASS: TestReviewCertifiedPerformanceEvidence (338.87s)
+    --- PASS: TestReviewCertifiedPerformanceEvidence/large (338.87s)
+        --- PASS: TestReviewCertifiedPerformanceEvidence/large/warm (62.67s)
+        --- PASS: TestReviewCertifiedPerformanceEvidence/large/clock-only (80.80s)
+        --- PASS: TestReviewCertifiedPerformanceEvidence/large/append (87.24s)
+        --- PASS: TestReviewCertifiedPerformanceEvidence/large/correction (83.29s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	338.901s
