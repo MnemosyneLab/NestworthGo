@@ -466,6 +466,18 @@ updates remain valuation inputs: they invalidate snapshots even when no price
 observation changes. Return totals stay partial until the rebuilt snapshot is
 complete.
 
+Daily snapshot items keep separate decimal contracts: `NativeAmount` accepts
+up to 16 fractional digits (quantity times unit price), while `BaseAmountExact`
+accepts up to 28 fractional digits, sufficient for a single snapshot FX
+conversion (16 native places plus 12 rate places for multiplication; at most
+16 native places plus 8 rate integer digits plus 4 Money places for division). Both remain non-negative and bounded by `999999999999.9999`.
+Snapshot construction, SQLite writes/reads, and database-open integrity checks
+apply the same base-amount rule. Storage never rounds converted components;
+`Money` projections round only at the existing display/aggregation boundary.
+The existing `base_amount` TEXT column is unchanged, so this requires no schema
+migration. Older binaries with the 16-place base validator cannot open databases
+once extended-precision snapshot items have been persisted.
+
 Available-funds calculations accept valuation `NativeAmount` values with up to
 16 fractional digits. Current-value routes retain this precision through fees,
 reservations, route selection, aggregation, and FX conversion. `Money` fields in

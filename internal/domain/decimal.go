@@ -12,7 +12,10 @@ const (
 	moneyAmountFractionDigits     = 4
 	minimumFXDivisionPrecision    = 16 // Preserve the existing decimal intermediate precision for later aggregation.
 	maxNativeAmountFractionDigits = 16
-	maxFXRateCoefficientDigits    = 8 + 12 // FX rates allow eight integer and twelve fractional digits.
+	// A single snapshot FX multiplication adds at most 12 fractional places.
+	// Inverse division needs at most 16 native + 8 rate integer + 4 Money places.
+	maxSnapshotBaseAmountFractionDigits = 28
+	maxFXRateCoefficientDigits          = 8 + 12 // FX rates allow eight integer and twelve fractional digits.
 	// One bridge conversion can produce at most this many decimal places from a
 	// 16-place native amount and a maximum-size rate; a second conversion can
 	// consume that result before the final Money projection.
@@ -23,6 +26,7 @@ var (
 	quantitySyntax     = regexp.MustCompile(`^(0|[1-9][0-9]{0,17})(\.[0-9]{1,8})?$`)
 	unitPriceSyntax    = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$`)
 	fxRateSyntax       = regexp.MustCompile(`^(0|[1-9][0-9]{0,7})(\.[0-9]{1,12})?$`)
+	baseAmountSyntax   = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,28})?$`)
 	nativeAmountSyntax = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,16})?$`)
 	signedMoneySyntax  = regexp.MustCompile(`^-?(0|[1-9][0-9]{0,11})(\.[0-9]{1,4})?$`)
 
@@ -107,6 +111,24 @@ func ParseNativeAmount(value string) (string, error) {
 		return "", validation("nativeAmount", "is not a valid decimal")
 	}
 	if err := validateBoundedDecimal("nativeAmount", parsed, maxMoney, 12, 16, false); err != nil {
+		return "", err
+	}
+	return canonicalDecimal(parsed), nil
+}
+
+// ParseBaseAmountExact validates an unrounded converted snapshot amount.
+// FX division and multiplication can exceed the native quantity/price product's
+// 16 places. Retain the single-conversion precision (up to 28 places), while
+// keeping the same non-negative monetary range and never rounding at storage.
+func ParseBaseAmountExact(value string) (string, error) {
+	if !baseAmountSyntax.MatchString(value) {
+		return "", validation("baseAmountExact", "must be a canonical non-negative decimal with up to twenty-eight fractional digits")
+	}
+	parsed, err := decimal.NewFromString(value)
+	if err != nil {
+		return "", validation("baseAmountExact", "is not a valid decimal")
+	}
+	if err := validateBoundedDecimal("baseAmountExact", parsed, maxMoney, 12, maxSnapshotBaseAmountFractionDigits, false); err != nil {
 		return "", err
 	}
 	return canonicalDecimal(parsed), nil

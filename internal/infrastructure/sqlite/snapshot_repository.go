@@ -412,7 +412,7 @@ func scanDailyValuationSnapshotItem(id string, snapshotID domain.DailyValuationS
 				return domain.DailyValuationSnapshotItem{}, err
 			}
 		}
-		exact, parseErr := domain.ParseNativeAmount(baseAmount.String)
+		exact, parseErr := domain.ParseBaseAmountExact(baseAmount.String)
 		if parseErr != nil {
 			return domain.DailyValuationSnapshotItem{}, parseErr
 		}
