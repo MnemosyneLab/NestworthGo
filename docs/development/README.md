@@ -12,6 +12,8 @@ native/package validation boundaries.
 The [Real Browser Acceptance guide](real-browser-acceptance.md) documents the
 repository-supported HTTP server workflow, synthetic fixtures, cloud-browser
 verification, evidence capture, and native-only limits.
+The [Temporary GitHub Actions CI Pause](ci-pause.md) records the active
+workflow pause and its user-directed restoration procedure.
 
 Development documents should describe reproducible work against the current
 tree. Maintained documentation is English. Temporary investigations belong in
