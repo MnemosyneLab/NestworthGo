@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"os"
 	"runtime"
 	"strings"
 	"testing"
@@ -11,17 +10,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
-
-// Run alone, without build/race/profile jobs. This retains the complete epoch
-// setup/oracles and instruments the actual Service call, not a reimplementation
-// of reconciliation. Original distributions remain separate evidence.
-func TestReviewEpochStageDiagnostics(t *testing.T) {
-	if os.Getenv("NW_REVIEW_PERF_EVIDENCE") != "1" {
-		t.Skip("set NW_REVIEW_PERF_EVIDENCE=1")
-	}
-	t.Setenv("NW_REVIEW_PERF_STAGE_TRACE", "1")
-	runReviewPerfEpochPairs(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Holdings: 1, Rules: 4, HistoryDays: 30, Quotes: 30}, 30, 64, "no-op")
-}
 
 type reviewPerfStageRepository struct {
 	*sqlite.Repository

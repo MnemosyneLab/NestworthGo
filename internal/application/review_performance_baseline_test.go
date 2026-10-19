@@ -248,31 +248,6 @@ func TestReviewPerformanceFullOracle(t *testing.T) {
 	runReviewPerfPairs(t, reviewPerfConfig{Accounts: 2, Instruments: 3, Holdings: 4, Rules: 4, HistoryDays: 10, Quotes: 30, MixedActivities: 8}, 1)
 }
 
-// Opt-in distribution evidence: samples are independent clones, paths alternate
-// order, and all correctness/oracle work occurs outside reported timings.
-func TestReviewPairedPerformanceEvidence(t *testing.T) {
-	if os.Getenv("NW_REVIEW_PERF_EVIDENCE") != "1" {
-		t.Skip("set NW_REVIEW_PERF_EVIDENCE=1")
-	}
-	samples := 30
-	if value := os.Getenv("NW_REVIEW_PERF_SAMPLES"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 {
-			t.Fatal("invalid NW_REVIEW_PERF_SAMPLES")
-		}
-		samples = parsed
-	}
-	cycles := 0
-	if value := os.Getenv("NW_REVIEW_PERF_EPOCH_CYCLES"); value != "" {
-		var err error
-		cycles, err = strconv.Atoi(value)
-		if err != nil || cycles < 0 {
-			t.Fatal("invalid NW_REVIEW_PERF_EPOCH_CYCLES")
-		}
-	}
-	runReviewPerfEpochPairs(t, reviewPerfEnvironmentConfig(t), samples, cycles)
-}
-
 func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
 	runReviewPerfEpochPairs(t, config, samples, 0)
 }

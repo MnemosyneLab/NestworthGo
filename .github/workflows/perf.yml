@@ -3,14 +3,22 @@ name: perf
 # Weekly heavy checks. They do not run on push or pull_request.
 # Sunday 18:00 UTC, plus Actions → perf → Run workflow.
 #
-# Full-scale profiles, from the repository root:
-#   NESTWORTH_PERF=1 go test -count=1 -timeout 45m \
-#     -run 'TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesBenchmarkCancellationEvidence|TestReviewRepeatedEpochWindowOracleScale' \
-#     ./internal/application
+# Performance evidence lives in *_perf_test.go files behind //go:build perf.
+# The build tag is the gate. Per-PR check.yml does not compile or vet those
+# files. Weekly commands pass -tags perf and select only the perf tests and
+# benchmarks; without -run, -tags perf would also execute the normal suite.
 #
-# Race shards stay on this schedule so a pull request does not pay for -race.
-# They do not set NESTWORTH_PERF, so the full-scale profiles stay out of the
-# 10-minute race budget. JSON artifacts keep per-test timings.
+# Expected durations (test time, after native dependencies):
+#   scale     15–40 min  (bounded profiles, memory, benchmarks once)
+#   pipeline  45–90 min  (365-day book, 2000 pairs, cold + 30 incrementals)
+#   paired    40–70 min  (30 samples of the reference R30 book)
+#   epoch     15–40 min  (30 samples, 64 no-op cycles, stage trace)
+# Job timeouts add the native-dependency step. The weekly wall clock is the
+# longest job, pipeline, because the perf matrix runs in parallel.
+#
+# Race shards stay on this schedule and do not pass -tags perf, so the
+# full-scale profiles stay out of the 10-minute race budget. JSON artifacts
+# keep per-test timings.
 on:
   workflow_dispatch:
   schedule:
@@ -18,8 +26,40 @@ on:
 
 jobs:
   perf:
+    name: perf (${{ matrix.label }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Bounded profiles and one-iteration benchmarks. The three long
+          # evidence tests run in their own rows so a 40-minute neighbor
+          # cannot consume their budget.
+          - label: scale
+            timeout: 75
+            test_timeout: 50m
+            packages: ./internal/application ./internal/infrastructure/marketdata ./internal/infrastructure/sqlite
+            run: ^(TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesMemoryEvidence|TestHistoricalSeriesBenchmarkCancellationEvidence|TestReviewRepeatedEpochWindowOracleScale|TestUpcomingActionsPerformanceReport|TestHistoricalOverviewDenseRapidSwitchEvidence|TestSourceTrackingProviderRefreshEvidence|TestAnalysisEndToEndPerformanceEvidence|TestSourceTrackingProviderImportBatchEvidence|TestFinancialSourceWriteAmplificationEvidence)$
+            bench: ^(BenchmarkHistoricalSeriesBounded|BenchmarkHistoricalOverviewRapidSwitch|BenchmarkUpcomingActionsScale|BenchmarkReviewProjectionIncremental100x20|BenchmarkLegacySnapshotCoverageWarmBoundedTrend|BenchmarkLegacySnapshotCoverageColdBoundedTrend)$
+          - label: pipeline
+            timeout: 120
+            test_timeout: 95m
+            packages: ./internal/application
+            run: ^TestReviewFullPipelinePerformanceEvidence$
+            bench: ""
+          - label: paired
+            timeout: 105
+            test_timeout: 80m
+            packages: ./internal/application
+            run: ^TestReviewPairedPerformanceEvidence$
+            bench: ""
+          - label: epoch
+            timeout: 75
+            test_timeout: 50m
+            packages: ./internal/application
+            run: ^TestReviewEpochStageDiagnostics$
+            bench: ""
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -29,13 +69,17 @@ jobs:
       - name: Install native Go build dependencies
         timeout-minutes: 15
         run: bash tools/ci-install-native-deps.sh
-      - name: Full-scale application checks
-        env:
-          NESTWORTH_PERF: "1"
+      - name: Perf-tagged evidence
         run: |
-          go test -count=1 -timeout 40m \
-            -run 'TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesBenchmarkCancellationEvidence|TestReviewRepeatedEpochWindowOracleScale' \
-            ./internal/application
+          set -euo pipefail
+          bench=()
+          if [ -n "${{ matrix.bench }}" ]; then
+            bench=(-bench "${{ matrix.bench }}" -benchtime=1x)
+          fi
+          go test -tags perf -count=1 -timeout ${{ matrix.test_timeout }} \
+            -run "${{ matrix.run }}" \
+            "${bench[@]}" \
+            ${{ matrix.packages }}
 
   # Application 2/2 repeatedly exhausted Go's cumulative 10m test budget
   # (PR #60, main, PR #61); no assertion or race detector failure preceded it.

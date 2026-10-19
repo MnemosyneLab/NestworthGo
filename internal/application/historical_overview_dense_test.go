@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -20,16 +19,6 @@ func TestHistoricalOverviewDenseEntrySingleAndComparison(t *testing.T) {
 	// That is the chunk boundary. The 1,000-leaf/25,000-activity profile is
 	// TestHistoricalOverviewDenseFullScale in the weekly perf workflow.
 	runHistoricalOverviewDenseScale(t, 2, 0, 8300, 24981, 20, 22, "0.00216")
-}
-
-func TestHistoricalOverviewDenseFullScale(t *testing.T) {
-	if os.Getenv("NESTWORTH_PERF") != "1" {
-		t.Skip("1000-leaf/25000-activity scale runs in the weekly perf workflow (NESTWORTH_PERF=1)")
-	}
-	if analysisRaceDetector {
-		t.Skip("full scale is a non-race runtime check; race instrumentation exhausted the shard")
-	}
-	runHistoricalOverviewDenseScale(t, 100, 1000, 25000, 86433, 1000, 1100, "0.108")
 }
 
 func runHistoricalOverviewDenseScale(t *testing.T, accounts, backfills, activities, wantFacts, wantLeaves, wantRows int, wantAmount string) {

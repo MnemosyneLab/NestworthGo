@@ -141,8 +141,9 @@ frontend tests, and `git diff --check`.
 
 The same automated gates run in GitHub Actions on `main` and pull requests
 (`.github/workflows/check.yml`). Non-race Go tests are checksum shards. Race
-detection runs weekly in `.github/workflows/perf.yml`, not on every pull
-request. Native packaging, signing, and notarization remain manual.
+detection and `//go:build perf` evidence run weekly in
+`.github/workflows/perf.yml`, not on every pull request. Native packaging,
+signing, and notarization remain manual.
 
 The release task also runs `python3 -m unittest discover -s tools/tests -v`
 through `skill:check`. Native-dependency helper tests discover GNU `timeout`

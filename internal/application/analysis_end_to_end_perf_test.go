@@ -1,7 +1,8 @@
+//go:build perf
+
 package application
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -13,9 +14,6 @@ import (
 // kernel and DTO. A fresh analysis memo is used on both clones; the second
 // sample starts with durable closed snapshots but no in-memory memo.
 func TestAnalysisEndToEndPerformanceEvidence(t *testing.T) {
-	if os.Getenv("NW_REVIEW_PERF_EVIDENCE") != "1" {
-		t.Skip("set NW_REVIEW_PERF_EVIDENCE=1")
-	}
 	c := reviewPerfEnvironmentConfig(t)
 	fixture := newReviewPerfFixture(t, c)
 	logReviewPerfManifest(t, fixture, c)

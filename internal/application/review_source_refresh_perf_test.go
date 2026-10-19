@@ -1,3 +1,5 @@
+//go:build perf
+
 package application
 
 import (
@@ -10,9 +12,6 @@ import (
 )
 
 func TestSourceTrackingProviderRefreshEvidence(t *testing.T) {
-	if os.Getenv("NW_SOURCE_BATCH_PERF") != "1" {
-		t.Skip("synthetic end-to-end provider refresh; run alone")
-	}
 	db, service, fake, account, _ := newRefreshFixture(t)
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
