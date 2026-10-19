@@ -189,7 +189,7 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 		empty = empty && n == 0
 	}
 	empty = empty && c.PublishedTemporal == nil && c.Control.PublishedFingerprint == "" && !r.database.reviewCertificateKey.issued.Load()
-	proof.MayCertify = empty || r.authenticReview(c.PublishedTemporal, seal)
+	proof.MayCertify = validCertifiedConnection(connection) && (empty || r.authenticReview(c.PublishedTemporal, seal))
 	var verified bool
 	proof.SchemaCookie, verified, err = r.verifiedCertifiedTracking(ctx, tx)
 	if err != nil {
@@ -253,7 +253,7 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 	if err != nil {
 		return nil, false, false, err
 	}
-	if connectionID == 0 || observed != c.Certified.Connection {
+	if !validCertifiedConnection(observed) || !validCertifiedConnection(c.Certified.Connection) || observed != c.Certified.Connection {
 		return current, false, true, nil
 	}
 	return current, true, true, nil

@@ -53,12 +53,16 @@ func certifiedConnectionCheckpoint(ctx context.Context, q schemaQuery, id uint64
 	return proof, nil
 }
 
+func validCertifiedConnection(p domain.ReviewConnectionCheckpoint) bool {
+	return p.Connection != 0 && p.DataVersion >= 0 && p.OwnChanges >= 0 && p.OwnChanges < int64(^uint64(0)>>1)
+}
+
 func (r *Repository) prepareCertifiedCounter(ctx context.Context, tx *sql.Tx, c *domain.ReviewTemporalCertificate, id uint64) error {
 	proof, err := certifiedConnectionCheckpoint(ctx, tx, id)
 	if err != nil {
 		return err
 	}
-	if id == 0 || proof.DataVersion < 0 || proof.OwnChanges < 0 || proof.OwnChanges == int64(^uint64(0)>>1) {
+	if !validCertifiedConnection(proof) {
 		return reviewRuleConflict("certified connection counter is unavailable")
 	}
 	// Mandatory checkpoint INSERT/UPDATE is the final row write and must affect
