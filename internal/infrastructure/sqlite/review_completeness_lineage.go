@@ -33,7 +33,7 @@ func (r *Repository) observeReviewLineage(phase, verdict string) {
 	}
 }
 
-func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, epoch string) (*domain.ReviewCompletenessLineage, error) {
+func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, epoch string, trackingVerified bool) (*domain.ReviewCompletenessLineage, error) {
 	l := &domain.ReviewCompletenessLineage{Version: domain.ReviewCompletenessLineageVersion, Reason: "untrusted_checkpoint"}
 	previous := capture.PublishedTemporal
 	completenessVersion := domain.ReviewNoChangeCompletenessVersion
@@ -51,22 +51,26 @@ func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, captu
 		l.Reason = "source_changed"
 		return l, nil
 	}
-	var cookie, fk, version int
-	for _, p := range []struct {
-		query string
-		dest  *int
-	}{{`PRAGMA schema_version`, &cookie}, {`PRAGMA foreign_keys`, &fk}, {`PRAGMA user_version`, &version}} {
-		if err := tx.QueryRowContext(ctx, p.query).Scan(p.dest); err != nil {
-			return nil, err
+	// True only after verifiedCertifiedTracking succeeded in this SAME
+	// transaction. Standalone shadow calls retain their original C1 verifier.
+	if !trackingVerified {
+		var cookie, fk, version int
+		for _, p := range []struct {
+			query string
+			dest  *int
+		}{{`PRAGMA schema_version`, &cookie}, {`PRAGMA foreign_keys`, &fk}, {`PRAGMA user_version`, &version}} {
+			if err := tx.QueryRowContext(ctx, p.query).Scan(p.dest); err != nil {
+				return nil, err
+			}
 		}
-	}
-	if cookie == 0 || cookie != r.database.reviewVerifiedSchemaVersion || fk != 1 || version != CurrentSchemaVersion {
-		l.Reason = "tracking_unverified"
-		return l, nil
-	}
-	if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
-		l.Reason = "tracking_unverified"
-		return l, ctx.Err()
+		if cookie == 0 || cookie != r.database.reviewVerifiedSchemaVersion || fk != 1 || version != CurrentSchemaVersion {
+			l.Reason = "tracking_unverified"
+			return l, nil
+		}
+		if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
+			l.Reason = "tracking_unverified"
+			return l, ctx.Err()
+		}
 	}
 	if previous.ConfigRevision != capture.Control.ConfigRevision || previous.StateRevision != capture.Control.ReviewStateRevision || len(previous.RuleRevisions) != len(capture.Rules) {
 		l.Reason = "review_changed"

@@ -219,7 +219,12 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 	if c.PublishedTemporal != nil {
 		proof.PreviousProvider = c.PublishedTemporal.CertifiedProvider
 	}
-	proof.MayReuse = proof.MayCertify && r.authenticReview(c.PublishedTemporal, seal) && c.CompletenessLineage != nil && c.CompletenessLineage.Candidate
+	if !proof.MayCertify && !r.database.reviewCertificateKey.issued.Load() && validCertifiedConnection(connection) {
+		proof.MayBootstrap, err = certifiedBootstrapSupported(ctx, tx, *c, counts)
+		if err != nil {
+			return err
+		}
+	}
 	proof.SourceMAC, err = r.sourceCaptureMAC(*c)
 	return err
 }
@@ -281,10 +286,10 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 	return current, false, true, nil
 }
 
-// Only initial empty derived namespaces or an authenticated same-session chain
-// may mint integrity authority. Unknown legacy/restarted/damaged history stays
-// on full fallback; a fresh checksum never launders preexisting corruption.
-func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, out *domain.ReviewTemporalCertificate, leased bool, connectionID uint64) error {
+// Initial empty namespaces and authenticated same-session chains may certify.
+// A history-free legacy/restarted namespace may certify only after complete
+// replacement and namespace verification. A checksum alone never grants trust.
+func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, out *domain.ReviewTemporalCertificate, leased bool, connectionID uint64, bootstrap bool) error {
 	if r.CertifiedReviewEnabled() {
 		out.NoChangeCompletenessVersion = ""
 	}
@@ -293,7 +298,7 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 	out.CertifiedProjectionSeal = ""
 	out.CertifiedProvider = domain.ReviewProviderSelection{}
 	out.CertifiedConnection = domain.ReviewConnectionCheckpoint{}
-	if !r.CertifiedReviewEnabled() || !leased || c.Certified == nil || !c.Certified.MayCertify || !c.Certified.Provider.Pinned {
+	if !r.CertifiedReviewEnabled() || !leased || c.Certified == nil || (!c.Certified.MayCertify && !(bootstrap && c.Certified.MayBootstrap)) || !c.Certified.Provider.Pinned {
 		return nil
 	}
 	mac, err := r.sourceCaptureMAC(c)

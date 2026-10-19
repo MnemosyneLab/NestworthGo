@@ -25,6 +25,7 @@ type ReviewCertifiedCapture struct {
 	TemporalJSON      string
 	ReviewFingerprint string
 	SchemaCookie      int
+	MayBootstrap      bool // Full replacement only; never authorizes reuse or no-op.
 	MayCertify        bool
 	MayReuse          bool
 	PreviousProvider  ReviewProviderSelection

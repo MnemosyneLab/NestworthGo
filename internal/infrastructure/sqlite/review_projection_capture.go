@@ -187,26 +187,36 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	if !result.TemporalFullRecompute {
 		result.TemporalFullRecompute = previous.Source.Token.Epoch != result.SourceRevision.Token.Epoch || previous.Source.Token.TrackingVersion != result.SourceRevision.Token.TrackingVersion || previous.Source.Token.ResolverPolicyVersion != result.SourceRevision.Token.ResolverPolicyVersion || previous.Source.Token.EvaluatorVersion != result.SourceRevision.Token.EvaluatorVersion || previous.Source.Token.MetricPolicyVersion != result.SourceRevision.Token.MetricPolicyVersion || previous.Source.Token.Revision < result.SourceRevision.JournalFloor
 	}
-	if r.ReviewCompletenessLineageShadowEnabled() {
-		result.CompletenessLineage, err = r.captureReviewLineage(ctx, tx, result, epoch)
-		if err != nil {
-			return empty, err
-		}
-
-		r.observeReviewLineage("capture", result.CompletenessLineage.Reason)
-	}
-	// A successful C3 confirmation bypasses capture entirely. Every opt-in
-	// capture is therefore a fallback/bootstrap and must rebuild all dates,
-	// including direct repository callers that did not attempt confirmation.
-	// Lineage shadow also requires an independent full preparation oracle.
-	if r.ReviewNoChangeEnabled() || r.ReviewCompletenessLineageShadowEnabled() {
-		result.TemporalFullRecompute = true
-	}
+	// Verify certified writer assumptions once in this snapshot before the
+	// diagnostic lineage reads. No verification result crosses transactions.
+	trackingVerified := false
 	if r.CertifiedReviewEnabled() {
 		if err := r.captureCertifiedReview(ctx, tx, &result, connectionProof); err != nil {
 			return empty, err
 		}
-		if result.Certified.MayReuse {
+		trackingVerified = result.Certified.SourceMAC != ""
+	}
+	if r.ReviewCompletenessLineageShadowEnabled() {
+		result.CompletenessLineage, err = r.captureReviewLineage(ctx, tx, result, epoch, trackingVerified)
+		if err != nil {
+			return empty, err
+		}
+		r.observeReviewLineage("capture", result.CompletenessLineage.Reason)
+	}
+	// Every non-confirmed C3 call starts with full source/preparation. Only an
+	// authenticated, supported lineage can propose the existing bounded plan;
+	// that proposal still requires its separate complete runtime oracle.
+	if r.ReviewNoChangeEnabled() || r.ReviewCompletenessLineageShadowEnabled() {
+		result.TemporalFullRecompute = true
+	}
+	if r.CertifiedReviewEnabled() && trackingVerified {
+		proof := result.Certified
+		proof.MayReuse = proof.MayCertify && r.authenticReview(result.PublishedTemporal, proof.ProjectionSeal) && result.CompletenessLineage != nil && result.CompletenessLineage.Candidate
+		proof.SourceMAC, err = r.sourceCaptureMAC(result)
+		if err != nil {
+			return empty, err
+		}
+		if proof.MayReuse {
 			result.TemporalFullRecompute = false
 		}
 	}
