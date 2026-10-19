@@ -117,3 +117,23 @@ func TestJSONExportReconciliationSchemaCompatibility(t *testing.T) {
 		t.Fatal("incomplete reconciliation envelope accepted")
 	}
 }
+
+func TestJSONExportExcludesSourceJournalAndDoesNotAdvanceIt(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	var epoch string
+	var before, after int64
+	if err := f.db.SQL.QueryRow(`SELECT tracking_epoch,revision FROM financial_source_revision`).Scan(&epoch, &before); err != nil {
+		t.Fatal(err)
+	}
+	data, err := f.s.ExportJSONBytes(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	validateExportSchema(t, data)
+	if strings.Contains(string(data), "financial_source_") || strings.Contains(string(data), epoch) {
+		t.Fatal("derived source metadata leaked into JSON contract")
+	}
+	if err = f.db.SQL.QueryRow(`SELECT revision FROM financial_source_revision`).Scan(&after); err != nil || after != before {
+		t.Fatalf("export advanced tracking: %d -> %d %v", before, after, err)
+	}
+}

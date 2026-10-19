@@ -17,10 +17,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql
+//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql source_changes_schema_v20.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 19
+const CurrentSchemaVersion = 20
 
 type BootstrapStatus string
 
@@ -89,7 +89,7 @@ type DB struct {
 }
 
 func Open(path string) (*DB, error) {
-	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) {
+	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -109,7 +109,7 @@ func Open(path string) (*DB, error) {
 	if existed {
 		probeDSN, dsnErr := sqliteDSN(path, url.Values{
 			"mode":    {"ro"},
-			"_pragma": {"query_only=1", "foreign_keys=1"},
+			"_pragma": {"query_only=1", "foreign_keys=1", "recursive_triggers=1"},
 		})
 		if dsnErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: dsnErr}
@@ -119,7 +119,7 @@ func Open(path string) (*DB, error) {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
 		found, readErr := readVersion(probe)
-		if readErr == nil && (found == 15 || found == 16 || found == 17 || found == 18) {
+		if readErr == nil && (found == 15 || found == 16 || found == 17 || found == 18 || found == 19) {
 			readErr = verifySchemaVersion(context.Background(), probe, found)
 			if readErr != nil {
 				probe.Close()
@@ -130,7 +130,7 @@ func Open(path string) (*DB, error) {
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 {
+		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -140,7 +140,7 @@ func Open(path string) (*DB, error) {
 	}
 	dsn, err := sqliteDSN(path, url.Values{
 		"_txlock": {"immediate"},
-		"_pragma": {"busy_timeout=5000", "foreign_keys=1"},
+		"_pragma": {"busy_timeout=5000", "foreign_keys=1", "recursive_triggers=1"},
 	})
 	if err != nil {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
@@ -187,6 +187,12 @@ func Open(path string) (*DB, error) {
 		}
 		found = 19
 	}
+	if found == 19 && existed {
+		if err := upgradeV19(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 20
+	}
 	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)
 	}
@@ -212,6 +218,10 @@ func Open(path string) (*DB, error) {
 		if _, execErr := tx.ExecContext(context.Background(), string(reviewSchema)); execErr != nil {
 			_ = tx.Rollback()
 			return closeOnError(StatusUnavailable, found, execErr)
+		}
+		if err := installFinancialSourceTracking(context.Background(), tx); err != nil {
+			_ = tx.Rollback()
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
 		if err := verifySchema(context.Background(), tx); err != nil {
 			_ = tx.Rollback()
