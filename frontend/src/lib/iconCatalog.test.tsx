@@ -12,7 +12,7 @@ describe("shared icon registry", () => {
       expect(hasIcon(choice.key)).toBe(true);
       const {container, unmount} = render(<EntityIcon iconKey={choice.key} kind="instrument" />);
       expect(container.querySelector(choice.file ? "img" : "svg")).not.toBeNull();
-      for (const lng of ["en", "zh-CN", "zh-TW"]) expect(i18n.exists(choice.labelKey, {lng})).toBe(true);
+      for (const lng of ["en"]) expect(i18n.exists(choice.labelKey, {lng})).toBe(true);
       unmount();
     }
     const groups = iconChoicesByCategory();

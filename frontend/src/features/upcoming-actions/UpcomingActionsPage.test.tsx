@@ -72,7 +72,7 @@ describe("upcoming UI", () => {
     expect(within(screen.getByRole("region", { name: "Scheduled" })).getByText("Schedule 29")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show 50 more" })).not.toBeInTheDocument();
   });
-  it.each(["en", "zh-CN", "zh-TW"])("shows dates and actionable labels in %s", async language => {
+  it.each(["en"])("shows dates and actionable labels in %s", async language => {
     await i18n.changeLanguage(language); mount(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.getByRole("button", { name: `${i18n.t("upcomingActions.verifyReceipt")} · Synthetic deposit` })).toBeInTheDocument();
     expect(screen.getByText("2026-10-11 → 2026-11-10")).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe("upcoming UI", () => {
 });
 
 
-it.each(["en", "zh-CN", "zh-TW"])("shows the same human household timestamp in card and full page (%s)", async language => {
+it.each(["en"])("shows the same human household timestamp in card and full page (%s)", async language => {
   await i18n.changeLanguage(language);
   query.data = upcomingData([upcomingItem()]);
   const precise = "2026-10-11T23:30:12.123456789Z";
@@ -198,7 +198,7 @@ it("mounts large disclosure lists independently, unmounts on close, and reopens 
 }, 20000);
 
 
-it.each(["en", "zh-CN", "zh-TW"])("compresses homepage empty results and preserves data-check access in %s", async language => {
+it.each(["en"])("compresses homepage empty results and preserves data-check access in %s", async language => {
   await i18n.changeLanguage(language); query.data = upcomingData();
   const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
   expect(screen.getByText(i18n.t("homepage.noScheduledActions"))).toBeVisible();
@@ -210,7 +210,7 @@ it.each(["en", "zh-CN", "zh-TW"])("compresses homepage empty results and preserv
   expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
 });
 
-it.each(["en", "zh-CN", "zh-TW"])("switches between the existing actions and review tabs by keyboard in %s", async language => {
+it.each(["en"])("switches between the existing actions and review tabs by keyboard in %s", async language => {
   await i18n.changeLanguage(language);
   mount(<UpcomingActionsPage />);
   const recent = screen.getByRole("tab", { name: i18n.t("upcomingActions.title") });

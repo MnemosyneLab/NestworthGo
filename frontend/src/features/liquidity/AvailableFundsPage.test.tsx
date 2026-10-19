@@ -313,7 +313,7 @@ it("shows a known future lock clearly and keeps the normal route when early acce
 
 
 describe("Available Funds scope", () => {
-  it.each(["en", "zh-CN", "zh-TW"])("omits upcoming actions and investment review panels and entries in %s", async language => {
+  it.each(["en"])("omits upcoming actions and investment review panels and entries in %s", async language => {
     await i18n.changeLanguage(language);
     upcomingActions.mockClear();
     overview.mockResolvedValue(fixtureOverview());

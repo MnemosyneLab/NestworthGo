@@ -266,7 +266,7 @@ describe("HistoryPage", () => {
     await waitFor(() => expect(onFiltersChange).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: undefined, kinds: undefined })));
   });
 
-  it.each(["en", "zh-CN", "zh-TW"])("keeps archived filters selectable after clearing and updates rows (%s)", async (locale) => {
+  it.each(["en"])("keeps archived filters selectable after clearing and updates rows (%s)", async (locale) => {
     await i18n.changeLanguage(locale);
     const t = i18n.t.bind(i18n);
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });

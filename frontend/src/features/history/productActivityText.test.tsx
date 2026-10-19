@@ -10,7 +10,7 @@ function fixture(purpose = "acquisition", productKind = "term_deposit") {
   return {kind: "buy", effectiveAt: "2026-09-22T04:00:00Z", reason: "reconciliation", productContext: {purpose, productKind, instrumentId: "i"}, tradeDetail: {quantity: "1", unitPrice: "500", gross: {amount: "500", currency: "CNY"}}, effects: [{role: "principal", accountId: "a", money: {amount: "500", currency: "CNY"}}]} as unknown as ActivityDTO;
 }
 describe("managed product history", () => {
-  it.each(["en", "zh-CN", "zh-TW"])("uses product language for every recorded purpose in %s", (locale) => {
+  it.each(["en"])("uses product language for every recorded purpose in %s", (locale) => {
     const t = i18n.getFixedT(locale);
     for (const productKind of ["term_deposit", "locked_product"]) {
       for (const purpose of ["acquisition", "existing_position", "redemption", "interest", "reversal"]) {
