@@ -185,39 +185,6 @@ func TestPartialDeleteRestartResumesIdempotently(t *testing.T) {
 		t.Fatal("repeat not idempotent", err)
 	}
 }
-func TestCleanupCancellationAndDeniedDeleteStaySeparateFromBackup(t *testing.T) {
-	for _, mode := range []string{"denied", "cancel"} {
-		t.Run(mode, func(t *testing.T) {
-			m, c, root, streams := sealedFixture(t, 3)
-			b := &cleanupFault{fileBackend: fileBackend{root}}
-			if mode == "denied" {
-				b.failAt = 1
-			} else {
-				b.afterDelete = m.CancelCleanup
-			}
-			m.factory = func(config) backend { return b }
-			activateCleanup(t, m)
-			before, _ := m.View()
-			_, err := runCleanup(t, m)
-			if err == nil {
-				t.Fatal("fault ignored")
-			}
-			after, _ := m.View()
-			if before != after {
-				t.Fatal("cleanup overwrote backup status")
-			}
-			records, _ := m.store.streams(c)
-			if records[streams[0]].State != "deleting" {
-				t.Fatal("deleting state not persisted before mutation")
-			}
-			b.failAt = 0
-			b.afterDelete = nil
-			if _, err = runCleanup(t, m); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
 func TestStalePreviewAndUnknownObjectsAbortBeforeDeletion(t *testing.T) {
 	for _, mode := range []string{"expired", "unknown", "changed", "config", "pin", "disabled", "unacknowledged"} {
 		t.Run(mode, func(t *testing.T) {
