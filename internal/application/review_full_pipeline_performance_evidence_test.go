@@ -624,6 +624,9 @@ func seedReviewFullPipelineFacts(ctx context.Context, db *sqlite.DB, householdID
 func formatReviewPerfTime(value time.Time) string { return value.UTC().Format(time.RFC3339Nano) }
 
 func durationPercentile(values []time.Duration, percentile float64) time.Duration {
+	if len(values) == 0 {
+		return 0
+	}
 	ordered := append([]time.Duration(nil), values...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i] < ordered[j] })
 	index := int(math.Ceil(percentile*float64(len(ordered)))) - 1

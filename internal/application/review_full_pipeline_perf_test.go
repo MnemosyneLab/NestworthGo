@@ -18,6 +18,7 @@ import (
 // activity rows. The perf build tag is the gate.
 func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 	defer logReviewPerfProcessMemory(t)
+	samples := reviewPerfSampleCount(t, 10)
 	mode := os.Getenv("NW_REVIEW_PERF_MODE")
 	if err := validateReviewPerfMode(mode); err != nil {
 		t.Fatal(err)
@@ -173,7 +174,7 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		return
 	}
 
-	incremental := make([]time.Duration, 30)
+	incremental := make([]time.Duration, samples)
 	for index := range incremental {
 		*fixture.now = fixture.now.AddDate(0, 0, 1)
 		if mode == "warm-marketdata" {
@@ -203,7 +204,7 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		}
 	}
 
-	pageReads := make([]time.Duration, 30)
+	pageReads := make([]time.Duration, samples)
 	for index := range pageReads {
 		if index == 0 {
 			metrics.reset()

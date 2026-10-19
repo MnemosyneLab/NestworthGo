@@ -17,7 +17,7 @@ func TestHistoricalOverviewDenseEntrySingleAndComparison(t *testing.T) {
 	}
 	// 8,300 activities require 33,200 parameters in the old four-way union.
 	// That is the chunk boundary. The 1,000-leaf/25,000-activity profile is
-	// TestHistoricalOverviewDenseFullScale in the weekly perf workflow.
+	// TestHistoricalOverviewDenseFullScale in the daily/manual perf workflow.
 	runHistoricalOverviewDenseScale(t, 2, 0, 8300, 24981, 20, 22, "0.00216")
 }
 
