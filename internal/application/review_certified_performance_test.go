@@ -275,7 +275,7 @@ func TestReviewCertifiedBootstrapActivationEvidence(t *testing.T) {
 			}
 			*source.now = before
 			for sample := range reviewPerfSampleCount(t, 3) {
-				order := []string{"C2", "certified"}
+				order := []string{"C2-full", "certified"}
 				if sample%2 == 1 {
 					order[0], order[1] = order[1], order[0]
 				}
