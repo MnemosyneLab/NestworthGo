@@ -1,0 +1,494 @@
+=== RUN   TestFinancialSourceWriteAmplificationEvidence
+    financial_source_benchmark_test.go:33: synthetic primitive-write evidence n=30 each path/scenario; Go=go1.26.0 SQLite=3.53.0 GOMAXPROCS=4 schema=20; 1 household, 1 instrument, 100 writes/transaction; alternating order, immutable source clones; all setup/checkpoints/oracles excluded
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-00
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-00/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=0 elapsed_ns=3539840 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44168 allocations=1315
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-00/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=0 elapsed_ns=21289868 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=48928 allocations=1358
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-01
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-01/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=1 elapsed_ns=14503364 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-01/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=1 elapsed_ns=3524259 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=49744 allocations=1322
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-02
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-02/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=2 elapsed_ns=2476127 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44168 allocations=1315
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-02/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=2 elapsed_ns=16061375 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=45008 allocations=1323
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-03
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-03/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=3 elapsed_ns=14236400 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44352 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-03/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=3 elapsed_ns=3540569 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-04
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-04/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=4 elapsed_ns=2975023 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44336 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-04/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=4 elapsed_ns=19753172 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=45848 allocations=1330
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-05
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-05/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=5 elapsed_ns=21974612 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=47824 allocations=1348
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-05/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=5 elapsed_ns=2314851 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-06
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-06/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=6 elapsed_ns=3826556 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44336 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-06/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=6 elapsed_ns=22153068 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=45192 allocations=1324
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-07
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-07/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=7 elapsed_ns=16542204 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44896 allocations=1322
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-07/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=7 elapsed_ns=2379489 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-08
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-08/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=8 elapsed_ns=5265148 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44336 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-08/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=8 elapsed_ns=21182067 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-09
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-09/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=9 elapsed_ns=17780514 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44392 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-09/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=9 elapsed_ns=4097594 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-10
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-10/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=10 elapsed_ns=2372775 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-10/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=10 elapsed_ns=14751295 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-11
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-11/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=11 elapsed_ns=19876774 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44168 allocations=1315
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-11/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=11 elapsed_ns=2132724 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44584 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-12
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-12/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=12 elapsed_ns=2620927 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-12/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=12 elapsed_ns=21454015 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-13
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-13/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=13 elapsed_ns=14234955 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-13/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=13 elapsed_ns=2385132 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-14
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-14/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=14 elapsed_ns=3031100 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-14/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=14 elapsed_ns=17620310 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=45624 allocations=1328
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-15
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-15/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=15 elapsed_ns=12603855 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-15/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=15 elapsed_ns=2241378 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-16
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-16/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=16 elapsed_ns=2219393 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-16/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=16 elapsed_ns=14823187 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44392 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-17
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-17/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=17 elapsed_ns=21062014 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44352 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-17/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=17 elapsed_ns=2386840 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-18
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-18/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=18 elapsed_ns=3920267 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-18/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=18 elapsed_ns=22506431 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44952 allocations=1322
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-19
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-19/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=19 elapsed_ns=22509408 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=47752 allocations=1347
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-19/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=19 elapsed_ns=3724127 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-20
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-20/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=20 elapsed_ns=3625342 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44336 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-20/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=20 elapsed_ns=23063092 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-21
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-21/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=21 elapsed_ns=21242333 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44560 allocations=1319
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-21/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=21 elapsed_ns=3803397 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-22
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-22/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=22 elapsed_ns=2611896 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-22/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=22 elapsed_ns=14547218 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44504 allocations=1318
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-23
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-23/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=23 elapsed_ns=13721062 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-23/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=23 elapsed_ns=2242518 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44856 allocations=1319
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-24
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-24/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=24 elapsed_ns=3908984 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-24/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=24 elapsed_ns=17446089 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44336 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-25
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-25/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=25 elapsed_ns=15158208 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-25/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=25 elapsed_ns=3798836 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-26
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-26/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=26 elapsed_ns=2305921 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44856 allocations=1319
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-26/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=26 elapsed_ns=15491002 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44352 allocations=1317
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-27
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-27/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=27 elapsed_ns=16855583 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-27/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=27 elapsed_ns=2528487 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-28
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-28/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=28 elapsed_ns=3471605 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-28/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=28 elapsed_ns=14898070 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-29
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-29/path-1
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=1 sample=29 elapsed_ns=13402308 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=50800 WALBeforeCheckpoint=144232 DBBytesAfterCheckpoint=1290240 allocatedBytes=44056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-29/path-0
+    financial_source_benchmark_test.go:125: write scenario=quotes-100 path=0 sample=29 elapsed_ns=3125234 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1175552 allocatedBytes=44056 allocations=1314
+=== NAME  TestFinancialSourceWriteAmplificationEvidence/quotes-100
+    financial_source_benchmark_test.go:136: write distribution scenario=quotes-100 path=0 n=30 nearest-rank-median=2.975023ms nearest-rank-p95=4.097594ms raw=[3.53984ms 3.524259ms 2.476127ms 3.540569ms 2.975023ms 2.314851ms 3.826556ms 2.379489ms 5.265148ms 4.097594ms 2.372775ms 2.132724ms 2.620927ms 2.385132ms 3.0311ms 2.241378ms 2.219393ms 2.38684ms 3.920267ms 3.724127ms 3.625342ms 3.803397ms 2.611896ms 2.242518ms 3.908984ms 3.798836ms 2.305921ms 2.528487ms 3.471605ms 3.125234ms]
+    financial_source_benchmark_test.go:136: write distribution scenario=quotes-100 path=1 n=30 nearest-rank-median=16.855583ms nearest-rank-p95=22.509408ms raw=[21.289868ms 14.503364ms 16.061375ms 14.2364ms 19.753172ms 21.974612ms 22.153068ms 16.542204ms 21.182067ms 17.780514ms 14.751295ms 19.876774ms 21.454015ms 14.234955ms 17.62031ms 12.603855ms 14.823187ms 21.062014ms 22.506431ms 22.509408ms 23.063092ms 21.242333ms 14.547218ms 13.721062ms 17.446089ms 15.158208ms 15.491002ms 16.855583ms 14.89807ms 13.402308ms]
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-00
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-00/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=0 elapsed_ns=3398897 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-00/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=0 elapsed_ns=9161991 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-01
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-01/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=1 elapsed_ns=13853347 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-01/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=1 elapsed_ns=3496598 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-02
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-02/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=2 elapsed_ns=3065821 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-02/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=2 elapsed_ns=15195071 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-03
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-03/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=3 elapsed_ns=13440592 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-03/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=3 elapsed_ns=3117343 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-04
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-04/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=4 elapsed_ns=3454664 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-04/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=4 elapsed_ns=9683208 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-05
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-05/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=5 elapsed_ns=9417871 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-05/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=5 elapsed_ns=3440617 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-06
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-06/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=6 elapsed_ns=3782039 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-06/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=6 elapsed_ns=17167940 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-07
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-07/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=7 elapsed_ns=15669441 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-07/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=7 elapsed_ns=5031146 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-08
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-08/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=8 elapsed_ns=3522449 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-08/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=8 elapsed_ns=13988224 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40600 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-09
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-09/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=9 elapsed_ns=10798860 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-09/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=9 elapsed_ns=2964358 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-10
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-10/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=10 elapsed_ns=5604553 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-10/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=10 elapsed_ns=9663986 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-11
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-11/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=11 elapsed_ns=10010175 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-11/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=11 elapsed_ns=3000379 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-12
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-12/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=12 elapsed_ns=3917354 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-12/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=12 elapsed_ns=13792334 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-13
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-13/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=13 elapsed_ns=13514260 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40296 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-13/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=13 elapsed_ns=4394042 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-14
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-14/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=14 elapsed_ns=3304643 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-14/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=14 elapsed_ns=10245529 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-15
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-15/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=15 elapsed_ns=14225230 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-15/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=15 elapsed_ns=3450891 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-16
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-16/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=16 elapsed_ns=3857220 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-16/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=16 elapsed_ns=15333073 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-17
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-17/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=17 elapsed_ns=14569073 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-17/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=17 elapsed_ns=3858928 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40728 allocations=1320
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-18
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-18/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=18 elapsed_ns=4355595 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-18/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=18 elapsed_ns=13706587 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40296 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-19
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-19/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=19 elapsed_ns=16401318 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-19/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=19 elapsed_ns=3919106 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-20
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-20/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=20 elapsed_ns=4206359 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-20/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=20 elapsed_ns=14000228 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-21
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-21/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=21 elapsed_ns=11259696 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-21/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=21 elapsed_ns=3584334 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-22
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-22/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=22 elapsed_ns=4304722 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-22/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=22 elapsed_ns=14641460 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-23
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-23/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=23 elapsed_ns=20890970 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-23/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=23 elapsed_ns=3439535 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-24
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-24/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=24 elapsed_ns=3765995 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-24/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=24 elapsed_ns=10953855 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-25
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-25/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=25 elapsed_ns=15250558 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40168 allocations=1315
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-25/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=25 elapsed_ns=4300201 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-26
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-26/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=26 elapsed_ns=3046662 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-26/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=26 elapsed_ns=9365838 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-27
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-27/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=27 elapsed_ns=10693951 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40504 allocations=1318
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-27/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=27 elapsed_ns=3245908 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40728 allocations=1320
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-28
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-28/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=28 elapsed_ns=4322622 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40168 allocations=1315
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-28/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=28 elapsed_ns=9872702 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40280 allocations=1316
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-29
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-29/path-1
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=1 sample=29 elapsed_ns=15657875 sourceRows=100 totalChangedRows=300 journalRows=100 journalTextBytes=25800 WALBeforeCheckpoint=65952 DBBytesAfterCheckpoint=1220608 allocatedBytes=40056 allocations=1314
+=== RUN   TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-29/path-0
+    financial_source_benchmark_test.go:125: write scenario=catalog-100 path=0 sample=29 elapsed_ns=3988500 sourceRows=100 totalChangedRows=100 journalRows=0 journalTextBytes=0 WALBeforeCheckpoint=4152 DBBytesAfterCheckpoint=1175552 allocatedBytes=40056 allocations=1314
+=== NAME  TestFinancialSourceWriteAmplificationEvidence/catalog-100
+    financial_source_benchmark_test.go:136: write distribution scenario=catalog-100 path=0 n=30 nearest-rank-median=3.584334ms nearest-rank-p95=5.031146ms raw=[3.398897ms 3.496598ms 3.065821ms 3.117343ms 3.454664ms 3.440617ms 3.782039ms 5.031146ms 3.522449ms 2.964358ms 5.604553ms 3.000379ms 3.917354ms 4.394042ms 3.304643ms 3.450891ms 3.85722ms 3.858928ms 4.355595ms 3.919106ms 4.206359ms 3.584334ms 4.304722ms 3.439535ms 3.765995ms 4.300201ms 3.046662ms 3.245908ms 4.322622ms 3.9885ms]
+    financial_source_benchmark_test.go:136: write distribution scenario=catalog-100 path=1 n=30 nearest-rank-median=13.706587ms nearest-rank-p95=17.16794ms raw=[9.161991ms 13.853347ms 15.195071ms 13.440592ms 9.683208ms 9.417871ms 17.16794ms 15.669441ms 13.988224ms 10.79886ms 9.663986ms 10.010175ms 13.792334ms 13.51426ms 10.245529ms 14.22523ms 15.333073ms 14.569073ms 13.706587ms 16.401318ms 14.000228ms 11.259696ms 14.64146ms 20.89097ms 10.953855ms 15.250558ms 9.365838ms 10.693951ms 9.872702ms 15.657875ms]
+--- PASS: TestFinancialSourceWriteAmplificationEvidence (9.54s)
+    --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100 (4.83s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-00 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-00/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-00/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-01 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-01/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-01/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-02 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-02/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-02/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-03 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-03/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-03/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-04 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-04/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-04/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-05 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-05/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-05/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-06 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-06/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-06/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-07 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-07/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-07/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-08 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-08/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-08/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-09 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-09/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-09/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-10 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-10/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-10/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-11 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-11/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-11/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-12 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-12/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-12/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-13 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-13/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-13/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-14 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-14/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-14/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-15 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-15/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-15/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-16 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-16/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-16/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-17 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-17/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-17/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-18 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-18/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-18/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-19 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-19/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-19/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-20 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-20/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-20/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-21 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-21/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-21/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-22 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-22/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-22/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-23 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-23/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-23/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-24 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-24/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-24/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-25 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-25/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-25/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-26 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-26/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-26/path-1 (0.09s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-27 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-27/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-27/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-28 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-28/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-28/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-29 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-29/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/quotes-100/sample-29/path-0 (0.08s)
+    --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100 (4.64s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-00 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-00/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-00/path-1 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-01 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-01/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-01/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-02 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-02/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-02/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-03 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-03/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-03/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-04 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-04/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-04/path-1 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-05 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-05/path-1 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-05/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-06 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-06/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-06/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-07 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-07/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-07/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-08 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-08/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-08/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-09 (0.14s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-09/path-1 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-09/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-10 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-10/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-10/path-1 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-11 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-11/path-1 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-11/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-12 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-12/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-12/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-13 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-13/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-13/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-14 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-14/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-14/path-1 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-15 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-15/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-15/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-16 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-16/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-16/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-17 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-17/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-17/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-18 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-18/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-18/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-19 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-19/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-19/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-20 (0.17s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-20/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-20/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-21 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-21/path-1 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-21/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-22 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-22/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-22/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-23 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-23/path-1 (0.09s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-23/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-24 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-24/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-24/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-25 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-25/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-25/path-0 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-26 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-26/path-0 (0.07s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-26/path-1 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-27 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-27/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-27/path-0 (0.08s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-28 (0.15s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-28/path-0 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-28/path-1 (0.07s)
+        --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-29 (0.16s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-29/path-1 (0.08s)
+            --- PASS: TestFinancialSourceWriteAmplificationEvidence/catalog-100/sample-29/path-0 (0.08s)
+PASS
