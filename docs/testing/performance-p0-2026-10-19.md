@@ -1,5 +1,10 @@
 # Review performance P0: PR-A baseline and PR-B bounded evidence windows
 
+Historical implementation/evidence for merged PR #110 (`3b0902e`).
+See the [epoch and small-ledger follow-up](performance-p0-epochs-2026-10-19.md)
+for later query changes and newly measured results; the numbers below retain
+their original source commits and environment.
+
 Implementation contract: [performance plan](../design/performance-optimization-plan.zh-CN.md),
 sections 3, 4, 5.4 and 9. Base: `bca85a8b5418dd45137a766ab14b3ef10f5521ad`
 (main including #108 and #109). Measured implementation:
