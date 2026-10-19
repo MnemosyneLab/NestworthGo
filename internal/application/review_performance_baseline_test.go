@@ -303,6 +303,22 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 		t.Fatal(err)
 	}
 	rows.Close()
+	knownEvents := map[string]bool{}
+	rows, err = source.db.SQL.Query(`SELECT id FROM investment_review_episode_events`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		knownEvents[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	rows.Close()
 	aliases := map[string]string{}
 	rows, err = f.db.SQL.Query(`SELECT id,rule_id,instrument_id,position_epoch_id,triggered_on FROM investment_review_episodes`)
 	if err != nil {
@@ -348,10 +364,15 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 					values[i] = text
 				}
 			}
-			// Event row UUID is transport identity; event_key, kind, episode FK, exact
-			// payload and timestamp remain in the comparison.
-			if table == "investment_review_episode_events" {
-				values[0] = "event-id"
+			// Existing audit identities remain exact. Only a newly allocated event
+			// UUID may differ across independently published clones; map it through
+			// its normalized unique event key while retaining every other field.
+			if table == "investment_review_episode_events" && !knownEvents[values[0].(string)] {
+				for index, column := range columns {
+					if column == "event_key" {
+						values[0] = "new-event:" + values[index].(string)
+					}
+				}
 			}
 			encoded, err := json.Marshal(values)
 			if err != nil {
@@ -382,5 +403,24 @@ func logReviewPerfProcessMemory(t *testing.T) {
 		}
 	} else {
 		t.Logf("process peak RSS unavailable on %s: %v", runtime.GOOS, err)
+	}
+}
+
+func TestReviewPerfDurableRowsPreserveExistingEventIdentity(t *testing.T) {
+	source := newReviewPerfFixture(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Rules: 1, HistoryDays: 2, Quotes: 2})
+	if _, err := source.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	clone := cloneReviewPerfFixture(t, source)
+	before := reviewPerfPublishedRows(t, clone, source)
+	result, err := clone.db.SQL.Exec(`UPDATE investment_review_episode_events SET id=? WHERE id=(SELECT id FROM investment_review_episode_events ORDER BY id LIMIT 1)`, string(domain.NewMutationID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, err := result.RowsAffected(); err != nil || count != 1 {
+		t.Fatalf("missing synthetic event: rows=%d err=%v", count, err)
+	}
+	if before == reviewPerfPublishedRows(t, clone, source) {
+		t.Fatal("oracle ignored replacement of an existing event identity")
 	}
 }
