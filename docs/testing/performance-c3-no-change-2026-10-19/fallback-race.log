@@ -1,0 +1,14 @@
+=== RUN   TestReviewNoChangeInvalidatesOutstandingFullPublication
+--- PASS: TestReviewNoChangeInvalidatesOutstandingFullPublication (3.07s)
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/journal-gap
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/schema-cookie
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/foreign-keys
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/recursive-triggers
+--- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild (11.26s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/journal-gap (3.27s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/schema-cookie (2.60s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/foreign-keys (2.74s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/recursive-triggers (2.65s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	15.356s

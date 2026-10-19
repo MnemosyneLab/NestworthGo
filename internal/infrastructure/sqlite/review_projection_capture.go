@@ -165,6 +165,12 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	if !result.TemporalFullRecompute {
 		result.TemporalFullRecompute = previous.Source.Token.Epoch != result.SourceRevision.Token.Epoch || previous.Source.Token.TrackingVersion != result.SourceRevision.Token.TrackingVersion || previous.Source.Token.ResolverPolicyVersion != result.SourceRevision.Token.ResolverPolicyVersion || previous.Source.Token.EvaluatorVersion != result.SourceRevision.Token.EvaluatorVersion || previous.Source.Token.MetricPolicyVersion != result.SourceRevision.Token.MetricPolicyVersion || previous.Source.Token.Revision < result.SourceRevision.JournalFloor
 	}
+	// A successful C3 confirmation bypasses capture entirely. Every opt-in
+	// capture is therefore a fallback/bootstrap and must rebuild all dates,
+	// including direct repository callers that did not attempt confirmation.
+	if r.ReviewNoChangeEnabled() {
+		result.TemporalFullRecompute = true
+	}
 	if err := r.loadReusableReviewWindow(ctx, tx, &result); err != nil {
 		return empty, err
 	}

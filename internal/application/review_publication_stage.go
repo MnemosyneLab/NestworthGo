@@ -13,7 +13,7 @@ import (
 // will reject this entire staged result if any authoritative fact, rule,
 // acknowledgement or ignore changed before publication.
 func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
-	result := domain.ReviewPublication{Capture: capture, At: now, Rules: []domain.ReviewRulePublication{}}
+	result := domain.ReviewPublication{Capture: capture, At: now, Rules: []domain.ReviewRulePublication{}, FXProviderKey: providerKey}
 	cache := newReviewProjectionCache(capture, providerKey)
 	for _, rule := range capture.Rules {
 		if err := ctx.Err(); err != nil {
