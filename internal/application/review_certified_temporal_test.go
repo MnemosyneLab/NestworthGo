@@ -70,6 +70,7 @@ func TestReviewCertifiedFutureActivationAndPublicationFence(t *testing.T) {
 				if p.Capture.SourceRevision.Token != initial.Capture.SourceRevision.Token {
 					t.Fatal("activation fixture changed source token")
 				}
+				assertReviewFullOracle(t, reviewFullPipelineFixture{db: f.db, service: f.s, householdID: f.account.Account.HouseholdID, now: f.now}, p)
 				if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 					t.Fatal(err)
 				}
