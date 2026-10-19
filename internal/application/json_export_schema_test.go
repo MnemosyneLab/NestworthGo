@@ -120,6 +120,15 @@ func TestJSONExportReconciliationSchemaCompatibility(t *testing.T) {
 
 func TestJSONExportExcludesSourceJournalAndDoesNotAdvanceIt(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	f.day(t, "2026-10-03")
+	saveSyntheticReviewRule(t, f, "Synthetic export certificate", syntheticHistoricalReviewSpec())
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	capture := temporalCapture(t, f)
+	if capture.PublishedTemporal == nil {
+		t.Fatal("export fixture omitted temporal checkpoint")
+	}
 	var epoch string
 	var before, after int64
 	if err := f.db.SQL.QueryRow(`SELECT tracking_epoch,revision FROM financial_source_revision`).Scan(&epoch, &before); err != nil {
@@ -130,7 +139,7 @@ func TestJSONExportExcludesSourceJournalAndDoesNotAdvanceIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	validateExportSchema(t, data)
-	if strings.Contains(string(data), "financial_source_") || strings.Contains(string(data), epoch) {
+	if strings.Contains(string(data), "financial_source_") || strings.Contains(string(data), epoch) || strings.Contains(string(data), "review_temporal") || strings.Contains(string(data), capture.PublishedTemporal.ClockEpoch) || strings.Contains(string(data), domain.ReviewTemporalPolicyVersion) {
 		t.Fatal("derived source metadata leaked into JSON contract")
 	}
 	if err = f.db.SQL.QueryRow(`SELECT revision FROM financial_source_revision`).Scan(&after); err != nil || after != before {

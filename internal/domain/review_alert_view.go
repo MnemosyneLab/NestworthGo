@@ -35,12 +35,13 @@ type ReviewAlertRule struct {
 }
 
 type ReviewAlertGroup struct {
-	InstrumentID   InstrumentID      `json:"instrumentId"`
-	DisplayName    string            `json:"displayName"`
-	InstrumentType InstrumentType    `json:"instrumentType"`
-	Currency       CurrencyCode      `json:"currency"`
-	Status         string            `json:"status"`
-	Rules          []ReviewAlertRule `json:"rules"`
+	ProjectionStatus string            `json:"projectionStatus,omitempty"`
+	InstrumentID     InstrumentID      `json:"instrumentId"`
+	DisplayName      string            `json:"displayName"`
+	InstrumentType   InstrumentType    `json:"instrumentType"`
+	Currency         CurrencyCode      `json:"currency"`
+	Status           string            `json:"status"`
+	Rules            []ReviewAlertRule `json:"rules"`
 }
 
 type ReviewAlertPage struct {

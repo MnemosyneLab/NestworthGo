@@ -437,7 +437,7 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 	}
 	rows.Close()
 	tables := map[string][]string{}
-	for _, table := range []string{"investment_review_control", "investment_review_daily_inputs", "investment_review_daily_results", "investment_review_position_epochs", "investment_review_episodes", "investment_review_evaluation_state", "investment_review_episode_events"} {
+	for _, table := range []string{"investment_review_control", "investment_review_daily_inputs", "investment_review_daily_results", "investment_review_position_epochs", "investment_review_episodes", "investment_review_evaluation_state", "investment_review_episode_events", "review_temporal_checkpoints"} {
 		rows, err := f.db.SQL.Query(`SELECT * FROM ` + table)
 		if err != nil {
 			t.Fatal(err)
@@ -456,6 +456,18 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 				t.Fatal(err)
 			}
 			for i, value := range values {
+				if table == "review_temporal_checkpoints" && columns[i] == "certificate_json" {
+					var certificate domain.ReviewTemporalCertificate
+					if err := json.Unmarshal([]byte(value.(string)), &certificate); err != nil {
+						t.Fatal(err)
+					}
+					certificate.ClockEpoch = "independent-synthetic-session"
+					raw, err := json.Marshal(certificate)
+					if err != nil {
+						t.Fatal(err)
+					}
+					value = string(raw)
+				}
 				if text, ok := value.(string); ok {
 					for id, alias := range aliases {
 						text = strings.ReplaceAll(text, id, alias)

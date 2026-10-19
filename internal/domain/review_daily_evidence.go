@@ -22,7 +22,7 @@ func ReviewLatestClosedDay(now time.Time, timezone string) (string, error) {
 	if now.IsZero() {
 		return "", validation("now", "an evaluation time is required")
 	}
-	location, err := time.LoadLocation(timezone)
+	location, err := LoadFinancialLocation(timezone)
 	if err != nil {
 		return "", validation("timezone", "must be an available IANA timezone")
 	}
@@ -38,7 +38,7 @@ func ReviewCivilCutoff(on, timezone string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, validation("on", "must be a valid ISO civil date")
 	}
-	location, err := time.LoadLocation(timezone)
+	location, err := LoadFinancialLocation(timezone)
 	if err != nil {
 		return time.Time{}, validation("timezone", "must be an available IANA timezone")
 	}

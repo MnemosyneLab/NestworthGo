@@ -57,7 +57,7 @@ func planReviewRuleInstrument(ctx context.Context, capture domain.ReviewProjecti
 	}
 	result := ReviewRuleInstrumentPlan{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, LatestClosedOn: latest, Days: []ReviewPlannedDay{}, EpochIDs: []string{}}
 	end, _ := time.Parse(time.DateOnly, latest)
-	location, _ := time.LoadLocation(spec.Schedule.Timezone)
+	location, _ := domain.LoadFinancialLocation(spec.Schedule.Timezone)
 	origin := capture.Historical.History.Origin
 	start, err := time.Parse(time.DateOnly, origin.StartedAt.In(location).Format(time.DateOnly))
 	if err != nil {

@@ -3,12 +3,14 @@ package backup
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -47,6 +49,19 @@ func sourceTrackingRestoreRotatesLiveEpoch(t *testing.T, writes int) {
 	if err = db.SQL.QueryRow(`SELECT tracking_epoch,revision FROM financial_source_revision`).Scan(&epoch, &revision); err != nil {
 		t.Fatal(err)
 	}
+	var tracking string
+	if err := db.SQL.QueryRow(`SELECT tracking_version FROM financial_source_revision`).Scan(&tracking); err != nil {
+		t.Fatal(err)
+	}
+	evaluated := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	certificate := domain.ReviewTemporalCertificate{EvaluatedAt: evaluated, NextTransitionAt: evaluated.Add(12 * time.Hour), PolicyVersion: domain.ReviewTemporalPolicyVersion, DependencyScope: domain.ReviewTemporalDependencyScope, ClockEpoch: "synthetic-backup-session/0", Source: &domain.ReviewSourceCheckpoint{Token: domain.SourceRevisionToken{HouseholdID: "00000000-0000-4000-8000-000000000001", Epoch: epoch, Revision: revision, TrackingVersion: tracking, ResolverPolicyVersion: domain.MarketDataResolverPolicy, EvaluatorVersion: domain.ReviewEvaluator, MetricPolicyVersion: domain.ReviewMetricPolicyVersion}, JournalFloor: floorBefore}}
+	raw, err := json.Marshal(certificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.SQL.Exec(`INSERT INTO review_temporal_checkpoints VALUES(?,?,?,?)`, certificate.Source.Token.HouseholdID.String(), evaluated.Format(time.RFC3339Nano), certificate.NextTransitionAt.Format(time.RFC3339Nano), string(raw)); err != nil {
+		t.Fatal(err)
+	}
 	archive := filepath.Join(dir, "complete.db")
 	if err = db.SnapshotTo(t.Context(), archive); err != nil {
 		t.Fatal(err)
@@ -78,6 +93,10 @@ func sourceTrackingRestoreRotatesLiveEpoch(t *testing.T, writes int) {
 	}
 	if err = current.SQL.QueryRow(`SELECT count(*) FROM financial_source_changes`).Scan(&count); err != nil || count != 0 {
 		t.Fatal("restored log floor not applied")
+	}
+	var restoredCertificate string
+	if err := current.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&restoredCertificate); err != nil || restoredCertificate != string(raw) || certificate.Source.Token.Epoch == got {
+		t.Fatal("restore lost checkpoint evidence or kept its source epoch valid")
 	}
 	if err = current.Verify(t.Context()); err != nil {
 		t.Fatal(err)

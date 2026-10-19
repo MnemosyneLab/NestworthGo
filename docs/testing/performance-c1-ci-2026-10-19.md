@@ -28,6 +28,8 @@ Production/test code was compiled into separate executables **before** measureme
 
 Both normal builds completed the full unchanged endpoint equality/correctness assertions below10s. The CI deadline failure did not reproduce in this controlled pair; one pair is not proof of canonical CI success or a production p95. It remains a retained CI timing failure, not a waived test.
 
+The 278.42s/408.23s figures are Go's full test elapsed times, including fixture construction, GC, the cancellation call and cleanup. Only the approximately10ms call is separately timed after setup. The write/setup attribution below is inferred from that full-test difference and the separately measured call; no isolated fixture-setup timer was installed.
+
 The race cancellation test constructs the same100-account,9000-backfill,25000-activity dense financial database before scheduling cancellation. Source tracking added129.81s (46.6%) to this write-heavy fixture's total, while cancellation itself stayed near10ms. This is material **write/setup overhead**, consistent with the already reported C1 primitive/batch write measurements. It is not a stuck cancellation path or evidence that financial validation should be removed. The per-row transactional revision/journal and bounded pruning are active in fixtures exactly as in product writes. Those costs remain visible; sharding does not make them disappear. No individual test needed a timeout increase in the controlled comparison.
 
 ## Coordination and next step

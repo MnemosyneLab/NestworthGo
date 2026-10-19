@@ -17,10 +17,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql source_changes_schema_v20.sql
+//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql source_changes_schema_v20.sql review_temporal_schema_v21.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 20
+const CurrentSchemaVersion = 21
 
 type BootstrapStatus string
 
@@ -83,13 +83,14 @@ func (e *BootstrapError) SafeError() *domain.Error {
 // DB is a single local SQLite connection pool. It is intentionally capped at
 // one writer connection to make transaction boundaries and snapshots explicit.
 type DB struct {
-	SQL    *sql.DB
-	Path   string
-	Status BootstrapStatus
+	SQL         *sql.DB
+	Path        string
+	Status      BootstrapStatus
+	reviewClock reviewTemporalClock
 }
 
 func Open(path string) (*DB, error) {
-	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) {
+	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) || isV20RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -119,7 +120,7 @@ func Open(path string) (*DB, error) {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
 		found, readErr := readVersion(probe)
-		if readErr == nil && (found == 15 || found == 16 || found == 17 || found == 18 || found == 19) {
+		if readErr == nil && (found == 15 || found == 16 || found == 17 || found == 18 || found == 19 || found == 20) {
 			readErr = verifySchemaVersion(context.Background(), probe, found)
 			if readErr != nil {
 				probe.Close()
@@ -130,7 +131,7 @@ func Open(path string) (*DB, error) {
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 {
+		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 && found != 20 {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -193,6 +194,12 @@ func Open(path string) (*DB, error) {
 		}
 		found = 20
 	}
+	if found == 20 && existed {
+		if err := upgradeV20(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 21
+	}
 	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)
 	}
@@ -220,6 +227,10 @@ func Open(path string) (*DB, error) {
 			return closeOnError(StatusUnavailable, found, execErr)
 		}
 		if err := installFinancialSourceTracking(context.Background(), tx); err != nil {
+			_ = tx.Rollback()
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
+		if err := installReviewTemporalSchema(context.Background(), tx); err != nil {
 			_ = tx.Rollback()
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}

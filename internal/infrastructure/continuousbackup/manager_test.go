@@ -942,7 +942,7 @@ func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *tes
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"financial_source_changes", "financial_source_revision", "reconciliation_financial_changes", "reconciliation_links", "reconciliation_receipts", "reconciliation_items", "reconciliation_accounts", "reconciliation_sessions", "account_financial_revisions"} {
+	for _, name := range []string{"review_temporal_checkpoints", "financial_source_changes", "financial_source_revision", "reconciliation_financial_changes", "reconciliation_links", "reconciliation_receipts", "reconciliation_items", "reconciliation_accounts", "reconciliation_sessions", "account_financial_revisions"} {
 		if _, err := db.SQL.Exec("DROP TABLE " + name); err != nil {
 			t.Fatal(err)
 		}

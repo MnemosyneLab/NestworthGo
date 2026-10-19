@@ -20,12 +20,19 @@ import (
 // source-token check in this same transaction rejects a financial edit that
 // happened after the read snapshot, including deletions and withdrawals.
 func (r *Repository) PublishReviewProjection(ctx context.Context, publication domain.ReviewPublication, now time.Time) error {
+	return r.PublishReviewProjectionWithClock(ctx, publication, func() time.Time { return now })
+}
+
+// The clock is sampled after the full recheck and revision checks, immediately
+// before publication writes. A time passed before this potentially long work
+// cannot detect an activation that occurs while the recheck is running.
+func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publication domain.ReviewPublication, clock func() time.Time) error {
 	capture := publication.Capture
-	if capture.HouseholdID == "" || capture.SourceCutoff.IsZero() || capture.HistoricalFingerprint == "" || publication.At.IsZero() {
+	if capture.HouseholdID == "" || capture.SourceCutoff.IsZero() || capture.HistoricalFingerprint == "" || publication.At.IsZero() || clock == nil {
 		return &domain.Error{Code: domain.ErrValidation, Field: "publication", Message: "a complete review capture is required"}
 	}
-	if err := validateReviewPublicationTime(capture, publication.Rules, now); err != nil {
-		return err
+	if capture.Temporal == nil {
+		return reviewRuleConflict("review temporal capture is missing; recapture before publication")
 	}
 	tx, err := r.database.SQL.BeginTx(ctx, nil)
 	if err != nil {
@@ -93,6 +100,29 @@ func (r *Repository) PublishReviewProjection(ctx context.Context, publication do
 			return reviewRuleConflict("review rule changed during calculation")
 		}
 	}
+	// C2 also repeats the uncut future-source fence inside this write
+	// reservation. The conservative all-activity fence can change without a
+	// fingerprint change when an excluded future fact has untracked DML.
+	frontier, err := buildReviewTemporal(ctx, tx, capture, capture.Temporal.ClockEpoch)
+	if err != nil {
+		return err
+	}
+	now := clock()
+	epoch, rollback := r.database.reviewClock.observe(now)
+	if rollback || capture.Temporal == nil || capture.Temporal.ClockEpoch != epoch || !capture.Temporal.Covers(now) || !frontier.Covers(now) {
+		return reviewRuleConflict("review temporal boundary or clock changed during calculation")
+	}
+	// Persist the intersection of both proofs. Keeping only the captured end
+	// could overrun a newly discovered boundary; keeping only the refreshed
+	// end could extend the staged calculation past its original proof. Copy
+	// the certificate so publication never mutates the caller's capture.
+	publishedTemporal := *capture.Temporal
+	if frontier.NextTransitionAt.Before(publishedTemporal.NextTransitionAt) {
+		publishedTemporal.NextTransitionAt = frontier.NextTransitionAt
+	}
+	if err := validateReviewPublicationTime(capture, publication.Rules, now); err != nil {
+		return err
+	}
 	if !found {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_control(household_id) VALUES(?)`, capture.HouseholdID.String()); err != nil {
 			return err
@@ -134,12 +164,18 @@ func (r *Repository) PublishReviewProjection(ctx context.Context, publication do
 	if _, err := tx.ExecContext(ctx, `UPDATE investment_review_control SET input_generation=?,projection_status=?,published_on=?,published_input_fingerprint=? WHERE household_id=? AND (input_generation<>? OR projection_status<>? OR published_on IS NOT ? OR published_input_fingerprint IS NOT ?)`, generation, status, nullableEmpty(publishedOn), actualFingerprint, capture.HouseholdID.String(), generation, status, nullableEmpty(publishedOn), actualFingerprint); err != nil {
 		return err
 	}
+	if err := persistReviewTemporal(ctx, tx, capture.HouseholdID, publishedTemporal, now); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
 func validateReviewPublicationTime(capture domain.ReviewProjectionCapture, rules []domain.ReviewRulePublication, now time.Time) error {
 	if now.IsZero() {
 		return &domain.Error{Code: domain.ErrValidation, Field: "now", Message: "a publication time is required"}
+	}
+	if now.Before(capture.SourceCutoff) {
+		return reviewRuleConflict("review clock moved backward during calculation")
 	}
 	byRule := make(map[domain.ReviewRuleID]domain.ReviewRule, len(capture.Rules))
 	for _, rule := range capture.Rules {
@@ -173,6 +209,11 @@ func reviewControlInTx(ctx context.Context, tx *sql.Tx, householdID domain.House
 		return result, false, err
 	}
 	result.Enabled, result.PublishedOn, result.PublishedFingerprint = enabled != 0, published.String, fingerprint.String
+	certificate, err := readReviewTemporal(ctx, tx, householdID)
+	if err != nil {
+		return result, false, err
+	}
+	result.PublishedTemporalRevision = reviewTemporalDigest(certificate)
 	return result, true, nil
 }
 

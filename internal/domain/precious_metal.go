@@ -104,7 +104,7 @@ func MetalDailyBarEligibleAt(date string) (time.Time, error) {
 	if _, err := ParseMarketDate(date); err != nil {
 		return time.Time{}, err
 	}
-	loc, err := time.LoadLocation("America/New_York")
+	loc, err := LoadFinancialLocation("America/New_York")
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -116,7 +116,7 @@ func MetalDailyBarEligibleAt(date string) (time.Time, error) {
 }
 
 func LastFinalizedMetalMarketDate(now time.Time) (string, error) {
-	loc, err := time.LoadLocation("America/New_York")
+	loc, err := LoadFinancialLocation("America/New_York")
 	if err != nil {
 		return "", err
 	}

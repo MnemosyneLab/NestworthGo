@@ -80,6 +80,25 @@ func TestReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T) {
 	if err != nil || refreshed.(map[string]any)["sourceFingerprint"] != wailsRefresh.SourceFingerprint || refreshed.(map[string]any)["ruleInstrumentCount"] != float64(wailsRefresh.RuleInstrumentCount) || refreshed.(map[string]any)["latestClosedOn"] != wailsRefresh.LatestClosedOn || wailsRefresh.DayCount != 0 {
 		t.Fatalf("MCP and Wails refresh differ: MCP=%+v Wails=%+v err=%v", refreshed, wailsRefresh, err)
 	}
+	// Both adapters read the same expired publication after a time-only boundary;
+	// neither implicitly refreshes it or claims that its certificate is current.
+	now = now.AddDate(0, 0, 1)
+	page, err := liquidity.NewService(f.app).ListReviewAlertsV2(t.Context(), liquidity.ListReviewAlertsV2Request{Filter: domain.ReviewAlertFilter{Status: "all"}, PageSize: 10})
+	if err != nil || page.ProjectionStatus != "stale" {
+		t.Fatalf("expired Wails publication: %+v %v", page, err)
+	}
+	listed := call(t, client, "list_investment_review_alerts", ReviewV2AlertPageInput{Filter: domain.ReviewAlertFilter{Status: "all"}, PageSize: 10}, false)["data"]
+	if !reflect.DeepEqual(listed, jsonObject(t, page)) {
+		t.Fatal("MCP/Wails temporal alert status differs")
+	}
+	coverage, err := liquidity.NewService(f.app).ListReviewCoverageV2(t.Context(), liquidity.ListReviewCoverageV2Request{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 10})
+	if err != nil || coverage.ProjectionStatus != "stale" {
+		t.Fatalf("expired Wails coverage: %+v %v", coverage, err)
+	}
+	covered := call(t, client, "get_investment_review_coverage", ReviewV2CoverageInput{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 10}, false)["data"]
+	if !reflect.DeepEqual(covered, jsonObject(t, coverage)) {
+		t.Fatal("MCP/Wails temporal coverage status differs")
+	}
 }
 
 func testReviewV2Spec() domain.ReviewRuleSpec {

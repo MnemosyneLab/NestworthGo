@@ -221,6 +221,12 @@ func TestSourceJournalPairedFullOracle(t *testing.T) {
 				}
 				persisted[path] = reviewPerfPublishedRows(t, run, source)
 			}
+			// Independent DB sessions intentionally have different runtime clock
+			// identities. Retain every source/interval/revision field in the oracle.
+			if captures[0].Temporal == nil || captures[1].Temporal == nil || captures[0].Temporal.ClockEpoch == captures[1].Temporal.ClockEpoch {
+				t.Fatal("cloned sessions shared a clock certificate identity")
+			}
+			captures[0].Temporal.ClockEpoch = captures[1].Temporal.ClockEpoch
 			if !reflect.DeepEqual(captures[0], captures[1]) {
 				t.Fatal("C1 changed full capture")
 			}
