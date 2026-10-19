@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"reflect"
 	"sync/atomic"
+	"time"
 
 	modernsqlite "modernc.org/sqlite"
 
@@ -95,10 +96,15 @@ func (db *DB) releaseReviewCommitHook() {
 	key.connMu.Lock()
 	registered := key.commits != nil
 	key.connMu.Unlock()
-	if !registered {
+	if !registered || db.SQL.Stats().Idle == 0 {
 		return
 	}
-	conn, err := db.SQL.Conn(context.Background())
+	// Cleanup must not make Close wait forever for an idle sql.Conn leased
+	// by another caller. Normal shutdown is quiescent; a racing lease can
+	// only skip callback cleanup, never extend integrity authority.
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	conn, err := db.SQL.Conn(ctx)
 	if err != nil {
 		return
 	} // Already closed/replaced pools cannot be reentered.
