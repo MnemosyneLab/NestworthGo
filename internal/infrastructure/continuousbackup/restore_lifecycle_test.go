@@ -38,23 +38,6 @@ func restoreSource(t *testing.T, db *sqlite.DB) string {
 func TestQuiesceHookFailureRemovesStagingBeforeCheckpoint(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
-	sourcePath := filepath.Join(dir, "source.db")
-	source, err := sqlite.Open(sourcePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = source.Close(); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(sourcePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	archive := filepath.Join(dir, "candidate.nestworth-backup")
-	pkg := backup.Package{Manifest: backup.NewManifest(time.Now().UTC(), data, []byte("{}\n"), sqlite.EntityCounts{}), Database: data, Settings: []byte("{}\n")}
-	if err = backup.WritePackage(archive, pkg); err != nil {
-		t.Fatal(err)
-	}
 	live := filepath.Join(dir, "live.db")
 	liveDB, err := sqlite.Open(live)
 	if err != nil {
@@ -62,6 +45,19 @@ func TestQuiesceHookFailureRemovesStagingBeforeCheckpoint(t *testing.T) {
 	}
 	defer liveDB.Close()
 	if _, err = liveDB.SQL.Exec(`INSERT INTO app_configuration(key,value) VALUES('quiesce-original','intact')`); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := filepath.Join(dir, "snapshot.db")
+	if err = liveDB.SnapshotTo(ctx, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(dir, "candidate.nestworth-backup")
+	pkg := backup.Package{Manifest: backup.NewManifest(time.Now().UTC(), data, []byte("{}\n"), sqlite.EntityCounts{}), Database: data, Settings: []byte("{}\n")}
+	if err = backup.WritePackage(archive, pkg); err != nil {
 		t.Fatal(err)
 	}
 	recovery := application.NewRecovery(live, backup.NewRuntime(), nil)
