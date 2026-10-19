@@ -147,6 +147,11 @@ candidate. Changed-source publication retains all existing rechecks.
 The [corrected C3 benchmark evidence](../testing/performance-c3-corrected-2026-10-19.md)
 separates bootstrap/full-fallback cost from warm confirmation and measures RSS
 in isolated synthetic arm processes. It does not establish native rollout gates.
+An opt-in [completeness-lineage shadow](../testing/performance-c3-lineage-shadow-2026-10-19.md)
+compares narrow historical coverage and a separate bounded window with a full
+preparation oracle, then revalidates under the publication reservation. It
+forces full preparation and grants no reuse authority. Normal initialization
+remains unchanged; full recomputation disables both internal candidates.
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)

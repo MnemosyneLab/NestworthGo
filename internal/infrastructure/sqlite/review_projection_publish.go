@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,8 +27,17 @@ func (r *Repository) PublishReviewProjection(ctx context.Context, publication do
 // The clock is sampled after the full recheck and revision checks, immediately
 // before publication writes. A time passed before this potentially long work
 // cannot detect an activation that occurs while the recheck is running.
-func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publication domain.ReviewPublication, clock func() time.Time) error {
+func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publication domain.ReviewPublication, clock func() time.Time) (publishErr error) {
 	capture := publication.Capture
+	lineageVerdict := "authoritative_guard_rejected"
+	if r.ReviewCompletenessLineageShadowEnabled() {
+		defer func() {
+			if publishErr != nil {
+				lineageVerdict = "authoritative_guard_rejected"
+			}
+			r.observeReviewLineage("publication", lineageVerdict)
+		}()
+	}
 	if capture.HouseholdID == "" || capture.SourceCutoff.IsZero() || capture.HistoricalFingerprint == "" || publication.At.IsZero() || clock == nil {
 		return &domain.Error{Code: domain.ErrValidation, Field: "publication", Message: "a complete review capture is required"}
 	}
@@ -98,6 +108,33 @@ func (r *Repository) PublishReviewProjectionWithClock(ctx context.Context, publi
 		}
 		if revision != rule.RowRevision || condition != rule.CurrentConditionVersion {
 			return reviewRuleConflict("review rule changed during calculation")
+		}
+	}
+	if r.ReviewCompletenessLineageShadowEnabled() {
+		lineageVerdict = domain.ValidateReviewCompletenessPrefix(publication)
+		if lineageVerdict == "prefix_validated" {
+			current := capture
+			current.Control, current.SourceRevision, current.HistoricalFingerprint = control, checkpoint, actualFingerprint
+			current.PublishedTemporal, err = readReviewTemporal(ctx, tx, capture.HouseholdID)
+			if err != nil {
+				return err
+			}
+			proof, err := r.captureReviewLineage(ctx, tx, current, capture.Temporal.ClockEpoch)
+			if err != nil {
+				return err
+			}
+			switch {
+			case !proof.Candidate:
+				lineageVerdict = proof.Reason
+			case proof.BindingDigest != capture.CompletenessLineage.BindingDigest:
+				lineageVerdict = "binding_changed"
+			case !reflect.DeepEqual(proof.Window, capture.CompletenessLineage.Window):
+				lineageVerdict = "window_changed"
+			case proof.ProjectionSeal != capture.CompletenessLineage.ProjectionSeal:
+				lineageVerdict = "projection_changed"
+			default:
+				lineageVerdict = "lineage_validated_shadow"
+			}
 		}
 	}
 	// C2 also repeats the uncut future-source fence inside this write

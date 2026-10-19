@@ -1,0 +1,10 @@
+Development-only retained-selector race run, before the final window revalidation,
+certificate shape checks and added mutation cases were committed. The working tree
+was being refined after compilation; this is not an immutable-source acceptance
+result for b07e08e. The focused-race log and provenance provide the final exact
+implementation-source check. Retained here to distinguish the broad run from it.
+
+Environment: Go1.26.1, GOMAXPROCS4, isolated synthetic fixtures, caches as in provenance.json.
+Command:
+go test -race -p 1 ./internal/application ./internal/infrastructure/sqlite ./internal/domain -run 'TestReview(CompletenessLineage|NoChange|Temporal|FullOracle|Incremental)' -count=1 -timeout=10m
+Exit: 0

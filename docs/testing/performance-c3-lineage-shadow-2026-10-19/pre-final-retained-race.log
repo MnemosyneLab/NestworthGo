@@ -1,0 +1,3 @@
+ok  	github.com/waltwang/nestworth-go/internal/application	535.572s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	1.018s
+ok  	github.com/waltwang/nestworth-go/internal/domain	1.019s
