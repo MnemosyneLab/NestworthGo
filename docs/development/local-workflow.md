@@ -170,7 +170,8 @@ packages run once on the first infrastructure shard. Remaining packages also
 run with the detector. This expands the race matrix from eight jobs to thirteen:
 application 4 to 8 and infrastructure 1 to 2; the ordinary `go test ./...`
 job remains unchanged.
-Enumeration uses the race build and includes Test, Example, and Fuzz names;
+Package and test enumeration both use race build constraints and include Test,
+Example, and Fuzz names;
 new names receive a default cost and are included automatically. The selector
 rejects duplicate names and balances known expensive application fixtures
 using retained durations from the reviewed PR #114 run. Each process keeps an

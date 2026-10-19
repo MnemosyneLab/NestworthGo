@@ -140,9 +140,17 @@ weight() {
 # Name and shard index break ties, so every invocation assigns the same
 # discovered test set identically. New names participate with unit weight.
 ordered=()
+if ! {
+  for name in "${names[@]}"; do
+    printf '%s\t%s\n' "$(weight "$name")" "$name"
+  done
+} | LC_ALL=C sort -t $'\t' -k1,1nr -k2,2 > "$tmp"; then
+  echo "failed to sort runnable tests for deterministic shard allocation" >&2
+  exit 1
+fi
 while IFS=$'\t' read -r _ name; do
   ordered+=("$name")
-done < <(for name in "${names[@]}"; do printf '%s\t%s\n' "$(weight "$name")" "$name"; done | LC_ALL=C sort -t $'\t' -k1,1nr -k2,2)
+done < "$tmp"
 
 loads=()
 selected_by_part=()

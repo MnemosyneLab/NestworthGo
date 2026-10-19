@@ -163,13 +163,13 @@ jobs:
               split_tests=true
               ;;
             infrastructure)
-              go list ./internal/infrastructure/... > "$RUNNER_TEMP/race-packages.txt"
+              go list -race ./internal/infrastructure/... > "$RUNNER_TEMP/race-packages.txt"
               mapfile -t pkgs < "$RUNNER_TEMP/race-packages.txt"
               ;;
             remainder)
               # Check enumeration before filtering; process substitution hides
               # a failed go list and can silently drop packages.
-              go list ./... > "$RUNNER_TEMP/race-packages.txt"
+              go list -race ./... > "$RUNNER_TEMP/race-packages.txt"
               mapfile -t pkgs < <(grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure($|/))' "$RUNNER_TEMP/race-packages.txt")
               ;;
             *)

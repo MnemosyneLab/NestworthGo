@@ -1,6 +1,8 @@
 """Narrow checks for the race-shard selector. No race suite, no ledger."""
 import re
+import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -120,7 +122,8 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("go test -race -count=1 -json -timeout 10m -p 1", workflow)
         self.assertIn('elif [ "$shard" = infrastructure ] && [[ "$pkg" == */sqlite ]]; then', workflow)
         self.assertIn("bash tools/race-shard-select.sh \"$part\" \"$parts\" \"$pkg\"", workflow)
-        self.assertIn('go list ./... > "$RUNNER_TEMP/race-packages.txt"', workflow)
+        self.assertIn('go list -race ./internal/infrastructure/... > "$RUNNER_TEMP/race-packages.txt"', workflow)
+        self.assertIn('go list -race ./... > "$RUNNER_TEMP/race-packages.txt"', workflow)
         self.assertNotIn("< <(go list", workflow)
         self.assertIn("actions/upload-artifact@v4", workflow)
         self.assertIn("name: race-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}", workflow)
@@ -192,6 +195,24 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, "")
         self.assertIn("duplicate runnable name", result.stderr)
+
+    def test_sort_failure_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sort = Path(temp_dir) / "sort"
+            sort.write_text("#!/bin/sh\nexit 17\n")
+            sort.chmod(0o755)
+            env = {**os.environ, "PATH": f"{temp_dir}:{os.environ['PATH']}"}
+            result = subprocess.run(
+                ["bash", str(SCRIPT), "--names", "0", "2"],
+                input=LISTING,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+                env=env,
+            )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("failed to sort", result.stderr)
 
     def test_workflow_delegates_to_race_list_selector(self):
         workflow = WORKFLOW.read_text()
