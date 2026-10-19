@@ -169,8 +169,12 @@ two. Infrastructure and all remaining packages also run with the detector.
 Enumeration uses the race build and includes Test, Example, and Fuzz names.
 Each process has an explicit 10-minute test budget, `-parallel 4` for
 application and MCP, and `-p 1` on the heavy shards; each race job has a
-30-minute outer bound including setup. Pull-request `check` shards are
-non-race: application four ways, MCP and sqlite two ways. Sequential
+30-minute outer bound including setup. Pull-request `check` bins non-race
+tests into three jobs from measured whole-job times: application in two
+checksum parts, paired with continuous backup and the remainder, plus one
+job for MCP and sqlite. Vitest runs as `--shard=1/2` and `--shard=2/2`,
+with lint/typecheck on the first shard and the production build on the
+second. Sequential
 fault-injection and performance tests remain sequential. Matrix regression
 checks require every part exactly once and a complete, disjoint name union.
 There are no automatic test retries. Seven-day

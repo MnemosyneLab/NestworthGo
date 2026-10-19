@@ -153,10 +153,11 @@ Use sanitized deterministic fixtures. Provider tests use fakes and must not
 depend on live network responses.
 
 GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to
-`main`, on pull requests, and on manual dispatch. Its gates are gofmt, sharded
+`main`, on pull requests, and on manual dispatch. Its gates are gofmt, binned
 non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
-build/lint/typecheck/test, and `git diff --check`. Those gates run as parallel
-jobs. The required aggregate check name is `test`. Race detection is not part
+build/lint/typecheck/test, and `git diff --check`. Go tests are three parallel
+jobs and Vitest is two shards, sized from measured whole-job times so each
+lands near 4–5 minutes. The required aggregate check name is `test`. Race detection is not part
 of that workflow. `.github/workflows/perf.yml` runs on Sunday 18:00 UTC and on
 manual dispatch. It runs the full-scale profiles (`NESTWORTH_PERF=1`) and the
 sharded `go test -race` suite. The race aggregate in that workflow is `race`.

@@ -40,10 +40,29 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
+  # Two copies of the bindings setup (~117s on run 39229083742) plus half
+  # of the 236s Vitest run. Lint and typecheck ride on shard 1; the
+  # production build rides on shard 2, so neither job repeats those steps.
   frontend:
-    name: frontend
+    name: frontend (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: tests 1/2
+            shard: 1
+            shards: 2
+            lint: true
+            typecheck: true
+            build: false
+          - label: tests 2/2
+            shard: 2
+            shards: 2
+            lint: false
+            typecheck: false
+            build: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -75,24 +94,27 @@ jobs:
         working-directory: frontend
         run: pnpm run check:bindings
       - name: Frontend lint
+        if: matrix.lint
         working-directory: frontend
         run: pnpm run lint
       - name: Frontend typecheck
+        if: matrix.typecheck
         working-directory: frontend
         run: pnpm run typecheck
       - name: Frontend build
+        if: matrix.build
         working-directory: frontend
         run: pnpm run build
-      # Same Vitest command as `pnpm run test` after bindings exist. maxWorkers
-      # stays 4. A second machine shard was not worth a queued runner.
       - name: Frontend tests
         working-directory: frontend
-        run: pnpm exec vitest run
+        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}
       - name: Trailing whitespace
         run: git diff --check
 
-  # Name-hash parts spread one package across runners. Enumeration is the
-  # non-race test binary. An empty part or an empty package list fails the shard.
+  # Run 39229083742 Go test steps were 42–89s inside 85–164s jobs.
+  # Setup is ~45–75s, so three bins of ~200–220s of tests land near 4–5m.
+  # Application stays two checksum parts (the old 1+3 and 2+4 quarters).
+  # MCP and sqlite are whole packages. Each part is still selected once.
   go-shard:
     name: go (${{ matrix.label }})
     runs-on: ubuntu-latest
@@ -101,46 +123,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard: application
-            part: 0
-            parts: 4
-            label: application 1/4
-          - shard: application
-            part: 1
-            parts: 4
-            label: application 2/4
-          - shard: application
-            part: 2
-            parts: 4
-            label: application 3/4
-          - shard: application
-            part: 3
-            parts: 4
-            label: application 4/4
-          - shard: mcpserver
-            part: 0
-            parts: 2
-            label: mcpserver 1/2
-          - shard: mcpserver
-            part: 1
-            parts: 2
-            label: mcpserver 2/2
-          - shard: sqlite
-            part: 0
-            parts: 2
-            label: sqlite 1/2
-          - shard: sqlite
-            part: 1
-            parts: 2
-            label: sqlite 2/2
-          - shard: continuousbackup
-            part: 0
-            parts: 1
-            label: continuousbackup
-          - shard: remainder
-            part: 0
-            parts: 1
-            label: remainder
+          - label: application 1/2 + continuousbackup
+            artifact: application-1-continuousbackup
+            selections: |
+              application 0 2
+              continuousbackup 0 1
+          - label: application 2/2 + remainder
+            artifact: application-2-remainder
+            selections: |
+              application 1 2
+              remainder 0 1
+          - label: mcpserver + sqlite
+            artifact: mcpserver-sqlite
+            selections: |
+              mcpserver 0 1
+              sqlite 0 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -153,11 +150,10 @@ jobs:
       - name: Go tests
         run: |
           set -euo pipefail
-          shard="${{ matrix.shard }}"
-          part="${{ matrix.part }}"
-          parts="${{ matrix.parts }}"
-          pkg_parallel=(-p 1)
-          run_args=()
+          run_one() {
+          local shard="$1" part="$2" parts="$3"
+          local pkg_parallel=(-p 1)
+          local run_args=()
           case "$shard" in
             application)
               pkgs=(./internal/application)
@@ -242,14 +238,27 @@ jobs:
             fi
             run_args=(-run "$regex")
           fi
-          printf 'shard %s packages:\n' "$shard"
+          printf 'shard %s part %s/%s packages:\n' "$shard" "$((part + 1))" "$parts"
           printf '  %s\n' "${pkgs[@]}"
-          go test -count=1 -json -timeout 20m "${pkg_parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/go-results.jsonl"
+          go test -count=1 -json -timeout 20m "${pkg_parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee -a "$RUNNER_TEMP/go-results.jsonl"
+          }
+          ran=0
+          while read -r shard part parts; do
+            if [ -z "${shard:-}" ]; then
+              continue
+            fi
+            ran=1
+            run_one "$shard" "$part" "$parts"
+          done <<< "${{ matrix.selections }}"
+          if [ "$ran" -ne 1 ]; then
+            echo "go shard ran no selections" >&2
+            exit 1
+          fi
       - name: Retain Go test timings and failures
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: go-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}
+          name: go-${{ matrix.artifact }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/go-results.jsonl
           if-no-files-found: error
           retention-days: 7

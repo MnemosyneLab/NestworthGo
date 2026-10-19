@@ -84,30 +84,43 @@ class RaceShardSelectTests(unittest.TestCase):
         covered = {prefix for name in union for prefix in ("Test", "Example", "Fuzz") if name.startswith(prefix)}
         self.assertEqual(covered, {"Test", "Example", "Fuzz"})
 
-    def assert_split_covers_names(self, workflow, totals):
-        entries = re.findall(
-            r"- shard: (application|mcpserver|sqlite)\s+part: (\d+)\s+parts: (\d+)\s+label: ([^\n]+)",
+    def matrix_parts(self, workflow, shard):
+        packed = re.findall(
+            rf"(?m)^[ \t]*{shard} (\d+) (\d+)[ \t]*$",
             workflow,
         )
+        if packed:
+            return [(int(part), int(count), f"{shard} {int(part) + 1}/{int(count)}") for part, count in packed]
+        entries = re.findall(
+            rf"- shard: {shard}\s+part: (\d+)\s+parts: (\d+)\s+label: ([^\n]+)",
+            workflow,
+        )
+        return [(int(part), int(count), label) for part, count, label in entries]
+
+    def assert_split_covers_names(self, workflow, totals):
         # Exercise the actual matrix, including missing/duplicate parts and
         # inconsistent denominators, rather than another hardcoded 2-part run.
         listing = LISTING + "".join(f"TestGenerated{i}\n" for i in range(80))
         expected = RUNNABLE + [f"TestGenerated{i}" for i in range(80)]
         for shard, total in totals:
-            parts = [(int(part), int(count), label) for kind, part, count, label in entries if kind == shard]
-            self.assertEqual(sorted(part for part, _, _ in parts), list(range(total)))
+            parts = self.matrix_parts(workflow, shard)
+            self.assertEqual(sorted(part for part, _, _ in parts), list(range(total)), shard)
             union = []
             for part, count, label in parts:
                 self.assertEqual(count, total)
                 self.assertEqual(label, f"{shard} {part + 1}/{total}")
-                result = self.run_select("--names", part, count, stdin=listing)
+                result = self.run_select("--names", str(part), str(count), stdin=listing)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 union.extend(self.names_from_regex(result.stdout.strip()))
             self.assertCountEqual(union, expected)
             self.assertEqual(len(union), len(set(union)))
 
     def test_workflow_split_parts_cover_every_name_once(self):
-        self.assert_split_covers_names(CHECK.read_text(), (("application", 4), ("mcpserver", 2), ("sqlite", 2)))
+        check = CHECK.read_text()
+        self.assert_split_covers_names(check, (("application", 2), ("mcpserver", 1), ("sqlite", 1)))
+        self.assertEqual(self.matrix_parts(check, "continuousbackup"), [(0, 1, "continuousbackup 1/1")])
+        self.assertEqual(self.matrix_parts(check, "remainder"), [(0, 1, "remainder 1/1")])
+        self.assertEqual(check.count("selections: |"), 3)
         self.assert_split_covers_names(PERF.read_text(), (("application", 8), ("mcpserver", 4), ("sqlite", 2)))
 
     def test_workflow_keeps_bounded_race_execution_and_fail_closed_aggregate(self):
@@ -208,8 +221,12 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("needs: [meta, frontend, go-shard]", workflow)
         self.assertIn("name: test", workflow)
-        self.assertIn("pnpm exec vitest run", workflow)
-        self.assertNotIn("--shard=", workflow)
+        self.assertIn("pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}", workflow)
+        self.assertIn("shard: 1", workflow)
+        self.assertIn("shards: 2", workflow)
+        self.assertIn("shard: 2", workflow)
+        self.assertIn("lint: true", workflow)
+        self.assertIn("build: true", workflow)
         self.assertIn("NESTWORTH_WAILS_GOCACHE=$GOCACHE", workflow)
         self.assertIn("go test -count=1 -json -timeout 20m", workflow)
         self.assertNotIn("go test ./...", workflow)
@@ -223,7 +240,7 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("python3 -m unittest discover -s tools/tests -v", workflow)
         self.assertIn("pkgs=(./internal/infrastructure/sqlite)", workflow)
         self.assertIn("pkgs=(./internal/infrastructure/continuousbackup)", workflow)
-        self.assertIn("label: continuousbackup", workflow)
+        self.assertIn("continuousbackup 0 1", workflow)
         self.assertIn("go list ./internal/infrastructure/...", workflow)
         self.assertIn("infrastructure partition does not cover go list", workflow)
         self.assertIn("infrastructure package missing from remainder", workflow)
