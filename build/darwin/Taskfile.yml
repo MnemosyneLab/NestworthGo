@@ -59,9 +59,10 @@ tasks:
       GOOS: darwin
       CGO_ENABLED: 1
       GOARCH: '{{.ARCH | default ARCH}}'
-      CGO_CFLAGS: "-mmacosx-version-min=12.0"
-      CGO_LDFLAGS: "-mmacosx-version-min=12.0"
-      MACOSX_DEPLOYMENT_TARGET: "12.0"
+      CGO_CFLAGS: "-O2 -g -mmacosx-version-min=27.0"
+      CGO_CXXFLAGS: "-O2 -g -mmacosx-version-min=27.0"
+      CGO_LDFLAGS: "-O2 -g -mmacosx-version-min=27.0"
+      MACOSX_DEPLOYMENT_TARGET: "27.0"
 
   build:docker:
     summary: Cross-compiles for macOS using Docker (for Linux/Windows hosts)
@@ -192,6 +193,12 @@ tasks:
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "{{.BUNDLE_NAME}}"
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" = "{{.APP_VERSION}}"
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" = "{{.APP_BUILD}}"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$PLIST")" = "27.0"
+        otool -l "$APP/Contents/MacOS/{{.BUNDLE_NAME}}" | awk '
+          $1 == "cmd" && $2 == "LC_BUILD_VERSION" { build_version = 1 }
+          build_version && $1 == "minos" { found = 1; if ($2 != "27.0") exit 1 }
+          END { if (!found) exit 1 }
+        '
         cmp -s "{{.NATIVE_ICNS}}" "$APP/Contents/Resources/icon.icns"
         test "$(lipo -archs "$APP/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
         codesign --verify --deep --strict "$APP"

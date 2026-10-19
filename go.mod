@@ -8,7 +8,7 @@ require (
 	// Wails v3 is still beta. Keep this module version pinned; upgrade only
 	// in a dedicated change with regenerated bindings, full automated gates,
 	// and native/package smoke tests.
-	github.com/wailsapp/wails/v3 v3.0.0-beta.28
+	github.com/wailsapp/wails/v3 v3.0.0-beta.32
 	github.com/wnjoon/go-yfinance v1.7.0
 	modernc.org/sqlite v1.49.1
 )
@@ -80,12 +80,12 @@ require (
 	github.com/tetratelabs/wazero v1.2.1 // indirect
 	github.com/wasilibs/go-re2 v1.3.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.39.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	h12.io/socks v1.0.3 // indirect

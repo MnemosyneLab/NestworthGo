@@ -11,6 +11,14 @@ vars:
   # tasks below dispatch to the matching platform Taskfile via this variable.
   GOOS: '{{.GOOS | default OS}}'
 
+# Apply the same native target to checks, bindings and the Wails dev loop.
+# Keep non-macOS hosts' existing CGO settings unchanged.
+env:
+  MACOSX_DEPLOYMENT_TARGET: '{{if eq OS "darwin"}}27.0{{else}}{{env "MACOSX_DEPLOYMENT_TARGET"}}{{end}}'
+  CGO_CFLAGS: '{{if eq OS "darwin"}}-O2 -g -mmacosx-version-min=27.0{{else}}{{env "CGO_CFLAGS"}}{{end}}'
+  CGO_CXXFLAGS: '{{if eq OS "darwin"}}-O2 -g -mmacosx-version-min=27.0{{else}}{{env "CGO_CXXFLAGS"}}{{end}}'
+  CGO_LDFLAGS: '{{if eq OS "darwin"}}-O2 -g -mmacosx-version-min=27.0{{else}}{{env "CGO_LDFLAGS"}}{{end}}'
+
 includes:
   common: ./build/Taskfile.yml
   windows: ./build/windows/Taskfile.yml

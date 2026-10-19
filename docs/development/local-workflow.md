@@ -8,7 +8,7 @@ cross-compilation tasks for other platforms.
 
 - Go 1.26 or newer;
 - Node.js with pnpm;
-- Wails CLI `v3.0.0-beta.28` available as `wails3`;
+- Wails CLI `v3.0.0-beta.32` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
 - Linux additionally needs GCC, pkg-config, and Wails GTK/WebKit headers to
   compile `./cmd/nestworth`:
@@ -36,6 +36,27 @@ export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 
 Keep this in the shell used for `wails3 task check`, `wails3 task build`, and
 `wails3 task package:release`.
+
+## macOS deployment target
+
+Native macOS builds require macOS 27.0 or newer and a macOS 27 SDK.
+The root Taskfile applies `MACOSX_DEPLOYMENT_TARGET=27.0` and matching
+C/C++ compilation and linker flags to checks, bindings, and development.
+Darwin packaging uses the same target; both production and development
+Info.plists declare `LSMinimumSystemVersion=27.0`.
+
+For direct Go commands outside Wails tasks, use the same environment:
+
+```bash
+export MACOSX_DEPLOYMENT_TARGET=27.0
+export CGO_CFLAGS="-O2 -g -mmacosx-version-min=27.0"
+export CGO_CXXFLAGS="-O2 -g -mmacosx-version-min=27.0"
+export CGO_LDFLAGS="-O2 -g -mmacosx-version-min=27.0"
+```
+
+This raises the minimum supported macOS version; existing published artifacts
+are unchanged. The legacy Docker Darwin cross-build image contains an older
+SDK and is not an accepted macOS 27 packaging path; use native macOS packaging.
 
 ## First-time setup
 
@@ -184,7 +205,7 @@ cancellation delivery failures remain exercised by the installed SDK tests.
 
 ## Build and package the macOS app
 
-For Wails beta.28, use a checkout on local, non-synchronized storage. Our
+For Wails beta.32, use a checkout on local, non-synchronized storage. Our
 customized Darwin tasks reject symlinked output; the upstream generated
 file-provider relocation task is not applied automatically. See the
 [beta.28 compatibility notes](wails-version-upgrade.md#beta28-compatibility-notes)

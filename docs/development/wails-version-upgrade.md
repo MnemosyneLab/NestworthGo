@@ -8,9 +8,9 @@ remain synchronized.
 The current repository baseline is:
 
 ```text
-Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.28
-Frontend:       @wailsio/runtime 3.0.0-beta.28
-CLI/fallback:   v3.0.0-beta.28
+Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.32
+Frontend:       @wailsio/runtime 3.0.0-beta.32
+CLI/fallback:   v3.0.0-beta.32
 ```
 
 For another target, replace the version variables below. Go and CLI versions use
@@ -21,6 +21,24 @@ Official references:
 - [Wails releases](https://github.com/wailsapp/wails/releases)
 - [Wails v3 documentation](https://v3.wails.io/)
 - [Wails bindings documentation](https://v3.wails.io/features/bindings/methods/)
+
+## beta.32 compatibility notes
+
+The [beta.31 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.31)
+requires Go 1.26+, fixes binding generation with Go 1.27 JSON aliases, and adds
+`@wailsio/runtime/cancellable` for imports that must avoid root-runtime side
+effects. Nestworth already requires Go 1.26; regenerate bindings rather than
+preserving generated `encoding/json/v2` models from an older generator.
+
+The [beta.30 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.30)
+stops the macOS window-update notification loop that consumed user activation
+on macOS 27, affecting clipboard writes from real clicks, and fixes duplicate
+window teardown. The [beta.32 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.32)
+adds macOS menu section headers and fixes relative window positioning and
+updater relaunch recovery. Native window, clipboard, menu and lifecycle behavior
+still requires isolated macOS acceptance.
+
+The customized output/staging restrictions below continue to apply.
 
 ## beta.28 compatibility notes
 
@@ -52,6 +70,8 @@ Check all of these locations for every upgrade:
 
 - `go.mod` and `go.sum`: the backend Wails module;
 - `frontend/package.json` and `frontend/pnpm-lock.yaml`: `@wailsio/runtime`;
+- `frontend/pnpm-workspace.yaml` and `frontend/.npmrc`: the exact runtime
+  release-age exception;
 - `frontend/scripts/ensure-bindings.mjs`: the exact version fallback used when
   no global `wails3` is installed;
 - `frontend/bindings/`: generated, gitignored TypeScript files;
@@ -87,8 +107,8 @@ Set the target versions and writable caches. Restricted environments should not
 rely on the default Go cache directories:
 
 ```bash
-WAILS_GO_VERSION=v3.0.0-beta.28
-WAILS_RUNTIME_VERSION=3.0.0-beta.28
+WAILS_GO_VERSION=v3.0.0-beta.32
+WAILS_RUNTIME_VERSION=3.0.0-beta.32
 GOCACHE=/tmp/nestworth-wails-gocache
 GOMODCACHE=/tmp/nestworth-wails-gomodcache
 export WAILS_GO_VERSION WAILS_RUNTIME_VERSION GOCACHE GOMODCACHE
@@ -124,7 +144,7 @@ PATH="$(go env GOPATH)/bin:$PATH" wails3 version
 The output must be the target version:
 
 ```text
-v3.0.0-beta.28
+v3.0.0-beta.32
 ```
 
 If an old version is still reported, inspect `type -a wails3` and retry with the
@@ -152,7 +172,10 @@ than mixing unrelated upgrades into this task.
 
 ## 4. Update the frontend runtime and lockfile
 
-From `frontend/`, update the exact runtime and install from the lockfile:
+First update the exact `@wailsio/runtime@...` release-age exception in both
+`frontend/pnpm-workspace.yaml` and `frontend/.npmrc`. Keep the seven-day gate
+for other dependencies. Then, from `frontend/`, update the exact runtime and
+install from the lockfile:
 
 ```bash
 cd frontend
@@ -384,5 +407,5 @@ needs migration, record it as a separate compatibility change with tests.
 For a dependency-only change, a suitable Conventional Commit is:
 
 ```text
-chore(deps): upgrade Wails to v3.0.0-beta.28
+chore(deps): upgrade Wails to v3.0.0-beta.32
 ```
