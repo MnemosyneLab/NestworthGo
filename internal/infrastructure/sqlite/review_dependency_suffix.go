@@ -25,7 +25,7 @@ func (r *Repository) WithReviewDependencySuffix() *Repository {
 
 func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, memoGeneration uint64) error {
 	memoEligible := false
-	if (r.reviewPrefixMemoEnabled || r.reviewPrefixMemoObserve) && c.Certified != nil {
+	if r.reviewPrefixMemoEnabled && c.Certified != nil {
 		receipt, observation := c.Certified.SuffixMemoReceipt, c.Certified.SuffixMemoObservation
 		defer func() {
 			if c.Suffix == nil {
@@ -130,7 +130,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	var memoHits map[domain.ReviewDailyEvidenceKey]reviewMemoEntry
 	var memoOrigins map[string]string
 	var memoTarget *reviewMemoReadTarget
-	if (r.reviewPrefixMemoEnabled || r.reviewPrefixMemoObserve) && unchanged {
+	if r.reviewPrefixMemoEnabled && unchanged {
 		if r.reviewPrefixMemoEnabled {
 			memoHits = r.readReviewMemo(*c, memoGeneration)
 		}

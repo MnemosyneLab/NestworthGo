@@ -1,20 +1,14 @@
-//go:build perf
-
 package application
 
 import (
 	"context"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
-	"os"
 	"testing"
 	"time"
 )
 
-func TestReviewPrefixMemoLocalGuards(t *testing.T) {
-	if os.Getenv("NW_D2_MEMO_GUARDS") != "1" {
-		t.Skip("opt-in memo matrix")
-	}
+func TestReviewPrefixMemoGuards(t *testing.T) {
 	for _, scenario := range []string{"stale", "cancel", "evict", "source", "provider", "ack", "suppression", "missing-row", "clock-rollback", "reopen", "rule"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "consecutive", Count: 3})
@@ -116,9 +110,6 @@ func TestReviewPrefixMemoLocalGuards(t *testing.T) {
 	}
 }
 func TestReviewPrefixMemoExactFX(t *testing.T) {
-	if os.Getenv("NW_D2_MEMO_GUARDS") != "1" {
-		t.Skip("opt-in exact FX memo")
-	}
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
 	f, r := certifiedPublicationFixture(t, true, spec, "1", false)
@@ -151,10 +142,7 @@ func TestReviewPrefixMemoExactFX(t *testing.T) {
 	}
 }
 
-func TestReviewPrefixMemoFutureActivationLocal(t *testing.T) {
-	if os.Getenv("NW_D2_MEMO_GUARDS") != "1" {
-		t.Skip("opt-in future membership memo guard")
-	}
+func TestReviewPrefixMemoFutureActivation(t *testing.T) {
 	f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
 	r = r.WithReviewPrefixMemo()
 	f.s.repository = r

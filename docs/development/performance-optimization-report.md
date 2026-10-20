@@ -12,6 +12,8 @@ suffix preparation and same-handle prefix memo. The two environment rollback
 switches have been removed. Bare repositories retain the non-certified C2
 compatibility path and baseline key-first window SQL. B bounded production
 selection and the constant-false bootstrap implementation have been removed.
+The memo experiment alias, boolean argument and observation-only mode are also
+removed; callers select the normal memo initializer without an on/off argument.
 Complete preparation and recomputation remain normal safety fallbacks.
 
 ## Shipped improvements
@@ -100,6 +102,13 @@ publication equality, dependency/FX, memo ownership/generation and full-oracle
 regressions. Keep activity hydration chunk/cancellation/snapshot coverage,
 analysis quote/account/snapshot/result comparisons, JSON exact-byte/stream tests,
 and frontend freshness/hidden-read/nested session/draft/guard regressions.
+
+The small memo guard regressions now run without perf/environment gating:
+stale/cancel/evict/source/provider/ack/suppression/missing-row/clock/reopen/rule,
+exact-FX alias isolation and future activation. The capacity regression checks
+payload overflow without constructing a 32MiB string. Together the focused
+application cases took 4.711s and SQLite capacity coverage 0.044s on this Linux
+executor; these are test costs, not application performance samples.
 
 `TestReviewCaptureMACBindsEligibilityAndMemoReceipt` binds current eligibility and
 ownership fields. `TestReviewReusableWindowEquivalent` retains a small independent

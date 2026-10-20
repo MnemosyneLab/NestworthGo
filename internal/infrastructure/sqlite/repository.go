@@ -18,7 +18,6 @@ type Repository struct {
 	reviewNoChangeCandidate           bool
 	reviewCertifiedCandidate          bool
 	reviewDependencySuffix            bool
-	reviewPrefixMemoObserve           bool
 	reviewPrefixMemoEnabled           bool
 	reviewCompletenessLineageShadow   bool
 	reviewCompletenessLineageObserver func(domain.ReviewCompletenessLineageObservation)

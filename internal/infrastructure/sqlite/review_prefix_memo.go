@@ -25,14 +25,11 @@ func (r *Repository) WithDefaultReviewOptimizations() *Repository {
 }
 
 // WithReviewPrefixMemo enables bounded same-handle evidence reuse. A new handle
-// never imports a memo or authority. False keeps D1/D2 without memo reuse.
-func (r *Repository) WithReviewPrefixMemo(enabled ...bool) *Repository {
+// never imports a memo or authority.
+func (r *Repository) WithReviewPrefixMemo() *Repository {
 	copy := *r.WithReviewDependencySuffix()
-	copy.reviewPrefixMemoEnabled = len(enabled) == 0 || enabled[0]
-	copy.reviewPrefixMemoObserve = true
-	if copy.reviewPrefixMemoEnabled {
-		copy.database.reviewPrefixMemo.active.Store(true)
-	}
+	copy.reviewPrefixMemoEnabled = true
+	copy.database.reviewPrefixMemo.active.Store(true)
 	return &copy
 }
 
