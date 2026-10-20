@@ -1,7 +1,6 @@
 package marketdata
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type vnextFixtureMeta struct {
@@ -69,7 +69,7 @@ func loadVNextFixture(relative string) (vnextFixtureMeta, []byte, error) {
 		return vnextFixtureMeta{}, nil, err
 	}
 	var meta vnextFixtureMeta
-	if err := json.Unmarshal(metaBytes, &meta); err != nil {
+	if err := jsoncodec.Unmarshal(metaBytes, &meta); err != nil {
 		return vnextFixtureMeta{}, nil, err
 	}
 	return meta, body, nil

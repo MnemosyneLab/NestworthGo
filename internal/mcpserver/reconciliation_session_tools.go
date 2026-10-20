@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type ReconciliationReadInput struct {
@@ -50,7 +50,7 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64)
 	query := in
 	query.Cursor = ""
 	query.Limit = 0
-	raw, _ := json.Marshal(struct {
+	raw, _ := jsoncodec.Marshal(struct {
 		Query    ReconciliationReadInput
 		Items    []any
 		Revision int64
@@ -67,7 +67,7 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64)
 			return nil, fail("validation", "invalid reconciliation cursor")
 		}
 		var c reconciliationCursor
-		if json.Unmarshal(raw, &c) != nil || c.Hash != hash {
+		if jsoncodec.Unmarshal(raw, &c) != nil || c.Hash != hash {
 			return nil, fail("stale_cursor", "reconciliation changed; restart paging")
 		}
 		offset = c.Offset
@@ -81,10 +81,10 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64)
 	}
 	result := reconciliationPage{Items: items[offset:end], Total: len(items), Revision: revision}
 	if end < len(items) {
-		raw, _ := json.Marshal(reconciliationCursor{Hash: hash, Offset: end})
+		raw, _ := jsoncodec.Marshal(reconciliationCursor{Hash: hash, Offset: end})
 		result.NextCursor = base64.RawURLEncoding.EncodeToString(raw)
 	}
-	raw, _ = json.Marshal(result)
+	raw, _ = jsoncodec.Marshal(result)
 	if len(raw) > 96*1024 {
 		return nil, fail("response_too_large", "reduce limit; no evidence has been truncated")
 	}
@@ -176,7 +176,7 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 			var saved struct {
 				Plan application.ReconciliationSessionPlan `json:"plan"`
 			}
-			if e = json.Unmarshal(raw, &saved); e != nil {
+			if e = jsoncodec.Unmarshal(raw, &saved); e != nil {
 				return nil, e
 			}
 			result, e := s.app.CommitReconciliationSession(ctx, saved.Plan)

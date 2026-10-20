@@ -1,12 +1,12 @@
 package analysis
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
@@ -32,12 +32,12 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 		}},
 	}
 	dto := fromReturnCalendar(value)
-	encoded, err := json.Marshal(dto)
+	encoded, err := jsoncodec.Marshal(dto)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var shape map[string]any
-	if err := json.Unmarshal(encoded, &shape); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 		t.Fatal(err)
 	}
 	if shape["valuationForced"] != "base" || shape["status"] != "partial" || shape["missingReason"] != "missing quote" {
@@ -73,12 +73,12 @@ func TestReturnTrendDTOKeepsUnforcedRateNullAndMapsSources(t *testing.T) {
 		Sources:              []application.ReturnSource{{Key: "price_change", Label: "price_change", Amount: &amount, Share: &rate}},
 		Coverage:             domain.RateCoverage{RatedDays: 1, TotalDays: 1},
 	})
-	encoded, err := json.Marshal(dto)
+	encoded, err := jsoncodec.Marshal(dto)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var shape map[string]any
-	if err := json.Unmarshal(encoded, &shape); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 		t.Fatal(err)
 	}
 	if value, exists := shape["valuationForced"]; !exists || value != nil {

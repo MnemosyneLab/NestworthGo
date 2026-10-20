@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Real clocks and explicit RFC3339Nano observations must round-trip through
@@ -79,7 +79,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 						t.Fatal(err)
 					}
 					var m domain.ProductTermsMutation
-					if err := json.Unmarshal([]byte(stored), &m); err != nil {
+					if err := jsoncodec.Unmarshal([]byte(stored), &m); err != nil {
 						t.Fatal(err)
 					}
 					for _, at := range []time.Time{m.CreatedAt, m.Receipt.RecordedAt, m.Receipt.Contract.UpdatedAt, m.Receipt.Policy.UpdatedAt} {
@@ -101,7 +101,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 					var result struct {
 						Receipt domain.ProductValuationReceipt `json:"receipt"`
 					}
-					if err := json.Unmarshal([]byte(stored), &result); err != nil {
+					if err := jsoncodec.Unmarshal([]byte(stored), &result); err != nil {
 						t.Fatal(err)
 					}
 					for _, at := range []time.Time{result.Receipt.ObservedAt, result.Receipt.RecordedAt} {
@@ -192,7 +192,7 @@ func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
 					t.Fatal(err)
 				}
 				var old domain.ProductTermsMutation
-				if err := json.Unmarshal([]byte(raw), &old); err != nil {
+				if err := jsoncodec.Unmarshal([]byte(raw), &old); err != nil {
 					t.Fatal(err)
 				}
 				r := old.Receipt
@@ -205,7 +205,7 @@ func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				encoded, err := json.Marshal(legacy)
+				encoded, err := jsoncodec.Marshal(legacy)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -222,18 +222,18 @@ func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
 					QuoteID string                         `json:"quoteId"`
 					Receipt domain.ProductValuationReceipt `json:"receipt"`
 				}
-				if err := json.Unmarshal([]byte(result), &res); err != nil {
+				if err := jsoncodec.Unmarshal([]byte(result), &res); err != nil {
 					t.Fatal(err)
 				}
 				res.Receipt.ObservedAt, res.Receipt.RecordedAt = base, now
 				command := application.ProductValuationCommand{ProductID: domain.ProductContractID(id), Amount: "1100", ObservedAt: base.UTC().Format(time.RFC3339Nano)}
-				cmd, _ := json.Marshal(command)
+				cmd, _ := jsoncodec.Marshal(command)
 				sum := sha256.Sum256(cmd)
-				request, _ := json.Marshal(struct {
+				request, _ := jsoncodec.Marshal(struct {
 					Kind    string                              `json:"kind"`
 					Command application.ProductValuationCommand `json:"command"`
 				}{"value_observation", command})
-				encoded, _ := json.Marshal(res)
+				encoded, _ := jsoncodec.Marshal(res)
 				raw = string(encoded)
 				if _, err := db.SQL.Exec(`UPDATE product_operations SET request_json=?,payload_sha256=?,result_json=? WHERE id=?`, string(request), hex.EncodeToString(sum[:]), raw, plan); err != nil {
 					t.Fatal(err)

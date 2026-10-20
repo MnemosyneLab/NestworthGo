@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	modernsqlite "modernc.org/sqlite"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 var reviewWindowKeyVisits atomic.Int64
@@ -84,7 +84,7 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 					input := domain.ReviewDailyInput{InstrumentID: id, On: on, NativeCurrency: &currency}
 					quantity := "2.000000000000000001"
 					input.Quantity = &quantity
-					inputJSON, _ := json.Marshal(input)
+					inputJSON, _ := jsoncodec.Marshal(input)
 					for version := 1; version <= 4; version++ {
 						policy := fmt.Sprintf("rule:%s/v:%d", rule.ID, version)
 						if _, err := tx.Exec(`INSERT INTO investment_review_daily_inputs VALUES(?,?,?,?,?,?,?,?)`, household.String(), id.String(), tz, on, policy, "exact-fingerprint", string(inputJSON), `["quote_missing"]`); err != nil {
@@ -92,7 +92,7 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 						}
 					}
 					truth := []domain.ReviewTruth{domain.ReviewFalse, domain.ReviewUnknown, domain.ReviewTrue}[day%3]
-					resultJSON, _ := json.Marshal(domain.ReviewDailyResult{On: on, Truth: truth})
+					resultJSON, _ := jsoncodec.Marshal(domain.ReviewDailyResult{On: on, Truth: truth})
 					fingerprint := "exact-fingerprint"
 					if day%7 == 0 {
 						fingerprint = "stale-result"
@@ -208,7 +208,7 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 				}
 				for i := 0; i < 200; i++ {
 					id := domain.NewInstrumentID()
-					inputJSON, _ := json.Marshal(domain.ReviewDailyInput{InstrumentID: id, On: "2011-12-31"})
+					inputJSON, _ := jsoncodec.Marshal(domain.ReviewDailyInput{InstrumentID: id, On: "2011-12-31"})
 					if _, err := tx.Exec(`INSERT INTO investment_review_daily_inputs VALUES(?,?,?,?,?,?,?,?)`, household.String(), id.String(), tz, "2011-12-31", "rule:"+string(rule.ID)+"/v:4", "boundary-fingerprint", string(inputJSON), `[]`); err != nil {
 						t.Fatal(err)
 					}

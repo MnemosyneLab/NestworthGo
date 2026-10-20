@@ -3,11 +3,11 @@ package application
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"strings"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type ReviewRuleV2Repository interface {
@@ -112,7 +112,7 @@ func DecodeReviewRuleV2Input(raw []byte) (SaveReviewRuleV2Input, error) {
 	if len(raw) > 128*1024 {
 		return input, &domain.Error{Code: domain.ErrValidation, Field: "rule", Message: "request is too large"}
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&input); err != nil {
 		return input, err

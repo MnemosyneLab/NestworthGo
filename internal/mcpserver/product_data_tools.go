@@ -2,13 +2,13 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -100,7 +100,7 @@ func (s *Service) commitProductTerms(ctx context.Context, in CommitChangeInput) 
 		return nil, err
 	}
 	var plan productTermsPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
 	}
 	var receipt domain.ProductTermsReceipt
@@ -141,7 +141,7 @@ func (s *Service) commitProductValuation(ctx context.Context, in CommitChangeInp
 		return nil, err
 	}
 	var plan productValuationPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
 	}
 	var receipt application.ProductValuationReceipt

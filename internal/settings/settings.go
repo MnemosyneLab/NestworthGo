@@ -2,7 +2,6 @@
 package settings
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/diagnostics"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const CurrentSchemaVersion = 1
@@ -330,7 +330,7 @@ func (s *Store) loadCombined() (Settings, LoadStatus, error) {
 		return value, status, errors.New("application settings are missing")
 	}
 	var d durableSettings
-	if json.Unmarshal(raw, &d) != nil {
+	if jsoncodec.Unmarshal(raw, &d) != nil {
 		return value, status, errors.New("stored application settings are invalid")
 	}
 	d.apply(&value)
@@ -360,7 +360,7 @@ func (s *Store) loadFile() (Settings, LoadStatus, error) {
 	}
 
 	loaded := Default()
-	if err := json.Unmarshal(data, &loaded); err != nil {
+	if err := jsoncodec.Unmarshal(data, &loaded); err != nil {
 		// Settings are presentation-only. A malformed file must not strand the
 		// frontend in its startup loading state; use safe defaults while keeping
 		// the original file untouched until an explicit save/reset.
@@ -513,7 +513,7 @@ func (s *Store) Save(value Settings) (saveErr error) {
 		}()
 	}
 	if s.repository != nil {
-		data, err := json.Marshal(durable(value))
+		data, err := jsoncodec.Marshal(durable(value))
 		if err != nil {
 			return err
 		}
@@ -534,7 +534,7 @@ func (s *Store) writeFile(value Settings) error {
 	if s.repository != nil {
 		data, err = PresentationJSON(value)
 	} else {
-		data, err = json.MarshalIndent(value, "", "  ")
+		data, err = jsoncodec.MarshalIndent(value, "", "  ")
 	}
 	if err != nil {
 		return err

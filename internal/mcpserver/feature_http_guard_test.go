@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 var featureHTTPTools = []string{
@@ -78,7 +80,7 @@ func TestFeatureHTTPResponseBudgetAllRegisteredNames(t *testing.T) {
 
 	for _, name := range featureHTTPTools[:1] {
 		t.Run(name, func(t *testing.T) {
-			payload, err := json.Marshal(map[string]any{
+			payload, err := jsoncodec.Marshal(map[string]any{
 				"jsonrpc": "2.0", "id": 7, "method": "tools/call",
 				"params": map[string]any{"name": name, "arguments": map[string]any{}},
 			})
@@ -104,7 +106,7 @@ func TestFeatureHTTPResponseBudgetAllRegisteredNames(t *testing.T) {
 					IsError bool `json:"isError"`
 				} `json:"result"`
 			}
-			if err := json.Unmarshal(body, &reply); err != nil {
+			if err := jsoncodec.Unmarshal(body, &reply); err != nil {
 				t.Fatal(err)
 			}
 			if res.StatusCode != http.StatusOK || len(body) > contextWireLimit ||

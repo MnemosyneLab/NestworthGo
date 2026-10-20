@@ -3,11 +3,12 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"hash"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestReviewScalarWalkerMatchesImmutableLegacy(t *testing.T) {
@@ -81,8 +82,8 @@ func writeLegacyReviewFingerprintScalars(digest hash.Hash, value reflect.Value) 
 	case reflect.Map:
 		keys := value.MapKeys()
 		sort.Slice(keys, func(i, j int) bool {
-			left, _ := json.Marshal(keys[i].Interface())
-			right, _ := json.Marshal(keys[j].Interface())
+			left, _ := jsoncodec.Marshal(keys[i].Interface())
+			right, _ := jsoncodec.Marshal(keys[j].Interface())
 			return string(left) < string(right)
 		})
 		for _, key := range keys {
@@ -99,7 +100,7 @@ func TestReviewStreamedSuffixMatchesCompleteLegacyDigest(t *testing.T) {
 	currency, _ := ParseCurrency("CNY")
 	day := ReviewSuffixDay{Key: ReviewDailyEvidenceKey{On: "2026-10-01"}, Evidence: ReviewReusableDailyEvidence{Input: ReviewDailyInput{SelectedFX: map[CurrencyCode]ReviewSelectedFX{currency: {Quote: FXQuote{Rate: rate}}}}, CoverageMissing: []string{"a<&>\""}}}
 	for _, suffix := range []*ReviewSuffixCapture{{}, {Prefix: []ReviewSuffixDay{}}, {Prefix: []ReviewSuffixDay{day, day}, Plan: ReviewInvalidationPlan{Reason: "a<&>\"", Dirty: []ReviewDirtyPair{{From: "2026-10-01"}}}}} {
-		raw, err := json.Marshal(suffix)
+		raw, err := jsoncodec.Marshal(suffix)
 		if err != nil {
 			t.Fatal(err)
 		}

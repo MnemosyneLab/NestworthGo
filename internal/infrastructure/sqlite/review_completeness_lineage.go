@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"slices"
 	"strconv"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // This immutable configuration enables diagnostic reads only. It does not
@@ -128,7 +128,7 @@ func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, captu
 		l.Reason = "counts_changed"
 		return l, nil
 	}
-	bound, err := json.Marshal(struct {
+	bound, err := jsoncodec.Marshal(struct {
 		Household                  domain.HouseholdID
 		Source                     *domain.ReviewSourceCheckpoint
 		Control                    domain.ReviewProjectionControl
@@ -173,7 +173,7 @@ func reviewLineageProjectionSnapshot(ctx context.Context, tx *sql.Tx, capture do
 		rules[string(rule.ID)] = rule
 	}
 	digest := sha256.New()
-	encoder := json.NewEncoder(digest)
+	encoder := jsoncodec.NewEncoder(digest)
 	statements := []string{
 		`SELECT instrument_id,timezone_version,on_date,input_policy,input_fingerprint FROM investment_review_daily_inputs WHERE household_id=? ORDER BY instrument_id,timezone_version,on_date,input_policy`,
 		`SELECT d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date,d.input_fingerprint,d.predicate_truth,COALESCE(d.reason,'') FROM investment_review_daily_results d JOIN investment_review_rules r ON r.id=d.rule_id WHERE r.household_id=? ORDER BY d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date`,

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
@@ -15,7 +17,7 @@ func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
 	for _, name := range []string{"get_read_page", "list_instruments"} {
 		for _, size := range []int{contextWireLimit, contextWireLimit + 1} {
 			request := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{"responseMode": "paged"}}}
-			b, _ := json.Marshal(request)
+			b, _ := jsoncodec.Marshal(request)
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.Write([]byte("{}" + strings.Repeat(" ", size-2)))
@@ -32,7 +34,7 @@ func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
 	}
 	// get_market_data misses the selective-legacy names. One list tool covers the empty-arguments return.
 	for _, name := range []string{"list_instruments", "get_market_data"} {
-		b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{}}})
+		b, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{}}})
 		w := httptest.NewRecorder()
 		financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(strings.Repeat("x", contextWireLimit+1))) })).ServeHTTP(w, httptest.NewRequest("POST", "/mcp", strings.NewReader(string(b))))
 		if w.Body.Len() != contextWireLimit+1 {
@@ -42,7 +44,7 @@ func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
 }
 func TestBoundedReadLegacyOmittedArgumentsRemainUncapped(t *testing.T) {
 	for _, name := range []string{"list_instruments"} {
-		b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name}})
+		b, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name}})
 		w := httptest.NewRecorder()
 		financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(strings.Repeat("x", contextWireLimit+1))) })).ServeHTTP(w, httptest.NewRequest("POST", "/mcp", strings.NewReader(string(b))))
 		if w.Body.Len() != contextWireLimit+1 {

@@ -3,9 +3,10 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestExportUsesOneReadSnapshotDuringConcurrentWrite(t *testing.T) {
@@ -58,7 +59,7 @@ func TestExportAllowlistExcludesNewColumnsAndSanitizesConversion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := json.Marshal(snapshot.Facts)
+	data, err := jsoncodec.Marshal(snapshot.Facts)
 	if err != nil {
 		t.Fatal(err)
 	}

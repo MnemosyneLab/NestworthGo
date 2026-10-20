@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
@@ -74,7 +74,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			}
 			// Three independent cursors, retaining only the requested section's state.
 			states, rows := skillPageState(t, initial)
-			original, _ := json.Marshal(link)
+			original, _ := jsoncodec.Marshal(link)
 			if _, err := app.AppendAccountValue(t.Context(), domain.AccountID(accountID), "999", ""); err != nil {
 				t.Fatal(err)
 			}
@@ -82,7 +82,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				info := states[section]
 				for info.HasMore {
 					page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
-					raw, _ := json.Marshal(page.Content.Attribution)
+					raw, _ := jsoncodec.Marshal(page.Content.Attribution)
 					if string(raw) != string(original) || page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.CapturedAt != initial.CapturedAt {
 						t.Fatal("link not frozen")
 					}
@@ -110,7 +110,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			if single.Content.Attribution.Status != "compatible" || single.Content.Attribution.Scope.AccountCount != 1 || *single.Content.Change.NetWorth.Value != "-15" {
 				t.Fatal("single account mismatch", single)
 			}
-			raw, _ := json.Marshal(single.Content)
+			raw, _ := jsoncodec.Marshal(single.Content)
 			for _, secret := range []string{accountID, "Checking", "private broker", "other broker"} {
 				if strings.Contains(string(raw), secret) {
 					t.Fatal("minimal leak", secret)
@@ -187,16 +187,16 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 		t.Fatal(revised)
 	}
 	states, _ := skillPageState(t, initial)
-	originalLink, _ := json.Marshal(link)
+	originalLink, _ := jsoncodec.Marshal(link)
 	for _, section := range skillSections {
 		info := states[section]
 		for info.HasMore {
 			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
-			rawLink, _ := json.Marshal(page.Content.Attribution)
+			rawLink, _ := jsoncodec.Marshal(page.Content.Attribution)
 			if string(rawLink) != string(originalLink) || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt || page.CacheExpiresAt != initial.CacheExpiresAt {
 				t.Fatal("precision summary thawed", page)
 			}
-			raw, _ := json.Marshal(page)
+			raw, _ := jsoncodec.Marshal(page)
 			for _, secret := range []string{"Private", selected.Account.ID.String(), other.Account.ID.String()} {
 				if strings.Contains(string(raw), secret) {
 					t.Fatal("scope/privacy leak", secret)

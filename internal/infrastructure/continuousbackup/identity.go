@@ -3,7 +3,6 @@ package continuousbackup
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -15,6 +14,7 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/version"
 )
 
@@ -37,7 +37,7 @@ func newIdentity(stream string) streamIdentity {
 func readIdentity(r io.Reader, stream string) (streamIdentity, error) {
 	data, err := io.ReadAll(io.LimitReader(r, maxIdentityBytes+1))
 	var info streamIdentity
-	if err != nil || len(data) > maxIdentityBytes || json.Unmarshal(data, &info) != nil {
+	if err != nil || len(data) > maxIdentityBytes || jsoncodec.Unmarshal(data, &info) != nil {
 		return info, ErrUnavailable
 	}
 	if info.Format != 1 || info.AppID != version.AppID || (info.Schema != sqlite.CurrentSchemaVersion && info.Schema != 15 && info.Schema != 16 && info.Schema != 17 && info.Schema != 18) || info.StreamID != stream || !validStream(stream) || info.AppVersion == "" || info.AppBuild == "" {
@@ -74,7 +74,7 @@ func (b r2Backend) ensureIdentity(ctx context.Context, info streamIdentity) erro
 	if !errors.Is(err, os.ErrNotExist) {
 		return ErrUnavailable
 	}
-	data, _ := json.Marshal(info)
+	data, _ := jsoncodec.Marshal(info)
 	// Conditional creation protects a fresh UUID path from accidental reuse;
 	// this is stream ownership, not cross-machine election or continuation.
 	_, err = b.sdk().PutObject(ctx, &awss3.PutObjectInput{Bucket: aws.String(b.c.Bucket), Key: aws.String(remotePrefix + info.StreamID + "/" + identityFile), Body: bytes.NewReader(data), ContentType: aws.String("application/json"), IfNoneMatch: aws.String("*")})
@@ -117,7 +117,7 @@ func (b fileBackend) ensureIdentity(ctx context.Context, info streamIdentity) er
 	if err != nil {
 		return err
 	}
-	data, _ := json.Marshal(info)
+	data, _ := jsoncodec.Marshal(info)
 	_, writeErr := f.Write(data)
 	closeErr := f.Close()
 	if writeErr != nil || closeErr != nil {

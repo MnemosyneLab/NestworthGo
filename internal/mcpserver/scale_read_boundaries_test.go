@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -41,7 +42,7 @@ func TestMarketHistoryDateNullTieAcrossPageBoundaries(t *testing.T) {
 		}
 		for i, id := range []string{"a", "b", "z"} {
 			var row marketHistoryPoint
-			if json.Unmarshal(all[i], &row) != nil || row.QuoteID != id {
+			if jsoncodec.Unmarshal(all[i], &row) != nil || row.QuoteID != id {
 				t.Fatalf("date %s null/tie order wrong", direction)
 			}
 		}

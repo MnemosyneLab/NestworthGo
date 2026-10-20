@@ -1,10 +1,11 @@
 package reconciliation
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/waltwang/nestworth-go/internal/domain"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Persist canonical decimal text, since domain decimal wrappers are deliberately
@@ -49,11 +50,11 @@ func (p adjustmentPlan) MarshalJSON() ([]byte, error) {
 		}
 		v.Commands = append(v.Commands, x)
 	}
-	return json.Marshal(v)
+	return jsoncodec.Marshal(v)
 }
 func (p *adjustmentPlan) UnmarshalJSON(raw []byte) error {
 	var v savedAdjustmentPlan
-	if e := json.Unmarshal(raw, &v); e != nil {
+	if e := jsoncodec.Unmarshal(raw, &v); e != nil {
 		return e
 	}
 	*p = adjustmentPlan{id: v.ID, hash: v.Hash, token: v.Token, link: v.Link, expires: v.Expires}

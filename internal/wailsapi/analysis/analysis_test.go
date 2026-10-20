@@ -1,12 +1,12 @@
 package analysis
 
 import (
-	"encoding/json"
 	"github.com/shopspring/decimal"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestAnalysisQueryRequestConvertsTypedScopeAndFilters(t *testing.T) {
@@ -34,12 +34,12 @@ func TestAnalysisDTOUsesCanonicalSignedMoneyAndCompleteness(t *testing.T) {
 		ResidualIssueCount:   2,
 	}
 	dto := fromAssetChange(value)
-	encoded, err := json.Marshal(dto)
+	encoded, err := jsoncodec.Marshal(dto)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var shape map[string]any
-	if err := json.Unmarshal(encoded, &shape); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 		t.Fatal(err)
 	}
 	if shape["available"] != true || shape["status"] != "partial" || shape["missingReason"] != "missing quote" || shape["valuationForced"] != "base" {
@@ -56,12 +56,12 @@ func TestAnalysisDTOUsesCanonicalSignedMoneyAndCompleteness(t *testing.T) {
 	if !ok || change["amount"] != "-12.5" || change["currency"] != "USD" {
 		t.Fatalf("canonical money shape = %s", encoded)
 	}
-	unforced, err := json.Marshal(fromAssetChange(application.AssetChangeResult{AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessOK}}))
+	unforced, err := jsoncodec.Marshal(fromAssetChange(application.AssetChangeResult{AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessOK}}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var unforcedShape map[string]any
-	if err := json.Unmarshal(unforced, &unforcedShape); err != nil {
+	if err := jsoncodec.Unmarshal(unforced, &unforcedShape); err != nil {
 		t.Fatal(err)
 	}
 	if value, exists := unforcedShape["valuationForced"]; !exists || value != nil {
@@ -81,12 +81,12 @@ func TestAnalysisDTOsSerializeUnforcedValuationAsNull(t *testing.T) {
 	}
 	for _, testCase := range values {
 		t.Run(testCase.name, func(t *testing.T) {
-			encoded, err := json.Marshal(testCase.value)
+			encoded, err := jsoncodec.Marshal(testCase.value)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var shape map[string]any
-			if err := json.Unmarshal(encoded, &shape); err != nil {
+			if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 				t.Fatal(err)
 			}
 			if value, exists := shape["valuationForced"]; !exists || value != nil {
@@ -102,12 +102,12 @@ func TestAssetDriverDTOIncludesResidualDetails(t *testing.T) {
 		t.Fatal(err)
 	}
 	dto := fromAssetDriverDetail(application.AssetDriverDetailResult{ResidualDetails: []application.AssetResidualDetail{{Date: "2026-08-02", ComponentKey: "account/holding/instrument", Amount: &amount}}})
-	encoded, err := json.Marshal(dto)
+	encoded, err := jsoncodec.Marshal(dto)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var shape map[string]any
-	if err := json.Unmarshal(encoded, &shape); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 		t.Fatal(err)
 	}
 	details, ok := shape["residualDetails"].([]any)
@@ -151,12 +151,12 @@ func TestAssetChangeRateWireContractIsSharedByTrendAndDrivers(t *testing.T) {
 		t.Fatal("rate lost at DTO boundary")
 	}
 	missing := fromAssetChangeSummary(application.AssetChangeSummary{ChangeRateMissingReason: "incomplete"})
-	encoded, err := json.Marshal(missing)
+	encoded, err := jsoncodec.Marshal(missing)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var shape map[string]any
-	if err := json.Unmarshal(encoded, &shape); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 		t.Fatal(err)
 	}
 	if value, exists := shape["changeRate"]; !exists || value != nil || shape["changeRateMissingReason"] != "incomplete" {

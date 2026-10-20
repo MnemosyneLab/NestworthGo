@@ -3,7 +3,6 @@ package continuousbackup
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	appversion "github.com/waltwang/nestworth-go/internal/version"
 )
 
@@ -93,7 +93,7 @@ func TestDefaultOffAtomicConfigurationAndSecretBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	v, _ = m.View()
-	data, _ := json.Marshal(v)
+	data, _ := jsoncodec.Marshal(v)
 	if strings.Contains(string(data), old.AccessKeyID) || strings.Contains(string(data), old.SecretAccessKey) {
 		t.Fatal("secret in outgoing DTO")
 	}
@@ -895,7 +895,7 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 		case "wrong-stream":
 			invalid.StreamID = conflicting.StreamID + "-wrong"
 		}
-		data, _ := json.Marshal(invalid)
+		data, _ := jsoncodec.Marshal(invalid)
 		if err := os.WriteFile(path, data, 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -989,11 +989,11 @@ func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *tes
 		t.Fatal(err)
 	}
 	var info streamIdentity
-	if err := json.Unmarshal(data, &info); err != nil {
+	if err := jsoncodec.Unmarshal(data, &info); err != nil {
 		t.Fatal(err)
 	}
 	info.Schema = 15
-	data, err = json.Marshal(info)
+	data, err = jsoncodec.Marshal(info)
 	if err != nil {
 		t.Fatal(err)
 	}

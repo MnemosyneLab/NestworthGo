@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 var coinGeckoIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
@@ -110,7 +111,7 @@ func (p *CoinGeckoProvider) SearchInstruments(ctx context.Context, query, instru
 	var response struct {
 		Coins []struct{ ID, Name, Symbol string } `json:"coins"`
 	}
-	if json.Unmarshal(body, &response) != nil || response.Coins == nil {
+	if jsoncodec.Unmarshal(body, &response) != nil || response.Coins == nil {
 		return nil, malformedProvider()
 	}
 	if limit <= 0 || limit > 50 {
@@ -159,7 +160,7 @@ func (p *CoinGeckoProvider) LatestInstrument(ctx context.Context, identity appli
 }
 func (p *CoinGeckoProvider) decodeLatest(body []byte, identity application.InstrumentMarketIdentity) (application.LatestInstrumentQuote, error) {
 	var response map[string]map[string]json.Number
-	if json.Unmarshal(body, &response) != nil {
+	if jsoncodec.Unmarshal(body, &response) != nil {
 		return application.LatestInstrumentQuote{}, malformedProvider()
 	}
 	item := response[strings.ToLower(strings.TrimSpace(identity.ProviderSymbol))]
@@ -204,7 +205,7 @@ func (p *CoinGeckoProvider) InstrumentDailyHistory(ctx context.Context, identity
 	var response struct {
 		Prices [][]json.Number `json:"prices"`
 	}
-	if json.Unmarshal(body, &response) != nil || response.Prices == nil {
+	if jsoncodec.Unmarshal(body, &response) != nil || response.Prices == nil {
 		return empty, malformedProvider()
 	}
 	batch := application.HistoryBatch[application.InstrumentDailyObservation]{Evidence: application.ResponseEvidence{
@@ -321,7 +322,7 @@ func (p *CoinGeckoProvider) SupportedQuoteCurrencies(ctx context.Context) ([]str
 		return nil, err
 	}
 	var values []string
-	if json.Unmarshal(body, &values) != nil || len(values) == 0 {
+	if jsoncodec.Unmarshal(body, &values) != nil || len(values) == 0 {
 		return nil, malformedProvider()
 	}
 	result := []string{}

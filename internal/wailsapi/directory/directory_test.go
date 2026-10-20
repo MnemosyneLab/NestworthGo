@@ -2,9 +2,9 @@ package directory_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/directory"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
@@ -207,13 +207,13 @@ func TestDirectoryDTOsRoundTripAsJSON(t *testing.T) {
 		t.Fatalf("CreateGroup: %v", err)
 	}
 	for name, value := range map[string]any{"institution": institution, "group": group} {
-		encoded, err := json.Marshal(value)
+		encoded, err := jsoncodec.Marshal(value)
 		if err != nil {
-			t.Fatalf("%s: json.Marshal: %v", name, err)
+			t.Fatalf("%s: jsoncodec.Marshal: %v", name, err)
 		}
 		var decoded map[string]any
-		if err := json.Unmarshal(encoded, &decoded); err != nil {
-			t.Fatalf("%s: json.Unmarshal: %v", name, err)
+		if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+			t.Fatalf("%s: jsoncodec.Unmarshal: %v", name, err)
 		}
 		if len(decoded) == 0 {
 			t.Fatalf("%s round-trip produced an empty object", name)

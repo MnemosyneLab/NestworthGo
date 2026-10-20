@@ -5,7 +5,6 @@ package application
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type c3RSSConfig struct {
@@ -96,7 +96,7 @@ func TestReviewNoChangeRSSChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	var config c3RSSConfig
-	if err := json.Unmarshal(raw, &config); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &config); err != nil {
 		t.Fatal(err)
 	}
 	if filepath.Base(config.Database) != "synthetic-clone.db" || (config.Arm != "baseline" && config.Arm != "candidate") {
@@ -164,7 +164,7 @@ func TestReviewNoChangeRSSChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err = json.Marshal(result)
+	raw, err = jsoncodec.Marshal(result)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func c3MeasureRSSChild(t *testing.T, f reviewFullPipelineFixture, arm string) c3
 	if err := os.WriteFile(filepath.Join(dir, "synthetic.marker"), []byte("Nestworth synthetic C3 RSS fixture"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := json.Marshal(c3RSSConfig{Database: f.dbPath, Household: f.householdID, Now: *f.now, Arm: arm})
+	raw, err := jsoncodec.Marshal(c3RSSConfig{Database: f.dbPath, Household: f.householdID, Now: *f.now, Arm: arm})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func c3MeasureRSSChild(t *testing.T, f reviewFullPipelineFixture, arm string) c3
 		t.Fatal(err)
 	}
 	var result c3RSSResult
-	if err := json.Unmarshal(raw, &result); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
 	}
 	result.SampledPeakRSSKiB, result.Polls = peak, polls
@@ -313,7 +313,7 @@ func TestReviewNoChangeRSSPerformanceEvidence(t *testing.T) {
 						t.Fatal(err)
 					}
 					result := c3MeasureRSSChild(t, f, arm)
-					raw, _ := json.Marshal(result)
+					raw, _ := jsoncodec.Marshal(result)
 					t.Logf("rss size=%s pair=%d result=%s (sampled post-setup VmRSS, 1ms polling; lifetime HWM includes bootstrap; child timings are not main latency samples)", size, sample+1, raw)
 					db, err := sqlite.Open(f.dbPath)
 					if err != nil {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type ReviewPlannedDay struct {
@@ -220,7 +220,7 @@ func planReviewRuleInstrumentIncremental(ctx context.Context, capture domain.Rev
 }
 
 func reviewDailyInputFingerprint(input domain.ReviewDailyInput, coverage ReviewHistoricalCoverage) (string, error) {
-	raw, err := json.Marshal(struct {
+	raw, err := jsoncodec.Marshal(struct {
 		Input    domain.ReviewDailyInput
 		Coverage ReviewHistoricalCoverage
 	}{input, coverage})

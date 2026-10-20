@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // PublishReviewProjection is the only writer of daily review projections. A
@@ -545,7 +545,7 @@ func reviewTruthSQL(value domain.ReviewTruth) string {
 }
 
 func reviewEvidenceFingerprint(value any) (string, string, error) {
-	raw, err := json.Marshal(value)
+	raw, err := jsoncodec.Marshal(value)
 	if err != nil {
 		return "", "", err
 	}
@@ -669,7 +669,7 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 }
 
 func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.ReviewRulePublication, existingEpochs []string, bootstrap bool) error {
-	coverage, err := json.Marshal(item.LatestCoverage)
+	coverage, err := jsoncodec.Marshal(item.LatestCoverage)
 	if err != nil {
 		return err
 	}
@@ -788,12 +788,12 @@ func reviewDailyPublicationArguments(capture domain.ReviewProjectionCapture, ite
 	if capture.Certified != nil {
 		inputJSON, err = encodeCompleteReviewInput(day.Input)
 	} else {
-		inputJSON, err = json.Marshal(day.Input)
+		inputJSON, err = jsoncodec.Marshal(day.Input)
 	}
 	if err != nil {
 		return nil, nil, err
 	}
-	coverageJSON, err := json.Marshal(day.CoverageMissing)
+	coverageJSON, err := jsoncodec.Marshal(day.CoverageMissing)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -805,7 +805,7 @@ func reviewDailyPublicationArguments(capture domain.ReviewProjectionCapture, ite
 		currency = day.Input.NativeCurrency.String()
 	}
 	inputValues := []any{capture.HouseholdID.String(), item.InstrumentID.String(), item.TimezoneVersion, day.On, inputPolicy, nullableReviewPointer(day.Input.Quantity), currency, kind, nullableReviewPointer(day.Input.AmountExact), nullableReviewPointer(day.Input.CostExact), string(inputJSON), string(coverageJSON), day.InputFingerprint, atText}
-	resultJSON, err := json.Marshal(day.Result)
+	resultJSON, err := jsoncodec.Marshal(day.Result)
 	if err != nil {
 		return nil, nil, err
 	}

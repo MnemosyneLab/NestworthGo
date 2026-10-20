@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Invoked before ANY financial side effect in WithTx. All owning financial
@@ -28,7 +29,7 @@ func validateReconciliationLinkTx(ctx context.Context, tx *sql.Tx) error {
 		if item.ID != l.ItemID || item.AccountID != l.AccountID || item.FinancialRevision != l.FinancialRevision {
 			return reconciliationConflict("reconciliationLink")
 		}
-		raw, err := json.Marshal(item)
+		raw, err := jsoncodec.Marshal(item)
 		if err != nil {
 			return err
 		}
@@ -99,12 +100,12 @@ func saveReconciliationLinkTx(ctx context.Context, tx *sql.Tx, operation, family
 		return err
 	}
 	var reviewed domain.ReconciliationItem
-	if err := json.Unmarshal([]byte(before), &reviewed); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(before), &reviewed); err != nil {
 		return err
 	}
 	reviewed.Attempts = nil
 	matched := len(matches) == 0 || matches[0]
-	raw, err := json.Marshal(map[string]any{"reviewedBefore": reviewed, "committed": after, "targetMatched": matched, "sessionRevision": l.ExpectedRevision})
+	raw, err := jsoncodec.Marshal(map[string]any{"reviewedBefore": reviewed, "committed": after, "targetMatched": matched, "sessionRevision": l.ExpectedRevision})
 	if err != nil {
 		return err
 	}

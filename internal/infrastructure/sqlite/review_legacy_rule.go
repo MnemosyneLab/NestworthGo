@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func legacyReviewRuleID(householdID domain.HouseholdID) domain.ReviewRuleID {
@@ -116,12 +117,12 @@ func (r *ConfigurationRepository) loadLegacyReviewConfiguration(householdID doma
 		var source struct {
 			Configuration json.RawMessage `json:"configuration"`
 		}
-		if err := json.Unmarshal([]byte(specJSON), &source); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(specJSON), &source); err != nil {
 			return nil, false, err
 		}
 		return append([]byte(nil), source.Configuration...), true, nil
 	}
 	spec.Configuration.Policy.Enabled = false
-	data, err := json.Marshal(spec.Configuration)
+	data, err := jsoncodec.Marshal(spec.Configuration)
 	return data, err == nil, err
 }

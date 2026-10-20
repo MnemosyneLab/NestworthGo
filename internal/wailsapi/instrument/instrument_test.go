@@ -2,9 +2,9 @@ package instrument_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
@@ -122,13 +122,13 @@ func TestInstrumentDTORoundTripsAsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	encoded, err := json.Marshal(created)
+	encoded, err := jsoncodec.Marshal(created)
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("jsoncodec.Marshal: %v", err)
 	}
 	var decoded map[string]any
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal: %v", err)
 	}
 	if len(decoded) == 0 {
 		t.Fatal("round-trip produced an empty object")

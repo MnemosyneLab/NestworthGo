@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func main() {
@@ -319,7 +319,7 @@ func compareFL1819(salaryDate string, incl, excl modeResult) fl1819Out {
 }
 
 func writeCashProbe(outPath, logPath string, out cashProbeOut) error {
-	raw, err := json.MarshalIndent(out, "", "  ")
+	raw, err := jsoncodec.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err
 	}

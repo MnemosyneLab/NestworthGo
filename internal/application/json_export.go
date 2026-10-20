@@ -2,12 +2,12 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sort"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/version"
 )
 
@@ -93,7 +93,7 @@ func (s *Service) ExportJSONBytes(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := json.MarshalIndent(doc, "", "  ")
+	data, err := jsoncodec.MarshalIndent(doc, "", "  ")
 	if err != nil {
 		return nil, err
 	}

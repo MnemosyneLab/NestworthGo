@@ -1,11 +1,11 @@
 package reconciliation
 
 import (
-	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"path/filepath"
 	"testing"
@@ -106,15 +106,15 @@ func TestDesktopAdjustmentCanonicalCommandRoundTrip(t *testing.T) {
 		domain.PositionAdjustmentInput{HouseholdID: h, HoldingID: held, Quantity: quantity, Added: true, UnitCost: &unit, EffectiveAt: at, Note: &note},
 		domain.PositionCostAdjustmentInput{HouseholdID: h, HoldingID: held, UnitCost: unit, EffectiveAt: at, Note: &note},
 	}}
-	raw, err := json.Marshal(plan)
+	raw, err := jsoncodec.Marshal(plan)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var restored adjustmentPlan
-	if err = json.Unmarshal(raw, &restored); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &restored); err != nil {
 		t.Fatal(err)
 	}
-	again, err := json.Marshal(restored)
+	again, err := jsoncodec.Marshal(restored)
 	if err != nil || string(raw) != string(again) {
 		t.Fatalf("canonical recovery changed %s -> %s (%v)", raw, again, err)
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type tiingoIEXRow struct {
@@ -24,7 +25,7 @@ func QualifyTiingoLatest(meta vnextFixtureMeta, body []byte) (application.Latest
 	if !domain.USListedEquityMarket(meta.Market) {
 		return application.LatestInstrumentQuote{}, providerError(domain.ErrUnsupportedProviderSymbol, "provider symbol is unsupported")
 	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var rows []tiingoIEXRow
 	if err := decoder.Decode(&rows); err != nil {

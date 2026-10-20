@@ -1,10 +1,11 @@
 package domain
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func syntheticReviewSpec() ReviewRuleSpec {
@@ -36,7 +37,7 @@ func TestReviewSpecStrictDecodeAndCanonicalHash(t *testing.T) {
 	if err != nil || hash != other {
 		t.Fatalf("semantic hash changed: %s, %s, %v", hash, other, err)
 	}
-	raw, err := json.Marshal(spec)
+	raw, err := jsoncodec.Marshal(spec)
 	if err != nil {
 		t.Fatal(err)
 	}

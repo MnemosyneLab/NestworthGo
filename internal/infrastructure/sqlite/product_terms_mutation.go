@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const productTermsMutationPrefix = "product.terms-mutation."
@@ -28,7 +28,7 @@ func (r *Repository) LookupProductTermsMutation(ctx context.Context, household d
 		return nil, err
 	}
 	var m domain.ProductTermsMutation
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &m); err != nil {
 		return nil, err
 	}
 	if err := m.Validate(); err != nil {
@@ -54,7 +54,7 @@ func (r *Repository) CommitProductTermsMutation(ctx context.Context, contract do
 	} else if !same {
 		return storedIntegrity("product", "terms receipt does not match committed facts")
 	}
-	raw, err := json.Marshal(m)
+	raw, err := jsoncodec.Marshal(m)
 	if err != nil {
 		return err
 	}
@@ -103,11 +103,11 @@ func sameProductTermsFacts(receipt domain.ProductTermsReceipt, contract domain.P
 	expected := receipt
 	expected.Contract = contract
 	expected.Policy = policy
-	a, err := json.Marshal(receipt)
+	a, err := jsoncodec.Marshal(receipt)
 	if err != nil {
 		return false, err
 	}
-	b, err := json.Marshal(expected)
+	b, err := jsoncodec.Marshal(expected)
 	return bytes.Equal(a, b), err
 }
 
@@ -131,7 +131,7 @@ func verifyProductTermsMutations(ctx context.Context, query schemaQuery) error {
 			return err
 		}
 		var m domain.ProductTermsMutation
-		if json.Unmarshal(raw, &m) != nil || m.Validate() != nil || key != productTermsMutationKey(m.HouseholdID, m.ID) {
+		if jsoncodec.Unmarshal(raw, &m) != nil || m.Validate() != nil || key != productTermsMutationKey(m.HouseholdID, m.ID) {
 			return storedIntegrity("product", "terms mutation evidence is invalid")
 		}
 		mutations = append(mutations, m)

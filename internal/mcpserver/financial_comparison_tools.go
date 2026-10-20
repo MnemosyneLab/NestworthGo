@@ -2,11 +2,11 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"time"
 )
 
@@ -85,7 +85,7 @@ func (s *Service) captureFinancialComparison(ctx context.Context, g uint64, in a
 	if err := ctx.Err(); err != nil {
 		return FinancialComparisonResponse{}, fail("context_busy", "context build budget elapsed")
 	}
-	encoded, err := json.Marshal(result.Content)
+	encoded, err := jsoncodec.Marshal(result.Content)
 	if err != nil {
 		return FinancialComparisonResponse{}, err
 	}

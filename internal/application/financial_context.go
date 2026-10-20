@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Fixed whitelist DTOs are also the canonical hash encoding. Domain models,
@@ -164,7 +164,7 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 	if err != nil {
 		return FinancialContextResult{}, err
 	}
-	encoded, err := json.Marshal(content)
+	encoded, err := jsoncodec.Marshal(content)
 	if err != nil {
 		return FinancialContextResult{}, err
 	}
@@ -603,7 +603,7 @@ func contextTimestampBasis(v string) string {
 }
 func contextConversion(raw string) *FinancialContextConversion {
 	var e metalConversionEvidence
-	if raw == "" || json.Unmarshal([]byte(raw), &e) != nil || e.Policy != domain.MetalConversionPolicy || e.RawCurrency != "USD" || e.RawUnit != "troy_oz" || e.RawQuotedAt.IsZero() {
+	if raw == "" || jsoncodec.Unmarshal([]byte(raw), &e) != nil || e.Policy != domain.MetalConversionPolicy || e.RawCurrency != "USD" || e.RawUnit != "troy_oz" || e.RawQuotedAt.IsZero() {
 		return nil
 	}
 	if _, err := domain.ParseCurrency(e.Currency); err != nil {

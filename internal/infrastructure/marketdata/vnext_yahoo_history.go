@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type yahooHistoryEnvelope struct {
@@ -38,7 +39,7 @@ type yahooHistoryMeta struct {
 }
 
 func QualifyYahooHistory(meta vnextFixtureMeta, body []byte) (application.MappingOutcome[application.InstrumentDailyObservation], error) {
-	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var envelope yahooHistoryEnvelope
 	if err := decoder.Decode(&envelope); err != nil {

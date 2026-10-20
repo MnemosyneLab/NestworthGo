@@ -1,7 +1,6 @@
 package mcpserver
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func itemFixture(t *testing.T) (*Service, uint64) {
@@ -52,9 +52,9 @@ func readItem(t *testing.T, s *Service, g uint64, in FinancialContextItemInput) 
 }
 func decodeItem(t *testing.T, obj map[string]any) FinancialContextItemResponse {
 	t.Helper()
-	raw, _ := json.Marshal(obj["data"])
+	raw, _ := jsoncodec.Marshal(obj["data"])
 	var r FinancialContextItemResponse
-	if err := json.Unmarshal(raw, &r); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &r); err != nil {
 		t.Fatal(err)
 	}
 	return r
@@ -307,7 +307,7 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 			if !reflect.DeepEqual(frozenNamed, namedItem) {
 				t.Fatal("named item recaptured after ordinary write")
 			}
-			raw, _ := json.Marshal(before)
+			raw, _ := jsoncodec.Marshal(before)
 			for _, secret := range []string{"PRIVATE NAME", "PRIVATE NOTE", "private.invalid", account.Account.ID.String(), "household"} {
 				if strings.Contains(string(raw), secret) {
 					t.Fatal("item leaked " + secret)
@@ -380,7 +380,7 @@ func TestFinancialContextItemSourceTextDoesNotLeak(t *testing.T) {
 	}
 	item := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: capture.ContextID, Ref: priceRef}, false))
 	for _, r := range []FinancialContextItemResponse{result, item} {
-		raw, _ := json.Marshal(r)
+		raw, _ := jsoncodec.Marshal(r)
 		for _, secret := range []string{"PRIVATE SOURCE TITLE", "private.invalid", "Example stock", "Brokerage", fx.brokerage, fx.instrument} {
 			if strings.Contains(string(raw), secret) {
 				t.Fatal("source/identity leaked: " + secret)

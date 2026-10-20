@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ProductTermsMutation is private local idempotency evidence, not a financial
@@ -44,7 +46,7 @@ func productTermsHash(raw []byte) string {
 }
 func (m ProductTermsMutation) evidenceHash() (string, error) {
 	m.EvidenceSHA256 = ""
-	raw, err := json.Marshal(m)
+	raw, err := jsoncodec.Marshal(m)
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +88,7 @@ func (m ProductTermsMutation) Validate() error {
 		ExpectedRevision int    `json:"expectedRevision"`
 	}
 	var compact bytes.Buffer
-	if json.Compact(&compact, m.CommandJSON) != nil || json.Unmarshal(compact.Bytes(), &command) != nil || command.ProductID != m.ProductID.String() || command.ExpectedRevision != r.Contract.Revision-1 || productTermsHash(compact.Bytes()) != m.PayloadSHA256 || r.Replayed {
+	if json.Compact(&compact, m.CommandJSON) != nil || jsoncodec.Unmarshal(compact.Bytes(), &command) != nil || command.ProductID != m.ProductID.String() || command.ExpectedRevision != r.Contract.Revision-1 || productTermsHash(compact.Bytes()) != m.PayloadSHA256 || r.Replayed {
 		return &Error{Code: ErrValidation, Message: "product terms command evidence is inconsistent"}
 	}
 	bound, err := m.evidenceHash()
@@ -167,7 +169,7 @@ func (p productTermsPolicyJSON) policy() (LiquidityPolicy, error) {
 }
 func (r ProductTermsReceipt) MarshalJSON() ([]byte, error) {
 	type alias ProductTermsReceipt
-	return json.Marshal(struct {
+	return jsoncodec.Marshal(struct {
 		alias
 		CurrentValue *productReceiptMoney   `json:"currentValue"`
 		Policy       productTermsPolicyJSON `json:"policy"`
@@ -180,7 +182,7 @@ func (r *ProductTermsReceipt) UnmarshalJSON(raw []byte) error {
 		CurrentValue *productReceiptMoney   `json:"currentValue"`
 		Policy       productTermsPolicyJSON `json:"policy"`
 	}
-	if err := json.Unmarshal(raw, &p); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &p); err != nil {
 		return err
 	}
 	*r = ProductTermsReceipt(p.alias)
@@ -212,7 +214,7 @@ type ProductValuationReceipt struct {
 
 func (r ProductValuationReceipt) MarshalJSON() ([]byte, error) {
 	type alias ProductValuationReceipt
-	return json.Marshal(struct {
+	return jsoncodec.Marshal(struct {
 		alias
 		Amount productReceiptMoney `json:"amount"`
 	}{alias(r), receiptMoney(r.Amount)})
@@ -223,7 +225,7 @@ func (r *ProductValuationReceipt) UnmarshalJSON(raw []byte) error {
 		alias
 		Amount productReceiptMoney `json:"amount"`
 	}
-	if err := json.Unmarshal(raw, &p); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &p); err != nil {
 		return err
 	}
 	m, err := p.Amount.money()

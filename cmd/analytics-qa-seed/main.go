@@ -22,7 +22,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,6 +32,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type Result struct {
@@ -236,7 +236,7 @@ func finishSeed(report *Report) {
 	outDir := filepath.Join(report.OutputDir, "seed")
 	_ = os.MkdirAll(outDir, 0o755)
 	out := filepath.Join(outDir, "seed-results.json")
-	b, _ := json.MarshalIndent(report, "", "  ")
+	b, _ := jsoncodec.MarshalIndent(report, "", "  ")
 	if err := os.WriteFile(out, b, 0o644); err != nil {
 		panic(err)
 	}
@@ -916,7 +916,7 @@ func main() {
 		"fx_provider":        "frankfurter",
 		"quote_cache_ttl":    "12h",
 	}
-	sb, _ := json.MarshalIndent(settings, "", "  ")
+	sb, _ := jsoncodec.MarshalIndent(settings, "", "  ")
 	must0(os.WriteFile(settingsPath, append(sb, '\n'), 0o644))
 	settingsName := "settings_aud"
 	if householdBase != "AUD" {

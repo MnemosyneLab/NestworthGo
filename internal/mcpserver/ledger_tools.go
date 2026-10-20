@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -80,12 +81,12 @@ func validateChangeRequest(in history.ChangeCommandRequest) error {
 	for _, field := range strings.Fields("kind effectiveAt effectiveLocalDate effectiveLocalTime note reconciliationLink " + allowed) {
 		set[field] = true
 	}
-	raw, err := json.Marshal(in)
+	raw, err := jsoncodec.Marshal(in)
 	if err != nil {
 		return err
 	}
 	var values map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &values); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &values); err != nil {
 		return err
 	}
 	for key := range values {
@@ -139,7 +140,7 @@ func (s *Service) commitChange(ctx context.Context, in CommitChangeInput) (any, 
 		return nil, err
 	}
 	var plan changePlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
 	}
 	var result any
@@ -263,7 +264,7 @@ func (s *Service) loadPreviewPlan(planID, expectedType string) ([]byte, error) {
 		ID   string `json:"id"`
 		Type string `json:"type"`
 	}
-	if err := json.Unmarshal(raw, &header); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &header); err != nil {
 		return nil, err
 	}
 	if header.Type == "" {

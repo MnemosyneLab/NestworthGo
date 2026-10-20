@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/hmac"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // WithReviewDependencySuffix enables D1/D2 and C3 confirmation. It never grants
@@ -309,7 +309,7 @@ func readReviewSuffixChanges(ctx context.Context, tx *sql.Tx, id domain.Househol
 			}{{old, &c.Old}, {new, &c.New}} {
 				if v.raw.Valid {
 					var scope domain.ReviewQuoteDependency
-					if json.Unmarshal([]byte(v.raw.String), &scope) != nil {
+					if jsoncodec.Unmarshal([]byte(v.raw.String), &scope) != nil {
 						return nil, nil
 					}
 					*v.target = &scope
@@ -379,7 +379,7 @@ func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCaptu
 		if err = decodeReviewInput([]byte(text(10)), &item.Input); err != nil {
 			return err
 		}
-		if err = json.Unmarshal([]byte(text(11)), &item.CoverageMissing); err != nil {
+		if err = jsoncodec.Unmarshal([]byte(text(11)), &item.CoverageMissing); err != nil {
 			return err
 		}
 		if item.Input.On != on || item.Input.InstrumentID != id {
@@ -390,7 +390,7 @@ func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCaptu
 		}
 		item.InputFingerprint = text(12)
 		if text(21) == item.InputFingerprint && values[13] != nil {
-			if err = json.Unmarshal([]byte(text(20)), &item.Result); err != nil {
+			if err = jsoncodec.Unmarshal([]byte(text(20)), &item.Result); err != nil {
 				return err
 			}
 			item.HasResult = item.Result.On == on

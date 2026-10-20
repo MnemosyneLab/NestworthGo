@@ -2,10 +2,10 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -161,7 +161,7 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 		t.Fatal(err)
 	}
 	var mutation domain.ProductTermsMutation
-	if err := json.Unmarshal(rawMutation, &mutation); err != nil {
+	if err := jsoncodec.Unmarshal(rawMutation, &mutation); err != nil {
 		t.Fatal(err)
 	}
 	if mutation.Receipt.Contract.StartOn != "2026-09-20" {
@@ -201,11 +201,11 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 	// the valid padded spelling; verification must accept it without rewriting
 	// the original record or its digest.
 	var legacyCommand UpdateProductTermsInput
-	if err := json.Unmarshal(mutation.CommandJSON, &legacyCommand); err != nil {
+	if err := jsoncodec.Unmarshal(mutation.CommandJSON, &legacyCommand); err != nil {
 		t.Fatal(err)
 	}
 	legacyCommand.Terms.StartOn = " 2026-09-20 "
-	legacyCommandJSON, err := json.Marshal(legacyCommand)
+	legacyCommandJSON, err := jsoncodec.Marshal(legacyCommand)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +215,7 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyRaw, err := json.Marshal(legacyMutation)
+	legacyRaw, err := jsoncodec.Marshal(legacyMutation)
 	if err != nil {
 		t.Fatal(err)
 	}

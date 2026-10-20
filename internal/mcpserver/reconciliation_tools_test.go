@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func reconciliationPreview(t *testing.T, c *mcp.ClientSession, targets ...map[string]any) map[string]any {
@@ -301,7 +301,7 @@ func TestReconciliationRejectsStaleExpiredAndWrongPlanType(t *testing.T) {
 		t.Fatal(err)
 	}
 	var saved map[string]any
-	if err := json.Unmarshal(raw, &saved); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &saved); err != nil {
 		t.Fatal(err)
 	}
 	saved["expiresAt"] = time.Now().Add(-time.Second).UTC().Format(time.RFC3339Nano)
@@ -329,7 +329,7 @@ func TestReconciliationUnlinkedPlansKeepLegacyDurableReceiptHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	var plan reconciliationPlan
-	if err = json.Unmarshal(raw, &plan); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &plan); err != nil {
 		t.Fatal(err)
 	}
 	origin, err := fx.app.HistoryOrigin(ctx)
@@ -343,7 +343,7 @@ func TestReconciliationUnlinkedPlansKeepLegacyDurableReceiptHash(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	payload, _ := json.Marshal(plan.Commands)
+	payload, _ := jsoncodec.Marshal(plan.Commands)
 	sum := sha256.Sum256(append([]byte("ledger_reconciliation\n"), payload...))
 	if _, err = fx.app.RecordChangesGuarded(ctx, commands, id, hex.EncodeToString(sum[:]), plan.Version); err != nil {
 		t.Fatal(err)
@@ -384,7 +384,7 @@ func TestReconciliationOldUnknownCommitAfterNewPlanRevision(t *testing.T) {
 		t.Fatal(code)
 	}
 	var body any
-	if err = json.Unmarshal(raw, &body); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &body); err != nil {
 		t.Fatal(err)
 	}
 	if err = fx.service.writePrivate(filepath.Join(fx.service.dir, "plans", id+".json"), body); err != nil {

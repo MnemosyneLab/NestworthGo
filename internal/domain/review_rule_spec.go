@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/shopspring/decimal"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const (
@@ -85,7 +85,7 @@ func DecodeReviewRuleSpec(raw []byte) (ReviewRuleSpec, error) {
 	if len(raw) == 0 || len(raw) > 64*1024 {
 		return ReviewRuleSpec{}, validation("spec", "rule JSON must be 1–65536 bytes")
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var spec ReviewRuleSpec
 	if err := decoder.Decode(&spec); err != nil {
@@ -234,8 +234,8 @@ func normalizeReviewPredicate(node ReviewPredicateNode, depth int, leaves *int) 
 	// AND and OR are commutative. Keep a single copy of each identical leaf or
 	// subgroup and sort them for a stable semantic hash.
 	sort.Slice(normalized, func(i, j int) bool {
-		a, _ := json.Marshal(normalized[i])
-		b, _ := json.Marshal(normalized[j])
+		a, _ := jsoncodec.Marshal(normalized[i])
+		b, _ := jsoncodec.Marshal(normalized[j])
 		return bytes.Compare(a, b) < 0
 	})
 	unique := normalized[:0]
@@ -256,8 +256,8 @@ func normalizeReviewPredicate(node ReviewPredicateNode, depth int, leaves *int) 
 }
 
 func reflectReviewNodesEqual(a, b ReviewPredicateNode) bool {
-	left, _ := json.Marshal(a)
-	right, _ := json.Marshal(b)
+	left, _ := jsoncodec.Marshal(a)
+	right, _ := jsoncodec.Marshal(b)
 	return bytes.Equal(left, right)
 }
 
@@ -374,7 +374,7 @@ func (s ReviewRuleSpec) SemanticHash() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	data, err := json.Marshal(normalized)
+	data, err := jsoncodec.Marshal(normalized)
 	if err != nil {
 		return "", err
 	}

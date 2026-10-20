@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
@@ -136,16 +136,16 @@ func ledgerErrorCode(t *testing.T, c *mcp.ClientSession, name string, arguments 
 	if !result.IsError || len(result.Content) == 0 {
 		t.Fatalf("%s accepted invalid input: %+v", name, result)
 	}
-	encoded, err := json.Marshal(result.Content)
+	encoded, err := jsoncodec.Marshal(result.Content)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var blocks []map[string]any
-	if err = json.Unmarshal(encoded, &blocks); err != nil {
+	if err = jsoncodec.Unmarshal(encoded, &blocks); err != nil {
 		t.Fatal(err)
 	}
 	var failure map[string]any
-	if err = json.Unmarshal([]byte(blocks[0]["text"].(string)), &failure); err != nil {
+	if err = jsoncodec.Unmarshal([]byte(blocks[0]["text"].(string)), &failure); err != nil {
 		t.Fatalf("%s non-JSON tool failure: %s", name, encoded)
 	}
 	return failure["code"].(string)
@@ -347,7 +347,7 @@ func TestLedgerPlanRejectsStaleAndExpiredCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	var plan changePlan
-	if err = json.Unmarshal(raw, &plan); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &plan); err != nil {
 		t.Fatal(err)
 	}
 	plan.ExpiresAt = time.Now().Add(-time.Second)
@@ -388,7 +388,7 @@ func TestLedgerUnknownReceiptRecoversAfterExpiryAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	var saved changePlan
-	if err = json.Unmarshal(raw, &saved); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &saved); err != nil {
 		t.Fatal(err)
 	}
 	saved.ExpiresAt = time.Now().Add(-time.Second)

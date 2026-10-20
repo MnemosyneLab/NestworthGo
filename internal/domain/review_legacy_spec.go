@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ReviewLegacyEvaluator identifies migration-only compatibility rules. V2
@@ -60,7 +61,7 @@ func DecodeReviewLegacyConfiguration(raw []byte) (ReviewLegacyConfiguration, err
 		return empty, validation("legacyReview", "legacy configuration size is invalid")
 	}
 	var required map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &required); err != nil || required == nil {
+	if err := jsoncodec.Unmarshal(raw, &required); err != nil || required == nil {
 		return empty, validation("legacyReview", "legacy configuration must be an object")
 	}
 	for _, key := range []string{"revision", "policy", "enrolled", "acknowledged"} {
@@ -68,7 +69,7 @@ func DecodeReviewLegacyConfiguration(raw []byte) (ReviewLegacyConfiguration, err
 			return empty, validation("legacyReview", fmt.Sprintf("missing %s", key))
 		}
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var value ReviewLegacyConfiguration
 	if err := decoder.Decode(&value); err != nil {
@@ -109,7 +110,7 @@ func DecodeReviewLegacyConfiguration(raw []byte) (ReviewLegacyConfiguration, err
 // path for rules imported by the schema-v19 migration.
 func DecodeReviewLegacySpec(raw []byte) (ReviewLegacySpec, error) {
 	var value ReviewLegacySpec
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&value); err != nil || value.SpecVersion != 1 || value.Evaluator != ReviewLegacyEvaluator {
 		return ReviewLegacySpec{}, validation("legacyReview", "unsupported legacy review specification")
@@ -118,7 +119,7 @@ func DecodeReviewLegacySpec(raw []byte) (ReviewLegacySpec, error) {
 	if err := decoder.Decode(&extra); err != io.EOF {
 		return ReviewLegacySpec{}, validation("legacyReview", "legacy specification has trailing data")
 	}
-	configuration, err := json.Marshal(value.Configuration)
+	configuration, err := jsoncodec.Marshal(value.Configuration)
 	if err != nil {
 		return ReviewLegacySpec{}, err
 	}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"sort"
 	"time"
 )
@@ -49,7 +50,7 @@ func (r *Repository) ReconciliationSession(ctx context.Context, household, id st
 		var raw string
 		var a domain.ReconciliationAccount
 		if err = rows.Scan(&raw); err == nil {
-			err = json.Unmarshal([]byte(raw), &a)
+			err = jsoncodec.Unmarshal([]byte(raw), &a)
 		}
 		if err != nil {
 			rows.Close()
@@ -80,7 +81,7 @@ func (r *Repository) ReconciliationSession(ctx context.Context, household, id st
 		var aid, raw string
 		var item domain.ReconciliationItem
 		if err = rows.Scan(&aid, &raw); err == nil {
-			err = json.Unmarshal([]byte(raw), &item)
+			err = jsoncodec.Unmarshal([]byte(raw), &item)
 		}
 		if err != nil {
 			return s, err
@@ -103,10 +104,10 @@ func (r *Repository) ReconciliationSessions(ctx context.Context, household strin
 		if err := rows.Scan(&s.ID, &s.HouseholdID, &s.Status, &s.Revision, &s.StartedAt, &s.CompletedAt, &s.Note, &s.Partial, &s.ClosingNote, &s.Counts.Pending, &s.Counts.Confirmed, &s.Counts.Skipped, &s.Counts.Unresolved, &ids, &names); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(ids), &s.AccountIDs); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(ids), &s.AccountIDs); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(names), &s.AccountNames); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(names), &s.AccountNames); err != nil {
 			return nil, err
 		}
 		result = append(result, s)
@@ -148,7 +149,7 @@ func (r *Repository) ReconciliationReceipt(ctx context.Context, household, opera
 		return nil, reconciliationConflict("operationId")
 	}
 	var result domain.ReconciliationSession
-	err = json.Unmarshal([]byte(raw), &result)
+	err = jsoncodec.Unmarshal([]byte(raw), &result)
 	return &result, err
 }
 func (r *Repository) SaveReconciliation(ctx context.Context, s domain.ReconciliationSession, expected int64, revisions map[string]int64, operation, hash string) error {
@@ -184,7 +185,7 @@ func (r *Repository) SaveReconciliation(ctx context.Context, s domain.Reconcilia
 		for _, a := range s.Accounts {
 			items := a.Items
 			a.Items = nil
-			raw, err := json.Marshal(a)
+			raw, err := jsoncodec.Marshal(a)
 			if err != nil {
 				return err
 			}
@@ -193,7 +194,7 @@ func (r *Repository) SaveReconciliation(ctx context.Context, s domain.Reconcilia
 				return err
 			}
 			for _, item := range items {
-				raw, err = json.Marshal(item)
+				raw, err = jsoncodec.Marshal(item)
 				if err != nil {
 					return err
 				}
@@ -203,7 +204,7 @@ func (r *Repository) SaveReconciliation(ctx context.Context, s domain.Reconcilia
 				}
 			}
 		}
-		raw, err := json.Marshal(s)
+		raw, err := jsoncodec.Marshal(s)
 		if err != nil {
 			return err
 		}

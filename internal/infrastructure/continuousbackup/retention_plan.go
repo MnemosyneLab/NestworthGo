@@ -3,7 +3,6 @@ package continuousbackup
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const cleanupTimeout = 5 * time.Minute
@@ -150,7 +150,7 @@ func inventoryFingerprint(current string, objects map[string][]storedObject, rec
 			stable[stream] = items
 		}
 	}
-	data, _ := json.Marshal(struct {
+	data, _ := jsoncodec.Marshal(struct {
 		Objects map[string][]storedObject
 		Records map[string]streamRecord
 	}{stable, records})

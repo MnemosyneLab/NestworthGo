@@ -5,13 +5,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/preview"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -51,7 +51,7 @@ func (s *Service) Preview(ctx context.Context, in application.ReconciliationActi
 	if e != nil {
 		return SessionPreview{}, apierror.Wrap(e)
 	}
-	raw, e := json.Marshal(v)
+	raw, e := jsoncodec.Marshal(v)
 	if e == nil {
 		e = s.app.SaveReconciliationPlan(ctx, "session", v.ID, raw)
 	}
@@ -73,7 +73,7 @@ func (s *Service) Commit(ctx context.Context, id string) (domain.ReconciliationS
 		}
 		return domain.ReconciliationSession{}, apierror.Wrap(e)
 	}
-	if e = json.Unmarshal(raw, &plan); e != nil {
+	if e = jsoncodec.Unmarshal(raw, &plan); e != nil {
 		return domain.ReconciliationSession{}, apierror.Wrap(e)
 	}
 	if plan.ID != id {
@@ -166,11 +166,11 @@ func (s *Service) PreviewAdjustment(ctx context.Context, in AdjustmentRequest) (
 	if err = s.app.ValidateReconciliationLink(ctx, &in.Link, values); err != nil {
 		return AdjustmentPreview{}, apierror.Wrap(err)
 	}
-	raw, _ := json.Marshal(in)
+	raw, _ := jsoncodec.Marshal(in)
 	sum := sha256.Sum256(raw)
 	plan.hash = hex.EncodeToString(sum[:])
 	plan.token = token
-	raw, e := json.Marshal(plan)
+	raw, e := jsoncodec.Marshal(plan)
 	if e == nil {
 		e = s.app.SaveReconciliationPlan(ctx, "adjustment", plan.id, raw)
 	}
@@ -201,7 +201,7 @@ func (s *Service) CommitAdjustment(ctx context.Context, id string) ([]wire.Chang
 			}
 			return nil, apierror.Wrap(err)
 		}
-		if e = json.Unmarshal(raw, &p); e != nil {
+		if e = jsoncodec.Unmarshal(raw, &p); e != nil {
 			return nil, apierror.Wrap(e)
 		}
 	}

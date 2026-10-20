@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func main() {
@@ -90,7 +90,7 @@ func seed(dir, date string) error {
 			return err
 		}
 	}
-	return json.NewEncoder(os.Stdout).Encode(struct {
+	return jsoncodec.NewEncoder(os.Stdout).Encode(struct {
 		Database    string            `json:"database"`
 		Date        string            `json:"evaluationDate"`
 		Instruments map[string]string `json:"instruments"`

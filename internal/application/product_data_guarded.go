@@ -2,11 +2,11 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type ProductTermsPreview struct {
@@ -33,7 +33,7 @@ type ProductValuationPreview struct {
 type ProductValuationReceipt = domain.ProductValuationReceipt
 
 func productDataDigest(input any) (string, error) {
-	raw, err := json.Marshal(input)
+	raw, err := jsoncodec.Marshal(input)
 	if err != nil {
 		return "", err
 	}
@@ -161,7 +161,7 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 		return domain.ProductTermsReceipt{}, err
 	}
 	receipt := domain.ProductTermsReceipt{MutationID: id, Contract: prepared.contract, Policy: prepared.policy, CurrentValue: after.CurrentValue, DisplayState: after.DisplayState, RecordedAt: now, PermittedActions: after.PermittedActions, SuccessorID: after.SuccessorID}
-	commandJSON, err := json.Marshal(input)
+	commandJSON, err := jsoncodec.Marshal(input)
 	if err != nil {
 		return domain.ProductTermsReceipt{}, err
 	}
@@ -248,7 +248,7 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 		var evidence struct {
 			Receipt ProductValuationReceipt `json:"receipt"`
 		}
-		if err := json.Unmarshal([]byte(stored.ResultJSON), &evidence); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(stored.ResultJSON), &evidence); err != nil {
 			return ProductValuationReceipt{}, err
 		}
 		r := evidence.Receipt
@@ -278,14 +278,14 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 	}
 	now = normalizeNow(now)
 	receipt := ProductValuationReceipt{OperationID: id, ProductID: command.ProductID, QuoteID: prepared.quote.ID, Amount: prepared.amount, ObservedAt: prepared.observedAt, RecordedAt: now}
-	resultJSON, err := json.Marshal(struct {
+	resultJSON, err := jsoncodec.Marshal(struct {
 		QuoteID string                  `json:"quoteId"`
 		Receipt ProductValuationReceipt `json:"receipt"`
 	}{prepared.quote.ID.String(), receipt})
 	if err != nil {
 		return ProductValuationReceipt{}, err
 	}
-	requestJSON, err := json.Marshal(struct {
+	requestJSON, err := jsoncodec.Marshal(struct {
 		Kind    string                  `json:"kind"`
 		Command ProductValuationCommand `json:"command"`
 	}{"value_observation", command})

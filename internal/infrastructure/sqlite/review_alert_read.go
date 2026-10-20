@@ -6,12 +6,12 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type reviewAlertCursor struct {
@@ -102,7 +102,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 	if len([]rune(filter.Query)) > 120 {
 		return empty, &domain.Error{Code: domain.ErrValidation, Field: "query", Message: "search must have at most 120 characters"}
 	}
-	filterBytes, err := json.Marshal(filter)
+	filterBytes, err := jsoncodec.Marshal(filter)
 	if err != nil {
 		return empty, err
 	}
@@ -140,7 +140,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 		}
 		days = append(days, suppressionDay{ID: item.ID, Today: now.In(location).Format(time.DateOnly)})
 	}
-	stateBytes, _ := json.Marshal(struct {
+	stateBytes, _ := jsoncodec.Marshal(struct {
 		Control domain.ReviewProjectionControl
 		Days    []suppressionDay
 	}{control, days})
@@ -154,7 +154,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "cursor", Message: "invalid review cursor"}
 		}
 		var previous reviewAlertCursor
-		if json.Unmarshal(decoded, &previous) != nil {
+		if jsoncodec.Unmarshal(decoded, &previous) != nil {
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "cursor", Message: "invalid review cursor"}
 		}
 		if previous.Revision != revision || previous.FilterHash != filterHash {
@@ -230,7 +230,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 		}
 	}
 	if hasMore {
-		encoded, _ := json.Marshal(reviewAlertCursor{Revision: revision, FilterHash: filterHash, AfterID: lastPageID})
+		encoded, _ := jsoncodec.Marshal(reviewAlertCursor{Revision: revision, FilterHash: filterHash, AfterID: lastPageID})
 		result.NextCursor = base64.RawURLEncoding.EncodeToString(encoded)
 	}
 	if err := tx.Commit(); err != nil {
@@ -351,7 +351,7 @@ func reviewAlertGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID domain
 			LatestResult *domain.ReviewDailyResult
 			Coverage     []string
 		}
-		if err := json.Unmarshal([]byte(evidenceJSON), &evidence); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &evidence); err != nil {
 			return nil, err
 		}
 		entry.LatestResult = evidence.LatestResult

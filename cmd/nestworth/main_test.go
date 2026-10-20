@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -102,7 +102,7 @@ func TestPersistWindowSizeValuePreservesUnsupportedSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	value := settings.Default()
 	value.SchemaVersion++
-	before, err := json.Marshal(value)
+	before, err := jsoncodec.Marshal(value)
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}

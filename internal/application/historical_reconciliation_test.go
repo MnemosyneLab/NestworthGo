@@ -3,7 +3,6 @@ package application
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"slices"
 	"testing"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func assertReconciliation(t *testing.T, result HistoricalOverviewResult, supported, residual string) *HistoricalReconciliation {
@@ -134,7 +134,7 @@ func bridgeOverview(rows []HistoricalOverviewRow, total string) HistoricalOvervi
 }
 func runBridge(t *testing.T, b domain.HistoricalSnapshotBatch, o HistoricalOverviewResult, supported, residual string) *HistoricalReconciliation {
 	t.Helper()
-	before, err := json.Marshal(b)
+	before, err := jsoncodec.Marshal(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func runBridge(t *testing.T, b domain.HistoricalSnapshotBatch, o HistoricalOverv
 	if err != nil {
 		t.Fatal(err)
 	}
-	after, err := json.Marshal(b)
+	after, err := jsoncodec.Marshal(b)
 	if err != nil {
 		t.Fatal(err)
 	}

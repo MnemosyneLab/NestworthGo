@@ -8,13 +8,13 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // This is a separate, default-off C3 candidate. Legacy counting-only
@@ -50,7 +50,7 @@ func (r *Repository) reviewMAC(value any) (string, error) {
 	if k.err != nil {
 		return "", k.err
 	}
-	raw, err := json.Marshal(value)
+	raw, err := jsoncodec.Marshal(value)
 	if err != nil {
 		return "", err
 	}
@@ -403,7 +403,7 @@ func (r *Repository) afterCertifiedHandling(ctx context.Context, tx *sql.Tx, id 
 	if err != nil || !trusted {
 		return err
 	}
-	old, err := json.Marshal(c)
+	old, err := jsoncodec.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -420,7 +420,7 @@ func (r *Repository) afterCertifiedHandling(ctx context.Context, tx *sql.Tx, id 
 	if err != nil {
 		return err
 	}
-	raw, err := json.Marshal(c)
+	raw, err := jsoncodec.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -448,7 +448,7 @@ func (r *Repository) persistCertifiedTemporal(ctx context.Context, tx *sql.Tx, c
 			return err
 		}
 	}
-	raw, err := json.Marshal(out)
+	raw, err := jsoncodec.Marshal(out)
 	if err != nil {
 		return err
 	}

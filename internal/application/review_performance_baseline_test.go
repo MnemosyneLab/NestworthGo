@@ -2,7 +2,6 @@ package application
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestReviewPerfConfiguration(t *testing.T) {
@@ -122,7 +122,7 @@ func logReviewPerfManifest(t *testing.T, f reviewFullPipelineFixture, c reviewPe
 	if err := f.db.SQL.QueryRow(`SELECT sqlite_version()`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := json.Marshal(c)
+	manifest, err := jsoncodec.Marshal(c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,11 +517,11 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 			for i, value := range values {
 				if table == "review_temporal_checkpoints" && columns[i] == "certificate_json" {
 					var certificate domain.ReviewTemporalCertificate
-					if err := json.Unmarshal([]byte(value.(string)), &certificate); err != nil {
+					if err := jsoncodec.Unmarshal([]byte(value.(string)), &certificate); err != nil {
 						t.Fatal(err)
 					}
 					certificate.ClockEpoch = "independent-synthetic-session"
-					raw, err := json.Marshal(certificate)
+					raw, err := jsoncodec.Marshal(certificate)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -544,7 +544,7 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 					}
 				}
 			}
-			encoded, err := json.Marshal(values)
+			encoded, err := jsoncodec.Marshal(values)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -556,7 +556,7 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 		rows.Close()
 		slices.Sort(tables[table])
 	}
-	encoded, err := json.Marshal(tables)
+	encoded, err := jsoncodec.Marshal(tables)
 	if err != nil {
 		t.Fatal(err)
 	}

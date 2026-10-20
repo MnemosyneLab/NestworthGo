@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type loanProbeCase struct {
@@ -151,7 +151,7 @@ func loadLoanSeedIDs(dbPath string) *loanSeedIDs {
 		var parsed struct {
 			IDs loanSeedIDs `json:"ids"`
 		}
-		if err := json.Unmarshal(raw, &parsed); err != nil {
+		if err := jsoncodec.Unmarshal(raw, &parsed); err != nil {
 			continue
 		}
 		if parsed.IDs.DrawLocalDate != "" {
@@ -308,7 +308,7 @@ func probeLoanSettings(dbPath string, ids *loanSeedIDs) loanProbeCase {
 		WindowW   int    `json:"window_width"`
 		Language  string `json:"language"`
 	}
-	if err := json.Unmarshal(raw, &parsed); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &parsed); err != nil {
 		return loanProbeCase{ID: id, Name: "settings.json week_start and currency", Status: "FAIL", Detail: err.Error()}
 	}
 	wantWeek := "monday"
@@ -416,7 +416,7 @@ func writeLoanProbe(outPath string, out loanProbeOut, cases []loanProbeCase) err
 	}
 	out.AllPass = all
 	out.Summary = fmt.Sprintf("%d PASS / %d FAIL / %d SKIP", pass, fail, skip)
-	raw, err := json.MarshalIndent(out, "", "  ")
+	raw, err := jsoncodec.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err
 	}

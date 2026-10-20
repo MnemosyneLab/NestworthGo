@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"path/filepath"
 	"reflect"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func reconciliationFixture(t *testing.T) (*Service, *sqlite.DB, string) {
@@ -347,7 +347,7 @@ func TestReconciliationMissingPositionsAndManagedProductUseExistingAtomicOperati
 		t.Fatal(err)
 	}
 	var frozen ProductCommand
-	if err = json.Unmarshal([]byte(p.NormalizedJSON), &frozen); err != nil {
+	if err = jsoncodec.Unmarshal([]byte(p.NormalizedJSON), &frozen); err != nil {
 		t.Fatal(err)
 	}
 	r, err := s.RecordProductOperationGuarded(ctx, frozen, domain.NewProductOperationID().String(), p.ReviewedStateHash, token)
@@ -371,7 +371,7 @@ func TestReconciliationMissingPositionsAndManagedProductUseExistingAtomicOperati
 		t.Fatal(err)
 	}
 	frozen = ProductCommand{}
-	if err = json.Unmarshal([]byte(p.NormalizedJSON), &frozen); err != nil {
+	if err = jsoncodec.Unmarshal([]byte(p.NormalizedJSON), &frozen); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.RecordProductOperationGuarded(ctx, frozen, domain.NewProductOperationID().String(), p.ReviewedStateHash, token); err != nil {
@@ -531,7 +531,7 @@ func TestReconciliationExpiredPreviewRefusalAndReceiptFirstRecovery(t *testing.T
 	}
 	// Model a durable commit made before this saved plan expired, without a
 	// wall-clock sleep: the original hash and outcome are already persisted.
-	raw, err := json.Marshal(plan)
+	raw, err := jsoncodec.Marshal(plan)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -811,7 +811,7 @@ func TestReconciliationArchiveGuardAndLegacyVisibility(t *testing.T) {
 		item.ArchivedNonzero = false
 		item.Outcome = "confirmed"
 		item.Attempts = []domain.ReconciliationAttempt{{Kind: "removed", Outcome: "confirmed", Note: "Retain old disposition", FinancialRevision: item.FinancialRevision}}
-		raw, err := json.Marshal(item)
+		raw, err := jsoncodec.Marshal(item)
 		if err != nil {
 			t.Fatal(err)
 		}
