@@ -1,0 +1,203 @@
+{
+  "generatedAtUTC": "2026-10-20T01:17:13.751521+00:00",
+  "baseMain": "784eacc8396885b95ae9b02bb4b8e4572d342208",
+  "mergedPR129Head": "641fa4a8b10cb416f0f4563ab89a3ea94d127177",
+  "mainAndPR129HeadTreeIdentical": true,
+  "branch": "perf/c3-clock-profile-followup",
+  "profilerCommit": "7b269be",
+  "productionCommit": "484efcdaa008f56518df356f70674646d9163ab6",
+  "originalBeforeProfilerCommit": "79f67df",
+  "beforeProfilerTree": "7cabe1d16a0720ce64c0c2ce1606bf92c8d44d5b",
+  "carriedProfilerHasSameTree": true,
+  "afterProfileSource": "7b269be plus candidate.patch; exact final production/test patch",
+  "candidatePatchSHA256": "de788a048a60c92d338c681b6a2c0d3a97800489c469d870e8d10792fe11f2ab",
+  "environment": {
+    "go": "go1.26.1",
+    "sqlite": "3.53.0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOMAXPROCS": 4,
+    "PATHPrefix": "/tmp/go/bin",
+    "GOCACHE": "/tmp/nestworth-c3-cache",
+    "GOMODCACHE": "/tmp/nestworth-c3-mod",
+    "GOPATH": "/tmp/nestworth-c3-path",
+    "TMPDIR": "/tmp/nestworth-c3-scratch"
+  },
+  "profile": {
+    "syntheticOnly": true,
+    "largeFixture": {
+      "accounts": 1,
+      "instruments": 100,
+      "holdings": 100,
+      "rules": 20,
+      "historyDays": 30,
+      "quotes": 100000,
+      "cashActivities": 50000
+    },
+    "command": "NW_C3_PROFILE_DIR=<output-directory> NW_C3_PERF_SIZE=large go test -tags=perf -p 1 ./internal/application -run '^TestReviewClockOnlyCPUAllocationProfile$' -count=1 -timeout=12m -memprofilerate=65536 -v",
+    "cpuScope": "One actual reconcile per arm; setup/bootstrap/oracles excluded; CPU samples include background runtime work",
+    "allocationScope": "alloc_space after minus before; sampling set once; two GC cycles at each boundary; includes small profiler instrumentation allocation",
+    "outsideRepositoryIsNotPurePreparation": true,
+    "sameFactsInsideEachArmPair": true,
+    "independentFullAndDurableOracles": "all pass",
+    "serialNoOtherBuildOrTestDuringMeasurement": true,
+    "smallOnlyInstrumentationSmoke": true,
+    "before": {
+      "packageSeconds": 112.081,
+      "C2Seconds": 5.534831506,
+      "C3Seconds": 7.236587575,
+      "C2AllocatedBytes": 2009120736,
+      "C3AllocatedBytes": 3524081984,
+      "C2PhasesSeconds": {
+        "capture": 2.373252102,
+        "publish": 2.970113987,
+        "outsideRepository": 0.191465417
+      },
+      "C3PhasesSeconds": {
+        "capture": 2.203631884,
+        "publish": 3.24581569,
+        "confirm": 0.003778638,
+        "outsideRepository": 1.783361363
+      },
+      "wholeProcessVmHWM_kB": 1212356
+    },
+    "after": {
+      "packageSeconds": 113.782,
+      "C2Seconds": 5.993396799,
+      "C3Seconds": 7.390707779,
+      "C2AllocatedBytes": 1977709872,
+      "C3AllocatedBytes": 2549901776,
+      "C2PhasesSeconds": {
+        "capture": 2.658956439,
+        "publish": 3.113855762,
+        "outsideRepository": 0.220584598
+      },
+      "C3PhasesSeconds": {
+        "capture": 2.335287828,
+        "publish": 3.401028192,
+        "confirm": 0.005293808,
+        "outsideRepository": 1.649097951
+      },
+      "wholeProcessVmHWM_kB": 1233804
+    },
+    "C3AllocationReductionBytes": 974180208,
+    "C3AllocationReductionPercent": 27.643517160581478,
+    "cpuSampleFindings": {
+      "C3PrepareSecondsBefore": 1.75,
+      "C3PrepareSecondsAfter": 1.66,
+      "baselineMapAssignmentCumulativeSecondsBefore": 0.54,
+      "baselineMapAssignmentCumulativeSecondsAfter": 0.27
+    },
+    "weightedAllocFindings_pprofMB": {
+      "baselineMapAssignmentFlatAfter": 325.15,
+      "prepareCumulativeBefore": 1802.14,
+      "prepareCumulativeAfter": 871.69,
+      "projectionFunctionFlatBefore": 1278.91,
+      "projectionFunctionFlatAfter": 343.81
+    },
+    "notCausalWallAttribution": true,
+    "noAbsoluteLatencyImprovementClaim": true,
+    "TotalAllocIsNotRSS": true,
+    "wholeProcessVmHWMIsNotPerArmRSS": true,
+    "weightedAllocFindingsRoundedLineReport": {
+      "baselineMapAssignmentFlatBefore": {
+        "value": 1.23,
+        "unit": "GB",
+        "precision": "Rounded pprof list line-level output; distinct from whole-function flat allocation"
+      }
+    }
+  },
+  "validation": {
+    "resumedFocused": {
+      "command": "go test -p 1 ./internal/application -run '^(TestReviewHistorical|TestReviewCertified|TestReviewPublicationEquality)' -count=1 -timeout=10m",
+      "exit": 0,
+      "seconds": 19.963
+    },
+    "fullAffectedLayers": {
+      "command": "go test -p 1 ./internal/application ./internal/domain -count=1 -timeout=10m",
+      "exit": 0,
+      "applicationSeconds": 124.762,
+      "domainSeconds": 0.031
+    },
+    "vetInternal": {
+      "command": "go vet -p 1 ./internal/...",
+      "exit": 0
+    },
+    "vetPerf": {
+      "command": "go vet -tags=perf -p 1 ./internal/application",
+      "exit": 0
+    },
+    "buildInternal": {
+      "command": "go build -p 1 ./internal/...",
+      "exit": 0
+    },
+    "gofmt": {
+      "exit": 0,
+      "outputBytes": 0
+    },
+    "interruptedPriorPresenceCommandCountedAsPass": false
+  },
+  "unprofiled": {
+    "small": {
+      "size": "small",
+      "samples": 3,
+      "command": "NW_C3_CERTIFIED_EVIDENCE=1 NW_C3_PERF_SIZE=small NW_REVIEW_PERF_SAMPLES=3 go test -tags=perf -p 1 ./internal/application -run '^TestReviewCertifiedPerformanceEvidence$' -count=1 -timeout=8m -v",
+      "packageSeconds": 5.886,
+      "mediansMilliseconds": {
+        "warm": {
+          "C2": 36.950968,
+          "C3": 4.953526
+        },
+        "clockOnly": {
+          "C2": 33.679267,
+          "C3": 44.653046
+        },
+        "append": {
+          "C2": 61.092367,
+          "C3": 52.523955
+        },
+        "correction": {
+          "C2": 52.567299,
+          "C3": 51.847976
+        }
+      }
+    },
+    "largeClock": {
+      "samples": 1,
+      "command": "NW_C3_CERTIFIED_EVIDENCE=1 NW_C3_PERF_SIZE=large NW_REVIEW_PERF_SAMPLES=1 go test -tags=perf -p 1 ./internal/application -run '^TestReviewCertifiedPerformanceEvidence$/^large$/^clock-only$' -count=1 -timeout=12m -v",
+      "packageSeconds": 101.935,
+      "C2Seconds": 5.730892144,
+      "C3Seconds": 6.97538539,
+      "C3RegressionPercent": 21.715523774128798,
+      "C2AllocatedBytes": 1977640496,
+      "C3AllocatedBytes": 2550354928,
+      "C2PairDays": 2000,
+      "C3PairDays": 62000,
+      "SQLExecutionsBoth": 8242,
+      "affectedRowsBoth": 6242,
+      "wholeProcessVmHWM_kB": 961044
+    },
+    "fullAndDurableOracles": "all pass",
+    "isP95Acceptance": false
+  },
+  "integration": {
+    "onlyProductionFile": "internal/application/review_historical_inputs.go",
+    "productionAndRegressionCommit": "484efcdaa008f56518df356f70674646d9163ab6",
+    "privateSignatureChanged": "reviewCostLot baseline map value only; all callers in same file",
+    "publicAPIsChanged": false,
+    "profilerIsOptional": true,
+    "newCache": false,
+    "computedFinancialResultReuse": false,
+    "fullPreparationReduced": false,
+    "D1D2OrEnablementChanges": false
+  },
+  "boundaries": {
+    "C3ProductionDefaultOff": true,
+    "noIntermediateRace": true,
+    "noCIEditOrDispatch": true,
+    "noMergeOrRelease": true,
+    "noRealLedgerOrProvider": true,
+    "stageTwoAcceptanceComplete": false,
+    "stageThreeOwnedBySeparateTask": true
+  }
+}

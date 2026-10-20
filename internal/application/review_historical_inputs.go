@@ -80,10 +80,14 @@ func projectReviewHistoricalDayFromPortfolioWithQuoteSeries(ctx context.Context,
 	} else {
 		coverage.Missing = append(coverage.Missing, "historical_instrument_metadata")
 	}
-	baselines := make(map[domain.HoldingID]domain.HistoryOriginComponent)
+	// Cost replay and quantity coverage only read these two origin fields.
+	// Keep membership even for a nil quantity, and preserve last-entry wins.
+	// Copying the full (metadata-heavy) component into every daily map creates
+	// substantial allocation during full preparation without adding evidence.
+	baselines := make(map[domain.HoldingID]reviewOriginCostBaseline)
 	for _, component := range batch.OriginData.Components {
 		if component.Kind == domain.HistoryOriginHoldingQuantity && component.HoldingID != nil {
-			baselines[*component.HoldingID] = component
+			baselines[*component.HoldingID] = reviewOriginCostBaseline{Quantity: component.Quantity, UnitCost: component.UnitCost}
 		}
 	}
 	holdings := make([]domain.Holding, 0)
@@ -219,7 +223,12 @@ func reviewRequiredInputs(node domain.ReviewPredicateNode) (bool, []int, []domai
 // reviewCostLot never derives a starting quantity from today's holding. It
 // recursively resolves transfer-source cost just before the atomic transfer.
 // An unproven baseline or missing event batch yields unknown cost.
-func reviewCostLot(id domain.HoldingID, holdings []domain.Holding, baselines map[domain.HoldingID]domain.HistoryOriginComponent, eventsByHolding map[domain.HoldingID][]domain.CostBasisEvent, originAt, cutoff time.Time, boundary *domain.CostBasisBoundary, active map[domain.HoldingID]bool) (domain.CostBasisResult, bool) {
+type reviewOriginCostBaseline struct {
+	Quantity *domain.Quantity
+	UnitCost *domain.UnitPrice
+}
+
+func reviewCostLot(id domain.HoldingID, holdings []domain.Holding, baselines map[domain.HoldingID]reviewOriginCostBaseline, eventsByHolding map[domain.HoldingID][]domain.CostBasisEvent, originAt, cutoff time.Time, boundary *domain.CostBasisBoundary, active map[domain.HoldingID]bool) (domain.CostBasisResult, bool) {
 	if active[id] {
 		return domain.CostBasisResult{}, false
 	}

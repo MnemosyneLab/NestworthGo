@@ -1,0 +1,10 @@
+=== RUN   TestReviewClockOnlyCPUAllocationProfile
+=== RUN   TestReviewClockOnlyCPUAllocationProfile/small
+    review_clock_profile_performance_test.go:85: manifest={"Accounts":1,"Instruments":10,"Holdings":10,"Rules":1,"HistoryDays":30,"Quotes":310,"CashActivities":100,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a156cd-ee88-7d5a-8111-58f8ecc72322
+    review_clock_profile_performance_test.go:181: profile arm=C2 elapsed=32.522986ms phases=map[capture:15.381727ms publish:15.907143ms] outsideRepository=1.234116ms allocatedBytes=7311512 allocs=139547 pairDays=10 sql queries=109 returnedRows=2187 Query-to-Rows.Close=23.281605ms execs=43 writeStatements=43 rowsAffected=33 driverExecTime=2.244697ms prepares=2 prepareTime=83.656µs writeTransactions=1 reserved-to-finish=15.870898ms
+    review_clock_profile_performance_test.go:181: profile arm=certified elapsed=49.810201ms phases=map[capture:18.617126ms confirm:2.853054ms publish:19.544042ms] outsideRepository=8.795979ms allocatedBytes=14307792 allocs=186606 pairDays=310 sql queries=149 returnedRows=3836 Query-to-Rows.Close=30.479376ms execs=43 writeStatements=43 rowsAffected=33 driverExecTime=3.040468ms prepares=2 prepareTime=88.153µs writeTransactions=2 reserved-to-finish=22.322723ms
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	   46144 kB
+--- PASS: TestReviewClockOnlyCPUAllocationProfile (0.72s)
+    --- PASS: TestReviewClockOnlyCPUAllocationProfile/small (0.72s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	0.721s
