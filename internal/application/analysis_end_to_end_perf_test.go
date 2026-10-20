@@ -14,9 +14,8 @@ import (
 // kernel and DTO. A fresh analysis memo is used on both clones; the second
 // sample starts with durable closed snapshots but no in-memory memo.
 func TestAnalysisEndToEndPerformanceEvidence(t *testing.T) {
-	c := reviewPerfEnvironmentConfig(t)
+	c := reviewPerfConfig{Accounts: 2, Instruments: 10, Holdings: 10, Rules: 1, HistoryDays: 30, Quotes: 310, CashActivities: 100, MixedActivities: 8}
 	fixture := newReviewPerfFixture(t, c)
-	logReviewPerfManifest(t, fixture, c)
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, Basis: domain.ReturnBasisInvestment, From: domain.LocalDate(fixture.start.Format(time.DateOnly)), To: domain.LocalDate(fixture.now.AddDate(0, 0, -1).Format(time.DateOnly)), Valuation: domain.ValuationBase}
 	var previous ReturnCalendarResult
 	for sample := 0; sample < 2; sample++ {

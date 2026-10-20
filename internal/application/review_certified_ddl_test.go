@@ -93,6 +93,9 @@ func TestReviewCertifiedOwnDDLCommitRejectsNoop(t *testing.T) {
 func TestReviewCertifiedOwnDDLCommitSelectsFullSourceRecheck(t *testing.T) {
 	db, faults := openReviewFaultDatabase(t)
 	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
+	if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
 	p := certifiedStage(t, f, r)
 	certifiedOwnDDL(t, f, false, false)
 	fullReads := 0

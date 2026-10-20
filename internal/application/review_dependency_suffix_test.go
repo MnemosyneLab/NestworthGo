@@ -26,11 +26,21 @@ func suffixQuote(t *testing.T, f seriesZeroFixture, id domain.InstrumentID, on, 
 }
 func suffixFixture(t *testing.T, policy domain.ReviewTriggerPolicy, zones ...string) (seriesZeroFixture, *sqlite.Repository, domain.InstrumentID) {
 	t.Helper()
+	return suffixFixtureWithDB(t, policy, nil, zones...)
+}
+
+func suffixFixtureWithDB(t *testing.T, policy domain.ReviewTriggerPolicy, db *sqlite.DB, zones ...string) (seriesZeroFixture, *sqlite.Repository, domain.InstrumentID) {
+	t.Helper()
 	zone := "UTC"
 	if len(zones) > 0 {
 		zone = zones[0]
 	}
-	f := newSeriesZeroFixture(t, false, zone, "2026-10-01", "1")
+	var f seriesZeroFixture
+	if db == nil {
+		f = newSeriesZeroFixture(t, false, zone, "2026-10-01", "1")
+	} else {
+		f = newSeriesZeroFixture(t, false, zone, "2026-10-01", "1", db)
+	}
 	second, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic independent stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +59,7 @@ func suffixFixture(t *testing.T, policy domain.ReviewTriggerPolicy, zones ...str
 	spec.TriggerPolicy = policy
 	spec.Schedule.Timezone = zone
 	saveSyntheticReviewRule(t, f, "Synthetic dependency suffix", spec)
-	r := sqlite.NewRepository(f.db).WithReviewDependencySuffix()
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
@@ -148,7 +158,7 @@ func testReviewDependencySuffixFullDurableOracle(t *testing.T, extended bool) {
 						t.Fatal(err)
 					}
 					t.Cleanup(func() { db.Close() })
-					r = sqlite.NewRepository(db).WithReviewDependencySuffix()
+					r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 				}
 				stage := assertSuffixOracle(t, f, r, want)
 				if scenario == "restart" || scenario == "missing-row" {
@@ -446,17 +456,8 @@ func TestReviewDependencySuffixExactFXPrefix(t *testing.T) {
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
 	f, r := certifiedPublicationFixture(t, true, spec, "1")
-	r = r.WithReviewDependencySuffix()
+	r = r.WithDefaultReviewOptimizations()
 	f.s.repository = r
-	// A prior C3 certificate cannot invent D2 source descriptions. Establish
-	// them through one full publication on the existing authenticated chain.
-	prime := certifiedStage(t, f, r)
-	if prime.Capture.Suffix != nil {
-		t.Fatal("old C3 certificate acquired D2 reuse")
-	}
-	if err := certifiedPublish(t.Context(), f, r, prime, func() time.Time { return *f.now }); err != nil {
-		t.Fatal(err)
-	}
 	f.day(t, "2026-10-13")
 	p := assertSuffixOracle(t, f, r, true)
 	found := false

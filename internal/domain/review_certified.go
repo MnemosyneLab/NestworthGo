@@ -24,14 +24,9 @@ type ReviewSuffixSourceProof struct {
 	QuoteSeals          []ReviewQuoteDaySeal
 }
 
-type ReviewPrefixMemoObservation struct {
-	ReusedDays, SQLDecodedDays, ArgumentEncodes int
-}
-
 type ReviewCertifiedCapture struct {
-	FXDescription         *ReviewFXDescription         `json:",omitempty"` // Complete coherent-capture description, bound by SourceMAC.
-	SuffixMemoReceipt     uint64                       `json:",omitempty"`
-	SuffixMemoObservation *ReviewPrefixMemoObservation `json:",omitempty"`
+	FXDescription     *ReviewFXDescription `json:",omitempty"` // Complete coherent-capture description, bound by SourceMAC.
+	SuffixMemoReceipt uint64               `json:",omitempty"`
 
 	SuffixSourceProof  *ReviewSuffixSourceProof `json:",omitempty"` // Derived in the coherent capture; authenticated by SourceMAC.
 	SourceMAC          string

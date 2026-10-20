@@ -12,10 +12,8 @@ import (
 )
 
 type Repository struct {
-	database                 *DB
-	reviewCertifiedCandidate bool
-	reviewDependencySuffix   bool
-	reviewPrefixMemoEnabled  bool
+	database        *DB
+	reviewOptimized bool
 }
 
 func NewRepository(database *DB) *Repository {

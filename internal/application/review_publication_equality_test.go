@@ -42,6 +42,9 @@ func TestReviewCertifiedPublicationEqualityFullDurableOracle(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 			*f.now = f.now.Add(time.Hour)
+			if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+				t.Fatal(err)
+			}
 			switch scenario {
 			case "clock":
 				f.day(t, "2026-10-13")
@@ -81,7 +84,13 @@ func TestReviewCertifiedPublicationEqualityFullDurableOracle(t *testing.T) {
 func TestReviewCertifiedPublicationEqualityRechecksActualArguments(t *testing.T) {
 	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 	*f.now = f.now.Add(time.Hour)
+	if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
 	p := certifiedStage(t, f, r)
+	if len(p.Rules[0].Days) == 0 {
+		t.Fatal("provider invalidation did not prepare full daily output")
+	}
 	clock := func() time.Time {
 		p.Rules[0].Days[0].Result.Truth = domain.ReviewFalse
 		return *f.now
@@ -98,7 +107,13 @@ func TestReviewCertifiedPublicationEqualityRechecksActualArguments(t *testing.T)
 func TestReviewCertifiedPublicationEqualityRepeatedKeyRestoresOriginal(t *testing.T) {
 	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 	*f.now = f.now.Add(time.Hour)
+	if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
 	p := certifiedStage(t, f, r)
+	if len(p.Rules[0].Days) == 0 {
+		t.Fatal("provider invalidation did not prepare full daily output")
+	}
 	original := p.Rules[0].Days[0]
 	changed := original
 	changed.Result.Truth = domain.ReviewFalse

@@ -40,11 +40,13 @@ func assertNoCertifiedMAC(t *testing.T, f seriesZeroFixture) {
 }
 
 func TestReviewCertifiedCorruptionCannotBeRecertified(t *testing.T) {
-	for _, scenario := range []string{"old-input-json", "old-input-fingerprint", "unreadable-old-input", "unreadable-old-result", "old-result-json", "frozen-json", "frozen-json-and-fingerprint", "event-json", "evaluation", "control-without-revision", "old-version-json", "missing-day", "same-count-key", "forged-certificate", "malformed-authority"} {
+	for _, scenario := range []string{"old-input-json", "missing-suffix-metadata", "old-input-fingerprint", "unreadable-old-input", "unreadable-old-result", "old-result-json", "frozen-json", "frozen-json-and-fingerprint", "event-json", "evaluation", "control-without-revision", "old-version-json", "missing-day", "same-count-key", "forged-certificate", "malformed-authority"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r := certifiedFixture(t)
 			statement := ""
 			switch scenario {
+			case "missing-suffix-metadata":
+				statement = `UPDATE review_temporal_checkpoints SET certificate_json=json_remove(certificate_json,'$.SuffixNonQuoteFingerprint')`
 			case "old-input-fingerprint":
 				statement = `UPDATE investment_review_daily_inputs SET input_fingerprint='synthetic-forged' WHERE on_date='2026-10-01'`
 			case "unreadable-old-input":
@@ -208,6 +210,9 @@ func TestReviewCertifiedDirectCallerFallback(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			f, r := certifiedFixture(t)
 			f.day(t, "2026-10-13")
+			if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+				t.Fatal(err)
+			}
 			reference := windowOracleReference(t, f)
 			p := certifiedStage(t, f, r)
 			if len(p.Rules[0].Days) != 12 {

@@ -36,7 +36,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	}
 	defer tx.Rollback()
 	var memoGeneration uint64
-	if r.reviewPrefixMemoEnabled {
+	if r.reviewOptimized {
 		memoGeneration = r.reviewMemoGeneration()
 	}
 	var connectionProof domain.ReviewConnectionCheckpoint

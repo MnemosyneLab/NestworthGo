@@ -8,10 +8,13 @@ import (
 
 // Ordinary C3 accelerates confirmation and source CAS. Missing a confirmation
 // does not implicitly opt the call into full + bounded runtime experiments.
-func TestReviewCertifiedFullDispatch(t *testing.T) {
+func TestReviewCertifiedProviderInvalidationFullDispatch(t *testing.T) {
 	db, faults := openReviewFaultDatabase(t)
 	f, r := certifiedPublicationFixture(t, true, syntheticHistoricalReviewSpec(), "1", db)
 	f.day(t, "2026-10-13")
+	if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
 	p := certifiedStage(t, f, r)
 	if !p.Capture.TemporalFullRecompute || len(p.Capture.ReusableDailyEvidence) != 0 {
 		t.Fatal("ordinary C3 selected redundant bounded calculation")

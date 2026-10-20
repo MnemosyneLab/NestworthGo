@@ -17,16 +17,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// Certified review binds complete projection integrity to this DB handle.
-// Missing no-change authority uses full preparation, while the independently
-// authenticated suffix path may retain proven daily output.
-func (r *Repository) WithCertifiedReviewCandidate() *Repository {
-	copy := *r
-	copy.reviewCertifiedCandidate = true
-	return &copy
-}
 func (r *Repository) CertifiedReviewEnabled() bool {
-	return r.reviewCertifiedCandidate
+	return r.reviewOptimized
 }
 
 // The private key never leaves this DB handle or enters backup/export. A
@@ -239,7 +231,7 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 	if c.PublishedTemporal != nil {
 		proof.PreviousProvider = c.PublishedTemporal.CertifiedProvider
 	}
-	if r.reviewDependencySuffix && proof.MayCertify {
+	if r.reviewOptimized && proof.MayCertify {
 		if previous != nil && r.authenticReview(previous, seal) && c.SourceRevision != nil && previous.Source != nil && c.SourceRevision.Token == previous.Source.Token && c.HistoricalFingerprint == c.Control.PublishedFingerprint && previous.SuffixFX != nil {
 			proof.FXDescription = previous.SuffixFX
 		} else {
@@ -340,7 +332,7 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 	if err != nil {
 		return err
 	}
-	if r.reviewDependencySuffix {
+	if r.reviewOptimized {
 		if c.Suffix != nil && c.Certified.SuffixSourceProof != nil {
 			// SourceMAC was checked above and the writer still holds the
 			// source/control/checkpoint CAS + provider lease. Reuse exactly

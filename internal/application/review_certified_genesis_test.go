@@ -14,7 +14,7 @@ func unpublishedCertifiedFixture(t *testing.T) (seriesZeroFixture, *sqlite.Repos
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic genesis", syntheticHistoricalReviewSpec())
-	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
@@ -54,7 +54,7 @@ func TestReviewCertifiedGenesisRequiresPrivateLifecycleProof(t *testing.T) {
 				}
 				t.Cleanup(func() { _ = db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })

@@ -3,12 +3,12 @@ package application
 import (
 	"database/sql"
 	"fmt"
-	"os"
+
 	"path/filepath"
 	"reflect"
-	"runtime"
+
 	"slices"
-	"strconv"
+
 	"strings"
 	"testing"
 	"time"
@@ -18,56 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-func TestReviewPerfConfiguration(t *testing.T) {
-	if validateReviewPerfMode("typo") == nil {
-		t.Fatal("unknown evidence mode accepted")
-	}
-	for _, c := range []reviewPerfConfig{{}, {Accounts: 1, Instruments: 1, Rules: 1, HistoryDays: 1, Quotes: -1}} {
-		if c.validate() == nil {
-			t.Fatalf("invalid config accepted: %+v", c)
-		}
-	}
-	if durationPercentile([]time.Duration{3, 1, 2}, .95) != 3 || durationPercentile([]time.Duration{3, 1, 2}, .5) != 2 {
-		t.Fatal("nearest-rank percentile")
-	}
-	if durationPercentile([]time.Duration{5}, .95) != 5 || durationPercentile(nil, .95) != 0 {
-		t.Fatal("nearest-rank percentile n=1")
-	}
-	ten := make([]time.Duration, 10)
-	for index := range ten {
-		ten[index] = time.Duration(index + 1)
-	}
-	if durationPercentile(ten, .95) != 10 || durationPercentile(ten, .5) != 5 {
-		t.Fatal("nearest-rank percentile n=10")
-	}
-}
-
-func TestReviewPerfSampleCount(t *testing.T) {
-	if reviewPerfSampleCount(t, 3) != 3 || reviewPerfSampleCount(t, 10) != 10 {
-		t.Fatal("sample default")
-	}
-	t.Run("override", func(t *testing.T) {
-		t.Setenv("NW_REVIEW_PERF_SAMPLES", "30")
-		if reviewPerfSampleCount(t, 3) != 30 || reviewPerfSampleCount(t, 10) != 30 {
-			t.Fatal("sample override")
-		}
-	})
-}
-
-func reviewPerfSampleCount(t *testing.T, fallback int) int {
-	t.Helper()
-	value := os.Getenv("NW_REVIEW_PERF_SAMPLES")
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil || parsed < 1 {
-		t.Fatal("invalid NW_REVIEW_PERF_SAMPLES")
-	}
-	return parsed
-}
-
-// Each measured mutation starts from this identical, checkpointed synthetic
+// Each correctness scenario starts from this identical, checkpointed synthetic
 // snapshot. VACUUM INTO includes committed WAL contents without copying a live
 // database file. UUIDs are generated once in the source and shared by clones.
 func cloneReviewPerfFixture(t *testing.T, source reviewFullPipelineFixture) reviewFullPipelineFixture {
@@ -85,48 +36,6 @@ func cloneReviewPerfFixture(t *testing.T, source reviewFullPipelineFixture) revi
 	service := NewService(sqlite.NewRepository(db))
 	service.setClock(func() time.Time { return now })
 	return reviewFullPipelineFixture{service: service, db: db, now: &now, householdID: source.householdID, dbPath: path, start: source.start, instruments: source.instruments}
-}
-
-func reviewPerfEnvironmentConfig(t *testing.T) reviewPerfConfig {
-	t.Helper()
-	c := referenceReviewPerfConfig(30)
-	c.MixedKind = os.Getenv("NW_REVIEW_PERF_MIX_KIND")
-	for _, field := range []struct {
-		name string
-		into *int
-	}{
-		{"ACCOUNTS", &c.Accounts}, {"INSTRUMENTS", &c.Instruments}, {"HOLDINGS", &c.Holdings}, {"MIXED_ACTIVITIES", &c.MixedActivities}, {"RULES", &c.Rules},
-		{"DAYS", &c.HistoryDays}, {"QUOTES", &c.Quotes}, {"ACTIVITIES", &c.CashActivities},
-	} {
-		if value, exists := os.LookupEnv("NW_REVIEW_PERF_" + field.name); exists {
-			parsed, err := strconv.Atoi(value)
-			if err != nil {
-				t.Fatal(err)
-			}
-			*field.into = parsed
-		}
-	}
-	if os.Getenv("NW_REVIEW_PERF_HOLDINGS") == "" {
-		c.Holdings = c.Instruments
-	}
-	if err := c.validate(); err != nil {
-		t.Fatal(err)
-	}
-	return c
-}
-
-func logReviewPerfManifest(t *testing.T, f reviewFullPipelineFixture, c reviewPerfConfig) {
-	t.Helper()
-	t.Cleanup(func() { logReviewPerfProcessMemory(t) })
-	var version string
-	if err := f.db.SQL.QueryRow(`SELECT sqlite_version()`).Scan(&version); err != nil {
-		t.Fatal(err)
-	}
-	manifest, err := jsoncodec.Marshal(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("manifest=%s; deterministic arithmetic source generation (no PRNG); clock=%s schema=%d Go=%s SQLite=%s GOOS=%s GOARCH=%s GOMAXPROCS=%d; UUIDs generated once then cloned; synthetic household=%s", manifest, f.now.Format(time.RFC3339Nano), sqlite.CurrentSchemaVersion, runtime.Version(), version, runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), f.householdID)
 }
 
 // Full recomputation is captured independently from the same authoritative DB,
@@ -305,22 +214,17 @@ func expectedReviewOracleDays(cached map[domain.ReviewDailyEvidenceKey]domain.Re
 }
 
 func TestReviewPerformanceFullOracle(t *testing.T) {
-	runReviewPerfPairs(t, reviewPerfConfig{Accounts: 2, Instruments: 3, Holdings: 4, Rules: 4, HistoryDays: 10, Quotes: 30, MixedActivities: 8}, 1)
+	checkReviewEpochReplayOracle(t, reviewPerfConfig{Accounts: 2, Instruments: 3, Holdings: 4, Rules: 4, HistoryDays: 10, Quotes: 30, MixedActivities: 8}, 0)
 }
 
-func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
-	runReviewPerfEpochPairs(t, config, samples, 0)
-}
-
-func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cycles int, scenarios ...string) {
+// Small correctness scenarios compare supported C2 publication with a separate
+// authoritative full replay. No timing/RSS, rollout arms or sample controls.
+func checkReviewEpochReplayOracle(t *testing.T, config reviewPerfConfig, cycles int) {
 	t.Helper()
 	source := newReviewPerfFixture(t, config)
-	logReviewPerfManifest(t, source, config)
-	started := time.Now()
 	if _, err := source.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("cold initial projection (single sample, includes capture through atomic publish; excludes fixture generation)=%s", time.Since(started))
 	var episode string
 	var revision int
 	err := source.db.SQL.QueryRow(`SELECT id,revision FROM investment_review_episodes WHERE resolved_at IS NULL ORDER BY id LIMIT 1`).Scan(&episode, &revision)
@@ -337,106 +241,47 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 	if _, err := source.service.SetReviewSuppressionV2(t.Context(), SetReviewSuppressionV2Input{SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()), InstrumentID: source.instruments[0].ID.String(), Mode: "permanent"}); err != nil {
 		t.Fatal(err)
 	}
-
-	if len(scenarios) == 0 {
-		scenarios = []string{"no-op", "clock-only", "append", "correction"}
-	}
-	traceStages := os.Getenv("NW_REVIEW_PERF_STAGE_TRACE") == "1"
-	for _, scenario := range scenarios {
+	for _, scenario := range []string{"no-op", "clock-only", "append", "correction"} {
 		t.Run(scenario, func(t *testing.T) {
-			durations := [2][]time.Duration{}
-			fullDurations := [2][]time.Duration{}
-			for sample := 0; sample < samples; sample++ {
-				// Subtest cleanup releases each clone before the next sample (including
-				// large capacity runs) rather than retaining 30 full database copies.
-				t.Run(fmt.Sprintf("sample-%02d", sample), func(t *testing.T) {
-					fixture := cloneReviewPerfFixture(t, source)
-					switch scenario {
-					case "clock-only":
-						*fixture.now = fixture.now.AddDate(0, 0, 1)
-					case "append":
-						*fixture.now = fixture.now.AddDate(0, 0, 1)
-						if err := appendReviewPerfDailyMarketData(t.Context(), fixture, fixture.now.AddDate(0, 0, -1)); err != nil {
-							t.Fatal(err)
-						}
-					case "correction":
-						if err := correctReviewPerfHistoricalQuote(t.Context(), fixture, 0); err != nil {
-							t.Fatal(err)
-						}
-					}
-					repositories := [2]*sqlite.Repository{sqlite.NewRepository(fixture.db), sqlite.NewRepository(fixture.db)}
-					var captures [2]domain.ReviewProjectionCapture
-					for offset := 0; offset < 2; offset++ {
-						path := (sample + offset) % 2
-						started := time.Now()
-						capture, err := repositories[path].CaptureReviewProjection(t.Context(), fixture.householdID, *fixture.now)
-						elapsed := time.Since(started)
-						if err != nil {
-							t.Fatal(err)
-						}
-						durations[path] = append(durations[path], elapsed)
-						captures[path] = capture
-						t.Logf("capture path=%d sample=%d elapsed=%s reusableRows=%d (includes source fingerprint and Rows consumption)", path, sample, elapsed, len(capture.ReusableDailyEvidence))
-					}
-					if !reflect.DeepEqual(captures[0], captures[1]) {
-						t.Fatal("baseline/candidate captures differ")
-					}
-					publication, err := PrepareReviewPublication(t.Context(), captures[1], *fixture.now, fixture.service.FXProviderKey())
-					if err != nil {
-						t.Fatal(err)
-					}
-					assertReviewFullOracle(t, fixture, publication)
-					var published [2]string
-					for offset := 0; offset < 2; offset++ {
-						path := (sample + offset) % 2
-						t.Run(fmt.Sprintf("publish-%d", path), func(t *testing.T) {
-							// Reconcile/publish on separate identical scenario clones, never publish
-							// the baseline before measuring the candidate on the same DB.
-							run := cloneReviewPerfFixture(t, fixture)
-							var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
-							if path == 0 {
-								repo = fullReviewOracle(repo)
-							}
-							var measuredRepository Repository = repo
-							var stages *reviewPerfStageRepository
-							if traceStages {
-								stages = &reviewPerfStageRepository{reviewTestProjectionRepository: repo}
-								measuredRepository = stages
-							}
-							service := NewService(measuredRepository)
-							service.setClock(func() time.Time { return *run.now })
-							metrics := enableReviewSQLMetrics(t, run)
-							if stages != nil {
-								stages.metrics = metrics
-							}
-							var before, after runtime.MemStats
-							runtime.ReadMemStats(&before)
-							started := time.Now()
-							result, err := service.ReconcileInvestmentReviewsV2(t.Context())
-							if err != nil {
-								t.Fatal(err)
-							}
-							elapsed := time.Since(started)
-							runtime.ReadMemStats(&after)
-							fullDurations[path] = append(fullDurations[path], elapsed)
-							if stages != nil {
-								stages.log(t, path, sample, elapsed, before, after)
-							}
-							t.Logf("full reconcile path=%d sample=%d elapsed=%s pairDays=%d allocatedBytes=%d allocations=%d %s", path, sample, elapsed, result.DayCount, after.TotalAlloc-before.TotalAlloc, after.Mallocs-before.Mallocs, metrics.snapshot(8).summary())
-							published[path] = reviewPerfPublishedRows(t, run, source)
-						})
-					}
-					if published[0] != published[1] {
-						t.Fatal("baseline/candidate durable projection differs")
-					}
-
-				})
+			fixture := cloneReviewPerfFixture(t, source)
+			switch scenario {
+			case "clock-only":
+				*fixture.now = fixture.now.AddDate(0, 0, 1)
+			case "append":
+				*fixture.now = fixture.now.AddDate(0, 0, 1)
+				if err := appendReviewPerfDailyMarketData(t.Context(), fixture, fixture.now.AddDate(0, 0, -1)); err != nil {
+					t.Fatal(err)
+				}
+			case "correction":
+				if err := correctReviewPerfHistoricalQuote(t.Context(), fixture, 0); err != nil {
+					t.Fatal(err)
+				}
 			}
-			for path, values := range fullDurations {
-				t.Logf("full reconcile distribution scenario=%s path=%d n=%d median=%s nearest-rank-p95=%s raw=%v", scenario, path, len(values), durationPercentile(values, .5), durationPercentile(values, .95), values)
+			capture, err := sqlite.NewRepository(fixture.db).CaptureReviewProjection(t.Context(), fixture.householdID, *fixture.now)
+			if err != nil {
+				t.Fatal(err)
 			}
-			for path, values := range durations {
-				t.Logf("capture distribution scenario=%s path=%d n=%d median=%s nearest-rank-p95=%s raw=%v", scenario, path, len(values), durationPercentile(values, .5), durationPercentile(values, .95), values)
+			publication, err := PrepareReviewPublication(t.Context(), capture, *fixture.now, fixture.service.FXProviderKey())
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertReviewFullOracle(t, fixture, publication)
+			var published [2]string
+			for path := range published {
+				run := cloneReviewPerfFixture(t, fixture)
+				var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
+				if path == 0 {
+					repo = fullReviewOracle(repo)
+				}
+				service := NewService(repo)
+				service.setClock(func() time.Time { return *run.now })
+				if _, err := service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				published[path] = reviewPerfPublishedRows(t, run, source)
+			}
+			if published[0] != published[1] {
+				t.Fatal("C2 and full durable projection/lifecycle differ")
 			}
 		})
 	}
@@ -564,20 +409,7 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 	return string(encoded)
 }
 
-func logReviewPerfProcessMemory(t *testing.T) {
-	t.Helper()
-	if status, err := os.ReadFile("/proc/self/status"); err == nil {
-		for _, line := range strings.Split(string(status), "\n") {
-			if strings.HasPrefix(line, "VmHWM:") {
-				t.Logf("process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): %s", line)
-			}
-		}
-	} else {
-		t.Logf("process peak RSS unavailable on %s: %v", runtime.GOOS, err)
-	}
-}
-
-func TestReviewPerfDurableRowsPreserveExistingEventIdentity(t *testing.T) {
+func TestReviewDurableOraclePreservesExistingEventIdentity(t *testing.T) {
 	source := newReviewPerfFixture(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Rules: 1, HistoryDays: 2, Quotes: 2})
 	if _, err := source.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)

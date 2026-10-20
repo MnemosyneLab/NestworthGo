@@ -20,16 +20,20 @@ import (
 type reviewDriverFaults struct {
 	mu         sync.Mutex
 	afterQuery func(string)
+	afterRows  func(string, int)
 	beforeExec func(string, []driver.NamedValue) (driver.Result, error, bool)
 	afterExec  func(string)
 }
 
-func (f *reviewDriverFaults) queryClosed(query string) {
+func (f *reviewDriverFaults) queryClosed(query string, rows int) {
 	f.mu.Lock()
-	callback := f.afterQuery
+	callback, afterRows := f.afterQuery, f.afterRows
 	f.mu.Unlock()
 	if callback != nil {
 		callback(query)
+	}
+	if afterRows != nil {
+		afterRows(query, rows)
 	}
 }
 func (f *reviewDriverFaults) execute(query string, args []driver.NamedValue, run func() (driver.Result, error)) (driver.Result, error) {
@@ -134,10 +138,19 @@ type reviewFaultRows struct {
 	query  string
 	faults *reviewDriverFaults
 	once   sync.Once
+	count  int
 }
 
 func (r *reviewFaultRows) Close() error {
 	err := r.Rows.Close()
-	r.once.Do(func() { r.faults.queryClosed(r.query) })
+	r.once.Do(func() { r.faults.queryClosed(r.query, r.count) })
+	return err
+}
+
+func (r *reviewFaultRows) Next(dest []driver.Value) error {
+	err := r.Rows.Next(dest)
+	if err == nil {
+		r.count++
+	}
 	return err
 }

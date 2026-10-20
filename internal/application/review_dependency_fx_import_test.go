@@ -62,7 +62,7 @@ func productionFXSuffixFixture(t *testing.T, zones ...string) (seriesZeroFixture
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
 	spec.Schedule.Timezone = zone
 	saveSyntheticReviewRule(t, f, "Synthetic production FX suffix", spec)
-	r := sqlite.NewRepository(f.db).WithReviewDependencySuffix()
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))

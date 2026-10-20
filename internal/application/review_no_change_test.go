@@ -57,7 +57,7 @@ func (r *noChangeTestRepository) PublishCertifiedReviewProjection(ctx context.Co
 }
 
 func noChangeService(t *testing.T, f seriesZeroFixture) (*Service, *noChangeTestRepository) {
-	r := &noChangeTestRepository{Repository: sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()}
+	r := &noChangeTestRepository{Repository: sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()}
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	s := NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
@@ -219,7 +219,7 @@ func TestReviewNoChangeConservativeFallbacks(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer db.Close()
-				r.Repository = sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+				r.Repository = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 			case "epoch-reset":
 				if err := f.db.ResetFinancialSourceTracking(t.Context()); err != nil {
 					t.Fatal(err)

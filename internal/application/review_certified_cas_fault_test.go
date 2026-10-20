@@ -88,12 +88,13 @@ func TestReviewCertifiedCASFailureAndBoundedRetry(t *testing.T) {
 				t.Fatal("failed CAS partially committed")
 			}
 			faults.beforeExec = nil
+			capturesBeforeRecovery := counts.captures
 			recovered, err := f.s.ReconcileInvestmentReviewsV2(t.Context())
 			if err != nil {
 				t.Fatal(err)
 			}
-			if scenario != "control-ignore" && recovered.DayCount == 0 {
-				t.Fatal("rolled-back DML did not require full recovery")
+			if scenario != "control-ignore" && counts.captures != capturesBeforeRecovery+1 {
+				t.Fatal("rolled-back DML did not require a fresh complete source capture", recovered)
 			}
 			noChangeFullOracle(t, f)
 			requireCertifiedNoop(t, f, repo)

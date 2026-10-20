@@ -94,6 +94,9 @@ func TestReviewCertifiedPersistsRecheckedTemporalMinimum(t *testing.T) {
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
 	p := certifiedStage(t, f, r)
 	if !p.Capture.Temporal.NextTransitionAt.Equal(t2) {
 		t.Fatal("missing captured frontier")

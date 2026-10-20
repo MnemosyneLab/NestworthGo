@@ -76,7 +76,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err != nil {
 		return err
 	}
-	if capture.Suffix != nil && !r.reviewDependencySuffix {
+	if capture.Suffix != nil && !r.reviewOptimized {
 		return reviewRuleConflict("suffix mode is disabled")
 	}
 	if err := requireReviewSuffixAuthority(capture, certified, mayCertify, providerLeased); err != nil {

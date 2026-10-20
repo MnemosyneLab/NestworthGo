@@ -30,7 +30,7 @@ func testReviewCertifiedUnavailableProof(t *testing.T, unavailable string) {
 	}
 	// A saturated physical-connection namespace represents unavailable identity;
 	// it must select full computation, without making refresh impossible.
-	r := NewRepository(db).WithCertifiedReviewCandidate()
+	r := NewRepository(db).WithDefaultReviewOptimizations()
 	switch unavailable {
 	case "identity":
 		db.reviewCertificateKey.connectionID = ^uint64(0)

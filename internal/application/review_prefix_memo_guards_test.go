@@ -11,8 +11,8 @@ import (
 func TestReviewPrefixMemoGuards(t *testing.T) {
 	for _, scenario := range []string{"stale", "cancel", "evict", "source", "provider", "ack", "suppression", "missing-row", "clock-rollback", "reopen", "rule"} {
 		t.Run(scenario, func(t *testing.T) {
-			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "consecutive", Count: 3})
-			r = r.WithReviewPrefixMemo()
+			f, r, tracker := memoFixture(t, domain.ReviewTriggerPolicy{Kind: "consecutive", Count: 3})
+			r = r.WithDefaultReviewOptimizations()
 			f.s.repository = r
 			f.day(t, "2026-10-13")
 			assertSuffixOracle(t, f, r, true)
@@ -72,7 +72,7 @@ func TestReviewPrefixMemoGuards(t *testing.T) {
 				}
 				t.Cleanup(func() { db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithReviewPrefixMemo()
+				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 				f.s.repository = r
 				wantSuffix = false
 			case "clock-rollback":
@@ -84,13 +84,12 @@ func TestReviewPrefixMemoGuards(t *testing.T) {
 				}
 				wantSuffix = false
 			}
-			p := assertSuffixOracle(t, f, r, wantSuffix)
-			o := p.Capture.Certified.SuffixMemoObservation
+			_, o := assertMemoOracle(t, f, r, tracker, wantSuffix)
 			if scenario == "cancel" {
-				if o == nil || o.ReusedDays != 22 || o.SQLDecodedDays != 2 {
+				if o.reusedDays != 22 || o.sqlRows != 2 {
 					t.Fatalf("cancel advanced cache %+v", o)
 				}
-			} else if o != nil && o.ReusedDays != 0 {
+			} else if o.reusedDays != 0 {
 				t.Fatalf("invalidation/stale promotion reused memo %+v", o)
 			}
 			if scenario != "missing-row" && scenario != "reopen" {
@@ -100,8 +99,8 @@ func TestReviewPrefixMemoGuards(t *testing.T) {
 				f.day(t, "2026-10-15")
 				assertSuffixOracle(t, f, r, true)
 				f.day(t, "2026-10-16")
-				warm := assertSuffixOracle(t, f, r, true)
-				if warm.Capture.Certified.SuffixMemoObservation.ReusedDays == 0 {
+				_, warm := assertMemoOracle(t, f, r, tracker, true)
+				if warm.reusedDays == 0 {
 					t.Fatal("handling/expiry warm memo not exercised")
 				}
 			}
@@ -112,8 +111,10 @@ func TestReviewPrefixMemoGuards(t *testing.T) {
 func TestReviewPrefixMemoExactFX(t *testing.T) {
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
-	f, r := certifiedPublicationFixture(t, true, spec, "1")
-	r = r.WithReviewPrefixMemo()
+	db, faults := openReviewFaultDatabase(t)
+	f, r := certifiedPublicationFixture(t, true, spec, "1", db)
+	tracker := trackMemoSQL(faults)
+	r = r.WithDefaultReviewOptimizations()
 	f.s.repository = r
 	prime := certifiedStage(t, f, r)
 	if err := certifiedPublish(t.Context(), f, r, prime, func() time.Time { return *f.now }); err != nil {
@@ -129,8 +130,8 @@ func TestReviewPrefixMemoExactFX(t *testing.T) {
 	}
 	requireCertifiedNoop(t, f, r)
 	f.day(t, "2026-10-14")
-	warm := assertSuffixOracle(t, f, r, true)
-	if warm.Capture.Certified.SuffixMemoObservation.ReusedDays == 0 {
+	warm, observation := assertMemoOracle(t, f, r, tracker, true)
+	if observation.reusedDays == 0 {
 		t.Fatal("FX memo not reused")
 	}
 	for _, p := range warm.Capture.Suffix.Prefix {
@@ -143,8 +144,8 @@ func TestReviewPrefixMemoExactFX(t *testing.T) {
 }
 
 func TestReviewPrefixMemoFutureActivation(t *testing.T) {
-	f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
-	r = r.WithReviewPrefixMemo()
+	f, r, tracker := memoFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
+	r = r.WithDefaultReviewOptimizations()
 	f.s.repository = r
 	f.day(t, "2026-10-14")
 	f.quantity(t, false)
@@ -155,11 +156,11 @@ func TestReviewPrefixMemoFutureActivation(t *testing.T) {
 	f.day(t, "2026-10-13")
 	cold := assertSuffixOracle(t, f, r, true)
 	f.day(t, "2026-10-15")
-	active := assertSuffixOracle(t, f, r, false)
+	active, observation := assertMemoOracle(t, f, r, tracker, false)
 	if cold.Capture.SourceRevision.Token != active.Capture.SourceRevision.Token {
 		t.Fatal("future activation unexpectedly required a journal write")
 	}
-	if active.Capture.Certified.SuffixMemoObservation != nil && active.Capture.Certified.SuffixMemoObservation.ReusedDays != 0 {
+	if observation.reusedDays != 0 {
 		t.Fatal("future membership bypassed full source invalidation")
 	}
 }

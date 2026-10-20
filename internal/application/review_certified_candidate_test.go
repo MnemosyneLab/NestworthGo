@@ -25,7 +25,7 @@ func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSp
 	f := newSeriesZeroFixture(t, fx, "UTC", "2026-10-01", quantity, databases...)
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic certified review", spec)
-	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
@@ -39,7 +39,7 @@ func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSp
 	return f, r
 }
 
-func TestReviewCertifiedFreshSessionNoopAndFullPublication(t *testing.T) {
+func TestReviewCertifiedFreshSessionNoopAndSuffixPublication(t *testing.T) {
 	f, r := certifiedFixture(t)
 	var mac string
 	if err := f.db.SQL.QueryRow(`SELECT json_extract(certificate_json,'$.CertifiedMAC') FROM review_temporal_checkpoints`).Scan(&mac); err != nil || mac == "" {
@@ -55,12 +55,12 @@ func TestReviewCertifiedFreshSessionNoopAndFullPublication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cap.Certified == nil || !cap.TemporalFullRecompute || len(cap.ReusableDailyEvidence) != 0 {
+	if cap.Certified == nil || cap.Suffix == nil || len(cap.ReusableDailyEvidence) != 0 {
 		t.Fatalf("capture failed integrity reuse gate %+v evidence=%d", cap.Certified, len(cap.ReusableDailyEvidence))
 	}
 	result, err = f.s.ReconcileInvestmentReviewsV2(t.Context())
-	if err != nil || result.DayCount != 12 {
-		t.Fatal("certified full publication failed", result, err)
+	if err != nil || result.DayCount != 1 {
+		t.Fatal("certified suffix publication failed", result, err)
 	}
 	*f.now = f.now.Add(time.Nanosecond)
 	result, err = f.s.ReconcileInvestmentReviewsV2(t.Context())

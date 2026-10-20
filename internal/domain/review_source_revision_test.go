@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint(t *testing.T) {
+func TestReviewSourceCheckpointRequiresFixedCutoffAndCompleteCheckpoint(t *testing.T) {
 	at := time.Date(2026, 10, 1, 12, 0, 0, 1, time.UTC)
 	base := domain.ReviewProjectionCapture{SourceCutoff: at, HistoricalFingerprint: "synthetic", SourceRevision: &domain.ReviewSourceCheckpoint{Token: domain.SourceRevisionToken{HouseholdID: "synthetic", Epoch: strings.Repeat("a", 32), Revision: 10, TrackingVersion: "synthetic-tracking", ResolverPolicyVersion: "synthetic-resolver", EvaluatorVersion: domain.ReviewEvaluator, MetricPolicyVersion: domain.ReviewMetricPolicyVersion}}}
 	for _, tc := range []struct {

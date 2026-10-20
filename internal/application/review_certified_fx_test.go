@@ -13,7 +13,7 @@ func TestReviewCertifiedFXEvidenceAndOracleIsolation(t *testing.T) {
 	f, r := certifiedConfiguredFixture(t, true, spec)
 	f.day(t, "2026-10-13")
 	p := certifiedStage(t, f, r)
-	full := certifiedStage(t, f, r) // independent capture/preparation, test-only oracle
+	full := independentReviewFullStage(t, f, r)
 	if err := compareReviewFullOracle(p, full, f.s.FXProviderKey()); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestReviewCertifiedFullOracleDoesNotAliasFrozenOutput(t *testing.T) {
 	f, r := certifiedFixture(t)
 	f.day(t, "2026-10-13")
 	p := certifiedStage(t, f, r)
-	full := certifiedStage(t, f, r)
+	full := independentReviewFullStage(t, f, r)
 	p.Rules[0].TriggerResult.Truth = domain.ReviewFalse
 	if full.Rules[0].TriggerResult.Truth != domain.ReviewTrue {
 		t.Fatal("independent full oracle aliased the frozen result")

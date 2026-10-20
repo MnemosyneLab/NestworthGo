@@ -21,23 +21,16 @@ const reviewPrefixMemoMaxPayload = 32 << 20
 // Normal startup always uses authenticated suffix and same-handle memo reuse.
 // Ineligible evidence continues through the complete preparation fallback.
 func (r *Repository) WithDefaultReviewOptimizations() *Repository {
-	return r.WithReviewPrefixMemo()
-}
-
-// WithReviewPrefixMemo enables bounded same-handle evidence reuse. A new handle
-// never imports a memo or authority.
-func (r *Repository) WithReviewPrefixMemo() *Repository {
-	copy := *r.WithReviewDependencySuffix()
-	copy.reviewPrefixMemoEnabled = true
+	copy := *r
+	copy.reviewOptimized = true
 	copy.database.reviewPrefixMemo.active.Store(true)
 	return &copy
 }
 
 type reviewMemoReadTarget struct {
-	entries     map[domain.ReviewDailyEvidenceKey]reviewMemoEntry
-	observation *domain.ReviewPrefixMemoObservation
-	payload     int
-	disabled    bool
+	entries  map[domain.ReviewDailyEvidenceKey]reviewMemoEntry
+	payload  int
+	disabled bool
 }
 
 func (t *reviewMemoReadTarget) add(e reviewMemoEntry) {
@@ -222,7 +215,7 @@ func (r *Repository) commitReviewMemo(c domain.ReviewProjectionCapture, out doma
 	}
 	p := m.pending
 	m.pending = nil
-	valid := r.reviewPrefixMemoEnabled && c.Certified != nil && c.Suffix != nil && out.CertifiedMAC != "" && p != nil && p.receipt == c.Certified.SuffixMemoReceipt && p.generation == m.generation && p.binding == reviewMemoBind(c)
+	valid := r.reviewOptimized && c.Certified != nil && c.Suffix != nil && out.CertifiedMAC != "" && p != nil && p.receipt == c.Certified.SuffixMemoReceipt && p.generation == m.generation && p.binding == reviewMemoBind(c)
 	m.generation++
 	m.committed = nil
 	if !valid {
@@ -260,7 +253,7 @@ func (r *Repository) commitReviewMemoNoop(oldJSON []byte, out domain.ReviewTempo
 	m.committed = nil
 	m.pending = nil
 	m.generation++
-	if !r.reviewPrefixMemoEnabled || s == nil || out.CertifiedMAC == "" || out.Source == nil {
+	if !r.reviewOptimized || s == nil || out.CertifiedMAC == "" || out.Source == nil {
 		return
 	}
 	oldHash := sha256.Sum256(oldJSON)

@@ -54,7 +54,7 @@ func TestReviewCertifiedDeletedHistoryCannotBootstrap(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = db.Close() })
 			f.db = db
-			r := sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+			r := sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 			f.s = NewService(r)
 			f.s.fxProviderKey = "synthetic-pinned"
 			f.s.setClock(func() time.Time { return *f.now })

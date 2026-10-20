@@ -31,22 +31,15 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 			if _, err := source.service.RecordChange(t.Context(), domain.PositionAdjustmentInput{HouseholdID: source.householdID, HoldingID: holding, Quantity: quantity, Added: added, UnitCost: &cost, EffectiveAt: *source.now}); err != nil {
 				t.Fatal(err)
 			}
-			var captures [2]domain.ReviewProjectionCapture
-			for path, repo := range []*sqlite.Repository{sqlite.NewRepository(source.db), sqlite.NewRepository(source.db)} {
-				capture, err := repo.CaptureReviewProjection(t.Context(), source.householdID, *source.now)
-				if err != nil {
-					t.Fatal(err)
-				}
-				captures[path] = capture
-				publication, err := PrepareReviewPublication(t.Context(), capture, *source.now, source.service.FXProviderKey())
-				if err != nil {
-					t.Fatal(err)
-				}
-				assertReviewFullOracle(t, source, publication)
+			capture, err := sqlite.NewRepository(source.db).CaptureReviewProjection(t.Context(), source.householdID, *source.now)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(captures[0], captures[1]) {
-				t.Fatalf("epoch cycle=%d added=%t capture differs", cycle, added)
+			publication, err := PrepareReviewPublication(t.Context(), capture, *source.now, source.service.FXProviderKey())
+			if err != nil {
+				t.Fatal(err)
 			}
+			assertReviewFullOracle(t, source, publication)
 			var durable [2]string
 			for path := range durable {
 				t.Run("epoch-publish", func(t *testing.T) {
@@ -96,7 +89,7 @@ func capturesRules(t *testing.T, source reviewFullPipelineFixture) []domain.Revi
 func TestReviewRepeatedEpochWindowOracle(t *testing.T) {
 	// One exit/re-entry cycle hits the same oracle and durable-lifecycle branches
 	// as repeating the pair. Eight cycles stay in the daily/manual perf workflow.
-	runReviewPerfEpochPairs(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Holdings: 1, Rules: 4, HistoryDays: 10, Quotes: 10}, 1, 1)
+	checkReviewEpochReplayOracle(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Holdings: 1, Rules: 4, HistoryDays: 10, Quotes: 10}, 1)
 }
 
 // A same-day re-entry can trigger on the last closed day before its opening

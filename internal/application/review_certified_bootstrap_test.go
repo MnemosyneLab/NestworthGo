@@ -26,7 +26,7 @@ func historyFreeLegacyReview(t *testing.T) (seriesZeroFixture, *sqlite.Repositor
 	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episodes`).Scan(&count); err != nil || count != 0 {
 		t.Fatal("fixture has trigger history", count, err)
 	}
-	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
@@ -62,7 +62,7 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartRemainUntrusted(t *testing.T)
 				}
 				t.Cleanup(func() { _ = db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -178,7 +178,7 @@ func TestReviewCertifiedBootstrapRetainsUnprovenHistory(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	f.db = db
-	r := sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
