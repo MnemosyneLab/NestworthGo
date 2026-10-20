@@ -10,7 +10,8 @@ const ReviewTemporalDependencyScope = "household-all-review-inputs-v1"
 
 // A finite interval is intentional: even with no future source events, each
 // rule/origin/suppression calendar contributes its next date/offset boundary.
-// This shadow certificate does not authorize skipping capture or planning.
+// The certificate is one input to certified no-change confirmation, alongside
+// authenticated MAC/row seals, connection continuity and the publication CAS.
 type ReviewTemporalCertificate struct {
 	EvaluatedAt      time.Time
 	NextTransitionAt time.Time

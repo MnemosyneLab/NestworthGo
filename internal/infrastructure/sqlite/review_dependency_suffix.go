@@ -190,8 +190,8 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 			}
 		}
 
-		// Same bounded request-table strategy as B: one seek per instrument,
-		// with one query/decoder per <=100 instruments rather than per pair.
+		// Read prefixes with one seek per instrument, using a request table
+		// and one query/decoder per chunk of up to 100 instruments.
 		for start := 0; start < len(ids); start += 100 {
 			end := min(start+100, len(ids))
 			values := []string{}

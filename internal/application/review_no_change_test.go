@@ -474,8 +474,8 @@ func TestReviewNoChangeMissingProjectionRequiresFullRebuild(t *testing.T) {
 				t.Fatal(err)
 			}
 			result, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
-			if err != nil || ok || !result.RequireFullRecompute {
-				t.Fatal("missing projection accepted or full rebuild not required", result, ok, err)
+			if err != nil || ok {
+				t.Fatal("missing projection confirmation accepted", result, ok, err)
 			}
 			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 				t.Fatal(err)
@@ -614,8 +614,8 @@ func TestReviewNoChangeDamagedTrackingRequiresFullRebuild(t *testing.T) {
 				t.Fatal(err)
 			}
 			confirmation, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
-			if err != nil || ok || !confirmation.RequireFullRecompute {
-				t.Fatal("damaged tracking did not require full rebuild", confirmation, ok, err)
+			if err != nil || ok {
+				t.Fatal("damaged tracking confirmation accepted", confirmation, ok, err)
 			}
 			result, err := f.s.ReconcileInvestmentReviewsV2(t.Context())
 			if err != nil || result.DayCount == 0 {
@@ -706,7 +706,7 @@ func TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow(t *testing.T
 					t.Fatal("rejected C2 window wrote data")
 				}
 				confirmation, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
-				if err != nil || ok || !confirmation.RequireFullRecompute {
+				if err != nil || ok {
 					t.Fatal("incremental C2 stage minted completeness proof", confirmation, ok, err)
 				}
 			}

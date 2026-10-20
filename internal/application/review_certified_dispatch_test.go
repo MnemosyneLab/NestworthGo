@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// Ordinary C3 accelerates confirmation and source CAS. Missing a confirmation
-// does not implicitly opt the call into full + bounded runtime experiments.
+// Provider invalidation requires full preparation after a confirmation miss;
+// the source CAS guards publication against changes after that preparation.
 func TestReviewCertifiedProviderInvalidationFullDispatch(t *testing.T) {
 	db, faults := openReviewFaultDatabase(t)
 	f, r := certifiedPublicationFixture(t, true, syntheticHistoricalReviewSpec(), "1", db)
