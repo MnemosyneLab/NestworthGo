@@ -12,7 +12,7 @@ import i18n from "@/i18n";
 import { createTestQueryClient } from "@/test/queryClient";
 import { upcomingData } from "@/test/upcomingActions";
 import { useUiStore } from "@/stores/ui";
-import { formatTasksBadge, resolveTasksTab } from "./useTasksCounts";
+import { formatTasksBadge, resolveTasksTab, tasksReviewCountQueryKey } from "./useTasksCounts";
 import { TasksPage } from "./TasksPage";
 
 const services = vi.hoisted(() => ({
@@ -240,6 +240,34 @@ describe("sidebar tasks badge", () => {
     );
     expect(await screen.findByTestId("tasks-sidebar-dot")).toBeInTheDocument();
     expect(screen.queryByTestId("tasks-sidebar-count")).not.toBeInTheDocument();
+  });
+
+  it("keeps the cached urgent total and offers retry when a badge refresh fails", async () => {
+    services.upcoming.mockResolvedValue(counts(2));
+    services.alerts.mockResolvedValue(reviewSummary(1));
+    services.sessions.mockResolvedValue([{ id: "open", status: "in_progress" }]);
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AppShell activePageId="overview" onNavigate={vi.fn()} settings={settings}>page</AppShell>
+      </QueryClientProvider>,
+    );
+    const nav = await screen.findByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await withinNav(nav, new RegExp(i18n.t("tasks.sidebarLabel", { page: i18n.t("nav.tasks"), count: 3 })));
+    expect(screen.getByTestId("tasks-sidebar-count")).toHaveTextContent("3");
+
+    services.alerts.mockRejectedValueOnce(new Error("offline"));
+    await queryClient.refetchQueries({ queryKey: tasksReviewCountQueryKey() });
+    expect(screen.getByTestId("tasks-sidebar-count")).toHaveTextContent("3");
+    expect(await screen.findByRole("status")).toHaveTextContent(i18n.t("tasks.summaryStale"));
+
+    services.sessions.mockRejectedValueOnce(new Error("sessions offline"));
+    await queryClient.refetchQueries({ queryKey: ["reconciliation", "sessions", ""] });
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+
+    services.alerts.mockResolvedValue(reviewSummary(4));
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("tasks.summaryStaleRetry", { section: i18n.t("nav.tasks") }) }));
+    await waitFor(() => expect(screen.getByTestId("tasks-sidebar-count")).toHaveTextContent("6"));
+    expect(screen.queryByText(i18n.t("tasks.summaryStale"))).not.toBeInTheDocument();
   });
 });
 

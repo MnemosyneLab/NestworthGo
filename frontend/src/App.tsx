@@ -11,7 +11,7 @@ import { useStartup } from "@/queries/app";
 import { useSettings } from "@/queries/settings";
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
-import { resolveLegacyTarget, targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus, type HistoricalNavigationContext, type InstrumentDetailContext, type PortfolioView, type TasksTab } from "@/app/navigation";
+import { reconciliationFocusFromTarget, resolveLegacyTarget, targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus, type HistoricalNavigationContext, type InstrumentDetailContext, type PortfolioView, type ReconciliationNavigationFocus, type TasksTab } from "@/app/navigation";
 import { readCachedTasksAttention, resolveTasksTab } from "@/features/tasks/useTasksCounts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAnalysisStore } from "@/stores/analysis";
@@ -61,7 +61,7 @@ function App() {
   const [holdingDraftRequest, setHoldingDraftRequest] = useState<{ requestId: number; accountId: string }>();
   const nextHoldingDraftRequest = useRef(0);
   const [instrumentDetail, setInstrumentDetail] = useState<InstrumentDetailContext>();
-  const [reconciliationFocus, setReconciliationFocus] = useState<{ accountId?: string; sessionId?: string }>({});
+  const [reconciliationFocus, setReconciliationFocus] = useState<ReconciliationNavigationFocus>({});
   const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
   const [historyActivityId, setHistoryActivityId] = useState<string>();
   const [historyRequestId, setHistoryRequestId] = useState(0);
@@ -84,7 +84,7 @@ function App() {
   const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
   const [liquidityRequestId, setLiquidityRequestId] = useState(0);
   const nextLiquidityRequestId = useRef(0);
-  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; tasksTab: TasksTab | null; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
+  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; tasksTab: TasksTab | null; reconciliationFocus: ReconciliationNavigationFocus; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
   const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
@@ -152,7 +152,9 @@ function App() {
       const cached = readCachedTasksAttention(queryClient);
       const nextTab = resolveTasksTab({ explicit: navigation.tab, previous: tasksTab, attention: cached.attention, actionable: cached.actionable });
       setTasksTab(nextTab);
-      if (navigation.accountId || navigation.sessionId) setReconciliationFocus({ accountId: navigation.accountId, sessionId: navigation.sessionId });
+      setReconciliationFocus(reconciliationFocusFromTarget(navigation));
+    } else if (activePageId === "tasks") {
+      setReconciliationFocus({});
     }
     if (navigation.page === "historical-overview") { setHistoricalDate(navigation.date); setHistoricalContext(navigation.historical); setHistoricalRequest(previous => previous + 1); }
     // Top-level Accounts navigation always returns to the list. Opening a
@@ -201,7 +203,7 @@ function App() {
     if (hasUnresolvedSheetConfirmation()) return;
     if (target.page === "available-funds" && target.page === activePageId) { handleNavigate(target, true); return; }
     setReturnToHoldingsAfterCreate(target.page === "accounts" && target.create === true && activePageId === "portfolio");
-    setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, tasksTab, instrumentDetail,
+    setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, tasksTab, reconciliationFocus, instrumentDetail,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
       marketFocusRequestId, marketSearchQuery, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
     handleNavigate(target, true);
@@ -227,7 +229,7 @@ function App() {
     setHealthFocus(previous.health); setMarketFocus(previous.market);
     setMarketFocusRequestId(previous.marketFocusRequestId);
     setMarketSearchQuery(marketSearchByRequest.current.get(previous.marketFocusRequestId) ?? previous.marketSearchQuery);
-    setPortfolioView(previous.portfolioView); setTasksTab(previous.tasksTab); setInstrumentDetail(previous.instrumentDetail);
+    setPortfolioView(previous.portfolioView); setTasksTab(previous.tasksTab); setReconciliationFocus(previous.reconciliationFocus); setInstrumentDetail(previous.instrumentDetail);
     setLiquidityProductId(previous.liquidityProduct); setLiquidityAccountId(previous.liquidityAccount); setLiquidityFocus(previous.liquidityFocus); setLiquidityRequestId(previous.liquidityRequest ?? 0);
     setActivePageId(previous.page); setTrail(trail.slice(0, -1));
   };

@@ -175,6 +175,22 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const DEFAULT_PAGE_ID = "overview";
 
+export type ReconciliationNavigationFocus = { accountId?: string; sessionId?: string };
+
+function namedId(target: object, key: "accountId" | "sessionId"): string | undefined {
+  if (!(key in target)) return undefined;
+  const value = (target as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+/** Account and session filters apply only when the target names them. A global Tasks entry clears both. */
+export function reconciliationFocusFromTarget(target: NavigationTarget): ReconciliationNavigationFocus {
+  const accountId = namedId(target, "accountId");
+  const sessionId = namedId(target, "sessionId");
+  if (!accountId && !sessionId) return {};
+  return { accountId, sessionId };
+}
+
 export function targetForPage(page: PageId): NavigationTarget {
   if (page === "return-analysis") return { page };
   if (page === "asset-changes") return { page };

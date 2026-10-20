@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ClipboardCheck } from "lucide-react";
-import { NAV_GROUPS, resolveLegacyTarget, targetForPage, type NavigationTarget } from "./navigation";
+import { NAV_GROUPS, reconciliationFocusFromTarget, resolveLegacyTarget, targetForPage, type NavigationTarget } from "./navigation";
 
 describe("analysis navigation", () => {
   it("exposes typed Return and Asset Changes destinations alongside Historical overview", () => {
@@ -42,6 +42,11 @@ it("places Tasks & checks before History and redirects legacy activity targets",
   expect(resolveLegacyTarget({ page: "reconciliation", accountId: "bank", sessionId: "session-1" })).toEqual({
     page: "tasks", tab: "reconciliation", accountId: "bank", sessionId: "session-1",
   });
+  expect(reconciliationFocusFromTarget(resolveLegacyTarget({ page: "reconciliation", accountId: "bank", sessionId: "session-1" }))).toEqual({ accountId: "bank", sessionId: "session-1" });
+  expect(reconciliationFocusFromTarget(resolveLegacyTarget({ page: "reconciliation" }))).toEqual({});
+  expect(reconciliationFocusFromTarget(resolveLegacyTarget({ page: "upcoming-actions", tab: "recent" }))).toEqual({});
+  expect(reconciliationFocusFromTarget(targetForPage("tasks"))).toEqual({});
+  expect(reconciliationFocusFromTarget({ page: "tasks", tab: "reconciliation", accountId: "bank" })).toEqual({ accountId: "bank", sessionId: undefined });
   const legacy: NavigationTarget = { page: "available-funds", productId: "synthetic", accountId: "bank" };
   const focus: NavigationTarget = { page: "available-funds", focus: { kind: "reservations", reservationId: "released" } };
   expect(legacy.productId).toBe("synthetic");

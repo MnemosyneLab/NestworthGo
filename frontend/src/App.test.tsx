@@ -14,12 +14,15 @@ import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
 import { useObjectNavigation } from "./app/NavigationContext";
 
-const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord, useRealInstrumentDetail, reviewAlerts, instrumentGroups } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord, useRealInstrumentDetail, reviewAlerts, instrumentGroups, reconciliationList, reconciliationLast, reconciliationGet } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
   ordinaryRecord: vi.fn(),
   useRealInstrumentDetail: { enabled: false },
   reviewAlerts: vi.fn(),
   instrumentGroups: vi.fn(),
+  reconciliationList: vi.fn(),
+  reconciliationLast: vi.fn(),
+  reconciliationGet: vi.fn(),
   historyOrigin: vi.fn(),
   historicalRead: vi.fn(),
   upcomingRead: vi.fn(),
@@ -240,7 +243,11 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation", () => ({
-  Service: { List: () => Promise.resolve([]) },
+  Service: {
+    List: () => reconciliationList(),
+    LastSuccess: (id: string) => reconciliationLast(id),
+    Get: (id: string) => reconciliationGet(id),
+  },
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
@@ -296,6 +303,9 @@ beforeEach(() => {
   useRealInstrumentDetail.enabled = false;
   reviewAlerts.mockReset().mockResolvedValue({ items: [], nextCursor: "", summary: { totalGroups: 0, matchedGroups: 0, pendingGroups: 0, acknowledgedGroups: 0, ignoredGroups: 0, unknownGroups: 0, pausedGroups: 0, actionableRules: 0 }, reportRevision: "synthetic-review-v2", projectionStatus: "complete", publishedOn: "2026-10-15" });
   instrumentGroups.mockReset().mockResolvedValue([]);
+  reconciliationList.mockReset().mockResolvedValue([]);
+  reconciliationLast.mockReset().mockResolvedValue(null);
+  reconciliationGet.mockReset().mockResolvedValue(null);
   useUiStore.setState({ appearance: "system", accent: "indigo" });
   window.matchMedia =
     window.matchMedia ||
@@ -1014,4 +1024,67 @@ it("preserves filtered page two through the real instrument route and focuses bo
   await waitFor(() => expect(overviewReviewTrigger).toHaveFocus());
   expect(overviewReviewTrigger).toBeVisible();
   expect(overviewReviewTrigger.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
+});
+
+it("resets reconciliation to the global list unless the target names an account or session", async () => {
+  await i18n.changeLanguage("en");
+  const savingsAccount = {
+    ...checkingAccount,
+    account: { ...checkingAccount.account, id: "acc-2", name: "Savings" },
+    latestValue: { ...checkingAccount.latestValue, id: "v2", accountId: "acc-2" },
+  };
+  const savingsValuation = { ...checkingValuation, account: savingsAccount.account };
+  const counts = { pending: 1, confirmed: 0, skipped: 0, unresolved: 0 };
+  listAccounts.mockResolvedValue([checkingAccount, savingsAccount]);
+  accountValuations.mockResolvedValue([checkingValuation, savingsValuation]);
+  reconciliationList.mockResolvedValue([
+    { id: "open-checking", status: "in_progress", accountIds: ["acc-1"], accountNames: ["Checking"], counts },
+    { id: "open-savings", status: "in_progress", accountIds: ["acc-2"], accountNames: ["Savings"], counts },
+  ]);
+  reconciliationLast.mockResolvedValue({ id: "session-last", completedAt: "2026-10-20T10:20:00Z" });
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "View last successful record" }));
+  expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
+
+  await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+  await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
+  expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+    expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+  } finally {
+    resolveSheetConfirmation(owner);
+  }
+
+  await userEvent.click(within(nav).getByRole("button", { name: "Overview" }));
+  await screen.findByTestId("overview-net-worth");
+  await userEvent.click(await screen.findByRole("button", { name: "Reconciliation, 2 unfinished" }));
+  expect(await screen.findByText(/Checking · In progress/)).toBeVisible();
+  expect(screen.getByText(/Savings · In progress/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Open account reconciliation" }));
+  expect(await screen.findByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
+  expect(screen.queryByText(/Savings · In progress/)).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+  expect(await screen.findByTestId("account-detail")).toBeVisible();
+  await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+  expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
 });

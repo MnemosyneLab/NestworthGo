@@ -1,7 +1,7 @@
 import { useValuationDayBoundary } from "@/queries/useValuationDayBoundary";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor, RefreshCw } from "lucide-react";
 import { NAV_GROUPS, DEFAULT_PAGE_ID, targetForPage, type NavigationTarget, type PageId } from "@/app/navigation";
 import { formatTasksBadge, useTasksCounts } from "@/features/tasks/useTasksCounts";
 import { TONE_CLASSES, type Tone } from "@/lib/tone";
@@ -112,6 +112,11 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
   const toggleSidebar = narrow ? () => setNarrowExpanded((value) => !value) : toggleStoredSidebar;
   const saveSettings = useSaveSettings();
   const tasksCounts = useTasksCounts();
+  const tasksStale = (tasksCounts.upcoming.isError && Boolean(tasksCounts.upcoming.data)) || (tasksCounts.review.isError && Boolean(tasksCounts.review.data));
+  const retryStaleTasks = () => {
+    if (tasksCounts.upcoming.isError) void tasksCounts.upcoming.refetch();
+    if (tasksCounts.review.isError) void tasksCounts.review.refetch();
+  };
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [pageBarTarget, setPageBarTarget] = React.useState<HTMLDivElement | null>(null);
 
@@ -164,8 +169,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                 const taskCount = item.id === "tasks" ? tasksCounts.sidebarCount : 0;
                 const ariaLabel = taskCount > 0 ? t("tasks.sidebarLabel", { page: label, count: taskCount }) : label;
                 return (
+                  <div key={item.id} className="flex flex-col gap-1">
                   <button
-                    key={item.id}
                     type="button"
                     onClick={() => { setNarrowExpanded(false); onNavigate(targetForPage(item.id)); }}
                     aria-label={ariaLabel}
@@ -194,6 +199,15 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                       <span data-testid="tasks-sidebar-count" aria-hidden="true" className="ml-auto rounded-full bg-warning/18 px-1.5 text-xs font-semibold text-warning-foreground">{formatTasksBadge(taskCount)}</span>
                     )}
                   </button>
+                  {item.id === "tasks" && tasksStale && (
+                    <div className={cn("flex min-w-0", collapsed ? "justify-center" : "flex-col items-start gap-1 px-2")}>
+                      <p role="status" className={cn("text-xs leading-4 text-warning-foreground", collapsed && "sr-only")}>{t("tasks.summaryStale")}</p>
+                      <Button type="button" variant="outline" size="sm" className={cn(collapsed && "size-8 px-0")} aria-label={t("tasks.summaryStaleRetry", { section: label })} onClick={retryStaleTasks}>
+                        {collapsed ? <RefreshCw aria-hidden="true" className="size-3.5" /> : t("common.retryAction")}
+                      </Button>
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </div>

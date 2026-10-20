@@ -8,25 +8,39 @@ function SummaryLink({
   tab,
   pending,
   failed,
+  stale,
   label,
+  onRetry,
 }: {
   tab: TasksTab;
   pending: boolean;
   failed: boolean;
+  stale: boolean;
   label: string;
+  onRetry: () => void;
 }) {
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
   const section = t(`tasks.tabs.${tab}`);
   const text = pending ? t("ui.state.loadingPage") : failed ? t("tasks.summaryUnavailable", { section }) : label;
   return (
-    <Button
-      className="h-auto max-w-full whitespace-normal p-0 text-left"
-      variant="link"
-      onClick={() => navigation?.open({ page: "tasks", tab })}
-    >
-      {text}
-    </Button>
+    <div className="flex min-w-0 flex-col items-start gap-1">
+      <Button
+        className="h-auto max-w-full whitespace-normal p-0 text-left"
+        variant="link"
+        onClick={() => navigation?.open({ page: "tasks", tab })}
+      >
+        {text}
+      </Button>
+      {stale && (
+        <p role="status" className="flex max-w-full flex-wrap items-center gap-2 text-sm text-warning-foreground">
+          <span>{t("tasks.summaryStale")}</span>
+          <Button size="sm" variant="outline" aria-label={t("tasks.summaryStaleRetry", { section })} onClick={onRetry}>
+            {t("common.retryAction")}
+          </Button>
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -42,19 +56,25 @@ export function TasksHomeSummary({ isActive = true }: { isActive?: boolean }) {
           tab="upcoming"
           pending={counts.upcoming.isPending && !counts.upcoming.data}
           failed={counts.upcoming.isError && !counts.upcoming.data}
+          stale={counts.upcoming.isError && Boolean(counts.upcoming.data)}
           label={t("tasks.summaryUpcoming", { count: counts.attention })}
+          onRetry={() => void counts.upcoming.refetch()}
         />
         <SummaryLink
           tab="review"
           pending={counts.review.isPending && !counts.review.data}
           failed={counts.review.isError && !counts.review.data}
+          stale={counts.review.isError && Boolean(counts.review.data)}
           label={t("tasks.summaryReview", { count: counts.actionable })}
+          onRetry={() => void counts.review.refetch()}
         />
         <SummaryLink
           tab="reconciliation"
           pending={counts.sessions.isPending && !counts.sessions.data}
           failed={counts.sessions.isError && !counts.sessions.data}
+          stale={counts.sessions.isError && Boolean(counts.sessions.data)}
           label={t("tasks.summaryReconciliation", { count: counts.openSessions })}
+          onRetry={() => void counts.sessions.refetch()}
         />
       </div>
     </section>
