@@ -58,7 +58,7 @@ describe("review count plurals", () => {
     expect(i18n.t("reviewV2.windowRolling", { hits: 1, needed: 5, days: 1, unknowns: 0 })).toBe("1/5 hits in 1 day · 0 unknown");
     expect(i18n.t("reviewV2.coverageWindow", { from: "a", to: "b", hits: 1, unknowns: 1 })).toBe("a–b · 1 hit · 1 unknown day");
     expect(i18n.t("reviewV2.previewResult", { from: "a", to: "b", hits: 1, misses: 1, unknowns: 1 })).toBe("a–b: 1 hit, 1 miss, 1 unknown");
-    expect(i18n.t("reviewV2.summaryCounts", { total: 1, matched: 1, pending: 1, actionable: 1, unknown: 0 })).toBe("1 of 1 investment · 1 need attention · 1 actionable rule · 0 with missing data");
+    expect(i18n.t("reviewV2.summaryCounts", { total: 1, matched: 1, pending: 1, actionable: 1, unknown: 0 })).toBe("1 of 1 investment · 1 needs attention · 1 actionable rule · 0 with missing data");
     expect(i18n.t("reviewV2.summaryCounts", { total: 5, matched: 2, pending: 2, actionable: 3, unknown: 1 })).toBe("2 of 5 investments · 2 need attention · 3 actionable rules · 1 with missing data");
   });
 

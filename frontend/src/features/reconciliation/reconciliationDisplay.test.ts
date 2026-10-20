@@ -14,7 +14,8 @@ it("formats the ledger value and the source figure with the same currency format
   expect([checkpointValue(i18n.t, item, true), checkpointReference(i18n.t, item, true)].join(" · ")).toBe("€800.00 · €790.00");
   expect(checkpointReference(i18n.t, { ...item, referenceValue: "1234.5" }, true)).toBe("€1,234.50");
   expect(checkpointReference(i18n.t, { ...item, referenceValue: "" }, true)).toBe("");
-  expect(checkpointReference(i18n.t, { kind: "scope", referenceValue: "1" })).toBe("");
+  expect(checkpointReference(i18n.t, { kind: "scope", referenceValue: "1" })).toBe("1");
+  expect(checkpointReference(i18n.t, { kind: "scope", referenceValue: "3 holdings" }, true)).toBe("3 holdings");
 });
 
 it("keeps holding quantities exact and unit-labelled for the source figure", () => {

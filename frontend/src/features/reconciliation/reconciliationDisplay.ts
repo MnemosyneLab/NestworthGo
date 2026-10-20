@@ -22,9 +22,10 @@ export function checkpointValue(t: TFunction, item: CheckpointItem, exact = fals
   return presentCheckpointNumber(t, item, item.value, exact);
 }
 
-/** The user's source figure, shown in the same unit and currency format as the ledger value it is compared to. */
+/** Preserve free-text scope evidence; format numeric sources like the ledger value they are compared to. */
 export function checkpointReference(t: TFunction, item: CheckpointItem, exact = false): string {
-  if (item.kind === "scope" || !item.referenceValue) return "";
+  if (!item.referenceValue) return "";
+  if (item.kind === "scope") return item.referenceValue;
   return presentCheckpointNumber(t, item, item.referenceValue, exact);
 }
 

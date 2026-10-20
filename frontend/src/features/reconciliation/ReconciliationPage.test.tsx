@@ -881,6 +881,35 @@ it("shows holding quantities without quote currency in completed checkpoints, at
   expect(review).not.toHaveTextContent(/100 USD|·\s*·/);
 });
 
+it("keeps free-text scope source evidence visible in preview and saved completed history", async () => {
+  const item = q.session!.accounts![0].items![1];
+  Object.assign(item, {
+    referenceValue: "3 holdings",
+    checkedAt: "2026-09-01T12:00:00Z",
+    source: { reference: "Synthetic inventory", asOfDate: "2026-09-01" },
+    outcome: "confirmed",
+  });
+  const page = mount("session-one");
+  const article = screen.getByText(/Anything missing\? · Completeness/).closest("article")!;
+  expect(article).toHaveTextContent("Value shown by your source (optional): 3 holdings");
+  await userEvent.click(within(article).getByRole("button", { name: "Check item" }));
+  expect(screen.getByLabelText("Value shown by your source (optional)")).toHaveValue("3 holdings");
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  const review = await screen.findByRole("dialog");
+  expect(within(review).getByText("3 holdings", { selector: "p" })).toBeInTheDocument();
+  expect(review).toHaveTextContent("Synthetic inventory · 2026-09-01");
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({
+    referenceValue: "3 holdings",
+  }));
+  page.unmount();
+  q.session!.status = "completed";
+  q.session!.completedAt = "2026-09-01T13:00:00Z";
+  mount("session-one");
+  const saved = screen.getByText(/Anything missing\? · Completeness/).closest("article")!;
+  expect(saved).toHaveTextContent("Value shown by your source (optional): 3 holdings");
+  expect(saved).toHaveTextContent("Synthetic inventory · 2026-09-01");
+});
+
 it("preserves the canonical cash amount in the reviewed checkpoint", async () => {
   const item = q.session!.accounts![0].items![0];
   Object.assign(item, {
