@@ -245,3 +245,43 @@ func TestReviewFinancialFactShadowPreservesExactFX(t *testing.T) {
 		t.Fatalf("lost exact private FX scalar: %s", payload)
 	}
 }
+
+func TestReviewFinancialFactShadowSkipsNonexistentCivilDate(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "Pacific/Apia", "2011-12-29", "1")
+	r := sqlite.NewRepository(f.db).WithFullReviewRecompute()
+	f.s.repository = r
+	spec := syntheticHistoricalReviewSpec()
+	spec.Schedule.Timezone = "Pacific/Apia"
+	saveSyntheticReviewRule(t, f, "Synthetic skipped civil day", spec)
+	f.day(t, "2012-01-01")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal("baseline publication", err)
+	}
+	baseline := e1AuthoritativeRows(t, f)
+	var truth, reason string
+	var leaves int
+	if err := f.db.SQL.QueryRow(`SELECT predicate_truth,reason,json_array_length(evidence_json,'$.leaves') FROM investment_review_daily_results WHERE on_date='2011-12-30'`).Scan(&truth, &reason, &leaves); err != nil {
+		t.Fatal(err)
+	}
+	if truth != "unknown" || reason != "nonexistent_local_date" || leaves != 0 {
+		t.Fatalf("invalid baseline skipped slot: truth=%s reason=%s leaves=%d", truth, reason, leaves)
+	}
+	var facts int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM review_financial_daily_facts`).Scan(&facts); err != nil || facts != 0 {
+		t.Fatal("fixture must start with empty shadow store", facts, err)
+	}
+	f.s.repository = r.WithReviewFinancialFactShadow(128)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal("shadow publication", err)
+	}
+	if got := e1AuthoritativeRows(t, f); !reflect.DeepEqual(baseline, got) {
+		t.Fatal("shadow changed authoritative skipped-date output")
+	}
+	var skippedRefs int
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM review_result_fact_refs WHERE on_date='2011-12-30'`).Scan(&skippedRefs); err != nil || skippedRefs != 0 {
+		t.Fatal("nonexistent day received shadow refs", skippedRefs, err)
+	}
+	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM review_financial_daily_facts`).Scan(&facts); err != nil || facts != 4 {
+		t.Fatal("expected base/metric facts for only December 29 and 31", facts, err)
+	}
+}

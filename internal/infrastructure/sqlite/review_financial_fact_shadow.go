@@ -150,6 +150,11 @@ func (r *Repository) publishReviewFactShadow(ctx context.Context, tx *sql.Tx, p 
 			}
 			key, err := reviewFactKey(p, rule, day)
 			if err != nil {
+				// Baseline emits an explicit unknown slot without leaf evidence for
+				// skipped IANA dates. They have no civil cutoff to key a fact by.
+				if domain.ReviewNonexistentCivilDate(err) {
+					continue
+				}
 				return err
 			}
 			base := day.Input

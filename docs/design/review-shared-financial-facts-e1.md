@@ -13,7 +13,12 @@ copy constructor `WithReviewFinancialFactShadow(ruleDays)` admits at most 128
 emitted rule-days per successful publication (nonpositive values disable it).
 There is no production environment flag or GUI control. The first emitted
 rule-days are sampled; retained suffix days and no-change publications do not
-acquire historical refs. This is intentionally incomplete diagnostic coverage.
+acquire historical refs. Skipped IANA civil dates (for example 2011-12-30 in
+Pacific/Apia) have no civil cutoff and are omitted only from shadow sampling.
+Their authoritative unknown slot, `nonexistent_local_date` reason and empty leaf
+evidence remain unchanged; the shadow never evaluates a replacement result for
+these dates. Other key/cutoff errors still abort the publication. This is
+intentionally incomplete diagnostic coverage.
 
 Admission reserves worst-case new versions and refs for the entire sample before
 inserting anything. A sample exceeding 256 KiB of estimated encoded columns,
@@ -176,3 +181,11 @@ WebKitGTK6, GLib/GObject/GIO and libsoup development pkg-config files in this
 Linux environment. No libraries were installed for this task. The entire
 application suite, frontend checks, native Mac, race and perf suites were not run;
 normal CI remains responsible for its unchanged full check set.
+
+PR145 review follow-up: the synthetic Pacific/Apia origin 2011-12-29 / now
+2012-01-01 fixture confirms off/on publication equivalence including the skipped
+2011-12-30 unknown slot with empty leaves. Only December 29 and 31 receive shared
+facts (four base/metric rows total). The same focused E1 application command above
+passed all three tests in 0.561s after this correction; no broad suite or race was
+repeated. Sampling skips only errors recognized by the existing domain
+`ReviewNonexistentCivilDate` classifier.
