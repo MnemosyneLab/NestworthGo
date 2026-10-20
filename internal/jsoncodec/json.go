@@ -15,25 +15,32 @@ var _ [sonic.APIKind - sonic.UseSonicJSON]struct{}
 
 var standard = sonic.ConfigStd
 
-// Match the pinned ConfigStd options, adding exact field-name matching for the
-// MCP envelope guard that previously used Segmentio's
-// DontMatchCaseInsensitiveStructFields. Duplicate keys/null handling and stream
-// error details still require compatibility verification.
-var caseSensitive = sonic.Config{
+// Match the pinned ConfigStd options for per-stream UseNumber, unknown-field
+// and exact-case settings. The latter replaces Segmentio's
+// DontMatchCaseInsensitiveStructFields on the MCP envelope guard.
+var standardOptions = sonic.Config{
 	EscapeHTML:       true,
 	SortMapKeys:      true,
 	CompactMarshaler: true,
 	CopyString:       true,
 	ValidateString:   true,
-	CaseSensitive:    true,
-}.Froze()
+}
 
 func Marshal(v any) ([]byte, error) { return standard.Marshal(v) }
 func MarshalIndent(v any, prefix, indent string) ([]byte, error) {
 	return standard.MarshalIndent(v, prefix, indent)
 }
-func Unmarshal(data []byte, v any) error                { return standard.Unmarshal(data, v) }
-func Valid(data []byte) bool                            { return standard.Valid(data) }
+func Unmarshal(data []byte, v any) error { return standard.Unmarshal(data, v) }
+
+// ConfigStd.Valid delegates to Sonic's fast validator, which accepts raw
+// control characters in strings. Decode with UseNumber to validate strictly
+// without rejecting syntactically valid numbers outside float64's range.
+func Valid(data []byte) bool {
+	options := standardOptions
+	options.UseNumber = true
+	var value any
+	return options.Froze().Unmarshal(data, &value) == nil
+}
 func NewEncoder(w io.Writer) sonic.Encoder              { return standard.NewEncoder(w) }
-func NewDecoder(r io.Reader) sonic.Decoder              { return standard.NewDecoder(r) }
-func NewCaseSensitiveDecoder(r io.Reader) sonic.Decoder { return caseSensitive.NewDecoder(r) }
+func NewDecoder(r io.Reader) sonic.Decoder              { return newStreamDecoder(r, false) }
+func NewCaseSensitiveDecoder(r io.Reader) sonic.Decoder { return newStreamDecoder(r, true) }

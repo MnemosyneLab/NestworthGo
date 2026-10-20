@@ -250,10 +250,13 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 	if len(b) > readCaptureLimit {
 		return ReadEnvelope{}, fail("too_large", "capture exceeds read budget; narrow query")
 	}
-	// Own immutable bytes rather than the caller's mutable slices/maps.
-	if err := decodeReadValue(b, &e); err != nil {
+	// Decode into a fresh capture: Sonic may reuse map values and their slice
+	// storage when decoding into e, which would retain caller-owned aliases.
+	var frozen readCapture
+	if err := decodeReadValue(b, &frozen); err != nil {
 		return ReadEnvelope{}, err
 	}
+	e = frozen
 	h := sha256.Sum256(b)
 	e.hash = hex.EncodeToString(h[:])
 	summary, _ := jsoncodec.Marshal(e.Summary)
