@@ -230,12 +230,11 @@ persistence/provider boundary in [Data and Application Contracts](../architectur
 
 ## 8. Acceptance boundary
 
-Provider history, capability declarations, bounded requests, batch validation,
-atomic append-only writes, and rate-limit handling are implemented. The release
-records still mark live HTTP checks and native desktop acceptance as `NOT RUN`;
-those gates do not change the documented implementation status. Any follow-up
-work should record new acceptance evidence there and preserve the explicit,
-local-first quote and valuation contracts.
+The remaining acceptance gates are live HTTP checks and native desktop
+acceptance, which the v0.3.2/v0.3.3 release records mark `NOT RUN`. Those
+historical release gates do not change the documented implementation status.
+Record any new evidence in the applicable release record; preserve the
+explicit, local-first quote and valuation contracts.
 
 
 ## Holding detail daily performance
