@@ -1,45 +1,14 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, CircleAlert, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
+import { Notice } from "@/components/ui/notice";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ReconciliationSession } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 
-type NoticeTone = "info" | "warning" | "danger";
-
-const noticeStyle: Record<NoticeTone, string> = {
-  info: "border-border bg-muted/50 text-muted-foreground",
-  warning: "border-warning/40 bg-warning/10 text-warning-foreground",
-  danger: "border-destructive/30 bg-destructive/5 text-destructive",
-};
-const noticeIcon = { info: Info, warning: AlertTriangle, danger: CircleAlert } as const;
-
-/** Inline message block. Pass `role` when the text must be announced (status/alert). */
-export function Notice({
-  tone = "info",
-  role,
-  children,
-  className,
-}: {
-  tone?: NoticeTone;
-  role?: "status" | "alert";
-  children: ReactNode;
-  className?: string;
-}) {
-  const Icon = noticeIcon[tone];
-  return (
-    <div
-      role={role}
-      className={cn("flex items-start gap-2 rounded-xl border px-3 py-2 text-sm leading-6", noticeStyle[tone], className)}
-    >
-      <Icon className="mt-1 size-4 shrink-0" aria-hidden="true" />
-      <div className="min-w-0 flex-1 break-words">{children}</div>
-    </div>
-  );
-}
-
 type BadgeVariant = "default" | "secondary" | "success" | "warning" | "outline";
+
+export { Notice };
 
 export function sessionStatusVariant(status: string): BadgeVariant {
   if (status === "completed") return "success";
