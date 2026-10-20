@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"sync"
 )
 
 // ReviewHistoricalFingerprint covers the complete consistent financial read:
@@ -42,6 +43,23 @@ type reviewFingerprintAmount interface {
 var reviewFingerprintAmountType = reflect.TypeFor[reviewFingerprintAmount]()
 var reviewFingerprintCanonicalType = reflect.TypeFor[reviewFingerprintCanonical]()
 
+// Only immutable Go type metadata is memoized. Callers traverse the fixed
+// HistoricalBatch/Suffix schema; no ledger values, IDs or dates are retained.
+var reviewFingerprintScalarTypes sync.Map // reflect.Type -> uint8 (amount=1, canonical=2)
+func reviewFingerprintScalarKind(t reflect.Type) uint8 {
+	if cached, ok := reviewFingerprintScalarTypes.Load(t); ok {
+		return cached.(uint8)
+	}
+	var kind uint8
+	if t.Implements(reviewFingerprintAmountType) {
+		kind = 1
+	} else if t.Implements(reviewFingerprintCanonicalType) {
+		kind = 2
+	}
+	cached, _ := reviewFingerprintScalarTypes.LoadOrStore(t, kind)
+	return cached.(uint8)
+}
+
 func writeReviewFingerprintScalars(digest hash.Hash, value reflect.Value) error {
 	if !value.IsValid() {
 		return nil
@@ -55,12 +73,13 @@ func writeReviewFingerprintScalars(digest hash.Hash, value reflect.Value) error 
 	if value.CanInterface() {
 		// Check the immutable type before boxing: most nested values are not
 		// financial scalars. Interface() on each addressable struct copies it.
-		if value.Type().Implements(reviewFingerprintAmountType) {
+		kind := reviewFingerprintScalarKind(value.Type())
+		if kind == 1 {
 			amount := value.Interface().(reviewFingerprintAmount)
 			writeReviewFingerprintScalar(digest, "amount:"+amount.Currency().String(), amount.CanonicalAmount())
 			return nil
 		}
-		if value.Type().Implements(reviewFingerprintCanonicalType) {
+		if kind == 2 {
 			canonical := value.Interface().(reviewFingerprintCanonical)
 			writeReviewFingerprintScalar(digest, value.Type().String(), canonical.Canonical())
 			return nil

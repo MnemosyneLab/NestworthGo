@@ -228,7 +228,7 @@ func writeReviewSuffixJSON(digest hash.Hash, suffix *ReviewSuffixCapture) error 
 		return write(suffix)
 	}
 	io.WriteString(digest, `{"Plan":`)
-	if err := write(suffix.Plan); err != nil {
+	if err := write(&suffix.Plan); err != nil {
 		return err
 	}
 	io.WriteString(digest, `,"Prefix":`)

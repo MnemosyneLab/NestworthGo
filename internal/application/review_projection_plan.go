@@ -75,7 +75,11 @@ func planReviewRuleInstrument(ctx context.Context, capture domain.ReviewProjecti
 		}
 		on := day.Format(time.DateOnly)
 		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: timezoneVersion, On: on}
-		cached, reuse := cache.suffixEvidence[key]
+		prefixIndex, reuse := cache.suffixEvidence[key]
+		var cached domain.ReviewReusableDailyEvidence
+		if reuse {
+			cached = cache.capture.Suffix.Prefix[prefixIndex].Evidence
+		}
 		input, coverage, daily, fingerprint := cached.Input, ReviewHistoricalCoverage{On: on, Missing: cached.CoverageMissing}, cached.Result, cached.InputFingerprint
 		if !reuse {
 			input, coverage, daily, err = evaluateReviewHistoricalDateCached(ctx, cache, rule, spec, instrumentID, on)
