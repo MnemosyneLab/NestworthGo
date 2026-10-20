@@ -23,6 +23,10 @@ type AnalysisInputs struct {
 
 type analysisUniverse struct {
 	displayEvidence         snapshotDisplayEvidence
+	activityPresence        map[componentActivityKey]bool
+	activityChecked         map[componentActivityKey]bool
+	stampedQuotes           map[stampedInstrumentQuoteKey]*domain.InstrumentQuote
+	stampedFXQuotes         map[string]*domain.FXQuote
 	context                 domain.ResolvedAnalysisContext
 	accounts                map[domain.AccountID]domain.Account
 	ownership               map[domain.AccountID]domain.Ownership
