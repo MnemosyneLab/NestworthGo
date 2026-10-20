@@ -19,7 +19,7 @@ import {
   sessionStatusVariant,
 } from "./ReconciliationParts";
 import { cn } from "@/lib/utils";
-import { checkpointValue, sourceText } from "./reconciliationDisplay";
+import { checkpointReference, checkpointValue, sourceText } from "./reconciliationDisplay";
 import { FieldError } from "@/components/ui/field-error";
 import { ProductPreview as ProductOperationReview } from "@/features/liquidity/ProductPreview";
 import {
@@ -294,9 +294,9 @@ export function ReconciliationPage({
               {!activeAccounts.length && (
                 <EmptyState title={t("reconciliation.noAccounts")} />
               )}
-              <Card>
-                <fieldset className="flex min-w-0 flex-col gap-4 p-5">
-                  <legend className="mb-1 px-0 text-base font-semibold">
+              <Card className="p-5">
+                <fieldset className="flex min-w-0 flex-col gap-4">
+                  <legend className="mb-4 p-0 text-base font-semibold">
                     {t("reconciliation.selectAccounts")}
                   </legend>
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -666,7 +666,7 @@ export function ReconciliationPage({
                                       )}
                                     >
                                       {t("reconciliation.referenceValue")}:{" "}
-                                      {item.referenceValue}
+                                      {checkpointReference(t, item)}
                                     </p>
                                   )}
                                   {sourceDiffers && (
@@ -1570,7 +1570,7 @@ function CommitReview({
                     · {t(`reconciliation.${item.outcome}`)}
                   </p>
                   <p className="num break-words">
-                    {[checkpointValue(t, item, true), item.referenceValue]
+                    {[checkpointValue(t, item, true), checkpointReference(t, item, true)]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>

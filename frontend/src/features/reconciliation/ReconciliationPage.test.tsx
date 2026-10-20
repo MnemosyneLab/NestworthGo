@@ -219,6 +219,13 @@ it("keeps archived reconciliation records readable without offering an invalid s
 function mountWithArchivedAccount() {
   return render(<QueryClientProvider client={createTestQueryClient()}><ReconciliationPage accountId="one" /></QueryClientProvider>);
 }
+it("pads the account chooser card like the other cards instead of padding the fieldset under its legend", () => {
+  mount();
+  const legend = screen.getByText("Select accounts to check", { selector: "legend" });
+  const fieldset = legend.closest("fieldset")!;
+  expect(fieldset.className).not.toMatch(/(^|\s)p[xyt]?-\d/);
+  expect(fieldset.parentElement).toHaveClass("p-5");
+});
 it("previews a selected subset and commits before entering the pending session", async () => {
   mount();
   const boxes = screen.getAllByRole("checkbox");
@@ -889,7 +896,7 @@ it("preserves the canonical cash amount in the reviewed checkpoint", async () =>
   );
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(
-    await screen.findByText("100.001 USD", { selector: "p" }),
+    await screen.findByText("$100.00 (100.001 USD)", { selector: "p" }),
   ).toBeInTheDocument();
 });
 
