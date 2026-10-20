@@ -62,6 +62,7 @@ function App() {
   const nextHoldingDraftRequest = useRef(0);
   const [instrumentDetail, setInstrumentDetail] = useState<InstrumentDetailContext>();
   const [reconciliationRequestId, setReconciliationRequestId] = useState(0);
+  const nextReconciliationRequestId = useRef(0);
   const [reconciliationFocus, setReconciliationFocus] = useState<ReconciliationNavigationFocus>({});
   const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
   const [historyActivityId, setHistoryActivityId] = useState<string>();
@@ -85,7 +86,7 @@ function App() {
   const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
   const [liquidityRequestId, setLiquidityRequestId] = useState(0);
   const nextLiquidityRequestId = useRef(0);
-  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; tasksTab: TasksTab | null; reconciliationFocus: ReconciliationNavigationFocus; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
+  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; tasksTab: TasksTab | null; reconciliationRequestId: number; reconciliationFocus: ReconciliationNavigationFocus; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
   const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
@@ -154,7 +155,7 @@ function App() {
       const nextTab = resolveTasksTab({ explicit: navigation.tab, previous: tasksTab, attention: cached.attention, actionable: cached.actionable });
       setTasksTab(nextTab);
       setReconciliationFocus(reconciliationFocusFromTarget(navigation));
-      setReconciliationRequestId(previous => previous + 1);
+      setReconciliationRequestId(++nextReconciliationRequestId.current);
     }
     if (navigation.page === "historical-overview") { setHistoricalDate(navigation.date); setHistoricalContext(navigation.historical); setHistoricalRequest(previous => previous + 1); }
     // Top-level Accounts navigation always returns to the list. Opening a
@@ -203,7 +204,7 @@ function App() {
     if (hasUnresolvedSheetConfirmation()) return;
     if (target.page === "available-funds" && target.page === activePageId) { handleNavigate(target, true); return; }
     setReturnToHoldingsAfterCreate(target.page === "accounts" && target.create === true && activePageId === "portfolio");
-    setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, tasksTab, reconciliationFocus, instrumentDetail,
+    setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, tasksTab, reconciliationRequestId, reconciliationFocus, instrumentDetail,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
       marketFocusRequestId, marketSearchQuery, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyActivityId, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
     handleNavigate(target, true);
@@ -229,7 +230,7 @@ function App() {
     setHealthFocus(previous.health); setMarketFocus(previous.market);
     setMarketFocusRequestId(previous.marketFocusRequestId);
     setMarketSearchQuery(marketSearchByRequest.current.get(previous.marketFocusRequestId) ?? previous.marketSearchQuery);
-    setPortfolioView(previous.portfolioView); setTasksTab(previous.tasksTab); setReconciliationFocus(previous.reconciliationFocus); setInstrumentDetail(previous.instrumentDetail);
+    setPortfolioView(previous.portfolioView); setTasksTab(previous.tasksTab); setReconciliationFocus(previous.reconciliationFocus); setReconciliationRequestId(previous.reconciliationRequestId); setInstrumentDetail(previous.instrumentDetail);
     setLiquidityProductId(previous.liquidityProduct); setLiquidityAccountId(previous.liquidityAccount); setLiquidityFocus(previous.liquidityFocus); setLiquidityRequestId(previous.liquidityRequest ?? 0);
     setActivePageId(previous.page); setTrail(trail.slice(0, -1));
   };
@@ -240,6 +241,13 @@ function App() {
     setHoldingDraftRequest({ requestId: ++nextHoldingDraftRequest.current, accountId });
     return true;
   };
+  // Keep only reconciliation entries that Back can still reach. Distinct
+  // entries own their local session/filter/draft; Back never resets them.
+  const reconciliationEntries = new Map<number, ReconciliationNavigationFocus>();
+  for (const entry of trail) {
+    if (entry.page === "tasks") reconciliationEntries.set(entry.reconciliationRequestId, entry.reconciliationFocus);
+  }
+  reconciliationEntries.set(reconciliationRequestId, reconciliationFocus);
   const retained = (page: PageId) => activePageId === page || (activePageId !== "historical-overview" && trail.some(entry => entry.page === page));
   return (
     <NavigationContext.Provider value={{ open, openHealth }}>
@@ -271,7 +279,7 @@ function App() {
         </WorkspaceLazy>
         </div>
       )}
-      {retained("tasks") && <div hidden={activePageId !== "tasks"}><WorkspaceLazy><TasksPage isActive={activePageId === "tasks"} tab={tasksTab ?? "upcoming"} onTabChange={setTasksTab} accountId={reconciliationFocus.accountId} sessionId={reconciliationFocus.sessionId} navigationRequestId={reconciliationRequestId} /></WorkspaceLazy></div>}
+      {retained("tasks") && <div hidden={activePageId !== "tasks"}><WorkspaceLazy><TasksPage isActive={activePageId === "tasks"} tab={tasksTab ?? "upcoming"} onTabChange={setTasksTab} accountId={reconciliationFocus.accountId} sessionId={reconciliationFocus.sessionId} navigationRequestId={reconciliationRequestId} reconciliationEntries={Array.from(reconciliationEntries, ([navigationRequestId, focus]) => ({ ...focus, navigationRequestId }))} /></WorkspaceLazy></div>}
       {retained("portfolio") && (
         <div hidden={activePageId !== "portfolio"}>
         <WorkspaceLazy>

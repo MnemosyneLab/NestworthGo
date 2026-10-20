@@ -45,8 +45,14 @@ selected sessions, filters and editable drafts through tab switches and a
 retained source's Back navigation. Explicit Tasks entries apply a new navigation
 request: global entries open the unfiltered session list (including when Tasks
 is already active), while account/session targets apply their requested scope.
-These requests reset reconciliation state without remounting its workspace;
-unresolved confirmations continue to block navigation. Typed liquidity targets reuse
+These requests create a fresh reconciliation entry; unresolved confirmations
+continue to block navigation. Each reconciliation
+entry retained in the navigation trail owns a distinct mounted workspace. Back
+restores that entry's identity, including locally selected sessions, filters and
+drafts, even after opening reconciliation for another account along the trail.
+Entries are released as soon as neither the current navigation nor a Tasks source
+in the trail references them; explicit global navigation starts a fresh entry.
+Typed liquidity targets reuse
 product/policy/reservation sheets; an explicit request ID allows close/reopen
 without refetch reopening. Data checks on the upcoming tab open Data Health
 and do not replace the full Data Health scan. Native focus acceptance remains

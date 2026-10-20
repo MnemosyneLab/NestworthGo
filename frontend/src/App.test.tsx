@@ -247,6 +247,8 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconcil
     List: () => reconciliationList(),
     LastSuccess: (id: string) => reconciliationLast(id),
     Get: (id: string) => reconciliationGet(id),
+    Links: () => Promise.resolve([]),
+    Changes: () => Promise.resolve([]),
   },
 }));
 
@@ -1132,4 +1134,72 @@ it("opens an unfiltered global reconciliation list when Tasks is reselected on T
   expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
   expect(screen.getByLabelText(i18n.t("reconciliation.history"))).toHaveValue("");
   expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+});
+
+it.each([false, true])("restores the original reconciliation entry after a nested account reconciliation (local session: %s)", async (continueSession) => {
+  await i18n.changeLanguage("en");
+  const savings = { ...checkingAccount, account: { ...checkingAccount.account, id: "acc-2", name: "Savings" }, latestValue: { ...checkingAccount.latestValue, accountId: "acc-2" } };
+  listAccounts.mockResolvedValue([checkingAccount, savings]);
+  accountValuations.mockResolvedValue([checkingValuation, { ...checkingValuation, account: savings.account }]);
+  const counts = { pending: 0, confirmed: 0, skipped: 0, unresolved: 0 };
+  reconciliationList.mockResolvedValue([
+    { id: "session-a", status: "in_progress", accountIds: ["acc-1"], accountNames: ["Checking"], counts },
+    { id: "session-b", status: "in_progress", accountIds: ["acc-2"], accountNames: ["Savings"], counts },
+  ]);
+  reconciliationGet.mockImplementation((id: string) => Promise.resolve({ id, householdId: "synthetic", status: "in_progress", revision: 1, startedAt: "2026-10-20T10:00:00Z", note: `Synthetic session ${id}`, closingNote: "", partial: false, accounts: [], counts }));
+  scanHealth.mockResolvedValue({ healthy: false, issueCount: 1, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [
+    { id: "savings-value", kind: "manual_value_missing", severity: "warning", accountId: "acc-2", label: "Savings", action: "none", executable: false },
+  ] });
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Open account reconciliation" }));
+  await userEvent.selectOptions(await screen.findByLabelText(i18n.t("reconciliation.history")), "paused");
+  if (continueSession) {
+    await userEvent.click(screen.getByRole("button", { name: "Continue session" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Finish session" }));
+    await userEvent.type(screen.getByLabelText("Closing explanation"), "Synthetic A draft");
+    await userEvent.keyboard("{Escape}");
+  }
+  await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+  await userEvent.click(await screen.findByRole("button", { name: "View gap" }));
+  await screen.findByRole("dialog");
+  await userEvent.keyboard("{Escape}");
+  expect(await screen.findByTestId("account-detail")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Open account reconciliation" }));
+  expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).not.toBeChecked();
+  const nestedFilter = screen.getByRole("combobox", { name: i18n.t("reconciliation.history") });
+  expect(nestedFilter).toHaveValue("");
+  await userEvent.selectOptions(nestedFilter, "completed");
+  await userEvent.click(screen.getByRole("button", { name: "Continue session" }));
+  expect(await screen.findByText(/Synthetic session session-b/)).toBeVisible();
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+    expect(screen.getByText(/Synthetic session session-b/)).toBeVisible();
+  } finally {
+    resolveSheetConfirmation(owner);
+  }
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+  // The nested entry is unreachable after Back and must release its workspace.
+  expect(screen.queryByText(/Synthetic session session-b/)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Data Health" }));
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Tasks & checks" }));
+  await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
+  if (continueSession) {
+    expect(await screen.findByText(/Synthetic session session-a/)).toBeVisible();
+    expect(screen.queryByText(/Synthetic session session-b/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
+    expect(screen.getByLabelText("Closing explanation")).toHaveValue("Synthetic A draft");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "Back to session list" }));
+  }
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
+  expect(screen.getByLabelText(i18n.t("reconciliation.history"))).toHaveValue("paused");
 });

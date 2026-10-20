@@ -34,6 +34,7 @@ import { ProductFormSheet } from "@/features/liquidity/ProductFormSheet";
 import { ProductCorrection } from "./ProductCorrection";
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
@@ -153,6 +154,7 @@ export function ReconciliationPage({
   const { t } = useTranslation();
   const client = useQueryClient();
   const formatTimestamp = useReconciliationTimestamp();
+  const filterId = useId();
   const accounts = useAccounts();
   const sessions = useReconciliationSessions(accountId, isActive);
   const [selected, setSelected] = useState<string[] | null>(
@@ -390,13 +392,13 @@ export function ReconciliationPage({
               <section className="flex min-w-0 flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <Label
-                    htmlFor="reconciliation-filter"
+                    htmlFor={filterId}
                     className="text-base font-semibold"
                   >
                     {t("reconciliation.history")}
                   </Label>
                   <NativeSelect
-                    id="reconciliation-filter"
+                    id={filterId}
                     className="w-full sm:w-52"
                     value={filter}
                     onChange={(e) => {
