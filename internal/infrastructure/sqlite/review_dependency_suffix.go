@@ -88,14 +88,12 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	unchanged := old == current && c.HistoricalFingerprint == c.Control.PublishedFingerprint
 	invariant := p.SuffixNonQuoteFingerprint
 	seals := p.SuffixQuoteSeals
+	fx := proof.FXDescription
 	var err error
 	if !unchanged {
 		invariant, err = domain.ReviewNonQuoteFingerprint(c.Historical)
 		if err != nil {
 			return err
-		}
-		if invariant != p.SuffixNonQuoteFingerprint {
-			return nil
 		}
 	}
 	changes, err := readReviewSuffixChanges(ctx, tx, c.HouseholdID, old.Revision, current.Revision)
@@ -105,7 +103,14 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	if int64(len(changes)) != current.Revision-old.Revision {
 		return nil
 	}
-	plan := domain.PlanReviewInvalidation(changes, c.Rules)
+	var plan domain.ReviewInvalidationPlan
+	if invariant != p.SuffixNonQuoteFingerprint {
+		// FX is the only family allowed to change this invariant. Its separate
+		// complete description retains instrument quotes and all non-FX inputs.
+		plan = domain.PlanReviewFXInvalidation(changes, p.SuffixFX, fx, *c)
+	} else {
+		plan = domain.PlanReviewInvalidation(changes, c.Rules)
+	}
 	if plan.Full {
 		return nil
 	}
@@ -309,6 +314,20 @@ func readReviewSuffixChanges(ctx context.Context, tx *sql.Tx, id domain.Househol
 			}{{old, &c.Old}, {new, &c.New}} {
 				if v.raw.Valid {
 					var scope domain.ReviewQuoteDependency
+					if jsoncodec.Unmarshal([]byte(v.raw.String), &scope) != nil {
+						return nil, nil
+					}
+					*v.target = &scope
+				}
+			}
+		}
+		if c.Table == "fx_quotes" {
+			for _, v := range []struct {
+				raw    sql.NullString
+				target **domain.ReviewFXDependency
+			}{{old, &c.OldFX}, {new, &c.NewFX}} {
+				if v.raw.Valid {
+					var scope domain.ReviewFXDependency
 					if jsoncodec.Unmarshal([]byte(v.raw.String), &scope) != nil {
 						return nil, nil
 					}

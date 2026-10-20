@@ -1,99 +1,128 @@
-# D-FX candidate coverage boundary (2026-10-20)
+# D-FX direct reference suffix proof (2026-10-20)
 
-Baseline: `9c21b2de808430e7837dfccecf8edbb30fbb0113` (verified against
-`origin/main`). This slice adds synthetic regression evidence only. Runtime
-behavior, schema, source authentication and dispatch remain unchanged. No FX
-mutation becomes eligible for suffix reuse and no speedup is claimed.
+Baseline: `9c21b2de808430e7837dfccecf8edbb30fbb0113`, verified against
+`origin/main` before this independent branch. This D-only extension uses the
+existing suffix dispatcher, certificate JSON, source journal and daily layout.
+There is no schema migration, new codec, persistent raw-rate store or H1 change.
 
-## Evidence and blocker
+## Eligible scope
 
-C1 records FX OLD/NEW scopes, but `readReviewSuffixChanges` decodes only
-instrument quote scopes into `ReviewQuoteDependency`. `PlanReviewInvalidation`
-rejects FX dependencies. Independently, `ReviewNonQuoteFingerprint` retains FX
-in the complete historical batch. `captureReviewSuffix` requires that signed
-fingerprint to match before it even plans quote invalidation. These are separate
-fail-closed boundaries, not redundant checks to remove.
+Changed FX may reuse a financial daily prefix only when the complete OLD and
+NEW captured inventories contain one existing direct base/comparison currency
+pair of agent `daily_reference` candidates with valid civil effective dates,
+nonzero value-effective timestamps, and nonempty source-policy/timestamp-basis
+metadata. Every candidate has the same source key, source-policy version and
+timestamp basis; those values must remain unchanged. Portfolio FX inputs must
+be an exact subset of the complete historical candidate inventory. All captured
+instruments use one of the pair's currencies; every currency-bearing rule leaf
+names the comparison currency. Identity conversion is harmless. Inverse/cross
+routing, manual/timestamped and provider-quality branches are outside v1.
 
-The authenticated temporal certificate has complete instrument/date quote bucket
-seals but no equivalent complete FX candidate description. A selected FX rate in
-a daily prefix proves the selected input's integrity, not the absence or contents
-of competing candidates. Journal pair/date metadata cannot supply that proof.
-An FX planner case or removal of FX from the non-quote fingerprint would therefore
-leave an unauthenticated dependency gap. This bounded slice stops before runtime
-enablement rather than weakening either boundary.
+Eligible journal operations are insert, deletion, and correction of only the
+rate/revision of an existing ID. An update cannot change any admission/selection
+metadata, pair or date. Only one mutation of each ID may occur between captures;
+intermediate states otherwise require a separate proof. Deleting the last
+candidate, an empty inventory, mixed dependency families and missing or malformed
+coverage use full preparation. Generation-only history-state updates may
+accompany FX writes after the independent invariant agrees.
 
-## Proposed eligibility for a later implementation
+Provider preferences, provider lease, rule versions, accounts/activities,
+ownership, financial policy, timezone/cutoff/calendar, and every other non-FX
+captured input must be unchanged. The non-FX invariant retains instrument quotes,
+so a combined instrument-quote/FX mutation cannot pass. Full-source equality is
+still authoritative; this is no substitution of a narrow token for capture.
 
-The first candidate should permit only one existing direct base/comparison pair,
-with explicit valid civil `effective_date` and `daily_reference` observations,
-using the existing authoritative selector and admission policy. Provider keys,
-preferences, rules and data policy, accounts, activities, ownership, timezone,
-cutoff/calendar and all other captured non-FX inputs must remain exactly unchanged.
-No inverse/cross route, timestamp-derived economic date, pair/date movement,
-selection-policy change, mixed dependency family or incomplete capture is eligible.
-Missing candidate coverage and unrecognized metadata must use full preparation.
-This is a proposed proof boundary, not a currently enabled policy.
+## Complete candidate and date proof
 
-Before eligibility can be enabled, a same-handle authentic full publication must
-bind a canonical complete FX candidate inventory from **both** captured FX fact
-locations (historical facts and portfolio inputs), including private exact rate
-scalars and every captured selection/eligibility field. Compare the complete OLD
-and NEW inventories, including deletions and previously unselected candidates;
-prove all differences covered independently of the journal. Do not manufacture
-this authority from a current checksum after restart, legacy load or restore.
-Candidate selection/routing must be proven stable under that comparison, otherwise
-fall back. A conservative frontier may invalidate every rule/instrument from the
-earliest changed effective date through latest closed day, with no early stop.
+`DescribeReviewFX` separately versions a non-FX invariant (only both FX arrays
+and non-economic input generation are excluded) and a complete location/pair/date
+bucket inventory. Each bucket contains candidates ordered by ID. Each candidate
+fingerprint covers **every** captured FX field and exact private rate scalars
+through the existing historical fingerprint codec. A second fingerprint excludes
+only rate/revision, making admission/selection metadata changes ineligible.
 
-Any extension must bind its descriptions and plan through the existing capture
-MAC and final prefix MAC, retain complete row sealing, source/physical-connection
-CAS, provider lease and injected-clock fences, and replay policy/lifecycle from
-origin. It must preserve exact decimals, unknown slots, frozen evidence and
-acknowledgement association. A full-oracle shadow must exercise the proposed
-planner before it supplies reuse authority. That shadow/planner is not implemented
-here; the tests compare current fallback with an independent full oracle.
+The descriptions are generated in the coherent source-capture transaction and
+bound by its existing source MAC, including full captures that cannot reuse a
+prefix. A normal authentic full publication carries that captured description
+into the existing certificate MAC. Publication never derives new FX authority
+from caller-modified historical fields. Exact unchanged-source captures may reuse
+the prior authentic deterministic description. Legacy/missing/incompatible
+FX descriptions cannot authorize changed-FX reuse; restart/restore/key loss never
+acquire historical authority from a newly calculated checksum.
 
-## Synthetic regression coverage
+The planner compares the union of complete OLD/NEW historical candidates, not
+only selected rates. Every changed candidate requires exact journal ID, pair and
+OLD/NEW civil-date coverage against those independently captured inventories.
+Insert/delete absence and update scope equality are checked. Missing journal
+coverage, forged dates and hidden date/pair moves fail closed. Both complete
+portfolio inventories are checked against their corresponding historical
+inventories, including exact payload and selection fingerprints. Their latest
+view membership may change only among those exact historical candidates:
+review's historical reconstruction and `portfolioForDay` replace current
+portfolio FX with complete historical facts. Thus deleting a selected latest
+candidate can expose an older unchanged portfolio candidate without incorrectly
+moving the historical dirty date back to that older candidate's date.
 
-`TestReviewDependencyFXMutationFullOracle` uses a USD holding, CNY comparison,
-agent direct daily-reference candidates with unchanged manual preference, and an acknowledged episode. Each case
-first proves an actual unchanged-source suffix hit containing selected FX. It
-then changes exactly one FX candidate (plus an instrument quote in the mixed
-case), requires no suffix, and checks the existing complete non-quote fingerprint
-changed. Cases: insert, exact historical rate correction, deletion, effective-date
-movement, inverse pair, cross pair, mixed quote/FX and an unselected provider
-candidate. The last case explicitly rejects a fixture that selected the losing
-provider candidate in any reused day.
+Agent reference selection admits candidates only on/after their effective date;
+all competing candidates, including missing/deleted/unselected alternatives, are
+in the authenticated historical inventory. Under the stable direct-pair policy,
+no candidate change can affect an earlier civil date. The planner invalidates
+**every known rule/instrument**, including explicit/evaluated/open-episode targets,
+from the earliest affected OLD/NEW date through latest closed day. There is no
+early stop. Existing complete prefix validation, final prefix digest/MAC, row
+sealing, source/control/checkpoint CAS, physical connection counters, provider
+lease and final injected-clock fences remain in force. Policy and lifecycle
+replay still starts at origin with all three-valued votes and handling history.
 
-`assertSuffixOracle` compares preparation with the full pipeline oracle, publishes
-both the candidate and a separate synthetic `VACUUM INTO` copy using
-`WithFullReviewRecompute`, and compares durable rows including daily financial
-and predicate evidence, episodes, events, handling and daily timestamps. Existing
-identities remain exact; only newly allocated independent UUIDs map through their
-complete semantic keys. No financial/lifecycle fields are excluded for this test.
+## Synthetic oracle evidence
 
-## Validation and limits
+`TestReviewDependencyFXMutationFullOracle` uses one USD holding, a CNY cost
+predicate, valid agent reference candidates, stable manual preference and an
+acknowledged episode. Every case first proves unchanged-source suffix reuse with
+selected FX. Eligible changed-source cases additionally require a nonempty
+prefix, `direct_fx_suffix`, fewer computed days, and changed **admitted financial
+FX evidence**:
 
-On Linux with an isolated Go 1.26.1 toolchain/cache under `/tmp`, these passed:
+| Mutation | Reused days | Recomputed days / full days | Admitted rate change |
+| --- | --- | --- | --- |
+| Historical insert on Oct 6 | 5 | 6 / 11 | 1 → 3.123456789123 |
+| Correction on Oct 8 | 7 | 4 / 11 | 2 → 3.123456789123 |
+| Selected-candidate deletion on Oct 8 | 7 | 4 / 11 | 2 → 1 |
 
-```sh
-go test ./internal/application -run '^TestReviewDependency(FXMutationFullOracle|SuffixExactFXPrefix|SuffixAuthorityAndRollback|SuffixFullDurableOracle)$' -count=1
-go test ./internal/domain ./internal/infrastructure/sqlite -run 'Test(PlanReviewInvalidationOldNewAndFallback|ReviewSuffixFingerprintIncludesPrivateFXScalar|ReviewFXEconomicDateBranches|ReviewFXReferenceAgesAndReciprocal|ReviewSuffix)' -count=1
-go vet ./internal/application ./internal/domain ./internal/infrastructure/sqlite
-gofmt -l cmd internal
-git diff --check
-```
+The same matrix requires full fallback for date movement, inverse/cross pairs,
+mixed instrument/FX changes, an unselected provider candidate, forged journal
+dates, a tampered persisted candidate seal, preference changes, selection metadata
+changes and reopen. Domain tests independently cover canonical ID ordering, exact
+private rate changes, both captured locations, omitted facts, duplicates,
+unsupported observations/pairs, incomplete or legacy descriptions and unexplained
+source differences. A final-clock mutation of the captured FX description must
+reject atomically through the existing source-MAC guard.
 
-The application group passed in 8.671s; domain/SQLite in 0.071s/0.083s.
-The new eight-case matrix also passed alone in 2.836s before adding the explicit
-selected-candidate-ID assertion verified in the final application group. An
-initial invalid manual/daily-reference fixture failed its required episode
-assertion; it was corrected to valid agent candidates without removing assertions.
-Full-suite, desktop build and native gates were not run for this evidence-only
-change; focused checks follow the task's light validation budget.
+`assertSuffixOracle` compares preparation against the full pipeline oracle and
+publishes a separate synthetic `VACUUM INTO` copy with `WithFullReviewRecompute`.
+Durable comparisons cover daily financial/predicate evidence, episodes, events,
+handling and identities. Existing identities stay exact; only newly allocated
+independent UUIDs map through their complete semantic keys. The shared row helper
+strips `computed_at`, `evaluated_at` and `revised_at`; the separate
+`publicationDailyTimes` comparison restores exactly daily-input `computed_at` and
+daily-result `evaluated_at`/`revised_at`. This does **not** claim equality of those
+timestamps on other tables. No fixture or financial/lifecycle assertion was
+removed to enable reuse.
 
-There is no changed-source FX fast path,
-no performance sampling, benchmark matrix or race run in this slice. Full source
-capture, daily recomputation and complete policy/lifecycle replay remain required
-for every FX mutation. Native macOS, packaging, restore and performance acceptance
-are not established by this Linux synthetic evidence.
+## Validation and performance limits
+
+Focused Linux validation uses Go 1.26.1 with isolated toolchain/cache paths under
+`/tmp`. Commands and final results are recorded in the PR. Normal check stays
+light; no race run, benchmark matrix, desktop/native build or full-suite campaign
+is added here. The initial evidence-only fixture incorrectly combined manual
+source with daily-reference observations and failed its required episode
+assertion; it was corrected to valid agent candidates without dropping the
+assertion.
+
+The counts above prove saved financial/predicate calculations, not latency or
+memory targets. Full capture/fingerprinting, additional complete candidate seals,
+full protected-row sealing, prefix decoding, exact SQL-image comparison and full
+policy/lifecycle replay remain costs. Changed FX invalidates all instruments,
+even those with identity/no FX dependencies; long corrections can still require
+nearly full history. No p95, RSS, native performance or broad FX-routing acceptance
+is claimed. Full recomputation remains the process rollback path.

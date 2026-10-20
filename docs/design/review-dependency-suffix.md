@@ -167,11 +167,23 @@ disables that memo while retaining D1/D2; the full-recompute switch above takes
 precedence. See [the memo contract](review-prefix-memo-experiment.md) for limits,
 authority requirements and the measured cold/memory tradeoff.
 
-## FX extension boundary
+## Direct reference FX extension
 
-FX mutations still require full recomputation. The current signed non-quote
-fingerprint includes FX, while the candidate inventory and OLD/NEW coverage proof
-above describe instrument quotes only. See the [D-FX boundary evidence](../testing/performance-d-fx-boundary-2026-10-20.md)
-for synthetic full-oracle fallback coverage and the missing authentication proof
-that blocks a narrow direct-pair extension. Unchanged-source prefixes may retain
-already authenticated selected FX; this does not authorize FX-source mutations.
+Changed FX has a separate versioned non-FX invariant and complete authenticated
+location/pair/date candidate inventory from both historical facts and portfolio
+FX inputs. The original non-quote fingerprint still includes FX and remains the
+instrument-quote guard. FX reuse instead requires the new invariant (which retains
+instrument quotes), independently covered OLD/NEW candidate changes and unchanged
+provider/preferences/rules/calendar. A normal authentic full publication records
+the coherent capture description through the existing MAC chain; missing or
+incompatible descriptions cannot authorize changed-FX reuse.
+
+The initial scope is one direct pair of agent daily-reference candidates with
+valid civil dates and stable source policy. Insert, rate/revision-only correction
+and deletion invalidate all known rules/instruments from the earliest affected
+date through latest closed day. Manual/provider/timestamp branches, inverse/cross
+routes, pair/date moves, mixed families, repeated-ID mutations, missing candidates
+and unknown cases use full preparation. All source/prefix MACs, sealing, CAS,
+physical connection, provider and clock fences and origin lifecycle replay remain.
+See [D-FX proof and full-oracle evidence](../testing/performance-d-fx-boundary-2026-10-20.md)
+for exact eligibility, complete inventory coverage and bounded calculation counts.

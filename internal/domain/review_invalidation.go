@@ -20,6 +20,7 @@ type ReviewSourceChange struct {
 	Revision         int64
 	Table, Operation string
 	Old, New         *ReviewQuoteDependency
+	OldFX, NewFX     *ReviewFXDependency
 }
 type ReviewQuoteDependency struct {
 	InstrumentID  InstrumentID `json:"instrument_id"`
