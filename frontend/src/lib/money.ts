@@ -393,7 +393,7 @@ function stableCurrencyAffixes(currency: string, affixes: { prefix: string; suff
   }
   const pinned = PREFIXED_CURRENCY_SYMBOLS[currency];
   if (!pinned) return next;
-  const normalize = (value: string) => (value.includes(pinned) ? value : value.replaceAll("$", pinned));
+  const normalize = (value: string) => (value.includes(pinned) ? value : value.split("$").join(pinned));
   return { prefix: normalize(next.prefix), suffix: normalize(next.suffix) };
 }
 
