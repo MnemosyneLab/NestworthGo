@@ -47,7 +47,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
   );
   const holdings = useInstrumentHoldingGroups();
   const products = useProducts({ includeClosed: true }, open && !origin.isLoading && !origin.data);
-  const productsReady = products.isSuccess && !products.isFetching;
+  const productsReady = products.isSuccess && products.fetchStatus === "idle";
   const excludedInstrumentIds = new Set((products.data ?? []).map((detail) => detail.product.instrumentId));
   const selectableInstruments = productsReady ? (instruments.data ?? []).filter((instrument) => ordinaryInstrument(instrument) && !excludedInstrumentIds.has(instrument.id)) : [];
   const selectionLabels = instrumentSelectionLabels(selectableInstruments);
