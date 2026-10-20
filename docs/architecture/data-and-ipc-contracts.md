@@ -136,11 +136,11 @@ history or the open tail. See [calendar and carry rules](#shared-instrument-valu
 
 Coverage identity includes the target, provider, household, binding revision,
 source-policy version, and effective date. A successful no-observation check
-expires after 24 hours for dates in the last seven finalized US-equity dates,
-and after 30 days for older dates. Expiry makes the date eligible for another
+expires after 24 hours for dates within the seven calendar days ending at the
+latest finalized US-equity date, and after 30 days for older dates. Expiry makes the date eligible for another
 fetch; it never turns the missing observation into a value. Force Recheck
-bypasses both positive and negative caches. Independently, dates in the last
-three finalized dates are rechecked after 24 hours so corrected recent provider
+bypasses both positive and negative caches. Independently, dates within the three calendar days ending at the latest
+finalized date are rechecked after 24 hours so corrected recent provider
 history can be discovered. These intervals are based on check time, not an
 economic timestamp.
 
