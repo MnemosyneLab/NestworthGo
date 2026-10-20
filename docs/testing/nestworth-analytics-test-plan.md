@@ -1543,7 +1543,5 @@ internal/application/
 
 docs/design/analytics/
   analytics-product-design.md
-  analytics-wireframes.md
   analytics-redesign-architecture.md
-  analytics-development-plan.md
 ```

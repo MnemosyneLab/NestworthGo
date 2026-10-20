@@ -1,15 +1,16 @@
 # Visual Analytics and Market History
 
 - Owner: Product, Design, and Analytics
-- Status: **In progress**
-- Baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
+- Status: **Implemented provider-backed historical series; live-provider and native acceptance remain release gates**
+- Original design baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
 - Scope: chart surfaces and local quote history in Overview, Portfolio, Return Analysis, Asset Changes, Investments, and Market Data
-- Companion: [Domain Model](../architecture/domain-model.md) and [Data and Application Contracts](../architecture/data-and-ipc-contracts.md)
+- Companion: [Domain Model](../architecture/domain-model.md) and [Data and Application Contracts](../architecture/data-and-ipc-contracts.md), including the [historical coverage and opening-anchor contract](../architecture/data-and-ipc-contracts.md#historical-coverage-negative-checks-and-opening-anchors)
 
-This document describes the current chart contract and the remaining work for
-historical-series providers. It does not authorize network access when a page
-opens. Local snapshots and quote observations are the first source for every
-chart.
+This document describes current chart behavior. Provider history is user
+initiated through Market Data; opening a page remains local-only. Local
+snapshots and quote observations are the first source for every chart. The
+v0.3.2 and v0.3.3 release records document shipped provider support while
+retaining unverified live-provider and native acceptance gates.
 
 ## 1. User questions and chart choices
 
@@ -50,10 +51,12 @@ The current frontend already provides the following behavior:
 - Page loading, empty, incomplete, and provider-error states remain separate;
   missing values are not converted into zero points.
 
-The remaining in-progress area is external historical-series fetching. Yahoo
-and Frankfurter currently provide latest values in production; a provider must
-explicitly advertise any future daily-history capability before a fetch action
-is shown.
+Historical provider support is implemented: Tiingo and Yahoo provide
+instrument history, Frankfurter provides FX history, and CoinGecko provides
+daily crypto history. Provider capability is explicit, and history sync is
+user initiated. See the [v0.3.2](../releases/v0.3.2.md) and
+[v0.3.3](../releases/v0.3.3.md) release records for scope and acceptance
+limits.
 
 ## 3. Page contracts
 
@@ -168,8 +171,11 @@ silently broaden to every saved pair or every Instrument.
 
 ## 5. External historical providers
 
-External history is a separate, planned capability. It may be added only after
-the local series is stable:
+Historical provider fetching is implemented for Tiingo and Yahoo instrument
+series, Frankfurter FX series, and CoinGecko daily crypto series. The user
+starts a bounded fetch from Market Data; the rules below describe that shipped
+boundary. Provider support in code does not establish live HTTP or native UI
+acceptance, which remain unverified in the v0.3.2/v0.3.3 release records:
 
 - Show `Fetch history` only when the selected provider advertises the requested
   daily Instrument or FX capability.
@@ -182,8 +188,9 @@ the local series is stable:
 - Existing manual observations are never overwritten. Required valuation targets
   run before optional extra pairs when rate limits apply.
 
-Yahoo and Frankfurter must not be assumed to support historical endpoints from
-their latest-value adapters alone.
+Historical capability is provider-specific. Do not infer it from a latest-value
+adapter; only advertise history for providers with an implemented historical
+adapter and explicit capability.
 
 ## 6. Shared chart and accessibility rules
 
@@ -221,13 +228,13 @@ rendering, and accessible summaries. This document does not redefine the
 financial rules in the [Domain Model](../architecture/domain-model.md) or the
 persistence/provider boundary in [Data and Application Contracts](../architecture/data-and-ipc-contracts.md).
 
-## 8. Remaining work
+## 8. Acceptance boundary
 
-The remaining planned work is limited to provider-declared historical-series
-fetching, including capability declarations, bounded requests, batch
-validation, atomic append-only writes, and rate-limit handling. It must remain
-explicit, local-first, and compatible with the current quote and valuation
-contracts.
+The remaining acceptance gates are live HTTP checks and native desktop
+acceptance, which the v0.3.2/v0.3.3 release records mark `NOT RUN`. Those
+historical release gates do not change the documented implementation status.
+Record any new evidence in the applicable release record; preserve the
+explicit, local-first quote and valuation contracts.
 
 
 ## Holding detail daily performance

@@ -2,8 +2,9 @@
 
 ## Current baseline
 
-Nestworth `0.3.8` is the current release, published 2026-10-14, for this Go
-1.26 module, with a Wails v3 desktop shell and a React + TypeScript frontend.
+Current `main` identifies as Nestworth `v0.3.9` / build `10`; the latest published
+release is `v0.3.8`, published 2026-10-14. The project is a Go 1.26 module
+with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
 provider routing. The frontend owns presentation, interaction state,
@@ -158,18 +159,13 @@ replay. Non-quote/unknown dependencies and legacy/reopened/restored namespaces
 retain full fallback; they do not gain certification. Normal startup always
 enables certified review, suffix preparation and the same-handle prefix memo.
 There are no environment switches for manual algorithm rollback; incomplete or
-invalid proofs still use full recomputation automatically. Earlier default-off
-statements above describe the historical
-C1/C2/C3 slices; they are superseded by this explicitly authorized dispatcher
-change, not by a claim of native or stage-two acceptance.
+invalid proofs still use full recomputation automatically. The optimization
+status and remaining performance acceptance limits are maintained in the
+[performance report](performance-optimization-report.md).
 
 ### Storage compatibility
 
-No other legacy migration is supported.
-See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
-See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)
-for verification, transaction, recovery-copy and v15/v16 backup boundaries. Missing current tables and old
-constraints fail verification rather than being repaired. Durable settings and
+See [database support and storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery) for the current schema, supported historical versions, migration order, recovery-copy guarantees, and blocked database states. Missing current tables and old constraints fail verification rather than being repaired. The [short-name release note](investment-short-names.md) records only the historical v15→v16 feature migration. Durable settings and
 provider credentials live in SQLite; the separate versioned JSON file stores
 presentation preferences.
 
@@ -196,20 +192,22 @@ lands near 4–5 minutes. The required aggregate check name is `test`. Race dete
 of that workflow. `.github/workflows/perf.yml` runs daily at 21:00 UTC and on
 manual dispatch. A scheduled run skips the perf and race jobs when the
 default branch is still at the last successful scheduled run; the first
-scheduled run and every manual dispatch execute them. Performance evidence
-is compiled only with `go test -tags perf`
-in that workflow (scale, 365-day pipeline, paired samples, and epoch
-full-oracle scale checks as separate jobs). The same workflow runs the sharded
+scheduled run and every manual dispatch execute them. Perf-tagged evidence
+runs in separate `scale`, `review`, and `epoch` jobs: scale tests/benchmarks,
+the default review smoke plus extended dependency oracle, and the repeated
+epoch-window oracle. The workflow does not run the retired multi-arm, paired-
+sample, RSS, or full-pipeline review trials. The same workflow runs the sharded
 `go test -race` suite without the perf tag. The race aggregate is `race`.
-[ci-pause.md](ci-pause.md) records an earlier manual-only pause; this branch
-restores automatic `check` triggers. Native `.app`/DMG packaging, signing, and notarization stay
+Current check triggers and budgets are maintained in
+[Local Development and Packaging](local-workflow.md#frontend-only-checks) and
+the repository workflows. Native `.app`/DMG packaging, signing, and notarization stay
 manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
 `3.0.0-beta.32`); upgrade those versions only in a dedicated change.
 
 ## Documentation and change gate
 
 Update the owning architecture or product document when a stable contract
-changes. Maintained documentation is English. Select checks appropriate to the
+changes. Maintained engineering documentation uses English. Select checks appropriate to the
 change; documentation-only edits need diff, link and consistency review, not
 application or performance runs. For application changes, the check set includes:
 

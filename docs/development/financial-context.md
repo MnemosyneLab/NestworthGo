@@ -226,7 +226,7 @@ bundle tests verify those examples and Inspector-specific HTTP configuration
 survive packaging and installation. The current source skill version is 1.9.0;
 installed clients require an explicit update. The published
 [v0.3.8 release](../releases/v0.3.8.md) includes skill 1.9.0; historical
-v0.3.7 assets remain skill 1.6.0. The release contract separately records
+v0.3.8 assets include skill 1.9.0. The release contract separately records
 owner-deferred external-client and test-ledger acceptance; package checks and
 synthetic examples do not imply those acceptance gates passed.
 

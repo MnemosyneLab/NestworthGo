@@ -5,7 +5,7 @@
 **Target:** Desktop application (Wails v3)  
 **Primary navigation area:** Insights  
 **Pages:** `Return Analysis`, `Asset Changes`  
-**Companions:** [Technical architecture](analytics-redesign-architecture.md), [Wireframes](analytics-wireframes.md)
+**Companions:** [Technical architecture](analytics-redesign-architecture.md)
 
 ---
 

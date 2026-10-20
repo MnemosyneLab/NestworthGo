@@ -1,10 +1,9 @@
 # Upcoming actions
 
-Owner: Nestworth maintainers. Status: Implemented on the feature branch;
-release and native desktop acceptance pending. Scope: App-only, read-only MVP.
-Baseline: `319ce0ba55244e769d454c5d0fe3d854aebe5438` (also current main when
-implementation began). The independently reviewed Astra v2 source artifact has
-SHA-256 `0915de6c56cb8d4f70be46817940fe15cf41a9e22dbcadb6386ac5cdde9f37c8`.
+Owner: Nestworth maintainers. Status: Implemented and published in v0.3.8.
+Scope: App-only, read-only scheduled-action projection. See the [v0.3.8 release
+record](../releases/v0.3.8.md) for the published scope and owner-deferred native
+acceptance status.
 
 The App now also hosts a separate [investment review](investment-review.md)
 panel and pending count. These opt-in, undated episodes do not alter the scheduled
@@ -116,4 +115,5 @@ managed-product confirmation actions.
 
 See [synthetic QA and remaining native gates](../testing/qa-upcoming-actions.md).
 Automated Linux/headless checks do not establish macOS GUI, VoiceOver, zoom,
-window resume or platform packaging behavior. No release version is assigned.
+window resume or platform packaging behavior. The feature shipped in v0.3.8;
+the [release record](../releases/v0.3.8.md) owns its acceptance status.

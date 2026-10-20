@@ -1,9 +1,8 @@
 # Account reconciliation validation
 
 Use synthetic households, isolated temporary SQLite/settings paths and fake
-providers. Never run these checks on a personal financial database. The approved
-scope is in [the plan](../development/account-reconciliation-plan.md); implemented
-contracts are in [the architecture](../development/account-reconciliation.md).
+providers. Never run these checks on a personal financial database. Implemented behavior and financial safety boundaries are defined by the
+[account reconciliation contract](../development/account-reconciliation.md).
 
 ## Regression coverage
 
@@ -22,7 +21,7 @@ contracts are in [the architecture](../development/account-reconciliation.md).
 | Legacy unlinked target-plan receipt hash remains recoverable | MCP legacy receipt compatibility regression |
 | Account-entry session filtering and cached scope isolation | Reconciliation query-hook test |
 | Read-only/directory/ledger permission dispatch; cursor conflicts and wire budgets | MCP permission and encoded paging tests |
-| Verified v15/v16/v17 upgrades, read-only recovery, rollback/flush failure/retry, backup/restore | SQLite upgrade and backup/continuous-backup suites |
+| Verified v15–v21 upgrades, read-only recovery, rollback/flush failure/retry, backup/restore | SQLite upgrade and backup/continuous-backup suites |
 | Pending/unknown review retains identity and guards Escape/navigation; same-plan retry | Reconciliation GUI tests plus existing Record/Sheet recovery tests |
 | Receipt-checked expiry permits fresh review; missing plans stay guarded; expired committed plans replay receipts | Application expiry/receipt and GUI dismissal/review regressions |
 | Maintained Skill examples and portable bundle/installer behavior | Skill checker and Python tool suite |

@@ -1,8 +1,13 @@
 # Account reconciliation architecture
 
-The approved design is retained in [the handoff plan](account-reconciliation-plan.md).
-This document describes the implemented contract; cloud validation and remaining
-native gates are recorded on PR #89. Reconciliation changes the local ledger,
+This document describes the implemented contract. See the
+[reusable validation matrix](../testing/account-reconciliation.md) and the
+[PR #89 implementation evidence](https://github.com/MnemosyneLab/NestworthGo/pull/89).
+The [v0.3.8 release record](../releases/v0.3.8.md) records a native acceptance
+gate for that historical release; it does not establish current-main
+reconciliation acceptance. Current feature evidence is PR #89 and the validation
+matrix linked above.
+Reconciliation changes the local ledger,
 never a financial institution or brokerage order.
 
 ## Authority and evidence
@@ -123,7 +128,7 @@ version advance in one transaction, followed by full verification. Existing v15
 uses its original verified v15 → v16 step and then v16 → v17 → v18. Recovery copies
 cannot be opened as writable live files; restore a copy to a new path.
 
-Read-only inspection accepts verified v15/v16/v17/v18 without upgrading the source.
+Read-only inspection accepts verified v15–v22 without upgrading the source.
 Normal live open upgrades a restored copy. Unsupported versions, missing current
 structures and malformed facts remain blocked. Backup containers and continuous
 backup stream identity retain these exact compatibility boundaries. JSON export

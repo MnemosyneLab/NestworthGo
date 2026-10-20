@@ -7,14 +7,11 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. Current main uses complete SQLite schema `16`. New databases
-initialize v16; existing v16 databases must pass verification. Verified v15 is
-the only supported predecessor and receives the additive instrument short-name
-upgrade. Other older, unversioned, future, or invalid schemas remain blocked.
-The [narrow storage upgrade](../development/investment-short-names.md#narrow-storage-upgrade)
-defines recovery-copy and transaction guarantees; there is no general migration
-chain. UI code
-consumes view models and must not reconstruct authoritative financial values.
+and query results. Current `main` uses schema `22`; the complete support,
+migration and recovery policy is in
+[Database support and storage recovery](#database-support-and-storage-recovery).
+UI code consumes view models and must not reconstruct authoritative financial
+values.
 
 The repository contains the Go implementation of the Household balance-sheet,
 portfolio, Activity, history, snapshot, and trend contracts. Provider refresh
@@ -31,22 +28,35 @@ The database path, schema version, and integrity failures are surfaced through
 safe startup states. The application does not silently delete, replace, or
 recreate a user's database after an open failure.
 
-## Database acceptance state machine
+## Database support and storage recovery
+
+Current `main` creates schema `22` databases and supports verified upgrades
+from schemas `15` through `21`. Each migration step verifies its input,
+publishes a flushed read-only recovery copy, then applies and verifies the
+additive migration transaction before continuing. Schema `15` starts the
+supported chain; schemas `14` and older, zero/unversioned, malformed, and
+future schemas are blocked without repair or recreation.
 
 | Condition | Required behavior |
 | --- | --- |
-| Database absent | Create the current schema, verify it, then initialize settings |
-| Supported and current | Open and verify it |
-| Verified v15 | Retain a verified read-only recovery copy, then add the short-name column and verify v16 in one transaction |
-| Other older or unversioned generation | Block startup without writes; tell the user to create a new database |
-| Newer than supported | Block startup without writes with a safe error |
-| Integrity failure | Block startup; preserve the original database |
-| Path/open failure | Show an unavailable-database state |
+| Database absent | Create and verify schema 22, then initialize settings |
+| Verified schema 22 | Open and verify |
+| Verified schema 15–21 | Migrate in order, retaining a verified read-only recovery copy at each step |
+| Unsupported older, zero/unversioned, malformed, or future schema | Block before business/settings writes and preserve the source |
+| Integrity or path/open failure | Block startup and preserve the source |
 
-Existing files are checked through a read-only connection before writable open.
-The version is rechecked before schema or business writes. Unsupported older and
-future databases receive zero persistent application writes. The v15 upgrade
-rechecks the original generation and verifies v15 before its additive transaction.
+Existing files are inspected read-only before writable open and reverified at
+each migration step. The historical v15→v16 short-name step is documented in
+the [feature migration note](../development/investment-short-names.md); it is
+one step in the current chain.
+
+Read-only backup inspection accepts verified schemas 15–22 without upgrading
+the inspected source. Local packages require manifest/database schema versions
+to match. Restore validates a staged candidate before installation; normal live
+open then runs supported migrations. Cloud recovery also verifies the staged
+schema against its stream identity and leaves staged bytes and source-stream
+metadata unchanged. New backup streams use schema 22. Recovery artifacts stay
+read-only and must be copied to a new live path before opening.
 
 ## Persistence responsibilities
 
@@ -81,9 +91,8 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current schema is `16`; verified
-v15 is the sole supported additive upgrade. Every other schema generation is
-blocked before business or settings writes.
+documented here without duplicating SQL. Database version and recovery rules
+are owned by [Database support and storage recovery](#database-support-and-storage-recovery).
 
 ## Transaction guarantees
 
@@ -121,6 +130,53 @@ closed Tiingo mappings (invalid, unsupported, adjClose-only, malformed) write
 nothing. Existing latest and manual quotes remain `realtime`/`latest` and
 `manual`; unverifiable provider observations do not fill
 close slots.
+
+### Historical coverage, negative checks, and opening anchors
+
+Stored observations and coverage are separate facts. A `close` observation
+records a published value; a `no_observation` coverage row records that a
+provider successfully verified a date but returned no observation. It does
+not mean the market was closed and is never a zero or synthetic quote. Only
+provider-verified ranges can create this negative-cache status; pending or
+uncertain ranges remain unresolved. Explicit closure facts and inferred
+closures are separate: inference is limited to dates between known equity
+closes, is not persisted as provider evidence, and does not fill leading
+history or the open tail. See [calendar and carry rules](#shared-instrument-valuation-calendar).
+
+Coverage identity includes the target, provider, household, binding revision,
+source-policy version, and effective date. A successful no-observation check
+expires after 24 hours for dates within the seven calendar days ending at the
+latest finalized US-equity date, and after 30 days for older dates. Expiry makes the date eligible for another
+fetch; it never turns the missing observation into a value. Force Recheck
+bypasses both positive and negative caches. Independently, dates within the three calendar days ending at the latest
+finalized date are rechecked after 24 hours so corrected recent provider
+history can be discovered. These intervals are based on check time, not an
+economic timestamp.
+
+Historical repair also looks for an opening anchor before History Origin. It
+searches the preceding 7 calendar days, then extends to 30 days when required.
+The plan fetches uncovered dates; known closes, verified no-observation dates,
+and applicable closed dates count as checked dates but only an eligible close
+can be the anchor. `initial_anchor_missing` is blocking when the complete
+30-day lookback is checked and still has no eligible anchor. In that state the
+health issue offers manual entry; it is not a claim that a provider outage or
+an unverified gap has been resolved. Incomplete lookbacks remain repairable
+coverage gaps. The same distinction applies to instrument prices and FX
+references.
+
+Sync jobs are scoped to a workspace and refresh epoch. A repeated request for
+the same active scope attaches to that job; a different scope conflicts rather
+than silently broadening the work. Cancellation waits for the job to stop.
+Already committed batches remain durable, while later writes and snapshot
+rebuilds are fenced by the workspace/epoch check. Restore and service shutdown
+advance the epoch and cancel active work, so a request from the old database
+cannot write into its replacement.
+
+| Contract | Code evidence |
+| --- | --- |
+| Negative-cache policy and recent-correction recheck | [`marketdata_sync_test.go`](../../internal/domain/marketdata_sync_test.go), [`vnext_persist_test.go`](../../internal/infrastructure/marketdata/vnext_persist_test.go) |
+| Opening-anchor lookback and exhaustion | [`markethistory_plan_test.go`](../../internal/application/markethistory_plan_test.go), [`marketdata_health_test.go`](../../internal/application/marketdata_health_test.go) |
+| Cancellation retains committed batches and isolates later writes | [`marketdata_sync_test.go`](../../internal/application/marketdata_sync_test.go) |
 
 ## Tiingo API key configuration
 
@@ -406,10 +462,10 @@ lead-in and bounded opening-anchor fallback. Normal repair reuses fresh checks;
 force recheck remains explicit. Repair estimates may differ from actual requests
 because of batching, caches, retries, and conversion dependencies.
 
-Backup inspection validates v15/v16 without modifying the inspected database.
-Local restore requires matching manifest and database versions; an installed v15
-copy upgrades on normal open, while the source package stays unchanged. Other
-older, unversioned, future, or invalid backup databases are rejected before
+Backup inspection validates supported v15–22 databases without modifying the
+inspected database. Local restore requires matching manifest and database
+versions; supported older copies upgrade on normal open, while the source package
+stays unchanged. Other older, unversioned, future, or invalid backup databases are rejected before
 replacing the live database. This does not provide a general archive upgrade path.
 
 
@@ -522,10 +578,7 @@ quantity invalid fails without writing the entry.
 
 ## Continuous backup configuration and status
 
-Business schema is 16. Cloud recovery recognizes verified v15/v16 stream
-identities and requires the staged database version to match the stream.
-Inspection preserves staged v15 files and source metadata; new streams use v16.
-Other older, unversioned, future, or invalid backups remain blocked.
+Schema and stream support follow [Database support and storage recovery](#database-support-and-storage-recovery).
 The separate private `backup_config.db` is excluded from business backup and
 exports. R2 credential updates save the complete pair with configuration
 atomically; blank means keep, removal is explicit. Outbound DTOs contain a

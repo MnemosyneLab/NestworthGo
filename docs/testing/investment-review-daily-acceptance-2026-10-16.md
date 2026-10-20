@@ -148,141 +148,21 @@ called out explicitly and are not represented as automated passes.
 
 | ID | Evidence | Execution status |
 | --- | --- | --- |
-| F01 | `TestReviewPublicationIsAtomicAndSameDayIdempotent`; `TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange`; `TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass`; `TestReviewIncrementalReplayPreservesFullDailyTrueSuffix`; the historical full-pipeline measurement harness has been retired; current retained checks are listed in the [performance report](../development/performance-optimization-report.md). | First-page budgets pass at 30 and 365 days; full warm and cold budgets fail as measured below |
+| F01 | `TestReviewPublicationIsAtomicAndSameDayIdempotent`; `TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange`; `TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass`; `TestReviewIncrementalReplayPreservesFullDailyTrueSuffix`; see the [current performance report](../development/performance-optimization-report.md) for retained checks. | Correctness evidence is retained; historical performance trials are not current acceptance gates |
 
 ## Performance measurement and limits
 
-The opt-in full-pipeline test uses isolated SQLite databases and synthetic
-facts only. The standard fixture contains 100 positive holdings, 20 rules,
-2,000 rule/instrument pairs, 100,000 generated quote rows plus 100 baseline
-manual quotes, 50,000 cash-only activities, and heterogeneous IANA timezones,
-metrics and trigger policies. FX references number 120 for the 30-day mode and
-1,460 for the 365-day mode. It records source counts, projection rows and
-SQLite database+WAL+SHM bytes.
+The historical repeated full-pipeline, paired-sample, RSS, and long-window
+trials were retired. Their detailed results remain available at the
+[performance cleanup base commit `dc097f8`](https://github.com/MnemosyneLab/NestworthGo/tree/dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d),
+but are not current budgets, acceptance failures, or runtime behavior. Current
+implementation status and retained checks are summarized in the
+[performance optimization report](../development/performance-optimization-report.md)
+and selected by [the perf workflow](../../.github/workflows/perf.yml).
+This dated document maps design items to evidence and does not define current
+performance gates.
 
-The records below come from separate invocations of the opt-in harness; do
-not treat earlier cold-run values as controlled before/after measurements.
-In particular, the archived 305.539s and 339.29s cold values came from
-different runs. The current Linux run used `TMPDIR=/workspace/.tmp` because
-the runner's `/tmp` volume had only 1.2GB free.
-
-**Pre-query-rewrite 365-day clock-only baseline.** The cold full reconcile took 86.362s
-(n=1), against the 3s target. After it, 30 warm reconciles had a median of
-15.800s, nearest-rank p95 17.262s and max 17.431s against 500ms. First-page
-reads had a median of 42.043ms, p95 47.570ms and max 60.603ms against 150ms.
-After 30 increments the fixture held 790,000 daily inputs and 790,000 results;
-database+WAL+SHM totaled 1,541,427,168 bytes. The first warm reconcile read
-200,200 quote rows across capture and transactional recheck; its 20 reusable-
-evidence window queries returned 6,000 rows. Their summed driver
-Query-to-Rows.Close time was 9.551s, and the full summed driver
-Query-to-Rows.Close time was 12.612s. These timings include row iteration,
-scanning and JSON decoding during consumption; they are not pure SQLite
-execution times. Capture and publication repeat the authoritative source read
-to preserve the concurrency snapshot check.
-
-**Pre-query-rewrite 30-day clock-only baseline.** The cold full reconcile took 10.393s
-(n=1). Across 30 warm reconciles, median was 6.677s, p95 7.290s and max
-7.313s against 500ms. First-page reads had a median of 19.480ms, p95
-25.696ms and max 26.307ms against 150ms. After 30 increments the fixture
-held 120,000 daily inputs and 120,000 results; database+WAL+SHM totaled
-393,771,424 bytes. The first warm reconcile executed 371 SQL queries across
-capture, recheck and publish; it read 200,200 quote rows and 6,000 reusable
-evidence rows. Combined driver Query-to-Rows.Close time was 4.087s, including
-row iteration and decoding rather than SQL execution alone.
-
-**Changed-source scenarios, 30-day fixture.** A typical daily refresh appended
-100 instrument quote rows and 4 FX references before one warm reconcile. A
-single changed-source fingerprint then disabled evidence reuse and staged
-62,000 days (2,000 rule/instrument pairs × 31 dates). Planning took 3.354s;
-the atomic publish took 5.136s, with 128,241 SQL executions and 37,538,300
-serialized input/result/coverage bytes. A separate historical correction
-updated one existing quote's price. This also changed the source fingerprint,
-disabled reuse and staged all 62,000 days; planning took 3.052s and atomic
-publish 4.914s. Regression tests verify in-place changes to existing UnitPrice
-and FX Rate values change the historical source token.
-
-**30-day capture optimization evidence.** Each warm capture and publish
-recheck runs one 100,100-row quote-history scan (~0.9s) and 20 reusable-evidence
-queries (~1.0s total at 30 days). The two review correction-chain queries still
-scan the 50k cash-only activity/effect rows while filtering them, although they
-return no review activity or cost events. Review-only current-quote selection is now skipped as
-redundant with full quote history. Rule revision checks were reduced from one
-per pair to one per rule; existing evaluation-state epochs are fetched in one
-transactional query instead of one query per pair. The review correction CTE
-starts from quantity/cost-relevant activity chains rather than all activities.
-An experiment combining reusable-evidence queries into one SQL statement
-regressed 30-day capture from ~0.9s to ~1.5s and was reverted.
-
-Performance acceptance remains blocked. At 365 days, a covering index for
-`(household_id,input_policy,timezone_version,instrument_id,on_date)` is a
-candidate for reducing reusable-evidence ranking scans, but it requires a
-schema migration. Its synthetic-trial file-size and database-page deltas are
-reported separately below. Reaching the 500ms
-warm target also requires avoiding full 100k-quote source rescans on both
-capture and publish recheck. A future design could maintain a source-change
-generation with transactional triggers for every authoritative source table,
-then verify that generation inside publication before reusing date slots.
-This needs a completeness audit for every insert/update/delete/withdrawal path
-and a write-amplification/storage review. This branch does not contain that
-schema/index/generation work, so F01 is not accepted for latency. A generation
-counter alone would only skip scans when no sources changed; a normal daily
-quote/FX append still invalidates it and currently forces full replay. A safe
-dirty-frontier path must account for every source insert/update/delete and
-recompute the affected suffix. The measured first full replay also misses the
-3-second target and needs background materialization or a shared-input storage
-redesign before the cold budget can be accepted.
-
-**Key-first reusable-evidence query comparison.** On the same isolated 30-day
-fixture, the original and key-first SQL returned identical rows (6,000 total),
-and each matched the typed evidence map returned by production capture. Without
-an added index, the original query's QueryContext/Rows.Next/Rows.Scan/JSON
-decode/Query-to-Rows.Close times were 810.4/21.2/1.5/38.8/874.0ms; the
-key-first query measured 539.6/27.6/2.4/41.4/616.4ms. With a trial index,
-the same split measured 237/18/1.5/39.4/298ms for the original and
-246/20/1.9/43.9/316ms for key-first. The trial index built in 174ms. On this
-30-day fixture, the DB+WAL+SHM file set grew by 20,844,048 bytes, while the
-database `page_count` grew by 2,536 4KB pages (10,387,456 bytes, about
-10.4MB). The file-set delta includes WAL and SHM and is not the persistent
-index size.
-
-On the same 365-day fixture, both statements again returned identical 6,000
-rows and matched production capture. Without the trial index, the original
-query measured 8.770/18.6/1.5/38.8/8.831s and key-first measured
-5.285/36.6/1.6/40.5/5.366s. With the trial index the times were
-2.190/17.7/1.5/37.3/2.249s and 2.050/28.8/1.6/36.4/2.119s, respectively.
-The index build took 2.248s. On this 365-day fixture, the DB+WAL+SHM file set
-grew by 256,042,808 bytes from a pre-index total of 1,397,895,168 bytes
-(about 18.3%), while the database `page_count` grew by 31,135 4KB pages
-(127,528,960 bytes, about 127.5MB). These are distinct measurements: the
-file-set delta includes WAL and SHM and is not the persistent index size. The
-timings separate QueryContext,
-Rows.Next, Rows.Scan, and JSON decoding; Query-to-Rows.Close also includes
-result construction and is not pure SQL time. Query plans show that key-first
-ranks narrow instrument/date keys before fetching JSON payloads. The trial
-index removes the window sort in EXPLAIN, but its storage cost is substantial;
-no schema migration or index is included in this change.
-
-In one post-rewrite 30-day warm increment, capture plus source fingerprint
-took 2.740s, in-memory fingerprinting 746ms, planning 267ms, a separate read-
-only recheck 2.750s, and atomic publish with its recheck/writes 2.870s. The
-captured 100,100 quote rows remain the largest measured driver
-Query-to-Rows.Close operation (about 0.86s); the 20 reusable-evidence queries
-took 0.58s combined by the same metric. These timings include row consumption,
-not only SQLite execution. These phase results confirm the 500ms warm-reconcile
-budget still fails; they are a single warm increment and do not replace the
-30-sample p95 runs above.
-
-The corresponding post-rewrite 365-day warm increment took 7.938s for capture
-plus source fingerprint, 640ms for the in-memory fingerprint, 287ms for
-planning, 7.592s for a separate read-only recheck, and 3.136s for atomic
-publish with its recheck/writes. The 20 reusable-evidence reads took 5.593s
-during capture and 5.179s during the separate recheck by summed driver
-Query-to-Rows.Close time; each returned 6,000 rows across all rules. The
-100,100-row quote history read took 977ms and 944ms by the same metric. These
-include row iteration/consumption. After this increment, database+WAL+SHM totaled
-1,423,883,904 bytes with 732,000 input rows and 732,000 result rows.
-
-Native macOS performance is not measured here.
+Native macOS performance is not measured in this historical evidence record.
 
 Every matrix item has an evidence mapping above. Items with automated tests are
 covered by the server-profile Go suite or Vitest suite; `Source mapped` items
