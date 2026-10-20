@@ -1,0 +1,34 @@
+=== RUN   TestReviewMemoBudgetLocal
+--- PASS: TestReviewMemoBudgetLocal (0.04s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	0.058s
+=== RUN   TestReviewPrefixMemoLocalGuards
+=== RUN   TestReviewPrefixMemoLocalGuards/stale
+=== RUN   TestReviewPrefixMemoLocalGuards/cancel
+=== RUN   TestReviewPrefixMemoLocalGuards/evict
+=== RUN   TestReviewPrefixMemoLocalGuards/source
+=== RUN   TestReviewPrefixMemoLocalGuards/provider
+=== RUN   TestReviewPrefixMemoLocalGuards/ack
+=== RUN   TestReviewPrefixMemoLocalGuards/suppression
+=== RUN   TestReviewPrefixMemoLocalGuards/missing-row
+=== RUN   TestReviewPrefixMemoLocalGuards/clock-rollback
+=== RUN   TestReviewPrefixMemoLocalGuards/reopen
+=== RUN   TestReviewPrefixMemoLocalGuards/rule
+--- PASS: TestReviewPrefixMemoLocalGuards (3.88s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/stale (0.36s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/cancel (0.30s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/evict (0.29s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/source (0.30s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/provider (0.30s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/ack (0.49s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/suppression (0.53s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/missing-row (0.31s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/clock-rollback (0.33s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/reopen (0.36s)
+    --- PASS: TestReviewPrefixMemoLocalGuards/rule (0.31s)
+=== RUN   TestReviewPrefixMemoExactFX
+--- PASS: TestReviewPrefixMemoExactFX (0.28s)
+=== RUN   TestReviewPrefixMemoFutureActivationLocal
+--- PASS: TestReviewPrefixMemoFutureActivationLocal (0.33s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	4.526s

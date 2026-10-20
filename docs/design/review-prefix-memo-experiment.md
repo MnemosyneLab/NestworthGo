@@ -66,3 +66,7 @@ The feature is explicitly opt-in through WithReviewPrefixMemoExperiment. Normal
 D2 does not activate memo storage or hooks; the existing D2 enablement and process
 rollback switch are unchanged. Once activated on a handle, other publications
 can invalidate its optional state without changing certification authority.
+
+[Measured qualitative result](../testing/performance-d1-d2-prefix-memo-2026-10-20.md):
+warm savings with material retained-memory cost; experiment remains opt-in and
+normal rollout is unaccepted. No further sampling is required for this checkpoint.

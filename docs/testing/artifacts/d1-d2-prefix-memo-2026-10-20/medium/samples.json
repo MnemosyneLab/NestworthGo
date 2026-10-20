@@ -1,0 +1,180 @@
+{
+  "baseline": [
+    [
+      {
+        "step": 0,
+        "ms": 428.484244,
+        "bytes": 127882312,
+        "allocs": 1469791,
+        "heap": 1473200,
+        "rssKB": 43016,
+        "reservationMS": 180.722206
+      },
+      {
+        "step": 1,
+        "ms": 427.182535,
+        "bytes": 128319456,
+        "allocs": 1506899,
+        "heap": 1485064,
+        "rssKB": 43288,
+        "reservationMS": 174.344307
+      },
+      {
+        "step": 2,
+        "ms": 443.320467,
+        "bytes": 132215408,
+        "allocs": 1544129,
+        "heap": 1486216,
+        "rssKB": 44008,
+        "reservationMS": 190.133086
+      }
+    ],
+    [
+      {
+        "step": 0,
+        "ms": 455.428535,
+        "bytes": 127879096,
+        "allocs": 1469684,
+        "heap": 1480544,
+        "rssKB": 42176,
+        "reservationMS": 197.068123
+      },
+      {
+        "step": 1,
+        "ms": 446.635633,
+        "bytes": 133048008,
+        "allocs": 1506975,
+        "heap": 1488048,
+        "rssKB": 42564,
+        "reservationMS": 189.668265
+      },
+      {
+        "step": 2,
+        "ms": 434.677889,
+        "bytes": 135671128,
+        "allocs": 1544157,
+        "heap": 1490992,
+        "rssKB": 42776,
+        "reservationMS": 176.929568
+      }
+    ],
+    [
+      {
+        "step": 0,
+        "ms": 432.218467,
+        "bytes": 131613984,
+        "allocs": 1469812,
+        "heap": 1545328,
+        "rssKB": 41744,
+        "reservationMS": 169.300489
+      },
+      {
+        "step": 1,
+        "ms": 440.743252,
+        "bytes": 129594000,
+        "allocs": 1506881,
+        "heap": 1558928,
+        "rssKB": 41968,
+        "reservationMS": 176.109691
+      },
+      {
+        "step": 2,
+        "ms": 457.377026,
+        "bytes": 131701824,
+        "allocs": 1544128,
+        "heap": 1564784,
+        "rssKB": 42656,
+        "reservationMS": 192.63446
+      }
+    ]
+  ],
+  "memo": [
+    [
+      {
+        "step": 0,
+        "ms": 439.32331,
+        "bytes": 136659984,
+        "allocs": 1524372,
+        "heap": 5652424,
+        "rssKB": 54980,
+        "reservationMS": 195.21856
+      },
+      {
+        "step": 1,
+        "ms": 384.698206,
+        "bytes": 125263232,
+        "allocs": 1100708,
+        "heap": 5807056,
+        "rssKB": 56868,
+        "reservationMS": 194.038526
+      },
+      {
+        "step": 2,
+        "ms": 389.640334,
+        "bytes": 121788864,
+        "allocs": 1125132,
+        "heap": 5941240,
+        "rssKB": 57204,
+        "reservationMS": 201.912396
+      }
+    ],
+    [
+      {
+        "step": 0,
+        "ms": 460.95402,
+        "bytes": 143365544,
+        "allocs": 1524536,
+        "heap": 5661208,
+        "rssKB": 56080,
+        "reservationMS": 193.892595
+      },
+      {
+        "step": 1,
+        "ms": 383.858902,
+        "bytes": 124636792,
+        "allocs": 1100755,
+        "heap": 5822208,
+        "rssKB": 54856,
+        "reservationMS": 200.947053
+      },
+      {
+        "step": 2,
+        "ms": 365.628506,
+        "bytes": 127329664,
+        "allocs": 1124943,
+        "heap": 5953192,
+        "rssKB": 55892,
+        "reservationMS": 176.947565
+      }
+    ],
+    [
+      {
+        "step": 0,
+        "ms": 425.266128,
+        "bytes": 143199048,
+        "allocs": 1524572,
+        "heap": 5664056,
+        "rssKB": 56128,
+        "reservationMS": 175.296838
+      },
+      {
+        "step": 1,
+        "ms": 380.974023,
+        "bytes": 123315432,
+        "allocs": 1100835,
+        "heap": 5792480,
+        "rssKB": 56196,
+        "reservationMS": 190.8325
+      },
+      {
+        "step": 2,
+        "ms": 365.352886,
+        "bytes": 126654168,
+        "allocs": 1124875,
+        "heap": 5927000,
+        "rssKB": 57304,
+        "reservationMS": 178.630605
+      }
+    ]
+  ]
+}
