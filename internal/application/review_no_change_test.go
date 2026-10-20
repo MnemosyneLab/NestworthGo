@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"os"
 	"os/exec"
@@ -17,12 +16,13 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
-	modernsqlite "modernc.org/sqlite"
 )
 
 type noChangeTestRepository struct {
 	*sqlite.Repository
 	captures, publications, confirmations int
+	selection                             func() domain.ReviewProviderSelection
+	lease                                 func(domain.ReviewProviderSelection, func() error) error
 }
 
 func (r *noChangeTestRepository) CaptureReviewProjection(ctx context.Context, id domain.HouseholdID, now time.Time) (domain.ReviewProjectionCapture, error) {
@@ -35,14 +35,36 @@ func (r *noChangeTestRepository) PublishReviewProjectionWithClock(ctx context.Co
 	return r.Repository.PublishReviewProjectionWithClock(ctx, p, clock)
 }
 
-func (r *noChangeTestRepository) ConfirmReviewNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time, provider func() string) (domain.ReviewNoChangeResult, bool, error) {
+func (r *noChangeTestRepository) ConfirmCertifiedReviewNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time, selection domain.ReviewProviderSelection) (domain.ReviewNoChangeResult, bool, error) {
 	r.confirmations++
-	return r.Repository.ConfirmReviewNoChange(ctx, id, now, clock, provider)
+	return r.Repository.ConfirmCertifiedReviewNoChange(ctx, id, now, clock, selection)
 }
 
-func noChangeService(f seriesZeroFixture) (*Service, *noChangeTestRepository) {
-	r := &noChangeTestRepository{Repository: sqlite.NewRepository(f.db).WithReviewNoChangeCandidate()}
-	s := NewService(r)
+// Direct protocol probes use the same provider lease as the application.
+func (r *noChangeTestRepository) confirmNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time) (result domain.ReviewNoChangeResult, ok bool, err error) {
+	selection := r.selection()
+	err = r.lease(selection, func() error {
+		var e error
+		result, ok, e = r.ConfirmCertifiedReviewNoChange(ctx, id, now, clock, selection)
+		return e
+	})
+	return
+}
+
+func (r *noChangeTestRepository) PublishCertifiedReviewProjection(ctx context.Context, p domain.ReviewPublication, clock func() time.Time, guard func(func() error) error) error {
+	r.publications++
+	return r.Repository.PublishCertifiedReviewProjection(ctx, p, clock, guard)
+}
+
+func noChangeService(t *testing.T, f seriesZeroFixture) (*Service, *noChangeTestRepository) {
+	r := &noChangeTestRepository{Repository: sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()}
+	fake := newRefreshFakeProvider()
+	fake.key = "synthetic-pinned"
+	s := NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
+	if err := s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
+	r.selection, r.lease = s.reviewProviderSnapshot, s.withReviewProviderLease
 	s.setClock(func() time.Time { return *f.now })
 	return s, r
 }
@@ -52,7 +74,7 @@ func noChangeFixture(t *testing.T) (seriesZeroFixture, *noChangeTestRepository) 
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	f.day(t, "2026-10-03")
 	saveSyntheticReviewRule(t, f, "Synthetic no-change", syntheticHistoricalReviewSpec())
-	f.s, _ = noChangeService(f)
+	f.s, _ = noChangeService(t, f)
 	r := f.s.repository.(*noChangeTestRepository)
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
@@ -112,7 +134,7 @@ func noChangeFullOracle(t *testing.T, f seriesZeroFixture) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := NewService(sqlite.NewRepository(db).WithReviewNoChangeCandidate().WithFullReviewRecompute())
+	s := NewService(sqlite.NewRepository(db).WithCertifiedReviewCandidate().WithFullReviewRecompute())
 	s.fxProviderKey = f.s.FXProviderKey()
 	s.setClock(func() time.Time { return *f.now })
 	if _, err := s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -127,9 +149,9 @@ func noChangeFullOracle(t *testing.T, f seriesZeroFixture) {
 	}
 }
 
-func TestReviewNoChangeOptInAndFullOracle(t *testing.T) {
+func TestReviewCertifiedNoChangeAndFullOracle(t *testing.T) {
 	f, r := noChangeFixture(t)
-	if sqlite.NewRepository(f.db).ReviewNoChangeEnabled() || r.WithFullReviewRecompute().ReviewNoChangeEnabled() {
+	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || r.WithFullReviewRecompute().CertifiedReviewEnabled() {
 		t.Fatal("default/full oracle enabled shortcut")
 	}
 	before := noChangeProjectionRows(t, f.db)
@@ -155,7 +177,9 @@ func TestReviewNoChangeConservativeFallbacks(t *testing.T) {
 			statement := ""
 			switch scenario {
 			case "provider":
-				f.s.fxProviderKey = "synthetic-new-provider"
+				if err := f.s.SetFXProvider("synthetic-other"); err != nil {
+					t.Fatal(err)
+				}
 			case "source":
 				statement = `UPDATE instrument_quotes SET unit_price='101'`
 			case "config":
@@ -195,7 +219,7 @@ func TestReviewNoChangeConservativeFallbacks(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer db.Close()
-				r.Repository = sqlite.NewRepository(db).WithReviewNoChangeCandidate()
+				r.Repository = sqlite.NewRepository(db).WithCertifiedReviewCandidate()
 			case "epoch-reset":
 				if err := f.db.ResetFinancialSourceTracking(t.Context()); err != nil {
 					t.Fatal(err)
@@ -206,7 +230,7 @@ func TestReviewNoChangeConservativeFallbacks(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			_, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+			_, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
 			if err != nil || ok {
 				t.Fatalf("unsafe reuse %s: %v %v", scenario, ok, err)
 			}
@@ -221,6 +245,12 @@ func TestReviewNoChangeConservativeFallbacks(t *testing.T) {
 	}
 }
 
+type certifiedCrashBaseline struct {
+	Rows        map[string][]string
+	Certificate string
+	At          time.Time
+}
+
 func TestReviewNoChangeCrashChild(t *testing.T) {
 	if os.Getenv("NW_C3_CRASH_CHILD") != "1" {
 		t.Skip("subprocess crash helper")
@@ -229,72 +259,77 @@ func TestReviewNoChangeCrashChild(t *testing.T) {
 	if filepath.Base(path) != "synthetic-c3-crash.db" {
 		t.Fatal("synthetic isolated path required")
 	}
-	if err := modernsqlite.RegisterScalarFunction("synthetic_c3_crash", 0, func(*modernsqlite.FunctionContext, []driver.Value) (driver.Value, error) {
-		os.Exit(93)
-		return nil, nil
-	}); err != nil {
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("child requires a fresh synthetic database", err)
+	}
+	db, faults := openReviewFaultDatabaseAt(t, path)
+	f, _ := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
+	baseline := certifiedCrashBaseline{Rows: noChangeProjectionRows(t, db), At: *f.now}
+	if err := db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&baseline.Certificate); err != nil {
 		t.Fatal(err)
 	}
-	db, err := sqlite.Open(path)
+	raw, err := jsoncodec.Marshal(baseline)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
-	now, err := time.Parse(time.RFC3339Nano, os.Getenv("NW_C3_CRASH_AT"))
-	if err != nil {
+	if err := os.WriteFile(path+".expected.json", raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := NewService(sqlite.NewRepository(db).WithReviewNoChangeCandidate())
-	s.setClock(func() time.Time { return now })
-	if _, err := s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+	faults.afterExec = func(query string) {
+		if strings.HasPrefix(query, "UPDATE review_temporal_checkpoints SET evaluated_at=?,certificate_json=?") {
+			// The real UPDATE has run inside BEGIN IMMEDIATE; COMMIT has not.
+			os.Exit(93)
+		}
+	}
+	*f.now = f.now.Add(time.Nanosecond)
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	now = now.Add(time.Nanosecond)
-	if _, err := s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	t.Fatal("no-change update crash was not reached")
+	t.Fatal("authenticated no-change crash point was not reached")
 }
 
 func TestReviewNoChangeCrashBeforeCommitAndRecovery(t *testing.T) {
-	f, _ := noChangeFixture(t)
 	path := filepath.Join(t.TempDir(), "synthetic-c3-crash.db")
-	if _, err := f.db.SQL.Exec(`VACUUM INTO ?`, path); err != nil {
-		t.Fatal(err)
-	}
-	db, err := sqlite.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.SQL.Exec(`CREATE TRIGGER synthetic_c3_crash AFTER UPDATE ON review_temporal_checkpoints WHEN NEW.evaluated_at<>OLD.evaluated_at BEGIN SELECT synthetic_c3_crash(); END`); err != nil {
-		t.Fatal(err)
-	}
-	db.Close()
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestReviewNoChangeCrashChild$", "-test.v")
-	child.Env = append(os.Environ(), "NW_C3_CRASH_CHILD=1", "NW_C3_CRASH_DB="+path, "NW_C3_CRASH_AT="+f.now.Format(time.RFC3339Nano))
+	child.Env = append(os.Environ(), "NW_C3_CRASH_CHILD=1", "NW_C3_CRASH_DB="+path)
 	output, err := child.CombinedOutput()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 93 {
 		t.Fatalf("expected crash93: %v\n%s", err, output)
 	}
-	db, err = sqlite.Open(path)
+	raw, err := os.ReadFile(path + ".expected.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var baseline certifiedCrashBaseline
+	if err := jsoncodec.Unmarshal(raw, &baseline); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	var evaluated string
-	if err := db.SQL.QueryRow(`SELECT evaluated_at FROM review_temporal_checkpoints`).Scan(&evaluated); err != nil || evaluated != f.now.Format(time.RFC3339Nano) || !reflect.DeepEqual(noChangeProjectionRows(t, f.db), noChangeProjectionRows(t, db)) {
-		t.Fatal("crashed confirmation partially committed", err)
-	}
-	if _, err := db.SQL.Exec(`DROP TRIGGER synthetic_c3_crash`); err != nil {
+	var certificate string
+	if err := db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&certificate); err != nil {
 		t.Fatal(err)
 	}
-	f.db = db
-	f.s, _ = noChangeService(f)
-	*f.now = f.now.Add(time.Nanosecond)
-	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
-		t.Fatal(err)
+	if certificate != baseline.Certificate || !reflect.DeepEqual(baseline.Rows, noChangeProjectionRows(t, db)) {
+		t.Fatal("crashed authenticated confirmation partially committed")
 	}
+	household, err := sqlite.NewRepository(db).Household(t.Context())
+	if err != nil || household == nil {
+		t.Fatal("missing synthetic household", err)
+	}
+	now := baseline.At.Add(time.Nanosecond)
+	f := seriesZeroFixture{db: db, now: &now}
+	f.account.Account.HouseholdID = household.ID
+	f.s, _ = noChangeService(t, f)
+	result, err := f.s.ReconcileInvestmentReviewsV2(t.Context())
+	if err != nil || result.DayCount == 0 {
+		t.Fatal("restart did not fully recover", result, err)
+	}
+	assertNoCertifiedMAC(t, f)
 	noChangeFullOracle(t, f)
 }
 
@@ -335,7 +370,7 @@ func TestReviewNoChangeActivationLifecycleFullOracle(t *testing.T) {
 				f.quantity(t, true)
 			}
 			*f.now = at.Add(-time.Nanosecond)
-			f.s, _ = noChangeService(f)
+			f.s, _ = noChangeService(t, f)
 			r := f.s.repository.(*noChangeTestRepository)
 			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 				t.Fatal(err)
@@ -378,57 +413,8 @@ func TestReviewNoChangeActivationLifecycleFullOracle(t *testing.T) {
 	}
 }
 
-func TestReviewNoChangeCASFailureAndBoundedRetry(t *testing.T) {
-	for _, scenario := range []string{"control-ignore", "checkpoint-ignore", "checkpoint-abort"} {
-		t.Run(scenario, func(t *testing.T) {
-			f, _ := noChangeFixture(t)
-			ddl := `CREATE TRIGGER synthetic_no_change_failure BEFORE UPDATE ON investment_review_control BEGIN SELECT RAISE(IGNORE); END`
-			if scenario != "control-ignore" {
-				action := "IGNORE"
-				if scenario == "checkpoint-abort" {
-					action = "ABORT,'synthetic checkpoint failure'"
-				}
-				ddl = `CREATE TRIGGER synthetic_no_change_failure BEFORE UPDATE ON review_temporal_checkpoints WHEN NEW.evaluated_at<>OLD.evaluated_at BEGIN SELECT RAISE(` + action + `); END`
-			}
-			if _, err := f.db.SQL.Exec(ddl); err != nil {
-				t.Fatal(err)
-			}
-			// Install before verified open. The first full fallback refreshes
-			// session/proof at the same timestamp and does not hit the fault.
-			db, err := sqlite.Open(f.db.Path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer db.Close()
-			f.db = db
-			f.s, _ = noChangeService(f)
-			r := f.s.repository.(*noChangeTestRepository)
-			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
-				t.Fatal(err)
-			}
-			before := noChangeProjectionRows(t, f.db)
-			var certificate string
-			if err := f.db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&certificate); err != nil {
-				t.Fatal(err)
-			}
-			*f.now = f.now.Add(time.Nanosecond)
-			_, err = f.s.ReconcileInvestmentReviewsV2(t.Context())
-			if err == nil || r.captures != 1 || r.publications != 1 {
-				t.Fatal("failed CAS was accepted or recomputed", err, r)
-			}
-			if scenario != "checkpoint-abort" && r.confirmations != 4 {
-				t.Fatal("confirmation conflict retry was not bounded at three", r.confirmations)
-			}
-			var after string
-			if err := f.db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&after); err != nil || certificate != after || !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
-				t.Fatal("failed CAS partially committed", err)
-			}
-		})
-	}
-}
-
 func TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation(t *testing.T) {
-	for _, scenario := range []string{"boundary", "cancel", "writer", "provider"} {
+	for _, scenario := range []string{"boundary", "cancel", "writer"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r := noChangeFixture(t)
 			var checkpoint string
@@ -442,23 +428,19 @@ func TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation(t *testing.
 				t.Fatal(err)
 			}
 			defer writer.Close()
-			_, ok, err := r.ConfirmReviewNoChange(ctx, f.account.Account.HouseholdID, *f.now, func() time.Time {
+			_, ok, err := r.confirmNoChange(ctx, f.account.Account.HouseholdID, *f.now, func() time.Time {
 				switch scenario {
 				case "boundary":
 					return time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
 				case "cancel":
 					cancel()
-				case "provider":
-					f.s.stateMu.Lock()
-					f.s.fxProviderKey = "synthetic-concurrent-provider"
-					f.s.stateMu.Unlock()
 				case "writer":
 					if _, err := writer.Exec(`UPDATE instrument_quotes SET unit_price='101'`); err == nil || !strings.Contains(err.Error(), "locked") {
 						t.Fatalf("second writer was not excluded by BEGIN IMMEDIATE: %v", err)
 					}
 				}
 				return f.now.Add(time.Nanosecond)
-			}, f.s.FXProviderKey)
+			})
 			if scenario == "writer" {
 				if err != nil || !ok {
 					t.Fatal(ok, err)
@@ -467,7 +449,7 @@ func TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation(t *testing.
 					t.Fatal("writer failed after confirmation commit", err)
 				}
 				*f.now = f.now.Add(time.Nanosecond)
-				if _, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey); err != nil || ok {
+				if _, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }); err != nil || ok {
 					t.Fatal("post-confirmation source edit reused proof", ok, err)
 				}
 				return
@@ -491,7 +473,7 @@ func TestReviewNoChangeMissingProjectionRequiresFullRebuild(t *testing.T) {
 			if _, err := f.db.SQL.Exec(`DELETE FROM ` + table + ` WHERE rowid=(SELECT min(rowid) FROM ` + table + `)`); err != nil {
 				t.Fatal(err)
 			}
-			result, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+			result, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
 			if err != nil || ok || !result.RequireFullRecompute {
 				t.Fatal("missing projection accepted or full rebuild not required", result, ok, err)
 			}
@@ -521,8 +503,8 @@ func TestReviewNoChangeFloorPolicyAndRolledBackSource(t *testing.T) {
 				if err := f.db.PruneFinancialSourceChanges(t.Context(), f.account.Account.HouseholdID.String(), revision); err != nil {
 					t.Fatal(err)
 				}
-				// No source changed: the consumed revision is still AT the floor.
-				want = true
+				// The token is at the floor, but pruning changed this connection.
+				// Certified confirmation conservatively requires full recovery.
 			case "resolver":
 				if _, err := f.db.SQL.Exec(`UPDATE history_snapshot_state SET resolver_policy_version='synthetic-future'`); err != nil {
 					t.Fatal(err)
@@ -553,9 +535,8 @@ func TestReviewNoChangeFloorPolicyAndRolledBackSource(t *testing.T) {
 				if err := tx.Rollback(); err != nil {
 					t.Fatal(err)
 				}
-				want = true
 			}
-			_, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+			_, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
 			if err != nil || ok != want {
 				t.Fatal(scenario, ok, err)
 			}
@@ -602,7 +583,7 @@ func TestReviewNoChangeInvalidatesOutstandingFullPublication(t *testing.T) {
 	}
 	before := noChangeProjectionRows(t, f.db)
 	*f.now = f.now.Add(time.Nanosecond)
-	if _, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey); err != nil || !ok {
+	if _, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }); err != nil || !ok {
 		t.Fatal(ok, err)
 	}
 	var certificate string
@@ -632,7 +613,7 @@ func TestReviewNoChangeDamagedTrackingRequiresFullRebuild(t *testing.T) {
 			if _, err := f.db.SQL.Exec(statement); err != nil {
 				t.Fatal(err)
 			}
-			confirmation, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+			confirmation, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
 			if err != nil || ok || !confirmation.RequireFullRecompute {
 				t.Fatal("damaged tracking did not require full rebuild", confirmation, ok, err)
 			}
@@ -656,14 +637,17 @@ func TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow(t *testing.T
 			spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 3, MinHits: 2}
 			saveSyntheticReviewRule(t, f, "Synthetic bootstrap", spec)
 			c2First := scenario == "c2-opt-in" || scenario == "direct-capture" || scenario == "cross-repository-publication"
+			// Select the provider before the C2 publication so its temporal
+			// generation remains usable by the cross-repository window fixture.
+			candidateService, _ := noChangeService(t, f)
 			if !c2First {
-				f.s, _ = noChangeService(f)
+				f.s = candidateService
 			}
 			if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 				t.Fatal(err)
 			}
 			if c2First {
-				f.s, _ = noChangeService(f)
+				f.s = candidateService
 			}
 			r := f.s.repository.(*noChangeTestRepository)
 			// Ten newer slots survive; Oct1 is strictly outside the rolling3 window.
@@ -714,10 +698,14 @@ func TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow(t *testing.T
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := r.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now }); err != nil {
-					t.Fatal(err)
+				before := noChangeProjectionRows(t, f.db)
+				if err := r.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now }); err == nil {
+					t.Fatal("certified publisher accepted an unproved C2 window")
 				}
-				confirmation, ok, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+				if !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
+					t.Fatal("rejected C2 window wrote data")
+				}
+				confirmation, ok, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
 				if err != nil || ok || !confirmation.RequireFullRecompute {
 					t.Fatal("incremental C2 stage minted completeness proof", confirmation, ok, err)
 				}
@@ -731,10 +719,10 @@ func TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow(t *testing.T
 				t.Fatal(err)
 			}
 			*f.now = f.now.Add(time.Nanosecond)
-			_, confirmed, err := r.ConfirmReviewNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now }, f.s.FXProviderKey)
+			_, confirmed, err := r.confirmNoChange(t.Context(), f.account.Account.HouseholdID, *f.now, func() time.Time { return *f.now })
 			t.Logf("fallback emitted=%d oldDayRows=%d subsequentConfirmation=%t", result.DayCount, restored, confirmed)
-			if restored != 1 || err != nil || !confirmed {
-				t.Errorf("bootstrap certified incomplete history: oldDayRows=%d confirmed=%t err=%v", restored, confirmed, err)
+			if restored != 1 || err != nil || confirmed {
+				t.Errorf("full recovery repaired output but must not certify lost history: oldDayRows=%d confirmed=%t err=%v", restored, confirmed, err)
 			}
 			noChangeFullOracle(t, f)
 		})

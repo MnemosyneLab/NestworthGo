@@ -190,3 +190,10 @@ func TestReviewClockOnlyCPUAllocationProfile(t *testing.T) {
 		})
 	}
 }
+
+func c3RefreshConfig(size string) reviewPerfConfig {
+	if size == "large" {
+		return referenceReviewPerfConfig(30)
+	}
+	return reviewPerfConfig{Accounts: 1, Instruments: 10, Holdings: 10, Rules: 1, HistoryDays: 30, Quotes: 310, CashActivities: 100}
+}

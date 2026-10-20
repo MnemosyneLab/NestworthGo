@@ -198,7 +198,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	}
 	// A missed certified confirmation always prepares every day unless the
 	// independent authenticated suffix path establishes its own authority.
-	if r.ReviewNoChangeEnabled() {
+	if r.CertifiedReviewEnabled() {
 		result.TemporalFullRecompute = true
 	}
 	if err := r.loadReusableReviewWindow(ctx, tx, &result); err != nil {

@@ -15,7 +15,6 @@ type Repository struct {
 	database                   *DB
 	reviewFullRecompute        bool
 	reviewSourceShadowObserver func(domain.ReviewSourceShadowObservation)
-	reviewNoChangeCandidate    bool
 	reviewCertifiedCandidate   bool
 	reviewDependencySuffix     bool
 	reviewPrefixMemoEnabled    bool

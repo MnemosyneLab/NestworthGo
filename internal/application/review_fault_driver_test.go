@@ -52,10 +52,15 @@ var reviewFaultDriverSequence atomic.Uint64
 
 func openReviewFaultDatabase(t *testing.T) (*sqlite.DB, *reviewDriverFaults) {
 	t.Helper()
+	return openReviewFaultDatabaseAt(t, filepath.Join(t.TempDir(), "synthetic-review.db"))
+}
+
+func openReviewFaultDatabaseAt(t *testing.T, path string) (*sqlite.DB, *reviewDriverFaults) {
+	t.Helper()
 	faults := &reviewDriverFaults{}
 	name := fmt.Sprintf("review-fault-%d", reviewFaultDriverSequence.Add(1))
 	sql.Register(name, &reviewFaultDriver{faults: faults})
-	db, err := sqlite.OpenReviewPerformanceDatabase(filepath.Join(t.TempDir(), "synthetic-review.db"), name)
+	db, err := sqlite.OpenReviewPerformanceDatabase(path, name)
 	if err != nil {
 		t.Fatal(err)
 	}

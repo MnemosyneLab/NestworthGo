@@ -269,8 +269,8 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	publishedTemporal.NoChangeProjectionCounts = nil
 	publishedTemporal.NoChangeReviewFingerprint = ""
 	publishedTemporal.NoChangeFXProviderKey = ""
-	if r.ReviewNoChangeEnabled() && len(capture.ReusableDailyEvidence) == 0 {
-		publishedTemporal.NoChangeCompletenessVersion = domain.ReviewNoChangeCompletenessVersion
+	if r.CertifiedReviewEnabled() && len(capture.ReusableDailyEvidence) == 0 {
+		publishedTemporal.NoChangeCompletenessVersion = domain.ReviewCertifiedCompletenessVersion
 		publishedTemporal.NoChangeProjectionCounts, err = noChangeProjectionCounts(ctx, tx, capture.HouseholdID)
 		if err != nil {
 			return err

@@ -23,7 +23,6 @@ import (
 func (r *Repository) WithCertifiedReviewCandidate() *Repository {
 	copy := *r
 	copy.reviewCertifiedCandidate = true
-	copy.reviewNoChangeCandidate = true
 	return &copy
 }
 func (r *Repository) CertifiedReviewEnabled() bool {

@@ -30,8 +30,8 @@ type noChangeParityRepository struct {
 	confirmed int
 }
 
-func (r *noChangeParityRepository) ConfirmReviewNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time, provider func() string) (domain.ReviewNoChangeResult, bool, error) {
-	result, ok, err := r.Repository.ConfirmReviewNoChange(ctx, id, now, clock, provider)
+func (r *noChangeParityRepository) ConfirmCertifiedReviewNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time, provider domain.ReviewProviderSelection) (domain.ReviewNoChangeResult, bool, error) {
+	result, ok, err := r.Repository.ConfirmCertifiedReviewNoChange(ctx, id, now, clock, provider)
 	if ok {
 		r.confirmed++
 	}
@@ -48,8 +48,13 @@ func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) 
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = db.Close() })
-		repository = &noChangeParityRepository{Repository: sqlite.NewRepository(db).WithReviewNoChangeCandidate()}
-		f = newLedgerFixtureWithApp(t, application.NewService(repository), func() time.Time { return now })
+		repository = &noChangeParityRepository{Repository: sqlite.NewRepository(db).WithDefaultReviewOptimizations()}
+		provider := &scaleForbiddenProvider{}
+		app := application.NewService(repository, application.NewMarketDataRegistry(provider))
+		if err := app.SetFXProvider(provider.Key()); err != nil {
+			t.Fatal(err)
+		}
+		f = newLedgerFixtureWithApp(t, app, func() time.Time { return now })
 	} else {
 		f = newLedgerFixtureWithClock(t, func() time.Time { return now })
 	}
