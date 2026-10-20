@@ -27,6 +27,7 @@ type reviewProjectionCache struct {
 	historicalQuotes   *historicalQuoteCache
 	quoteSeries        map[domain.InstrumentID]domain.ReviewDailyQuoteSeries
 	dailyEvidence      map[reviewDailyEvidenceScopeKey]reviewDailyEvidenceScope
+	suffixEvidence     map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence
 	snapshotReads      int
 	inputProjections   int
 	positionReplays    int
@@ -93,6 +94,12 @@ func newReviewProjectionCache(capture domain.ReviewProjectionCapture, providerKe
 			scope.complete = false
 		}
 		cache.dailyEvidence[scopeKey] = scope
+	}
+	cache.suffixEvidence = make(map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence)
+	if capture.Suffix != nil {
+		for _, day := range capture.Suffix.Prefix {
+			cache.suffixEvidence[day.Key] = day.Evidence
+		}
 	}
 	cache.indexPositionActivities()
 	return cache

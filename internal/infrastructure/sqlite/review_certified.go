@@ -75,6 +75,10 @@ func (r *Repository) authenticReview(c *domain.ReviewTemporalCertificate, seal s
 }
 
 func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string, error) {
+	suffixDigest, err := domain.ReviewSuffixFingerprint(c.Suffix)
+	if err != nil {
+		return "", err
+	}
 	proof := *c.Certified
 	proof.SourceMAC = ""
 	proof.Provider = domain.ReviewProviderSelection{}
@@ -86,7 +90,8 @@ func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string,
 		Control     domain.ReviewProjectionControl
 		Temporal    string
 		Proof       domain.ReviewCertifiedCapture
-	}{c.HouseholdID, c.HistoricalFingerprint, c.SourceCutoff, c.SourceRevision, c.Control, reviewTemporalDigest(c.Temporal), proof})
+		Suffix      string
+	}{c.HouseholdID, c.HistoricalFingerprint, c.SourceCutoff, c.SourceRevision, c.Control, reviewTemporalDigest(c.Temporal), proof, suffixDigest})
 }
 
 // Complete row bytes, including all daily JSON, historical conditions, frozen
@@ -330,6 +335,16 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 	out.CertifiedProjectionSeal, err = certifiedProjectionSeal(ctx, tx, c.HouseholdID)
 	if err != nil {
 		return err
+	}
+	if r.reviewDependencySuffix {
+		out.SuffixQuoteSeals, err = domain.ReviewQuoteDaySeals(c.Historical)
+		if err != nil {
+			return err
+		}
+		out.SuffixNonQuoteFingerprint, err = domain.ReviewNonQuoteFingerprint(c.Historical)
+		if err != nil {
+			return err
+		}
 	}
 	out.CertifiedProvider = c.Certified.Provider
 	out.NoChangeCompletenessVersion = domain.ReviewCertifiedCompletenessVersion

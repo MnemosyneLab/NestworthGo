@@ -29,6 +29,7 @@ type ReviewRuleInstrumentPlan struct {
 	LatestResult      *domain.ReviewDailyResult
 	LatestCoverage    []string
 	Incremental       bool
+	RecomputedDays    int
 	PreviousLatestOn  string
 	Position          ReviewPositionTimeline
 	EpochIDs          []string
@@ -73,13 +74,19 @@ func planReviewRuleInstrument(ctx context.Context, capture domain.ReviewProjecti
 			return empty, err
 		}
 		on := day.Format(time.DateOnly)
-		input, coverage, daily, err := evaluateReviewHistoricalDateCached(ctx, cache, rule, spec, instrumentID, on)
-		if err != nil {
-			return empty, err
-		}
-		fingerprint, err := reviewDailyInputFingerprint(input, coverage)
-		if err != nil {
-			return empty, err
+		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: timezoneVersion, On: on}
+		cached, reuse := cache.suffixEvidence[key]
+		input, coverage, daily, fingerprint := cached.Input, ReviewHistoricalCoverage{On: on, Missing: cached.CoverageMissing}, cached.Result, cached.InputFingerprint
+		if !reuse {
+			input, coverage, daily, err = evaluateReviewHistoricalDateCached(ctx, cache, rule, spec, instrumentID, on)
+			if err != nil {
+				return empty, err
+			}
+			fingerprint, err = reviewDailyInputFingerprint(input, coverage)
+			if err != nil {
+				return empty, err
+			}
+			result.RecomputedDays++
 		}
 		result.Days = append(result.Days, ReviewPlannedDay{On: on, Input: input, Coverage: coverage, Result: daily, InputFingerprint: fingerprint})
 		dailyResults = append(dailyResults, daily)

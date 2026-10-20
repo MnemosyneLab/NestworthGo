@@ -41,6 +41,7 @@ func ReviewFullPublication(p ReviewPublication) ReviewPublication {
 		p.Rules = p.CertifiedFullOracle.Rules
 	}
 	p.CertifiedFullOracle = nil
+	p.Capture.Suffix = nil
 	p.Capture.TemporalFullRecompute = true
 	p.Capture.ReusableDailyEvidence = nil
 	return p

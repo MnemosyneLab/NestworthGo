@@ -4,6 +4,7 @@ package application
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"runtime"
@@ -24,6 +25,18 @@ func TestReviewCertifiedPerformanceEvidence(t *testing.T) {
 	if os.Getenv("NW_C3_CERTIFIED_EVIDENCE") != "1" {
 		t.Skip("opt-in synthetic certified evidence")
 	}
+	runReviewCertifiedPerformanceEvidence(t, false)
+}
+
+func TestReviewDependencySuffixPerformanceEvidence(t *testing.T) {
+	if os.Getenv("NW_D2_SUFFIX_EVIDENCE") != "1" {
+		t.Skip("opt-in synthetic D1/D2 evidence")
+	}
+	runReviewCertifiedPerformanceEvidence(t, true)
+}
+
+func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
+	t.Logf("dependencySuffix=%v (same C2 control; isolated synthetic data)", suffix)
 	samples := reviewPerfSampleCount(t, 3)
 	for _, size := range c3PerfSizes(t) {
 		t.Run(size, func(t *testing.T) {
@@ -39,7 +52,11 @@ func TestReviewCertifiedPerformanceEvidence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, scenario := range []string{"warm", "clock-only", "append", "correction"} {
+			scenarios := []string{"warm", "clock-only", "append", "correction"}
+			if suffix {
+				scenarios = append(scenarios, "quote-append")
+			}
+			for _, scenario := range scenarios {
 				t.Run(scenario, func(t *testing.T) {
 					times := map[string][]time.Duration{"C2": {}, "certified": {}}
 					for sample := range samples {
@@ -55,6 +72,9 @@ func TestReviewCertifiedPerformanceEvidence(t *testing.T) {
 							r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
 							if arm == "certified" {
 								r = r.WithCertifiedReviewCandidate()
+								if suffix {
+									r = r.WithReviewDependencySuffix()
+								}
 							}
 							f.service = NewService(r)
 							f.service.fxProviderKey = "synthetic-pinned" // Fixed synthetic selection, no network provider calls.
@@ -88,6 +108,16 @@ func TestReviewCertifiedPerformanceEvidence(t *testing.T) {
 								*f.now = f.now.Add(time.Nanosecond)
 							case "clock-only":
 								*f.now = f.now.AddDate(0, 0, 1)
+							case "quote-append":
+								when := *f.now
+								for index, instrument := range f.instruments {
+									at := time.Date(when.Year(), when.Month(), when.Day(), 17, 0, 0, 0, time.UTC)
+									_, err := f.db.SQL.Exec(`INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at,observation_kind,effective_date,value_effective_at,binding_revision,price_basis,timestamp_basis,revision) VALUES(?,?, '101',?,'agent','agent',?,?,'close',?,?,0,'agent_raw_close_v1','date_label',1)`, fmt.Sprintf("00000000-0000-4000-8007-%012x", index+1), instrument.ID.String(), instrument.QuoteCurrency.String(), formatReviewPerfTime(at), formatReviewPerfTime(at), when.Format(time.DateOnly), formatReviewPerfTime(at))
+									if err != nil {
+										t.Fatal(err)
+									}
+								}
+								*f.now = f.now.AddDate(0, 0, 1)
 							case "append":
 								if err := appendReviewPerfDailyMarketData(t.Context(), f, *f.now); err != nil {
 									t.Fatal(err)
@@ -117,6 +147,17 @@ func TestReviewCertifiedPerformanceEvidence(t *testing.T) {
 									for _, rule := range stage.CertifiedFullOracle.Rules {
 										audited += len(rule.Days)
 									}
+								}
+								if suffix {
+									wantSuffix := scenario != "append"
+									if (stage.Capture.Suffix != nil) != wantSuffix {
+										t.Fatalf("scenario=%s suffix selected=%v want=%v", scenario, stage.Capture.Suffix != nil, wantSuffix)
+									}
+									reused := 0
+									if stage.Capture.Suffix != nil {
+										reused = len(stage.Capture.Suffix.Prefix)
+									}
+									t.Logf("D2 size=%s scenario=%s recomputedPairDays=%d reusedPairDays=%d", size, scenario, countReviewPublicationDays(stage)-reused, reused)
 								}
 								t.Logf("audit size=%s scenario=%s sample=%d actualPublicationDays=%d independentFullAuditDays=%d", size, scenario, sample+1, countReviewPublicationDays(stage), audited)
 							}

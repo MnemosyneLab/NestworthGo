@@ -18,6 +18,7 @@ type Repository struct {
 	reviewSourceShadowObserver        func(domain.ReviewSourceShadowObservation)
 	reviewNoChangeCandidate           bool
 	reviewCertifiedCandidate          bool
+	reviewDependencySuffix            bool
 	reviewCompletenessLineageShadow   bool
 	reviewCompletenessLineageObserver func(domain.ReviewCompletenessLineageObservation)
 }

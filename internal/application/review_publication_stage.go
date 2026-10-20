@@ -13,6 +13,11 @@ import (
 // will reject this entire staged result if any authoritative fact, rule,
 // acknowledgement or ignore changed before publication.
 func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
+	if capture.Suffix != nil && capture.Certified != nil && capture.Certified.Provider.Pinned && capture.Certified.Provider == capture.Certified.PreviousProvider && capture.Certified.Provider.Key == providerKey {
+		return prepareReviewPublication(ctx, capture, now, providerKey)
+	}
+	// Provider continuity is required for every reused prefix value.
+	capture.Suffix = nil
 	if capture.Certified != nil {
 		return prepareCertifiedReviewPublication(ctx, capture, now, providerKey)
 	}
@@ -240,6 +245,7 @@ func reviewEpisodeTriggerEvidence(capture domain.ReviewProjectionCapture, rule d
 // candidate keeps the independent full oracle in memory for fallback/recheck.
 func prepareCertifiedReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
 	fullCapture := capture
+	fullCapture.Suffix = nil
 	fullCapture.TemporalFullRecompute = true
 	fullCapture.ReusableDailyEvidence = nil
 	full, err := prepareReviewPublication(ctx, fullCapture, now, providerKey)

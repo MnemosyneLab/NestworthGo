@@ -179,7 +179,11 @@ func run() error {
 					return current.TiingoAPIKey, nil
 				}, nil),
 			)
-			repo := sqlite.NewRepository(database)
+			repo := sqlite.NewRepository(database).WithReviewDependencySuffix()
+			// Process-local rollback: retains the complete source/oracle path.
+			if os.Getenv("NESTWORTH_REVIEW_FULL_RECOMPUTE") == "1" {
+				repo = repo.WithFullReviewRecompute()
+			}
 			service = nestworthapp.NewService(repo, registry)
 			appports.Wire(service)
 			appports.AttachSQLiteHistory(service, repo)
