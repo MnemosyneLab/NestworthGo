@@ -100,6 +100,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		return err
 	}
 	defer tx.Rollback()
+	memoGeneration := r.reviewMemoGeneration()
 	checkpoint, certified, mayCertify, err := r.verifyCertifiedPublication(ctx, tx, capture, providerLeased, connectionID)
 	if err != nil {
 		return err
@@ -380,6 +381,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	r.commitReviewMemo(capture, publishedTemporal, memoGeneration)
 	if publishedTemporal.CertifiedMAC != "" {
 		r.database.reviewCertificateKey.issued.Store(true)
 	}
