@@ -19,8 +19,22 @@ type ReviewProviderSelection struct {
 
 // Issued only by a coherent, fully loaded source capture. SourceMAC binds
 // these trust decisions to that database handle's private session key.
+type ReviewSuffixSourceProof struct {
+	NonQuoteFingerprint string
+	QuoteSeals          []ReviewQuoteDaySeal
+}
+
+type ReviewPrefixMemoObservation struct {
+	ReusedDays, SQLDecodedDays, ArgumentEncodes int
+}
+
 type ReviewCertifiedCapture struct {
+	SuffixMemoReceipt     uint64                       `json:",omitempty"`
+	SuffixMemoObservation *ReviewPrefixMemoObservation `json:",omitempty"`
+
+	SuffixSourceProof  *ReviewSuffixSourceProof `json:",omitempty"` // Derived in the coherent capture; authenticated by SourceMAC.
 	SourceMAC          string
+	SuffixDigest       string // Exact typed prefix/plan digest; bound by SourceMAC.
 	Connection         ReviewConnectionCheckpoint
 	ProjectionSeal     string
 	TemporalJSON       string
@@ -41,6 +55,7 @@ func ReviewFullPublication(p ReviewPublication) ReviewPublication {
 		p.Rules = p.CertifiedFullOracle.Rules
 	}
 	p.CertifiedFullOracle = nil
+	p.Capture.Suffix = nil
 	p.Capture.TemporalFullRecompute = true
 	p.Capture.ReusableDailyEvidence = nil
 	return p

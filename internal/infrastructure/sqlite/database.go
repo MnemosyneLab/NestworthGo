@@ -89,6 +89,7 @@ type DB struct {
 	Status               BootstrapStatus
 	reviewClock          reviewTemporalClock
 	reviewCertificateKey reviewCertificateKey
+	reviewPrefixMemo     reviewPrefixMemoState
 	// Process-private genesis evidence. Existing/upgraded files never get it;
 	// publication/handling/import consumes it before exposing review history.
 	reviewInitialPublicationAllowed atomic.Bool
@@ -295,6 +296,11 @@ func (db *DB) Close() error {
 	}
 	db.releaseReviewCommitHook()
 	err := db.SQL.Close()
+	db.reviewPrefixMemo.mu.Lock()
+	db.reviewPrefixMemo.committed = nil
+	db.reviewPrefixMemo.pending = nil
+	db.reviewPrefixMemo.generation++
+	db.reviewPrefixMemo.mu.Unlock()
 	db.SQL = nil
 	return err
 }

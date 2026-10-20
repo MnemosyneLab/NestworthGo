@@ -21,6 +21,7 @@ type ReviewProjectionCapture struct {
 	EvaluatedInstruments  map[ReviewRuleID][]InstrumentID
 	ReusableDailyEvidence map[ReviewDailyEvidenceKey]ReviewReusableDailyEvidence
 	CompletenessLineage   *ReviewCompletenessLineage
+	Suffix                *ReviewSuffixCapture
 	Certified             *ReviewCertifiedCapture
 }
 

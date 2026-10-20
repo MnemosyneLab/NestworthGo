@@ -1,0 +1,70 @@
+ok  	github.com/waltwang/nestworth-go	0.002s
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-probe	0.006s
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-seed	0.005s
+ok  	github.com/waltwang/nestworth-go/cmd/investment-review-qa-seed	0.006s
+# github.com/wailsapp/wails/v3/internal/assetserver/webview
+# [pkg-config --cflags  -- glib-2.0 glib-2.0 gobject-2.0 gtk4 webkitgtk-6.0 gio-unix-2.0 gtk4 webkitgtk-6.0 gtk4 webkitgtk-6.0 libsoup-3.0 gio-unix-2.0]
+Package glib-2.0 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `glib-2.0.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'glib-2.0', required by 'virtual:world', not found
+Package 'gobject-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+Package 'libsoup-3.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+# github.com/wailsapp/wails/v3/internal/operatingsystem
+# [pkg-config --cflags  -- gtk4 webkitgtk-6.0]
+Package gtk4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `gtk4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'gtk4', required by 'virtual:world', not found
+Package 'webkitgtk-6.0', required by 'virtual:world', not found
+FAIL	github.com/waltwang/nestworth-go/cmd/nestworth [build failed]
+?   	github.com/waltwang/nestworth-go/docs/qa/post-merge-pr101-pr102-2026-10-17/repro	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/application	141.031s
+ok  	github.com/waltwang/nestworth-go/internal/architecture	0.006s
+ok  	github.com/waltwang/nestworth-go/internal/diagnostics	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/domain	0.035s
+ok  	github.com/waltwang/nestworth-go/internal/format	(cached)
+?   	github.com/waltwang/nestworth-go/internal/infrastructure	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/appports	1.151s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	2.919s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup	17.192s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/marketdata	2.943s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	33.044s
+ok  	github.com/waltwang/nestworth-go/internal/mcpserver	45.770s
+ok  	github.com/waltwang/nestworth-go/internal/settings	0.148s
+ok  	github.com/waltwang/nestworth-go/internal/version	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/account	1.030s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/agent	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analysis	0.213s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analytics	0.424s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/apierror	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/app	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/catalog	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup	0.009s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/data	0.216s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/directory	0.531s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/history	2.154s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/holding	0.606s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/household	0.329s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/instrument	0.621s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/liquidity	0.166s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/marketdata	0.683s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/native	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/portfolio	0.582s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/preview	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/quote	0.640s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation	0.477s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/recovery	1.435s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/settings	0.451s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/wailstest	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/wire	(cached)
+FAIL

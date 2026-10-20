@@ -35,6 +35,10 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 		return empty, err
 	}
 	defer tx.Rollback()
+	var memoGeneration uint64
+	if r.reviewPrefixMemoEnabled {
+		memoGeneration = r.reviewMemoGeneration()
+	}
 	var connectionProof domain.ReviewConnectionCheckpoint
 	if r.CertifiedReviewEnabled() {
 		// Sample before any financial snapshot reads. A later external commit
@@ -221,6 +225,9 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 		}
 	}
 	if err := r.loadReusableReviewWindow(ctx, tx, &result); err != nil {
+		return empty, err
+	}
+	if err := r.captureReviewSuffix(ctx, tx, &result, memoGeneration); err != nil {
 		return empty, err
 	}
 	if err := tx.Commit(); err != nil {

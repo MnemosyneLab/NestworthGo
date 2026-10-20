@@ -179,7 +179,7 @@ func run() error {
 					return current.TiingoAPIKey, nil
 				}, nil),
 			)
-			repo := sqlite.NewRepository(database)
+			repo := sqlite.NewRepository(database).WithDefaultReviewOptimizations()
 			service = nestworthapp.NewService(repo, registry)
 			appports.Wire(service)
 			appports.AttachSQLiteHistory(service, repo)

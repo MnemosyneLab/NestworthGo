@@ -20,19 +20,22 @@ type ReviewPlannedDay struct {
 }
 
 type ReviewRuleInstrumentPlan struct {
-	RuleID            domain.ReviewRuleID
-	ConditionVersion  int
-	InstrumentID      domain.InstrumentID
-	LatestClosedOn    string
-	Days              []ReviewPlannedDay
-	LatestWindow      domain.ReviewPolicyWindow
-	LatestResult      *domain.ReviewDailyResult
-	LatestCoverage    []string
-	Incremental       bool
-	PreviousLatestOn  string
-	Position          ReviewPositionTimeline
-	EpochIDs          []string
-	ActiveSuppression *domain.ReviewSuppression
+	RuleID           domain.ReviewRuleID
+	ConditionVersion int
+	InstrumentID     domain.InstrumentID
+	LatestClosedOn   string
+	Days             []ReviewPlannedDay
+	LatestWindow     domain.ReviewPolicyWindow
+	LatestResult     *domain.ReviewDailyResult
+	LatestCoverage   []string
+	Incremental      bool
+	RecomputedDays   int
+	// RetainedOutputDays is allocation accounting only, not publication authority.
+	RetainedOutputDays int
+	PreviousLatestOn   string
+	Position           ReviewPositionTimeline
+	EpochIDs           []string
+	ActiveSuppression  *domain.ReviewSuppression
 }
 
 // PlanReviewRuleInstrument replays every reliable civil day so that a later
@@ -73,13 +76,26 @@ func planReviewRuleInstrument(ctx context.Context, capture domain.ReviewProjecti
 			return empty, err
 		}
 		on := day.Format(time.DateOnly)
-		input, coverage, daily, err := evaluateReviewHistoricalDateCached(ctx, cache, rule, spec, instrumentID, on)
-		if err != nil {
-			return empty, err
+		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: timezoneVersion, On: on}
+		prefixIndex, reuse := cache.suffixEvidence[key]
+		var cached domain.ReviewReusableDailyEvidence
+		if reuse {
+			cached = cache.capture.Suffix.Prefix[prefixIndex].Evidence
+			if cache.capture.Suffix.Prefix[prefixIndex].OutputAttested {
+				result.RetainedOutputDays++
+			}
 		}
-		fingerprint, err := reviewDailyInputFingerprint(input, coverage)
-		if err != nil {
-			return empty, err
+		input, coverage, daily, fingerprint := cached.Input, ReviewHistoricalCoverage{On: on, Missing: cached.CoverageMissing}, cached.Result, cached.InputFingerprint
+		if !reuse {
+			input, coverage, daily, err = evaluateReviewHistoricalDateCached(ctx, cache, rule, spec, instrumentID, on)
+			if err != nil {
+				return empty, err
+			}
+			fingerprint, err = reviewDailyInputFingerprint(input, coverage)
+			if err != nil {
+				return empty, err
+			}
+			result.RecomputedDays++
 		}
 		result.Days = append(result.Days, ReviewPlannedDay{On: on, Input: input, Coverage: coverage, Result: daily, InputFingerprint: fingerprint})
 		dailyResults = append(dailyResults, daily)
