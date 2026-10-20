@@ -19,7 +19,7 @@ import (
 func suffixQuote(t *testing.T, f seriesZeroFixture, id domain.InstrumentID, on, price string) {
 	t.Helper()
 	at := on + "T17:00:00.000Z"
-	_, err := f.db.SQL.Exec(`INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at,observation_kind,effective_date,value_effective_at,binding_revision,price_basis,timestamp_basis,revision) VALUES(?,?,?,'CNY','agent','agent',?,?,'close',?,?,0,'agent_raw_close_v1','date_label',1)`, domain.NewInstrumentQuoteID().String(), id.String(), price, at, at, on, at)
+	_, err := f.db.SQL.Exec(`INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at,observation_kind,effective_date,value_effective_at,binding_revision,price_basis,timestamp_basis,source_policy_version,revision) VALUES(?,?,?,'CNY','agent','agent',?,?,'close',?,?,0,'agent_raw_close_v1','date_label','agent_raw_close_v1',1)`, domain.NewInstrumentQuoteID().String(), id.String(), price, at, at, on, at)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,6 +187,14 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 			if p.Capture.Suffix == nil {
 				t.Fatal("no suffix")
 			}
+			tamperPrefix := func() {
+				t.Helper()
+				truth := &p.Capture.Suffix.Prefix[0].Evidence.Result.Truth
+				if *truth != domain.ReviewTrue {
+					t.Fatalf("expected eligible 120 quote to produce true prefix, got %s", *truth)
+				}
+				*truth = domain.ReviewFalse
+			}
 			switch scenario {
 			case "external-source":
 				db, err := sqlite.Open(f.db.Path)
@@ -222,7 +230,7 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "tamper-prefix":
-				p.Capture.Suffix.Prefix[0].Evidence.Result.Truth = domain.ReviewFalse
+				tamperPrefix()
 			}
 			before := noChangeProjectionRows(t, f.db)
 			ctx := t.Context()
@@ -245,11 +253,11 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 				}
 			}
 			if scenario == "final-prefix-change" {
-				clock = func() time.Time { p.Capture.Suffix.Prefix[0].Evidence.Result.Truth = domain.ReviewFalse; return *f.now }
+				clock = func() time.Time { tamperPrefix(); return *f.now }
 			}
 			if scenario == "final-digest-change" {
 				clock = func() time.Time {
-					p.Capture.Suffix.Prefix[0].Evidence.Result.Truth = domain.ReviewFalse
+					tamperPrefix()
 					p.Capture.Certified.SuffixDigest, _ = domain.ReviewSuffixFingerprint(p.Capture.Suffix)
 					return *f.now
 				}

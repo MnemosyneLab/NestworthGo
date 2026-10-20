@@ -462,7 +462,9 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	if !v.historical {
 		targetDate = displayDate(snapshot, v.now())
 	}
-	evidence.ClosedCarry = instrument.QuoteSource != domain.QuoteSourceManual && domain.InstrumentClosedCarry(instrument, instrumentObservationDate(instrument, quote.EffectiveDate, quote.QuotedAt), targetDate, snapshot.InstrumentClosures)
+	// Closed-day freshness requires the same eligible daily anchor as history.
+	anchor := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, []domain.InstrumentQuote{*quote}, nil, targetDate, v.now()).quote
+	evidence.ClosedCarry = instrument.QuoteSource != domain.QuoteSourceManual && quote.SourceKind != domain.QuoteSourceManual && anchor != nil && domain.InstrumentClosedCarry(instrument, quote.EffectiveDate, targetDate, snapshot.InstrumentClosures)
 	if evidence.ClosedCarry {
 		evidence.Freshness = domain.FreshnessFresh
 	}
@@ -568,7 +570,9 @@ func (v *ValuationService) quoteEvidenceForFXConversion(snapshot domain.Portfoli
 	if !v.historical {
 		targetDate = displayDate(snapshot, v.now())
 	}
-	evidence.ClosedCarry = domain.InstrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, instrumentObservationDate(domain.Instrument{}, quote.EffectiveDate, quote.QuotedAt), targetDate, nil)
+	preference := implicitFXPreferenceTo(snapshot, quote.BaseCurrency, quote.QuoteCurrency)
+	anchor := selectHistoricalFXQuoteAtMarketDate(preference, []domain.FXQuote{quote}, quote.BaseCurrency, quote.QuoteCurrency, v.providerKey(), targetDate, v.now())
+	evidence.ClosedCarry = preference.SourceKind != domain.QuoteSourceManual && quote.SourceKind != domain.QuoteSourceManual && anchor != nil && domain.InstrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, quote.EffectiveDate, targetDate, nil)
 	if evidence.ClosedCarry {
 		evidence.Freshness = domain.FreshnessFresh
 	}
