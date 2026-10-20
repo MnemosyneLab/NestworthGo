@@ -394,12 +394,15 @@ func scanDailyValuationSnapshotItem(id string, snapshotID domain.DailyValuationS
 		}
 		item.InstrumentID = &value
 	}
-	if nativeAmount.Valid && nativeCurrency.Valid {
+	if nativeCurrency.Valid && nativeCurrency.String != "" {
 		currency, parseErr := domain.ParseCurrency(nativeCurrency.String)
 		if parseErr != nil {
 			return domain.DailyValuationSnapshotItem{}, parseErr
 		}
-		item.NativeAmount, item.NativeCurrency = nativeAmount.String, currency
+		item.NativeCurrency = currency
+	}
+	if nativeAmount.Valid && nativeAmount.String != "" {
+		item.NativeAmount = nativeAmount.String
 		if parseErr := item.ValidateNativeAmount(); parseErr != nil {
 			return domain.DailyValuationSnapshotItem{}, parseErr
 		}

@@ -228,7 +228,9 @@ type ComponentDay struct {
 	InvestedCapital   *SignedMoney
 	ReturnRate        *decimal.Decimal
 	Status            Completeness
-	Residual          *Residual
+	// MissingReason is a stable analytics sentence for a partial component day.
+	MissingReason string
+	Residual      *Residual
 }
 type DailyReturn struct {
 	Date   LocalDate

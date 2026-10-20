@@ -171,6 +171,12 @@ func (s *Service) valueHistoricalSnapshot(ctx context.Context, origin *domain.Hi
 			items = append(items, item)
 		}
 	}
+	if len(portfolio.ReplayFundingGaps) > 0 {
+		var extra int
+		items, extra = annotateReplayFundingGaps(items, portfolio.ReplayFundingGaps)
+		complete = false
+		eligibleMissing += extra
+	}
 	assetsMoney, err := domain.NewMoney(assets, baseCurrency)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, err

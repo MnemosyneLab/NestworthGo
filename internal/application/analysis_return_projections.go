@@ -270,7 +270,11 @@ func (s *Service) Contribution(ctx context.Context, query domain.AnalysisQuery, 
 	rows := make([]ContributionRow, 0, len(groups))
 	currency := resultCurrency(result)
 	for _, group := range groups {
-		rows = append(rows, ContributionRow{Key: group.Key, Label: group.Key, Amount: signedPointer(group.ReturnAmount, currency), Rate: group.ReturnRate, Coverage: group.Coverage, AnalysisAvailability: groupAvailability(group.Status, group.Coverage, forced)})
+		availability := groupAvailability(group.Status, group.Coverage, forced)
+		if reason := fundingGapReasonForGroup(result, group.Key, groupBy); reason != "" && availability.Status != domain.CompletenessOK {
+			availability.MissingReason = reason
+		}
+		rows = append(rows, ContributionRow{Key: group.Key, Label: group.Key, Amount: signedPointer(group.ReturnAmount, currency), Rate: group.ReturnRate, Coverage: group.Coverage, AnalysisAvailability: availability})
 	}
 	sortContributionRows(rows, ordering, true)
 	return ContributionResult{AnalysisAvailability: returnAvailability(result, forced), ReturnType: returnType, GroupBy: groupBy, Rows: rows, Coverage: result.Coverage}, nil
@@ -629,7 +633,12 @@ func projectReturnDays(result domain.PeriodAnalysisResult, forced string) []Retu
 			cell.Composition = append(cell.Composition, ReturnComponentAmount{Component: domain.ReturnComponent(key), Amount: signedPointer(components[domain.ReturnComponent(key)], currency)})
 		}
 		if daily.Status != domain.CompletenessOK {
-			cell.Issues = []ReturnIssue{{Date: daily.Date, Status: daily.Status, MissingReason: "daily return is incomplete"}}
+			reason := "daily return is incomplete"
+			if specific := fundingGapReasonOnDate(result.Days, daily.Date); specific != "" {
+				reason = specific
+				cell.MissingReason = specific
+			}
+			cell.Issues = []ReturnIssue{{Date: daily.Date, Status: daily.Status, MissingReason: reason}}
 		}
 		days = append(days, cell)
 	}
@@ -920,6 +929,9 @@ func returnAvailability(result domain.PeriodAnalysisResult, forced string) Analy
 		status, reason = domain.CompletenessOK, ""
 		if partial {
 			status, reason = domain.CompletenessPartial, "one or more return days are incomplete"
+			if specific := fundingGapReasonFromDays(result.Days); specific != "" {
+				reason = specific
+			}
 		}
 	}
 	return AnalysisAvailability{Available: usable, Status: status, MissingReason: reason, ValuationForced: forcedPointer(forced)}
