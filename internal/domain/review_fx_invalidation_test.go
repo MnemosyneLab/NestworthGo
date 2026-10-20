@@ -121,7 +121,6 @@ func TestReviewFXPlanRequiresCompleteOldNewCoverage(t *testing.T) {
 			case "wrong-date":
 				bad := *scope
 				bad.On = "2026-10-09"
-				cs[0].OldFX = &bad
 				cs[0].NewFX = &bad
 			case "hidden-delete":
 				cs[0].Operation = "delete"
