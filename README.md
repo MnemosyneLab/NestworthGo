@@ -71,9 +71,10 @@ manifest, and standalone user-skill bundle:
 wails3 task package:release
 ```
 
-The default outputs are `dist/macos/Nestworth.app`,
-`dist/macos/Nestworth-0.3.8-arm64.dmg`,
-`dist/macos/Nestworth-0.3.8-arm64.zip`, `dist/macos/SHA256SUMS`,
+For the unreleased v0.3.9 / build 10 development version, the default outputs
+are `dist/macos/Nestworth.app`,
+`dist/macos/Nestworth-0.3.9-arm64.dmg`,
+`dist/macos/Nestworth-0.3.9-arm64.zip`, `dist/macos/SHA256SUMS`,
 `dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
 ad-hoc signed for local launch. Developer ID signing, notarization, artifact
 retention, and full GUI/accessibility regression remain separate distribution
