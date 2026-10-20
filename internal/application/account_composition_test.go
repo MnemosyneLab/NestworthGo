@@ -1,7 +1,6 @@
 package application
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
@@ -298,7 +298,7 @@ func TestAccountCompositionShareAllocationStableAcrossViewsAndTies(t *testing.T)
 		t.Fatal(err)
 	}
 	var fixture wire.AccountCompositionDTO
-	if err := json.Unmarshal(fixtureJSON, &fixture); err != nil {
+	if err := jsoncodec.Unmarshal(fixtureJSON, &fixture); err != nil {
 		t.Fatal(err)
 	}
 	if actual := wire.FromAccountComposition(&result); !reflect.DeepEqual(actual, &fixture) {

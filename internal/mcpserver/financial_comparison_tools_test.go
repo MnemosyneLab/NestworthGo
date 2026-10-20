@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -10,13 +9,14 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func decodeComparison(t *testing.T, obj map[string]any) FinancialComparisonResponse {
 	t.Helper()
-	raw, _ := json.Marshal(obj["data"])
+	raw, _ := jsoncodec.Marshal(obj["data"])
 	var r FinancialComparisonResponse
-	if err := json.Unmarshal(raw, &r); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &r); err != nil {
 		t.Fatal(err)
 	}
 	return r

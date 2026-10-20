@@ -3,12 +3,12 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // CaptureReviewProjection uses one SQLite snapshot for financial facts, rule
@@ -119,7 +119,7 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 			return empty, err
 		}
 		var episodeEvidence reviewEpisodeEvidence
-		if err := json.Unmarshal([]byte(evidenceJSON), &episodeEvidence); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &episodeEvidence); err != nil {
 			episodeRows.Close()
 			return empty, fmt.Errorf("decode review episode evidence: %w", err)
 		}

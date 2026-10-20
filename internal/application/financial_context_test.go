@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func contextFor(t *testing.T, s *Service, date string, ids ...domain.AccountID) FinancialContextResult {
@@ -62,7 +62,7 @@ func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T
 			t.Fatal(e)
 		}
 	}
-	raw, _ := json.Marshal(r.Content)
+	raw, _ := jsoncodec.Marshal(r.Content)
 	for _, secret := range []string{a.Account.ID.String(), b.Account.ID.String(), "Secret", "baseline"} {
 		if strings.Contains(string(raw), secret) {
 			t.Fatalf("minimal leaked %s", secret)
@@ -279,14 +279,14 @@ func TestFinancialContextHashFreshnessThresholdAndWhitelist(t *testing.T) {
 		t.Fatal("freshness threshold did not change hash")
 	}
 	wantOverviewAmount(t, stale.Content.Summary.Assets.Value, "6.00000002")
-	raw, _ := json.Marshal(stale.Content)
+	raw, _ := jsoncodec.Marshal(stale.Content)
 	for _, secret := range []string{"do evil", "secret.invalid", i.ID.String(), a.Account.ID.String(), "Secret stock"} {
 		if strings.Contains(string(raw), secret) {
 			t.Fatal("leaked", secret)
 		}
 	}
 	conversion := contextConversion(`{"policy":"metal_usd_troy_ounce_v1","rawPrice":"1.00","rawCurrency":"USD","rawUnit":"troy_oz","rawQuotedAt":"2026-08-01T10:00:00Z","fxRate":"7.00","fxSource":"SECRET","currency":"CNY","unit":"g","note":"INSTRUCTION","sourceURL":"SECRET"}`)
-	encoded, _ := json.Marshal(conversion)
+	encoded, _ := jsoncodec.Marshal(conversion)
 	if conversion == nil || strings.Contains(string(encoded), "SECRET") || strings.Contains(string(encoded), "INSTRUCTION") {
 		t.Fatal(string(encoded))
 	}

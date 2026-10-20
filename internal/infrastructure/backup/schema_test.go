@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestUnsupportedBackupSchemasNeverReplaceLiveDatabase(t *testing.T) {
@@ -45,7 +45,7 @@ func TestUnsupportedBackupSchemasNeverReplaceLiveDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 			writer := zip.NewWriter(file)
-			manifest, err := json.Marshal(pkg.Manifest)
+			manifest, err := jsoncodec.Marshal(pkg.Manifest)
 			if err != nil {
 				t.Fatal(err)
 			}

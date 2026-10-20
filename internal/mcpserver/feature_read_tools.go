@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -30,7 +31,7 @@ func ptrString(s *string) string {
 	return *s
 }
 func readSummary(v any, remove ...string) (map[string]any, error) {
-	b, err := json.Marshal(v)
+	b, err := jsoncodec.Marshal(v)
 	if err != nil {
 		return nil, err
 	}

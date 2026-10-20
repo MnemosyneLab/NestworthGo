@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const reviewPrefixMemoVersion = "owned-lossless-prefix-v1"
@@ -90,8 +90,8 @@ type reviewPrefixMemoState struct {
 }
 
 func reviewMemoBind(c domain.ReviewProjectionCapture) reviewMemoBinding {
-	source, _ := json.Marshal(c.SourceRevision)
-	provider, _ := json.Marshal(c.PublishedTemporal.CertifiedProvider)
+	source, _ := jsoncodec.Marshal(c.SourceRevision)
+	provider, _ := jsoncodec.Marshal(c.PublishedTemporal.CertifiedProvider)
 	return reviewMemoBinding{c.HouseholdID.String(), reviewTemporalDigest(c.PublishedTemporal), c.PublishedTemporal.CertifiedProjectionSeal, string(source), c.HistoricalFingerprint, string(provider), c.Temporal.ClockEpoch, reviewPrefixMemoVersion + "/" + domain.ReviewCertifiedCompletenessVersion + "/" + domain.ReviewTemporalPolicyVersion}
 }
 func reviewMemoDigest(entries []reviewMemoEntry) string {
@@ -103,7 +103,7 @@ func reviewMemoDigest(entries []reviewMemoEntry) string {
 		h.Write([]byte(s))
 	}
 	for _, e := range entries {
-		key, _ := json.Marshal(e.Key)
+		key, _ := jsoncodec.Marshal(e.Key)
 		write(string(key))
 		write(e.Input)
 		write(e.Coverage)
@@ -160,10 +160,10 @@ func (e reviewMemoEntry) decode() (domain.ReviewReusableDailyEvidence, error) {
 	if err := decodeReviewInput([]byte(e.Input), &v.Input); err != nil {
 		return v, err
 	}
-	if err := json.Unmarshal([]byte(e.Coverage), &v.CoverageMissing); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(e.Coverage), &v.CoverageMissing); err != nil {
 		return v, err
 	}
-	if err := json.Unmarshal([]byte(e.Result), &v.Result); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(e.Result), &v.Result); err != nil {
 		return v, err
 	}
 	if v.Input.On != e.Key.On || v.Input.InstrumentID != e.Key.InstrumentID || v.Result.On != e.Key.On {
@@ -211,7 +211,7 @@ func (r *Repository) stageReviewMemo(c *domain.ReviewProjectionCapture, entries 
 }
 func reviewMemoScope(k domain.ReviewDailyEvidenceKey) string {
 	k.On = ""
-	raw, _ := json.Marshal(k)
+	raw, _ := jsoncodec.Marshal(k)
 	return string(raw)
 }
 func reviewMemoNextDay(on string) string {
@@ -275,8 +275,8 @@ func (r *Repository) commitReviewMemoNoop(oldJSON []byte, out domain.ReviewTempo
 		return
 	}
 	oldHash := sha256.Sum256(oldJSON)
-	source, _ := json.Marshal(out.Source)
-	provider, _ := json.Marshal(out.CertifiedProvider)
+	source, _ := jsoncodec.Marshal(out.Source)
+	provider, _ := jsoncodec.Marshal(out.CertifiedProvider)
 	if s.binding.Predecessor != hex.EncodeToString(oldHash[:]) || s.binding.Seal != out.CertifiedProjectionSeal || s.binding.Source != string(source) || s.binding.Provider != string(provider) || s.binding.Clock != out.ClockEpoch {
 		return
 	}

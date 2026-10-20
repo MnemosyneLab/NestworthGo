@@ -6,11 +6,11 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type reviewCoverageCursor struct{ Revision, FilterHash, AfterID string }
@@ -40,7 +40,7 @@ func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domai
 	if len([]rune(filter.Query)) > 120 {
 		return empty, &domain.Error{Code: domain.ErrValidation, Field: "query", Message: "search must have at most 120 characters"}
 	}
-	filterBytes, _ := json.Marshal(filter)
+	filterBytes, _ := jsoncodec.Marshal(filter)
 	filterDigest := sha256.Sum256(filterBytes)
 	filterHash := hex.EncodeToString(filterDigest[:])
 	tx, release, connectionID, err := r.beginReviewStatusRead(ctx)
@@ -56,7 +56,7 @@ func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domai
 	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now, connectionID); err != nil {
 		return empty, err
 	}
-	stateBytes, _ := json.Marshal(control)
+	stateBytes, _ := jsoncodec.Marshal(control)
 	digest := sha256.Sum256(stateBytes)
 	revision := hex.EncodeToString(digest[:])
 	result := domain.ReviewCoveragePage{Items: []domain.ReviewCoverageGroup{}, ReportRevision: revision, ProjectionStatus: control.ProjectionStatus, PublishedOn: control.PublishedOn}
@@ -67,7 +67,7 @@ func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domai
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "cursor", Message: "invalid coverage cursor"}
 		}
 		var prior reviewCoverageCursor
-		if json.Unmarshal(raw, &prior) != nil || prior.Revision != revision || prior.FilterHash != filterHash {
+		if jsoncodec.Unmarshal(raw, &prior) != nil || prior.Revision != revision || prior.FilterHash != filterHash {
 			return empty, &domain.Error{Code: domain.ErrConflict, Field: "cursor", Message: "cursor_expired"}
 		}
 		if _, err := domain.ParseInstrumentID(prior.AfterID); err != nil {
@@ -114,7 +114,7 @@ func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domai
 		}
 	}
 	if more {
-		raw, _ := json.Marshal(reviewCoverageCursor{Revision: revision, FilterHash: filterHash, AfterID: afterID})
+		raw, _ := jsoncodec.Marshal(reviewCoverageCursor{Revision: revision, FilterHash: filterHash, AfterID: afterID})
 		result.NextCursor = base64.RawURLEncoding.EncodeToString(raw)
 	}
 	if err := tx.Commit(); err != nil {
@@ -169,7 +169,7 @@ func reviewCoverageGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID dom
 		}
 		if ruleID.Valid {
 			var missing []string
-			if err := json.Unmarshal([]byte(coverage.String), &missing); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(coverage.String), &missing); err != nil {
 				return nil, err
 			}
 			truth := domain.ReviewFalse

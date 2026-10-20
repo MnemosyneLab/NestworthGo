@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type fixtureSummary struct {
@@ -187,5 +187,5 @@ func seed(dir string) error {
 		QuoteFrom: "2026-10-01", QuoteThrough: "2026-10-17", QuoteImported: "2026-10-18T12:00:00.000Z",
 		SnapshotStatus: imported.SnapshotStatus,
 	}
-	return json.NewEncoder(os.Stdout).Encode(summary)
+	return jsoncodec.NewEncoder(os.Stdout).Encode(summary)
 }

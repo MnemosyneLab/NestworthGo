@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type reviewTemporalClock struct {
@@ -135,7 +135,7 @@ func reviewTemporalDigest(certificate *domain.ReviewTemporalCertificate) string 
 	if certificate == nil {
 		return ""
 	}
-	raw, _ := json.Marshal(certificate)
+	raw, _ := jsoncodec.Marshal(certificate)
 	digest := sha256.Sum256(raw)
 	return hex.EncodeToString(digest[:])
 }
@@ -195,7 +195,7 @@ func readReviewTemporal(ctx context.Context, q schemaQuery, id domain.HouseholdI
 		return nil, err
 	}
 	var certificate domain.ReviewTemporalCertificate
-	if err := json.Unmarshal([]byte(raw), &certificate); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(raw), &certificate); err != nil {
 		return nil, fmt.Errorf("invalid review temporal checkpoint: %w", err)
 	}
 	return &certificate, nil
@@ -203,7 +203,7 @@ func readReviewTemporal(ctx context.Context, q schemaQuery, id domain.HouseholdI
 
 func persistReviewTemporal(ctx context.Context, tx *sql.Tx, id domain.HouseholdID, certificate domain.ReviewTemporalCertificate, asOf time.Time) error {
 	certificate.EvaluatedAt = asOf.UTC()
-	raw, err := json.Marshal(certificate)
+	raw, err := jsoncodec.Marshal(certificate)
 	if err != nil {
 		return err
 	}

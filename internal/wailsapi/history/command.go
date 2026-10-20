@@ -3,11 +3,11 @@ package history
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ChangeCommandKind discriminates ChangeCommandRequest, mirroring the eleven
@@ -432,7 +432,7 @@ func (r ChangeCommandRequest) MutationEnvelope() (mutationID, payloadHash string
 	}
 	copy := r
 	copy.MutationID = ""
-	data, err := json.Marshal(copy)
+	data, err := jsoncodec.Marshal(copy)
 	if err != nil {
 		return "", "", &domain.Error{Code: domain.ErrInvalidChange, Field: "mutationId", Message: "command payload could not be hashed"}
 	}

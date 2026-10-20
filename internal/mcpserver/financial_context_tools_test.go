@@ -18,13 +18,14 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func decodeContext(t *testing.T, obj map[string]any) FinancialContextResponse {
 	t.Helper()
-	raw, _ := json.Marshal(obj["data"])
+	raw, _ := jsoncodec.Marshal(obj["data"])
 	var r FinancialContextResponse
-	if err := json.Unmarshal(raw, &r); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &r); err != nil {
 		t.Fatal(err)
 	}
 	return r
@@ -136,7 +137,7 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 		{"escaped-property-long-id", "get_financial_context", map[string]any{strings.Repeat("\"\\\n", 20000): true}, strings.Repeat("x", 500)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": tc.id, "method": "tools/call", "params": map[string]any{"name": tc.tool, "arguments": tc.args}})
+			payload, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": tc.id, "method": "tools/call", "params": map[string]any{"name": tc.tool, "arguments": tc.args}})
 			req, _ := http.NewRequest("POST", cfg.Endpoint, strings.NewReader(string(payload)))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Accept", "application/json, text/event-stream")
@@ -156,8 +157,8 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 					IsError bool `json:"isError"`
 				} `json:"result"`
 			}
-			wantID, _ := json.Marshal(tc.id)
-			if err := json.Unmarshal(raw, &reply); err != nil || string(reply.ID) != string(wantID) || !reply.Result.IsError {
+			wantID, _ := jsoncodec.Marshal(tc.id)
+			if err := jsoncodec.Unmarshal(raw, &reply); err != nil || string(reply.ID) != string(wantID) || !reply.Result.IsError {
 				t.Fatalf("expected bounded tool error: %s / %v", raw, err)
 			}
 			if !strings.Contains(string(raw), "too_large") || strings.Contains(string(raw), strings.Repeat("x", 1000)) {
@@ -202,7 +203,7 @@ func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
 					} else if variant == "mixed-last" {
 						batch = []any{other, call}
 					}
-					payload, _ := json.Marshal(batch)
+					payload, _ := jsoncodec.Marshal(batch)
 					if len(payload) >= 1<<20 {
 						t.Fatal("fixture exceeds existing request admission")
 					}
@@ -249,7 +250,7 @@ func TestFinancialContextPreservesOtherLegacyHTTPBatch(t *testing.T) {
 			}
 			// Other tools retain the SDK's old batch and request-ID behavior.
 			id := strings.Repeat("x", 70000)
-			payload, _ := json.Marshal([]any{
+			payload, _ := jsoncodec.Marshal([]any{
 				map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": map[string]any{"name": "get_context", "arguments": map[string]any{}}},
 				map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{"name": "get_catalog", "arguments": map[string]any{}}},
 			})
@@ -272,7 +273,7 @@ func TestFinancialContextPreservesOtherLegacyHTTPBatch(t *testing.T) {
 					IsError bool `json:"isError"`
 				} `json:"result"`
 			}
-			if err := json.Unmarshal(raw, &replies); err != nil || res.StatusCode != http.StatusOK || len(replies) != 2 {
+			if err := jsoncodec.Unmarshal(raw, &replies); err != nil || res.StatusCode != http.StatusOK || len(replies) != 2 {
 				t.Fatalf("legacy batch changed: status=%d bytes=%d replies=%d err=%v", res.StatusCode, len(raw), len(replies), err)
 			}
 			found := false
@@ -643,7 +644,7 @@ func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
 	cursor := s.contexts.cursor("wire-id", "positions", s.contextGeneration, 0)
 	s.contexts.mu.Unlock()
 	args := FinancialContextPageInput{ContextID: "wire-id", Section: "positions", Cursor: cursor, Limit: 100}
-	payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": strings.Repeat("x", 500), "method": "tools/call", "params": map[string]any{"name": "get_financial_context_page", "arguments": args}})
+	payload, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": strings.Repeat("x", 500), "method": "tools/call", "params": map[string]any{"name": "get_financial_context_page", "arguments": args}})
 	req, _ := http.NewRequest("POST", cfg.Endpoint, strings.NewReader(string(payload)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
@@ -664,7 +665,7 @@ func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
 			} `json:"structuredContent"`
 		} `json:"result"`
 	}
-	if err = json.Unmarshal(raw, &reply); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &reply); err != nil {
 		t.Fatal(err)
 	}
 	page := reply.Result.StructuredContent.Data.PositionsPage

@@ -2,11 +2,11 @@ package continuousbackup
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"io"
 	"net/http"
 	"sort"
@@ -98,7 +98,7 @@ func (f *recoveryTestTransport) RoundTrip(r *http.Request) (*http.Response, erro
 	}
 	if r.Method == "GET" && strings.HasSuffix(key, "/"+identityFile) {
 		stream := strings.TrimSuffix(strings.TrimPrefix(key, remotePrefix), "/"+identityFile)
-		data, _ := json.Marshal(newIdentity(stream))
+		data, _ := jsoncodec.Marshal(newIdentity(stream))
 		return response(200, string(data), http.Header{})
 	}
 	f.t.Fatalf("unexpected request: %s %s", r.Method, r.URL)

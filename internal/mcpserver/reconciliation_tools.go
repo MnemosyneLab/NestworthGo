@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -265,7 +265,7 @@ func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput
 		return nil, err
 	}
 	var plan reconciliationPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
 	}
 	var result BatchChangeResult
@@ -284,9 +284,9 @@ func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput
 				return batchInputError(i, err)
 			}
 		}
-		payload, err := json.Marshal(plan.Commands)
+		payload, err := jsoncodec.Marshal(plan.Commands)
 		if plan.Link != nil {
-			payload, err = json.Marshal(struct {
+			payload, err = jsoncodec.Marshal(struct {
 				Commands []reconciliationCommand
 				Link     *domain.ReconciliationLink
 			}{plan.Commands, plan.Link})

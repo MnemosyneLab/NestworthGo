@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/version"
 )
 
@@ -85,7 +85,7 @@ func WritePackage(dest string, pkg Package) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "backup directory could not be created"}
 	}
-	manifestBytes, err := json.MarshalIndent(pkg.Manifest, "", "  ")
+	manifestBytes, err := jsoncodec.MarshalIndent(pkg.Manifest, "", "  ")
 	if err != nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "backup manifest could not be encoded"}
 	}
@@ -207,7 +207,7 @@ func ReadPackage(path string) (Package, error) {
 		return Package{}, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "backup settings exceed the size limit"}
 	}
 	var manifest Manifest
-	if err := json.Unmarshal(contents[MemberManifest], &manifest); err != nil {
+	if err := jsoncodec.Unmarshal(contents[MemberManifest], &manifest); err != nil {
 		return Package{}, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "backup manifest could not be parsed"}
 	}
 	if manifest.FormatVersion != FormatVersion {

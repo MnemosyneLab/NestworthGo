@@ -2,10 +2,10 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -103,7 +103,7 @@ func TestReconciliationSessionHTTPWorkflowBothCorrectionRoutes(t *testing.T) {
 	if err != nil || !refused.IsError {
 		t.Fatalf("completed session check: %+v %v", refused, err)
 	}
-	raw, _ := json.Marshal(refused)
+	raw, _ := jsoncodec.Marshal(refused)
 	for _, want := range []string{"conflict", "expectedRevision", "completed and read-only", "start a new reconciliation session"} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("completed session response missing %q: %s", want, raw)
@@ -120,7 +120,7 @@ func TestReconciliationPageBoundsAndWireBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(v)
+	raw, _ := jsoncodec.Marshal(v)
 	if len(raw) > 96*1024 {
 		t.Fatal(len(raw))
 	}
@@ -332,7 +332,7 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 		t.Fatal(code)
 	}
 	var body any
-	if err = json.Unmarshal(raw, &body); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &body); err != nil {
 		t.Fatal(err)
 	}
 	if err = fx.service.writePrivate(filepath.Join(fx.service.dir, "plans", missingID+".json"), body); err != nil {

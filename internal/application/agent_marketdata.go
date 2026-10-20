@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // AgentMarketDataRepository atomically commits observations, their provenance,
@@ -80,7 +80,7 @@ func (s *Service) ImportAgentMarketData(ctx context.Context, requestKey string, 
 		if err != nil {
 			return domain.AgentQuoteBatchResult{}, err
 		}
-		encoded, err := json.Marshal(input)
+		encoded, err := jsoncodec.Marshal(input)
 		if err != nil {
 			return domain.AgentQuoteBatchResult{}, err
 		}

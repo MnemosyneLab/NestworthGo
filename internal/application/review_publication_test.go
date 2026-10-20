@@ -2,13 +2,13 @@ package application
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestReviewPublicationIsAtomicAndSameDayIdempotent(t *testing.T) {
@@ -1149,7 +1149,7 @@ func TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows(t *testi
 			if days[0] != test.triggered || days[len(days)-1] != test.oldest {
 				t.Fatalf("trigger window evidence clipped: %v", days)
 			}
-			bad, err := json.Marshal(map[string]string{"revision": revision, "beforeOn": "0001-01-01"})
+			bad, err := jsoncodec.Marshal(map[string]string{"revision": revision, "beforeOn": "0001-01-01"})
 			if err != nil {
 				t.Fatal(err)
 			}

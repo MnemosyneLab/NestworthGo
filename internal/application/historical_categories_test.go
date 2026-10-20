@@ -2,12 +2,12 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func categoryLeaf(key, role, class, currency, a, b string) HistoricalOverviewRow {
@@ -188,7 +188,7 @@ func TestHistoricalOverviewP1ReadOnlyWireAndFrozenEvidence(t *testing.T) {
 	if overviewRow(t, r, loan.Account.ID.String()).AccountID != loan.Account.ID.String() {
 		t.Fatal("account identity missing")
 	}
-	wire, err := json.Marshal(r)
+	wire, err := jsoncodec.Marshal(r)
 	if err != nil {
 		t.Fatal(err)
 	}

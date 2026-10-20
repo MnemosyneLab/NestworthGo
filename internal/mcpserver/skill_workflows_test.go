@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
 
@@ -38,14 +38,14 @@ func skillExample(t *testing.T, reference, name string, values map[string]string
 		t.Fatalf("unterminated JSON for %s", name)
 	}
 	for key, value := range values {
-		encoded, _ := json.Marshal(value)
+		encoded, _ := jsoncodec.Marshal(value)
 		raw = strings.ReplaceAll(raw, `"${`+key+`}"`, string(encoded))
 	}
 	if strings.Contains(raw, "${") {
 		t.Fatalf("unresolved placeholder in %s: %s", name, raw)
 	}
 	var arguments map[string]any
-	if err := json.Unmarshal([]byte(raw), &arguments); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(raw), &arguments); err != nil {
 		t.Fatal(err)
 	}
 	return arguments
@@ -265,7 +265,7 @@ func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
 		t.Fatal("fixture must exercise all three shipped page examples")
 	}
 	content := skillContextDetails(t, c, initial)
-	raw, _ := json.Marshal(content)
+	raw, _ := jsoncodec.Marshal(content)
 	for _, secret := range secrets {
 		if strings.Contains(string(raw), secret) {
 			t.Fatalf("minimal example disclosed directory identity %s", secret)
@@ -278,12 +278,12 @@ func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
 	// The test now explicitly chooses named disclosure, following its separate example.
 	named := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "analysis", "financial-context-named", nil), false))
 	namedContent := skillContextDetails(t, c, named)
-	namedRaw, _ := json.Marshal(namedContent)
+	namedRaw, _ := jsoncodec.Marshal(namedContent)
 	if !strings.Contains(string(namedRaw), "Private account") || namedContent.Disclosure != "named" {
 		t.Fatal("named example did not reveal the requested account identities")
 	}
 	// Ordinary management still receives the existing Bootstrap names and IDs.
-	contextRaw, _ := json.Marshal(call(t, c, "get_context", Empty{}, false))
+	contextRaw, _ := jsoncodec.Marshal(call(t, c, "get_context", Empty{}, false))
 	for _, secret := range secrets[:8] {
 		if !strings.Contains(string(contextRaw), secret) {
 			t.Fatalf("ordinary get_context unexpectedly changed: %s", secret)
@@ -343,7 +343,7 @@ func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw, _ := json.Marshal(res.Content)
+		raw, _ := jsoncodec.Marshal(res.Content)
 		if !res.IsError || !strings.Contains(string(raw), code) {
 			t.Fatal("unexpected page failure", code, string(raw))
 		}

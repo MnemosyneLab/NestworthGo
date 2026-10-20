@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	modernsqlite "modernc.org/sqlite"
 )
 
@@ -87,7 +87,7 @@ func noChangeProjectionRows(t *testing.T, db *sqlite.DB) map[string][]string {
 					values[i] = nil
 				}
 			}
-			raw, err := json.Marshal(values)
+			raw, err := jsoncodec.Marshal(values)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -3,11 +3,11 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func (r *Repository) CommitActivity(ctx context.Context, activity domain.Activity, effects []domain.ActivityEffect, resulting []domain.EndpointView, asOf time.Time) error {
@@ -103,7 +103,7 @@ func (r *Repository) CommitChangeBatch(ctx context.Context, holdings []domain.Ho
 		for i, commit := range commits {
 			ids[i] = commit.Activity.ID.String()
 		}
-		encoded, err := json.Marshal(ids)
+		encoded, err := jsoncodec.Marshal(ids)
 		if err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func (r *Repository) LookupChangeBatch(ctx context.Context, householdID domain.H
 		return nil, err
 	}
 	var rawIDs []string
-	if err := json.Unmarshal([]byte(idsJSON), &rawIDs); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(idsJSON), &rawIDs); err != nil {
 		return nil, err
 	}
 	ids := make([]domain.ActivityID, len(rawIDs))

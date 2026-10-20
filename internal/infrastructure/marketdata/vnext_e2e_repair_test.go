@@ -2,7 +2,6 @@ package marketdata
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestE2ETiingoUSManualFXRepairProbe(t *testing.T) {
@@ -633,7 +633,7 @@ func writeRepairProbeArtifact(t *testing.T, householdID domain.HouseholdID, inst
 			"2026-09-09": snapshotOracleAssets(oracle, "2026-09-09"),
 		},
 	}
-	raw, err := json.MarshalIndent(payload, "", "  ")
+	raw, err := jsoncodec.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}

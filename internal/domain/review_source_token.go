@@ -3,12 +3,13 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"hash"
 	"io"
 	"reflect"
 	"sort"
 	"sync"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ReviewHistoricalFingerprint covers the complete consistent financial read:
@@ -17,7 +18,7 @@ import (
 // withdrawal changes this token. The publisher recaptures it in its own SQL
 // transaction before writing a completed review projection.
 func ReviewHistoricalFingerprint(batch ReviewHistoricalBatch) (string, error) {
-	raw, err := json.Marshal(batch)
+	raw, err := jsoncodec.Marshal(batch)
 	if err != nil {
 		return "", err
 	}
@@ -105,8 +106,8 @@ func writeReviewFingerprintScalars(digest hash.Hash, value reflect.Value) error 
 	case reflect.Map:
 		keys := value.MapKeys()
 		sort.Slice(keys, func(i, j int) bool {
-			left, _ := json.Marshal(keys[i].Interface())
-			right, _ := json.Marshal(keys[j].Interface())
+			left, _ := jsoncodec.Marshal(keys[i].Interface())
+			right, _ := jsoncodec.Marshal(keys[j].Interface())
 			return string(left) < string(right)
 		})
 		for _, key := range keys {

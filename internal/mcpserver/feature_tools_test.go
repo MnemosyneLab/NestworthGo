@@ -1,7 +1,6 @@
 package mcpserver
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
@@ -16,12 +16,12 @@ import (
 func featureJSONEqual(t *testing.T, actual, expected any) {
 	t.Helper()
 	encode := func(value any) any {
-		raw, err := json.Marshal(value)
+		raw, err := jsoncodec.Marshal(value)
 		if err != nil {
 			t.Fatal(err)
 		}
 		var decoded any
-		if err := json.Unmarshal(raw, &decoded); err != nil {
+		if err := jsoncodec.Unmarshal(raw, &decoded); err != nil {
 			t.Fatal(err)
 		}
 		return decoded
@@ -68,7 +68,7 @@ func TestFeatureToolDiscoverySchemasAndPermissions(t *testing.T) {
 				if !ok || tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 					t.Fatalf("%s missing or not marked read-only in %s", name, mode)
 				}
-				raw, _ := json.Marshal(tool.InputSchema)
+				raw, _ := jsoncodec.Marshal(tool.InputSchema)
 				if !strings.Contains(string(raw), `"additionalProperties":false`) {
 					t.Fatalf("%s schema is not closed: %s", name, raw)
 				}
@@ -79,7 +79,7 @@ func TestFeatureToolDiscoverySchemasAndPermissions(t *testing.T) {
 					t.Fatalf("%s availability in %s = %t", name, mode, ok)
 				}
 				if ok {
-					raw, _ := json.Marshal(tool.InputSchema)
+					raw, _ := jsoncodec.Marshal(tool.InputSchema)
 					if !strings.Contains(string(raw), `"operationId"`) || !strings.Contains(string(raw), `"input"`) || tool.Annotations == nil || !tool.Annotations.IdempotentHint {
 						t.Fatalf("%s missing operation receipt schema/hint: %s %+v", name, raw, tool.Annotations)
 					}
@@ -133,7 +133,7 @@ func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encoded, _ := json.Marshal(expanded)
+	encoded, _ := jsoncodec.Marshal(expanded)
 	if !expanded.IsError || !strings.Contains(string(encoded), "too_large") {
 		t.Fatalf("oversized quality capture must fail explicitly, never truncate: %+v", expanded)
 	}

@@ -2,10 +2,10 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func productReviewedTimeError() error {
@@ -64,12 +64,12 @@ func validateGuardedProductCommand(command ProductCommand) error {
 
 func freezeProductCommand(command ProductCommand, origin *domain.HistoryOrigin, now time.Time) (ProductCommand, error) {
 	// Clone before changing pointer payloads; do not mutate the caller's command.
-	raw, err := json.Marshal(command)
+	raw, err := jsoncodec.Marshal(command)
 	if err != nil {
 		return command, err
 	}
 	var cloned ProductCommand
-	if err := json.Unmarshal(raw, &cloned); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &cloned); err != nil {
 		return command, err
 	}
 	command = cloned

@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestStoreRoundTripUsesPrivateAtomicFile(t *testing.T) {
@@ -80,7 +83,7 @@ func TestStoreUnsupportedSchemaFallsBackToDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	stored := Default()
 	stored.SchemaVersion = CurrentSchemaVersion + 1
-	data, err := json.Marshal(stored)
+	data, err := jsoncodec.Marshal(stored)
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
@@ -100,15 +103,15 @@ func TestStoreUnsupportedSchemaFallsBackToDefaults(t *testing.T) {
 func TestStoreLegacyFileWithoutFXProviderUsesFrankfurterDefault(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	fields := make(map[string]json.RawMessage)
-	data, err := json.Marshal(Default())
+	data, err := jsoncodec.Marshal(Default())
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
-	if err := json.Unmarshal(data, &fields); err != nil {
+	if err := jsoncodec.Unmarshal(data, &fields); err != nil {
 		t.Fatalf("Unmarshal() error = %v", err)
 	}
 	delete(fields, "fx_provider")
-	data, err = json.Marshal(fields)
+	data, err = jsoncodec.Marshal(fields)
 	if err != nil {
 		t.Fatalf("Marshal(legacy) error = %v", err)
 	}
@@ -162,7 +165,7 @@ func TestLoadSalvagesYahooFXProviderToFrankfurter(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	stored := Default()
 	stored.FXProvider = "yahoo_finance"
-	data, err := json.Marshal(stored)
+	data, err := jsoncodec.Marshal(stored)
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
@@ -191,6 +194,12 @@ func TestValidateRejectsOutOfRangeWindowSize(t *testing.T) {
 	if err := value.Validate(); err == nil {
 		t.Fatal("Validate() error = nil for oversized window height")
 	}
+
+	value = Default()
+	value.WindowWidth = float32(math.Copysign(0, -1))
+	if err := value.Validate(); err == nil {
+		t.Fatal("Validate() accepted negative-zero window width")
+	}
 }
 
 // One hand-edited invalid value must not discard the rest of the stored
@@ -208,7 +217,7 @@ func TestLoadSalvagesValidFieldsWhenOneFieldIsInvalid(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
-	data, err := json.Marshal(stored)
+	data, err := jsoncodec.Marshal(stored)
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
@@ -253,16 +262,16 @@ func TestLoadSalvageLogsOmitPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	value := Default()
-	encoded, err := json.Marshal(value)
+	encoded, err := jsoncodec.Marshal(value)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var payload map[string]any
-	if err := json.Unmarshal(encoded, &payload); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &payload); err != nil {
 		t.Fatal(err)
 	}
 	payload["appearance"] = "not-a-real-appearance"
-	rewritten, err := json.Marshal(payload)
+	rewritten, err := jsoncodec.Marshal(payload)
 	if err != nil {
 		t.Fatal(err)
 	}

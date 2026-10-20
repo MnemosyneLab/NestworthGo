@@ -2,8 +2,8 @@ package application
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +30,7 @@ func TestUpcomingActionsActualReadOnlyDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	factsBefore, _ := json.Marshal(snapshot)
+	factsBefore, _ := jsoncodec.Marshal(snapshot)
 	reader := NewService(repo) // No provider registry is installed.
 	for i := 0; i < 35; i++ {
 		date := time.Date(2026, 12, 19+i, 23, 59, 59, 0, time.UTC)
@@ -43,7 +43,7 @@ func TestUpcomingActionsActualReadOnlyDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	factsAfter, _ := json.Marshal(snapshot)
+	factsAfter, _ := jsoncodec.Marshal(snapshot)
 	if string(factsBefore) != string(factsAfter) {
 		t.Fatal("business facts changed during read")
 	}

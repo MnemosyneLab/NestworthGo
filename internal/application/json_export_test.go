@@ -2,12 +2,12 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func decodeExport(t *testing.T, service *Service) ExportDocument {
@@ -18,7 +18,7 @@ func decodeExport(t *testing.T, service *Service) ExportDocument {
 	}
 	validateExportSchema(t, data)
 	var doc ExportDocument
-	if err := json.Unmarshal(data, &doc); err != nil {
+	if err := jsoncodec.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
 	if doc.Format != ExportFormat || doc.FormatVersion != ExportFormatVersion || !doc.CurrentState.Derived {
@@ -180,7 +180,7 @@ func TestJSONExportStableEmptyCollectionsAndNoWrites(t *testing.T) {
 	}
 	validateExportSchema(t, first)
 	var doc ExportDocument
-	if err := json.Unmarshal(first, &doc); err != nil {
+	if err := jsoncodec.Unmarshal(first, &doc); err != nil {
 		t.Fatal(err)
 	}
 	if doc.CurrentState.Accounts == nil || doc.CurrentState.Holdings == nil || doc.Facts.History["activities"] == nil || doc.Facts.MarketData["instrumentQuotes"] == nil || doc.Facts.Liquidity["contracts"] == nil || doc.Facts.Liquidity["operations"] == nil {

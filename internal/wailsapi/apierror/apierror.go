@@ -4,13 +4,13 @@
 package apierror
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"runtime"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // WireError is the JSON shape every internal/wailsapi method returns for a
@@ -30,7 +30,7 @@ func (e *WireError) Error() string {
 	if e == nil {
 		return ""
 	}
-	b, err := json.Marshal(e)
+	b, err := jsoncodec.Marshal(e)
 	if err != nil {
 		return e.Message
 	}
@@ -69,7 +69,7 @@ func Wrap(err error) error {
 // Promise's message in TypeScript.
 func Parse(message string) (*WireError, bool) {
 	var parsed WireError
-	if err := json.Unmarshal([]byte(message), &parsed); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(message), &parsed); err != nil {
 		return nil, false
 	}
 	if parsed.Code == "" {

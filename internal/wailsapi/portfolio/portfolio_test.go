@@ -2,10 +2,10 @@ package portfolio_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
@@ -208,13 +208,13 @@ func TestOverviewDTORoundTripsAsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Overview: %v", err)
 	}
-	encoded, err := json.Marshal(result)
+	encoded, err := jsoncodec.Marshal(result)
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("jsoncodec.Marshal: %v", err)
 	}
 	var decoded portfolio.OverviewDTO
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal: %v", err)
 	}
 	if decoded.NetWorth != "800" {
 		t.Fatalf("round-tripped NetWorth = %q, want 800", decoded.NetWorth)

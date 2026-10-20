@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sort"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const historicalSeriesTimeout = 10 * time.Second
@@ -488,7 +488,7 @@ func seriesPriceBasis(instrument domain.Instrument, quote domain.InstrumentQuote
 	}
 	conversion := conversionCompatibility(quote.ConversionJSON)
 	var evidence metalConversionEvidence
-	if quote.ConversionJSON != "" && json.Unmarshal([]byte(quote.ConversionJSON), &evidence) == nil {
+	if quote.ConversionJSON != "" && jsoncodec.Unmarshal([]byte(quote.ConversionJSON), &evidence) == nil {
 		// FX provenance is retained in evidence, but does not change conversion units.
 		conversion = seriesEvidenceBasis([]string{evidence.Policy, evidence.Symbol, evidence.RawCurrency, evidence.RawUnit, evidence.Currency, evidence.Unit})
 	}
@@ -515,7 +515,7 @@ func (memory seriesEvidenceMemory) observe(key string, evidence *domain.QuoteEvi
 // Quote dates, values, revisions and freshness do not change this signature;
 // only economic basis changes disconnect the series.
 func seriesEvidenceBasis(metadata []string) string {
-	encoded, _ := json.Marshal(metadata) // A string slice always has a JSON encoding.
+	encoded, _ := jsoncodec.Marshal(metadata) // A string slice always has a JSON encoding.
 	return string(encoded)
 }
 

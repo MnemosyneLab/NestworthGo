@@ -1,9 +1,10 @@
 package settings
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ConfigurationRepository stores private application state in the household DB.
@@ -41,7 +42,7 @@ func (d durableSettings) apply(value *Settings) {
 // PresentationJSON is deliberately an allowlist. Adding a new secret to Settings
 // cannot accidentally include it in the disposable preferences file.
 func PresentationJSON(value Settings) ([]byte, error) {
-	return json.MarshalIndent(struct {
+	return jsoncodec.MarshalIndent(struct {
 		SchemaVersion     int        `json:"schema_version"`
 		LogLevel          string     `json:"log_level,omitempty"`
 		Appearance        Appearance `json:"appearance"`
@@ -70,7 +71,7 @@ func (s *Store) Attach(repository ConfigurationRepository) error {
 	}
 	if found {
 		var d durableSettings
-		if json.Unmarshal(raw, &d) != nil {
+		if jsoncodec.Unmarshal(raw, &d) != nil {
 			return errors.New("stored application settings are invalid")
 		}
 		d.apply(&value)
@@ -96,7 +97,7 @@ func (s *Store) Attach(repository ConfigurationRepository) error {
 		if err = value.Validate(); err != nil {
 			return errors.New("application settings are invalid")
 		}
-		raw, err = json.Marshal(durable(value))
+		raw, err = jsoncodec.Marshal(durable(value))
 		if err != nil {
 			return err
 		}

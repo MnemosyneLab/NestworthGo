@@ -5,7 +5,6 @@ package continuousbackup
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	_ "modernc.org/sqlite"
 )
 
@@ -96,8 +96,8 @@ func openConfig(path string) (*configStore, error) {
 		return nil, err
 	}
 	c := config{BackupID: uuid.NewString()}
-	cb, _ := json.Marshal(c)
-	sb, _ := json.Marshal(status{State: "disabled"})
+	cb, _ := jsoncodec.Marshal(c)
+	sb, _ := jsoncodec.Marshal(status{State: "disabled"})
 	if _, err = db.Exec(`INSERT OR IGNORE INTO backup_local VALUES(1,?,?)`, string(cb), string(sb)); err != nil {
 		db.Close()
 		return nil, ErrUnavailable
@@ -113,7 +113,7 @@ func (s *configStore) load() (config, status, error) {
 	if err := s.db.QueryRow(`SELECT config,status FROM backup_local WHERE id=1`).Scan(&cb, &sb); err != nil {
 		return c, st, ErrUnavailable
 	}
-	if json.Unmarshal([]byte(cb), &c) != nil || json.Unmarshal([]byte(sb), &st) != nil {
+	if jsoncodec.Unmarshal([]byte(cb), &c) != nil || jsoncodec.Unmarshal([]byte(sb), &st) != nil {
 		return c, st, ErrUnavailable
 	}
 	return c, st, nil
@@ -121,8 +121,8 @@ func (s *configStore) load() (config, status, error) {
 func (s *configStore) save(c config, st status) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cb, _ := json.Marshal(c)
-	sb, _ := json.Marshal(st)
+	cb, _ := jsoncodec.Marshal(c)
+	sb, _ := jsoncodec.Marshal(st)
 	_, err := s.db.Exec(`UPDATE backup_local SET config=?,status=? WHERE id=1`, string(cb), string(sb))
 	if err != nil {
 		return ErrUnavailable
@@ -132,7 +132,7 @@ func (s *configStore) save(c config, st status) error {
 func (s *configStore) writeStatus(st status) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	sb, _ := json.Marshal(st)
+	sb, _ := jsoncodec.Marshal(st)
 	if _, err := s.db.Exec(`UPDATE backup_local SET status=? WHERE id=1`, string(sb)); err != nil {
 		return ErrUnavailable
 	}

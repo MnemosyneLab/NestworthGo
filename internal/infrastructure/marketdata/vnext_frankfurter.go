@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type frankfurterHistoryResponse struct {
@@ -124,7 +125,7 @@ func decodeFrankfurterHistory(body []byte, base, quote domain.CurrencyCode) ([]f
 }
 
 func decodeFrankfurterTimeseries(body []byte, base, quote domain.CurrencyCode) ([]frankfurterHistoryRow, error) {
-	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var response frankfurterHistoryResponse
 	if err := decoder.Decode(&response); err != nil {
@@ -160,7 +161,7 @@ func decodeFrankfurterTimeseries(body []byte, base, quote domain.CurrencyCode) (
 }
 
 func decodeFrankfurterV2Rates(body []byte, base, quote domain.CurrencyCode) ([]frankfurterHistoryRow, error) {
-	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var items []frankfurterRateResponse
 	if err := decoder.Decode(&items); err != nil {

@@ -2,12 +2,12 @@ package history_test
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -101,13 +101,13 @@ func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 		if preview.Activity.ID == "" {
 			t.Fatalf("RecordChange(%s): empty activity ID in result", name)
 		}
-		encoded, err := json.Marshal(preview)
+		encoded, err := jsoncodec.Marshal(preview)
 		if err != nil {
-			t.Fatalf("RecordChange(%s): json.Marshal(ChangePreviewDTO): %v", name, err)
+			t.Fatalf("RecordChange(%s): jsoncodec.Marshal(ChangePreviewDTO): %v", name, err)
 		}
 		var decoded map[string]any
-		if err := json.Unmarshal(encoded, &decoded); err != nil {
-			t.Fatalf("RecordChange(%s): json.Unmarshal: %v", name, err)
+		if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+			t.Fatalf("RecordChange(%s): jsoncodec.Unmarshal: %v", name, err)
 		}
 		if len(decoded) == 0 {
 			t.Fatalf("RecordChange(%s): DTO round-trip produced an empty object", name)
@@ -471,7 +471,7 @@ func TestValueCorrectionDTOIntegration(t *testing.T) {
 		t.Fatalf("DTO: %+v", dto)
 	}
 	if path := os.Getenv("NESTWORTH_TEST_DTO_PATH"); path != "" {
-		data, err := json.Marshal(dto)
+		data, err := jsoncodec.Marshal(dto)
 		if err != nil {
 			t.Fatal(err)
 		}

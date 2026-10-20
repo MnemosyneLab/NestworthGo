@@ -6,11 +6,11 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type reviewDailyEvidenceCursor struct {
@@ -58,7 +58,7 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 	// pagination instead starts at the window that originally caused this
 	// episode to open, including its false and unknown votes.
 	var storedEvidence reviewEpisodeEvidence
-	if err := json.Unmarshal([]byte(episodeEvidenceJSON), &storedEvidence); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(episodeEvidenceJSON), &storedEvidence); err != nil {
 		return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review episode evidence is invalid"}
 	}
 	firstOn := storedEvidence.TriggerWindow.WindowStart
@@ -75,7 +75,7 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 	if _, err := time.Parse(time.DateOnly, firstOn); err != nil || firstOn > triggeredOn || firstOn > latest {
 		return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review evidence range is invalid"}
 	}
-	revisionBytes, err := json.Marshal(struct {
+	revisionBytes, err := jsoncodec.Marshal(struct {
 		Control          domain.ReviewProjectionControl
 		EpisodeID        domain.ReviewEpisodeID
 		EpisodeRevision  int
@@ -97,7 +97,7 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "cursor", Message: "invalid evidence cursor"}
 		}
 		var previous reviewDailyEvidenceCursor
-		if json.Unmarshal(raw, &previous) != nil || previous.Revision != revision {
+		if jsoncodec.Unmarshal(raw, &previous) != nil || previous.Revision != revision {
 			return empty, &domain.Error{Code: domain.ErrConflict, Field: "cursor", Message: "cursor_expired"}
 		}
 		if _, err := time.Parse(time.DateOnly, previous.BeforeOn); err != nil || previous.BeforeOn <= firstOn || previous.BeforeOn > latest {
@@ -119,7 +119,7 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 			return empty, err
 		}
 		var item domain.ReviewDailyResult
-		if err := json.Unmarshal([]byte(evidence), &item); err != nil || item.On != on {
+		if err := jsoncodec.Unmarshal([]byte(evidence), &item); err != nil || item.On != on {
 			rows.Close()
 			return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored daily review evidence is invalid"}
 		}
@@ -135,7 +135,7 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 	result := domain.ReviewDailyEvidencePage{Items: items, EpisodeID: episodeID, ReportRevision: revision}
 	if len(items) > pageSize {
 		result.Items = items[:pageSize]
-		encoded, _ := json.Marshal(reviewDailyEvidenceCursor{Revision: revision, BeforeOn: result.Items[len(result.Items)-1].On})
+		encoded, _ := jsoncodec.Marshal(reviewDailyEvidenceCursor{Revision: revision, BeforeOn: result.Items[len(result.Items)-1].On})
 		result.NextCursor = base64.RawURLEncoding.EncodeToString(encoded)
 	}
 	if err := tx.Commit(); err != nil {

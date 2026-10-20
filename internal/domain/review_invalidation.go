@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"sort"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ReviewSourceChange contains only the non-secret journal scope required by D1.
@@ -206,7 +208,7 @@ func ReviewSuffixFingerprint(suffix *ReviewSuffixCapture) (string, error) {
 
 // The top-level shape guard automatically retains the generic encoding if that
 // type evolves. Entries/plan still use encoding/json in full, including future
-// nested fields. Current output is byte-identical to json.Marshal(suffix), but
+// nested fields. Current output is byte-identical to jsoncodec.Marshal(suffix), but
 // avoids a second entire-prefix JSON buffer and its geometric growth/copying.
 var reviewSuffixStreamShape = func() bool {
 	t := reflect.TypeFor[ReviewSuffixCapture]()
@@ -219,7 +221,7 @@ var reviewSuffixStreamShape = func() bool {
 
 func writeReviewSuffixJSON(digest hash.Hash, suffix *ReviewSuffixCapture) error {
 	write := func(value any) error {
-		raw, err := json.Marshal(value)
+		raw, err := jsoncodec.Marshal(value)
 		if err != nil {
 			return err
 		}

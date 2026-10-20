@@ -3,9 +3,9 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func desktopPlanKey(household, family, id string) string {
@@ -34,6 +34,6 @@ func (r *Repository) ReconciliationReceiptByID(ctx context.Context, household, i
 		return nil, err
 	}
 	var v domain.ReconciliationSession
-	err = json.Unmarshal([]byte(raw), &v)
+	err = jsoncodec.Unmarshal([]byte(raw), &v)
 	return &v, err
 }

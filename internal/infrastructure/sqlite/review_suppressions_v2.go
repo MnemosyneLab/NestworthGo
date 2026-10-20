@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const reviewSuppressionSelect = `SELECT id,household_id,instrument_id,rule_id,mode,until_on,timezone,revision,created_at,updated_at FROM investment_review_suppressions`
@@ -78,7 +78,7 @@ func (r *Repository) MutateReviewSuppressionV2(ctx context.Context, m domain.Rev
 	if _, err := domain.ParseMutationID(string(m.MutationID)); err != nil {
 		return nil, err
 	}
-	request, err := json.Marshal(struct {
+	request, err := jsoncodec.Marshal(struct {
 		Operation        string
 		HouseholdID      domain.HouseholdID
 		SuppressionID    domain.ReviewSuppressionID
@@ -107,7 +107,7 @@ func (r *Repository) MutateReviewSuppressionV2(ctx context.Context, m domain.Rev
 			return nil, reviewRuleConflict("mutation ID was already used for a different request")
 		}
 		var previous *domain.ReviewSuppression
-		if err := json.Unmarshal([]byte(previousJSON), &previous); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(previousJSON), &previous); err != nil {
 			return nil, err
 		}
 		if err := tx.Commit(); err != nil {
@@ -265,7 +265,7 @@ func (r *Repository) MutateReviewSuppressionV2(ctx context.Context, m domain.Rev
 			return nil, err
 		}
 	}
-	encoded, err := json.Marshal(result)
+	encoded, err := jsoncodec.Marshal(result)
 	if err != nil {
 		return nil, err
 	}

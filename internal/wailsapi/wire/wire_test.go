@@ -1,17 +1,17 @@
 package wire
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // TestMoneyDoesNotProduceEmptyObject is the permanent regression test for
 // domain.Money/Quantity/UnitPrice/FxRate wrap an unexported decimal.Decimal,
-// so json.Marshal on the bare
+// so jsoncodec.Marshal on the bare
 // domain type silently produces "{}". Every wailsapi DTO must instead carry
 // the canonical string produced here, never the bare domain value type.
 func TestMoneyDoesNotProduceEmptyObjectBaseline(t *testing.T) {
@@ -19,22 +19,22 @@ func TestMoneyDoesNotProduceEmptyObjectBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseMoney: %v", err)
 	}
-	raw, err := json.Marshal(money)
+	raw, err := jsoncodec.Marshal(money)
 	if err != nil {
-		t.Fatalf("json.Marshal(domain.Money): %v", err)
+		t.Fatalf("jsoncodec.Marshal(domain.Money): %v", err)
 	}
 	if string(raw) != "{}" {
 		t.Fatalf("expected the historically-broken bare marshal to still be \"{}\" (got %s); if this changed, domain.Money gained exported fields and this comment/DTO design should be revisited", raw)
 	}
 
 	view := FromMoney(money)
-	roundTripped, err := json.Marshal(view)
+	roundTripped, err := jsoncodec.Marshal(view)
 	if err != nil {
-		t.Fatalf("json.Marshal(MoneyView): %v", err)
+		t.Fatalf("jsoncodec.Marshal(MoneyView): %v", err)
 	}
 	var decoded MoneyView
-	if err := json.Unmarshal(roundTripped, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal(MoneyView): %v", err)
+	if err := jsoncodec.Unmarshal(roundTripped, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal(MoneyView): %v", err)
 	}
 	if decoded.Amount != "123.45" || decoded.Currency != "USD" {
 		t.Fatalf("MoneyView round-trip = %+v, want {123.45 USD}", decoded)
@@ -111,13 +111,13 @@ func TestFromAccountCashValueIncludesHistoryProvenance(t *testing.T) {
 func TestMoneyViewFromDomainMoneyView(t *testing.T) {
 	domainView := &domain.MoneyView{Amount: "1000.00", Currency: "SGD"}
 	view := FromMoneyView(domainView)
-	b, err := json.Marshal(view)
+	b, err := jsoncodec.Marshal(view)
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("jsoncodec.Marshal: %v", err)
 	}
 	var decoded map[string]string
-	if err := json.Unmarshal(b, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	if err := jsoncodec.Unmarshal(b, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal: %v", err)
 	}
 	if decoded["amount"] != "1000.00" || decoded["currency"] != "SGD" {
 		t.Fatalf("decoded = %+v, want amount=1000.00 currency=SGD", decoded)
@@ -130,13 +130,13 @@ func TestSignedMoneyRoundTrip(t *testing.T) {
 		t.Fatalf("NewSignedMoney: %v", err)
 	}
 	view := FromSignedMoney(signed)
-	b, err := json.Marshal(view)
+	b, err := jsoncodec.Marshal(view)
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("jsoncodec.Marshal: %v", err)
 	}
 	var decoded SignedMoneyView
-	if err := json.Unmarshal(b, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	if err := jsoncodec.Unmarshal(b, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal: %v", err)
 	}
 	if decoded.Amount != "-42.5" || decoded.Currency != "USD" {
 		t.Fatalf("decoded = %+v, want {-42.5 USD}", decoded)
@@ -170,13 +170,13 @@ func TestHouseholdMemberInstitutionGroupRoundTrip(t *testing.T) {
 		"institution": FromInstitution(institution),
 		"group":       FromGroup(group),
 	} {
-		encoded, err := json.Marshal(value)
+		encoded, err := jsoncodec.Marshal(value)
 		if err != nil {
-			t.Fatalf("%s: json.Marshal: %v", name, err)
+			t.Fatalf("%s: jsoncodec.Marshal: %v", name, err)
 		}
 		var decoded map[string]any
-		if err := json.Unmarshal(encoded, &decoded); err != nil {
-			t.Fatalf("%s: json.Unmarshal: %v", name, err)
+		if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+			t.Fatalf("%s: jsoncodec.Unmarshal: %v", name, err)
 		}
 		if len(decoded) == 0 {
 			t.Fatalf("%s: round-trip produced an empty object: %s", name, encoded)
@@ -222,12 +222,12 @@ func TestAccountCompositionWirePreservesExactAndMissing(t *testing.T) {
 		{Key: "holding:first", TypeKey: "etf", Label: "Shared alias", IdentityLabel: "Shared alias · Class A · CODE-A · ISIN-A", DetailRefs: []string{"holding:first"}, BaseAmount: &domain.MoneyView{Amount: "0", Currency: "USD"}, BaseAmountExact: "0.00005", ShareBPS: 5000, NativeAmount: "0.00005", NativeCurrency: "USD", ValuedCount: 1},
 		{Key: "holding:missing", TypeKey: "unknown", DetailRefs: []string{"holding:missing"}, MissingCount: 1},
 	}}}
-	encoded, err := json.Marshal(FromAccountValuation(value))
+	encoded, err := jsoncodec.Marshal(FromAccountValuation(value))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decoded AccountValuationDTO
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
 		t.Fatal(err)
 	}
 	composition := decoded.Composition
@@ -247,12 +247,12 @@ func TestAccountDisplayValueWireIndependentCompleteness(t *testing.T) {
 		Currency: "USD", Value: &domain.MoneyView{Amount: "10", Currency: "USD"}, TotalExact: "10.0000000000000001", Complete: true, ValuedCount: 1,
 		FXEvidence: []domain.QuoteEvidenceView{{ObservationID: "synthetic-fx", Source: domain.QuoteSourceManual}},
 	}}
-	encoded, err := json.Marshal(FromAccountValuation(value))
+	encoded, err := jsoncodec.Marshal(FromAccountValuation(value))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decoded AccountValuationDTO
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
 		t.Fatal(err)
 	}
 	if decoded.DisplayValue == nil || !decoded.DisplayValue.Complete || decoded.Complete || decoded.DisplayValue.TotalExact != "10.0000000000000001" || decoded.DisplayValue.Value.Currency != "USD" || len(decoded.DisplayValue.FXEvidence) != 1 {

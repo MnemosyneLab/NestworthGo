@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"net/url"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ImportAgentQuoteBatch writes the receipt, quote facts, audit trail, and dirty
@@ -183,7 +183,7 @@ func agentQuotePayloadHash(records []domain.AgentQuoteRecord) (string, error) {
 		}
 		canonical[index] = semanticRecord{Record: record, Value: value}
 	}
-	encoded, err := json.Marshal(canonical)
+	encoded, err := jsoncodec.Marshal(canonical)
 	if err != nil {
 		return "", err
 	}

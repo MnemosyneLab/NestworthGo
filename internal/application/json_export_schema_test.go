@@ -2,13 +2,13 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func exportSchema(t *testing.T) *jsonschema.Resolved {
@@ -18,7 +18,7 @@ func exportSchema(t *testing.T) *jsonschema.Resolved {
 		t.Fatal(err)
 	}
 	var schema jsonschema.Schema
-	if err := json.Unmarshal(raw, &schema); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
 		t.Fatal(err)
 	}
 	resolved, err := schema.Resolve(nil)
@@ -30,7 +30,7 @@ func exportSchema(t *testing.T) *jsonschema.Resolved {
 func validateExportSchema(t *testing.T, data []byte) map[string]any {
 	t.Helper()
 	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
+	if err := jsoncodec.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
 	if err := exportSchema(t).Validate(doc); err != nil {

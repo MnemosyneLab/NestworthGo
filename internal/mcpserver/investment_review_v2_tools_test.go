@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -92,8 +92,8 @@ func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) 
 	var object map[string]any
 	for _, policy := range []domain.ReviewTriggerPolicy{{Kind: "single"}, {Kind: "consecutive", Count: 2}, {Kind: "rolling", WindowDays: 3, MinHits: 2}} {
 		spec.TriggerPolicy = policy
-		encoded, _ := json.Marshal(spec)
-		if err := json.Unmarshal(encoded, &object); err != nil {
+		encoded, _ := jsoncodec.Marshal(spec)
+		if err := jsoncodec.Unmarshal(encoded, &object); err != nil {
 			t.Fatal(err)
 		}
 		request := ReviewV2PreviewInput{Spec: object, InstrumentID: instrumentID.String(), LatestClosedOn: "2026-09-04"}
@@ -202,9 +202,9 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 			continue
 		}
 		spec := testReviewV2Spec()
-		raw, _ := json.Marshal(spec)
+		raw, _ := jsoncodec.Marshal(spec)
 		var object map[string]any
-		if err := json.Unmarshal(raw, &object); err != nil {
+		if err := jsoncodec.Unmarshal(raw, &object); err != nil {
 			t.Fatal(err)
 		}
 		input := ReviewV2RuleInput{RuleID: uuid.NewString(), MutationID: uuid.NewString(), Name: "Synthetic MCP review", Enabled: true, Severity: "notice", Spec: object}
@@ -213,7 +213,7 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 			t.Fatal("missing create receipt")
 		}
 		rules := call(t, client, "list_investment_review_rules", ReviewV2PageInput{PageSize: 10}, false)
-		serialized, _ := json.Marshal(rules)
+		serialized, _ := jsoncodec.Marshal(rules)
 		if !strings.Contains(string(serialized), "Synthetic MCP review") {
 			t.Fatal("created rule not visible", string(serialized))
 		}

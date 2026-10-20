@@ -3,13 +3,13 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Retained verbatim as the selectable key-first oracle/rollback path.
@@ -182,7 +182,7 @@ func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVe
 			rows.Close()
 			return err
 		}
-		if err := json.Unmarshal([]byte(coverageJSON), &item.CoverageMissing); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(coverageJSON), &item.CoverageMissing); err != nil {
 			rows.Close()
 			return err
 		}
@@ -193,7 +193,7 @@ func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVe
 		item.InputFingerprint = inputFingerprint
 		item.PriorConsecutiveCount = priorConsecutiveCount
 		if resultJSON.Valid && resultFingerprint.Valid && resultFingerprint.String == inputFingerprint {
-			if err := json.Unmarshal([]byte(resultJSON.String), &item.Result); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(resultJSON.String), &item.Result); err != nil {
 				rows.Close()
 				return err
 			}

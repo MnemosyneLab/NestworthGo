@@ -9,37 +9,38 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 var skillSections = []string{"positions", "gaps", "evidence"}
 
 func skillPageState(t *testing.T, data any) (map[string]FinancialContextPageInfo, map[string][]json.RawMessage) {
 	t.Helper()
-	raw, err := json.Marshal(data)
+	raw, err := jsoncodec.Marshal(data)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var fields map[string]json.RawMessage
-	if err = json.Unmarshal(raw, &fields); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &fields); err != nil {
 		t.Fatal(err)
 	}
 	states := map[string]FinancialContextPageInfo{}
 	rows := map[string][]json.RawMessage{}
 	for _, section := range skillSections {
 		var info FinancialContextPageInfo
-		if err = json.Unmarshal(fields[section+"Page"], &info); err != nil {
+		if err = jsoncodec.Unmarshal(fields[section+"Page"], &info); err != nil {
 			t.Fatal(err)
 		}
 		states[section] = info
 	}
 	if nested, ok := fields["content"]; ok {
-		if err = json.Unmarshal(nested, &fields); err != nil {
+		if err = jsoncodec.Unmarshal(nested, &fields); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, section := range skillSections {
 		var sectionRows []json.RawMessage
-		if err = json.Unmarshal(fields[section], &sectionRows); err != nil {
+		if err = jsoncodec.Unmarshal(fields[section], &sectionRows); err != nil {
 			t.Fatal(err)
 		}
 		rows[section] = sectionRows
@@ -111,10 +112,10 @@ func skillIndependentPages(t *testing.T, client *mcp.ClientSession, kind, id, re
 		seen := map[string]bool{}
 		for _, row := range got[section] {
 			var value any
-			if err := json.Unmarshal(row, &value); err != nil {
+			if err := jsoncodec.Unmarshal(row, &value); err != nil {
 				t.Fatal(err)
 			}
-			canonical, _ := json.Marshal(value)
+			canonical, _ := jsoncodec.Marshal(value)
 			key := string(canonical)
 			if seen[key] {
 				t.Fatal("duplicated row", kind, section)

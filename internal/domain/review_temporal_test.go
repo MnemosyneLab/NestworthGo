@@ -1,10 +1,11 @@
 package domain
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestReviewTemporalCalendarNanosecondBoundaries(t *testing.T) {
@@ -48,9 +49,9 @@ func TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs(t *testin
 		{"handling", func(c *ReviewTemporalCertificate) { c.StateRevision++ }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			raw, _ := json.Marshal(base)
+			raw, _ := jsoncodec.Marshal(base)
 			var current ReviewTemporalCertificate
-			if err := json.Unmarshal(raw, &current); err != nil {
+			if err := jsoncodec.Unmarshal(raw, &current); err != nil {
 				t.Fatal(err)
 			}
 			tc.mutate(&current)

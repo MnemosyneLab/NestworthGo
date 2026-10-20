@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Acknowledgement owns only the handling fields on an episode. Reconciliation
@@ -28,7 +28,7 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 	if m.ExpectedRevision < 1 {
 		return empty, &domain.Error{Code: domain.ErrValidation, Field: "expectedRevision", Message: "invalid episode revision"}
 	}
-	request, err := json.Marshal(struct {
+	request, err := jsoncodec.Marshal(struct {
 		HouseholdID      domain.HouseholdID
 		EpisodeID        domain.ReviewEpisodeID
 		MutationID       domain.MutationID
@@ -51,7 +51,7 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 			return empty, reviewRuleConflict("mutation ID was already used for a different request")
 		}
 		var previous domain.ReviewAcknowledgement
-		if err := json.Unmarshal([]byte(previousJSON), &previous); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(previousJSON), &previous); err != nil {
 			return empty, err
 		}
 		r.database.reviewInitialPublicationAllowed.Store(false)
@@ -104,7 +104,7 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 			return empty, err
 		}
 	}
-	encoded, err := json.Marshal(result)
+	encoded, err := jsoncodec.Marshal(result)
 	if err != nil {
 		return empty, err
 	}

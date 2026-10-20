@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"path/filepath"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -119,7 +119,7 @@ func (s *Service) previewProductOperation(ctx context.Context, in ProductOperati
 		return nil, productWriteError(err)
 	}
 	var normalized application.ProductCommand
-	if err := json.Unmarshal([]byte(preview.NormalizedJSON), &normalized); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(preview.NormalizedJSON), &normalized); err != nil {
 		return nil, err
 	}
 	plan := productOperationPlan{Type: "product_operation", ID: domain.NewProductOperationID().String(), Command: normalized, ReviewedStateHash: preview.ReviewedStateHash, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
@@ -135,7 +135,7 @@ func (s *Service) commitProductOperation(ctx context.Context, in CommitChangeInp
 		return nil, err
 	}
 	var plan productOperationPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
 	}
 	var receipt application.ProductOperationReceipt

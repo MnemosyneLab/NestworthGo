@@ -2,9 +2,10 @@ package continuousbackup
 
 import (
 	"database/sql"
-	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // This local ledger is the only ownership authority. Remote identity alone,
@@ -36,7 +37,7 @@ func (s *configStore) initLedger() error {
 	return nil
 }
 func (s *configStore) createStream(c config, identity streamIdentity) error {
-	data, _ := json.Marshal(streamRecord{Identity: identity, State: "open"})
+	data, _ := jsoncodec.Marshal(streamRecord{Identity: identity, State: "open"})
 	_, err := s.db.Exec(`INSERT INTO backup_streams VALUES(?,?,?)`, targetKey(c), identity.StreamID, string(data))
 	if err != nil {
 		return ErrUnavailable
@@ -54,7 +55,7 @@ func (s *configStore) streams(c config) (map[string]streamRecord, error) {
 		var stream, data string
 		var r streamRecord
 		var completed sql.NullInt64
-		if rows.Scan(&stream, &data, &completed) != nil || json.Unmarshal([]byte(data), &r) != nil || r.Identity.StreamID != stream {
+		if rows.Scan(&stream, &data, &completed) != nil || jsoncodec.Unmarshal([]byte(data), &r) != nil || r.Identity.StreamID != stream {
 			return nil, ErrUnavailable
 		}
 		// Older deleting rows keep their manifest/counter in record. New
@@ -70,7 +71,7 @@ func (s *configStore) streams(c config) (map[string]streamRecord, error) {
 	return result, nil
 }
 func (s *configStore) writeStream(c config, r streamRecord) error {
-	data, _ := json.Marshal(r)
+	data, _ := jsoncodec.Marshal(r)
 	result, err := s.db.Exec(`UPDATE backup_streams SET record=? WHERE target=? AND stream=?`, string(data), targetKey(c), r.Identity.StreamID)
 	if err != nil {
 		return ErrUnavailable

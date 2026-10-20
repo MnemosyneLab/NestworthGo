@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
@@ -84,7 +84,7 @@ func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
 				}
 				continue
 			}
-			raw, _ := json.Marshal(found[name].InputSchema)
+			raw, _ := jsoncodec.Marshal(found[name].InputSchema)
 			if !strings.Contains(string(raw), `"additionalProperties":false`) || strings.Contains(string(raw), "releaseReservationIds") || strings.Contains(string(raw), `"reviewedAt"`) {
 				t.Fatal(string(raw))
 			}
@@ -226,7 +226,7 @@ func TestProductHTTPPlanSafetyAndReservations(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stored productOperationPlan
-	if err := json.Unmarshal(raw, &stored); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &stored); err != nil {
 		t.Fatal(err)
 	}
 	stored.ExpiresAt = time.Now().Add(-time.Second)
@@ -413,7 +413,7 @@ type failProductSuccessReceipt struct {
 
 func (r *failProductSuccessReceipt) SaveConfiguration(key string, value []byte) error {
 	var op Operation
-	if r.fail && strings.HasPrefix(key, "mcp.operation.") && json.Unmarshal(value, &op) == nil && op.Status == "succeeded" {
+	if r.fail && strings.HasPrefix(key, "mcp.operation.") && jsoncodec.Unmarshal(value, &op) == nil && op.Status == "succeeded" {
 		r.fail = false
 		return errors.New("synthetic final receipt persistence failure")
 	}

@@ -3,11 +3,12 @@ package continuousbackup
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 var ErrRetention = errors.New("cleanup stopped safely; refresh the preview and check storage permissions")
@@ -42,14 +43,14 @@ func (s *configStore) retention(c config) (RetentionStatus, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return RetentionStatus{Days: 30}, nil
 	}
-	if err != nil || json.Unmarshal([]byte(data), &r) != nil {
+	if err != nil || jsoncodec.Unmarshal([]byte(data), &r) != nil {
 		return r, ErrRetention
 	}
 	return r, nil
 }
 func (s *configStore) writeRetention(c config, r RetentionStatus) error {
 	r.Running = false // Running is process state, never a persisted success claim.
-	data, _ := json.Marshal(r)
+	data, _ := jsoncodec.Marshal(r)
 	_, err := s.db.Exec(`INSERT INTO backup_retention(target,record) VALUES(?,?) ON CONFLICT(target) DO UPDATE SET record=excluded.record`, targetKey(c), string(data))
 	if err != nil {
 		return ErrRetention

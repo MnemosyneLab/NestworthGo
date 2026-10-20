@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type InstrumentMetadataChanges struct {
@@ -34,7 +36,7 @@ type InstrumentMetadataReceipt struct {
 }
 
 func InstrumentMetadataVersion(i Instrument, managed bool) string {
-	b, _ := json.Marshal(struct {
+	b, _ := jsoncodec.Marshal(struct {
 		ID              InstrumentID
 		Name, ShortName string
 		Note            *string
@@ -51,7 +53,7 @@ func ApplyInstrumentMetadata(i Instrument, c InstrumentMetadataChanges, now time
 	}
 	if len(c.Name) > 0 {
 		var v string
-		if string(c.Name) == "null" || json.Unmarshal(c.Name, &v) != nil {
+		if string(c.Name) == "null" || jsoncodec.Unmarshal(c.Name, &v) != nil {
 			return i, false, validation("name", "must be a nonempty string")
 		}
 		name, err := validateName("name", v)
@@ -62,7 +64,7 @@ func ApplyInstrumentMetadata(i Instrument, c InstrumentMetadataChanges, now time
 	}
 	if len(c.ShortName) > 0 {
 		var v string
-		if string(c.ShortName) == "null" || json.Unmarshal(c.ShortName, &v) != nil {
+		if string(c.ShortName) == "null" || jsoncodec.Unmarshal(c.ShortName, &v) != nil {
 			return i, false, validation("shortName", "must be a string; empty clears")
 		}
 		name, err := NormalizeInstrumentShortName(v)
@@ -73,7 +75,7 @@ func ApplyInstrumentMetadata(i Instrument, c InstrumentMetadataChanges, now time
 	}
 	if len(c.Note) > 0 {
 		var v *string
-		if json.Unmarshal(c.Note, &v) != nil {
+		if jsoncodec.Unmarshal(c.Note, &v) != nil {
 			return i, false, validation("note", "must be string or null")
 		}
 		note, err := validateNote("note", v)

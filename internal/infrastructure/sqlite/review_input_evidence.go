@@ -1,10 +1,10 @@
 package sqlite
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // FxRate's exact scalar is private and ordinary JSON encodes it as {}. The
@@ -17,18 +17,18 @@ type reviewInputEvidence struct {
 
 func encodeCompleteReviewInput(input domain.ReviewDailyInput) ([]byte, error) {
 	if len(input.SelectedFX) == 0 {
-		return json.Marshal(input)
+		return jsoncodec.Marshal(input)
 	}
 	rates := map[domain.CurrencyCode]string{}
 	for currency, selected := range input.SelectedFX {
 		rates[currency] = selected.Quote.Rate.String()
 	}
-	return json.Marshal(reviewInputEvidence{ReviewDailyInput: input, ExactSelectedFXRates: rates})
+	return jsoncodec.Marshal(reviewInputEvidence{ReviewDailyInput: input, ExactSelectedFXRates: rates})
 }
 
 func decodeReviewInput(raw []byte, input *domain.ReviewDailyInput) error {
 	var evidence reviewInputEvidence
-	if err := json.Unmarshal(raw, &evidence); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &evidence); err != nil {
 		return err
 	}
 	if len(evidence.ExactSelectedFXRates) > 0 {

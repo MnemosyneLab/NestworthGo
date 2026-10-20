@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestBoundedReadCompletenessAndFrozenRetry(t *testing.T) {
@@ -37,8 +39,8 @@ func TestBoundedReadCompletenessAndFrozenRetry(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		aj, _ := json.Marshal(a)
-		bj, _ := json.Marshal(b)
+		aj, _ := jsoncodec.Marshal(a)
+		bj, _ := jsoncodec.Marshal(b)
 		if string(aj) != string(bj) {
 			t.Fatal("retry changed")
 		}
@@ -60,6 +62,21 @@ func TestBoundedReadCompletenessAndFrozenRetry(t *testing.T) {
 		t.Fatalf("expiry %v", err)
 	}
 }
+
+func TestFrozenReadKeepsNumericLexemes(t *testing.T) {
+	var value map[string]any
+	if err := decodeReadValue([]byte(`{"negativeZero":-0,"revision":9007199254740993}`), &value); err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := jsoncodec.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) != `{"negativeZero":-0,"revision":9007199254740993}` {
+		t.Fatalf("frozen numeric values changed: %s", encoded)
+	}
+}
+
 func TestBoundedReadCursorIsolation(t *testing.T) {
 	c := newBoundedReadCache()
 	c.activate(1)
@@ -147,12 +164,12 @@ func TestBoundedReadKeepsLargeRevisionIntegersExact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := json.Marshal(r.Summary)
+	b, _ := jsoncodec.Marshal(r.Summary)
 	if string(b) != `{"revision":9007199254740993}` {
 		t.Fatalf("revision rounded: %s", b)
 	}
 	e := c.entries[r.CaptureID]
-	b, _ = json.Marshal(e.Details["item"])
+	b, _ = jsoncodec.Marshal(e.Details["item"])
 	if string(b) != `{"revision":9007199254740993}` {
 		t.Fatalf("detail revision rounded: %s", b)
 	}

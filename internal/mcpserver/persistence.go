@@ -1,11 +1,12 @@
 package mcpserver
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func configurationKey(path string) string {
@@ -34,7 +35,7 @@ func (s *Service) writePrivate(path string, value any) error {
 	if s.repository == nil {
 		return writePrivateJSON(path, value)
 	}
-	data, err := json.Marshal(value)
+	data, err := jsoncodec.Marshal(value)
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func (s *Service) migrateConfiguration() error {
 			return err
 		}
 		if !found {
-			if !json.Valid(raw) {
+			if !jsoncodec.Valid(raw) {
 				return errors.New("invalid legacy agent configuration")
 			}
 			if err = s.repository.SaveConfiguration(configurationKey(path), raw); err != nil {

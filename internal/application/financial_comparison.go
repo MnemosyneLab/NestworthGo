@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type FinancialComparisonRequest struct {
@@ -158,7 +158,7 @@ func (s *Service) buildFinancialComparison(ctx context.Context, leftRequest, rig
 }
 
 func hashFinancialComparison(now time.Time, content FinancialComparisonContent) (FinancialComparisonResult, error) {
-	encoded, err := json.Marshal(content)
+	encoded, err := jsoncodec.Marshal(content)
 	if err != nil {
 		return FinancialComparisonResult{}, err
 	}

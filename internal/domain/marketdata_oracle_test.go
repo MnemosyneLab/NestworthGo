@@ -1,11 +1,12 @@
 package domain
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestFirstVerticalSliceOracleHasIndependentExpectedAmounts(t *testing.T) {
@@ -107,7 +108,7 @@ func TestFirstVerticalSliceFixtureMatchesOracleFacts(t *testing.T) {
 			SupersedesRevision int    `json:"supersedesRevision"`
 		} `json:"instrumentCloses"`
 	}
-	if err := json.Unmarshal(body, &fixture); err != nil {
+	if err := jsoncodec.Unmarshal(body, &fixture); err != nil {
 		t.Fatal(err)
 	}
 	if fixture.ID != scenario.ID || fixture.HouseholdTimezone != scenario.Clock.HouseholdTimezone || fixture.BaseCurrency != scenario.BaseCurrency.String() {

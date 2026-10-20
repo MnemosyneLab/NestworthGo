@@ -6,6 +6,13 @@ financial, generated-artifact and isolated-data rules in those documents.
 No repository `.agents/skills` is currently present; `skills/nestworth` is the
 end-user ledger skill, not a development workflow.
 
+Use `github.com/waltwang/nestworth-go/internal/jsoncodec` for all maintained
+first-party Go JSON encoding and decoding. Do not call or configure Sonic outside
+that wrapper, or use another runtime codec such as `encoding/json` or Segmentio.
+Stdlib JSON types and non-codec utilities such as `json.Compact` may remain;
+opt-in compatibility tests may use prior codecs only as comparison oracles,
+never as application paths.
+
 For frontend work, read `frontend/AGENTS.md`. Discover existing components and
 nearby tested call sites before creating controls. Fix recurring issues at the
 owning shared component and add a practical regression or static guard. Keep
