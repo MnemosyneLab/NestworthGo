@@ -8,6 +8,7 @@ import { upcomingData, upcomingItem } from "@/test/upcomingActions";
 import { NavigationContext } from "@/app/NavigationContext";
 import { createTestQueryClient } from "@/test/queryClient";
 import i18n from "@/i18n";
+import { formatTimestamp } from "@/lib/time";
 const query = vi.hoisted(() => ({ data: undefined as ReturnType<typeof upcomingData> | undefined, isPending: false, isError: false, isFetching: false, refetch: vi.fn() }));
 vi.mock("@/queries/liquidity", () => ({ useUpcomingActions: () => query }));
 const queryClient = createTestQueryClient({ retry: false });
@@ -100,7 +101,7 @@ it.each(["en"])("shows the same human household timestamp in card and full page 
   query.data = upcomingData([upcomingItem()]);
   const precise = "2026-10-11T23:30:12.123456789Z";
   query.data.asOf = precise;
-  const formatted = new Intl.DateTimeFormat(language, { timeZone: query.data.timezone, dateStyle: "medium", timeStyle: "short" }).format(new Date(precise));
+  const formatted = formatTimestamp(precise, query.data.timezone, language);
   const expected = i18n.t("upcomingActions.asOf", { asOf: formatted, timezone: query.data.timezone });
   const view = mount(<OverviewUpcomingActionsCard presentation="homepage" />);
   expect(screen.getByText(expected)).toBeInTheDocument();

@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { displayPreferences, groupingSeparatorChar } from "@/lib/displayPreferences";
 
 const CANONICAL_DECIMAL = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 const NUMERIC_PARTS = new Set(["integer", "group", "decimal", "fraction"]);
@@ -33,6 +34,15 @@ function numericAffixes(formatter: Intl.NumberFormat, sample: number) {
     prefix: parts.slice(0, firstNumberPart).map((part) => part.value).join(""),
     suffix: parts.slice(lastNumberPart + 1).map((part) => part.value).join(""),
   };
+}
+
+function minorUnit(fractionDigits: number): string {
+  if (fractionDigits <= 0) return "1";
+  return `0.${"0".repeat(fractionDigits - 1)}1`;
+}
+
+function tinyHint(negative: boolean, threshold: string): string {
+  return ` · ${i18n.t("moneyDisplay.tiny", { direction: negative ? "−" : "+", threshold })}`;
 }
 
 function groupInteger(integer: string, separator: string): string {
@@ -324,7 +334,9 @@ export function currencyFractionDigits(currency: string, locale = i18n.language 
  * only to discover locale presentation tokens and currency placement, never
  * to parse the financial value through a binary floating-point Number.
  * When a currency code is supplied, the amount is rounded to that
- * display scale of two. ISO calculation scales remain separate.
+ * currency's ISO 4217 scale (JPY and KRW have none). ISO calculation
+ * scales remain separate. Grouping and decimal marks follow presentation
+ * settings, defaulting to comma and dot.
  */
 export function formatAmount(amount: string, currency?: string): string {
   if (!CANONICAL_DECIMAL.test(amount)) {
@@ -335,17 +347,13 @@ export function formatAmount(amount: string, currency?: string): string {
   const unsigned = negative ? amount.slice(1) : amount;
   const [rawInteger, rawFraction = ""] = unsigned.split(".");
   const locale = i18n.language || "en";
-  const numberFormatter = new Intl.NumberFormat(locale, {
-    useGrouping: true,
-    maximumFractionDigits: 20,
-  });
-  const sampleParts = numberFormatter.formatToParts(1234567.89);
-  const groupingSeparator = sampleParts.find((part) => part.type === "group")?.value ?? ",";
-  const decimalSeparator = sampleParts.find((part) => part.type === "decimal")?.value ?? ".";
+  const preferences = displayPreferences();
+  const groupingSeparator = groupingSeparatorChar(preferences.groupingSeparator);
+  const decimalSeparator = preferences.decimalSeparator;
 
   if (currency) {
     try {
-      const fractionDigits = 2;
+      const fractionDigits = currencyFractionDigits(currency, locale);
       const [integerPart, fractionPart] = roundDecimal(rawInteger, rawFraction, fractionDigits);
       const currencyFormatter = new Intl.NumberFormat(locale, {
         style: "currency",
@@ -353,9 +361,11 @@ export function formatAmount(amount: string, currency?: string): string {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
       });
-      const affixes = numericAffixes(currencyFormatter, negative && /[1-9]/.test(integerPart + fractionPart) ? -1234.5 : 1234.5);
+      const affixes = stableCurrencyAffixes(currency, numericAffixes(currencyFormatter, negative && /[1-9]/.test(integerPart + fractionPart) ? -1234.5 : 1234.5));
       const currencyNumber = `${groupInteger(integerPart, groupingSeparator)}${fractionPart ? decimalSeparator + fractionPart : ""}`;
-      return `${affixes.prefix}${currencyNumber}${affixes.suffix}${!/[1-9]/.test(integerPart + fractionPart) && /[1-9]/.test(rawInteger + rawFraction) ? ` · ${i18n.t("moneyDisplay.tiny", { direction: negative ? "−" : "+" })}` : ""}`;
+      const roundedAway = !/[1-9]/.test(integerPart + fractionPart) && /[1-9]/.test(rawInteger + rawFraction);
+      const threshold = roundedAway ? formatAmount(minorUnit(fractionDigits), currency) : "";
+      return `${affixes.prefix}${currencyNumber}${affixes.suffix}${roundedAway ? tinyHint(negative, threshold) : ""}`;
     } catch {
       // An unrecognized ISO code (should not happen; domain.CurrencyCode
       // already validates it) falls back to a plain number instead of
@@ -366,11 +376,47 @@ export function formatAmount(amount: string, currency?: string): string {
   return `${negative ? "-" : ""}${number}`;
 }
 
+function stableCurrencyAffixes(currency: string, affixes: { prefix: string; suffix: string }): { prefix: string; suffix: string } {
+  if (currency !== "JPY") return affixes;
+  const normalize = (value: string) => value.replace(/JP[¥￥]/g, "¥");
+  return { prefix: normalize(affixes.prefix), suffix: normalize(affixes.suffix) };
+}
+
+/** Quantities keep significant digits and drop only trailing canonical zeros. */
+export function formatQuantity(amount: string): string {
+  const parts = parseCanonicalParts(amount);
+  if (!parts) return amount;
+  const fraction = parts.fraction.replace(/0+$/, "");
+  const unsigned = fraction ? `${parts.integer}.${fraction}` : parts.integer;
+  return formatAmount(`${parts.negative ? "-" : ""}${unsigned}`);
+}
+
+/** Whole counts (byte sizes, and similar) follow the app grouping separator. */
+export function formatCount(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  const negative = value < 0;
+  const digits = String(Math.trunc(Math.abs(value)));
+  return `${negative ? "-" : ""}${groupInteger(digits, groupingSeparatorChar())}`;
+}
+
+/** Contract rates are stored as ratios. Display keeps every entered percent digit and drops only trailing zeros. */
+export function formatAnnualRatePercent(rate: string): string {
+  const percent = shiftDecimalRight(rate, 2);
+  if (!percent) return rate;
+  const parts = parseCanonicalParts(percent);
+  if (!parts) return rate;
+  const fraction = parts.fraction.replace(/0+$/, "");
+  const magnitude = fraction ? `${parts.integer}.${fraction}` : parts.integer;
+  const negative = parts.negative && /[1-9]/.test(parts.integer + fraction);
+  return `${negative ? "-" : ""}${formatAmount(magnitude)}%`;
+}
+
 /** Keep the ledger's canonical decimal visible when currency rounding hides digits. */
 export function formatAuditMoney(amount: string, currency: string): string {
   const rounded = formatMoney(amount, currency);
   const fraction = amount.split(".")[1] ?? "";
-  if (!/[1-9]/.test(fraction.slice(2))) return rounded;
+  const hidden = fraction.slice(currencyFractionDigits(currency));
+  if (!/[1-9]/.test(hidden)) return rounded;
   return `${rounded} (${amount} ${currency})`;
 }
 
@@ -386,7 +432,7 @@ export function formatQuotePrice(value: string, currency?: string): string {
   const number = formatAmount(`${parts.integer}.${parts.fraction.padEnd(2, "0")}`);
   try {
     const formatter = new Intl.NumberFormat(i18n.language || "en", { style: "currency", currency });
-    const affixes = numericAffixes(formatter, parts.negative && canonicalDecimal(value) !== "0" ? -1234.5 : 1234.5);
+    const affixes = stableCurrencyAffixes(currency, numericAffixes(formatter, parts.negative && canonicalDecimal(value) !== "0" ? -1234.5 : 1234.5));
     return `${affixes.prefix}${number}${affixes.suffix}`;
   } catch { return `${number} ${currency}`; }
 }
@@ -398,7 +444,7 @@ export function formatMoney(value: string, currency?: string): string {
   const [integer, fraction] = roundDecimal(parts.integer, parts.fraction, 2);
   const roundedZero = !/[1-9]/.test(integer + fraction);
   const hint = roundedZero && /[1-9]/.test(parts.integer + parts.fraction)
-    ? ` · ${i18n.t("moneyDisplay.tiny", { direction: parts.negative ? "−" : "+" })}` : "";
+    ? tinyHint(parts.negative, formatAmount(minorUnit(2))) : "";
   return formatAmount(`${parts.negative && !roundedZero ? "-" : ""}${integer}.${fraction}`) + hint;
 }
 

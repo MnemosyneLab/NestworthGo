@@ -354,7 +354,7 @@ it("reports reservation release failures and allows retry after completion", asy
 it("formats product operation timestamps in the History timezone", async () => {
   api.ListOperations.mockResolvedValue({operations: [{id: "open", kind: "open", effectiveAt: "2026-09-20T20:00:00Z"}], next: null});
   show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
-  expect(await screen.findByText(/Sep 21, 2026, 4:00 AM/)).toBeVisible();
+  expect(await screen.findByText(/2026-09-21 04:00/)).toBeVisible();
   expect(screen.queryByText(/2026-09-20T20:00:00Z/)).not.toBeInTheDocument();
 });
 
@@ -453,7 +453,7 @@ it("shows the exact undo target and marks reversed operations in history", async
   show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
   await userEvent.click(await screen.findByRole("button", { name: "Grouped undo" }));
   expect(screen.getByText("Reversed")).toBeVisible();
-  expect(screen.getByText(/Undo: Opened · Jan 1, 2026, 12:00 PM/)).toBeVisible();
+  expect(screen.getByText(/Undo: Opened · 2026-01-01 12:00/)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
   expect(api.RecordProductOperation).not.toHaveBeenCalled();
@@ -480,7 +480,7 @@ it("shows contract dates and rate without requiring the edit form", async () => 
   expect(await screen.findByText("Maturity date")).toBeVisible();
   expect(screen.getByText("2026-09-20")).toBeVisible();
   expect(screen.getByText("Annual rate (%)")).toBeVisible();
-  expect(screen.getByText("2.5")).toBeVisible();
+  expect(screen.getByText("2.5%")).toBeVisible();
   expect(screen.getByText("Original terms")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Grouped undo" })).not.toBeInTheDocument();
   expect(screen.queryByText("Reservations")).not.toBeInTheDocument();

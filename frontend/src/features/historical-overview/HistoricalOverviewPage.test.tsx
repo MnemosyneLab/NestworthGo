@@ -628,7 +628,7 @@ it("shows source time in the household zone and retains the exact UTC instant", 
   expect(detail).toHaveTextContent("Asia/Singapore");
   const source = within(detail).getByTitle("2026-08-01T12:00:00Z");
   expect(source).toHaveAttribute("datetime", "2026-08-01T12:00:00Z");
-  expect(source).toHaveTextContent("08:00:00 PM");
+  expect(source).toHaveTextContent("2026-08-01 20:00");
   expect(detail).toHaveTextContent("This is not a new appraisal");
 });
 
@@ -760,7 +760,7 @@ it("shows the B valuation warning only when a real B side has missing assets", a
   await chooseMode("date", userEvent);
   await userEvent.click(await screen.findByRole("tab", { name: "Category comparison" }));
   const comparison = await screen.findByRole("region", { name: "Category comparison" });
-  expect(comparison).toHaveTextContent("B shows valued assets only; 1 included asset item(s) missing valuation.");
+  expect(comparison).toHaveTextContent("B shows valued assets only; 1 included asset item missing valuation.");
   expect(comparison).not.toHaveTextContent("A shows valued assets only");
 });
 
@@ -851,7 +851,7 @@ it.each(["en"])("shows applied evidence and concrete side-specific missing input
   render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ compareTo: "current", view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
   await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
   const dialog = await screen.findByRole("dialog");
-  expect(dialog).toHaveTextContent("0.0000012 USD"); expect(dialog).toHaveTextContent("1 CNY = 0.125 USD");
+  expect(dialog).toHaveTextContent("$0.0000012"); expect(dialog).toHaveTextContent("1 CNY = 0.125 USD");
   expect(dialog).not.toHaveTextContent("recorded-provider"); expect(dialog).not.toHaveTextContent("quote-id"); expect(dialog).not.toHaveTextContent("raw_close");
   expect(dialog).toHaveTextContent(i18n.t("historicalOverview.fxOperation.divide"));
   expect(dialog).toHaveTextContent("USD ↔ CNY"); expect(dialog).not.toHaveTextContent("instrument-id");

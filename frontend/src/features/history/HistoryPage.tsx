@@ -43,7 +43,7 @@ import { activitySentence } from "@/features/history/activitySentence";
 import { ActivityDetailSheet } from "@/features/history/ActivityDetailSheet";
 import { ProductDetailSheet } from "@/features/liquidity/ProductSheets";
 import { DatePicker } from "@/components/ui/date-picker";
-import { resolvedTimeZone } from "@/lib/time";
+import { formatCivilDate, resolvedTimeZone } from "@/lib/time";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { HistoryNavigationFilters } from "@/app/navigation";
 import { ordinaryInstrument } from "@/lib/instrumentEligibility";
@@ -239,7 +239,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
           {activityGroups.map((group) => (
             <section key={group.date} className="flex flex-col gap-2">
               <h3 className="num px-1 text-xs font-semibold text-muted-foreground">
-                <time dateTime={group.items[0].effectiveAt}>{group.date}</time>
+                <time dateTime={group.items[0].effectiveAt}>{formatCivilDate(group.date)}</time>
               </h3>
               <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
                 {group.items.map((activity) => {

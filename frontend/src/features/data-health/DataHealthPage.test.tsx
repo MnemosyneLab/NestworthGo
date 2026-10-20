@@ -343,7 +343,7 @@ describe("Snapshot issue context", () => {
     expect(screen.queryByText("snapshot", { exact: true })).not.toBeInTheDocument();
     const first = rows[0];
     expect(first).toHaveTextContent("Family brokerage · USD");
-    expect(first).toHaveTextContent("2026-09-18–2026-09-19");
+    expect(first).toHaveTextContent("2026-09-18 – 2026-09-19");
     expect(first).toHaveTextContent("2 affected days");
     await userEvent.click(within(first).getByRole("button", { name: "View gap" }));
     expect(navigation.open).toHaveBeenCalledWith({ page: "data-health", focus: expect.objectContaining({ accountId: "broker", rangeStart: "2026-09-18", rangeEnd: "2026-09-19", id: "", label: "Family brokerage · USD", snapshotComponentLabel: "USD" }) });
@@ -390,7 +390,7 @@ describe("Snapshot issue context", () => {
     const focusedRows = await screen.findAllByTestId("health-issue-snapshot_incomplete");
     expect(focusedRows).toHaveLength(1);
     expect(focusedRows[0]).toHaveTextContent("Family brokerage · SGD");
-    expect(focusedRows[0]).toHaveTextContent("2026-09-18–2026-09-19");
+    expect(focusedRows[0]).toHaveTextContent("2026-09-18 – 2026-09-19");
     expect(screen.queryByText("Family brokerage · USD")).not.toBeInTheDocument();
     expect(screen.queryByText("Family brokerage · Equity fund")).not.toBeInTheDocument();
   });

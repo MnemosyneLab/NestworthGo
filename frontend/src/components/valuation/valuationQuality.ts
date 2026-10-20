@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import { formatAmount } from "@/lib/money";
+import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 
 export interface DisplayMoney { amount: string; currency: string }
 export interface DisplayQuality {
@@ -31,7 +32,7 @@ export function valuationDetails(t: TFunction, value?: DisplayValuation | null, 
   const q = value.quality;
   return [valuationLabel(t, value, current), q.carriedCount > 0 ? `${t(q.reasons?.includes("carried_nav") ? "valuation.latestNAV" : "valuation.latestMarketValue")} · ${t("valuation.awaitingUpdate")} (${q.carriedCount})` : "",
     q.unpricedCount > 0 ? t("valuation.unpriced", { count: q.unpricedCount }) : "",
-    q.oldestMarketDate ? `${t("quoteDetails.effectiveDate")}: ${q.oldestMarketDate}${q.newestMarketDate && q.newestMarketDate !== q.oldestMarketDate ? ` – ${q.newestMarketDate}` : ""}` : ""].filter(Boolean).join(" · ");
+    q.oldestMarketDate ? `${t("quoteDetails.effectiveDate")}: ${q.newestMarketDate && q.newestMarketDate !== q.oldestMarketDate ? formatCivilDateRange(q.oldestMarketDate, q.newestMarketDate) : formatCivilDate(q.oldestMarketDate)}` : ""].filter(Boolean).join(" · ");
 }
 export function valuationTableAmount(t: TFunction, value: DisplayValuation | null | undefined, legacy?: DisplayMoney | null, net = false, includeSubtotalLabel = true): string {
   if (!hasDisplay(value)) return legacy ? formatAmount(legacy.amount, legacy.currency) : t("accounts.noValue");

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { formatCivilDateRange } from "@/lib/time";
 import type { SyncItemDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
 export function SyncWorkDetails({ items = [], current }: { items?: SyncItemDTO[] | null; current?: SyncItemDTO | null }) {
@@ -12,9 +13,9 @@ export function SyncWorkDetails({ items = [], current }: { items?: SyncItemDTO[]
         {rows.map((item, index) => (
           <li key={`${item.targetKey}-${item.kind}-${item.startDate}-${index}`} className="rounded-md border p-3">
             <p className="font-medium">{item.label || item.symbol || t("portfolio.unknownInstrument")}{item.symbol && item.symbol !== item.label ? ` · ${item.symbol}` : ""}</p>
-            <p>{t(`marketData.work.${item.kind === "instrument" || item.kind === "fx" ? `${item.startDate ? "history" : "latest"}_${item.kind}` : item.kind}`, { defaultValue: item.kind })} · {t(`marketData.work.${item.status}`, { defaultValue: item.status })}</p>
+            <p>{t(`marketData.work.${item.kind === "instrument" || item.kind === "fx" ? `${item.startDate ? "history" : "latest"}_${item.kind}` : item.kind}`, { defaultValue: t("common.unknownValue") })} · {t(`marketData.work.${item.status}`, { defaultValue: t("common.unknownValue") })}</p>
             {item.provider && <p className="text-muted-foreground">{item.provider}</p>}
-            {item.startDate && <p>{item.startDate} → {item.endDate}</p>}
+            {item.startDate && <p>{formatCivilDateRange(item.startDate, item.endDate || item.startDate)}</p>}
             {item.detail && <p className="text-muted-foreground">{t(`marketData.work.${item.detail}`, { defaultValue: t("syncReasons.unavailable") })}</p>}
           </li>
         ))}

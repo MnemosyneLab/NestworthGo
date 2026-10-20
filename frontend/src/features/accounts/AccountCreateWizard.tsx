@@ -1,4 +1,5 @@
 import { formatAuditMoney } from "@/lib/money";
+import { formatCivilDate } from "@/lib/time";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -523,7 +524,7 @@ export function AccountCreateWizard({
             </p>
             <p className="mt-1">{name}</p>
             <p className="mt-2">{t(trackingMethodKey(resolvedTracking, resolvedType))}</p>
-            {openedOn && <p className="mt-1">{t("accounts.openedOn")}: {openedOn}</p>}
+            {openedOn && <p className="mt-1">{t("accounts.openedOn")}: {formatCivilDate(openedOn)}</p>}
             {resolvedTracking !== "holdings" && <p className="mt-1">{t("accounts.amount")}: {formatAuditMoney(initialAmount || "0", currencyValue)}</p>}
             <p className="text-muted-foreground">{t("accounts.reviewTrackingImmutable")}</p>
           </div>

@@ -19,7 +19,7 @@ import {
   sessionStatusVariant,
 } from "./ReconciliationParts";
 import { cn } from "@/lib/utils";
-import { checkpointReference, checkpointValue, sourceText } from "./reconciliationDisplay";
+import { checkpointReference, checkpointValue, formatRecordedAmount, formatRecordedDate, formatRecordedRate, sourceText } from "./reconciliationDisplay";
 import { FieldError } from "@/components/ui/field-error";
 import { ProductPreview as ProductOperationReview } from "@/features/liquidity/ProductPreview";
 import {
@@ -75,9 +75,7 @@ import { invalidateActivityChange } from "@/queries/invalidation";
 import { callService, type WireError } from "@/lib/wails";
 import { displayError } from "@/lib/display";
 import {
-  formatAmount,
   formatQuotePrice,
-  multiplyCanonical,
   compareCanonical,
 } from "@/lib/money";
 import { useReconciliationTimestamp } from "./useReconciliationTimestamp";
@@ -1055,9 +1053,9 @@ function ProductEvidence({ detail }: { detail: unknown }) {
   return (
     <div className="num flex flex-col gap-1 rounded-xl bg-muted/50 px-3 py-2.5 text-sm">
       <p>
-        {t("availableFunds.startOn")}: {v?.startOn} ·{" "}
+        {t("availableFunds.startOn")}: {formatRecordedDate(v?.startOn)} ·{" "}
         {t("availableFunds.maturityOn")}:{" "}
-        {v?.maturityOn ?? t("reconciliation.unavailable")} ·{" "}
+        {formatRecordedDate(v?.maturityOn) || t("reconciliation.unavailable")} ·{" "}
         {t(`reconciliation.productState.${v?.state}`, {
           defaultValue: t("reconciliation.unavailable"),
         })}
@@ -1071,18 +1069,18 @@ function ProductEvidence({ detail }: { detail: unknown }) {
       {v?.annualRate && (
         <p>
           {t("availableFunds.annualRatePercent")}:{" "}
-          {formatAmount(multiplyCanonical(v.annualRate, "100"))}%
+          {formatRecordedRate(v.annualRate)}
         </p>
       )}
       {v?.maturityInterest && (
         <p>
           {t("availableFunds.maturityInterest")}:{" "}
-          {formatAmount(v.maturityInterest, v.currency)} {v.currency}
+          {formatRecordedAmount(v.maturityInterest, v.currency)}
         </p>
       )}
       {v?.interestPaidThroughOn && (
         <p>
-          {t("availableFunds.interestPaidThrough")}: {v.interestPaidThroughOn}
+          {t("availableFunds.interestPaidThrough")}: {formatRecordedDate(v.interestPaidThroughOn)}
         </p>
       )}
       {v?.note && <p className="whitespace-pre-wrap break-words">{v.note}</p>}
@@ -1600,15 +1598,14 @@ function CommitReview({
                     ? "history.detailQuantityAdded"
                     : "history.detailQuantityRemoved",
               )}
-              : {effect.money?.amount ?? effect.quantity}{" "}
-              {effect.money?.currency}{" "}
+              : {formatRecordedAmount(effect.money?.amount ?? effect.quantity, effect.money?.currency)}{" "}
               {effect.costUnitPrice &&
-                `${t("reconciliation.unitCost")}: ${effect.costUnitPrice}`}
+                `${t("reconciliation.unitCost")}: ${formatRecordedAmount(effect.costUnitPrice, effect.money?.currency)}`}
             </p>
           ))}
           {change.resulting?.map((v, j) => (
             <p key={j}>
-              {v.name} · {v.amount || v.quantity} {v.amount ? v.currency : ""}
+              {v.name} · {formatRecordedAmount(v.amount || v.quantity, v.amount ? v.currency : "")}
             </p>
           ))}
         </div>
@@ -1622,8 +1619,7 @@ function CommitReview({
           {review.product.valuation && (
             <p className="num text-sm">
               {t("reconciliation.target")}:{" "}
-              {review.product.valuation.currentValueAfter?.amount}{" "}
-              {review.product.valuation.currentValueAfter?.currency}
+              {formatRecordedAmount(review.product.valuation.currentValueAfter?.amount, review.product.valuation.currentValueAfter?.currency)}
             </p>
           )}
           {review.product.operation && (
@@ -1782,7 +1778,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
                 {t("reconciliation.reviewedBefore")}:{" "}
                 {before && checkpointValue(t, before, true)}{" "}
                 {before?.cost &&
-                  `${t("reconciliation.unitCost")}: ${before.cost}`}
+                  `${t("reconciliation.unitCost")}: ${formatRecordedAmount(before.cost, before.currency)}`}
               </p>
               {sourceText(before?.source) && (
                 <p>{sourceText(before?.source)}</p>
@@ -1801,8 +1797,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
               )}
               {after?.resulting?.map((value, j) => (
                 <p key={j}>
-                  {value.Name}: {value.Amount || value.Quantity}{" "}
-                  {value.Amount ? value.Currency : ""}
+                  {value.Name}: {formatRecordedAmount(value.Amount || value.Quantity, value.Amount ? value.Currency : "")}
                 </p>
               ))}
               {after?.effects?.map((effect, j) => (
@@ -1816,10 +1811,9 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
                         ? "history.detailQuantityAdded"
                         : "history.detailQuantityRemoved",
                   )}
-                  : {effect.amount ?? effect.quantity}{" "}
-                  {effect.amount ? effect.currency : ""}{" "}
+                  : {formatRecordedAmount(effect.amount ?? effect.quantity, effect.amount ? effect.currency : "")}{" "}
                   {effect.unitCost &&
-                    `${t("reconciliation.unitCost")}: ${effect.unitCost}`}
+                    `${t("reconciliation.unitCost")}: ${formatRecordedAmount(effect.unitCost, effect.currency)}`}
                 </p>
               ))}
               {[
@@ -1827,8 +1821,8 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
                 ...(after?.contract ? [after.contract] : []),
               ].map((contract, j) => (
                 <p key={j}>
-                  {contract.name}: {contract.principal} {contract.currency} ·{" "}
-                  {contract.maturityOn} · {contract.annualRate}
+                  {contract.name}: {formatRecordedAmount(contract.principal, contract.currency)} ·{" "}
+                  {formatRecordedDate(contract.maturityOn)} · {formatRecordedRate(contract.annualRate)}
                 </p>
               ))}
               {after?.note && <p>{after.note}</p>}
@@ -1900,12 +1894,7 @@ function RecentChanges({
                   : t("reconciliation.originalInterval"),
                 evidence.accountName,
                 evidence.productName,
-                [
-                  evidence.amount ?? evidence.quantity,
-                  evidence.amount ? evidence.currency : "",
-                ]
-                  .filter(Boolean)
-                  .join(" "),
+                formatRecordedAmount(evidence.amount ?? evidence.quantity, evidence.amount ? evidence.currency : ""),
                 `${t("reconciliation.recordedAt")}: ${formatTimestamp(change.recordedAt)}`,
                 `${t("reconciliation.effectiveAt")}: ${formatTimestamp(change.effectiveAt)}`,
               ]

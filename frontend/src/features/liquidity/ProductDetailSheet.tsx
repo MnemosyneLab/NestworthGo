@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayEnum, displayError } from "@/lib/display";
-import { formatAmount, multiplyCanonical } from "@/lib/money";
-import { formatTimestamp, localDateTimeInTimeZone } from "@/lib/time";
+import { formatAmount, formatAnnualRatePercent } from "@/lib/money";
+import { formatCivilDate, formatTimestamp, localDateTimeInTimeZone } from "@/lib/time";
 import { useHistoryOrigin } from "@/queries/history";
 import {
   useAppendProductValuation,
@@ -191,11 +191,11 @@ function ProductDetailSession({
               <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2">
                 <dt className="text-muted-foreground">{t("availableFunds.principal")}</dt><dd className="text-right tabular-nums">{formatAmount(product.principal.amount, product.principal.currency)}</dd>
                 <dt className="text-muted-foreground">{t("availableFunds.currentContractValue")}</dt><dd className="text-right font-medium tabular-nums">{moneyText(product.currentValue, t("availableFunds.unknownAmount"))}</dd>
-                <dt className="text-muted-foreground">{t("availableFunds.startOn")}</dt><dd className="text-right">{product.startOn}</dd>
-                {product.maturityOn && <><dt className="text-muted-foreground">{t("availableFunds.maturityOn")}</dt><dd className="text-right">{product.maturityOn}</dd></>}
-                {product.annualRate != null && <><dt className="text-muted-foreground">{t("availableFunds.annualRatePercent")}</dt><dd className="text-right">{multiplyCanonical(product.annualRate, "100")}</dd></>}
+                <dt className="text-muted-foreground">{t("availableFunds.startOn")}</dt><dd className="text-right">{formatCivilDate(product.startOn)}</dd>
+                {product.maturityOn && <><dt className="text-muted-foreground">{t("availableFunds.maturityOn")}</dt><dd className="text-right">{formatCivilDate(product.maturityOn)}</dd></>}
+                {product.annualRate != null && <><dt className="text-muted-foreground">{t("availableFunds.annualRatePercent")}</dt><dd className="text-right">{formatAnnualRatePercent(product.annualRate)}</dd></>}
                 {product.maturityInterest && <><dt className="text-muted-foreground">{t("availableFunds.maturityInterest")}</dt><dd className="text-right tabular-nums">{moneyText(product.maturityInterest, t("availableFunds.unknownAmount"))}</dd></>}
-                {product.interestPaidThroughOn && <><dt className="text-muted-foreground">{t("availableFunds.interestPaidThrough")}</dt><dd className="text-right">{product.interestPaidThroughOn}</dd></>}
+                {product.interestPaidThroughOn && <><dt className="text-muted-foreground">{t("availableFunds.interestPaidThrough")}</dt><dd className="text-right">{formatCivilDate(product.interestPaidThroughOn)}</dd></>}
               </dl>
               {product.note && <p className="mt-3 whitespace-pre-wrap break-words text-muted-foreground">{product.note}</p>}
             </div>

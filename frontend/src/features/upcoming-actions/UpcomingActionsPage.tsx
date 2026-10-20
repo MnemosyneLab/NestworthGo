@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useUpcomingActions } from "@/queries/liquidity";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { UpcomingActionList } from "./UpcomingActionList";
+import { formatCivilDate } from "@/lib/time";
 import { upcomingNavigation, upcomingButton, upcomingCountLabels, upcomingReadLabel } from "./upcomingActionPresentation";
 import type { UpcomingActionsTab } from "@/app/navigation";
 
@@ -65,7 +66,7 @@ export function UpcomingActionsPage({ isActive = true, tab: controlledTab, onTab
       <Card className="flex flex-col gap-3 p-5">
         <p aria-live="polite" className="num text-base font-semibold">{t("upcomingActions.counts", upcomingCountLabels(t, data.counts))}</p>
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-          <p className="num">{t("upcomingActions.window", { date: data.localDate, timezone: data.timezone })}</p>
+          <p className="num">{t("upcomingActions.window", { date: formatCivilDate(data.localDate), timezone: data.timezone })}</p>
           <p className="num">{upcomingReadLabel(t, data.asOf, data.timezone, i18n.language)}</p>
         </div>
         {data.completeness === "partial" && <Notice tone="warning">{t("upcomingActions.partial")}</Notice>}
@@ -84,7 +85,7 @@ export function UpcomingActionsPage({ isActive = true, tab: controlledTab, onTab
         {checksOpen && <div className="flex flex-col gap-3 border-t border-border px-5 py-4">
         <ul className="divide-y divide-border">{(data.dataChecks ?? []).map(check => {
           const targets = [check.target, ...(check.targets ?? [])].filter((target, index, all) => all.findIndex(other => JSON.stringify(other) === JSON.stringify(target)) === index);
-          return <li key={check.id} className="flex flex-col gap-1.5 break-words py-3 first:pt-0 last:pb-0"><p className="num font-semibold">{check.displayName}{check.anchorOn && <> · {check.anchorOn}</>}</p>{check.referenceOn && <p className="num text-xs text-muted-foreground">{t("upcomingActions.reference", { date: check.referenceOn })}</p>}{(check.reasonCodes ?? []).map(reason => <Notice key={reason} tone="warning" className="py-1.5 text-xs leading-5">{t(`upcomingActions.reasons.${reason}`, { defaultValue: t("upcomingActions.reasons.unsupported_source") })}</Notice>)}{navigation && <div className="flex flex-wrap gap-2">{targets.map((target, index) => { const destination = upcomingNavigation(target); return destination && <Button key={`${target.kind}-${index}`} variant="outline" size="sm" onClick={() => navigation.open(destination)}>{upcomingButton(t, target)}</Button>; })}</div>}</li>;
+          return <li key={check.id} className="flex flex-col gap-1.5 break-words py-3 first:pt-0 last:pb-0"><p className="num font-semibold">{check.displayName}{check.anchorOn && <> · {formatCivilDate(check.anchorOn)}</>}</p>{check.referenceOn && <p className="num text-xs text-muted-foreground">{t("upcomingActions.reference", { date: formatCivilDate(check.referenceOn) })}</p>}{(check.reasonCodes ?? []).map(reason => <Notice key={reason} tone="warning" className="py-1.5 text-xs leading-5">{t(`upcomingActions.reasons.${reason}`, { defaultValue: t("upcomingActions.reasons.unsupported_source") })}</Notice>)}{navigation && <div className="flex flex-wrap gap-2">{targets.map((target, index) => { const destination = upcomingNavigation(target); return destination && <Button key={`${target.kind}-${index}`} variant="outline" size="sm" onClick={() => navigation.open(destination)}>{upcomingButton(t, target)}</Button>; })}</div>}</li>;
         })}</ul>
         {navigation && <Button variant="link" className="self-start px-0" onClick={() => navigation.open({ page: "data-health" })}>{t("nav.dataHealth")}</Button>}
         </div>}

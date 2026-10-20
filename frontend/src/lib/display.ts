@@ -17,7 +17,7 @@ export function displayEnum(t: Translator, namespace: string, value: string | nu
       return translated;
     }
   }
-  return humanizeEnum(value);
+  return t("common.unknownValue");
 }
 
 export function displayError(error: unknown, fallback: string): string {

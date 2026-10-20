@@ -1,7 +1,11 @@
 {
   "inputBytes": {
     "count": "{{count}} / {{limit}} 位元組",
-    "exceeded": "{{count}} / {{limit}} 位元組 — 請縮短此欄位"
+    "count_one": "{{count}} / {{limit}} 位元組",
+    "count_other": "{{count}} / {{limit}} 位元組",
+    "exceeded": "{{count}} / {{limit}} 位元組 — 請縮短此欄位",
+    "exceeded_one": "{{count}} / {{limit}} 位元組 — 請縮短此欄位",
+    "exceeded_other": "{{count}} / {{limit}} 位元組 — 請縮短此欄位"
   },
   "about": {
     "description": "一款以本地優先為理念、用於建立和維護個人或家庭資產負債表的財務桌面應用程式。",
@@ -66,6 +70,8 @@
       "remainder_one": "其餘 {{count}} 項",
       "remainder_other": "其餘 {{count}} 項",
       "expand": "展開全部 {{count}} 項",
+      "expand_one": "展開全部 {{count}} 項",
+      "expand_other": "展開全部 {{count}} 項",
       "collapse": "收起至前 10 項",
       "hint": "占比使用家庭本位幣的已估值小計。資料表包含所有原始明細；缺失值不按零計入。",
       "unavailable": "缺少價格或匯率，暫無法顯示構成。",
@@ -87,6 +93,7 @@
     "name": "Nestworth"
   },
   "common": {
+    "unknownValue": "未知",
     "clearSelection": "清除選擇",
     "selectDate": "選擇日期",
     "active": "啟用",
@@ -615,7 +622,7 @@
     "brokerage": "券商",
     "insurer": "保險機構",
     "exchange": "交易所",
-    "employer": "雇主",
+    "employer": "僱主",
     "government": "政府機構",
     "other": "其他"
   },
@@ -711,7 +718,14 @@
       "localized": "本地化",
       "monthFirst": "MM/DD/YYYY"
     },
+    "decimal": {
+      "comma": "逗號（,）",
+      "dot": "點（.）"
+    },
     "grouping": {
+      "apostrophe": "撇號（'）",
+      "comma": "逗號（,）",
+      "dot": "點（.）",
       "none": "不分組",
       "space": "空格"
     },
@@ -1073,6 +1087,8 @@
     "currentPoint": "目前估值",
     "currentPointNote": "若包含今天，今天使用目前估值；此前日期使用已結束日期的快照。",
     "gapDays": "{{count}} 天的資料不完整",
+    "gapDays_one": "{{count}} 天的資料不完整",
+    "gapDays_other": "{{count}} 天的資料不完整",
     "rebuildSnapshots": "重建快照",
     "snapshotNote": "使用本機既有資料重建所選日期。此操作不會取得缺失報價，也無法補出尚未發布的資料。",
     "rebuilt": "重建完成，請返回來源頁重新核對；缺少輸入的日期仍可能不完整。"
@@ -1198,6 +1214,8 @@
     "enable": "啟用歷史清理",
     "period": "已封存歷史保留期限",
     "days": "{{count}} 天",
+    "days_one": "{{count}} 天",
+    "days_other": "{{count}} 天",
     "apply": "套用保留期限",
     "preview": "預覽清理",
     "clean": "立即清理",
@@ -1239,7 +1257,7 @@
     "refreshDate": "重新整理所選日期",
     "latestClosed": "最近已結束日",
     "startingPoint": "歷史起點",
-    "dateRange": "可選日期：{{first}}–{{last}} · {{timezone}}",
+    "dateRange": "可選日期：{{range}} · {{timezone}}",
     "invalidDateHint": "請輸入記錄範圍內的完整日期，或使用日期快捷按鈕。日期無效時不顯示歷史資料。",
     "noValuedAssets": "此檢視暫無可估值資產",
     "totalChange": "總額變化（右側減左側）",
@@ -1328,6 +1346,8 @@
     "coverageComplete": "完整",
     "coveragePartial": "部分或未知總額",
     "missingAssetLeaves": "{{count}} 項已納入資產缺少估值",
+    "missingAssetLeaves_one": "{{count}} 項已納入資產缺少估值",
+    "missingAssetLeaves_other": "{{count}} 項已納入資產缺少估值",
     "currencyMismatch": "本位幣不一致，無法繪製共用金額圖。",
     "viewEvidence": "查看帳戶依據",
     "views": "歷史檢視",
@@ -1340,7 +1360,11 @@
     "allocationCompare": "資產類別對比",
     "assetOnly": "僅資產；原幣別金額已折合本位幣",
     "valuedOnly": "A 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
+    "valuedOnly_one": "A 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
+    "valuedOnly_other": "A 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
     "valuedOnlyB": "B 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
+    "valuedOnlyB_one": "B 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
+    "valuedOnlyB_other": "B 僅顯示已估值資產；{{count}} 項已納入資產缺少估值。",
     "zeroKnownAssets": "已知資產為零，不顯示結構圖。",
     "zeroBothAssets": "兩側已知類別金額均為零，不顯示對比圖。",
     "comparisonLegend": "A/B 圖例",
@@ -1526,7 +1550,7 @@
       "historyEvents": "事件記錄",
       "previousEventPage": "上一頁事件",
       "nextEventPage": "下一頁事件",
-      "historyTriggered": "{{date}}觸發 · $t(reviewV2.count.hitDays, {\"count\": {{hits}}}) · {{from}}至{{to}}",
+      "historyTriggered": "{{date}}觸發 · $t(reviewV2.count.hitDays, {\"count\": {{hits}}}) · {{range}}",
       "historyVersion": "條件版本{{version}} · 首次發現{{detected}}",
       "historyAcknowledged": "已於{{at}}了解",
       "historyClosed": "於{{at}}結束",
@@ -1580,7 +1604,7 @@
       "preview": "預覽",
       "previewInstrument": "預覽標的",
       "selectInstrument": "選擇標的",
-      "previewResult": "{{from}}–{{to}}：$t(reviewV2.count.hits, {\"count\": {{hits}}})，$t(reviewV2.count.misses, {\"count\": {{misses}}})，未知{{unknowns}}天",
+      "previewResult": "{{range}}：$t(reviewV2.count.hits, {\"count\": {{hits}}})，$t(reviewV2.count.misses, {\"count\": {{misses}}})，未知{{unknowns}}天",
       "invalidRule": "請補全規則。估算年化需要「全部符合」下的單一銀行理財類型條件；視窗命中數不能超過天數。",
       "statusFilter": "狀態",
       "typeFilter": "類型",
@@ -1591,7 +1615,7 @@
       "cursorExpired": "報告已變更，已回到第一頁。",
       "projectionStatus": "複核計算狀態：{{status}}",
       "publishedOn": "上次發布 {{date}}",
-      "summaryCounts": "共$t(reviewV2.count.investments, {\"count\": {{total}}})，篩選符合{{matched}}個 · {{pending}}個待關注 · $t(reviewV2.count.actionableRules, {\"count\": {{actionable}}}) · {{unknown}}個資料不足",
+      "summaryCounts": "共$t(reviewV2.count.investments, {\"count\": {{total}}})，篩選符合{{matched}}個 · $t(reviewV2.count.needsAttention, {\"count\": {{pending}}}) · $t(reviewV2.count.actionableRules, {\"count\": {{actionable}}}) · {{unknown}}個資料不足",
       "dailyEvidence": "逐日證據",
       "dailyTrue": "命中",
       "dailyFalse": "未命中",
@@ -1631,7 +1655,7 @@
       "saved": "規則已儲存。",
       "coverage": "覆蓋與資料",
     "noCoverage": "沒有符合篩選的標的。",
-    "coverageWindow": "{{from}}–{{to}} · $t(reviewV2.count.hits, {\"count\": {{hits}}}) · $t(reviewV2.count.unknown, {\"count\": {{unknowns}}})",
+    "coverageWindow": "{{range}} · $t(reviewV2.count.hits, {\"count\": {{hits}}}) · $t(reviewV2.count.unknown, {\"count\": {{unknowns}}})",
     "coverageReason": "缺少：{{reasons}}",
     "reasonSeparator": "、",
     "unknownInvestment": "未知標的",
@@ -1657,6 +1681,7 @@
       "historical_quantity": "當日持倉數量未知",
       "historical_cost": "當日成本未知"
     },
+    "unknownReason": "未知原因",
     "count": {
       "hits_one": "命中{{count}}天",
       "hits_other": "命中{{count}}天",
@@ -1722,8 +1747,10 @@
   "moneyDisplay": {
     "aboutRounding": "關於金額捨入",
     "roundingHelp": "金額僅在顯示時捨入。合計先彙總精確值再捨入，因此可見列的金額總和可能與顯示的合計不同。",
-    "tiny": "{{direction}} 非零，小於 0.01",
-    "missingCount": "{{count}} 項需要關注"
+    "tiny": "{{direction}} 非零，小於 {{threshold}}",
+    "missingCount": "{{count}} 項需要關注",
+    "missingCount_one": "{{count}} 項需要關注",
+    "missingCount_other": "{{count}} 項需要關注"
   },
   "holdingDetail": {
     "collapse": "收起 {{name}} 的詳情",

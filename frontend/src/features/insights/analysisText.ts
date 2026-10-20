@@ -20,13 +20,17 @@ const reasonKeys: Record<string, string> = {
   "one or more return days are incomplete": "returnDaysIncomplete",
   "return days are unavailable": "returnDaysUnavailable",
   "gain is unavailable": "gainUnavailable",
+  "valuation available; return pending": "valuationAvailableReturnPending",
 };
 
-/** Translate stable analytics reason strings while keeping unknown diagnostics visible. */
+/** Translate stable analytics sentences. Unknown machine codes use a translated fallback. */
 export function analysisReason(t: (key: string) => string, reason?: string | null): string | undefined {
   if (!reason) return undefined;
-  const key = reasonKeys[reason.trim().toLowerCase()];
-  return key ? t(`insights.analysisReasons.${key}`) : reason;
+  const normalized = reason.trim().toLowerCase();
+  const key = reasonKeys[normalized];
+  if (key) return t(`insights.analysisReasons.${key}`);
+  if (/^[a-z0-9]+(?:_[a-z0-9]+)+$/.test(normalized)) return t("common.unknownValue");
+  return reason;
 }
 
 export function analysisCashLabel(t: (key: string) => string, key: string): string | undefined {

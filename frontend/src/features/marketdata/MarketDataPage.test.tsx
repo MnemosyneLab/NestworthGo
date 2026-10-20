@@ -335,7 +335,7 @@ describe("MarketDataPage", () => {
     renderPage();
     const row = await screen.findByTestId("saved-instrument-i1");
     expect(row).toHaveTextContent("Agent supplied");
-    await waitFor(() => expect(row).toHaveTextContent("as of Sep 24, 2026"));
+    await waitFor(() => expect(row).toHaveTextContent("as of 2026-09-24"));
     expect(row).not.toHaveTextContent(formatTimestamp("2026-09-23T16:00:00Z", "Pacific/Auckland", "en"));
     expect(row).not.toHaveTextContent(formatTimestamp("2026-09-29T00:00:00Z", "Pacific/Auckland", "en"));
     await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
@@ -438,7 +438,7 @@ describe("MarketDataPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "View history" }));
     await userEvent.click(await screen.findByText("View data table"));
     expect(screen.getByText("Unit NAV")).toBeInTheDocument();
-    expect(screen.getAllByText("Sep 28, 2026").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2026-09-28").length).toBeGreaterThan(0);
     expect(screen.queryByText(formatTimestamp("2026-09-27T16:00:00Z", "Pacific/Auckland", "en"))).not.toBeInTheDocument();
   });
 
@@ -532,7 +532,7 @@ describe("MarketDataPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Sync and repair" }));
     expect(await screen.findByTestId("sync-preview")).toHaveTextContent("3 estimated provider requests");
     expect(screen.getByTestId("sync-work-details")).toHaveTextContent("QQQM");
-    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("2026-09-07 → 2026-09-17");
+    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("2026-09-07 – 2026-09-17");
     expect(screen.getByTestId("sync-work-details")).toHaveTextContent("yahoo_finance");
     expect(previewSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
     await userEvent.click(screen.getByRole("button", { name: "Start sync" }));

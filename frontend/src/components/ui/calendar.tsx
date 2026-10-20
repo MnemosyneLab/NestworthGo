@@ -1,6 +1,7 @@
 import * as React from "react";
 import { DayPicker } from "react-day-picker";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import i18n from "@/i18n";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -21,7 +22,7 @@ function Calendar({
       captionLayout={captionLayout}
       className={cn("p-2 [--cell-size:2rem]", className)}
       formatters={{
-        formatMonthDropdown: (date) => date.toLocaleString(undefined, { month: "short" }),
+        formatMonthDropdown: (date) => date.toLocaleString(i18n.language || undefined, { month: "short" }),
         ...formatters,
       }}
       classNames={{

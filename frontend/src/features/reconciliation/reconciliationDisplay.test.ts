@@ -4,8 +4,10 @@ import { checkpointReference, checkpointValue, sourceText } from "./reconciliati
 
 it("uses frozen quantity units for holdings and currency for cash", () => {
   expect(checkpointValue(i18n.t, { kind: "holding", value: "100", currency: "USD" })).toBe("100");
+  expect(checkpointValue(i18n.t, { kind: "holding", value: "126.5000", currency: "USD" })).toBe("126.5");
   expect(checkpointValue(i18n.t, { kind: "holding", value: "1.234567", currency: "USD", detail: { quantityUnit: "g" } })).toBe("1.234567 g");
-  expect(checkpointValue(i18n.t, { kind: "cash", value: "100", currency: "USD" })).toContain("USD");
+  expect(checkpointValue(i18n.t, { kind: "cash", value: "100", currency: "USD" })).toBe("$100.00");
+  expect(checkpointValue(i18n.t, { kind: "cash", value: "800", currency: "EUR" })).toBe("€800.00");
   expect(checkpointValue(i18n.t, { kind: "cash", value: "100.001", currency: "USD" }, true)).toBe("$100.00 (100.001 USD)");
 });
 

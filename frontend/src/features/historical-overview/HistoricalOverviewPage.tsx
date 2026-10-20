@@ -28,6 +28,8 @@ import { HistoricalCategoryComparisonView } from "./HistoricalCategoryComparison
 import { useObjectNavigation } from "@/app/NavigationContext";
 import type { HistoricalCategoryFilter, HistoricalNavigationContext } from "@/app/navigation";
 import { displayEnum } from "@/lib/display";
+import { formatQuantity, formatQuotePrice } from "@/lib/money";
+import { formatCivilDate, formatCivilDateRange, formatTimestamp } from "@/lib/time";
 import { formatHistoricalAmount } from "./historicalAmount";
 import { SignedChange } from "./SignedChange";
 import type {
@@ -47,14 +49,7 @@ function Amount({ value, currency, signed = false }: {
 
 function ObservationTime({ value, timezone }: { value: string; timezone: string }) {
   const { i18n } = useTranslation();
-  const parsed = new Date(value);
-  const text = Number.isFinite(parsed.getTime())
-    ? new Intl.DateTimeFormat(i18n.language, {
-      timeZone: timezone, year: "numeric", month: "short", day: "numeric",
-      hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short",
-    }).format(parsed)
-    : value;
-  return <time dateTime={value} title={value}>{text}</time>;
+  return <time dateTime={value} title={value}>{formatTimestamp(value, timezone, i18n.language)}</time>;
 }
 
 function rowLabel(row: HistoricalOverviewRow, t: TFunction): string {
@@ -110,10 +105,10 @@ function Evidence({ title, value, timezone }: { title: string; value?: Historica
         <dd><ObservationTime value={value.effectiveAt} timezone={timezone} /></dd>
  {value.fetchedAt && <><dt>{t("valuation.retrievedAt")}</dt><dd><ObservationTime value={value.fetchedAt} timezone={timezone} /></dd></>}
       </div>
-      {value.value != null && <div><dt className="text-muted-foreground">{t(value.baseCurrency ? "historicalOverview.usedRate" : "historicalOverview.usedPrice")}</dt><dd className="num">{value.baseCurrency ? `1 ${value.baseCurrency} = ${value.value} ${value.quoteCurrency}` : `${value.value} ${value.currency}`}</dd></div>}
+      {value.value != null && <div><dt className="text-muted-foreground">{t(value.baseCurrency ? "historicalOverview.usedRate" : "historicalOverview.usedPrice")}</dt><dd className="num">{value.baseCurrency ? t("marketData.latestRate", { base: value.baseCurrency, rate: formatQuantity(value.value), quote: value.quoteCurrency }) : formatQuotePrice(value.value, value.currency)}</dd></div>}
       {value.operation && <div><dd>{t(`historicalOverview.fxOperation.${value.operation}`)}</dd></div>}
       {value.observationKind && <div><dt className="text-muted-foreground">{t("historicalOverview.observationKind")}</dt><dd>{quoteObservationLabel(t, { ...value, sourceKind: value.source })}</dd></div>}
-      {value.marketDate && <div><dt className="text-muted-foreground">{t("historicalOverview.marketDate")}</dt><dd>{value.marketDate}</dd></div>}
+      {value.marketDate && <div><dt className="text-muted-foreground">{t("historicalOverview.marketDate")}</dt><dd>{formatCivilDate(value.marketDate)}</dd></div>}
     </dl>
   </div>;
 }
@@ -121,7 +116,7 @@ function Evidence({ title, value, timezone }: { title: string; value?: Historica
 function CellDetail({ cell, state, timezone }: { cell?: HistoricalOverviewCell | null; state: HistoricalOverviewState; timezone: string }) {
   const { t } = useTranslation();
   return <section className="flex flex-col gap-3 border-t border-border pt-4">
-    <h3 className="font-semibold">{state.current ? t("historicalOverview.current") : state.date}</h3>
+    <h3 className="font-semibold">{state.current ? t("historicalOverview.current") : formatCivilDate(state.date)}</h3>
     <p className="text-xs text-muted-foreground">
       {t(state.current ? "historicalOverview.captureTime" : "historicalOverview.dayCutoff")}: <ObservationTime value={state.cutoffAt} timezone={timezone} />
     </p>
@@ -132,7 +127,7 @@ function CellDetail({ cell, state, timezone }: { cell?: HistoricalOverviewCell |
       {cell.valueSourceAt && <p className="text-sm">{t("historicalOverview.balanceSource")}: <ObservationTime value={cell.valueSourceAt} timezone={timezone} /></p>}
       {cell.manual && cell.nativeAmount != null && <p className="text-xs text-muted-foreground">{t("historicalOverview.manualNote")}</p>}
       {(cell.missing ?? []).length > 0 && <ul className="text-sm text-warning-foreground">
-        {(cell.missingDetails ?? []).length > 0 ? (cell.missingDetails ?? []).map((missing, index) => <li key={index}>{t(`historicalOverview.missing.${missing.kind}`)} · {state.current ? t("historicalOverview.capturedCurrent") : state.date}{missing.baseCurrency && missing.quoteCurrency ? ` · ${missing.quoteCurrency} ↔ ${missing.baseCurrency}` : missing.quoteCurrency ? ` · ${missing.quoteCurrency}` : ""}{missing.source && ` · ${t(`historicalOverview.sourceKind.${missing.source}`, { defaultValue: missing.source })}`}</li>) : [...new Set(cell.missing ?? [])].map(reason => <li key={reason}>{t(`historicalOverview.missing.${reason}`)}</li>)}
+        {(cell.missingDetails ?? []).length > 0 ? (cell.missingDetails ?? []).map((missing, index) => <li key={index}>{t(`historicalOverview.missing.${missing.kind}`)} · {state.current ? t("historicalOverview.capturedCurrent") : formatCivilDate(state.date)}{missing.baseCurrency && missing.quoteCurrency ? ` · ${missing.quoteCurrency} ↔ ${missing.baseCurrency}` : missing.quoteCurrency ? ` · ${missing.quoteCurrency}` : ""}{missing.source && ` · ${t(`historicalOverview.sourceKind.${missing.source}`, { defaultValue: t("common.unknownValue") })}`}</li>) : [...new Set(cell.missing ?? [])].map(reason => <li key={reason}>{t(`historicalOverview.missing.${reason}`)}</li>)}
       </ul>}
       {!cell.included && <p className="text-sm">{t(cell.status === "archived" ? "historicalOverview.archivedExplanation" : "historicalOverview.excludedExplanation")}</p>}
       {cell.quantity === "0" && !cell.price && <p className="text-xs text-muted-foreground">{t("historicalOverview.zeroPositionEvidence")}</p>}
@@ -310,7 +305,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
         {comparison !== "none" && <Button variant="soft" size="sm" onClick={() => chooseComparison("current")}>{t("historicalOverview.baselineToCurrent")}</Button>}
       </div>
       <p id="historical-date-range" className="text-xs text-muted-foreground">
-        {t("historicalOverview.dateRange", { first: firstDate, last: lastDate, timezone })}
+        {t("historicalOverview.dateRange", { range: formatCivilDateRange(firstDate, lastDate), timezone })}
         {comparison !== "none" && <> · {t("historicalOverview.deltaBA")}</>}
       </p>
       {comparison === "date" && valid && compareDate < date && <p className="text-xs text-muted-foreground">{t("historicalOverview.reverseComparison")}</p>}
@@ -351,8 +346,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
               <Button variant="link" aria-label={t("historicalOverview.openCard", { name: account.name })} className="h-auto min-w-0 whitespace-normal p-0 text-left" onClick={event => openDetail(account.key, event.currentTarget)}>{account.name}</Button>
               {account.role === "liability" && <Badge variant="outline">{t("historicalOverview.debt")}</Badge>}
               <dl className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 text-sm">
-                <div><dt>A · {data.left.date}</dt><dd className="overflow-x-auto"><CellValue cell={account.left} currency={data.left.currency} /></dd></div>
-                {data.right && <><div><dt>B · {data.right.current ? t("historicalOverview.current") : data.right.date}</dt><dd className="overflow-x-auto"><CellValue cell={account.right} currency={data.right.currency} /></dd></div><div><dt>{t("historicalOverview.deltaBA")}</dt><dd className="overflow-x-auto">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</dd></div></>}
+                <div><dt>A · {formatCivilDate(data.left.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.left} currency={data.left.currency} /></dd></div>
+                {data.right && <><div><dt>B · {data.right.current ? t("historicalOverview.current") : formatCivilDate(data.right.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.right} currency={data.right.currency} /></dd></div><div><dt>{t("historicalOverview.deltaBA")}</dt><dd className="overflow-x-auto">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</dd></div></>}
               </dl>
             </li>)}</ul>
             <Button variant="outline" size="sm" className="min-[700px]:hidden" onClick={() => setFullTable(!fullTable)}>{t(fullTable ? "historicalOverview.hideFullTable" : "historicalOverview.fullChartData")}</Button>
@@ -362,8 +357,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                 <caption className="sr-only">{t("historicalOverview.table")}</caption>
                 <thead className="bg-muted/60"><tr>
                   <th scope="col" data-account-column className="sticky left-0 z-10 w-60 max-w-60 bg-card p-3 text-left">{t("historicalOverview.account")}</th>
-                  <th scope="col" className="p-3 text-right">{data.left.date}</th>
-                  {data.right && <><th scope="col" className="p-3 text-right">{data.right.current ? t("historicalOverview.current") : data.right.date}</th><th scope="col" className="p-3 text-right">{t("historicalOverview.change")}</th></>}
+                  <th scope="col" className="p-3 text-right">{formatCivilDate(data.left.date)}</th>
+                  {data.right && <><th scope="col" className="p-3 text-right">{data.right.current ? t("historicalOverview.current") : formatCivilDate(data.right.date)}</th><th scope="col" className="p-3 text-right">{t("historicalOverview.change")}</th></>}
                 </tr></thead>
                 <tbody>{accounts.map(account => <Fragment key={account.key}>
                   <tr className="border-t border-border bg-card">

@@ -18,8 +18,8 @@ describe("ActivityDetailSheet", () => {
     expect(screen.queryByRole("button", { name: "Repeat as new draft" })).not.toBeInTheDocument();
   });
   it.each([
-    ["removed", "0.0001", "$0.00 · − nonzero, below 0.01 (-0.0001 USD)"],
-    ["added", "0.0001", "$0.00 · + nonzero, below 0.01 (0.0001 USD)"],
+    ["removed", "0.0001", "$0.00 · − nonzero, below $0.01 (-0.0001 USD)"],
+    ["added", "0.0001", "$0.00 · + nonzero, below $0.01 (0.0001 USD)"],
     ["removed", "5", "-$5.00"],
     ["added", "5", "+$5.00"],
   ])("shows %s value-update delta %s with its direction", async (direction, amount, expected) => {

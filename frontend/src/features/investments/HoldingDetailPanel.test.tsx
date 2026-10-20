@@ -64,7 +64,7 @@ it("loads only expanded active details, shares performance across accounts, and 
  await waitFor(() => expect(api.instruments).toHaveBeenCalledWith(true));
  await waitFor(() => expect(api.returns).toHaveBeenCalledWith("i"));
  await waitFor(() => expect(api.series).toHaveBeenCalledWith("i",30));
- await screen.findAllByText("Oct 5 – 14, 2026");
+ await screen.findAllByText("2026-10-05 – 2026-10-14");
  await userEvent.click(buttons[1]);await waitFor(()=>expect(screen.getAllByRole("region",{name:"Price performance"})).toHaveLength(2));
  expect(api.series).toHaveBeenCalledTimes(1);expect(api.returns).toHaveBeenCalledTimes(1);expect(api.instruments).toHaveBeenCalledTimes(1);
  await userEvent.click(buttons[0]);await userEvent.click(buttons[0]);expect(api.series).toHaveBeenCalledTimes(1);
@@ -78,7 +78,7 @@ it("shows the selected period as a large signed headline with the calculation da
  const detail=within(await open());
  const performance=await detail.findByRole("region",{name:"Price performance"});
  const scoped=within(performance);
- expect(await scoped.findByText("Oct 5 – 14, 2026")).toBeInTheDocument();
+ expect(await scoped.findByText("2026-10-05 – 2026-10-14")).toBeInTheDocument();
  // Default period is 1M (30 days), which fell 4.5%.
  expect(scoped.getByText("-4.50%")).toBeInTheDocument();
  expect(scoped.getByText("Down")).toHaveClass("sr-only");
@@ -99,16 +99,16 @@ it("takes the headline and the chart from one daily response so both cover the s
  api.series.mockResolvedValue(seriesAnswer(30,{item:item(30,"7.14",{baselineOn:"2026-10-05",latestOn:"2026-10-14"}),points:[earlier,point]}));
  mount();
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
- expect(await performance.findByText("Oct 5 – 14, 2026")).toBeInTheDocument();
+ expect(await performance.findByText("2026-10-05 – 2026-10-14")).toBeInTheDocument();
  // The accessible data table lists the same daily points the headline interval spans.
  const rows=within(await performance.findByRole("table")).getAllByRole("row").slice(1);
- expect(rows.map(row=>within(row).getAllByRole("cell")[3].textContent)).toEqual(["Oct 14, 2026","Oct 5, 2026"]);
+ expect(rows.map(row=>within(row).getAllByRole("cell")[3].textContent)).toEqual(["2026-10-14","2026-10-05"]);
 });
 
 it("has no source filter because the chart only shows eligible daily closes",async()=>{
  mount();
  const performance=within(await within(await open()).findByRole("region",{name:"Price performance"}));
- await performance.findByText("Oct 5 – 14, 2026");
+ await performance.findByText("2026-10-05 – 2026-10-14");
  expect(performance.queryByRole("button",{name:/Data source/})).not.toBeInTheDocument();
 });
 
@@ -171,9 +171,9 @@ it("lists available fixed-window returns in a separate section with their real d
  const entries=returns.getAllByRole("listitem");
  expect(entries.map(entry=>within(entry).getByText(/-day$/).textContent)).toEqual(["7-day","90-day","365-day"]);
  expect(entries[0]).toHaveTextContent("+1.50%");
- expect(entries[0]).toHaveTextContent("Oct 7 – 14, 2026");
+ expect(entries[0]).toHaveTextContent("2026-10-07 – 2026-10-14");
  expect(entries[1]).toHaveTextContent("-2.00%");
- expect(entries[1]).toHaveTextContent("Jul 16 – Oct 14, 2026");
+ expect(entries[1]).toHaveTextContent("2026-07-16 – 2026-10-14");
  expect(returns.queryByText("30-day")).not.toBeInTheDocument();
  expect(returns.queryByText("180-day")).not.toBeInTheDocument();
  expect(returns.queryByText(/All|all history/i)).not.toBeInTheDocument();
@@ -213,7 +213,7 @@ it("shows annualized change only for the window that has one, as a small seconda
  // The row already shows cost, value and gain, so the panel starts with performance and ends with facts.
  const content=region.textContent!;
  expect(content).not.toContain("Cost");
- expect(content.indexOf("Oct 5")).toBeLessThan(content.indexOf("Country"));
+ expect(content.indexOf("2026-10-05")).toBeLessThan(content.indexOf("Country"));
  const notes=region.querySelector("details:not(figure details)") as HTMLDetailsElement;
  expect(notes.textContent).toContain("Note");
  expect(notes).not.toHaveAttribute("open");

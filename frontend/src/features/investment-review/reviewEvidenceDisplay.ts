@@ -5,7 +5,7 @@ type EvidenceLeaf = { metric: string; actual?: string; currency?: string };
 
 /** Machine reason codes from the review engine, with a readable fallback for unknown codes. */
 export function reviewReasonLabel(t: TFunction, code: string): string {
-  return t(`reviewV2.reasons.${code}`, { defaultValue: code });
+  return t(`reviewV2.reasons.${code}`, { defaultValue: t("reviewV2.unknownReason") });
 }
 
 export function reviewReasonList(t: TFunction, codes: readonly string[]): string {
@@ -28,7 +28,7 @@ export function reviewLeafActual(t: TFunction, leaf: EvidenceLeaf): string {
     case "annualized":
       return formatDecimalPercent(actual);
     case "type":
-      return t(`reviewV2.types.${actual}`, { defaultValue: actual });
+      return t(`reviewV2.types.${actual}`, { defaultValue: t("common.unknownValue") });
     default:
       return actual;
   }

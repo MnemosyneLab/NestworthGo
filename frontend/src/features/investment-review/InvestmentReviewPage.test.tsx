@@ -250,7 +250,8 @@ describe("daily investment review page", () => {
     expect(screen.getByText("Price change: Unknown ? · No closing price for this day")).toBeVisible();
     expect(screen.getAllByText("Amount: Unknown · No closing price for this day").length).toBeGreaterThan(0);
     expect(screen.getByText("Cost basis unknown on this day")).toBeVisible();
-    expect(screen.getByText("not_a_known_code")).toBeVisible();
+    expect(screen.getByText("Unknown reason")).toBeVisible();
+    expect(screen.queryByText("not_a_known_code")).not.toBeInTheDocument();
     expect(screen.queryByText(/126\.5000|daily_close_missing|fx_missing/)).not.toBeInTheDocument();
   });
   it("uses singular forms for single hits and conditions", async () => {

@@ -15,7 +15,7 @@ it("does not invent a change from remaining points and links the missing date", 
   render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><NetWorthTrendCard /></NavigationContext.Provider>);
   expect(screen.getByText("Net worth change: Not available")).toBeInTheDocument();
   expect(screen.queryByText("$50.00")).not.toBeInTheDocument();
-  await userEvent.click(screen.getByText("1 days have incomplete data"));
+  await userEvent.click(screen.getByText("1 day has incomplete data"));
   await userEvent.click(screen.getByRole("button", { name: "2026-01-01 · View gap" }));
   expect(open).toHaveBeenCalledWith({ page: "data-health", focus: { rangeStart: "2026-01-01", rangeEnd: "2026-01-01" } });
 });

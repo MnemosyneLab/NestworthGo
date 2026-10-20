@@ -18,6 +18,7 @@ import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
 import { analysisCashLabel, analysisReason } from "@/features/insights/analysisText";
+import { formatCivilDateRange } from "@/lib/time";
 import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 
@@ -132,7 +133,7 @@ function DriverDetailSheet({ request, session, selected, onClose, accountNames, 
       <SheetContent side="right">
         <SheetHeader>
           <SheetTitle>{selected?.label ?? t("insights.driverDetails")}</SheetTitle>
-          <p className="text-sm text-muted-foreground">{request.from} — {request.to}</p>
+          <p className="text-sm text-muted-foreground">{formatCivilDateRange(request.from, request.to)}</p>
         </SheetHeader>
         {detail.isLoading ? <LoadingState label={t("insights.loading")} /> : detail.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => detail.refetch()} retryLabel={t("common.retryAction")} /> : detail.data ? <DriverDetailContent data={detail.data} request={request} session={session} selected={selected} isResidual={isResidual} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} /> : <EmptyState title={t("insights.noDriverDetails")} />}
       </SheetContent>

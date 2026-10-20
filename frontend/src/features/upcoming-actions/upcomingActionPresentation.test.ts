@@ -20,15 +20,14 @@ describe("upcoming presentation", () => {
 describe("upcoming read timestamp", () => {
   const precise = "2026-10-11T23:30:12.123456789Z";
   it("uses the reported household zone across civil midnight without changing precision", () => {
-    expect(upcomingReadTime(precise, "Asia/Shanghai", "en")?.replace(/\s+/g, " ")).toBe("Oct 12, 2026, 7:30 AM");
-    expect(upcomingReadTime(precise, "UTC", "en")?.replace(/\s+/g, " ")).toBe("Oct 11, 2026, 11:30 PM");
+    expect(upcomingReadTime(precise, "Asia/Shanghai", "en")?.replace(/\s+/g, " ")).toBe("2026-10-12 07:30");
+    expect(upcomingReadTime(precise, "UTC", "en")?.replace(/\s+/g, " ")).toBe("2026-10-11 23:30");
     expect(precise).toBe("2026-10-11T23:30:12.123456789Z");
   });
   it.each(["en"])("localizes the timestamp and visibly names its zone in %s", language => {
     const t = i18n.getFixedT(language);
-    const formatted = new Intl.DateTimeFormat(language, { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "short" }).format(new Date(precise));
     const label = upcomingReadLabel(t, precise, "Asia/Shanghai", language);
-    expect(label).toContain(formatted);
+    expect(label).toContain("2026-10-12 07:30");
     expect(label).toContain("Asia/Shanghai");
     expect(label).not.toContain(precise);
   });
@@ -42,8 +41,8 @@ describe("upcoming read timestamp", () => {
     expect(upcomingReadLabel(i18n.getFixedT("en"), value, zone, "en")).toBe("Read time unavailable");
   });
   it("uses the household's DST rules rather than a fixed offset", () => {
-    expect(upcomingReadTime("2026-03-08T06:30:00Z", "America/New_York", "en")).toContain("1:30 AM");
-    expect(upcomingReadTime("2026-03-08T07:30:00Z", "America/New_York", "en")).toContain("3:30 AM");
+    expect(upcomingReadTime("2026-03-08T06:30:00Z", "America/New_York", "en")).toContain("01:30");
+    expect(upcomingReadTime("2026-03-08T07:30:00Z", "America/New_York", "en")).toContain("03:30");
   });
 });
 

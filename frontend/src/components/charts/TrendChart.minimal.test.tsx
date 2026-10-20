@@ -27,7 +27,7 @@ it("minimal variant hides the legend, softens gridlines and keeps the tooltip to
   expect(option.series[0].showSymbol).toBe(false);
   expect(option.series[0].areaStyle.opacity).toBe(0.14);
   const tooltip = option.tooltip[0].formatter([{ axisValue: Date.UTC(2026, 9, 12), seriesName: "Price", seriesIndex: 0, dataIndex: 0, data: { originalIndex: 0 } }]);
-  expect(tooltip).toContain("Oct 12, 2026");
+  expect(tooltip).toContain("2026-10-12");
   expect(tooltip).toContain("$1.00");
   expect(tooltip).not.toMatch(/Price:|Agent|Daily close|Source/);
   expect(screen.getByText("View data table")).toHaveClass("text-xs");

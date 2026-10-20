@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -92,6 +92,8 @@ const defaultSettings = {
   fxProvider: "frankfurter",
 };
 
+afterEach(async () => { await i18n.changeLanguage("en"); });
+
 beforeEach(() => {
   load.mockReset();
   save.mockReset();
@@ -175,6 +177,27 @@ describe("SettingsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Shanghai", fxProvider: "frankfurter" }));
+  });
+
+  it("flags matching decimal and grouping separators in the active language before save", async () => {
+    renderPage();
+    await screen.findByRole("form", { name: "Settings" });
+    await userEvent.selectOptions(screen.getByLabelText("Decimal separator"), ",");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("decimal and grouping separators must differ");
+    expect(screen.getByLabelText("Decimal separator")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Grouping separator")).toHaveAttribute("aria-describedby", "settings-separator-error");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(save).not.toHaveBeenCalled();
+    await i18n.changeLanguage("zh-CN");
+    expect(screen.getByRole("alert")).toHaveTextContent("小数分隔符和分组分隔符必须不同");
+    await i18n.changeLanguage("zh-TW");
+    expect(screen.getByRole("alert")).toHaveTextContent("小數分隔符和分組分隔符必須不同");
+    await i18n.changeLanguage("en");
+    await userEvent.selectOptions(screen.getByLabelText("Grouping separator"), "space");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ decimalSeparator: ",", groupingSeparator: "space" }));
   });
 
   it("notes when Settings presentation timezone differs from History Origin", async () => {
