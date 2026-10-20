@@ -148,7 +148,7 @@ describe("account composition panel", () => {
     await userEvent.click(screen.getByText("View data table"));
     const table = screen.getByRole("table");
     expect(within(table).getByText("Original detail-0")).toBeInTheDocument();
-    if (status === "unavailable") expect(within(table).queryByText("$0.00")).not.toBeInTheDocument();
+    if (status === "unavailable") expect(within(table).queryByText("US$0.00")).not.toBeInTheDocument();
   });
 
   it("keeps types, top-ten details and expansion available when all values are missing", async () => {

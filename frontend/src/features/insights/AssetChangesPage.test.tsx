@@ -147,7 +147,7 @@ describe("AssetChangesPage", () => {
     const user = userEvent.setup();
     renderPage();
     expect(await screen.findByText("Net Worth Change")).toBeInTheDocument();
-    expect(screen.getByText("+$25.00")).toBeInTheDocument();
+    expect(screen.getByText("+US$25.00")).toBeInTheDocument();
     expect(screen.getByTestId("asset-waterfall")).toBeInTheDocument();
     expect(screen.getByText("Change attribution")).toBeInTheDocument();
     expect(screen.getByText("Cash flows")).toBeInTheDocument();
@@ -276,7 +276,7 @@ describe("AssetChangesPage", () => {
     const { queryClient } = renderPage();
     await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Unexplained difference/ }));
     const sheet = await screen.findByRole("dialog");
-    expect(sheet.querySelector(".text-2xl")).toHaveTextContent("-$5.00");
+    expect(sheet.querySelector(".text-2xl")).toHaveTextContent("-US$5.00");
     assetChange.mockResolvedValue({
       summary: { beginningValue: { amount: "100", currency: "USD" }, endingValue: { amount: "115", currency: "USD" }, change: { amount: "15", currency: "USD" } },
       waterfall: [
@@ -304,7 +304,7 @@ describe("AssetChangesPage", () => {
       valuationForced: null,
     });
     await queryClient.invalidateQueries({ queryKey: ["analysis"] });
-    await waitFor(() => expect(screen.getByRole("dialog").querySelector(".text-2xl")).toHaveTextContent("-$10.00"));
+    await waitFor(() => expect(screen.getByRole("dialog").querySelector(".text-2xl")).toHaveTextContent("-US$10.00"));
   });
   it("opens period-specific Data Health from a partial result", async () => {
     useAnalysisStore.getState().setFilters({ from: "2026-09-01", to: "2026-09-06" });

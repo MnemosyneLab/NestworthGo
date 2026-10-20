@@ -15,7 +15,7 @@ describe("cash breakdown completeness", () => {
     expect(cashVersusProceeds([cash("complete", "100"), cash("partial", null)], horizon, "Unknown", "USD").cash).toBe("Unknown");
   });
   it("keeps proven unavailable cash at zero", () => {
-    expect(cashVersusProceeds([cash("complete", null)], horizon, "Unknown", "USD").cash).toBe("$0.00");
+    expect(cashVersusProceeds([cash("complete", null)], horizon, "Unknown", "USD").cash).toBe("US$0.00");
   });
 });
 
@@ -32,8 +32,8 @@ it("keeps native cash grouped by currency without converted values", () => {
   eur.bucketResults![0].netNative = { amount: "100", currency: "EUR" };
   const usd = cash("complete", "50");
   usd.nativeCurrency = "USD";
-  expect(cashVersusProceeds([eur, usd], horizon, "Unknown", "USD", "native").cash).toBe("€100.00 · $50.00");
-  expect(cashVersusProceeds([eur, usd], horizon, "Unknown", "USD").cash).toBe("$170.00");
+  expect(cashVersusProceeds([eur, usd], horizon, "Unknown", "USD", "native").cash).toBe("€100.00 · US$50.00");
+  expect(cashVersusProceeds([eur, usd], horizon, "Unknown", "USD").cash).toBe("US$170.00");
   expect(cashVersusProceeds([eur], horizon, "Unknown", "USD", "native").proceeds).toBe("€0.00");
 });
 it("never substitutes native money for missing base FX", () => {
@@ -46,7 +46,7 @@ it("does not classify an unknown holding's placeholder action as cash", () => {
   const holding = cash("unavailable", null);
   holding.sourceRef.kind = "holding";
   holding.normalRoute!.actionRequired = "none";
-  expect(cashVersusProceeds([cash("complete", "100"), holding], horizon, "Unknown", "USD")).toEqual({cash:"$100.00", proceeds:"Unknown"});
+  expect(cashVersusProceeds([cash("complete", "100"), holding], horizon, "Unknown", "USD")).toEqual({cash:"US$100.00", proceeds:"Unknown"});
 });
 
 it("filters by the selected horizon rather than a product's current locked state", () => {

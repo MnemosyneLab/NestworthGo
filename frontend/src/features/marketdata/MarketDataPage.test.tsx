@@ -210,7 +210,7 @@ describe("MarketDataPage", () => {
     renderPage();
 
     await screen.findByText("Global Equity Fund");
-    await screen.findByText("Latest: $12.50");
+    await screen.findByText("Latest: US$12.50");
     expect(screen.getByText("Delayed")).toBeInTheDocument();
     expect(screen.getByText(/yahoo_finance/)).toBeInTheDocument();
     const savedInstrument = screen.getByTestId("saved-instrument-i1");
@@ -219,7 +219,7 @@ describe("MarketDataPage", () => {
     expect(within(savedInstrument).getAllByRole("button")).toHaveLength(1);
     expect(within(savedInstrument).getByRole("button", { name: "Edit" }).parentElement).toHaveClass("row-start-1");
     expect(savedInstrument).toHaveTextContent("Global Equity Fund");
-    expect(savedInstrument).toHaveTextContent("Latest: $12.50");
+    expect(savedInstrument).toHaveTextContent("Latest: US$12.50");
     expect(savedInstrument).toHaveTextContent(formatTimestamp("2024-01-01T00:00:00Z", "Pacific/Auckland", "en"));
 
     await userEvent.click(screen.getByRole("tab", { name: "FX rates" }));
@@ -380,7 +380,7 @@ describe("MarketDataPage", () => {
     const results = await screen.findByTestId("refresh-results");
     expect(results).toHaveTextContent("Global Equity Fund");
     expect(results).toHaveTextContent("Updated");
-    expect(results).toHaveTextContent("Latest: $12.50");
+    expect(results).toHaveTextContent("Latest: US$12.50");
     expect(results).toHaveTextContent("SGD/USD");
     expect(results).toHaveTextContent("No saved value yet");
     expect(results).toHaveTextContent("No provider is configured for this target.");
@@ -589,6 +589,6 @@ it("retains original-currency prices in the history table without treating them 
   await userEvent.click(await screen.findByRole("button",{name:"View history"}));
   expect(await screen.findByText(/Historical observations in other currencies/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("View data table"));
-  expect(screen.getByText("$1.1066")).toBeInTheDocument();
+  expect(screen.getByText("US$1.1066")).toBeInTheDocument();
   expect(screen.getByText("¥123.456")).toBeInTheDocument();
 });

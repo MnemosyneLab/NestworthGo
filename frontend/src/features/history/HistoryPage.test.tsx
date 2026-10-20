@@ -596,7 +596,7 @@ describe("HistoryPage", () => {
     ]);
 
     renderPage();
-    expect(await screen.findByText("Dividend $25.00 from NVIDIA into Brokerage")).toBeInTheDocument();
+    expect(await screen.findByText("Dividend US$25.00 from NVIDIA into Brokerage")).toBeInTheDocument();
     expect(screen.queryByText(/unknown instrument/i)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /record change/i }));
@@ -839,7 +839,7 @@ describe("HistoryPage", () => {
 
     renderPage();
     const list = await screen.findByTestId("activity-list");
-    expect(list).toHaveTextContent("Added $1,000.00 to Checking (Contribution)");
+    expect(list).toHaveTextContent("Added US$1,000.00 to Checking (Contribution)");
     expect(list).not.toHaveTextContent("cash_in");
     await userEvent.click(await within(list).findByRole("button", { name: "Details" }));
     expect(await screen.findByText("Local date and time")).toBeInTheDocument();
@@ -869,7 +869,7 @@ describe("HistoryPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Removed $25.00 from Closed Savings (Expense)")).toBeInTheDocument();
+    expect(await screen.findByText("Removed US$25.00 from Closed Savings (Expense)")).toBeInTheDocument();
     const accountFilter = screen.getByLabelText("Account");
     expect(within(accountFilter).getByRole("option", { name: "Checking" })).toBeInTheDocument();
     expect(within(accountFilter).queryByRole("option", { name: "Closed Savings" })).not.toBeInTheDocument();
@@ -908,8 +908,8 @@ describe("HistoryPage", () => {
     const list = await screen.findByTestId("activity-list");
     await userEvent.click(within(list).getByRole("button", { name: "Details" }));
 
-    expect(await screen.findByText((_, node) => node?.textContent === "Original activity: Added $100.00 to Checking (Income)")).toBeInTheDocument();
-    expect(screen.getByText("Checking · Amount removed: $100.00")).toBeInTheDocument();
+    expect(await screen.findByText((_, node) => node?.textContent === "Original activity: Added US$100.00 to Checking (Income)")).toBeInTheDocument();
+    expect(screen.getByText("Checking · Amount removed: US$100.00")).toBeInTheDocument();
     expect(screen.getByText("Brokerage · NVIDIA · Quantity added: 2")).toBeInTheDocument();
     expect(getActivity).toHaveBeenCalledWith("original-outside-page");
   });
@@ -1116,12 +1116,12 @@ describe("HistoryPage", () => {
     renderPage();
     const list = await screen.findByTestId("activity-list");
     expect(within(list).getAllByRole("listitem")).toHaveLength(50);
-    expect(list).toHaveTextContent("Added $51.00 to Checking");
-    expect(list).not.toHaveTextContent("Added $1.00 to Checking");
+    expect(list).toHaveTextContent("Added US$51.00 to Checking");
+    expect(list).not.toHaveTextContent("Added US$1.00 to Checking");
 
     await userEvent.click(screen.getByTestId("history-load-more"));
     await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(51));
-    expect(list).toHaveTextContent("Added $1.00 to Checking");
+    expect(list).toHaveTextContent("Added US$1.00 to Checking");
     expect(screen.queryByTestId("history-load-more")).not.toBeInTheDocument();
     expect(listActivityPage.mock.calls.some((call) => !call[0]?.afterId && call[0]?.limit === 50)).toBe(true);
     expect(

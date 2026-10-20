@@ -31,9 +31,9 @@ describe("HoldingGroupsList", () => {
     render(<HoldingGroupsList scope="portfolio" groups={[stockGroup(apple()), { key: "precious_metal", instruments: [gold], subtotals: [subtotal("USD"), subtotal("CNY")] }]} />);
     const stocks = screen.getByRole("listitem", { name: "Stocks" });
     expect(within(stocks).getByText("1 holding")).toBeInTheDocument();
-    expect(within(stocks).getByText("$1,000.00")).toBeInTheDocument();
-    expect(within(stocks).getByText("$1,200.00")).toBeInTheDocument();
-    expect(within(stocks).getByText("+$200.00")).toBeInTheDocument();
+    expect(within(stocks).getByText("US$1,000.00")).toBeInTheDocument();
+    expect(within(stocks).getByText("US$1,200.00")).toBeInTheDocument();
+    expect(within(stocks).getByText("+US$200.00")).toBeInTheDocument();
     const metals = screen.getByRole("listitem", { name: "Precious metals" });
     expect(within(metals).getAllByText(/^\+/)).toHaveLength(2);
     expect(screen.getAllByRole("listitem").map((item) => item.getAttribute("data-group"))).toEqual(["stock", "precious_metal"]);
@@ -69,16 +69,16 @@ describe("HoldingGroupsList", () => {
     render(<HoldingGroupsList scope="portfolio" groups={[stockGroup(apple())]} onOpenAccount={onOpenAccount} />);
     expect(screen.getByRole("button", { name: "By instrument" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("2 accounts")).toBeInTheDocument();
-    expect(screen.getByText("$900.00")).toBeInTheDocument();
+    expect(screen.getByText("US$900.00")).toBeInTheDocument();
     const expand = screen.getByRole("button", { name: "Show details for Apple" });
     expand.focus();
     await userEvent.keyboard("{Enter}");
     expect(expand).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("$300.00")).toBeInTheDocument();
+    expect(screen.getByText("US$300.00")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Broker B" }));
     expect(onOpenAccount).toHaveBeenCalledWith("a2");
     await userEvent.click(screen.getByRole("button", { name: "Account details" }));
-    expect(screen.queryByText("$900.00")).not.toBeInTheDocument();
+    expect(screen.queryByText("US$900.00")).not.toBeInTheDocument();
     expect(screen.queryByText("Closed account position")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("checkbox", { name: "Show zero holdings" }));
     expect(screen.getByRole("button", { name: "Closed account position" })).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("HoldingGroupsList", () => {
     render(<HoldingGroupsList scope="portfolio" groups={[stockGroup(apple())]} />);
     const row = screen.getByRole("row", { name: /Apple/ });
     expect(within(row).getByText("Down")).toHaveClass("sr-only");
-    expect(within(row).getByText("-$10.00")).toBeInTheDocument();
+    expect(within(row).getByText("-US$10.00")).toBeInTheDocument();
     expect(row.querySelector("svg.lucide-arrow-down-right")).not.toBeNull();
   });
 
@@ -120,11 +120,11 @@ describe("HoldingGroupsList", () => {
     const instrument = apple();
     instrument.amounts = { quantity: "3", totalCost: { amount: "200", currency: "USD" }, valueMissingReason: "current instrument price is unavailable", gainMissingReason: "current instrument price is unavailable" };
     render(<HoldingGroupsList scope="portfolio" groups={[{ key: "stock", instruments: [instrument], subtotals: [{ currency: "USD", instrumentCount: 1, totalCost: { amount: "200", currency: "USD" }, valueMissingReason: "current instrument price is unavailable", gainMissingReason: "current instrument price is unavailable" }] }]} />);
-    expect(screen.getAllByText("$200.00")).toHaveLength(2);
+    expect(screen.getAllByText("US$200.00")).toHaveLength(2);
     expect(screen.getAllByText("No current price")).toHaveLength(2);
     expect(screen.getAllByText(/· No current price/)).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Show details for Apple" }));
-    expect(screen.getByText("$300.00")).toBeInTheDocument();
+    expect(screen.getByText("US$300.00")).toBeInTheDocument();
   });
 
   it("sorts amounts within currencies, keeps missing last, and does not merge identical names", async () => {
@@ -139,9 +139,9 @@ describe("HoldingGroupsList", () => {
     await userEvent.click(within(table).getByRole("button", { name: "Current value" }));
     expect(names().map((text) => text?.replace(/2 accounts$/, ""))).toEqual(["AAPLA CNY", "AAPLZ USD", "AAPLZ USD", "AAPLMissing"]);
     const values = () => [...table.querySelectorAll("tbody tr")].map((r) => r.children[3].textContent);
-    expect(values()[1]).toBe("$1.00");
+    expect(values()[1]).toBe("US$1.00");
     await userEvent.click(within(table).getByRole("button", { name: "Current value" }));
-    expect(values()[1]).toBe("$900.00");
+    expect(values()[1]).toBe("US$900.00");
     expect(names()[3]).toContain("Missing");
   });
 
@@ -186,7 +186,7 @@ describe("HoldingGroupsList", () => {
     expect(screen.getByTestId("holdings-table")).toHaveTextContent("Closed Fund");
     expect(screen.getByText("Totals exclude zero-quantity positions.")).toBeInTheDocument();
     expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("2 holdings")).toBeInTheDocument();
-    expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("$1,200.00")).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: "Stocks" })).getByText("US$1,200.00")).toBeInTheDocument();
   });
 });
 
@@ -199,7 +199,7 @@ it.each(["portfolio", "account"] as const)("explains rounding by keyboard in the
   group.subtotals = [{ ...subtotal(), currentValue: { amount: "0.008", currency: "USD" }, unrealizedGain: { amount: "-0.008", currency: "USD" } }];
   const before = JSON.stringify(group);
   render(<HoldingGroupsList scope={scope} accountId="a1" groups={[group]} />);
-  expect(screen.getAllByText("$0.01").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("US$0.01").length).toBeGreaterThan(0);
   const help = screen.getByRole("button", { name: "About rounded amounts" });
   expect(screen.queryByText(/Totals use exact values before rounding/)).not.toBeInTheDocument();
   help.focus();

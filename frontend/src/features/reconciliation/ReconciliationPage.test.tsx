@@ -925,7 +925,7 @@ it("preserves the canonical cash amount in the reviewed checkpoint", async () =>
   );
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(
-    await screen.findByText("$100.00 (100.001 USD)", { selector: "p" }),
+    await screen.findByText("US$100.00 (100.001 USD)", { selector: "p" }),
   ).toBeInTheDocument();
 });
 

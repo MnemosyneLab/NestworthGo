@@ -851,7 +851,7 @@ it.each(["en"])("shows applied evidence and concrete side-specific missing input
   render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ compareTo: "current", view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
   await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
   const dialog = await screen.findByRole("dialog");
-  expect(dialog).toHaveTextContent("$0.0000012"); expect(dialog).toHaveTextContent("1 CNY = 0.125 USD");
+  expect(dialog).toHaveTextContent("US$0.0000012"); expect(dialog).toHaveTextContent("1 CNY = 0.125 USD");
   expect(dialog).not.toHaveTextContent("recorded-provider"); expect(dialog).not.toHaveTextContent("quote-id"); expect(dialog).not.toHaveTextContent("raw_close");
   expect(dialog).toHaveTextContent(i18n.t("historicalOverview.fxOperation.divide"));
   expect(dialog).toHaveTextContent("USD ↔ CNY"); expect(dialog).not.toHaveTextContent("instrument-id");

@@ -5,7 +5,7 @@ import { AssetValueSummary } from "./AssetValueSummary";
 it("shows backend period change without adding plus signs to balances", () => {
  render(<AssetValueSummary summary={{ beginningValue: { amount: "100", currency: "USD" }, endingValue: { amount: "125", currency: "USD" }, change: { amount: "25", currency: "USD" }, changeRate: "0.25" }} />);
  expect(screen.getByText("+25.00%")).toBeInTheDocument();
- expect(screen.getByText("$100.00")).toBeInTheDocument();
+ expect(screen.getByText("US$100.00")).toBeInTheDocument();
  expect(screen.getByText(/not an investment return/)).toBeInTheDocument();
 });
 

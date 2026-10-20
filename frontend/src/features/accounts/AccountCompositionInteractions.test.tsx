@@ -29,9 +29,9 @@ it("routes tail interactions to the remainder while preserving original identity
   const first = screen.getByTestId(`composition-slice-${firstKey}`);
   const second = screen.getByTestId(`composition-slice-${secondKey}`);
   expect(first).toHaveTextContent("item-10");
-  expect(first).toHaveTextContent("$28.00");
+  expect(first).toHaveTextContent("US$28.00");
   expect(second).toHaveTextContent("item-11");
-  expect(second).toHaveTextContent("$12.00");
+  expect(second).toHaveTextContent("US$12.00");
   await user.hover(first);
   expect(canvas.dispatchAction).toHaveBeenLastCalledWith({ type: "highlight", seriesIndex: 0, name: remainder });
   expect(first).toHaveAttribute("aria-pressed", "false");

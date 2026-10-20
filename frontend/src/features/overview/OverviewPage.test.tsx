@@ -122,9 +122,9 @@ describe("OverviewPage", () => {
       ...defaultHeadlines,
     });
 
-    expect(await screen.findByTestId("overview-net-worth")).toHaveTextContent("$700.00");
-    expect(screen.getByTestId("overview-assets")).toHaveTextContent("$1,000.00");
-    expect(screen.getByTestId("overview-liabilities")).toHaveTextContent("$300.00");
+    expect(await screen.findByTestId("overview-net-worth")).toHaveTextContent("US$700.00");
+    expect(screen.getByTestId("overview-assets")).toHaveTextContent("US$1,000.00");
+    expect(screen.getByTestId("overview-liabilities")).toHaveTextContent("US$300.00");
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("60.0%")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe("OverviewPage", () => {
     expect(screen.getByText("Bank account")).toBeInTheDocument();
     expect(screen.getByText(/groups each real-world account as a whole/i)).toBeInTheDocument();
     expect(screen.getByText(/Updated /)).toBeInTheDocument();
-    expect(await screen.findByText("Added $1,000.00 to Checking (Contribution)")).toBeInTheDocument();
+    expect(await screen.findByText("Added US$1,000.00 to Checking (Contribution)")).toBeInTheDocument();
     expect(await screen.findByTestId("data-health-indicator")).toHaveTextContent("Data Health ✓");
   }, 15000);
 

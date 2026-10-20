@@ -244,7 +244,7 @@ describe("daily investment review page", () => {
     state.evidence.data.items = [{ on: "2026-10-15", truth: "unknown" as never, leaves: [{ metric: "amount", truth: "unknown" as never, reason: "daily_close_missing", currency: "USD" as never }] }] as never;
     mount();
     await userEvent.click(screen.getAllByText(i18n.t("reviewV2.why"))[0]);
-    expect(screen.getByText("Amount: $126.50 ✓")).toBeVisible();
+    expect(screen.getByText("Amount: US$126.50 ✓")).toBeVisible();
     expect(screen.getByText("Price change: -3.46% ×")).toBeVisible();
     expect(screen.getByText("Cost: Unknown ? · Exchange rate missing")).toBeVisible();
     expect(screen.getByText("Price change: Unknown ? · No closing price for this day")).toBeVisible();
