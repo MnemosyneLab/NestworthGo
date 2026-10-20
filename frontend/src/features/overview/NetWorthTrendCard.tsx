@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { formatAmount } from "@/lib/money";
 import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 
-export function NetWorthTrendCard() {
+export function NetWorthTrendCard({ active = true }: { active?: boolean } = {}) {
   const { t } = useTranslation();
   const range = useTrendDateRange();
-  const trend = useNetWorthTrend({ kind: "trend", value: range.queryRange });
+  const trend = useNetWorthTrend({ kind: "trend", value: range.queryRange }, active);
   const navigation = useObjectNavigation();
   const data = trend.data;
   const points = data?.points ?? [];

@@ -26,11 +26,11 @@ import { AccountIcon } from "@/components/icons/AccountIcon";
  * allocation, and included accounts come from PortfolioService.Portfolio;
  * this page does not convert FX or treat missing quotes as zero.
  */
-function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
+function PortfolioOverview({ onOpenAccount, active = true }: { onOpenAccount?: (accountId: string) => void; active?: boolean } = {}) {
   const { t } = useTranslation();
   const portfolio = usePortfolio();
   const range = useTrendDateRange();
-  const trend = usePortfolioTrend(range.queryRange);
+  const trend = usePortfolioTrend(range.queryRange, active);
   useThemeVersion();
   const theme = chartTheme();
 
@@ -231,7 +231,7 @@ export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true
           </div>}
         </TabsContent>
         <TabsContent value="allocation" keepMounted>
-          {(tab === "allocation" || visited.includes("allocation")) && <PortfolioOverview onOpenAccount={onOpenAccount} />}
+          {(tab === "allocation" || visited.includes("allocation")) && <PortfolioOverview onOpenAccount={onOpenAccount} active={active && tab === "allocation"} />}
         </TabsContent>
       </Tabs>
     </div>
