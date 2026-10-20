@@ -122,6 +122,39 @@ nothing. Existing latest and manual quotes remain `realtime`/`latest` and
 `manual`; unverifiable provider observations do not fill
 close slots.
 
+### Historical coverage, negative checks, and opening anchors
+
+Stored observations and coverage are separate facts. A `close` observation
+records a published value; a `no_observation` coverage row records that a
+provider successfully verified a date but returned no observation. It does
+not mean the market was closed and is never a zero or synthetic quote. Only
+provider-verified ranges can create this negative-cache status; pending or
+uncertain ranges remain unresolved. Explicit closure facts and inferred
+closures are separate: inference is limited to dates between known equity
+closes, is not persisted as provider evidence, and does not fill leading
+history or the open tail. See [calendar and carry rules](#shared-instrument-valuation-calendar).
+
+Coverage identity includes the target, provider, household, binding revision,
+source-policy version, and effective date. A successful no-observation check
+expires after 24 hours for dates in the last seven finalized US-equity dates,
+and after 30 days for older dates. Expiry makes the date eligible for another
+fetch; it never turns the missing observation into a value. Force Recheck
+bypasses both positive and negative caches. Independently, dates in the last
+three finalized dates are rechecked after 24 hours so corrected recent provider
+history can be discovered. These intervals are based on check time, not an
+economic timestamp.
+
+Historical repair also looks for an opening anchor before History Origin. It
+searches the preceding 7 calendar days, then extends to 30 days when required.
+The plan fetches uncovered dates; known closes, verified no-observation dates,
+and applicable closed dates count as checked dates but only an eligible close
+can be the anchor. `initial_anchor_missing` is blocking when the complete
+30-day lookback is checked and still has no eligible anchor. In that state the
+health issue offers manual entry; it is not a claim that a provider outage or
+an unverified gap has been resolved. Incomplete lookbacks remain repairable
+coverage gaps. The same distinction applies to instrument prices and FX
+references.
+
 ## Tiingo API key configuration
 
 Tiingo API keys are persisted in the local settings JSON file, which is

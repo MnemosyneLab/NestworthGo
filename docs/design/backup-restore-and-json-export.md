@@ -57,8 +57,8 @@ The manifest includes at least:
   "format_version": 1,
   "backup_kind": "full",
   "app_name": "Nestworth",
-  "app_version": "0.3.9",
-  "app_build": "8",
+  "app_version": "0.3.8",
+  "app_build": "9",
   "schema_version": 16,
   "created_at": "2026-10-13T00:00:00Z",
   "members": {

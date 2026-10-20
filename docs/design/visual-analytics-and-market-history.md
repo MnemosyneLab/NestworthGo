@@ -4,7 +4,7 @@
 - Status: **Implemented surfaces; provider-backed external historical series remains planned**
 - Original design baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
 - Scope: chart surfaces and local quote history in Overview, Portfolio, Return Analysis, Asset Changes, Investments, and Market Data
-- Companion: [Domain Model](../architecture/domain-model.md) and [Data and Application Contracts](../architecture/data-and-ipc-contracts.md)
+- Companion: [Domain Model](../architecture/domain-model.md) and [Data and Application Contracts](../architecture/data-and-ipc-contracts.md), including the [historical coverage and opening-anchor contract](../architecture/data-and-ipc-contracts.md#historical-coverage-negative-checks-and-opening-anchors)
 
 This document describes the current chart contract and the remaining work for
 historical-series providers. It does not authorize network access when a page
