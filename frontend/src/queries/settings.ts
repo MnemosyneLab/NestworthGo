@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as SettingsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings";
 import type { SettingsDTO as Settings, CoinGeckoKeyStatusDTO, TiingoKeyStatusDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
+import { applySettingsDisplayPreferences } from "@/lib/displayPreferences";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
 export const settingsQueryKey = queryKeys.settings.all;
 
 export function useSettings(options?: { enabled?: boolean }) {
-  return useQuery({
+  const query = useQuery({
     queryKey: settingsQueryKey,
     queryFn: () => callService(() => SettingsService.Load()),
     enabled: options?.enabled ?? true,
@@ -15,6 +16,8 @@ export function useSettings(options?: { enabled?: boolean }) {
     // the startup loading screen and cannot repair a read failure.
     retry: false,
   });
+  applySettingsDisplayPreferences(query.data);
+  return query;
 }
 
 export function useSaveSettings() {

@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { displayPreferences, type DateFormat, type TimeFormat } from "@/lib/displayPreferences";
 
 export function systemTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -37,17 +38,68 @@ export function localDateTimeInTimeZone(timezone: string, now = new Date()): { d
   }
 }
 
-export function formatTimestamp(value: string | number | Date, timezone: string | undefined, language = i18n.language || "en"): string {
+function hourCycle(timeFormat: TimeFormat): "h12" | "h23" {
+  return timeFormat === "12h" ? "h12" : "h23";
+}
+
+function renderCivilDate(year: number, month: number, day: number, language: string, dateFormat: DateFormat): string {
+  const monthText = String(month).padStart(2, "0");
+  const dayText = String(day).padStart(2, "0");
+  switch (dateFormat) {
+    case "day-first":
+      return `${dayText}/${monthText}/${year}`;
+    case "month-first":
+      return `${monthText}/${dayText}/${year}`;
+    case "localized": {
+      const date = new Date(Date.UTC(year, month - 1, day));
+      return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" }).format(date);
+    }
+    default:
+      return `${year}-${monthText}-${dayText}`;
+  }
+}
+
+function formatZonedDate(date: Date, timeZone: string, language: string, dateFormat: DateFormat): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  if (!values.year || !values.month || !values.day) return "";
+  return renderCivilDate(Number(values.year), Number(values.month), Number(values.day), language, dateFormat);
+}
+
+function formatClock(date: Date, timeZone: string, language: string, timeFormat: TimeFormat, seconds = false): string {
+  return new Intl.DateTimeFormat(language, {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: seconds ? "2-digit" : undefined,
+    hourCycle: hourCycle(timeFormat),
+  }).format(date).replace(/\u202f/g, " ");
+}
+
+export function formatTimestamp(value: string | number | Date, timezone?: string, language = i18n.language || "en"): string {
   const parsed = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     return String(value);
   }
+  const preferences = displayPreferences();
+  const zone = resolvedTimeZone(timezone ?? preferences.timezone);
   try {
-    return new Intl.DateTimeFormat(language, {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: resolvedTimeZone(timezone),
-    }).format(parsed);
+    if (preferences.dateFormat === "localized") {
+      return new Intl.DateTimeFormat(language, {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: zone,
+        hourCycle: hourCycle(preferences.timeFormat),
+      }).format(parsed).replace(/\u202f/g, " ");
+    }
+    const dateText = formatZonedDate(parsed, zone, language, preferences.dateFormat);
+    if (!dateText) return parsed.toISOString();
+    return `${dateText} ${formatClock(parsed, zone, language, preferences.timeFormat)}`;
   } catch {
     return parsed.toISOString();
   }
@@ -56,11 +108,25 @@ export function formatTimestamp(value: string | number | Date, timezone: string 
 /** Exact form timestamps must show the precision retained by the submitted command. */
 export function formatExactTimestamp(value: string, timezone: string, language = i18n.language || "en"): string {
   const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return value;
+  const preferences = displayPreferences();
+  const zone = resolvedTimeZone(timezone);
   const milliseconds = String(instant.getUTCMilliseconds()).padStart(3, "0");
-  return new Intl.DateTimeFormat(language, {
-    timeZone: resolvedTimeZone(timezone), year: "numeric", month: "short", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
-  }).formatToParts(instant).map((part) => part.type === "second" ? `${part.value}.${milliseconds}` : part.value).join("");
+  try {
+    const dateText = preferences.dateFormat === "localized"
+      ? new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: zone }).format(instant)
+      : formatZonedDate(instant, zone, language, preferences.dateFormat);
+    const clock = new Intl.DateTimeFormat(language, {
+      timeZone: zone,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: hourCycle(preferences.timeFormat),
+    }).formatToParts(instant).map((part) => part.type === "second" ? `${part.value}.${milliseconds}` : part.value).join("").replace(/\u202f/g, " ");
+    return `${dateText} ${clock}`;
+  } catch {
+    return instant.toISOString();
+  }
 }
 
 /** Inspect local seconds, including historical zones with second-based offsets. */
@@ -74,7 +140,7 @@ export function hasSubMinuteTime(value: string, timezone: string): boolean {
 
 /** Localize a civil date using the same date style as timestamps, without
  * interpreting it in the viewer's timezone or adding a time of day. */
-export function formatCivilDate(value: string, language = i18n.language || "en"): string {
+export function formatCivilDate(value: string, language = i18n.language || "en", dateFormat = displayPreferences().dateFormat): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return value;
   const [year, month, day] = match.slice(1).map(Number);
@@ -82,7 +148,7 @@ export function formatCivilDate(value: string, language = i18n.language || "en")
   date.setUTCFullYear(year, month - 1, day);
   if (year < 1 || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return value;
   try {
-    return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" }).format(date);
+    return renderCivilDate(year, month, day, language, dateFormat);
   } catch {
     return value;
   }
@@ -109,6 +175,11 @@ export function formatCivilDateRange(from: string, to: string, language = i18n.l
   };
   const start = parse(from), end = parse(to);
   if (!start || !end) return `${from} – ${to}`;
+  if (displayPreferences().dateFormat !== "localized") {
+    const formattedFrom = formatCivilDate(from, language);
+    const formattedTo = formatCivilDate(to, language);
+    return from === to ? formattedFrom : `${formattedFrom} – ${formattedTo}`;
+  }
   try {
     const formatter = new Intl.DateTimeFormat(language, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }) as Intl.DateTimeFormat & { formatRange(start: Date, end: Date): string };
     return from === to ? formatter.format(start) : formatter.formatRange(start, end);
