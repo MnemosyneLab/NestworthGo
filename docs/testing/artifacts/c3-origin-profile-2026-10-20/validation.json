@@ -89,15 +89,23 @@
       "baselineMapAssignmentCumulativeSecondsAfter": 0.27
     },
     "weightedAllocFindings_pprofMB": {
-      "baselineMapAssignmentFlatBefore": 1278.91,
       "baselineMapAssignmentFlatAfter": 325.15,
       "prepareCumulativeBefore": 1802.14,
-      "prepareCumulativeAfter": 871.69
+      "prepareCumulativeAfter": 871.69,
+      "projectionFunctionFlatBefore": 1278.91,
+      "projectionFunctionFlatAfter": 343.81
     },
     "notCausalWallAttribution": true,
     "noAbsoluteLatencyImprovementClaim": true,
     "TotalAllocIsNotRSS": true,
-    "wholeProcessVmHWMIsNotPerArmRSS": true
+    "wholeProcessVmHWMIsNotPerArmRSS": true,
+    "weightedAllocFindingsRoundedLineReport": {
+      "baselineMapAssignmentFlatBefore": {
+        "value": 1.23,
+        "unit": "GB",
+        "precision": "Rounded pprof list line-level output; distinct from whole-function flat allocation"
+      }
+    }
   },
   "validation": {
     "resumedFocused": {

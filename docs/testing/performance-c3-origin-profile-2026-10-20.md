@@ -78,11 +78,13 @@ Large fixture: 100 instruments, 20 rules, 30 history days, 100,000 quotes,
 | C3 confirmation | — | 0.004s | — | 0.005s |
 
 The initial profile supports the earlier timing-partition hypothesis: preparation
-accounts for 1.75s sampled CPU, compared with 0.19s for C2. The origin assignment
-line accounts for about 540ms cumulative CPU and 1,278.91MB sampled flat allocation.
-After narrowing the value, the line is about 270ms and 325.15MB; full preparation
-is 1.66s sampled CPU. These samples overlap other cumulative stacks and GC and
-must not be added as independent wall costs.
+accounts for 1.75s sampled CPU, compared with 0.19s for C2. The whole projection
+function has 1,278.91MB sampled flat allocation before the change and 343.81MB
+after. Within that function, the origin assignment line is reported separately
+as 1.23GB before (the rounded line-level report) and 325.15MB after, with about
+540ms / 270ms cumulative CPU. Full preparation is 1.66s sampled CPU after the
+change. These samples overlap other cumulative stacks and GC and must not be
+added as independent wall costs.
 
 | Cumulative allocation for one measured call | Before | After |
 |---|---:|---:|
