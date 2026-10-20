@@ -50,3 +50,12 @@ func beginReviewDependencyProfile(t *testing.T, enabled bool, arm, scenario stri
 		write(stem + "-alloc-after.pprof")
 	}
 }
+
+// This full correctness matrix intentionally stays out of normal check; run it
+// locally with -tags perf and NW_D2_LOCAL_ORACLES=1 when D1/D2 changes.
+func TestReviewDependencySuffixExtendedLocalOracle(t *testing.T) {
+	if os.Getenv("NW_D2_LOCAL_ORACLES") != "1" {
+		t.Skip("local opt-in D1/D2 exhaustive oracle matrix")
+	}
+	testReviewDependencySuffixFullDurableOracle(t, true)
+}

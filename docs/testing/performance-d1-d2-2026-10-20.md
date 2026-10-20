@@ -1,5 +1,7 @@
 # D1/D2 dependency/suffix implementation and validation
 
+This report preserves the initial checkpoint. See [the follow-up evidence](performance-d1-d2-followup-2026-10-20.md) for current production results, CI timing and current race policy.
+
 Implementation head: `647371973483574cd66eac39213ddae4ae119f57` (see the manifest for full SHA). Base:
 `784eacc8396885b95ae9b02bb4b8e4572d342208`, PR129 merge. This is the
 third high-level stage, D1/D2, not another interpretation of C3 as stage three.
@@ -152,7 +154,7 @@ domain 1.023s and SQLite 24.981s passed; application timed out at 600.032s
 `TestReviewDependencySuffixFullDurableOracle/rolling/quote-and-quantity`.
 There were 184 completed test/subtest pass events across the invocation and
 no `WARNING: DATA RACE` message. This is not an application race pass or a
-repository-wide race pass. The application timeout remains an acceptance gap.
+repository-wide race pass. The application timeout remains an uncompleted local/scheduled performance check; under the later user instruction it is not a normal PR readiness gate.
 No intermediate/second race was run, no timeout increased, and no workflow
 edited or manually dispatched. An executor reconnect lost the session registry,
 but the original Go and application processes continued; complete JSON package
@@ -165,7 +167,7 @@ The exact command, code SHA, package results and complete raw JSON log are in
 
 Thirty-sample p95, isolated per-arm peak RSS, native Apple Silicon latency,
 native app/package/restore acceptance and the previously incomplete whole
-application race gate remain open. Whole-process VmHWM includes fixture seeding,
+application race validation remain open; race is not a normal PR readiness gate. Whole-process VmHWM includes fixture seeding,
 both arms and oracles, and allocatedBytes is cumulative allocation, not RSS.
 This change is enabled in code as requested; neither the regression nor missing
 acceptance is converted to a pass.

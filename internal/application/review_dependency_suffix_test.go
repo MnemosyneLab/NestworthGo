@@ -90,8 +90,18 @@ func assertSuffixOracle(t *testing.T, f seriesZeroFixture, r *sqlite.Repository,
 	return stage
 }
 func TestReviewDependencySuffixFullDurableOracle(t *testing.T) {
+	testReviewDependencySuffixFullDurableOracle(t, false)
+}
+
+// Normal check keeps representative policies and change/fallback boundaries.
+// The complete cross-product is local opt-in, not another normal CI workload.
+func testReviewDependencySuffixFullDurableOracle(t *testing.T, extended bool) {
 	for _, policy := range []domain.ReviewTriggerPolicy{{Kind: "single"}, {Kind: "consecutive", Count: 3}, {Kind: "rolling", WindowDays: 5, MinHits: 3}} {
 		for _, scenario := range []string{"clock", "append", "correction", "backfill", "delete", "move", "quantity", "quote-and-quantity", "missing-row", "restart"} {
+			representative := scenario == "correction" || policy.Kind == "single" && (scenario == "clock" || scenario == "delete" || scenario == "move" || scenario == "restart")
+			if !extended && !representative {
+				continue
+			}
 			t.Run(policy.Kind+"/"+scenario, func(t *testing.T) {
 				f, r, second := suffixFixture(t, policy)
 				*f.now = f.now.Add(time.Hour)
@@ -572,4 +582,38 @@ func TestReviewDependencySourceDescriptionMatchesFullDerivation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReviewDependencyProviderChangePreservesCertifiedChain(t *testing.T) {
+	f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
+	*f.now = f.now.Add(time.Minute)
+	if err := f.s.SetFXProvider("synthetic-other"); err != nil {
+		t.Fatal(err)
+	}
+	// The supported setter notifies SQLite and changes its clock epoch before
+	// capture. Financial reuse is rejected while integrity authority survives.
+	capture, err := r.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capture.Suffix != nil || capture.Certified == nil || !capture.Certified.MayCertify {
+		t.Fatal("provider transition did not select an authenticated full capture")
+	}
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var raw string
+	if err := f.db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var cert domain.ReviewTemporalCertificate
+	if err := json.Unmarshal([]byte(raw), &cert); err != nil {
+		t.Fatal(err)
+	}
+	if cert.CertifiedMAC == "" || cert.CertifiedProvider != f.s.reviewProviderSnapshot() {
+		t.Fatal("successful full provider fallback lost the existing certified chain")
+	}
+	requireCertifiedNoop(t, f, r)
+	f.day(t, "2026-10-13")
+	assertSuffixOracle(t, f, r, true)
 }

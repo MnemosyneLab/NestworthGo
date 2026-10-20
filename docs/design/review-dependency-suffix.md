@@ -103,3 +103,19 @@ certified historical reuse authority. Enabling the dispatcher does not assert
 stage-two or native performance acceptance. Linux ordinary tests, paired
 synthetic diagnostics and scoped race checks must be reported separately from
 30-sample p95, isolated per-arm RSS, and native Apple Silicon acceptance.
+
+## Coherent source-description reuse
+
+The source-capture MAC also binds the nonquote fingerprint and complete quote
+bucket descriptions used by this suffix capture. If the exact source token and
+complete historical fingerprint equal the previous authenticated publication,
+the descriptions are deterministic and reused inside this verified capture.
+For changed source, compute descriptions once, independently compare changed
+quote buckets against the contiguous journal and bind them before signing.
+The final pre-write MAC check detects description drift. Physical connection
+counters, full row sealing and every existing CAS/lease/time fence still apply.
+This shares no persistent financial facts and grants no historical authority.
+
+See [follow-up evidence](../testing/performance-d1-d2-followup-2026-10-20.md) for
+measured remaining overhead and the required separate suffix-publication proof
+before omitting daily outputs instead of comparing their complete SQL arguments.
