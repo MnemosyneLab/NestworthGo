@@ -4,7 +4,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { cn } from "@/lib/utils";
-import type { TasksTab } from "@/app/navigation";
+import type { ReconciliationNavigationFocus, TasksTab } from "@/app/navigation";
 import { InvestmentReviewPage } from "@/features/investment-review/InvestmentReviewPage";
 import { ReconciliationPage } from "@/features/reconciliation/ReconciliationPage";
 import { UpcomingActionsPage } from "@/features/upcoming-actions/UpcomingActionsPage";
@@ -39,6 +39,7 @@ export function TasksPage({
   accountId,
   sessionId,
   navigationRequestId,
+  reconciliationEntries,
 }: {
   isActive?: boolean;
   tab: TasksTab;
@@ -46,12 +47,14 @@ export function TasksPage({
   accountId?: string;
   sessionId?: string;
   navigationRequestId?: number;
+  reconciliationEntries?: Array<ReconciliationNavigationFocus & { navigationRequestId: number }>;
 }) {
   const { t } = useTranslation();
   const counts = useTasksCounts(isActive);
   const [actionsHost, setActionsHost] = useState<HTMLDivElement | null>(null);
   const [reconciliationSeen, setReconciliationSeen] = useState(tab === "reconciliation");
   if (tab === "reconciliation" && !reconciliationSeen) setReconciliationSeen(true);
+  const entries = reconciliationEntries ?? [{ accountId, sessionId, navigationRequestId: navigationRequestId ?? 0 }];
   const allClear = counts.upcoming.isSuccess && counts.review.isSuccess && counts.sessions.isSuccess
     && counts.attention === 0 && counts.actionable === 0 && counts.openSessions === 0;
   const selectTab = (value: string | number | null) => {
@@ -94,14 +97,16 @@ export function TasksPage({
           <InvestmentReviewPage isActive={isActive && tab === "review"} actionsHost={tab === "review" ? actionsHost : null} />
         </TabsContent>
         <TabsContent value="reconciliation" keepMounted>
-          {reconciliationSeen && (
-            <ReconciliationPage
-              accountId={accountId}
-              sessionId={sessionId}
-              navigationRequestId={navigationRequestId}
-              isActive={isActive && tab === "reconciliation"}
-            />
-          )}
+          {reconciliationSeen && entries.map(entry => (
+            <div key={entry.navigationRequestId} hidden={entry.navigationRequestId !== (navigationRequestId ?? 0)}>
+              <ReconciliationPage
+                accountId={entry.accountId}
+                sessionId={entry.sessionId}
+                navigationRequestId={entry.navigationRequestId}
+                isActive={isActive && tab === "reconciliation" && entry.navigationRequestId === (navigationRequestId ?? 0)}
+              />
+            </div>
+          ))}
         </TabsContent>
       </Tabs>
     </div>
