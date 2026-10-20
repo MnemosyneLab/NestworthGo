@@ -1,5 +1,11 @@
 # Private prefix memo experiment: qualitative result
 
+Historical experiment checkpoint: the user subsequently approved enabling this
+bounded memo in normal GUI/MCP startup. The original default-off conclusion below
+is retained as measured history, superseded only for rollout configuration. See
+[the subsequent SQL/rollout report](performance-d1-d2-bounded-sql-2026-10-20.md).
+
+
 Production candidate: `ac46204` (full SHA in artifact manifest). Validation head:
 `032b7e85fe5065f275e95ee42c5decf1b440973f`. This is the same PR131 branch,
 preserving1359 and user merges. The memo is **opt-in and not enabled in normal
