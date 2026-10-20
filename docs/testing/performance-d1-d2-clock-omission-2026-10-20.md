@@ -1,5 +1,7 @@
 # Integrated D2 clock-only publication omission
 
+See [the subsequent allocation/dispatch assessment](performance-d1-d2-allocation-dispatch-2026-10-20.md) for the latest proof-neutral cleanup and negative routing result. Measurements below retain their stated source commits.
+
 Production baseline `057ef31e464ebd831b8dd470084778ac3d295646` preserves the
 user's merge of main `3d202a2a1c8a3c60401717b121f52f473c79589c` / PR133.
 Production candidate `7eb1e5cad44bf011d99455c0e2538c381bcf0df1` adds the bounded

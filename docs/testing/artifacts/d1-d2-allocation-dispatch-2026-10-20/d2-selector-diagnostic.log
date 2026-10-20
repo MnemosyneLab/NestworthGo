@@ -1,0 +1,5 @@
+=== RUN   TestReviewClockSelectorProvenanceDiagnostic
+    review_dispatch_diagnostic_perf_test.go:59: existing bounded selector on D2 retains C3; fresh C2 selector is cheap but clears certified chain; returning to D2 falls back without historical authority
+--- PASS: TestReviewClockSelectorProvenanceDiagnostic (0.16s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	0.163s
