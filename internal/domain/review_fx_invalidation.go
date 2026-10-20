@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const ReviewFXDescriptionVersion = "direct-agent-import-fx-v2"
+const ReviewFXDescriptionVersion = "direct-agent-import-fx-v3"
 
 // The complete two-location inventory is MAC-bound with the non-FX invariant.
 // Fingerprints include every captured field and exact private financial scalar.
@@ -134,8 +134,9 @@ func DescribeReviewFX(batch ReviewHistoricalBatch) (*ReviewFXDescription, error)
 
 // PlanReviewFXInvalidation compares complete authenticated inventories before
 // consulting journal claims. Every active-set change needs exact captured
-// append/correct/retract provenance plus matching journal coverage. Date/pair
-// moves and unrelated source families fail closed.
+// append/correct/retract provenance plus matching journal coverage. Date
+// movement is bounded by both authenticated inventories; pair moves and unrelated
+// source families fail closed.
 // Portfolio is an independently sealed subset of history; replacing its latest
 // view cannot introduce a new historical candidate. Daily review explicitly
 // replaces portfolio.FXQuotes with the captured complete historical facts.
@@ -354,12 +355,10 @@ func PlanReviewFXInvalidation(changes []ReviewSourceChange, before, after *Revie
 			if _, has := current[r.TargetQuoteID]; has {
 				return fail
 			}
-			// Correction cannot change pair/date. All other policy fields are already
-			// constrained by the common description; quote IDs/timestamps legitimately
-			// differ for an append-only replacement.
-			if r.Operation == "correct" && current[r.QuoteID].scope.On != e.scope.On {
-				return fail
-			}
+			// Both independently captured dates contribute to the frontier. The
+			// common description already constrains pair/source/policy/timestamp
+			// basis; exact inventory and journal checks bind the new date and
+			// supersedes/provenance checks bind this old target.
 			removed[r.TargetQuoteID] = true
 			touch(e.scope.On)
 		}

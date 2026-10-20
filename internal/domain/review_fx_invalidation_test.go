@@ -102,20 +102,56 @@ func TestReviewFXPlanRequiresCompleteOldNewCoverage(t *testing.T) {
 	if plan.Full || !reflect.DeepEqual(plan.Dirty, []ReviewDirtyPair{{"rule", "instrument", "2026-10-01"}}) {
 		t.Fatal("complete candidate correction rejected", plan)
 	}
-	for _, scenario := range []string{"missing-description", "legacy-version", "missing-journal", "wrong-date", "hidden-delete", "mixed", "selection", "inverse-rule", "date-move", "non-fx", "missing-provenance", "missing-record-journal", "edited-old-record", "wrong-record-target", "unrelated-record", "unknown-record-operation"} {
+	for _, on := range []string{"2026-09-30", "2026-10-07", "2026-10-09"} {
+		t.Run("authenticated-move-"+on, func(t *testing.T) {
+			batch := c.Historical
+			batch.History.FXQuoteFacts = append([]FXQuote{}, batch.History.FXQuoteFacts...)
+			batch.History.FXQuoteFacts[0].EffectiveDate = on
+			a, err := DescribeReviewFX(batch)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a.ProvenanceVersion, a.Provenance = after.ProvenanceVersion, after.Provenance
+			cs := append([]ReviewSourceChange{}, changes...)
+			claim := *scope
+			claim.On = on
+			cs[0].NewFX = &claim
+			want := on
+			if q.EffectiveDate < want {
+				want = q.EffectiveDate
+			}
+			plan := PlanReviewFXInvalidation(cs, before, a, c)
+			if plan.Full || !reflect.DeepEqual(plan.Dirty, []ReviewDirtyPair{{"rule", "instrument", want}}) {
+				t.Fatal("incorrect OLD/NEW frontier", plan)
+			}
+		})
+	}
+	for _, scenario := range []string{"missing-description", "legacy-version", "missing-journal", "wrong-date", "hidden-delete", "mixed", "selection", "inverse-rule", "date-move", "non-fx", "missing-provenance", "missing-record-journal", "edited-old-record", "wrong-record-target", "unrelated-record", "unknown-record-operation", "forged-old-association", "forged-old-date"} {
 		t.Run(scenario, func(t *testing.T) {
 			b, a := *before, *after
 			cc := c
 			cc.Rules = append([]ReviewRule{}, c.Rules...)
 			cs := append([]ReviewSourceChange{}, changes...)
 			switch scenario {
+			case "forged-old-date":
+				bad := *scope
+				bad.ID = q.ID
+				bad.On = "2026-10-09"
+				cs[0].OldFX = &bad
+			case "forged-old-association":
+				a.Provenance = append([]ReviewFXProvenanceSeal{}, a.Provenance...)
+				other := c.Historical.History.FXQuoteFacts[1].ID
+				a.Provenance[len(a.Provenance)-1].TargetQuoteID = other
+				bad := *cs[1].NewAgent
+				bad.TargetQuoteID = other
+				cs[1].NewAgent = &bad
 			case "missing-description":
 				if !PlanReviewFXInvalidation(cs, nil, &a, cc).Full {
 					t.Fatal("missing description accepted")
 				}
 				return
 			case "legacy-version":
-				b.Version = "legacy"
+				b.Version = "direct-agent-import-fx-v2"
 			case "missing-journal":
 				cs = nil
 			case "wrong-date":

@@ -177,19 +177,29 @@ ignored. Descriptions are derived inside coherent capture before source-MAC
 signing and copied into an authentic publication certificate. Missing/legacy
 versions cannot authorize changed-FX reuse.
 
-The initial scope is a production `ImportAgentMarketData` append, same-date
-replacement correction or retraction for one direct pair of agent daily-reference
-candidates with stable preferences/policy. Every prior provenance row remains
-identical. Each added FX record and active-candidate addition/withdrawal must
+The scope is a production `ImportAgentMarketData` append, replacement correction
+(including effective-date movement) or retraction for one direct pair of Agent
+daily-reference candidates with unchanged source, policy, timestamp basis and
+preferences. `direct-agent-import-fx-v3` rejects older description proofs, requiring
+full rebuilding before these semantics can authorize reuse. Every prior provenance
+row remains identical. Each added FX record and active-candidate addition/withdrawal must
 independently match the sealed inventories and journal IDs, with supersedes/target
 association. Quote-only raw UPDATE/DELETE is full fallback. Candidate/provenance
 coverage includes inactive targets and unrelated instrument records; their changes
 are never broadly exempted.
 
+For a correction, independently validated OLD target and NEW replacement dates
+both contribute: the frontier is `min(old date, new date)`. A later replacement
+removes the old candidate on its original date; the prior baseline applies until
+the replacement becomes eligible. Origin-or-before movement cannot reuse a
+nonempty prefix. No intermediate correction-chain proof is added.
+
 Every known rule/instrument is invalidated from the earliest affected date through
 latest closed day, retaining full origin policy/lifecycle replay and every existing
 MAC, sealing, CAS, physical connection, provider and clock fence. Unsupported
-sources/routing, pair/date/policy moves, unrelated/mixed writes, incomplete proof
+sources/routing, pair/policy/preference changes, unrelated/mixed writes, incomplete proof
 and restart/restore remain full preparation. See the [production import proof and
 full-oracle evidence](../testing/performance-d-fx-boundary-2026-10-20.md) for exact
 eligibility and demonstrated application-path computation savings.
+
+See [effective-date movement evidence](../testing/performance-d-fx-date-movement-2026-10-20.md) for the bounded synthetic cases and limits.
