@@ -62,12 +62,12 @@ it("shows backend account figures without replacing them with household totals, 
   const context = { instrumentId: "fund-1", accountId: "broker-a", from: "2026-01-01", to: "2026-09-30" };
   const view = show(context);
   expect(screen.getByText("Account: Broker A")).toBeInTheDocument();
-  expect(screen.getByText("$40.00")).toBeInTheDocument();
-  expect(screen.queryByText("$100.00")).not.toBeInTheDocument();
+  expect(screen.getByText("US$40.00")).toBeInTheDocument();
+  expect(screen.queryByText("US$100.00")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Related transactions" }));
   expect(view.open).toHaveBeenCalledWith({ page: "history", filters: { instrumentId: "fund-1", accountId: "broker-a", from: "2026-01-01", to: "2026-09-30" } });
   view.rerender({ instrumentId: "fund-1", section: "holdings" });
-  expect(screen.getByText("$100.00")).toBeInTheDocument();
+  expect(screen.getByText("US$100.00")).toBeInTheDocument();
   expect(q.listInstruments).toHaveBeenCalledWith(true);
   expect(q.listHoldingGroups).toHaveBeenCalledWith(true, "broker-a");
   expect(q.listHoldingGroups).toHaveBeenCalledWith(true, "");
@@ -83,7 +83,7 @@ it("queries an archived account's own holding groups instead of the active-house
   const view = show({ instrumentId: "fund-1", accountId: "archived-broker" });
   expect(q.listHoldingGroups).toHaveBeenCalledWith(true, "archived-broker");
   expect(screen.getByText("Account: Old Broker")).toBeInTheDocument();
-  expect(screen.getByText("$300.00")).toBeInTheDocument();
+  expect(screen.getByText("US$300.00")).toBeInTheDocument();
   expect(screen.queryByText("No recorded holding in this scope.")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Related transactions" }));
   expect(view.open).toHaveBeenCalledWith({ page: "history", filters: { instrumentId: "fund-1", accountId: "archived-broker", from: undefined, to: undefined } });

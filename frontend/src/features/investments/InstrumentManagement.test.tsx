@@ -181,7 +181,7 @@ describe("InstrumentManagement", () => {
 
     renderManagement();
 
-    expect(await screen.findByText("Latest: $131.70")).toBeInTheDocument();
+    expect(await screen.findByText("Latest: US$131.70")).toBeInTheDocument();
   });
 
   it("groups instruments by type and sorts by currency then name", async () => {

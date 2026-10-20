@@ -18,10 +18,10 @@ describe("ActivityDetailSheet", () => {
     expect(screen.queryByRole("button", { name: "Repeat as new draft" })).not.toBeInTheDocument();
   });
   it.each([
-    ["removed", "0.0001", "$0.00 · − nonzero, below $0.01 (-0.0001 USD)"],
-    ["added", "0.0001", "$0.00 · + nonzero, below $0.01 (0.0001 USD)"],
-    ["removed", "5", "-$5.00"],
-    ["added", "5", "+$5.00"],
+    ["removed", "0.0001", "US$0.00 · − nonzero, below US$0.01 (-0.0001 USD)"],
+    ["added", "0.0001", "US$0.00 · + nonzero, below US$0.01 (0.0001 USD)"],
+    ["removed", "5", "-US$5.00"],
+    ["added", "5", "+US$5.00"],
   ])("shows %s value-update delta %s with its direction", async (direction, amount, expected) => {
     await i18n.changeLanguage("en");
     const activity = { id: "value", kind: "value_update", effectiveAt: "2026-01-15T12:00:00Z", effects: [{ accountId: "acc-1", direction, money: { amount, currency: "USD" } }] } as unknown as ActivityDTO;
@@ -62,10 +62,10 @@ describe("ActivityDetailSheet", () => {
     );
 
     expect(await screen.findByText("Cash dividend")).toBeInTheDocument();
-    expect(screen.getByText("Dividend $25.00 from NVIDIA into Brokerage")).toBeInTheDocument();
+    expect(screen.getByText("Dividend US$25.00 from NVIDIA into Brokerage")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Account: Brokerage")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Instrument: NVIDIA")).toBeInTheDocument();
-    expect(screen.getByText((_, node) => node?.textContent === "Amount: $25.00")).toBeInTheDocument();
+    expect(screen.getByText((_, node) => node?.textContent === "Amount: US$25.00")).toBeInTheDocument();
     expect(screen.queryByText(/unknown instrument/i)).not.toBeInTheDocument();
   });
 
@@ -107,7 +107,7 @@ describe("ActivityDetailSheet", () => {
     render(<ActivityDetailSheet activity={activity} accounts={new Map([["acc-1", "Checking"]])} instruments={new Map()} onClose={() => undefined} t={t} />);
 
     expect(await screen.findByText((_, node) => node?.textContent === "Account: Checking")).toBeInTheDocument();
-    expect(screen.getByText((_, node) => node?.textContent === "Amount: $1,000.00")).toBeInTheDocument();
+    expect(screen.getByText((_, node) => node?.textContent === "Amount: US$1,000.00")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Reason: Income")).toBeInTheDocument();
     expect(screen.queryByText(/amount · added/i)).not.toBeInTheDocument();
   });
@@ -180,8 +180,8 @@ describe("ActivityDetailSheet", () => {
 
     expect(await screen.findByText((_, node) => node?.textContent === "Debt account: Credit card")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Cash account: Checking")).toBeInTheDocument();
-    expect(screen.getByText((_, node) => node?.textContent === "Principal: $500.00")).toBeInTheDocument();
-    expect(screen.getByText((_, node) => node?.textContent === "Interest or fee: $5.00")).toBeInTheDocument();
+    expect(screen.getByText((_, node) => node?.textContent === "Principal: US$500.00")).toBeInTheDocument();
+    expect(screen.getByText((_, node) => node?.textContent === "Interest or fee: US$5.00")).toBeInTheDocument();
     expect(screen.queryByText(/principal · removed|debt · removed|fee · removed/)).not.toBeInTheDocument();
   });
 
@@ -226,9 +226,9 @@ describe("ActivityDetailSheet", () => {
 
     render(<ActivityDetailSheet activity={activity} originalActivity={originalActivity} accounts={new Map([["acc-1", "Checking"]])} instruments={new Map()} onClose={() => undefined} t={t} />);
 
-    expect(await screen.findByText((_, node) => node?.textContent === "Original activity: Added $100.00 to Checking (Income)")).toBeInTheDocument();
+    expect(await screen.findByText((_, node) => node?.textContent === "Original activity: Added US$100.00 to Checking (Income)")).toBeInTheDocument();
     expect(screen.getByText((_, node) => node?.textContent === "Reversal direction: Opposite of the original activity")).toBeInTheDocument();
-    expect(screen.getByText("Checking · Amount removed: $100.00")).toBeInTheDocument();
+    expect(screen.getByText("Checking · Amount removed: US$100.00")).toBeInTheDocument();
     expect(screen.queryByText(/amount · removed/i)).not.toBeInTheDocument();
   });
 
@@ -243,7 +243,7 @@ describe("ActivityDetailSheet", () => {
 
     render(<ActivityDetailSheet activity={activity} accounts={new Map([["acc-1", "Checking"]])} instruments={new Map()} onClose={() => undefined} t={t} />);
 
-    expect(await screen.findByText("Checking · Amount added: $12.00")).toBeInTheDocument();
+    expect(await screen.findByText("Checking · Amount added: US$12.00")).toBeInTheDocument();
     expect(screen.queryByText(/internal_role/)).not.toBeInTheDocument();
   });
 });

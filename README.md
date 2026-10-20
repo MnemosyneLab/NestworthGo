@@ -45,7 +45,7 @@ and are not claimed as passed. See the [v0.3.8 release record](docs/releases/v0.
 
 ## Run locally
 
-Requirements: Go 1.26 or newer, Node.js with pnpm, and a desktop platform
+Requirements: Go 1.26 or newer, Node.js 24.22.0 (Active LTS) with pnpm, and a desktop platform
 supported by Wails v3. The primary target is macOS on Apple Silicon.
 
 ```bash

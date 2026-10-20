@@ -37,8 +37,8 @@ describe("review evidence display", () => {
   });
 
   it("formats money, percentages and types without reparsing numbers", async () => {
-    expect(reviewLeafActual(i18n.t, { metric: "amount", actual: "126.5000", currency: "USD" })).toBe("$126.50");
-    expect(reviewLeafActual(i18n.t, { metric: "cost", actual: "1234567.8912", currency: "USD" })).toBe("$1,234,567.89");
+    expect(reviewLeafActual(i18n.t, { metric: "amount", actual: "126.5000", currency: "USD" })).toBe("US$126.50");
+    expect(reviewLeafActual(i18n.t, { metric: "cost", actual: "1234567.8912", currency: "USD" })).toBe("US$1,234,567.89");
     expect(reviewLeafActual(i18n.t, { metric: "price_change", actual: "-3.456" })).toBe("-3.46%");
     expect(reviewLeafActual(i18n.t, { metric: "annualized", actual: "4.5" })).toBe("4.50%");
     expect(reviewLeafActual(i18n.t, { metric: "type", actual: "mutual_fund" })).toBe("Fund");

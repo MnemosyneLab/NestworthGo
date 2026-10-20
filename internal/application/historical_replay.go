@@ -2,8 +2,10 @@ package application
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -76,7 +78,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	}
 	var err error
 	values := make(map[domain.AccountID]domain.Money)
-	cash := make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money)
+	cash := make(map[domain.AccountID]map[domain.CurrencyCode]replayCashBalance)
 	quantities := make(map[domain.HoldingID]domain.Quantity)
 	for _, component := range originData.Components {
 		if err := ctx.Err(); err != nil {
@@ -90,9 +92,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		case domain.HistoryOriginAccountCash:
 			if component.AccountID != nil && component.Amount != nil {
 				if cash[*component.AccountID] == nil {
-					cash[*component.AccountID] = make(map[domain.CurrencyCode]domain.Money)
+					cash[*component.AccountID] = make(map[domain.CurrencyCode]replayCashBalance)
 				}
-				cash[*component.AccountID][component.Amount.Currency()] = *component.Amount
+				cash[*component.AccountID][component.Amount.Currency()] = replayCashBalance{money: *component.Amount, known: true}
 			}
 		case domain.HistoryOriginHoldingQuantity:
 			if component.HoldingID != nil && component.Quantity != nil {
@@ -119,7 +121,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 				return domain.PortfolioSnapshot{}, err
 			}
 			if effect.Money != nil && effect.AccountID != nil {
-				if err := applyHistoricalMoney(values, cash, effect); err != nil {
+				if err := applyHistoricalMoney(values, cash, effect, activity.ID); err != nil {
 					return domain.PortfolioSnapshot{}, err
 				}
 			}
@@ -348,12 +350,30 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		if err := ctx.Err(); err != nil {
 			return domain.PortfolioSnapshot{}, err
 		}
-		for _, value := range currencies {
+		for _, balance := range currencies {
+			if !balance.known {
+				continue
+			}
+			if balance.negative {
+				// A later deposit can restore a non-negative cutoff. Until it
+				// does, omit the sleeve. Do not store a negative or a zero.
+				slog.Error("historical replay funding gap",
+					"error", "historical replay reached a negative balance",
+					"account_id", accountID.String(),
+					"currency", balance.currency.String(),
+					"activity_id", balance.gapActivity.String(),
+					"cutoff", cutoff.UTC().Format(time.RFC3339Nano),
+				)
+				snapshot.ReplayFundingGaps = append(snapshot.ReplayFundingGaps, domain.ReplayFundingGap{
+					AccountID: accountID, Currency: balance.currency, ActivityID: balance.gapActivity, Cutoff: cutoff,
+				})
+				continue
+			}
 			account, ok := accountRecordByID(snapshot.Accounts, accountID)
 			if !ok {
 				continue
 			}
-			cashValue, valueErr := domain.NewAccountCashValue(account.Account, value, cutoff, cutoff)
+			cashValue, valueErr := domain.NewAccountCashValue(account.Account, balance.money, cutoff, cutoff)
 			if valueErr != nil {
 				return domain.PortfolioSnapshot{}, valueErr
 			}
@@ -582,17 +602,60 @@ func fxPreferenceKey(currencyA, currencyB domain.CurrencyCode) string {
 	return currencyA.String() + "|" + currencyB.String()
 }
 
-func applyHistoricalMoney(values map[domain.AccountID]domain.Money, cash map[domain.AccountID]map[domain.CurrencyCode]domain.Money, effect domain.ActivityEffect) error {
+// replayCashBalance keeps a non-negative money sleeve, or a signed decimal
+// while an intermediate removal has gone negative. Only a non-negative cutoff
+// is materialized as domain.Money.
+type replayCashBalance struct {
+	money       domain.Money
+	signed      decimal.Decimal
+	currency    domain.CurrencyCode
+	gapActivity domain.ActivityID
+	negative    bool
+	known       bool
+}
+
+func applyHistoricalMoney(values map[domain.AccountID]domain.Money, cash map[domain.AccountID]map[domain.CurrencyCode]replayCashBalance, effect domain.ActivityEffect, activityID domain.ActivityID) error {
 	amount := *effect.Money
 	if effect.Target == domain.EffectTargetAccountValue {
 		current := values[*effect.AccountID]
 		return updateHistoricalMoney(values, *effect.AccountID, current, amount, effect.Direction)
 	}
 	if cash[*effect.AccountID] == nil {
-		cash[*effect.AccountID] = make(map[domain.CurrencyCode]domain.Money)
+		cash[*effect.AccountID] = make(map[domain.CurrencyCode]replayCashBalance)
 	}
 	current := cash[*effect.AccountID][amount.Currency()]
-	return updateHistoricalMoney(cash[*effect.AccountID], amount.Currency(), current, amount, effect.Direction)
+	updated, err := stepReplayCash(current, amount, effect.Direction, activityID)
+	if err != nil {
+		return err
+	}
+	cash[*effect.AccountID][amount.Currency()] = updated
+	return nil
+}
+
+func stepReplayCash(current replayCashBalance, amount domain.Money, direction domain.EffectDirection, activityID domain.ActivityID) (replayCashBalance, error) {
+	value := decimal.Zero
+	if current.negative {
+		value = current.signed
+	} else if current.known {
+		value = current.money.Amount()
+	}
+	if direction == domain.EffectAdded {
+		value = value.Add(amount.Amount())
+	} else {
+		value = value.Sub(amount.Amount())
+	}
+	if value.IsNegative() {
+		gap := current.gapActivity
+		if gap == "" {
+			gap = activityID
+		}
+		return replayCashBalance{signed: value.RoundBank(4), currency: amount.Currency(), gapActivity: gap, negative: true, known: true}, nil
+	}
+	updated, err := domain.NewMoney(value, amount.Currency())
+	if err != nil {
+		return replayCashBalance{}, err
+	}
+	return replayCashBalance{money: updated, currency: amount.Currency(), known: true}, nil
 }
 
 func updateHistoricalMoney[T comparable](values map[T]domain.Money, key T, current, amount domain.Money, direction domain.EffectDirection) error {

@@ -436,6 +436,7 @@ func (s *Service) historicalSeriesPoint(ctx context.Context, portfolio domain.Po
 			delete(evidenceMemory, key)
 		}
 	}
+	applySeriesFundingGaps(&point, portfolio, &displayAssets, &displayDebts)
 	display, err := householdDisplay(displayAssets, displayDebts, p.Household.BaseCurrency)
 	if err != nil {
 		return point, state, seriesContinuity{}, p, err

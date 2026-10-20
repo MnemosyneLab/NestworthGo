@@ -215,4 +215,64 @@ it("covers Upcoming Actions in every supported locale", () => { assertSameKeySet
 
 it("covers homepage summaries in every supported locale", () => { assertSameKeySet("homepage", homepageEn, { "zh-CN": homepageZhCN, "zh-TW": homepageZhTW }); });
 
+function mergedLocaleTrees(): Record<string, Tree> {
+  return {
+    en: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, additionsEn), homepageEn), upcomingActionsEn), errorCodesEn), rebuildDataEn), tasksEn),
+    "zh-CN": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, additionsZhCN), homepageZhCN), upcomingActionsZhCN), errorCodesZhCN), rebuildDataZhCN), tasksZhCN),
+    "zh-TW": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, additionsZhTW), homepageZhTW), upcomingActionsZhTW), errorCodesZhTW), rebuildDataZhTW), tasksZhTW),
+  };
+}
+
+function leafStrings(tree: Tree, prefix = ""): Map<string, string> {
+  const leaves = new Map<string, string>();
+  for (const [key, value] of Object.entries(tree)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      for (const [child, childValue] of leafStrings(value as Tree, path)) leaves.set(child, childValue);
+    } else if (typeof value === "string") {
+      leaves.set(path, value);
+    }
+  }
+  return leaves;
+}
+
+function placeholders(value: string): string[] {
+  return [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)].map((match) => match[1]).sort();
+}
+
+describe("i18n regression guards", () => {
+  const locales = mergedLocaleTrees();
+
+  it("keeps merged en, zh-CN, and zh-TW catalogs on the same keys", () => {
+    assertSameKeySet("merged", locales.en, { "zh-CN": locales["zh-CN"], "zh-TW": locales["zh-TW"] });
+  });
+
+  it("pairs English plural keys and gives count strings plural forms", () => {
+    const english = leafStrings(locales.en);
+    const issues: string[] = [];
+    for (const [key, value] of english) {
+      if (key.endsWith("_one") && !english.has(`${key.slice(0, -"_one".length)}_other`)) {
+        issues.push(`${key} has no _other`);
+      }
+      const counted = value.includes("{{count}}") && !/_(?:one|other|zero|two|few|many)$/.test(key);
+      if (counted && (!english.has(`${key}_one`) || !english.has(`${key}_other`))) {
+        issues.push(`${key} uses {{count}} without _one and _other`);
+      }
+    }
+    expect(issues).toEqual([]);
+  });
+
+  it("keeps interpolation placeholders aligned across locales", () => {
+    const leaves = Object.fromEntries(Object.entries(locales).map(([locale, tree]) => [locale, leafStrings(tree)]));
+    const issues: string[] = [];
+    for (const key of leaves.en.keys()) {
+      const expected = placeholders(leaves.en.get(key) ?? "");
+      for (const locale of ["zh-CN", "zh-TW"] as const) {
+        const actual = placeholders(leaves[locale].get(key) ?? "");
+        if (expected.join("|") !== actual.join("|")) issues.push(`${locale} ${key}: ${actual.join(",")} != ${expected.join(",")}`);
+      }
+    }
+    expect(issues).toEqual([]);
+  });
+});
 it("covers Tasks & checks in every supported locale", () => { assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW }); });

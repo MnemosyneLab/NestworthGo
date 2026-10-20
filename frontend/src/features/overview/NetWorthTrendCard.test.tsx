@@ -14,7 +14,7 @@ it("does not invent a change from remaining points and links the missing date", 
   const open = vi.fn();
   render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><NetWorthTrendCard /></NavigationContext.Provider>);
   expect(screen.getByText("Net worth change: Not available")).toBeInTheDocument();
-  expect(screen.queryByText("$50.00")).not.toBeInTheDocument();
+  expect(screen.queryByText("US$50.00")).not.toBeInTheDocument();
   await userEvent.click(screen.getByText("1 day has incomplete data"));
   await userEvent.click(screen.getByRole("button", { name: "2026-01-01 · View gap" }));
   expect(open).toHaveBeenCalledWith({ page: "data-health", focus: { rangeStart: "2026-01-01", rangeEnd: "2026-01-01" } });
@@ -25,6 +25,6 @@ it("shows dates and monetary values alongside coverage in the data table", () =>
   const table = within(screen.getByRole("table"));
   expect(table.getAllByRole("columnheader").map(cell => cell.textContent)).toEqual(["Date", "Net worth", "Assets", "Liabilities", "Data coverage"]);
   expect(table.getAllByRole("row")[1]).toHaveTextContent("2026-01-01");
-  expect(table.getAllByRole("row")[2]).toHaveTextContent("$100.00");
-  expect(table.getAllByRole("row")[3]).toHaveTextContent("$150.00");
+  expect(table.getAllByRole("row")[2]).toHaveTextContent("US$100.00");
+  expect(table.getAllByRole("row")[3]).toHaveTextContent("US$150.00");
 });

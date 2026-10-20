@@ -304,7 +304,7 @@ describe("AccountsPage", () => {
     renderPage();
     expect(await screen.findByText("Checking")).toBeInTheDocument();
     expect(screen.getByText("China Merchants Bank")).toBeInTheDocument();
-    expect(screen.getAllByText("$1,000.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("US$1,000.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Bank account")).toBeInTheDocument();
     expect(screen.getByText("Complete")).toBeInTheDocument();
   });
@@ -348,14 +348,14 @@ describe("AccountsPage", () => {
     expect(await screen.findByText("Checking")).toBeInTheDocument();
     expect(screen.getByText("Loading")).toBeInTheDocument();
     expect(screen.queryByText("Complete")).not.toBeInTheDocument();
-    expect(screen.getByText("$1,000.00")).toBeInTheDocument();
+    expect(screen.getByText("US$1,000.00")).toBeInTheDocument();
   });
 
   it("does not label a missing valuation as complete", async () => {
     accountValuations.mockResolvedValue([]);
     renderPage();
     expect(await screen.findByText("Checking")).toBeInTheDocument();
-    expect(screen.getByText("$1,000.00")).toBeInTheDocument();
+    expect(screen.getByText("US$1,000.00")).toBeInTheDocument();
     expect(screen.queryByText("Pending conversion")).not.toBeInTheDocument();
     expect(screen.getAllByText("No current value").length).toBeGreaterThan(0);
     expect(screen.queryByText("Complete")).not.toBeInTheDocument();
@@ -758,7 +758,7 @@ describe("AccountsPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
-    expect(screen.getByText("$2,450.00 · Valued subtotal", { selector: ".text-2xl" })).toHaveClass("text-2xl");
+    expect(screen.getByText("US$2,450.00 · Valued subtotal", { selector: ".text-2xl" })).toHaveClass("text-2xl");
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
     const fetchCounts = [accountValuations.mock.calls.length, currentInstrumentQuote.mock.calls.length, listInstruments.mock.calls.length, holdingsByAccounts.mock.calls.length];
     expect(screen.getByRole("radio", { name: "By type" })).toBeChecked();
@@ -774,7 +774,7 @@ describe("AccountsPage", () => {
     const cashHoldingsLayout = screen.getByTestId("account-cash-holdings-layout");
     expect(cashHoldingsLayout).toHaveClass("grid-cols-1");
     expect(cashHoldingsLayout).not.toHaveClass("lg:grid-cols-2");
-    expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("US$800.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/SGD\s*200\.00/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("NVIDIA").length).toBeGreaterThan(0);
     expect(screen.getByRole("listitem", { name: "Stocks" })).toBeInTheDocument();
@@ -1493,7 +1493,7 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
     const form = await screen.findByRole("form", { name: "Add cash balance" });
     expect(form).toHaveTextContent(/Current balance/);
-    expect(form).toHaveTextContent("$800.00");
+    expect(form).toHaveTextContent("US$800.00");
     expect(within(form).getByLabelText("Resulting balance")).toHaveValue("");
   });
 
@@ -1708,8 +1708,8 @@ it("cash review supports back, edits, stale failure and cancel/reopen without wr
   within(form).getByRole("button", { name: "Preview" }).focus();
   await userEvent.keyboard("{Enter}");
   const status = await within(form).findByRole("status");
-  expect(status).toHaveTextContent("Current balance"); expect(status).toHaveTextContent("$800.00");
-  expect(status).toHaveTextContent("$900.00"); expect(status).toHaveTextContent("+$100.00");
+  expect(status).toHaveTextContent("Current balance"); expect(status).toHaveTextContent("US$800.00");
+  expect(status).toHaveTextContent("US$900.00"); expect(status).toHaveTextContent("+US$100.00");
   expect(status).toHaveTextContent("USD"); expect(status).toHaveTextContent("12:00:00.000 (UTC)"); expect(status).toHaveTextContent("Statement");
   expect(confirmCash).not.toHaveBeenCalled();
   await userEvent.click(within(form).getByRole("button", { name: "Back to draft" }));
@@ -1810,7 +1810,7 @@ it.each(["holdings", "balance", "manual_value"])("renders account currency prima
   expect(row.textContent!.indexOf("100.00")).toBeLessThan(row.textContent!.indexOf("710.00"));
   await userEvent.click(row);
   const detail = await screen.findByTestId("account-detail");
-  const primary = within(detail).getByText("$100.00", { exact: true });
+  const primary = within(detail).getByText("US$100.00", { exact: true });
   const secondary = within(detail).getByText(/710\.00/);
   expect(primary.parentElement).toContainElement(secondary);
   expect(secondary.className).toContain("text-sm");

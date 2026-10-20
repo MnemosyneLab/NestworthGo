@@ -996,7 +996,7 @@ it("preserves filtered page two through the real instrument route and focuses bo
   expect(await screen.findByTestId("instrument-detail-page")).toBeVisible();
   expect(screen.getByRole("heading", { name: "SYN2", level: 2 })).toBeVisible();
   expect(screen.getByRole("tab", { name: i18n.t("instrumentDetail.holdings") })).toHaveAttribute("aria-selected", "true");
-  expect(await screen.findByText("$36.00")).toBeVisible();
+  expect(await screen.findByText("US$36.00")).toBeVisible();
   expect(instrumentGroups).toHaveBeenCalledWith();
 
   await queryClient.invalidateQueries({ queryKey: reviewV2Key });

@@ -79,7 +79,7 @@ describe("PortfolioPage", () => {
       byCountry: [],
     });
     renderPage(onOpenAccount, "allocation");
-    expect(await screen.findByTestId("portfolio-total")).toHaveTextContent("$320,000.00");
+    expect(await screen.findByTestId("portfolio-total")).toHaveTextContent("US$320,000.00");
     expect(screen.getByRole("tab", { name: "Allocation & trend" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getAllByText("Stock").length).toBeGreaterThan(0);
     const stockSlice = screen.getByTestId("composition-slice-stock");
@@ -128,6 +128,6 @@ describe("PortfolioPage", () => {
     renderPage(undefined, "allocation");
     expect(await screen.findByText(/excludes values that still need a price/i)).toBeInTheDocument();
     expect(screen.getByText("Partial valuation")).toBeInTheDocument();
-    expect(screen.getByTestId("portfolio-total")).toHaveTextContent("$1,000.00");
+    expect(screen.getByTestId("portfolio-total")).toHaveTextContent("US$1,000.00");
   });
 });

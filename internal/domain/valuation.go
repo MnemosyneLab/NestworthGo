@@ -169,16 +169,20 @@ type PortfolioValuation struct {
 // portfolio summaries. Infrastructure populates it in one read transaction;
 // callers must not query one quote or Holding at a time.
 type PortfolioSnapshot struct {
-	InstrumentClosures        []InstrumentClosure
-	Household                 *Household
-	Origin                    *HistoryOrigin
-	Members                   []Member
-	Institutions              []Institution
-	Groups                    []Group
-	Accounts                  []AccountRecord
-	Instruments               []Instrument
-	Holdings                  []Holding
-	CashValues                []AccountCashValue
+	InstrumentClosures []InstrumentClosure
+	Household          *Household
+	Origin             *HistoryOrigin
+	Members            []Member
+	Institutions       []Institution
+	Groups             []Group
+	Accounts           []AccountRecord
+	Instruments        []Instrument
+	Holdings           []Holding
+	CashValues         []AccountCashValue
+	// ReplayFundingGaps are cash sleeves omitted because activity order leaves
+	// a negative balance at the cutoff. They are not stored as money and are
+	// not replaced with zero.
+	ReplayFundingGaps         []ReplayFundingGap `json:"-"`
 	InstrumentQuotes          []InstrumentQuote
 	FXQuotes                  []FXQuote
 	FXPreferences             []FXPreference
@@ -188,6 +192,16 @@ type PortfolioSnapshot struct {
 	// Selected immutable preference facts used to hydrate persisted snapshot evidence.
 	OriginInstrumentSources     map[InstrumentID]QuoteSourceKind                      `json:"-"`
 	InstrumentPreferenceSources map[InstrumentPreferenceObservationID]QuoteSourceKind `json:"-"`
+}
+
+// ReplayFundingGap is the identity of a cash sleeve historical replay could
+// not materialize. Amounts stay off this value so a negative balance is never
+// persisted or treated as zero.
+type ReplayFundingGap struct {
+	AccountID  AccountID
+	Currency   CurrencyCode
+	ActivityID ActivityID
+	Cutoff     time.Time
 }
 
 // FinancialContextInputs retains one transaction's inputs, never serialized.

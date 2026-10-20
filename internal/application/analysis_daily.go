@@ -185,8 +185,14 @@ func snapshotItemsByComponent(snapshot domain.DailyValuationSnapshot, accounts m
 	return result
 }
 
-func buildComponentDay(date string, component domain.ComponentID, previous, current domain.DailyValuationSnapshotItem, previousSnapshot, currentSnapshot domain.DailyValuationSnapshot, hasPrevious, hasCurrent bool, effects []classifiedAnalysisEffect, input AnalysisInputs, query domain.AnalysisQuery, universe analysisUniverse) (domain.ComponentDay, error) {
-	day := domain.ComponentDay{Date: domain.LocalDate(date), Component: component, AssetBuckets: make(map[domain.AttributionBucket]domain.SignedMoney), AssetBucketExact: make(map[domain.AttributionBucket]decimal.Decimal), ReturnComponents: make(map[domain.ReturnComponent]domain.SignedMoney), DietzCapitalFlows: make([]domain.DietzCapitalFlow, 0), AttributedEffects: make([]domain.AttributedEffect, 0), Status: domain.CompletenessOK}
+func buildComponentDay(date string, component domain.ComponentID, previous, current domain.DailyValuationSnapshotItem, previousSnapshot, currentSnapshot domain.DailyValuationSnapshot, hasPrevious, hasCurrent bool, effects []classifiedAnalysisEffect, input AnalysisInputs, query domain.AnalysisQuery, universe analysisUniverse) (day domain.ComponentDay, err error) {
+	day = domain.ComponentDay{Date: domain.LocalDate(date), Component: component, AssetBuckets: make(map[domain.AttributionBucket]domain.SignedMoney), AssetBucketExact: make(map[domain.AttributionBucket]decimal.Decimal), ReturnComponents: make(map[domain.ReturnComponent]domain.SignedMoney), DietzCapitalFlows: make([]domain.DietzCapitalFlow, 0), AttributedEffects: make([]domain.AttributedEffect, 0), Status: domain.CompletenessOK}
+	defer func() {
+		if err != nil {
+			return
+		}
+		applyFundingGapMark(&day, previous, current)
+	}()
 	account := universe.accounts[component.AccountID]
 	// A complete snapshot before an account existed legitimately omits it.
 	// Existing rows always win, including backdated activity and missing values.
@@ -203,7 +209,11 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 	// Changes waterfall fail to reconcile. An activity is the only safe proof
 	// that the missing side is an opening zero; without one, keep the day
 	// unavailable so missing valuation data is never guessed as zero.
-	if (len(effects) > 0 || componentHasActivityInRange(component, input.Activities, query.From, query.To)) && previousSnapshot.Complete && currentSnapshot.Complete {
+	openingKnown := previousSnapshot.Complete && currentSnapshot.Complete
+	if !component.Cash && snapshotFundingGapAnnotated(previousSnapshot) && snapshotFundingGapAnnotated(currentSnapshot) {
+		openingKnown = true
+	}
+	if (len(effects) > 0 || componentHasActivityInRange(component, input.Activities, query.From, query.To)) && openingKnown {
 		previousMissing := previous.AccountID == ""
 		currentMissing := current.AccountID == ""
 		if previousMissing && !currentMissing && current.Complete {
@@ -232,6 +242,20 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		day.Status = domain.CompletenessUnavailable
 		if hasPrevious && hasCurrent && (previous.Complete || current.Complete) {
 			day.Status = domain.CompletenessPartial
+		}
+		if fundingGapItemReason(previous, current) != "" && current.Complete && input.Portfolio.Household != nil {
+			ending, endOK, endErr := snapshotItemValue(current, account, query.Valuation, input.Portfolio.Household.BaseCurrency)
+			if endErr != nil {
+				return domain.ComponentDay{}, endErr
+			}
+			if endOK {
+				signed, signErr := newSigned(ending, valueCurrency(current, query.Valuation, input.Portfolio.Household.BaseCurrency))
+				if signErr != nil {
+					return domain.ComponentDay{}, signErr
+				}
+				day.EndingValue = signed
+				day.Status = domain.CompletenessPartial
+			}
 		}
 		return day, nil
 	}

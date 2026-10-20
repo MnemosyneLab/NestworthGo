@@ -28,7 +28,7 @@ it("minimal variant hides the legend, softens gridlines and keeps the tooltip to
   expect(option.series[0].areaStyle.opacity).toBe(0.14);
   const tooltip = option.tooltip[0].formatter([{ axisValue: Date.UTC(2026, 9, 12), seriesName: "Price", seriesIndex: 0, dataIndex: 0, data: { originalIndex: 0 } }]);
   expect(tooltip).toContain("2026-10-12");
-  expect(tooltip).toContain("$1.00");
+  expect(tooltip).toContain("US$1.00");
   expect(tooltip).not.toMatch(/Price:|Agent|Daily close|Source/);
   expect(screen.getByText("View data table")).toHaveClass("text-xs");
 });
@@ -57,10 +57,10 @@ it.each([["minimal", "minimal" as const], ["default", undefined]])("%s tooltip m
   expect(option.series.map((item) => item.data.map((entry) => entry.originalIndex))).toEqual([[0, 1], [2], [3, 4]]);
   const at = (seriesIndex: number, dataIndex: number, index: number) => option.tooltip[0].formatter([{ axisValue: Date.UTC(2026, 9, 10 + index), seriesName: "Price", seriesIndex, dataIndex, data: { originalIndex: index } }]);
   // Without the mapping, seriesIndex 2 pointed past the one-element series array and showed "unavailable".
-  expect(at(0, 1, 1)).toContain("$2.00");
-  expect(at(1, 0, 2)).toContain("$3.00");
-  expect(at(2, 0, 3)).toContain("$4.00");
-  expect(at(2, 1, 4)).toContain("$5.00");
+  expect(at(0, 1, 1)).toContain("US$2.00");
+  expect(at(1, 0, 2)).toContain("US$3.00");
+  expect(at(2, 0, 3)).toContain("US$4.00");
+  expect(at(2, 1, 4)).toContain("US$5.00");
   if (variant === undefined) expect(at(1, 0, 2)).toContain("Agent");
 });
 

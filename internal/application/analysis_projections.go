@@ -258,6 +258,9 @@ func availability(result domain.PeriodAnalysisResult, forced string) AnalysisAva
 		if hasIncompleteDay {
 			status = domain.CompletenessPartial
 			missingReason = "one or more asset days are incomplete"
+			if specific := fundingGapReasonFromDays(result.Days); specific != "" {
+				missingReason = specific
+			}
 		}
 	}
 	return AnalysisAvailability{Available: hasUsableDay, Status: status, MissingReason: missingReason, ValuationForced: forcedPointer(forced)}

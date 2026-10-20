@@ -53,7 +53,7 @@ describe("activitySentence", () => {
       effects: [{ accountId: "acc-1", money: { amount: "1000", currency: "USD" } }],
     } as unknown as ActivityDTO;
 
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Added $1,000.00 to Checking (Contribution)");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Added US$1,000.00 to Checking (Contribution)");
   });
 
   it("describes a cash transfer without exposing kind codes", () => {
@@ -65,7 +65,7 @@ describe("activitySentence", () => {
       ],
     } as unknown as ActivityDTO;
 
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Transferred $200.00 from Checking to Savings");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Transferred US$200.00 from Checking to Savings");
     expect(activitySentence(t, activity, accounts, instruments)).not.toMatch(/cash_transfer/);
   });
 
@@ -81,7 +81,7 @@ describe("activitySentence", () => {
       effects: [{ role: "principal", accountId: "acc-1" }],
     } as unknown as ActivityDTO;
 
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for $1,500.00");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for US$1,500.00");
   });
 
   it("describes a cash dividend without appending income reason", () => {
@@ -91,7 +91,7 @@ describe("activitySentence", () => {
       dividendDetail: { holdingId: "h1", instrumentId: "i1", amount: { amount: "12.5", currency: "USD" } },
       effects: [{ accountId: "acc-1", money: { amount: "12.5", currency: "USD" } }],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Dividend $12.50 from NVIDIA into Checking");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Dividend US$12.50 from NVIDIA into Checking");
     expect(activitySentence(t, activity, accounts, instruments)).not.toMatch(/Income/);
   });
 
@@ -107,7 +107,7 @@ describe("activitySentence", () => {
       },
       effects: [{ role: "principal", accountId: "acc-1" }],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for $1,500.00");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for US$1,500.00");
     expect(activitySentence(t, activity, accounts, instruments)).not.toMatch(/Principal/);
   });
 
@@ -118,7 +118,7 @@ describe("activitySentence", () => {
       effects: [{ accountId: "acc-1", money: { amount: "20", currency: "USD" } }],
       resulting: [{ amount: "320", currency: "USD" }],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Updated Checking to $320.00 (Reconciliation)");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Updated Checking to US$320.00 (Reconciliation)");
   });
 
   it("falls back to increased or decreased delta when resulting is missing", () => {
@@ -126,7 +126,7 @@ describe("activitySentence", () => {
       kind: "value_update",
       effects: [{ accountId: "acc-1", money: { amount: "20", currency: "USD" } }],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Checking increased $20.00");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Checking increased US$20.00");
   });
 
   it("keeps the signed exact delta when a tiny value decrease rounds to zero", () => {
@@ -134,7 +134,7 @@ describe("activitySentence", () => {
       kind: "value_update",
       effects: [{ accountId: "acc-1", money: { amount: "-0.0001", currency: "USD" } }],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Checking decreased $0.00 · − nonzero, below $0.01 (-0.0001 USD)");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Checking decreased US$0.00 · − nonzero, below US$0.01 (-0.0001 USD)");
   });
 
   it("includes trade and FX fees in the sentence", () => {
@@ -149,7 +149,7 @@ describe("activitySentence", () => {
       },
       effects: [{ role: "principal", accountId: "acc-1" }],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, trade, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for $1,500.00 (Fee $5.00)");
+    expect(activitySentence(t, trade, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for US$1,500.00 (Fee US$5.00)");
 
     const fx = {
       kind: "fx_conversion",
@@ -159,7 +159,7 @@ describe("activitySentence", () => {
         { role: "fee", accountId: "acc-1", money: { amount: "1", currency: "USD" } },
       ],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, fx, accounts, instruments)).toBe("Converted $100.00 to €90.00 in Checking (Fee $1.00)");
+    expect(activitySentence(t, fx, accounts, instruments)).toBe("Converted US$100.00 to €90.00 in Checking (Fee US$1.00)");
   });
 
   it("describes a reversal without requiring effect data", () => {

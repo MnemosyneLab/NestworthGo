@@ -42,7 +42,7 @@ it.each(["USD", ""])("uses declared/subtotal native currency for an all-partial 
   render(<AssetTrendTab session={useAnalysisStore.getState()} />);
   expect(screen.getByRole("heading", { name: /USD/ })).not.toHaveTextContent("CNY");
   await userEvent.click(screen.getByText("View data table"));
-  expect(screen.getByRole("table")).toHaveTextContent("$200.00");
+  expect(screen.getByRole("table")).toHaveTextContent("US$200.00");
 });
 
 it("formats asset trend table dates with the display preference", async () => {

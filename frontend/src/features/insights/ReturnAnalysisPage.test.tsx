@@ -261,7 +261,7 @@ describe("ReturnAnalysisPage", () => {
     await screen.findByText("Partial coverage");
     expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-01", to: "2026-09-06" }), "2026-09", "day");
     expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-02", to: "2026-09-03" }), "", "day");
-    expect(screen.getByTestId("return-day-2026-09-01")).toHaveTextContent("+$1.00");
+    expect(screen.getByTestId("return-day-2026-09-01")).toHaveTextContent("+US$1.00");
     expect(screen.getByTestId("return-day-2026-09-01")).not.toHaveAttribute("data-selected");
     expect(screen.getByTestId("return-day-2026-09-02")).toHaveAttribute("data-selected", "true");
   });
@@ -312,8 +312,8 @@ describe("ReturnAnalysisPage", () => {
     expect(within(dialog).getByText("Gold USD")).toBeInTheDocument();
     expect(within(dialog).getByText("cash:SGD")).toBeInTheDocument();
     expect(within(dialog).queryByText("Silver")).not.toBeInTheDocument();
-    expect(within(dialog).getByText("Other").parentElement).toHaveTextContent("-$0.65");
-    expect(within(dialog).getByText("Return amount").parentElement).toHaveTextContent("-$74.14");
+    expect(within(dialog).getByText("Other").parentElement).toHaveTextContent("-US$0.65");
+    expect(within(dialog).getByText("Return amount").parentElement).toHaveTextContent("-US$74.14");
   });
 
   it("distinguishes a partial zero day from a complete zero day", async () => {

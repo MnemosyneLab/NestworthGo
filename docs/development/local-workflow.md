@@ -7,7 +7,7 @@ cross-compilation tasks for other platforms.
 ## Prerequisites
 
 - Go 1.26 or newer;
-- Node.js with pnpm;
+- Node.js 24.22.0 (Active LTS, Krypton) with pnpm. `.nvmrc` and `.node-version` pin this release. Node 26 is still Current until 2026-10-28, and Node 20 is not supported for frontend tests;
 - Wails CLI `v3.0.0-beta.32` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
 - Linux additionally needs GCC, pkg-config, and Wails GTK/WebKit headers to

@@ -28,7 +28,7 @@ function byRole(effects: ActivityEffectDTO[], role: string): ActivityEffectDTO |
 
 /**
  * activitySentence turns a recorded Activity into one user-language line,
- * e.g. "Added $1,000.00 to Checking". Internal kind codes stay out of the
+ * e.g. "Added US$1,000.00 to Checking". Internal kind codes stay out of the
  * sentence; missing names fall back to localized placeholders or the kind
  * label when there is not enough effect data to form a sentence.
  */

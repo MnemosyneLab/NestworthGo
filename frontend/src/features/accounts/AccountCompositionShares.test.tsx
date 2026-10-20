@@ -33,12 +33,12 @@ it("keeps tied original shares identical across collapse, expansion, source tabl
   const assertOriginalShares = () => {
     expect(screen.getByTestId(`composition-slice-${firstTie}`)).toHaveTextContent("13.2%");
     expect(screen.getByTestId(`composition-slice-${secondTie}`)).toHaveTextContent("13.2%");
-    expect(tooltip(firstTie)).toContain("$178.00 (13.2%)");
-    expect(tooltip(secondTie)).toContain("$178.00 (13.2%)");
+    expect(tooltip(firstTie)).toContain("US$178.00 (13.2%)");
+    expect(tooltip(secondTie)).toContain("US$178.00 (13.2%)");
   };
   assertOriginalShares();
-  expect(screen.getByTestId(`composition-slice-${remainder}`)).toHaveTextContent("$40.00");
-  expect(tooltip(remainder)).toContain("$40.00 (3.0%)");
+  expect(screen.getByTestId(`composition-slice-${remainder}`)).toHaveTextContent("US$40.00");
+  expect(tooltip(remainder)).toContain("US$40.00 (3.0%)");
   await user.click(screen.getByText("View data table"));
   const table = screen.getByRole("table");
   expect(within(table).getAllByRole("row")).toHaveLength(13);
@@ -50,7 +50,7 @@ it("keeps tied original shares identical across collapse, expansion, source tabl
   assertOriginalShares();
   expect(screen.queryByTestId(`composition-slice-${remainder}`)).not.toBeInTheDocument();
   expect(within(screen.getByRole("table")).getByText("item-01").closest("tr")).toHaveTextContent("13.2%");
-  expect(tooltip(remainder)).toContain("$40.00 (3.0%)");
+  expect(tooltip(remainder)).toContain("US$40.00 (3.0%)");
 
   await user.click(screen.getByRole("button", { name: "Show top 10" }));
   assertOriginalShares();

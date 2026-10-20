@@ -1416,6 +1416,7 @@
       "missing_instrument": "缺少投资标的资料",
       "fx_rate": "缺少汇率",
       "account_value": "缺少账户余额记录",
+      "funding_cash_after_product_start": "资金到账记录晚于产品起始日。",
       "history_coverage": "历史行情覆盖尚未验证"
     },
     "categoryCompare": "分类比较",
@@ -1427,6 +1428,8 @@
     "noCategories": "两侧均无保留的分类记录。",
     "noComparableCategories": "分类金额不可用，请查看下方保留的状态与证据。",
     "categoryMissing": "{{count}} 个已纳入叶子项缺少估值输入",
+    "categoryMissing_one": "{{count}} 个已纳入叶子项缺少估值输入",
+    "categoryMissing_other": "{{count}} 个已纳入叶子项缺少估值输入",
     "comparability": "可比性",
     "comparable": "可比",
     "returnToCategories": "返回分类",
@@ -1832,6 +1835,8 @@
       "label": "各区间收益",
       "title": "收益",
       "window": "{{count}}天",
+      "window_one": "{{count}}天",
+      "window_other": "{{count}}天",
       "loadError": "无法加载收益"
     }
   },
@@ -1874,6 +1879,8 @@
     "adjust": "直接更正余额或持仓",
     "recordMissing": "补记收入、支出、买入或卖出",
     "attempts": "核对尝试（{{count}}）",
+    "attempts_one": "核对尝试（{{count}}）",
+    "attempts_other": "核对尝试（{{count}}）",
     "allowPartial": "明确保留待核对项并部分完成",
     "closingNote": "结束说明",
     "preview": "预览",
@@ -1893,6 +1900,8 @@
     "commit": "保存核对结果",
     "linkedChanges": "关联的更正",
     "linkedChange": "关联变更 {{count}}",
+    "linkedChange_one": "关联变更 {{count}}",
+    "linkedChange_other": "关联变更 {{count}}",
     "open": "查看账户核对",
     "kind": {
       "scope": "完整性",

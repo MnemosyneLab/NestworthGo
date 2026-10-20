@@ -253,6 +253,7 @@ const (
 type ReturnGroup struct {
 	Key          string
 	ReturnAmount decimal.Decimal
+	AmountKnown  bool
 	ReturnRate   *decimal.Decimal
 	Coverage     domain.RateCoverage
 	Status       domain.Completeness
@@ -275,6 +276,7 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 		flows         []domain.DietzCapitalFlow
 		complete      bool
 		usable        bool
+		known         bool
 	}
 	type groupDateKey struct {
 		group string
@@ -313,6 +315,7 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 		bucket.usable = bucket.usable || day.Status != domain.CompletenessUnavailable
 		if day.ReturnAmount != nil {
 			bucket.amount = bucket.amount.Add(day.ReturnAmount.Amount())
+			bucket.known = true
 		}
 		if len(day.AttributedEffects) == 0 && day.InvestedCapital != nil {
 			// Preserve compatibility with callers that construct ComponentDay
@@ -369,6 +372,7 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 				usableDays++
 			}
 			group.ReturnAmount = group.ReturnAmount.Add(daily.amount)
+			group.AmountKnown = group.AmountKnown || daily.known
 			capital := daily.beginning.Add(daily.legacyCapital)
 			if len(daily.flows) > 0 {
 				localDate, err := time.Parse(time.DateOnly, string(date))
@@ -418,6 +422,7 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 	type groupState struct {
 		key              string
 		returnAmount     decimal.Decimal
+		amountKnown      bool
 		rates            []decimal.Decimal
 		currentDate      domain.LocalDate
 		currentAmount    decimal.Decimal
@@ -486,6 +491,7 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 			amount := day.ReturnAmount.Amount()
 			group.returnAmount = group.returnAmount.Add(amount)
 			group.currentAmount = group.currentAmount.Add(amount)
+			group.amountKnown = true
 		}
 		if len(day.AttributedEffects) == 0 && day.InvestedCapital != nil {
 			group.currentLegacy = group.currentLegacy.Add(day.InvestedCapital.Amount())
@@ -506,7 +512,7 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 		group := groups[index]
 		coverage := domain.RateCoverage{RatedDays: len(group.rates), TotalDays: result.Coverage.TotalDays}
 		status := returnGroupCompleteness(group.completeDays, group.usableDays, coverage.TotalDays)
-		row := ReturnGroup{Key: group.key, ReturnAmount: group.returnAmount, Coverage: coverage, Status: status}
+		row := ReturnGroup{Key: group.key, ReturnAmount: group.returnAmount, AmountKnown: group.amountKnown, Coverage: coverage, Status: status}
 		if len(group.rates)*2 >= result.Coverage.TotalDays && len(group.rates) > 0 {
 			rate := GeometricLink(group.rates)
 			row.ReturnRate = &rate

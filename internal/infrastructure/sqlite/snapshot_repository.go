@@ -325,6 +325,15 @@ func listDailyValuationSnapshotsForAccountQuery(ctx context.Context, db queryer,
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
+	// Incomplete household headers do not identify the missing-data reason.
+	// Analysis must inspect every item to distinguish a funding-only gap from
+	// unrelated missing evidence before proving activity-backed opening zeroes.
+	for _, snapshot := range result {
+		if !snapshot.Complete {
+			accountID = ""
+			break
+		}
+	}
 	if err := attachDailyValuationSnapshotItemsForAccount(ctx, db, result, accountID, known); err != nil {
 		return nil, err
 	}
@@ -434,12 +443,15 @@ func scanDailyValuationSnapshotItem(id string, snapshotID domain.DailyValuationS
 		}
 		item.InstrumentID = &value
 	}
-	if nativeAmount.Valid && nativeCurrency.Valid {
+	if nativeCurrency.Valid && nativeCurrency.String != "" {
 		currency, parseErr := domain.ParseCurrency(nativeCurrency.String)
 		if parseErr != nil {
 			return domain.DailyValuationSnapshotItem{}, parseErr
 		}
-		item.NativeAmount, item.NativeCurrency = nativeAmount.String, currency
+		item.NativeCurrency = currency
+	}
+	if nativeAmount.Valid && nativeAmount.String != "" {
+		item.NativeAmount = nativeAmount.String
 		if parseErr := item.ValidateNativeAmount(); parseErr != nil {
 			return domain.DailyValuationSnapshotItem{}, parseErr
 		}

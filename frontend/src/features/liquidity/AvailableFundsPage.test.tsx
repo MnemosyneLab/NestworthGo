@@ -152,8 +152,8 @@ describe("AvailableFundsPage", () => {
       ],
     }));
     renderPage();
-    expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("$8,000.00");
-    expect(screen.getByTestId("horizon-available-2026-09-20")).not.toHaveTextContent("$0.00");
+    expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("US$8,000.00");
+    expect(screen.getByTestId("horizon-available-2026-09-20")).not.toHaveTextContent("US$0.00");
     expect(within(screen.getByTestId("funds-comparison")).getAllByText("Partial")).toHaveLength(3);
     expect(screen.queryByLabelText("Summary currency")).not.toBeInTheDocument();
     expect(screen.getAllByText("€100.00").length).toBeGreaterThan(0);
@@ -174,7 +174,7 @@ describe("AvailableFundsPage", () => {
     expect(screen.queryByLabelText("Summary currency")).not.toBeInTheDocument();
     const breakdown = screen.getByRole("table", { name: "Selected date breakdown" });
     expect(within(breakdown).getByRole("rowheader", { name: "SGD" })).toBeInTheDocument();
-    expect(screen.getByTestId("horizon-available-2026-09-20")).toHaveTextContent("$8,000.00");
+    expect(screen.getByTestId("horizon-available-2026-09-20")).toHaveTextContent("US$8,000.00");
     await userEvent.click(screen.getByTestId("horizon-2026-09-27"));
     expect(screen.getByTestId("horizon-2026-09-27")).toHaveAttribute("aria-pressed", "true");
 
@@ -219,7 +219,7 @@ describe("AvailableFundsPage", () => {
     const row = screen.getAllByText("Due deposit")[0].closest("tr");
     expect(row).toBeTruthy();
     expect(within(row!).getAllByText("Due, receipt unconfirmed").length).toBeGreaterThan(0);
-    expect(within(row!).queryByText("$0.00")).not.toBeInTheDocument();
+    expect(within(row!).queryByText("US$0.00")).not.toBeInTheDocument();
     expect(screen.queryByText("Due deposit is due. Receipt is unconfirmed.")).not.toBeInTheDocument();
     expect(screen.queryByTestId("overview-upcoming-actions-card")).not.toBeInTheDocument();
   });
@@ -273,10 +273,10 @@ it("shows requested, applied and shortfall reservations separately", async () =>
   overview.mockResolvedValue(data);
   renderPage();
   const row = (await screen.findAllByText("Bank cash")).map((node) => node.closest("tr")).find(Boolean)!;
-  expect(within(row).getByText("Requested: $12,000.00")).toBeInTheDocument();
-  await userEvent.click(within(row).getByText("Requested: $12,000.00"));
-  expect(within(row).getByText("Applied: $10,000.00")).toBeInTheDocument();
-  expect(within(row).getByText("Shortfall: $2,000.00")).toBeInTheDocument();
+  expect(within(row).getByText("Requested: US$12,000.00")).toBeInTheDocument();
+  await userEvent.click(within(row).getByText("Requested: US$12,000.00"));
+  expect(within(row).getByText("Applied: US$10,000.00")).toBeInTheDocument();
+  expect(within(row).getByText("Shortfall: US$2,000.00")).toBeInTheDocument();
 });
 
 it("explains reservations that do not apply by the selected horizon", async () => {
@@ -287,8 +287,8 @@ it("explains reservations that do not apply by the selected horizon", async () =
   data.sources![0].bucketResults![0].appliedReserveNative = null;
   overview.mockResolvedValue(data);
   renderPage();
-  await userEvent.click(await screen.findByText("Requested: $2,000.00"));
-  expect(screen.getByText("Not applied by this date: $2,000.00")).toBeVisible();
+  await userEvent.click(await screen.findByText("Requested: US$2,000.00"));
+  expect(screen.getByText("Not applied by this date: US$2,000.00")).toBeVisible();
 });
 
 it("shows a known future lock clearly and keeps the normal route when early access is absent", async () => {
@@ -307,7 +307,7 @@ it("shows a known future lock clearly and keeps the normal route when early acce
   await userEvent.click(screen.getByLabelText("Consider early withdrawal"));
   expect(within(row).getByText("2026-09-27")).toBeVisible();
   await userEvent.click(screen.getByTestId("horizon-2026-09-27"));
-  expect(within(row).getByText("$8,000.00")).toBeVisible();
+  expect(within(row).getByText("US$8,000.00")).toBeVisible();
   expect(screen.queryByRole("button", { name: /^Locked/ })).not.toBeInTheDocument();
 });
 
@@ -403,7 +403,7 @@ describe("Available Funds visual hierarchy and interaction", () => {
     expect(within(screen.getByTestId("horizon-2026-09-20")).queryByText("Includes early withdrawal")).not.toBeInTheDocument();
     const row = screen.getAllByText("Term deposit")[0].closest("tr")!;
     expect(within(row).getByText("Early withdrawal")).toBeVisible();
-    expect(within(row).getByText("Cost: $300.00")).toBeVisible();
+    expect(within(row).getByText("Cost: US$300.00")).toBeVisible();
     await userEvent.click(toggle);
     await waitFor(() => expect(screen.queryByText("Includes early withdrawal")).not.toBeInTheDocument());
   });

@@ -96,7 +96,7 @@ describe("Reservation management", () => {
     show(<ReservationManager source={source()} accountNames={{ account: "Family bank" }} open onOpenChange={vi.fn()} />);
     expect(await screen.findByText("Rent")).toBeVisible();
     expect(screen.getByText("Previous plan")).not.toBeVisible();
-    await user.click(screen.getByText("Released reservations (1)"));
+    await user.click(screen.getByText("Released reservation (1)"));
     expect(screen.getByText("Previous plan")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Release reservation" }));
     await waitFor(() => expect(api.ReleaseReservation).toHaveBeenCalledWith({ id: "reserve", expectedRevision: 3 }));

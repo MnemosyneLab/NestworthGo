@@ -11,7 +11,7 @@ describe("chartTheme helpers", () => {
     expect(escapeChartText(`Alice <img src=x onerror=alert(1)>`)).toBe(
       "Alice &lt;img src=x onerror=alert(1)&gt;",
     );
-    expect(joinTooltipLines(["Alice <b>x</b>", "$1.00"])).toBe("Alice &lt;b&gt;x&lt;/b&gt;<br/>$1.00");
+    expect(joinTooltipLines(["Alice <b>x</b>", "US$1.00"])).toBe("Alice &lt;b&gt;x&lt;/b&gt;<br/>US$1.00");
   });
 });
 
@@ -69,7 +69,7 @@ describe("chart interactions", () => {
 
     expect(screen.getByTestId("composition-native-sgd")).toHaveTextContent(/SGD\s*270\.00/);
     expect(screen.queryByTestId("composition-native-usd")).not.toBeInTheDocument();
-    expect(screen.getByTestId("composition-slice-sgd")).toHaveTextContent("$200.00");
+    expect(screen.getByTestId("composition-slice-sgd")).toHaveTextContent("US$200.00");
   });
 
   it("draws a same-day single-point trend instead of hiding it as empty", () => {
@@ -132,7 +132,7 @@ describe("chart interactions", () => {
     const option = applyChartPolicy({
       tooltip: {
         trigger: "item",
-        formatter: () => joinTooltipLines([`Alice <img src=x onerror=alert(1)>`, "$25.00"]),
+        formatter: () => joinTooltipLines([`Alice <img src=x onerror=alert(1)>`, "US$25.00"]),
       },
     });
     expect(option.tooltip).toEqual(expect.objectContaining({
@@ -141,8 +141,8 @@ describe("chart interactions", () => {
       backgroundColor: expect.any(String),
       extraCssText: expect.stringContaining("z-index: 10000"),
     }));
-    expect(joinTooltipLines([`Alice <img src=x onerror=alert(1)>`, "$25.00"])).toBe(
-      "Alice &lt;img src=x onerror=alert(1)&gt;<br/>$25.00",
+    expect(joinTooltipLines([`Alice <img src=x onerror=alert(1)>`, "US$25.00"])).toBe(
+      "Alice &lt;img src=x onerror=alert(1)&gt;<br/>US$25.00",
     );
   });
 
