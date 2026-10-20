@@ -1,16 +1,32 @@
 import type { TFunction } from "i18next";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, formatAuditMoney } from "@/lib/money";
 import { metalUnitLabel } from "@/lib/preciousMetals";
 
+type CheckpointItem = { kind?: string; value?: string; currency?: string; referenceValue?: string; detail?: unknown };
+
 // Frozen checkpoints carry quantity units in detail; currency describes price/cost.
-// Audit reviews retain canonical decimal text; cards use ordinary display formatting.
-export function checkpointValue(t: TFunction, item: { kind?: string; value?: string; currency?: string; detail?: unknown }, exact = false): string {
+// Audit reviews (exact) keep digits hidden by currency rounding visible; cards use ordinary display formatting.
+function presentCheckpointNumber(t: TFunction, item: CheckpointItem, raw: string, exact: boolean): string {
+  const holding = item.kind === "holding";
+  if (holding) {
+    const detail = item.detail as { quantityUnit?: string } | undefined;
+    return [exact ? raw : formatAmount(raw), metalUnitLabel(detail?.quantityUnit, t)].filter(Boolean).join(" ");
+  }
+  if (exact) return item.currency ? formatAuditMoney(raw, item.currency) : formatAmount(raw);
+  return [formatAmount(raw, item.currency), item.currency].filter(Boolean).join(" ");
+}
+
+export function checkpointValue(t: TFunction, item: CheckpointItem, exact = false): string {
   if (item.kind === "scope") return "";
   if (!item.value) return t("reconciliation.unavailable");
-  const holding = item.kind === "holding";
-  const detail = item.detail as { quantityUnit?: string } | undefined;
-  const unit = holding ? metalUnitLabel(detail?.quantityUnit, t) : item.currency;
-  return [exact ? item.value : formatAmount(item.value, holding ? undefined : item.currency), unit].filter(Boolean).join(" ");
+  return presentCheckpointNumber(t, item, item.value, exact);
+}
+
+/** Preserve free-text scope evidence; format numeric sources like the ledger value they are compared to. */
+export function checkpointReference(t: TFunction, item: CheckpointItem, exact = false): string {
+  if (!item.referenceValue) return "";
+  if (item.kind === "scope") return item.referenceValue;
+  return presentCheckpointNumber(t, item, item.referenceValue, exact);
 }
 
 export function sourceText(source?: { reference?: string; asOfDate?: string; asOfTime?: string; timezone?: string }): string {

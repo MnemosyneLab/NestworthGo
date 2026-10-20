@@ -14,6 +14,7 @@ const state = vi.hoisted(() => {
     origin: { timezone: "Asia/Singapore" },
     filter: null as unknown,
     coverageFilter: null as unknown,
+    instruments: { data: [] as Array<{ id: string; name: string; shortName?: string; symbol?: string }>, isPending: false },
     alert: { data: null as ReviewAlertPage | null, isPending: false, isError: false, isFetching: false, error: null, refetch: vi.fn() },
     evidence: { data: { items: [{ on: "2026-10-15", truth: "true", leaves: [] }], reportRevision: "evidence-1", episodeId: "episode-one", nextCursor: "" }, isPending: false, isError: false, isFetching: false },
     coverage: { data: null as ReviewCoveragePage | null, isPending: false, isError: false, isFetching: false, refetch: vi.fn() },
@@ -30,6 +31,7 @@ vi.mock("@/queries/investmentReviewV2", () => ({
   useReviewSuppressionsV2: () => state.suppressions,
   useReviewV2Commands: () => state.commands,
 }));
+vi.mock("@/queries/investments", () => ({ useInstruments: () => state.instruments }));
 vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: state.origin }) }));
 vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { weekStart: "monday", dateFormat: "iso" } }) }));
 vi.mock("./ReviewRuleEditor", () => ({ ReviewRuleEditor: () => null }));
@@ -46,11 +48,14 @@ function report(): ReviewAlertPage {
   };
 }
 
+const defaultEvidence = structuredClone(state.evidence.data);
 const open = vi.fn();
 function tree() { return <NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><InvestmentReviewPage /></NavigationContext.Provider>; }
 function mount() { return render(tree()); }
 beforeEach(async () => {
   vi.clearAllMocks();
+  state.evidence.data = structuredClone(defaultEvidence);
+  state.instruments.data = []; state.instruments.isPending = false;
   state.suppressPending = false;
   state.origin = { timezone: "Asia/Singapore" };
   await i18n.changeLanguage("en");
@@ -213,5 +218,49 @@ describe("daily investment review page", () => {
     state.alert.data = { ...report(), reportRevision: "published-synthetic-2", items: [] };
     view.rerender(tree());
     expect(refresh).toHaveFocus();
+  });
+  it("shows instrument names, never ids, in the ignored investments sheet", async () => {
+    state.instruments.data = [{ id: "7b7e0c5e-aaaa-bbbb-cccc-000000000001", name: "Synthetic Global Fund", shortName: "Global Fund" }];
+    state.suppressions.data = [
+      { ID: "s1", InstrumentID: "7b7e0c5e-aaaa-bbbb-cccc-000000000001", Mode: "permanent", UntilOn: "", Revision: 1 },
+      { ID: "s2", InstrumentID: "7b7e0c5e-aaaa-bbbb-cccc-00000000dead", Mode: "until_date", UntilOn: "2026-11-15", Revision: 1 },
+    ] as never[];
+    mount();
+    await userEvent.click(screen.getByRole("button", { name: "Ignored investments" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Synthetic Global Fund · Ignore permanently");
+    expect(dialog).toHaveTextContent("Unknown investment · Resumes on 2026-11-15");
+    expect(dialog).not.toHaveTextContent("7b7e0c5e");
+  });
+  it("formats evidence amounts and percentages and translates reason codes", async () => {
+    const rule = state.alert.data!.items![0].rules![0];
+    rule.latestResult = { on: "2026-10-15", truth: "false" as never, leaves: [
+      { metric: "amount", truth: "true" as never, actual: "126.5000", currency: "USD" as never },
+      { metric: "price_change", truth: "false" as never, actual: "-3.456" },
+      { metric: "cost", truth: "unknown" as never, reason: "fx_missing", currency: "USD" as never },
+      { metric: "price_change", truth: "unknown" as never, reason: "daily_close_missing" },
+    ] };
+    rule.coverage = ["historical_cost", "not_a_known_code"];
+    state.evidence.data.items = [{ on: "2026-10-15", truth: "unknown" as never, leaves: [{ metric: "amount", truth: "unknown" as never, reason: "daily_close_missing", currency: "USD" as never }] }] as never;
+    mount();
+    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.why"))[0]);
+    expect(screen.getByText("Amount: $126.50 ✓")).toBeVisible();
+    expect(screen.getByText("Price change: -3.46% ×")).toBeVisible();
+    expect(screen.getByText("Cost: Unknown ? · Exchange rate missing")).toBeVisible();
+    expect(screen.getByText("Price change: Unknown ? · No closing price for this day")).toBeVisible();
+    expect(screen.getAllByText("Amount: Unknown · No closing price for this day").length).toBeGreaterThan(0);
+    expect(screen.getByText("Cost basis unknown on this day")).toBeVisible();
+    expect(screen.getByText("not_a_known_code")).toBeVisible();
+    expect(screen.queryByText(/126\.5000|daily_close_missing|fx_missing/)).not.toBeInTheDocument();
+  });
+  it("uses singular forms for single hits and conditions", async () => {
+    const rule = state.alert.data!.items![0].rules![0];
+    rule.window = { ...rule.window, hitCount: 1, falseCount: 1, unknownCount: 1, consecutiveCount: 1 };
+    state.rules.data = [{ id: "r1", name: "One condition rule", enabled: true, evaluator: "daily_predicate_v1", severity: "warning", rowRevision: 1, spec: { triggerPolicy: { kind: "single" }, schedule: { timezone: "UTC" }, predicate: { all: [{}] } } }] as never[];
+    mount();
+    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.why"))[0]);
+    expect(screen.getByText("1 hit · 1 miss · 1 unknown")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Rules" }));
+    expect(await screen.findByText("1 condition · One daily hit · UTC")).toBeVisible();
   });
 });

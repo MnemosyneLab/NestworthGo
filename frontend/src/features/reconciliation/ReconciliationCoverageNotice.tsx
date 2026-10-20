@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { ReconciliationAccount } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { formatAmount } from "@/lib/money";
+import { Notice } from "./ReconciliationParts";
 
 // Current inventory context is deliberately separate from frozen check evidence.
 export function ReconciliationCoverageNotice({
@@ -13,7 +14,7 @@ export function ReconciliationCoverageNotice({
   const { t } = useTranslation();
   if (!account.inventoryCoverageGap) return null;
   return (
-    <div role="status" className="text-sm text-muted-foreground">
+    <Notice tone="warning" role="status">
       <p>
         {t(
           `reconciliation.${completed ? "historicalCoverageGap" : "inventoryCoverageGap"}`,
@@ -21,16 +22,16 @@ export function ReconciliationCoverageNotice({
       </p>
       {completed && (
         <>
-          <ul>
+          <ul className="num mt-1 list-disc pl-5">
             {account.uncoveredArchivedHoldings?.map((holding) => (
               <li key={holding.holdingId}>
                 {holding.label} · {formatAmount(holding.quantity)}
               </li>
             ))}
           </ul>
-          <p>{t("reconciliation.coverageNewCheck")}</p>
+          <p className="mt-1">{t("reconciliation.coverageNewCheck")}</p>
         </>
       )}
-    </div>
+    </Notice>
   );
 }
