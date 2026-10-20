@@ -1,8 +1,8 @@
 # Visual Analytics and Market History
 
 - Owner: Product, Design, and Analytics
-- Status: **In progress**
-- Baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
+- Status: **Implemented surfaces; provider-backed external historical series remains planned**
+- Original design baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
 - Scope: chart surfaces and local quote history in Overview, Portfolio, Return Analysis, Asset Changes, Investments, and Market Data
 - Companion: [Domain Model](../architecture/domain-model.md) and [Data and Application Contracts](../architecture/data-and-ipc-contracts.md)
 

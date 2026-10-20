@@ -4,7 +4,7 @@
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
 **Insights pages:** `Return Analysis`, `Asset Changes`  
-**Companions:** [Product & interaction design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Domain model](../../architecture/domain-model.md), [Data and IPC contracts](../../architecture/data-and-ipc-contracts.md)
+**Companions:** [Product & interaction design](analytics-product-design.md), [Domain model](../../architecture/domain-model.md), [Data and IPC contracts](../../architecture/data-and-ipc-contracts.md)
 
 This document is the **how**. The product design is the **what**. Implementation must not start from rejected shortcuts: simple `amount / beginning` percentages, start-of-day TWR that ignores intra-day flows, opening-quantity-only Price/FX, FX Impact computed as a leftover, a synthetic transaction price for a split or in-kind transfer, interest treated as capital, transfer-only scope rewrite, or `Unrealized = Total − Realized − Dividend`.
 

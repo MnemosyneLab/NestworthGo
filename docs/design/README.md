@@ -13,10 +13,15 @@ the startup/onboarding gates are defined by
 - [History and related-form defaults](history-and-form-defaults-ux.md) — Current history, picker, calculation, quote, timezone, and form-state behavior.
 - [Backup, restore, and JSON export](backup-restore-and-json-export.md) — Implemented local backup, restore, and complete structured data export.
 - [Visual analytics and market history](visual-analytics-and-market-history.md) — Implemented chart and local quote-history surfaces, with external historical-series work still planned.
-- [Analytics redesign architecture](analytics/analytics-redesign-architecture.md) — Return Analysis and Asset Changes: kernel, projections, golden cases. Product and [wireframe](analytics/analytics-wireframes.md) companions live in the same folder. Desktop smoke is still pending.
-- [Monthly review and data confidence](monthly-review-and-data-confidence.md) — Planned local month-end review loop. Not part of `0.3.5`.
+- [Analytics redesign architecture](analytics/analytics-redesign-architecture.md) — Return Analysis and Asset Changes kernel, projections, and golden cases. Product behavior is in [analytics product design](analytics/analytics-product-design.md).
+- [Monthly review and data confidence](monthly-review-and-data-confidence.md) — Planned local month-end review loop; not part of the current release.
 - [Available Funds, Term Deposits, and Locked Products](available-funds.md) — Implemented liquidity estimates, source rules, reservations, explicit contract lifecycle operations, and exclusions.
 - [Household navigation and actionable Data Health](household-navigation-and-health.md) — Implemented household navigation, trend completeness and repair-entry behavior.
+- [Investment review](investment-review.md) — Current review rules, evidence, and explicit user controls.
+- [Upcoming actions](upcoming-actions.md) — Implemented read-only scheduled-action projection; release acceptance status is in the release record.
+- [JSON export format](json-export-format.md) — Versioned export schema and compatibility rules.
+- [Feature ideas](feature-ideas.md) — Historical proposal snapshot; open ideas are not roadmap commitments.
+- [Market-data contracts](../architecture/data-and-ipc-contracts.md) — Current persistence, observation, coverage, provider, and recovery authority.
 
 ## Current screen map
 
@@ -65,3 +70,7 @@ not product contracts.
 ## Performance maintenance
 
 See the [performance optimization report](../development/performance-optimization-report.md) for shipped choices, evidence limits and cleanup status.
+
+The documents above separate product behavior from technical contracts. Use
+the current code and tests for exact shipped layout; old wireframe snapshots
+and step-by-step implementation logs are not current design authority.

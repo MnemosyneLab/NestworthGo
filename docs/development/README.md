@@ -1,28 +1,46 @@
 # Development Documentation
 
-The [Engineering Guide](engineering-guide.md) is the entry point for package
-boundaries, financial implementation rules, and validation strategy. The
-[Local Development and Packaging guide](local-workflow.md) contains the
-copy/paste commands for clean-checkout setup, Wails development, generated
-bindings, frontend checks, `.app` builds, DMG creation, and release smoke
-validation.
-The [Wails version upgrade guide](wails-version-upgrade.md) covers synchronized
-Wails module/runtime/CLI upgrades, bindings regeneration, automated checks, and
-native/package validation boundaries.
-The [Real Browser Acceptance guide](real-browser-acceptance.md) documents the
-repository-supported HTTP server workflow, synthetic fixtures, cloud-browser
-verification, evidence capture, and native-only limits.
-The [Temporary GitHub Actions CI Pause](ci-pause.md) records an earlier
-manual-only pause. `check.yml` on this branch again runs on `main` and pull
-requests.
+Use this index for current engineering contracts, repeatable workflows, and
+scoped implementation evidence. Repository-level rules live in
+[`AGENTS.md`](../../AGENTS.md); the [engineering guide](engineering-guide.md)
+sets package boundaries and validation expectations.
 
-Development documents should describe reproducible work against the current
-tree. Maintained documentation is English. Temporary investigations belong in
-the issue or pull request that owns them; they should not become permanent
-release documentation without being revalidated.
+## Build and acceptance
 
-[Continuous backup](continuous-backup.md) describes the embedded lifecycle,
-secret storage, recovery safeguards, local tests and pending R2/native gates.
+- [Local Development and Packaging](local-workflow.md) — setup, Wails tasks,
+  generated bindings, frontend checks, packaging, and isolated native QA.
+- [Real Browser Acceptance](real-browser-acceptance.md) — server-mode launch,
+  synthetic fixtures, browser evidence, and native-only limits.
+- [GUI Holdings Verification](gui-holdings-verification.md) — focused native
+  holdings checks.
+- [Wails Version Upgrade](wails-version-upgrade.md) — coordinated runtime,
+  CLI, bindings, build, and native/package validation.
+- [Frontend Controls](frontend-controls.md) — shared components, interaction
+  rules, accessibility, and enforced checks.
 
-[Performance optimization report](performance-optimization-report.md) records implementation choices,
-correctness contracts and the limited historical measurements.
+## Architecture and feature contracts
+
+- [Local MCP](mcp.md) and [MCP Products](mcp-products.md) — loopback transport,
+  permission modes, tools, and product boundaries.
+- [Financial Context](financial-context.md) — MCP context authorization and
+  disclosure limits.
+- [Continuous Backup](continuous-backup.md) — opt-in backup and recovery.
+- [Account Reconciliation](account-reconciliation.md) and
+  [Historical Reconciliation](historical-reconciliation.md) — transaction,
+  evidence, and recovery contracts.
+- [Investment Short Names](investment-short-names.md) — scoped v15/v16 feature
+  migration evidence and its current compatibility boundaries.
+- [Bank Logos](bank-logos.md) and [Icon Catalog](icon-catalog.md) — asset
+  ownership and licensing references.
+
+## Performance evidence
+
+- [Performance Optimization Report](performance-optimization-report.md) —
+  implementation choices and limits of historical measurements.
+- [Analysis Performance](analysis-performance.md) and
+  [Account Value Read Performance](account-value-read-performance.md) — scoped
+  implementation evidence, not whole-app performance claims.
+
+Dated implementation records document only their named source revision. Use
+current source, tests, and the release record for present behavior and
+acceptance status.

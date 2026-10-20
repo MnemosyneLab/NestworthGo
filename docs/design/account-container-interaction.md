@@ -4,10 +4,8 @@
 
 - Status: Implemented / current contract
 - Companion domain contract: [Domain Model](../architecture/domain-model.md)
-- Baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
-- Data policy: the current release supports fresh or validated schema `9`
-  databases only; there is no legacy-data, old interaction, or old-page
-  compatibility layer.
+- Original design baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
+- Data policy: use current [storage compatibility](../architecture/data-and-ipc-contracts.md) and release records; this interaction contract does not define database migration support.
 
 This document freezes how the Account container model is created, viewed, and
 operated in the desktop app. Legal combinations, classification, inclusion,

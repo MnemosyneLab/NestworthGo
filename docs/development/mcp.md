@@ -5,8 +5,8 @@ Status: **Development complete (2026-09-29)** for the user-approved scope:
 directory maintenance, daily and atomic batch ledger operations, position imports
 and transfers, period analysis and contribution drilldown, current balance,
 quantity and total-cost reconciliation, pure cost corrections, and guarded
-activity undo/fix. End-to-end native UI and external-agent acceptance is assigned
-by the user to other testers; it is not a remaining development gate.
+activity undo/fix. This document does not establish end-to-end native UI or
+external-agent acceptance; consult the release record for their status.
 
 ## Delivery plan
 
@@ -517,7 +517,7 @@ Batch retries use the `change_batch_mutation_keys` table in schema-16 databases;
 the supported v15 upgrade preserves that existing table and its receipts.
 Unsupported older databases and backup files, including schema-v13 files, are
 rejected without adding a table or changing the file. Backup inspection accepts
-verified v15/v16; an installed v15 copy upgrades on normal open. Full SQLite backups preserve batch receipts;
+verified schema versions v15–22; supported older copies upgrade on normal open. Full SQLite backups preserve batch receipts;
 credential-free household JSON exports exclude retry bookkeeping.
 
 ## Historical queries

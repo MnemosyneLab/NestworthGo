@@ -67,7 +67,7 @@ receipts' encoding. Product details retain the symbol and legal name.
 Schema 16 adds only `instruments.short_name TEXT NOT NULL DEFAULT ''`.
 There is one supported predecessor, schema 15; this is not a general migration
 chain. Version zero, schemas 1–14, unknown schemas, future versions, and malformed
-v15/v16 schemas continue to fail their version/integrity guards.
+v15–v22 schemas continue to fail their version/integrity guards.
 
 For an existing v15 file, `sqlite.Open`:
 
@@ -94,12 +94,12 @@ For an existing v15 file, `sqlite.Open`:
 
 There are no financial-row conversions, rebuilds, decimal coercions, deleted
 records or bypassed version guards. Read-only backup verification recognizes
-validated v15 and v16 without migrating the inspected file. Backup package
+validated v15–22 without migrating the inspected file. Backup package
 restore checks that the database version matches its manifest before the live
 session is touched. The existing restore journal and safety-copy behavior remain
 in use; the installed v15 copy upgrades when opened normally.
 
-Cloud recovery recognizes v15/v16 stream identities and checks the staged
+Cloud recovery recognizes supported v15–22 stream identities and checks the staged
 file's version against that identity. Inspection leaves v15 staged files and
 source stream metadata unchanged. New streams use v16; existing stream metadata
 is never overwritten. No external connection/provider behavior changes.

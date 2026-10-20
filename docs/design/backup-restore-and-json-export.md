@@ -1,7 +1,7 @@
 # Backup, Restore, and JSON Export
 
 - Status: **Implemented**
-- Database: SQLite schema `16`; verified v15 is the sole supported additive upgrade
+- Database: SQLite schema `22`; verified v15–21 receive additive upgrades
 - Platform: Wails v3
 - Companion: [JSON export format](json-export-format.md)
 
@@ -57,7 +57,7 @@ The manifest includes at least:
   "format_version": 1,
   "backup_kind": "full",
   "app_name": "Nestworth",
-  "app_version": "0.3.7",
+  "app_version": "0.3.9",
   "app_build": "8",
   "schema_version": 16,
   "created_at": "2026-10-13T00:00:00Z",
@@ -95,7 +95,7 @@ Currency, timezone, provider configuration, API keys, and MCP connection state
 and receipts are stored in SQLite and always follow the restored database.
 The preference categories default to preserving current values and are merged
 only after the restored database verifies. A rollback leaves preferences intact.
-Package inspection accepts supported v15/v16 manifest versions and independently
+Package inspection accepts supported v15–22 manifest versions and independently
 verifies the extracted database. Installation additionally requires the manifest
 and database versions to match.
 Read-only inspection does not upgrade the extracted copy or modify the source
@@ -146,7 +146,7 @@ or modifies schema constraints. The verifier checks, in order:
 2. `format_version` is supported.
 3. The manifest schema version is supported, and member checksums and sizes
    match the payload.
-4. The extracted database independently uses supported schema `15` or `16`
+4. The extracted database independently uses supported schema `15` through `22`
    and passes that version's table, column, index, and constraint verification.
 5. `foreign_key_check`, `integrity_check`, and required domain invariants pass.
 6. The database can be reopened read-only and representative Household,
@@ -283,7 +283,7 @@ policy remains unchanged.
 
 Settings also offers opt-in app-running SQLite backup to Cloudflare R2, plus
 explicit stream/recovery-point selection. Cloud recovery downloads a separate
-candidate, verifies supported v15/v16 and checks its version against the stream
+candidate, verifies supported v15–22 and checks its version against the stream
 identity without changing the staged file or source metadata, then feeds the
 existing preview/confirmation/journal installation described above. It keeps
 an original safety copy and pauses backup until restart and explicit re-enable.

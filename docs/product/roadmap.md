@@ -1,12 +1,19 @@
 # Product Roadmap
 
+## 0.3.8 — Current published release
+
+Status: Published 2026-10-14 (build 9). Adds Upcoming Actions, Historical
+Panorama, investment reviews, safer cash adjustment and Repeat workflows, and
+broader local MCP support. The [release record](../releases/v0.3.8.md) owns the
+exact scope, compatibility, evidence, and owner-deferred native acceptance.
+
 ## Authority
 
 The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
-## 0.3.7 — Financial context and managed-product MCP
+## 0.3.7 — Financial context and managed-product MCP (previous release)
 
 Status: Published 2026-10-09 (build 8). Adds consistent/frozen MCP financial
 context and comparisons, managed-product/liquidity reads, guarded lifecycle,
@@ -105,7 +112,8 @@ Status: `Superseded`. The unpublished `0.2.0` Wails v3 closeout is replaced by
 
 ## Next product increments
 
-These are planned, not part of the current release:
+These are future product directions; they are not commitments for the unreleased
+current main version or claims of implementation:
 
 1. [Monthly review and data confidence](../design/monthly-review-and-data-confidence.md):
    one local loop to surface data issues, confirm as-of balances and holdings,

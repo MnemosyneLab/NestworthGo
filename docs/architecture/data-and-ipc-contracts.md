@@ -7,13 +7,13 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. Current main uses complete SQLite schema `16`. New databases
-initialize v16; existing v16 databases must pass verification. Verified v15 is
-the only supported predecessor and receives the additive instrument short-name
-upgrade. Other older, unversioned, future, or invalid schemas remain blocked.
+and query results. Current main uses complete SQLite schema `22`. New databases
+initialize v22. Verified v15–21 databases receive additive upgrades in order,
+retaining a verified read-only recovery copy at each step.
+Other older, unversioned, future, or invalid schemas remain blocked.
 The [narrow storage upgrade](../development/investment-short-names.md#narrow-storage-upgrade)
-defines recovery-copy and transaction guarantees; there is no general migration
-chain. UI code
+defines recovery-copy and transaction guarantees; the supported migration
+chain is explicit and bounded. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
 The repository contains the Go implementation of the Household balance-sheet,
@@ -81,8 +81,8 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current schema is `16`; verified
-v15 is the sole supported additive upgrade. Every other schema generation is
+documented here without duplicating SQL. New databases use schema 22. Verified
+v15–21 databases receive the ordered additive upgrades. Other older, future, or invalid schema generations are
 blocked before business or settings writes.
 
 ## Transaction guarantees
@@ -406,10 +406,10 @@ lead-in and bounded opening-anchor fallback. Normal repair reuses fresh checks;
 force recheck remains explicit. Repair estimates may differ from actual requests
 because of batching, caches, retries, and conversion dependencies.
 
-Backup inspection validates v15/v16 without modifying the inspected database.
-Local restore requires matching manifest and database versions; an installed v15
-copy upgrades on normal open, while the source package stays unchanged. Other
-older, unversioned, future, or invalid backup databases are rejected before
+Backup inspection validates supported v15–22 databases without modifying the
+inspected database. Local restore requires matching manifest and database
+versions; supported older copies upgrade on normal open, while the source package
+stays unchanged. Other older, unversioned, future, or invalid backup databases are rejected before
 replacing the live database. This does not provide a general archive upgrade path.
 
 
@@ -522,9 +522,9 @@ quantity invalid fails without writing the entry.
 
 ## Continuous backup configuration and status
 
-Business schema is 16. Cloud recovery recognizes verified v15/v16 stream
+Business schema is 22. Cloud recovery recognizes verified v15–22 stream
 identities and requires the staged database version to match the stream.
-Inspection preserves staged v15 files and source metadata; new streams use v16.
+Inspection preserves the staged source and metadata; new streams use schema 22.
 Other older, unversioned, future, or invalid backups remain blocked.
 The separate private `backup_config.db` is excluded from business backup and
 exports. R2 credential updates save the complete pair with configuration

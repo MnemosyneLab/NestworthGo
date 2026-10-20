@@ -2,8 +2,9 @@
 
 ## Current baseline
 
-Nestworth `0.3.8` is the current release, published 2026-10-14, for this Go
-1.26 module, with a Wails v3 desktop shell and a React + TypeScript frontend.
+Current `main` identifies as Nestworth `v0.3.9` / build `10`; the latest published
+release is `v0.3.8`, published 2026-10-14. The project is a Go 1.26 module
+with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
 provider routing. The frontend owns presentation, interaction state,
@@ -168,7 +169,7 @@ change, not by a claim of native or stage-two acceptance.
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)
-for verification, transaction, recovery-copy and v15/v16 backup boundaries. Missing current tables and old
+for verification, transaction, recovery-copy and v15–21 upgrade boundaries. Missing current tables and old
 constraints fail verification rather than being repaired. Durable settings and
 provider credentials live in SQLite; the separate versioned JSON file stores
 presentation preferences.
@@ -201,15 +202,16 @@ is compiled only with `go test -tags perf`
 in that workflow (scale, 365-day pipeline, paired samples, and epoch
 full-oracle scale checks as separate jobs). The same workflow runs the sharded
 `go test -race` suite without the perf tag. The race aggregate is `race`.
-[ci-pause.md](ci-pause.md) records an earlier manual-only pause; this branch
-restores automatic `check` triggers. Native `.app`/DMG packaging, signing, and notarization stay
+Current check triggers and budgets are maintained in
+[Local Development and Packaging](local-workflow.md#frontend-only-checks) and
+the repository workflows. Native `.app`/DMG packaging, signing, and notarization stay
 manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
 `3.0.0-beta.32`); upgrade those versions only in a dedicated change.
 
 ## Documentation and change gate
 
 Update the owning architecture or product document when a stable contract
-changes. Maintained documentation is English. Select checks appropriate to the
+changes. Maintained engineering documentation uses English. Select checks appropriate to the
 change; documentation-only edits need diff, link and consistency review, not
 application or performance runs. For application changes, the check set includes:
 

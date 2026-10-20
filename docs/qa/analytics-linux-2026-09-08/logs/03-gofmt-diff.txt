@@ -1,1 +1,0 @@
-cmd/align-smoke-check/main.go
