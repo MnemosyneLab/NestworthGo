@@ -142,10 +142,12 @@ function archivedTarget(
 export function ReconciliationPage({
   accountId,
   sessionId,
+  navigationRequestId = 0,
   isActive = true,
 }: {
   accountId?: string;
   sessionId?: string;
+  navigationRequestId?: number;
   isActive?: boolean;
 }) {
   const { t } = useTranslation();
@@ -186,6 +188,28 @@ export function ReconciliationPage({
     previewSequence.current += 1;
     setBusy(false);
   };
+
+  const appliedNavigationRequest = useRef(navigationRequestId);
+  useEffect(() => {
+    // Only explicit entries reset the workspace. Visibility, tab changes and
+    // Back retain the mounted session, filters and any editable draft.
+    if (appliedNavigationRequest.current === navigationRequestId) return;
+    appliedNavigationRequest.current = navigationRequestId;
+    previewSequence.current += 1;
+    editingRequestId.current += 1;
+    setBusy(false);
+    setActive(sessionId ?? "");
+    setSelected(accountId ? [accountId] : null);
+    setFilter("");
+    setPage(0);
+    setEditing(undefined);
+    setReview(undefined);
+    setClosing(false);
+    setPartial(false);
+    setClosingNote("");
+    setError(undefined);
+    setErrorField(undefined);
+  }, [navigationRequestId, accountId, sessionId]);
 
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ["reconciliation"] });

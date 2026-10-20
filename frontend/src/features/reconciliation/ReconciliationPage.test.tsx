@@ -1491,3 +1491,49 @@ it("allows an archived position's evidence disposition through the real check fo
     }),
   );
 });
+
+it("retains a local session and finishing draft across visibility changes, and resets only on an explicit entry", async () => {
+  q.sessions = [session()];
+  const client = createTestQueryClient();
+  const workspace = (isActive: boolean, navigationRequestId: number, sessionId?: string) => (
+    <QueryClientProvider client={client}>
+      <ReconciliationPage isActive={isActive} navigationRequestId={navigationRequestId} sessionId={sessionId} />
+    </QueryClientProvider>
+  );
+  const view = render(workspace(true, 1));
+  await userEvent.click(screen.getByRole("button", { name: "Continue session" }));
+  await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
+  await userEvent.click(screen.getByRole("checkbox", { name: "Finish partially with outstanding checks" }));
+  await userEvent.type(screen.getByLabelText("Closing explanation"), "Synthetic statement draft");
+  await userEvent.keyboard("{Escape}");
+  view.rerender(workspace(false, 1));
+  view.rerender(workspace(true, 1));
+  await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
+  expect(screen.getByLabelText("Closing explanation")).toHaveValue("Synthetic statement draft");
+  expect(screen.getByRole("checkbox", { name: "Finish partially with outstanding checks" })).toBeChecked();
+  await userEvent.keyboard("{Escape}");
+  view.rerender(workspace(true, 2));
+  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+  view.rerender(workspace(true, 3, "session-one"));
+  await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
+  expect(screen.getByLabelText("Closing explanation")).toHaveValue("");
+  expect(screen.getByRole("checkbox", { name: "Finish partially with outstanding checks" })).not.toBeChecked();
+});
+
+it("discards a late preview after an explicit reconciliation entry", async () => {
+  let resolvePreview!: (value: unknown) => void;
+  q.preview.mockImplementationOnce(() => new Promise((resolve) => { resolvePreview = resolve; }));
+  const client = createTestQueryClient();
+  const workspace = (navigationRequestId: number) => (
+    <QueryClientProvider client={client}>
+      <ReconciliationPage sessionId="session-one" navigationRequestId={navigationRequestId} />
+    </QueryClientProvider>
+  );
+  const view = render(workspace(1));
+  await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  await userEvent.keyboard("{Escape}");
+  view.rerender(workspace(2));
+  await act(async () => { resolvePreview({ planId: "late-entry-preview", result: q.session }); });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
