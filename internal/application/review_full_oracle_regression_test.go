@@ -181,4 +181,31 @@ func TestReviewFullOracleDiscardsCapturedProjectionInputs(t *testing.T) {
 	if err := compareReviewFullOracle(oracle, pristine, f.service.FXProviderKey()); err != nil {
 		t.Fatalf("persisted input contaminated authoritative full result: %v", err)
 	}
+	for _, table := range []string{"investment_review_daily_inputs", "investment_review_daily_results"} {
+		t.Run(table+"-malformed-derived-evidence", func(t *testing.T) {
+			defer func() {
+				if _, err := f.db.SQL.Exec("UPDATE " + table + " SET evidence_json='{}'"); err != nil {
+					t.Error(err)
+				}
+			}()
+			if _, err := f.db.SQL.Exec("UPDATE " + table + " SET evidence_json='[]'"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.CaptureReviewProjection(t.Context(), f.householdID, *f.now); err == nil {
+				t.Fatal("bare C2 capture did not encounter malformed cached evidence")
+			}
+			c, err := fullReviewOracle(repository).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := PrepareReviewPublication(t.Context(), c, *f.now, f.service.FXProviderKey())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := compareReviewFullOracle(p, pristine, f.service.FXProviderKey()); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+
 }

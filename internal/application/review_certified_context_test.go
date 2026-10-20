@@ -99,8 +99,16 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 			var f seriesZeroFixture
 			var r *sqlite.Repository
 			if kind == "legacy" {
-				f, _ = noChangeFixture(t)
-				r = sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+				f = newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+				f.day(t, "2026-10-03")
+				saveSyntheticReviewRule(t, f, "Synthetic legacy review", syntheticHistoricalReviewSpec())
+				f.s = NewService(sqlite.NewRepository(f.db))
+				f.s.fxProviderKey = "synthetic-pinned"
+				f.s.setClock(func() time.Time { return *f.now })
+				if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				r = sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -115,7 +123,7 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 				}
 				defer db.Close()
 				f.db = db
-				r = sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -294,7 +302,14 @@ func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) 
 			fullReads++
 		}
 	}
-	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
+	before := noChangeProjectionRows(t, f.db)
+	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err == nil {
+		t.Fatal("stale suffix proof survived rolled-back DML")
+	}
+	if !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
+		t.Fatal("stale suffix proof wrote data")
+	}
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	if fullReads == 0 {

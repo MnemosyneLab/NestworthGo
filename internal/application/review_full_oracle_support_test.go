@@ -36,6 +36,7 @@ type reviewTestProjectionRepository interface {
 	Repository
 	ReviewProjectionRepository
 	CertifiedReviewEnabled() bool
+	WithDefaultReviewOptimizations() *sqlite.Repository
 }
 type fullReviewTestRepository struct{ reviewTestProjectionRepository }
 
@@ -44,7 +45,11 @@ func fullReviewOracle(r reviewTestProjectionRepository) *fullReviewTestRepositor
 }
 func (r *fullReviewTestRepository) CertifiedReviewEnabled() bool { return false }
 func (r *fullReviewTestRepository) CaptureReviewProjection(ctx context.Context, id domain.HouseholdID, at time.Time) (domain.ReviewProjectionCapture, error) {
-	c, err := r.reviewTestProjectionRepository.CaptureReviewProjection(ctx, id, at)
+	// The supported certified capture always bypasses C2 window decoding. Its
+	// suffix reader treats malformed derived rows as a full-source fallback;
+	// discard even valid suffix results below. This keeps the oracle independent
+	// of corrupted cache bytes without a production force-full control.
+	c, err := r.reviewTestProjectionRepository.WithDefaultReviewOptimizations().CaptureReviewProjection(ctx, id, at)
 	if err != nil {
 		return c, err
 	}
@@ -53,4 +58,17 @@ func (r *fullReviewTestRepository) CaptureReviewProjection(ctx context.Context, 
 	c.Suffix = nil
 	c.Certified = nil
 	return c, nil
+}
+
+func independentReviewFullStage(t *testing.T, f seriesZeroFixture, r reviewTestProjectionRepository) domain.ReviewPublication {
+	t.Helper()
+	c, err := fullReviewOracle(r).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := PrepareReviewPublication(t.Context(), c, *f.now, f.s.FXProviderKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
