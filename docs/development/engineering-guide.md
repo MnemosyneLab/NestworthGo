@@ -42,15 +42,22 @@ before `check:bindings`: the check requires existing output and compares it
 with fresh generator output. The Wails build tasks generate bindings before
 building the frontend.
 
-Run the normal automated checks with a writable cache:
+Run affected checks first during development; the normal automated check set
+uses a writable cache:
 
 ```bash
 GOCACHE=/tmp/nestworth-go-0.3.8 go test ./...
-GOCACHE=/tmp/nestworth-go-0.3.8 go test -race ./...
 GOCACHE=/tmp/nestworth-go-0.3.8 go vet ./...
 gofmt -l cmd internal
 go build ./cmd/nestworth
 cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
+```
+
+Race detection is heavy validation in `perf`, or an explicitly needed local run,
+not a default every-PR check:
+
+```bash
+GOCACHE=/tmp/nestworth-go-0.3.8 go test -race ./...
 ```
 
 Generate Wails bindings after changing a bound Go service:
@@ -131,6 +138,12 @@ review publication checkpoints (21), and per-instrument Agent closure facts (22)
 retains a verified read-only recovery copy. Schema20 keeps the full financial
 fingerprint/recheck algorithm authoritative; see the
 [source coverage, recovery and rollback contract](../testing/performance-c1-source-coverage-2026-10-19.md).
+
+### Historical C1/C2/C3 evolution
+
+The following C2/default-off descriptions record earlier slices. For current
+normal dispatch and rollback behavior, see [Current review dispatcher](#current-review-dispatcher).
+
 C2 shadow capture/publication also compares typed source checkpoints alongside the
 full fingerprint; see the [C2 validation boundary](../testing/performance-c2-2026-10-19.md).
 This does not enable a source-token fast path or remove full source rechecks.
@@ -176,6 +189,9 @@ cannot acquire reuse authority from a fresh checksum; legitimate handling preser
 only an already valid chain. Production initialization still uses C2, and native,
 performance and review gates remain blocking. The old counting-only constructor
 is retained for historical experiments, not activation.
+
+### Current review dispatcher
+
 Stage-three [dependency/suffix preparation](../design/review-dependency-suffix.md)
 is enabled in normal desktop initialization. It uses authenticated quote
 OLD/NEW invalidation and exact daily-prefix reuse, with full policy/lifecycle
@@ -185,6 +201,9 @@ retain full fallback; they do not gain certification. Set
 rollback path. Earlier default-off statements above describe the historical
 C1/C2/C3 slices; they are superseded by this explicitly authorized dispatcher
 change, not by a claim of native or stage-two acceptance.
+
+### Storage compatibility
+
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)
@@ -229,7 +248,9 @@ manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
 ## Documentation and change gate
 
 Update the owning architecture or product document when a stable contract
-changes. Maintained documentation is English. Before committing:
+changes. Maintained documentation is English. Select checks appropriate to the
+change; documentation-only edits need diff, link and consistency review, not
+application or performance runs. For application changes, the check set includes:
 
 ```bash
 gofmt -l cmd internal
