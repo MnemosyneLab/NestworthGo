@@ -3,8 +3,8 @@
 Stage three follows section 6 of the [approved optimization plan](performance-optimization-plan.zh-CN.md).
 C3 publication equality is the prerequisite, not stage three. Normal desktop
 initialization selects `WithReviewDependencySuffix`; GUI and MCP use that same
-repository/service. `NESTWORTH_REVIEW_FULL_RECOMPUTE=1` selects the existing
-complete-source/full-preparation path for the process. No schema migration,
+repository/service. Ineligible evidence uses the existing complete-source/
+full-preparation fallback automatically. No schema migration,
 ledger setting, shared-fact layout, analysis batching, or history truncation is
 introduced. Explicitly selecting the old lineage shadow retains its full runtime
 oracle and excludes D2 selection.
@@ -162,9 +162,8 @@ for exact SQL argument comparison.
 
 
 Normal GUI/MCP startup now also enables the bounded same-handle prefix memo
-following explicit user approval. `NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE=1`
-disables that memo while retaining D1/D2; the full-recompute switch above takes
-precedence. See [the memo contract](review-prefix-memo-experiment.md) for limits,
+with automatic capacity, ownership and generation fallbacks. Startup has no
+environment switches for algorithm selection. See [the memo contract](review-prefix-memo-experiment.md) for limits,
 authority requirements and the measured cold/memory tradeoff.
 
 ## Direct reference FX import extension

@@ -1,15 +1,12 @@
 # Same-handle prefix memo: bounded experiment contract
 
-Current rollout: the user approved default enablement after the qualitative
-experiment. Normal GUI and MCP share `WithDefaultReviewOptimizations()`, which
-enables D1/D2 plus the bounded memo. `NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE=1`
-disables only the memo; `NESTWORTH_REVIEW_FULL_RECOMPUTE=1` selects full
-recomputation and takes precedence. These switches are process-local. Direct
-`NewRepository` retains its baseline configuration; diagnostics may explicitly
-select `WithReviewPrefixMemo(false)`.
+Normal GUI and MCP share `WithDefaultReviewOptimizations()`, which always
+selects certified D1/D2 plus the bounded same-handle memo. Direct
+`NewRepository` retains its C2 compatibility behavior. Capacity, provenance,
+ownership and generation failures retain automatic full fallback.
 
 This extends authenticated D2, not ordinary C2 routing or persistent E/shared facts.
-Full rollback remains intact.
+Complete recomputation remains the automatic safety fallback.
 It claims neither O(new-days) reconciliation nor native/performance acceptance.
 
 Private representation: immutable strings encoding complete typed input via the

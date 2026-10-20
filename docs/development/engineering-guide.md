@@ -196,9 +196,11 @@ Stage-three [dependency/suffix preparation](../design/review-dependency-suffix.m
 is enabled in normal desktop initialization. It uses authenticated quote
 OLD/NEW invalidation and exact daily-prefix reuse, with full policy/lifecycle
 replay. Non-quote/unknown dependencies and legacy/reopened/restored namespaces
-retain full fallback; they do not gain certification. Set
-`NESTWORTH_REVIEW_FULL_RECOMPUTE=1` before launch for the full recomputation
-rollback path. Earlier default-off statements above describe the historical
+retain full fallback; they do not gain certification. Normal startup always
+enables certified review, suffix preparation and the same-handle prefix memo.
+There are no environment switches for manual algorithm rollback; incomplete or
+invalid proofs still use full recomputation automatically. Earlier default-off
+statements above describe the historical
 C1/C2/C3 slices; they are superseded by this explicitly authorized dispatcher
 change, not by a claim of native or stage-two acceptance.
 
