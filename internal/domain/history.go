@@ -294,6 +294,7 @@ type DailySnapshotState struct {
 }
 
 type InstrumentHistoryCoverage struct {
+	ClosedDates            []string
 	InstrumentID           InstrumentID
 	InstrumentType         string
 	ProviderKey            string

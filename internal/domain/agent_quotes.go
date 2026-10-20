@@ -16,6 +16,7 @@ const (
 type AgentQuoteRecord struct {
 	RecordID        string
 	Operation       AgentQuoteOperation
+	Closure         *InstrumentClosure
 	InstrumentQuote *InstrumentQuote
 	FXQuote         *FXQuote
 	TargetQuoteID   string
@@ -38,4 +39,14 @@ type AgentQuoteBatchResult struct {
 	Inserted   int
 	RecordIDs  []string
 	QuoteIDs   []string
+}
+
+// InstrumentClosure is a dated non-price fact. Provenance lives in AgentQuoteRecord.
+type InstrumentClosure struct {
+	ID           string
+	InstrumentID InstrumentID
+	Date         string
+	EffectiveAt  time.Time
+	Timezone     string
+	CreatedAt    time.Time
 }

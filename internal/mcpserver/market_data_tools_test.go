@@ -169,3 +169,31 @@ func TestAgentMarketDataBatchValidationIsAtomic(t *testing.T) {
 		call(t, c, "import_market_data", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{item}}}, true)
 	}
 }
+
+func TestAgentClosedDayMCPImportAuditAndWithdrawal(t *testing.T) {
+	t.Parallel()
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	item := map[string]any{"instrumentId": fx.instrument, "kind": "closed", "date": "2026-09-28", "timezone": "Asia/Hong_Kong", "sourceTitle": "Synthetic closure notice", "sourceUrl": "https://example.com/closure"}
+	result := mutate(t, c, "import_market_data", map[string]any{"items": []any{item}})
+	ids := result["quoteIds"].([]any)
+	if len(ids) != 1 {
+		t.Fatal(result)
+	}
+	records := call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
+	rows := records["items"].([]any)
+	if len(rows) != 1 {
+		t.Fatal(records)
+	}
+	row := rows[0].(map[string]any)
+	if row["kind"] != "closed" || row["date"] != "2026-09-28" || row["timezone"] != "Asia/Hong_Kong" || row["active"] != true || row["value"] != nil {
+		t.Fatal(row)
+	}
+	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": ids[0], "sourceTitle": "Synthetic closure withdrawn"}}})
+	records = call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
+	for _, raw := range records["items"].([]any) {
+		if raw.(map[string]any)["active"] == true {
+			t.Fatal("withdrawn closure remains active")
+		}
+	}
+}

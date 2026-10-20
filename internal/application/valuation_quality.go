@@ -47,7 +47,7 @@ func (a *displayAccumulator) add(c domain.ValuationComponent, missing []domain.M
 		if e == nil {
 			continue
 		}
-		if current && e.Source != domain.QuoteSourceManual && e.Freshness != domain.FreshnessManual {
+		if current && e.Source != domain.QuoteSourceManual && e.Freshness != domain.FreshnessManual && !e.ClosedCarry {
 			provisional = true
 		}
 		date := e.EffectiveDate
@@ -66,7 +66,7 @@ func (a *displayAccumulator) add(c domain.ValuationComponent, missing []domain.M
 				d := date
 				a.quality.NewestMarketDate = &d
 			}
-			if target != "" && date < target && e.Source != domain.QuoteSourceManual && e.Freshness != domain.FreshnessManual {
+			if target != "" && date < target && e.Source != domain.QuoteSourceManual && e.Freshness != domain.FreshnessManual && !e.ClosedCarry {
 				carried = true
 				if n == 0 {
 					a.reason(domain.ReasonCarriedPrice)
@@ -78,7 +78,7 @@ func (a *displayAccumulator) add(c domain.ValuationComponent, missing []domain.M
 				}
 			}
 		}
-		stale = stale || e.Freshness == domain.FreshnessStale
+		stale = stale || (e.Freshness == domain.FreshnessStale && !e.ClosedCarry)
 	}
 	if available {
 		value, err := decimal.NewFromString(c.BaseAmountExact)
@@ -244,10 +244,13 @@ type snapshotDisplayEvidence struct {
 	instruments         map[domain.InstrumentID]domain.InstrumentType
 	originPreferences   map[domain.InstrumentID]domain.QuoteSourceKind
 	preferences         map[domain.InstrumentPreferenceObservationID]domain.QuoteSourceKind
+	closures            []domain.InstrumentClosure
+	marketDate          string
 }
 
 func newSnapshotDisplayEvidence(b domain.HistoricalSnapshotBatch, now time.Time, ttl time.Duration) snapshotDisplayEvidence {
 	e := snapshotDisplayEvidence{priceBasis: map[string][]string{}, fxBasis: map[string][]string{}, prices: map[string]domain.QuoteEvidenceView{}, fx: map[string]domain.QuoteEvidenceView{}, liabilities: map[domain.AccountID]bool{}, instruments: map[domain.InstrumentID]domain.InstrumentType{}}
+	e.closures = b.Portfolio.InstrumentClosures
 	e.originPreferences = map[domain.InstrumentID]domain.QuoteSourceKind{}
 	for id, source := range b.Portfolio.OriginInstrumentSources {
 		e.originPreferences[id] = source
@@ -305,6 +308,12 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 			if preference == domain.QuoteSourceManual {
 				v.Freshness = domain.FreshnessManual
 			}
+			if item.InstrumentID != nil {
+				v.ClosedCarry = instrumentClosedCarry(domain.Instrument{ID: *item.InstrumentID, Type: c.InstrumentType}, v.EffectiveDate, e.marketDate, e.closures)
+				if v.ClosedCarry {
+					v.Freshness = domain.FreshnessFresh
+				}
+			}
 			c.PriceEvidence = &v
 		} else {
 			hydrated = false
@@ -313,6 +322,10 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 	if item.FXQuoteID != nil {
 		v, ok := e.fx[*item.FXQuoteID]
 		if ok {
+			v.ClosedCarry = instrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, v.EffectiveDate, e.marketDate, nil)
+			if v.ClosedCarry {
+				v.Freshness = domain.FreshnessFresh
+			}
 			c.FXEvidence = &v
 		} else {
 			hydrated = false
@@ -347,6 +360,7 @@ func snapshotDisplay(snapshot domain.DailyValuationSnapshot, e snapshotDisplayEv
 		return domain.HouseholdDisplayValuation{Assets: unknown, Liabilities: unknown, NetWorth: unknown}, unknown, nil
 	}
 
+	e.marketDate = snapshot.LocalDate
 	for _, item := range snapshot.Items {
 		c, missing, uncertain := snapshotDisplayItem(item, e)
 		target := &a

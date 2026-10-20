@@ -415,6 +415,7 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 		if readErr != nil {
 			return AnalysisInputs{}, readErr
 		}
+		portfolio.InstrumentClosures = evidence.InstrumentClosures
 		portfolio.OriginInstrumentSources = evidence.OriginInstrumentSources
 		portfolio.InstrumentPreferenceSources = evidence.InstrumentPreferenceSources
 	}

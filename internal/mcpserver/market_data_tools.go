@@ -38,6 +38,7 @@ type AgentDataRecordDTO struct {
 	Currency       string `json:"currency,omitempty"`
 	Value          string `json:"value,omitempty"`
 	Kind           string `json:"kind,omitempty"`
+	Timezone       string `json:"timezone,omitempty"`
 	Date           string `json:"date,omitempty"`
 	QuotedAt       string `json:"quotedAt,omitempty"`
 	Delayed        bool   `json:"delayed"`
@@ -114,7 +115,7 @@ func (s *Service) marketDataTools(server *mcp.Server, mode string) {
 		return
 	}
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "import_market_data", Description: "Atomically append, correct or retract 1–100 Agent-supplied instrument quotes (latest/raw close/unit NAV) or FX rates (latest/daily_reference), with source evidence. Requires ledger_write. Find exact instrument identity first. Unit NAV is NOT cumulative NAV or annualized yield. Daily date is the source's market/NAV/reference date, NOT lookup date. Latest requires actual quotedAt. Does not contact providers or change existing source preferences. Agent data participates in valuation and suppresses ordinary fetches only where valid and sufficient. Corrections/withdrawals require an existing Agent quoteId. Retry with the same operationId and input. Quotes commit before snapshot rebuild; check snapshotStatus and scan_data_health afterward. A successful import/rebuild does not imply complete data.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[application.AgentMarketDataInput]) (*mcp.CallToolResult, Response, error) {
+	mcp.AddTool(server, &mcp.Tool{Name: "import_market_data", Description: "Atomically append, correct or retract 1–100 Agent-supplied instrument quotes (latest/raw close/unit NAV), per-instrument closed-day facts (kind closed; date, optional timezone and provenance; omit value/currency) or FX rates (latest/daily_reference), with source evidence. Requires ledger_write. Find exact instrument identity first. Unit NAV is NOT cumulative NAV or annualized yield. Daily date is the source's market/NAV/reference date, NOT lookup date. Latest requires actual quotedAt. Does not contact providers or change existing source preferences. Agent data participates in valuation and suppresses ordinary fetches only where valid and sufficient. Corrections/withdrawals require an existing Agent quoteId. Retry with the same operationId and input. Quotes commit before snapshot rebuild; check snapshotStatus and scan_data_health afterward. A successful import/rebuild does not imply complete data.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[application.AgentMarketDataInput]) (*mcp.CallToolResult, Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "import_market_data", in.Input, true, func(ctx context.Context) (any, error) {
 			return s.app.ImportAgentMarketData(ctx, in.OperationID, in.Input)
 		})
@@ -155,6 +156,14 @@ func agentRecordDTO(r domain.AgentQuoteRecord, inactive map[string]bool) AgentDa
 		dto.Delayed = q.Delayed
 		dto.TimestampBasis = q.TimestampBasis
 		dto.Kind, dto.Date, dto.QuotedAt = q.ObservationKind, q.EffectiveDate, q.QuotedAt.UTC().Format(time.RFC3339Nano)
+	}
+	if c := r.Closure; c != nil {
+		dto.QuoteID = c.ID
+		dto.InstrumentID = c.InstrumentID.String()
+		dto.Kind = "closed"
+		dto.Timezone = c.Timezone
+		dto.Date = c.Date
+		dto.TimestampBasis = "date_label"
 	}
 	dto.Active = dto.QuoteID != "" && !inactive[dto.QuoteID]
 	return dto

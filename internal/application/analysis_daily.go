@@ -1096,6 +1096,7 @@ func analysisDisplayEnding(item domain.DailyValuationSnapshotItem, present bool,
 			return cached.view, &exact, nil
 		}
 	}
+	e.marketDate = date
 	c, missing, uncertain := snapshotDisplayItem(item, e)
 	if !present || item.AccountID == "" {
 		c.Available = false

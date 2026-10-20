@@ -63,6 +63,7 @@ type QuoteEvidenceView struct {
 	EffectiveDate    string
 	ValueEffectiveAt time.Time
 	FetchedAt        time.Time
+	ClosedCarry      bool
 	Carried          bool
 	ObservationID    string
 	Source           QuoteSourceKind
@@ -168,6 +169,7 @@ type PortfolioValuation struct {
 // portfolio summaries. Infrastructure populates it in one read transaction;
 // callers must not query one quote or Holding at a time.
 type PortfolioSnapshot struct {
+	InstrumentClosures        []InstrumentClosure
 	Household                 *Household
 	Origin                    *HistoryOrigin
 	Members                   []Member

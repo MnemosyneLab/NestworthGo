@@ -349,7 +349,7 @@ a completely skipped date has no saved snapshot and remains a trend gap.
 Direct snapshot requests still reject nonexistent labels and current dates.
 Ranges are checked before publication and contain at most 31 closed labels.
 
-Resolver policy `market-date-daily-summary-v5` invalidates older derived
+Resolver policy `market-date-daily-summary-v6` invalidates older derived
 snapshot completeness on database open, marks coverage dirty from the origin,
 and increments the input generation once. Snapshot hash version `v4` triggers
 append-only replacement through the existing generation-guarded rebuild.
@@ -464,5 +464,33 @@ missing, future-dated prices cannot satisfy earlier dates, and required FX
 coverage is checked independently. Historical valuation and saved snapshot
 presentation use the effective preference at the snapshot cutoff, rather than
 the instrument's current setting. Provider and Agent preferences keep their
-existing daily coverage requirements. Resolver policy v5 invalidates prior
+existing daily coverage requirements. Resolver policy v6 invalidates prior
 derived completeness through the existing rebuild mechanism.
+
+### Closed-day valuation coverage
+
+Stocks, ETFs, mutual funds and ordinary bank investment products default to no
+required price/NAV publication on Saturday and Sunday, independently of their
+quote source. Crypto keeps daily requirements. A valid previous observation
+covers a weekend or explicitly confirmed closed-day interval, without stale,
+awaiting-update or provisional display quality solely because of its age.
+Actual intervening trading-day gaps, incompatible quotes and missing opening
+prices remain missing; required FX remains independently validated (with normal
+weekend reference carry). The original quote date/source and exact price remain
+unchanged. A real publication on a weekend remains eligible.
+
+Agent imports accept per-instrument `kind: "closed"` facts for exchange holidays
+or explicit no-NAV-publication dates. Supply `instrumentId`, `date`, optional
+IANA `timezone`, `sourceTitle` and optional `sourceUrl`; omit currency, price,
+quote time and corporate-action fields. Facts are dated, never market-wide, and
+use the normal UUID/idempotent atomic import and source-audit path. Returned
+`quoteIds` also identify these non-price facts for correction/retraction; the
+Agent audit reports `kind: "closed"`, date, timezone and provenance without a
+price. Corrections must retain the instrument and fact kind. An eligible actual
+price on the same day takes precedence; a closure never creates an observation,
+price-series point or opening price. Withdrawing a closure reopens any otherwise
+unsupported date and invalidates derived snapshots. Revisions are append-only.
+Schema 22 adds `agent_instrument_closures` with the same verified, read-only
+pre-upgrade recovery policy as earlier upgrades; its financial source triggers
+participate in revision tracking and publication guards. Resolver policy v6
+invalidates derived completeness from the history origin on upgrade.

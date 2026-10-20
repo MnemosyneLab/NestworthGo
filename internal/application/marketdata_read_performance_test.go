@@ -117,7 +117,8 @@ func TestMarketDataHealthReadQueries(t *testing.T) {
 		instruments           int
 		queries, quoteQueries int64
 	}{
-		{1, 47, 2}, {50, 177, 84}, {200, 577, 334},
+		// Closure coverage adds three bounded reads, independent of instrument count.
+		{1, 50, 2}, {50, 180, 84}, {200, 580, 334},
 	} {
 		t.Run(fmt.Sprint(fixture.instruments), func(t *testing.T) {
 			s, d := marketReadFixture(t, fixture.instruments, 8)

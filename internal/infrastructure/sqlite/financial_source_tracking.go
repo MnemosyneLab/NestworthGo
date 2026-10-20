@@ -20,7 +20,7 @@ const financialJournalMaxRetained = financialJournalRetain + financialJournalPru
 // C1 deliberately invalidates every household, including OLD/NEW owners and
 // consumers of shared instruments. Scope metadata is diagnostic, never a proof
 // that a narrower invalidation or temporal reuse is safe.
-var financialSourceTables = strings.Fields(`households members institutions account_groups accounts account_ownership account_values instruments holdings account_cash_values instrument_quotes fx_quotes fx_preferences history_origins history_origin_components history_origin_account_states history_origin_ownership history_origin_instrument_preferences history_origin_fx_preferences activities activity_effects activity_trade_details activity_dividend_details activity_correction_groups holding_quantity_values account_state_observations account_state_ownership instrument_preference_observations fx_preference_observations history_snapshot_state instrument_state_observations holding_state_observations instrument_provider_bindings instrument_provider_binding_revisions instrument_observation_slots fx_observation_slots market_data_day_status product_operations product_contracts liquidity_policies liquidity_reservations product_operation_products product_operation_activities product_operation_reservations agent_quote_records app_configuration`)
+var financialSourceTables = strings.Fields(`households members institutions account_groups accounts account_ownership account_values instruments holdings account_cash_values instrument_quotes fx_quotes fx_preferences history_origins history_origin_components history_origin_account_states history_origin_ownership history_origin_instrument_preferences history_origin_fx_preferences activities activity_effects activity_trade_details activity_dividend_details activity_correction_groups holding_quantity_values account_state_observations account_state_ownership instrument_preference_observations fx_preference_observations history_snapshot_state instrument_state_observations holding_state_observations instrument_provider_bindings instrument_provider_binding_revisions instrument_observation_slots fx_observation_slots market_data_day_status product_operations product_contracts liquidity_policies liquidity_reservations product_operation_products product_operation_activities product_operation_reservations agent_quote_records agent_instrument_closures app_configuration`)
 
 // These are outputs, handling/idempotency or provenance receipts, not new
 // financial authorities. Schema additions require an explicit classification.
@@ -31,6 +31,7 @@ var financialColumnManifest = func() map[string][]schemaColumn {
 	for name, cols := range historySchemaColumns() {
 		tables[name] = cols
 	}
+	tables["agent_instrument_closures"] = []schemaColumn{{name: "id", typeName: "TEXT", notNull: 1, primaryKey: 1}, {name: "instrument_id", typeName: "TEXT", notNull: 1}, {name: "effective_date", typeName: "TEXT", notNull: 1}, {name: "effective_at", typeName: "TEXT", notNull: 1}, {name: "timezone", typeName: "TEXT", notNull: 1}, {name: "created_at", typeName: "TEXT", notNull: 1}}
 	return tables
 }()
 
@@ -204,6 +205,9 @@ func installFinancialSourceTracking(ctx context.Context, tx *sql.Tx) error {
 	}
 	sort.Strings(names)
 	for _, n := range names {
+		if strings.HasPrefix(n, "financial_source_agent_instrument_closures_") {
+			continue
+		}
 		if _, err = tx.ExecContext(ctx, statements[n]); err != nil {
 			return fmt.Errorf("install %s: %w", n, err)
 		}

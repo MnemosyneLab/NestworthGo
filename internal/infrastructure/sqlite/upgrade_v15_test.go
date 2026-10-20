@@ -47,7 +47,7 @@ func populatedV15(t *testing.T) string {
 // Snapshot every preexisting column in every table, sorted by its full row.
 func allV15Rows(t *testing.T, db *sql.DB) map[string][][]any {
 	t.Helper()
-	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'reconciliation_%' AND name NOT LIKE 'investment_review_%' AND name != 'account_financial_revisions' AND name NOT IN ('financial_source_revision','financial_source_changes','review_temporal_checkpoints') ORDER BY name`)
+	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'reconciliation_%' AND name NOT LIKE 'investment_review_%' AND name != 'account_financial_revisions' AND name NOT IN ('financial_source_revision','financial_source_changes','review_temporal_checkpoints','agent_instrument_closures') ORDER BY name`)
 	if err != nil {
 		t.Fatal(err)
 	}

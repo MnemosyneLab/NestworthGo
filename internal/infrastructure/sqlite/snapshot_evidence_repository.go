@@ -138,5 +138,10 @@ func (r *Repository) ReadSnapshotQuoteEvidence(ctx context.Context, household do
 	if err != nil {
 		return out, err
 	}
+	closures, err := listAgentClosuresQuery(ctx, tx, household)
+	if err != nil {
+		return out, err
+	}
+	out.InstrumentClosures = closures
 	return out, tx.Commit()
 }

@@ -182,8 +182,8 @@ func TestAgentStockClosedDaysCarryCompleteButMissingTradingDayDoesNot(t *testing
 	instrument.Type = domain.InstrumentMutualFund
 	friday.PriceBasis = "agent_unit_nav_v1"
 	selection = selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, []domain.InstrumentQuote{friday}, nil, "2026-09-20", time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC))
-	if selection.quote == nil || selection.coverageComplete {
-		t.Fatalf("NAV carry should remain incomplete on missing date: %+v", selection)
+	if selection.quote == nil || !selection.coverageComplete {
+		t.Fatalf("NAV should cover default weekend closure: %+v", selection)
 	}
 }
 

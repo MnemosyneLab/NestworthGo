@@ -152,7 +152,7 @@ func TestHistoricalSeriesAgentSelectionCoverageBoundaries(t *testing.T) {
 		{name: "unbounded weekday tail", kind: "close", from: "2026-08-03", to: "2026-08-05", days: []string{"2026-08-03"}, complete: []bool{true, false, false}},
 		{name: "equity weekend", kind: "close", from: "2026-08-07", to: "2026-08-09", days: []string{"2026-08-07"}, complete: []bool{true, true, true}},
 		{name: "NAV weekday carry", kind: "nav", from: "2026-08-03", to: "2026-08-05", days: []string{"2026-08-03", "2026-08-05"}, complete: []bool{true, false, true}},
-		{name: "NAV weekend carry", kind: "nav", from: "2026-08-07", to: "2026-08-09", days: []string{"2026-08-07"}, complete: []bool{true, false, false}},
+		{name: "NAV weekend carry", kind: "nav", from: "2026-08-07", to: "2026-08-09", days: []string{"2026-08-07"}, complete: []bool{true, true, true}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			s, db, _, _ := seriesAgentSelectionFixture(t, test.kind, test.days...)

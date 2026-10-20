@@ -33,7 +33,7 @@ type AgentMarketDataItem struct {
 	QuoteCurrency string `json:"quoteCurrency,omitempty" jsonschema:"FX only"`
 	Currency      string `json:"currency,omitempty" jsonschema:"Instrument quote currency; must match the instrument"`
 	Value         string `json:"value,omitempty" jsonschema:"Exact decimal string: raw unit price, unit NAV or FX rate. Never cumulative NAV or annualized yield."`
-	Kind          string `json:"kind,omitempty" jsonschema:"Instrument: latest, close, nav. FX: latest, daily_reference."`
+	Kind          string `json:"kind,omitempty" jsonschema:"Instrument: latest, close, nav, closed (no value/currency). FX: latest, daily_reference."`
 	Date          string `json:"date,omitempty" jsonschema:"Required YYYY-MM-DD market/NAV/reference date for daily observations"`
 	QuotedAt      string `json:"quotedAt,omitempty" jsonschema:"Actual RFC3339 quote timestamp required for latest; optional for daily data, never the lookup time"`
 	Delayed       bool   `json:"delayed,omitempty" jsonschema:"Whether the source identifies this as a delayed quote"`
@@ -219,8 +219,8 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 			return record, err
 		}
 		instrument = &v
-		if item.Kind != "latest" && item.Kind != "close" && item.Kind != "nav" {
-			return record, agentDataValidation("kind", "instrument kind must be latest, close or nav")
+		if item.Kind != "latest" && item.Kind != "close" && item.Kind != "nav" && item.Kind != "closed" {
+			return record, agentDataValidation("kind", "instrument kind must be latest, close, nav or closed")
 		}
 	} else {
 		if item.Currency != "" || item.BaseCurrency == "" || item.QuoteCurrency == "" {
@@ -229,6 +229,26 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 		if item.Kind != "latest" && item.Kind != "daily_reference" {
 			return record, agentDataValidation("kind", "FX kind must be latest or daily_reference")
 		}
+	}
+	if item.Kind == "closed" {
+		if instrument == nil || item.Value != "" || item.Currency != "" || item.QuotedAt != "" || item.Delayed || item.SplitFactor != "" || item.DividendCash != "" {
+			return record, agentDataValidation("items", "closed requires only instrumentId, date, optional timezone and provenance; it has no price")
+		}
+		when, _, err := s.agentMarketDataTime(ctx, item, instrument)
+		if err != nil {
+			return record, err
+		}
+		location := s.seriesLocation(ctx)
+		if instrument.MarketCode != nil {
+			if schedule, ok := domain.EquitySessionScheduleForMarket(*instrument.MarketCode); ok {
+				location, _ = time.LoadLocation(schedule.Timezone)
+			}
+		}
+		if item.Timezone != "" {
+			location, _ = time.LoadLocation(item.Timezone)
+		}
+		record.Closure = &domain.InstrumentClosure{ID: uuid.NewString(), InstrumentID: instrument.ID, Date: item.Date, EffectiveAt: when, Timezone: location.String(), CreatedAt: s.clock()}
+		return record, nil
 	}
 	if (item.SplitFactor != "" || item.DividendCash != "") && (instrument == nil || item.Kind == "latest") {
 		return record, agentDataValidation("items", "split/dividend metadata belongs to a daily instrument observation")
