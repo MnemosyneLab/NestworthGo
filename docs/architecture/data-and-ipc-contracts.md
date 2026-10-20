@@ -601,3 +601,12 @@ explicit reference-day/timestamp age limits. Cash, account balances, pensions,
 liabilities and manually valued accounts use ledger state, not this instrument
 calendar. Managed term/locked bank products continue to use their dedicated
 principal, accrual, maturity and valuation rules rather than unit-NAV rules.
+
+
+The instrument editor exposes **Set closed day** for active, unmanaged instruments
+with any quote preference. `quote.Service.SetInstrumentClosedDate` adapts the
+selected civil date to the same `ImportAgentMarketData(kind: "closed")` command
+used by MCP, with explicit user-declared provenance. No quote-source switch or
+synthetic price is written. The editor retains the operation UUID for retries,
+refreshes valuation/analysis/review and snapshot-state queries after success,
+and distinguishes a durable closure save from a pending snapshot rebuild.

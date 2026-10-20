@@ -15,6 +15,7 @@ const updateInstrument = vi.fn();
 const archiveInstrument = vi.fn().mockResolvedValue(undefined);
 const currentInstrumentQuote = vi.fn();
 const appendManualQuote = vi.fn();
+const setClosedDate = vi.fn();
 const searchInstruments = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
@@ -27,6 +28,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {
+    SetInstrumentClosedDate: (...args: unknown[]) => setClosedDate(...args),
     AppendManualInstrumentQuote: (...args: unknown[]) => appendManualQuote(...args),
     CurrentInstrumentQuote: (...args: unknown[]) => currentInstrumentQuote(...args),
   },
@@ -77,6 +79,7 @@ beforeEach(() => {
   updateInstrument.mockReset();
   archiveInstrument.mockClear();
   appendManualQuote.mockReset();
+  setClosedDate.mockReset().mockResolvedValue({ snapshotStatus: "not_started" });
   currentInstrumentQuote.mockReset();
   searchInstruments.mockReset();
   searchInstruments.mockResolvedValue([]);
@@ -320,6 +323,27 @@ describe("InstrumentManagement", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive" }));
     expect(archiveInstrument).toHaveBeenCalledWith("i1", true);
     await waitFor(() => expect(screen.queryByRole("form", { name: "Instrument form" })).not.toBeInTheDocument());
+  });
+
+  it.each(["agent", "provider", "manual"])("records a closed date with the real calendar for %s pricing and keeps retry identity", async (quoteSource) => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Synthetic closure", type: "stock", quoteCurrency: "USD", quoteSource }]);
+    setClosedDate.mockRejectedValueOnce(new Error("Synthetic failure"));
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const save = await screen.findByRole("button", { name: "Set closed day" });
+    expect(save).toBeDisabled();
+    await userEvent.click(screen.getByLabelText("Closed date"));
+    const days = screen.getAllByRole("gridcell").flatMap((cell) => Array.from(cell.querySelectorAll("button"))).filter((button) => !button.disabled);
+    expect(days.length).toBeGreaterThan(0);
+    await userEvent.click(days[0]);
+    await userEvent.click(save);
+    await screen.findByRole("alert");
+    await userEvent.click(save);
+    await waitFor(() => expect(setClosedDate).toHaveBeenCalledTimes(2));
+    expect(setClosedDate.mock.calls[0]).toEqual(setClosedDate.mock.calls[1]);
+    expect(setClosedDate.mock.calls[0]).toEqual([expect.stringMatching(/^[0-9a-f-]{36}$/), "i1", expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
+    expect(appendManualQuote).not.toHaveBeenCalled();
+    expect(updateInstrument).not.toHaveBeenCalled();
   });
 
   it("saves a manual instrument quote from Set price", async () => {

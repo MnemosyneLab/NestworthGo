@@ -2,6 +2,7 @@ package quote_test
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
@@ -198,5 +199,38 @@ func TestSetFXPreferenceAcceptsDirectPairWithoutBaseCurrency(t *testing.T) {
 	}
 	if preference.CurrencyA != "EUR" || preference.CurrencyB != "SGD" {
 		t.Fatalf("preference = %+v, want canonical EUR/SGD", preference)
+	}
+}
+
+func TestSetInstrumentClosedDateUsesSharedAgentFacts(t *testing.T) {
+	app := wailstest.NewService(t)
+	ctx := t.Context()
+	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Synthetic"}}); err != nil {
+		t.Fatal(err)
+	}
+	created, err := instrument.NewService(app).CreateInstrument(ctx, instrument.InstrumentRequest{Name: "Synthetic closure", Type: "stock", QuoteCurrency: "USD", QuoteSource: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := quote.NewService(app)
+	operation := domain.NewActivityID().String()
+	first, err := service.SetInstrumentClosedDate(ctx, operation, created.ID, "2026-01-15")
+	if err != nil || first.Inserted != 1 {
+		t.Fatalf("save: %+v %v", first, err)
+	}
+	replay, err := service.SetInstrumentClosedDate(ctx, operation, created.ID, "2026-01-15")
+	if err != nil || !replay.Replayed {
+		t.Fatalf("retry: %+v %v", replay, err)
+	}
+	facts, err := app.AgentMarketDataRecords(ctx)
+	if err != nil || len(facts) != 1 || facts[0].Closure == nil || facts[0].Closure.Date != "2026-01-15" || facts[0].InstrumentQuote != nil {
+		t.Fatalf("shared facts: %+v %v", facts, err)
+	}
+	current, err := service.CurrentInstrumentQuote(ctx, created.ID)
+	if err != nil || current != nil {
+		t.Fatalf("closure fabricated a price: %+v %v", current, err)
+	}
+	if _, err := service.SetInstrumentClosedDate(ctx, domain.NewActivityID().String(), created.ID, "invalid"); err == nil {
+		t.Fatal("invalid date accepted")
 	}
 }

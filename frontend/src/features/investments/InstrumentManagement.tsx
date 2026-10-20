@@ -21,6 +21,7 @@ import { useInstruments,
   useArchiveInstrument,
   useCurrentInstrumentQuote,
   useAppendManualInstrumentQuote,
+  useSetInstrumentClosedDate,
 } from "@/queries/investments";
 import { useProducts } from "@/queries/liquidity";
 import { useObjectNavigation } from "@/app/NavigationContext";
@@ -108,6 +109,34 @@ function ManualQuoteForm({
       </Button>
     </div>
   );
+}
+
+function ClosedDateForm({ instrumentId, initialDate }: { instrumentId: string; initialDate?: string }) {
+  const { t } = useTranslation();
+  const origin = useHistoryOrigin();
+  const today = ymdInTimeZone(new Date(), origin.data?.timezone ?? "UTC");
+  const [date, setDate] = useState(initialDate ?? "");
+  const operation = useRef({ date: "", id: "" });
+  const save = useSetInstrumentClosedDate();
+  const submit = () => {
+    if (!date) return;
+    if (operation.current.date !== date) operation.current = { date, id: crypto.randomUUID() };
+    save.mutate({ operationId: operation.current.id, instrumentId, date }, {
+      onSuccess: (result) => {
+        if (result.snapshotStatus === "pending") toast.warning(t("portfolio.closedSavedPending"));
+        else toast.success(t("portfolio.closedSaved"));
+      },
+    });
+  };
+  return <div className="flex flex-col gap-4">
+    <p className="text-sm text-muted-foreground">{t("portfolio.closedHelp")}</p>
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={`closed-date-${instrumentId}`}>{t("portfolio.closedDate")}</Label>
+      <DatePicker id={`closed-date-${instrumentId}`} max={today} value={date} onChange={setDate} disabled={save.isPending} />
+    </div>
+    {save.isError && <p role="alert" className="text-sm text-destructive">{displayError(save.error, t("portfolio.updateError"))}</p>}
+    <Button onClick={submit} disabled={!date || save.isPending}>{save.isPending ? t("common.pending") : t("portfolio.setClosed")}</Button>
+  </div>;
 }
 
 function QuoteQuality({
@@ -487,6 +516,12 @@ export function InstrumentManagement({
                   />
                 </div>
               )}
+            </div>
+          )}
+          {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && (
+            <div className="mt-5 border-t border-border pt-5">
+              <h3 className="mb-4 text-sm font-semibold">{t("portfolio.setClosed")}</h3>
+              <ClosedDateForm key={`${editTarget.id}-closed`} instrumentId={editTarget.id} initialDate={focus?.rangeStart} />
             </div>
           )}
         </SheetContent>
