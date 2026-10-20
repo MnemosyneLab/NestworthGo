@@ -1,6 +1,6 @@
 # Dense historical series: shared endpoint request IDs
 
-**Deferred prototype checkpoint.** Parent has paused this independent investigation to prioritize C2b. The distribution/profile results are completed evidence; final whole-suite/race validation and draft review for this prototype have not been completed. No PR or merge is requested by this preservation commit.
+**Historical prototype record.** This 2026-10-19 evidence predates current-main validation. The branch is now under review in PR #133; current correctness, matched performance and CI evidence is in the [2026-10-20 validation record](performance-dense-series-2026-10-20.md). Do not use the older 30-pair measurements as current-main or native acceptance.
 
 Independent of C2, based on main `8058bf6e421cc291460a346125ec4fb0a1087926` (CI pause declaration included). Production implementation: `a613acbe55c2d24740786ad3aeedee11c5936305`. No schema/index/cache, financial formula, input budget or runtime deadline changes.
 
