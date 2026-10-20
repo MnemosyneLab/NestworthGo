@@ -8,36 +8,6 @@ quantity and total-cost reconciliation, pure cost corrections, and guarded
 activity undo/fix. This document does not establish end-to-end native UI or
 external-agent acceptance; consult the release record for their status.
 
-## Delivery plan
-
-The agreed scope is a complete business entry point: directory maintenance,
-daily ledger operations, queries/analysis, and reconciliation/corrections.
-The user confirmed completion after the following final three items:
-
-- [x] Target total-cost reconciliation and pure cost correction.
-- [x] Position transfers with cost preservation and atomic destination creation.
-- [x] Return contribution queries and detail drilldown.
-
-This development plan is complete. Receipt/plan cleanup, combined directory and
-ledger transactions, and broader frontend/MCP parity are separate follow-ups.
-
-| Stage | Scope | Status |
-| --- | --- | --- |
-| 1 | Local transport, credentials, permission modes, directory/account/instrument maintenance, current queries, UI refresh, write receipts | Implemented; validation below |
-| 2 | Income/expense, buys/sells, transfers/FX, dividends/debt, existing holdings, preview/commit, atomic batches | Implemented, including atomic batches and position transfers |
-| 3 | Period income/expense, asset changes, investment returns, contribution, historical detail and quality | Implemented, including contribution grouping, pagination and detail tools |
-| 4 | Target-state balance/quantity/cost reconciliation, pure cost correction, safe undo/fix | Implemented, including distinct cost correction events |
-
-Permissions are explicit and household-wide. `read_only` registers queries and
-analysis tools. Analysis can maintain local derived snapshots and invalidate
-ledger previews; it has non-read-only MCP annotations but cannot write financial
-facts or provider data. Strict no-write context/comparison/page reads remain
-distinct from this analysis path.
-`directory_write` adds directory mutations; `ledger_write` adds daily ledger
-preview/commit, reconciliation and corrections, data health repair, and includes directory maintenance. Existing installations retain
-their selected permission. Account creation still permits only an empty/zero
-initial amount. Enable ledger permission explicitly to record subsequent funding.
-
 ## Read-only financial context
 
 `get_financial_context` captures current state or one closed date with a
@@ -592,119 +562,11 @@ Member filters remain explicitly unavailable, and member is not a valid
 analysis scope. History hints identify related activities and can be broader
 than an exact currency/class-filtered breakdown.
 
-## Acceptance criteria
+## Current scope boundary
 
-- Income/expense excludes own-account transfers and investment principal flows.
-- Trades update settlement cash, quantity, fees/cost and realized gain together.
-- Existing-holding import does not imply cash funding or a new purchase.
-- Period queries resolve household history timezone and disclose coverage gaps.
-- Reconciliation takes current target balances, quantities and total costs
-  without inferring a trade; cost-only corrections leave cash/quantity unchanged.
-- Directory creation combined atomically with ledger writes, and plan/receipt
-  retention cleanup, are follow-up extensions outside this completed scope.
-- Preview plans bind to current data and reject stale concurrent edits.
-- Validate against isolated databases and copied real data, never mutate the
-  user's live ledger as an implementation test.
-
-## Validation
-
-Final scope verification on 2026-09-29:
-
-- Full `go test ./...`: passed. Existing macOS deployment-target linker warnings
-  remain. Targeted cost tests also pass after the final generic-fix guard.
-- Focused race tests cover cost corrections, transfers, attribution and v13→v14
-  migration: passed. Static `go vet` for the touched Go layers also passed.
-- Frontend typecheck and lint passed; focused history/settings tests passed.
-  Wails bindings were regenerated for the added cost-preview field and the
-  generated-bindings consistency check passed.
-- Migration regression preserves prior activity/effect/projection/mutation
-  records. Cost tests verify unchanged cash/quantity, corrected subsequent sale
-  gains, inherited transfer basis, preserved acquisition FX provenance, and no
-  spurious asset-change flow. Export retains the cost effect and cost-basis event.
-- External-agent and native UI acceptance is handed off to the user's testers.
-  All automated ledger tests used temporary databases; no live ledger was changed.
-
-Reconciliation/correction extension verification on 2026-09-29:
-
-- Full `go test ./...`, focused application/MCP race tests, and `go vet` for
-  application/MCP/SQLite: passed. Desktop compilation still emits existing
-  macOS deployment-target linker warnings.
-- Frontend `tsc --noEmit` and six settings permission tests: passed.
-- Temporary-database HTTP tests verify current targets, original-date fixes,
-  frozen-time reversals, stale/expired plans, mode gating and receipt recovery.
-- Cost assertions cover added quantity and reductions; unavailable balances or
-  costs and archived/managed holdings are rejected. A later holding trade blocks
-  an unsafe undo without changing cash, quantity or activities.
-- Fault injection verifies rollback of both correction activities and the
-  mutation key, and recovery after a committed correction whose snapshot
-  refresh returned a domain error.
-- Native UI, external-agent acceptance and copied-real-data checks were not run
-  for this extension. No live ledger was modified.
-
-Batch/import extension verification on 2026-09-29:
-
-- `go test ./...`: passed, including desktop package compilation. Existing
-  macOS deployment-target linker warnings remain.
-- Focused race tests across `internal/mcpserver`, `internal/application`, and
-  `internal/infrastructure/sqlite`: passed for batches, imports, mutation replay,
-  and guarded concurrent writes.
-- `go vet ./internal/mcpserver ./internal/application ./internal/infrastructure/sqlite`:
-  passed.
-- Frontend typecheck, lint and the six settings permission tests: passed.
-  Wails bindings regenerated without manual edits. This extension changes only
-  permission descriptions in the frontend; the prior full frontend baseline
-  was 71 test files / 549 passing tests and a successful production build.
-- `git diff --check`: passed.
-
-MCP tests use temporary SQLite households and the official HTTP SDK. New tests
-cover dependent funding/buy/sell batches, import/sell batches, explicit-cost
-imports without cash effects, duplicate active-position rejection, wrong commit
-tools, timestamp ordering, request bounds, stale/expired plans and pending-receipt
-recovery. An injected failure on the second Activity verifies that SQLite rolls
-back new holdings, activities and the durable batch key together.
-
-Application tests check historical insertion across existing later records,
-same-time order followed by another single write under a fixed clock, and replay
-after reopening the database. A compatibility test proves read-only verification
-of a pre-feature v13 database leaves its bytes and missing batch table unchanged;
-writable Open then adds the table while preserving existing household facts.
-
-Native UI and a configured external agent using the new batch/import tools were
-not exercised. No live ledger was modified.
-
-
-Two-state read-only comparisons use `compare_financial_context` and
-`get_financial_comparison_page`. They capture both states together and compute
-right-minus-left changes with shared identity aliases. These are not returns or
-attribution. See the [comparison contract](financial-context.md#two-state-comparison)
-for scopes, category definitions, disclosure, nullable differences and shared
-cache/transport budgets.
-
-For “why did these two states change; was that profit?”, use
-`compare_financial_attribution` for a new coherent comparison after derived
-snapshot maintenance. It supplies compatible/incompatible/unavailable status,
-normalized A+1..B local period, scoped evidence digest, existing net-worth
-waterfall and separate investment-return summary. Stop on compatibility failure;
-never append live analysis to an old frozen comparisonId. Household and a single
-account are supported; account sets and current-right returns are unavailable.
-The comparison retains exact valuation decimals. The link declares the existing
-four-place half-even component/period-driver projection and separately discloses
-signed precision adjustments: exact change.netWorth equals explainedDelta plus
-residual plus precisionAdjustment. These adjustments are neither returns nor
-unknown residuals; exact per-day bucket gaps still fail strict reconciliation.
-Actual A..B snapshot coverage is backfilled independently of a later completion
-watermark; later requests retain earlier unbuilt dirty markers. Unsupported
-A..B+1 midnights stop before maintenance.
-Its frozen pages use `get_financial_comparison_page`. See the
-[attribution contract](financial-context.md#coherent-comparison-attribution) and
-[portable workflow](../../skills/nestworth/references/analysis.md#link-a-comparison-to-change-attribution).
-
-Analysis can write derived snapshots without changing financial facts. Accordingly
-`analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`,
-`get_asset_driver_detail` and `compare_financial_attribution` publish
-readOnlyHint=false/destructiveHint=false; all remain in existing permission modes.
-`compare_financial_context` and frozen page tools retain strictly read-only hints.
-Updating these repository skill files does not install them into a client.
+The local MCP contract and its executable tests define available operations.
+Release records own version-specific validation and external/native acceptance;
+this integration guide is not a historical test report or acceptance handoff.
 
 ## Ordinary liquidity policy parity
 

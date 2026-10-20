@@ -1,141 +1,30 @@
 # Product Roadmap
 
-## 0.3.8 — Current published release
-
-Status: Published 2026-10-14 (build 9). Adds Upcoming Actions, Historical
-Panorama, investment reviews, safer cash adjustment and Repeat workflows, and
-broader local MCP support. The [release record](../releases/v0.3.8.md) owns the
-exact scope, compatibility, evidence, and owner-deferred native acceptance.
-
 ## Authority
 
-The current application and tests define what exists. This roadmap records the
-order in which user value and operational safety should improve; a roadmap
-entry is not an implementation claim.
+The application source and tests define current behavior. The latest published
+release is [v0.3.8](../releases/v0.3.8.md); current main identifies itself in
+[local workflow](../development/local-workflow.md). Release records own shipped
+scope and acceptance evidence. This page describes future directions only; it
+is not a delivery commitment.
 
-## 0.3.7 — Financial context and managed-product MCP (previous release)
+## Planned design
 
-Status: Published 2026-10-09 (build 8). Adds consistent/frozen MCP financial
-context and comparisons, managed-product/liquidity reads, guarded lifecycle,
-terms and valuation writes, and requested-range snapshot coverage repair.
-The delegated real Codex/MCP/skill acceptance task, reviewed by Saul, records a
-scoped pass on Mac mini against source `2cad89e`; delegated package/onboarding
-and persistence checks are summarized in the
-[release contract](../releases/v0.3.7.md). Full native GUI regression was
-deferred; macOS 12 runtime behavior was not tested.
+- [Monthly review and data confidence](../design/monthly-review-and-data-confidence.md): a local month-end review of data issues, as-of balances and holdings, with later-history invalidation. Design only; not implemented.
+- Improve maintenance workflows as local data grows, including search, saved views, and clearer audit/history navigation. No scoped feature or schedule is approved.
+- Consider optional integrations only after the local model, privacy boundary, and recovery story are defined.
+- Treat encrypted backup as a separate security design.
 
-## 0.3.6 — Continuous backup and explicit disaster recovery
-
-Status: Published on 2026-10-03 (build 7). App-running SQLite backup to R2 is off by default.
-Configuration/status are local and separate from the schema-15 business DB.
-Recovery stages and verifies a candidate before explicit installation, retaining
-an original safety copy and startup rollback. Each start/re-enable uses an
-isolated stream. Shared secret inputs expose fixed masks and new input only.
-The release's historical scope, validation and closeout record is in the
-[release contract](../releases/v0.3.6.md).
-
-## 0.3.5 — Household liquidity and agent workflows
-
-Status: Published on 2026-09-30 (build 6). This release includes
-household overview and Data Health improvements, Available Funds with
-reservations and managed deposits/locked products, expanded local MCP ledger,
-analysis, correction and repair tools, Agent-supplied market data, and the
-Wails v3.0.0-beta.26 upgrade. SQLite schema 15 is current. See the
-[release contract](../releases/v0.3.5.md) for compatibility, scope and historical
-preparation evidence.
-
-Schema 11 databases from v0.3.4 are not upgraded by this line. Cloud backup was deferred in v0.3.5; v0.3.6 adds explicit opt-in backup.
-Synchronization, direct bank/brokerage connections and automatic market-data
-refresh remain deferred.
-
-## 0.3.4 — Portfolio, settings, and insights closeout
-
-Status: `Published` on 2026-09-20 (build `5`). See the
-[release contract](../releases/v0.3.4.md) for current verification.
-
-Implemented scope includes a combined Portfolio page, cross-account holdings,
-reorganized Settings, insights trend/driver summaries, versioned JSON export,
-and Wails `v3.0.0-beta.23`. SQLite schema remains `11`. Native acceptance and
-distribution gates are tracked separately from automated checks.
-
-## 0.3.3 — Broader market data and reliable repair
-
-Status: `Published` on 2026-09-19 (build `4`). See the
-[release contract](../releases/v0.3.3.md) for current verification.
-
-Implemented scope includes Yahoo search, CoinGecko crypto pricing,
-gold/silver templates with unit and currency conversion,
-per-instrument historical ranges, clearer repair progress, quote-history
-metadata, local diagnostics, and historical valuation/analytics fixes.
-SQLite schema 11 preserves existing custom-metal instruments during upgrade.
-Native acceptance and distribution gates are tracked separately from automated checks.
-
-## 0.3.2 — Historical market data and Data Health
-
-Status: `Published` on 2026-09-14. See the [release contract](../releases/v0.3.2.md).
-
-This line added provider-neutral historical market data, coverage and repair
-planning, Data Health, historical providers, and resumable snapshot rebuilds.
-
-## 0.3.1 — Insights: Return Analysis and Asset Changes
-
-Status: `Superseded` by `0.3.2`.
-
-This line carries forward the local-first Wails v3 desktop and schema `9`, and
-replaces the old Analysis dashboard with Return Analysis and Asset Changes:
-scoped universes, one-pass classification, signed Asset Changes identity,
-path-aware Price/FX, Dietz linking, memoized Wails projections, shared
-filters, History deep-links, residual tolerance, and Origin-timezone
-boundaries.
-
-## 0.3.0 — Backup, restore, and CSV portability
-
-Status: `Superseded` by `0.3.1`.
-
-This line keeps the Wails v3 local-first desktop and schema `9`, and adds
-recoverable local backup/restore plus create-only Accounts/Holdings CSV
-exchange. Closeout priorities are:
-
-- verified `.nestworth-backup` packages and journaled restore with quit/relaunch;
-- blocked-startup restore without an open business session;
-- CSV preview, mapping, and all-or-nothing create-only import.
-
-## 0.2.1 — Account container model
-
-Status: `Superseded`. The unpublished `0.2.1` Account-container closeout is
-replaced by `0.3.0`.
-
-## 0.2.0 — Coherent local-first desktop
-
-Status: `Superseded`. The unpublished `0.2.0` Wails v3 closeout is replaced by
-`0.2.1`.
-
-## Next product increments
-
-These are future product directions; they are not commitments for the unreleased
-current main version or claims of implementation:
-
-1. [Monthly review and data confidence](../design/monthly-review-and-data-confidence.md):
-   one local loop to surface data issues, confirm as-of balances and holdings,
-   save the review, and notice when later history invalidates it.
-2. Maintenance: search, saved views, and clearer audit/history workflows as
-   the local data set grows.
-3. Integrations: optional direct connections only after the local model,
-   privacy boundary, and recovery story are strong enough to support them.
-4. Encrypted backup as a separate security design.
-
-## Long-term direction
+## Deferred direction
 
 Synchronization, multi-device operation, background refresh, tax reporting,
-budgeting, and multi-user permissions require separate product and security
-contracts. They must not be introduced by implication through a provider,
-backup, or import feature.
+budgeting, and multi-user permissions need separate product and security
+contracts. Their mention here does not imply implementation or commitment.
 
-## Dependency rules
+## Product constraints
 
 - Data safety precedes synchronization.
-- Import validates and previews before it writes.
+- Imports validate and preview before writing.
 - Automation proposes facts; it does not silently post financial changes.
 - Optional integrations remain replaceable infrastructure.
-- Historical and financial definitions remain stable when presentation
-  changes.
+- Presentation changes preserve established historical and financial definitions.

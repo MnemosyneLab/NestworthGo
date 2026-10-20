@@ -12,7 +12,7 @@ the startup/onboarding gates are defined by
 - [Account Container Interaction](account-container-interaction.md) — Account creation, detail views, actions, state handling, and accessibility behavior.
 - [History and related-form defaults](history-and-form-defaults-ux.md) — Current history, picker, calculation, quote, timezone, and form-state behavior.
 - [Backup, restore, and JSON export](backup-restore-and-json-export.md) — Implemented local backup, restore, and complete structured data export.
-- [Visual analytics and market history](visual-analytics-and-market-history.md) — Implemented chart and local quote-history surfaces, with external historical-series work still planned.
+- [Visual analytics and market history](visual-analytics-and-market-history.md) — Implemented chart and provider-backed historical-series surfaces; live-provider and native acceptance remain release gates.
 - [Analytics redesign architecture](analytics/analytics-redesign-architecture.md) — Return Analysis and Asset Changes kernel, projections, and golden cases. Product behavior is in [analytics product design](analytics/analytics-product-design.md).
 - [Monthly review and data confidence](monthly-review-and-data-confidence.md) — Planned local month-end review loop; not part of the current release.
 - [Available Funds, Term Deposits, and Locked Products](available-funds.md) — Implemented liquidity estimates, source rules, reservations, explicit contract lifecycle operations, and exclusions.
@@ -25,18 +25,19 @@ the startup/onboarding gates are defined by
 
 ## Current screen map
 
-The desktop shell exposes these top-level destinations:
+The desktop shell exposes these destinations (with group headings omitted):
 
 - Overview;
 - Accounts;
 - Available funds;
 - Portfolio, with Overview and Holdings tabs;
+- Tasks & checks, with Upcoming actions, Investment review, and Reconciliation tabs;
 - History;
 - Historical overview;
 - Return Analysis;
 - Asset Changes;
 - Directory, containing Members, Institutions, and Groups;
-- Market Data and Data Health;
+- Market Data;
 - Settings.
 
 An empty local database opens onboarding. A database that cannot be opened or

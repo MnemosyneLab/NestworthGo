@@ -166,11 +166,7 @@ change, not by a claim of native or stage-two acceptance.
 
 ### Storage compatibility
 
-No other legacy migration is supported.
-See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
-See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)
-for verification, transaction, recovery-copy and v15–21 upgrade boundaries. Missing current tables and old
-constraints fail verification rather than being repaired. Durable settings and
+See [database support and storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery) for the current schema, supported historical versions, migration order, recovery-copy guarantees, and blocked database states. Missing current tables and old constraints fail verification rather than being repaired. The [short-name release note](investment-short-names.md) records only the historical v15→v16 feature migration. Durable settings and
 provider credentials live in SQLite; the separate versioned JSON file stores
 presentation preferences.
 

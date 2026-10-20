@@ -1,7 +1,11 @@
 # Account reconciliation architecture
 
-This document describes the implemented contract. Current release records own
-acceptance status and remaining native gates. Reconciliation changes the local ledger,
+This document describes the implemented contract. See the
+[reusable validation matrix](../testing/account-reconciliation.md) and the
+[PR #89 implementation evidence](https://github.com/MnemosyneLab/NestworthGo/pull/89).
+The [v0.3.8 release record](../releases/v0.3.8.md) retains the owner-deferred
+native acceptance gate; this document does not claim that gate passed.
+Reconciliation changes the local ledger,
 never a financial institution or brokerage order.
 
 ## Authority and evidence

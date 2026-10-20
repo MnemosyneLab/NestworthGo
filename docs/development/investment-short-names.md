@@ -1,5 +1,7 @@
 # Optional investment short names
 
+> Historical feature note: this document records the v15→v16 short-name migration only. It is not current storage policy. Current supported versions and recovery guarantees live in [Database support and storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery).
+
 Base: verified main `c84910971e3bf30c110e1e88f74686679172e3a0`.
 This change uses a separate branch. After PR #56 and PR #57 merged, the branch
 integrates main `74778dbc2f93f253be54ec65c0115112f4b489f9` with a merge commit.
@@ -65,9 +67,7 @@ receipts' encoding. Product details retain the symbol and legal name.
 ## Narrow storage upgrade
 
 Schema 16 adds only `instruments.short_name TEXT NOT NULL DEFAULT ''`.
-There is one supported predecessor, schema 15; this is not a general migration
-chain. Version zero, schemas 1–14, unknown schemas, future versions, and malformed
-v15–v22 schemas continue to fail their version/integrity guards.
+The feature migration added `instruments.short_name` when upgrading schema 15 to 16. The current application now supports later schemas; see the canonical storage contract linked above. This section documents the historical v15→v16 migration only.
 
 For an existing v15 file, `sqlite.Open`:
 
@@ -93,16 +93,8 @@ For an existing v15 file, `sqlite.Open`:
    retry can open it; the verified v15 recovery copy remains available.
 
 There are no financial-row conversions, rebuilds, decimal coercions, deleted
-records or bypassed version guards. Read-only backup verification recognizes
-validated v15–22 without migrating the inspected file. Backup package
-restore checks that the database version matches its manifest before the live
-session is touched. The existing restore journal and safety-copy behavior remain
-in use; the installed v15 copy upgrades when opened normally.
-
-Cloud recovery recognizes supported v15–22 stream identities and checks the staged
-file's version against that identity. Inspection leaves v15 staged files and
-source stream metadata unchanged. New streams use v16; existing stream metadata
-is never overwritten. No external connection/provider behavior changes.
+records or bypassed version guards. The current backup, restore, and cloud-stream
+compatibility contract is maintained in the canonical storage document.
 
 Old schema-15 binaries deliberately reject a schema-16 live database. Rollback
 copies the retained pre-upgrade v15 file to a **new live path** (file 0600)

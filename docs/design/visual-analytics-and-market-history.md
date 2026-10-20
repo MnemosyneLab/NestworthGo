@@ -1,15 +1,16 @@
 # Visual Analytics and Market History
 
 - Owner: Product, Design, and Analytics
-- Status: **Implemented surfaces; provider-backed external historical series remains planned**
+- Status: **Implemented provider-backed historical series; live-provider and native acceptance remain release gates**
 - Original design baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
 - Scope: chart surfaces and local quote history in Overview, Portfolio, Return Analysis, Asset Changes, Investments, and Market Data
 - Companion: [Domain Model](../architecture/domain-model.md) and [Data and Application Contracts](../architecture/data-and-ipc-contracts.md), including the [historical coverage and opening-anchor contract](../architecture/data-and-ipc-contracts.md#historical-coverage-negative-checks-and-opening-anchors)
 
-This document describes the current chart contract and the remaining work for
-historical-series providers. It does not authorize network access when a page
-opens. Local snapshots and quote observations are the first source for every
-chart.
+This document describes current chart behavior. Provider history is user
+initiated through Market Data; opening a page remains local-only. Local
+snapshots and quote observations are the first source for every chart. The
+v0.3.2 and v0.3.3 release records document shipped provider support while
+retaining unverified live-provider and native acceptance gates.
 
 ## 1. User questions and chart choices
 
@@ -50,10 +51,12 @@ The current frontend already provides the following behavior:
 - Page loading, empty, incomplete, and provider-error states remain separate;
   missing values are not converted into zero points.
 
-The remaining in-progress area is external historical-series fetching. Yahoo
-and Frankfurter currently provide latest values in production; a provider must
-explicitly advertise any future daily-history capability before a fetch action
-is shown.
+Historical provider support is implemented: Tiingo and Yahoo provide
+instrument history, Frankfurter provides FX history, and CoinGecko provides
+daily crypto history. Provider capability is explicit, and history sync is
+user initiated. See the [v0.3.2](../releases/v0.3.2.md) and
+[v0.3.3](../releases/v0.3.3.md) release records for scope and acceptance
+limits.
 
 ## 3. Page contracts
 
