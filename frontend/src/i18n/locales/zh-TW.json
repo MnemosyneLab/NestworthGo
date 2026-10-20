@@ -1668,6 +1668,8 @@
       "unknown_other": "資料不足{{count}}天",
       "days_one": "{{count}}天",
       "days_other": "{{count}}天",
+      "needsAttention_one": "{{count}}個待關注",
+      "needsAttention_other": "{{count}}個待關注",
       "investments_one": "{{count}}個標的",
       "investments_other": "{{count}}個標的",
       "actionableRules_one": "{{count}}條可處理規則",
