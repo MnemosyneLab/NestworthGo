@@ -15,7 +15,7 @@ func TestReviewPrefixMemoLocalGuards(t *testing.T) {
 	if os.Getenv("NW_D2_MEMO_GUARDS") != "1" {
 		t.Skip("opt-in memo matrix")
 	}
-	for _, scenario := range []string{"stale", "cancel", "evict", "source", "provider", "ack", "suppression", "missing-row", "clock-rollback", "reopen"} {
+	for _, scenario := range []string{"stale", "cancel", "evict", "source", "provider", "ack", "suppression", "missing-row", "clock-rollback", "reopen", "rule"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "consecutive", Count: 3})
 			r = r.WithReviewPrefixMemoExperiment()
@@ -44,6 +44,9 @@ func TestReviewPrefixMemoLocalGuards(t *testing.T) {
 				}
 			case "evict":
 				r.EvictReviewPrefixMemo()
+			case "rule":
+				saveSyntheticReviewRule(t, f, "Synthetic memo rule edit", syntheticHistoricalReviewSpec())
+				wantSuffix = false
 			case "source":
 				suffixQuote(t, f, f.instrument.ID, "2026-10-05", "90")
 			case "provider":
@@ -99,6 +102,16 @@ func TestReviewPrefixMemoLocalGuards(t *testing.T) {
 			if scenario != "missing-row" && scenario != "reopen" {
 				requireCertifiedNoop(t, f, r)
 			}
+			if scenario == "ack" || scenario == "suppression" {
+				f.day(t, "2026-10-15")
+				assertSuffixOracle(t, f, r, true)
+				f.day(t, "2026-10-16")
+				warm := assertSuffixOracle(t, f, r, true)
+				if warm.Capture.Certified.SuffixMemoObservation.ReusedDays == 0 {
+					t.Fatal("handling/expiry warm memo not exercised")
+				}
+			}
+
 		})
 	}
 }
@@ -135,5 +148,30 @@ func TestReviewPrefixMemoExactFX(t *testing.T) {
 				t.Fatal("private FX alias")
 			}
 		}
+	}
+}
+
+func TestReviewPrefixMemoFutureActivationLocal(t *testing.T) {
+	if os.Getenv("NW_D2_MEMO_GUARDS") != "1" {
+		t.Skip("opt-in future membership memo guard")
+	}
+	f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
+	r = r.WithReviewPrefixMemoExperiment()
+	f.s.repository = r
+	f.day(t, "2026-10-14")
+	f.quantity(t, false)
+	f.day(t, "2026-10-12")
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	f.day(t, "2026-10-13")
+	cold := assertSuffixOracle(t, f, r, true)
+	f.day(t, "2026-10-15")
+	active := assertSuffixOracle(t, f, r, false)
+	if cold.Capture.SourceRevision.Token != active.Capture.SourceRevision.Token {
+		t.Fatal("future activation unexpectedly required a journal write")
+	}
+	if active.Capture.Certified.SuffixMemoObservation != nil && active.Capture.Certified.SuffixMemoObservation.ReusedDays != 0 {
+		t.Fatal("future membership bypassed full source invalidation")
 	}
 }
