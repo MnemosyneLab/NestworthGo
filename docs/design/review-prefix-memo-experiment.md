@@ -1,7 +1,15 @@
 # Same-handle prefix memo: bounded experiment contract
 
-This opt-in experiment extends authenticated D2, not ordinary C2 routing or
-persistent E/shared facts. Normal D2 enablement and full rollback remain intact.
+Current rollout: the user approved default enablement after the qualitative
+experiment. Normal GUI and MCP share `WithDefaultReviewOptimizations()`, which
+enables D1/D2 plus the bounded memo. `NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE=1`
+disables only the memo; `NESTWORTH_REVIEW_FULL_RECOMPUTE=1` selects full
+recomputation and takes precedence. These switches are process-local. Direct
+`NewRepository` retains its baseline configuration; diagnostics may explicitly
+select `WithReviewPrefixMemo(false)`.
+
+This extends authenticated D2, not ordinary C2 routing or persistent E/shared facts.
+Full rollback remains intact.
 It claims neither O(new-days) reconciliation nor native/performance acceptance.
 
 Private representation: immutable strings encoding complete typed input via the
@@ -62,11 +70,14 @@ snapshots cannot evict or stage over a newer committed snapshot: lookup, interna
 invalidation and pending installation are generation-fenced too. Explicit user
 eviction remains unconditional and affects no certificate.
 
-The feature is explicitly opt-in through WithReviewPrefixMemoExperiment. Normal
-D2 does not activate memo storage or hooks; the existing D2 enablement and process
-rollback switch are unchanged. Once activated on a handle, other publications
-can invalidate its optional state without changing certification authority.
+Explicit `WithReviewDependencySuffix()` alone does not activate memo storage or
+hooks; normal startup uses `WithDefaultReviewOptimizations()` to enable it.
+`WithReviewPrefixMemoExperiment` remains an alias for diagnostic compatibility.
+Once activated on a handle, other publications can invalidate optional state
+without changing certification authority.
 
 [Measured qualitative result](../testing/performance-d1-d2-prefix-memo-2026-10-20.md):
-warm savings with material retained-memory cost; experiment remains opt-in and
-normal rollout is unaccepted. No further sampling is required for this checkpoint.
+warm savings with material retained-memory cost. Default enablement is now
+user-authorized despite that cost; it is not global performance acceptance.
+See the [bounded SQL/rollout report](../testing/performance-d1-d2-bounded-sql-2026-10-20.md)
+for the subsequent validation/commit checkpoint.

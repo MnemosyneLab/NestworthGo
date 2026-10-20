@@ -218,7 +218,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 			}
 		}
 	}
-	minimumDay, err := validateReviewSuffixPublication(capture, publication.Rules)
+	_, err = validateReviewSuffixPublication(capture, publication.Rules)
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		// Load exact row images only from an already authenticated same-handle
 		// namespace under this reservation, before the final injected clock.
 		// Missing/unknown/restarted state retains every original UPSERT.
-		equalDaily, err = loadReviewPublicationEquality(ctx, tx, capture.HouseholdID, minimumDay)
+		equalDaily, err = loadReviewPublicationEquality(ctx, tx, capture.HouseholdID, publication.Rules)
 		if err != nil {
 			return err
 		}

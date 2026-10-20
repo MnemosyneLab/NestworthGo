@@ -159,3 +159,10 @@ semantics are unchanged. Without any attested output, the full equality reader
 is unchanged. This is a bounded D2 publication proof, not a lifecycle checkpoint,
 E/shared facts, a new historical trust authority or a fingerprint substitution
 for exact SQL argument comparison.
+
+
+Normal GUI/MCP startup now also enables the bounded same-handle prefix memo
+following explicit user approval. `NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE=1`
+disables that memo while retaining D1/D2; the full-recompute switch above takes
+precedence. See [the memo contract](review-prefix-memo-experiment.md) for limits,
+authority requirements and the measured cold/memory tradeoff.
