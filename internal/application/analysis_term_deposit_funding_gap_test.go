@@ -137,6 +137,7 @@ func TestReturnAnalysisSurvivesTermDepositStartBeforeFundingCash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	markedProduct := false
 	for _, snapshot := range snapshots {
 		if snapshot.LocalDate < "2026-10-01" || snapshot.LocalDate > "2026-10-18" {
 			continue
