@@ -100,8 +100,15 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		return err
 	}
 	defer tx.Rollback()
+	memoGeneration := r.reviewMemoGeneration()
 	checkpoint, certified, mayCertify, err := r.verifyCertifiedPublication(ctx, tx, capture, providerLeased, connectionID)
 	if err != nil {
+		return err
+	}
+	if capture.Suffix != nil && !r.reviewDependencySuffix {
+		return reviewRuleConflict("suffix mode is disabled")
+	}
+	if err := requireReviewSuffixAuthority(capture, certified, mayCertify, providerLeased); err != nil {
 		return err
 	}
 	certifiedSourceUsed = certified
@@ -211,12 +218,16 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 			}
 		}
 	}
+	_, err = validateReviewSuffixPublication(capture, publication.Rules)
+	if err != nil {
+		return err
+	}
 	var equalDaily *reviewPublicationEquality
 	if certified && mayCertify && capture.Certified != nil && capture.Certified.MayCertify && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil && r.authenticReview(capture.PublishedTemporal, capture.Certified.ProjectionSeal) {
 		// Load exact row images only from an already authenticated same-handle
 		// namespace under this reservation, before the final injected clock.
 		// Missing/unknown/restarted state retains every original UPSERT.
-		equalDaily, err = loadReviewPublicationEquality(ctx, tx, capture.HouseholdID)
+		equalDaily, err = loadReviewPublicationEquality(ctx, tx, capture.HouseholdID, publication.Rules)
 		if err != nil {
 			return err
 		}
@@ -242,6 +253,12 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		publishedTemporal.NextTransitionAt = frontier.NextTransitionAt
 	}
 	if err := validateReviewPublicationTime(capture, publication.Rules, now); err != nil {
+		return err
+	}
+	if err := r.verifyReviewSuffixPrefix(capture); err != nil {
+		return err
+	}
+	if _, err := validateReviewSuffixPublication(capture, publication.Rules); err != nil {
 		return err
 	}
 	// Consume private genesis eligibility before any publication writes while
@@ -364,6 +381,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	r.commitReviewMemo(capture, publishedTemporal, memoGeneration)
 	if publishedTemporal.CertifiedMAC != "" {
 		r.database.reviewCertificateKey.issued.Store(true)
 	}
@@ -475,7 +493,6 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 		}
 	}
 	atText := at.UTC().Format(time.RFC3339Nano)
-	inputPolicy := "rule:" + string(item.RuleID) + "/v:" + strconv.Itoa(item.ConditionVersion)
 	for _, day := range item.Days {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -483,25 +500,10 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 		if day.On != day.Input.On || day.Result.On != day.On || day.Input.InstrumentID != item.InstrumentID {
 			return &domain.Error{Code: domain.ErrValidation, Field: "day", Message: "review date or instrument mismatch"}
 		}
-		inputJSON, err := json.Marshal(day.Input)
-		if capture.Certified != nil {
-			inputJSON, err = encodeCompleteReviewInput(day.Input)
-		}
+		inputValues, resultValues, err := reviewDailyPublicationArguments(capture, item, day, atText)
 		if err != nil {
 			return err
 		}
-		coverageJSON, err := json.Marshal(day.CoverageMissing)
-		if err != nil {
-			return err
-		}
-		var kind, currency any
-		if day.Input.InstrumentType != nil {
-			kind = string(*day.Input.InstrumentType)
-		}
-		if day.Input.NativeCurrency != nil {
-			currency = day.Input.NativeCurrency.String()
-		}
-		inputValues := []any{capture.HouseholdID.String(), item.InstrumentID.String(), item.TimezoneVersion, day.On, inputPolicy, nullableReviewPointer(day.Input.Quantity), currency, kind, nullableReviewPointer(day.Input.AmountExact), nullableReviewPointer(day.Input.CostExact), string(inputJSON), string(coverageJSON), day.InputFingerprint, atText}
 		omit, err := equalDaily.omitInput(inputValues)
 		if err != nil {
 			return err
@@ -511,12 +513,7 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 				return err
 			}
 		}
-		resultJSON, err := json.Marshal(day.Result)
-		if err != nil {
-			return err
-		}
-		truth := reviewTruthSQL(day.Result.Truth)
-		resultValues := []any{string(item.RuleID), int64(item.ConditionVersion), item.InstrumentID.String(), item.TimezoneVersion, day.On, truth, nullableEmpty(strings.Join(day.CoverageMissing, ",")), string(resultJSON), day.InputFingerprint, atText}
+
 		omit, err = equalDaily.omitResult(resultValues)
 		if err != nil {
 			return err
@@ -781,4 +778,38 @@ func reviewEvaluationStateEpochs(ctx context.Context, tx *sql.Tx, publications [
 
 func reviewPublicationConflict(format string, values ...any) error {
 	return reviewRuleConflict(fmt.Sprintf(format, values...))
+}
+
+// Shared by publication and coherent prefix attestation: complete typed SQL args.
+func reviewDailyPublicationArguments(capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, day domain.ReviewPublicationDay, atText string) ([]any, []any, error) {
+	inputPolicy := "rule:" + string(item.RuleID) + "/v:" + strconv.Itoa(item.ConditionVersion)
+	var inputJSON []byte
+	var err error
+	if capture.Certified != nil {
+		inputJSON, err = encodeCompleteReviewInput(day.Input)
+	} else {
+		inputJSON, err = json.Marshal(day.Input)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	coverageJSON, err := json.Marshal(day.CoverageMissing)
+	if err != nil {
+		return nil, nil, err
+	}
+	var kind, currency any
+	if day.Input.InstrumentType != nil {
+		kind = string(*day.Input.InstrumentType)
+	}
+	if day.Input.NativeCurrency != nil {
+		currency = day.Input.NativeCurrency.String()
+	}
+	inputValues := []any{capture.HouseholdID.String(), item.InstrumentID.String(), item.TimezoneVersion, day.On, inputPolicy, nullableReviewPointer(day.Input.Quantity), currency, kind, nullableReviewPointer(day.Input.AmountExact), nullableReviewPointer(day.Input.CostExact), string(inputJSON), string(coverageJSON), day.InputFingerprint, atText}
+	resultJSON, err := json.Marshal(day.Result)
+	if err != nil {
+		return nil, nil, err
+	}
+	truth := reviewTruthSQL(day.Result.Truth)
+	resultValues := []any{string(item.RuleID), int64(item.ConditionVersion), item.InstrumentID.String(), item.TimezoneVersion, day.On, truth, nullableEmpty(strings.Join(day.CoverageMissing, ",")), string(resultJSON), day.InputFingerprint, atText}
+	return inputValues, resultValues, nil
 }

@@ -13,6 +13,11 @@ import (
 // will reject this entire staged result if any authoritative fact, rule,
 // acknowledgement or ignore changed before publication.
 func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
+	if capture.Suffix != nil && capture.Certified != nil && capture.Certified.Provider.Pinned && capture.Certified.Provider == capture.Certified.PreviousProvider && capture.Certified.Provider.Key == providerKey {
+		return prepareReviewPublication(ctx, capture, now, providerKey)
+	}
+	// Provider continuity is required for every reused prefix value.
+	capture.Suffix = nil
 	if capture.Certified != nil {
 		return prepareCertifiedReviewPublication(ctx, capture, now, providerKey)
 	}
@@ -110,16 +115,22 @@ func prepareReviewPublication(ctx context.Context, capture domain.ReviewProjecti
 			if err != nil {
 				return domain.ReviewPublication{}, err
 			}
+			timezoneVersion := rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion
+			emittedDays := len(plan.Days) - plan.RetainedOutputDays
 			entry := domain.ReviewRulePublication{
 				RuleID: rule.ID, RuleRevision: rule.RowRevision, ConditionVersion: rule.CurrentConditionVersion,
-				InstrumentID: instrumentID, TimezoneVersion: rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion,
+				InstrumentID: instrumentID, TimezoneVersion: timezoneVersion,
 				LatestClosedOn: plan.LatestClosedOn, LatestResult: plan.LatestResult, LatestCoverage: append([]string{}, plan.LatestCoverage...),
 				FirstHitOn: firstHit, TriggerWindow: triggerWindow, TriggerResult: triggerResult, TriggerCoverage: triggerCoverage,
 				LatestWindow: plan.LatestWindow, PositionKnown: plan.Position.Known, CurrentEpochID: lifecycle.CurrentEpochID,
 				CurrentEpisode: lifecycle.Current, ClosedEpisodes: lifecycle.Closed, OpenedEpisode: lifecycle.Opened,
-				Days: make([]domain.ReviewPublicationDay, 0, len(plan.Days)), Epochs: make([]domain.ReviewPublicationEpoch, 0, len(plan.Position.Epochs)),
+				Days: make([]domain.ReviewPublicationDay, 0, emittedDays), Epochs: make([]domain.ReviewPublicationEpoch, 0, len(plan.Position.Epochs)),
 			}
 			for _, day := range plan.Days {
+				key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: entry.TimezoneVersion, On: day.On}
+				if index, ok := cache.suffixEvidence[key]; ok && capture.Suffix.Prefix[index].OutputAttested {
+					continue
+				}
 				entry.Days = append(entry.Days, domain.ReviewPublicationDay{On: day.On, Input: day.Input, CoverageMissing: day.Coverage.Missing, Result: day.Result, PolicyWindow: day.PolicyWindow, InputFingerprint: day.InputFingerprint})
 			}
 			for index, epoch := range plan.Position.Epochs {
@@ -240,6 +251,7 @@ func reviewEpisodeTriggerEvidence(capture domain.ReviewProjectionCapture, rule d
 // candidate keeps the independent full oracle in memory for fallback/recheck.
 func prepareCertifiedReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
 	fullCapture := capture
+	fullCapture.Suffix = nil
 	fullCapture.TemporalFullRecompute = true
 	fullCapture.ReusableDailyEvidence = nil
 	full, err := prepareReviewPublication(ctx, fullCapture, now, providerKey)

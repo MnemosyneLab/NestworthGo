@@ -31,6 +31,8 @@ type ReviewTemporalCertificate struct {
 	CertifiedMAC                string                     `json:",omitempty"`
 	CertifiedProvider           ReviewProviderSelection    `json:",omitempty"`
 	CertifiedConnection         ReviewConnectionCheckpoint `json:",omitempty"`
+	SuffixQuoteSeals            []ReviewQuoteDaySeal       `json:",omitempty"`
+	SuffixNonQuoteFingerprint   string                     `json:",omitempty"`
 	CertifiedNeedsReconcile     bool                       `json:",omitempty"`
 }
 

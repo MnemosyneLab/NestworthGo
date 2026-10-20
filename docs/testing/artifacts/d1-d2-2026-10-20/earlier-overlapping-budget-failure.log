@@ -1,0 +1,124 @@
+go: downloading github.com/gofrs/flock v0.12.1
+go: downloading github.com/aws/aws-sdk-go-v2 v1.41.5
+go: downloading github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
+go: downloading github.com/aws/aws-sdk-go-v2/credentials v1.19.6
+go: downloading github.com/benbjohnson/litestream v0.5.17
+go: downloading github.com/superfly/ltx v0.5.2
+go: downloading github.com/wnjoon/go-yfinance v1.7.0
+go: downloading github.com/modelcontextprotocol/go-sdk v1.7.0
+go: downloading github.com/segmentio/encoding v0.5.4
+go: downloading github.com/aws/smithy-go v1.24.2
+go: downloading github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
+go: downloading github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21
+go: downloading github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.22
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.7
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.13
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21
+go: downloading github.com/prometheus/client_golang v1.17.0
+go: downloading golang.org/x/sync v0.23.0
+go: downloading github.com/aws/aws-sdk-go-v2/config v1.32.6
+go: downloading github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.20.18
+go: downloading github.com/Danny-Dasilva/CycleTLS/cycletls v1.0.26
+go: downloading github.com/pierrec/lz4/v4 v4.1.23
+go: downloading github.com/yosida95/uritemplate/v3 v3.0.2
+go: downloading golang.org/x/oauth2 v0.36.0
+go: downloading golang.org/x/time v0.15.0
+go: downloading github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21
+go: downloading github.com/lmittmann/tint v1.1.3
+go: downloading github.com/mattn/go-isatty v0.0.20
+go: downloading github.com/beorn7/perks v1.0.1
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/prometheus/client_model v0.5.0
+go: downloading github.com/prometheus/common v0.45.0
+go: downloading github.com/prometheus/procfs v0.12.0
+go: downloading google.golang.org/protobuf v1.36.11
+go: downloading github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.16
+go: downloading github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4
+go: downloading github.com/aws/aws-sdk-go-v2/service/signin v1.0.4
+go: downloading github.com/aws/aws-sdk-go-v2/service/sso v1.30.8
+go: downloading github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12
+go: downloading github.com/aws/aws-sdk-go-v2/service/sts v1.41.5
+go: downloading github.com/Danny-Dasilva/fhttp v0.0.0-20240217042913-eeeb0b347ce1
+go: downloading github.com/andybalholm/brotli v1.1.0
+go: downloading github.com/gorilla/websocket v1.5.3
+go: downloading github.com/refraction-networking/utls v1.6.2
+go: downloading golang.org/x/net v0.60.0
+go: downloading h12.io/socks v1.0.3
+go: downloading github.com/segmentio/asm v1.1.3
+go: downloading github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0
+go: downloading github.com/cloudflare/circl v1.6.3
+go: downloading github.com/klauspost/compress v1.18.3
+go: downloading github.com/quic-go/quic-go v0.41.0
+go: downloading golang.org/x/crypto v0.57.0
+go: downloading golang.org/x/text v0.42.0
+--- FAIL: TestAnalysisPerformanceBudgets (11.22s)
+    --- FAIL: TestAnalysisPerformanceBudgets/cold-3y (10.90s)
+        analysis_projections_test.go:697: cold 3Y/500-component took 10.636348623s, want < 10s
+2026/10/20 01:13:50 INFO market data sync started targets=2 estimated_requests=4
+2026/10/20 01:13:50 INFO market data sync started targets=1 estimated_requests=3
+2026/10/20 01:13:50 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=0 snapshot_days=4 blockers=3
+2026/10/20 01:13:50 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=3
+2026/10/20 01:13:50 INFO market data sync started targets=2 estimated_requests=4
+2026/10/20 01:13:50 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=2
+2026/10/20 01:13:50 INFO market data sync started targets=1 estimated_requests=3
+2026/10/20 01:13:50 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=2 batches=0 snapshot_days=0 blockers=3
+2026/10/20 01:13:50 INFO market data sync started targets=2 estimated_requests=5
+2026/10/20 01:13:51 INFO market data sync started targets=1 estimated_requests=5
+2026/10/20 01:13:51 INFO market data sync started targets=2 estimated_requests=4
+2026/10/20 01:13:51 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=1 batches=1 snapshot_days=0 blockers=1
+2026/10/20 01:13:51 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=4
+2026/10/20 01:13:51 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=1 snapshot_days=4 blockers=2
+2026/10/20 01:13:52 INFO market data sync started targets=1 estimated_requests=2
+2026/10/20 01:13:52 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=1 snapshot_days=4 blockers=1
+2026/10/20 01:13:53 INFO market data sync started targets=3 estimated_requests=6
+2026/10/20 01:13:54 INFO market data sync event=completed phase=complete outcome=partial requests=3 batches=3 snapshot_days=4 blockers=1
+2026/10/20 01:13:56 INFO market data sync started targets=2 estimated_requests=4
+2026/10/20 01:13:57 INFO market data sync event=completed phase=complete outcome=partial requests=2 batches=2 snapshot_days=4 blockers=1
+2026/10/20 01:14:37 INFO market data sync started targets=1 estimated_requests=2
+2026/10/20 01:14:37 INFO market data sync event=completed phase=cancelled outcome=cancelled requests=1 batches=1 snapshot_days=0 blockers=0
+2026/10/20 01:14:49 INFO market data sync started targets=1 estimated_requests=2
+2026/10/20 01:14:49 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=1 snapshot_days=4 blockers=1
+2026/10/20 01:15:01 INFO market data sync started targets=1 estimated_requests=3
+2026/10/20 01:15:01 INFO market data sync event=completed phase=complete outcome=partial requests=1 batches=0 snapshot_days=0 blockers=3
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	225.588s
+ok  	github.com/waltwang/nestworth-go/internal/architecture	0.008s
+ok  	github.com/waltwang/nestworth-go/internal/diagnostics	0.077s
+ok  	github.com/waltwang/nestworth-go/internal/domain	0.092s
+ok  	github.com/waltwang/nestworth-go/internal/format	0.006s
+?   	github.com/waltwang/nestworth-go/internal/infrastructure	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/appports	3.649s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	9.631s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup	43.160s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/marketdata	4.383s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	59.894s
+ok  	github.com/waltwang/nestworth-go/internal/mcpserver	65.115s
+ok  	github.com/waltwang/nestworth-go/internal/settings	0.346s
+ok  	github.com/waltwang/nestworth-go/internal/version	0.008s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/account	2.214s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/agent	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analysis	0.347s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analytics	0.806s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/apierror	0.009s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/app	0.008s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/catalog	0.005s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup	0.016s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/data	0.423s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/directory	1.042s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/history	4.842s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/holding	1.343s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/household	0.700s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/instrument	1.669s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/liquidity	0.500s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/marketdata	1.727s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/native	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/portfolio	1.503s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/preview	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/quote	1.708s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation	0.974s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/recovery	3.533s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/settings	1.137s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/wailstest	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/wire	0.012s
+FAIL

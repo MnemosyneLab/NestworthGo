@@ -1,0 +1,19 @@
+=== RUN   TestReviewDependencySuffixPerformanceEvidence
+    review_certified_performance_test.go:39: dependencySuffix=true (same C2 control; isolated synthetic data)
+=== RUN   TestReviewDependencySuffixPerformanceEvidence/large
+    review_certified_performance_test.go:45: manifest={"Accounts":1,"Instruments":100,"Holdings":100,"Rules":20,"HistoryDays":30,"Quotes":100000,"CashActivities":50000,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a15709-9c41-7944-a8cc-b475577ef605
+=== RUN   TestReviewDependencySuffixPerformanceEvidence/large/clock-only
+    review_certified_performance_test.go:160: D2 size=large scenario=clock-only recomputedPairDays=2000 reusedPairDays=60000
+    review_certified_performance_test.go:162: audit size=large scenario=clock-only sample=1 actualPublicationDays=62000 independentFullAuditDays=62000
+    review_certified_performance_test.go:221: certified size=large scenario=clock-only arm=C2 n=1 elapsed=6.843837297s allocatedBytes=1682156688 allocs=20940063 publishedPairDays=2000 publication=none sql queries=625 returnedRows=513151 Query-to-Rows.Close=3.436920356s execs=8242 writeStatements=8242 rowsAffected=6242 driverExecTime=654.403471ms prepares=2 prepareTime=128.661µs writeTransactions=1 reserved-to-finish=3.696065437s
+    review_certified_performance_test.go:201: D2 phase wall scenario=clock-only sample=1 phases=map[capture:5.995719075s confirm:41.896349ms publish:11.519011596s] prepare-and-orchestration-residual=489.324732ms (disjoint API intervals; residual includes planning/locks/provider orchestration)
+    review_certified_performance_test.go:221: certified size=large scenario=clock-only arm=certified n=1 elapsed=18.045951752s allocatedBytes=2939497000 allocs=32664118 publishedPairDays=62000 publication=verified_source_cas sql queries=667 returnedRows=714382 Query-to-Rows.Close=7.010177758s execs=8242 writeStatements=8242 rowsAffected=6242 driverExecTime=1.40696999s prepares=2 prepareTime=413.766µs writeTransactions=2 reserved-to-finish=11.560123817s
+    review_certified_performance_test.go:240: certified-distribution size=large scenario=clock-only arm=C2 n=1 median=6.843837297s raw=[6.843837297s] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:240: certified-distribution size=large scenario=clock-only arm=certified n=1 median=18.045951752s raw=[18.045951752s] (diagnostic; no p95/RSS acceptance)
+=== NAME  TestReviewDependencySuffixPerformanceEvidence/large
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	 1120340 kB
+--- PASS: TestReviewDependencySuffixPerformanceEvidence (126.31s)
+    --- PASS: TestReviewDependencySuffixPerformanceEvidence/large (126.31s)
+        --- PASS: TestReviewDependencySuffixPerformanceEvidence/large/clock-only (101.69s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	126.346s

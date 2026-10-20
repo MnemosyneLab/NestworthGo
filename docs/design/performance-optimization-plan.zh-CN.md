@@ -352,3 +352,12 @@ E1 建新表和投影 adapter，先影子写入/比较、旧读不变；E2 修�
 本次仅核对源码、历史记录和现有测试入口，未运行新性能基准，没有新增 p95 或速度承诺。已核对 main 包含 PR #106/#107；仓库根 `AGENTS.md` 明确没有 `.agents/skills`，已阅读 engineering/local-workflow 指南。只修改本设计和导航链接，无生产代码、测试代码、schema 或生成物改动。
 
 环境没有可用 Go 工具链：`go version` 返回 `Go: Unknown option: version`，`gofmt` 不存在；因此工程指南要求的 Go tests/vet/build 未运行，不能记为通过。文档的 17 个相对链接目标与 13 个命名测试入口均已检查存在，`git diff --check` 通过；原生 macOS、UI、备份恢复和性能验收均未运行，留待实现 PR。
+
+## 13. 第三阶段 D1/D2 实施链接（2026-10-20）
+
+用户已明确授权本阶段在正常初始化启用优化，取代本文件此前默认关闭的指令。
+实现范围、同进程历史证据权限、新增依赖证明及完整回退见
+[Review dependency invalidation and suffix preparation](review-dependency-suffix.md)。
+D2 首版只缩短金融输入/谓词重算后缀，策略和生命周期仍从 origin 完整重放；
+未知/非行情依赖、重启和恢复账本保持完整回退，不取得新的历史复用认证权限。
+本阶段启用不代表第二阶段已验收，也不代表原生性能、p95 或 RSS 已达标。

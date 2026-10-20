@@ -176,6 +176,15 @@ cannot acquire reuse authority from a fresh checksum; legitimate handling preser
 only an already valid chain. Production initialization still uses C2, and native,
 performance and review gates remain blocking. The old counting-only constructor
 is retained for historical experiments, not activation.
+Stage-three [dependency/suffix preparation](../design/review-dependency-suffix.md)
+is enabled in normal desktop initialization. It uses authenticated quote
+OLD/NEW invalidation and exact daily-prefix reuse, with full policy/lifecycle
+replay. Non-quote/unknown dependencies and legacy/reopened/restored namespaces
+retain full fallback; they do not gain certification. Set
+`NESTWORTH_REVIEW_FULL_RECOMPUTE=1` before launch for the full recomputation
+rollback path. Earlier default-off statements above describe the historical
+C1/C2/C3 slices; they are superseded by this explicitly authorized dispatcher
+change, not by a claim of native or stage-two acceptance.
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)
