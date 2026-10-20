@@ -39,6 +39,9 @@ type reviewFingerprintAmount interface {
 	Currency() CurrencyCode
 }
 
+var reviewFingerprintAmountType = reflect.TypeFor[reviewFingerprintAmount]()
+var reviewFingerprintCanonicalType = reflect.TypeFor[reviewFingerprintCanonical]()
+
 func writeReviewFingerprintScalars(digest hash.Hash, value reflect.Value) error {
 	if !value.IsValid() {
 		return nil
@@ -50,11 +53,15 @@ func writeReviewFingerprintScalars(digest hash.Hash, value reflect.Value) error 
 		value = value.Elem()
 	}
 	if value.CanInterface() {
-		if amount, ok := value.Interface().(reviewFingerprintAmount); ok {
+		// Check the immutable type before boxing: most nested values are not
+		// financial scalars. Interface() on each addressable struct copies it.
+		if value.Type().Implements(reviewFingerprintAmountType) {
+			amount := value.Interface().(reviewFingerprintAmount)
 			writeReviewFingerprintScalar(digest, "amount:"+amount.Currency().String(), amount.CanonicalAmount())
 			return nil
 		}
-		if canonical, ok := value.Interface().(reviewFingerprintCanonical); ok {
+		if value.Type().Implements(reviewFingerprintCanonicalType) {
+			canonical := value.Interface().(reviewFingerprintCanonical)
 			writeReviewFingerprintScalar(digest, value.Type().String(), canonical.Canonical())
 			return nil
 		}

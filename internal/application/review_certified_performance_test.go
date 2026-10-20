@@ -178,6 +178,11 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 									}
 								})
 							}
+							var phaseProfile *reviewProfileRepository
+							if suffix && arm == "certified" && os.Getenv("NW_D2_PROFILE_DIR") != "" {
+								phaseProfile = &reviewProfileRepository{Repository: f.service.repository.(*sqlite.Repository), phases: map[string]time.Duration{}}
+								f.service.repository = phaseProfile
+							}
 							runtime.GC()
 							finishProfile := beginReviewDependencyProfile(t, suffix, arm, scenario, sample)
 							var before, after runtime.MemStats
@@ -188,6 +193,13 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 							elapsed := time.Since(started)
 							runtime.ReadMemStats(&after)
 							finishProfile()
+							if phaseProfile != nil {
+								summed := time.Duration(0)
+								for _, duration := range phaseProfile.phases {
+									summed += duration
+								}
+								t.Logf("D2 phase wall scenario=%s sample=%d phases=%v prepare-and-orchestration-residual=%s (disjoint API intervals; residual includes planning/locks/provider orchestration)", scenario, sample+1, phaseProfile.phases, elapsed-summed)
+							}
 							metrics := reviewPerfStats.snapshot(0)
 							if err != nil {
 								t.Fatal(err)

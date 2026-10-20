@@ -2,8 +2,11 @@ package domain
 
 import (
 	"crypto/sha256"
+	"encoding"
 	"encoding/hex"
 	"encoding/json"
+	"hash"
+	"io"
 	"reflect"
 	"sort"
 	"time"
@@ -188,15 +191,61 @@ func ReviewSuffixFingerprint(suffix *ReviewSuffixCapture) (string, error) {
 	if suffix == nil {
 		return "", nil
 	}
-	raw, err := json.Marshal(suffix)
-	if err != nil {
+	digest := sha256.New()
+	if err := writeReviewSuffixJSON(digest, suffix); err != nil {
 		return "", err
 	}
-	digest := sha256.New()
-	digest.Write(raw)
 	digest.Write([]byte{0})
-	if err = writeReviewFingerprintScalars(digest, reflect.ValueOf(suffix)); err != nil {
+	if err := writeReviewFingerprintScalars(digest, reflect.ValueOf(suffix)); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(digest.Sum(nil)), nil
+}
+
+// The top-level shape guard automatically retains the generic encoding if that
+// type evolves. Entries/plan still use encoding/json in full, including future
+// nested fields. Current output is byte-identical to json.Marshal(suffix), but
+// avoids a second entire-prefix JSON buffer and its geometric growth/copying.
+var reviewSuffixStreamShape = func() bool {
+	t := reflect.TypeFor[ReviewSuffixCapture]()
+	ptr := reflect.PointerTo(t)
+	if ptr.Implements(reflect.TypeFor[json.Marshaler]()) || ptr.Implements(reflect.TypeFor[encoding.TextMarshaler]()) {
+		return false
+	}
+	return t.NumField() == 2 && t.Field(0).Name == "Plan" && t.Field(1).Name == "Prefix" && t.Field(0).Tag.Get("json") == "" && t.Field(1).Tag.Get("json") == ""
+}()
+
+func writeReviewSuffixJSON(digest hash.Hash, suffix *ReviewSuffixCapture) error {
+	write := func(value any) error {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		digest.Write(raw)
+		return nil
+	}
+	if !reviewSuffixStreamShape {
+		return write(suffix)
+	}
+	io.WriteString(digest, `{"Plan":`)
+	if err := write(suffix.Plan); err != nil {
+		return err
+	}
+	io.WriteString(digest, `,"Prefix":`)
+	if suffix.Prefix == nil {
+		io.WriteString(digest, "null")
+	} else {
+		io.WriteString(digest, "[")
+		for i := range suffix.Prefix {
+			if i > 0 {
+				io.WriteString(digest, ",")
+			}
+			if err := write(&suffix.Prefix[i]); err != nil {
+				return err
+			}
+		}
+		io.WriteString(digest, "]")
+	}
+	io.WriteString(digest, "}")
+	return nil
 }
