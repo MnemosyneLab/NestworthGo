@@ -12,7 +12,7 @@ localization, accessibility, and chart rendering.
 ## Prerequisites
 
 - Go 1.26 or newer;
-- Node.js with pnpm;
+- Node.js 24.22.0 (Active LTS, Krypton) with pnpm;
 - Wails CLI `v3.0.0-beta.32`;
 - macOS 27.0 or newer on Apple Silicon, with a macOS 27 SDK, for the primary
   desktop and packaging target.

@@ -78,7 +78,7 @@ jobs:
           version: 12.14.0
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.22.0
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install native Go build dependencies
