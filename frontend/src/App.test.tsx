@@ -14,12 +14,15 @@ import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
 import { useObjectNavigation } from "./app/NavigationContext";
 
-const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord, useRealInstrumentDetail, reviewAlerts, instrumentGroups } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord, useRealInstrumentDetail, reviewAlerts, instrumentGroups, reconciliationList, reconciliationLast, reconciliationGet } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
   ordinaryRecord: vi.fn(),
   useRealInstrumentDetail: { enabled: false },
   reviewAlerts: vi.fn(),
   instrumentGroups: vi.fn(),
+  reconciliationList: vi.fn(),
+  reconciliationLast: vi.fn(),
+  reconciliationGet: vi.fn(),
   historyOrigin: vi.fn(),
   historicalRead: vi.fn(),
   upcomingRead: vi.fn(),
@@ -239,6 +242,14 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
   },
 }));
 
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation", () => ({
+  Service: {
+    List: () => reconciliationList(),
+    LastSuccess: (id: string) => reconciliationLast(id),
+    Get: (id: string) => reconciliationGet(id),
+  },
+}));
+
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
     UpcomingActions: () => upcomingRead(),
@@ -292,6 +303,9 @@ beforeEach(() => {
   useRealInstrumentDetail.enabled = false;
   reviewAlerts.mockReset().mockResolvedValue({ items: [], nextCursor: "", summary: { totalGroups: 0, matchedGroups: 0, pendingGroups: 0, acknowledgedGroups: 0, ignoredGroups: 0, unknownGroups: 0, pausedGroups: 0, actionableRules: 0 }, reportRevision: "synthetic-review-v2", projectionStatus: "complete", publishedOn: "2026-10-15" });
   instrumentGroups.mockReset().mockResolvedValue([]);
+  reconciliationList.mockReset().mockResolvedValue([]);
+  reconciliationLast.mockReset().mockResolvedValue(null);
+  reconciliationGet.mockReset().mockResolvedValue(null);
   useUiStore.setState({ appearance: "system", accent: "indigo" });
   window.matchMedia =
     window.matchMedia ||
@@ -382,7 +396,7 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.availableFunds") })).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: i18n.t("nav.upcomingActions") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: new RegExp(i18n.t("nav.tasks")) })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: i18n.t("nav.holdings") })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: i18n.t("nav.dataHealth") })).not.toBeInTheDocument();
@@ -693,10 +707,9 @@ it("retains the upcoming filter and restores its trigger after Back", async () =
   await userEvent.click(await screen.findByRole("button", { name: "View all 1 action" }));
   const filter = await screen.findByRole("button", { name: "Reservation issues" });
   await userEvent.click(filter);
-  await userEvent.click(screen.getByText("Information affecting assessment (0 data issues, 0 notes)"));
-  const health = within(screen.getByText("Information affecting assessment (0 data issues, 0 notes)").closest("details")!).getByRole("button", { name: "Data Health" });
+  const health = await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) });
   await userEvent.click(health);
-  await userEvent.click(await screen.findByRole("button", { name: "← Back to Upcoming actions" }));
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
   await waitFor(() => expect(filter).toHaveAttribute("aria-pressed", "true"));
   await waitFor(() => expect(health).toHaveFocus());
   expect(screen.queryByRole("button", { name: "Verify receipt" })).not.toBeInTheDocument();
@@ -727,7 +740,7 @@ it("returns through Upcoming actions to open another product and does not reopen
   await userEvent.click(await screen.findByRole("button", { name: "View terms · Product B" }));
   await screen.findByRole("dialog", { name: "product-b" });
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Upcoming actions" }));
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Tasks & checks" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
   await screen.findByTestId("overview-net-worth");
@@ -924,11 +937,11 @@ it.each(["zh-TW"] as const)("keeps investment review reachable from Overview wit
   settingsLoad.mockResolvedValue({ ...defaultSettings, language });
   upcomingRead.mockResolvedValue(upcomingData());
   render(<AppProviders><App /></AppProviders>);
-  const entry = await screen.findByRole("button", { name: i18n.t("reviewV2.openReview") });
+  const entry = await screen.findByRole("button", { name: new RegExp(i18n.t("tasks.tabs.review")) });
   entry.focus();
   await userEvent.keyboard("{Enter}");
-  expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
-  expect(screen.getByText(i18n.t("upcomingActions.description"))).toBeVisible();
+  expect(await screen.findByRole("heading", { name: i18n.t("tasks.title"), level: 2 })).toBeVisible();
+  expect(screen.getByText(i18n.t("tasks.description"))).toBeVisible();
   const reviewTab = screen.getByRole("tab", { name: i18n.t("reviewV2.title") });
   expect(reviewTab).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toBeVisible();
@@ -963,7 +976,7 @@ it("preserves filtered page two through the real instrument route and focuses bo
 
   render(<AppProviders><App /></AppProviders>);
   await screen.findByTestId("overview-net-worth");
-  const overviewReviewTrigger = screen.getByRole("button", { name: i18n.t("reviewV2.openReview") });
+  const overviewReviewTrigger = screen.getByRole("button", { name: new RegExp(i18n.t("tasks.tabs.review")) });
   await user.click(overviewReviewTrigger);
   await user.click(await screen.findByRole("tab", { name: i18n.t("reviewV2.title") }));
   await screen.findByRole("heading", { name: "Synthetic First Holding" });
@@ -987,22 +1000,91 @@ it("preserves filtered page two through the real instrument route and focuses bo
   expect(instrumentGroups).toHaveBeenCalledWith();
 
   await queryClient.invalidateQueries({ queryKey: reviewV2Key });
-  expect(reviewAlerts).toHaveBeenCalledTimes(reviewReadCount);
+  await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(reviewReadCount));
+  const hiddenReads = reviewAlerts.mock.calls.slice(reviewReadCount);
+  expect(hiddenReads.every((call) => {
+    const request = call[0] as { cursor?: string; filter?: { status?: string } };
+    return request.filter?.status === "unignored" && !request.cursor;
+  })).toBe(true);
+  const afterHidden = reviewAlerts.mock.calls.length;
   await user.click(screen.getByRole("button", { name: /Back to/ }));
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toHaveValue("Synthetic");
   expect(screen.getByRole("combobox", { name: i18n.t("reviewV2.typeFilter") })).toHaveValue("mutual_fund");
   expect(screen.getByRole("button", { name: i18n.t("reviewV2.status.pending") })).toHaveAttribute("aria-pressed", "true");
   expect(await screen.findByRole("heading", { name: "Synthetic Second Holding" })).toBeVisible();
-  const reviewHeading = document.getElementById("upcoming-actions-heading");
+  const reviewHeading = document.getElementById("tasks-heading");
   expect(reviewHeading).not.toBeNull();
   await waitFor(() => expect(reviewHeading).toHaveFocus());
   expect(reviewHeading).toBeVisible();
   expect(reviewHeading?.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
-  await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(reviewReadCount));
+  await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(afterHidden));
 
   await user.click(screen.getByRole("button", { name: /Back to/ }));
   expect(await screen.findByTestId("overview-net-worth")).toBeVisible();
   await waitFor(() => expect(overviewReviewTrigger).toHaveFocus());
   expect(overviewReviewTrigger).toBeVisible();
   expect(overviewReviewTrigger.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
+});
+
+it("resets reconciliation to the global list unless the target names an account or session", async () => {
+  await i18n.changeLanguage("en");
+  const savingsAccount = {
+    ...checkingAccount,
+    account: { ...checkingAccount.account, id: "acc-2", name: "Savings" },
+    latestValue: { ...checkingAccount.latestValue, id: "v2", accountId: "acc-2" },
+  };
+  const savingsValuation = { ...checkingValuation, account: savingsAccount.account };
+  const counts = { pending: 1, confirmed: 0, skipped: 0, unresolved: 0 };
+  listAccounts.mockResolvedValue([checkingAccount, savingsAccount]);
+  accountValuations.mockResolvedValue([checkingValuation, savingsValuation]);
+  reconciliationList.mockResolvedValue([
+    { id: "open-checking", status: "in_progress", accountIds: ["acc-1"], accountNames: ["Checking"], counts },
+    { id: "open-savings", status: "in_progress", accountIds: ["acc-2"], accountNames: ["Savings"], counts },
+  ]);
+  reconciliationLast.mockResolvedValue({ id: "session-last", completedAt: "2026-10-20T10:20:00Z" });
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "View last successful record" }));
+  expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
+
+  await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+  await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
+  expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+    expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+  } finally {
+    resolveSheetConfirmation(owner);
+  }
+
+  await userEvent.click(within(nav).getByRole("button", { name: "Overview" }));
+  await screen.findByTestId("overview-net-worth");
+  await userEvent.click(await screen.findByRole("button", { name: "Reconciliation, 2 unfinished" }));
+  expect(await screen.findByText(/Checking · In progress/)).toBeVisible();
+  expect(screen.getByText(/Savings · In progress/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Open account reconciliation" }));
+  expect(await screen.findByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
+  expect(screen.queryByText(/Savings · In progress/)).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+  expect(await screen.findByTestId("account-detail")).toBeVisible();
+  await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+  expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
 });

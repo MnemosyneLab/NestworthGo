@@ -1,4 +1,3 @@
-import { InvestmentReviewSummaryV2 } from "@/features/investment-review/InvestmentReviewSummaryV2";
 import { formatCivilDate } from "@/lib/time";
 import { upcomingCountLabels, upcomingReadLabel } from "./upcomingActionPresentation";
 import { useTranslation } from "react-i18next";
@@ -15,7 +14,6 @@ export function OverviewUpcomingActionsCard({ isActive = true, context = "overvi
   const query = useUpcomingActions(isActive);
   const navigation = useObjectNavigation();
   const data = query.data;
-  // Other callers retain their existing review entry; homepage composes it in Needs attention.
   const homepage = presentation === "homepage";
   return <Card className="min-w-0" data-testid="overview-upcoming-actions-card" aria-busy={query.isFetching}>
     <CardHeader><CardTitle id={`${context}-heading`} tabIndex={-1}>{t(homepage ? "homepage.next30Days" : "upcomingActions.title")}</CardTitle></CardHeader>
@@ -36,9 +34,8 @@ export function OverviewUpcomingActionsCard({ isActive = true, context = "overvi
         {(data.counts.eligible > 0 || data.counts.dataChecks > 0 || data.counts.scopeNotes > 0) && <p className="text-sm text-muted-foreground">{t("upcomingActions.supplement", upcomingCountLabels(t, data.counts))}</p>}
         {data.completeness === "partial" && <Notice tone="warning">{t("upcomingActions.partial")}</Notice>}
       </>}
-      {navigation && data && (!homepage || data.counts.total > 0) && <Button className="h-auto max-w-full whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "upcoming-actions" })}>{t("upcomingActions.viewAll", { count: data.counts.total })}</Button>}
-      {homepage && navigation && data && data.counts.total === 0 && (data.counts.eligible > 0 || data.counts.dataChecks > 0 || data.counts.scopeNotes > 0) && <Button className="h-auto whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "upcoming-actions" })}>{t("homepage.reviewActionDetails")}</Button>}
-      {!homepage && <InvestmentReviewSummaryV2 isActive={isActive} />}
+      {navigation && data && (!homepage || data.counts.total > 0) && <Button className="h-auto max-w-full whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "tasks", tab: "upcoming" })}>{t("upcomingActions.viewAll", { count: data.counts.total })}</Button>}
+      {homepage && navigation && data && data.counts.total === 0 && (data.counts.eligible > 0 || data.counts.dataChecks > 0 || data.counts.scopeNotes > 0) && <Button className="h-auto whitespace-normal p-0 text-left" variant="link" onClick={() => navigation.open({ page: "tasks", tab: "upcoming" })}>{t("homepage.reviewActionDetails")}</Button>}
     </CardContent>
   </Card>;
 }

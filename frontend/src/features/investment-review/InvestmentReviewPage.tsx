@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import { Notice } from "@/components/ui/notice";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { PageChrome } from "@/components/layout/PageChrome";
 import { LoadingState, ErrorState, EmptyState } from "@/components/layout/PageState";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { useReviewAlertPage, useReviewCoveragePage, useReviewDailyEvidencePage, useReviewRulesV2, useReviewSuppressionsV2, useReviewV2Commands } from "@/queries/investmentReviewV2";
@@ -83,7 +83,7 @@ function ReviewEvidenceDetails({ rule, isActive }: { rule: ReviewAlertRule; isAc
   </details>;
 }
 
-export function InvestmentReviewPage({ isActive = true, embedded = false }: { isActive?: boolean; embedded?: boolean } = {}) {
+export function InvestmentReviewPage({ isActive = true, actionsHost }: { isActive?: boolean; actionsHost?: HTMLElement | null } = {}) {
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
   const historyOrigin = useHistoryOrigin();
@@ -229,7 +229,7 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
     <CursorPager label={{ previous: t("reviewV2.previous"), next: t("reviewV2.next") }} canPrevious={cursorStack.length > 0} canNext={Boolean(coveragePage?.nextCursor)} onPrevious={() => { setCursor(cursorStack[cursorStack.length - 1] ?? ""); setCursorStack(values => values.slice(0, -1)); }} onNext={() => { setCursorStack(values => [...values, cursor]); setCursor(coveragePage!.nextCursor ?? ""); }} />
   </section>;
   const reviewActions = <><Button variant="outline" disabled={busy || !isActive} onClick={() => { setMessage(""); void handle(() => commands.reconcile.mutateAsync(), t("reviewV2.refreshed")); }}>{t("reviewV2.refresh")}</Button><Button variant="outline" disabled={!isActive} onClick={() => setHistoryOpen(true)}>{t("reviewV2.historyTitle")}</Button><Button variant="outline" disabled={!isActive} onClick={() => setSuppressionsOpen(true)}>{t("reviewV2.ignoredList")}</Button><Button disabled={!isActive} onClick={() => setRulesOpen(true)}>{t("reviewV2.rules")}</Button></>;
-  return <div className="flex min-w-0 flex-col gap-5"><PageChrome pageId={embedded ? "upcoming-actions" : "investment-review"} enabled={!embedded || isActive} title={embedded ? undefined : t("reviewV2.title")} actions={reviewActions} />
+  return <div className="flex min-w-0 flex-col gap-5">{actionsHost ? createPortal(reviewActions, actionsHost) : actionsHost === undefined ? <div className="flex flex-wrap gap-2">{reviewActions}</div> : null}
     <Card className="flex flex-wrap items-center gap-3 p-4"><div ref={statusRoot} className="min-w-0 max-w-full"><SegmentedControl label={t("reviewV2.statusFilter")} value={status} onChange={value => { setStatus(value); resetCursor(); }} options={statusKeys.map(value => ({ value, label: t(`reviewV2.status.${value}`) }))} /></div><NativeSelect aria-label={t("reviewV2.typeFilter")} className="w-full sm:w-auto" value={instrumentType} onChange={event => { setInstrumentType(event.target.value); resetCursor(); }}>{typeKeys.map(value => <option key={value} value={value}>{value === "all" ? t("reviewV2.allTypes") : t(`reviewV2.types.${value}`)}</option>)}</NativeSelect><Input aria-label={t("reviewV2.search")} placeholder={t("reviewV2.search")} className="w-full sm:max-w-52" value={query} onChange={event => { setQuery(event.target.value); resetCursor(); }} /></Card>
     {message && <Notice role="status">{message}</Notice>}
     {commands.reconcile.isError && <ErrorState title={t("reviewV2.loadError")} description={t("ui.state.errorDescription")} onRetry={() => commands.reconcile.mutateAsync().catch(() => undefined)} retryLabel={t("common.retryAction")} />}
