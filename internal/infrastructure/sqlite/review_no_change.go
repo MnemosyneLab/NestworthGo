@@ -22,10 +22,6 @@ func (r *Repository) ConfirmCertifiedReviewNoChange(ctx context.Context, id doma
 	if !r.CertifiedReviewEnabled() {
 		return empty, false, nil
 	}
-	// Any failed confirmation must rebuild all dates before recertification.
-	// This also covers early exits (missing/expired proof, metadata changes)
-	// that occur before the persisted count manifest can be compared.
-	empty.RequireFullRecompute = true
 	if id == "" || captureNow.IsZero() || clock == nil {
 		return empty, false, &domain.Error{Code: domain.ErrValidation, Message: "complete no-change confirmation arguments are required"}
 	}
@@ -54,7 +50,7 @@ func (r *Repository) ConfirmCertifiedReviewNoChange(ctx context.Context, id doma
 		}
 	}
 	if cookie != r.database.reviewVerifiedSchemaVersion || cookie == 0 || foreignKeys != 1 || version != CurrentSchemaVersion {
-		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, nil
+		return empty, false, nil
 	}
 	_, trusted, err := r.verifiedCertifiedTracking(ctx, tx)
 	if err != nil {
@@ -144,7 +140,7 @@ func (r *Repository) ConfirmCertifiedReviewNoChange(ctx context.Context, id doma
 	}
 	if !slices.Equal(counts, certificate.NoChangeProjectionCounts) {
 		// Rebuild all dates rather than trusting a surviving rolling window.
-		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, nil
+		return empty, false, nil
 	}
 	result, err := noChangeReviewSummary(ctx, tx, id, rules, captureNow)
 	if err != nil {

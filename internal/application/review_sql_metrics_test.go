@@ -399,18 +399,6 @@ func (s reviewSQLSnapshot) summary() string {
 	return fmt.Sprintf("sql queries=%d returnedRows=%d Query-to-Rows.Close=%s execs=%d writeStatements=%d rowsAffected=%d driverExecTime=%s prepares=%d prepareTime=%s writeTransactions=%d reserved-to-finish=%s", s.queries, s.rows, s.queryTime, s.execs, s.writes, s.affected, s.execTime, s.prepares, s.prepareTime, s.writeTransactions, s.writeTransactionTime)
 }
 
-func (s reviewSQLSnapshot) slowest() string {
-	parts := make([]string, 0, len(s.statements))
-	for _, item := range s.statements {
-		query := strings.Join(strings.Fields(item.query), " ")
-		if len(query) > 150 {
-			query = query[:147] + "..."
-		}
-		parts = append(parts, fmt.Sprintf("%s calls=%d rows=%d driver=%s sql=%q", item.queryTime, item.queries, item.rows, item.queryTime, query))
-	}
-	return strings.Join(parts, " | ")
-}
-
 var _ driver.Driver = (*reviewSQLDriver)(nil)
 var _ driver.Conn = (*reviewSQLConn)(nil)
 var _ driver.ConnPrepareContext = (*reviewSQLConn)(nil)
