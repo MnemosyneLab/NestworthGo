@@ -376,10 +376,25 @@ export function formatAmount(amount: string, currency?: string): string {
   return `${negative ? "-" : ""}${number}`;
 }
 
+// Dollar ledgers share a bare "$" in some locales. Pin the disambiguating
+// symbol so USD is never shown as "$", and so Traditional Chinese does not
+// show TWD as "$" either. Other audited dollar codes already use a prefix
+// or an ISO code in en, zh-CN, and zh-TW.
+const PREFIXED_CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "US$",
+  TWD: "NT$",
+};
+
 function stableCurrencyAffixes(currency: string, affixes: { prefix: string; suffix: string }): { prefix: string; suffix: string } {
-  if (currency !== "JPY") return affixes;
-  const normalize = (value: string) => value.replace(/JP[¥￥]/g, "¥");
-  return { prefix: normalize(affixes.prefix), suffix: normalize(affixes.suffix) };
+  let next = affixes;
+  if (currency === "JPY") {
+    const normalize = (value: string) => value.replace(/JP[¥￥]/g, "¥");
+    next = { prefix: normalize(next.prefix), suffix: normalize(next.suffix) };
+  }
+  const pinned = PREFIXED_CURRENCY_SYMBOLS[currency];
+  if (!pinned) return next;
+  const normalize = (value: string) => (value.includes(pinned) ? value : value.replaceAll("$", pinned));
+  return { prefix: normalize(next.prefix), suffix: normalize(next.suffix) };
 }
 
 /** Quantities keep significant digits and drop only trailing canonical zeros. */

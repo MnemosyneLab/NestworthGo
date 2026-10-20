@@ -30,11 +30,26 @@ describe("formatAmount", () => {
   });
 
   it.each([
-    ["en", "$1,234.56"],
+    ["en", "US$1,234.56"],
     ["zh-CN", "US$1,234.56"],
+    ["zh-TW", "US$1,234.56"],
   ])("uses explicit locale currency presentation for %s", async (language, expected) => {
     await i18n.changeLanguage(language);
     expect(formatAmount("1234.56", "USD")).toBe(expected);
+  });
+
+  it("keeps dollar currencies distinguishable from a bare dollar sign", async () => {
+    for (const language of ["en", "zh-CN", "zh-TW"]) {
+      await i18n.changeLanguage(language);
+      for (const currency of ["AUD", "CAD", "NZD", "SGD", "HKD", "TWD", "USD"]) {
+        const shown = formatAmount("1234.5", currency);
+        expect(shown, `${language} ${currency} ${shown}`).not.toMatch(/(^|[^A-Z])\$(?=\d)/);
+      }
+    }
+    await i18n.changeLanguage("zh-TW");
+    expect(formatAmount("1234.5", "TWD")).toContain("NT$");
+    expect(formatAmount("1234.5", "HKD")).toContain("HK$");
+    expect(formatAmount("1234.5", "SGD")).toContain("SGD");
   });
 
   it.each([
@@ -170,10 +185,10 @@ it("keeps display scales separate from command scales and normalizes negative di
   expect(formatAmount("1000", "JPY")).toBe("¥1,000");
   expect(formatAmount("1500", "KRW")).not.toMatch(/\.00/);
   await i18n.changeLanguage("en");
-  expect(formatQuotePrice("1.1066", "USD")).toBe("$1.1066");
-  expect(formatQuotePrice("0.0000000012", "USD")).toBe("$0.0000000012");
+  expect(formatQuotePrice("1.1066", "USD")).toBe("US$1.1066");
+  expect(formatQuotePrice("0.0000000012", "USD")).toBe("US$0.0000000012");
   expect(formatMoney("12.3456")).toBe("12.35");
-  expect(formatAmount("-0.004", "USD")).toBe("$0.00 · − nonzero, below $0.01");
+  expect(formatAmount("-0.004", "USD")).toBe("US$0.00 · − nonzero, below US$0.01");
   expect(formatAmount("0.1", "JPY")).toBe("¥0 · + nonzero, below ¥1");
   expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − nonzero, below ¥1");
   expect(formatAmount("-0.4", "KRW")).toBe("₩0 · − nonzero, below ₩1");
@@ -183,19 +198,19 @@ it("keeps display scales separate from command scales and normalizes negative di
   await i18n.changeLanguage("zh-TW");
   expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − 非零，小於 ¥1");
   await i18n.changeLanguage("en");
-  expect(formatAmount("-0.00", "USD")).toBe("$0.00");
-  expect(formatAmount("0.005", "USD")).toContain("$0.00");
-  expect(formatAmount("0.015", "USD")).toBe("$0.02");
+  expect(formatAmount("-0.00", "USD")).toBe("US$0.00");
+  expect(formatAmount("0.005", "USD")).toContain("US$0.00");
+  expect(formatAmount("0.015", "USD")).toBe("US$0.02");
   expect(formatAmount("9".repeat(400), "USD")).not.toContain("Infinity");
 });
 
 it("keeps percentage presentation concise and signed rounded money zero neutral", () => {
  expect(formatDecimalPercent("33.3333333333333333333333")).toBe("33.33%");
  expect(formatDecimalPercent("-0.004")).toBe("0.00%");
- expect(formatSignedMoney("0.004", "USD")).toBe("$0.00 · + nonzero, below $0.01");
- expect(formatSignedMoney("-0.004", "USD")).toBe("$0.00 · − nonzero, below $0.01");
+ expect(formatSignedMoney("0.004", "USD")).toBe("US$0.00 · + nonzero, below US$0.01");
+ expect(formatSignedMoney("-0.004", "USD")).toBe("US$0.00 · − nonzero, below US$0.01");
  expect(formatDecimalPercent("3.525")).toBe("3.52%");
- expect(formatSignedMoney("1.23", "USD")).toBe("+$1.23");
+ expect(formatSignedMoney("1.23", "USD")).toBe("+US$1.23");
 });
 
 it("formats return ratios with decimal half-even rounding and preserves display precision", () => {
@@ -235,16 +250,16 @@ it("formats quantities, counts, annual rates and separator settings without chan
   setDisplayPreferences({ decimalSeparator: ",", groupingSeparator: "." });
   expect(formatAmount("1234.5", "EUR")).toBe("€1.234,50");
   setDisplayPreferences({ decimalSeparator: ".", groupingSeparator: "space" });
-  expect(formatAmount("1234.5", "USD")).toBe("$1 234.50");
+  expect(formatAmount("1234.5", "USD")).toBe("US$1 234.50");
   setDisplayPreferences({ groupingSeparator: "none" });
-  expect(formatAmount("1234.5", "USD")).toBe("$1234.50");
+  expect(formatAmount("1234.5", "USD")).toBe("US$1234.50");
 });
 
 it.each([
-  ["0.004", "0.008", "$0.01", "+"],
-  ["-0.004", "-0.008", "-$0.01", "−"],
+  ["0.004", "0.008", "US$0.01", "+"],
+  ["-0.004", "-0.008", "-US$0.01", "−"],
 ])("formats exact rows %s independently of the authoritative aggregate %s", (row, aggregate, total, direction) => {
-  expect(formatAmount(row, "USD")).toBe(`$0.00 · ${direction} nonzero, below $0.01`);
+  expect(formatAmount(row, "USD")).toBe(`US$0.00 · ${direction} nonzero, below US$0.01`);
   expect(formatAmount(aggregate, "USD")).toBe(total);
   expect(formatSignedMoney(aggregate, "USD")).toBe(aggregate.startsWith("-") ? total : `+${total}`);
 });
