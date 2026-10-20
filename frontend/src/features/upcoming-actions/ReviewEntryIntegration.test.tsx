@@ -7,7 +7,9 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { upcomingData } from "@/test/upcomingActions";
 import i18n from "@/i18n";
 import { reviewV2Key } from "@/queries/investmentReviewV2";
-import { UpcomingActionsPage } from "./UpcomingActionsPage";
+import { useState } from "react";
+import type { TasksTab } from "@/app/navigation";
+import { TasksPage } from "@/features/tasks/TasksPage";
 
 const services = vi.hoisted(() => ({
   upcoming: vi.fn(), alerts: vi.fn(), rules: vi.fn(), coverage: vi.fn(), evidence: vi.fn(), history: vi.fn(), events: vi.fn(), suppressions: vi.fn(), reconcile: vi.fn(),
@@ -32,6 +34,16 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
     ArchiveReviewRuleV2: vi.fn(),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation", () => ({
+  Service: { List: () => Promise.resolve([]) },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
+  Service: { HistoryOrigin: () => Promise.resolve({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" }) },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
+  Service: { Load: () => Promise.resolve({ language: "en", appearance: "system", timezone: "UTC", weekStart: "monday", dateFormat: "iso" }), Save: () => Promise.resolve() },
+}));
+vi.mock("@/queries/investments", () => ({ useInstruments: () => ({ data: [], isPending: false }) }));
 
 function reviewGroup(instrumentId: string, displayName: string) {
   return {
@@ -57,8 +69,12 @@ function reviewPage(cursor: string) {
 
 const open = vi.fn();
 const queryClient = createTestQueryClient({ retry: false });
+function TasksHarness({ isActive = true }: { isActive?: boolean }) {
+  const [tab, setTab] = useState<TasksTab>("upcoming");
+  return <TasksPage isActive={isActive} tab={tab} onTabChange={setTab} />;
+}
 function tree(isActive = true) {
-  return <QueryClientProvider client={queryClient}><NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><UpcomingActionsPage isActive={isActive} /></NavigationContext.Provider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><TasksHarness isActive={isActive} /></NavigationContext.Provider></QueryClientProvider>;
 }
 
 beforeEach(async () => {
@@ -80,10 +96,10 @@ describe("Upcoming Actions investment review entry", () => {
   it("uses the V2 page, keeps controls and paging state through tab changes, and suspends hidden reads", async () => {
     const user = userEvent.setup();
     const view = render(tree());
-    expect(services.alerts).not.toHaveBeenCalled();
+    await waitFor(() => expect(services.alerts).toHaveBeenCalled());
     expect(services.rules).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("tab", { name: "Investment review" }));
-    expect(screen.getByRole("tab", { name: "Investment review" })).toHaveFocus();
+    await user.click(screen.getByRole("tab", { name: /Investment review/ }));
+    expect(screen.getByRole("tab", { name: /Investment review/ })).toHaveFocus();
     expect(await screen.findByRole("heading", { name: "Synthetic fund" })).toBeInTheDocument();
     expect(services.alerts).toHaveBeenCalledWith(expect.objectContaining({ filter: { status: "unignored", instrumentType: "", query: "" } }));
     expect(screen.getByRole("button", { name: "Refresh" })).toBeVisible();
@@ -102,11 +118,11 @@ describe("Upcoming Actions investment review entry", () => {
     await user.click(screen.getByRole("button", { name: "Rules" }));
     expect(await screen.findByRole("button", { name: "New rule" })).toBeInTheDocument();
     await user.keyboard("{Escape}");
-    await user.click(screen.getByRole("tab", { name: "Upcoming actions" }));
-    expect(screen.getByRole("tab", { name: "Upcoming actions" })).toHaveFocus();
+    await user.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+    expect(screen.getByRole("tab", { name: /Upcoming actions/ })).toHaveFocus();
     const inactiveCallCount = services.alerts.mock.calls.length;
-    await user.click(screen.getByRole("tab", { name: "Investment review" }));
-    expect(screen.getByRole("tab", { name: "Investment review" })).toHaveFocus();
+    await user.click(screen.getByRole("tab", { name: /Investment review/ }));
+    expect(screen.getByRole("tab", { name: /Investment review/ })).toHaveFocus();
     expect(screen.getByRole("textbox", { name: "Search investments" })).toHaveValue("synthetic");
     expect(screen.getByRole("combobox", { name: "Type" })).toHaveValue("stock");
     expect(screen.getByRole("button", { name: "To review" })).toHaveAttribute("aria-pressed", "true");
@@ -126,7 +142,7 @@ describe("Upcoming Actions investment review entry", () => {
     services.reconcile.mockRejectedValueOnce(new Error("synthetic reconcile failure"));
     services.reconcile.mockResolvedValueOnce({});
     render(tree());
-    await user.click(screen.getByRole("tab", { name: "Investment review" }));
+    await user.click(screen.getByRole("tab", { name: /Investment review/ }));
     expect(await screen.findByRole("heading", { name: "Unable to load investment reviews." })).toBeInTheDocument();
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("We could not load this part of your workspace.");
@@ -138,7 +154,7 @@ describe("Upcoming Actions investment review entry", () => {
   it("opens holdings and performance from the new review page with only an instrument id and section", async () => {
     const user = userEvent.setup();
     render(tree());
-    await user.click(screen.getByRole("tab", { name: "Investment review" }));
+    await user.click(screen.getByRole("tab", { name: /Investment review/ }));
     await screen.findByRole("heading", { name: "Synthetic fund" });
     await user.click(screen.getByRole("button", { name: "More actions for Synthetic fund" }));
     await user.click(await screen.findByRole("menuitem", { name: "View holdings" }));

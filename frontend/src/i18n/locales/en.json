@@ -677,8 +677,7 @@
     "members": "Members",
     "overview": "Overview",
     "settings": "Settings",
-    "historicalOverview": "Historical overview",
-    "reconciliation": "Reconciliation"
+    "historicalOverview": "Historical overview"
   },
   "onboarding": {
     "restoreTitle": "Already have a backup?",

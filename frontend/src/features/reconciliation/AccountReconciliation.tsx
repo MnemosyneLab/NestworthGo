@@ -32,7 +32,7 @@ export function AccountReconciliation({ accountId, archived = false }: { account
             <Button
               variant="outline"
               onClick={() =>
-                navigation?.open({ page: "reconciliation", accountId })
+                navigation?.open({ page: "tasks", tab: "reconciliation", accountId })
               }
             >
               {t("reconciliation.open")}
@@ -43,7 +43,8 @@ export function AccountReconciliation({ accountId, archived = false }: { account
               variant="ghost"
               onClick={() =>
                 navigation?.open({
-                  page: "reconciliation",
+                  page: "tasks",
+                  tab: "reconciliation",
                   accountId,
                   sessionId: last.data?.id,
                 })

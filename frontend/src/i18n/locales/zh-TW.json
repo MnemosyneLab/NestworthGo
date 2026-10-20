@@ -677,8 +677,7 @@
     "members": "成員",
     "overview": "總覽",
     "settings": "設定",
-    "historicalOverview": "歷史全景",
-    "reconciliation": "帳戶核對"
+    "historicalOverview": "歷史全景"
   },
   "onboarding": {
     "restoreTitle": "已有備份？",

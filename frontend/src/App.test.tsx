@@ -239,6 +239,10 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
   },
 }));
 
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation", () => ({
+  Service: { List: () => Promise.resolve([]) },
+}));
+
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
     UpcomingActions: () => upcomingRead(),
@@ -382,7 +386,7 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.availableFunds") })).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: i18n.t("nav.upcomingActions") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: new RegExp(i18n.t("nav.tasks")) })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: i18n.t("nav.holdings") })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: i18n.t("nav.dataHealth") })).not.toBeInTheDocument();
@@ -693,10 +697,9 @@ it("retains the upcoming filter and restores its trigger after Back", async () =
   await userEvent.click(await screen.findByRole("button", { name: "View all 1 action" }));
   const filter = await screen.findByRole("button", { name: "Reservation issues" });
   await userEvent.click(filter);
-  await userEvent.click(screen.getByText("Information affecting assessment (0 data issues, 0 notes)"));
-  const health = within(screen.getByText("Information affecting assessment (0 data issues, 0 notes)").closest("details")!).getByRole("button", { name: "Data Health" });
+  const health = await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) });
   await userEvent.click(health);
-  await userEvent.click(await screen.findByRole("button", { name: "← Back to Upcoming actions" }));
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
   await waitFor(() => expect(filter).toHaveAttribute("aria-pressed", "true"));
   await waitFor(() => expect(health).toHaveFocus());
   expect(screen.queryByRole("button", { name: "Verify receipt" })).not.toBeInTheDocument();
@@ -727,7 +730,7 @@ it("returns through Upcoming actions to open another product and does not reopen
   await userEvent.click(await screen.findByRole("button", { name: "View terms · Product B" }));
   await screen.findByRole("dialog", { name: "product-b" });
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Upcoming actions" }));
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Tasks & checks" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
   await screen.findByTestId("overview-net-worth");
@@ -924,11 +927,11 @@ it.each(["zh-TW"] as const)("keeps investment review reachable from Overview wit
   settingsLoad.mockResolvedValue({ ...defaultSettings, language });
   upcomingRead.mockResolvedValue(upcomingData());
   render(<AppProviders><App /></AppProviders>);
-  const entry = await screen.findByRole("button", { name: i18n.t("reviewV2.openReview") });
+  const entry = await screen.findByRole("button", { name: new RegExp(i18n.t("tasks.tabs.review")) });
   entry.focus();
   await userEvent.keyboard("{Enter}");
-  expect(await screen.findByRole("heading", { name: i18n.t("upcomingActions.title"), level: 2 })).toBeVisible();
-  expect(screen.getByText(i18n.t("upcomingActions.description"))).toBeVisible();
+  expect(await screen.findByRole("heading", { name: i18n.t("tasks.title"), level: 2 })).toBeVisible();
+  expect(screen.getByText(i18n.t("tasks.description"))).toBeVisible();
   const reviewTab = screen.getByRole("tab", { name: i18n.t("reviewV2.title") });
   expect(reviewTab).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toBeVisible();
@@ -963,7 +966,7 @@ it("preserves filtered page two through the real instrument route and focuses bo
 
   render(<AppProviders><App /></AppProviders>);
   await screen.findByTestId("overview-net-worth");
-  const overviewReviewTrigger = screen.getByRole("button", { name: i18n.t("reviewV2.openReview") });
+  const overviewReviewTrigger = screen.getByRole("button", { name: new RegExp(i18n.t("tasks.tabs.review")) });
   await user.click(overviewReviewTrigger);
   await user.click(await screen.findByRole("tab", { name: i18n.t("reviewV2.title") }));
   await screen.findByRole("heading", { name: "Synthetic First Holding" });
@@ -987,18 +990,24 @@ it("preserves filtered page two through the real instrument route and focuses bo
   expect(instrumentGroups).toHaveBeenCalledWith();
 
   await queryClient.invalidateQueries({ queryKey: reviewV2Key });
-  expect(reviewAlerts).toHaveBeenCalledTimes(reviewReadCount);
+  await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(reviewReadCount));
+  const hiddenReads = reviewAlerts.mock.calls.slice(reviewReadCount);
+  expect(hiddenReads.every((call) => {
+    const request = call[0] as { cursor?: string; filter?: { status?: string } };
+    return request.filter?.status === "unignored" && !request.cursor;
+  })).toBe(true);
+  const afterHidden = reviewAlerts.mock.calls.length;
   await user.click(screen.getByRole("button", { name: /Back to/ }));
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toHaveValue("Synthetic");
   expect(screen.getByRole("combobox", { name: i18n.t("reviewV2.typeFilter") })).toHaveValue("mutual_fund");
   expect(screen.getByRole("button", { name: i18n.t("reviewV2.status.pending") })).toHaveAttribute("aria-pressed", "true");
   expect(await screen.findByRole("heading", { name: "Synthetic Second Holding" })).toBeVisible();
-  const reviewHeading = document.getElementById("upcoming-actions-heading");
+  const reviewHeading = document.getElementById("tasks-heading");
   expect(reviewHeading).not.toBeNull();
   await waitFor(() => expect(reviewHeading).toHaveFocus());
   expect(reviewHeading).toBeVisible();
   expect(reviewHeading?.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
-  await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(reviewReadCount));
+  await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(afterHidden));
 
   await user.click(screen.getByRole("button", { name: /Back to/ }));
   expect(await screen.findByTestId("overview-net-worth")).toBeVisible();

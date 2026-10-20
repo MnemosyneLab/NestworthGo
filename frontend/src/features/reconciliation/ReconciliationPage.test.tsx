@@ -462,7 +462,7 @@ it("starts each session's finishing form without another session's draft", async
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.back") }));
   q.session = second;
-  await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.continue") }));
   await userEvent.click(screen.getByRole("button", { name: "Finish session" }));
   expect(screen.getByRole("checkbox", { name: "Finish partially with outstanding checks" })).not.toBeChecked();
   expect(screen.getByLabelText("Closing explanation")).toHaveValue("");
@@ -490,7 +490,7 @@ it("discards a late adjustment preview after closing and switching sessions", as
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.back") }));
   q.session = second;
-  await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.continue") }));
   await act(async () => { resolveAdjustment({ planId: "late-adjustment", changes: [] }); });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
@@ -505,7 +505,7 @@ it("discards a late product correction preview after closing and switching sessi
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.back") }));
   q.session = second;
-  await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.continue") }));
   await act(async () => { resolveProduct({ planId: "late-product" }); });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
@@ -528,7 +528,7 @@ it("keeps a late new-product preview closed after Escape and a session switch", 
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.back") }));
   q.session = second;
-  await userEvent.click(screen.getByRole("button", { name: /Other bank.*In progress/i }));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.continue") }));
   await act(async () => { resolveProduct({ planId: "late-new-product" }); });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
@@ -927,6 +927,17 @@ it("preserves the canonical cash amount in the reviewed checkpoint", async () =>
   expect(
     await screen.findByText("$100.00 (100.001 USD)", { selector: "p" }),
   ).toBeInTheDocument();
+});
+
+it("keeps unfinished sessions out of the default history list", () => {
+  q.sessions = [
+    { ...session(), accountIds: ["one"], accountNames: ["Synthetic bank"] },
+    { ...session(), id: "session-done", status: "completed", accountIds: ["two"], accountNames: ["Other bank"] },
+  ];
+  mount();
+  expect(screen.getByRole("button", { name: "Continue session" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Other bank/ })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Synthetic bank/ })).not.toBeInTheDocument();
 });
 
 it("puts unfinished Continue and omission entry first without confirming anything", async () => {
