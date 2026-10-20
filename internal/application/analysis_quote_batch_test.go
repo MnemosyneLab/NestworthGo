@@ -30,8 +30,10 @@ func (r *analysisLegacyQuoteRepository) ReadSnapshotQuoteEvidence(ctx context.Co
 
 type analysisBatchQuoteRepository struct {
 	*analysisLegacyQuoteRepository
-	batchReads int
-	failure    error
+	batchReads   int
+	failure      error
+	requestedIDs []domain.InstrumentID
+	returnedRows int
 }
 
 func (r *analysisBatchQuoteRepository) LoadAnalysisQuoteBatch(ctx context.Context, id domain.HouseholdID, ids []domain.InstrumentID) ([]domain.InstrumentQuote, error) {
@@ -39,7 +41,10 @@ func (r *analysisBatchQuoteRepository) LoadAnalysisQuoteBatch(ctx context.Contex
 	if r.failure != nil {
 		return nil, r.failure
 	}
-	return r.Repository.(AnalysisQuoteBatchRepository).LoadAnalysisQuoteBatch(ctx, id, ids)
+	r.requestedIDs = append([]domain.InstrumentID(nil), ids...)
+	quotes, err := r.Repository.(AnalysisQuoteBatchRepository).LoadAnalysisQuoteBatch(ctx, id, ids)
+	r.returnedRows = len(quotes)
+	return quotes, err
 }
 
 func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
@@ -184,6 +189,36 @@ func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
 				}
 			}
 		}
+		fullService := NewAnalysisService(s.repository, s.clock)
+		fullService.forceFullQuoteLoading = true
+		fullAccount, err := fullService.loadInputs(ctx, query)
+		if err != nil || len(fullAccount.InstrumentQuotes) != 48 {
+			t.Fatalf("full account oracle: rows=%d err=%v", len(fullAccount.InstrumentQuotes), err)
+		}
+		narrowRepo := &analysisBatchQuoteRepository{analysisLegacyQuoteRepository: &analysisLegacyQuoteRepository{Repository: s.repository}}
+		narrowed, err := NewAnalysisService(narrowRepo, s.clock).loadInputs(ctx, query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(narrowRepo.requestedIDs) != 2 || narrowRepo.returnedRows != 8 {
+			t.Fatalf("requested IDs=%d returned rows=%d", len(narrowRepo.requestedIDs), narrowRepo.returnedRows)
+		}
+		if len(narrowed.InstrumentQuotes) != 8 {
+			t.Fatalf("narrowed rows=%d, want 8", len(narrowed.InstrumentQuotes))
+		}
+		// Compare both arms using the identical complete captured opening input;
+		// fresh opening IDs are incidental to separate origin reconstruction.
+		candidate := want
+		candidate.InstrumentQuotes = narrowed.InstrumentQuotes
+		expected, err := ComputeAnalysis(want, query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := ComputeAnalysis(candidate, query)
+		if err != nil || !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("narrowed complete analysis differs: %v", err)
+		}
+		t.Logf("H2a from=%s requested instruments 12->2; actual returned quote rows 48->%d (origin opening maintained separately)", from, len(narrowed.InstrumentQuotes))
 		// All SELECTs in loadInputs are counted by the driver through Rows.Close,
 		// including portfolio hydration, origin opening and evidence reads.
 		if oldSQL.queries-newSQL.queries != 9 {
