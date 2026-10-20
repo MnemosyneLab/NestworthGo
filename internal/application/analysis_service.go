@@ -21,6 +21,10 @@ type AnalysisService struct {
 	now             func() time.Time
 	ensureSnapshots func(context.Context, string, string) error
 
+	// forceFullQuoteLoading preserves the full hydration oracle for bounded tests.
+	// Production uses the conservative planner; it never clips other inputs.
+	forceFullQuoteLoading bool
+
 	// memoMu protects the bounded memo and generation. The generation is
 	// intentionally process-local: persisted analytics inputs remain the
 	// source of truth and a process restart starts with an empty memo.
@@ -384,25 +388,6 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 	if err != nil {
 		return AnalysisInputs{}, err
 	}
-	instrumentQuotes := make([]domain.InstrumentQuote, 0)
-	if batchReader, ok := s.repository.(AnalysisQuoteBatchRepository); ok {
-		ids := make([]domain.InstrumentID, len(portfolio.Instruments))
-		for i, instrument := range portfolio.Instruments {
-			ids[i] = instrument.ID
-		}
-		instrumentQuotes, err = batchReader.LoadAnalysisQuoteBatch(ctx, portfolio.Household.ID, ids)
-		if err != nil {
-			return AnalysisInputs{}, err
-		}
-	} else {
-		for _, instrument := range portfolio.Instruments {
-			quotes, quoteErr := s.repository.ListInstrumentQuotes(ctx, instrument.ID)
-			if quoteErr != nil {
-				return AnalysisInputs{}, quoteErr
-			}
-			instrumentQuotes = append(instrumentQuotes, quotes...)
-		}
-	}
 	if query.From == domain.LocalDate(originDate) {
 		// Value the immutable Starting point before applying any activities.
 		// Its prior-date label is an in-memory opening basis, never a stored
@@ -420,6 +405,26 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 			return AnalysisInputs{}, valueErr
 		}
 		snapshots = append(snapshots, opening)
+	}
+	planningQuery := query
+	if s.forceFullQuoteLoading {
+		planningQuery.Scope = domain.AnalysisScope{Kind: domain.ScopeHousehold}
+	}
+	quoteIDs := planAnalysisQuoteDependencies(AnalysisInputs{Portfolio: portfolio, Snapshots: snapshots, Activities: activities}, planningQuery)
+	instrumentQuotes := make([]domain.InstrumentQuote, 0)
+	if batchReader, ok := s.repository.(AnalysisQuoteBatchRepository); ok {
+		instrumentQuotes, err = batchReader.LoadAnalysisQuoteBatch(ctx, portfolio.Household.ID, quoteIDs)
+		if err != nil {
+			return AnalysisInputs{}, err
+		}
+	} else {
+		for _, id := range quoteIDs {
+			quotes, quoteErr := s.repository.ListInstrumentQuotes(ctx, id)
+			if quoteErr != nil {
+				return AnalysisInputs{}, quoteErr
+			}
+			instrumentQuotes = append(instrumentQuotes, quotes...)
+		}
 	}
 	if reader, ok := s.repository.(snapshotQuoteEvidenceRepository); ok {
 		evidence, readErr := reader.ReadSnapshotQuoteEvidence(ctx, portfolio.Household.ID, snapshots)

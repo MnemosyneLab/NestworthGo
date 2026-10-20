@@ -291,6 +291,11 @@ E1 建新表和投影 adapter，先影子写入/比较、旧读不变；E2 修�
 
 分析范围收缩单独提交：先从 origin、daily snapshots、活动 effects、历史 ownership/state 得到期间 universe，再闭包扩展 transfer/reversal/cost 的来源与目标、已归档账户、已清仓 holdings、起点状态。在内核完成归因后应用输出 filter。仅以“当前选中账户的当前 holdings”加载会漏掉成本与 realized contribution，禁止实施。PR #106 的币种/类别过滤、#107 的统一 return summary 是 oracle 的一部分；未能证明依赖闭包完整前保持 household hydration，只启用 G 的安全 batching。
 
+H2a implements a narrower quote-only step: full portfolio/snapshot/activity/FX
+hydration remains authoritative. Explicit account requests retain historical and
+opening instruments plus every household activity dependency; unresolved inputs
+fall back to all instruments. See [bounded evidence and limits](../testing/performance-h2a-analysis-dependencies-2026-10-20.md).
+
 ## 9. 正确性 oracle、故障恢复与验收
 
 每个实现 PR 必须提供开关强制走基线全量路径；oracle 禁用增量状态、共享 fact 和 checkpoint，使用同一 authoritative 合成 snapshot 重建，避免两条路径共享同一个错误 invalidation 结果。对金融核心尽量复用既有算法而独立重建输入，必要时保留旧 SQL 为选择 oracle。
