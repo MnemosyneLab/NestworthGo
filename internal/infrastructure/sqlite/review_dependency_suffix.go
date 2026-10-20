@@ -43,7 +43,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 		}()
 	}
 
-	if !r.reviewDependencySuffix || !r.CertifiedReviewEnabled() || r.ReviewCompletenessLineageShadowEnabled() {
+	if !r.reviewDependencySuffix || !r.CertifiedReviewEnabled() {
 		return nil
 	}
 	p := c.PublishedTemporal

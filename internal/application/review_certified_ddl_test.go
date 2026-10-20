@@ -92,7 +92,7 @@ func TestReviewCertifiedOwnDDLCommitRejectsNoop(t *testing.T) {
 
 func TestReviewCertifiedOwnDDLCommitSelectsFullSourceRecheck(t *testing.T) {
 	db, faults := openReviewFaultDatabase(t)
-	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", true, db)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
 	p := certifiedStage(t, f, r)
 	certifiedOwnDDL(t, f, false, false)
 	fullReads := 0
@@ -125,7 +125,7 @@ func TestReviewCertifiedOwnDDLDoesNotLaunderLostFrozenHistory(t *testing.T) {
 	}
 	certifiedOwnDDL(t, f, true, false)
 	p := certifiedStage(t, f, r)
-	if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+	if p.Capture.Certified.MayCertify {
 		t.Error("lost frozen event history was treated as an authentic unchanged projection")
 	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {

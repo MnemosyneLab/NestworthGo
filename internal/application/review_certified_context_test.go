@@ -82,7 +82,7 @@ func TestReviewCertifiedProviderExhaustionAndDefault(t *testing.T) {
 			}
 			f.day(t, "2026-10-13")
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.Provider.Pinned || p.CertifiedFullOracle != nil {
+			if p.Capture.Certified.Provider.Pinned {
 				t.Fatal("unfenced selection acquired bounded authority")
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -136,7 +136,7 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 				}
 			}
 			p := certifiedStage(t, f, r)
-			if p.CertifiedFullOracle != nil || len(p.Capture.ReusableDailyEvidence) != 0 {
+			if len(p.Capture.ReusableDailyEvidence) != 0 {
 				t.Fatal("unsupported context used bounded publication")
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -273,7 +273,7 @@ func TestReviewCertifiedHoldsSQLiteWriteReservation(t *testing.T) {
 
 func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) {
 	db, faults := openReviewFaultDatabase(t)
-	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", true, db)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
 	f.day(t, "2026-10-13")
 	p := certifiedStage(t, f, r)
 	reference := windowOracleReference(t, f)
@@ -307,7 +307,7 @@ func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) 
 
 func TestReviewCertifiedCaptureFencesExternalCommitDuringSnapshot(t *testing.T) {
 	db, faults := openReviewFaultDatabase(t)
-	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", true, db)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
 	f.day(t, "2026-10-13")
 	initial := certifiedStage(t, f, r)
 	writer, err := sql.Open("sqlite", f.db.Path+"?_txlock=immediate&_pragma=busy_timeout%3d0&_pragma=foreign_keys%3d1&_pragma=recursive_triggers%3d1")

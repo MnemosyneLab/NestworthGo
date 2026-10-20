@@ -445,7 +445,7 @@ func TestReviewDependencySuffixHandlingCalendarsAndFallback(t *testing.T) {
 func TestReviewDependencySuffixExactFXPrefix(t *testing.T) {
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
-	f, r := certifiedPublicationFixture(t, true, spec, "1", false)
+	f, r := certifiedPublicationFixture(t, true, spec, "1")
 	r = r.WithReviewDependencySuffix()
 	f.s.repository = r
 	// A prior C3 certificate cannot invent D2 source descriptions. Establish

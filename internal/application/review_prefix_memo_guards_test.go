@@ -112,7 +112,7 @@ func TestReviewPrefixMemoGuards(t *testing.T) {
 func TestReviewPrefixMemoExactFX(t *testing.T) {
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
-	f, r := certifiedPublicationFixture(t, true, spec, "1", false)
+	f, r := certifiedPublicationFixture(t, true, spec, "1")
 	r = r.WithReviewPrefixMemo()
 	f.s.repository = r
 	prime := certifiedStage(t, f, r)

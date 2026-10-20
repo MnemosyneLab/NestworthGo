@@ -15,7 +15,7 @@ func TestReviewDependencyFXRawMutationFullFallback(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			spec := syntheticHistoricalReviewSpec()
 			spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
-			f, r := certifiedPublicationFixture(t, true, spec, "1", false)
+			f, r := certifiedPublicationFixture(t, true, spec, "1")
 			r = r.WithReviewDependencySuffix()
 			f.s.repository = r
 			q, err := f.s.AppendManualFXQuote(t.Context(), "USD", "CNY", "2", "2026-10-08")

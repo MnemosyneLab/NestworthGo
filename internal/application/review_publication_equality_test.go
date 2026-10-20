@@ -40,7 +40,7 @@ func publicationDailyTimes(t *testing.T, db *sqlite.DB) []string {
 func TestReviewCertifiedPublicationEqualityFullDurableOracle(t *testing.T) {
 	for _, scenario := range []string{"same-day-full", "clock", "source-correction", "missing-day", "changed-result"} {
 		t.Run(scenario, func(t *testing.T) {
-			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", false)
+			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 			*f.now = f.now.Add(time.Hour)
 			switch scenario {
 			case "clock":
@@ -79,7 +79,7 @@ func TestReviewCertifiedPublicationEqualityFullDurableOracle(t *testing.T) {
 // The injected clock runs after comparison rows are read. The comparison must
 // still use the actual SQL arguments, rather than an earlier equality stamp.
 func TestReviewCertifiedPublicationEqualityRechecksActualArguments(t *testing.T) {
-	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", false)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 	*f.now = f.now.Add(time.Hour)
 	p := certifiedStage(t, f, r)
 	clock := func() time.Time {
@@ -96,7 +96,7 @@ func TestReviewCertifiedPublicationEqualityRechecksActualArguments(t *testing.T)
 }
 
 func TestReviewCertifiedPublicationEqualityRepeatedKeyRestoresOriginal(t *testing.T) {
-	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", false)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 	*f.now = f.now.Add(time.Hour)
 	p := certifiedStage(t, f, r)
 	original := p.Rules[0].Days[0]

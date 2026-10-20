@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,37 +44,9 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		return reviewRuleConflict("staged review provider differs from the held selection")
 	}
 	if r.CertifiedReviewEnabled() && len(publication.Capture.ReusableDailyEvidence) > 0 {
-		if publication.CertifiedFullOracle == nil {
-			return reviewRuleConflict("certified full oracle is missing")
-		}
-		if !providerLeased || domain.ValidateReviewCertifiedOutput(publication) != "window_oracle_matched" {
-			publication = domain.ReviewFullPublication(publication)
-		}
+		return reviewRuleConflict("certified publication requires complete preparation or authenticated suffix evidence")
 	}
-
 	capture := publication.Capture
-	lineageVerdict := "authoritative_guard_rejected"
-	if r.ReviewCompletenessLineageShadowEnabled() {
-		defer func() {
-			if publishErr != nil {
-				lineageVerdict = "authoritative_guard_rejected"
-			}
-			r.observeReviewLineage("publication", lineageVerdict)
-		}()
-	}
-	certifiedSourceUsed := false
-	if r.CertifiedReviewEnabled() {
-		defer func() {
-			verdict := "full_source_recheck"
-			if certifiedSourceUsed {
-				verdict = "verified_source_cas"
-			}
-			if publishErr != nil {
-				verdict = "rejected"
-			}
-			r.observeReviewLineage("certified_publication", verdict)
-		}()
-	}
 	if capture.HouseholdID == "" || capture.SourceCutoff.IsZero() || capture.HistoricalFingerprint == "" || publication.At.IsZero() || clock == nil {
 		return &domain.Error{Code: domain.ErrValidation, Field: "publication", Message: "a complete review capture is required"}
 	}
@@ -111,7 +82,6 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err := requireReviewSuffixAuthority(capture, certified, mayCertify, providerLeased); err != nil {
 		return err
 	}
-	certifiedSourceUsed = certified
 	actualFingerprint := capture.HistoricalFingerprint
 	if !certified {
 		// Unknown, changed or damaged tracking never substitutes a token for
@@ -130,10 +100,6 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		}
 	}
 
-	if r.CertifiedReviewEnabled() && !certified && len(capture.ReusableDailyEvidence) > 0 {
-		publication = domain.ReviewFullPublication(publication)
-		capture = publication.Capture
-	}
 	observation := domain.CompareReviewSourceCheckpoints(capture, domain.ReviewProjectionCapture{SourceCutoff: capture.SourceCutoff, HistoricalFingerprint: actualFingerprint, SourceRevision: checkpoint})
 	if r.reviewSourceShadowObserver != nil {
 		r.reviewSourceShadowObserver(observation)
@@ -183,47 +149,12 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 			return reviewRuleConflict("review rule changed during calculation")
 		}
 	}
-	if r.ReviewCompletenessLineageShadowEnabled() {
-		diagnosticPublication := publication
-		if publication.CertifiedFullOracle != nil {
-			diagnosticPublication = domain.ReviewFullPublication(publication)
-			diagnosticPublication.WindowOracle = &domain.ReviewWindowOracle{Version: domain.ReviewWindowOracleVersion, Rules: publication.Rules}
-		}
-		lineageVerdict = domain.ValidateReviewCompletenessPrefix(diagnosticPublication)
-		if lineageVerdict == "prefix_validated" {
-			lineageVerdict = domain.ValidateReviewWindowOracle(diagnosticPublication)
-		}
-		if lineageVerdict == "window_oracle_matched" {
-			current := capture
-			current.Control, current.SourceRevision, current.HistoricalFingerprint = control, checkpoint, actualFingerprint
-			current.PublishedTemporal, err = readReviewTemporal(ctx, tx, capture.HouseholdID)
-			if err != nil {
-				return err
-			}
-			proof, err := r.captureReviewLineage(ctx, tx, current, capture.Temporal.ClockEpoch, mayCertify)
-			if err != nil {
-				return err
-			}
-			switch {
-			case !proof.Candidate:
-				lineageVerdict = proof.Reason
-			case proof.BindingDigest != capture.CompletenessLineage.BindingDigest:
-				lineageVerdict = "binding_changed"
-			case !reflect.DeepEqual(proof.Window, capture.CompletenessLineage.Window):
-				lineageVerdict = "window_changed"
-			case proof.ProjectionSeal != capture.CompletenessLineage.ProjectionSeal:
-				lineageVerdict = "projection_changed"
-			default:
-				lineageVerdict = "lineage_validated_shadow"
-			}
-		}
-	}
 	_, err = validateReviewSuffixPublication(capture, publication.Rules)
 	if err != nil {
 		return err
 	}
 	var equalDaily *reviewPublicationEquality
-	if certified && mayCertify && capture.Certified != nil && capture.Certified.MayCertify && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil && r.authenticReview(capture.PublishedTemporal, capture.Certified.ProjectionSeal) {
+	if certified && mayCertify && capture.Certified != nil && capture.Certified.MayCertify && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && r.authenticReview(capture.PublishedTemporal, capture.Certified.ProjectionSeal) {
 		// Load exact row images only from an already authenticated same-handle
 		// namespace under this reservation, before the final injected clock.
 		// Missing/unknown/restarted state retains every original UPSERT.
@@ -338,7 +269,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	publishedTemporal.NoChangeProjectionCounts = nil
 	publishedTemporal.NoChangeReviewFingerprint = ""
 	publishedTemporal.NoChangeFXProviderKey = ""
-	if r.ReviewNoChangeEnabled() && (len(capture.ReusableDailyEvidence) == 0 || (certified && publication.CertifiedFullOracle != nil && domain.ValidateReviewCertifiedOutput(publication) == "window_oracle_matched")) {
+	if r.ReviewNoChangeEnabled() && len(capture.ReusableDailyEvidence) == 0 {
 		publishedTemporal.NoChangeCompletenessVersion = domain.ReviewNoChangeCompletenessVersion
 		publishedTemporal.NoChangeProjectionCounts, err = noChangeProjectionCounts(ctx, tx, capture.HouseholdID)
 		if err != nil {

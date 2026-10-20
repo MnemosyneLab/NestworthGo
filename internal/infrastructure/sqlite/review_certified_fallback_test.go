@@ -58,7 +58,7 @@ func testReviewCertifiedUnavailableProof(t *testing.T, unavailable string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Certified == nil || validCertifiedConnection(c.Certified.Connection) || c.Certified.MayCertify || c.Certified.MayReuse {
+	if c.Certified == nil || validCertifiedConnection(c.Certified.Connection) || c.Certified.MayCertify {
 		t.Fatal("unknown connection acquired authority")
 	}
 	c.Certified.Provider = domain.ReviewProviderSelection{Key: "synthetic-pinned", Pinned: true}

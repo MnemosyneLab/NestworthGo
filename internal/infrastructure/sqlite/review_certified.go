@@ -17,10 +17,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// This is a separate, default-off C3 candidate. Legacy counting-only
-// experiments grant it no authority. It has no persistent cache or trigger.
-// A failed no-change confirmation uses one full preparation. The separate
-// lineage shadow must be explicitly selected to audit bounded publication.
+// Certified review binds complete projection integrity to this DB handle.
+// Missing no-change authority uses full preparation, while the independently
+// authenticated suffix path may retain proven daily output.
 func (r *Repository) WithCertifiedReviewCandidate() *Repository {
 	copy := *r
 	copy.reviewCertifiedCandidate = true

@@ -38,7 +38,7 @@ func TestReviewCertifiedCASFailureAndBoundedRetry(t *testing.T) {
 	for _, scenario := range []string{"control-ignore", "checkpoint-ignore", "checkpoint-abort"} {
 		t.Run(scenario, func(t *testing.T) {
 			db, faults := openReviewFaultDatabase(t)
-			f, repo := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", false, db)
+			f, repo := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
 			counts := &certifiedConfirmationCounts{Repository: repo}
 			f.s.repository = counts
 			before := noChangeProjectionRows(t, db)
