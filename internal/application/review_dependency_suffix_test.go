@@ -622,7 +622,7 @@ func TestReviewDependencyProviderChangePreservesCertifiedChain(t *testing.T) {
 }
 
 func TestReviewDependencyClockOutputPartitionAndAtomicGuards(t *testing.T) {
-	for _, scenario := range []string{"complete", "gap", "overlap", "duplicate", "missing-pair", "excluded-pair", "late-attestation"} {
+	for _, scenario := range []string{"complete", "gap", "overlap", "duplicate", "missing-pair", "excluded-pair", "late-attestation", "late-gap"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 5, MinHits: 3})
 			f.day(t, "2026-10-13")
@@ -661,6 +661,8 @@ func TestReviewDependencyClockOutputPartitionAndAtomicGuards(t *testing.T) {
 				stage.Rules[0].Days = nil
 			case "late-attestation":
 				clock = func() time.Time { stage.Capture.Suffix.Prefix[0].OutputAttested = false; return *f.now }
+			case "late-gap":
+				clock = func() time.Time { stage.Rules[0].Days = nil; return *f.now }
 			}
 			if err := certifiedPublish(t.Context(), f, r, stage, clock); err == nil {
 				t.Fatal("invalid partition published")

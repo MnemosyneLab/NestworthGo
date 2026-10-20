@@ -44,15 +44,16 @@ Normal GUI/MCP initialization remains enabled; rollback remains
 
 Ordinary targeted domain/SQLite/application suites passed .010/.833/24.252s.
 Final focused SQL-image, partition/atomicity and exact-FX tests passed
-.064/1.079s (SQLite/application). Local opt-in30-case policy/change matrix passed
+.072/1.224s (SQLite/application). Local opt-in30-case policy/change matrix passed
 6.122s. Internal vet/build passed on final production source. Tests compare an
 independently captured forced-full plan, complete durable output and **all three
 daily timestamps** (computed_at/evaluated_at/revised_at). The clock path covers
 all policies in the local matrix; the light ordinary guards cover missing,
-duplicate and overlapping days, missing/falsely-excluded pairs and late
-attestation mutation. The exact-FX clock test explicitly requires attestation.
+duplicate and overlapping days, missing/falsely-excluded pairs, late
+attestation mutation and late emitted-day deletion after the first comparison. The exact-FX clock test explicitly requires attestation.
 SQL-image tests use SELECT placeholders, not mutations to certified rows; they
-exercise scalar/NULL/JSON mismatch and changed-source rejection.
+exercise exact household/rule/timezone keys, SQL integer-versus-text types,
+scalar/NULL/JSON mismatch and changed-source rejection.
 
 The exhaustive matrix remains local opt-in (`-tags=perf NW_D2_LOCAL_ORACLES=1`).
 The matched-fixture helper and measurement harness are perf-only. No race was

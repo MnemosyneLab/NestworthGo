@@ -23,10 +23,18 @@ func TestReviewSuffixAttestationRequiresCompleteTypedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	original := append(append([]any{}, a[:13]...), b[:9]...)
-	for _, scenario := range []string{"equal", "quantity", "currency", "type", "amount", "cost", "input-json", "coverage", "truth", "reason", "result-json", "result-fingerprint", "changed-source"} {
+	for _, scenario := range []string{"equal", "quantity", "currency", "type", "amount", "cost", "input-json", "coverage", "truth", "reason", "result-json", "result-fingerprint", "changed-source", "household-key", "rule-key", "timezone-key", "condition-type"} {
 		t.Run(scenario, func(t *testing.T) {
 			values := append([]any{}, original...)
 			switch scenario {
+			case "household-key":
+				values[0] = "other-household"
+			case "rule-key":
+				values[13] = "other-rule"
+			case "timezone-key":
+				values[2] = "UTC/other"
+			case "condition-type":
+				values[14] = "1"
 			case "quantity":
 				values[5] = "0"
 			case "currency":
