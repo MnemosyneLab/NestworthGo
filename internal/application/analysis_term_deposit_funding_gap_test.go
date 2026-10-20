@@ -2,6 +2,7 @@ package application
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"strings"
 	"testing"
@@ -132,6 +133,8 @@ func TestReturnAnalysisSurvivesTermDepositStartBeforeFundingCash(t *testing.T) {
 	if err != nil || !change.Available {
 		t.Fatalf("asset change err=%v available=%v reason=%q", err, change.Available, change.MissingReason)
 	}
+	assertFundingGapHistoricalTotals(t, service, ctx)
+	assertFundingGapContributionUnknown(t, service, ctx)
 
 	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil {
@@ -197,6 +200,129 @@ func TestReturnAnalysisSurvivesTermDepositStartBeforeFundingCash(t *testing.T) {
 		if !strings.Contains(logged, part) {
 			t.Fatalf("log missing %q:\n%s", part, logged)
 		}
+	}
+}
+
+func assertFundingGapHistoricalTotals(t *testing.T, service *Service, ctx context.Context) {
+	t.Helper()
+	overview, err := service.HistoricalOverview(ctx, "2026-10-02", "2026-10-09")
+	if err != nil {
+		t.Fatalf("historical overview: %v", err)
+	}
+	if overview.Left.Complete || overview.Left.Assets != nil || overview.Left.NetWorth != nil {
+		t.Fatalf("2026-10-02 presented as complete: complete=%v assets=%v net=%v", overview.Left.Complete, overview.Left.Assets, overview.Left.NetWorth)
+	}
+	if !decimalAmountEqual(overview.Left.KnownAssets, "100000") {
+		t.Fatalf("known assets = %s, want the deposit principal", overview.Left.KnownAssets)
+	}
+	if overview.Left.DisplayValuation.Assets.Total != nil || overview.Left.DisplayValuation.NetWorth.Total != nil || overview.Left.DisplayValuation.Assets.Quality.Availability == domain.ValuationFull {
+		t.Fatalf("gap display totals = assets:%v net:%v availability:%s", overview.Left.DisplayValuation.Assets.Total, overview.Left.DisplayValuation.NetWorth.Total, overview.Left.DisplayValuation.Assets.Quality.Availability)
+	}
+	if overview.Right == nil || !overview.Right.Complete || overview.Right.Assets == nil || !decimalAmountEqual(*overview.Right.Assets, "150000") {
+		assets := ""
+		if overview.Right != nil && overview.Right.Assets != nil {
+			assets = *overview.Right.Assets
+		}
+		t.Fatalf("funded day assets=%q complete=%v", assets, overview.Right != nil && overview.Right.Complete)
+	}
+	if overview.Change == nil || overview.Change.NetWorth != nil {
+		t.Fatal("net-worth change treated the gap day as a complete endpoint")
+	}
+	gapCash := false
+	for _, row := range overview.Rows {
+		if row.Kind != "cash" || row.Left == nil {
+			continue
+		}
+		if row.Left.NativeAmount != nil || row.Left.BaseAmount != nil || row.Left.Complete {
+			t.Fatalf("gap cash still has a complete amount: %#v", row.Left)
+		}
+		for _, reason := range row.Left.Missing {
+			if reason == historicalFundingGapReason {
+				gapCash = true
+			}
+		}
+	}
+	if !gapCash {
+		t.Fatal("historical overview cash row is missing the funding-gap reason")
+	}
+	partialCategory := false
+	for _, category := range overview.Categories {
+		if category.Left.Status == "partial" {
+			partialCategory = true
+			if category.Left.Amount != nil {
+				t.Fatalf("partial category %s still publishes a complete amount %s", category.Key, *category.Left.Amount)
+			}
+		}
+	}
+	if !partialCategory {
+		t.Fatal("category comparison treated the funding gap as complete")
+	}
+	series, err := service.HistoricalOverviewSeries(ctx, "2026-10-02", "2026-10-09")
+	if err != nil {
+		t.Fatalf("historical series: %v", err)
+	}
+	for _, point := range series.Points {
+		switch point.Date {
+		case "2026-10-02":
+			if point.AssetsComplete || point.Assets != nil || point.NetWorth != nil || point.DisplayValuation.Assets.Total != nil {
+				t.Fatalf("trend point presented as complete: %+v", point)
+			}
+			found := false
+			for _, missing := range point.Missing {
+				for _, reason := range missing.Reasons {
+					if reason == historicalFundingGapReason {
+						found = true
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("trend point missing reasons = %#v", point.Missing)
+			}
+		case "2026-10-09":
+			if !point.AssetsComplete || point.Assets == nil || !decimalAmountEqual(*point.Assets, "150000") {
+				t.Fatalf("funded trend point = complete:%v assets:%v", point.AssetsComplete, point.Assets)
+			}
+		}
+	}
+}
+
+func assertFundingGapContributionUnknown(t *testing.T, service *Service, ctx context.Context) {
+	t.Helper()
+	query := domain.AnalysisQuery{
+		Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-10-02", To: "2026-10-07",
+		Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true,
+	}
+	for _, groupBy := range []ContributionGroupBy{ContributionGroupInstrument, ContributionGroupAccount, ContributionGroupCurrency, ContributionGroupAssetClass} {
+		contribution, err := service.Contribution(ctx, query, ContributionTotalReturn, groupBy, ContributionSortAmountDesc)
+		if err != nil {
+			t.Fatalf("contribution %s: %v", groupBy, err)
+		}
+		for _, row := range contribution.Rows {
+			if row.Status == domain.CompletenessUnavailable && row.Amount != nil {
+				t.Fatalf("%s contribution %s published an amount for an unavailable return: %v", groupBy, row.Key, row.Amount)
+			}
+		}
+	}
+	contribution, err := service.Contribution(ctx, query, ContributionTotalReturn, ContributionGroupInstrument, ContributionSortAmountDesc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cash *ContributionRow
+	for index := range contribution.Rows {
+		row := &contribution.Rows[index]
+		if strings.HasPrefix(row.Key, "cash:") {
+			cash = row
+		}
+	}
+	if cash == nil || cash.Amount != nil || cash.Status != domain.CompletenessUnavailable || cash.MissingReason != fundingCashAfterProductStart {
+		t.Fatalf("cash contribution = %#v rows=%d", cash, len(contribution.Rows))
+	}
+	item, err := service.ContributionItem(ctx, query, ContributionTotalReturn, ContributionGroupInstrument, cash.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Amount != nil || item.Status != domain.CompletenessUnavailable || item.MissingReason != fundingCashAfterProductStart {
+		t.Fatalf("cash contribution item = amount:%v status:%s reason:%q", item.Amount, item.Status, item.MissingReason)
 	}
 }
 

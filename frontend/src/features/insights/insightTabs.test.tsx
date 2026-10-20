@@ -332,6 +332,35 @@ describe("insight tabs", () => {
     fireEvent.change(screen.getByLabelText("Metric"), { target: { value: "return_rate" } });
     expect(await screen.findByText(/Coverage: 1\/3/)).toBeInTheDocument();
   });
+  it.each(["en", "zh-CN", "zh-TW"])("shows pre-funding cash contribution as unavailable instead of zero (%s)", async (locale) => {
+    const { default: i18n } = await import("@/i18n");
+    await i18n.changeLanguage(locale);
+    vi.setSystemTime(new Date("2026-10-20T12:00:00Z"));
+    useAnalysisStore.getState().setFilters({ from: "2026-10-02", to: "2026-10-07" });
+    const reason = "funding cash is recorded after the product start";
+    contribution.mockResolvedValue({
+      returnType: "total_return",
+      groupBy: "instrument",
+      rows: [
+        { key: "deposit", label: "Synthetic deposit", amount: { amount: "12.34", currency: "USD" }, rate: "0.001", ratedDays: 6, totalDays: 6, available: true, status: "partial", missingReason: reason, valuationForced: null },
+        { key: "cash:USD", label: "cash:USD", amount: null, rate: null, ratedDays: 0, totalDays: 6, available: false, status: "unavailable", missingReason: reason, valuationForced: null },
+      ],
+      ratedDays: 6,
+      totalDays: 6,
+      available: true,
+      status: "partial",
+      missingReason: reason,
+      valuationForced: null,
+    });
+    renderWithClient(<ConnectedContributionTab />);
+    expect((await screen.findAllByText(i18n.t("insights.analysisReasons.fundingCashAfterProductStart"))).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(i18n.t("insights.unavailableAmount"))).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(i18n.t("insights.status.unavailable"))).length).toBeGreaterThan(0);
+    expect(screen.queryByText("US$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    await i18n.changeLanguage("en");
+  });
+
   it("opens period-specific Data Health from a partial result", async () => {
     useAnalysisStore.getState().setFilters({ from: "2026-09-01", to: "2026-09-06" });
     const open = vi.fn();

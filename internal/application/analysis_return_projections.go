@@ -260,7 +260,7 @@ func (s *Service) Contribution(ctx context.Context, query domain.AnalysisQuery, 
 	if returnType == ContributionDividendInterest {
 		return projectDividendContribution(result, forced, groupBy, ordering)
 	}
-	if !hasNonZeroReturnAmount(result) {
+	if !hasNonZeroReturnAmount(result) && !hasUnknownReturnAmount(result) {
 		return ContributionResult{AnalysisAvailability: returnAvailability(result, forced), ReturnType: returnType, GroupBy: groupBy, Coverage: result.Coverage, Rows: []ContributionRow{}}, nil
 	}
 	groups, err := FoldReturnGroups(result, analysisGroupBy(groupBy))
@@ -274,7 +274,7 @@ func (s *Service) Contribution(ctx context.Context, query domain.AnalysisQuery, 
 		if reason := fundingGapReasonForGroup(result, group.Key, groupBy); reason != "" && availability.Status != domain.CompletenessOK {
 			availability.MissingReason = reason
 		}
-		rows = append(rows, ContributionRow{Key: group.Key, Label: group.Key, Amount: signedPointer(group.ReturnAmount, currency), Rate: group.ReturnRate, Coverage: group.Coverage, AnalysisAvailability: availability})
+		rows = append(rows, ContributionRow{Key: group.Key, Label: group.Key, Amount: knownGroupAmount(group, currency), Rate: group.ReturnRate, Coverage: group.Coverage, AnalysisAvailability: availability})
 	}
 	sortContributionRows(rows, ordering, true)
 	return ContributionResult{AnalysisAvailability: returnAvailability(result, forced), ReturnType: returnType, GroupBy: groupBy, Rows: rows, Coverage: result.Coverage}, nil
@@ -407,9 +407,15 @@ func projectContributionItem(result domain.PeriodAnalysisResult, forced string, 
 		for _, group := range groups {
 			if group.Key == groupKey {
 				foundGroup = true
-				item.Amount = signedPointer(group.ReturnAmount, resultCurrency(result))
+				item.Amount = knownGroupAmount(group, resultCurrency(result))
 				item.Rate = group.ReturnRate
 				item.Coverage = group.Coverage
+				if group.Status == domain.CompletenessUnavailable {
+					item.AnalysisAvailability = groupAvailability(group.Status, group.Coverage, forced)
+					if reason := fundingGapReasonForGroup(result, group.Key, groupBy); reason != "" {
+						item.MissingReason = reason
+					}
+				}
 				break
 			}
 		}
@@ -676,7 +682,11 @@ func topReturnContributors(result domain.PeriodAnalysisResult, forced string) ([
 	currency := resultCurrency(result)
 	contributors := make([]ReturnContributor, 0, len(groups))
 	for _, group := range groups {
-		contributors = append(contributors, ReturnContributor{Key: group.Key, Label: group.Key, Amount: signedPointer(group.ReturnAmount, currency), Rate: group.ReturnRate, Coverage: group.Coverage})
+		amount := knownGroupAmount(group, currency)
+		if amount == nil {
+			continue
+		}
+		contributors = append(contributors, ReturnContributor{Key: group.Key, Label: group.Key, Amount: amount, Rate: group.ReturnRate, Coverage: group.Coverage})
 	}
 	sortReturnContributorsByMagnitude(contributors)
 	return contributors, nil
@@ -761,6 +771,18 @@ func hasNonZeroReturnAmount(result domain.PeriodAnalysisResult) bool {
 	return false
 }
 
+func hasUnknownReturnAmount(result domain.PeriodAnalysisResult) bool {
+	for _, day := range result.Days {
+		if !returnEligibleComponent(day.Component, result.Query.IncludeCash) {
+			continue
+		}
+		if day.ReturnAmount == nil || day.Status == domain.CompletenessUnavailable {
+			return true
+		}
+	}
+	return false
+}
+
 func returnContributorsFromAmounts(amounts map[string]decimal.Decimal, currency domain.CurrencyCode, coverage domain.RateCoverage) []ReturnContributor {
 	contributors := make([]ReturnContributor, 0, len(amounts))
 	for key, amount := range amounts {
@@ -829,11 +851,15 @@ func (s *Service) projectRealizedContribution(ctx context.Context, query domain.
 	rows := make([]ContributionRow, 0, len(groups))
 	currency := view.Currency
 	for _, group := range groups {
-		amount, parseErr := decimal.NewFromString(group.Gain.Amount)
-		if parseErr != nil {
-			return ContributionResult{}, parseErr
+		var amount *domain.SignedMoney
+		if group.Available {
+			parsed, parseErr := decimal.NewFromString(group.Gain.Amount)
+			if parseErr != nil {
+				return ContributionResult{}, parseErr
+			}
+			amount = signedPointer(parsed, currency)
 		}
-		rows = append(rows, ContributionRow{Key: group.Key, Label: group.Label, Amount: signedPointer(amount, currency), AnalysisAvailability: gainAvailability(view.Available && group.Available, view.MissingReason+group.MissingReason, forced)})
+		rows = append(rows, ContributionRow{Key: group.Key, Label: group.Label, Amount: amount, AnalysisAvailability: gainAvailability(view.Available && group.Available, view.MissingReason+group.MissingReason, forced)})
 	}
 	sortContributionRows(rows, ordering, false)
 	return ContributionResult{AnalysisAvailability: gainAvailability(view.Available, view.MissingReason, forced), ReturnType: ContributionRealized, GroupBy: groupBy, Rows: rows}, nil
@@ -898,6 +924,15 @@ func signedAmountLess(left, right *domain.SignedMoney) bool {
 		return false
 	}
 	return left.Amount().LessThan(right.Amount())
+}
+
+// knownGroupAmount keeps an unknown return null. A known zero stays zero and
+// an unavailable group is left out of additive totals.
+func knownGroupAmount(group ReturnGroup, currency domain.CurrencyCode) *domain.SignedMoney {
+	if !group.AmountKnown || group.Status == domain.CompletenessUnavailable {
+		return nil
+	}
+	return signedPointer(group.ReturnAmount, currency)
 }
 
 func rateValue(rate *decimal.Decimal) decimal.Decimal {
