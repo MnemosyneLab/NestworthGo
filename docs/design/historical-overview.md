@@ -349,7 +349,7 @@ a completely skipped date has no saved snapshot and remains a trend gap.
 Direct snapshot requests still reject nonexistent labels and current dates.
 Ranges are checked before publication and contain at most 31 closed labels.
 
-Resolver policy `market-date-daily-summary-v4` invalidates older derived
+Resolver policy `market-date-daily-summary-v5` invalidates older derived
 snapshot completeness on database open, marks coverage dirty from the origin,
 and increments the input generation once. Snapshot hash version `v4` triggers
 append-only replacement through the existing generation-guarded rebuild.
@@ -452,3 +452,17 @@ attribution widget. Exact strings remain in tooltips and the complete visible
 source table. One-point ranges are labelled as one observation. Rendering uses
 the existing light/dark theme and en/zh-CN/zh-TW strings. Native visual/keyboard
 acceptance remains pending on the reviewed immutable head.
+
+### Manual instrument valuation carry-forward
+
+A manual instrument quote preference treats the latest eligible local price as
+valid until replaced, including an Agent-supplied price accepted under that
+preference. Age alone does not make this price stale, carried, provisional, or
+missing historical coverage. Preserve the actual source and observation date;
+no synthetic daily observations are created. A missing eligible price remains
+missing, future-dated prices cannot satisfy earlier dates, and required FX
+coverage is checked independently. Historical valuation and saved snapshot
+presentation use the effective preference at the snapshot cutoff, rather than
+the instrument's current setting. Provider and Agent preferences keep their
+existing daily coverage requirements. Resolver policy v5 invalidates prior
+derived completeness through the existing rebuild mechanism.

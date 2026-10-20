@@ -47,7 +47,7 @@ func (a *displayAccumulator) add(c domain.ValuationComponent, missing []domain.M
 		if e == nil {
 			continue
 		}
-		if current && e.Source != domain.QuoteSourceManual {
+		if current && e.Source != domain.QuoteSourceManual && e.Freshness != domain.FreshnessManual {
 			provisional = true
 		}
 		date := e.EffectiveDate
@@ -66,7 +66,7 @@ func (a *displayAccumulator) add(c domain.ValuationComponent, missing []domain.M
 				d := date
 				a.quality.NewestMarketDate = &d
 			}
-			if target != "" && date < target && e.Source != domain.QuoteSourceManual {
+			if target != "" && date < target && e.Source != domain.QuoteSourceManual && e.Freshness != domain.FreshnessManual {
 				carried = true
 				if n == 0 {
 					a.reason(domain.ReasonCarriedPrice)
@@ -242,10 +242,26 @@ type snapshotDisplayEvidence struct {
 	prices, fx          map[string]domain.QuoteEvidenceView
 	liabilities         map[domain.AccountID]bool
 	instruments         map[domain.InstrumentID]domain.InstrumentType
+	originPreferences   map[domain.InstrumentID]domain.QuoteSourceKind
+	preferences         map[domain.InstrumentPreferenceObservationID]domain.QuoteSourceKind
 }
 
 func newSnapshotDisplayEvidence(b domain.HistoricalSnapshotBatch, now time.Time, ttl time.Duration) snapshotDisplayEvidence {
 	e := snapshotDisplayEvidence{priceBasis: map[string][]string{}, fxBasis: map[string][]string{}, prices: map[string]domain.QuoteEvidenceView{}, fx: map[string]domain.QuoteEvidenceView{}, liabilities: map[domain.AccountID]bool{}, instruments: map[domain.InstrumentID]domain.InstrumentType{}}
+	e.originPreferences = map[domain.InstrumentID]domain.QuoteSourceKind{}
+	for id, source := range b.Portfolio.OriginInstrumentSources {
+		e.originPreferences[id] = source
+	}
+	e.preferences = map[domain.InstrumentPreferenceObservationID]domain.QuoteSourceKind{}
+	for id, source := range b.Portfolio.InstrumentPreferenceSources {
+		e.preferences[id] = source
+	}
+	for _, p := range b.OriginData.InstrumentPreferences {
+		e.originPreferences[p.InstrumentID] = p.SourceKind
+	}
+	for _, p := range b.InstrumentPreferenceFacts {
+		e.preferences[p.ID] = p.SourceKind
+	}
 	for _, i := range b.Portfolio.Instruments {
 		e.instruments[i.ID] = i.Type
 	}
@@ -279,6 +295,16 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 	if item.QuoteID != nil {
 		v, ok := e.prices[*item.QuoteID]
 		if ok {
+			preference := domain.QuoteSourceKind("")
+			if item.InstrumentID != nil {
+				preference = e.originPreferences[*item.InstrumentID]
+			}
+			if item.PreferenceObservationID != nil {
+				preference = e.preferences[*item.PreferenceObservationID]
+			}
+			if preference == domain.QuoteSourceManual {
+				v.Freshness = domain.FreshnessManual
+			}
 			c.PriceEvidence = &v
 		} else {
 			hydrated = false

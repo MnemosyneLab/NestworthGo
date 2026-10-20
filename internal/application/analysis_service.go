@@ -410,6 +410,14 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 		}
 		snapshots = append(snapshots, opening)
 	}
+	if reader, ok := s.repository.(snapshotQuoteEvidenceRepository); ok {
+		evidence, readErr := reader.ReadSnapshotQuoteEvidence(ctx, portfolio.Household.ID, snapshots)
+		if readErr != nil {
+			return AnalysisInputs{}, readErr
+		}
+		portfolio.OriginInstrumentSources = evidence.OriginInstrumentSources
+		portfolio.InstrumentPreferenceSources = evidence.InstrumentPreferenceSources
+	}
 	return AnalysisInputs{Origin: *origin, Portfolio: portfolio, Snapshots: snapshots, Activities: activities, InstrumentQuotes: instrumentQuotes, FXQuotes: fxQuotes}, nil
 }
 

@@ -458,10 +458,15 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	if !v.historical {
 		targetDate = displayDate(snapshot, v.now())
 	}
-	evidence.Carried = quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
+	evidence.Carried = instrument.QuoteSource != domain.QuoteSourceManual && quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
 	component, missing, err := v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
+	}
+	// Freshness follows the valuation preference; provenance remains unchanged.
+	if instrument.QuoteSource == domain.QuoteSourceManual {
+		evidence.Freshness = domain.FreshnessManual
+		component.PriceEvidence = &evidence
 	}
 	component.InstrumentType = instrument.Type
 	component.InstrumentName = name
@@ -715,7 +720,7 @@ func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.I
 		}
 	}
 	selection := historicalInstrumentSelection{quote: selected, coverageComplete: true}
-	if selected != nil {
+	if selected != nil && instrument.QuoteSource != domain.QuoteSourceManual {
 		switch selected.SourceKind {
 		case domain.QuoteSourceProvider:
 			selection.coverageComplete = historicalInstrumentCoverageCompleteAtMarketDate(instrument, *selected, coverage, marketDate)

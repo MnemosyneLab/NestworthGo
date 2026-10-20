@@ -12,11 +12,15 @@ import (
 // snapshots. Each bounded IN query shares one read transaction; unrelated
 // activities, archived leaves and quote history never enter this read.
 func (r *Repository) ReadSnapshotQuoteEvidence(ctx context.Context, household domain.HouseholdID, snapshots []domain.DailyValuationSnapshot) (domain.PortfolioSnapshot, error) {
-	out := domain.PortfolioSnapshot{}
+	out := domain.PortfolioSnapshot{OriginInstrumentSources: map[domain.InstrumentID]domain.QuoteSourceKind{}, InstrumentPreferenceSources: map[domain.InstrumentPreferenceObservationID]domain.QuoteSourceKind{}}
+	preferences := map[string]bool{}
 	accounts, instruments, prices, fx := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, s := range snapshots {
 		for _, i := range s.Items {
 			accounts[i.AccountID.String()] = true
+			if i.PreferenceObservationID != nil {
+				preferences[i.PreferenceObservationID.String()] = true
+			}
 			if i.InstrumentID != nil {
 				instruments[i.InstrumentID.String()] = true
 			}
@@ -83,6 +87,35 @@ func (r *Repository) ReadSnapshotQuoteEvidence(ctx context.Context, household do
 				return err
 			}
 			out.Instruments = append(out.Instruments, i)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return out, err
+	}
+	// Bind carry semantics to the snapshot's effective preference, never today's setting.
+	err = read(instruments, `SELECT p.instrument_id,p.source_kind FROM history_origin_instrument_preferences p JOIN history_origins o ON o.id=p.origin_id WHERE o.household_id=? AND p.instrument_id IN ({ids})`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var id domain.InstrumentID
+			var source domain.QuoteSourceKind
+			if err := rows.Scan(&id, &source); err != nil {
+				return err
+			}
+			out.OriginInstrumentSources[id] = source
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return out, err
+	}
+	err = read(preferences, `SELECT p.id,p.source_kind FROM instrument_preference_observations p JOIN instruments i ON i.id=p.instrument_id WHERE i.household_id=? AND p.id IN ({ids})`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var id domain.InstrumentPreferenceObservationID
+			var source domain.QuoteSourceKind
+			if err := rows.Scan(&id, &source); err != nil {
+				return err
+			}
+			out.InstrumentPreferenceSources[id] = source
 		}
 		return rows.Err()
 	})

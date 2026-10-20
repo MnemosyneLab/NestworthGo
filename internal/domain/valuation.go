@@ -3,7 +3,8 @@ package domain
 import "time"
 
 // Freshness describes the selected observation without changing whether its
-// value is usable. Stale and delayed values remain valued; unavailable values
+// value is usable. A manual instrument preference keeps an eligible price
+// manual-fresh even when its provenance is Agent. Stale and delayed values remain valued; unavailable values
 // are represented by a missing input instead.
 type Freshness string
 
@@ -181,6 +182,10 @@ type PortfolioSnapshot struct {
 	FXPreferences             []FXPreference
 	InstrumentHistoryCoverage []InstrumentHistoryCoverage
 	FXHistoryCoverage         []FXHistoryCoverage
+
+	// Selected immutable preference facts used to hydrate persisted snapshot evidence.
+	OriginInstrumentSources     map[InstrumentID]QuoteSourceKind                      `json:"-"`
+	InstrumentPreferenceSources map[InstrumentPreferenceObservationID]QuoteSourceKind `json:"-"`
 }
 
 // FinancialContextInputs retains one transaction's inputs, never serialized.

@@ -32,6 +32,13 @@ func seriesAgentSelectionFixture(t *testing.T, kind string, days ...string) (*Se
 	if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
+	// Daily coverage assertions apply after an explicit switch out of manual
+	// carry-forward. Keep the manual origin for source/basis transition tests.
+	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	instrument, err = s.UpdateInstrument(ctx, instrument.ID, InstrumentInput{QuoteSource: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	*now = time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
 	for _, day := range days {
 		if day > "2026-08-05" {
