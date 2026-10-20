@@ -57,7 +57,6 @@ import {
   useSheetConfirmation,
   hasUnresolvedSheetConfirmation,
 } from "@/components/ui/sheet-confirmation";
-import { PageChrome } from "@/components/layout/PageChrome";
 import {
   LoadingState,
   ErrorState,
@@ -143,15 +142,17 @@ function archivedTarget(
 export function ReconciliationPage({
   accountId,
   sessionId,
+  isActive = true,
 }: {
   accountId?: string;
   sessionId?: string;
+  isActive?: boolean;
 }) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const formatTimestamp = useReconciliationTimestamp();
   const accounts = useAccounts();
-  const sessions = useReconciliationSessions(accountId);
+  const sessions = useReconciliationSessions(accountId, isActive);
   const [selected, setSelected] = useState<string[] | null>(
     accountId ? [accountId] : null,
   );
@@ -228,8 +229,12 @@ export function ReconciliationPage({
   );
   const activeAccountIds = new Set(activeAccounts.map((a) => a.account.id));
   const chosen = selected ? selected.filter((id) => activeAccountIds.has(id)) : [...activeAccountIds];
-  const rows = (sessions.data ?? []).filter(
-    (s) => !filter || s.status === filter,
+  const sessionRows = sessions.data ?? [];
+  const rows = sessionRows.filter((s) =>
+    filter ? s.status === filter : s.status === "completed",
+  );
+  const hasUnfinished = sessionRows.some(
+    (s) => s.status === "in_progress" || s.status === "paused",
   );
   const current = detail.data;
   const select = (id: string) => {
@@ -245,7 +250,6 @@ export function ReconciliationPage({
   };
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <PageChrome pageId="reconciliation" title={t("reconciliation.title")} />
       <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
         {t("reconciliation.localOnly")}
       </p>
@@ -384,7 +388,7 @@ export function ReconciliationPage({
                     ))}
                   </NativeSelect>
                 </div>
-                {!rows.length && (
+                {!rows.length && (Boolean(filter) || !hasUnfinished) && (
                   <EmptyState
                     title={t(
                       filter

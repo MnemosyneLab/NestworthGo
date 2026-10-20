@@ -1,3 +1,4 @@
+import { tasksEn, tasksZhCN, tasksZhTW } from "./tasks";
 import { homepageEn, homepageZhCN, homepageZhTW } from "./homepage";
 import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./upcomingActions";
 import { describe, expect, it } from "vitest";
@@ -216,9 +217,9 @@ it("covers homepage summaries in every supported locale", () => { assertSameKeyS
 
 function mergedLocaleTrees(): Record<string, Tree> {
   return {
-    en: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, additionsEn), homepageEn), upcomingActionsEn), errorCodesEn), rebuildDataEn),
-    "zh-CN": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, additionsZhCN), homepageZhCN), upcomingActionsZhCN), errorCodesZhCN), rebuildDataZhCN),
-    "zh-TW": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, additionsZhTW), homepageZhTW), upcomingActionsZhTW), errorCodesZhTW), rebuildDataZhTW),
+    en: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, additionsEn), homepageEn), upcomingActionsEn), errorCodesEn), rebuildDataEn), tasksEn),
+    "zh-CN": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, additionsZhCN), homepageZhCN), upcomingActionsZhCN), errorCodesZhCN), rebuildDataZhCN), tasksZhCN),
+    "zh-TW": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, additionsZhTW), homepageZhTW), upcomingActionsZhTW), errorCodesZhTW), rebuildDataZhTW), tasksZhTW),
   };
 }
 
@@ -274,3 +275,4 @@ describe("i18n regression guards", () => {
     expect(issues).toEqual([]);
   });
 });
+it("covers Tasks & checks in every supported locale", () => { assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW }); });

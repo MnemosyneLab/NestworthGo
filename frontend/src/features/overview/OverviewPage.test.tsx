@@ -44,6 +44,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/li
     ListProducts: () => Promise.resolve([]),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation", () => ({
+  Service: { List: () => Promise.resolve([]) },
+}));
 vi.mock("@wailsio/runtime", () => ({
   Events: { On: () => () => undefined },
 }));
@@ -316,11 +319,17 @@ it("pairs attention and upcoming cards below the financial row, preserving healt
   const row = await screen.findByTestId("overview-action-row");
   expect(row).toContainElement(screen.getByTestId("overview-attention-card"));
   expect(row).toContainElement(screen.getByTestId("overview-upcoming-actions-card"));
-  expect(screen.getAllByRole("region", { name: "Investment review" })).toHaveLength(1);
-  expect(within(screen.getByTestId("overview-upcoming-actions-card")).queryByRole("region", { name: "Investment review" })).not.toBeInTheDocument();
-  expect(await screen.findByText("1 of 1 investment · 1 needs attention · 1 actionable rule · 0 with missing data")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Open investment review" }));
-  expect(navigation.open).toHaveBeenLastCalledWith({ page: "upcoming-actions", tab: "review" });
+  const summary = await screen.findByTestId("tasks-home-summary");
+  expect(screen.getAllByRole("region", { name: "Tasks & checks" })).toHaveLength(1);
+  expect(within(screen.getByTestId("overview-upcoming-actions-card")).queryByRole("region", { name: "Tasks & checks" })).not.toBeInTheDocument();
+  expect(within(summary).getByRole("button", { name: "Upcoming actions, 0 need attention" })).toBeInTheDocument();
+  expect(within(summary).getByRole("button", { name: "Reconciliation, 0 unfinished" })).toBeInTheDocument();
+  await userEvent.click(within(summary).getByRole("button", { name: "Investment review, 1 to handle" }));
+  expect(navigation.open).toHaveBeenLastCalledWith({ page: "tasks", tab: "review" });
+  await userEvent.click(within(summary).getByRole("button", { name: "Upcoming actions, 0 need attention" }));
+  expect(navigation.open).toHaveBeenLastCalledWith({ page: "tasks", tab: "upcoming" });
+  await userEvent.click(within(summary).getByRole("button", { name: "Reconciliation, 0 unfinished" }));
+  expect(navigation.open).toHaveBeenLastCalledWith({ page: "tasks", tab: "reconciliation" });
   const financial = screen.getByTestId("overview-financial-row");
   expect(financial).not.toContainElement(row);
   expect(financial).toContainElement(screen.getByTestId("overview-net-worth"));

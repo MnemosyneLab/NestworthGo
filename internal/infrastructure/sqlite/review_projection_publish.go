@@ -310,9 +310,6 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 			return err
 		}
 	}
-	if err := r.publishReviewFactShadow(ctx, tx, publication); err != nil {
-		return err
-	}
 	publishedOn := control.PublishedOn
 	for _, item := range publication.Rules {
 		if item.LatestClosedOn > publishedOn {

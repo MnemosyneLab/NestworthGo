@@ -677,8 +677,7 @@
     "members": "成员",
     "overview": "概览",
     "settings": "设置",
-    "historicalOverview": "历史全景",
-    "reconciliation": "账户核对"
+    "historicalOverview": "历史全景"
   },
   "onboarding": {
     "restoreTitle": "已有备份？",

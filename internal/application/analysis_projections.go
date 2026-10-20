@@ -578,8 +578,9 @@ func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granulari
 		levelCurrency domain.CurrencyCode
 	}
 	periods := map[string]*trendBucket{}
+	periodFor := newAssetTrendPeriodResolver(result.AnalysisDayTimezone, granularity)
 	for _, day := range result.Days {
-		period, err := assetTrendPeriod(day.Date, result.AnalysisDayTimezone, granularity)
+		period, err := periodFor(day.Date)
 		if err != nil {
 			return AssetTrendResult{}, err
 		}
@@ -1018,6 +1019,37 @@ func sumDayBucketAmounts(day domain.ComponentDay, wanted map[domain.AttributionB
 	return amount, currency, found
 }
 
+// newAssetTrendPeriodResolver owns only scalar period keys for one projection.
+// Resolve lazily to preserve the daily bypass and unused-timezone error behavior.
+func newAssetTrendPeriodResolver(timezone string, granularity AssetTrendGranularity) func(domain.LocalDate) (string, error) {
+	var location *time.Location
+	var periods map[domain.LocalDate]string
+	return func(date domain.LocalDate) (string, error) {
+		if granularity == TrendDay {
+			return string(date), nil
+		}
+		if period, ok := periods[date]; ok {
+			return period, nil
+		}
+		if location == nil {
+			var err error
+			location, err = time.LoadLocation(timezone)
+			if err != nil {
+				return "", err
+			}
+		}
+		period, err := assetTrendPeriodInLocation(date, location, granularity)
+		if err != nil {
+			return "", err
+		}
+		if periods == nil {
+			periods = make(map[domain.LocalDate]string)
+		}
+		periods[date] = period
+		return period, nil
+	}
+}
+
 func assetTrendPeriod(date domain.LocalDate, timezone string, granularity AssetTrendGranularity) (string, error) {
 	if granularity == TrendDay {
 		return string(date), nil
@@ -1026,6 +1058,10 @@ func assetTrendPeriod(date domain.LocalDate, timezone string, granularity AssetT
 	if err != nil {
 		return "", err
 	}
+	return assetTrendPeriodInLocation(date, location, granularity)
+}
+
+func assetTrendPeriodInLocation(date domain.LocalDate, location *time.Location, granularity AssetTrendGranularity) (string, error) {
 	parsed, err := time.ParseInLocation("2006-01-02", string(date), location)
 	if err != nil {
 		return "", err
@@ -1257,9 +1293,10 @@ func foldDisplayAssetLevels(result domain.PeriodAnalysisResult, forced string, g
 	}
 	dates := map[string]*level{}
 	lastByPeriod := map[string]string{}
+	periodFor := newAssetTrendPeriodResolver(result.AnalysisDayTimezone, granularity)
 	for _, day := range result.Days {
 		date := string(day.Date)
-		period, err := assetTrendPeriod(day.Date, result.AnalysisDayTimezone, granularity)
+		period, err := periodFor(day.Date)
 		if err != nil {
 			return AssetTrendResult{}, err
 		}

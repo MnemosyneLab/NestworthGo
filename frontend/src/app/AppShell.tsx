@@ -1,8 +1,9 @@
 import { useValuationDayBoundary } from "@/queries/useValuationDayBoundary";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor, RefreshCw } from "lucide-react";
 import { NAV_GROUPS, DEFAULT_PAGE_ID, targetForPage, type NavigationTarget, type PageId } from "@/app/navigation";
+import { formatTasksBadge, useTasksCounts } from "@/features/tasks/useTasksCounts";
 import { TONE_CLASSES, type Tone } from "@/lib/tone";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { useTheme } from "@/hooks/useTheme";
@@ -25,11 +26,10 @@ const PAGE_TONE: Record<PageId, Tone> = {
   "historical-overview": 6,
   accounts: 1,
   "available-funds": 2,
-  "upcoming-actions": 2,
+  tasks: 3,
   portfolio: 5,
   "instrument-detail": 5,
   history: 6,
- reconciliation: 6,
   "return-analysis": 7,
   "asset-changes": 3,
   directory: 4,
@@ -111,6 +111,12 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
   const collapsed = narrow ? !narrowExpanded : storedCollapsed;
   const toggleSidebar = narrow ? () => setNarrowExpanded((value) => !value) : toggleStoredSidebar;
   const saveSettings = useSaveSettings();
+  const tasksCounts = useTasksCounts();
+  const tasksStale = (tasksCounts.upcoming.isError && Boolean(tasksCounts.upcoming.data)) || (tasksCounts.review.isError && Boolean(tasksCounts.review.data));
+  const retryStaleTasks = () => {
+    if (tasksCounts.upcoming.isError) void tasksCounts.upcoming.refetch();
+    if (tasksCounts.review.isError) void tasksCounts.review.refetch();
+  };
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [pageBarTarget, setPageBarTarget] = React.useState<HTMLDivElement | null>(null);
 
@@ -160,12 +166,14 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                   (item.id === "market-data" && activePageId === "data-health") ||
                   (item.id === "portfolio" && activePageId === "instrument-detail");
                 const label = t(item.translationKey);
+                const taskCount = item.id === "tasks" ? tasksCounts.sidebarCount : 0;
+                const ariaLabel = taskCount > 0 ? t("tasks.sidebarLabel", { page: label, count: taskCount }) : label;
                 return (
+                  <div key={item.id} className="flex flex-col gap-1">
                   <button
-                    key={item.id}
                     type="button"
                     onClick={() => { setNarrowExpanded(false); onNavigate(targetForPage(item.id)); }}
-                    aria-label={label}
+                    aria-label={ariaLabel}
                     title={collapsed ? label : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cn(
@@ -177,14 +185,29 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        "relative flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
                         active ? cn(TONE_CLASSES[PAGE_TONE[item.id]].solid, "text-background") : cn(TONE_CLASSES[PAGE_TONE[item.id]].soft, TONE_CLASSES[PAGE_TONE[item.id]].text),
                       )}
                     >
                       <Icon className="size-4" />
+                      {item.id === "tasks" && collapsed && taskCount > 0 && (
+                        <span data-testid="tasks-sidebar-dot" className="absolute right-0.5 top-0.5 size-2 rounded-full bg-warning" />
+                      )}
                     </span>
                     {!collapsed && <span className="truncate">{label}</span>}
+                    {item.id === "tasks" && !collapsed && taskCount > 0 && (
+                      <span data-testid="tasks-sidebar-count" aria-hidden="true" className="ml-auto rounded-full bg-warning/18 px-1.5 text-xs font-semibold text-warning-foreground">{formatTasksBadge(taskCount)}</span>
+                    )}
                   </button>
+                  {item.id === "tasks" && tasksStale && (
+                    <div className={cn("flex min-w-0", collapsed ? "justify-center" : "flex-col items-start gap-1 px-2")}>
+                      <p role="status" className={cn("text-xs leading-4 text-warning-foreground", collapsed && "sr-only")}>{t("tasks.summaryStale")}</p>
+                      <Button type="button" variant="outline" size="sm" className={cn(collapsed && "size-8 px-0")} aria-label={t("tasks.summaryStaleRetry", { section: label })} onClick={retryStaleTasks}>
+                        {collapsed ? <RefreshCw aria-hidden="true" className="size-3.5" /> : t("common.retryAction")}
+                      </Button>
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </div>

@@ -1,5 +1,11 @@
 # Upcoming actions
 
+**Tasks & checks** in the sidebar holds Upcoming actions, Investment review,
+and Reconciliation. The sidebar count is upcoming items that need attention
+plus investment-review items to handle. Reconciliation stays on its own tab
+and is not part of that count. Overview shows one Tasks & checks summary;
+each count opens its tab.
+
 Overview pairs **Needs attention** with **Next 30 days** below the net-worth
 and available-funds cards. Data-health issues retain their severity, and
 investment reviews retain their NAV condition. Current valuation completeness,
