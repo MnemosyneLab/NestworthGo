@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"crypto/hmac"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -139,6 +140,10 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	c.Suffix = suffix
 	// Rebind the exact prefix and dirty scope to the coherent capture. The final
 	// publisher still requires source/control/checkpoint/connection CAS and lease.
+	proof.SuffixDigest, err = domain.ReviewSuffixFingerprint(suffix)
+	if err != nil {
+		return err
+	}
 	proof.SourceMAC, err = r.sourceCaptureMAC(*c)
 	return err
 }
@@ -184,6 +189,30 @@ func readReviewSuffixChanges(ctx context.Context, tx *sql.Tx, id domain.Househol
 func requireReviewSuffixAuthority(c domain.ReviewProjectionCapture, certified, mayCertify, leased bool) error {
 	if c.Suffix != nil && (!certified || !mayCertify || !leased || c.Certified == nil || !c.Certified.MayCertify || !c.Certified.Provider.Pinned || c.Certified.Provider != c.Certified.PreviousProvider) {
 		return reviewRuleConflict("suffix authority lost; recapture full projection")
+	}
+	return nil
+}
+
+// Verify the authenticated digest against actual typed values after the final
+// injected clock, before any write. SourceMAC authenticates this digest and the
+// presence of a suffix, so routine CAS/signing need not rehash large prefixes.
+func (r *Repository) verifyReviewSuffixPrefix(c domain.ReviewProjectionCapture) error {
+	if c.Suffix == nil {
+		return nil
+	}
+	if c.Certified == nil || c.Certified.SuffixDigest == "" {
+		return reviewRuleConflict("suffix prefix authority missing")
+	}
+	digest, err := domain.ReviewSuffixFingerprint(c.Suffix)
+	if err != nil {
+		return err
+	}
+	mac, err := r.sourceCaptureMAC(c)
+	if err != nil {
+		return err
+	}
+	if digest != c.Certified.SuffixDigest || !hmac.Equal([]byte(mac), []byte(c.Certified.SourceMAC)) {
+		return reviewRuleConflict("suffix prefix changed during preparation")
 	}
 	return nil
 }

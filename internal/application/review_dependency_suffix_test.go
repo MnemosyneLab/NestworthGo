@@ -168,7 +168,7 @@ func TestReviewDependencySuffixFullDurableOracle(t *testing.T) {
 }
 
 func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
-	for _, scenario := range []string{"source", "handling", "tamper-prefix", "cancel", "legacy-publisher", "disabled-publisher", "clock", "provider-aba", "projection", "floor", "checkpoint-abort", "external-source", "final-cancel"} {
+	for _, scenario := range []string{"source", "handling", "tamper-prefix", "cancel", "legacy-publisher", "disabled-publisher", "clock", "provider-aba", "projection", "floor", "checkpoint-abort", "external-source", "final-cancel", "final-prefix-change", "final-digest-change"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
 			f.day(t, "2026-10-13")
@@ -226,6 +226,16 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 				ctx, cancel = context.WithCancel(ctx)
 				defer cancel()
 				clock = func() time.Time { cancel(); return *f.now }
+			}
+			if scenario == "final-prefix-change" {
+				clock = func() time.Time { p.Capture.Suffix.Prefix[0].Evidence.Result.Truth = domain.ReviewFalse; return *f.now }
+			}
+			if scenario == "final-digest-change" {
+				clock = func() time.Time {
+					p.Capture.Suffix.Prefix[0].Evidence.Result.Truth = domain.ReviewFalse
+					p.Capture.Certified.SuffixDigest, _ = domain.ReviewSuffixFingerprint(p.Capture.Suffix)
+					return *f.now
+				}
 			}
 			if scenario == "clock" {
 				clock = func() time.Time { return f.now.AddDate(0, 0, 1) }

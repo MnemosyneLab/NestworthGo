@@ -21,6 +21,7 @@ type ReviewProviderSelection struct {
 // these trust decisions to that database handle's private session key.
 type ReviewCertifiedCapture struct {
 	SourceMAC          string
+	SuffixDigest       string // Exact typed prefix/plan digest; bound by SourceMAC.
 	Connection         ReviewConnectionCheckpoint
 	ProjectionSeal     string
 	TemporalJSON       string

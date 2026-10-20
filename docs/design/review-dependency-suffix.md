@@ -55,9 +55,13 @@ slots, complete keys, input/result fingerprint linkage, typed dates/instruments,
 and provider continuity. Any gap or decode mismatch discards the entire proposed
 prefix and retains full preparation. False and unknown slots are retained.
 
-Bind that prefix and its dirty plan to the existing private source-capture MAC
-using both JSON and exact private scalar fingerprints, including selected FX
-rates. D2 reuses only those authenticated values. Every remaining day through
+Bind the prefix/dirty-plan digest and prefix presence to the existing private
+source-capture MAC. The digest covers JSON and exact private scalars, including
+selected FX rates. Capture hashes it once; routine source CAS and signing
+authenticate the bound digest without repeatedly hashing the complete prefix.
+After the final injected clock and before the first write, publication recomputes
+the typed digest and source MAC, rejecting prefix or digest drift atomically.
+D2 reuses only those authenticated values. Every remaining day through
 the latest closed day uses the existing authoritative financial calculator and
 predicate evaluator with the complete captured history and lookback candidates.
 There is no early stopping. A date/instrument move invalidates both scopes.

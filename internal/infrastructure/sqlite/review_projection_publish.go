@@ -250,6 +250,9 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err := validateReviewPublicationTime(capture, publication.Rules, now); err != nil {
 		return err
 	}
+	if err := r.verifyReviewSuffixPrefix(capture); err != nil {
+		return err
+	}
 	// Consume private genesis eligibility before any publication writes while
 	// holding the writer reservation. A captured initial claim cannot survive
 	// an intervening C2/C3 publication followed by SQL erasure of all markers.

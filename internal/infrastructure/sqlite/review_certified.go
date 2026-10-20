@@ -75,10 +75,6 @@ func (r *Repository) authenticReview(c *domain.ReviewTemporalCertificate, seal s
 }
 
 func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string, error) {
-	suffixDigest, err := domain.ReviewSuffixFingerprint(c.Suffix)
-	if err != nil {
-		return "", err
-	}
 	proof := *c.Certified
 	proof.SourceMAC = ""
 	proof.Provider = domain.ReviewProviderSelection{}
@@ -90,8 +86,8 @@ func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string,
 		Control     domain.ReviewProjectionControl
 		Temporal    string
 		Proof       domain.ReviewCertifiedCapture
-		Suffix      string
-	}{c.HouseholdID, c.HistoricalFingerprint, c.SourceCutoff, c.SourceRevision, c.Control, reviewTemporalDigest(c.Temporal), proof, suffixDigest})
+		Suffix      bool
+	}{c.HouseholdID, c.HistoricalFingerprint, c.SourceCutoff, c.SourceRevision, c.Control, reviewTemporalDigest(c.Temporal), proof, c.Suffix != nil})
 }
 
 // Complete row bytes, including all daily JSON, historical conditions, frozen
