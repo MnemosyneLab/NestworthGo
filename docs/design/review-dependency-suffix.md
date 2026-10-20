@@ -95,15 +95,17 @@ up front. Provider discontinuity uses full preparation. Direct/disabled
 publishers reject suffix stages. The minimum captured/rechecked temporal fence
 and final injected-clock guard remain intact.
 
-## Rollback and acceptance
+## Fallback and acceptance
 
-Use the process-local environment switch above, then explicit reconcile to
-atomically republish full output; no downgrade or data cleanup is needed.
-Existing/restarted/restored ledgers remain full fallback and cannot acquire
-certified historical reuse authority. Enabling the dispatcher does not assert
-stage-two or native performance acceptance. Linux ordinary tests, paired
-synthetic diagnostics and scoped race checks must be reported separately from
-30-sample p95, isolated per-arm RSS, and native Apple Silicon acceptance.
+There is no runtime switch for reverting the optimization. When captured
+proofs, source continuity, or publication fences are incomplete, normal
+initialization automatically uses complete source preparation and full policy
+and lifecycle recomputation. Legacy, reopened, and restored namespaces do not
+acquire certified historical reuse authority by inference. This safety fallback
+is the runtime behavior; it does not claim native performance acceptance. The
+[performance report](../development/performance-optimization-report.md) is the
+single maintained record for implementation status and retained performance
+checks.
 
 ## Coherent source-description reuse
 
