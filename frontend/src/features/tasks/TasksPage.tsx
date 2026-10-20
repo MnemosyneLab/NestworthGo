@@ -38,12 +38,14 @@ export function TasksPage({
   onTabChange,
   accountId,
   sessionId,
+  navigationRequestId,
 }: {
   isActive?: boolean;
   tab: TasksTab;
   onTabChange: (tab: TasksTab) => void;
   accountId?: string;
   sessionId?: string;
+  navigationRequestId?: number;
 }) {
   const { t } = useTranslation();
   const counts = useTasksCounts(isActive);
@@ -94,9 +96,9 @@ export function TasksPage({
         <TabsContent value="reconciliation" keepMounted>
           {reconciliationSeen && (
             <ReconciliationPage
-              key={`${accountId ?? ""}:${sessionId ?? ""}`}
               accountId={accountId}
               sessionId={sessionId}
+              navigationRequestId={navigationRequestId}
               isActive={isActive && tab === "reconciliation"}
             />
           )}

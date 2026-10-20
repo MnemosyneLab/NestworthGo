@@ -40,7 +40,13 @@ Manual-value accounts with observations older than 180 days receive a warning. T
 
 [Tasks & checks](upcoming-actions.md) is the sidebar destination for upcoming
 actions, investment review, and account reconciliation. Session Back preserves
-the upcoming filter, scroll and trigger focus. Typed liquidity targets reuse
+the upcoming filter, scroll and trigger focus. Reconciliation also keeps locally
+selected sessions, filters and editable drafts through tab switches and a
+retained source's Back navigation. Explicit Tasks entries apply a new navigation
+request: global entries open the unfiltered session list (including when Tasks
+is already active), while account/session targets apply their requested scope.
+These requests reset reconciliation state without remounting its workspace;
+unresolved confirmations continue to block navigation. Typed liquidity targets reuse
 product/policy/reservation sheets; an explicit request ID allows close/reopen
 without refetch reopening. Data checks on the upcoming tab open Data Health
 and do not replace the full Data Health scan. Native focus acceptance remains
