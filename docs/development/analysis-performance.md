@@ -124,3 +124,16 @@ c02fbef5a1d5f4f4f456343998843b3c3135c2e140f701f4d5834228e89b8732
 The digest probe was outside timing runs and was not added to the regular test
 suite. The existing analysis correctness, snapshot invalidation, FX, holding,
 attribution, and boundary tests remain the broader regression coverage.
+
+## Analysis quote input loading (G, 2026-10-20)
+
+The SQLite analysis input loader now batches complete quote histories through
+an optional application port, preserving the legacy per-instrument fallback
+for other adapters. One read transaction covers household/instrument validation
+and bounded 900-ID chunks; dates and candidates are not clipped. Requested
+instrument order and the legacy quote tie order remain unchanged. Household
+portfolio hydration, snapshot maintenance, the analysis kernel and memo policy
+remain unchanged. See [G correctness and query evidence](../testing/performance-g-analysis-quotes-2026-10-20.md)
+for differential tests, net SQL counts and the limits of two small Linux timing
+observations. This input-loading evidence is separate from the historical
+kernel measurements above.

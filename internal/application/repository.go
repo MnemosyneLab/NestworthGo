@@ -63,6 +63,15 @@ type AccountRepository interface {
 	AccountRecord(context.Context, domain.HouseholdID, domain.AccountID) (domain.AccountRecord, error)
 }
 
+// AnalysisQuoteBatchRepository optionally loads complete quote histories under a
+// single read snapshot. Results retain requested instrument order (including
+// duplicates), then ListInstrumentQuotes ordering within each instrument.
+// Unknown instruments or instruments outside householdID must be rejected.
+// Adapters without this port retain the per-instrument analysis fallback.
+type AnalysisQuoteBatchRepository interface {
+	LoadAnalysisQuoteBatch(context.Context, domain.HouseholdID, []domain.InstrumentID) ([]domain.InstrumentQuote, error)
+}
+
 // PortfolioRepository owns instruments, holdings, quotes, cash, and FX.
 type PortfolioRepository interface {
 	ReadSnapshot(context.Context, domain.AccountFilter) (domain.ReadSnapshot, error)
