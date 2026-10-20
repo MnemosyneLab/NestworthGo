@@ -3,24 +3,17 @@
 package domain
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
-	"os"
-	"path/filepath"
+	"bytes"
+	stdjson "encoding/json"
 	"testing"
 	"time"
 
 	json "github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// This opt-in test captures synthetic bytes for comparison with the original
-// source revision. It never opens a ledger; output requires an explicit folder.
-func TestJSONMigrationSnapshot(t *testing.T) {
-	dir := os.Getenv("NESTWORTH_JSON_SNAPSHOT_DIR")
-	if dir == "" {
-		t.Skip("set NESTWORTH_JSON_SNAPSHOT_DIR for an opt-in synthetic snapshot")
-	}
+// Exact-byte comparison for small synthetic integrity-bearing domain values.
+// No output directory, snapshot generator or external ledger is involved.
+func TestJSONIntegrityBytesMatchStdlib(t *testing.T) {
 	stamp := time.Date(2026, 10, 20, 12, 34, 56, 123456789, time.UTC)
 	price, _ := ParseUnitPrice("123.45678901")
 	rate, _ := ParseFXRate("2.123456789123")
@@ -39,29 +32,17 @@ func TestJSONMigrationSnapshot(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = os.WriteFile(filepath.Join(dir, name+".json"), raw, 0600); err != nil {
+		previous, err := stdjson.Marshal(value)
+		if err != nil {
 			t.Fatal(err)
 		}
-		mac := hmac.New(sha256.New, []byte("synthetic-test-key"))
-		mac.Write(raw)
-		if err = os.WriteFile(filepath.Join(dir, name+".mac"), []byte(hex.EncodeToString(mac.Sum(nil))), 0600); err != nil {
-			t.Fatal(err)
+		if !bytes.Equal(previous, raw) {
+			t.Fatalf("integrity bytes changed for %s: old=%s current=%s", name, previous, raw)
 		}
-	}
-	a, err := ReviewHistoricalFingerprint(batch)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := ReviewSuffixFingerprint(suffix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = os.WriteFile(filepath.Join(dir, "fingerprints.txt"), []byte(a+"\n"+b+"\n"), 0600); err != nil {
-		t.Fatal(err)
 	}
 	var restored ProductContract
 	raw, _ := json.Marshal(contract)
-	if err = json.Unmarshal(raw, &restored); err != nil {
+	if err := json.Unmarshal(raw, &restored); err != nil {
 		t.Fatal(err)
 	}
 	if restored.Principal.CanonicalAmount() != money.CanonicalAmount() || restored.AnnualRate.Canonical() != annual.Canonical() {

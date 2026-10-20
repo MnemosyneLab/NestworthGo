@@ -9,18 +9,9 @@ name: perf
 # tests and benchmarks; without -run, -tags perf would also execute the normal
 # suite.
 #
-# Expected durations (test time, after native dependencies):
-#   scale     15–40 min  (bounded profiles, memory, benchmarks once;
-#                         financial-source writes default to 10 samples)
-#   pipeline  25–60 min  (365-day book, 2000 pairs, cold + 10 incrementals)
-#   paired    10–25 min  (3 samples of the reference R30 book)
-#   epoch     retained repeated-epoch correctness and full-oracle scale fixture
-# NW_REVIEW_PERF_SAMPLES overrides those counts; 30 restores the previous
-# sample size. Job timeouts include native-dependency install and stay above
-# the new upper estimates: pipeline 90m test / 110m job, paired 50m / 70m,
-# epoch 45m / 65m. Scale stays 50m / 75m because its other profiles did not
-# shrink with the write-sample count. The daily wall clock is the longest
-# job, pipeline, because the perf matrix runs in parallel.
+# Scale checks and fixed default-review/epoch safety fixtures remain isolated
+# here. Historical multi-arm sample, RSS, profile and stage-trace controls are
+# retired. Selector preflight fails before expensive runs if a name is missing.
 #
 # A scheduled run first asks whether the default branch moved since the last
 # successful scheduled run. The same commit skips perf and race and stays
@@ -109,26 +100,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Bounded profiles and one-iteration benchmarks. The three long
-          # evidence tests run in their own rows so a 40-minute neighbor
-          # cannot consume their budget.
+          # Scale benchmarks and review safety fixtures have separate
+          # budgets. Heavy work stays outside normal check.
           - label: scale
             timeout: 75
             test_timeout: 50m
             packages: ./internal/application ./internal/infrastructure/marketdata ./internal/infrastructure/sqlite
-            run: ^(TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesMemoryEvidence|TestHistoricalSeriesBenchmarkCancellationEvidence|TestUpcomingActionsPerformanceReport|TestHistoricalOverviewDenseRapidSwitchEvidence|TestSourceTrackingProviderRefreshEvidence|TestAnalysisEndToEndPerformanceEvidence|TestSourceTrackingProviderImportBatchEvidence|TestFinancialSourceWriteAmplificationEvidence)$
+            run: ^(TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesMemoryEvidence|TestHistoricalSeriesBenchmarkCancellationEvidence|TestUpcomingActionsPerformanceReport|TestHistoricalOverviewDenseRapidSwitchEvidence|TestSourceTrackingProviderRefreshEvidence|TestAnalysisEndToEndPerformanceEvidence|TestSourceTrackingProviderImportBatchEvidence)$
             bench: ^(BenchmarkHistoricalSeriesBounded|BenchmarkHistoricalOverviewRapidSwitch|BenchmarkUpcomingActionsScale|BenchmarkReviewProjectionIncremental100x20|BenchmarkLegacySnapshotCoverageWarmBoundedTrend|BenchmarkLegacySnapshotCoverageColdBoundedTrend)$
-          - label: pipeline
-            timeout: 110
-            test_timeout: 90m
+          - label: review
+            timeout: 30
+            test_timeout: 20m
             packages: ./internal/application
-            run: ^TestReviewFullPipelinePerformanceEvidence$
-            bench: ""
-          - label: paired
-            timeout: 70
-            test_timeout: 50m
-            packages: ./internal/application
-            run: ^TestReviewPairedPerformanceEvidence$
+            run: ^(TestReviewDefaultPerformance|TestReviewDependencySuffixExtendedOracle)$
             bench: ""
           - label: epoch
             timeout: 65
