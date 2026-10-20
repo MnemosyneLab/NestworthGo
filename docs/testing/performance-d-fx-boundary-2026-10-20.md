@@ -23,7 +23,9 @@ rate/revision of an existing ID. An update cannot change any admission/selection
 metadata, pair or date. Only one mutation of each ID may occur between captures;
 intermediate states otherwise require a separate proof. Deleting the last
 candidate, an empty inventory, mixed dependency families and missing or malformed
-coverage use full preparation. Generation-only history-state updates may
+coverage use full preparation. Ordinary imports that also change observation slots, coverage or agent records
+remain mixed-family full fallback; this slice does not narrow those dependencies.
+Generation-only history-state updates may
 accompany FX writes after the independent invariant agrees.
 
 Provider preferences, provider lease, rule versions, accounts/activities,
@@ -112,7 +114,21 @@ removed to enable reuse.
 ## Validation and performance limits
 
 Focused Linux validation uses Go 1.26.1 with isolated toolchain/cache paths under
-`/tmp`. Commands and final results are recorded in the PR. Normal check stays
+`/tmp`. Integrated H1 main commit `1615057a532a9577bf53071bb00254e30fa8dfc2`
+without changing its files. After integration, these checks passed:
+
+```sh
+go test ./internal/application -run '^TestReviewDependency(FXMutationFullOracle|SuffixExactFXPrefix|SuffixAuthorityAndRollback|SuffixFullDurableOracle|SourceDescriptionMatchesFullDerivation|SuffixHandlingCalendarsAndFallback|SuffixEnabledServiceAndForcedFull|ProviderChangePreservesCertifiedChain)$' -count=1 -v
+go test ./internal/domain ./internal/infrastructure/sqlite -run 'Test(ReviewFX|PlanReviewInvalidationOldNewAndFallback|ReviewSuffixFingerprintIncludesPrivateFXScalar|ReviewSuffixAttestationRequiresCompleteTypedOutput|SelectedAccountHydration)' -count=1
+go test ./internal/domain -run 'Test(JSONMigrationSnapshot|ReviewScalarWalkerMatchesImmutableLegacy|ReviewStreamedSuffixMatchesCompleteLegacyDigest)$' -count=1
+go vet ./internal/application ./internal/domain ./internal/infrastructure/sqlite
+gofmt -l cmd internal
+git diff --check
+```
+
+The application group passed in 11.327s; domain/SQLite in 0.066s/1.230s,
+including H1 selected-account/chunk regression tests. JSON/scalar compatibility
+passed in 0.017s. These harness durations are not application benchmarks. Normal check stays
 light; no race run, benchmark matrix, desktop/native build or full-suite campaign
 is added here. The initial evidence-only fixture incorrectly combined manual
 source with daily-reference observations and failed its required episode
