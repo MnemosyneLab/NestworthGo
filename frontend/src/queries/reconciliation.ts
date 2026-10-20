@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Service } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation";
 import { callService } from "@/lib/wails";
 export { Service as ReconciliationService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation";
-export function useReconciliationSessions(accountId?: string) {
+export function useReconciliationSessions(accountId?: string, enabled = true) {
   return useQuery({
     queryKey: ["reconciliation", "sessions", accountId ?? ""],
     queryFn: async () => {
@@ -11,6 +11,7 @@ export function useReconciliationSessions(accountId?: string) {
         ? rows?.filter((row) => row.accountIds?.includes(accountId))
         : rows;
     },
+    enabled,
   });
 }
 export function useReconciliationSession(id: string) {

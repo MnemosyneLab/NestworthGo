@@ -1,16 +1,15 @@
 import type { SourceRefDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import type { LucideIcon } from "lucide-react";
-import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, Banknote } from "lucide-react";
+import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, Banknote, ClipboardCheck } from "lucide-react";
 
 export type PageId =
   | "overview"
   | "historical-overview"
   | "accounts"
   | "available-funds"
-  | "upcoming-actions"
+  | "tasks"
   | "portfolio"
   | "instrument-detail"
-  | "reconciliation"
   | "history"
   | "return-analysis"
   | "asset-changes"
@@ -22,6 +21,7 @@ export type PageId =
 export type AnalysisTab = "calendar" | "trend" | "contribution";
 export type AssetChangesTab = "drivers" | "trend" | "categories";
 export type UpcomingActionsTab = "recent" | "review";
+export type TasksTab = "upcoming" | "review" | "reconciliation";
 
 export interface AnalysisNavigationContext {
   scope?: "portfolio" | "account" | "instrument";
@@ -104,6 +104,7 @@ export type NavigationTarget =
   | { page: "historical-overview"; date?: string; historical?: HistoricalNavigationContext }
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
+  | { page: "tasks"; tab?: TasksTab; accountId?: string; sessionId?: string }
   | { page: "reconciliation"; accountId?: string; sessionId?: string }
   | { page: "upcoming-actions"; tab?: UpcomingActionsTab }
   | { page: "history"; filters?: HistoryNavigationFilters; activityId?: string }
@@ -112,7 +113,7 @@ export type NavigationTarget =
   | ({ page: "instrument-detail" } & InstrumentDetailContext)
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
   | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }
-  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "reconciliation" | "upcoming-actions" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds"> };
+  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "tasks" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the
@@ -146,7 +147,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: "activity",
     translationKey: "navGroups.activity",
-    items: [{ id: "upcoming-actions", translationKey: "nav.upcomingActions", icon: Banknote }, { id: "history", translationKey: "nav.history", icon: History }, { id: "reconciliation", translationKey: "nav.reconciliation", icon: GitCompareArrows }],
+    items: [{ id: "tasks", translationKey: "nav.tasks", icon: ClipboardCheck }, { id: "history", translationKey: "nav.history", icon: History }],
   },
   {
     id: "insights",
@@ -174,18 +175,40 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const DEFAULT_PAGE_ID = "overview";
 
+export type ReconciliationNavigationFocus = { accountId?: string; sessionId?: string };
+
+function namedId(target: object, key: "accountId" | "sessionId"): string | undefined {
+  if (!(key in target)) return undefined;
+  const value = (target as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+/** Account and session filters apply only when the target names them. A global Tasks entry clears both. */
+export function reconciliationFocusFromTarget(target: NavigationTarget): ReconciliationNavigationFocus {
+  const accountId = namedId(target, "accountId");
+  const sessionId = namedId(target, "sessionId");
+  if (!accountId && !sessionId) return {};
+  return { accountId, sessionId };
+}
+
 export function targetForPage(page: PageId): NavigationTarget {
   if (page === "return-analysis") return { page };
   if (page === "asset-changes") return { page };
   if (page === "history") return { page };
+  if (page === "tasks") return { page };
   if (page === "available-funds") return { page };
   if (page === "portfolio") return { page, view: "holdings" };
   if (page === "instrument-detail") throw new Error("An instrument detail target needs an instrumentId");
   return { page };
 }
 
+/** Active destinations after old page ids are rewritten. Call sites keep the legacy variants. */
+export type ResolvedNavigationTarget = Exclude<NavigationTarget, { page: "upcoming-actions" } | { page: "reconciliation" }>;
+
 /** A plain old Market Data object link now opens the shared read-only record. Repair links stay in maintenance. */
-export function resolveLegacyTarget(target: NavigationTarget): NavigationTarget {
+export function resolveLegacyTarget(target: NavigationTarget): ResolvedNavigationTarget {
+  if (target.page === "upcoming-actions") return { page: "tasks", tab: target.tab === "review" ? "review" : "upcoming" };
+  if (target.page === "reconciliation") return { page: "tasks", tab: "reconciliation", accountId: target.accountId, sessionId: target.sessionId };
   if (target.page !== "market-data") return target;
   const focus = target.focus;
   if (!focus?.instrumentId || focus.id || focus.kind || focus.action || focus.reason || focus.executable !== undefined || focus.snapshotComponentLabel || focus.currencyA || focus.currencyB) return target;

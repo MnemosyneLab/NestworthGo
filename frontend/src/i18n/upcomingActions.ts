@@ -1,7 +1,7 @@
 export const upcomingActionsEn = {
   "upcomingActions": {
     "title": "Upcoming actions",
-    "description": "Review receipts, reservations and investment reminders.",
+    "description": "Review receipts, reservations and scheduled items.",
     "window": "Today and the next 30 days · {{date}} · {{timezone}}",
     "asOf": "Read at {{asOf}} · {{timezone}}",
     "asOfUnavailable": "Read time unavailable",
@@ -62,6 +62,8 @@ export const upcomingActionsEn = {
     "showMore": "Show 50 more",
     "eligibleTitle": "Eligible to request access ({{count}})",
     "checksTitle": "Information affecting assessment ({{dataIssues}}, {{notes}})",
+    "checksEntry_one": "{{count}} data check → Data maintenance",
+    "checksEntry_other": "{{count}} data checks → Data maintenance",
     "normalOnly": "Normal routes only. Estimates do not confirm cash received or initiate a financial action.",
     "stateChanged": "The target’s state has changed. Check the latest details.",
     "targetMissing": "The target is no longer available. Refresh and check Data Health.",
@@ -105,15 +107,12 @@ export const upcomingActionsEn = {
       "invalid_product_quantity": "Product position integrity needs checking in Data Health.",
       "unsupported_source": "This information needs checking in Data Health."
     }
-  },
-  "nav": {
-    "upcomingActions": "Upcoming actions"
   }
 };
 export const upcomingActionsZhCN = {
   "upcomingActions": {
     "title": "近期事项",
-    "description": "查看到账核实、预留事项和投资复核提醒。",
+    "description": "查看到账核实和预留事项。",
     "window": "今天及未来 30 天 · {{date}} · {{timezone}}",
     "asOf": "读取于 {{asOf}} · {{timezone}}",
     "asOfUnavailable": "读取时间无法显示",
@@ -174,6 +173,8 @@ export const upcomingActionsZhCN = {
     "showMore": "再显示 50 条",
     "eligibleTitle": "已可办理（{{count}}）",
     "checksTitle": "影响判断的资料（{{dataIssues}}，{{notes}}）",
+    "checksEntry_one": "数据检查 {{count}} 项 → 去数据维护",
+    "checksEntry_other": "数据检查 {{count}} 项 → 去数据维护",
     "normalOnly": "仅使用正常路线。估计不代表实际到账，也不会自动发起财务操作。",
     "stateChanged": "目标状态已改变，请核对最新详情。",
     "targetMissing": "目标已不可用，请刷新并检查数据健康。",
@@ -217,15 +218,12 @@ export const upcomingActionsZhCN = {
       "invalid_product_quantity": "产品持仓完整性需在数据健康中检查。",
       "unsupported_source": "请在数据健康中核对这项资料。"
     }
-  },
-  "nav": {
-    "upcomingActions": "近期事项"
   }
 };
 export const upcomingActionsZhTW = {
   "upcomingActions": {
     "title": "近期事項",
-    "description": "查看到帳核實、預留事項和投資複核提醒。",
+    "description": "查看到帳核實和預留事項。",
     "window": "今天及未來 30 天 · {{date}} · {{timezone}}",
     "asOf": "讀取於 {{asOf}} · {{timezone}}",
     "asOfUnavailable": "讀取時間無法顯示",
@@ -286,6 +284,8 @@ export const upcomingActionsZhTW = {
     "showMore": "再顯示 50 條",
     "eligibleTitle": "已可辦理（{{count}}）",
     "checksTitle": "影響判斷的資料（{{dataIssues}}，{{notes}}）",
+    "checksEntry_one": "資料檢查 {{count}} 項 → 去資料維護",
+    "checksEntry_other": "資料檢查 {{count}} 項 → 去資料維護",
     "normalOnly": "僅使用正常路線。估計不代表實際到帳，也不會自動發起財務操作。",
     "stateChanged": "目標狀態已改變，請核對最新詳情。",
     "targetMissing": "目標已不可用，請重新整理並檢查資料健康。",
@@ -329,8 +329,5 @@ export const upcomingActionsZhTW = {
       "invalid_product_quantity": "產品持倉完整性需在資料健康中檢查。",
       "unsupported_source": "請在資料健康中核對這項資料。"
     }
-  },
-  "nav": {
-    "upcomingActions": "近期事項"
   }
 };

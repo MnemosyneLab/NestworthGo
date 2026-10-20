@@ -1,3 +1,4 @@
+import { tasksEn, tasksZhCN, tasksZhTW } from "./tasks";
 import { homepageEn, homepageZhCN, homepageZhTW } from "./homepage";
 import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./upcomingActions";
 import { describe, expect, it } from "vitest";
@@ -213,3 +214,5 @@ describe("i18next locale coverage", () => {
 it("covers Upcoming Actions in every supported locale", () => { assertSameKeySet("upcoming", upcomingActionsEn, { "zh-CN": upcomingActionsZhCN, "zh-TW": upcomingActionsZhTW }); });
 
 it("covers homepage summaries in every supported locale", () => { assertSameKeySet("homepage", homepageEn, { "zh-CN": homepageZhCN, "zh-TW": homepageZhTW }); });
+
+it("covers Tasks & checks in every supported locale", () => { assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW }); });

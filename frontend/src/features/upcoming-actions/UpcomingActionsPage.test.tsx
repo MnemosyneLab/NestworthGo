@@ -22,7 +22,7 @@ describe("upcoming UI", () => {
     mount(<OverviewUpcomingActionsCard presentation="homepage" />);
     expect(screen.getAllByRole("button", { name: /Verify receipt/ })).toHaveLength(3);
     await userEvent.click(screen.getByRole("button", { name: "View all 5 actions" }));
-    expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
+    expect(open).toHaveBeenLastCalledWith({ page: "tasks", tab: "upcoming" });
   });
   it("distinguishes initial error, stale data, loading and incomplete empty results", () => {
     query.data = undefined; query.isPending = true;
@@ -131,7 +131,7 @@ it("keeps scheduled access visible with no attention and routes merged terms and
   expect(screen.getByText("0 need attention · 1 schedule")).toBeInTheDocument();
   expect(screen.getByText("Later deposit")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "View all 1 action" }));
-  expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
+  expect(open).toHaveBeenLastCalledWith({ page: "tasks", tab: "upcoming" });
   view.rerender(tree(<UpcomingActionsPage />));
   expect(screen.getByText("Later deposit")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "View terms · Later deposit" }));
@@ -149,19 +149,15 @@ it("keeps long action names and both navigation paths in wrapping containers", (
   expect(row?.querySelector("div.flex-wrap")).toBeInTheDocument();
 });
 
-it("keeps both links on a merged scope note", async () => {
-  const sourceRef = { kind: "holding", accountId: "account-1", holdingId: "holding-1" };
+it("sends data checks to data maintenance without listing the fixes here", async () => {
   const terms = { kind: "product", productId: "product-1", sourceRef: null, reservationId: null };
-  const reservations = { kind: "reservations", productId: null, sourceRef, reservationId: null };
   query.data = upcomingData();
-  query.data.counts.scopeNotes = 1;
-  query.data.dataChecks = [{ id: "scope", sourceKey: "holding-1", category: "scope_note", productId: "product-1", displayName: "Deposit terms and reserve", reasonCodes: ["schedule_excluded", "reservation_excluded"], relatedActionId: null, anchorOn: "2026-10-15", coverageStatus: "excluded_source", target: terms, targets: [terms, reservations], referenceOn: "2026-11-10" }];
+  query.data.counts.dataChecks = 2;
+  query.data.dataChecks = [{ id: "scope", sourceKey: "holding-1", category: "data_check", productId: "product-1", displayName: "Deposit terms and reserve", reasonCodes: ["unsupported_source"], relatedActionId: null, anchorOn: "2026-10-15", coverageStatus: "", target: terms, targets: [terms], referenceOn: null }];
   mount(<UpcomingActionsPage />);
-  await userEvent.click(screen.getByText(/Information affecting assessment/));
-  await userEvent.click(screen.getByRole("button", { name: "View terms" }));
-  expect(open).toHaveBeenLastCalledWith({ page: "available-funds", focus: { kind: "product", productId: "product-1" } });
-  await userEvent.click(screen.getByRole("button", { name: "Check reservations" }));
-  expect(open).toHaveBeenLastCalledWith({ page: "available-funds", focus: { kind: "reservations", sourceRef } });
+  expect(screen.queryByText("Deposit terms and reserve")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 2 }) }));
+  expect(open).toHaveBeenLastCalledWith({ page: "data-health" });
 });
 
 it("mounts large disclosure lists independently, unmounts on close, and reopens with live data", async () => {
@@ -171,44 +167,33 @@ it("mounts large disclosure lists independently, unmounts on close, and reopens 
   query.data.dataChecks = Array.from({ length: 250 }, (_, i) => ({ id: `check-${i}`, sourceKey: `source-${i}`, category: "data_check", productId: "product-1", displayName: `Check ${i}`, reasonCodes: ["unsupported_source"], relatedActionId: null, anchorOn: null, coverageStatus: "", target: terms, targets: [terms], referenceOn: null }));
   const view = mount(<UpcomingActionsPage />);
   const eligible = screen.getByText("Eligible to request access (250)").closest("details")!;
-  const checks = screen.getByText(/Information affecting assessment/).closest("details")!;
-  expect(checks.querySelector("summary")).toHaveTextContent("250");
+  const checks = screen.getByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 250 }) });
   expect(eligible.querySelectorAll("li")).toHaveLength(0);
-  expect(checks.querySelectorAll("li")).toHaveLength(0);
+  expect(screen.queryByText("Check 0")).not.toBeInTheDocument();
   await userEvent.click(eligible.querySelector("summary")!);
   await waitFor(() => expect(eligible.querySelectorAll("li")).toHaveLength(250));
-  expect(checks.querySelectorAll("li")).toHaveLength(0);
   await userEvent.click(within(eligible).getByRole("button", { name: /Eligible 249$/ }));
   expect(open).toHaveBeenLastCalledWith({ page: "available-funds", focus: { kind: "product", productId: "product-1" } });
-  await userEvent.click(checks.querySelector("summary")!);
-  await waitFor(() => expect(checks.querySelectorAll("li")).toHaveLength(250));
-  await userEvent.click(within(checks).getAllByRole("button", { name: "View terms" })[249]);
-  expect(open).toHaveBeenLastCalledWith({ page: "available-funds", focus: { kind: "product", productId: "product-1" } });
-  await userEvent.click(within(checks).getByRole("button", { name: i18n.t("nav.dataHealth") }));
+  await userEvent.click(checks);
   expect(open).toHaveBeenLastCalledWith({ page: "data-health" });
-  for (const details of [eligible, checks]) {
-    for (let cycle = 0; cycle < 2; cycle++) {
-      await userEvent.click(details.querySelector("summary")!);
-      await waitFor(() => expect(details.querySelectorAll("li")).toHaveLength(0));
-      await userEvent.click(details.querySelector("summary")!);
-      await waitFor(() => expect(details.querySelectorAll("li")).toHaveLength(250));
-    }
-    await userEvent.click(details.querySelector("summary")!);
-    await waitFor(() => expect(details.querySelectorAll("li")).toHaveLength(0));
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await userEvent.click(eligible.querySelector("summary")!);
+    await waitFor(() => expect(eligible.querySelectorAll("li")).toHaveLength(0));
+    await userEvent.click(eligible.querySelector("summary")!);
+    await waitFor(() => expect(eligible.querySelectorAll("li")).toHaveLength(250));
   }
+  await userEvent.click(eligible.querySelector("summary")!);
+  await waitFor(() => expect(eligible.querySelectorAll("li")).toHaveLength(0));
   const refresh = (prefix: string) => {
-    query.data = { ...query.data!, items: query.data!.items!.map(item => ({ ...item, displayName: `${prefix} eligible` })), dataChecks: query.data!.dataChecks!.map(check => ({ ...check, displayName: `${prefix} check` })) };
+    query.data = { ...query.data!, items: query.data!.items!.map(item => ({ ...item, displayName: `${prefix} eligible` })) };
     view.rerender(tree(<UpcomingActionsPage />));
   };
   refresh("Fresh");
   expect(screen.queryByText("Fresh eligible")).not.toBeInTheDocument();
-  expect(screen.queryByText("Fresh check")).not.toBeInTheDocument();
-  for (const section of [eligible, checks]) await userEvent.click(section.querySelector("summary")!);
+  await userEvent.click(eligible.querySelector("summary")!);
   await waitFor(() => expect(screen.getAllByText("Fresh eligible")).toHaveLength(250));
-  expect(screen.getAllByText("Fresh check")).toHaveLength(250);
   refresh("Live");
   expect(screen.getAllByText("Live eligible")).toHaveLength(250);
-  expect(screen.getAllByText("Live check")).toHaveLength(250);
 }, 20000);
 
 
@@ -221,20 +206,5 @@ it.each(["en"])("compresses homepage empty results and preserves data-check acce
   query.data.counts.dataChecks = 1; view.rerender(tree(<OverviewUpcomingActionsCard presentation="homepage" />));
   const action = screen.getByRole("button", { name: i18n.t("homepage.reviewActionDetails") });
   action.focus(); await userEvent.keyboard("{Enter}");
-  expect(open).toHaveBeenLastCalledWith({ page: "upcoming-actions" });
-});
-
-it.each(["en"])("switches between the existing actions and review tabs by keyboard in %s", async language => {
-  await i18n.changeLanguage(language);
-  mount(<UpcomingActionsPage />);
-  const recent = screen.getByRole("tab", { name: i18n.t("upcomingActions.title") });
-  const review = screen.getByRole("tab", { name: i18n.t("reviewV2.title") });
-  expect(recent).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByText("Synthetic deposit")).toBeVisible();
-  recent.focus(); await userEvent.keyboard("{ArrowRight}{Enter}");
-  expect(review).toHaveAttribute("aria-selected", "true");
-  expect(screen.queryByText("Synthetic deposit")).not.toBeVisible();
-  await userEvent.keyboard("{ArrowLeft}{Enter}");
-  expect(recent).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByText("Synthetic deposit")).toBeVisible();
+  expect(open).toHaveBeenLastCalledWith({ page: "tasks", tab: "upcoming" });
 });

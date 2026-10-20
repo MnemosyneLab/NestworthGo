@@ -73,11 +73,12 @@ items are deterministically ordered. Sorting uses priority, issue subtype, next
 relevant date and ID; currencies are never ranked by amount. Receipt checks
 precede reservation issues, blocked dates and ordinary upcoming schedules.
 
-Overview shows at most three main actions and the full count. Upcoming actions
-is reached from the sidebar or Overview. Its Recent items and Investment review
-tabs reuse the existing list and review panel. Available Funds contains
-only liquidity controls, totals, reservations and sources; it has no upcoming-action
-or investment-review panel or entry.
+Overview shows at most three main actions and the full count. Tasks & checks
+is the sidebar destination. Its tabs, in order, are Upcoming actions, Investment
+review, and Reconciliation. Overview shows one Tasks & checks summary; each
+count opens the matching tab. Available Funds contains only liquidity controls,
+totals, reservations and sources; it has no upcoming-action or investment-review
+panel or entry.
 The full list filters receipt checks, reservation issues and schedules, renders
 50 main rows initially and offers 50 more. Eligible items and supplementary
 information are folded. Filters, focus and scroll survive session Back through
