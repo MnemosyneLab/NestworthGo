@@ -113,6 +113,31 @@ Stop the loop with `Ctrl-C`. `cd frontend && pnpm run dev` starts Vite only; it
 is useful for frontend work but is not a complete desktop-app launch because
 the Go/Wails IPC host is absent.
 
+## Isolated native development QA
+
+Use the established `build/darwin/Info.dev.plist` identity: `com.nestworth.dev`,
+with application/display name `Nestworth` and bundle `Nestworth.app`. Production
+archive acceptance below retains the separate release identity. Do not create
+per-task bundle IDs or names that cause repeated permission prompts.
+
+For each development QA run:
+
+1. Record branch, source SHA and working-tree status. Prepare an isolated
+   synthetic database/settings directory and verify its test marker/household.
+   These steps do not authorize copying real household data.
+2. Build the development app using the existing task configuration and inspect
+   the actual bundle's identity before launch.
+3. Resolve `NESTWORTH_DATABASE_PATH` and `NESTWORTH_SETTINGS_PATH` to that run's
+   intended paths. Launch with those overrides in the same environment; native
+   UI launchers must preserve them. Do not launch with unverified overrides.
+4. Exercise the affected flow, quit normally and relaunch with the same isolated
+   paths to check persistence and interaction consistency. Retain source SHA,
+   environment, identity, paths and acceptance results.
+
+Report actual native macOS acceptance separately from Linux, headless, browser
+and jsdom evidence. Keep synthetic isolation and the safety rules in root
+`AGENTS.md` throughout; do not change system security settings to complete QA.
+
 ## Frontend-only checks
 
 The following commands are safe to run after entering `frontend/`, including
