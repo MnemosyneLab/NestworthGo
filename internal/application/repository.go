@@ -73,7 +73,7 @@ type AnalysisQuoteBatchRepository interface {
 }
 
 // AnalysisSnapshotRepository may omit unrelated stored components only when
-// the household has no activities and every historical account is known.
+// every historical account is known. Callers retain full activities and metadata.
 // Headers remain household-wide; all unproved cases return the full read set.
 // Admission, headers, historical ID checks and items share one read transaction.
 type AnalysisSnapshotRepository interface {

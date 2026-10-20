@@ -4,8 +4,9 @@ import "github.com/waltwang/nestworth-go/internal/domain"
 
 // planAnalysisQuoteDependencies changes only quote hydration. Classification runs
 // before output filtering, so all activity instruments (including opposite
-// transfer legs, corrections and cost effects) remain dependencies. Snapshot and
-// portfolio metadata are never clipped. Unknown references retain the full set.
+// transfer legs, corrections and cost effects) remain dependencies. This planner
+// never filters snapshots or portfolio metadata; snapshot admission is separate.
+// Unknown references retain the full quote set.
 func planAnalysisQuoteDependencies(input AnalysisInputs, query domain.AnalysisQuery) []domain.InstrumentID {
 	full := make([]domain.InstrumentID, 0, len(input.Portfolio.Instruments))
 	known := map[domain.InstrumentID]bool{}

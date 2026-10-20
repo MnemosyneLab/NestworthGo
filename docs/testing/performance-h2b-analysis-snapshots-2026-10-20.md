@@ -1,99 +1,141 @@
-# H2b: activity-free account snapshot components
+# H2b: selected-account snapshot components
 
 Baseline: `c14308c16a60746f11f566fd914e5cf5d552a64a` (E1 reverted;
-PR147 chart date optimization retained). E1/E2 are abandoned. This change
-adds no schema, proof machinery, review/D planner changes or replay algorithm.
+PR147 chart date optimization retained). The initial PR150 commit
+`42ad3958055c1006ce7cbf525ba17dd5e301fc16` restricted this path to activity-free
+households. The follow-up removes that restriction after tracing the actual
+classifier and daily bridge dependencies. E1/E2 remain abandoned. No schema,
+proof machinery, review/D planner or historical replay changes are introduced.
 
 ## Normal path and dependency boundary
 
-Asset Changes and Return Analysis Wails projections call the application
-projections, which share `AnalysisService` and its existing bounded memo.
-On a miss, `loadInputs` reads the full archived-inclusive portfolio and origin,
-maintains closed days, loads activities and stored snapshots, loads full FX,
-constructs the immutable origin opening when needed, plans H2a quote IDs and
-loads G's complete quote batches, then resolves snapshot source evidence.
-H1's existing account hydration, G's batching and H2a's quote scoping are not
+Asset Changes and Return Analysis Wails projections call application projections
+sharing `AnalysisService` and its bounded memo. On a miss, `loadInputs` reads the
+full archived-inclusive portfolio and origin, maintains closed days, loads full
+activities and stored snapshots, loads full FX, constructs the immutable origin
+opening when needed, plans H2a quote IDs, uses G's complete quote batches and
+resolves snapshot source evidence. H1, G and H2a are existing optimizations, not
 new savings here.
 
-Classification precedes output filtering. Activity transfer counterparties,
-normalized and recorded correction effects, cost origins and historical holding
-metadata cannot be discarded using current account membership. H2b therefore
-admits **only explicit single-account scope with no captured activities**, and
-SQLite additionally requires **no household activity at all**, including future
-activities. All activity-bearing households retain full component hydration.
-This is deliberately a small delivered subset, with no dependency graph engine.
+The normal SQLite path now hydrates selected-account stored components for
+**explicit single-account scope, including households with activities**. Activity
+count is not an admission condition. Full captured activities, their normalized
+and recorded effects, archived-inclusive account/ownership/holding/instrument
+metadata, FX facts/preferences and H2a's activity quote dependencies remain.
+No current-account filter is used as proof of historical ownership or closure.
 
-The optional `AnalysisSnapshotRepository` is used by the normal SQLite service
-without a flag. Adapters without it keep the original loader. One read
-transaction covers the activity existence check, unchanged latest snapshot
-headers, raw distinct historical account IDs, and item hydration. Every raw
-historical account ID must exist in the captured full portfolio, including
-archived accounts; unknown IDs or an unknown selected account fall back to full
-hydration in that same transaction. SQL/read/scan errors propagate, rather than
-being interpreted as successful admission. Captured activities are loaded before
-this read, so an activity appearing later cannot introduce new classification
-inputs after the admission decision. Other input families retain their existing
-separate read boundaries; this does not introduce a whole-service transaction.
+The dependency trace supporting this boundary is:
 
-For admitted input, only stored component rows belonging to the selected account
-are decoded. With no activities, classification has no counterparty, correction
-or cost effects; universe construction already filters known unrelated items
-by account. Unknown-account detection is protected by admission. Day calculations
-and pre-creation checks use the selected components. Household snapshot headers
-(including completeness, counts and totals) remain unchanged. All portfolio
-records, FX, needed quote candidates and evidence remain available. Full origin
-construction/maintenance remains unchanged, including its unrelated components.
-Opening dates, timezone, zero positions and valid historical holdings are retained.
+- `resolveAnalysisUniverse` matches account scope before adding known components.
+  Unknown account dates are a household-wide exception, protected by admission.
+- `classifyActivity` builds every endpoint from complete effects and full account,
+  holding and instrument metadata. This preserves internal/external, counterparty,
+  correction and cost attribution without consulting outside snapshot values.
+- Snapshot-dependent `effectAmount` and `isCarryingValueRemoval` are called for
+  components inside the selected universe. Their start/end item lookups use that
+  selected component key. Quote inference and carrying-value removal therefore
+  retain their required selected historical observations.
+- Outside cash return projections use `effectAmountForComponent`: money is
+  converted using full FX and the selected owner currency; a non-money leg is
+  passed an empty snapshot in both full and narrowed paths. This path never
+  obtains an outside account's snapshot value.
+- Daily bridges iterate selected valuation components. Pre-creation checks inspect
+  the selected account's historical items and full activities. Household headers,
+  including completeness/counts/totals, remain unchanged.
 
-## Small synthetic evidence
+The optional `AnalysisSnapshotRepository` is default-enabled in normal SQLite
+analysis. One read transaction covers unchanged latest headers, distinct raw
+historical account IDs and item hydration. Every raw account ID must resolve
+against the captured full portfolio (including archived accounts); unknown
+historical metadata or an unknown selected account triggers full hydration in
+that transaction. Other scopes and adapters without the port retain the original
+loader. Cancellation, read/scan errors and commit errors still propagate.
+Separate existing activity/portfolio/FX read boundaries are unchanged; this is
+not a new whole-service transaction. Removing the activity EXISTS check does
+not weaken the transaction around snapshot admission and hydration.
 
-`TestAnalysisAccountSnapshotLoading` uses the real service loader and SQLite
-adapter, with a wrapper hiding only optional snapshot loading as the full oracle.
-The fixture has 13 accounts, 3 stored days, a selected cash component, a nonzero
-CNY holding, a zero USD holding, FX, an unrelated archived account and
-`America/New_York` history. It compares entire ordinary and investment results,
-including source/coverage/unknown fields and exact financial values. It also
-checks unchanged portfolio/activity/FX inputs and durable snapshot headers.
-Both a later opening date and the origin-date opening are exercised.
+Full origin opening construction and maintenance remain unchanged, including
+unrelated opening components. Selected historical rows, source quote/preference
+IDs, zero positions and valid holdings are retained. Snapshot-referenced evidence
+continues through the existing evidence adapter; selected source evidence and
+household closure facts remain available. No dependency graph engine is needed.
 
-Fallback comparisons cover household scope, an unknown selected account,
-historical account metadata absent from the captured portfolio (with an explicit
-unknown-account-date assertion), a future transfer, an in-range transfer with
-fee, and its correction. Captured activity cases never invoke the narrow port;
-the future activity case invokes it and is rejected within SQLite. The test
-uses synthetic databases only and takes well under a second in the focused run.
+## Synthetic differential evidence
 
-Linux amd64, Go 1.26.0; snapshots prebuilt, same process and open database,
-no memo/ensurer during paired loading. Driver metrics include SQL consumption
-through row close. Two short ordered full-then-narrow observations from one
-final focused run after package checks completed (not randomized or
-independently cold):
+`TestAnalysisAccountSnapshotLoading` compares actual full and scoped service
+loaders backed by SQLite, with G batching in both arms. The full oracle wrapper
+hides only optional snapshot loading. The fixture has 14 accounts, 3 stored days,
+selected cash, nonzero CNY and zero USD holdings, an outside brokerage/holding,
+FX, an unrelated archived account and `America/New_York` history.
 
-| From / To | Stored item rows decoded | Whole loader SELECTs | Full / narrow load |
+The test compares entire ordinary and investment outputs (financial decimals,
+attribution, sources, coverage and unknown reasons), native/base outcomes and
+errors, unchanged activities/portfolio/FX, durable headers and exact selected
+snapshot items. It asserts actual decoded-row reduction and one historical-ID
+admission SELECT. It also exercises normal service native-to-base fallback for
+both ordinary and investment analysis.
+
+Positive cases include origin/later openings, future activity, selected outgoing
+and incoming transfers with fees, corrections to each direction, in-kind position
+transfers in both directions and an unpriced carrying-value removal (asserted
+at -5). Outside cash trade/fee/dividend attribution is persisted through the real
+adapter: normal domain previews have only their cash endpoint redirected, with
+endpoint projections recomputed by `ApplyEffects` before atomic persistence.
+This is synthetic historical evidence, not a new public command workflow; current
+commands normally settle on the holding's account. The associated outside fees
+are asserted as two -1 amounts and the USD 2 dividend converts to CNY 14 using
+full FX. No kernel-only substitute input is used.
+
+Full fallbacks remain tested for household scope, unknown selection and absent
+historical account metadata, both before and after activities exist. The latter
+explicitly asserts preserved unknown-account dates. Transfer/correction/future
+activity fallback assertions from the initial slice have been replaced with
+positive activation and result-equality assertions.
+
+## Small measurements and limits
+
+Linux amd64, Go 1.26.0; synthetic DB, prebuilt snapshots, same process/open handle,
+no memo/ensurer in the paired loaders. Two ordered full-then-scoped observations
+from the expanded fixture after transfers, corrections, position changes and
+outside cash attribution; other checks were not running concurrently:
+
+| From / To | Stored item rows decoded | Whole loader SELECTs | Full / scoped load |
 | --- | ---: | ---: | ---: |
-| Aug 2 / Aug 3 | 45 → 9 | 29 → 31 | 13.91 / 4.17 ms |
-| Aug 1 / Aug 3 (origin opening) | 45 → 9 | 71 → 73 | 12.46 / 10.98 ms |
+| Aug 2 / Aug 3 | 53 → 9 | 35 → 35 | 5.96 / 5.85 ms |
+| Aug 1 / Aug 3 (origin opening) | 53 → 9 | 77 → 77 | 12.58 / 9.68 ms |
 
-The new saving is 36 fewer stored financial component rows decoded (80%) in
-this fixture. The two extra SELECTs are activity admission and distinct historical
-account IDs. The latter still scans the requested snapshot keys, returning 13
-small account IDs; this is not a claim of avoiding all unrelated SQL work.
-Existing snapshot/account indexes are reused. There is no JSON component decode
-here: savings are row scan, ID/currency/decimal parsing and item allocation.
-Quote reductions remain H2a's work. The ordered timings have cache/order noise
-and do not establish end-to-end speed, p95, allocation totals, RSS, native Mac
-performance or production deployment. Activity-heavy ledgers gain nothing here;
-one-account ledgers can pay two extra checks without reducing item rows.
+This is 44 fewer financial component rows decoded (83%) in an activity-bearing
+household. One extra distinct-account admission SELECT is offset here by avoiding
+an unrelated snapshot FX-evidence SELECT. Other fixtures can pay one net extra
+SELECT. The admission query still scans the requested snapshot keys, returning
+small account IDs; unrelated SQL work is not entirely eliminated. Existing indexes
+are reused. Component rows are scalar, not JSON: savings are scans, ID/currency/
+decimal parsing and allocation. Full activities and full origin work remain costs.
 
-## Validation boundary
+The short timings show no consistent speed improvement for this small fixture.
+They have order/cache noise and do not establish end-to-end latency, p95,
+allocation totals, RSS, native Mac performance or deployment. The delivered
+benefit is less unrelated component hydration in normal activity-bearing account
+analysis. One-account ledgers can pay admission overhead with no row savings.
 
-Passed: `go test ./internal/application ./internal/infrastructure/sqlite
-./internal/wailsapi/analysis` (application 162.356s, SQLite 38.274s, Wails analysis
-0.261s); final focused differential test (0.322s); vet and builds of those three
-packages; gofmt and diff checks. The package suite ran once; final focused
-verification includes subsequent test assertions and the normal quote-batch port
-in both arms. No race, broad benchmark
-matrix, repeated full suites, real ledger, frontend changes or native desktop
-packaging. Linux desktop build prerequisites (GTK4, WebKitGTK 6 and libsoup 3)
-are absent; no system dependency installation was attempted. Parent owns CI monitoring and elapsed-time review. The draft PR records
-the exact tested head and final check outcomes.
+## Validation and CI cost
+
+Follow-up checks passed:
+
+- Application analysis/reconciliation and SQLite analysis tests:
+  `go test ./internal/application ./internal/infrastructure/sqlite -run
+  '^(TestAnalysis|TestReconciliationRemoval)' -count=1` (5.233s / 0.602s).
+- Wails analysis package tests (0.220s), affected-package vet and package builds.
+- Focused expanded differential regression, formatting and diff checks.
+
+The expanded regression is 0.666 seconds in the final focused run, compared with
+0.32 seconds for the initial slice: about 0.35 seconds extra test work, with no new
+CI job or dependency. Parent owns CI run/elapsed-time review; local durations do
+not establish hosted CI cost. The previous PR150 [check run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/39411678821)
+at `42ad395` succeeded in 5m44s elapsed (creation through final update, including
+setup/queue), providing a baseline for follow-up CI review. The previous initial-slice full affected package
+suite passed at the earlier head and is not represented as a new full-suite run.
+No repeated full suites, race or broad benchmarks were run for the follow-up.
+No real ledger or frontend changes. Native desktop packaging remains unverified;
+GTK4/WebKitGTK6/libsoup3 prerequisites are absent and no system installation was
+attempted. The PR records the exact final head and check outcomes.

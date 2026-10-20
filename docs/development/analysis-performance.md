@@ -138,12 +138,14 @@ for differential tests, net SQL counts and the limits of two small Linux timing
 observations. This input-loading evidence is separate from the historical
 kernel measurements above.
 
-## Activity-free account snapshot loading (H2b, 2026-10-20)
+## Account snapshot component loading (H2b, 2026-10-20)
 
-Normal SQLite analysis now hydrates only selected-account stored snapshot items
-for explicit account scope when there are no captured or persisted household
-activities and all historical account IDs resolve against the captured portfolio.
-Unproved cases retain full hydration. Headers and full origin opening construction
-remain unchanged. This extends H2a beyond quote IDs for a deliberately small
-subset; transfers, corrections and cost-bearing activity households remain full.
+Normal SQLite analysis hydrates selected-account stored snapshot items for
+explicit account scope, including households with activities. It retains full
+activities, archived-inclusive portfolio metadata, FX and selected source evidence.
+All historical account IDs must resolve against the captured portfolio; unknown
+accounts and other scopes retain full hydration. Headers and full origin opening
+construction remain unchanged. The initial activity-free restriction was removed
+after tracing classifier/daily dependencies and adding real-loader differential
+coverage for transfers, corrections, positions and outside cash attribution.
 See [H2b dependency boundary and synthetic evidence](../testing/performance-h2b-analysis-snapshots-2026-10-20.md).

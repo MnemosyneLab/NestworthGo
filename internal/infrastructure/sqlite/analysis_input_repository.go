@@ -103,9 +103,9 @@ func loadAnalysisQuoteBatch(ctx context.Context, query queryer, householdID doma
 	return result, nil
 }
 
-// LoadAnalysisAccountSnapshots narrows only activity-free households. Transfers,
-// corrections and cost origins therefore always retain the existing full path.
-// Even future activities reject admission; this deliberately favors simplicity.
+// LoadAnalysisAccountSnapshots retains selected components after checking every
+// historical account against captured metadata. Analysis retains all activities
+// and portfolio metadata for endpoint, correction and cost attribution.
 func (r *Repository) LoadAnalysisAccountSnapshots(ctx context.Context, householdID domain.HouseholdID, since, until time.Time, selected domain.AccountID, accounts []domain.AccountID) ([]domain.DailyValuationSnapshot, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -116,11 +116,7 @@ func (r *Repository) LoadAnalysisAccountSnapshots(ctx context.Context, household
 	for _, id := range accounts {
 		known[id] = true
 	}
-	var hasActivities bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM activities WHERE household_id = ?)`, householdID.String()).Scan(&hasActivities); err != nil {
-		return nil, err
-	}
-	if hasActivities || !known[selected] {
+	if !known[selected] {
 		selected = ""
 	}
 	result, err := listDailyValuationSnapshotsForAccountQuery(ctx, tx, householdID, since, until, selected, known)

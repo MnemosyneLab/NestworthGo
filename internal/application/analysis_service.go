@@ -382,7 +382,7 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 	}
 	var snapshots []domain.DailyValuationSnapshot
 	reader, canScope := s.repository.(AnalysisSnapshotRepository)
-	if canScope && len(activities) == 0 && query.Scope.Kind == domain.ScopeAccount && query.Scope.ID != "" {
+	if canScope && query.Scope.Kind == domain.ScopeAccount && query.Scope.ID != "" {
 		known := make([]domain.AccountID, 0, len(portfolio.Accounts))
 		for _, record := range portfolio.Accounts {
 			known = append(known, record.Account.ID)
