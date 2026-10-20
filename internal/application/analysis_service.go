@@ -385,12 +385,23 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 		return AnalysisInputs{}, err
 	}
 	instrumentQuotes := make([]domain.InstrumentQuote, 0)
-	for _, instrument := range portfolio.Instruments {
-		quotes, quoteErr := s.repository.ListInstrumentQuotes(ctx, instrument.ID)
-		if quoteErr != nil {
-			return AnalysisInputs{}, quoteErr
+	if batchReader, ok := s.repository.(AnalysisQuoteBatchRepository); ok {
+		ids := make([]domain.InstrumentID, len(portfolio.Instruments))
+		for i, instrument := range portfolio.Instruments {
+			ids[i] = instrument.ID
 		}
-		instrumentQuotes = append(instrumentQuotes, quotes...)
+		instrumentQuotes, err = batchReader.LoadAnalysisQuoteBatch(ctx, portfolio.Household.ID, ids)
+		if err != nil {
+			return AnalysisInputs{}, err
+		}
+	} else {
+		for _, instrument := range portfolio.Instruments {
+			quotes, quoteErr := s.repository.ListInstrumentQuotes(ctx, instrument.ID)
+			if quoteErr != nil {
+				return AnalysisInputs{}, quoteErr
+			}
+			instrumentQuotes = append(instrumentQuotes, quotes...)
+		}
 	}
 	if query.From == domain.LocalDate(originDate) {
 		// Value the immutable Starting point before applying any activities.
