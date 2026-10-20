@@ -1,0 +1,48 @@
+{
+  "baselineProductionHead": "dbf0f2df7034b1318b2badff46d5dff590a36367",
+  "integratedMain": "3d202a2a1c8a3c60401717b121f52f473c79589c",
+  "candidateProductionHead": "140278e42ed60fc9257612b7eb19a3f41cb8e03e",
+  "intermediateCountPassHead": "69fcb0ca2be6a5837bac605e60b21804e2e9bd49",
+  "initialPrototype": "uncommitted first allocation cleanup; superseded count pass; retained diagnostic logs, not final evidence",
+  "baselineHarness": "only identical optional backfill scenario and perf-only selector diagnostic copied; no production changes",
+  "baselineBinarySHA256": "d95fc37e64f77f0266f46073da2e33a13eeb1fa7f25cd1c03570db1d8cfc2745",
+  "candidateBinarySHA256": "5aee6f3cf03bb88b0099279779f42ea69bc530fa8f6072cbcc2b6926d6c5d1da",
+  "countPassBinarySHA256": "969053b284791d60d544968cc20f1983dc4345169b8b39cfc315d0c041889e54",
+  "initialBinarySHA256": "c912cab72c5f6ec8a12253f69d479017d680419833bd43472f497f8b3fd9ce2b",
+  "sourceDBSHA256": "ac671436d085d25e5cb56c630dbd65b4f8ea0d3ae25ba752a0807ed6a073109c",
+  "sourceManifestSHA256": "97b9e2921cd6e90bcc2fd82c7f5b41538adc20284409b76b281b040e29cf47a5",
+  "platform": "Linux amd64; Go1.26.1; SQLite3.53.0; GOMAXPROCS4; four-CPU quota",
+  "finalMatchedRepetitions": 3,
+  "totalMatchedRepetitionsIncludingInitialAndSupersededSmallRuns": 10,
+  "order": [
+    "baseline-1",
+    "candidate-1",
+    "candidate-2",
+    "baseline-2",
+    "baseline-3",
+    "candidate-3"
+  ],
+  "scenarios": [
+    "clock-only",
+    "correction",
+    "backfill"
+  ],
+  "size": {
+    "accounts": 1,
+    "instruments": 10,
+    "holdings": 10,
+    "rules": 1,
+    "historyDays": 30,
+    "quotes": 310,
+    "cashActivities": 100
+  },
+  "profiling": false,
+  "isolation": "same saved unpublished synthetic facts/UUIDs, separate binaries, fresh genesis clones/independent authority, serial timed runs, setup/oracles excluded",
+  "selectors": "C2/C3 controls are explicit opt-in harness configurations, not actual currentmain defaults; PR131 remains separate/unmerged",
+  "routingImplemented": false,
+  "routingReason": "cheap C2 clears certified chain; bounded selector on C3 does not disable full-oracle requirements; no measured D2 benefit on these small scenarios or supported preserving transition justifies policy",
+  "performanceAccepted": false,
+  "raceRerun": false,
+  "workflowChangedOrDispatched": false,
+  "cumulativeWaveMeasurement": "withdrawn by user; no cumulative benchmark started; assigned separately to Luna"
+}

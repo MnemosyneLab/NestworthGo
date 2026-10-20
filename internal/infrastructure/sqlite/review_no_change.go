@@ -77,6 +77,7 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 		return empty, false, err
 	}
 	defer tx.Rollback()
+	memoGeneration := r.reviewMemoGeneration()
 	var cookie, foreignKeys, version int
 	for _, item := range []struct {
 		query string
@@ -250,6 +251,7 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 	if err := tx.Commit(); err != nil {
 		return empty, false, err
 	}
+	r.commitReviewMemoNoop(oldJSON, *certificate, memoGeneration)
 	result.SourceFingerprint = control.PublishedFingerprint
 	return result, true, nil
 }

@@ -1,0 +1,30 @@
+{
+  "baselineProductionHead": "057ef31e464ebd831b8dd470084778ac3d295646",
+  "integratedMain": "3d202a2a1c8a3c60401717b121f52f473c79589c",
+  "candidateProductionHead": "7eb1e5cad44bf011d99455c0e2538c381bcf0df1",
+  "baselineChanges": "identical opt-in matched source helper plus included one-line harness patch only; detached checkout, no extra branch",
+  "matchedSourceHelperSHA256": "7683b16dda89efa3c634c9383e5fef187bbcd403fd8bb29cd2b7e365ac39ae98",
+  "baselineBinarySHA256": "652917f2d64716d9e037581b9312423ec20487efd5221aee774c1966e9eb424e",
+  "candidateBinarySHA256": "4d56a286e55471e0775d7e29ba137ed676f90a476f28f21f98d1c3c0b040a1c1",
+  "syntheticSourceDBSHA256": "01c186d937a31a8a488a609f2229c0e9ef63d39f786f7b0ac4c3e2289ab94903",
+  "syntheticSourceManifestSHA256": "06dbfe9336af0d44fccd2746f6f32f59ac1713202b52a57632f9b8bd72195ef9",
+  "sourceMarker": "nestworth-synthetic-D2-clock-fixture-v1",
+  "sourceHousehold": "01a15742-c162-7a1d-b2c8-0f2cdde93e03",
+  "order": [
+    "baseline-1",
+    "candidate-1",
+    "candidate-2",
+    "baseline-2",
+    "baseline-3",
+    "candidate-3"
+  ],
+  "matchedRepetitions": 3,
+  "platform": "Linux amd64, Go1.26.1, SQLite3.53.0, GOMAXPROCS4, CPU quota4",
+  "profiling": false,
+  "isolation": "serial separate test binaries; identical saved unpublished synthetic facts; every arm builds a fresh genesis and earns its own authority; setup/oracles outside elapsed",
+  "controls": "C2 existing bounded clock path, not forced-full oracle; independent forced-full preparation and durable output comparisons separate",
+  "acceptance": false,
+  "raceRerun": false,
+  "workflowChangedOrDispatched": false,
+  "measurementCommand": "NW_D2_MATCHED_SOURCE_DIR=/tmp/d2-omission-matched-large NW_D2_SUFFIX_EVIDENCE=1 NW_C3_PERF_SIZE=large NW_REVIEW_PERF_SAMPLES=1 GOMAXPROCS=4 <separate-binary> -test.run ^TestReviewDependencySuffixPerformanceEvidence$/^large$/^clock-only$ -test.count=1 -test.timeout=12m -test.v"
+}

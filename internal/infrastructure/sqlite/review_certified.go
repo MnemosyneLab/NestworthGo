@@ -86,7 +86,8 @@ func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string,
 		Control     domain.ReviewProjectionControl
 		Temporal    string
 		Proof       domain.ReviewCertifiedCapture
-	}{c.HouseholdID, c.HistoricalFingerprint, c.SourceCutoff, c.SourceRevision, c.Control, reviewTemporalDigest(c.Temporal), proof})
+		Suffix      bool
+	}{c.HouseholdID, c.HistoricalFingerprint, c.SourceCutoff, c.SourceRevision, c.Control, reviewTemporalDigest(c.Temporal), proof, c.Suffix != nil})
 }
 
 // Complete row bytes, including all daily JSON, historical conditions, frozen
@@ -203,16 +204,20 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 	if err != nil {
 		return err
 	}
-	counts, err := noChangeProjectionCounts(ctx, tx, c.HouseholdID)
-	if err != nil {
-		return err
+	// Capture counts establish initial absence only; they are not a guard for
+	// an already authenticated chain. Confirmation/publication counts remain.
+	var counts []int64
+	initialEligible := c.PublishedTemporal == nil && c.Control.PublishedFingerprint == "" && !r.database.reviewCertificateKey.issued.Load() && r.reviewInitialConnectionMatches(connection)
+	if initialEligible {
+		counts, err = noChangeProjectionCounts(ctx, tx, c.HouseholdID)
+		if err != nil {
+			return err
+		}
+		for _, n := range counts {
+			initialEligible = initialEligible && n == 0
+		}
 	}
-	empty := true
-	for _, n := range counts {
-		empty = empty && n == 0
-	}
-	empty = empty && c.PublishedTemporal == nil && c.Control.PublishedFingerprint == "" && !r.database.reviewCertificateKey.issued.Load()
-	if empty && r.reviewInitialConnectionMatches(connection) {
+	if initialEligible {
 		var prior int
 		if err := tx.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM investment_review_mutation_receipts WHERE household_id=? AND json_type(result_json,'$.episodeId') IS NOT NULL)+(SELECT count(*) FROM investment_review_legacy_state WHERE household_id=?)+(SELECT count(*) FROM investment_review_legacy_quarantine)`, c.HouseholdID.String(), c.HouseholdID.String()).Scan(&prior); err != nil {
 			return err
@@ -236,7 +241,13 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 	if c.PublishedTemporal != nil {
 		proof.PreviousProvider = c.PublishedTemporal.CertifiedProvider
 	}
-	if !proof.MayCertify && !r.database.reviewCertificateKey.issued.Load() && validCertifiedConnection(connection) {
+	if reviewBootstrapProvenanceEnabled && !proof.MayCertify && !r.database.reviewCertificateKey.issued.Load() && validCertifiedConnection(connection) {
+		if counts == nil {
+			counts, err = noChangeProjectionCounts(ctx, tx, c.HouseholdID)
+			if err != nil {
+				return err
+			}
+		}
 		proof.MayBootstrap, err = certifiedBootstrapSupported(ctx, tx, *c, counts)
 		if err != nil {
 			return err
@@ -330,6 +341,26 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 	out.CertifiedProjectionSeal, err = certifiedProjectionSeal(ctx, tx, c.HouseholdID)
 	if err != nil {
 		return err
+	}
+	if r.reviewDependencySuffix {
+		if c.Suffix != nil && c.Certified.SuffixSourceProof != nil {
+			// SourceMAC was checked above and the writer still holds the
+			// source/control/checkpoint CAS + provider lease. Reuse exactly
+			// the derived description authenticated in this capture, not
+			// caller assertions or unsigned persisted hashes.
+			source := c.Certified.SuffixSourceProof
+			out.SuffixQuoteSeals = source.QuoteSeals
+			out.SuffixNonQuoteFingerprint = source.NonQuoteFingerprint
+		} else {
+			out.SuffixQuoteSeals, err = domain.ReviewQuoteDaySeals(c.Historical)
+			if err != nil {
+				return err
+			}
+			out.SuffixNonQuoteFingerprint, err = domain.ReviewNonQuoteFingerprint(c.Historical)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	out.CertifiedProvider = c.Certified.Provider
 	out.NoChangeCompletenessVersion = domain.ReviewCertifiedCompletenessVersion

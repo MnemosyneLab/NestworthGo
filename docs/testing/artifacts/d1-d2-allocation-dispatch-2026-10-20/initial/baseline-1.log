@@ -1,0 +1,33 @@
+=== RUN   TestReviewDependencySuffixPerformanceEvidence
+    review_certified_performance_test.go:39: dependencySuffix=true (same C2 control; isolated synthetic data)
+=== RUN   TestReviewDependencySuffixPerformanceEvidence/small
+    review_certified_performance_test.go:45: manifest={"Accounts":1,"Instruments":10,"Holdings":10,"Rules":1,"HistoryDays":30,"Quotes":310,"CashActivities":100,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-11-16T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a15767-eb87-7a79-aab4-e199e5879d4f
+=== RUN   TestReviewDependencySuffixPerformanceEvidence/small/clock-only
+    review_certified_performance_test.go:169: D2 size=small scenario=clock-only recomputedPairDays=10 reusedPairDays=300
+    review_certified_performance_test.go:171: audit size=small scenario=clock-only sample=1 actualPublicationDays=10 independentFullAuditDays=310
+    review_certified_performance_test.go:230: certified size=small scenario=clock-only arm=C2 n=1 elapsed=35.998434ms allocatedBytes=6974208 allocs=99950 publishedPairDays=10 publication=none sql queries=109 returnedRows=2187 Query-to-Rows.Close=23.471255ms execs=43 writeStatements=43 rowsAffected=33 driverExecTime=2.94408ms prepares=2 prepareTime=115.105µs writeTransactions=1 reserved-to-finish=20.064366ms
+    review_certified_performance_test.go:230: certified size=small scenario=clock-only arm=certified n=1 elapsed=62.363428ms allocatedBytes=16395312 allocs=151524 publishedPairDays=10 publication=verified_source_cas sql queries=151 returnedRows=3536 Query-to-Rows.Close=38.385989ms execs=43 writeStatements=43 rowsAffected=33 driverExecTime=3.259647ms prepares=2 prepareTime=96.854µs writeTransactions=2 reserved-to-finish=27.604806ms
+    review_certified_performance_test.go:249: certified-distribution size=small scenario=clock-only arm=C2 n=1 median=35.998434ms raw=[35.998434ms] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:249: certified-distribution size=small scenario=clock-only arm=certified n=1 median=62.363428ms raw=[62.363428ms] (diagnostic; no p95/RSS acceptance)
+=== RUN   TestReviewDependencySuffixPerformanceEvidence/small/correction
+    review_certified_performance_test.go:169: D2 size=small scenario=correction recomputedPairDays=25 reusedPairDays=275
+    review_certified_performance_test.go:171: audit size=small scenario=correction sample=1 actualPublicationDays=300 independentFullAuditDays=300
+    review_certified_performance_test.go:230: certified size=small scenario=correction arm=C2 n=1 elapsed=58.644001ms allocatedBytes=11229592 allocs=155554 publishedPairDays=300 publication=none sql queries=107 returnedRows=2176 Query-to-Rows.Close=25.019727ms execs=622 writeStatements=622 rowsAffected=14 driverExecTime=11.809627ms prepares=2 prepareTime=112.33µs writeTransactions=1 reserved-to-finish=34.826387ms
+    review_certified_performance_test.go:230: certified size=small scenario=correction arm=certified n=1 elapsed=70.498696ms allocatedBytes=20508392 allocs=196978 publishedPairDays=300 publication=verified_source_cas sql queries=163 returnedRows=4718 Query-to-Rows.Close=39.227287ms execs=24 writeStatements=24 rowsAffected=14 driverExecTime=3.12814ms prepares=2 prepareTime=95.994µs writeTransactions=2 reserved-to-finish=30.843383ms
+    review_certified_performance_test.go:249: certified-distribution size=small scenario=correction arm=C2 n=1 median=58.644001ms raw=[58.644001ms] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:249: certified-distribution size=small scenario=correction arm=certified n=1 median=70.498696ms raw=[70.498696ms] (diagnostic; no p95/RSS acceptance)
+=== RUN   TestReviewDependencySuffixPerformanceEvidence/small/backfill
+    review_certified_performance_test.go:169: D2 size=small scenario=backfill recomputedPairDays=15 reusedPairDays=285
+    review_certified_performance_test.go:171: audit size=small scenario=backfill sample=1 actualPublicationDays=300 independentFullAuditDays=300
+    review_certified_performance_test.go:230: certified size=small scenario=backfill arm=C2 n=1 elapsed=55.374728ms allocatedBytes=11232648 allocs=155737 publishedPairDays=300 publication=none sql queries=107 returnedRows=2180 Query-to-Rows.Close=26.891653ms execs=622 writeStatements=622 rowsAffected=14 driverExecTime=10.716832ms prepares=2 prepareTime=104.83µs writeTransactions=1 reserved-to-finish=31.4206ms
+    review_certified_performance_test.go:230: certified size=small scenario=backfill arm=certified n=1 elapsed=68.886353ms allocatedBytes=19039808 allocs=196074 publishedPairDays=300 publication=verified_source_cas sql queries=163 returnedRows=4731 Query-to-Rows.Close=41.1552ms execs=24 writeStatements=24 rowsAffected=14 driverExecTime=3.633135ms prepares=2 prepareTime=90.027µs writeTransactions=2 reserved-to-finish=29.482358ms
+    review_certified_performance_test.go:249: certified-distribution size=small scenario=backfill arm=C2 n=1 median=55.374728ms raw=[55.374728ms] (diagnostic; no p95/RSS acceptance)
+    review_certified_performance_test.go:249: certified-distribution size=small scenario=backfill arm=certified n=1 median=68.886353ms raw=[68.886353ms] (diagnostic; no p95/RSS acceptance)
+=== NAME  TestReviewDependencySuffixPerformanceEvidence/small
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	   49992 kB
+--- PASS: TestReviewDependencySuffixPerformanceEvidence (1.68s)
+    --- PASS: TestReviewDependencySuffixPerformanceEvidence/small (1.68s)
+        --- PASS: TestReviewDependencySuffixPerformanceEvidence/small/clock-only (0.51s)
+        --- PASS: TestReviewDependencySuffixPerformanceEvidence/small/correction (0.55s)
+        --- PASS: TestReviewDependencySuffixPerformanceEvidence/small/backfill (0.56s)
+PASS
