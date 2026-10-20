@@ -189,12 +189,8 @@ func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
 				}
 			}
 		}
-		fullService := NewAnalysisService(s.repository, s.clock)
-		fullService.forceFullQuoteLoading = true
-		fullAccount, err := fullService.loadInputs(ctx, query)
-		if err != nil || len(fullAccount.InstrumentQuotes) != 48 {
-			t.Fatalf("full account oracle: rows=%d err=%v", len(fullAccount.InstrumentQuotes), err)
-		}
+		// The complete household capture above is the independent full quote
+		// oracle for this account query; only the candidate quote slice changes.
 		narrowRepo := &analysisBatchQuoteRepository{analysisLegacyQuoteRepository: &analysisLegacyQuoteRepository{Repository: s.repository}}
 		narrowed, err := NewAnalysisService(narrowRepo, s.clock).loadInputs(ctx, query)
 		if err != nil {

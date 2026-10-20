@@ -23,3 +23,6 @@ release documentation without being revalidated.
 
 [Continuous backup](continuous-backup.md) describes the embedded lifecycle,
 secret storage, recovery safeguards, local tests and pending R2/native gates.
+
+[Performance optimization report](performance-optimization-report.md) records implementation choices,
+correctness contracts and the limited historical measurements.

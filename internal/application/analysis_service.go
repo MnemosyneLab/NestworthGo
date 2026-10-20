@@ -21,10 +21,6 @@ type AnalysisService struct {
 	now             func() time.Time
 	ensureSnapshots func(context.Context, string, string) error
 
-	// forceFullQuoteLoading preserves the full hydration oracle for bounded tests.
-	// Production uses the conservative quote planner.
-	forceFullQuoteLoading bool
-
 	// memoMu protects the bounded memo and generation. The generation is
 	// intentionally process-local: persisted analytics inputs remain the
 	// source of truth and a process restart starts with an empty memo.
@@ -416,11 +412,7 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 		}
 		snapshots = append(snapshots, opening)
 	}
-	planningQuery := query
-	if s.forceFullQuoteLoading {
-		planningQuery.Scope = domain.AnalysisScope{Kind: domain.ScopeHousehold}
-	}
-	quoteIDs := planAnalysisQuoteDependencies(AnalysisInputs{Portfolio: portfolio, Snapshots: snapshots, Activities: activities}, planningQuery)
+	quoteIDs := planAnalysisQuoteDependencies(AnalysisInputs{Portfolio: portfolio, Snapshots: snapshots, Activities: activities}, query)
 	instrumentQuotes := make([]domain.InstrumentQuote, 0)
 	if batchReader, ok := s.repository.(AnalysisQuoteBatchRepository); ok {
 		instrumentQuotes, err = batchReader.LoadAnalysisQuoteBatch(ctx, portfolio.Household.ID, quoteIDs)

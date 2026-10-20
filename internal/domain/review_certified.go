@@ -24,14 +24,9 @@ type ReviewSuffixSourceProof struct {
 	QuoteSeals          []ReviewQuoteDaySeal
 }
 
-type ReviewPrefixMemoObservation struct {
-	ReusedDays, SQLDecodedDays, ArgumentEncodes int
-}
-
 type ReviewCertifiedCapture struct {
-	FXDescription         *ReviewFXDescription         `json:",omitempty"` // Complete coherent-capture description, bound by SourceMAC.
-	SuffixMemoReceipt     uint64                       `json:",omitempty"`
-	SuffixMemoObservation *ReviewPrefixMemoObservation `json:",omitempty"`
+	FXDescription     *ReviewFXDescription `json:",omitempty"` // Complete coherent-capture description, bound by SourceMAC.
+	SuffixMemoReceipt uint64               `json:",omitempty"`
 
 	SuffixSourceProof  *ReviewSuffixSourceProof `json:",omitempty"` // Derived in the coherent capture; authenticated by SourceMAC.
 	SourceMAC          string
@@ -42,33 +37,7 @@ type ReviewCertifiedCapture struct {
 	ReviewFingerprint  string
 	SchemaCookie       int
 	InitialPublication bool // Captured private genesis eligibility; publisher must claim it.
-	MayBootstrap       bool // Disabled: current absence does not prove historical absence.
 	MayCertify         bool
-	MayReuse           bool
 	PreviousProvider   ReviewProviderSelection
 	Provider           ReviewProviderSelection // Supplied by the application provider lease.
-}
-
-type ReviewCertifiedFullOracle struct{ Rules []ReviewRulePublication }
-
-func ReviewFullPublication(p ReviewPublication) ReviewPublication {
-	if p.CertifiedFullOracle != nil {
-		p.Rules = p.CertifiedFullOracle.Rules
-	}
-	p.CertifiedFullOracle = nil
-	p.Capture.Suffix = nil
-	p.Capture.TemporalFullRecompute = true
-	p.Capture.ReusableDailyEvidence = nil
-	return p
-}
-
-// Reconstruct the independent full oracle and compare the actual bounded
-// output again. No successful/forged preparation stamp grants authority.
-func ValidateReviewCertifiedOutput(p ReviewPublication) string {
-	if p.CertifiedFullOracle == nil {
-		return "certified_full_oracle_missing"
-	}
-	full := ReviewFullPublication(p)
-	full.WindowOracle = &ReviewWindowOracle{Version: ReviewWindowOracleVersion, Rules: p.Rules}
-	return ValidateReviewWindowOracle(full)
 }

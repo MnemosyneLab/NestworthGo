@@ -157,11 +157,11 @@ func TestSelectedAccountHydrationChunks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantOwners, err := loadOwnership(ctx, db.SQL, household)
+	wantOwners, err := loadAllOwnership(ctx, db.SQL, household)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantValues, err := loadLatestValues(ctx, db.SQL, household)
+	wantValues, err := loadAllLatestValues(ctx, db.SQL, household)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,4 +178,13 @@ func TestSelectedAccountHydrationChunks(t *testing.T) {
 	if empty.calls != 0 {
 		t.Fatal("empty scope queried")
 	}
+}
+
+// Whole-household queries are independent test oracles; production always uses
+// explicit selected account IDs, including an empty selection.
+func loadAllOwnership(ctx context.Context, query queryer, id domain.HouseholdID) (map[domain.AccountID][]domain.OwnershipShare, error) {
+	return scanOwnershipRows(query.QueryContext(ctx, accountOwnershipQuery, id.String()))
+}
+func loadAllLatestValues(ctx context.Context, query queryer, id domain.HouseholdID) (map[domain.AccountID]*domain.AccountValue, error) {
+	return scanLatestValuesRows(query.QueryContext(ctx, latestAccountValuesQuery, id.String()))
 }

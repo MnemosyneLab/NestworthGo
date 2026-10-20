@@ -13,19 +13,18 @@ func TestReviewCertifiedFXEvidenceAndOracleIsolation(t *testing.T) {
 	f, r := certifiedConfiguredFixture(t, true, spec)
 	f.day(t, "2026-10-13")
 	p := certifiedStage(t, f, r)
-	if p.CertifiedFullOracle == nil || domain.ValidateReviewCertifiedOutput(p) != "window_oracle_matched" {
-		t.Fatal("FX candidate could not prove bounded/full equivalence")
-	}
-	full := domain.ReviewFullPublication(p)
+	full := independentReviewFullStage(t, f, r)
 	if err := compareReviewFullOracle(p, full, f.s.FXProviderKey()); err != nil {
 		t.Fatal(err)
 	}
 	found := false
-	for _, cached := range p.Capture.ReusableDailyEvidence {
-		for _, selected := range cached.Input.SelectedFX {
-			found = true
-			if selected.Quote.Rate.String() != "2" {
-				t.Fatal("private exact FX scalar was lost in persisted evidence", selected.Quote.Rate.String())
+	for _, rule := range p.Rules {
+		for _, day := range rule.Days {
+			for _, selected := range day.Input.SelectedFX {
+				found = true
+				if selected.Quote.Rate.String() != "2" {
+					t.Fatal("private exact FX scalar was lost in persisted evidence", selected.Quote.Rate.String())
+				}
 			}
 		}
 	}
@@ -46,14 +45,12 @@ func TestReviewCertifiedFullOracleDoesNotAliasFrozenOutput(t *testing.T) {
 	f, r := certifiedFixture(t)
 	f.day(t, "2026-10-13")
 	p := certifiedStage(t, f, r)
-	if p.CertifiedFullOracle == nil {
-		t.Fatal("fixture not bounded")
-	}
+	full := independentReviewFullStage(t, f, r)
 	p.Rules[0].TriggerResult.Truth = domain.ReviewFalse
-	if p.CertifiedFullOracle.Rules[0].TriggerResult.Truth != domain.ReviewTrue {
-		t.Fatal("full oracle aliased the bounded frozen result")
+	if full.Rules[0].TriggerResult.Truth != domain.ReviewTrue {
+		t.Fatal("independent full oracle aliased the frozen result")
 	}
-	if domain.ValidateReviewCertifiedOutput(p) != "window_oracle_lifecycle_changed" {
-		t.Fatal("in-place bounded output mutation escaped comparison")
+	if compareReviewFullOracle(p, full, f.s.FXProviderKey()) == nil {
+		t.Fatal("in-place output mutation escaped independent comparison")
 	}
 }

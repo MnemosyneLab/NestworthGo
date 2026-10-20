@@ -54,7 +54,7 @@ func TestReviewCertifiedPreCaptureForeignKeyCascadeCannotCertify(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })

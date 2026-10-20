@@ -15,8 +15,8 @@ func TestReviewDependencyFXRawMutationFullFallback(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			spec := syntheticHistoricalReviewSpec()
 			spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
-			f, r := certifiedPublicationFixture(t, true, spec, "1", false)
-			r = r.WithReviewDependencySuffix()
+			f, r := certifiedPublicationFixture(t, true, spec, "1")
+			r = r.WithDefaultReviewOptimizations()
 			f.s.repository = r
 			q, err := f.s.AppendManualFXQuote(t.Context(), "USD", "CNY", "2", "2026-10-08")
 			if err != nil {
@@ -128,7 +128,7 @@ func TestReviewDependencyFXRawMutationFullFallback(t *testing.T) {
 					t.Fatal(e)
 				}
 				t.Cleanup(func() { reopened.Close() })
-				r = sqlite.NewRepository(reopened).WithReviewDependencySuffix()
+				r = sqlite.NewRepository(reopened).WithDefaultReviewOptimizations()
 			}
 			stage := assertSuffixOracle(t, f, r, false)
 			after, err := domain.ReviewNonQuoteFingerprint(stage.Capture.Historical)

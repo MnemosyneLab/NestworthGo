@@ -1202,4 +1202,7 @@ it.each([false, true])("restores the original reconciliation entry after a neste
   expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
   expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
   expect(screen.getByLabelText(i18n.t("reconciliation.history"))).toHaveValue("paused");
-});
+// This traverses both reconciliation workspaces and the intervening account,
+// health and task pages. Main CI measured 5.087s (PR153: 4.634s), so allow
+// runner variation for this integration flow without changing other budgets.
+}, 10_000);

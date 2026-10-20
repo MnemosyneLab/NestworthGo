@@ -58,14 +58,27 @@ func TestReviewSuffixAttestationRequiresCompleteTypedOutput(t *testing.T) {
 			case "result-fingerprint":
 				values[21] = "different"
 			}
-			rows, err := db.SQL.Query("SELECT "+strings.TrimSuffix(strings.Repeat("?,", 22), ","), values...)
+			columns := 22
+			if scenario == "changed-source" {
+				values = []any{values[1], values[3], values[12], values[10], values[11], values[20], values[21], int64(0)}
+				columns = 8
+			}
+			rows, err := db.SQL.Query("SELECT "+strings.TrimSuffix(strings.Repeat("?,", columns), ","), values...)
 			if err != nil {
 				t.Fatal(err)
 			}
 			evidence := map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}
 			attested := map[domain.ReviewDailyEvidenceKey]bool{}
-			if err = scanReviewSuffixOutput(rows, c, rule, item.TimezoneVersion, scenario != "changed-source", evidence, attested); err != nil {
+			if scenario == "changed-source" {
+				err = scanReusableReviewWindow(rows, rule, item.TimezoneVersion, evidence)
+			} else {
+				err = scanReviewSuffixOutput(rows, c, rule, item.TimezoneVersion, evidence, attested, nil)
+			}
+			if err != nil {
 				t.Fatal(err)
+			}
+			if scenario == "changed-source" && len(evidence) != 1 {
+				t.Fatal("changed source did not load ordinary un-attested evidence")
 			}
 			key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: 1, InstrumentID: id, TimezoneVersion: item.TimezoneVersion, On: input.On}
 			if attested[key] != (scenario == "equal") {

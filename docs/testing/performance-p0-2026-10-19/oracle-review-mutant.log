@@ -1,8 +1,0 @@
-=== RUN   TestReviewFullOracleRejectsDaySetMutations
-=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-missing-first-new-day
-    review_full_oracle_regression_test.go:98: mutation escaped expected "emitted day count differs" rejection: <nil>
---- FAIL: TestReviewFullOracleRejectsDaySetMutations (0.15s)
-    --- FAIL: TestReviewFullOracleRejectsDaySetMutations/incremental-missing-first-new-day (0.00s)
-FAIL
-FAIL	github.com/waltwang/nestworth-go/internal/application	0.155s
-FAIL

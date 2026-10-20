@@ -21,8 +21,8 @@ type ReviewTemporalCertificate struct {
 	ConfigRevision   int
 	StateRevision    int
 	RuleRevisions    map[ReviewRuleID]int
-	// C3a proof is minted only by a full publication on an opt-in repository.
-	// Older C2 checkpoints cannot authorize the candidate no-change path.
+	// No-change proof originates in an authenticated full publication.
+	// Older C2 checkpoints cannot authorize certified no-change confirmation.
 	NoChangeReviewFingerprint   string                     `json:",omitempty"`
 	NoChangeProjectionCounts    []int64                    `json:",omitempty"`
 	NoChangeCompletenessVersion string                     `json:",omitempty"`
@@ -42,7 +42,7 @@ func (c *ReviewTemporalCertificate) Covers(now time.Time) bool {
 }
 
 // Eligible checks only shared temporal/source/review namespaces. C2 uses it
-// diagnostically; the opt-in C3 candidate must additionally verify tracking,
+// diagnostically; certified no-change confirmation additionally verifies tracking,
 // projection completeness, handling/provider metadata and transactional CAS.
 func (c *ReviewTemporalCertificate) Eligible(now time.Time, current *ReviewTemporalCertificate) bool {
 	if !c.Covers(now) || !current.Covers(now) || c.ClockEpoch != current.ClockEpoch || c.Source == nil || current.Source == nil || !c.Source.Valid() || !current.Source.Valid() || c.Source.Token != current.Source.Token || c.Source.Token.Revision < current.Source.JournalFloor || c.ConfigRevision != current.ConfigRevision || c.StateRevision != current.StateRevision || len(c.RuleRevisions) != len(current.RuleRevisions) {

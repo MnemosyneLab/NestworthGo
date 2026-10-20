@@ -18,18 +18,14 @@ func certifiedConfiguredFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpe
 }
 func certifiedQuantityFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec, quantity string) (seriesZeroFixture, *sqlite.Repository) {
 	t.Helper()
-	return certifiedPublicationFixture(t, fx, spec, quantity, true)
+	return certifiedPublicationFixture(t, fx, spec, quantity)
 }
-func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec, quantity string, lineage bool) (seriesZeroFixture, *sqlite.Repository) {
+func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec, quantity string, databases ...*sqlite.DB) (seriesZeroFixture, *sqlite.Repository) {
 	t.Helper()
-	f := newSeriesZeroFixture(t, fx, "UTC", "2026-10-01", quantity)
+	f := newSeriesZeroFixture(t, fx, "UTC", "2026-10-01", quantity, databases...)
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic certified review", spec)
-	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
-	if lineage {
-		// Historical adversarial cases separately select the bounded experiment.
-		r = r.WithReviewCompletenessLineageShadow(nil)
-	}
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
@@ -43,7 +39,7 @@ func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSp
 	return f, r
 }
 
-func TestReviewCertifiedFreshSessionNoopAndBoundedPublication(t *testing.T) {
+func TestReviewCertifiedFreshSessionNoopAndSuffixPublication(t *testing.T) {
 	f, r := certifiedFixture(t)
 	var mac string
 	if err := f.db.SQL.QueryRow(`SELECT json_extract(certificate_json,'$.CertifiedMAC') FROM review_temporal_checkpoints`).Scan(&mac); err != nil || mac == "" {
@@ -59,20 +55,20 @@ func TestReviewCertifiedFreshSessionNoopAndBoundedPublication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cap.Certified == nil || !cap.Certified.MayReuse || len(cap.ReusableDailyEvidence) != 1 {
+	if cap.Certified == nil || cap.Suffix == nil || len(cap.ReusableDailyEvidence) != 0 {
 		t.Fatalf("capture failed integrity reuse gate %+v evidence=%d", cap.Certified, len(cap.ReusableDailyEvidence))
 	}
 	result, err = f.s.ReconcileInvestmentReviewsV2(t.Context())
 	if err != nil || result.DayCount != 1 {
-		t.Fatal("certified bounded publication failed", result, err)
+		t.Fatal("certified suffix publication failed", result, err)
 	}
 	*f.now = f.now.Add(time.Nanosecond)
 	result, err = f.s.ReconcileInvestmentReviewsV2(t.Context())
 	if err != nil || result.DayCount != 0 {
-		t.Fatal("bounded publication lost certification", result, err)
+		t.Fatal("full publication lost certification", result, err)
 	}
 	noChangeFullOracle(t, f)
-	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || r.WithFullReviewRecompute().CertifiedReviewEnabled() {
+	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || fullReviewOracle(r).CertifiedReviewEnabled() {
 		t.Fatal("candidate activated default or forced-full path")
 	}
 }

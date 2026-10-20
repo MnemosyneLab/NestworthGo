@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,7 +82,7 @@ func TestReviewCertifiedProviderExhaustionAndDefault(t *testing.T) {
 			}
 			f.day(t, "2026-10-13")
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.Provider.Pinned || p.CertifiedFullOracle != nil {
+			if p.Capture.Certified.Provider.Pinned {
 				t.Fatal("unfenced selection acquired bounded authority")
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -98,8 +99,16 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 			var f seriesZeroFixture
 			var r *sqlite.Repository
 			if kind == "legacy" {
-				f, _ = noChangeFixture(t)
-				r = sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+				f = newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+				f.day(t, "2026-10-03")
+				saveSyntheticReviewRule(t, f, "Synthetic legacy review", syntheticHistoricalReviewSpec())
+				f.s = NewService(sqlite.NewRepository(f.db))
+				f.s.fxProviderKey = "synthetic-pinned"
+				f.s.setClock(func() time.Time { return *f.now })
+				if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+				r = sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -114,7 +123,7 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 				}
 				defer db.Close()
 				f.db = db
-				r = sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -135,7 +144,7 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 				}
 			}
 			p := certifiedStage(t, f, r)
-			if p.CertifiedFullOracle != nil || len(p.Capture.ReusableDailyEvidence) != 0 {
+			if len(p.Capture.ReusableDailyEvidence) != 0 {
 				t.Fatal("unsupported context used bounded publication")
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -271,7 +280,8 @@ func TestReviewCertifiedHoldsSQLiteWriteReservation(t *testing.T) {
 }
 
 func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) {
-	f, r := certifiedFixture(t)
+	db, faults := openReviewFaultDatabase(t)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
 	f.day(t, "2026-10-13")
 	p := certifiedStage(t, f, r)
 	reference := windowOracleReference(t, f)
@@ -286,17 +296,24 @@ func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) 
 	if err := tx.Rollback(); err != nil {
 		t.Fatal(err)
 	}
-	var verdict string
-	r = r.WithReviewCompletenessLineageShadow(func(o domain.ReviewCompletenessLineageObservation) {
-		if o.Phase == "certified_publication" {
-			verdict = o.Verdict
+	fullReads := 0
+	faults.afterQuery = func(query string) {
+		if strings.Contains(query, "FROM history_origins") {
+			fullReads++
 		}
-	})
-	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
+	}
+	before := noChangeProjectionRows(t, f.db)
+	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err == nil {
+		t.Fatal("stale suffix proof survived rolled-back DML")
+	}
+	if !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
+		t.Fatal("stale suffix proof wrote data")
+	}
+	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if verdict != "full_source_recheck" {
-		t.Fatal("rolled-back DML retained counter authority", verdict)
+	if fullReads == 0 {
+		t.Fatal("rolled-back DML retained counter authority")
 	}
 	if !reflect.DeepEqual(noChangeProjectionRows(t, f.db), noChangeProjectionRows(t, reference)) {
 		t.Fatal("rollback fallback differs from pre-publication full oracle")
@@ -304,7 +321,8 @@ func TestReviewCertifiedRolledBackWritesInvalidateConnectionProof(t *testing.T) 
 }
 
 func TestReviewCertifiedCaptureFencesExternalCommitDuringSnapshot(t *testing.T) {
-	f, r := certifiedFixture(t)
+	db, faults := openReviewFaultDatabase(t)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", db)
 	f.day(t, "2026-10-13")
 	initial := certifiedStage(t, f, r)
 	writer, err := sql.Open("sqlite", f.db.Path+"?_txlock=immediate&_pragma=busy_timeout%3d0&_pragma=foreign_keys%3d1&_pragma=recursive_triggers%3d1")
@@ -313,12 +331,12 @@ func TestReviewCertifiedCaptureFencesExternalCommitDuringSnapshot(t *testing.T) 
 	}
 	defer writer.Close()
 	changed := false
-	r = r.WithReviewCompletenessLineageShadow(func(o domain.ReviewCompletenessLineageObservation) {
-		if o.Phase == "capture" && !changed {
+	faults.afterQuery = func(query string) {
+		if strings.HasPrefix(query, "SELECT DISTINCT s.rule_id,s.instrument_id") && !changed {
 			changed = true
 			rewindCertifiedRevision(t, writer, initial.Capture.SourceRevision)
 		}
-	})
+	}
 	p := certifiedStage(t, f, r)
 	if !changed {
 		t.Fatal("snapshot mutation hook was not reached")

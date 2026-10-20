@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,36 +18,19 @@ const reviewPrefixMemoMaxEntries = 65536
 const reviewPrefixMemoMaxPayload = 32 << 20
 
 // WithDefaultReviewOptimizations configures the shared GUI/MCP repository.
-// Environment switches are process-local and never alter household settings.
+// Normal startup always uses authenticated suffix and same-handle memo reuse.
+// Ineligible evidence continues through the complete preparation fallback.
 func (r *Repository) WithDefaultReviewOptimizations() *Repository {
-	if os.Getenv("NESTWORTH_REVIEW_FULL_RECOMPUTE") == "1" {
-		return r.WithFullReviewRecompute()
-	}
-	return r.WithReviewPrefixMemo(os.Getenv("NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE") != "1")
-}
-
-// WithReviewPrefixMemo enables bounded same-handle evidence reuse. A new handle
-// never imports a memo or authority. False keeps D1/D2 without memo reuse.
-func (r *Repository) WithReviewPrefixMemo(enabled ...bool) *Repository {
-	copy := *r.WithReviewDependencySuffix()
-	copy.reviewPrefixMemoEnabled = len(enabled) == 0 || enabled[0]
-	copy.reviewPrefixMemoObserve = true
-	if copy.reviewPrefixMemoEnabled {
-		copy.database.reviewPrefixMemo.active.Store(true)
-	}
+	copy := *r
+	copy.reviewOptimized = true
+	copy.database.reviewPrefixMemo.active.Store(true)
 	return &copy
 }
 
-// Retained for the opt-in diagnostic harness; normal startup uses the defaults.
-func (r *Repository) WithReviewPrefixMemoExperiment(enabled ...bool) *Repository {
-	return r.WithReviewPrefixMemo(enabled...)
-}
-
 type reviewMemoReadTarget struct {
-	entries     map[domain.ReviewDailyEvidenceKey]reviewMemoEntry
-	observation *domain.ReviewPrefixMemoObservation
-	payload     int
-	disabled    bool
+	entries  map[domain.ReviewDailyEvidenceKey]reviewMemoEntry
+	payload  int
+	disabled bool
 }
 
 func (t *reviewMemoReadTarget) add(e reviewMemoEntry) {
@@ -233,7 +215,7 @@ func (r *Repository) commitReviewMemo(c domain.ReviewProjectionCapture, out doma
 	}
 	p := m.pending
 	m.pending = nil
-	valid := r.reviewPrefixMemoEnabled && c.Certified != nil && c.Suffix != nil && out.CertifiedMAC != "" && p != nil && p.receipt == c.Certified.SuffixMemoReceipt && p.generation == m.generation && p.binding == reviewMemoBind(c)
+	valid := r.reviewOptimized && c.Certified != nil && c.Suffix != nil && out.CertifiedMAC != "" && p != nil && p.receipt == c.Certified.SuffixMemoReceipt && p.generation == m.generation && p.binding == reviewMemoBind(c)
 	m.generation++
 	m.committed = nil
 	if !valid {
@@ -271,7 +253,7 @@ func (r *Repository) commitReviewMemoNoop(oldJSON []byte, out domain.ReviewTempo
 	m.committed = nil
 	m.pending = nil
 	m.generation++
-	if !r.reviewPrefixMemoEnabled || s == nil || out.CertifiedMAC == "" || out.Source == nil {
+	if !r.reviewOptimized || s == nil || out.CertifiedMAC == "" || out.Source == nil {
 		return
 	}
 	oldHash := sha256.Sum256(oldJSON)

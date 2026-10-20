@@ -13,66 +13,32 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// WithReviewNoChangeCandidate is deliberately opt-in pending manual review of
-// C3 correctness/performance gates.
-// Deprecated for activation: this retains the counting-only historical
-// experiment. Only WithCertifiedReviewCandidate supplies integrity authority.
-// Ordinary repositories retain every C2 full
-// capture/recheck. Changed-source publication is never accelerated here.
-func (r *Repository) WithReviewNoChangeCandidate() *Repository {
-	copy := *r
-	copy.reviewNoChangeCandidate = true
-	return &copy
-}
-
-func (r *Repository) ReviewNoChangeEnabled() bool {
-	return r.reviewNoChangeCandidate && !r.reviewFullRecompute
-}
-
-// ConfirmReviewNoChange holds the driver's BEGIN IMMEDIATE reservation for the
-// entire proof and CAS. There is no unprotected read-to-write snapshot upgrade.
-// A false result authorizes only the existing full capture/prepare/publish path.
-func (r *Repository) ConfirmReviewNoChange(ctx context.Context, id domain.HouseholdID, captureNow time.Time, clock func() time.Time, providerKey func() string) (domain.ReviewNoChangeResult, bool, error) {
-	if r.CertifiedReviewEnabled() {
-		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, nil
-	}
-	return r.confirmReviewNoChange(ctx, id, captureNow, clock, providerKey, nil)
-}
-
-func (r *Repository) ConfirmCertifiedReviewNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time, selection domain.ReviewProviderSelection) (domain.ReviewNoChangeResult, bool, error) {
-	return r.confirmReviewNoChange(ctx, id, now, clock, func() string { return selection.Key }, &selection)
-}
-
-func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.HouseholdID, captureNow time.Time, clock func() time.Time, providerKey func() string, selection *domain.ReviewProviderSelection) (domain.ReviewNoChangeResult, bool, error) {
+// ConfirmCertifiedReviewNoChange holds BEGIN IMMEDIATE through authenticated
+// source/projection/provider/clock verification and the mandatory checkpoint CAS.
+// A missed confirmation authorizes only complete capture and preparation.
+func (r *Repository) ConfirmCertifiedReviewNoChange(ctx context.Context, id domain.HouseholdID, captureNow time.Time, clock func() time.Time, providerSelection domain.ReviewProviderSelection) (domain.ReviewNoChangeResult, bool, error) {
+	selection := providerSelection
 	var empty domain.ReviewNoChangeResult
-	if !r.ReviewNoChangeEnabled() {
+	if !r.CertifiedReviewEnabled() {
 		return empty, false, nil
 	}
 	// Any failed confirmation must rebuild all dates before recertification.
 	// This also covers early exits (missing/expired proof, metadata changes)
 	// that occur before the persisted count manifest can be compared.
 	empty.RequireFullRecompute = true
-	if id == "" || captureNow.IsZero() || clock == nil || providerKey == nil {
+	if id == "" || captureNow.IsZero() || clock == nil {
 		return empty, false, &domain.Error{Code: domain.ErrValidation, Message: "complete no-change confirmation arguments are required"}
 	}
 	epoch, rollback := r.database.reviewClock.observe(captureNow)
 	if rollback {
 		return empty, false, nil
 	}
-	var tx *sql.Tx
-	var err error
-	var connectionID uint64
-	if r.CertifiedReviewEnabled() {
-		var conn *sql.Conn
-		conn, connectionID, err = r.certifiedConnection(ctx)
-		if err != nil {
-			return empty, false, err
-		}
-		defer conn.Close()
-		tx, err = conn.BeginTx(ctx, nil)
-	} else {
-		tx, err = r.database.SQL.BeginTx(ctx, nil)
+	conn, connectionID, err := r.certifiedConnection(ctx)
+	if err != nil {
+		return empty, false, err
 	}
+	defer conn.Close()
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return empty, false, err
 	}
@@ -90,20 +56,12 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 	if cookie != r.database.reviewVerifiedSchemaVersion || cookie == 0 || foreignKeys != 1 || version != CurrentSchemaVersion {
 		return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, nil
 	}
-	// Reuse the C1 verifier, including exact trigger definitions, PRAGMA,
-	// classified closure and bounded journal continuity. No financial JSON.
-	if r.CertifiedReviewEnabled() {
-		_, ok, err := r.verifiedCertifiedTracking(ctx, tx)
-		if err != nil {
-			return empty, false, err
-		}
-		if !ok {
-			return empty, false, nil
-		}
-	} else {
-		if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
-			return domain.ReviewNoChangeResult{RequireFullRecompute: true}, false, ctx.Err()
-		}
+	_, trusted, err := r.verifiedCertifiedTracking(ctx, tx)
+	if err != nil {
+		return empty, false, err
+	}
+	if !trusted {
+		return empty, false, nil
 	}
 	control, found, err := reviewControlInTx(ctx, tx, id)
 	if err != nil || !found || control.ProjectionStatus != "complete" || control.PublishedFingerprint == "" {
@@ -113,35 +71,31 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 	if err != nil {
 		return empty, false, err
 	}
-	completenessVersion := domain.ReviewNoChangeCompletenessVersion
-	if r.CertifiedReviewEnabled() {
-		completenessVersion = domain.ReviewCertifiedCompletenessVersion
-	}
-	if !certificate.Covers(captureNow) || certificate.NoChangeCompletenessVersion != completenessVersion || certificate.ClockEpoch != epoch || certificate.Source == nil || certificate.NoChangeReviewFingerprint == "" || certificate.NoChangeFXProviderKey != providerKey() {
+	completenessVersion := domain.ReviewCertifiedCompletenessVersion
+	if !certificate.Covers(captureNow) || certificate.NoChangeCompletenessVersion != completenessVersion || certificate.ClockEpoch != epoch || certificate.Source == nil || certificate.NoChangeReviewFingerprint == "" || certificate.NoChangeFXProviderKey != selection.Key {
 		return empty, false, nil
 	}
-	if r.CertifiedReviewEnabled() {
-		if certificate.CertifiedNeedsReconcile {
-			return empty, false, nil
-		}
-		if selection == nil || !selection.Pinned || certificate.CertifiedProvider != *selection {
-			return empty, false, nil
-		}
-		connection, e := r.certifiedConnectionCheckpoint(ctx, tx, connectionID)
-		if e != nil {
-			return empty, false, e
-		}
-		if connectionID == 0 || connection != certificate.CertifiedConnection {
-			return empty, false, nil
-		}
-		// The signed post-commit connection counters prove that no SQLite
-		// DML, own commit (including DDL) or external commit has intervened
-		// since the complete row seal.
-		// Reading every historical JSON again would defeat same-day no-op.
-		if certificate.CertifiedProjectionSeal == "" || !r.validReviewMAC(certificate) {
-			return empty, false, nil
-		}
+	if certificate.CertifiedNeedsReconcile {
+		return empty, false, nil
 	}
+	if !selection.Pinned || certificate.CertifiedProvider != selection {
+		return empty, false, nil
+	}
+	connection, e := r.certifiedConnectionCheckpoint(ctx, tx, connectionID)
+	if e != nil {
+		return empty, false, e
+	}
+	if connectionID == 0 || connection != certificate.CertifiedConnection {
+		return empty, false, nil
+	}
+	// The signed post-commit connection counters prove that no SQLite
+	// DML, own commit (including DDL) or external commit has intervened
+	// since the complete row seal.
+	// Reading every historical JSON again would defeat same-day no-op.
+	if certificate.CertifiedProjectionSeal == "" || !r.validReviewMAC(certificate) {
+		return empty, false, nil
+	}
+
 	var resolver string
 	if err := tx.QueryRowContext(ctx, `SELECT resolver_policy_version FROM history_snapshot_state WHERE household_id=?`, id.String()).Scan(&resolver); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -198,7 +152,7 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 	}
 	now := clock().UTC()
 	finalEpoch, finalRollback := r.database.reviewClock.observe(now)
-	if finalRollback || finalEpoch != epoch || now.Before(captureNow) || !certificate.Covers(now) || certificate.NoChangeFXProviderKey != providerKey() {
+	if finalRollback || finalEpoch != epoch || now.Before(captureNow) || !certificate.Covers(now) || certificate.NoChangeFXProviderKey != selection.Key {
 		return empty, false, reviewRuleConflict("review no-change temporal boundary or clock changed")
 	}
 	for _, rule := range rules {
@@ -228,15 +182,14 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 		return empty, false, err
 	}
 	certificate.EvaluatedAt = now
-	if r.CertifiedReviewEnabled() {
-		if err := r.prepareCertifiedCounter(ctx, tx, certificate, connectionID); err != nil {
-			return empty, false, err
-		}
-		certificate.CertifiedMAC, err = r.certifiedMAC(*certificate)
-		if err != nil {
-			return empty, false, err
-		}
+	if err := r.prepareCertifiedCounter(ctx, tx, certificate, connectionID); err != nil {
+		return empty, false, err
 	}
+	certificate.CertifiedMAC, err = r.certifiedMAC(*certificate)
+	if err != nil {
+		return empty, false, err
+	}
+
 	newJSON, err := jsoncodec.Marshal(certificate)
 	if err != nil {
 		return empty, false, err

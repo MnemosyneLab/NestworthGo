@@ -1,6 +1,0 @@
-Package gtk4 was not found in the pkg-config search path.
-Perhaps you should add the directory containing `gtk4.pc'
-to the PKG_CONFIG_PATH environment variable
-Package 'gtk4', required by 'virtual:world', not found
-Package 'webkitgtk-6.0', required by 'virtual:world', not found
-Package 'libsoup-3.0', required by 'virtual:world', not found

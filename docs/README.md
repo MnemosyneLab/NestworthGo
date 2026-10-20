@@ -76,3 +76,6 @@ not belong in this index.
 
 - [Design contract](design/upcoming-actions.md)
 - [Synthetic QA and native acceptance boundary](testing/qa-upcoming-actions.md)
+
+[Performance optimization report](development/performance-optimization-report.md) records implementation choices,
+correctness contracts and the limited historical measurements.

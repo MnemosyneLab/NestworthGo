@@ -16,7 +16,7 @@ func historyFreeLegacyReview(t *testing.T) (seriesZeroFixture, *sqlite.Repositor
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.Value = "0" // No trigger history, including closed episodes.
 	saveSyntheticReviewRule(t, f, "Synthetic history-free restart", spec)
-	f.s = NewService(sqlite.NewRepository(f.db).WithFullReviewRecompute())
+	f.s = NewService(fullReviewOracle(sqlite.NewRepository(f.db)))
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -26,7 +26,7 @@ func historyFreeLegacyReview(t *testing.T) (seriesZeroFixture, *sqlite.Repositor
 	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episodes`).Scan(&count); err != nil || count != 0 {
 		t.Fatal("fixture has trigger history", count, err)
 	}
-	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
@@ -62,7 +62,7 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartRemainUntrusted(t *testing.T)
 				}
 				t.Cleanup(func() { _ = db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -74,11 +74,11 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartRemainUntrusted(t *testing.T)
 				t.Fatal("new handle trusted an old certificate", ok, err)
 			}
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse || p.CertifiedFullOracle != nil || len(p.Rules[0].Days) != 11 {
+			if p.Capture.Certified.MayCertify || len(p.Rules[0].Days) != 11 {
 				t.Fatal("legacy/restart escaped full untrusted fallback")
 			}
 			// Separate source-only full preparation predates candidate publication.
-			c, err := r.WithFullReviewRecompute().CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+			c, err := fullReviewOracle(r).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -117,7 +117,7 @@ func TestReviewCertifiedRecomputeDoesNotProveHistoricalProvenance(t *testing.T) 
 		}
 	}
 	p := certifiedStage(t, f, r)
-	if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+	if p.Capture.Certified.MayCertify {
 		t.Fatal("recomputation was mistaken for historical provenance")
 	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -178,12 +178,12 @@ func TestReviewCertifiedBootstrapRetainsUnprovenHistory(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	f.db = db
-	r := sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
 	p := certifiedStage(t, f, r)
-	if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+	if p.Capture.Certified.MayCertify {
 		t.Fatal("retained resolved history acquired provenance")
 	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -210,7 +210,7 @@ func TestReviewCertifiedBootstrapRejectsUnsupportedRules(t *testing.T) {
 				}
 			}
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.MayBootstrap {
+			if p.Capture.Certified.MayCertify {
 				t.Fatal("unsupported rule history selected bootstrap")
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {

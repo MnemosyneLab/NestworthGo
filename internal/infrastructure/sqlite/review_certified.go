@@ -17,18 +17,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// This is a separate, default-off C3 candidate. Legacy counting-only
-// experiments grant it no authority. It has no persistent cache or trigger.
-// A failed no-change confirmation uses one full preparation. The separate
-// lineage shadow must be explicitly selected to audit bounded publication.
-func (r *Repository) WithCertifiedReviewCandidate() *Repository {
-	copy := *r
-	copy.reviewCertifiedCandidate = true
-	copy.reviewNoChangeCandidate = true
-	return &copy
-}
 func (r *Repository) CertifiedReviewEnabled() bool {
-	return r.reviewCertifiedCandidate && !r.reviewFullRecompute
+	return r.reviewOptimized
 }
 
 // The private key never leaves this DB handle or enters backup/export. A
@@ -241,19 +231,7 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 	if c.PublishedTemporal != nil {
 		proof.PreviousProvider = c.PublishedTemporal.CertifiedProvider
 	}
-	if reviewBootstrapProvenanceEnabled && !proof.MayCertify && !r.database.reviewCertificateKey.issued.Load() && validCertifiedConnection(connection) {
-		if counts == nil {
-			counts, err = noChangeProjectionCounts(ctx, tx, c.HouseholdID)
-			if err != nil {
-				return err
-			}
-		}
-		proof.MayBootstrap, err = certifiedBootstrapSupported(ctx, tx, *c, counts)
-		if err != nil {
-			return err
-		}
-	}
-	if r.reviewDependencySuffix && proof.MayCertify {
+	if r.reviewOptimized && proof.MayCertify {
 		if previous != nil && r.authenticReview(previous, seal) && c.SourceRevision != nil && previous.Source != nil && c.SourceRevision.Token == previous.Source.Token && c.HistoricalFingerprint == c.Control.PublishedFingerprint && previous.SuffixFX != nil {
 			proof.FXDescription = previous.SuffixFX
 		} else {
@@ -331,8 +309,7 @@ func (r *Repository) verifyCertifiedPublication(ctx context.Context, tx *sql.Tx,
 // Legacy/restart bootstrap is disabled: complete replacement cannot prove
 // missing handling history. A private initial claim must also be consumed by
 // the publisher; a checksum or empty namespace alone never grants trust.
-func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, out *domain.ReviewTemporalCertificate, leased bool, connectionID uint64, bootstrap bool) error {
-	bootstrap = bootstrap && reviewBootstrapProvenanceEnabled
+func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c domain.ReviewProjectionCapture, out *domain.ReviewTemporalCertificate, leased bool, connectionID uint64) error {
 	if r.CertifiedReviewEnabled() {
 		out.NoChangeCompletenessVersion = ""
 	}
@@ -341,7 +318,7 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 	out.CertifiedProjectionSeal = ""
 	out.CertifiedProvider = domain.ReviewProviderSelection{}
 	out.CertifiedConnection = domain.ReviewConnectionCheckpoint{}
-	if !r.CertifiedReviewEnabled() || !leased || c.Certified == nil || (!c.Certified.MayCertify && !(bootstrap && c.Certified.MayBootstrap)) || !c.Certified.Provider.Pinned {
+	if !r.CertifiedReviewEnabled() || !leased || c.Certified == nil || !c.Certified.MayCertify || !c.Certified.Provider.Pinned {
 		return nil
 	}
 	mac, err := r.sourceCaptureMAC(c)
@@ -355,7 +332,7 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 	if err != nil {
 		return err
 	}
-	if r.reviewDependencySuffix {
+	if r.reviewOptimized {
 		if c.Suffix != nil && c.Certified.SuffixSourceProof != nil {
 			// SourceMAC was checked above and the writer still holds the
 			// source/control/checkpoint CAS + provider lease. Reuse exactly

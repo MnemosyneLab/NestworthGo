@@ -26,7 +26,7 @@ func TestReviewCertifiedPreopenUnknownTriggerCannotBootstrap(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	f.db = db
-	r := sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+	r := sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
@@ -118,7 +118,7 @@ func TestReviewCertifiedHandlingCannotResealUnknownWriters(t *testing.T) {
 					t.Fatal("fault trigger did not alter retained frozen history")
 				}
 				p := certifiedStage(t, f, r)
-				if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+				if p.Capture.Certified.MayCertify {
 					t.Fatal("handling laundered an unrecognized writer into integrity authority")
 				}
 				if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {

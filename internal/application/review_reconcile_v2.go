@@ -14,13 +14,6 @@ type ReviewProjectionRepository interface {
 	PublishReviewProjectionWithClock(context.Context, domain.ReviewPublication, func() time.Time) error
 }
 
-// Optional C3a port. The repository candidate remains disabled by default;
-// missing/ineligible proof continues through full C2 capture and publication.
-type ReviewNoChangeRepository interface {
-	ReviewNoChangeEnabled() bool
-	ConfirmReviewNoChange(context.Context, domain.HouseholdID, time.Time, func() time.Time, func() string) (domain.ReviewNoChangeResult, bool, error)
-}
-
 // Record every clock observation made by review commands/read models, including
 // preview and handling. A rollback observed outside reconcile must invalidate
 // the same outstanding certificates, even while still above published as-of.
@@ -66,23 +59,18 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 		if certifiedMode {
 			selection = s.reviewProviderSnapshot()
 		}
-		requireFull := false
-		if noChange, ok := s.repository.(ReviewNoChangeRepository); ok && noChange.ReviewNoChangeEnabled() {
+		if certifiedMode {
 			writeCtx, unlock, err := s.beginLedgerWrite(ctx)
 			if err != nil {
 				return empty, err
 			}
 			var confirmed domain.ReviewNoChangeResult
 			var unchanged bool
-			if certifiedMode {
-				err = s.withReviewProviderLease(selection, func() error {
-					var e error
-					confirmed, unchanged, e = certified.ConfirmCertifiedReviewNoChange(writeCtx, household.ID, now, s.reviewNow, selection)
-					return e
-				})
-			} else {
-				confirmed, unchanged, err = noChange.ConfirmReviewNoChange(writeCtx, household.ID, now, s.reviewNow, s.FXProviderKey)
-			}
+			err = s.withReviewProviderLease(selection, func() error {
+				var e error
+				confirmed, unchanged, e = certified.ConfirmCertifiedReviewNoChange(writeCtx, household.ID, now, s.reviewNow, selection)
+				return e
+			})
 			unlock()
 			if err != nil {
 				var conflict *domain.Error
@@ -94,15 +82,10 @@ func (s *Service) ReconcileInvestmentReviewsV2(ctx context.Context) (ReviewRecon
 			if unchanged {
 				return ReviewReconcileResult{RuleInstrumentCount: confirmed.RuleInstrumentCount, LatestClosedOn: confirmed.LatestClosedOn, SourceFingerprint: confirmed.SourceFingerprint}, nil
 			}
-			requireFull = confirmed.RequireFullRecompute
 		}
 		capture, err := port.CaptureReviewProjection(ctx, household.ID, now)
 		if err != nil {
 			return empty, err
-		}
-		if requireFull && !certifiedMode {
-			capture.TemporalFullRecompute = true
-			capture.ReusableDailyEvidence = nil
 		}
 		providerKey := s.FXProviderKey()
 		if certifiedMode {

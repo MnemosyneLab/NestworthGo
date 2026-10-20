@@ -30,11 +30,11 @@ func TestLatestValuesMatchLegacySelection(t *testing.T) {
 		t.Run(fmt.Sprintf("tied=%t", tied), func(t *testing.T) {
 			database, householdID, accountIDs := seedLatestValues(t, 6, 40, tied)
 			ctx := context.Background()
-			got, err := loadLatestValues(ctx, database.SQL, householdID)
+			got, err := loadAllLatestValues(ctx, database.SQL, householdID)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := loadLatestValues(ctx, legacyLatestValuesQueryer{database.SQL}, householdID)
+			want, err := loadAllLatestValues(ctx, legacyLatestValuesQueryer{database.SQL}, householdID)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -44,7 +44,7 @@ func TestLatestValuesMatchLegacySelection(t *testing.T) {
 			if _, exists := got[accountIDs[6]]; exists {
 				t.Fatal("account without observations received a value")
 			}
-			other, err := loadLatestValues(ctx, database.SQL, domain.NewHouseholdID())
+			other, err := loadAllLatestValues(ctx, database.SQL, domain.NewHouseholdID())
 			if err != nil || len(other) != 0 {
 				t.Fatalf("unrelated household: values=%v err=%v", other, err)
 			}
@@ -126,7 +126,7 @@ func BenchmarkLatestAccountValues(b *testing.B) {
 				b.Run(name, func(b *testing.B) {
 					b.ReportAllocs()
 					for b.Loop() {
-						values, err := loadLatestValues(context.Background(), query, householdID)
+						values, err := loadAllLatestValues(context.Background(), query, householdID)
 						if err != nil || len(values) != 20 {
 							b.Fatalf("latest values: count=%d err=%v", len(values), err)
 						}

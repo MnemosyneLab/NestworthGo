@@ -1,13 +1,12 @@
 # Review dependency invalidation and suffix preparation (D1/D2)
 
-Stage three follows section 6 of the [approved optimization plan](performance-optimization-plan.zh-CN.md).
-C3 publication equality is the prerequisite, not stage three. Normal desktop
-initialization selects `WithReviewDependencySuffix`; GUI and MCP use that same
-repository/service. `NESTWORTH_REVIEW_FULL_RECOMPUTE=1` selects the existing
-complete-source/full-preparation path for the process. No schema migration,
+The [performance report](../development/performance-optimization-report.md) records
+the shipped choices. Certified publication equality is a prerequisite. Normal
+desktop initialization selects `WithDefaultReviewOptimizations`; GUI and MCP
+use that same repository/service. Ineligible evidence uses the existing complete-source/
+full-preparation fallback automatically. No schema migration,
 ledger setting, shared-fact layout, analysis batching, or history truncation is
-introduced. Explicitly selecting the old lineage shadow retains its full runtime
-oracle and excludes D2 selection.
+introduced. The abandoned independent lineage/runtime shadow is removed.
 
 ## Scope and dependency proof
 
@@ -118,7 +117,7 @@ The final pre-write MAC check detects description drift. Physical connection
 counters, full row sealing and every existing CAS/lease/time fence still apply.
 This shares no persistent financial facts and grants no historical authority.
 
-See [follow-up evidence](../testing/performance-d1-d2-followup-2026-10-20.md) for
+See [follow-up evidence](https://github.com/MnemosyneLab/NestworthGo/blob/dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d/docs/testing/performance-d1-d2-followup-2026-10-20.md) for
 measured remaining overhead and the required separate suffix-publication proof
 before omitting daily outputs instead of comparing their complete SQL arguments.
 
@@ -162,9 +161,8 @@ for exact SQL argument comparison.
 
 
 Normal GUI/MCP startup now also enables the bounded same-handle prefix memo
-following explicit user approval. `NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE=1`
-disables that memo while retaining D1/D2; the full-recompute switch above takes
-precedence. See [the memo contract](review-prefix-memo-experiment.md) for limits,
+with automatic capacity, ownership and generation fallbacks. Startup has no
+environment switches for algorithm selection. See [the memo contract](../development/performance-optimization-report.md) for limits,
 authority requirements and the measured cold/memory tradeoff.
 
 ## Direct reference FX import extension
@@ -199,7 +197,56 @@ latest closed day, retaining full origin policy/lifecycle replay and every exist
 MAC, sealing, CAS, physical connection, provider and clock fence. Unsupported
 sources/routing, pair/policy/preference changes, unrelated/mixed writes, incomplete proof
 and restart/restore remain full preparation. See the [production import proof and
-full-oracle evidence](../testing/performance-d-fx-boundary-2026-10-20.md) for exact
+full-oracle evidence](https://github.com/MnemosyneLab/NestworthGo/blob/dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d/docs/testing/performance-d-fx-boundary-2026-10-20.md) for exact
 eligibility and demonstrated application-path computation savings.
 
-See [effective-date movement evidence](../testing/performance-d-fx-date-movement-2026-10-20.md) for the bounded synthetic cases and limits.
+See [effective-date movement evidence](https://github.com/MnemosyneLab/NestworthGo/blob/dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d/docs/testing/performance-d-fx-date-movement-2026-10-20.md) for the bounded synthetic cases and limits.
+
+
+## Same-handle prefix memo ownership
+
+Private representation: immutable strings encoding complete typed input via the
+existing lossless exact-FX codec, coverage, and daily result, plus exact key and
+fingerprint/value metadata. These are typed-evidence encodings, not SQL tuples.
+Only entries whose22-column SQL image exactly matched canonical arguments may
+enter the memo. On reuse, authenticate the private content digest and envelope
+before decoding fresh owned public values. No caller map, slice, decimal storage
+or scan destination is retained. Decode/copy remains O(history), as do complete
+source capture/fingerprint, policy/position/lifecycle replay, final typed-prefix
+digest/MAC, unique retained/emitted partition and full protected-row sealing.
+
+Bind each snapshot to this DB handle/key, household, exact committed predecessor
+certificate digest and row seal, complete source fingerprint and exact token,
+provider selection/revision, clock/proof/codec generation, and exact key/scope
+membership. Every scope covers a contiguous prefix from its captured origin.
+Full source reads remain mandatory because future events can change membership
+without a journal write. Provider/rule/handling/source/clock/reopen changes miss
+conservatively. Miss/eviction never grants or destroys certification authority.
+
+Seed private candidates while the coherent reader still owns decoded data,
+before exposing the capture. Carry only an authenticated receipt in the capture.
+Candidate data stays private. After successful certified commit, promote only the
+matching private candidate/generation and rebind its unchanged attested content
+to the exact new committed certificate/seal. The unique partition guarantees
+those retained keys were not written. Newly emitted UPSERT rows are NOT cached:
+the next capture reads/attests the uncovered tail with the existing comparator.
+SQL success alone is not canonical equality. Serialization mismatches stop that
+scope's cached coverage, retaining ordinary comparison.
+
+One committed and one pending immutable snapshot per DB handle. At most65536
+entries and32MiB encoded payload per snapshot; at most64MiB encoded payload plus
+bounded entry/scope metadata across both. These are eviction limits, not routing
+thresholds or an RSS bound. Snapshot replacement is mutex-protected; readers use
+immutable snapshots. A private generation observed inside the SQL transaction fences its postcommit
+hook; stale hooks and stale/evicted receipts cannot replace newer state. No
+private mutex spans SQLite commit. Failed/cancelled/CAS-
+rejected/rolled-back publication cannot advance or promote it. No promotion reads
+caller-owned evidence. Source/proof failure uses existing fallback; no authority
+repair. Default D2 remains available independently of memo availability.
+
+
+Certified no-op publication only rebinds existing immutable memo contents after
+successful checkpoint CAS. It requires the same source, seal, provider and clock
+and seeds no new entries. Generation is sampled before financial reads; lookup,
+eviction and pending installation are fenced against newer committed snapshots.
+Memo misses and eviction never grant or remove certification authority.

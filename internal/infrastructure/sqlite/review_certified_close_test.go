@@ -7,7 +7,7 @@ import (
 
 func TestReviewCertifiedCloseDoesNotWaitForIdleLeasedConnection(t *testing.T) {
 	db := financialConflictDB(t)
-	r := NewRepository(db).WithCertifiedReviewCandidate()
+	r := NewRepository(db).WithDefaultReviewOptimizations()
 	conn, _, err := r.certifiedConnection(t.Context())
 	if err != nil {
 		t.Fatal(err)

@@ -12,46 +12,12 @@ import (
 )
 
 type Repository struct {
-	database                          *DB
-	reviewFullRecompute               bool
-	reviewWindowBaseline              bool
-	reviewSourceShadowObserver        func(domain.ReviewSourceShadowObservation)
-	reviewNoChangeCandidate           bool
-	reviewCertifiedCandidate          bool
-	reviewDependencySuffix            bool
-	reviewPrefixMemoObserve           bool
-	reviewPrefixMemoEnabled           bool
-	reviewCompletenessLineageShadow   bool
-	reviewCompletenessLineageObserver func(domain.ReviewCompletenessLineageObservation)
-}
-
-// WithFullReviewRecompute returns an independent repository configuration that
-// rebuilds review inputs from authoritative sources without persisted reuse.
-// It retains handling/episode history and all publication concurrency checks.
-func (r *Repository) WithFullReviewRecompute() *Repository {
-	copy := *r
-	copy.reviewFullRecompute = true
-	return &copy
-}
-
-// WithReviewWindowBaseline retains the key-first history-ranking query for
-// diagnostics and rollback without changing the schema or publication protocol.
-func (r *Repository) WithReviewWindowBaseline() *Repository {
-	copy := *r
-	copy.reviewWindowBaseline = true
-	return &copy
-}
-
-// WithBoundedReviewWindow enables the P0 bounded-query candidate. It remains
-// opt-in until the paired latency/RSS and native rollout gates are reviewed.
-func (r *Repository) WithBoundedReviewWindow() *Repository {
-	copy := *r
-	copy.reviewWindowBaseline = false
-	return &copy
+	database        *DB
+	reviewOptimized bool
 }
 
 func NewRepository(database *DB) *Repository {
-	return &Repository{database: database, reviewWindowBaseline: true}
+	return &Repository{database: database}
 }
 
 type queryer interface {
@@ -602,8 +568,10 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 	return accounts, nil
 }
 
-func loadOwnership(ctx context.Context, query queryer, householdID domain.HouseholdID, scope ...[]domain.AccountID) (map[domain.AccountID][]domain.OwnershipShare, error) {
-	return loadAccountHydration(ctx, query, householdID, scope, `SELECT ao.account_id, ao.member_id, ao.share_bps FROM account_ownership ao JOIN accounts a ON a.id = ao.account_id WHERE a.household_id = ? ORDER BY ao.account_id, ao.member_id`, scanOwnershipRows)
+const accountOwnershipQuery = `SELECT ao.account_id, ao.member_id, ao.share_bps FROM account_ownership ao JOIN accounts a ON a.id = ao.account_id WHERE a.household_id = ? ORDER BY ao.account_id, ao.member_id`
+
+func loadOwnership(ctx context.Context, query queryer, householdID domain.HouseholdID, scope []domain.AccountID) (map[domain.AccountID][]domain.OwnershipShare, error) {
+	return loadAccountHydration(ctx, query, householdID, scope, accountOwnershipQuery, scanOwnershipRows)
 }
 
 func scanOwnershipRows(rows *sql.Rows, err error) (map[domain.AccountID][]domain.OwnershipShare, error) {
@@ -640,7 +608,7 @@ const latestAccountValuesQuery = `SELECT av.id, av.account_id, av.value_kind, av
 		ORDER BY latest.effective_at DESC, latest.created_at DESC, latest.rowid DESC LIMIT 1
 	) WHERE a.household_id = ?`
 
-func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID, scope ...[]domain.AccountID) (map[domain.AccountID]*domain.AccountValue, error) {
+func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID, scope []domain.AccountID) (map[domain.AccountID]*domain.AccountValue, error) {
 	return loadAccountHydration(ctx, query, householdID, scope, latestAccountValuesQuery, scanLatestValuesRows)
 }
 

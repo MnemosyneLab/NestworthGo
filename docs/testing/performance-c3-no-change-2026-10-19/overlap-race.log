@@ -1,4 +1,0 @@
-=== RUN   TestReviewNoChangeInvalidatesOutstandingFullPublication
---- PASS: TestReviewNoChangeInvalidatesOutstandingFullPublication (3.04s)
-PASS
-ok  	github.com/waltwang/nestworth-go/internal/application	4.059s

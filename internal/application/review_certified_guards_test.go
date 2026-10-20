@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -41,11 +40,19 @@ func assertNoCertifiedMAC(t *testing.T, f seriesZeroFixture) {
 }
 
 func TestReviewCertifiedCorruptionCannotBeRecertified(t *testing.T) {
-	for _, scenario := range []string{"old-input-json", "old-result-json", "frozen-json", "frozen-json-and-fingerprint", "event-json", "evaluation", "control-without-revision", "old-version-json", "missing-day", "same-count-key", "forged-certificate", "malformed-authority"} {
+	for _, scenario := range []string{"old-input-json", "missing-suffix-metadata", "old-input-fingerprint", "unreadable-old-input", "unreadable-old-result", "old-result-json", "frozen-json", "frozen-json-and-fingerprint", "event-json", "evaluation", "control-without-revision", "old-version-json", "missing-day", "same-count-key", "forged-certificate", "malformed-authority"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r := certifiedFixture(t)
 			statement := ""
 			switch scenario {
+			case "missing-suffix-metadata":
+				statement = `UPDATE review_temporal_checkpoints SET certificate_json=json_remove(certificate_json,'$.SuffixNonQuoteFingerprint')`
+			case "old-input-fingerprint":
+				statement = `UPDATE investment_review_daily_inputs SET input_fingerprint='synthetic-forged' WHERE on_date='2026-10-01'`
+			case "unreadable-old-input":
+				statement = `UPDATE investment_review_daily_inputs SET evidence_json='[]' WHERE on_date='2026-10-01'`
+			case "unreadable-old-result":
+				statement = `UPDATE investment_review_daily_results SET evidence_json='[]' WHERE on_date='2026-10-01'`
 			case "old-input-json":
 				statement = `UPDATE investment_review_daily_inputs SET evidence_json=json_set(evidence_json,'$.Quantity','999') WHERE on_date='2026-10-01'`
 			case "old-result-json":
@@ -76,7 +83,7 @@ func TestReviewCertifiedCorruptionCannotBeRecertified(t *testing.T) {
 			}
 			f.day(t, "2026-10-13")
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse || p.CertifiedFullOracle != nil || len(p.Rules[0].Days) != 12 {
+			if p.Capture.Certified.MayCertify || len(p.Rules[0].Days) != 12 {
 				t.Fatal("corruption bypassed full oracle fallback")
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -117,30 +124,17 @@ func TestReviewCertifiedLegitimateHandlingPreservesChain(t *testing.T) {
 	}
 	f.day(t, "2026-10-13")
 	p := certifiedStage(t, f, r)
-	if p.CertifiedFullOracle == nil || p.Rules[0].CurrentEpisode.AcknowledgedAt == nil {
-		t.Fatal("bounded path lost acknowledgement")
+	if p.Rules[0].CurrentEpisode.AcknowledgedAt == nil {
+		t.Fatal("full publication lost acknowledgement")
 	}
 }
 
 func TestReviewCertifiedPublicationGuardsAndAtomicity(t *testing.T) {
-	for _, lineage := range []bool{false, true} {
-		name := "full_dispatch"
-		if lineage {
-			name = "bounded_experiment"
-		}
-		t.Run(name, func(t *testing.T) { testReviewCertifiedPublicationGuardsAndAtomicity(t, lineage) })
-	}
-}
-
-func testReviewCertifiedPublicationGuardsAndAtomicity(t *testing.T, lineage bool) {
 	for _, scenario := range []string{"source", "projection", "review-without-revision", "provider", "staged-provider", "provider-aba", "floor", "clock", "cancel", "control-ignore", "checkpoint-ignore", "checkpoint-abort", "source-proof-forged"} {
 		t.Run(scenario, func(t *testing.T) {
-			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", lineage)
+			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 			f.day(t, "2026-10-13")
 			p := certifiedStage(t, f, r)
-			if (p.CertifiedFullOracle != nil) != lineage {
-				t.Fatal("incorrect publication dispatch")
-			}
 			statement := ""
 			clock := func() time.Time { return *f.now }
 			ctx := t.Context()
@@ -209,44 +203,39 @@ func testReviewCertifiedPublicationGuardsAndAtomicity(t *testing.T, lineage bool
 	}
 }
 
-func TestReviewCertifiedOracleAndDirectCallerFallback(t *testing.T) {
-	for _, scenario := range []string{"oracle-mismatch", "unleased", "missing-oracle"} {
+// Direct unleased callers publish all days with full source checks and never
+// gain certification. Unexpected reusable C2 evidence cannot enter this path.
+func TestReviewCertifiedDirectCallerFallback(t *testing.T) {
+	for _, scenario := range []string{"unleased", "unexpected-reuse"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r := certifiedFixture(t)
 			f.day(t, "2026-10-13")
+			if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+				t.Fatal(err)
+			}
 			reference := windowOracleReference(t, f)
 			p := certifiedStage(t, f, r)
-			if p.CertifiedFullOracle == nil {
-				t.Fatal("fixture not bounded")
+			if len(p.Rules[0].Days) != 12 {
+				t.Fatal("direct caller fixture is not complete")
 			}
-			if scenario == "oracle-mismatch" {
-				p.Rules[0].LatestWindow.ConsecutiveCount++
-			}
-			if scenario == "missing-oracle" {
-				p.CertifiedFullOracle = nil
-			}
-			var err error
-			if scenario == "unleased" {
-				err = r.PublishReviewProjection(t.Context(), p, *f.now)
-			} else {
-				err = certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now })
-			}
-			if scenario == "missing-oracle" {
-				var conflict *domain.Error
-				if !errors.As(err, &conflict) || conflict.Code != domain.ErrConflict {
-					t.Fatal("missing oracle did not conflict", err)
+			if scenario == "unexpected-reuse" {
+				p.Capture.ReusableDailyEvidence = map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{{}: {}}
+				before := noChangeProjectionRows(t, f.db)
+				if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err == nil {
+					t.Fatal("unexpected reusable evidence accepted")
+				}
+				if !reflect.DeepEqual(before, noChangeProjectionRows(t, f.db)) {
+					t.Fatal("rejected direct stage wrote data")
 				}
 				return
 			}
-			if err != nil {
+			if err := r.PublishReviewProjection(t.Context(), p, *f.now); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(noChangeProjectionRows(t, f.db), noChangeProjectionRows(t, reference)) {
-				t.Fatal("full-oracle fallback diverged")
+				t.Fatal("direct full-source publication diverged")
 			}
-			if scenario == "unleased" {
-				assertNoCertifiedMAC(t, f)
-			}
+			assertNoCertifiedMAC(t, f)
 		})
 	}
 }

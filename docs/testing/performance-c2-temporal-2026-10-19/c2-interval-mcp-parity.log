@@ -1,4 +1,0 @@
-=== RUN   TestReviewV2FundedTradeHTTPPreviewAndRefresh
---- PASS: TestReviewV2FundedTradeHTTPPreviewAndRefresh (6.54s)
-PASS
-ok  	github.com/waltwang/nestworth-go/internal/mcpserver	7.681s

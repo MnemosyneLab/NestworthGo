@@ -54,7 +54,7 @@ func TestReviewCertifiedDeletedHistoryCannotBootstrap(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = db.Close() })
 			f.db = db
-			r := sqlite.NewRepository(db).WithCertifiedReviewCandidate()
+			r := sqlite.NewRepository(db).WithDefaultReviewOptimizations()
 			f.s = NewService(r)
 			f.s.fxProviderKey = "synthetic-pinned"
 			f.s.setClock(func() time.Time { return *f.now })
@@ -85,7 +85,7 @@ func TestReviewCertifiedDeletedHistoryCannotBootstrap(t *testing.T) {
 				}
 			}
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+			if p.Capture.Certified.MayCertify {
 				t.Error("deleted lifecycle/ack history acquired bootstrap eligibility")
 			}
 			if kind != "resolved-ack" {

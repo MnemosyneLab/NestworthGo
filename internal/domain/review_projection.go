@@ -20,7 +20,6 @@ type ReviewProjectionCapture struct {
 	OpenEpisodes          []ReviewStoredEpisode
 	EvaluatedInstruments  map[ReviewRuleID][]InstrumentID
 	ReusableDailyEvidence map[ReviewDailyEvidenceKey]ReviewReusableDailyEvidence
-	CompletenessLineage   *ReviewCompletenessLineage
 	Suffix                *ReviewSuffixCapture
 	Certified             *ReviewCertifiedCapture
 }
@@ -73,12 +72,10 @@ type ReviewStoredEpisode struct {
 }
 
 type ReviewPublication struct {
-	Capture             ReviewProjectionCapture
-	At                  time.Time
-	Rules               []ReviewRulePublication
-	FXProviderKey       string
-	WindowOracle        *ReviewWindowOracle
-	CertifiedFullOracle *ReviewCertifiedFullOracle
+	Capture       ReviewProjectionCapture
+	At            time.Time
+	Rules         []ReviewRulePublication
+	FXProviderKey string
 }
 
 type ReviewRulePublication struct {

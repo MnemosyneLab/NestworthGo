@@ -15,27 +15,18 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// WithReviewDependencySuffix enables D1/D2 and C3 confirmation. It never grants
-// legacy/restart authority. WithFullReviewRecompute remains the complete oracle.
-func (r *Repository) WithReviewDependencySuffix() *Repository {
-	copy := *r.WithCertifiedReviewCandidate()
-	copy.reviewDependencySuffix = true
-	return &copy
-}
-
 func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, memoGeneration uint64) error {
 	memoEligible := false
-	if (r.reviewPrefixMemoEnabled || r.reviewPrefixMemoObserve) && c.Certified != nil {
-		receipt, observation := c.Certified.SuffixMemoReceipt, c.Certified.SuffixMemoObservation
+	if r.reviewOptimized && c.Certified != nil {
+		receipt := c.Certified.SuffixMemoReceipt
 		defer func() {
 			if c.Suffix == nil {
 				c.Certified.SuffixMemoReceipt = receipt
-				c.Certified.SuffixMemoObservation = observation
 			}
 		}()
 	}
 
-	if r.reviewPrefixMemoEnabled {
+	if r.reviewOptimized {
 		defer func() {
 			if !memoEligible {
 				r.clearReviewMemoGeneration(memoGeneration)
@@ -43,7 +34,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 		}()
 	}
 
-	if !r.reviewDependencySuffix || !r.CertifiedReviewEnabled() || r.ReviewCompletenessLineageShadowEnabled() {
+	if !r.reviewOptimized {
 		return nil
 	}
 	p := c.PublishedTemporal
@@ -130,13 +121,10 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	var memoHits map[domain.ReviewDailyEvidenceKey]reviewMemoEntry
 	var memoOrigins map[string]string
 	var memoTarget *reviewMemoReadTarget
-	if (r.reviewPrefixMemoEnabled || r.reviewPrefixMemoObserve) && unchanged {
-		if r.reviewPrefixMemoEnabled {
-			memoHits = r.readReviewMemo(*c, memoGeneration)
-		}
-		proof.SuffixMemoObservation = &domain.ReviewPrefixMemoObservation{}
+	if r.reviewOptimized && unchanged {
+		memoHits = r.readReviewMemo(*c, memoGeneration)
 		memoOrigins = map[string]string{}
-		memoTarget = &reviewMemoReadTarget{entries: make(map[domain.ReviewDailyEvidenceKey]reviewMemoEntry), observation: proof.SuffixMemoObservation, disabled: !r.reviewPrefixMemoEnabled}
+		memoTarget = &reviewMemoReadTarget{entries: make(map[domain.ReviewDailyEvidenceKey]reviewMemoEntry)}
 	}
 	suffix := &domain.ReviewSuffixCapture{Plan: plan, Prefix: []domain.ReviewSuffixDay{}}
 	for _, rule := range c.Rules {
@@ -195,7 +183,6 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 				evidence[key] = value
 				attested[key] = true
 				memoTarget.add(entry)
-				proof.SuffixMemoObservation.ReusedDays++
 				on = reviewMemoNextDay(on)
 			}
 			if memoTarget != nil {
@@ -249,7 +236,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 				return err
 			}
 			if unchanged {
-				err = scanReviewSuffixOutput(rows, *c, rule, tz, true, evidence, attested, memoTarget)
+				err = scanReviewSuffixOutput(rows, *c, rule, tz, evidence, attested, memoTarget)
 			} else {
 				err = scanReusableReviewWindow(rows, rule, tz, evidence)
 			}
@@ -280,7 +267,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	if err != nil {
 		return err
 	}
-	if memoTarget != nil && r.reviewPrefixMemoEnabled {
+	if memoTarget != nil {
 		if err = r.stageReviewMemo(c, memoTarget.entries, memoOrigins, memoGeneration); err != nil {
 			return err
 		}
@@ -389,7 +376,7 @@ func (r *Repository) verifyReviewSuffixPrefix(c domain.ReviewProjectionCapture) 
 
 // Decode the complete SQL image once. Only compact attestations leave this
 // coherent transaction; SQL images are never retained or used as financial input.
-func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCapture, rule domain.ReviewRule, tz string, unchanged bool, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, attested map[domain.ReviewDailyEvidenceKey]bool, memo ...*reviewMemoReadTarget) error {
+func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCapture, rule domain.ReviewRule, tz string, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, attested map[domain.ReviewDailyEvidenceKey]bool, memo *reviewMemoReadTarget) error {
 	defer rows.Close()
 	// Only decoded owned values and immutable strings leave each iteration.
 	// The SQL tuples are compared immediately and never retained.
@@ -418,9 +405,6 @@ func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCaptu
 		if item.Input.On != on || item.Input.InstrumentID != id {
 			return fmt.Errorf("suffix input identity mismatch")
 		}
-		if len(memo) > 0 && memo[0] != nil {
-			memo[0].observation.SQLDecodedDays++
-		}
 		item.InputFingerprint = text(12)
 		if text(21) == item.InputFingerprint && values[13] != nil {
 			if err = jsoncodec.Unmarshal([]byte(text(20)), &item.Result); err != nil {
@@ -433,19 +417,16 @@ func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCaptu
 			return fmt.Errorf("duplicate suffix key")
 		}
 		evidence[key] = item
-		if unchanged && item.HasResult {
+		if item.HasResult {
 			pub := domain.ReviewRulePublication{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: tz}
 			day := domain.ReviewPublicationDay{On: on, Input: item.Input, CoverageMissing: item.CoverageMissing, Result: item.Result, InputFingerprint: item.InputFingerprint}
-			if len(memo) > 0 && memo[0] != nil {
-				memo[0].observation.ArgumentEncodes++
-			}
 			input, result, err := reviewDailyPublicationArguments(capture, pub, day, "")
 			if err != nil {
 				return err
 			}
 			attested[key] = reflect.DeepEqual(values[:13], input[:13]) && reflect.DeepEqual(values[13:], result[:9])
-			if attested[key] && len(memo) > 0 && memo[0] != nil {
-				memo[0].add(reviewMemoEntry{Key: key, Input: input[10].(string), Coverage: input[11].(string), Result: result[7].(string), Fingerprint: item.InputFingerprint, Prior: item.PriorConsecutiveCount})
+			if attested[key] && memo != nil {
+				memo.add(reviewMemoEntry{Key: key, Input: input[10].(string), Coverage: input[11].(string), Result: result[7].(string), Fingerprint: item.InputFingerprint, Prior: item.PriorConsecutiveCount})
 			}
 		}
 	}

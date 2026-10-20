@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testsupport/reviewsource"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -210,10 +211,10 @@ func TestReviewTemporalFutureSourceEditsRetainFullOracleFallback(t *testing.T) {
 				t.Fatal("future-source edit escaped full oracle or damaged-trigger setup")
 			}
 			*f.now = at
-			var observation domain.ReviewSourceShadowObservation
-			repo := sqlite.NewRepository(f.db).WithReviewSourceShadowObserver(func(o domain.ReviewSourceShadowObservation) { observation = o })
+			observation := reviewsource.Compare(capture, check)
+			repo := sqlite.NewRepository(f.db)
 			temporalConflict(t, repo.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now }))
-			if mode == "untracked-future" && observation.Verdict != domain.ReviewSourceUntracked {
+			if mode == "untracked-future" && observation.Verdict != reviewsource.Untracked {
 				t.Fatal("damaged future quote trigger was not exposed by full oracle")
 			}
 		})

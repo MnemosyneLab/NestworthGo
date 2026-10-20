@@ -13,11 +13,11 @@ import (
 func reviewOracleRegressionPublications(t *testing.T, f reviewFullPipelineFixture) (domain.ReviewPublication, domain.ReviewPublication) {
 	t.Helper()
 	repository := sqlite.NewRepository(f.db)
-	candidateCapture, err := repository.WithBoundedReviewWindow().CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+	candidateCapture, err := repository.CaptureReviewProjection(t.Context(), f.householdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fullCapture, err := repository.WithFullReviewRecompute().CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+	fullCapture, err := fullReviewOracle(repository).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,4 +135,98 @@ func TestReviewFullOracleRejectsDaySetMutations(t *testing.T) {
 	t.Run("gap-repair-missing-required-day", func(t *testing.T) {
 		checkMutation(t, repaired, repairedFull, func(p *domain.ReviewPublication) { p.Rules[1].Days = slices.Delete(p.Rules[1].Days, 4, 5) }, "emitted day count differs")
 	})
+}
+
+func TestReviewFullOracleDiscardsCapturedProjectionInputs(t *testing.T) {
+	f := newReviewPerfFixture(t, reviewPerfConfig{Accounts: 1, Instruments: 1, Rules: 1, HistoryDays: 10, Quotes: 10})
+	if _, err := f.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	repository := sqlite.NewRepository(f.db)
+	pristineCapture, err := fullReviewOracle(repository).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pristine, err := PrepareReviewPublication(t.Context(), pristineCapture, *f.now, f.service.FXProviderKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.SQL.Exec(`UPDATE investment_review_daily_inputs SET evidence_json=json_set(evidence_json,'$.Quantity','999')`); err != nil {
+		t.Fatal(err)
+	}
+	captured, err := repository.CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	poisoned := false
+	for _, e := range captured.ReusableDailyEvidence {
+		if e.Input.Quantity != nil && *e.Input.Quantity == "999" {
+			poisoned = true
+		}
+	}
+	if !poisoned {
+		t.Fatal("fixture did not capture poisoned persisted projection inputs")
+	}
+	oracleCapture, err := fullReviewOracle(repository).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !oracleCapture.TemporalFullRecompute || len(oracleCapture.ReusableDailyEvidence) != 0 || oracleCapture.Suffix != nil || oracleCapture.Certified != nil {
+		t.Fatal("full oracle retained projection authority")
+	}
+	oracle, err := PrepareReviewPublication(t.Context(), oracleCapture, *f.now, f.service.FXProviderKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compareReviewFullOracle(oracle, pristine, f.service.FXProviderKey()); err != nil {
+		t.Fatalf("persisted input contaminated authoritative full result: %v", err)
+	}
+	for _, table := range []string{"investment_review_daily_inputs", "investment_review_daily_results"} {
+		t.Run(table+"-malformed-derived-evidence", func(t *testing.T) {
+			rows, err := f.db.SQL.Query("SELECT rowid,evidence_json FROM " + table)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := map[int64]string{}
+			for rows.Next() {
+				var id int64
+				var evidence string
+				if err := rows.Scan(&id, &evidence); err != nil {
+					rows.Close()
+					t.Fatal(err)
+				}
+				original[id] = evidence
+			}
+			err = rows.Err()
+			rows.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				for id, evidence := range original {
+					if _, err := f.db.SQL.Exec("UPDATE "+table+" SET evidence_json=? WHERE rowid=?", evidence, id); err != nil {
+						t.Error(err)
+					}
+				}
+			}()
+			if _, err := f.db.SQL.Exec("UPDATE " + table + " SET evidence_json='[]'"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.CaptureReviewProjection(t.Context(), f.householdID, *f.now); err == nil {
+				t.Fatal("bare C2 capture did not encounter malformed cached evidence")
+			}
+			c, err := fullReviewOracle(repository).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := PrepareReviewPublication(t.Context(), c, *f.now, f.service.FXProviderKey())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := compareReviewFullOracle(p, pristine, f.service.FXProviderKey()); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+
 }

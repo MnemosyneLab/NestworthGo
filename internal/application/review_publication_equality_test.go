@@ -40,8 +40,11 @@ func publicationDailyTimes(t *testing.T, db *sqlite.DB) []string {
 func TestReviewCertifiedPublicationEqualityFullDurableOracle(t *testing.T) {
 	for _, scenario := range []string{"same-day-full", "clock", "source-correction", "missing-day", "changed-result"} {
 		t.Run(scenario, func(t *testing.T) {
-			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", false)
+			f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 			*f.now = f.now.Add(time.Hour)
+			if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+				t.Fatal(err)
+			}
 			switch scenario {
 			case "clock":
 				f.day(t, "2026-10-13")
@@ -79,9 +82,15 @@ func TestReviewCertifiedPublicationEqualityFullDurableOracle(t *testing.T) {
 // The injected clock runs after comparison rows are read. The comparison must
 // still use the actual SQL arguments, rather than an earlier equality stamp.
 func TestReviewCertifiedPublicationEqualityRechecksActualArguments(t *testing.T) {
-	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", false)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 	*f.now = f.now.Add(time.Hour)
+	if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
 	p := certifiedStage(t, f, r)
+	if len(p.Rules[0].Days) == 0 {
+		t.Fatal("provider invalidation did not prepare full daily output")
+	}
 	clock := func() time.Time {
 		p.Rules[0].Days[0].Result.Truth = domain.ReviewFalse
 		return *f.now
@@ -96,9 +105,15 @@ func TestReviewCertifiedPublicationEqualityRechecksActualArguments(t *testing.T)
 }
 
 func TestReviewCertifiedPublicationEqualityRepeatedKeyRestoresOriginal(t *testing.T) {
-	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", false)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1")
 	*f.now = f.now.Add(time.Hour)
+	if err := f.s.SetFXProvider("synthetic-pinned"); err != nil {
+		t.Fatal(err)
+	}
 	p := certifiedStage(t, f, r)
+	if len(p.Rules[0].Days) == 0 {
+		t.Fatal("provider invalidation did not prepare full daily output")
+	}
 	original := p.Rules[0].Days[0]
 	changed := original
 	changed.Result.Truth = domain.ReviewFalse

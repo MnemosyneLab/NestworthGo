@@ -102,14 +102,15 @@ func TestDifferentialEncoding(t *testing.T) {
 	}
 }
 
-// Record the exact, known generic-codec differences without weakening the
-// other byte comparisons. Neither option is used by integrity-bearing values.
+// Restrict the known generic-codec exceptions without requiring a backend
+// to perpetuate a difference when it matches stdlib. Integrity-bearing values
+// never use these options and retain exact-byte comparisons.
 func TestExpectedGenericByteDifferences(t *testing.T) {
 	negativeZero := math.Copysign(0, -1)
 	old, oldErr := stdjson.Marshal(negativeZero)
 	got, err := jsoncodec.Marshal(negativeZero)
-	if oldErr != nil || err != nil || string(old) != "-0" || string(got) != "0" {
-		t.Fatalf("negative zero difference changed: stdlib=%q (%v), Sonic=%q (%v)", old, oldErr, got, err)
+	if oldErr != nil || err != nil || string(old) != "-0" || (string(got) != "0" && string(got) != "-0") {
+		t.Fatalf("negative zero encoded outside supported forms: stdlib=%q (%v), Sonic=%q (%v)", old, oldErr, got, err)
 	}
 	value := "\u2028\u2029"
 	var previous, current bytes.Buffer

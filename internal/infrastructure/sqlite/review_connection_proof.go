@@ -43,7 +43,7 @@ func (r *Repository) certifiedConnection(ctx context.Context) (*sql.Conn, uint64
 			key.connectionID++
 			counter := &atomic.Uint64{}
 			key.commits = counter
-			// This candidate owns the driver's single commit hook. No SQL and
+			// Certified review owns the driver's single commit hook. No SQL and
 			// no connection reentry are permitted inside this callback. A hook
 			// invocation before a failed COMMIT conservatively invalidates reuse.
 			hooker.RegisterCommitHook(func() int32 {

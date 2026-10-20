@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,37 +44,9 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		return reviewRuleConflict("staged review provider differs from the held selection")
 	}
 	if r.CertifiedReviewEnabled() && len(publication.Capture.ReusableDailyEvidence) > 0 {
-		if publication.CertifiedFullOracle == nil {
-			return reviewRuleConflict("certified full oracle is missing")
-		}
-		if !providerLeased || domain.ValidateReviewCertifiedOutput(publication) != "window_oracle_matched" {
-			publication = domain.ReviewFullPublication(publication)
-		}
+		return reviewRuleConflict("certified publication requires complete preparation or authenticated suffix evidence")
 	}
-
 	capture := publication.Capture
-	lineageVerdict := "authoritative_guard_rejected"
-	if r.ReviewCompletenessLineageShadowEnabled() {
-		defer func() {
-			if publishErr != nil {
-				lineageVerdict = "authoritative_guard_rejected"
-			}
-			r.observeReviewLineage("publication", lineageVerdict)
-		}()
-	}
-	certifiedSourceUsed := false
-	if r.CertifiedReviewEnabled() {
-		defer func() {
-			verdict := "full_source_recheck"
-			if certifiedSourceUsed {
-				verdict = "verified_source_cas"
-			}
-			if publishErr != nil {
-				verdict = "rejected"
-			}
-			r.observeReviewLineage("certified_publication", verdict)
-		}()
-	}
 	if capture.HouseholdID == "" || capture.SourceCutoff.IsZero() || capture.HistoricalFingerprint == "" || publication.At.IsZero() || clock == nil {
 		return &domain.Error{Code: domain.ErrValidation, Field: "publication", Message: "a complete review capture is required"}
 	}
@@ -105,13 +76,12 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err != nil {
 		return err
 	}
-	if capture.Suffix != nil && !r.reviewDependencySuffix {
+	if capture.Suffix != nil && !r.reviewOptimized {
 		return reviewRuleConflict("suffix mode is disabled")
 	}
 	if err := requireReviewSuffixAuthority(capture, certified, mayCertify, providerLeased); err != nil {
 		return err
 	}
-	certifiedSourceUsed = certified
 	actualFingerprint := capture.HistoricalFingerprint
 	if !certified {
 		// Unknown, changed or damaged tracking never substitutes a token for
@@ -130,21 +100,14 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		}
 	}
 
-	if r.CertifiedReviewEnabled() && !certified && len(capture.ReusableDailyEvidence) > 0 {
-		publication = domain.ReviewFullPublication(publication)
-		capture = publication.Capture
-	}
-	observation := domain.CompareReviewSourceCheckpoints(capture, domain.ReviewProjectionCapture{SourceCutoff: capture.SourceCutoff, HistoricalFingerprint: actualFingerprint, SourceRevision: checkpoint})
-	if r.reviewSourceShadowObserver != nil {
-		r.reviewSourceShadowObserver(observation)
-	}
+	sameToken := capture.SourceRevision != nil && checkpoint != nil && capture.SourceRevision.Valid() && checkpoint.Valid() && capture.SourceRevision.Token == checkpoint.Token
 	// C2 retains the complete fingerprint check even when tokens agree. A
 	// known token changing is an additional conservative conflict, never a
 	// replacement for the control/rule/handling/time checks below.
 	if actualFingerprint != capture.HistoricalFingerprint {
 		return reviewRuleConflict("financial evidence changed during review calculation")
 	}
-	if capture.SourceRevision != nil && (checkpoint == nil || !observation.SameToken) {
+	if capture.SourceRevision != nil && (checkpoint == nil || !sameToken) {
 		return reviewRuleConflict("financial source revision changed during review calculation")
 	}
 	control, found, err := reviewControlInTx(ctx, tx, capture.HouseholdID)
@@ -183,47 +146,12 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 			return reviewRuleConflict("review rule changed during calculation")
 		}
 	}
-	if r.ReviewCompletenessLineageShadowEnabled() {
-		diagnosticPublication := publication
-		if publication.CertifiedFullOracle != nil {
-			diagnosticPublication = domain.ReviewFullPublication(publication)
-			diagnosticPublication.WindowOracle = &domain.ReviewWindowOracle{Version: domain.ReviewWindowOracleVersion, Rules: publication.Rules}
-		}
-		lineageVerdict = domain.ValidateReviewCompletenessPrefix(diagnosticPublication)
-		if lineageVerdict == "prefix_validated" {
-			lineageVerdict = domain.ValidateReviewWindowOracle(diagnosticPublication)
-		}
-		if lineageVerdict == "window_oracle_matched" {
-			current := capture
-			current.Control, current.SourceRevision, current.HistoricalFingerprint = control, checkpoint, actualFingerprint
-			current.PublishedTemporal, err = readReviewTemporal(ctx, tx, capture.HouseholdID)
-			if err != nil {
-				return err
-			}
-			proof, err := r.captureReviewLineage(ctx, tx, current, capture.Temporal.ClockEpoch, mayCertify)
-			if err != nil {
-				return err
-			}
-			switch {
-			case !proof.Candidate:
-				lineageVerdict = proof.Reason
-			case proof.BindingDigest != capture.CompletenessLineage.BindingDigest:
-				lineageVerdict = "binding_changed"
-			case !reflect.DeepEqual(proof.Window, capture.CompletenessLineage.Window):
-				lineageVerdict = "window_changed"
-			case proof.ProjectionSeal != capture.CompletenessLineage.ProjectionSeal:
-				lineageVerdict = "projection_changed"
-			default:
-				lineageVerdict = "lineage_validated_shadow"
-			}
-		}
-	}
 	_, err = validateReviewSuffixPublication(capture, publication.Rules)
 	if err != nil {
 		return err
 	}
 	var equalDaily *reviewPublicationEquality
-	if certified && mayCertify && capture.Certified != nil && capture.Certified.MayCertify && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil && r.authenticReview(capture.PublishedTemporal, capture.Certified.ProjectionSeal) {
+	if certified && mayCertify && capture.Certified != nil && capture.Certified.MayCertify && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && r.authenticReview(capture.PublishedTemporal, capture.Certified.ProjectionSeal) {
 		// Load exact row images only from an already authenticated same-handle
 		// namespace under this reservation, before the final injected clock.
 		// Missing/unknown/restarted state retains every original UPSERT.
@@ -277,15 +205,9 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 			return err
 		}
 	}
-	// Bootstrap never trusts retained derived values. Only a signed, supported
-	// history-free capture can request full replacement under this reservation.
-	bootstrap := reviewBootstrapProvenanceEnabled && certified && mayCertify && capture.Certified != nil && capture.Certified.MayBootstrap && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil
 	inputSQL := `INSERT INTO investment_review_daily_inputs(household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint,computed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(household_id,instrument_id,timezone_version,on_date,input_policy) DO UPDATE SET quantity=excluded.quantity,native_currency=excluded.native_currency,instrument_type=excluded.instrument_type,amount_exact=excluded.amount_exact,cost_exact=excluded.cost_exact,evidence_json=excluded.evidence_json,coverage_json=excluded.coverage_json,input_fingerprint=excluded.input_fingerprint,computed_at=excluded.computed_at WHERE input_fingerprint<>excluded.input_fingerprint`
 	if r.CertifiedReviewEnabled() {
 		inputSQL += ` OR evidence_json<>excluded.evidence_json OR coverage_json<>excluded.coverage_json`
-	}
-	if bootstrap {
-		inputSQL = strings.Split(inputSQL, " WHERE ")[0]
 	}
 	inputStatement, err := tx.PrepareContext(ctx, inputSQL)
 	if err != nil {
@@ -293,9 +215,6 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	}
 	defer inputStatement.Close()
 	resultSQL := `INSERT INTO investment_review_daily_results(rule_id,condition_version,instrument_id,timezone_version,on_date,predicate_truth,reason,evidence_json,input_fingerprint,evaluated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(rule_id,condition_version,instrument_id,timezone_version,on_date) DO UPDATE SET predicate_truth=excluded.predicate_truth,reason=excluded.reason,evidence_json=excluded.evidence_json,input_fingerprint=excluded.input_fingerprint,revised_at=excluded.evaluated_at WHERE predicate_truth<>excluded.predicate_truth OR input_fingerprint<>excluded.input_fingerprint OR evidence_json<>excluded.evidence_json`
-	if bootstrap {
-		resultSQL = strings.Split(resultSQL, " WHERE ")[0] + ",evaluated_at=excluded.evaluated_at,revised_at=NULL"
-	}
 	resultStatement, err := tx.PrepareContext(ctx, resultSQL)
 	if err != nil {
 		return err
@@ -306,7 +225,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		return err
 	}
 	for _, item := range publication.Rules {
-		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement, existingStateEpochs[reviewEvaluationStateKey(item.RuleID, item.InstrumentID)], bootstrap, equalDaily); err != nil {
+		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement, existingStateEpochs[reviewEvaluationStateKey(item.RuleID, item.InstrumentID)], equalDaily); err != nil {
 			return err
 		}
 	}
@@ -347,8 +266,8 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	publishedTemporal.NoChangeProjectionCounts = nil
 	publishedTemporal.NoChangeReviewFingerprint = ""
 	publishedTemporal.NoChangeFXProviderKey = ""
-	if r.ReviewNoChangeEnabled() && (len(capture.ReusableDailyEvidence) == 0 || (certified && publication.CertifiedFullOracle != nil && domain.ValidateReviewCertifiedOutput(publication) == "window_oracle_matched")) {
-		publishedTemporal.NoChangeCompletenessVersion = domain.ReviewNoChangeCompletenessVersion
+	if r.CertifiedReviewEnabled() && len(capture.ReusableDailyEvidence) == 0 {
+		publishedTemporal.NoChangeCompletenessVersion = domain.ReviewCertifiedCompletenessVersion
 		publishedTemporal.NoChangeProjectionCounts, err = noChangeProjectionCounts(ctx, tx, capture.HouseholdID)
 		if err != nil {
 			return err
@@ -360,13 +279,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 		}
 	}
 	publishedTemporal.EvaluatedAt = now.UTC()
-	if bootstrap {
-		bootstrap, err = verifyCertifiedBootstrapNamespace(ctx, tx, publication)
-		if err != nil {
-			return err
-		}
-	}
-	if err := r.certifyPublishedReview(ctx, tx, capture, &publishedTemporal, mayCertify, connectionID, bootstrap); err != nil {
+	if err := r.certifyPublishedReview(ctx, tx, capture, &publishedTemporal, mayCertify, connectionID); err != nil {
 		return err
 	}
 	if r.CertifiedReviewEnabled() {
@@ -468,7 +381,7 @@ func verifyReviewOpenEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Re
 	return nil
 }
 
-func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt, existingStateEpochs []string, bootstrap bool, equalDaily *reviewPublicationEquality) error {
+func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt, existingStateEpochs []string, equalDaily *reviewPublicationEquality) error {
 	if item.TargetExcluded {
 		if len(item.Days) != 0 || len(item.Epochs) != 0 || item.CurrentEpisode != nil || item.OpenedEpisode {
 			return &domain.Error{Code: domain.ErrValidation, Field: "target", Message: "an excluded target cannot publish daily evidence or an open episode"}
@@ -484,9 +397,6 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 			return &domain.Error{Code: domain.ErrValidation, Field: "epoch", Message: "epoch instrument mismatch"}
 		}
 		epochSQL := `INSERT INTO investment_review_position_epochs(id,household_id,instrument_id,opened_at,opening_activity_id,closed_at,closing_activity_id,start_unknown,source_fingerprint) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET closed_at=excluded.closed_at,closing_activity_id=excluded.closing_activity_id,source_fingerprint=excluded.source_fingerprint WHERE closed_at IS NOT excluded.closed_at OR closing_activity_id IS NOT excluded.closing_activity_id OR source_fingerprint<>excluded.source_fingerprint`
-		if bootstrap {
-			epochSQL = strings.Split(epochSQL, " DO UPDATE SET ")[0] + " DO UPDATE SET household_id=excluded.household_id,instrument_id=excluded.instrument_id,opened_at=excluded.opened_at,opening_activity_id=excluded.opening_activity_id,closed_at=excluded.closed_at,closing_activity_id=excluded.closing_activity_id,start_unknown=excluded.start_unknown,source_fingerprint=excluded.source_fingerprint"
-		}
 		_, err := tx.ExecContext(ctx, epochSQL, epoch.ID, capture.HouseholdID.String(), item.InstrumentID.String(), nullableTimePtr(epoch.OpenedAt), nullableID(epoch.OpeningID), nullableTimePtr(epoch.ClosedAt), nullableID(epoch.ClosingID), boolValue(epoch.StartUnknown), capture.HistoricalFingerprint)
 		if err != nil {
 			return err
@@ -527,7 +437,7 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 	if err := publishReviewEpisodes(ctx, tx, capture, item, at); err != nil {
 		return err
 	}
-	return publishReviewEvaluationState(ctx, tx, item, existingStateEpochs, bootstrap)
+	return publishReviewEvaluationState(ctx, tx, item, existingStateEpochs)
 }
 
 func nullableReviewPointer(value *string) any {
@@ -668,7 +578,7 @@ func publishReviewEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Revie
 	return nil
 }
 
-func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.ReviewRulePublication, existingEpochs []string, bootstrap bool) error {
+func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.ReviewRulePublication, existingEpochs []string) error {
 	coverage, err := jsoncodec.Marshal(item.LatestCoverage)
 	if err != nil {
 		return err
@@ -705,9 +615,6 @@ func publishReviewEvaluationState(ctx context.Context, tx *sql.Tx, item domain.R
 			}
 		}
 		stateSQL := `INSERT INTO investment_review_evaluation_state(rule_id,instrument_id,position_epoch_id,latest_closed_on,policy_state,window_start,window_end,hit_count,false_count,unknown_count,consecutive_count,episode_id,coverage_json,publication_revision) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1) ON CONFLICT(rule_id,instrument_id,position_epoch_id) DO UPDATE SET latest_closed_on=excluded.latest_closed_on,policy_state=excluded.policy_state,window_start=excluded.window_start,window_end=excluded.window_end,hit_count=excluded.hit_count,false_count=excluded.false_count,unknown_count=excluded.unknown_count,consecutive_count=excluded.consecutive_count,episode_id=excluded.episode_id,coverage_json=excluded.coverage_json,publication_revision=investment_review_evaluation_state.publication_revision+1 WHERE latest_closed_on<>excluded.latest_closed_on OR policy_state<>excluded.policy_state OR window_start<>excluded.window_start OR window_end<>excluded.window_end OR hit_count<>excluded.hit_count OR false_count<>excluded.false_count OR unknown_count<>excluded.unknown_count OR consecutive_count<>excluded.consecutive_count OR episode_id IS NOT excluded.episode_id OR coverage_json<>excluded.coverage_json`
-		if bootstrap {
-			stateSQL = strings.Split(stateSQL, " WHERE ")[0] + ",dirty_from=NULL"
-		}
 		_, err := tx.ExecContext(ctx, stateSQL, string(item.RuleID), item.InstrumentID.String(), epochID, item.LatestClosedOn, state, window.WindowStart, window.WindowEnd, window.HitCount, window.FalseCount, window.UnknownCount, window.ConsecutiveCount, episodeID, string(coverage))
 		if err != nil {
 			return err

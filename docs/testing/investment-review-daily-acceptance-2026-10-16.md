@@ -148,7 +148,7 @@ called out explicitly and are not represented as automated passes.
 
 | ID | Evidence | Execution status |
 | --- | --- | --- |
-| F01 | `TestReviewPublicationIsAtomicAndSameDayIdempotent`; `TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange`; `TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass`; `TestReviewIncrementalReplayPreservesFullDailyTrueSuffix`; opt-in `TestReviewFullPipelinePerformanceEvidence` measures SQLite cold/warm capture, planning, publish and first-page reads on synthetic fixtures. | First-page budgets pass at 30 and 365 days; full warm and cold budgets fail as measured below |
+| F01 | `TestReviewPublicationIsAtomicAndSameDayIdempotent`; `TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange`; `TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass`; `TestReviewIncrementalReplayPreservesFullDailyTrueSuffix`; the historical full-pipeline measurement harness has been retired; current retained checks are listed in the [performance report](../development/performance-optimization-report.md). | First-page budgets pass at 30 and 365 days; full warm and cold budgets fail as measured below |
 
 ## Performance measurement and limits
 
