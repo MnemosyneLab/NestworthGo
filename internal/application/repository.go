@@ -72,6 +72,14 @@ type AnalysisQuoteBatchRepository interface {
 	LoadAnalysisQuoteBatch(context.Context, domain.HouseholdID, []domain.InstrumentID) ([]domain.InstrumentQuote, error)
 }
 
+// AnalysisSnapshotRepository may omit unrelated stored components only when
+// the household has no activities and every historical account is known.
+// Headers remain household-wide; all unproved cases return the full read set.
+// Admission, headers, historical ID checks and items share one read transaction.
+type AnalysisSnapshotRepository interface {
+	LoadAnalysisAccountSnapshots(context.Context, domain.HouseholdID, time.Time, time.Time, domain.AccountID, []domain.AccountID) ([]domain.DailyValuationSnapshot, error)
+}
+
 // PortfolioRepository owns instruments, holdings, quotes, cash, and FX.
 type PortfolioRepository interface {
 	ReadSnapshot(context.Context, domain.AccountFilter) (domain.ReadSnapshot, error)

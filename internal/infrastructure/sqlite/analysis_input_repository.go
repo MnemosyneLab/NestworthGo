@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -97,6 +98,39 @@ func loadAnalysisQuoteBatch(ctx context.Context, query queryer, householdID doma
 		result = append(result, byInstrument[id]...)
 	}
 	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// LoadAnalysisAccountSnapshots narrows only activity-free households. Transfers,
+// corrections and cost origins therefore always retain the existing full path.
+// Even future activities reject admission; this deliberately favors simplicity.
+func (r *Repository) LoadAnalysisAccountSnapshots(ctx context.Context, householdID domain.HouseholdID, since, until time.Time, selected domain.AccountID, accounts []domain.AccountID) ([]domain.DailyValuationSnapshot, error) {
+	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	known := make(map[domain.AccountID]bool, len(accounts))
+	for _, id := range accounts {
+		known[id] = true
+	}
+	var hasActivities bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM activities WHERE household_id = ?)`, householdID.String()).Scan(&hasActivities); err != nil {
+		return nil, err
+	}
+	if hasActivities || !known[selected] {
+		selected = ""
+	}
+	result, err := listDailyValuationSnapshotsForAccountQuery(ctx, tx, householdID, since, until, selected, known)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return result, nil

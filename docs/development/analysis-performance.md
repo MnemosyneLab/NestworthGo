@@ -137,3 +137,13 @@ remain unchanged. See [G correctness and query evidence](../testing/performance-
 for differential tests, net SQL counts and the limits of two small Linux timing
 observations. This input-loading evidence is separate from the historical
 kernel measurements above.
+
+## Activity-free account snapshot loading (H2b, 2026-10-20)
+
+Normal SQLite analysis now hydrates only selected-account stored snapshot items
+for explicit account scope when there are no captured or persisted household
+activities and all historical account IDs resolve against the captured portfolio.
+Unproved cases retain full hydration. Headers and full origin opening construction
+remain unchanged. This extends H2a beyond quote IDs for a deliberately small
+subset; transfers, corrections and cost-bearing activity households remain full.
+See [H2b dependency boundary and synthetic evidence](../testing/performance-h2b-analysis-snapshots-2026-10-20.md).
