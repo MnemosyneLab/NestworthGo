@@ -61,7 +61,7 @@ func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 				for _, arm := range order {
 					f := cloneReviewPerfFixture(t, source)
 					enableReviewSQLMetrics(t, f)
-					r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
+					r := sqlite.NewRepository(f.db)
 					if arm == "certified" {
 						r = r.WithCertifiedReviewCandidate()
 					}

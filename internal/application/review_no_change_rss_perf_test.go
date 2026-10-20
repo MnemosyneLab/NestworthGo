@@ -113,7 +113,7 @@ func TestReviewNoChangeRSSChild(t *testing.T) {
 	}
 	f := reviewFullPipelineFixture{db: db, dbPath: config.Database, householdID: config.Household, now: &config.Now}
 	enableReviewSQLMetrics(t, f)
-	repository := sqlite.NewRepository(db).WithBoundedReviewWindow()
+	repository := sqlite.NewRepository(db)
 	if config.Arm == "candidate" {
 		repository = repository.WithReviewNoChangeCandidate()
 	}

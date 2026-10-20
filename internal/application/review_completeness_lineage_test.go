@@ -52,7 +52,7 @@ func lineageSpecFixture(t *testing.T, spec domain.ReviewRuleSpec) (seriesZeroFix
 		t.Fatal(err)
 	}
 	o := &lineageObservations{}
-	r := sqlite.NewRepository(f.db).WithBoundedReviewWindow().WithReviewCompletenessLineageShadow(o.observe)
+	r := sqlite.NewRepository(f.db).WithReviewCompletenessLineageShadow(o.observe)
 	f.day(t, "2026-10-13")
 	return f, r, o
 }

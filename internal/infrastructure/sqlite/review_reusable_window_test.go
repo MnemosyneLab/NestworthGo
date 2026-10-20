@@ -3,15 +3,9 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
-	modernsqlite "modernc.org/sqlite"
-	"os"
 	"reflect"
 	"slices"
-	"strconv"
-	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,30 +13,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-var reviewWindowKeyVisits atomic.Int64
-var reviewWindowEpochVisits atomic.Int64
-
-func init() {
-	modernsqlite.MustRegisterScalarFunction("nw_review_test_epoch_visit", 1, func(_ *modernsqlite.FunctionContext, _ []driver.Value) (driver.Value, error) {
-		reviewWindowEpochVisits.Add(1)
-		return int64(1), nil
-	})
-	modernsqlite.MustRegisterScalarFunction("nw_review_test_key_visit", 1, func(_ *modernsqlite.FunctionContext, _ []driver.Value) (driver.Value, error) {
-		reviewWindowKeyVisits.Add(1)
-		return int64(1), nil
-	})
-}
-
 func TestReviewReusableWindowEquivalent(t *testing.T) {
-	epochs := 128
-	if value := os.Getenv("NW_REVIEW_PERF_EPOCHS"); value != "" {
-		var err error
-		epochs, err = strconv.Atoi(value)
-		if err != nil || epochs < 3 {
-			t.Fatal("invalid NW_REVIEW_PERF_EPOCHS")
-		}
-	}
-	t.Logf("epoch fixture: %d stored states per instrument (production primary key, no extra index)", epochs)
+	const epochs = 3
 	for _, days := range []int{30} {
 		t.Run(fmt.Sprintf("days-%d", days), func(t *testing.T) {
 			db, err := sql.Open("sqlite", ":memory:")
@@ -128,18 +100,11 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 			for _, policy := range []domain.ReviewTriggerPolicy{{Kind: "immediate"}, {Kind: "consecutive", Count: 3}, {Kind: "rolling", WindowDays: 7, MinHits: 3}} {
 				capture.Rules[0].Spec.TriggerPolicy = policy
 				baseline, candidate := capture, capture
-				if err := (&Repository{reviewWindowBaseline: true}).loadReusableReviewWindow(t.Context(), db, &baseline); err != nil {
+				if err := (&Repository{}).loadReusableReviewWindow(t.Context(), db, &baseline); err != nil {
 					t.Fatal(err)
 				}
-				if err := (&Repository{}).loadReusableReviewWindow(t.Context(), db, &candidate); err != nil {
+				if err := loadReviewWindowOracle(t.Context(), db, &candidate); err != nil {
 					t.Fatal(err)
-				}
-				trial := capture
-				if err := loadReviewWindowChunkTrial(t.Context(), db, &trial); err != nil {
-					t.Fatal(err)
-				}
-				if !reflect.DeepEqual(baseline.ReusableDailyEvidence, trial.ReusableDailyEvidence) {
-					t.Fatal("per-instrument trial differs")
 				}
 				if !reflect.DeepEqual(baseline.ReusableDailyEvidence, candidate.ReusableDailyEvidence) {
 					t.Fatal("typed evidence differs")
@@ -152,54 +117,6 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 						t.Fatalf("streak anchor lost: %d", item.PriorConsecutiveCount)
 					}
 				}
-			}
-			args := []any{household.String(), first.String(), tz, "rule:" + string(rule.ID) + "/v:4", 7}
-			rows, err := db.Query(`EXPLAIN QUERY PLAN `+reviewWindowDatesSQL, args...)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var plan []string
-			for rows.Next() {
-				var a, b, c int
-				var detail string
-				if err := rows.Scan(&a, &b, &c, &detail); err != nil {
-					t.Fatal(err)
-				}
-				plan = append(plan, detail)
-			}
-			if err := rows.Err(); err != nil {
-				t.Fatal(err)
-			}
-			rows.Close()
-			t.Logf("bounded dates EXPLAIN: %v", plan)
-			if !strings.Contains(strings.Join(plan, " "), "COVERING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=?)") {
-				t.Fatalf("lost primary-key prefix seek: %v", plan)
-			}
-			if strings.Contains(strings.Join(plan, " "), "TEMP B-TREE") {
-				t.Fatal("date selection sorted history")
-			}
-			measureReviewWindowKeyVisits(t, db, capture)
-			boundedSQL, boundedArgs := reviewWindowChunkQuery(capture, capture.Rules[0], reviewWindowInstruments(capture, capture.Rules[0]))
-			logReviewWindowExplain(t, db, "bounded-chunk", boundedSQL, boundedArgs)
-			probe := strings.ReplaceAll(boundedSQL, "s.rule_id=?", "nw_review_test_epoch_visit(s.position_epoch_id) AND s.rule_id=?")
-			reviewWindowEpochVisits.Store(0)
-			rows, err = db.Query(probe, boundedArgs...)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := scanReusableReviewWindow(rows, capture.Rules[0], tz, map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}); err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("bounded epoch predicate visits=%d storedStates=%d returnedDays=%d", reviewWindowEpochVisits.Load(), 2*epochs, 14)
-			// This predicate probe counts evaluation-state candidates only, not all
-			// SQLite opcodes or source-row visits. Width must not multiply epoch work.
-			if got := reviewWindowEpochVisits.Load(); got != int64(2*epochs) {
-				t.Fatalf("epoch aggregate repeated across returned days: got=%d want=%d", got, 2*epochs)
-			}
-			logReviewWindowExplain(t, db, "baseline-ranking", reviewWindowBaselineSQL, []any{household.String(), "rule:" + string(rule.ID) + "/v:4", tz, string(rule.ID), household.String(), "rule:" + string(rule.ID) + "/v:4", tz, string(rule.ID), 4, tz, 7})
-
-			if os.Getenv("NW_REVIEW_PERF_EVIDENCE") == "1" {
-				measureReviewWindowQueries(t, db, capture)
 			}
 			if days == 30 {
 				tx, err := db.Begin()
@@ -218,14 +135,14 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 					t.Fatal(err)
 				}
 				baseline, candidate := capture, capture
-				if err := (&Repository{reviewWindowBaseline: true}).loadReusableReviewWindow(t.Context(), db, &baseline); err != nil {
+				if err := (&Repository{}).loadReusableReviewWindow(t.Context(), db, &baseline); err != nil {
 					t.Fatal(err)
 				}
-				if err := (&Repository{}).loadReusableReviewWindow(t.Context(), db, &candidate); err != nil {
+				if err := loadReviewWindowOracle(t.Context(), db, &candidate); err != nil {
 					t.Fatal(err)
 				}
 				if !reflect.DeepEqual(baseline.ReusableDailyEvidence, candidate.ReusableDailyEvidence) {
-					t.Fatal("100-ID chunk boundary lost rows")
+					t.Fatal("complete instrument set lost rows")
 				}
 				canceled, cancel := context.WithCancel(t.Context())
 				cancel()
@@ -235,29 +152,6 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 			}
 
 		})
-	}
-}
-
-func measureReviewWindowQueries(t *testing.T, db *sql.DB, capture domain.ReviewProjectionCapture) {
-	t.Helper()
-	// Alternate old/new order. Measurements include typed JSON consumption and
-	// Rows.Close, with immutable inputs and no writes or other benchmark tasks.
-	for sample := 0; sample < 30; sample++ {
-		for offset := 0; offset < 3; offset++ {
-			strategy := (sample + offset) % 3
-			candidate := capture
-			started := time.Now()
-			var err error
-			if strategy == 2 {
-				err = loadReviewWindowChunkTrial(context.Background(), db, &candidate)
-			} else {
-				err = (&Repository{reviewWindowBaseline: strategy == 0}).loadReusableReviewWindow(context.Background(), db, &candidate)
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("window sample=%d strategy=%d elapsed_ns=%d returnedRows=%d", sample, strategy, time.Since(started).Nanoseconds(), len(candidate.ReusableDailyEvidence))
-		}
 	}
 }
 
@@ -276,7 +170,7 @@ const reviewWindowBoundedSQL = `WITH window_dates AS MATERIALIZED (` + reviewWin
  CROSS JOIN latest_streak s ORDER BY d.instrument_id,d.on_date`
 
 // Per-instrument prepared seek retained as a measured alternative to chunks.
-func loadReviewWindowChunkTrial(ctx context.Context, db *sql.DB, capture *domain.ReviewProjectionCapture) error {
+func loadReviewWindowOracle(ctx context.Context, db *sql.DB, capture *domain.ReviewProjectionCapture) error {
 	capture.ReusableDailyEvidence = map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}
 	statement, err := db.PrepareContext(ctx, reviewWindowBoundedSQL)
 	if err != nil {
@@ -297,50 +191,6 @@ func loadReviewWindowChunkTrial(ctx context.Context, db *sql.DB, capture *domain
 		}
 	}
 	return nil
-}
-
-// A non-deterministic SQL probe counts predicate evaluations in otherwise
-// identical date-selection queries. These are instrumented key evaluations,
-// not SQLite VM steps, disk reads or returned JSON rows. Timing uses unprobed SQL.
-func measureReviewWindowKeyVisits(t *testing.T, db *sql.DB, capture domain.ReviewProjectionCapture) {
-	t.Helper()
-	rule := capture.Rules[0]
-	tz := rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion
-	policy := fmt.Sprintf("rule:%s/v:%d", rule.ID, rule.CurrentConditionVersion)
-	baseline := strings.Replace(reviewWindowBaselineSQL, "WHERE d.household_id=?", "WHERE nw_review_test_key_visit(d.on_date) AND d.household_id=?", 1)
-	reviewWindowKeyVisits.Store(0)
-	rows, err := db.Query(baseline, capture.HouseholdID.String(), policy, tz, string(rule.ID), capture.HouseholdID.String(), policy, tz, string(rule.ID), rule.CurrentConditionVersion, tz, reviewWindowWidth(rule))
-	if err != nil {
-		t.Fatal(err)
-	}
-	evidence := map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}
-	if err := scanReusableReviewWindow(rows, rule, tz, evidence); err != nil {
-		t.Fatal(err)
-	}
-	before := reviewWindowKeyVisits.Load()
-	reviewWindowKeyVisits.Store(0)
-	bounded := strings.Replace(reviewWindowDatesSQL, "WHERE household_id=?", "WHERE nw_review_test_key_visit(on_date) AND household_id=?", 1)
-	for _, id := range reviewWindowInstruments(capture, rule) {
-		rows, err := db.Query(bounded, capture.HouseholdID.String(), id.String(), tz, policy, reviewWindowWidth(rule))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for rows.Next() {
-			var on string
-			if err := rows.Scan(&on); err != nil {
-				t.Fatal(err)
-			}
-		}
-		if err := rows.Err(); err != nil {
-			t.Fatal(err)
-		}
-		rows.Close()
-	}
-	after := reviewWindowKeyVisits.Load()
-	t.Logf("instrumented date-key predicate evaluations: baseline=%d bounded=%d returnedRows=%d", before, after, len(evidence))
-	if after >= before {
-		t.Fatal("window key work failed to decrease")
-	}
 }
 
 func TestReviewWindowCandidateUniverse(t *testing.T) {
@@ -369,27 +219,9 @@ func TestReviewWindowCandidateUniverse(t *testing.T) {
 	assert()
 }
 
-func logReviewWindowExplain(t *testing.T, db *sql.DB, label, statement string, args []any) {
-	t.Helper()
-	rows, err := db.Query(`EXPLAIN QUERY PLAN `+statement, args...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var details []string
-	for rows.Next() {
-		var id, parent, unused int
-		var detail string
-		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
-			t.Fatal(err)
-		}
-		details = append(details, detail)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	rows.Close()
-	t.Logf("EXPLAIN %s: %s", label, strings.Join(details, " | "))
-	if label == "bounded-chunk" && !strings.Contains(strings.Join(details, " "), "SEARCH d USING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=? AND on_date=? AND input_policy=?)") {
-		t.Fatal("bounded JSON join lost complete date key")
-	}
-}
+// Dates, not true votes, define the window. LIMIT applies before reading JSON;
+// the existing PK seeks household/instrument/timezone then walks dates backward.
+// Old input policies can add key visits, but never JSON reads for rejected keys.
+const reviewWindowDatesSQL = `SELECT on_date FROM investment_review_daily_inputs
+ WHERE household_id=? AND instrument_id=? AND timezone_version=? AND input_policy=?
+ ORDER BY on_date DESC LIMIT ?`

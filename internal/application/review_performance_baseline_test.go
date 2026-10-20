@@ -363,7 +363,7 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 							t.Fatal(err)
 						}
 					}
-					repositories := [2]*sqlite.Repository{sqlite.NewRepository(fixture.db).WithReviewWindowBaseline(), sqlite.NewRepository(fixture.db).WithBoundedReviewWindow()}
+					repositories := [2]*sqlite.Repository{sqlite.NewRepository(fixture.db), sqlite.NewRepository(fixture.db)}
 					var captures [2]domain.ReviewProjectionCapture
 					for offset := 0; offset < 2; offset++ {
 						path := (sample + offset) % 2
@@ -392,9 +392,9 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 							// Reconcile/publish on separate identical scenario clones, never publish
 							// the baseline before measuring the candidate on the same DB.
 							run := cloneReviewPerfFixture(t, fixture)
-							repo := sqlite.NewRepository(run.db).WithBoundedReviewWindow()
+							repo := sqlite.NewRepository(run.db)
 							if path == 0 {
-								repo = repo.WithReviewWindowBaseline()
+								repo = repo
 							}
 							var measuredRepository Repository = repo
 							var stages *reviewPerfStageRepository

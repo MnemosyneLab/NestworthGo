@@ -48,13 +48,13 @@ func TestReviewNoChangeFallbackPerformanceEvidence(t *testing.T) {
 							enableReviewSQLMetrics(t, f)
 						}
 						reference := "C2-bounded"
-						repository := sqlite.NewRepository(baseline.db).WithBoundedReviewWindow()
+						repository := sqlite.NewRepository(baseline.db)
 						if scenario != "clock-only" {
 							repository = repository.WithFullReviewRecompute()
 							reference = "forced-full"
 						}
 						baseline.service.repository = repository
-						candidate.service.repository = sqlite.NewRepository(candidate.db).WithBoundedReviewWindow().WithReviewNoChangeCandidate()
+						candidate.service.repository = sqlite.NewRepository(candidate.db).WithReviewNoChangeCandidate()
 						for _, f := range []reviewFullPipelineFixture{baseline, candidate} {
 							if scenario == "bootstrap" {
 								continue

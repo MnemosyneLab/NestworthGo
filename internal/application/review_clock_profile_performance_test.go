@@ -101,7 +101,7 @@ func TestReviewClockOnlyCPUAllocationProfile(t *testing.T) {
 					f = cloneReviewPerfFixture(t, source)
 					enableReviewSQLMetrics(t, f)
 				}
-				r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
+				r := sqlite.NewRepository(f.db)
 				if arm == "certified" {
 					r = r.WithCertifiedReviewCandidate()
 				}

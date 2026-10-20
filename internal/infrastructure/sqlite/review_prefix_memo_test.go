@@ -59,7 +59,7 @@ func TestDefaultReviewOptimizations(t *testing.T) {
 	}
 	// Bare repositories retain the supported C2 compatibility behavior.
 	bare := NewRepository(&DB{})
-	if bare.CertifiedReviewEnabled() || !bare.reviewWindowBaseline {
+	if bare.CertifiedReviewEnabled() {
 		t.Fatal("bare repository initialization changed")
 	}
 }

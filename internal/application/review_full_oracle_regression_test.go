@@ -13,7 +13,7 @@ import (
 func reviewOracleRegressionPublications(t *testing.T, f reviewFullPipelineFixture) (domain.ReviewPublication, domain.ReviewPublication) {
 	t.Helper()
 	repository := sqlite.NewRepository(f.db)
-	candidateCapture, err := repository.WithBoundedReviewWindow().CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+	candidateCapture, err := repository.CaptureReviewProjection(t.Context(), f.householdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}

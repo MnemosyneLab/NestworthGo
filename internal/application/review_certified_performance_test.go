@@ -73,7 +73,7 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 								f = cloneReviewPerfFixture(t, source)
 								enableReviewSQLMetrics(t, f)
 							}
-							r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
+							r := sqlite.NewRepository(f.db)
 							if arm == "certified" {
 								r = r.WithCertifiedReviewCandidate()
 								if suffix {
@@ -357,7 +357,7 @@ func TestReviewCertifiedBootstrapActivationEvidence(t *testing.T) {
 						f = cloneReviewPerfFixture(t, source)
 						enableReviewSQLMetrics(t, f)
 					}
-					r := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
+					r := sqlite.NewRepository(f.db)
 					if arm == "certified" {
 						r = r.WithCertifiedReviewCandidate()
 					} else {

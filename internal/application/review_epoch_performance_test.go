@@ -32,7 +32,7 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 				t.Fatal(err)
 			}
 			var captures [2]domain.ReviewProjectionCapture
-			for path, repo := range []*sqlite.Repository{sqlite.NewRepository(source.db).WithReviewWindowBaseline(), sqlite.NewRepository(source.db).WithBoundedReviewWindow()} {
+			for path, repo := range []*sqlite.Repository{sqlite.NewRepository(source.db), sqlite.NewRepository(source.db)} {
 				capture, err := repo.CaptureReviewProjection(t.Context(), source.householdID, *source.now)
 				if err != nil {
 					t.Fatal(err)
@@ -51,9 +51,9 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 			for path := range durable {
 				t.Run("epoch-publish", func(t *testing.T) {
 					run := cloneReviewPerfFixture(t, source)
-					repo := sqlite.NewRepository(run.db).WithBoundedReviewWindow()
+					repo := sqlite.NewRepository(run.db)
 					if path == 0 {
-						repo = repo.WithReviewWindowBaseline()
+						repo = repo
 					}
 					service := NewService(repo)
 					service.setClock(func() time.Time { return *run.now })
@@ -190,9 +190,9 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 			case "full":
 				repo = repo.WithFullReviewRecompute()
 			case "baseline":
-				repo = repo.WithReviewWindowBaseline()
+				repo = repo
 			case "bounded":
-				repo = repo.WithBoundedReviewWindow()
+				repo = repo
 			}
 			prepare := func() domain.ReviewPublication {
 				t.Helper()

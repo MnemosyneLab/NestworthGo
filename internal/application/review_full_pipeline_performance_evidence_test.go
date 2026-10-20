@@ -687,9 +687,9 @@ func reviewPerfRepository(t *testing.T, db *sqlite.DB) *sqlite.Repository {
 	r := sqlite.NewRepository(db)
 	switch os.Getenv("NW_REVIEW_PERF_WINDOW") {
 	case "", "bounded":
-		return r.WithBoundedReviewWindow()
+		return r
 	case "baseline":
-		return r.WithReviewWindowBaseline()
+		return r
 	default:
 		t.Fatal("unknown NW_REVIEW_PERF_WINDOW")
 		return nil

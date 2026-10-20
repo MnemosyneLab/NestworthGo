@@ -44,7 +44,7 @@ func TestReviewCompletenessLineagePerformanceEvidence(t *testing.T) {
 				var outputs [2]map[string][]string
 				for _, arm := range arms {
 					f := cloneReviewPerfFixture(t, source)
-					r := sqlite.NewRepository(f.db).WithBoundedReviewWindow().WithReviewNoChangeCandidate()
+					r := sqlite.NewRepository(f.db).WithReviewNoChangeCandidate()
 					f.service.repository = r
 					if _, err := f.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 						t.Fatal(err)

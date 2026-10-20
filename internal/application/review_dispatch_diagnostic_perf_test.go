@@ -17,11 +17,11 @@ func TestReviewClockSelectorProvenanceDiagnostic(t *testing.T) {
 		t.Skip("opt-in selector diagnostic")
 	}
 	f, d2, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
-	if !d2.WithBoundedReviewWindow().CertifiedReviewEnabled() {
+	if !d2.CertifiedReviewEnabled() {
 		t.Fatal("bounded selector unexpectedly disables certified mode")
 	}
 	f.day(t, "2026-10-13")
-	c2 := sqlite.NewRepository(f.db).WithBoundedReviewWindow()
+	c2 := sqlite.NewRepository(f.db)
 	f.s.repository = c2
 	c, err := c2.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {

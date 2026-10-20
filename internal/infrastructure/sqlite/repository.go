@@ -14,7 +14,6 @@ import (
 type Repository struct {
 	database                          *DB
 	reviewFullRecompute               bool
-	reviewWindowBaseline              bool
 	reviewSourceShadowObserver        func(domain.ReviewSourceShadowObservation)
 	reviewNoChangeCandidate           bool
 	reviewCertifiedCandidate          bool
@@ -34,24 +33,8 @@ func (r *Repository) WithFullReviewRecompute() *Repository {
 	return &copy
 }
 
-// WithReviewWindowBaseline retains the key-first history-ranking query for
-// diagnostics and rollback without changing the schema or publication protocol.
-func (r *Repository) WithReviewWindowBaseline() *Repository {
-	copy := *r
-	copy.reviewWindowBaseline = true
-	return &copy
-}
-
-// WithBoundedReviewWindow enables the P0 bounded-query candidate. It remains
-// opt-in until the paired latency/RSS and native rollout gates are reviewed.
-func (r *Repository) WithBoundedReviewWindow() *Repository {
-	copy := *r
-	copy.reviewWindowBaseline = false
-	return &copy
-}
-
 func NewRepository(database *DB) *Repository {
-	return &Repository{database: database, reviewWindowBaseline: true}
+	return &Repository{database: database}
 }
 
 type queryer interface {

@@ -37,8 +37,8 @@ func TestReviewNoChangePerformanceEvidence(t *testing.T) {
 			for _, f := range []reviewFullPipelineFixture{baseline, candidate} {
 				enableReviewSQLMetrics(t, f)
 			}
-			baseline.service.repository = sqlite.NewRepository(baseline.db).WithBoundedReviewWindow()
-			candidate.service.repository = sqlite.NewRepository(candidate.db).WithBoundedReviewWindow().WithReviewNoChangeCandidate()
+			baseline.service.repository = sqlite.NewRepository(baseline.db)
+			candidate.service.repository = sqlite.NewRepository(candidate.db).WithReviewNoChangeCandidate()
 			for index, f := range []reviewFullPipelineFixture{baseline, candidate} {
 				started := time.Now()
 				result, err := f.service.ReconcileInvestmentReviewsV2(t.Context())
@@ -119,7 +119,7 @@ func TestReviewNoChangePerformanceEvidence(t *testing.T) {
 			for _, scenario := range []string{"clock-only", "quote-correction", "market-append"} {
 				f := cloneReviewPerfFixture(t, source)
 				enableReviewSQLMetrics(t, f)
-				f.service.repository = sqlite.NewRepository(f.db).WithBoundedReviewWindow().WithReviewNoChangeCandidate()
+				f.service.repository = sqlite.NewRepository(f.db).WithReviewNoChangeCandidate()
 				if _, err := f.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 					t.Fatal(err)
 				}
