@@ -73,11 +73,9 @@ it("distinguishes NAV from a daily close while keeping the line label independen
   expect(props.series.map(series => series.pointIndices)).toEqual([[0, 2], [1]]);
 });
 
-it.each([
-  ["en", "Oct 15, 2026", /5:00\s*PM/],
-  ["zh-CN", "2026年10月15日", /17:00/],
-  ["zh-TW", "2026年10月15日", /下午5:00/],
-])("localizes both date columns in %s while preserving observation precision", (language, date, time) => {
+it.each(["en", "zh-CN", "zh-TW"])("formats both date columns in %s with the app date and 24-hour settings", (language) => {
+  const date = "2026-10-15";
+  const time = /17:00/;
   const points = [
     point({ quotedAt: "2026-10-15T09:00:00Z", effectiveDate: "2026-10-15", timestampBasis: "session_close", sourceKey: "yahoo_finance" }),
     point({ quotedAt: "2026-10-14T16:00:00Z", effectiveDate: "2026-10-15", timestampBasis: "date_label", sourceKind: "agent" }),

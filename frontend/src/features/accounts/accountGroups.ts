@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { addCanonical, compareCanonical, sortByCanonicalDesc } from "@/lib/money";
 import type { AccountRecordDTO, AccountValuationDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
@@ -41,7 +42,7 @@ export function groupAccounts(records: AccountRecordDTO[], valuations: AccountVa
       records: sortByCanonicalDesc(
         value.records,
         (record) => valuationAmount(valuationByAccountId.get(record.account.id)),
-        (left, right) => left.account.name.localeCompare(right.account.name),
+        (left, right) => left.account.name.localeCompare(right.account.name, i18n.language || undefined),
       ),
     }))
     .sort((left, right) => {
@@ -58,6 +59,6 @@ export function groupAccounts(records: AccountRecordDTO[], valuations: AccountVa
       if (comparison !== 0) {
         return comparison;
       }
-      return left.label.localeCompare(right.label);
+      return left.label.localeCompare(right.label, i18n.language || undefined);
     });
 }

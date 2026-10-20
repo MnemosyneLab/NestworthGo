@@ -9,6 +9,7 @@ import { TrendChart } from "@/components/charts/TrendChart";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Button } from "@/components/ui/button";
 import { formatAmount } from "@/lib/money";
+import { formatCivilDate } from "@/lib/time";
 
 export function NetWorthTrendCard() {
   const { t } = useTranslation();
@@ -40,7 +41,7 @@ export function NetWorthTrendCard() {
           valuationDetails(t,point.displayValuation?.netWorth,point.current) || t(point.current ? "connections.currentPoint" : point.complete ? "overview.healthy" : "overview.needsAttention"),
         ])} />
       {points.length > 0 && <p className="text-xs text-muted-foreground">{t("connections.currentPointNote")}</p>}
-      {gaps.length > 0 && <details><summary className="cursor-pointer text-sm">{t("connections.gapDays", { count: gaps.length })}</summary><ul className="mt-2 flex max-h-48 flex-col gap-1 overflow-y-auto">{gaps.map(point => <li key={point.localDate}><Button variant="link" size="sm" disabled={!navigation} onClick={() => navigation?.open({ page: "data-health", focus: { rangeStart: point.localDate, rangeEnd: point.localDate } })}>{point.localDate} · {t("connections.viewGap")}</Button></li>)}</ul></details>}
+      {gaps.length > 0 && <details><summary className="cursor-pointer text-sm">{t("connections.gapDays", { count: gaps.length })}</summary><ul className="mt-2 flex max-h-48 flex-col gap-1 overflow-y-auto">{gaps.map(point => <li key={point.localDate}><Button variant="link" size="sm" disabled={!navigation} onClick={() => navigation?.open({ page: "data-health", focus: { rangeStart: point.localDate, rangeEnd: point.localDate } })}>{formatCivilDate(point.localDate)} · {t("connections.viewGap")}</Button></li>)}</ul></details>}
     </>}
   </CardContent></Card>;
 }

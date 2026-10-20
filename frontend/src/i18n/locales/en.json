@@ -1,7 +1,11 @@
 {
   "inputBytes": {
     "count": "{{count}} / {{limit}} bytes",
-    "exceeded": "{{count}} / {{limit}} bytes — shorten this field"
+    "count_one": "{{count}} / {{limit}} byte",
+    "count_other": "{{count}} / {{limit}} bytes",
+    "exceeded": "{{count}} / {{limit}} bytes — shorten this field",
+    "exceeded_one": "{{count}} / {{limit}} byte — shorten this field",
+    "exceeded_other": "{{count}} / {{limit}} bytes — shorten this field"
   },
   "about": {
     "description": "A local-first personal finance desktop application for building and maintaining a personal or household balance sheet.",
@@ -66,6 +70,8 @@
       "remainder_one": "Remaining {{count}} item",
       "remainder_other": "Remaining {{count}} items",
       "expand": "Show all {{count}} items",
+      "expand_one": "Show all {{count}} item",
+      "expand_other": "Show all {{count}} items",
       "collapse": "Show top 10",
       "hint": "Shares use the valued subtotal in household currency. The data table includes every original item; missing values are not zero.",
       "unavailable": "Composition is unavailable until prices or exchange rates are supplied.",
@@ -87,6 +93,7 @@
     "name": "Nestworth"
   },
   "common": {
+    "unknownValue": "Unknown",
     "clearSelection": "Clear selection",
     "selectDate": "Select a date",
     "active": "Active",
@@ -711,7 +718,14 @@
       "localized": "Localized",
       "monthFirst": "MM/DD/YYYY"
     },
+    "decimal": {
+      "comma": "Comma (,)",
+      "dot": "Dot (.)"
+    },
     "grouping": {
+      "apostrophe": "Apostrophe (')",
+      "comma": "Comma (,)",
+      "dot": "Dot (.)",
       "none": "None",
       "space": "Space"
     },
@@ -1073,6 +1087,8 @@
     "currentPoint": "Current valuation",
     "currentPointNote": "Today, when present, uses current valuation. Earlier dates use closed-day snapshots.",
     "gapDays": "{{count}} days have incomplete data",
+    "gapDays_one": "{{count}} day has incomplete data",
+    "gapDays_other": "{{count}} days have incomplete data",
     "rebuildSnapshots": "Rebuild snapshots",
     "snapshotNote": "Rebuilds the selected dates from locally available inputs. This does not fetch missing prices or make unpublished data available.",
     "rebuilt": "Rebuild finished. Check the source view again; missing inputs may still leave dates incomplete."
@@ -1198,6 +1214,8 @@
     "enable": "Enable history cleanup",
     "period": "Keep sealed history for",
     "days": "{{count}} days",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
     "apply": "Apply retention period",
     "preview": "Preview cleanup",
     "clean": "Clean up now",
@@ -1328,6 +1346,8 @@
     "coverageComplete": "Complete",
     "coveragePartial": "Partial or unknown totals",
     "missingAssetLeaves": "{{count}} included asset item(s) missing valuation",
+    "missingAssetLeaves_one": "{{count}} included asset item missing valuation",
+    "missingAssetLeaves_other": "{{count}} included asset items missing valuation",
     "currencyMismatch": "Base currencies differ; shared amount chart unavailable.",
     "viewEvidence": "View account evidence",
     "views": "Historical views",
@@ -1340,7 +1360,11 @@
     "allocationCompare": "Asset category comparison",
     "assetOnly": "Assets only; original currency amounts converted to base currency",
     "valuedOnly": "A shows valued assets only; {{count}} included asset item(s) missing valuation.",
+    "valuedOnly_one": "A shows valued assets only; {{count}} included asset item missing valuation.",
+    "valuedOnly_other": "A shows valued assets only; {{count}} included asset items missing valuation.",
     "valuedOnlyB": "B shows valued assets only; {{count}} included asset item(s) missing valuation.",
+    "valuedOnlyB_one": "B shows valued assets only; {{count}} included asset item missing valuation.",
+    "valuedOnlyB_other": "B shows valued assets only; {{count}} included asset items missing valuation.",
     "zeroKnownAssets": "Known assets are zero; no composition chart.",
     "zeroBothAssets": "Known category amounts are zero on both sides; no comparison chart.",
     "comparisonLegend": "A and B chart key",
@@ -1657,6 +1681,7 @@
       "historical_quantity": "Holding quantity unknown on this day",
       "historical_cost": "Cost basis unknown on this day"
     },
+    "unknownReason": "Unknown reason",
     "count": {
       "hits_one": "{{count}} hit",
       "hits_other": "{{count}} hits",
@@ -1665,7 +1690,7 @@
       "misses_one": "{{count}} miss",
       "misses_other": "{{count}} misses",
       "unknown_one": "{{count}} unknown",
-      "unknown_other": "{{count}} unknown",
+      "unknown_other": "{{count}} unknowns",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days",
       "needsAttention_one": "{{count}} needs attention",
@@ -1723,7 +1748,9 @@
     "aboutRounding": "About rounded amounts",
     "roundingHelp": "Amounts are rounded for display. Totals use exact values before rounding, so visible rows may not add up to the displayed total.",
     "tiny": "{{direction}} nonzero, below 0.01",
-    "missingCount": "{{count}} items need attention"
+    "missingCount": "{{count}} items need attention",
+    "missingCount_one": "{{count}} item needs attention",
+    "missingCount_other": "{{count}} items need attention"
   },
   "holdingDetail": {
     "collapse": "Hide details for {{name}}",

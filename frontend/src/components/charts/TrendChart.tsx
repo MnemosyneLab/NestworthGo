@@ -3,6 +3,7 @@ import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartNumber, chartTheme, resolveSeriesColor, useThemeVersion, joinTooltipLines } from "@/components/charts/chartTheme";
 import { EmptyState } from "@/components/layout/PageState";
 import { formatAmount } from "@/lib/money";
+import { formatCivilDate } from "@/lib/time";
 
 export interface TrendPointMeta {
  /** A semantic boundary supplied by the owning read model. */
@@ -66,21 +67,19 @@ function formatTrendAxisDate(value: string | number, language: string, longSpan:
   }
 }
 
-function formatTrendChartDate(value: string | number, language: string): string {
+function chartCivilDate(value: string | number): string {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value.trim();
   const timestamp = typeof value === "number" ? value : trendChartTimestamp(value);
-  if (!Number.isFinite(timestamp)) {
-    return String(value);
-  }
-  try {
-    return new Intl.DateTimeFormat(language, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    }).format(new Date(timestamp));
-  } catch {
-    return new Date(timestamp).toISOString().slice(0, 10);
-  }
+  if (!Number.isFinite(timestamp)) return "";
+  const date = new Date(timestamp);
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${month}-${day}`;
+}
+
+function formatTrendChartDate(value: string | number, language: string): string {
+  const civil = chartCivilDate(value);
+  return civil ? formatCivilDate(civil, language) : String(value);
 }
 
 function uniqueSourceLabels(meta: Array<TrendPointMeta | undefined> | undefined): string[] {

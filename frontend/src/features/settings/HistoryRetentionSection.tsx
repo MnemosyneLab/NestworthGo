@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { formatCount } from "@/lib/money";
+import { formatTimestamp } from "@/lib/time";
 import { useCancelCleanup, useConfigureRetention, useExecuteRetention, usePreviewRetention, useRetentionStatus } from "@/queries/continuousBackup";
 
 export function HistoryRetentionSection({ scope, disabled, onBusyChange, onInteractionBusyChange, active = true }: { active?: boolean; scope: string; disabled: boolean; onBusyChange: (busy: boolean) => void; onInteractionBusyChange?: (busy: boolean) => void }) {
@@ -30,7 +32,7 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange, onInter
   const days = selectedDays ?? current?.days ?? 30;
   const plan = preview.data;
   const items = plan?.items ?? [];
-  const stamp = (value: string) => value ? new Date(value).toLocaleString() : t("cloudBackup.never");
+  const stamp = (value: string) => value ? formatTimestamp(value) : t("cloudBackup.never");
   const open = (value: "enable" | "execute", trigger: HTMLElement) => { dialogTrigger.current = trigger; setAcknowledged(false); setDialog(value); };
   const reset = () => { setDialog(null); setAcknowledged(false); preview.reset(); };
   const ready = current?.enabled && days === current.days && plan?.ready && items.some((item) => item.eligible);
@@ -49,13 +51,13 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange, onInter
       </div>
       <div role="status" aria-live="polite" className="space-y-1 text-sm">
         {busy && <p>{t("common.pending")}</p>}
-        <p>{t("retention.scan", { scanned: (plan?.scannedBytes ?? current.scannedBytes).toLocaleString(), eligible: (plan?.eligibleBytes ?? current.eligibleBytes).toLocaleString(), time: stamp(plan?.scannedAt ?? current.scannedAt) })}</p>
+        <p>{t("retention.scan", { scanned: formatCount(plan?.scannedBytes ?? current.scannedBytes), eligible: formatCount(plan?.eligibleBytes ?? current.eligibleBytes), time: stamp(plan?.scannedAt ?? current.scannedAt) })}</p>
         <p>{t("retention.last", { time: stamp(current.lastCleanup), result: t(`retention.results.${current.result || "none"}`, { defaultValue: t("retention.results.stopped") }) })}</p>
       </div>
       {(configure.isError || preview.isError || execute.isError || cancel.isError || current.errorSummary) && <p role="alert" className="text-sm text-destructive">{t("retention.error")}</p>}
       {plan && <div className="space-y-2 text-sm">
         {!plan.ready && <p>{t("retention.insufficient")}</p>}
-        {items.length === 0 ? <p>{t("retention.empty")}</p> : <ul className="max-h-60 space-y-2 overflow-auto" aria-label={t("retention.candidates")}>{items.map((item) => <li key={item.streamID} className="break-all"><span>{item.streamID}</span><br /><span>{item.bytes.toLocaleString()} {t("retention.bytes")} · {t(`retention.reasons.${item.reason}`, { defaultValue: t("retention.reasons.unsealed") })}</span></li>)}</ul>}
+        {items.length === 0 ? <p>{t("retention.empty")}</p> : <ul className="max-h-60 space-y-2 overflow-auto" aria-label={t("retention.candidates")}>{items.map((item) => <li key={item.streamID} className="break-all"><span>{item.streamID}</span><br /><span>{formatCount(item.bytes)} {t("retention.bytes")} · {t(`retention.reasons.${item.reason}`, { defaultValue: t("retention.reasons.unsealed") })}</span></li>)}</ul>}
       </div>}
     </>}
     <AlertDialog open={dialog !== null} onOpenChange={(value) => { if (!value && !requestBusy) { setDialog(null); setAcknowledged(false); } }}>

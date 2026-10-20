@@ -39,11 +39,11 @@ describe("investment review history", () => {
   it("shows detection, acknowledgement, closing and event times in the household timezone instead of raw UTC text", async () => {
     render(<ReviewEpisodeHistorySheet open onOpenChange={vi.fn()} />);
     const row = screen.getByText("Synthetic fund").closest("li")!;
-    expect(row).toHaveTextContent(/first detected Oct 3, 2026, 8:00\s*PM/);
-    expect(row).toHaveTextContent(/Acknowledged Oct 3, 2026, 9:00\s*PM/);
-    expect(row).toHaveTextContent(/Closed Oct 4, 2026, 8:00\s*PM/);
+    expect(row).toHaveTextContent(/first detected 2026-10-03 20:00/);
+    expect(row).toHaveTextContent(/Acknowledged 2026-10-03 21:00/);
+    expect(row).toHaveTextContent(/Closed 2026-10-04 20:00/);
     await userEvent.click(screen.getByText("Events"));
-    await waitFor(() => expect(row).toHaveTextContent(/Resolved\s*Oct 4, 2026, 8:00\s*PM/));
+    await waitFor(() => expect(row).toHaveTextContent(/Resolved\s*2026-10-04 20:00/));
     expect(row.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:/);
   });
 });

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatKnownOrUnknown } from "@/features/liquidity/liquidityDisplay";
 import { Notice } from "@/components/ui/notice";
+import { formatCivilDate } from "@/lib/time";
 import { upcomingButton, upcomingNavigation, upcomingTitle, supportedUpcomingAction } from "./upcomingActionPresentation";
 import type { UpcomingActionDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
@@ -29,12 +30,12 @@ export function UpcomingActionList({ items, context }: { items: UpcomingActionDT
           <p className="font-semibold">{item.displayName}</p>
           <p><Badge variant={supportedUpcomingAction(item) ? actionVariant(item) : "secondary"} className="max-w-full whitespace-normal">{upcomingTitle(t, item)}</Badge></p>
           <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-            {item.maturityOn && <p className="num">{t("upcomingActions.maturityDate", { date: item.maturityOn })}</p>}
-            {item.eligibilityOn && <p className="num">{t("upcomingActions.eligibilityDate", { date: item.eligibilityOn })}</p>}
-            {item.sortOn && <p className="num">{item.sortOn}{(item.daysFromToday ?? 0) > 0 && <> · {t("upcomingActions.inDays", { count: item.daysFromToday ?? 0 })}</>}</p>}
-            {item.estimatedReceiptOn && <p className="num">{t("upcomingActions.receiptEstimate", { date: item.estimatedReceiptOn })} · {t(`upcomingActions.basis.${item.receiptBasis}`, { defaultValue: t("upcomingActions.basis.unknown") })}</p>}
+            {item.maturityOn && <p className="num">{t("upcomingActions.maturityDate", { date: formatCivilDate(item.maturityOn) })}</p>}
+            {item.eligibilityOn && <p className="num">{t("upcomingActions.eligibilityDate", { date: formatCivilDate(item.eligibilityOn) })}</p>}
+            {item.sortOn && <p className="num">{formatCivilDate(item.sortOn)}{(item.daysFromToday ?? 0) > 0 && <> · {t("upcomingActions.inDays", { count: item.daysFromToday ?? 0 })}</>}</p>}
+            {item.estimatedReceiptOn && <p className="num">{t("upcomingActions.receiptEstimate", { date: formatCivilDate(item.estimatedReceiptOn) })} · {t(`upcomingActions.basis.${item.receiptBasis}`, { defaultValue: t("upcomingActions.basis.unknown") })}</p>}
             {item.phase === "receipt_due" && <p>{t("upcomingActions.receiptNotActual")}</p>}
-            {item.referenceOn && <p className="num">{t("upcomingActions.reference", { date: item.referenceOn })}</p>}
+            {item.referenceOn && <p className="num">{t("upcomingActions.reference", { date: formatCivilDate(item.referenceOn) })}</p>}
             {(item.assumptions ?? []).includes("weekdays_no_holidays") && <p>{t("upcomingActions.weekdays")}</p>}
           </div>
           {(item.reasonCodes ?? []).map(reason => <Notice key={reason} tone="warning" className="py-1.5 text-xs leading-5">{t(`upcomingActions.reasons.${reason}`, { defaultValue: t("upcomingActions.reasons.unsupported_source") })}</Notice>)}

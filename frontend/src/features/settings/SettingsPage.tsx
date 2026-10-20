@@ -41,6 +41,27 @@ import { resolvedTimeZone, timeZoneOptions } from "@/lib/time";
  * separate destructive operation and always asks for confirmation.
  */
 const SECTION_IDS = ["general", "market", "agent", "data", "diagnostics", "about"] as const;
+const DATE_FORMATS = ["iso", "day-first", "month-first", "localized"] as const;
+const TIME_FORMATS = ["24h", "12h"] as const;
+const DECIMAL_SEPARATORS = [".", ","] as const;
+const GROUPING_SEPARATORS = [",", ".", "space", "'", "none"] as const;
+
+function dateFormatOptionKey(value: string): string {
+  if (value === "day-first") return "dayFirst";
+  if (value === "month-first") return "monthFirst";
+  return value;
+}
+
+function decimalOptionKey(value: string): string {
+  return value === "," ? "comma" : "dot";
+}
+
+function groupingOptionKey(value: string): string {
+  if (value === ",") return "comma";
+  if (value === ".") return "dot";
+  if (value === "'") return "apostrophe";
+  return value;
+}
 const ACCENT_ORDER = ["indigo", "lavender", "mint", "sky", "peach"] as const;
 // Fixed preview colors so every accent stays visible regardless of the active theme.
 const ACCENT_SWATCH: Record<(typeof ACCENT_ORDER)[number], string> = {
@@ -112,6 +133,10 @@ export function SettingsPage() {
     draft.accent !== settings.data.accent ||
     draft.language !== settings.data.language ||
     draft.timezone !== settings.data.timezone ||
+    draft.dateFormat !== settings.data.dateFormat ||
+    draft.timeFormat !== settings.data.timeFormat ||
+    draft.decimalSeparator !== settings.data.decimalSeparator ||
+    draft.groupingSeparator !== settings.data.groupingSeparator ||
     draft.fxProvider !== settings.data.fxProvider ||
     quoteCacheTtlOf(draft) !== quoteCacheTtlOf(settings.data);
   const update = (patch: Partial<Settings>) => {
@@ -273,6 +298,55 @@ export function SettingsPage() {
             )}
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-date-format">{t("settings.language.dateFormat")}</Label>
+            <NativeSelect
+              id="settings-date-format" form="settings-preferences" disabled={preferencesBusy}
+              value={draft.dateFormat}
+              onChange={(event) => update({ dateFormat: event.target.value })}
+            >
+              {DATE_FORMATS.map((format) => (
+                <option key={format} value={format}>{t(`option.date.${dateFormatOptionKey(format)}`)}</option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-time-format">{t("settings.language.timeFormat")}</Label>
+            <NativeSelect
+              id="settings-time-format" form="settings-preferences" disabled={preferencesBusy}
+              value={draft.timeFormat}
+              onChange={(event) => update({ timeFormat: event.target.value })}
+            >
+              {TIME_FORMATS.map((format) => (
+                <option key={format} value={format}>{t(`option.time.${format}`)}</option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-decimal">{t("settings.numbers.decimal")}</Label>
+            <NativeSelect
+              id="settings-decimal" form="settings-preferences" disabled={preferencesBusy}
+              value={draft.decimalSeparator}
+              onChange={(event) => update({ decimalSeparator: event.target.value })}
+            >
+              {DECIMAL_SEPARATORS.map((separator) => (
+                <option key={separator} value={separator}>{t(`option.decimal.${decimalOptionKey(separator)}`)}</option>
+              ))}
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">{t("settings.numbers.description")}</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-grouping">{t("settings.numbers.grouping")}</Label>
+            <NativeSelect
+              id="settings-grouping" form="settings-preferences" disabled={preferencesBusy}
+              value={draft.groupingSeparator}
+              onChange={(event) => update({ groupingSeparator: event.target.value })}
+            >
+              {GROUPING_SEPARATORS.map((separator) => (
+                <option key={separator} value={separator}>{t(`option.grouping.${groupingOptionKey(separator)}`)}</option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-currency">{t("review.householdCurrency")}</Label>
             <Input id="settings-currency" form="settings-preferences" readOnly value={bootstrap.data?.household?.baseCurrency ?? "—"} />
             <p className="text-xs text-muted-foreground">{t("review.householdCurrencyHelp")}</p>
@@ -296,7 +370,7 @@ export function SettingsPage() {
             >
               {(fxProviders.data ?? [draft.fxProvider]).map((provider) => (
                 <option key={provider} value={provider}>
-                  {t(`settings.provider.${provider}`, { defaultValue: provider })}
+                  {t(`settings.provider.${provider}`, { defaultValue: t("common.unknownValue") })}
                 </option>
               ))}
             </NativeSelect>

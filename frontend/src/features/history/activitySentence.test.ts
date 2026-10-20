@@ -18,6 +18,8 @@ const catalog: Record<string, string> = {
   "history.sentence.updatedCost": "Set {{holding}} unit cost to {{cost}}",
   "history.sentence.updatedValue": "Updated {{account}} to {{amount}}",
   "history.reason.reconciliation": "Reconciliation",
+  "history.reason.contribution": "Contribution",
+  "common.unknownValue": "Unknown",
   "history.unknownAccount": "an account",
   "history.unknownInstrument": "an instrument",
   "history.kind.cash_in": "Money added",

@@ -5,6 +5,7 @@ import { useRebuildHistoricalSnapshots } from "@/queries/history";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayError } from "@/lib/display";
+import { formatCivilDate } from "@/lib/time";
 
 /** The snapshot API accepts at most 31 days per transaction. Retry resumes at the failed chunk. */
 export function SnapshotRepair({ focus, onClose }: { focus: HealthFocus; onClose: () => void }) {
@@ -32,7 +33,7 @@ export function SnapshotRepair({ focus, onClose }: { focus: HealthFocus; onClose
     finally { setRunning(false); }
   };
   return <Sheet open onOpenChange={open => { if (!open && !running) onClose(); }}><SheetContent><SheetHeader><SheetTitle>{t("connections.rebuildSnapshots")}</SheetTitle></SheetHeader>
-    <p>{focus.rangeStart} – {focus.rangeEnd}</p>
+    <p>{formatCivilDate(focus.rangeStart ?? "")} – {formatCivilDate(focus.rangeEnd ?? "")}</p>
     <p className="text-sm text-muted-foreground">{t("connections.snapshotNote")}</p>
     {running && <p role="status">{t("common.pending")} · {nextDate}</p>}
     {error && <p role="alert">{error}</p>}

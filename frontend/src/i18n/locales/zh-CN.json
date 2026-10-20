@@ -1,7 +1,11 @@
 {
   "inputBytes": {
     "count": "{{count}} / {{limit}} 字节",
-    "exceeded": "{{count}} / {{limit}} 字节 — 请缩短此字段"
+    "count_one": "{{count}} / {{limit}} 字节",
+    "count_other": "{{count}} / {{limit}} 字节",
+    "exceeded": "{{count}} / {{limit}} 字节 — 请缩短此字段",
+    "exceeded_one": "{{count}} / {{limit}} 字节 — 请缩短此字段",
+    "exceeded_other": "{{count}} / {{limit}} 字节 — 请缩短此字段"
   },
   "about": {
     "description": "一款以本地优先为理念、用于建立和维护个人或家庭资产负债表的财务桌面应用。",
@@ -66,6 +70,8 @@
       "remainder_one": "其余 {{count}} 项",
       "remainder_other": "其余 {{count}} 项",
       "expand": "展开全部 {{count}} 项",
+      "expand_one": "展开全部 {{count}} 项",
+      "expand_other": "展开全部 {{count}} 项",
       "collapse": "收起至前 10 项",
       "hint": "占比使用家庭本位币的已估值小计。数据表包含所有原始明细；缺失值不按零计入。",
       "unavailable": "缺少价格或汇率，暂无法展示构成。",
@@ -87,6 +93,7 @@
     "name": "Nestworth"
   },
   "common": {
+    "unknownValue": "未知",
     "clearSelection": "清除选择",
     "selectDate": "选择日期",
     "active": "启用",
@@ -711,7 +718,14 @@
       "localized": "本地化",
       "monthFirst": "MM/DD/YYYY"
     },
+    "decimal": {
+      "comma": "逗号（,）",
+      "dot": "点（.）"
+    },
     "grouping": {
+      "apostrophe": "撇号（'）",
+      "comma": "逗号（,）",
+      "dot": "点（.）",
       "none": "不分组",
       "space": "空格"
     },
@@ -1073,6 +1087,8 @@
     "currentPoint": "当前估值",
     "currentPointNote": "若包含今天，今天使用当前估值；此前日期使用已结束日期的快照。",
     "gapDays": "{{count}} 天的数据不完整",
+    "gapDays_one": "{{count}} 天的数据不完整",
+    "gapDays_other": "{{count}} 天的数据不完整",
     "rebuildSnapshots": "重建快照",
     "snapshotNote": "使用本地已有数据重建所选日期。此操作不会获取缺失报价，也无法补出尚未发布的数据。",
     "rebuilt": "重建完成，请返回来源页重新核对；缺少输入的日期仍可能不完整。"
@@ -1198,6 +1214,8 @@
     "enable": "启用历史清理",
     "period": "已封存历史保留期限",
     "days": "{{count}} 天",
+    "days_one": "{{count}} 天",
+    "days_other": "{{count}} 天",
     "apply": "应用保留期限",
     "preview": "预览清理",
     "clean": "立即清理",
@@ -1328,6 +1346,8 @@
     "coverageComplete": "完整",
     "coveragePartial": "部分或未知总额",
     "missingAssetLeaves": "{{count}} 项已纳入资产缺少估值",
+    "missingAssetLeaves_one": "{{count}} 项已纳入资产缺少估值",
+    "missingAssetLeaves_other": "{{count}} 项已纳入资产缺少估值",
     "currencyMismatch": "本位币不一致，无法绘制共享金额图。",
     "viewEvidence": "查看账户依据",
     "views": "历史视图",
@@ -1340,7 +1360,11 @@
     "allocationCompare": "资产类别对比",
     "assetOnly": "仅资产；原币种金额已折合本位币",
     "valuedOnly": "A 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
+    "valuedOnly_one": "A 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
+    "valuedOnly_other": "A 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
     "valuedOnlyB": "B 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
+    "valuedOnlyB_one": "B 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
+    "valuedOnlyB_other": "B 仅显示已估值资产；{{count}} 项已纳入资产缺少估值。",
     "zeroKnownAssets": "已知资产为零，不显示结构图。",
     "zeroBothAssets": "两侧已知类别金额均为零，不显示对比图。",
     "comparisonLegend": "A/B 图例",
@@ -1591,7 +1615,7 @@
       "cursorExpired": "报告已变化，已回到第一页。",
       "projectionStatus": "复核计算状态：{{status}}",
       "publishedOn": "上次发布 {{date}}",
-      "summaryCounts": "共$t(reviewV2.count.investments, {\"count\": {{total}}})，筛选匹配{{matched}}个 · {{pending}}个待关注 · $t(reviewV2.count.actionableRules, {\"count\": {{actionable}}}) · {{unknown}}个数据不足",
+      "summaryCounts": "共$t(reviewV2.count.investments, {\"count\": {{total}}})，筛选匹配{{matched}}个 · $t(reviewV2.count.needsAttention, {\"count\": {{pending}}}) · $t(reviewV2.count.actionableRules, {\"count\": {{actionable}}}) · {{unknown}}个数据不足",
       "dailyEvidence": "逐日证据",
       "dailyTrue": "命中",
       "dailyFalse": "未命中",
@@ -1657,6 +1681,7 @@
       "historical_quantity": "当日持仓数量未知",
       "historical_cost": "当日成本未知"
     },
+    "unknownReason": "未知原因",
     "count": {
       "hits_one": "命中{{count}}天",
       "hits_other": "命中{{count}}天",
@@ -1723,7 +1748,9 @@
     "aboutRounding": "关于金额舍入",
     "roundingHelp": "金额仅在显示时舍入。合计先汇总精确值再舍入，因此可见行的金额之和可能与显示的合计不同。",
     "tiny": "{{direction}} 非零，小于 0.01",
-    "missingCount": "{{count}} 项需要关注"
+    "missingCount": "{{count}} 项需要关注",
+    "missingCount_one": "{{count}} 项需要关注",
+    "missingCount_other": "{{count}} 项需要关注"
   },
   "holdingDetail": {
     "collapse": "收起 {{name}} 的详情",

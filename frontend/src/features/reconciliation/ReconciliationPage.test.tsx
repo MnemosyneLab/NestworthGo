@@ -576,7 +576,7 @@ it.each(["en"])(
     });
     mount("session-one");
     expect(screen.getByText("Frozen product terms")).toBeInTheDocument();
-    expect(screen.getByText(/2.5%/)).toBeInTheDocument();
+    expect(screen.getByText(/2\.50%/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: i18n.t("reconciliation.review") }),
     ).not.toBeInTheDocument();

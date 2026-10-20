@@ -1,4 +1,5 @@
 import { InvestmentReviewSummaryV2 } from "@/features/investment-review/InvestmentReviewSummaryV2";
+import { formatCivilDate } from "@/lib/time";
 import { upcomingCountLabels, upcomingReadLabel } from "./upcomingActionPresentation";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,10 +24,10 @@ export function OverviewUpcomingActionsCard({ isActive = true, context = "overvi
       {query.isError && <Notice tone={data ? "warning" : "danger"} role="alert"><div className="flex flex-wrap items-center justify-between gap-2"><p>{t(data ? "upcomingActions.stale" : "upcomingActions.loadError")}</p><Button variant="outline" size="sm" onClick={() => { void query.refetch(); }}>{t("common.retry")}</Button></div></Notice>}
       {data && <>
         {homepage ? <p className="break-words text-xs text-muted-foreground">
-          {t("homepage.actionWindow", { start: data.windowStartOn, end: data.windowEndOn })}
+          {t("homepage.actionWindow", { start: formatCivilDate(data.windowStartOn), end: formatCivilDate(data.windowEndOn) })}
           <span className="block">{upcomingReadLabel(t, data.asOf, data.timezone, i18n.language)}</span>
         </p> : <>
-          <p className="num text-xs text-muted-foreground">{t("upcomingActions.window", { date: data.localDate, timezone: data.timezone })}</p>
+          <p className="num text-xs text-muted-foreground">{t("upcomingActions.window", { date: formatCivilDate(data.localDate), timezone: data.timezone })}</p>
           <p className="num text-xs text-muted-foreground">{upcomingReadLabel(t, data.asOf, data.timezone, i18n.language)}</p>
         </>}
         {(!homepage || data.counts.total > 0) && <p className="num text-sm font-semibold" aria-live="polite">{t("upcomingActions.overviewCounts", upcomingCountLabels(t, data.counts))}</p>}

@@ -10,10 +10,21 @@ import { TrendChart } from "@/components/charts/TrendChart";
 import { useAssetTrend } from "@/queries/returnAnalysis";
 import type { AssetTrendDTO, SignedMoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { AnalysisSessionState } from "@/stores/analysis";
+import type { TFunction } from "i18next";
+import { analysisReason } from "@/features/insights/analysisText";
 import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
 import { useSettings } from "@/queries/settings";
 import { formatAmount, formatDecimalRatioPercent } from "@/lib/money";
+
+function trendCoverage(t: TFunction, point: { missingReason?: string | null; status?: string | null; displayValuation?: Parameters<typeof valuationDetails>[1] }, isLevel: boolean): string {
+  const details = isLevel ? valuationDetails(t, point.displayValuation) : "";
+  if (details) return details;
+  const reason = analysisReason(t, point.missingReason);
+  if (reason) return reason;
+  if (!point.status) return "";
+  return t(`insights.status.${point.status}`, { defaultValue: t("common.unknownValue") });
+}
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
@@ -75,7 +86,7 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
           <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
         </CardHeader>
-        <CardContent>{dates.length === 0 || (values.every((value) => value == null) && !hasLevelDisplay) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:isLevel && point.displayValuation?.quality?.coverage === "provisional",qualityLabel:isLevel ? valuationDetails(t,point.displayValuation) : ""})) }]} extraTableColumns={[t("charts.date"),metricLabel(t,metric),t("connections.coverage")]} extraTableRows={(data.points ?? []).map(point=>[point.period,metric === "return_rate" ? rateText(point.rate) : valuationTableAmount(t,isLevel ? point.displayValuation : null,point.value,metric === "net_worth"),(isLevel ? valuationDetails(t,point.displayValuation) : "") || point.missingReason || point.status])} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => formatDecimalRatioPercent(value, 1, false, false) : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
+        <CardContent>{dates.length === 0 || (values.every((value) => value == null) && !hasLevelDisplay) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:isLevel && point.displayValuation?.quality?.coverage === "provisional",qualityLabel:isLevel ? valuationDetails(t,point.displayValuation) : ""})) }]} extraTableColumns={[t("charts.date"),metricLabel(t,metric),t("connections.coverage")]} extraTableRows={(data.points ?? []).map(point=>[point.period,metric === "return_rate" ? rateText(point.rate) : valuationTableAmount(t,isLevel ? point.displayValuation : null,point.value,metric === "net_worth"),trendCoverage(t, point, isLevel)])} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => formatDecimalRatioPercent(value, 1, false, false) : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
       </Card>
       {!data.valueChange && <Card>
         <CardContent className="pt-6">

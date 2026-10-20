@@ -16,6 +16,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { LoadingState, ErrorState, EmptyState } from "@/components/layout/PageState";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { useReviewAlertPage, useReviewCoveragePage, useReviewDailyEvidencePage, useReviewRulesV2, useReviewSuppressionsV2, useReviewV2Commands } from "@/queries/investmentReviewV2";
+import { formatCivilDate } from "@/lib/time";
 import { useHistoryOrigin } from "@/queries/history";
 import { useInstruments } from "@/queries/investments";
 import { instrumentDisplayLabel, trimInstrumentText } from "@/lib/instrumentDisplay";
@@ -220,7 +221,7 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
     <ul className="flex flex-col gap-4">{(coveragePage?.items ?? []).map(group => <li key={group.instrumentId} className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-muted/30 px-5 py-4"><div className="min-w-0"><h2 className="break-words text-base font-semibold">{group.displayName}</h2><p className="text-xs text-muted-foreground">{t(`reviewV2.types.${group.instrumentType}`)}</p></div><Badge variant={group.status === "unknown" || group.status === "uncomputed" ? "warning" : "secondary"}>{t(`reviewV2.status.${group.status}`)}</Badge></div>
       <div className="flex flex-col gap-3 px-5 py-4">
-      {(group.rules ?? []).map(rule => <div key={rule.ruleId} className="flex flex-col gap-1 rounded-xl bg-muted/40 px-3 py-2.5 text-sm"><p className="font-semibold">{rule.name} · {t(`reviewV2.status.${rule.state}`)}</p><p className="num">{t("reviewV2.coverageWindow", { from: rule.window.windowStart, to: rule.latestClosedOn, hits: rule.window.hitCount, unknowns: rule.window.unknownCount })}</p>{(rule.missing ?? []).length > 0 && <p className="text-xs text-muted-foreground">{t("reviewV2.coverageReason", { reasons: reviewReasonList(t, rule.missing ?? []) })}</p>}</div>)}
+      {(group.rules ?? []).map(rule => <div key={rule.ruleId} className="flex flex-col gap-1 rounded-xl bg-muted/40 px-3 py-2.5 text-sm"><p className="font-semibold">{rule.name} · {t(`reviewV2.status.${rule.state}`)}</p><p className="num">{t("reviewV2.coverageWindow", { from: formatCivilDate(rule.window.windowStart), to: formatCivilDate(rule.latestClosedOn), hits: rule.window.hitCount, unknowns: rule.window.unknownCount })}</p>{(rule.missing ?? []).length > 0 && <p className="text-xs text-muted-foreground">{t("reviewV2.coverageReason", { reasons: reviewReasonList(t, rule.missing ?? []) })}</p>}</div>)}
       {!group.rules?.length && <p className="text-sm text-muted-foreground">{t("reviewV2.uncomputedHelp")}</p>}
       {navigation && <Button size="sm" variant="outline" className="self-start" onClick={() => openInstrument(group.instrumentId, "performance")}>{t("reviewV2.viewPerformance")}</Button>}
       </div>

@@ -21,7 +21,7 @@ it("keeps all-partial known contributions and quality in the actual keyboard-acc
   harness.data = { ...harness.data, available: false, points: [point("2026-10-12"), point("2026-10-13")] };
   render(<AssetTrendTab session={useAnalysisStore.getState()} />);
   const summary = screen.getByText("View data table"); summary.focus(); await userEvent.keyboard("{Enter}");
-  const table = screen.getByRole("table"); expect(table).toHaveTextContent("200.00"); expect(table).toHaveTextContent("Known net contribution"); expect(table).toHaveTextContent("2026-10-09"); expect(table).toHaveTextContent("1 items have no usable valuation");
+  const table = screen.getByRole("table"); expect(table).toHaveTextContent("200.00"); expect(table).toHaveTextContent("Known net contribution"); expect(table).toHaveTextContent("2026-10-09"); expect(table).toHaveTextContent("1 item has no usable valuation");
   expect(chartData().every(value => value === null)).toBe(true);
 });
 it("renders mixed partial, full provisional and unknown rows truthfully while only plotting full totals", async () => {

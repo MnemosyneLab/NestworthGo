@@ -1,3 +1,4 @@
+import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 import { SyncBlockerText } from "@/features/marketdata/SyncBlockerText";
 import { SnapshotRepair } from "./SnapshotRepair";
 import { useObjectNavigation } from "@/app/NavigationContext";
@@ -84,14 +85,14 @@ function groupIssues(issues: HealthIssueDTO[]): { kind: string; items: DisplayHe
   return [...groups.entries()].map(([kind, items]) => ({ kind, count: items.length, items: kind === "snapshot_incomplete" ? compactSnapshotIssues(items) : items }));
 }
 
-function issueRange(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO): string | undefined {
+function issueRange(issue: HealthIssueDTO): string | undefined {
   if (!issue.rangeStart) {
     return undefined;
   }
   if (!issue.rangeEnd || issue.rangeEnd === issue.rangeStart) {
-    return issue.rangeStart;
+    return formatCivilDate(issue.rangeStart);
   }
-  return t("dataHealth.range", { start: issue.rangeStart, end: issue.rangeEnd });
+  return formatCivilDateRange(issue.rangeStart, issue.rangeEnd);
 }
 
 function healthIssueActionLabel(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO): string {
@@ -239,7 +240,7 @@ export function DataHealthPage({
       )}
 
       {(!report.healthy || focus) && <div className="flex flex-wrap items-center gap-2 text-sm">
-        {focus && <p role="status">{focus.label} {focus.rangeStart} {focus.rangeEnd && `– ${focus.rangeEnd}`} · {t("connections.focusedGaps")}</p>}
+        {focus && <p role="status">{focus.label} {formatCivilDate(focus.rangeStart ?? "")} {focus.rangeEnd && `– ${formatCivilDate(focus.rangeEnd)}`} · {t("connections.focusedGaps")}</p>}
         <Button variant="ghost" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>
         {focus && !health.isFetching && issues.length === 0 && <p role="status">{t("connections.noMatchingGaps")}</p>}
       </div>}
@@ -330,7 +331,7 @@ function IssueSection({
                     {issue.nextCheckAt && <p className="text-sm text-muted-foreground">{t("dataHealth.nextCheckAt", { time: issue.nextCheckAt.replace("T", " ") })}</p>}
                     {issue.collapsed && <p className="text-sm text-warning-foreground">{t("connections.blockedIssue")}</p>}
                     <p className="text-sm text-muted-foreground">
-                      {[issueRange(t, issue), issue.combined ? t("dataHealth.snapshotAffectedDays", { count: issue.rangeCount }) : undefined, issue.provider, healthIssueActionLabel(t, issue)].filter(Boolean).join(" · ")}
+                      {[issueRange(issue), issue.combined ? t("dataHealth.snapshotAffectedDays", { count: issue.rangeCount }) : undefined, issue.provider, healthIssueActionLabel(t, issue)].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                   {onInspect && (issue.instrumentId || issue.currencyA || issue.accountId) && <Button size="sm" variant="outline" onClick={() => onInspect({ ...issue, id: issue.combined ? "" : issue.id, label: healthIssueLabel(t, issue, accountNames), snapshotComponentLabel: issue.kind === "snapshot_incomplete" ? issue.label ?? "" : undefined })}>{t("connections.viewGap")}</Button>}

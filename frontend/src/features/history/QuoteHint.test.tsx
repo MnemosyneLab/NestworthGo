@@ -23,7 +23,7 @@ describe("QuoteHint", () => {
       observationKind: "close", priceBasis: "agent_unit_nav_v1", effectiveDate: "2026-09-28", timestampBasis: "date_label",
       quotedAt: "2026-09-27T16:00:00Z", createdAt: "2026-09-29T12:00:00Z", delayed: false,
     });
-    expect(await screen.findByText(/as of Sep 28, 2026/)).toBeInTheDocument();
+    expect(await screen.findByText(/as of 2026-09-28/)).toBeInTheDocument();
     expect(screen.getByText(/Agent supplied/)).toBeInTheDocument();
     expect(screen.queryByText(/12:00 AM/)).not.toBeInTheDocument();
   });

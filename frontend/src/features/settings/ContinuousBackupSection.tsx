@@ -7,6 +7,7 @@ import { NativeSelect } from "@/components/ui/select";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { HistoryRetentionSection } from "./HistoryRetentionSection";
 import { SecretField } from "./SecretField";
+import { formatTimestamp } from "@/lib/time";
 import { useContinuousBackup, useConfigureBackup, useTestBackupConnection, useBackupNow, useCloudRecoveryPoints, useInspectCloudRestore, useConfirmCloudRestore } from "@/queries/continuousBackup";
 import type { Update } from "../../../bindings/github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup/models";
 
@@ -50,7 +51,7 @@ export function ContinuousBackupSection({ active = true, onInteractionBusyChange
   const persist = (removeCredentials = false) => { if (busy || (!removeCredentials && partialPair)) return; save.mutate(input(removeCredentials), { onSuccess: () => { setDraft(null); setAccess(""); setSecret(""); setSecretGeneration((value) => value + 1); test.reset(); setSelection(""); inspect.reset(); } }); };
   const point = points.points.find((item) => `${item.streamID}:${item.txID}` === selection);
   const preview = inspect.data;
-  const timestamp = (value: string) => value ? new Date(value).toLocaleString() : t("cloudBackup.never");
+  const timestamp = (value: string) => value ? formatTimestamp(value) : t("cloudBackup.never");
   const ready = Boolean(preview?.token) && acknowledged && confirmation.trim().toLowerCase() === "restore";
   const restoreState = restore.isPending || restarting ? "installing" : inspect.isPending ? "downloading" : open ? "preview" : inspect.isError || restore.isError ? "error" : "";
   return <section className="@container space-y-4" aria-labelledby="cloud-backup-title">

@@ -1750,7 +1750,7 @@ it("cash review shows origin-local time and exact sub-minor-unit values alongsid
   expect(review).toHaveTextContent("CN¥10.00");
   expect(review).toHaveTextContent("10.0001 CNY");
   expect(review).toHaveTextContent("CN¥0.00 · + nonzero, below 0.01 (0.0001 CNY)");
-  expect(review).toHaveTextContent("Oct 11, 2026");
+  expect(review).toHaveTextContent("2026-10-11");
   expect(review).toHaveTextContent("00:30:00.000 (Asia/Shanghai)");
   expect(review).not.toHaveTextContent("2026-10-10T16:30:00Z");
   expect(confirmCash).not.toHaveBeenCalled();

@@ -6,6 +6,7 @@ import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartTheme, joinTooltipLines, useThemeVersion } from "@/components/charts/chartTheme";
 import { displayEnum } from "@/lib/display";
 import { formatAmount, compareCanonical } from "@/lib/money";
+import { formatCivilDate, formatTimestamp } from "@/lib/time";
 import { geometry, isZero, missingAssetLeaves } from "./historicalChartModel";
 import type { HistoricalCategoryCell, HistoricalCategoryComparison, HistoricalOverviewResult } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { HistoricalCategoryFilter } from "@/app/navigation";
@@ -27,7 +28,7 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
   const label = (key: string) => key ? dimension === "byClass" ? displayEnum(t, "enum", key) || key : key : t("historicalOverview.unclassified");
   const currency = data.left.currency;
   const mismatch = currency !== data.right?.currency;
-  const sideLabel = (side: "left" | "right") => `${side === "left" ? "A" : "B"} · ${data[side]?.current ? `${t("historicalOverview.capturedCurrent")} · ${data.capturedAt}` : data[side]?.date}`;
+  const sideLabel = (side: "left" | "right") => `${side === "left" ? "A" : "B"} · ${data[side]?.current ? `${t("historicalOverview.capturedCurrent")} · ${formatTimestamp(data.capturedAt, data.timezone)}` : formatCivilDate(data[side]?.date ?? "")}`;
   const knownValues = items.flatMap(item => [item.left.amount, item.right.amount]).filter((value): value is string => value != null);
   const safe = !mismatch && knownValues.every(value => geometry(value) !== null);
   const allKnownZero = knownValues.length > 0 && knownValues.every(isZero);

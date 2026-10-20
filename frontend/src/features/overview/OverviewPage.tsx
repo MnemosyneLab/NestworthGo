@@ -278,7 +278,7 @@ export function OverviewPage({
   const accountNameRecord = Object.fromEntries(accountNames);
   listedIssues.forEach((issue) => {
     todoRows.push(
-      <TodoRow key={issue.id} icon={HeartPulse} tone={issue.severity === "blocking" ? 3 : issue.severity === "warning" ? 4 : 1} severity={{ kind: issue.severity, label: t(`homepage.severity.${issue.severity}`, { defaultValue: issue.severity }) }} text={`${healthIssueLabel(t, issue, accountNameRecord)} · ${displayEnum(t, "dataHealth.kind", issue.kind)}`}
+      <TodoRow key={issue.id} icon={HeartPulse} tone={issue.severity === "blocking" ? 3 : issue.severity === "warning" ? 4 : 1} severity={{ kind: issue.severity, label: t(`homepage.severity.${issue.severity}`, { defaultValue: t("common.unknownValue") }) }} text={`${healthIssueLabel(t, issue, accountNameRecord)} · ${displayEnum(t, "dataHealth.kind", issue.kind)}`}
         actionLabel={t("connections.viewGap")} onAction={() => navigation?.openHealth(issue)} />,
     );
   });

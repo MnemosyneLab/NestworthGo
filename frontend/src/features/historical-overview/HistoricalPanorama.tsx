@@ -14,13 +14,14 @@ import { SignedChange } from "./SignedChange";
 import { displayEnum } from "@/lib/display";
 import type { HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState, HistoricalSeriesPoint } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import { historicalRowChange, accountChanges, alignedAllocations, allocationMode, comparableStatuses, geometry, isZero, missingAssetLeaves } from "./historicalChartModel";
+import { formatCivilDate, formatTimestamp } from "@/lib/time";
 import { historicalDisplayAmount, formatHistoricalAmount as amount } from "./historicalAmount";
 
 type Dimension = "byClass" | "byCurrency";
 type Side = "left" | "right";
 
 function stateLabel(state: HistoricalOverviewState, side: Side, current: string) {
-  return `${side === "left" ? "A" : "B"} · ${state.current ? current : state.date}`;
+  return `${side === "left" ? "A" : "B"} · ${state.current ? current : formatCivilDate(state.date)}`;
 }
 
 function valuationEstimated(value?: Parameters<typeof hasDisplay>[0]) {
@@ -155,7 +156,7 @@ export function HistoricalAllocationView({ data, onFilter, selectedDimension, on
         const side = data.right && point?.seriesName === "B" ? "right" : "left";
         const item = data.right ? paired.find(entry => entry.key === key)?.[side] : left.find(entry => entry.key === key);
         const state = side === "right" ? data.right! : data.left;
-        const sideLabel = data.right ? `${stateLabel(state, side, t("historicalOverview.current"))}${state.current ? ` · ${data.capturedAt}` : ""}` : state.date;
+        const sideLabel = data.right ? `${stateLabel(state, side, t("historicalOverview.current"))}${state.current ? ` · ${formatTimestamp(data.capturedAt, data.timezone)}` : ""}` : formatCivilDate(state.date);
         return joinTooltipLines([`${label(key)} · ${sideLabel}`, item ? `${amount(item.amount, state.currency)} · ${item.share}%` : t("historicalOverview.notReturned")]);
       } },
       xAxis: { type: "value", scale: false, axisLine: { onZero: true, lineStyle: { color: theme.border } }, axisLabel: { color: theme.muted }, splitLine: { lineStyle: { color: theme.border } } },
@@ -174,7 +175,7 @@ export function HistoricalAllocationView({ data, onFilter, selectedDimension, on
     <div className="my-3 flex flex-wrap gap-2">{(["byClass", "byCurrency"] as const).map(value => <Button key={value} size="sm" variant={dimension === value ? "default" : "outline"} aria-pressed={dimension === value} onClick={() => setDimension(value)}>{t(`historicalOverview.${value}`)}</Button>)}</div>
     {data.right && <div className="mb-3 flex flex-wrap gap-4 text-sm" aria-label={t("historicalOverview.comparisonLegend")}>
       <span className="flex items-center gap-2"><span aria-hidden="true" className="inline-block size-4 rounded border" style={{ backgroundColor: theme.border, borderColor: theme.primary }} />{stateLabel(data.left, "left", t("historicalOverview.current"))}</span>
-      <span className="flex items-center gap-2"><span aria-hidden="true" className="inline-block size-4 rounded" style={{ backgroundColor: theme.primary }} />{stateLabel(data.right, "right", t("historicalOverview.current"))}{data.right.current && <> · <time dateTime={data.capturedAt}>{data.capturedAt}</time></>}</span>
+      <span className="flex items-center gap-2"><span aria-hidden="true" className="inline-block size-4 rounded" style={{ backgroundColor: theme.primary }} />{stateLabel(data.right, "right", t("historicalOverview.current"))}{data.right.current && <> · <time dateTime={data.capturedAt}>{formatTimestamp(data.capturedAt, data.timezone)}</time></>}</span>
     </div>}
     {data.left.assets == null && <p className="text-sm text-warning-foreground">{t("historicalOverview.valuedOnly", { count: missingAssetLeaves(data, "left") })}</p>}
     {data.right && data.right.assets == null && <p className="text-sm text-warning-foreground">{t("historicalOverview.valuedOnlyB", { count: missingAssetLeaves(data, "right") })}</p>}

@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
-import { formatAmount, formatAuditMoney } from "@/lib/money";
+import { formatAmount, formatAnnualRatePercent, formatAuditMoney, formatQuantity } from "@/lib/money";
+import { formatCivilDate } from "@/lib/time";
 import { metalUnitLabel } from "@/lib/preciousMetals";
 
 type CheckpointItem = { kind?: string; value?: string; currency?: string; referenceValue?: string; detail?: unknown };
@@ -10,10 +11,26 @@ function presentCheckpointNumber(t: TFunction, item: CheckpointItem, raw: string
   const holding = item.kind === "holding";
   if (holding) {
     const detail = item.detail as { quantityUnit?: string } | undefined;
-    return [exact ? raw : formatAmount(raw), metalUnitLabel(detail?.quantityUnit, t)].filter(Boolean).join(" ");
+    return [exact ? raw : formatQuantity(raw), metalUnitLabel(detail?.quantityUnit, t)].filter(Boolean).join(" ");
   }
-  if (exact) return item.currency ? formatAuditMoney(raw, item.currency) : formatAmount(raw);
-  return [formatAmount(raw, item.currency), item.currency].filter(Boolean).join(" ");
+  if (!item.currency) return exact ? raw : formatQuantity(raw);
+  return exact ? formatAuditMoney(raw, item.currency) : formatAmount(raw, item.currency);
+}
+
+/** Review lines show money at the currency scale, and quantities without trailing zeros. */
+export function formatRecordedAmount(amount?: string | null, currency?: string | null): string {
+  if (!amount) return "";
+  return currency ? formatAuditMoney(amount, currency) : formatQuantity(amount);
+}
+
+export function formatRecordedRate(rate?: string | null): string {
+  if (!rate) return "";
+  return formatAnnualRatePercent(rate);
+}
+
+export function formatRecordedDate(value?: string | null): string {
+  if (!value) return "";
+  return formatCivilDate(value);
 }
 
 export function checkpointValue(t: TFunction, item: CheckpointItem, exact = false): string {

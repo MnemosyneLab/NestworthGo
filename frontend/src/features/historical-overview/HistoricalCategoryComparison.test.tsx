@@ -66,7 +66,10 @@ it("keeps negative debt changes signed and chart selection keyed with escaped so
   const onFilter = show(result([category({ role: "liability", key: "<debt>", left: cell("-0.00012", null, { shareBasis: "unavailable" }), right: cell("0", null, { shareBasis: "unavailable" }), amountChange: "0.00012", shareChangePp: null, shareReasons: ["share_denominator_unavailable"] })]), "liability");
   const option = chart.options[chart.options.length - 1] as { tooltip: { formatter: (point: unknown) => string }; series: Array<{ data: Array<{value: number}> }> };
   expect(option.series[0].data[0].value).toBe(-0.00012);
-  expect(option.tooltip.formatter({ name: "<debt>", seriesName: "A" })).toContain("&lt;Debt&gt;");
+  const tooltip = option.tooltip.formatter({ name: "<debt>", seriesName: "A" });
+  expect(tooltip).toContain("Unknown");
+  expect(tooltip).not.toContain("<debt>");
+  expect(tooltip).not.toContain("<Debt>");
   expect(screen.getByText(/Debt categories show book balance changes/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "chart-<debt>" }));
   expect(onFilter.mock.calls[0][0]).toEqual({ role: "liability", dimension: "byClass", key: "<debt>" });

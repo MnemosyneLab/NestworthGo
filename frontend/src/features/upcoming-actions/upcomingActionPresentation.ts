@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { formatCivilDate, formatTimestamp } from "@/lib/time";
 import type { NavigationTarget } from "@/app/navigation";
 import type { UpcomingActionDTO, UpcomingCountsDTO, UpcomingTargetDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
@@ -19,8 +20,8 @@ export function upcomingTitle(t: TFunction, item: UpcomingActionDTO): string {
   if (item.kind === "reservation_shortfall" || item.kind === "reservation_unresolved") return t(`upcomingActions.${item.kind}`);
   if (item.phase === "receipt_due") return t((item.daysFromToday ?? 0) < 0 ? "upcomingActions.overdue" : "upcomingActions.dueToday", { count: Math.abs(item.daysFromToday ?? 0) });
   if (item.phase === "blocked" && (item.daysFromToday ?? 0) < 0) return t("upcomingActions.blockedOverdue");
-  if (item.phase === "today" || item.phase === "upcoming") return t(item.anchorKind === "maturity" ? "upcomingActions.maturity" : "upcomingActions.eligibility", { date: item.anchorOn });
-  return t(`upcomingActions.${item.phase}`, { date: item.estimatedReceiptOn });
+  if (item.phase === "today" || item.phase === "upcoming") return t(item.anchorKind === "maturity" ? "upcomingActions.maturity" : "upcomingActions.eligibility", { date: formatCivilDate(item.anchorOn ?? "") });
+  return t(`upcomingActions.${item.phase}`, { date: item.estimatedReceiptOn ? formatCivilDate(item.estimatedReceiptOn) : item.estimatedReceiptOn });
 }
 export function upcomingButton(t: TFunction, target: UpcomingTargetDTO, phase?: string): string {
   if (target.kind === "reservations") return t("upcomingActions.checkReservations");
@@ -43,8 +44,8 @@ export function upcomingReadTime(asOf: string, timezone: string, language: strin
   const instant = new Date(asOf);
   if (!Number.isFinite(instant.getTime())) return null;
   try {
-    // Match the app's formatTimestamp convention without its browser-zone/ISO fallback.
-    return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(instant);
+    const formatted = formatTimestamp(instant, timezone, language);
+    return formatted === instant.toISOString() ? null : formatted;
   } catch { return null; }
 }
 export function upcomingReadLabel(t: TFunction, asOf: string, timezone: string, language: string): string {
