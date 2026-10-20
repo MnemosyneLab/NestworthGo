@@ -36,11 +36,6 @@ func (r *Repository) WithReviewPrefixMemo(enabled ...bool) *Repository {
 	return &copy
 }
 
-// Retained for the opt-in diagnostic harness; normal startup uses the defaults.
-func (r *Repository) WithReviewPrefixMemoExperiment(enabled ...bool) *Repository {
-	return r.WithReviewPrefixMemo(enabled...)
-}
-
 type reviewMemoReadTarget struct {
 	entries     map[domain.ReviewDailyEvidenceKey]reviewMemoEntry
 	observation *domain.ReviewPrefixMemoObservation

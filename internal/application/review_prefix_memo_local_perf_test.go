@@ -18,7 +18,7 @@ func TestReviewPrefixMemoLocalGuards(t *testing.T) {
 	for _, scenario := range []string{"stale", "cancel", "evict", "source", "provider", "ack", "suppression", "missing-row", "clock-rollback", "reopen", "rule"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "consecutive", Count: 3})
-			r = r.WithReviewPrefixMemoExperiment()
+			r = r.WithReviewPrefixMemo()
 			f.s.repository = r
 			f.day(t, "2026-10-13")
 			assertSuffixOracle(t, f, r, true)
@@ -78,7 +78,7 @@ func TestReviewPrefixMemoLocalGuards(t *testing.T) {
 				}
 				t.Cleanup(func() { db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithReviewPrefixMemoExperiment()
+				r = sqlite.NewRepository(db).WithReviewPrefixMemo()
 				f.s.repository = r
 				wantSuffix = false
 			case "clock-rollback":
@@ -122,7 +122,7 @@ func TestReviewPrefixMemoExactFX(t *testing.T) {
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
 	f, r := certifiedPublicationFixture(t, true, spec, "1", false)
-	r = r.WithReviewPrefixMemoExperiment()
+	r = r.WithReviewPrefixMemo()
 	f.s.repository = r
 	prime := certifiedStage(t, f, r)
 	if err := certifiedPublish(t.Context(), f, r, prime, func() time.Time { return *f.now }); err != nil {
@@ -156,7 +156,7 @@ func TestReviewPrefixMemoFutureActivationLocal(t *testing.T) {
 		t.Skip("opt-in future membership memo guard")
 	}
 	f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
-	r = r.WithReviewPrefixMemoExperiment()
+	r = r.WithReviewPrefixMemo()
 	f.s.repository = r
 	f.day(t, "2026-10-14")
 	f.quantity(t, false)
