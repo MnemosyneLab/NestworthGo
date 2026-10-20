@@ -446,6 +446,9 @@ func TestReviewDependencySuffixExactFXPrefix(t *testing.T) {
 	found := false
 	for _, day := range p.Capture.Suffix.Prefix {
 		for _, selected := range day.Evidence.Input.SelectedFX {
+			if !day.OutputAttested {
+				t.Fatal("exact FX clock prefix not output-attested")
+			}
 			found = true
 			if selected.Quote.Rate.String() != "2" {
 				t.Fatal("exact FX lost")
@@ -616,4 +619,56 @@ func TestReviewDependencyProviderChangePreservesCertifiedChain(t *testing.T) {
 	requireCertifiedNoop(t, f, r)
 	f.day(t, "2026-10-13")
 	assertSuffixOracle(t, f, r, true)
+}
+
+func TestReviewDependencyClockOutputPartitionAndAtomicGuards(t *testing.T) {
+	for _, scenario := range []string{"complete", "gap", "overlap", "duplicate", "missing-pair", "excluded-pair", "late-attestation"} {
+		t.Run(scenario, func(t *testing.T) {
+			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 5, MinHits: 3})
+			f.day(t, "2026-10-13")
+			if scenario == "complete" {
+				stage := assertSuffixOracle(t, f, r, true)
+				n := 0
+				for _, item := range stage.Rules {
+					n += len(item.Days)
+				}
+				if n != 2 {
+					t.Fatalf("emitted %d days, want 2", n)
+				}
+				return
+			}
+			stage := certifiedStage(t, f, r)
+			before := suffixDurableRows(t, f.db, suffixExistingIdentities(t, f.db))
+			times := publicationDailyTimes(t, f.db)
+			clock := func() time.Time { return *f.now }
+			switch scenario {
+			case "gap":
+				stage.Rules[0].Days = nil
+			case "overlap":
+				p := stage.Capture.Suffix.Prefix[0]
+				for i := range stage.Rules {
+					if stage.Rules[i].RuleID == p.Key.RuleID && stage.Rules[i].InstrumentID == p.Key.InstrumentID {
+						stage.Rules[i].Days = append(stage.Rules[i].Days, domain.ReviewPublicationDay{On: p.Key.On, Input: p.Evidence.Input, Result: p.Evidence.Result, CoverageMissing: p.Evidence.CoverageMissing, InputFingerprint: p.Evidence.InputFingerprint})
+						break
+					}
+				}
+			case "duplicate":
+				stage.Rules[0].Days = append(stage.Rules[0].Days, stage.Rules[0].Days[0])
+			case "missing-pair":
+				stage.Rules = stage.Rules[1:]
+			case "excluded-pair":
+				stage.Rules[0].TargetExcluded = true
+				stage.Rules[0].Days = nil
+			case "late-attestation":
+				clock = func() time.Time { stage.Capture.Suffix.Prefix[0].OutputAttested = false; return *f.now }
+			}
+			if err := certifiedPublish(t.Context(), f, r, stage, clock); err == nil {
+				t.Fatal("invalid partition published")
+			}
+			after := suffixDurableRows(t, f.db, suffixExistingIdentities(t, f.db))
+			if !reflect.DeepEqual(before, after) || !reflect.DeepEqual(times, publicationDailyTimes(t, f.db)) {
+				t.Fatal("failed publication changed durable output/timestamps")
+			}
+		})
+	}
 }

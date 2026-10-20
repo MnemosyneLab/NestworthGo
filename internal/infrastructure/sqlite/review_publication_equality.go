@@ -19,17 +19,17 @@ type reviewPublicationEquality struct {
 	keybuf          []byte
 }
 
-func loadReviewPublicationEquality(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (*reviewPublicationEquality, error) {
+func loadReviewPublicationEquality(ctx context.Context, tx *sql.Tx, id domain.HouseholdID, minimumDay string) (*reviewPublicationEquality, error) {
 	e := &reviewPublicationEquality{inputs: map[string][]any{}, results: map[string][]any{}}
 	queries := []struct {
 		sql    string
 		images map[string][]any
 	}{
-		{`SELECT household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint FROM investment_review_daily_inputs WHERE household_id=? ORDER BY instrument_id,timezone_version,on_date,input_policy`, e.inputs},
-		{`SELECT d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date,d.predicate_truth,d.reason,d.evidence_json,d.input_fingerprint FROM investment_review_daily_results d JOIN investment_review_rules r ON r.id=d.rule_id WHERE r.household_id=? ORDER BY d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date`, e.results},
+		{`SELECT household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint FROM investment_review_daily_inputs WHERE household_id=? AND on_date>=? ORDER BY instrument_id,timezone_version,on_date,input_policy`, e.inputs},
+		{`SELECT d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date,d.predicate_truth,d.reason,d.evidence_json,d.input_fingerprint FROM investment_review_daily_results d JOIN investment_review_rules r ON r.id=d.rule_id WHERE r.household_id=? AND d.on_date>=? ORDER BY d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date`, e.results},
 	}
 	for _, query := range queries {
-		rows, err := tx.QueryContext(ctx, query.sql, id.String())
+		rows, err := tx.QueryContext(ctx, query.sql, id.String(), minimumDay)
 		if err != nil {
 			return nil, err
 		}

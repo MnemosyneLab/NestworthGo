@@ -41,7 +41,7 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 	for _, size := range c3PerfSizes(t) {
 		t.Run(size, func(t *testing.T) {
 			config := c3RefreshConfig(size)
-			source := newReviewPerfFixture(t, config)
+			source := matchedReviewSourceFixture(t, config)
 			logReviewPerfManifest(t, source, config)
 			source.service.fxProviderKey = "synthetic-pinned"
 			baseCapture, err := sqlite.NewRepository(source.db).WithFullReviewRecompute().CaptureReviewProjection(t.Context(), source.householdID, *source.now)
@@ -141,7 +141,7 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 									t.Fatal(err)
 								}
 								assertReviewFullOracle(t, f, stage)
-								audited := countReviewPublicationDays(stage)
+								audited := countReviewPublicationDays(stage) + attestedReviewPrefixDays(stage.Capture)
 								if stage.CertifiedFullOracle != nil {
 									audited = 0
 									for _, rule := range stage.CertifiedFullOracle.Rules {
@@ -157,7 +157,7 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 									if stage.Capture.Suffix != nil {
 										reused = len(stage.Capture.Suffix.Prefix)
 									}
-									t.Logf("D2 size=%s scenario=%s recomputedPairDays=%d reusedPairDays=%d", size, scenario, countReviewPublicationDays(stage)-reused, reused)
+									t.Logf("D2 size=%s scenario=%s recomputedPairDays=%d reusedPairDays=%d", size, scenario, countReviewPublicationDays(stage)-reused+attestedReviewPrefixDays(stage.Capture), reused)
 								}
 								t.Logf("audit size=%s scenario=%s sample=%d actualPublicationDays=%d independentFullAuditDays=%d", size, scenario, sample+1, countReviewPublicationDays(stage), audited)
 							}
@@ -404,4 +404,16 @@ func TestReviewCertifiedBootstrapActivationEvidence(t *testing.T) {
 			}
 		})
 	}
+}
+
+func attestedReviewPrefixDays(c domain.ReviewProjectionCapture) int {
+	n := 0
+	if c.Suffix != nil {
+		for _, p := range c.Suffix.Prefix {
+			if p.OutputAttested {
+				n++
+			}
+		}
+	}
+	return n
 }

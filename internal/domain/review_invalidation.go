@@ -44,6 +44,8 @@ type ReviewSuffixCapture struct {
 type ReviewSuffixDay struct {
 	Key      ReviewDailyEvidenceKey
 	Evidence ReviewReusableDailyEvidence
+	// OutputAttested binds exact canonical SQL equality, only for unchanged sources.
+	OutputAttested bool
 }
 
 // PlanReviewInvalidation never truncates propagation to a rolling window.

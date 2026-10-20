@@ -125,6 +125,10 @@ func prepareReviewPublication(ctx context.Context, capture domain.ReviewProjecti
 				Days: make([]domain.ReviewPublicationDay, 0, len(plan.Days)), Epochs: make([]domain.ReviewPublicationEpoch, 0, len(plan.Position.Epochs)),
 			}
 			for _, day := range plan.Days {
+				key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: entry.TimezoneVersion, On: day.On}
+				if index, ok := cache.suffixEvidence[key]; ok && capture.Suffix.Prefix[index].OutputAttested {
+					continue
+				}
 				entry.Days = append(entry.Days, domain.ReviewPublicationDay{On: day.On, Input: day.Input, CoverageMissing: day.Coverage.Missing, Result: day.Result, PolicyWindow: day.PolicyWindow, InputFingerprint: day.InputFingerprint})
 			}
 			for index, epoch := range plan.Position.Epochs {

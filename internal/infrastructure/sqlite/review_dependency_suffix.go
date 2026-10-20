@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -127,6 +129,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 			through[id] = on
 		}
 		evidence := map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}
+		attested := map[domain.ReviewDailyEvidenceKey]bool{}
 		// Same bounded request-table strategy as B: one seek per instrument,
 		// with one query/decoder per <=100 instruments rather than per pair.
 		for start := 0; start < len(ids); start += 100 {
@@ -143,8 +146,13 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 				continue
 			}
 			args = append(args, c.HouseholdID.String(), tz, policy, origin, string(rule.ID), rule.CurrentConditionVersion)
+			columns := `d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,r.evidence_json,r.input_fingerprint,0`
+			if unchanged {
+				columns = `d.household_id,d.instrument_id,d.timezone_version,d.on_date,d.input_policy,d.quantity,d.native_currency,d.instrument_type,d.amount_exact,d.cost_exact,d.evidence_json,d.coverage_json,d.input_fingerprint,
+ r.rule_id,r.condition_version,r.instrument_id,r.timezone_version,r.on_date,r.predicate_truth,r.reason,r.evidence_json,r.input_fingerprint`
+			}
 			rows, err := tx.QueryContext(ctx, `WITH requested(instrument_id,through_on) AS (VALUES `+strings.Join(values, ",")+`)
-             SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,r.evidence_json,r.input_fingerprint,0
+             SELECT `+columns+`
              FROM requested i CROSS JOIN investment_review_daily_inputs d
              ON d.instrument_id=i.instrument_id AND d.on_date<=i.through_on AND d.household_id=? AND d.timezone_version=? AND d.input_policy=? AND d.on_date>=?
              LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.instrument_id=d.instrument_id AND r.timezone_version=d.timezone_version AND r.on_date=d.on_date
@@ -152,7 +160,12 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 			if err != nil {
 				return err
 			}
-			if err = scanReusableReviewWindow(rows, rule, tz, evidence); err != nil {
+			if unchanged {
+				err = scanReviewSuffixOutput(rows, *c, rule, tz, true, evidence, attested)
+			} else {
+				err = scanReusableReviewWindow(rows, rule, tz, evidence)
+			}
+			if err != nil {
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
@@ -167,7 +180,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 				if !ok || !value.HasResult || value.Input.FXProviderKey != p.CertifiedProvider.Key {
 					return nil
 				}
-				suffix.Prefix = append(suffix.Prefix, domain.ReviewSuffixDay{Key: key, Evidence: value})
+				suffix.Prefix = append(suffix.Prefix, domain.ReviewSuffixDay{Key: key, Evidence: value, OutputAttested: attested[key]})
 			}
 		}
 	}
@@ -250,4 +263,58 @@ func (r *Repository) verifyReviewSuffixPrefix(c domain.ReviewProjectionCapture) 
 		return reviewRuleConflict("suffix prefix changed during preparation")
 	}
 	return nil
+}
+
+// Decode the complete SQL image once. Only compact attestations leave this
+// coherent transaction; SQL images are never retained or used as financial input.
+func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCapture, rule domain.ReviewRule, tz string, unchanged bool, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, attested map[domain.ReviewDailyEvidenceKey]bool) error {
+	defer rows.Close()
+	for rows.Next() {
+		values := make([]any, 22)
+		pointers := make([]any, 22)
+		for i := range values {
+			pointers[i] = &values[i]
+		}
+		if err := rows.Scan(pointers...); err != nil {
+			return err
+		}
+		text := func(i int) string { s, _ := values[i].(string); return s }
+		id, err := domain.ParseInstrumentID(text(1))
+		if err != nil {
+			return err
+		}
+		on := text(3)
+		var item domain.ReviewReusableDailyEvidence
+		if err = decodeReviewInput([]byte(text(10)), &item.Input); err != nil {
+			return err
+		}
+		if err = json.Unmarshal([]byte(text(11)), &item.CoverageMissing); err != nil {
+			return err
+		}
+		if item.Input.On != on || item.Input.InstrumentID != id {
+			return fmt.Errorf("suffix input identity mismatch")
+		}
+		item.InputFingerprint = text(12)
+		if text(21) == item.InputFingerprint && values[13] != nil {
+			if err = json.Unmarshal([]byte(text(20)), &item.Result); err != nil {
+				return err
+			}
+			item.HasResult = item.Result.On == on
+		}
+		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: tz, On: on}
+		if _, exists := evidence[key]; exists {
+			return fmt.Errorf("duplicate suffix key")
+		}
+		evidence[key] = item
+		if unchanged && item.HasResult {
+			pub := domain.ReviewRulePublication{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: tz}
+			day := domain.ReviewPublicationDay{On: on, Input: item.Input, CoverageMissing: item.CoverageMissing, Result: item.Result, InputFingerprint: item.InputFingerprint}
+			input, result, err := reviewDailyPublicationArguments(capture, pub, day, "")
+			if err != nil {
+				return err
+			}
+			attested[key] = reflect.DeepEqual(values[:13], input[:13]) && reflect.DeepEqual(values[13:], result[:9])
+		}
+	}
+	return errors.Join(rows.Err(), rows.Close())
 }

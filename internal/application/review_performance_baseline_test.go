@@ -169,6 +169,21 @@ func compareReviewFullOracle(candidate, full domain.ReviewPublication, providerK
 			fullDays[key] = day
 		}
 	}
+	omitted := map[domain.ReviewDailyEvidenceKey]bool{}
+	if candidate.Capture.Suffix != nil {
+		for _, p := range candidate.Capture.Suffix.Prefix {
+			day, ok := fullDays[p.Key]
+			if !ok || !reflect.DeepEqual(p.Evidence.Input, day.Input) || !reflect.DeepEqual(p.Evidence.CoverageMissing, day.CoverageMissing) || !reflect.DeepEqual(p.Evidence.Result, day.Result) || p.Evidence.InputFingerprint != day.InputFingerprint {
+				return fmt.Errorf("suffix evidence differs from independent full day: %+v", p.Key)
+			}
+			if p.OutputAttested {
+				if omitted[p.Key] {
+					return fmt.Errorf("duplicate omitted oracle key")
+				}
+				omitted[p.Key] = true
+			}
+		}
+	}
 	for key, cached := range candidate.Capture.ReusableDailyEvidence {
 		day, exists := fullDays[key]
 		if !exists {
@@ -183,6 +198,15 @@ func compareReviewFullOracle(candidate, full domain.ReviewPublication, providerK
 		expected, err := expectedReviewOracleDays(candidate.Capture.ReusableDailyEvidence, full.Capture, want, providerKey)
 		if err != nil {
 			return err
+		}
+		if len(omitted) > 0 {
+			expected = nil
+			for _, d := range want.Days {
+				key := domain.ReviewDailyEvidenceKey{RuleID: want.RuleID, ConditionVersion: want.ConditionVersion, InstrumentID: want.InstrumentID, TimezoneVersion: want.TimezoneVersion, On: d.On}
+				if !omitted[key] {
+					expected = append(expected, d)
+				}
+			}
 		}
 		seen := map[string]bool{}
 		for _, day := range got.Days {

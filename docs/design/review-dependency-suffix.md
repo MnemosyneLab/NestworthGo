@@ -119,3 +119,41 @@ This shares no persistent financial facts and grants no historical authority.
 See [follow-up evidence](../testing/performance-d1-d2-followup-2026-10-20.md) for
 measured remaining overhead and the required separate suffix-publication proof
 before omitting daily outputs instead of comparing their complete SQL arguments.
+
+## Clock-only exact output attestation
+
+On the unchanged-source path only (identical complete authoritative fingerprint
+and exact source token), the coherent prefix reader selects all13 input and9
+result SQL payload columns. It decodes financial evidence and invokes the **same
+canonical argument builder** used by publication. Attestation requires exact
+typed equality of every key, scalar, NULL, coverage/reason and JSON byte,
+including the complete selected-FX codec. Computed/evaluated/revised timestamps
+are excluded from the argument image because an equal payload makes the existing
+UPSERT WHERE false and preserves all three. Serialization mismatch leaves the
+row unattested and emits it through the normal C3 comparator. Quote corrections
+and other source changes keep their previous reader/comparator path.
+
+Only `OutputAttested` membership and authenticated typed evidence cross the
+capture boundary, not SQL images. The existing suffix digest and source MAC bind
+these fields. Preparation still computes every policy window and lifecycle from
+origin, but omits the attested daily output from its publication. Daily policy
+windows themselves were never daily SQL payload columns; latest/frozen policy
+and lifecycle output remains fully staged.
+
+Before comparison and again after the final injected clock, the writer checks
+an exact unique partition of every expected origin-to-latest daily key into
+retained attested output or emitted days. It derives eligible scopes from the
+capture; missing/duplicate scopes, gaps, overlap, duplicate days, extra dates or
+changed target exclusion reject atomically. The original rule/version/timezone
+and final latest-day checks remain. Existing C3 CAS, authenticated protected-row
+seal, physical counters, unchanged pinned provider lease and temporal fences
+protect the attestation through the writer reservation. Final prefix digest/MAC
+verification and complete post-publication sealing remain mandatory.
+
+For an attested publication, transaction-local equality reads begin at the
+earliest emitted date, retaining a conservative superset of all attempted daily
+keys. A missing image executes the original UPSERT; consume-once duplicate-key
+semantics are unchanged. Without any attested output, the full equality reader
+is unchanged. This is a bounded D2 publication proof, not a lifecycle checkpoint,
+E/shared facts, a new historical trust authority or a fingerprint substitution
+for exact SQL argument comparison.
