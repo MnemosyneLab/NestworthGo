@@ -27,8 +27,12 @@ func importSuffixFX(t *testing.T, f seriesZeroFixture, operation, target, on, ra
 
 // Every financial mutation here uses the same production service API as Agent/
 // MCP. Raw SQL is reserved for negative corruption tests, never positive writes.
-func productionFXSuffixFixture(t *testing.T) (seriesZeroFixture, *sqlite.Repository, string) {
+func productionFXSuffixFixture(t *testing.T, zones ...string) (seriesZeroFixture, *sqlite.Repository, string) {
 	t.Helper()
+	zone := "UTC"
+	if len(zones) > 0 {
+		zone = zones[0]
+	}
 	s, db, owner, now := overviewFixture(t)
 	f := seriesZeroFixture{s: s, db: db, now: now, location: time.UTC, fx: true}
 	f.day(t, "2026-10-01")
@@ -56,6 +60,7 @@ func productionFXSuffixFixture(t *testing.T) (seriesZeroFixture, *sqlite.Reposit
 	second := importSuffixFX(t, f, "append", "", "2026-10-08", "2")
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
+	spec.Schedule.Timezone = zone
 	saveSyntheticReviewRule(t, f, "Synthetic production FX suffix", spec)
 	r := sqlite.NewRepository(f.db).WithReviewDependencySuffix()
 	fake := newRefreshFakeProvider()
@@ -83,9 +88,13 @@ func productionFXSuffixFixture(t *testing.T) (seriesZeroFixture, *sqlite.Reposit
 }
 
 func TestReviewDependencyFXProductionImportFullOracle(t *testing.T) {
-	for _, scenario := range []string{"append", "correct", "retract", "date-move", "mixed-instrument", "provenance-edit", "provenance-journal-damage"} {
+	for _, scenario := range []string{"append", "correct", "retract", "move-backward", "move-forward", "move-origin", "move-before-origin", "forged-new-date", "forged-target", "intermediate-chain", "mixed-instrument", "provenance-edit", "provenance-journal-damage"} {
 		t.Run(scenario, func(t *testing.T) {
-			f, r, target := productionFXSuffixFixture(t)
+			zone := "UTC"
+			if scenario == "move-forward" {
+				zone = "Asia/Shanghai"
+			}
+			f, r, target := productionFXSuffixFixture(t, zone)
 			*f.now = f.now.Add(time.Hour)
 			control := assertSuffixOracle(t, f, r, true)
 			on := "2026-10-08"
@@ -108,10 +117,33 @@ func TestReviewDependencyFXProductionImportFullOracle(t *testing.T) {
 				imported = importSuffixFX(t, f, "retract", target, "", "")
 			case "correct":
 				imported = importSuffixFX(t, f, "correct", target, on, "3.123456789123")
-			case "date-move":
-				imported = importSuffixFX(t, f, "correct", target, "2026-10-07", "3")
+			case "move-backward", "move-forward", "move-origin", "move-before-origin", "forged-new-date", "forged-target", "intermediate-chain":
+				replacementOn := "2026-10-07"
+				switch scenario {
+				case "move-forward":
+					replacementOn = "2026-10-09"
+				case "move-origin":
+					replacementOn = "2026-10-01"
+				case "move-before-origin":
+					replacementOn = "2026-09-30"
+				}
+				imported = importSuffixFX(t, f, "correct", target, replacementOn, "3")
 			default:
 				imported = importSuffixFX(t, f, "append", "", on, "3.123456789123")
+			}
+			if scenario == "intermediate-chain" {
+				importSuffixFX(t, f, "correct", imported.QuoteIDs[0], "2026-10-09", "4")
+			}
+			if scenario == "forged-new-date" {
+				// A plausible later claim must not hide the actual earlier change.
+				if _, err := f.db.SQL.Exec(`UPDATE financial_source_changes SET new_scope_json=json_set(new_scope_json,'$.effective_date','2026-10-09') WHERE source_table='fx_quotes' AND json_extract(new_scope_json,'$.id')=?`, imported.QuoteIDs[0]); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario == "forged-target" {
+				if _, err := f.db.SQL.Exec(`UPDATE financial_source_changes SET new_scope_json=json_set(new_scope_json,'$.target_quote_id',?) WHERE source_table='agent_quote_records' AND json_extract(new_scope_json,'$.id')=?`, imported.QuoteIDs[0], imported.RecordIDs[0]); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if scenario == "mixed-instrument" {
 				_, err := f.s.ImportAgentMarketData(t.Context(), string(domain.NewActivityID()), AgentMarketDataInput{Items: []AgentMarketDataItem{{Kind: "close", InstrumentID: f.instrument.ID.String(), Date: "2026-10-08", Timezone: "UTC", Value: "101", Currency: "USD", SourceTitle: "Synthetic unrelated instrument"}}})
@@ -130,7 +162,7 @@ func TestReviewDependencyFXProductionImportFullOracle(t *testing.T) {
 				}
 			}
 			*f.now = f.now.Add(time.Hour)
-			eligible := scenario == "append" || scenario == "correct" || scenario == "retract"
+			eligible := scenario == "append" || scenario == "correct" || scenario == "retract" || scenario == "move-backward" || scenario == "move-forward" || scenario == "move-origin" || scenario == "move-before-origin"
 			auditBefore, err := r.ListAgentQuoteRecords(t.Context(), f.account.Account.HouseholdID)
 			if err != nil {
 				t.Fatal(err)
@@ -149,6 +181,12 @@ func TestReviewDependencyFXProductionImportFullOracle(t *testing.T) {
 			if !eligible {
 				return
 			}
+			if scenario == "move-origin" || scenario == "move-before-origin" {
+				if len(stage.Capture.Suffix.Prefix) != 0 {
+					t.Fatal("origin movement reused prefix")
+				}
+				return
+			}
 			if stage.Capture.Suffix.Plan.Reason != "direct_fx_suffix" || len(stage.Capture.Suffix.Prefix) == 0 {
 				t.Fatal("no production FX suffix")
 			}
@@ -161,10 +199,40 @@ func TestReviewDependencyFXProductionImportFullOracle(t *testing.T) {
 				if scenario == "append" {
 					want = 6
 				}
-				if plan.RecomputedDays != want || plan.RecomputedDays >= len(plan.Days) {
+				if scenario == "move-backward" {
+					want = 5
+				}
+				if plan.RecomputedDays != want || len(plan.Days) != 11 || len(stage.Capture.Suffix.Prefix) != 11-want {
 					t.Fatal("no saved production work", plan.RecomputedDays, len(plan.Days))
 				}
 				t.Logf("production %s: reused=%d recomputed=%d total=%d", scenario, len(stage.Capture.Suffix.Prefix), plan.RecomputedDays, len(plan.Days))
+			}
+			if scenario == "move-backward" || scenario == "move-forward" {
+				wantRates := map[string]string{"2026-10-07": "3", "2026-10-08": "3"}
+				if scenario == "move-forward" {
+					wantRates = map[string]string{"2026-10-08": "1", "2026-10-09": "3"}
+				}
+				for on, want := range wantRates {
+					found := false
+					for _, rule := range stage.Rules {
+						for _, day := range rule.Days {
+							if day.On == on {
+								for _, leaf := range day.Result.Leaves {
+									if leaf.FX != nil && leaf.FX.Known {
+										found = true
+										if leaf.FX.Rate != want {
+											t.Fatalf("%s rate=%s want=%s", on, leaf.FX.Rate, want)
+										}
+									}
+								}
+							}
+						}
+					}
+					if !found {
+						t.Fatalf("missing FX evidence on %s", on)
+					}
+				}
+				return
 			}
 			rate := ""
 			for _, rule := range stage.Rules {
@@ -189,7 +257,7 @@ func TestReviewDependencyFXProductionImportFullOracle(t *testing.T) {
 func TestReviewDependencyFXProvenanceFinalFence(t *testing.T) {
 	f, r, target := productionFXSuffixFixture(t)
 	*f.now = f.now.Add(time.Hour)
-	importSuffixFX(t, f, "correct", target, "2026-10-08", "3")
+	importSuffixFX(t, f, "correct", target, "2026-10-07", "3")
 	stage := certifiedStage(t, f, r)
 	if stage.Capture.Suffix == nil || len(stage.Capture.Certified.FXDescription.Provenance) == 0 {
 		t.Fatal("no authenticated production provenance")

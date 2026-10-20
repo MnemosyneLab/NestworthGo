@@ -242,6 +242,11 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 }
 
 func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, householdID domain.HouseholdID, since, until time.Time) ([]domain.DailyValuationSnapshot, error) {
+	return listDailyValuationSnapshotsForAccountQuery(ctx, db, householdID, since, until, "", nil)
+}
+
+// accountID is admitted only by the analysis adapter. Other callers remain full.
+func listDailyValuationSnapshotsForAccountQuery(ctx context.Context, db queryer, householdID domain.HouseholdID, since, until time.Time, accountID domain.AccountID, known map[domain.AccountID]bool) ([]domain.DailyValuationSnapshot, error) {
 	query := `SELECT id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at, input_generation, resolver_policy_version FROM daily_valuation_snapshots WHERE household_id = ? AND revision = (SELECT MAX(latest.revision) FROM daily_valuation_snapshots latest WHERE latest.household_id = daily_valuation_snapshots.household_id AND latest.local_date = daily_valuation_snapshots.local_date)`
 	args := []any{householdID.String()}
 	if !since.IsZero() {
@@ -320,13 +325,17 @@ func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, household
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	if err := attachDailyValuationSnapshotItems(ctx, db, result); err != nil {
+	if err := attachDailyValuationSnapshotItemsForAccount(ctx, db, result, accountID, known); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
 func attachDailyValuationSnapshotItems(ctx context.Context, query queryer, snapshots []domain.DailyValuationSnapshot) error {
+	return attachDailyValuationSnapshotItemsForAccount(ctx, query, snapshots, "", nil)
+}
+
+func attachDailyValuationSnapshotItemsForAccount(ctx context.Context, query queryer, snapshots []domain.DailyValuationSnapshot, accountID domain.AccountID, known map[domain.AccountID]bool) error {
 	if len(snapshots) == 0 {
 		return nil
 	}
@@ -341,7 +350,38 @@ func attachDailyValuationSnapshotItems(ctx context.Context, query queryer, snaps
 		snapshots[index].Items = nil
 	}
 	clause, args := sqlInArgs(ids)
-	rows, err := query.QueryContext(ctx, `SELECT i.snapshot_id, i.id, i.account_id, i.holding_id, i.instrument_id, i.native_amount, i.native_currency, i.base_amount, i.base_currency, i.quote_id, i.fx_quote_id, i.state_observation_id, i.preference_observation_id, i.complete, i.missing_reason, i.fx_preference_observation_id, a.tracking_mode FROM daily_valuation_snapshot_items i JOIN accounts a ON a.id = i.account_id WHERE i.snapshot_id IN (`+clause+`) ORDER BY i.snapshot_id, i.account_id, i.id`, args...)
+	// Inspect raw historical IDs before filtering. A current account filter is
+	// not evidence that every historical component has resolvable metadata.
+	if accountID != "" {
+		rows, err := query.QueryContext(ctx, `SELECT DISTINCT account_id FROM daily_valuation_snapshot_items WHERE snapshot_id IN (`+clause+`)`, args...)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return err
+			}
+			if !known[domain.AccountID(id)] {
+				accountID = ""
+			}
+		}
+		readErr := rows.Err()
+		closeErr := rows.Close()
+		if readErr != nil {
+			return readErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	accountClause := ""
+	if accountID != "" {
+		accountClause = " AND i.account_id = ?"
+		args = append(args, accountID.String())
+	}
+	rows, err := query.QueryContext(ctx, `SELECT i.snapshot_id, i.id, i.account_id, i.holding_id, i.instrument_id, i.native_amount, i.native_currency, i.base_amount, i.base_currency, i.quote_id, i.fx_quote_id, i.state_observation_id, i.preference_observation_id, i.complete, i.missing_reason, i.fx_preference_observation_id, a.tracking_mode FROM daily_valuation_snapshot_items i JOIN accounts a ON a.id = i.account_id WHERE i.snapshot_id IN (`+clause+`)`+accountClause+` ORDER BY i.snapshot_id, i.account_id, i.id`, args...)
 	if err != nil {
 		return err
 	}
