@@ -68,7 +68,7 @@ func TestReviewCertifiedFreshSessionNoopAndFullPublication(t *testing.T) {
 		t.Fatal("full publication lost certification", result, err)
 	}
 	noChangeFullOracle(t, f)
-	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || r.WithFullReviewRecompute().CertifiedReviewEnabled() {
+	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || fullReviewOracle(r).CertifiedReviewEnabled() {
 		t.Fatal("candidate activated default or forced-full path")
 	}
 }

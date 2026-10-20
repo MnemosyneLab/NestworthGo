@@ -134,7 +134,7 @@ func noChangeFullOracle(t *testing.T, f seriesZeroFixture) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := NewService(sqlite.NewRepository(db).WithCertifiedReviewCandidate().WithFullReviewRecompute())
+	s := NewService(fullReviewOracle(sqlite.NewRepository(db)))
 	s.fxProviderKey = f.s.FXProviderKey()
 	s.setClock(func() time.Time { return *f.now })
 	if _, err := s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -151,7 +151,7 @@ func noChangeFullOracle(t *testing.T, f seriesZeroFixture) {
 
 func TestReviewCertifiedNoChangeAndFullOracle(t *testing.T) {
 	f, r := noChangeFixture(t)
-	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || r.WithFullReviewRecompute().CertifiedReviewEnabled() {
+	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || fullReviewOracle(r).CertifiedReviewEnabled() {
 		t.Fatal("default/full oracle enabled shortcut")
 	}
 	before := noChangeProjectionRows(t, f.db)

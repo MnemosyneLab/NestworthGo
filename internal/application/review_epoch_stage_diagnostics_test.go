@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 type reviewPerfStageRepository struct {
-	*sqlite.Repository
+	reviewTestProjectionRepository
 	metrics                            *reviewSQLStats
 	capture, prepareAdmission, publish time.Duration
 	captureEnd                         time.Time
@@ -23,7 +22,7 @@ type reviewPerfStageRepository struct {
 func (r *reviewPerfStageRepository) CaptureReviewProjection(ctx context.Context, id domain.HouseholdID, at time.Time) (domain.ReviewProjectionCapture, error) {
 	before := r.metrics.totals()
 	start := time.Now()
-	capture, err := r.Repository.CaptureReviewProjection(ctx, id, at)
+	capture, err := r.reviewTestProjectionRepository.CaptureReviewProjection(ctx, id, at)
 	r.captureEnd = time.Now()
 	r.capture += r.captureEnd.Sub(start)
 	r.captureSQL = reviewPerfSQLDifference(r.metrics.totals(), before)
@@ -36,7 +35,7 @@ func (r *reviewPerfStageRepository) PublishReviewProjectionWithClock(ctx context
 	start := time.Now()
 	r.prepareAdmission += start.Sub(r.captureEnd)
 	before := r.metrics.totals()
-	err := r.Repository.PublishReviewProjectionWithClock(ctx, publication, clock)
+	err := r.reviewTestProjectionRepository.PublishReviewProjectionWithClock(ctx, publication, clock)
 	r.publish += time.Since(start)
 	r.publishSQL = reviewPerfSQLDifference(r.metrics.totals(), before)
 	r.publishCalls++

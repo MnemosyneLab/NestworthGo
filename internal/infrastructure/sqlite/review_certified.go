@@ -26,7 +26,7 @@ func (r *Repository) WithCertifiedReviewCandidate() *Repository {
 	return &copy
 }
 func (r *Repository) CertifiedReviewEnabled() bool {
-	return r.reviewCertifiedCandidate && !r.reviewFullRecompute
+	return r.reviewCertifiedCandidate
 }
 
 // The private key never leaves this DB handle or enters backup/export. A

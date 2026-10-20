@@ -34,14 +34,3 @@ func readReviewSourceCheckpoint(ctx context.Context, q schemaQuery, id domain.Ho
 	}
 	return checkpoint, nil
 }
-
-// WithReviewSourceShadowObserver installs an optional synchronous diagnostic
-// sink. It must be concurrency-safe and must not reenter the database: publish
-// observations execute while the existing immediate write transaction is held.
-// No default telemetry, persistent cache, publication decision or fast path is
-// enabled by this hook; observations contain no source values or hashes.
-func (r *Repository) WithReviewSourceShadowObserver(observer func(domain.ReviewSourceShadowObservation)) *Repository {
-	copy := *r
-	copy.reviewSourceShadowObserver = observer
-	return &copy
-}

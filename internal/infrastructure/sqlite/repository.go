@@ -12,21 +12,10 @@ import (
 )
 
 type Repository struct {
-	database                   *DB
-	reviewFullRecompute        bool
-	reviewSourceShadowObserver func(domain.ReviewSourceShadowObservation)
-	reviewCertifiedCandidate   bool
-	reviewDependencySuffix     bool
-	reviewPrefixMemoEnabled    bool
-}
-
-// WithFullReviewRecompute returns an independent repository configuration that
-// rebuilds review inputs from authoritative sources without persisted reuse.
-// It retains handling/episode history and all publication concurrency checks.
-func (r *Repository) WithFullReviewRecompute() *Repository {
-	copy := *r
-	copy.reviewFullRecompute = true
-	return &copy
+	database                 *DB
+	reviewCertifiedCandidate bool
+	reviewDependencySuffix   bool
+	reviewPrefixMemoEnabled  bool
 }
 
 func NewRepository(database *DB) *Repository {

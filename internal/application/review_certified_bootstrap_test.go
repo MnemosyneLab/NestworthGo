@@ -16,7 +16,7 @@ func historyFreeLegacyReview(t *testing.T) (seriesZeroFixture, *sqlite.Repositor
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.Value = "0" // No trigger history, including closed episodes.
 	saveSyntheticReviewRule(t, f, "Synthetic history-free restart", spec)
-	f.s = NewService(sqlite.NewRepository(f.db).WithFullReviewRecompute())
+	f.s = NewService(fullReviewOracle(sqlite.NewRepository(f.db)))
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -78,7 +78,7 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartRemainUntrusted(t *testing.T)
 				t.Fatal("legacy/restart escaped full untrusted fallback")
 			}
 			// Separate source-only full preparation predates candidate publication.
-			c, err := r.WithFullReviewRecompute().CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+			c, err := fullReviewOracle(r).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 			if err != nil {
 				t.Fatal(err)
 			}

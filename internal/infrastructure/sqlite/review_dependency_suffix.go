@@ -16,7 +16,7 @@ import (
 )
 
 // WithReviewDependencySuffix enables D1/D2 and C3 confirmation. It never grants
-// legacy/restart authority. WithFullReviewRecompute remains the complete oracle.
+// legacy/restart authority. Ineligible evidence retains complete preparation.
 func (r *Repository) WithReviewDependencySuffix() *Repository {
 	copy := *r.WithCertifiedReviewCandidate()
 	copy.reviewDependencySuffix = true

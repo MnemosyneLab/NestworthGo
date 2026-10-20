@@ -54,7 +54,7 @@ func TestReviewMemoStaleCommitHookLeavesNewerState(t *testing.T) {
 func TestDefaultReviewOptimizations(t *testing.T) {
 	db := &DB{}
 	r := NewRepository(db).WithDefaultReviewOptimizations()
-	if !r.reviewPrefixMemoEnabled || !r.reviewDependencySuffix || !r.CertifiedReviewEnabled() || r.reviewFullRecompute || !db.reviewPrefixMemo.active.Load() {
+	if !r.reviewPrefixMemoEnabled || !r.reviewDependencySuffix || !r.CertifiedReviewEnabled() || !db.reviewPrefixMemo.active.Load() {
 		t.Fatal("incorrect startup configuration")
 	}
 	// Bare repositories retain the supported C2 compatibility behavior.

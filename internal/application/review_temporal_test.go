@@ -1,8 +1,10 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,7 +27,7 @@ func temporalPublicationOracle(t *testing.T, f seriesZeroFixture, capture domain
 	if err != nil {
 		t.Fatal(err)
 	}
-	full, err := sqlite.NewRepository(f.db).WithFullReviewRecompute().CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	full, err := fullReviewOracle(sqlite.NewRepository(f.db)).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +246,8 @@ func TestReviewTemporalPreexistingFutureQuantityLifecycleOracle(t *testing.T) {
 }
 
 func TestReviewTemporalFinalClockRejectsActivationDuringFullRecheck(t *testing.T) {
-	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	db, faults := openReviewFaultDatabase(t)
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1", db)
 	f.day(t, "2026-10-03")
 	at := f.now.Add(time.Hour)
 	*f.now = at
@@ -252,7 +255,7 @@ func TestReviewTemporalFinalClockRejectsActivationDuringFullRecheck(t *testing.T
 	*f.now = at.Add(-time.Nanosecond)
 	saveSyntheticReviewRule(t, f, "Synthetic publication boundary", syntheticHistoricalReviewSpec())
 	comparisons := 0
-	repo := sqlite.NewRepository(f.db).WithReviewSourceShadowObserver(func(domain.ReviewSourceShadowObservation) { comparisons++; *f.now = at })
+	repo := &temporalRecheckFaultRepository{Repository: sqlite.NewRepository(f.db), faults: faults, afterRecheck: func() { comparisons++; *f.now = at }}
 	capture := temporalCapture(t, f)
 	stage := temporalPublicationOracle(t, f, capture)
 	err := repo.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time {
@@ -513,4 +516,26 @@ func TestReviewTemporalRollbackRestartFloorAndRestoreForceFullOracle(t *testing.
 	if err := reopened.SQL.QueryRow(`SELECT acknowledged_at FROM investment_review_episodes WHERE id=?`, episode).Scan(&ack); err != nil || ack == "" {
 		t.Fatal("rollback/restart/restore lost acknowledgement")
 	}
+}
+
+// Install a test-owned driver callback only during publication, after its full
+// source checkpoint read and before the final injected clock. Capture itself
+// is deliberately excluded so retry-count assertions retain their meaning.
+type temporalRecheckFaultRepository struct {
+	*sqlite.Repository
+	faults       *reviewDriverFaults
+	afterRecheck func()
+}
+
+func (r *temporalRecheckFaultRepository) PublishReviewProjectionWithClock(ctx context.Context, p domain.ReviewPublication, clock func() time.Time) error {
+	r.faults.mu.Lock()
+	old := r.faults.afterQuery
+	r.faults.afterQuery = func(query string) {
+		if strings.HasPrefix(query, "SELECT revision,journal_floor,tracking_epoch,tracking_version") {
+			r.afterRecheck()
+		}
+	}
+	r.faults.mu.Unlock()
+	defer func() { r.faults.mu.Lock(); r.faults.afterQuery = old; r.faults.mu.Unlock() }()
+	return r.Repository.PublishReviewProjectionWithClock(ctx, p, clock)
 }

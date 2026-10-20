@@ -84,7 +84,7 @@ func TestReviewClockOnlyCPUAllocationProfile(t *testing.T) {
 			source := newReviewPerfFixture(t, c3RefreshConfig(size))
 			logReviewPerfManifest(t, source, c3RefreshConfig(size))
 			source.service.fxProviderKey = "synthetic-pinned"
-			base, err := sqlite.NewRepository(source.db).WithFullReviewRecompute().CaptureReviewProjection(t.Context(), source.householdID, *source.now)
+			base, err := fullReviewOracle(sqlite.NewRepository(source.db)).CaptureReviewProjection(t.Context(), source.householdID, *source.now)
 			if err != nil {
 				t.Fatal(err)
 			}

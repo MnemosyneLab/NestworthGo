@@ -130,13 +130,14 @@ func logReviewPerfManifest(t *testing.T, f reviewFullPipelineFixture, c reviewPe
 }
 
 // Full recomputation is captured independently from the same authoritative DB,
-// retaining handling history but loading no reusable daily projection inputs.
+// retaining handling history but supplying no persisted daily projection inputs
+// to the independent computation.
 // Compare every emitted day's exact typed financial evidence and the complete
 // lifecycle/coverage/window summary. Only freshly generated episode IDs are
 // mapped; persisted IDs and acknowledgement times must remain identical.
 func assertReviewFullOracle(t *testing.T, f reviewFullPipelineFixture, candidate domain.ReviewPublication) {
 	t.Helper()
-	capture, err := sqlite.NewRepository(f.db).WithFullReviewRecompute().CaptureReviewProjection(t.Context(), f.householdID, *f.now)
+	capture, err := fullReviewOracle(sqlite.NewRepository(f.db)).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,14 +393,14 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 							// Reconcile/publish on separate identical scenario clones, never publish
 							// the baseline before measuring the candidate on the same DB.
 							run := cloneReviewPerfFixture(t, fixture)
-							repo := sqlite.NewRepository(run.db)
+							var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
 							if path == 0 {
-								repo = repo.WithFullReviewRecompute()
+								repo = fullReviewOracle(repo)
 							}
 							var measuredRepository Repository = repo
 							var stages *reviewPerfStageRepository
 							if traceStages {
-								stages = &reviewPerfStageRepository{Repository: repo}
+								stages = &reviewPerfStageRepository{reviewTestProjectionRepository: repo}
 								measuredRepository = stages
 							}
 							service := NewService(measuredRepository)

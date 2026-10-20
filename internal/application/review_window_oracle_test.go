@@ -44,7 +44,7 @@ func TestReviewWindowGapFallsBackToFullOracle(t *testing.T) {
 	if plan.Incremental || len(plan.Days) != 30 {
 		t.Fatalf("gap failed to force full repair: incremental=%t days=%d", plan.Incremental, len(plan.Days))
 	}
-	full, err := repository.WithFullReviewRecompute().CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	full, err := fullReviewOracle(repository).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}

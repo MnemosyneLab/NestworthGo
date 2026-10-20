@@ -483,18 +483,18 @@ func TestReviewDependencySuffixEnabledServiceAndForcedFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireCertifiedNoop(t, f, r)
-	r = r.WithFullReviewRecompute()
-	if r.CertifiedReviewEnabled() {
-		t.Fatal("rollback retained certified dispatcher")
+	oracle := fullReviewOracle(r)
+	if oracle.CertifiedReviewEnabled() {
+		t.Fatal("test oracle retained certified dispatcher")
 	}
-	cap, err := r.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	cap, err := oracle.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cap.Suffix != nil || len(cap.ReusableDailyEvidence) != 0 || cap.Certified != nil {
 		t.Fatal("forced full retained reuse authority")
 	}
-	f.s.repository = r
+	f.s.repository = oracle
 	if _, err = f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +512,7 @@ func suffixFullReference(t *testing.T, f seriesZeroFixture) *sqlite.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	r := sqlite.NewRepository(db).WithFullReviewRecompute()
+	r := fullReviewOracle(sqlite.NewRepository(db))
 	c, err := r.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)

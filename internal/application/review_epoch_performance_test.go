@@ -51,9 +51,9 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 			for path := range durable {
 				t.Run("epoch-publish", func(t *testing.T) {
 					run := cloneReviewPerfFixture(t, source)
-					repo := sqlite.NewRepository(run.db)
+					var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
 					if path == 0 {
-						repo = repo.WithFullReviewRecompute()
+						repo = fullReviewOracle(repo)
 					}
 					service := NewService(repo)
 					service.setClock(func() time.Time { return *run.now })
@@ -86,7 +86,7 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 
 func capturesRules(t *testing.T, source reviewFullPipelineFixture) []domain.ReviewRule {
 	t.Helper()
-	capture, err := sqlite.NewRepository(source.db).WithFullReviewRecompute().CaptureReviewProjection(t.Context(), source.householdID, *source.now)
+	capture, err := fullReviewOracle(sqlite.NewRepository(source.db)).CaptureReviewProjection(t.Context(), source.householdID, *source.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,10 +185,10 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 	for _, mode := range []string{"full", "baseline"} {
 		t.Run(mode, func(t *testing.T) {
 			run := cloneReviewPerfFixture(t, source)
-			repo := sqlite.NewRepository(run.db)
+			var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
 			switch mode {
 			case "full":
-				repo = repo.WithFullReviewRecompute()
+				repo = fullReviewOracle(repo)
 			}
 			prepare := func() domain.ReviewPublication {
 				t.Helper()
