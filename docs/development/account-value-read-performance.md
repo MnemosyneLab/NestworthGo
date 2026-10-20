@@ -48,22 +48,8 @@ ties. Setup is outside the timed loop. `legacy` and `indexed` execute against
 the same database and include scanning and decimal parsing. The additional
 `tied=true` case gives every observation the same effective and creation times.
 
-Initial measurements on Linux amd64, Go 1.26.0, modernc SQLite 1.49.1,
-Intel Xeon Platinum 8370C, GOMAXPROCS=5; medians of five 200 ms samples for
-`tied=false`, measured before concurrent full-suite validation:
-
-| Values per account | Previous query | Indexed query | Time reduction |
-| --- | ---: | ---: | ---: |
-| 1 | 0.202 ms | 0.191 ms | 5.2% |
-| 365 | 11.840 ms | 0.238 ms | 98.0% |
-| 3650 | 126.582 ms | 0.268 ms | 99.8% |
-
-The indexed path uses about 17.4 KB and 767 allocations per call at all three
-sizes; allocation reduction is not the main benefit. The smallest case shows
-no observed regression, but its small timing difference is not a significant
-product-level claim.
-
-These are warm database microbenchmarks, not cold-disk or end-to-end UI timings.
+Historical warm-database microbenchmarks are distinct from cold-disk or
+end-to-end UI timings; see the [performance report](performance-optimization-report.md).
 The latest equal-timestamp group still needs insertion-order selection because
 the index ends with UUID rather than rowid. If all timestamps are identical,
 work therefore grows with that group; this change does not promise constant
