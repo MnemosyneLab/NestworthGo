@@ -1,5 +1,7 @@
 # D1/D2 dependency/suffix implementation and validation
 
+Historical pre-PR133 measurements. See [integrated clock-omission evidence](performance-d1-d2-clock-omission-2026-10-20.md) for current source, proof and matched separate-build results.
+
 This report preserves the initial checkpoint. See [the follow-up evidence](performance-d1-d2-followup-2026-10-20.md) for current production results, CI timing and current race policy.
 
 Implementation head: `647371973483574cd66eac39213ddae4ae119f57` (see the manifest for full SHA). Base:

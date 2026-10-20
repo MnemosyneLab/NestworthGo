@@ -1,5 +1,7 @@
 # D1/D2 follow-up: enabled path, measured overhead and remaining decision
 
+Historical pre-PR133 measurements. See [integrated clock-omission evidence](performance-d1-d2-clock-omission-2026-10-20.md) for current source, proof and matched separate-build results.
+
 Production head measured: `577d00388504638bdb953826e3720a036880442e`.
 The final evidence commit adds only tests and documentation. The user's main
 merge `94538f775e946564fdfdddde247cbe2f9e5382ff` is retained as an ancestor.

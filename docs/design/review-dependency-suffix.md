@@ -78,7 +78,9 @@ association. It saves financial input/predicate recomputation, not all O(history
 work. A compact resumable lifecycle checkpoint is deferred until separately
 proved. No financial history or frozen event is dropped to create that shortcut.
 
-The resulting complete publication retains all original epoch, episode,
+Correction/fallback publications remain complete. Clock-only publications may
+omit exactly attested daily output under the contract below. All retain the
+original epoch, episode,
 handling, state, control, checkpoint, temporal-frontier, cancellation and atomic
 write work. C3's exact actual-argument equality comparison omits only zero-effect
 daily UPSERTs. Unrelated daily results produce no SQL writes. Full source
