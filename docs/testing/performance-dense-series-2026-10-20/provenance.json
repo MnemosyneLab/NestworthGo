@@ -1,0 +1,54 @@
+{
+  "purpose": "matched synthetic dense historical series latency comparison",
+  "baseline_source": "47c31ca88f1527f550e06f0c43d8f8854f3c0b08",
+  "candidate_source": "f2fee931fa3d5041311468534ccb196332696067",
+  "profile_test_source_sha256": "ca2826ed9eca8275d32204f525fa5eebc14224a62f3cc42e44723def001ecdfb",
+  "baseline_test_binary_sha256": "cfc1e897bc35642acce128b3e2b01d32488c51a353519fab3868db9320ddc083",
+  "candidate_test_binary_sha256": "2778f442cdc7f34e0ea5a77faeaf13a90213d8bfc16869f0c335c02f8768ee73",
+  "synthetic_database_sha256": "909007c2272503124fac17e71c6f64b6048efa23a81298bafb630901b3c5b3aa",
+  "synthetic_fixture": {
+    "accounts": 100,
+    "holdings": 900,
+    "cash_leaves": 100,
+    "quote_backfills": 9000,
+    "activities": 25000,
+    "candidate_facts": 86433,
+    "candidate_bytes": 13513678,
+    "leaves": 1000,
+    "points": 31,
+    "range": "2026-08-01..2026-08-31",
+    "clock": "2026-09-01T12:00:00Z",
+    "synthetic_only": true
+  },
+  "environment": {
+    "os": "Linux x86_64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "cpu_quota": 4,
+    "gomaxprocs": 4,
+    "go": "go1.26.0",
+    "modernc_sqlite_module": "v1.49.1",
+    "sqlite_runtime": "3.53.0",
+    "sampling": "fresh test process and SQLite connection per call; warm OS file data; 10 alternating pairs analyzed"
+  },
+  "command_identity": {
+    "baseline_build": "GOPATH=/tmp/nestworth-gopath GOMODCACHE=/tmp/nestworth-gopath/pkg/mod GOCACHE=/tmp/nestworth-go-cache /tmp/nestworth-go1.26/bin/go test -c -o /tmp/nw-dense-distribution-base.test ./internal/application (cwd: baseline worktree at baseline_source)",
+    "candidate_build": "GOPATH=/tmp/nestworth-gopath GOMODCACHE=/tmp/nestworth-gopath/pkg/mod GOCACHE=/tmp/nestworth-go-cache /tmp/nestworth-go1.26/bin/go test -c -o /tmp/nw-dense-distribution-shared.test ./internal/application (cwd: candidate worktree at candidate_source)",
+    "sample_runner": "docs/testing/performance-dense-series-2026-10-20/run_paired.py; TestHistoricalSeriesCPUProfileEvidence; GOMAXPROCS=4; NW_SERIES_EVIDENCE_DB=<isolated synthetic DB>; NW_SERIES_CPU_EVIDENCE_DIR=<isolated evidence dir>; alternating fresh processes"
+  },
+  "execution_note": "The original 30-pair runner was stopped after 14 completed pairs when the user reduced the repetition target. Statistics use only the first 10 pairs; all 14 pairs are preserved. Two earlier exploratory runs are retained but invalid for comparison because they were built from the candidate source on both sides.",
+  "source_check": {
+    "baseline_sql_calls": 623,
+    "candidate_sql_calls": 273,
+    "facts_equal": 86433,
+    "bytes_equal": 13513678,
+    "leaves_equal": 1000,
+    "points_equal": 31
+  },
+  "ci": {
+    "candidate_run": 39356706774,
+    "main_pr130_run": 39355709532,
+    "main_pr129_run": 39350454742,
+    "main_pr128_run": 39277492480,
+    "step_timing_limitation": "GitHub job log endpoint returned no step logs; timing artifacts were listed but download returned HTTP 403. Job-level durations are available."
+  }
+}

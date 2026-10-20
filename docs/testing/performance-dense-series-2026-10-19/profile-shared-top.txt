@@ -1,0 +1,44 @@
+File: nw-dense-profile-shared.test
+Build ID: 017ab213dd6078dbfe83c7561d4f60ea2bcba400
+Type: cpu
+Time: 2026-10-19 08:41:21 UTC
+Duration: 3.30s, Total samples = 4.11s (124.40%)
+Showing nodes accounting for 0.80s, 19.46% of 4.11s total
+Dropped 261 nodes (cum <= 0.02s)
+Showing top 35 nodes out of 254
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      3.33s 81.02%  github.com/waltwang/nestworth-go/internal/application.(*Service).HistoricalOverviewSeries
+         0     0%     0%      3.33s 81.02%  github.com/waltwang/nestworth-go/internal/application.TestHistoricalSeriesCPUProfileEvidence
+         0     0%     0%      3.33s 81.02%  testing.tRunner
+         0     0%     0%      2.65s 64.48%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).LoadHistoricalOverviewSeriesBatch
+         0     0%     0%      2.52s 61.31%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadHistoricalSeriesBatchQuery
+         0     0%     0%      2.36s 57.42%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.listHistoricalSeriesActivities
+         0     0%     0%      2.26s 54.99%  database/sql.withLock
+         0     0%     0%      1.86s 45.26%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.hydrateActivities
+         0     0%     0%      1.86s 45.26%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.hydrateHistoricalActivities
+         0     0%     0%      1.68s 40.88%  modernc.org/sqlite.(*conn).step
+         0     0%     0%      1.68s 40.88%  modernc.org/sqlite/lib.Xsqlite3_step
+         0     0%     0%      1.67s 40.63%  modernc.org/sqlite/lib._sqlite3Step
+     0.28s  6.81%  6.81%      1.67s 40.63%  modernc.org/sqlite/lib._sqlite3VdbeExec
+         0     0%  6.81%      1.56s 37.96%  database/sql.(*Rows).Next
+         0     0%  6.81%      1.53s 37.23%  database/sql.(*Rows).Next.func1
+         0     0%  6.81%      1.53s 37.23%  database/sql.(*Rows).nextLocked
+     0.01s  0.24%  7.06%      1.53s 37.23%  modernc.org/sqlite.(*rows).Next
+     0.01s  0.24%  7.30%      1.39s 33.82%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.attachActivityResulting
+         0     0%  7.30%      0.84s 20.44%  runtime.systemstack
+     0.17s  4.14% 11.44%      0.82s 19.95%  modernc.org/sqlite/lib._sqlite3BtreeIndexMoveto
+         0     0% 11.44%      0.73s 17.76%  runtime.gcBgMarkWorker
+         0     0% 11.44%      0.73s 17.76%  runtime.gcBgMarkWorker.func2
+         0     0% 11.44%      0.73s 17.76%  runtime.gcDrain
+         0     0% 11.44%      0.72s 17.52%  database/sql.(*DB).queryDC
+         0     0% 11.44%      0.72s 17.52%  database/sql.(*DB).queryDC.func1
+         0     0% 11.44%      0.72s 17.52%  database/sql.(*Tx).QueryContext
+         0     0% 11.44%      0.72s 17.52%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*seriesQueryCounter).QueryContext
+         0     0% 11.44%      0.71s 17.27%  database/sql.ctxDriverQuery
+         0     0% 11.44%      0.71s 17.27%  modernc.org/sqlite.(*conn).QueryContext
+         0     0% 11.44%      0.71s 17.27%  modernc.org/sqlite.(*conn).query
+         0     0% 11.44%      0.48s 11.68%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 11.44%      0.46s 11.19%  modernc.org/sqlite.(*stmt).query
+     0.32s  7.79% 19.22%      0.43s 10.46%  runtime.tryDeferToSpanScan
+     0.01s  0.24% 19.46%      0.33s  8.03%  runtime.scanSpan
+         0     0% 19.46%      0.32s  7.79%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.attachActivityEffects (inline)
