@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -96,27 +97,46 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 		}
 		tz := rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion
 		policy := "rule:" + string(rule.ID) + "/v:" + strconv.Itoa(rule.CurrentConditionVersion)
-		for _, id := range reviewWindowInstruments(*c, rule) {
-			through := previous
+		location, err := domain.LoadFinancialLocation(rule.Spec.Schedule.Timezone)
+		if err != nil {
+			return err
+		}
+		origin := c.Historical.History.Origin.StartedAt.In(location).Format(time.DateOnly)
+		ids := reviewWindowInstruments(*c, rule)
+		through := make(map[domain.InstrumentID]string, len(ids))
+		for _, id := range ids {
+			on := previous
 			for _, d := range plan.Dirty {
-				if d.RuleID == rule.ID && d.InstrumentID == id && d.From <= through {
+				if d.RuleID == rule.ID && d.InstrumentID == id && d.From <= on {
 					day, _ := time.Parse(time.DateOnly, d.From)
-					through = day.AddDate(0, 0, -1).Format(time.DateOnly)
+					on = day.AddDate(0, 0, -1).Format(time.DateOnly)
 				}
 			}
-			start := c.Historical.History.Origin.StartedAt
-			loc, err := domain.LoadFinancialLocation(rule.Spec.Schedule.Timezone)
-			if err != nil {
-				return err
+			through[id] = on
+		}
+		evidence := map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}
+		// Same bounded request-table strategy as B: one seek per instrument,
+		// with one query/decoder per <=100 instruments rather than per pair.
+		for start := 0; start < len(ids); start += 100 {
+			end := min(start+100, len(ids))
+			values := []string{}
+			args := []any{}
+			for _, id := range ids[start:end] {
+				if through[id] >= origin {
+					values = append(values, "(?,?)")
+					args = append(args, id.String(), through[id])
+				}
 			}
-			origin := start.In(loc).Format(time.DateOnly)
-			if through < origin {
+			if len(values) == 0 {
 				continue
 			}
-			evidence := map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}
-			rows, err := tx.QueryContext(ctx, `SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,r.evidence_json,r.input_fingerprint,0
-    FROM investment_review_daily_inputs d LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.instrument_id=d.instrument_id AND r.timezone_version=d.timezone_version AND r.on_date=d.on_date
-    WHERE d.household_id=? AND d.instrument_id=? AND d.timezone_version=? AND d.input_policy=? AND d.on_date>=? AND d.on_date<=? ORDER BY d.on_date`, string(rule.ID), rule.CurrentConditionVersion, c.HouseholdID.String(), id.String(), tz, policy, origin, through)
+			args = append(args, c.HouseholdID.String(), tz, policy, origin, string(rule.ID), rule.CurrentConditionVersion)
+			rows, err := tx.QueryContext(ctx, `WITH requested(instrument_id,through_on) AS (VALUES `+strings.Join(values, ",")+`)
+             SELECT d.instrument_id,d.on_date,d.input_fingerprint,d.evidence_json,d.coverage_json,r.evidence_json,r.input_fingerprint,0
+             FROM requested i CROSS JOIN investment_review_daily_inputs d
+             ON d.instrument_id=i.instrument_id AND d.on_date<=i.through_on AND d.household_id=? AND d.timezone_version=? AND d.input_policy=? AND d.on_date>=?
+             LEFT JOIN investment_review_daily_results r ON r.rule_id=? AND r.condition_version=? AND r.instrument_id=d.instrument_id AND r.timezone_version=d.timezone_version AND r.on_date=d.on_date
+             ORDER BY d.instrument_id,d.on_date`, args...)
 			if err != nil {
 				return err
 			}
@@ -126,8 +146,10 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 				}
 				return nil
 			}
-			first, _ := time.Parse(time.DateOnly, origin)
-			for day := first; day.Format(time.DateOnly) <= through; day = day.AddDate(0, 0, 1) {
+		}
+		first, _ := time.Parse(time.DateOnly, origin)
+		for _, id := range ids {
+			for day := first; day.Format(time.DateOnly) <= through[id]; day = day.AddDate(0, 0, 1) {
 				key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: tz, On: day.Format(time.DateOnly)}
 				value, ok := evidence[key]
 				if !ok || !value.HasResult || value.Input.FXProviderKey != p.CertifiedProvider.Key {

@@ -47,7 +47,8 @@ lease remain unchanged. No lost event or acknowledgement history is invented.
 
 ## D2 computation and publication
 
-In the coherent capture transaction, load current-version complete daily
+In the coherent capture transaction, use request-table chunks of at most 100
+instruments (206 SQL parameters) per rule to load current-version complete daily
 input/result pairs from origin through the earlier of the previous latest
 closed day and dirty day minus one. The universe includes explicit/current
 targets, evaluated instruments, and open episodes. Validate contiguous civil
