@@ -9,7 +9,7 @@ const syncHarness = vi.hoisted(() => {
   const listeners = new Map<string, Set<(event: { data: unknown }) => void>>();
   return {
     listeners,
-    currentSync: vi.fn(async () => ({ jobId: "" })),
+    currentSync: vi.fn(async (): Promise<{ jobId: string; outcome?: string; sequence?: number }> => ({ jobId: "" })),
     emit(name: string) {
       for (const listener of listeners.get(name) ?? []) listener({ data: undefined });
     },
@@ -50,6 +50,8 @@ function Provider({ client, children }: { client: ReturnType<typeof createTestQu
 describe("workspace market-data sync observation", () => {
   afterEach(() => {
     syncHarness.listeners.clear();
+    syncHarness.currentSync.mockReset();
+    syncHarness.currentSync.mockResolvedValue({ jobId: "" });
     vi.restoreAllMocks();
   });
 
@@ -69,5 +71,67 @@ describe("workspace market-data sync observation", () => {
 
     view.unmount();
     expect(syncHarness.listeners.get("marketdata.sync.completed")).toBeUndefined();
+  });
+
+  it("invalidates completed data once with both observers", async () => {
+    const client = createTestQueryClient({ retry: false });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const view = render(createElement(Provider, { client }, createElement(Fragment, null,
+      createElement(MarketDataSyncWorkspaceObserver), createElement(PageSyncObserver))));
+    await waitFor(() => expect(syncHarness.currentSync).toHaveBeenCalled());
+    act(() => client.setQueryData(queryKeys.marketdata.currentSync, { jobId: "job-1", outcome: "running", sequence: 1 }));
+    act(() => client.setQueryData(queryKeys.marketdata.currentSync, { jobId: "job-1", outcome: "completed", sequence: 2 }));
+    const completionCalls = () => invalidate.mock.calls.filter(([arg]) =>
+      JSON.stringify(arg) === JSON.stringify({ queryKey: queryKeys.history.snapshotState })).length;
+    await waitFor(() => expect(completionCalls()).toBe(1));
+    act(() => client.setQueryData(queryKeys.marketdata.currentSync, null));
+    expect(completionCalls()).toBe(1);
+    view.unmount();
+  });
+
+  it("compensates when a running job disappears", async () => {
+    syncHarness.currentSync.mockResolvedValueOnce({ jobId: "job-2", outcome: "running", sequence: 3 });
+    const client = createTestQueryClient({ retry: false });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const view = render(createElement(Provider, { client }, createElement(MarketDataSyncWorkspaceObserver)));
+    await waitFor(() => expect(client.getQueryData(queryKeys.marketdata.currentSync)).toMatchObject({ jobId: "job-2" }));
+    await waitFor(() => expect(syncHarness.listeners.get("marketdata.sync.completed")?.size).toBe(1));
+    act(() => client.setQueryData(queryKeys.marketdata.currentSync, null));
+    await waitFor(() => expect(invalidate.mock.calls.filter(([arg]) =>
+      JSON.stringify(arg) === JSON.stringify({ queryKey: queryKeys.history.snapshotState })).length).toBe(1));
+    view.unmount();
+  });
+
+  it("observes an initial terminal job and each changed terminal signature once", async () => {
+    syncHarness.currentSync.mockResolvedValueOnce({ jobId: "job-3", outcome: "cancelled", sequence: 4 });
+    const client = createTestQueryClient({ retry: false });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const view = render(createElement(Provider, { client }, createElement(Fragment, null,
+      createElement(MarketDataSyncWorkspaceObserver), createElement(PageSyncObserver))));
+    const count = () => invalidate.mock.calls.filter(([arg]) =>
+      JSON.stringify(arg) === JSON.stringify({ queryKey: queryKeys.history.snapshotState })).length;
+    await waitFor(() => expect(count()).toBe(1));
+    act(() => client.setQueryData(queryKeys.marketdata.currentSync, { jobId: "job-3", outcome: "cancelled", sequence: 5 }));
+    await waitFor(() => expect(count()).toBe(2));
+    view.unmount();
+  });
+
+  it("observes the same terminal signature once for a replacement QueryClient", async () => {
+    const terminal = { jobId: "job-4", outcome: "completed", sequence: 6 };
+    syncHarness.currentSync.mockResolvedValue(terminal);
+    const first = createTestQueryClient({ retry: false });
+    const second = createTestQueryClient({ retry: false });
+    first.setQueryData(queryKeys.marketdata.currentSync, terminal);
+    second.setQueryData(queryKeys.marketdata.currentSync, terminal);
+    const firstInvalidation = vi.spyOn(first, "invalidateQueries");
+    const secondInvalidation = vi.spyOn(second, "invalidateQueries");
+    const workspace = createElement(MarketDataSyncWorkspaceObserver);
+    const view = render(createElement(Provider, { client: first }, workspace));
+    const count = (spy: typeof firstInvalidation) => spy.mock.calls.filter(([arg]) =>
+      JSON.stringify(arg) === JSON.stringify({ queryKey: queryKeys.history.snapshotState })).length;
+    await waitFor(() => expect(count(firstInvalidation)).toBe(1));
+    view.rerender(createElement(Provider, { client: second }, workspace));
+    await waitFor(() => expect(count(secondInvalidation)).toBe(1));
+    view.unmount();
   });
 });
