@@ -42,7 +42,6 @@ type ReviewCertifiedCapture struct {
 	ReviewFingerprint  string
 	SchemaCookie       int
 	InitialPublication bool // Captured private genesis eligibility; publisher must claim it.
-	MayBootstrap       bool // Disabled: current absence does not prove historical absence.
 	MayCertify         bool
 	MayReuse           bool
 	PreviousProvider   ReviewProviderSelection

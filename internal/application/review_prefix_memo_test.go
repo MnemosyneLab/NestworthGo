@@ -7,8 +7,6 @@ import (
 
 func TestReviewPrefixMemoColdWarmOwnedAndNoop(t *testing.T) {
 	f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 5, MinHits: 3})
-	t.Setenv("NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE", "")
-	t.Setenv("NESTWORTH_REVIEW_FULL_RECOMPUTE", "")
 	r = r.WithDefaultReviewOptimizations()
 	f.s.repository = r
 	f.day(t, "2026-10-13")

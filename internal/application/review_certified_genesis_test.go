@@ -100,7 +100,7 @@ func TestReviewCertifiedGenesisRequiresPrivateLifecycleProof(t *testing.T) {
 			}
 			p := certifiedStage(t, f, r)
 			want := kind == "new"
-			if p.Capture.Certified.InitialPublication != want || p.Capture.Certified.MayCertify != want || p.Capture.Certified.MayBootstrap {
+			if p.Capture.Certified.InitialPublication != want || p.Capture.Certified.MayCertify != want {
 				t.Fatal("wrong genesis eligibility", kind, p.Capture.Certified.InitialPublication, p.Capture.Certified.MayCertify)
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {

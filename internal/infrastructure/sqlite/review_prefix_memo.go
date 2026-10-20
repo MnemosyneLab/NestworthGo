@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,12 +18,10 @@ const reviewPrefixMemoMaxEntries = 65536
 const reviewPrefixMemoMaxPayload = 32 << 20
 
 // WithDefaultReviewOptimizations configures the shared GUI/MCP repository.
-// Environment switches are process-local and never alter household settings.
+// Normal startup always uses authenticated suffix and same-handle memo reuse.
+// Ineligible evidence continues through the complete preparation fallback.
 func (r *Repository) WithDefaultReviewOptimizations() *Repository {
-	if os.Getenv("NESTWORTH_REVIEW_FULL_RECOMPUTE") == "1" {
-		return r.WithFullReviewRecompute()
-	}
-	return r.WithReviewPrefixMemo(os.Getenv("NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE") != "1")
+	return r.WithReviewPrefixMemo()
 }
 
 // WithReviewPrefixMemo enables bounded same-handle evidence reuse. A new handle

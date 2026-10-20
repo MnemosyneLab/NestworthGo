@@ -74,7 +74,7 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartRemainUntrusted(t *testing.T)
 				t.Fatal("new handle trusted an old certificate", ok, err)
 			}
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse || p.CertifiedFullOracle != nil || len(p.Rules[0].Days) != 11 {
+			if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse || p.CertifiedFullOracle != nil || len(p.Rules[0].Days) != 11 {
 				t.Fatal("legacy/restart escaped full untrusted fallback")
 			}
 			// Separate source-only full preparation predates candidate publication.
@@ -117,7 +117,7 @@ func TestReviewCertifiedRecomputeDoesNotProveHistoricalProvenance(t *testing.T) 
 		}
 	}
 	p := certifiedStage(t, f, r)
-	if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+	if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
 		t.Fatal("recomputation was mistaken for historical provenance")
 	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -183,7 +183,7 @@ func TestReviewCertifiedBootstrapRetainsUnprovenHistory(t *testing.T) {
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
 	p := certifiedStage(t, f, r)
-	if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+	if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
 		t.Fatal("retained resolved history acquired provenance")
 	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
@@ -210,7 +210,7 @@ func TestReviewCertifiedBootstrapRejectsUnsupportedRules(t *testing.T) {
 				}
 			}
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.MayBootstrap {
+			if p.Capture.Certified.MayCertify {
 				t.Fatal("unsupported rule history selected bootstrap")
 			}
 			if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {

@@ -85,7 +85,7 @@ func TestReviewCertifiedDeletedHistoryCannotBootstrap(t *testing.T) {
 				}
 			}
 			p := certifiedStage(t, f, r)
-			if p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
+			if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
 				t.Error("deleted lifecycle/ack history acquired bootstrap eligibility")
 			}
 			if kind != "resolved-ack" {

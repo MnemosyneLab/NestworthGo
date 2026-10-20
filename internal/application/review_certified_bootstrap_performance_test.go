@@ -73,7 +73,7 @@ func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 						t.Fatal(err)
 					}
 					if arm == "certified" {
-						if c.Certified.MayBootstrap || c.Certified.MayCertify || c.Certified.MayReuse {
+						if c.Certified.MayCertify || c.Certified.MayReuse {
 							t.Fatal("invalid bootstrap authority")
 						}
 						c.Certified.Provider = f.service.reviewProviderSnapshot()

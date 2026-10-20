@@ -125,7 +125,7 @@ func TestReviewCertifiedOwnDDLDoesNotLaunderLostFrozenHistory(t *testing.T) {
 	}
 	certifiedOwnDDL(t, f, true, false)
 	p := certifiedStage(t, f, r)
-	if p.Capture.Certified.MayCertify || p.Capture.Certified.MayBootstrap || p.Capture.Certified.MayReuse {
+	if p.Capture.Certified.MayCertify || p.Capture.Certified.MayReuse {
 		t.Error("lost frozen event history was treated as an authentic unchanged projection")
 	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
