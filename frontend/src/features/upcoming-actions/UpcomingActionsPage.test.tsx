@@ -35,6 +35,19 @@ describe("upcoming UI", () => {
     query.isError = false; query.data = upcomingData(); query.data.completeness = "partial"; query.data.counts.dataChecks = 1; view.rerender(tree(<OverviewUpcomingActionsCard presentation="homepage" />));
     expect(screen.getByText(/information needed to assess/)).toBeInTheDocument();
   });
+  it("shows only the empty state, without empty section cards, when nothing is upcoming", () => {
+    query.data = upcomingData([]);
+    mount(<UpcomingActionsPage />);
+    expect(screen.getByText("No known attention or scheduled items. See eligible items and data checks below.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Scheduled" })).not.toBeInTheDocument();
+  });
+  it("omits only the section that has no rows", () => {
+    query.data = upcomingData([upcomingItem({ id: "scheduled-only", displayName: "Later deposit", group: "scheduled", phase: "upcoming" })]);
+    mount(<UpcomingActionsPage />);
+    expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Scheduled" })).getByText("Later deposit")).toBeInTheDocument();
+  });
   it("pages in fifty-item increments and keeps eligible items collapsed", async () => {
     query.data = upcomingData([...Array.from({ length: 51 }, (_, i) => upcomingItem({ id: `item-${i}`, displayName: `Deposit ${i}` })), upcomingItem({ id: "eligible", displayName: "Old unlock", group: "eligible", phase: "eligible" })]);
     mount(<UpcomingActionsPage />);

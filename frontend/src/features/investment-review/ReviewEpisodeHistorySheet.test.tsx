@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   history: { data: { items: [{ episodeId: "synthetic-old", ruleId: "synthetic-rule", ruleName: "Synthetic rule", instrumentId: "synthetic-fund", instrumentName: "Synthetic fund", positionEpochId: "synthetic-epoch", openedConditionVersion: 1, firstHitOn: "2026-10-01", triggeredOn: "2026-10-02", firstDetectedAt: "2026-10-03T12:00:00Z", latestClosedOn: "2026-10-04", windowStart: "2026-10-01", windowEnd: "2026-10-02", hitCount: 2, falseCount: 0, unknownCount: 0, acknowledgedAt: "2026-10-03T13:00:00Z", resolvedAt: "2026-10-04T12:00:00Z", resolvedReason: "position_closed", revision: 3 }], nextCursor: "next-history", reportRevision: "history-1", ruleId: "synthetic-rule" }, isPending: false, isError: false, isFetching: false, refetch: vi.fn() },
   events: { data: { items: [{ id: "synthetic-event", episodeId: "synthetic-old", kind: "resolved", payloadJson: "{}", createdAt: "2026-10-04T12:00:00Z" }], nextCursor: "", reportRevision: "events-1", episodeId: "synthetic-old" }, isPending: false, isError: false, isFetching: false, refetch: vi.fn() },
 }));
+vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "Asia/Singapore" } }) }));
 vi.mock("@/queries/investmentReviewV2", () => ({
   useReviewRulesV2: () => ({ data: [{ id: "synthetic-rule", name: "Synthetic rule", evaluator: "daily_predicate_v1" }], isPending: false, isError: false, hasNextPage: false }),
   useReviewEpisodeHistoryPage: (ruleId: string, cursor: string, active: boolean) => { state.historyCall(ruleId, cursor, active); return state.history; },
@@ -34,5 +35,15 @@ describe("investment review history", () => {
     await userEvent.click(screen.getByText("Events"));
     await waitFor(() => expect(screen.getByText("Resolved")).toBeVisible());
     expect(screen.queryByText(/Hits:/)).not.toBeInTheDocument();
+  });
+  it("shows detection, acknowledgement, closing and event times in the household timezone instead of raw UTC text", async () => {
+    render(<ReviewEpisodeHistorySheet open onOpenChange={vi.fn()} />);
+    const row = screen.getByText("Synthetic fund").closest("li")!;
+    expect(row).toHaveTextContent(/first detected Oct 3, 2026, 8:00\s*PM/);
+    expect(row).toHaveTextContent(/Acknowledged Oct 3, 2026, 9:00\s*PM/);
+    expect(row).toHaveTextContent(/Closed Oct 4, 2026, 8:00\s*PM/);
+    await userEvent.click(screen.getByText("Events"));
+    await waitFor(() => expect(row).toHaveTextContent(/Resolved\s*Oct 4, 2026, 8:00\s*PM/));
+    expect(row.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:/);
   });
 });
