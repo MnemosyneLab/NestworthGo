@@ -166,3 +166,30 @@ following explicit user approval. `NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE=1`
 disables that memo while retaining D1/D2; the full-recompute switch above takes
 precedence. See [the memo contract](review-prefix-memo-experiment.md) for limits,
 authority requirements and the measured cold/memory tradeoff.
+
+## Direct reference FX import extension
+
+Changed FX has a separately versioned non-FX invariant, complete authenticated
+candidate inventories from both captured FX collections, and a complete sealed
+household Agent provenance inventory. The original non-quote fingerprint still
+includes FX and remains the instrument-quote guard; no provenance table is
+ignored. Descriptions are derived inside coherent capture before source-MAC
+signing and copied into an authentic publication certificate. Missing/legacy
+versions cannot authorize changed-FX reuse.
+
+The initial scope is a production `ImportAgentMarketData` append, same-date
+replacement correction or retraction for one direct pair of agent daily-reference
+candidates with stable preferences/policy. Every prior provenance row remains
+identical. Each added FX record and active-candidate addition/withdrawal must
+independently match the sealed inventories and journal IDs, with supersedes/target
+association. Quote-only raw UPDATE/DELETE is full fallback. Candidate/provenance
+coverage includes inactive targets and unrelated instrument records; their changes
+are never broadly exempted.
+
+Every known rule/instrument is invalidated from the earliest affected date through
+latest closed day, retaining full origin policy/lifecycle replay and every existing
+MAC, sealing, CAS, physical connection, provider and clock fence. Unsupported
+sources/routing, pair/date/policy moves, unrelated/mixed writes, incomplete proof
+and restart/restore remain full preparation. See the [production import proof and
+full-oracle evidence](../testing/performance-d-fx-boundary-2026-10-20.md) for exact
+eligibility and demonstrated application-path computation savings.

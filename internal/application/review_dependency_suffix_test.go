@@ -179,7 +179,7 @@ func testReviewDependencySuffixFullDurableOracle(t *testing.T, extended bool) {
 }
 
 func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
-	for _, scenario := range []string{"source", "handling", "tamper-prefix", "cancel", "legacy-publisher", "disabled-publisher", "clock", "provider-aba", "projection", "floor", "checkpoint-abort", "external-source", "final-cancel", "final-prefix-change", "final-digest-change", "final-source-proof-change"} {
+	for _, scenario := range []string{"source", "handling", "tamper-prefix", "cancel", "legacy-publisher", "disabled-publisher", "clock", "provider-aba", "projection", "floor", "checkpoint-abort", "external-source", "final-cancel", "final-prefix-change", "final-digest-change", "final-source-proof-change", "final-fx-description-change"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
 			f.day(t, "2026-10-13")
@@ -252,6 +252,12 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 					return *f.now
 				}
 			}
+			if scenario == "final-fx-description-change" {
+				clock = func() time.Time {
+					p.Capture.Certified.FXDescription.NonFXFingerprint = "synthetic-drift"
+					return *f.now
+				}
+			}
 			if scenario == "final-prefix-change" {
 				clock = func() time.Time { tamperPrefix(); return *f.now }
 			}
@@ -286,7 +292,9 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 
 // Preserve every preexisting identity. Only UUIDs independently allocated by
 // the two current publications map through their complete semantic key; every
-// financial, lifecycle, handling, frozen payload and timestamp field stays exact.
+// financial, lifecycle, handling and frozen payload stays exact. The row helper
+// omits computed/evaluated/revised timestamps; daily timestamps are compared
+// separately by publicationDailyTimes.
 func suffixExistingIdentities(t *testing.T, db *sqlite.DB) map[string]bool {
 	t.Helper()
 	ids := map[string]bool{}
@@ -573,6 +581,13 @@ func TestReviewDependencySourceDescriptionMatchesFullDerivation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			fx, err := domain.DescribeReviewFX(p.Capture.Historical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(fx, p.Capture.Certified.FXDescription) {
+				t.Fatal("FX description differs from coherent full derivation")
+			}
 			actual := p.Capture.Certified.SuffixSourceProof
 			if !reflect.DeepEqual(quotes, actual.QuoteSeals) || nonquote != actual.NonQuoteFingerprint {
 				t.Fatal("description differs from independent complete derivation")
@@ -588,7 +603,7 @@ func TestReviewDependencySourceDescriptionMatchesFullDerivation(t *testing.T) {
 			if err = jsoncodec.Unmarshal([]byte(raw), &cert); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(cert.SuffixQuoteSeals, quotes) || cert.SuffixNonQuoteFingerprint != nonquote {
+			if !reflect.DeepEqual(cert.SuffixQuoteSeals, quotes) || cert.SuffixNonQuoteFingerprint != nonquote || !reflect.DeepEqual(cert.SuffixFX, fx) {
 				t.Fatal("published source description differs")
 			}
 		})
