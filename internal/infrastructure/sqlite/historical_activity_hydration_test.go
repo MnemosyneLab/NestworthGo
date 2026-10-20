@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +19,86 @@ type historicalHydrationProbe struct {
 	calls, maxArgs int
 	cancel         context.CancelFunc
 	afterChunk     func() error
+}
+
+// Retain the previous four separately bound IN sets as an independent SQL
+// oracle. All returned endpoint fields are compared, including exact decimals.
+type legacyResultingQuery struct{ queryer }
+
+func (q legacyResultingQuery) QueryContext(ctx context.Context, statement string, args ...any) (*sql.Rows, error) {
+	if strings.HasPrefix(statement, "WITH requested_activity(id) AS (VALUES ") {
+		statement = statement[strings.Index(statement, "SELECT e.activity_id"):]
+		clause, _ := sqlInArgs(make([]string, len(args)))
+		statement = strings.ReplaceAll(statement, "IN (SELECT id FROM requested_activity)", "IN ("+clause+")")
+		all := make([]any, 0, 4*len(args))
+		for range 4 {
+			all = append(all, args...)
+		}
+		args = all
+	}
+	return q.queryer.QueryContext(ctx, statement, args...)
+}
+
+func TestActivityResultingSharedIDsMatchesLegacyAllEndpointKinds(t *testing.T) {
+	db, _, household, account, instrument := seedPortfolioRepository(t)
+	holding := domain.NewHoldingID()
+	stamp := "2026-08-23T12:00:00.000Z"
+	if _, err := db.SQL.Exec(`INSERT INTO holdings(id,account_id,instrument_id,quantity,created_at,updated_at) VALUES(?,?,?,'1',?,?)`, holding.String(), account.ID.String(), instrument.ID.String(), stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
+	activities := make([]domain.Activity, 5) // Last ID is deliberately absent.
+	for i := range activities {
+		activities[i].ID = domain.NewActivityID()
+	}
+	for i, target := range []string{"account_value", "account_cash", "holding_quantity", "holding_cost"} {
+		id, effect := activities[i].ID.String(), domain.NewActivityEffectID().String()
+		if _, err := db.SQL.Exec(`INSERT INTO activities(id,household_id,kind,reason,effective_at,effective_local_date,created_at) VALUES(?,?,'value_update','other',?,'2026-08-23',?)`, id, household.ID.String(), stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+		var accountID, holdingID, instrumentID, amount, currency, quantity, cost any
+		if i < 2 {
+			accountID, amount, currency = account.ID.String(), "123.456789", "CNY"
+		} else {
+			holdingID, instrumentID = holding.String(), instrument.ID.String()
+			if i == 2 {
+				quantity = "0.00000001"
+			} else {
+				cost = "987.654321"
+			}
+		}
+		if _, err := db.SQL.Exec(`INSERT INTO activity_effects(id,activity_id,sequence,role,direction,target,classification,account_id,holding_id,instrument_id,amount,currency,quantity,cost_unit_price) VALUES(?,?,1,'observation','added',?,'adjustment',?,?,?,?,?,?,?)`, effect, id, target, accountID, holdingID, instrumentID, amount, currency, quantity, cost); err != nil {
+			t.Fatal(err)
+		}
+		switch i {
+		case 0:
+			if _, err := db.SQL.Exec(`INSERT INTO account_values(id,account_id,value_kind,amount,currency,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'balance','123.456789','CNY',?,?,?,'event')`, domain.NewAccountValueID().String(), account.ID.String(), stamp, stamp, effect); err != nil {
+				t.Fatal(err)
+			}
+		case 1:
+			if _, err := db.SQL.Exec(`INSERT INTO account_cash_values(id,account_id,amount,currency,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'123.456789','CNY',?,?,?,'event')`, domain.NewAccountCashValueID().String(), account.ID.String(), stamp, stamp, effect); err != nil {
+				t.Fatal(err)
+			}
+		case 2:
+			if _, err := db.SQL.Exec(`INSERT INTO holding_quantity_values(id,holding_id,quantity,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'0.00000001',?,?,?,'event')`, domain.NewHoldingQuantityValueID().String(), holding.String(), stamp, stamp, effect); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	want := append([]domain.Activity(nil), activities...)
+	if err := attachActivityResulting(t.Context(), legacyResultingQuery{db.SQL}, want); err != nil {
+		t.Fatal(err)
+	}
+	if err := attachActivityResulting(t.Context(), db.SQL, activities); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(activities, want) {
+		t.Fatal("shared-ID query changed endpoint evidence")
+	}
+	for i, a := range activities {
+		if i < 4 && len(a.Resulting) != 1 || i == 4 && len(a.Resulting) != 0 {
+			t.Fatalf("wrong endpoint count at %d", i)
+		}
+	}
 }
 
 func (q *historicalHydrationProbe) QueryContext(ctx context.Context, statement string, args ...any) (*sql.Rows, error) {
@@ -40,7 +122,7 @@ func (q *historicalHydrationProbe) QueryContext(ctx context.Context, statement s
 func TestHistoricalActivityHydrationRetainsOneTransactionAcrossChunks(t *testing.T) {
 	t.Parallel()
 	db, _, household, account, _ := seedPortfolioRepository(t)
-	activities := make([]domain.Activity, 257)
+	activities := make([]domain.Activity, 901)
 	var lastEffect domain.ActivityEffectID
 	seed, err := db.SQL.BeginTx(t.Context(), nil)
 	if err != nil {
@@ -84,11 +166,29 @@ func TestHistoricalActivityHydrationRetainsOneTransactionAcrossChunks(t *testing
 	if err := hydrateHistoricalActivities(t.Context(), probe, activities); err != nil {
 		t.Fatal(err)
 	}
-	if len(activities[256].Resulting) != 1 || activities[256].Resulting[0].Amount != "1" {
-		t.Fatalf("second hydration chunk saw concurrent writer: %+v", activities[256].Resulting)
+	if len(activities[900].Resulting) != 1 || activities[900].Resulting[0].Amount != "1" {
+		t.Fatalf("second hydration chunk saw concurrent writer: %+v", activities[900].Resulting)
 	}
 	if err := read.Commit(); err != nil {
 		t.Fatal(err)
+	}
+	// The same original snapshot was consumed above; compare the current
+	// source separately against the old SQL/chunking, after the writer commits.
+	want := make([]domain.Activity, len(activities))
+	got := make([]domain.Activity, len(activities))
+	for i := range activities {
+		want[i].ID, got[i].ID = activities[i].ID, activities[i].ID
+	}
+	for start := 0; start < len(want); start += 256 {
+		if err := hydrateActivities(t.Context(), legacyResultingQuery{db.SQL}, want[start:min(start+256, len(want))]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := hydrateHistoricalActivities(t.Context(), db.SQL, got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatal("shared-ID hydration differs from complete legacy SQL/chunk oracle")
 	}
 	var latest string
 	if err := db.SQL.QueryRow(`SELECT amount FROM account_cash_values WHERE activity_effect_id=?`, lastEffect.String()).Scan(&latest); err != nil || latest != "2" {
@@ -103,7 +203,7 @@ func TestHistoricalActivityHydrationBoundsAndCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	activities := make([]domain.Activity, 513)
+	activities := make([]domain.Activity, 1801)
 	expectedIDs := make([]domain.ActivityID, len(activities))
 	for i := range activities {
 		activities[i].ID = domain.NewActivityID()
@@ -122,7 +222,7 @@ func TestHistoricalActivityHydrationBoundsAndCancellation(t *testing.T) {
 		err = hydrateHistoricalActivities(ctx, probe, activities)
 		cancel()
 		tx.Rollback()
-		if probe.maxArgs > 1024 {
+		if probe.maxArgs > 900 {
 			t.Fatalf("unbounded historical SQL parameters: %d", probe.maxArgs)
 		}
 		if cancelled {
@@ -149,7 +249,7 @@ func TestStandaloneActivitiesUntilSnapshotAndTiedOrdering(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer seed.Rollback()
-	const count = 257
+	const count = 901
 	for i := count; i >= 1; i-- {
 		id := fmt.Sprintf("00000000-0000-4000-8000-%012d", i)
 		fx := domain.NewActivityEffectID()

@@ -1,0 +1,4 @@
+=== RUN   TestHistoricalSeriesCPUProfileEvidence
+    historical_series_profile_test.go:74: dense series elapsed_ns=5301127161 alloc_bytes=1112055384 allocs=7832546 facts=86433 bytes=13513678 leaves=1000 queries=623 points=31
+--- PASS: TestHistoricalSeriesCPUProfileEvidence (23.57s)
+PASS
