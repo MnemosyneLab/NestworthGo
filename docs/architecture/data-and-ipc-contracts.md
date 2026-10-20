@@ -559,3 +559,45 @@ invalidates valuation captures when it changes. Quote/activity/source changes
 also invalidate historical captures; focus/reconnect alone do not. A refetch
 retains the same date's successful data with an updating indicator, or a prior
 result/error/retry label. Navigation has no cross-date placeholder.
+
+
+### Shared instrument valuation calendar
+
+The domain calendar is shared by current and historical valuation, data health,
+history repair planning, asset-change and return projections, and investment
+review. Instrument quote-source preference is effective as of the valuation day.
+
+| Instrument type | Default Saturday/Sunday policy |
+| --- | --- |
+| Stock | Closed; carry the last eligible price |
+| ETF | Closed; carry the last eligible price |
+| Mutual fund | No NAV publication; carry the last eligible NAV |
+| Bank investment product (unit NAV) | No NAV publication; carry the last eligible NAV |
+| Bond | Closed; carry the last eligible price |
+| Precious metal | Closed; carry the last eligible price |
+| Crypto | Daily quotation required |
+| Other | Daily quotation required unless explicitly closed |
+
+For every type, manual quote preference makes its selected eligible price valid
+until replaced. Agent `kind: "closed"` facts declare a single instrument/date
+closed, including a holiday or a date with explicitly no NAV publication. Every
+intervening date after the anchor must be closed; an older missing trading day
+remains incomplete. An absent or ineligible anchor stays unknown. Carry retains
+source, quote ID, date, currency, and price basis; it never inserts price rows or
+pretends that a new observation was published. Valid carry creates no pending,
+stale, provisional, or partial-coverage count merely because the price is old.
+
+Asset changes and investment returns consume the same authoritative daily
+valuations and original quote IDs. Review amount thresholds use the same price
+selector. Review performance retains `latestOn` as the actual observation date,
+records `asOfOn` as the evaluation date, and anchors lookbacks and annualization
+to that evaluation date. Its comparable-history and baseline-gap requirements
+remain in force; manual valuation alone cannot establish an unknown return.
+Descriptive quote charts continue to contain actual published observations.
+
+FX uses its own source preference and reference-rate calendar; instrument closure
+facts do not close currency pairs. Review currency conversions retain their
+explicit reference-day/timestamp age limits. Cash, account balances, pensions,
+liabilities and manually valued accounts use ledger state, not this instrument
+calendar. Managed term/locked bank products continue to use their dedicated
+principal, accrual, maturity and valuation rules rather than unit-NAV rules.

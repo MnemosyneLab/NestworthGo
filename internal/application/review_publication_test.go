@@ -265,9 +265,11 @@ func TestReviewIncrementalReplayPreservesFullDailyTrueSuffix(t *testing.T) {
 
 func TestReviewIncrementalReplayTThenUDoesNotOpenStaleEpisode(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	requireDailyReviewPrices(t, &f)
 	f.day(t, "2026-08-03")
 	f.agent(t) // Known future closed-date quote; Aug 2 remains U.
 	spec := syntheticHistoricalReviewSpec()
+	allowDailyReviewCrypto(&spec.Predicate)
 	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "1", Currency: "CNY", FXMode: "native"}}}}
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily amount", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
 		t.Fatal(err)
@@ -442,7 +444,9 @@ func TestReviewProjectionReplayInvalidatesPersistedCacheOnFXProviderChange(t *te
 
 func TestReviewPublicationPreservesAcknowledgementAcrossUnknownDay(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
+	requireDailyReviewPrices(t, &f)
 	spec := syntheticHistoricalReviewSpec()
+	allowDailyReviewCrypto(&spec.Predicate)
 	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "50", Currency: "CNY", FXMode: "native"}}}}
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic priced day", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
 		t.Fatal(err)

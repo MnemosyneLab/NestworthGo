@@ -3,16 +3,17 @@ package application
 import (
 	"context"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"testing"
 	"time"
 )
 
 func TestWeekendCarryIsHealthyForDailyPricedInstruments(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []string{"stock", "etf", "mutual_fund", "bank_investment_product", "crypto"} {
+	for _, kind := range []string{"stock", "etf", "mutual_fund", "bank_investment_product", "bond", "precious_metal", "crypto", "other"} {
 		t.Run(kind, func(t *testing.T) {
 			ctx := t.Context()
-			s, _, owner, now := overviewFixture(t)
+			s, db, owner, now := overviewFixture(t)
 			*now = time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 			a := overviewAccount(t, s, owner, "Synthetic weekend", "brokerage", "asset", "holdings", "CNY", "")
 			i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic weekend instrument", Type: kind, QuoteCurrency: "CNY", QuoteSource: "agent"})
@@ -38,7 +39,7 @@ func TestWeekendCarryIsHealthyForDailyPricedInstruments(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if kind != "crypto" {
+			if kind != "crypto" && kind != "other" {
 				q := live.Points[0].DisplayValuation.NetWorth.Quality
 				if q.CarriedCount != 0 || q.ProvisionalCount != 0 || q.StaleCount != 0 || q.Coverage != domain.CoverageVerified {
 					t.Fatalf("live weekend: %+v", live.Points[0])
@@ -54,7 +55,7 @@ func TestWeekendCarryIsHealthyForDailyPricedInstruments(t *testing.T) {
 					continue
 				}
 				q := p.DisplayValuation.NetWorth.Quality
-				if kind == "crypto" {
+				if kind == "crypto" || kind == "other" {
 					if p.Complete || q.CarriedCount != 1 {
 						t.Fatalf("crypto lost weekend requirements: %+v", p)
 					}
@@ -62,11 +63,57 @@ func TestWeekendCarryIsHealthyForDailyPricedInstruments(t *testing.T) {
 					t.Fatalf("weekend not healthy: %+v", p)
 				}
 			}
+
+			if kind != "crypto" && kind != "other" {
+				batch, err := sqlite.NewRepository(db).LoadReviewHistoricalBatch(ctx, a.Account.HouseholdID, *now)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, on := range []string{"2026-10-17", "2026-10-18"} {
+					spec := syntheticHistoricalReviewSpec()
+					spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "10", Currency: "CNY", FXMode: "native"}}}}
+					input, _, err := ProjectReviewHistoricalDay(ctx, batch, "", spec, i.ID, on)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if input.AmountExact == nil || *input.AmountExact != "20" {
+						t.Fatalf("review disagrees with weekend valuation: %+v", input)
+					}
+					cache := newReviewProjectionCache(domain.ReviewProjectionCapture{Historical: batch}, "")
+					cached, _, err := cache.dailyInput(ctx, spec, i.ID, on)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if cached.AmountExact == nil || *cached.AmountExact != "20" {
+						t.Fatalf("cached review disagrees: %+v", cached)
+					}
+				}
+				query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-10-17", To: "2026-10-18", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+				change, err := s.AssetChange(ctx, query)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !change.Available || change.Status != domain.CompletenessOK || change.Summary.Change == nil || !change.Summary.Change.IsZero() || change.ResidualIssueCount != 0 {
+					t.Fatalf("asset change disagrees with healthy trend: %+v", change)
+				}
+				calendar, err := s.ReturnCalendar(ctx, query, "", "day")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(calendar.Days) != 2 || calendar.Summary.AmountStatus != ReturnAmountComplete || calendar.Summary.ReturnAmount == nil || !calendar.Summary.ReturnAmount.IsZero() {
+					t.Fatalf("returns disagree with healthy trend: %+v", calendar)
+				}
+				for _, day := range calendar.Days {
+					if day.AmountStatus != ReturnAmountComplete {
+						t.Fatalf("weekend return incomplete: %+v", day)
+					}
+				}
+			}
 			health, err := s.ScanMarketDataHealth(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if kind != "crypto" && (!health.Healthy || len(health.Issues) != 0) {
+			if kind != "crypto" && kind != "other" && (!health.Healthy || len(health.Issues) != 0) {
 				t.Fatalf("weekend health: %+v", health)
 			}
 		})
@@ -106,6 +153,29 @@ func TestAgentClosureRoundTripCorrectionWithdrawalAndNoPriceFabrication(t *testi
 		if out.Left.DisplayValuation.NetWorth.Total.Amount != "20" {
 			t.Fatal("closure changed price")
 		}
+		if complete {
+			batch, err := sqlite.NewRepository(db).LoadReviewHistoricalBatch(ctx, a.Account.HouseholdID, *now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			spec := syntheticHistoricalReviewSpec()
+			spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "10", Currency: "CNY", FXMode: "native"}}}}
+			cache := newReviewProjectionCache(domain.ReviewProjectionCapture{Historical: batch}, "")
+			input, _, err := cache.dailyInput(ctx, spec, i.ID, "2026-10-19")
+			if err != nil || input.AmountExact == nil || *input.AmountExact != "20" {
+				t.Fatalf("review missed Agent closure: %+v %v", input, err)
+			}
+			query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-10-17", To: "2026-10-19", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+			change, err := s.AssetChange(ctx, query)
+			if err != nil || change.Status != domain.CompletenessOK || change.Summary.Change == nil || !change.Summary.Change.IsZero() {
+				t.Fatalf("asset change missed Agent closure: %+v %v", change, err)
+			}
+			returns, err := s.ReturnCalendar(ctx, query, "", "day")
+			if err != nil || returns.Summary.AmountStatus != ReturnAmountComplete || returns.Summary.ReturnAmount == nil || !returns.Summary.ReturnAmount.IsZero() {
+				t.Fatalf("returns missed Agent closure: %+v %v", returns, err)
+			}
+		}
+
 	}
 	check(false)
 	key := domain.NewActivityID().String()

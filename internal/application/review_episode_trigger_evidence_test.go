@@ -233,6 +233,7 @@ func TestReviewHistoricalCorrectionReconstructsTriggerAndFirstHitWithoutLosingAc
 
 func TestReviewRollingTriggerEvidenceIncludesFalseAndUnknownDaysAcrossPagination(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-06", "1")
+	requireDailyReviewPrices(t, &f)
 	importReviewDailyClose(t, f, "2026-10-06", "100") // F
 	for _, day := range []string{"2026-10-10", "2026-10-11", "2026-10-12"} {
 		f.day(t, day)
@@ -240,6 +241,7 @@ func TestReviewRollingTriggerEvidenceIncludesFalseAndUnknownDaysAcrossPagination
 	}
 	f.day(t, "2026-10-17") // missing closes leave U votes through the current date
 	spec := syntheticHistoricalReviewSpec()
+	allowDailyReviewCrypto(&spec.Predicate)
 	spec.Predicate.All[1] = domain.ReviewPredicateNode{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "150", Currency: "CNY", FXMode: "native"}}
 	spec.TriggerPolicy = domain.ReviewTriggerPolicy{Kind: "rolling", WindowDays: 10, MinHits: 3}
 	rule := saveSyntheticReviewRule(t, f, "Synthetic rolling F/U evidence", spec)

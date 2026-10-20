@@ -42,7 +42,7 @@ func ProjectReviewHistoricalDay(ctx context.Context, captured domain.ReviewHisto
 }
 
 func projectReviewHistoricalDayFromPortfolio(ctx context.Context, captured domain.ReviewHistoricalBatch, providerKey string, spec domain.ReviewRuleSpec, instrumentID domain.InstrumentID, on string, cutoff time.Time, portfolio domain.PortfolioSnapshot) (domain.ReviewDailyInput, ReviewHistoricalCoverage, error) {
-	quoteSeries := domain.NewReviewDailyQuoteSeries(instrumentID, portfolio.InstrumentQuotes)
+	quoteSeries := domain.NewReviewDailyQuoteSeries(instrumentID, portfolio.InstrumentQuotes, portfolio.InstrumentClosures...)
 	return projectReviewHistoricalDayFromPortfolioWithQuoteSeries(ctx, captured, providerKey, spec, instrumentID, on, cutoff, portfolio, quoteSeries)
 }
 
@@ -118,9 +118,16 @@ func projectReviewHistoricalDayFromPortfolioWithQuoteSeries(ctx context.Context,
 		coverage.Missing = append(coverage.Missing, "historical_quantity")
 	}
 	if input.Quantity != nil && quantity.IsPositive() && input.NativeCurrency != nil {
-		quote, reason := quoteSeries.ResolveDailyClose(*instrument, on)
-		if quote == nil {
-			coverage.Missing = append(coverage.Missing, reason)
+		historyCoverage := append([]domain.InstrumentHistoryCoverage(nil), portfolio.InstrumentHistoryCoverage...)
+		for _, closure := range portfolio.InstrumentClosures {
+			if closure.InstrumentID == instrument.ID {
+				historyCoverage = append(historyCoverage, domain.InstrumentHistoryCoverage{InstrumentID: instrument.ID, ClosedDates: []string{closure.Date}})
+			}
+		}
+		selection := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(*instrument, portfolio.InstrumentQuotes, historyCoverage, on, positionAt)
+		quote := selection.quote
+		if quote == nil || !selection.coverageComplete {
+			coverage.Missing = append(coverage.Missing, "daily_close_missing")
 		} else {
 			exact := quantity.Mul(quote.UnitPrice.Decimal()).String()
 			input.AmountExact = &exact

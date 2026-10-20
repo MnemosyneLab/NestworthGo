@@ -309,7 +309,7 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 				v.Freshness = domain.FreshnessManual
 			}
 			if item.InstrumentID != nil {
-				v.ClosedCarry = instrumentClosedCarry(domain.Instrument{ID: *item.InstrumentID, Type: c.InstrumentType}, v.EffectiveDate, e.marketDate, e.closures)
+				v.ClosedCarry = domain.InstrumentClosedCarry(domain.Instrument{ID: *item.InstrumentID, Type: c.InstrumentType}, v.EffectiveDate, e.marketDate, e.closures)
 				if v.ClosedCarry {
 					v.Freshness = domain.FreshnessFresh
 				}
@@ -322,7 +322,7 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 	if item.FXQuoteID != nil {
 		v, ok := e.fx[*item.FXQuoteID]
 		if ok {
-			v.ClosedCarry = instrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, v.EffectiveDate, e.marketDate, nil)
+			v.ClosedCarry = domain.InstrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, v.EffectiveDate, e.marketDate, nil)
 			if v.ClosedCarry {
 				v.Freshness = domain.FreshnessFresh
 			}

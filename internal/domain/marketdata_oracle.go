@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const MarketDataResolverPolicy = "market-date-daily-summary-v6"
+const MarketDataResolverPolicy = "market-date-daily-summary-v7"
 
 type OracleClose struct {
 	MarketDate         string

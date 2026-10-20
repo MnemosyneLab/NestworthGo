@@ -671,7 +671,7 @@ func instrumentKnownClosedDate(coverage domain.InstrumentHistoryCoverage, date s
 			return true
 		}
 	}
-	if defaultInstrumentClosedDate(domain.InstrumentType(coverage.InstrumentType), date) {
+	if domain.DefaultInstrumentClosedDate(domain.InstrumentType(coverage.InstrumentType), date) {
 		return true
 	}
 	if domain.InstrumentUsesCryptoDailyBar(coverage.InstrumentType, coverage.Market) {

@@ -107,7 +107,7 @@ func TestReviewFXReferenceAgesAndReciprocal(t *testing.T) {
 	}
 }
 
-func TestReviewDailyPerformanceNeedsTrueEndpointAndBoundedBaseline(t *testing.T) {
+func TestReviewDailyPerformanceUsesClosedEndpointAndBoundedBaseline(t *testing.T) {
 	_, instrument := reviewFixture(t)
 	instrument.Type = InstrumentBankInvestmentProduct
 	quotes := []InstrumentQuote{reviewQuote(t, instrument, "2026-09-10", "1"), reviewQuote(t, instrument, "2026-10-10", "1.001")}
@@ -116,8 +116,8 @@ func TestReviewDailyPerformanceNeedsTrueEndpointAndBoundedBaseline(t *testing.T)
 		t.Fatalf("daily endpoint: %+v %s", got, reason)
 	}
 	got, reason = ResolveReviewDailyPerformance(instrument, quotes, "2026-10-11", 30, 7)
-	if got != nil || reason != "daily_close_missing" {
-		t.Fatalf("no forward-filled close: %+v %s", got, reason)
+	if got == nil || reason != "" || got.LatestOn != "2026-10-10" || got.AsOfOn != "2026-10-11" || got.ElapsedDays != 31 {
+		t.Fatalf("closed endpoint must preserve source date: %+v %s", got, reason)
 	}
 	quotes[0] = reviewQuote(t, instrument, "2026-09-02", "1")
 	got, reason = ResolveReviewDailyPerformance(instrument, quotes, "2026-10-10", 30, 7)
@@ -126,7 +126,7 @@ func TestReviewDailyPerformanceNeedsTrueEndpointAndBoundedBaseline(t *testing.T)
 	}
 }
 
-func TestReviewDailyCloseDoesNotCarryPrices(t *testing.T) {
+func TestReviewDailyCloseCarriesOnlyValidClosedDays(t *testing.T) {
 	_, instrument := reviewFixture(t)
 	instrument.Type = InstrumentStock
 	quote := reviewQuote(t, instrument, "2026-10-10", "0")
@@ -136,8 +136,12 @@ func TestReviewDailyCloseDoesNotCarryPrices(t *testing.T) {
 		t.Fatalf("a valid zero price is still a positive holding's daily fact: %+v %s", got, reason)
 	}
 	got, reason = ResolveReviewDailyClose(instrument, []InstrumentQuote{quote}, "2026-10-11")
+	if got == nil || reason != "" || got.EffectiveDate != "2026-10-10" {
+		t.Fatalf("closed carry must preserve source fact: %+v %s", got, reason)
+	}
+	got, reason = ResolveReviewDailyClose(instrument, []InstrumentQuote{quote}, "2026-10-12")
 	if got != nil || reason != "daily_close_missing" {
-		t.Fatalf("yesterday's close cannot become today's fact: %+v %s", got, reason)
+		t.Fatalf("missing trading day admitted: %+v %s", got, reason)
 	}
 	quote.ObservationKind = "realtime"
 	got, reason = ResolveReviewDailyClose(instrument, []InstrumentQuote{quote}, "2026-10-10")

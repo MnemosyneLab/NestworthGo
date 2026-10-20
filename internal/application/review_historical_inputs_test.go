@@ -209,6 +209,7 @@ func TestReviewHistoricalCostKeepsActivityUntilEffectiveReversalDate(t *testing.
 
 func TestReviewHistoricalDayDoesNotBorrowAnotherStocksDailyPrices(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-09-10", "1")
+	requireDailyReviewPrices(t, &f)
 	f.day(t, "2026-10-10")
 	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 1))
 	if err != nil {
@@ -232,6 +233,7 @@ func TestReviewHistoricalDayDoesNotBorrowAnotherStocksDailyPrices(t *testing.T) 
 	}
 	batch.History.InstrumentQuoteFacts = append(batch.History.InstrumentQuoteFacts, quote("2026-09-10", "1000"), quote("2026-10-10", "2000"))
 	spec := syntheticHistoricalReviewSpec()
+	allowDailyReviewCrypto(&spec.Predicate)
 	spec.Predicate = domain.ReviewPredicateNode{All: []domain.ReviewPredicateNode{
 		{Leaf: &domain.ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "1000", Currency: "CNY", FXMode: "native"}},
 		{Leaf: &domain.ReviewRuleLeaf{Metric: "price_change", Operator: ">", Value: "50", LookbackDays: 30}},

@@ -50,15 +50,13 @@ func ReviewCivilCutoff(on, timezone string) (time.Time, error) {
 }
 
 // ResolveReviewDailyPerformance shares the descriptive performance selection
-// and arithmetic. Alerts add an exact endpoint-day and baseline-gap admission
-// rule; they never fill a missing close with an earlier observation.
+// and arithmetic, with shared manual/closed-day admission and a baseline-gap limit.
 func ResolveReviewDailyPerformance(instrument Instrument, quotes []InstrumentQuote, on string, lookbackDays, maxBaselineGapDays int) (*QuotePerformance, string) {
 	return NewReviewDailyQuoteSeries(instrument.ID, quotes).ResolveDailyPerformance(instrument, on, lookbackDays, maxBaselineGapDays)
 }
 
 // ResolveReviewDailyClose chooses the same one-per-date price as the
-// descriptive series. A balance threshold requires a real eligible close
-// labelled D; an older market day is never carried into D.
+// descriptive series and admits carry only under the shared valuation policy.
 func ResolveReviewDailyClose(instrument Instrument, quotes []InstrumentQuote, on string) (*InstrumentQuote, string) {
 	return NewReviewDailyQuoteSeries(instrument.ID, quotes).ResolveDailyClose(instrument, on)
 }
@@ -309,7 +307,7 @@ func evaluateReviewLeaf(leaf ReviewRuleLeaf, input ReviewDailyInput, spec Review
 			break
 		}
 		performance, ok := input.Performance[leaf.LookbackDays]
-		if !ok || performance.LatestOn != input.On || performance.WindowDays != leaf.LookbackDays || performance.ElapsedDays <= 0 {
+		if !ok || (performance.LatestOn != input.On && performance.AsOfOn != input.On) || performance.WindowDays != leaf.LookbackDays || performance.ElapsedDays <= 0 {
 			item.Reason = "daily_performance_unknown"
 			break
 		}

@@ -462,7 +462,7 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	if !v.historical {
 		targetDate = displayDate(snapshot, v.now())
 	}
-	evidence.ClosedCarry = instrument.QuoteSource != domain.QuoteSourceManual && instrumentClosedCarry(instrument, instrumentObservationDate(instrument, quote.EffectiveDate, quote.QuotedAt), targetDate, snapshot.InstrumentClosures)
+	evidence.ClosedCarry = instrument.QuoteSource != domain.QuoteSourceManual && domain.InstrumentClosedCarry(instrument, instrumentObservationDate(instrument, quote.EffectiveDate, quote.QuotedAt), targetDate, snapshot.InstrumentClosures)
 	if evidence.ClosedCarry {
 		evidence.Freshness = domain.FreshnessFresh
 	}
@@ -568,7 +568,7 @@ func (v *ValuationService) quoteEvidenceForFXConversion(snapshot domain.Portfoli
 	if !v.historical {
 		targetDate = displayDate(snapshot, v.now())
 	}
-	evidence.ClosedCarry = instrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, instrumentObservationDate(domain.Instrument{}, quote.EffectiveDate, quote.QuotedAt), targetDate, nil)
+	evidence.ClosedCarry = domain.InstrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, instrumentObservationDate(domain.Instrument{}, quote.EffectiveDate, quote.QuotedAt), targetDate, nil)
 	if evidence.ClosedCarry {
 		evidence.Freshness = domain.FreshnessFresh
 	}
@@ -732,7 +732,7 @@ func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.I
 		}
 	}
 	selection := historicalInstrumentSelection{quote: selected, coverageComplete: true}
-	if selected != nil && instrumentClosedCarry(instrument, selected.EffectiveDate, marketDate, closureFactsFromCoverage(instrument.ID, coverage)) {
+	if selected != nil && domain.InstrumentClosedCarry(instrument, selected.EffectiveDate, marketDate, closureFactsFromCoverage(instrument.ID, coverage)) {
 		return selection
 	}
 	if selected != nil && instrument.QuoteSource != domain.QuoteSourceManual {
@@ -779,7 +779,7 @@ func agentInstrumentCarryComplete(selected domain.InstrumentQuote, closure domai
 	}
 	// A preceding NAV is valid across default weekends and explicit closed days;
 	// other dates still require their own publication evidence.
-	if instrumentClosedCarry(domain.Instrument{ID: selected.InstrumentID, Type: domain.InstrumentType(closure.InstrumentType)}, selected.EffectiveDate, marketDate, closureFactsFromCoverage(selected.InstrumentID, []domain.InstrumentHistoryCoverage{closure})) {
+	if domain.InstrumentClosedCarry(domain.Instrument{ID: selected.InstrumentID, Type: domain.InstrumentType(closure.InstrumentType)}, selected.EffectiveDate, marketDate, closureFactsFromCoverage(selected.InstrumentID, []domain.InstrumentHistoryCoverage{closure})) {
 		return true
 	}
 	if selected.PriceBasis != "agent_raw_close_v1" {
@@ -891,7 +891,7 @@ func historicalInstrumentCoverageCompleteAtMarketDate(instrument domain.Instrume
 }
 
 func historicalFXCoverageCompleteAtMarketDate(snapshot domain.PortfolioSnapshot, quote domain.FXQuote, marketDate string) bool {
-	if instrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, quote.EffectiveDate, marketDate, nil) {
+	if domain.InstrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, quote.EffectiveDate, marketDate, nil) {
 		return true
 	}
 	if quote.SourceKind == domain.QuoteSourceAgent {
