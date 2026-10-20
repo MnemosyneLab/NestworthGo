@@ -1,7 +1,7 @@
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: () => historyOrigin() } }));
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -124,6 +124,28 @@ describe("HoldingsTab", () => {
     resolveProducts([{ product: { instrumentId: "i1" } }]);
     await waitFor(() => expect(screen.getByLabelText("Instrument")).not.toBeDisabled());
     expect(screen.getByLabelText("Instrument")).not.toHaveTextContent("NVIDIA");
+    expect(createHolding).not.toHaveBeenCalled();
+  });
+
+  it("revalidates a selected instrument after exclusions refresh", async () => {
+    const client = createTestQueryClient({ retry: false });
+    let resolveProducts!: (value: unknown[]) => void;
+    listProducts.mockResolvedValueOnce([]).mockImplementation(() => new Promise((resolve) => { resolveProducts = resolve; }));
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage({}, client);
+    await userEvent.click(await screen.findByRole("button", { name: "Add holding" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
+    expect(screen.getByLabelText("Instrument")).toHaveValue("i1");
+    act(() => { void client.invalidateQueries({ queryKey: queryKeys.liquidity.products("", true) }); });
+    await waitFor(() => expect(listProducts).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText("Instrument")).toBeDisabled();
+    resolveProducts([{ product: { instrumentId: "i1" } }]);
+    await waitFor(() => expect(screen.getByLabelText("Instrument")).not.toBeDisabled());
+    expect(screen.getByLabelText("Instrument")).toHaveValue("");
+    await userEvent.selectOptions(screen.getByLabelText("Account"), "acc-1");
+    await userEvent.type(screen.getByLabelText("Quantity"), "10");
+    const submitButtons = screen.getAllByRole("button", { name: "Add holding" });
+    await userEvent.click(submitButtons[submitButtons.length - 1]);
     expect(createHolding).not.toHaveBeenCalled();
   });
 
