@@ -22,7 +22,7 @@ type AnalysisService struct {
 	ensureSnapshots func(context.Context, string, string) error
 
 	// forceFullQuoteLoading preserves the full hydration oracle for bounded tests.
-	// Production uses the conservative planner; it never clips other inputs.
+	// Production uses the conservative quote planner.
 	forceFullQuoteLoading bool
 
 	// memoMu protects the bounded memo and generation. The generation is
@@ -368,10 +368,6 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 	if err != nil {
 		return AnalysisInputs{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "date must use YYYY-MM-DD"}
 	}
-	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, portfolio.Household.ID, sinceAt, untilAt)
-	if err != nil {
-		return AnalysisInputs{}, err
-	}
 	endLabel, err := time.Parse(time.DateOnly, string(query.To))
 	if err != nil {
 		return AnalysisInputs{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "date must use YYYY-MM-DD"}
@@ -381,6 +377,20 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 		return AnalysisInputs{}, err
 	}
 	activities, err := s.repository.ListActivitiesUntil(ctx, portfolio.Household.ID, activityCutoff)
+	if err != nil {
+		return AnalysisInputs{}, err
+	}
+	var snapshots []domain.DailyValuationSnapshot
+	reader, canScope := s.repository.(AnalysisSnapshotRepository)
+	if canScope && query.Scope.Kind == domain.ScopeAccount && query.Scope.ID != "" {
+		known := make([]domain.AccountID, 0, len(portfolio.Accounts))
+		for _, record := range portfolio.Accounts {
+			known = append(known, record.Account.ID)
+		}
+		snapshots, err = reader.LoadAnalysisAccountSnapshots(ctx, portfolio.Household.ID, sinceAt, untilAt, domain.AccountID(query.Scope.ID), known)
+	} else {
+		snapshots, err = s.repository.ListDailyValuationSnapshots(ctx, portfolio.Household.ID, sinceAt, untilAt)
+	}
 	if err != nil {
 		return AnalysisInputs{}, err
 	}
