@@ -183,9 +183,30 @@ func TestReviewFullOracleDiscardsCapturedProjectionInputs(t *testing.T) {
 	}
 	for _, table := range []string{"investment_review_daily_inputs", "investment_review_daily_results"} {
 		t.Run(table+"-malformed-derived-evidence", func(t *testing.T) {
+			rows, err := f.db.SQL.Query("SELECT rowid,evidence_json FROM " + table)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := map[int64]string{}
+			for rows.Next() {
+				var id int64
+				var evidence string
+				if err := rows.Scan(&id, &evidence); err != nil {
+					rows.Close()
+					t.Fatal(err)
+				}
+				original[id] = evidence
+			}
+			err = rows.Err()
+			rows.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer func() {
-				if _, err := f.db.SQL.Exec("UPDATE " + table + " SET evidence_json='{}'"); err != nil {
-					t.Error(err)
+				for id, evidence := range original {
+					if _, err := f.db.SQL.Exec("UPDATE "+table+" SET evidence_json=? WHERE rowid=?", evidence, id); err != nil {
+						t.Error(err)
+					}
 				}
 			}()
 			if _, err := f.db.SQL.Exec("UPDATE " + table + " SET evidence_json='[]'"); err != nil {
