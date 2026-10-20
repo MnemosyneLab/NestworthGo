@@ -35,7 +35,7 @@ func (s *Service) pagedAgentRecords(ctx context.Context, g uint64, in AgentDataL
 	if err := validateReadValues(f.Operations, []string{"append", "correct", "retract"}, false); err != nil {
 		return ReadEnvelope{}, err
 	}
-	if err := validateReadValues(f.ObservationKinds, []string{"latest", "close", "nav", "daily_reference"}, false); err != nil {
+	if err := validateReadValues(f.ObservationKinds, []string{"latest", "close", "nav", "closed", "daily_reference"}, false); err != nil {
 		return ReadEnvelope{}, err
 	}
 	for _, v := range []string{f.FromDate, f.ToDate} {

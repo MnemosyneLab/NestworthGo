@@ -32,6 +32,13 @@ func seriesAgentSelectionFixture(t *testing.T, kind string, days ...string) (*Se
 	if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
+	// Daily coverage assertions apply after an explicit switch out of manual
+	// carry-forward. Keep the manual origin for source/basis transition tests.
+	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	instrument, err = s.UpdateInstrument(ctx, instrument.ID, InstrumentInput{QuoteSource: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	*now = time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
 	for _, day := range days {
 		if day > "2026-08-05" {
@@ -145,7 +152,7 @@ func TestHistoricalSeriesAgentSelectionCoverageBoundaries(t *testing.T) {
 		{name: "unbounded weekday tail", kind: "close", from: "2026-08-03", to: "2026-08-05", days: []string{"2026-08-03"}, complete: []bool{true, false, false}},
 		{name: "equity weekend", kind: "close", from: "2026-08-07", to: "2026-08-09", days: []string{"2026-08-07"}, complete: []bool{true, true, true}},
 		{name: "NAV weekday carry", kind: "nav", from: "2026-08-03", to: "2026-08-05", days: []string{"2026-08-03", "2026-08-05"}, complete: []bool{true, false, true}},
-		{name: "NAV weekend carry", kind: "nav", from: "2026-08-07", to: "2026-08-09", days: []string{"2026-08-07"}, complete: []bool{true, false, false}},
+		{name: "NAV weekend carry", kind: "nav", from: "2026-08-07", to: "2026-08-09", days: []string{"2026-08-07"}, complete: []bool{true, true, true}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			s, db, _, _ := seriesAgentSelectionFixture(t, test.kind, test.days...)

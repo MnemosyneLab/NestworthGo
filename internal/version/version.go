@@ -11,6 +11,6 @@ const (
 // Version and Build are variables so release packaging can stamp the exact
 // version into the About window without maintaining a second code path.
 var (
-	Version = "v0.3.8"
-	Build   = "9"
+	Version = "v0.3.9"
+	Build   = "10"
 )

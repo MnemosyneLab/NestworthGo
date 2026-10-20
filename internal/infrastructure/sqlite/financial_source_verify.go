@@ -33,7 +33,17 @@ func verifyFinancialSourceTrackingState(ctx context.Context, q schemaQuery, veri
 		}
 	}
 	if !verifiedTriggers {
-		expected := financialTriggerStatements()
+		expected := map[string]string{}
+		var schemaVersion int
+		if err := q.QueryRowContext(ctx, "PRAGMA user_version").Scan(&schemaVersion); err != nil {
+			return err
+		}
+		for name, statement := range financialTriggerStatements() {
+			if schemaVersion < 22 && strings.HasPrefix(name, "financial_source_agent_instrument_closures_") {
+				continue
+			}
+			expected[name] = statement
+		}
 		for name, statement := range expected {
 			if err := verifyFinancialSourceDefinition(ctx, q, name, statement); err != nil {
 				return err

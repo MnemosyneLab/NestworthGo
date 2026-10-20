@@ -334,3 +334,26 @@ func TestReviewPublicationFailureAfterFinancialCommitDoesNotHalfWrite(t *testing
 		t.Fatal("test rule was not created")
 	}
 }
+
+// These regression scenarios require U votes on arbitrary missing dates. Crypto
+// intentionally has no weekend closure and agent preference excludes manual anchors.
+func requireDailyReviewPrices(t *testing.T, f *seriesZeroFixture) {
+	t.Helper()
+	instrument, err := f.s.UpdateInstrument(t.Context(), f.instrument.ID, InstrumentInput{Type: "crypto", QuoteSource: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.instrument = instrument
+}
+
+func allowDailyReviewCrypto(node *domain.ReviewPredicateNode) {
+	if node.Leaf != nil && node.Leaf.Metric == "type" {
+		node.Leaf.Types = append(node.Leaf.Types, domain.InstrumentCrypto)
+	}
+	for i := range node.All {
+		allowDailyReviewCrypto(&node.All[i])
+	}
+	for i := range node.Any {
+		allowDailyReviewCrypto(&node.Any[i])
+	}
+}

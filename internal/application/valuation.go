@@ -429,7 +429,11 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	if v.historical {
 		selection := v.historicalInstrumentSelections[instrument.ID]
 		if v.historicalInstrumentSelections == nil {
-			selection = selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, snapshot.InstrumentQuotes, snapshot.InstrumentHistoryCoverage, v.historicalDate(), v.now())
+			coverage := append([]domain.InstrumentHistoryCoverage{}, snapshot.InstrumentHistoryCoverage...)
+			for _, c := range snapshot.InstrumentClosures {
+				coverage = append(coverage, domain.InstrumentHistoryCoverage{InstrumentID: c.InstrumentID, ClosedDates: []string{c.Date}})
+			}
+			selection = selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, snapshot.InstrumentQuotes, coverage, v.historicalDate(), v.now())
 		}
 		quote = selection.quote
 		historyCoverageComplete = selection.coverageComplete
@@ -458,10 +462,21 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	if !v.historical {
 		targetDate = displayDate(snapshot, v.now())
 	}
-	evidence.Carried = quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
+	// Closed-day freshness requires the same eligible daily anchor as history.
+	anchor := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, []domain.InstrumentQuote{*quote}, nil, targetDate, v.now()).quote
+	evidence.ClosedCarry = instrument.QuoteSource != domain.QuoteSourceManual && quote.SourceKind != domain.QuoteSourceManual && anchor != nil && domain.InstrumentClosedCarry(instrument, quote.EffectiveDate, targetDate, snapshot.InstrumentClosures)
+	if evidence.ClosedCarry {
+		evidence.Freshness = domain.FreshnessFresh
+	}
+	evidence.Carried = !evidence.ClosedCarry && instrument.QuoteSource != domain.QuoteSourceManual && quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
 	component, missing, err := v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
+	}
+	// Freshness follows the valuation preference; provenance remains unchanged.
+	if instrument.QuoteSource == domain.QuoteSourceManual {
+		evidence.Freshness = domain.FreshnessManual
+		component.PriceEvidence = &evidence
 	}
 	component.InstrumentType = instrument.Type
 	component.InstrumentName = name
@@ -555,7 +570,13 @@ func (v *ValuationService) quoteEvidenceForFXConversion(snapshot domain.Portfoli
 	if !v.historical {
 		targetDate = displayDate(snapshot, v.now())
 	}
-	evidence.Carried = quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
+	preference := implicitFXPreferenceTo(snapshot, quote.BaseCurrency, quote.QuoteCurrency)
+	anchor := selectHistoricalFXQuoteAtMarketDate(preference, []domain.FXQuote{quote}, quote.BaseCurrency, quote.QuoteCurrency, v.providerKey(), targetDate, v.now())
+	evidence.ClosedCarry = preference.SourceKind != domain.QuoteSourceManual && quote.SourceKind != domain.QuoteSourceManual && anchor != nil && domain.InstrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, quote.EffectiveDate, targetDate, nil)
+	if evidence.ClosedCarry {
+		evidence.Freshness = domain.FreshnessFresh
+	}
+	evidence.Carried = !evidence.ClosedCarry && quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
 	return evidence
 }
 
@@ -715,7 +736,10 @@ func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.I
 		}
 	}
 	selection := historicalInstrumentSelection{quote: selected, coverageComplete: true}
-	if selected != nil {
+	if selected != nil && domain.InstrumentClosedCarry(instrument, selected.EffectiveDate, marketDate, closureFactsFromCoverage(instrument.ID, coverage)) {
+		return selection
+	}
+	if selected != nil && instrument.QuoteSource != domain.QuoteSourceManual {
 		switch selected.SourceKind {
 		case domain.QuoteSourceProvider:
 			selection.coverageComplete = historicalInstrumentCoverageCompleteAtMarketDate(instrument, *selected, coverage, marketDate)
@@ -728,6 +752,11 @@ func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.I
 
 func agentInstrumentClosureCoverage(instrument domain.Instrument, quotes []domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage) domain.InstrumentHistoryCoverage {
 	result := domain.InstrumentHistoryCoverage{InstrumentID: instrument.ID, InstrumentType: string(instrument.Type), Market: instrumentMarket(instrument)}
+	for _, c := range coverage {
+		if c.InstrumentID == instrument.ID {
+			result.ClosedDates = append(result.ClosedDates, c.ClosedDates...)
+		}
+	}
 	if instrument.ProviderSymbol != nil {
 		result.ProviderSymbol = *instrument.ProviderSymbol
 	}
@@ -752,8 +781,11 @@ func agentInstrumentCarryComplete(selected domain.InstrumentQuote, closure domai
 	if selected.EffectiveDate == marketDate {
 		return true
 	}
-	// NAV is published for its own date. A previous NAV can value the position,
-	// but it does not establish coverage of another day.
+	// A preceding NAV is valid across default weekends and explicit closed days;
+	// other dates still require their own publication evidence.
+	if domain.InstrumentClosedCarry(domain.Instrument{ID: selected.InstrumentID, Type: domain.InstrumentType(closure.InstrumentType)}, selected.EffectiveDate, marketDate, closureFactsFromCoverage(selected.InstrumentID, []domain.InstrumentHistoryCoverage{closure})) {
+		return true
+	}
 	if selected.PriceBasis != "agent_raw_close_v1" {
 		return false
 	}
@@ -863,6 +895,9 @@ func historicalInstrumentCoverageCompleteAtMarketDate(instrument domain.Instrume
 }
 
 func historicalFXCoverageCompleteAtMarketDate(snapshot domain.PortfolioSnapshot, quote domain.FXQuote, marketDate string) bool {
+	if domain.InstrumentClosedCarry(domain.Instrument{Type: domain.InstrumentStock}, quote.EffectiveDate, marketDate, nil) {
+		return true
+	}
 	if quote.SourceKind == domain.QuoteSourceAgent {
 		return quote.EffectiveDate == marketDate
 	}

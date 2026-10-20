@@ -150,8 +150,8 @@ func TestMetalWeekendCarryAndRepairAgree(t *testing.T) {
 			}
 			coverage.UnverifiedDates = nil
 			coverage.ProviderSymbol = "UNKNOWN"
-			if historicalInstrumentCoverageCompleteAtMarketDate(inst, quote, []domain.InstrumentHistoryCoverage{coverage}, "2026-09-19") {
-				t.Fatal("unknown futures must not inherit GC/SI calendar")
+			if !historicalInstrumentCoverageCompleteAtMarketDate(inst, quote, []domain.InstrumentHistoryCoverage{coverage}, "2026-09-19") {
+				t.Fatal("all precious metals use the default weekend closure")
 			}
 		})
 	}

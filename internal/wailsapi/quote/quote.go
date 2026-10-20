@@ -1,7 +1,7 @@
 // Package quote adapts internal/application.Service's manual/current
 // Instrument-quote and FX-quote/preference surface for the Wails IPC
 // boundary. Provider-driven refresh lives in the marketdata service;
-// this service only reads and manually appends quotes.
+// this service reads/appends manual quotes and per-instrument closure facts.
 package quote
 
 import (
@@ -44,6 +44,13 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID,
 		return wire.InstrumentQuoteDTO{}, apierror.Wrap(err)
 	}
 	return wire.FromInstrumentQuote(quote), nil
+}
+
+// SetInstrumentClosedDate records the same per-instrument closure fact as MCP.
+// The caller retains operationID when retrying an ambiguous response.
+func (s *Service) SetInstrumentClosedDate(ctx context.Context, operationID, instrumentID, date string) (application.AgentMarketDataResult, error) {
+	result, err := s.app.ImportAgentMarketData(ctx, operationID, application.AgentMarketDataInput{Items: []application.AgentMarketDataItem{{InstrumentID: instrumentID, Kind: "closed", Date: date, SourceTitle: "User-declared closure in instrument editor"}}})
+	return result, apierror.Wrap(err)
 }
 
 func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB string) (*wire.FXQuoteDTO, error) {

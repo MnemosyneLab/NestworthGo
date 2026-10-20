@@ -96,3 +96,21 @@ creation time. Retractions resolve their targeted observation identity before
 filtering; active means not corrected/retracted, not currently selected. Sort
 createdAt (default desc), observationDate or operation, recordId asc ties.
 Legacy offset cannot be combined with paged mode.
+
+## Per-instrument closed-day facts
+
+Stocks, ETFs, mutual funds and bank investment products default to weekend
+closure for valuation coverage; crypto still needs weekend prices. A known
+closed day carries a valid preceding price without an awaiting-update warning.
+It never supplies a missing opening price or hides an earlier trading-day gap.
+
+Where supported by the actual App schema, `import_market_data` accepts
+`kind: "closed"` for an instrument's holiday or explicit no-NAV-publication day.
+Supply instrumentId, date, optional timezone, sourceTitle and available sourceUrl.
+Omit value, currency, quotedAt, delayed and corporate-action fields. Do not copy
+an old price into a new dated close. Retain the returned quoteId (it identifies
+a non-price fact here); use the existing correct/retract operations and stable
+operation UUID rules. Corrections keep the same instrument and closed kind;
+audit reads return kind closed and no price, including its date and timezone.
+Re-read coverage and health after importing or withdrawing a closure. Never
+infer a holiday merely from a missing price or an empty provider response.

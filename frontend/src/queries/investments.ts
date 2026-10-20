@@ -175,6 +175,18 @@ export function useAppendManualInstrumentQuote() {
   });
 }
 
+export function useSetInstrumentClosedDate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ operationId, instrumentId, date }: { operationId: string; instrumentId: string; date: string }) =>
+      callService(() => QuoteService.SetInstrumentClosedDate(operationId, instrumentId, date)),
+    onSuccess: (_data, variables) => {
+      invalidateInstrumentQuoteChange(queryClient, variables.instrumentId);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.history.snapshotState });
+    },
+  });
+}
+
 export function useAppendManualFXQuote() {
   const queryClient = useQueryClient();
   return useMutation({

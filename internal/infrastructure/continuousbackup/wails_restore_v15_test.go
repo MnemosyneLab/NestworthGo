@@ -99,7 +99,7 @@ func cloudSourceV15(t *testing.T) string {
 
 func cloudRows(t *testing.T, db *sql.DB) map[string][]string {
 	t.Helper()
-	tables, err := db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'reconciliation_%' AND name NOT LIKE 'investment_review_%' AND name != 'account_financial_revisions' AND name NOT IN ('financial_source_revision','financial_source_changes','review_temporal_checkpoints') ORDER BY name`)
+	tables, err := db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'reconciliation_%' AND name NOT LIKE 'investment_review_%' AND name != 'account_financial_revisions' AND name NOT IN ('financial_source_revision','financial_source_changes','review_temporal_checkpoints','agent_instrument_closures') ORDER BY name`)
 	if err != nil {
 		t.Fatal(err)
 	}

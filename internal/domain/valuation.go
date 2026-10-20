@@ -3,7 +3,8 @@ package domain
 import "time"
 
 // Freshness describes the selected observation without changing whether its
-// value is usable. Stale and delayed values remain valued; unavailable values
+// value is usable. A manual instrument preference keeps an eligible price
+// manual-fresh even when its provenance is Agent. Stale and delayed values remain valued; unavailable values
 // are represented by a missing input instead.
 type Freshness string
 
@@ -62,6 +63,7 @@ type QuoteEvidenceView struct {
 	EffectiveDate    string
 	ValueEffectiveAt time.Time
 	FetchedAt        time.Time
+	ClosedCarry      bool
 	Carried          bool
 	ObservationID    string
 	Source           QuoteSourceKind
@@ -167,6 +169,7 @@ type PortfolioValuation struct {
 // portfolio summaries. Infrastructure populates it in one read transaction;
 // callers must not query one quote or Holding at a time.
 type PortfolioSnapshot struct {
+	InstrumentClosures        []InstrumentClosure
 	Household                 *Household
 	Origin                    *HistoryOrigin
 	Members                   []Member
@@ -181,6 +184,10 @@ type PortfolioSnapshot struct {
 	FXPreferences             []FXPreference
 	InstrumentHistoryCoverage []InstrumentHistoryCoverage
 	FXHistoryCoverage         []FXHistoryCoverage
+
+	// Selected immutable preference facts used to hydrate persisted snapshot evidence.
+	OriginInstrumentSources     map[InstrumentID]QuoteSourceKind                      `json:"-"`
+	InstrumentPreferenceSources map[InstrumentPreferenceObservationID]QuoteSourceKind `json:"-"`
 }
 
 // FinancialContextInputs retains one transaction's inputs, never serialized.

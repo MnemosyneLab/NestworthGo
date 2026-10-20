@@ -123,11 +123,11 @@ date semantics, interaction conventions, enforced boundaries and exceptions.
 ## Persistence and settings
 
 The current SQLite schema is verified before business writes. Startup enables
-foreign keys and checks structural integrity. New databases use schema 21.
-Verified v15–20 databases receive additive upgrades in order: short names (16),
+foreign keys and checks structural integrity. New databases use schema 22.
+Verified v15–21 databases receive additive upgrades in order: short names (16),
 reconciliation (17), reconciliation evidence/revisions (18), investment review
 (19), shadow financial source revision/journal metadata (20), and temporal
-review publication checkpoints (21). Each step
+review publication checkpoints (21), and per-instrument Agent closure facts (22). Each step
 retains a verified read-only recovery copy. Schema20 keeps the full financial
 fingerprint/recheck algorithm authoritative; see the
 [source coverage, recovery and rollback contract](../testing/performance-c1-source-coverage-2026-10-19.md).

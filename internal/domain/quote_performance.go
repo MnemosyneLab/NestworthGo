@@ -9,9 +9,11 @@ import (
 
 // QuotePerformance is one descriptive price/NAV change. WindowDays is the
 // requested lookback in civil days; zero means the whole comparable history.
+// AsOfOn is set for review evaluation; LatestOn remains the actual source date.
 type QuotePerformance struct {
 	WindowDays        int     `json:"windowDays"`
 	BaselineOn        string  `json:"baselineOn"`
+	AsOfOn            string  `json:"asOfOn,omitempty"`
 	LatestOn          string  `json:"latestOn"`
 	ElapsedDays       int     `json:"elapsedDays"`
 	PeriodPercent     string  `json:"periodPercent"`
@@ -150,6 +152,10 @@ func projectQuotePerformanceWindowsFromPoints(i Instrument, points []InstrumentQ
 }
 
 func projectQuotePerformanceWindowsThroughIndex(i Instrument, points []InstrumentQuote, latestIndex int, windows []int) []QuotePerformance {
+	return projectQuotePerformanceWindowsAsOf(i, points, latestIndex, windows, "")
+}
+
+func projectQuotePerformanceWindowsAsOf(i Instrument, points []InstrumentQuote, latestIndex int, windows []int, asOf string) []QuotePerformance {
 	result := []QuotePerformance{}
 	mode, supported := quotePerformanceMode(i.Type)
 	if !supported || latestIndex < 0 || latestIndex >= len(points) {
@@ -159,7 +165,11 @@ func projectQuotePerformanceWindowsThroughIndex(i Instrument, points []Instrumen
 		return result
 	}
 	latest := points[latestIndex]
-	anchor, _ := time.Parse(time.DateOnly, latest.EffectiveDate)
+	anchorDate := latest.EffectiveDate
+	if asOf != "" {
+		anchorDate = asOf
+	}
+	anchor, _ := time.Parse(time.DateOnly, anchorDate)
 	for _, window := range windows {
 		base := 0
 		if window > 0 {
@@ -170,7 +180,7 @@ func projectQuotePerformanceWindowsThroughIndex(i Instrument, points []Instrumen
 			continue
 		}
 		first := points[base]
-		elapsed, elapsedErr := CivilDaysBetween(first.EffectiveDate, latest.EffectiveDate)
+		elapsed, elapsedErr := CivilDaysBetween(first.EffectiveDate, anchorDate)
 		comparable := elapsedErr == nil && elapsed > 0 && first.UnitPrice.Decimal().IsPositive()
 		for _, q := range points[base : latestIndex+1] {
 			comparable = comparable && q.Currency == i.QuoteCurrency && q.BindingRevision == i.ProviderBindingRevision && performanceSource(q.SourceKind) && performanceTimestamp(i.Type, q.TimestampBasis)
@@ -184,7 +194,7 @@ func projectQuotePerformanceWindowsThroughIndex(i Instrument, points []Instrumen
 			continue
 		}
 		period, annual := priceWindowPercent(first.UnitPrice.Decimal(), latest.UnitPrice.Decimal(), elapsed)
-		item := QuotePerformance{WindowDays: window, BaselineOn: first.EffectiveDate, LatestOn: latest.EffectiveDate, ElapsedDays: elapsed, PeriodPercent: period}
+		item := QuotePerformance{AsOfOn: asOf, WindowDays: window, BaselineOn: first.EffectiveDate, LatestOn: latest.EffectiveDate, ElapsedDays: elapsed, PeriodPercent: period}
 		if i.Type == InstrumentBankInvestmentProduct {
 			item.AnnualizedPercent = &annual
 		}
@@ -198,12 +208,13 @@ func projectQuotePerformanceWindowsThroughIndex(i Instrument, points []Instrumen
 // instrument so each daily vote does not repeatedly filter and sort the same
 // source history.
 type ReviewDailyQuoteSeries struct {
-	points []InstrumentQuote
+	points   []InstrumentQuote
+	closures []InstrumentClosure
 }
 
 // NewReviewDailyQuoteSeries applies the same date and source-priority rules as
 // the descriptive performance projection.
-func NewReviewDailyQuoteSeries(instrumentID InstrumentID, quotes []InstrumentQuote) ReviewDailyQuoteSeries {
+func NewReviewDailyQuoteSeries(instrumentID InstrumentID, quotes []InstrumentQuote, closures ...InstrumentClosure) ReviewDailyQuoteSeries {
 	filtered := make([]InstrumentQuote, 0, len(quotes))
 	for _, quote := range quotes {
 		if quote.InstrumentID != instrumentID {
@@ -211,17 +222,17 @@ func NewReviewDailyQuoteSeries(instrumentID InstrumentID, quotes []InstrumentQuo
 		}
 		filtered = append(filtered, quote)
 	}
-	return ReviewDailyQuoteSeries{points: dailyPerformanceQuotes(filtered)}
+	return ReviewDailyQuoteSeries{points: dailyPerformanceQuotes(filtered), closures: append([]InstrumentClosure(nil), closures...)}
 }
 
-// ResolveDailyClose requires the selected source observation to be labelled
-// with the exact requested civil date. It never carries a prior close forward.
+// ResolveDailyClose preserves the observation date when manual or closed-day
+// policy admits carry. Missing intervening trading days remain unknown.
 func (s ReviewDailyQuoteSeries) ResolveDailyClose(instrument Instrument, on string) (*InstrumentQuote, string) {
 	if _, err := time.Parse(time.DateOnly, on); err != nil {
 		return nil, "invalid_request"
 	}
-	index := sort.Search(len(s.points), func(n int) bool { return s.points[n].EffectiveDate >= on })
-	if index == len(s.points) || s.points[index].EffectiveDate != on {
+	index := sort.Search(len(s.points), func(n int) bool { return s.points[n].EffectiveDate > on }) - 1
+	if index < 0 || (s.points[index].EffectiveDate != on && instrument.QuoteSource != QuoteSourceManual && !InstrumentClosedCarry(instrument, s.points[index].EffectiveDate, on, s.closures)) {
 		return nil, "daily_close_missing"
 	}
 	quote := s.points[index]
@@ -239,17 +250,17 @@ func (s ReviewDailyQuoteSeries) ResolveDailyClose(instrument Instrument, on stri
 	return &quote, ""
 }
 
-// ResolveDailyPerformance uses the exact dated endpoint and the same baseline,
+// ResolveDailyPerformance uses a policy-valid endpoint and the same baseline,
 // comparability and arithmetic rules as the descriptive series.
 func (s ReviewDailyQuoteSeries) ResolveDailyPerformance(instrument Instrument, on string, lookbackDays, maxBaselineGapDays int) (*QuotePerformance, string) {
 	if _, err := time.Parse(time.DateOnly, on); err != nil || !ValidQuotePeriodWindow(lookbackDays) || lookbackDays == 0 || maxBaselineGapDays < 0 {
 		return nil, "invalid_request"
 	}
-	latest := sort.Search(len(s.points), func(n int) bool { return s.points[n].EffectiveDate >= on })
-	if latest == len(s.points) || s.points[latest].EffectiveDate != on {
-		return nil, "daily_close_missing"
+	if _, reason := s.ResolveDailyClose(instrument, on); reason != "" {
+		return nil, reason
 	}
-	items := projectQuotePerformanceWindowsThroughIndex(instrument, s.points, latest, []int{lookbackDays})
+	latest := sort.Search(len(s.points), func(n int) bool { return s.points[n].EffectiveDate > on }) - 1
+	items := projectQuotePerformanceWindowsAsOf(instrument, s.points, latest, []int{lookbackDays}, on)
 	if len(items) == 0 {
 		return nil, "baseline_missing_or_incomparable"
 	}

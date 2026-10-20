@@ -12,11 +12,15 @@ import (
 // snapshots. Each bounded IN query shares one read transaction; unrelated
 // activities, archived leaves and quote history never enter this read.
 func (r *Repository) ReadSnapshotQuoteEvidence(ctx context.Context, household domain.HouseholdID, snapshots []domain.DailyValuationSnapshot) (domain.PortfolioSnapshot, error) {
-	out := domain.PortfolioSnapshot{}
+	out := domain.PortfolioSnapshot{OriginInstrumentSources: map[domain.InstrumentID]domain.QuoteSourceKind{}, InstrumentPreferenceSources: map[domain.InstrumentPreferenceObservationID]domain.QuoteSourceKind{}}
+	preferences := map[string]bool{}
 	accounts, instruments, prices, fx := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, s := range snapshots {
 		for _, i := range s.Items {
 			accounts[i.AccountID.String()] = true
+			if i.PreferenceObservationID != nil {
+				preferences[i.PreferenceObservationID.String()] = true
+			}
 			if i.InstrumentID != nil {
 				instruments[i.InstrumentID.String()] = true
 			}
@@ -89,6 +93,35 @@ func (r *Repository) ReadSnapshotQuoteEvidence(ctx context.Context, household do
 	if err != nil {
 		return out, err
 	}
+	// Bind carry semantics to the snapshot's effective preference, never today's setting.
+	err = read(instruments, `SELECT p.instrument_id,p.source_kind FROM history_origin_instrument_preferences p JOIN history_origins o ON o.id=p.origin_id WHERE o.household_id=? AND p.instrument_id IN ({ids})`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var id domain.InstrumentID
+			var source domain.QuoteSourceKind
+			if err := rows.Scan(&id, &source); err != nil {
+				return err
+			}
+			out.OriginInstrumentSources[id] = source
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return out, err
+	}
+	err = read(preferences, `SELECT p.id,p.source_kind FROM instrument_preference_observations p JOIN instruments i ON i.id=p.instrument_id WHERE i.household_id=? AND p.id IN ({ids})`, func(rows *sql.Rows) error {
+		for rows.Next() {
+			var id domain.InstrumentPreferenceObservationID
+			var source domain.QuoteSourceKind
+			if err := rows.Scan(&id, &source); err != nil {
+				return err
+			}
+			out.InstrumentPreferenceSources[id] = source
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return out, err
+	}
 	err = read(prices, `SELECT q.id,q.instrument_id,q.unit_price,q.currency,q.source_kind,q.source_key,q.quoted_at,q.created_at,q.delayed,q.observation_kind,q.effective_date,q.provider_timestamp,q.fetched_at,q.value_effective_at,q.binding_revision,q.source_policy_version,q.price_basis,q.timestamp_basis,q.revision,q.supersedes_quote_id,q.split_factor,q.dividend_cash,q.conversion_json FROM instrument_quotes q JOIN instruments i ON i.id=q.instrument_id WHERE i.household_id=? AND q.id IN ({ids}) AND NOT EXISTS(SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type='instrument' AND withdrawn.target_quote_id=q.id)`, func(rows *sql.Rows) error {
 		quotes, err := scanInstrumentQuotes(rows)
 		out.InstrumentQuotes = append(out.InstrumentQuotes, quotes...)
@@ -105,5 +138,10 @@ func (r *Repository) ReadSnapshotQuoteEvidence(ctx context.Context, household do
 	if err != nil {
 		return out, err
 	}
+	closures, err := listAgentClosuresQuery(ctx, tx, household)
+	if err != nil {
+		return out, err
+	}
+	out.InstrumentClosures = closures
 	return out, tx.Commit()
 }

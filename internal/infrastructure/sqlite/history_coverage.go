@@ -157,6 +157,20 @@ func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer
 		item.UnverifiedDates = unverified
 		result = append(result, item)
 	}
+	closures, err := listAgentClosuresQuery(ctx, query, householdID)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range closures {
+		for i := range result {
+			if result[i].InstrumentID == c.InstrumentID {
+				result[i].ClosedDates = append(result[i].ClosedDates, c.Date)
+			}
+		}
+		if includeHistoricalRoutes {
+			result = append(result, domain.InstrumentHistoryCoverage{InstrumentID: c.InstrumentID, ClosedDates: []string{c.Date}})
+		}
+	}
 	return result, nil
 }
 

@@ -114,20 +114,20 @@ func validateAgentQuoteBatch(batch domain.AgentQuoteBatch) error {
 				return agentQuoteError(domain.ErrValidation, "sourceURL", "must be an HTTP or HTTPS URL without credentials")
 			}
 		}
-		if record.InstrumentQuote != nil && record.FXQuote != nil {
+		if (record.InstrumentQuote != nil && record.FXQuote != nil) || (record.Closure != nil && (record.InstrumentQuote != nil || record.FXQuote != nil)) {
 			return agentQuoteError(domain.ErrValidation, "record", "must contain one quote target")
 		}
 		switch record.Operation {
 		case domain.AgentQuoteAppend:
-			if record.TargetQuoteID != "" || (record.InstrumentQuote == nil && record.FXQuote == nil) {
+			if record.TargetQuoteID != "" || (record.InstrumentQuote == nil && record.FXQuote == nil && record.Closure == nil) {
 				return agentQuoteError(domain.ErrValidation, "record", "append needs one quote and no target quote")
 			}
 		case domain.AgentQuoteCorrect:
-			if record.TargetQuoteID == "" || (record.InstrumentQuote == nil && record.FXQuote == nil) {
+			if record.TargetQuoteID == "" || (record.InstrumentQuote == nil && record.FXQuote == nil && record.Closure == nil) {
 				return agentQuoteError(domain.ErrValidation, "record", "correction needs one quote and a target quote")
 			}
 		case domain.AgentQuoteRetract:
-			if record.TargetQuoteID == "" || record.InstrumentQuote != nil || record.FXQuote != nil {
+			if record.TargetQuoteID == "" || record.InstrumentQuote != nil || record.FXQuote != nil || record.Closure != nil {
 				return agentQuoteError(domain.ErrValidation, "record", "retraction needs only a target quote")
 			}
 		default:
@@ -175,6 +175,12 @@ func agentQuotePayloadHash(records []domain.AgentQuoteRecord) (string, error) {
 			quote.FetchedAt = time.Time{}
 			record.FXQuote = &quote
 		}
+		if record.Closure != nil {
+			c := *record.Closure
+			c.ID = ""
+			c.CreatedAt = time.Time{}
+			record.Closure = &c
+		}
 		canonical[index] = semanticRecord{Record: record, Value: value}
 	}
 	encoded, err := json.Marshal(canonical)
@@ -209,7 +215,9 @@ func loadAgentBatchResultTx(ctx context.Context, tx *sql.Tx, result *domain.Agen
 func importAgentQuoteRecordTx(ctx context.Context, tx *sql.Tx, batch domain.AgentQuoteBatch, record domain.AgentQuoteRecord, result *domain.AgentQuoteBatchResult) error {
 	quoteType := ""
 	quoteID := ""
-	if record.InstrumentQuote != nil {
+	if record.Closure != nil {
+		quoteType, quoteID = "instrument", record.Closure.ID
+	} else if record.InstrumentQuote != nil {
 		quoteType, quoteID = "instrument", record.InstrumentQuote.ID.String()
 	} else if record.FXQuote != nil {
 		quoteType, quoteID = "fx", record.FXQuote.ID.String()
@@ -223,6 +231,16 @@ func importAgentQuoteRecordTx(ctx context.Context, tx *sql.Tx, batch domain.Agen
 			quoteType = targetType
 		} else if quoteType != targetType {
 			return agentQuoteError(domain.ErrValidation, "targetQuoteId", "target quote type differs from correction")
+		}
+		closure, closureErr := agentClosureByID(ctx, tx, record.TargetQuoteID)
+		if closureErr != nil {
+			return closureErr
+		}
+		if (closure != nil) != (record.Closure != nil) && record.Operation != domain.AgentQuoteRetract {
+			return agentQuoteError(domain.ErrValidation, "targetQuoteId", "cannot correct a price into a closure or a closure into a price")
+		}
+		if record.Closure != nil && closure.InstrumentID != record.Closure.InstrumentID {
+			return agentQuoteError(domain.ErrValidation, "targetQuoteId", "closure belongs to another instrument")
 		}
 		if record.InstrumentQuote != nil {
 			var instrumentID string
@@ -247,7 +265,14 @@ func importAgentQuoteRecordTx(ctx context.Context, tx *sql.Tx, batch domain.Agen
 			}
 		}
 	}
-	if record.InstrumentQuote != nil {
+	if record.Closure != nil {
+		if err := insertAgentClosureTx(ctx, tx, batch.HouseholdID, *record.Closure); err != nil {
+			return err
+		}
+		if err := markAgentInstrumentQuoteDirtyTx(ctx, tx, domain.InstrumentQuote{InstrumentID: record.Closure.InstrumentID, QuotedAt: record.Closure.EffectiveAt, EffectiveDate: record.Closure.Date}, batch.CreatedAt); err != nil {
+			return err
+		}
+	} else if record.InstrumentQuote != nil {
 		if err := insertAgentInstrumentQuoteTx(ctx, tx, batch.HouseholdID, *record.InstrumentQuote, record.TargetQuoteID); err != nil {
 			return err
 		}
@@ -412,6 +437,13 @@ func ensureAgentFXPreferenceTx(ctx context.Context, tx *sql.Tx, quote domain.FXQ
 
 func markRetractedAgentQuoteDirtyTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, targetType, targetID string, at time.Time) error {
 	if targetType == "instrument" {
+		closure, err := agentClosureByID(ctx, tx, targetID)
+		if err != nil {
+			return err
+		}
+		if closure != nil {
+			return markAgentInstrumentQuoteDirtyTx(ctx, tx, domain.InstrumentQuote{InstrumentID: closure.InstrumentID, QuotedAt: closure.EffectiveAt, EffectiveDate: closure.Date}, at)
+		}
 		var instrumentID, quotedAt string
 		var effectiveDate sql.NullString
 		if err := tx.QueryRowContext(ctx, `SELECT instrument_id, quoted_at, effective_date FROM instrument_quotes WHERE id = ?`, targetID).Scan(&instrumentID, &quotedAt, &effectiveDate); err != nil {
@@ -519,6 +551,15 @@ func (r *Repository) ListAgentQuoteRecords(ctx context.Context, householdID doma
 	for _, item := range audits {
 		if item.quote.Valid {
 			if item.kind == "instrument" {
+				closure, err := agentClosureByID(ctx, tx, item.quote.String)
+				if err != nil {
+					return nil, err
+				}
+				if closure != nil {
+					item.record.Closure = closure
+					result = append(result, item.record)
+					continue
+				}
 				quote, err := scanInstrumentQuote(tx.QueryRowContext(ctx, `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash, conversion_json FROM instrument_quotes WHERE id = ?`, item.quote.String))
 				if err != nil {
 					return nil, err

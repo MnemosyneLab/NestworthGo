@@ -249,6 +249,7 @@ func (s *Service) agentInstrumentDailyDates(ctx context.Context) (map[domain.Ins
 			}
 		}
 	}
+
 	return byID, nil
 }
 
@@ -665,6 +666,14 @@ func HouseholdCutoffAt(localDate, timezone string) (time.Time, error) {
 // Only omit dates established by a supported market's daily-reference calendar.
 // Crypto trades daily; unknown markets retain the conservative fetch behavior.
 func instrumentKnownClosedDate(coverage domain.InstrumentHistoryCoverage, date string) bool {
+	for _, closed := range coverage.ClosedDates {
+		if closed == date {
+			return true
+		}
+	}
+	if domain.DefaultInstrumentClosedDate(domain.InstrumentType(coverage.InstrumentType), date) {
+		return true
+	}
 	if domain.InstrumentUsesCryptoDailyBar(coverage.InstrumentType, coverage.Market) {
 		return false
 	}

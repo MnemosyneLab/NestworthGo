@@ -399,6 +399,18 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 	if err != nil {
 		return nil, err
 	}
+	var closureCoverage []domain.InstrumentHistoryCoverage
+	if reader, ok := s.repository.(interface {
+		ListInstrumentClosures(context.Context, domain.HouseholdID) ([]domain.InstrumentClosure, error)
+	}); ok {
+		closures, err := reader.ListInstrumentClosures(ctx, origin.HouseholdID)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range closures {
+			closureCoverage = append(closureCoverage, domain.InstrumentHistoryCoverage{InstrumentID: c.InstrumentID, ClosedDates: []string{c.Date}})
+		}
+	}
 	var issues []HealthIssue
 	for _, instrument := range instruments {
 		if instrument.QuoteSource != domain.QuoteSourceManual && instrument.QuoteSource != domain.QuoteSourceAgent {
@@ -429,7 +441,7 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 				agentDates = append(agentDates, date)
 			}
 			sort.Strings(agentDates)
-			closure := agentInstrumentClosureCoverage(instrument, quotes, nil)
+			closure := agentInstrumentClosureCoverage(instrument, quotes, closureCoverage)
 			if plan.YesterdayLocal < originDate {
 				continue
 			}

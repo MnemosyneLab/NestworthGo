@@ -41,6 +41,10 @@ func lineageFixture(t *testing.T, policy domain.ReviewTriggerPolicy) (seriesZero
 func lineageSpecFixture(t *testing.T, spec domain.ReviewRuleSpec) (seriesZeroFixture, *sqlite.Repository, *lineageObservations) {
 	t.Helper()
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	if len(spec.Predicate.All) > 1 && spec.Predicate.All[1].Leaf != nil && spec.Predicate.All[1].Leaf.Metric == "amount" {
+		requireDailyReviewPrices(t, &f)
+		allowDailyReviewCrypto(&spec.Predicate)
+	}
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic completeness lineage", spec)
 	f.s, _ = noChangeService(f)
@@ -65,7 +69,7 @@ func TestReviewCompletenessLineageStoredTruth(t *testing.T) {
 				spec.Predicate.All[1].Leaf.Operator = ">"
 			}
 			if truth == domain.ReviewUnknown {
-				// Manual realtime prices cannot stand in for missing daily closes.
+				// Agent-priced daily instruments require an eligible quote.
 				spec.Predicate.All[1].Leaf.Metric = "amount"
 			}
 			f, r, o := lineageSpecFixture(t, spec)

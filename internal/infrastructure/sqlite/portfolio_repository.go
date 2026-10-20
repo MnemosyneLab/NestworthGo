@@ -97,7 +97,11 @@ func readPortfolioSnapshotQueryMode(ctx context.Context, query queryer, filter d
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
 	}
-	return domain.PortfolioSnapshot{
+	closures, err := listAgentClosuresQuery(ctx, query, household.ID)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	return domain.PortfolioSnapshot{InstrumentClosures: closures,
 		Household: household, Origin: origin, Members: members, Institutions: institutions, Groups: groups,
 		Accounts: accounts, Instruments: instruments, Holdings: holdings, CashValues: cashValues,
 		InstrumentQuotes: instrumentQuotes, FXQuotes: fxQuotes, FXPreferences: fxPreferences,

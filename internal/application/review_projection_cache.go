@@ -67,7 +67,7 @@ func newReviewProjectionCache(capture domain.ReviewProjectionCapture, providerKe
 	}
 	quoteSeries := make(map[domain.InstrumentID]domain.ReviewDailyQuoteSeries, len(quotes.instrumentQuotes))
 	for instrumentID, instrumentQuotes := range quotes.instrumentQuotes {
-		quoteSeries[instrumentID] = domain.NewReviewDailyQuoteSeries(instrumentID, instrumentQuotes)
+		quoteSeries[instrumentID] = domain.NewReviewDailyQuoteSeries(instrumentID, instrumentQuotes, history.Portfolio.InstrumentClosures...)
 	}
 	cache := &reviewProjectionCache{
 		capture: capture, reviewHistory: &reviewHistory, providerKey: providerKey,

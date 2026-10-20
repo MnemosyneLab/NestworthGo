@@ -86,6 +86,7 @@ func TestReviewPublicationMaterialEditKeepsOriginalTriggerSnapshotAcrossUnknownT
 
 func TestReviewPublicationRetainsLegacyAcknowledgedEpisodeWithoutTriggerEvidence(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
+	requireDailyReviewPrices(t, &f)
 	importReviewDailyClose(t, f, "2026-10-01", "100")
 	f.day(t, "2026-10-05")
 	importReviewDailyClose(t, f, "2026-10-05", "100")
@@ -93,6 +94,7 @@ func TestReviewPublicationRetainsLegacyAcknowledgedEpisodeWithoutTriggerEvidence
 	triggerQuoteID := importReviewDailyClose(t, f, "2026-10-10", "120")
 	f.day(t, "2026-10-11")
 	spec := unknownThenTruePriceChangeSpec()
+	allowDailyReviewCrypto(&spec.Predicate)
 	rule := saveSyntheticReviewRule(t, f, "Synthetic legacy trigger", spec)
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)

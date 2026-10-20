@@ -13,7 +13,7 @@ import {
   invalidateRequiredFX,
 } from "@/queries/invalidation";
 import { useArchiveAccount, useCreateAccount, useUpdateAccount } from "@/queries/accounts";
-import { useAppendManualInstrumentQuote, useArchiveInstrument, useUpdateInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
+import { useSetInstrumentClosedDate, useAppendManualInstrumentQuote, useArchiveInstrument, useUpdateInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
 import { useFixChange, useRecordChange, useStartHistory, useUndoChange } from "@/queries/history";
 import { useRefreshAll, useRefreshFX } from "@/queries/marketdata";
 import { reviewV2Key } from "@/queries/investmentReviewV2";
@@ -56,6 +56,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instr
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {
+    SetInstrumentClosedDate: vi.fn(async () => ({ snapshotStatus: "rebuilt_check_health" })),
     AppendManualInstrumentQuote: vi.fn(async () => undefined),
   },
 }));
@@ -338,6 +339,20 @@ describe("mutation-hook invalidation", () => {
     });
     expect(isInvalidated(fixClient, queryKeys.history.origin)).toBe(true);
     expect(isInvalidated(fixClient, queryKeys.analytics.accountGains.all)).toBe(true);
+  });
+
+  it("invalidates valuation, history evidence and review after a closure fact", async () => {
+    const queryClient = seededClient();
+    queryClient.setQueryData(queryKeys.marketdata.health, "stale");
+    queryClient.setQueryData(queryKeys.history.snapshotState, "stale");
+    const save = renderMutation(queryClient, useSetInstrumentClosedDate);
+    await act(async () => { await save.result.current.mutateAsync({ operationId: "synthetic-operation", instrumentId: "instrument-1", date: "2026-10-19" }); });
+    expect(isInvalidated(queryClient, queryKeys.marketdata.health)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.history.snapshotState)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.portfolio.trend("30d"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analysis.returnTrend({}, "cumulative_amount"))).toBe(true);
+    expect(isInvalidated(queryClient, reviewV2Key)).toBe(true);
   });
 
   it("invalidates quote and valuation after a manual quote, not raw holdings or History", async () => {
