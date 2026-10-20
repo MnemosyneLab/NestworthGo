@@ -2,7 +2,7 @@
   "name": "nestworth-frontend",
   "private": true,
   "version": "0.3.8",
-  "packageManager": "pnpm@12.2.1",
+  "packageManager": "pnpm@12.14.0",
   "type": "module",
   "scripts": {
     "dev": "node ./scripts/ensure-bindings.mjs && vite",
