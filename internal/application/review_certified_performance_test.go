@@ -179,6 +179,7 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 								})
 							}
 							runtime.GC()
+							finishProfile := beginReviewDependencyProfile(t, suffix, arm, scenario, sample)
 							var before, after runtime.MemStats
 							runtime.ReadMemStats(&before)
 							reviewPerfStats.reset()
@@ -186,6 +187,7 @@ func runReviewCertifiedPerformanceEvidence(t *testing.T, suffix bool) {
 							got, err := f.service.ReconcileInvestmentReviewsV2(t.Context())
 							elapsed := time.Since(started)
 							runtime.ReadMemStats(&after)
+							finishProfile()
 							metrics := reviewPerfStats.snapshot(0)
 							if err != nil {
 								t.Fatal(err)
