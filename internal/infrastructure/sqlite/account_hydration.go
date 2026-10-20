@@ -12,15 +12,10 @@ import (
 // limit. Each chunk is fully consumed and closed before opening the next one.
 const accountHydrationChunkSize = 500
 
-// An omitted scope retains the household query as an internal baseline oracle.
-// An explicitly empty scope performs no reads. Callers pass IDs from the account
-// selection, and every hydration query independently retains the household fence.
-func loadAccountHydration[T any](ctx context.Context, query queryer, householdID domain.HouseholdID, scope [][]domain.AccountID, statement string, scan func(*sql.Rows, error) (map[domain.AccountID]T, error)) (map[domain.AccountID]T, error) {
-	if len(scope) == 0 {
-		return scan(query.QueryContext(ctx, statement, householdID.String()))
-	}
+// Callers pass IDs from account selection. An empty scope performs no reads;
+// every hydration query independently retains the household fence.
+func loadAccountHydration[T any](ctx context.Context, query queryer, householdID domain.HouseholdID, ids []domain.AccountID, statement string, scan func(*sql.Rows, error) (map[domain.AccountID]T, error)) (map[domain.AccountID]T, error) {
 	result := make(map[domain.AccountID]T)
-	ids := scope[0]
 	for start := 0; start < len(ids); start += accountHydrationChunkSize {
 		end := min(start+accountHydrationChunkSize, len(ids))
 		args := make([]any, 1, end-start+1)

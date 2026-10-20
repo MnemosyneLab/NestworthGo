@@ -570,8 +570,10 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 	return accounts, nil
 }
 
-func loadOwnership(ctx context.Context, query queryer, householdID domain.HouseholdID, scope ...[]domain.AccountID) (map[domain.AccountID][]domain.OwnershipShare, error) {
-	return loadAccountHydration(ctx, query, householdID, scope, `SELECT ao.account_id, ao.member_id, ao.share_bps FROM account_ownership ao JOIN accounts a ON a.id = ao.account_id WHERE a.household_id = ? ORDER BY ao.account_id, ao.member_id`, scanOwnershipRows)
+const accountOwnershipQuery = `SELECT ao.account_id, ao.member_id, ao.share_bps FROM account_ownership ao JOIN accounts a ON a.id = ao.account_id WHERE a.household_id = ? ORDER BY ao.account_id, ao.member_id`
+
+func loadOwnership(ctx context.Context, query queryer, householdID domain.HouseholdID, scope []domain.AccountID) (map[domain.AccountID][]domain.OwnershipShare, error) {
+	return loadAccountHydration(ctx, query, householdID, scope, accountOwnershipQuery, scanOwnershipRows)
 }
 
 func scanOwnershipRows(rows *sql.Rows, err error) (map[domain.AccountID][]domain.OwnershipShare, error) {
@@ -608,7 +610,7 @@ const latestAccountValuesQuery = `SELECT av.id, av.account_id, av.value_kind, av
 		ORDER BY latest.effective_at DESC, latest.created_at DESC, latest.rowid DESC LIMIT 1
 	) WHERE a.household_id = ?`
 
-func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID, scope ...[]domain.AccountID) (map[domain.AccountID]*domain.AccountValue, error) {
+func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID, scope []domain.AccountID) (map[domain.AccountID]*domain.AccountValue, error) {
 	return loadAccountHydration(ctx, query, householdID, scope, latestAccountValuesQuery, scanLatestValuesRows)
 }
 
