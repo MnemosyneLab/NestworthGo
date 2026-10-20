@@ -6,7 +6,7 @@ import (
 )
 
 // Diagnostic only. Nothing in this protocol grants reuse or publication rights.
-const ReviewCompletenessLineageVersion = "completeness-lineage-shadow-v1"
+const ReviewCompletenessLineageVersion = "completeness-lineage-shadow-v2"
 
 type ReviewLineageResult struct {
 	InputFingerprint string

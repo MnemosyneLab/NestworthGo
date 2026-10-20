@@ -66,6 +66,14 @@ type reviewSQLConn struct {
 	stats *reviewSQLStats
 }
 
+// Preserve the real driver's optional commit capability; the wrapper must not
+// make a synthetic benchmark silently take an unknown-driver fallback.
+func (c *reviewSQLConn) RegisterCommitHook(fn modernsqlite.CommitHookFn) {
+	c.Conn.(interface {
+		RegisterCommitHook(modernsqlite.CommitHookFn)
+	}).RegisterCommitHook(fn)
+}
+
 func (c *reviewSQLConn) Prepare(query string) (driver.Stmt, error) {
 	started := time.Now()
 	statement, err := c.Conn.Prepare(query)

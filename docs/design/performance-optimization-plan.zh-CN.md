@@ -2,7 +2,7 @@
 
 状态：按阶段实现；P0 PR-A/PR-B 基础已合入 PR #110，B 的 epoch/小账本补充供评审，默认切换及后续阶段尚待验收。日期：2026-10-19。
 
-Implementation tracking: [P0 PR-A/PR-B initial evidence](../testing/performance-p0-2026-10-19.md); [PR-B epoch/small-ledger follow-up](../testing/performance-p0-epochs-2026-10-19.md); [C1 coverage](../testing/performance-c1-source-coverage-2026-10-19.md); [C2 source/temporal evidence](../testing/performance-c2-temporal-2026-10-19.md); [corrected C3 bootstrap/fallback/RSS evidence](../testing/performance-c3-corrected-2026-10-19.md); [C3 completeness-lineage shadow](../testing/performance-c3-lineage-shadow-2026-10-19.md). C1/C2 and the default-off C3 no-change candidate are merged (PR123); complete C3 publication switching and later dependent stages remain gated. This does not authorize activation or treat Linux evidence as native acceptance.
+Implementation tracking: [P0 PR-A/PR-B initial evidence](../testing/performance-p0-2026-10-19.md); [PR-B epoch/small-ledger follow-up](../testing/performance-p0-epochs-2026-10-19.md); [C1 coverage](../testing/performance-c1-source-coverage-2026-10-19.md); [C2 source/temporal evidence](../testing/performance-c2-temporal-2026-10-19.md); [corrected C3 bootstrap/fallback/RSS evidence](../testing/performance-c3-corrected-2026-10-19.md); [C3 completeness-lineage shadow](../testing/performance-c3-lineage-shadow-2026-10-19.md). C1/C2 and the default-off C3 no-change candidate are merged (PR123); the [certified C3 implementation and activation gates](../testing/performance-c3-certified-2026-10-19.md) now cover default-off no-op, source publication CAS and runtime-audited bounded publication. [C3 follow-up integrity/restart evidence](../testing/performance-c3-followup-2026-10-19.md) records trigger/DDL fences. The [missing-history provenance correction](../testing/performance-c3-provenance-2026-10-19.md) disables the rejected legacy/restart bootstrap and requires private initial provenance. The [complete writer-contract and dispatch follow-up](../testing/performance-c3-dispatch-2026-10-19.md) verifies table/index/FK definitions and gives ordinary C3 one full preparation after a missed no-op; bounded runtime auditing requires the separate explicit lineage experiment. Stage-two rollout acceptance and later dependent stages remain gated. This does not authorize activation or treat Linux evidence as native acceptance.
 基线：`2c585d1c3a26a55c94a5152d2c3f94275969d6b6`（main，已包含 PR #106、#107）。
 本文按任务要求使用简体中文，是仓库默认英文文档规范的明确例外。
 
@@ -166,6 +166,11 @@ C1 交付一张逐表/逐字段/write-owner 的依赖清单，逐一对照 `load
 表清单是审计起点而非完整性证明；PR-C1 必须补齐实际读取闭包、FK 级联与删除顺序。对每个相关表执行合成 INSERT/UPDATE/DELETE（含不改变数量但改变 decimal 值）并验证版本变化；同事务 rollback 后版本和日志不变。审计 `INSERT OR REPLACE` 的隐含 DELETE、UPSERT、recursive_triggers、恢复路径；无法保证 OLD 捕获的 REPLACE 写路径需改成明确 UPDATE/DELETE+INSERT，或可靠地全 household 失效。所有触发器和关键 PRAGMA 纳入 startup verifier；缺失/篡改时禁用快路径或阻止写入。
 
 ### 5.3 分阶段接入与 CAS
+
+The [C3 exact daily-publication proof](../testing/performance-c3-publication-equality-2026-10-19.md)
+keeps full capture/preparation and compares actual SQL parameter images against
+authenticated same-handle rows under the writer reservation. It permits only
+zero-row daily UPSERT omission, with no computational fact reuse or suffix plan.
 
 - **C1（仅跟踪）**：新增存储、触发器、migration/backup 测试；保留旧算法。测写入耗时与日志大小，避免一次性引入增量 planner。
 - **C2（影子验证）**：`domain/review_projection.go` 新增 `SourceRevisionToken`（household、epoch、revision、tracking/resolver/evaluator versions）；capture 同一个 read transaction 读取 token 与全量源；publish 同时验证新 token 和原全量指纹。任意“相同 capture cutoff 下 token 相等但指纹不同”阻止默认启用，定位漏记；token 不同但结果相同属于保守失效。

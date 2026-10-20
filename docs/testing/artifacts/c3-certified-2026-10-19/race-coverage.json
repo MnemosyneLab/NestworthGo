@@ -1,0 +1,39 @@
+{
+  "source": "53dbd180c3d75884a0132c9400a5a14f94015d7b",
+  "race_invocations": 1,
+  "overall_status": "not accepted: application global timeout",
+  "new_c3_application_tests_completed": [
+    "TestReviewCertifiedFreshSessionNoopAndBoundedPublication",
+    "TestReviewCertifiedProviderLeaseAndStaleRead",
+    "TestReviewCertifiedProviderExhaustionAndDefault",
+    "TestReviewCertifiedLegacyRestartAndTrackingFallback",
+    "TestReviewCertifiedRewoundSourceMetadata",
+    "TestReviewCertifiedCancelledPreparation",
+    "TestReviewCertifiedHoldsSQLiteWriteReservation",
+    "TestReviewCertifiedRolledBackWritesInvalidateConnectionProof",
+    "TestReviewCertifiedCaptureFencesExternalCommitDuringSnapshot",
+    "TestReviewCertifiedFXEvidenceAndOracleIsolation",
+    "TestReviewCertifiedFullOracleDoesNotAliasFrozenOutput",
+    "TestReviewCertifiedCorruptionCannotBeRecertified",
+    "TestReviewCertifiedLegitimateHandlingPreservesChain",
+    "TestReviewCertifiedPublicationGuardsAndAtomicity",
+    "TestReviewCertifiedOracleAndDirectCallerFallback",
+    "TestReviewCertifiedRuleAndSuppressionContinuity",
+    "TestReviewCertifiedConnectionRenewalAndNoopCancellation",
+    "TestReviewCertifiedFutureActivationAndPublicationFence",
+    "TestReviewCertifiedPersistsRecheckedTemporalMinimum",
+    "TestReviewWindowOracleCompleteOutputs",
+    "TestReviewWindowOracleFreshEpisodeAndFullEscape",
+    "TestReviewWindowOraclePublicationRechecksOutput",
+    "TestReviewWindowOracleDoesNotAuthenticatePreexistingArchive",
+    "TestReviewCertifiedUnknownConnectionKeepsFullPublication"
+  ],
+  "new_sqlite_unknown_connection_test_passed": true,
+  "package_results": {
+    "application": "failed: global 20m timeout at TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/holding",
+    "domain": "passed (1.052s)",
+    "sqlite": "passed (214.737s)"
+  },
+  "data_race_warnings_observed": 0,
+  "note": "New application cases passed before the package deadline. Remaining application coverage is incomplete; no race pass or rerun is claimed."
+}

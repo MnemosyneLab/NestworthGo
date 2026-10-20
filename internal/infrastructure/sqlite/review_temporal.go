@@ -23,6 +23,16 @@ type reviewTemporalClock struct {
 	last       time.Time
 }
 
+// Provider selection changes invalidate all prior temporal contexts without
+// pretending that wall time moved backwards or touching financial source rows.
+func (r *Repository) InvalidateReviewProviderSelection() {
+	c := &r.database.reviewClock
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.session = uuid.NewString()
+	c.generation = 0
+}
+
 func (r *Repository) ObserveReviewClock(now time.Time) {
 	r.database.reviewClock.observe(now)
 }
@@ -40,7 +50,12 @@ func (c *reviewTemporalClock) observe(now time.Time) (string, bool) {
 	}
 	rollback := !c.last.IsZero() && now.Before(c.last)
 	if rollback {
-		c.generation++
+		if c.generation == ^uint64(0) {
+			c.session = uuid.NewString()
+			c.generation = 0
+		} else {
+			c.generation++
+		}
 	}
 	c.last = now
 	return c.session + "/" + strconv.FormatUint(c.generation, 10), rollback
@@ -127,7 +142,7 @@ func reviewTemporalDigest(certificate *domain.ReviewTemporalCertificate) string 
 
 // Pure DB read plus the shared clock observation. It never refreshes financial
 // data or rewrites the old publication. A changed status expires page cursors.
-func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery, id domain.HouseholdID, control *domain.ReviewProjectionControl, now time.Time) error {
+func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery, id domain.HouseholdID, control *domain.ReviewProjectionControl, now time.Time, connectionID uint64) error {
 	epoch, rollback := r.database.reviewClock.observe(now)
 	certificate, err := readReviewTemporal(ctx, q, id)
 	if err != nil {
@@ -143,6 +158,17 @@ func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery
 			return err
 		}
 		fresh = current != nil && current.Valid() && current.Token == certificate.Source.Token && certificate.Source.Token.Revision >= current.JournalFloor
+	}
+	if fresh && r.CertifiedReviewEnabled() && certificate.NoChangeCompletenessVersion == domain.ReviewCertifiedCompletenessVersion {
+		observed, err := r.certifiedConnectionCheckpoint(ctx, q, connectionID)
+		if err != nil {
+			return err
+		}
+		_, tracking, err := r.verifiedCertifiedTracking(ctx, q)
+		if err != nil {
+			return err
+		}
+		fresh = connectionID != 0 && tracking && r.validReviewMAC(certificate) && !certificate.CertifiedNeedsReconcile && observed == certificate.CertifiedConnection && certificate.ConfigRevision == control.ConfigRevision && certificate.StateRevision == control.ReviewStateRevision
 	}
 	if !fresh {
 		control.ProjectionStatus = "stale"

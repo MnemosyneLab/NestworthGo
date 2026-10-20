@@ -14,11 +14,21 @@ import (
 )
 
 // This immutable configuration enables diagnostic reads only. It does not
-// enable C3 confirmation, window reuse, new writes, or a publication shortcut.
+// enable C3 confirmation or a publication shortcut by itself. Combining this
+// explicit experiment with certified C3 audits bounded publication against an
+// independent full oracle; ordinary certified C3 does not run that experiment.
 // The synchronous observer must be concurrency-safe and must not reenter DB.
 func (r *Repository) WithReviewCompletenessLineageShadow(observer func(domain.ReviewCompletenessLineageObservation)) *Repository {
-	copy := *r
+	copy := *r.WithReviewLineageObserver(observer)
 	copy.reviewCompletenessLineageShadow = true
+	return &copy
+}
+
+// WithReviewLineageObserver observes existing decisions without enabling the
+// lineage/window experiment or changing calculation and publication dispatch.
+// The synchronous observer must be concurrency-safe and must not reenter DB.
+func (r *Repository) WithReviewLineageObserver(observer func(domain.ReviewCompletenessLineageObservation)) *Repository {
+	copy := *r
 	copy.reviewCompletenessLineageObserver = observer
 	return &copy
 }
@@ -33,10 +43,14 @@ func (r *Repository) observeReviewLineage(phase, verdict string) {
 	}
 }
 
-func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, epoch string) (*domain.ReviewCompletenessLineage, error) {
+func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, epoch string, trackingVerified bool) (*domain.ReviewCompletenessLineage, error) {
 	l := &domain.ReviewCompletenessLineage{Version: domain.ReviewCompletenessLineageVersion, Reason: "untrusted_checkpoint"}
 	previous := capture.PublishedTemporal
-	if previous == nil || previous.EvaluatedAt.IsZero() || !previous.NextTransitionAt.After(previous.EvaluatedAt) || previous.NoChangeCompletenessVersion != domain.ReviewNoChangeCompletenessVersion || previous.NoChangeReviewFingerprint == "" || capture.Control.ProjectionStatus != "complete" || capture.Control.PublishedFingerprint == "" {
+	completenessVersion := domain.ReviewNoChangeCompletenessVersion
+	if r.CertifiedReviewEnabled() {
+		completenessVersion = domain.ReviewCertifiedCompletenessVersion
+	}
+	if previous == nil || previous.EvaluatedAt.IsZero() || !previous.NextTransitionAt.After(previous.EvaluatedAt) || previous.NoChangeCompletenessVersion != completenessVersion || previous.NoChangeReviewFingerprint == "" || capture.Control.ProjectionStatus != "complete" || capture.Control.PublishedFingerprint == "" {
 		return l, nil
 	}
 	if previous.PolicyVersion != domain.ReviewTemporalPolicyVersion || previous.DependencyScope != domain.ReviewTemporalDependencyScope || previous.ClockEpoch != epoch || capture.SourceCutoff.Before(previous.EvaluatedAt) {
@@ -47,22 +61,26 @@ func (r *Repository) captureReviewLineage(ctx context.Context, tx *sql.Tx, captu
 		l.Reason = "source_changed"
 		return l, nil
 	}
-	var cookie, fk, version int
-	for _, p := range []struct {
-		query string
-		dest  *int
-	}{{`PRAGMA schema_version`, &cookie}, {`PRAGMA foreign_keys`, &fk}, {`PRAGMA user_version`, &version}} {
-		if err := tx.QueryRowContext(ctx, p.query).Scan(p.dest); err != nil {
-			return nil, err
+	// True only after verifiedCertifiedTracking succeeded in this SAME
+	// transaction. Standalone shadow calls retain their original C1 verifier.
+	if !trackingVerified {
+		var cookie, fk, version int
+		for _, p := range []struct {
+			query string
+			dest  *int
+		}{{`PRAGMA schema_version`, &cookie}, {`PRAGMA foreign_keys`, &fk}, {`PRAGMA user_version`, &version}} {
+			if err := tx.QueryRowContext(ctx, p.query).Scan(p.dest); err != nil {
+				return nil, err
+			}
 		}
-	}
-	if cookie == 0 || cookie != r.database.reviewVerifiedSchemaVersion || fk != 1 || version != CurrentSchemaVersion {
-		l.Reason = "tracking_unverified"
-		return l, nil
-	}
-	if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
-		l.Reason = "tracking_unverified"
-		return l, ctx.Err()
+		if cookie == 0 || cookie != r.database.reviewVerifiedSchemaVersion || fk != 1 || version != CurrentSchemaVersion {
+			l.Reason = "tracking_unverified"
+			return l, nil
+		}
+		if err := verifyFinancialSourceTracking(ctx, tx); err != nil {
+			l.Reason = "tracking_unverified"
+			return l, ctx.Err()
+		}
 	}
 	if previous.ConfigRevision != capture.Control.ConfigRevision || previous.StateRevision != capture.Control.ReviewStateRevision || len(previous.RuleRevisions) != len(capture.Rules) {
 		l.Reason = "review_changed"

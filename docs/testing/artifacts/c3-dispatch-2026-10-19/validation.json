@@ -1,0 +1,108 @@
+{
+  "generatedAtUTC": "2026-10-19T18:42:12.893017+00:00",
+  "sourceCommit": "08a5b0245cdf367f62bbd3563d498ff53f604cf3",
+  "priorRegressionSource": "713224c0b219a2aa9ecc068ba6a6f8e26a36b934",
+  "branch": "perf/c3-runtime-window-oracle",
+  "draftPR": 129,
+  "environment": {
+    "go": "go1.26.1",
+    "sqlite": "3.53.0",
+    "os": "linux",
+    "arch": "amd64",
+    "GOMAXPROCS": 4,
+    "PATHPrefix": "/tmp/go/bin",
+    "GOCACHE": "/tmp/nestworth-c3-cache",
+    "GOMODCACHE": "/tmp/nestworth-c3-mod",
+    "GOPATH": "/tmp/nestworth-c3-path",
+    "TMPDIR": "/tmp/nestworth-c3-scratch"
+  },
+  "checks": {
+    "certified": {
+      "command": "go test -p 1 ./internal/application ./internal/infrastructure/sqlite -run '^TestReviewCertified' -count=1 -timeout=10m",
+      "exit": 0,
+      "applicationSeconds": 17.29,
+      "sqliteSeconds": 0.79
+    },
+    "allInternal": {
+      "command": "go test -p 1 ./internal/... -count=1 -timeout=10m",
+      "exit": 0,
+      "applicationSeconds": 120.623,
+      "sqliteSeconds": 25.796
+    },
+    "vet": {
+      "command": "go vet -p 1 ./internal/...",
+      "exit": 0
+    },
+    "build": {
+      "command": "go build -p 1 ./internal/...",
+      "exit": 0
+    },
+    "gofmt": {
+      "exit": 0,
+      "outputBytes": 0
+    },
+    "foreignKeyRegressionBefore": {
+      "immutableArchive": true,
+      "onlyAddedFile": "internal/application/review_certified_fk_contract_test.go",
+      "command": "go test -p 1 ./internal/application -run '^TestReviewCertifiedPreCaptureForeignKeyCascadeCannotCertify$' -count=1 -timeout=10m",
+      "exit": 1,
+      "expectedFailure": true,
+      "firstNoopSucceededAndChangedFrozenTime": true
+    },
+    "nativePreflight": {
+      "command": "pkg-config --modversion gtk4 webkitgtk-6.0 libsoup-3.0",
+      "exit": 1,
+      "rootCommandBuildPassed": false
+    },
+    "race": {
+      "rerun": false,
+      "timeoutChanged": false,
+      "overallGate": "incomplete earlier global application timeout; no new race claim"
+    }
+  },
+  "performance": {
+    "serial": true,
+    "noConcurrentBuildOrTest": true,
+    "ordinaryCandidateWithoutLineageExperiment": true,
+    "independentPrepublicationFullAndDurableOutputOracles": "all pass",
+    "smallSamples": 3,
+    "largeSamples": 1,
+    "smallPackageSeconds": 7.953,
+    "largePackageSeconds": 413.652,
+    "largeWholeProcessVmHWM_kB": 1038336,
+    "isIsolatedPerArmRSS": false,
+    "isP95Acceptance": false,
+    "commandTemplate": "NW_C3_CERTIFIED_EVIDENCE=1 NW_C3_PERF_SIZE=<small|large> NW_REVIEW_PERF_SAMPLES=<3|1> go test -tags=perf -p 1 ./internal/application -run '^(TestReviewCertifiedPerformanceEvidence|TestReviewCertifiedHistoryFreeBootstrapEvidence)$' -count=1 -timeout=<8m|12m> -v",
+    "largeClockOnly": {
+      "C2Seconds": 5.73676334,
+      "candidateSeconds": 8.281264838,
+      "candidatePairDays": 62000,
+      "C2PairDays": 2000,
+      "candidateSQLExecutions": 128242,
+      "C2SQLExecutions": 8242,
+      "affectedRowsBothArms": 6242,
+      "candidateTotalAllocatedBytes": 3370049032,
+      "C2TotalAllocatedBytes": 2008283056,
+      "allocatedBytesIsRSS": false
+    },
+    "restartedFallbackGrantsAuthority": false
+  },
+  "boundaries": {
+    "production": "C2 unchanged",
+    "legacyRestartAuthority": "hard disabled",
+    "initialAuthority": "private fresh-creation receipt and unchanged-counter atomic claim",
+    "boundedExperiment": "explicit lineage selection only; full runtime oracle retained",
+    "CIWorkflowsChanged": false,
+    "manualCIDispatched": false,
+    "activation": false,
+    "mergeToMain": false,
+    "release": false,
+    "realLedgersOrCredentials": false
+  },
+  "baselineNotes": [
+    "C2 uses existing bounded window; candidate uses one full preparation on a no-op miss.",
+    "Exact-FX bootstrap codec is shared to avoid private-rate JSON loss bias.",
+    "Fresh candidate seeding copies only unpublished synthetic source facts/configuration; no reopened clone is authenticated.",
+    "Raw TotalAlloc is cumulative; whole-process VmHWM includes both arms and setup."
+  ]
+}

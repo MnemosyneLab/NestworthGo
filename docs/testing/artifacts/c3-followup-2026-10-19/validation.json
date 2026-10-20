@@ -1,0 +1,340 @@
+{
+  "recorded_at_utc": "2026-10-19T17:18:45.291604+00:00",
+  "frozen_hot_path_and_measurement_source": "6861411f69c914a99e9690fa5facf549bf030d5d",
+  "shutdown_guard_source": "da6d6759e34cb7a1d6a973194bd37cc67483242c",
+  "environment": {
+    "Go": "go1.26.1",
+    "SQLite": "3.53.0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOMAXPROCS": 4,
+    "GOCACHE": "/tmp/nestworth-c3-cache",
+    "GOMODCACHE": "/tmp/nestworth-c3-mod",
+    "GOPATH": "/tmp/nestworth-c3-path",
+    "TMPDIR": "/tmp/nestworth-c3-scratch",
+    "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+    "logical_cpus_visible": 5,
+    "cpu.max": "400000 100000",
+    "memory.max": "17179869184"
+  },
+  "stage_two_acceptance": "incomplete",
+  "default_activation": false,
+  "main": "326688ce86d35216a9fe55a3bee63bcbb379683d",
+  "ancestors": {
+    "PR119": "c3867c626d3b6a0cdbcf669a0047ff8d07d4215f",
+    "PR121": "09d6276bb0f0be6ebdbfa4afacfcca843c1e623a"
+  },
+  "checks": [
+    {
+      "source": "6861411f69c914a99e9690fa5facf549bf030d5d",
+      "command": "go test -p 1 ./internal/... -count=1 -timeout=10m",
+      "exit_code": 0,
+      "log": "all-internal.log"
+    },
+    {
+      "source": "6861411f69c914a99e9690fa5facf549bf030d5d",
+      "command": "go vet -p 1 ./internal/...",
+      "exit_code": 0,
+      "log": "vet.log"
+    },
+    {
+      "source": "6861411f69c914a99e9690fa5facf549bf030d5d",
+      "command": "go build -p 1 ./internal/...",
+      "exit_code": 0,
+      "log": "build.log"
+    },
+    {
+      "source": "da6d6759e34cb7a1d6a973194bd37cc67483242c",
+      "command": "go test -p 1 ./internal/application ./internal/infrastructure/sqlite -run '^TestReviewCertified' -count=1 -timeout=5m",
+      "exit_code": 0,
+      "log": "close-certified.log"
+    },
+    {
+      "source": "da6d6759e34cb7a1d6a973194bd37cc67483242c",
+      "command": "go vet -p 1 ./internal/...",
+      "exit_code": 0,
+      "log": "close-vet.log"
+    },
+    {
+      "source": "da6d6759e34cb7a1d6a973194bd37cc67483242c",
+      "command": "go build -p 1 ./internal/...",
+      "exit_code": 0,
+      "log": "close-build.log"
+    },
+    {
+      "source": "da6d6759e34cb7a1d6a973194bd37cc67483242c",
+      "command": "gofmt -l (changed Go files)",
+      "exit_code": 0,
+      "log": "gofmt.log"
+    }
+  ],
+  "benchmark_contract": {
+    "source": "6861411f69c914a99e9690fa5facf549bf030d5d",
+    "command": "go test -tags=perf -p 1 ./internal/application -run '^(TestReviewCertifiedPerformanceEvidence|TestReviewCertifiedHistoryFreeBootstrapEvidence)$' -count=1 -v",
+    "common_env": {
+      "NW_C3_CERTIFIED_EVIDENCE": "1"
+    },
+    "small": {
+      "NW_C3_PERF_SIZE": "small",
+      "NW_REVIEW_PERF_SAMPLES": "3",
+      "timeout": "8m",
+      "exit_code": 0
+    },
+    "large": {
+      "NW_C3_PERF_SIZE": "large",
+      "NW_REVIEW_PERF_SAMPLES": "1",
+      "timeout": "12m",
+      "exit_code": 0
+    },
+    "execution": "serial, after ordinary test/vet/build completed; no concurrent race/build/profile",
+    "gates": "independent pre-publication full oracle plus durable financial/lifecycle equality",
+    "allocation_metric": "cumulative Go TotalAlloc delta, not RSS",
+    "RSS_metric": "whole-process VmHWM includes fixture/clones/oracles/both arms; no per-arm RSS acceptance",
+    "p95_acceptance": false
+  },
+  "measurements": [
+    {
+      "size": "small",
+      "scenario": "warm",
+      "arm": "C2",
+      "n": 3,
+      "median": "33.483059ms",
+      "raw_durations": [
+        "34.939026ms",
+        "31.178207ms",
+        "33.483059ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "warm",
+      "arm": "certified",
+      "n": 3,
+      "median": "2.915266ms",
+      "raw_durations": [
+        "3.963103ms",
+        "2.74456ms",
+        "2.915266ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "clock-only",
+      "arm": "C2",
+      "n": 3,
+      "median": "38.739343ms",
+      "raw_durations": [
+        "38.739343ms",
+        "37.999885ms",
+        "43.428383ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "clock-only",
+      "arm": "certified",
+      "n": 3,
+      "median": "52.587825ms",
+      "raw_durations": [
+        "56.811887ms",
+        "51.311469ms",
+        "52.587825ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "append",
+      "arm": "C2",
+      "n": 3,
+      "median": "52.942894ms",
+      "raw_durations": [
+        "61.41907ms",
+        "50.952425ms",
+        "52.942894ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "append",
+      "arm": "certified",
+      "n": 3,
+      "median": "53.086889ms",
+      "raw_durations": [
+        "54.582376ms",
+        "52.001716ms",
+        "53.086889ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "correction",
+      "arm": "C2",
+      "n": 3,
+      "median": "58.907809ms",
+      "raw_durations": [
+        "50.618174ms",
+        "58.907809ms",
+        "62.351129ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "correction",
+      "arm": "certified",
+      "n": 3,
+      "median": "56.245567ms",
+      "raw_durations": [
+        "49.103221ms",
+        "68.054712ms",
+        "56.245567ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "history-free restart bootstrap (distinct no-hit rules)",
+      "arm": "C2",
+      "n": 3,
+      "raw_durations": [
+        "54.862203ms",
+        "53.500633ms",
+        "56.135444ms"
+      ]
+    },
+    {
+      "size": "small",
+      "scenario": "history-free restart bootstrap (distinct no-hit rules)",
+      "arm": "certified",
+      "n": 3,
+      "raw_durations": [
+        "66.423327ms",
+        "62.669314ms",
+        "73.284421ms"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "warm",
+      "arm": "C2",
+      "n": 1,
+      "median": "5.839148423s",
+      "raw_durations": [
+        "5.839148423s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "warm",
+      "arm": "certified",
+      "n": 1,
+      "median": "34.317745ms",
+      "raw_durations": [
+        "34.317745ms"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "clock-only",
+      "arm": "C2",
+      "n": 1,
+      "median": "6.427173832s",
+      "raw_durations": [
+        "6.427173832s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "clock-only",
+      "arm": "certified",
+      "n": 1,
+      "median": "11.321942251s",
+      "raw_durations": [
+        "11.321942251s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "append",
+      "arm": "C2",
+      "n": 1,
+      "median": "10.433432979s",
+      "raw_durations": [
+        "10.433432979s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "append",
+      "arm": "certified",
+      "n": 1,
+      "median": "11.22753853s",
+      "raw_durations": [
+        "11.22753853s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "correction",
+      "arm": "C2",
+      "n": 1,
+      "median": "9.892028797s",
+      "raw_durations": [
+        "9.892028797s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "correction",
+      "arm": "certified",
+      "n": 1,
+      "median": "10.350936056s",
+      "raw_durations": [
+        "10.350936056s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "history-free restart bootstrap (distinct no-hit rules)",
+      "arm": "C2",
+      "n": 1,
+      "raw_durations": [
+        "8.373450295s"
+      ]
+    },
+    {
+      "size": "large",
+      "scenario": "history-free restart bootstrap (distinct no-hit rules)",
+      "arm": "certified",
+      "n": 1,
+      "raw_durations": [
+        "8.693598634s"
+      ]
+    }
+  ],
+  "prior_race": {
+    "source": "53dbd180c3d75884a0132c9400a5a14f94015d7b",
+    "overall_exit_code": 1,
+    "status": "application global 20m timeout; domain/SQLite passed; no data-race warning observed; overall gate incomplete",
+    "rerun": false,
+    "current_followup_race_validated": false
+  },
+  "native": {
+    "current_command": "pkg-config --modversion gtk4 webkitgtk-6.0 libsoup-3.0",
+    "exit_code": 1,
+    "missing": [
+      "gtk4",
+      "webkitgtk-6.0",
+      "libsoup-3.0"
+    ],
+    "log": "native-dependencies.log",
+    "new_native_build_or_mac_acceptance": false
+  },
+  "workflow_changes": [],
+  "manual_workflow_dispatches": 0,
+  "remaining": [
+    "review runtime full-oracle overhead and changed-path regressions within C3",
+    "frozen-history/older-condition bootstrap remains unsupported and takes full fallback",
+    "independent safety review",
+    "race gate incomplete; no authorized rerun",
+    "native 30-sample p95 and isolated per-arm RSS acceptance"
+  ]
+}

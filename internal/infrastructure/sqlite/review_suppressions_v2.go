@@ -118,6 +118,10 @@ func (r *Repository) MutateReviewSuppressionV2(ctx context.Context, m domain.Rev
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
+	integrity, err := r.beforeCertifiedHandling(ctx, tx, m.HouseholdID)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_control(household_id) VALUES(?) ON CONFLICT(household_id) DO NOTHING`, m.HouseholdID.String()); err != nil {
 		return nil, err
 	}
@@ -266,6 +270,9 @@ func (r *Repository) MutateReviewSuppressionV2(ctx context.Context, m domain.Rev
 		return nil, err
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_mutation_receipts(household_id,mutation_id,request_hash,result_json,created_at) VALUES(?,?,?,?,?)`, m.HouseholdID.String(), string(m.MutationID), requestHash, string(encoded), m.At.UTC().Format(time.RFC3339Nano)); err != nil {
+		return nil, err
+	}
+	if err := r.afterCertifiedHandling(ctx, tx, m.HouseholdID, integrity); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {

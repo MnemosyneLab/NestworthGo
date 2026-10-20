@@ -21,6 +21,7 @@ type ReviewProjectionCapture struct {
 	EvaluatedInstruments  map[ReviewRuleID][]InstrumentID
 	ReusableDailyEvidence map[ReviewDailyEvidenceKey]ReviewReusableDailyEvidence
 	CompletenessLineage   *ReviewCompletenessLineage
+	Certified             *ReviewCertifiedCapture
 }
 
 // ReviewDailyEvidenceKey identifies one persisted daily input/result for the
@@ -71,10 +72,12 @@ type ReviewStoredEpisode struct {
 }
 
 type ReviewPublication struct {
-	Capture       ReviewProjectionCapture
-	At            time.Time
-	Rules         []ReviewRulePublication
-	FXProviderKey string
+	Capture             ReviewProjectionCapture
+	At                  time.Time
+	Rules               []ReviewRulePublication
+	FXProviderKey       string
+	WindowOracle        *ReviewWindowOracle
+	CertifiedFullOracle *ReviewCertifiedFullOracle
 }
 
 type ReviewRulePublication struct {

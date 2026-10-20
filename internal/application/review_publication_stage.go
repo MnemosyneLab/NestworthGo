@@ -13,6 +13,35 @@ import (
 // will reject this entire staged result if any authoritative fact, rule,
 // acknowledgement or ignore changed before publication.
 func PrepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
+	if capture.Certified != nil {
+		return prepareCertifiedReviewPublication(ctx, capture, now, providerKey)
+	}
+	full, err := prepareReviewPublication(ctx, capture, now, providerKey)
+	if err != nil || capture.CompletenessLineage == nil || domain.ValidateReviewCompletenessPrefix(full) != "prefix_validated" {
+		return full, err
+	}
+	// Only the opt-in shadow has lineage. Always keep full as the actual
+	// publication, and use a separate cache/planner for the hypothetical path.
+	full.Rules = cloneReviewOracleRules(full.Rules)
+	boundedCapture := capture
+	boundedCapture.CompletenessLineage = nil
+	boundedCapture.TemporalFullRecompute = false
+	boundedCapture.ReusableDailyEvidence = capture.CompletenessLineage.Window
+	bounded, err := prepareReviewPublication(ctx, boundedCapture, now, providerKey)
+	if ctx.Err() != nil {
+		return domain.ReviewPublication{}, ctx.Err()
+	}
+	full.WindowOracle = &domain.ReviewWindowOracle{Version: domain.ReviewWindowOracleVersion, Failed: err != nil, Rules: bounded.Rules}
+	// Compute the comparison now, then recompute it in the publisher before
+	// any successful diagnostic verdict. It never selects publication rows.
+	full.WindowOracle.PreparedVerdict = domain.ValidateReviewWindowOracle(full)
+	if err := ctx.Err(); err != nil {
+		return domain.ReviewPublication{}, err
+	}
+	return full, nil
+}
+
+func prepareReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
 	result := domain.ReviewPublication{Capture: capture, At: now, Rules: []domain.ReviewRulePublication{}, FXProviderKey: providerKey}
 	cache := newReviewProjectionCache(capture, providerKey)
 	for _, rule := range capture.Rules {
@@ -205,4 +234,36 @@ func reviewEpisodeTriggerEvidence(capture domain.ReviewProjectionCapture, rule d
 		return domain.ReviewPolicyWindow{}, stored.FirstHitOn, nil, append([]string{}, stored.TriggerCoverage...), nil
 	}
 	return domain.ReviewPolicyWindow{}, "", nil, nil, fmt.Errorf("review episode %s has no reconstructable trigger window", current.ID)
+}
+
+// Audit both planners before allowing any bounded publication. Even the
+// candidate keeps the independent full oracle in memory for fallback/recheck.
+func prepareCertifiedReviewPublication(ctx context.Context, capture domain.ReviewProjectionCapture, now time.Time, providerKey string) (domain.ReviewPublication, error) {
+	fullCapture := capture
+	fullCapture.TemporalFullRecompute = true
+	fullCapture.ReusableDailyEvidence = nil
+	full, err := prepareReviewPublication(ctx, fullCapture, now, providerKey)
+	if err != nil {
+		return full, err
+	}
+	proof := capture.Certified
+	if !proof.MayReuse || !proof.Provider.Pinned || proof.Provider.Key != providerKey || proof.Provider != proof.PreviousProvider || domain.ValidateReviewCompletenessPrefix(full) != "prefix_validated" {
+		return full, nil
+	}
+	full.Rules = cloneReviewOracleRules(full.Rules)
+	bounded, err := prepareReviewPublication(ctx, capture, now, providerKey)
+	if ctx.Err() != nil {
+		return domain.ReviewPublication{}, ctx.Err()
+	}
+	full.WindowOracle = &domain.ReviewWindowOracle{Version: domain.ReviewWindowOracleVersion, Rules: bounded.Rules, Failed: err != nil}
+	full.WindowOracle.PreparedVerdict = domain.ValidateReviewWindowOracle(full)
+	if ctx.Err() != nil {
+		return domain.ReviewPublication{}, ctx.Err()
+	}
+	if full.WindowOracle.PreparedVerdict != "window_oracle_matched" {
+		return full, nil
+	}
+	bounded.WindowOracle = full.WindowOracle
+	bounded.CertifiedFullOracle = &domain.ReviewCertifiedFullOracle{Rules: full.Rules}
+	return bounded, nil
 }

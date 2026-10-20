@@ -1,0 +1,189 @@
+{
+  "generatedAtUTC": "2026-10-19T19:14:05.761822+00:00",
+  "finalSourceCommit": "68f419422387960f40a42a6eba52d9dfdf913429",
+  "initialEncodedRowCommit": "483f4060cda6bf26e540d9b2d9505bd6836662cd",
+  "branch": "perf/c3-runtime-window-oracle",
+  "draftPR": 129,
+  "environment": {
+    "go": "go1.26.1",
+    "sqlite": "3.53.0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOMAXPROCS": 4,
+    "PATHPrefix": "/tmp/go/bin",
+    "GOCACHE": "/tmp/nestworth-c3-cache",
+    "GOMODCACHE": "/tmp/nestworth-c3-mod",
+    "GOPATH": "/tmp/nestworth-c3-path",
+    "TMPDIR": "/tmp/nestworth-c3-scratch"
+  },
+  "validation": {
+    "initialAllInternal": {
+      "source": "483f406",
+      "command": "go test -p 1 ./internal/... -count=1 -timeout=10m",
+      "exit": 0,
+      "applicationSeconds": 122.501,
+      "sqliteSeconds": 27.205
+    },
+    "initialFocused": {
+      "source": "483f406",
+      "command": "go test -p 1 ./internal/application ./internal/infrastructure/sqlite -run '^(TestReviewCertified|TestReviewPublicationEquality)' -count=1 -timeout=10m",
+      "exit": 0,
+      "applicationSeconds": 17.364,
+      "sqliteSeconds": 0.763
+    },
+    "finalAffectedPackages": {
+      "source": "68f419422387960f40a42a6eba52d9dfdf913429",
+      "command": "go test -p 1 ./internal/application ./internal/infrastructure/sqlite -count=1 -timeout=10m",
+      "exit": 0,
+      "applicationSeconds": 124.312,
+      "sqliteSeconds": 25.949
+    },
+    "finalVet": {
+      "command": "go vet -p 1 ./internal/...",
+      "exit": 0
+    },
+    "finalBuild": {
+      "command": "go build -p 1 ./internal/...",
+      "exit": 0
+    },
+    "finalGofmt": {
+      "outputBytes": 0,
+      "exit": 0
+    },
+    "nativePreflight": {
+      "command": "pkg-config --modversion gtk4 webkitgtk-6.0 libsoup-3.0",
+      "exit": 1,
+      "rootCommandBuildAttempted": false,
+      "nativePass": false
+    },
+    "race": {
+      "rerun": false,
+      "timeoutChanged": false,
+      "overallGate": "Earlier global application timeout remains incomplete"
+    }
+  },
+  "performance": {
+    "serialNoConcurrentBuildOrTest": true,
+    "syntheticOnly": true,
+    "freshPrivateOriginCandidateFixtures": true,
+    "sameFinancialIDsDataInsideEachPair": true,
+    "independentPrepublicationFullAndPairedDurableOracles": "all pass",
+    "finalSmall": {
+      "samples": 3,
+      "environment": {
+        "NW_C3_CERTIFIED_EVIDENCE": "1",
+        "NW_C3_PERF_SIZE": "small",
+        "NW_REVIEW_PERF_SAMPLES": "3"
+      },
+      "command": "go test -tags=perf -p 1 ./internal/application -run '^TestReviewCertifiedPerformanceEvidence$' -count=1 -timeout=8m -v",
+      "packageSeconds": 6.817,
+      "mediansMilliseconds": {
+        "warm": {
+          "C2": 45.882075,
+          "candidate": 4.209958
+        },
+        "clockOnly": {
+          "C2": 42.081216,
+          "candidate": 51.266468
+        },
+        "append": {
+          "C2": 65.383511,
+          "candidate": 59.848185
+        },
+        "correction": {
+          "C2": 55.547259,
+          "candidate": 57.817545
+        }
+      }
+    },
+    "finalLarge": {
+      "samples": 1,
+      "environment": {
+        "NW_C3_CERTIFIED_EVIDENCE": "1",
+        "NW_C3_PERF_SIZE": "large",
+        "NW_REVIEW_PERF_SAMPLES": "1"
+      },
+      "command": "go test -tags=perf -p 1 ./internal/application -run '^TestReviewCertifiedPerformanceEvidence$/^large$/^(clock-only|append|correction)$' -count=1 -timeout=12m -v",
+      "selectedScenarios": [
+        "clock-only",
+        "append",
+        "correction"
+      ],
+      "warmRemeasured": false,
+      "packageSeconds": 283.266,
+      "wholeProcessVmHWM_kB": 1083168,
+      "isIsolatedPerArmRSS": false,
+      "elapsedSeconds": {
+        "clockOnly": {
+          "C2": 5.830995185,
+          "candidate": 7.918899192
+        },
+        "append": {
+          "C2": 10.40410169,
+          "candidate": 7.988814464
+        },
+        "correction": {
+          "C2": 9.691885487,
+          "candidate": 7.703464283
+        }
+      },
+      "statementExecutions": {
+        "clockOnly": {
+          "C2": 8242,
+          "candidate": 8242
+        },
+        "append": {
+          "C2": 128242,
+          "candidate": 8242
+        },
+        "correction": {
+          "C2": 124002,
+          "candidate": 4056
+        }
+      },
+      "affectedRowsBothArms": {
+        "clockOnly": 6242,
+        "append": 6342,
+        "correction": 156
+      },
+      "clockOnlyCalculatedPairDays": {
+        "C2": 2000,
+        "candidate": 62000
+      },
+      "clockOnlyTotalAllocatedBytes": {
+        "C2": 2009055288,
+        "candidate": 3523489824
+      },
+      "allocatedBytesIsRSS": false,
+      "clockOnlyRegressionPercent": 35.80699247310388
+    },
+    "prototypeLogsAreSeparate": true,
+    "noControlledCrossCommitThroughputClaim": true,
+    "p95Acceptance": false
+  },
+  "proof": {
+    "sameHandleExistingAuthorityRequired": true,
+    "sourceCASUnderReservationRequired": true,
+    "completeSchemaFKAndTriggerContractRetained": true,
+    "compared": "Every non-timestamp SQL scalar and complete serialized payload, including full keys and NULL types",
+    "imageLifetime": "One writer transaction; not computation input or a cross-call cache",
+    "comparisonAtActualWrite": true,
+    "duplicateKeyImageConsumedOnce": true,
+    "epochEpisodeHandlingStateControlCheckpointOmitted": false,
+    "noPrefixCountFingerprintInference": true,
+    "legacyRestartAuthority": "hard disabled",
+    "unsafeWritableSchemaCacheForgery": "Excluded privileged engine/schema forgery under existing documented trust boundary; candidate unexecuted and no protection claimed"
+  },
+  "boundaries": {
+    "production": "C2 unchanged",
+    "noDOrEComputationChanges": true,
+    "noDirtySuffixPlanner": true,
+    "noPersistentSecurityProtocol": true,
+    "CIWorkflowsChanged": false,
+    "manualCIDispatch": false,
+    "activation": false,
+    "mergeToMain": false,
+    "release": false
+  },
+  "outcome": "Extra 120000 zero-row clock-only UPSERTs removed; full total clock-only regression remains unresolved. Default activation is blocked."
+}
