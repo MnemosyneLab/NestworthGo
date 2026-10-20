@@ -253,6 +253,19 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 			return err
 		}
 	}
+	if r.reviewDependencySuffix && proof.MayCertify {
+		if previous != nil && r.authenticReview(previous, seal) && c.SourceRevision != nil && previous.Source != nil && c.SourceRevision.Token == previous.Source.Token && c.HistoricalFingerprint == c.Control.PublishedFingerprint && previous.SuffixFX != nil {
+			proof.FXDescription = previous.SuffixFX
+		} else {
+			proof.FXDescription, err = domain.DescribeReviewFX(c.Historical)
+			if err != nil {
+				return err
+			}
+			if err = captureReviewFXProvenance(ctx, tx, c.HouseholdID, proof.FXDescription); err != nil {
+				return err
+			}
+		}
+	}
 	proof.SourceMAC, err = r.sourceCaptureMAC(*c)
 	return err
 }
@@ -351,7 +364,9 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 			source := c.Certified.SuffixSourceProof
 			out.SuffixQuoteSeals = source.QuoteSeals
 			out.SuffixNonQuoteFingerprint = source.NonQuoteFingerprint
+			out.SuffixFX = c.Certified.FXDescription
 		} else {
+			out.SuffixFX = c.Certified.FXDescription
 			out.SuffixQuoteSeals, err = domain.ReviewQuoteDaySeals(c.Historical)
 			if err != nil {
 				return err

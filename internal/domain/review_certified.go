@@ -29,6 +29,7 @@ type ReviewPrefixMemoObservation struct {
 }
 
 type ReviewCertifiedCapture struct {
+	FXDescription         *ReviewFXDescription         `json:",omitempty"` // Complete coherent-capture description, bound by SourceMAC.
 	SuffixMemoReceipt     uint64                       `json:",omitempty"`
 	SuffixMemoObservation *ReviewPrefixMemoObservation `json:",omitempty"`
 

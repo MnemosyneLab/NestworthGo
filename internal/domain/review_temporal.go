@@ -32,6 +32,7 @@ type ReviewTemporalCertificate struct {
 	CertifiedProvider           ReviewProviderSelection    `json:",omitempty"`
 	CertifiedConnection         ReviewConnectionCheckpoint `json:",omitempty"`
 	SuffixQuoteSeals            []ReviewQuoteDaySeal       `json:",omitempty"`
+	SuffixFX                    *ReviewFXDescription       `json:",omitempty"`
 	SuffixNonQuoteFingerprint   string                     `json:",omitempty"`
 	CertifiedNeedsReconcile     bool                       `json:",omitempty"`
 }
