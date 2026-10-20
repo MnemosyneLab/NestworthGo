@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Legacy GUI observations have only quoteId. Guarded observations additionally
@@ -41,10 +41,10 @@ func verifyProductValuationReceipts(ctx context.Context, query schemaQuery) erro
 			Receipt domain.ProductValuationReceipt `json:"receipt"`
 		}
 		invalid := func() error { return storedIntegrity("product", "valuation receipt disagrees with recorded facts") }
-		if json.Unmarshal([]byte(request), &req) != nil || json.Unmarshal([]byte(result), &res) != nil || res.Receipt.Validate() != nil {
+		if jsoncodec.Unmarshal([]byte(request), &req) != nil || jsoncodec.Unmarshal([]byte(result), &res) != nil || res.Receipt.Validate() != nil {
 			return invalid()
 		}
-		raw, err := json.Marshal(req.Command)
+		raw, err := jsoncodec.Marshal(req.Command)
 		if err != nil {
 			return err
 		}

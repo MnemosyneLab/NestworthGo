@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"reflect"
@@ -14,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
@@ -44,12 +44,12 @@ func guiProductPost(t *testing.T, fx ledgerFixture, command liquidity.ProductCom
 func productJSONEqual(t *testing.T, actual, expected any) {
 	t.Helper()
 	encode := func(value any) any {
-		raw, err := json.Marshal(value)
+		raw, err := jsoncodec.Marshal(value)
 		if err != nil {
 			t.Fatal(err)
 		}
 		var decoded any
-		if err := json.Unmarshal(raw, &decoded); err != nil {
+		if err := jsoncodec.Unmarshal(raw, &decoded); err != nil {
 			t.Fatal(err)
 		}
 		return decoded
@@ -82,7 +82,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 					if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint || tool.Annotations.OpenWorldHint == nil || *tool.Annotations.OpenWorldHint {
 						t.Fatalf("incorrect read annotations: %+v", tool)
 					}
-					schema, _ := json.Marshal(tool.InputSchema)
+					schema, _ := jsoncodec.Marshal(tool.InputSchema)
 					if !strings.Contains(string(schema), `"additionalProperties":false`) || strings.Contains(string(schema), "releaseReservationIds") {
 						t.Fatalf("unsafe schema: %s", schema)
 					}
@@ -92,7 +92,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 				t.Fatal(found)
 			}
 			info := call(t, client, "get_context", Empty{}, false)["data"].(map[string]any)
-			caps, _ := json.Marshal(info["capabilities"])
+			caps, _ := jsoncodec.Marshal(info["capabilities"])
 			if !strings.Contains(string(caps), "managed_product_read") || !strings.Contains(string(caps), "liquidity_read") || strings.Contains(string(caps), "product_preview") {
 				t.Fatal(info)
 			}
@@ -406,7 +406,7 @@ func productHTTP(t *testing.T, service *Service, payload any, protocol string) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := json.Marshal(payload)
+	raw, err := jsoncodec.Marshal(payload)
 	if err != nil {
 		t.Fatal(err)
 	}

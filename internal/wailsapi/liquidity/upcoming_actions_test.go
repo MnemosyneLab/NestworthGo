@@ -2,10 +2,10 @@ package liquidity
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"testing"
 )
 
@@ -13,12 +13,12 @@ func TestUpcomingWireArraysNullAndMoney(t *testing.T) {
 	zero, _ := domain.ParseMoney("0", "USD")
 	v := domain.UpcomingActions{Items: []domain.UpcomingAction{{ID: "test", Amount: &zero, PrimaryTarget: domain.UpcomingTarget{Kind: "data_health"}}}}
 	dto := fromUpcomingActions(v)
-	b, e := json.Marshal(dto)
+	b, e := jsoncodec.Marshal(dto)
 	if e != nil {
 		t.Fatal(e)
 	}
 	var wire map[string]any
-	if e = json.Unmarshal(b, &wire); e != nil {
+	if e = jsoncodec.Unmarshal(b, &wire); e != nil {
 		t.Fatal(e)
 	}
 	if wire["schemaVersion"] != "upcoming-actions/1" || wire["dataChecks"] == nil || wire["scopeWarnings"] == nil {
@@ -52,7 +52,7 @@ func TestUpcomingWirePropagatesReadFailure(t *testing.T) {
 		t.Fatal("failure became empty list")
 	}
 	var wire map[string]any
-	if json.Unmarshal([]byte(e.Error()), &wire) != nil || wire["code"] == nil {
+	if jsoncodec.Unmarshal([]byte(e.Error()), &wire) != nil || wire["code"] == nil {
 		t.Fatalf("unwrapped error: %v", e)
 	}
 }

@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func attributionFor(t *testing.T, s *Service, left, right string, ids ...domain.AccountID) FinancialComparisonResult {
@@ -93,7 +93,7 @@ func TestFinancialAttributionIncomeTransfersRepaymentAndScope(t *testing.T) {
 	if link.InvestmentReturn.Rate != nil {
 		t.Fatal("invented cash-only investment rate")
 	}
-	raw, _ := json.Marshal(r.Content)
+	raw, _ := jsoncodec.Marshal(r.Content)
 	for _, secret := range []string{"Private", a.Account.ID.String(), b.Account.ID.String(), debt.Account.ID.String()} {
 		if strings.Contains(string(raw), secret) {
 			t.Fatal("minimal leak", secret)
@@ -127,7 +127,7 @@ func TestFinancialAttributionIncomeTransfersRepaymentAndScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ = json.Marshal(named.Content)
+	raw, _ = jsoncodec.Marshal(named.Content)
 	if !strings.Contains(string(raw), "Private salary") || strings.Contains(string(raw), "do not execute") {
 		t.Fatal("named scope disclosure", string(raw))
 	}

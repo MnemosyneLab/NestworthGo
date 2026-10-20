@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -82,12 +82,12 @@ func connectHistoryTools(t *testing.T, service *Service) *mcp.ClientSession {
 
 func jsonObject(t *testing.T, value any) map[string]any {
 	t.Helper()
-	encoded, err := json.Marshal(value)
+	encoded, err := jsoncodec.Marshal(value)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var result map[string]any
-	if err := json.Unmarshal(encoded, &result); err != nil {
+	if err := jsoncodec.Unmarshal(encoded, &result); err != nil {
 		t.Fatal(err)
 	}
 	return result

@@ -4,7 +4,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Embedding preserves every optional repository capability. Only perf builds
@@ -174,7 +174,7 @@ func TestReviewClockOnlyCPUAllocationProfile(t *testing.T) {
 					residual -= duration
 				}
 				manifest := map[string]any{"arm": arm, "size": size, "elapsed": elapsed.String(), "repositoryPhases": observed.phases, "outsideRepository": residual.String(), "allocatedBytes": after.TotalAlloc - before.TotalAlloc, "allocs": after.Mallocs - before.Mallocs, "pairDays": got.DayCount, "memProfileRate": runtime.MemProfileRate, "profiled": true, "cpuScope": "one actual reconcile only", "allocationScope": "after minus before cumulative alloc_space; GC twice at both boundaries", "outsideRepositoryIsNotPurePrepare": true}
-				raw, _ := json.MarshalIndent(manifest, "", "  ")
+				raw, _ := jsoncodec.MarshalIndent(manifest, "", "  ")
 				if err := os.WriteFile(prefix+"-manifest.json", append(raw, '\n'), 0o600); err != nil {
 					t.Fatal(err)
 				}

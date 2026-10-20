@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // A new comparison is captured after snapshot maintenance. This link never
@@ -401,7 +401,7 @@ func (s *Service) validateAttributionSnapshots(ctx context.Context, inputs Finan
 		}
 		fingerprints = append(fingerprints, fingerprint)
 	}
-	encoded, err := json.Marshal(fingerprints)
+	encoded, err := jsoncodec.Marshal(fingerprints)
 	if err != nil {
 		return "", "", err
 	}
@@ -416,7 +416,7 @@ func scopedAttributionSnapshotHash(snapshot domain.DailyValuationSnapshot, selec
 		}
 	}
 	sort.Strings(items)
-	encoded, _ := json.Marshal(struct {
+	encoded, _ := jsoncodec.Marshal(struct {
 		Date, Cutoff, Currency string
 		Items                  []string
 	}{snapshot.LocalDate, snapshot.CutoffAt.UTC().Format(time.RFC3339Nano), snapshot.Currency.String(), items})

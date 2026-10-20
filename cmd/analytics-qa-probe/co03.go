@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type co03Money struct {
@@ -280,7 +280,7 @@ func writeCO03(logPath string, out co03Out) error {
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
 		return err
 	}
-	raw, err := json.MarshalIndent(out, "", "  ")
+	raw, err := jsoncodec.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err
 	}

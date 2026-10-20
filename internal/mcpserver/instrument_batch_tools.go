@@ -9,6 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
@@ -142,7 +143,7 @@ func metadataReceiptBudget() (bool, error) {
 	for i := range receipt.Items {
 		receipt.Items[i] = domain.InstrumentMetadataReceiptItem{ID: strings.Repeat("a", 36), Changed: true, MetadataVersion: strings.Repeat("a", 64)}
 	}
-	raw, err := json.Marshal(receipt)
+	raw, err := jsoncodec.Marshal(receipt)
 	if err != nil {
 		return false, err
 	}

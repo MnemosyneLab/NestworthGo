@@ -1,8 +1,8 @@
 package domain
 
 import (
-	"encoding/json"
 	"github.com/shopspring/decimal"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -249,7 +249,7 @@ func TestUpcomingDeterminismAndIdentity(t *testing.T) {
 		t.Fatal(e)
 	}
 	snap := LiquiditySnapshot{Reservations: rs}
-	before, _ := json.Marshal(struct {
+	before, _ := jsoncodec.Marshal(struct {
 		O    LiquidityOverview
 		S    []LiquiditySource
 		Snap LiquiditySnapshot
@@ -258,7 +258,7 @@ func TestUpcomingDeterminismAndIdentity(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	after, _ := json.Marshal(struct {
+	after, _ := jsoncodec.Marshal(struct {
 		O    LiquidityOverview
 		S    []LiquiditySource
 		Snap LiquiditySnapshot

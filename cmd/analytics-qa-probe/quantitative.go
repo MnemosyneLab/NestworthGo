@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type quantitativeCase struct {
@@ -520,7 +520,7 @@ func writeQuantitative(outPath string, out quantitativeOut, runErr error) error 
 		out.AllPass = false
 		out.Cases = append(out.Cases, quantitativeCase{ID: "probe", Name: "probe execution", Status: "FAIL", Query: map[string]any{}, Expected: map[string]any{}, Actual: map[string]any{}, Tolerance: "0", ErrorReason: runErr.Error()})
 	}
-	raw, err := json.MarshalIndent(out, "", "  ")
+	raw, err := jsoncodec.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err
 	}

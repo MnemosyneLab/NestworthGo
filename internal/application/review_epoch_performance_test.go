@@ -1,13 +1,13 @@
 package application
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Real command-path cycles, rather than fabricated evaluation-state rows. Both
@@ -280,7 +280,7 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 				t.Fatalf("closure must append one event and preserve history: %+v", gotEvents)
 			}
 			var resolution domain.ReviewEpisodeIdentity
-			if err := json.Unmarshal([]byte(gotEvents[1].payload), &resolution); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(gotEvents[1].payload), &resolution); err != nil {
 				t.Fatal(err)
 			}
 			if resolution.ID != id || resolution.TriggeredOn != "2026-10-06" || !resolution.FirstDetectedAt.Equal(detectedAt) || resolution.AcknowledgedAt == nil || !resolution.AcknowledgedAt.Equal(acknowledgedAt) || resolution.ResolvedAt == nil || !resolution.ResolvedAt.Equal(*run.now) || resolution.ResolvedReason != "recovered" {

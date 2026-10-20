@@ -3,9 +3,10 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // UpcomingActions is an ephemeral projection. It has no completion or write state.
@@ -402,9 +403,9 @@ func appendUpcomingTarget(targets []UpcomingTarget, target UpcomingTarget) []Upc
 	if target.Kind == "" {
 		return targets
 	}
-	key, _ := json.Marshal(target)
+	key, _ := jsoncodec.Marshal(target)
 	for _, existing := range targets {
-		v, _ := json.Marshal(existing)
+		v, _ := jsoncodec.Marshal(existing)
 		if string(v) == string(key) {
 			return targets
 		}
@@ -414,8 +415,8 @@ func appendUpcomingTarget(targets []UpcomingTarget, target UpcomingTarget) []Upc
 
 func sortUpcomingTargets(targets []UpcomingTarget) {
 	sort.Slice(targets, func(i, j int) bool {
-		a, _ := json.Marshal(targets[i])
-		b, _ := json.Marshal(targets[j])
+		a, _ := jsoncodec.Marshal(targets[i])
+		b, _ := jsoncodec.Marshal(targets[j])
 		return string(a) < string(b)
 	})
 }
@@ -574,7 +575,7 @@ func upcomingDate(v *string) string {
 	return *v
 }
 func upcomingHash(v []string) string {
-	b, _ := json.Marshal(v)
+	b, _ := jsoncodec.Marshal(v)
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }

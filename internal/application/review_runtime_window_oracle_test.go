@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -10,16 +9,17 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func cloneWindowOracle(t *testing.T, p domain.ReviewPublication) domain.ReviewPublication {
 	t.Helper()
-	raw, err := json.Marshal(p.WindowOracle)
+	raw, err := jsoncodec.Marshal(p.WindowOracle)
 	if err != nil {
 		t.Fatal(err)
 	}
 	p.WindowOracle = nil
-	if err := json.Unmarshal(raw, &p.WindowOracle); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &p.WindowOracle); err != nil {
 		t.Fatal(err)
 	}
 	return p

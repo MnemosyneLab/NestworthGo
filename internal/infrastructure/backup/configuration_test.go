@@ -1,13 +1,13 @@
 package backup
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -23,7 +23,7 @@ func TestCurrentBackupRestoresDurableSettingsAndDatabaseAuthority(t *testing.T) 
 	expected.Timezone = "Asia/Singapore"
 	expected.TiingoAPIKey = "backup-key"
 	expected.Appearance = settings.AppearanceDark
-	config, err := json.Marshal(expected)
+	config, err := jsoncodec.Marshal(expected)
 	if err != nil {
 		t.Fatal(err)
 	}

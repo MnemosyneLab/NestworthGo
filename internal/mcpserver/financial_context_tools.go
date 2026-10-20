@@ -18,8 +18,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	sdkjson "github.com/segmentio/encoding/json"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const contextWireLimit = 64 << 10
@@ -150,7 +150,7 @@ func (s *Service) buildFinancialContext(ctx context.Context, g uint64, in applic
 	if err := ctx.Err(); err != nil {
 		return FinancialContextResponse{}, fail("context_busy", "context build budget elapsed")
 	}
-	encoded, err := json.Marshal(result.Content)
+	encoded, err := jsoncodec.Marshal(result.Content)
 	if err != nil {
 		return FinancialContextResponse{}, err
 	}
@@ -233,7 +233,7 @@ func (c *financialContextCache) evictOldest() {
 	}
 }
 func (c *financialContextCache) cursor(id, section string, g uint64, offset int) string {
-	raw, _ := json.Marshal(financialContextCursor{id, section, g, offset})
+	raw, _ := jsoncodec.Marshal(financialContextCursor{id, section, g, offset})
 	mac := hmac.New(sha256.New, c.key[:])
 	mac.Write(raw)
 	return base64.RawURLEncoding.EncodeToString(append(raw, mac.Sum(nil)...))
@@ -253,7 +253,7 @@ func (c *financialContextCache) decodeCursor(value string) (financialContextCurs
 	if !hmac.Equal(signature, mac.Sum(nil)) {
 		return cursor, errors.New("invalid cursor")
 	}
-	err = json.Unmarshal(payload, &cursor)
+	err = jsoncodec.Unmarshal(payload, &cursor)
 	return cursor, err
 }
 
@@ -262,12 +262,12 @@ func (c *financialContextCache) decodeCursor(value string) (financialContextCurs
 // domain DTO alone undercounts the wire by more than a factor of two.
 func financialContextWireSize(value any) (int, error) {
 	wrapped := Response{Data: value}
-	text, err := json.Marshal(wrapped)
+	text, err := jsoncodec.Marshal(wrapped)
 	if err != nil {
 		return 0, err
 	}
 	result := mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(text)}}, StructuredContent: wrapped}
-	encoded, err := json.Marshal(result)
+	encoded, err := jsoncodec.Marshal(result)
 	return len(encoded) + 1024, err
 }
 func (c *financialContextCache) response(id string, e cachedFinancialContext, g uint64, section string, offset, limit int) (FinancialContextResponse, error) {
@@ -391,12 +391,11 @@ type financialContextHTTPCall struct {
 // decoder for batch detection and individual envelopes; keep the original HTTP
 // body untouched so unrelated tool/protocol behavior stays SDK-owned.
 func decodeFinancialContextJSON(raw []byte, value any) error {
-	decoder := sdkjson.NewDecoder(bytes.NewReader(raw))
-	decoder.DontMatchCaseInsensitiveStructFields()
+	decoder := jsoncodec.NewCaseSensitiveDecoder(bytes.NewReader(raw))
 	return decoder.Decode(value)
 }
 
-// Match go-sdk/internal/json's exact-case decoder, including repeated exact
+// Use exact-case decoding for the go-sdk envelope guard, including repeated exact
 // keys followed by null. A last-value name map would lose the preceding name
 // that the SDK retains for null string fields. Keep params raw until the second
 // decode: the SDK replaces repeated params objects rather than merging them.
@@ -513,7 +512,7 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 					result.SetError(fail("too_large", message))
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusOK)
-					_ = json.NewEncoder(w).Encode(struct {
+					_ = jsoncodec.NewEncoder(w).Encode(struct {
 						JSONRPC string              `json:"jsonrpc"`
 						ID      json.RawMessage     `json:"id"`
 						Result  *mcp.CallToolResult `json:"result"`
@@ -569,7 +568,7 @@ func scrubSchemaError(buffer *financialContextHTTPResponse, id json.RawMessage, 
 		Result *mcp.CallToolResult `json:"result"`
 		Error  json.RawMessage     `json:"error"`
 	}
-	if json.Unmarshal(buffer.body.Bytes(), &reply) != nil {
+	if jsoncodec.Unmarshal(buffer.body.Bytes(), &reply) != nil {
 		return
 	}
 	if len(reply.Error) == 0 && (reply.Result == nil || !reply.Result.IsError) {
@@ -578,7 +577,7 @@ func scrubSchemaError(buffer *financialContextHTTPResponse, id json.RawMessage, 
 	if len(reply.Error) == 0 && reply.Result != nil && len(reply.Result.Content) == 1 {
 		if content, ok := reply.Result.Content[0].(*mcp.TextContent); ok {
 			var safe struct{ Code, Message string }
-			if json.Unmarshal([]byte(content.Text), &safe) == nil && safe.Code != "" && safe.Message != "" {
+			if jsoncodec.Unmarshal([]byte(content.Text), &safe) == nil && safe.Code != "" && safe.Message != "" {
 				return
 			}
 		}
@@ -588,7 +587,7 @@ func scrubSchemaError(buffer *financialContextHTTPResponse, id json.RawMessage, 
 	buffer.body.Reset()
 	buffer.header.Set("Content-Type", "application/json")
 	buffer.status = http.StatusOK
-	_ = json.NewEncoder(&buffer.body).Encode(struct {
+	_ = jsoncodec.NewEncoder(&buffer.body).Encode(struct {
 		JSONRPC string              `json:"jsonrpc"`
 		ID      json.RawMessage     `json:"id"`
 		Result  *mcp.CallToolResult `json:"result"`

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Probe the actual HTTP transport's treatment of a second JSON value. A guard
@@ -60,7 +62,7 @@ func TestFinancialContextHTTPTrailingJSONValue(t *testing.T) {
 						if batch {
 							body = []any{rpc, map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{"name": "get_context", "arguments": map[string]any{}}}}
 						}
-						raw, _ := json.Marshal(body)
+						raw, _ := jsoncodec.Marshal(body)
 						payload := string(raw) + suffix
 						req, _ := http.NewRequest(http.MethodPost, cfg.Endpoint, strings.NewReader(payload))
 						req.Header.Set("Content-Type", "application/json")
@@ -129,7 +131,7 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 					args = map[string]any{"contextId": "missing", "ref": "account-1"}
 				}
 				rpc := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": tool, "arguments": args}}
-				raw, _ := json.Marshal(rpc)
+				raw, _ := jsoncodec.Marshal(rpc)
 				s.contexts.mu.Lock()
 				before := len(s.contexts.entries)
 				s.contexts.mu.Unlock()
@@ -152,7 +154,7 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 						IsError bool `json:"isError"`
 					} `json:"result"`
 				}
-				if res.StatusCode != 200 || json.Unmarshal(body, &reply) != nil || reply.ID != 1 {
+				if res.StatusCode != 200 || jsoncodec.Unmarshal(body, &reply) != nil || reply.ID != 1 {
 					t.Fatalf("normal SDK behavior changed: status=%d bytes=%d", res.StatusCode, len(body))
 				}
 				missing := strings.HasSuffix(tool, "_page") || strings.HasSuffix(tool, "_item")
@@ -210,7 +212,7 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 			}
 			if want == 200 {
 				var replies []json.RawMessage
-				if json.Unmarshal(body, &replies) != nil || len(replies) != 2 {
+				if jsoncodec.Unmarshal(body, &replies) != nil || len(replies) != 2 {
 					t.Fatal("unexpected batch response")
 				}
 			}

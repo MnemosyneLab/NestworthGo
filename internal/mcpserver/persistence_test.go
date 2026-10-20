@@ -1,13 +1,13 @@
 package mcpserver
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestSQLitePlanDoesNotCollideWithOperationReceipt(t *testing.T) {
@@ -39,7 +39,7 @@ func TestSQLitePlanDoesNotCollideWithOperationReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	var plan changePlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		t.Fatal(err)
 	}
 	if plan.ID != id || plan.Version != "reviewed" {

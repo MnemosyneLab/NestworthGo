@@ -1,12 +1,12 @@
 package apierror
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestWrapNil(t *testing.T) {
@@ -61,7 +61,7 @@ func TestWrapGenericErrorNeverLeaksDetail(t *testing.T) {
 func TestWireErrorErrorIsValidJSON(t *testing.T) {
 	wrapped := Wrap(&domain.Error{Code: domain.ErrConflict, Message: "a Household already exists"})
 	var decoded map[string]any
-	if err := json.Unmarshal([]byte(wrapped.Error()), &decoded); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(wrapped.Error()), &decoded); err != nil {
 		t.Fatalf("WireError.Error() is not valid JSON: %v", err)
 	}
 	if decoded["code"] != string(domain.ErrConflict) {

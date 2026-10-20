@@ -2,10 +2,10 @@ package reconciliation
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 	"time"
@@ -66,7 +66,7 @@ func (s *Service) PreviewProductOperation(ctx context.Context, in liquidity.Prod
 	}
 	// NormalizedJSON contains the frozen resolved effective time and exact command.
 	var frozen application.ProductCommand
-	e = json.Unmarshal([]byte(p.NormalizedJSON), &frozen)
+	e = jsoncodec.Unmarshal([]byte(p.NormalizedJSON), &frozen)
 	if e != nil {
 		return ProductPreview{}, apierror.Wrap(e)
 	}
@@ -92,7 +92,7 @@ func (s *Service) CommitProduct(ctx context.Context, id string) error {
 			}
 			return apierror.Wrap(err)
 		}
-		if e = json.Unmarshal(raw, &p); e != nil {
+		if e = jsoncodec.Unmarshal(raw, &p); e != nil {
 			return apierror.Wrap(e)
 		}
 	}
@@ -123,18 +123,18 @@ type savedProductPlan struct {
 }
 
 func (p productPlan) MarshalJSON() ([]byte, error) {
-	return json.Marshal(savedProductPlan{p.kind, p.id, p.token, p.state, p.terms, p.valuation, p.operation, p.expires})
+	return jsoncodec.Marshal(savedProductPlan{p.kind, p.id, p.token, p.state, p.terms, p.valuation, p.operation, p.expires})
 }
 func (p *productPlan) UnmarshalJSON(raw []byte) error {
 	var v savedProductPlan
-	if e := json.Unmarshal(raw, &v); e != nil {
+	if e := jsoncodec.Unmarshal(raw, &v); e != nil {
 		return e
 	}
 	*p = productPlan{v.Kind, v.ID, v.Token, v.State, v.Terms, v.Valuation, v.Operation, v.Expires}
 	return nil
 }
 func (s *Service) saveProductPlan(ctx context.Context, p productPlan) (string, error) {
-	raw, e := json.Marshal(p)
+	raw, e := jsoncodec.Marshal(p)
 	if e == nil {
 		e = s.app.SaveReconciliationPlan(ctx, "product", p.id, raw)
 	}

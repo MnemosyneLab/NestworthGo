@@ -4,12 +4,12 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // TestReviewFullPipelinePerformanceEvidence is an opt-in end-to-end budget
@@ -81,15 +81,15 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		var inputBytes, resultBytes int64
 		for _, item := range publication.Rules {
 			for _, day := range item.Days {
-				inputJSON, err := json.Marshal(day.Input)
+				inputJSON, err := jsoncodec.Marshal(day.Input)
 				if err != nil {
 					t.Fatal(err)
 				}
-				coverageJSON, err := json.Marshal(day.CoverageMissing)
+				coverageJSON, err := jsoncodec.Marshal(day.CoverageMissing)
 				if err != nil {
 					t.Fatal(err)
 				}
-				resultJSON, err := json.Marshal(day.Result)
+				resultJSON, err := jsoncodec.Marshal(day.Result)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -158,9 +158,9 @@ func TestReviewFullPipelinePerformanceEvidence(t *testing.T) {
 		var quoteBytes, resultBytes int64
 		for _, item := range publication.Rules {
 			for _, day := range item.Days {
-				inputJSON, _ := json.Marshal(day.Input)
-				coverageJSON, _ := json.Marshal(day.CoverageMissing)
-				resultJSON, _ := json.Marshal(day.Result)
+				inputJSON, _ := jsoncodec.Marshal(day.Input)
+				coverageJSON, _ := jsoncodec.Marshal(day.CoverageMissing)
+				resultJSON, _ := jsoncodec.Marshal(day.Result)
 				quoteBytes += int64(len(inputJSON) + len(coverageJSON))
 				resultBytes += int64(len(resultJSON))
 			}

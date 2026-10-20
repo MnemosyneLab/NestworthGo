@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -34,9 +34,9 @@ func assertPolicyGUIParity(t *testing.T, fx ledgerFixture, c *mcp.ClientSession)
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(gui)
+	raw, _ := jsoncodec.Marshal(gui)
 	var want map[string]any
-	if err := json.Unmarshal(raw, &want); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &want); err != nil {
 		t.Fatal(err)
 	}
 	got := policyOverview(t, c)
@@ -72,7 +72,7 @@ func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 				}
 				continue
 			}
-			raw, _ := json.Marshal(found[name].InputSchema)
+			raw, _ := jsoncodec.Marshal(found[name].InputSchema)
 			if !strings.Contains(string(raw), `"additionalProperties":false`) {
 				t.Fatal(string(raw))
 			}
@@ -87,7 +87,7 @@ func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 				}
 			}
 		}
-		caps, _ := json.Marshal(call(t, c, "get_context", Empty{}, false)["data"].(map[string]any)["capabilities"])
+		caps, _ := jsoncodec.Marshal(call(t, c, "get_context", Empty{}, false)["data"].(map[string]any)["capabilities"])
 		if strings.Contains(string(caps), "liquidity_policy_write") != (mode == LedgerWrite) {
 			t.Fatal(string(caps))
 		}

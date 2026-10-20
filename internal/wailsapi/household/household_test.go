@@ -2,9 +2,9 @@ package household_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
@@ -66,13 +66,13 @@ func TestCompleteOnboardingRoundTripsAsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	encoded, err := json.Marshal(result)
+	encoded, err := jsoncodec.Marshal(result)
 	if err != nil {
-		t.Fatalf("json.Marshal(BootstrapResult): %v", err)
+		t.Fatalf("jsoncodec.Marshal(BootstrapResult): %v", err)
 	}
 	var decoded household.BootstrapResult
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal(BootstrapResult): %v", err)
+	if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal(BootstrapResult): %v", err)
 	}
 	if decoded.Household == nil || decoded.Household.Name != "H" {
 		t.Fatalf("round-tripped BootstrapResult = %+v", decoded)

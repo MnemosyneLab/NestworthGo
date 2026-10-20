@@ -2,7 +2,6 @@ package settings_test
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	appsettings "github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/settings"
@@ -165,7 +165,7 @@ func TestSaveReturnsBusyDuringExclusive(t *testing.T) {
 }
 
 func TestSettingsDTOUsesCamelCaseWireKeys(t *testing.T) {
-	payload, err := json.Marshal(defaultDTO())
+	payload, err := jsoncodec.Marshal(defaultDTO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestTiingoKeyConfigurationPersistsWithoutReturningTheSecret(t *testing.T) {
 	if !saved.Configured {
 		t.Fatalf("saved status = %+v", saved)
 	}
-	encoded, err := json.Marshal(saved)
+	encoded, err := jsoncodec.Marshal(saved)
 	if err != nil {
 		t.Fatalf("marshal saved status: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestCoinGeckoKeyConfigurationPersistsWithoutReturningTheSecret(t *testing.T
 	if !saved.Configured {
 		t.Fatalf("saved status = %+v", saved)
 	}
-	encoded, err := json.Marshal(saved)
+	encoded, err := jsoncodec.Marshal(saved)
 	if err != nil {
 		t.Fatalf("marshal saved status: %v", err)
 	}

@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func suffixQuote(t *testing.T, f seriesZeroFixture, id domain.InstrumentID, on, price string) {
@@ -585,7 +585,7 @@ func TestReviewDependencySourceDescriptionMatchesFullDerivation(t *testing.T) {
 				t.Fatal(err)
 			}
 			var cert domain.ReviewTemporalCertificate
-			if err = json.Unmarshal([]byte(raw), &cert); err != nil {
+			if err = jsoncodec.Unmarshal([]byte(raw), &cert); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(cert.SuffixQuoteSeals, quotes) || cert.SuffixNonQuoteFingerprint != nonquote {
@@ -618,7 +618,7 @@ func TestReviewDependencyProviderChangePreservesCertifiedChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cert domain.ReviewTemporalCertificate
-	if err := json.Unmarshal([]byte(raw), &cert); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(raw), &cert); err != nil {
 		t.Fatal(err)
 	}
 	if cert.CertifiedMAC == "" || cert.CertifiedProvider != f.s.reviewProviderSnapshot() {

@@ -3,9 +3,9 @@
 package application
 
 import (
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"os"
 	"testing"
 )
@@ -43,7 +43,7 @@ func TestReviewClockSelectorProvenanceDiagnostic(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cert domain.ReviewTemporalCertificate
-	if err = json.Unmarshal([]byte(raw), &cert); err != nil {
+	if err = jsoncodec.Unmarshal([]byte(raw), &cert); err != nil {
 		t.Fatal(err)
 	}
 	if cert.CertifiedMAC != "" {

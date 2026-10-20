@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -18,6 +17,7 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	lss3 "github.com/benbjohnson/litestream/s3"
 	"github.com/superfly/ltx"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Each UI action performs one storage page, never an implicit full-history scan.
@@ -46,12 +46,12 @@ type recoveryCursor struct {
 func recoveryScope(c config) string {
 	// No secret is exposed in the cursor. Scope includes credentials so replacing
 	// them invalidates a pending traversal even when the bucket stays unchanged.
-	data, _ := json.Marshal([]string{"recovery-v1", remotePrefix, targetKey(c), c.AccessKeyID, c.SecretAccessKey})
+	data, _ := jsoncodec.Marshal([]string{"recovery-v1", remotePrefix, targetKey(c), c.AccessKeyID, c.SecretAccessKey})
 	sum := sha256.Sum256(data)
 	return fmt.Sprintf("%x", sum[:])
 }
 func encodeRecoveryCursor(token string, c config) string {
-	data, _ := json.Marshal(recoveryCursor{Version: 1, Scope: recoveryScope(c), Token: token})
+	data, _ := jsoncodec.Marshal(recoveryCursor{Version: 1, Scope: recoveryScope(c), Token: token})
 	return base64.RawURLEncoding.EncodeToString(data)
 }
 func decodeRecoveryCursor(cursor string, c config) (string, error) {
@@ -66,7 +66,7 @@ func decodeRecoveryCursor(cursor string, c config) (string, error) {
 		return "", ErrConfiguration
 	}
 	var value recoveryCursor
-	if json.Unmarshal(data, &value) != nil || value.Version != 1 || value.Scope != recoveryScope(c) || value.Token == "" || len(value.Token) > maxRecoveryCursorBytes/2 {
+	if jsoncodec.Unmarshal(data, &value) != nil || value.Version != 1 || value.Scope != recoveryScope(c) || value.Token == "" || len(value.Token) > maxRecoveryCursorBytes/2 {
 		return "", ErrConfiguration
 	}
 	return value.Token, nil

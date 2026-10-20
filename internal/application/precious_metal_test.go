@@ -2,8 +2,8 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"testing"
 	"time"
 )
@@ -44,7 +44,7 @@ func TestMetalTemplatePreviewRefreshAndMissingFX(t *testing.T) {
 		t.Fatalf("quote: %+v %v", quote, err)
 	}
 	var evidence metalConversionEvidence
-	if err := json.Unmarshal([]byte(quote.ConversionJSON), &evidence); err != nil || evidence.RawPrice != domain.TroyOunceGrams || evidence.FXRate != "6.9" {
+	if err := jsoncodec.Unmarshal([]byte(quote.ConversionJSON), &evidence); err != nil || evidence.RawPrice != domain.TroyOunceGrams || evidence.FXRate != "6.9" {
 		t.Fatalf("evidence: %+v %v", evidence, err)
 	}
 	originalID := quote.ID

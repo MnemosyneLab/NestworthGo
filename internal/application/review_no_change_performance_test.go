@@ -1,7 +1,6 @@
 package application
 
 import (
-	"encoding/json"
 	"os"
 	"reflect"
 	"runtime"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Opt-in, serial paired measurements. Setup, initial publication, session
@@ -97,7 +97,7 @@ func TestReviewNoChangePerformanceEvidence(t *testing.T) {
 				}
 			}
 			for _, arm := range []string{"baseline", "candidate"} {
-				raw, _ := json.Marshal(struct {
+				raw, _ := jsoncodec.Marshal(struct {
 					Timings       []time.Duration
 					Bytes, Allocs []uint64
 				}{timings[arm], bytes[arm], allocs[arm]})

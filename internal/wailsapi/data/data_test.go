@@ -2,8 +2,8 @@ package data
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,7 +89,7 @@ func TestExportJSONWritesStructuredFile(t *testing.T) {
 		Format        string `json:"format"`
 		FormatVersion int    `json:"formatVersion"`
 	}
-	if err := json.Unmarshal(data, &doc); err != nil {
+	if err := jsoncodec.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
 	if doc.Format != "com.nestworth.export" || doc.FormatVersion != 2 {

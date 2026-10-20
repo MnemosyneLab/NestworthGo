@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -14,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
@@ -128,7 +128,7 @@ func TestMCPHistoricalFixKeepsDateReplaysLaterBalanceAndRecoversReceipt(t *testi
 		t.Fatal(err)
 	}
 	var saved correctionPlan
-	if err := json.Unmarshal(raw, &saved); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &saved); err != nil {
 		t.Fatal(err)
 	}
 	saved.ExpiresAt = time.Now().Add(-time.Second)

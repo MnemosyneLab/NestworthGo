@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Exact rows include all financial records, IDs, canonical decimals, seals,
@@ -66,7 +66,7 @@ func financialRows(t *testing.T, db *sql.DB) map[string][]string {
 			if err := rows.Scan(dest...); err != nil {
 				t.Fatal(err)
 			}
-			raw, err := json.Marshal(values)
+			raw, err := jsoncodec.Marshal(values)
 			if err != nil {
 				t.Fatal(err)
 			}

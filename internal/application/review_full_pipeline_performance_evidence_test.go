@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func profileReviewReusableEvidence(t *testing.T, fixture reviewFullPipelineFixture, metrics *reviewSQLStats) {
@@ -132,14 +132,14 @@ func assertReusableEvidenceRowsMatchCapture(t *testing.T, rows []reusableEvidenc
 			t.Fatal(err)
 		}
 		item := domain.ReviewReusableDailyEvidence{InputFingerprint: row.inputFingerprint, PriorConsecutiveCount: row.consecutiveCount}
-		if err := json.Unmarshal([]byte(row.inputJSON), &item.Input); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(row.inputJSON), &item.Input); err != nil {
 			t.Fatal(err)
 		}
-		if err := json.Unmarshal([]byte(row.coverageJSON), &item.CoverageMissing); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(row.coverageJSON), &item.CoverageMissing); err != nil {
 			t.Fatal(err)
 		}
 		if row.resultJSON.Valid && row.resultFingerprint.Valid && row.resultFingerprint.String == row.inputFingerprint {
-			if err := json.Unmarshal([]byte(row.resultJSON.String), &item.Result); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(row.resultJSON.String), &item.Result); err != nil {
 				t.Fatal(err)
 			}
 			item.HasResult = item.Result.On == row.on
@@ -178,17 +178,17 @@ func timeReusableEvidenceQuery(t *testing.T, database *sql.DB, statement string,
 		jsonStarted := time.Now()
 		var input domain.ReviewDailyInput
 		var coverage []string
-		if err := json.Unmarshal([]byte(item.inputJSON), &input); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(item.inputJSON), &input); err != nil {
 			_ = rows.Close()
 			t.Fatal(err)
 		}
-		if err := json.Unmarshal([]byte(item.coverageJSON), &coverage); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(item.coverageJSON), &coverage); err != nil {
 			_ = rows.Close()
 			t.Fatal(err)
 		}
 		if item.resultJSON.Valid && item.resultFingerprint.Valid && item.resultFingerprint.String == item.inputFingerprint {
 			var result domain.ReviewDailyResult
-			if err := json.Unmarshal([]byte(item.resultJSON.String), &result); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(item.resultJSON.String), &result); err != nil {
 				_ = rows.Close()
 				t.Fatal(err)
 			}

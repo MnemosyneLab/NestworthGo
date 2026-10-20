@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // CashBalancePlan retains the exact server-resolved command; clients only receive
@@ -102,7 +102,7 @@ func (s *Service) PreviewCashBalance(ctx context.Context, accountID domain.Accou
 			return nil, err
 		}
 	}
-	payload, err := json.Marshal(struct {
+	payload, err := jsoncodec.Marshal(struct {
 		Value  domain.AccountCashValue
 		Reason *string
 	}{value, reason})

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Exercise the real SDK HTTP parser, not a mock handler: encoding/json's
@@ -70,7 +71,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 			if variant == "schema-error" {
 				args[strings.Repeat("x", 70000)] = true
 			}
-			argJSON, _ := json.Marshal(args)
+			argJSON, _ := jsoncodec.Marshal(args)
 			fields := fmt.Sprintf(`"name":%q,"Name":"get_context"`, tool)
 			if variant == "null-name-long-id" {
 				fields = fmt.Sprintf(`"name":%q,"name":null,"Name":"get_context"`, tool)
@@ -80,7 +81,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 			}
 			id := `1`
 			if variant == "long-id" || variant == "null-name-long-id" {
-				b, _ := json.Marshal(strings.Repeat("x", 70000))
+				b, _ := jsoncodec.Marshal(strings.Repeat("x", 70000))
 				id = string(b)
 			}
 			payload := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"method":"tools/call","params":{%s,"arguments":%s}}`, id, fields, argJSON)
@@ -136,7 +137,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 						} `json:"structuredContent"`
 					} `json:"result"`
 				}
-				if err := json.Unmarshal(raw, &reply); err != nil || reply.Result.IsError || len(reply.Result.StructuredContent.Data) == 0 {
+				if err := jsoncodec.Unmarshal(raw, &reply); err != nil || reply.Result.IsError || len(reply.Result.StructuredContent.Data) == 0 {
 					t.Errorf("normal SDK dispatch failed: err=%v isError=%v", err, reply.Result.IsError)
 				}
 			}
@@ -157,7 +158,7 @@ func TestFinancialContextHTTPShadowKeysAndDuplicateSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bigID, _ := json.Marshal(strings.Repeat("x", 70000))
+	bigID, _ := jsoncodec.Marshal(strings.Repeat("x", 70000))
 	page := `{"name":"get_financial_comparison_page","arguments":{"comparisonId":"missing","section":"positions","cursor":"missing"}}`
 	unrelated := `{"name":"get_context","arguments":{}}`
 	for _, tc := range []struct {
@@ -196,7 +197,7 @@ func TestFinancialContextHTTPShadowKeysAndDuplicateSemantics(t *testing.T) {
 			var reply struct {
 				ID json.RawMessage `json:"id"`
 			}
-			_ = json.Unmarshal(raw, &reply)
+			_ = jsoncodec.Unmarshal(raw, &reply)
 			t.Logf("status=%d responseBytes=%d responseIDBytes=%d", res.StatusCode, len(raw), len(reply.ID))
 			if res.StatusCode != tc.status || (tc.bounded && len(raw) > contextWireLimit) {
 				t.Errorf("status=%d want=%d bytes=%d bounded=%v", res.StatusCode, tc.status, len(raw), tc.bounded)

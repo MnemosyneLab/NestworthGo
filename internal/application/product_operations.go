@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type productPlan struct {
@@ -241,7 +241,7 @@ func (s *Service) recordProductOperation(ctx context.Context, command ProductCom
 		BeforePolicies: nil, AfterPolicies: plan.policies, CommandSHA: payloadSHA,
 		ReviewedStateHash: currentHash, LocalDate: localDate,
 	}
-	resultJSON, err := json.Marshal(evidence)
+	resultJSON, err := jsoncodec.Marshal(evidence)
 	if err != nil {
 		return ProductOperationReceipt{}, err
 	}
@@ -1110,7 +1110,7 @@ func (s *Service) reviewedStateHash(ctx context.Context, snapshot domain.Portfol
 		sort.Slice(payload.Reservations, func(i, j int) bool { return payload.Reservations[i].ID.String() < payload.Reservations[j].ID.String() })
 		sort.Slice(payload.Policies, func(i, j int) bool { return payload.Policies[i].ID.String() < payload.Policies[j].ID.String() })
 	}
-	raw, err := json.Marshal(payload)
+	raw, err := jsoncodec.Marshal(payload)
 	if err != nil {
 		return "", err
 	}
@@ -1146,7 +1146,7 @@ func normalizeProductCommand(command ProductCommand) (string, string, error) {
 	if filled != 1 {
 		return "", "", &domain.Error{Code: domain.ErrValidation, Field: "kind", Message: "exactly one payload must match kind"}
 	}
-	raw, err := json.Marshal(command)
+	raw, err := jsoncodec.Marshal(command)
 	if err != nil {
 		return "", "", err
 	}
@@ -1203,7 +1203,7 @@ func receiptFromOperation(operation domain.ProductOperation) (ProductOperationRe
 
 func receiptEvidenceJSON(raw string) (productReceiptEvidence, error) {
 	var stored productReceiptEvidence
-	if err := json.Unmarshal([]byte(raw), &stored); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(raw), &stored); err != nil {
 		return productReceiptEvidence{}, err
 	}
 	return stored, nil

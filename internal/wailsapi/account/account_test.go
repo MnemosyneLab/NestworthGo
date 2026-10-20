@@ -2,10 +2,10 @@ package account_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
@@ -332,7 +332,7 @@ func TestAccountValuationsEmptyPortfolio(t *testing.T) {
 
 func TestUpdateAccountRequestJSONDistinguishesOmittedAndEmptyOwnership(t *testing.T) {
 	var omitted account.UpdateAccountRequest
-	if err := json.Unmarshal([]byte(`{"name":"x"}`), &omitted); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(`{"name":"x"}`), &omitted); err != nil {
 		t.Fatalf("omitted ownership: %v", err)
 	}
 	if omitted.Ownership != nil {
@@ -340,7 +340,7 @@ func TestUpdateAccountRequestJSONDistinguishesOmittedAndEmptyOwnership(t *testin
 	}
 
 	var explicit account.UpdateAccountRequest
-	if err := json.Unmarshal([]byte(`{"ownership":[]}`), &explicit); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(`{"ownership":[]}`), &explicit); err != nil {
 		t.Fatalf("explicit empty ownership: %v", err)
 	}
 	if explicit.Ownership == nil {
@@ -362,13 +362,13 @@ func TestAccountRecordDTORoundTripsAsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
-	encoded, err := json.Marshal(record)
+	encoded, err := jsoncodec.Marshal(record)
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("jsoncodec.Marshal: %v", err)
 	}
 	var decoded wire.AccountRecordDTO
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal: %v", err)
 	}
 	if decoded.Account.Name != "Bank" || decoded.Account.Note == nil || *decoded.Account.Note != "hello" {
 		t.Fatalf("round-tripped record = %+v", decoded)

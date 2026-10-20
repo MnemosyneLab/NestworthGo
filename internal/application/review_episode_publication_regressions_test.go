@@ -1,11 +1,11 @@
 package application
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func openAcknowledgedCostEpisodeOnOctober10(t *testing.T) (seriesZeroFixture, domain.ReviewRule, string) {
@@ -68,7 +68,7 @@ func TestReviewPublicationMaterialEditKeepsOriginalTriggerSnapshotAcrossUnknownT
 		t.Fatal(err)
 	}
 	var evidence storedReviewEpisodeEvidence
-	if err := json.Unmarshal([]byte(evidenceJSON), &evidence); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &evidence); err != nil {
 		t.Fatal(err)
 	}
 	if gotID != episodeID || openedVersion != 1 || triggered != "2026-10-10" || firstHit != "2026-10-10" || acknowledged == "" || evidence.TriggerWindow.WindowEnd != triggered || evidence.TriggerResult == nil || evidence.TriggerResult.On != triggered || evidence.TriggerResult.Truth != domain.ReviewTrue || evidence.Window.WindowEnd != "2026-10-12" {
@@ -79,7 +79,7 @@ func TestReviewPublicationMaterialEditKeepsOriginalTriggerSnapshotAcrossUnknownT
 		t.Fatal(err)
 	}
 	var opened storedReviewEpisodeEvidence
-	if err := json.Unmarshal([]byte(openedJSON), &opened); err != nil || opened.TriggerWindow.WindowEnd != triggered || opened.TriggerResult == nil || opened.TriggerResult.On != triggered {
+	if err := jsoncodec.Unmarshal([]byte(openedJSON), &opened); err != nil || opened.TriggerWindow.WindowEnd != triggered || opened.TriggerResult == nil || opened.TriggerResult.On != triggered {
 		t.Fatalf("opening event no longer matches preserved trigger date: %+v %v", opened, err)
 	}
 }
@@ -131,7 +131,7 @@ func TestReviewPublicationRetainsLegacyAcknowledgedEpisodeWithoutTriggerEvidence
 		t.Fatal(err)
 	}
 	var unavailable storedReviewEpisodeEvidence
-	if err := json.Unmarshal([]byte(evidenceJSON), &unavailable); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &unavailable); err != nil {
 		t.Fatal(err)
 	}
 	if gotID != episodeID || gotTriggered != "2026-10-10" || firstHit != "2026-10-10" || acknowledged == "" || unavailable.TriggerWindow.WindowStart != "" || unavailable.TriggerResult != nil || unavailable.Window.Truth != domain.ReviewUnknown {
@@ -190,7 +190,7 @@ func TestReviewPublicationRetainsLegacyAcknowledgedEpisodeWithoutTriggerEvidence
 		t.Fatal(err)
 	}
 	var repaired storedReviewEpisodeEvidence
-	if err := json.Unmarshal([]byte(evidenceJSON), &repaired); err != nil || repaired.TriggerWindow.WindowStart != "2026-10-10" || repaired.TriggerWindow.WindowEnd != "2026-10-10" || repaired.TriggerResult == nil || repaired.TriggerResult.On != "2026-10-10" || repaired.TriggerResult.Truth != domain.ReviewTrue {
+	if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &repaired); err != nil || repaired.TriggerWindow.WindowStart != "2026-10-10" || repaired.TriggerWindow.WindowEnd != "2026-10-10" || repaired.TriggerResult == nil || repaired.TriggerResult.On != "2026-10-10" || repaired.TriggerResult.Truth != domain.ReviewTrue {
 		t.Fatalf("later same-version evidence did not repair the legacy trigger snapshot: %+v %v", repaired, err)
 	}
 	var repairedID, repairedTrigger, repairedAck string

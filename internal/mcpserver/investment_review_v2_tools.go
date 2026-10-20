@@ -2,11 +2,11 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type ReviewV2PageInput struct {
@@ -69,7 +69,7 @@ type ReviewV2RuleInput struct {
 }
 
 func reviewV2Spec(value map[string]any) (domain.ReviewRuleSpec, error) {
-	raw, err := json.Marshal(value)
+	raw, err := jsoncodec.Marshal(value)
 	if err != nil {
 		return domain.ReviewRuleSpec{}, err
 	}

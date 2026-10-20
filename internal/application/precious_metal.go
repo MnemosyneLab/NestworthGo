@@ -2,12 +2,12 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type metalConversionEvidence struct {
@@ -57,7 +57,7 @@ func withMetalFetchCache(ctx context.Context) context.Context {
 
 func metalEvidence(instrument domain.Instrument, raw domain.UnitPrice, rawAt time.Time, rate decimal.Decimal, fxSource string, fxAt *time.Time) string {
 	evidence := metalConversionEvidence{Policy: domain.MetalConversionPolicy, Symbol: domain.MetalProviderSymbol(instrument.MetalTemplate), RawPrice: raw.Canonical(), RawCurrency: "USD", RawUnit: "troy_oz", RawQuotedAt: rawAt, FXRate: rate.String(), FXSource: fxSource, FXQuotedAt: fxAt, Currency: instrument.QuoteCurrency.String(), Unit: instrument.QuantityUnit}
-	data, _ := json.Marshal(evidence)
+	data, _ := jsoncodec.Marshal(evidence)
 	return string(data)
 }
 
@@ -360,7 +360,7 @@ func (s *Service) repriceMetalsForFX(ctx context.Context, householdID domain.Hou
 			if quote.SourceKind != domain.QuoteSourceProvider || quote.ConversionJSON == "" {
 				continue
 			}
-			if err := json.Unmarshal([]byte(quote.ConversionJSON), &evidence); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(quote.ConversionJSON), &evidence); err != nil {
 				continue
 			}
 			if evidence.Policy != domain.MetalConversionPolicy || evidence.Symbol != domain.MetalProviderSymbol(instrument.MetalTemplate) {
@@ -375,7 +375,7 @@ func (s *Service) repriceMetalsForFX(ctx context.Context, householdID domain.Hou
 		if selected == nil {
 			continue
 		}
-		if err := json.Unmarshal([]byte(selected.ConversionJSON), &evidence); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(selected.ConversionJSON), &evidence); err != nil {
 			return err
 		}
 		raw, err := domain.ParseUnitPrice(evidence.RawPrice)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	yfinanceclient "github.com/wnjoon/go-yfinance/pkg/client"
 	yfinancemodels "github.com/wnjoon/go-yfinance/pkg/models"
 	yfinanceticker "github.com/wnjoon/go-yfinance/pkg/ticker"
@@ -542,7 +543,7 @@ type chartError struct {
 }
 
 func jsonNumberLexeme(raw json.RawMessage) (string, error) {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	var value any
 	if err := decoder.Decode(&value); err != nil {

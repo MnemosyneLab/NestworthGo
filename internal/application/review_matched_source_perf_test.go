@@ -3,9 +3,9 @@
 package application
 
 import (
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +42,7 @@ func matchedReviewSourceFixture(t *testing.T, config reviewPerfConfig) reviewFul
 		if _, err = source.db.SQL.Exec(`VACUUM INTO ?`, dbPath); err != nil {
 			t.Fatal(err)
 		}
-		raw, err = json.Marshal(manifest{"nestworth-synthetic-D2-clock-fixture-v1", config, source.householdID, *source.now, source.start, source.instruments})
+		raw, err = jsoncodec.Marshal(manifest{"nestworth-synthetic-D2-clock-fixture-v1", config, source.householdID, *source.now, source.start, source.instruments})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -55,7 +55,7 @@ func matchedReviewSourceFixture(t *testing.T, config reviewPerfConfig) reviewFul
 		t.Fatal(err)
 	}
 	var m manifest
-	if err = json.Unmarshal(raw, &m); err != nil {
+	if err = jsoncodec.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
 	if m.Marker != "nestworth-synthetic-D2-clock-fixture-v1" || m.Config != config {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type tiingoEODRow struct {
@@ -142,7 +143,7 @@ func mapTiingoRow(row tiingoEODRow, meta vnextFixtureMeta, clock time.Time) (app
 }
 
 func decodeTiingoEOD(body []byte) ([]tiingoEODRow, error) {
-	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var rows []tiingoEODRow
 	if err := decoder.Decode(&rows); err != nil {

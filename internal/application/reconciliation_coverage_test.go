@@ -1,13 +1,13 @@
 package application
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestReconciliationCompletedCoverageIsDerivedAndReadOnly(t *testing.T) {
@@ -72,7 +72,7 @@ func TestReconciliationCompletedCoverageIsDerivedAndReadOnly(t *testing.T) {
 					a.Items = nil
 					a.Counts.Confirmed--
 					a.FinancialRevision = revisions[aid.String()]
-					raw, err := json.Marshal(a)
+					raw, err := jsoncodec.Marshal(a)
 					if err != nil {
 						t.Fatal(err)
 					}

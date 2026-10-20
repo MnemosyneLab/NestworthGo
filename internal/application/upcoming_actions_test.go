@@ -2,10 +2,10 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -85,8 +85,8 @@ func TestUpcomingOverviewRegressionCompleteOutput(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	a, _ := json.Marshal(old)
-	b, _ := json.Marshal(got)
+	a, _ := jsoncodec.Marshal(old)
+	b, _ := jsoncodec.Marshal(got)
 	if string(a) != string(b) {
 		t.Fatal("existing Overview output changed")
 	}

@@ -3,7 +3,6 @@ package backup
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestSourceTrackingRestoreRotatesLiveEpochBeforeResume(t *testing.T) {
@@ -55,7 +55,7 @@ func sourceTrackingRestoreRotatesLiveEpoch(t *testing.T, writes int) {
 	}
 	evaluated := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 	certificate := domain.ReviewTemporalCertificate{EvaluatedAt: evaluated, NextTransitionAt: evaluated.Add(12 * time.Hour), PolicyVersion: domain.ReviewTemporalPolicyVersion, DependencyScope: domain.ReviewTemporalDependencyScope, ClockEpoch: "synthetic-backup-session/0", Source: &domain.ReviewSourceCheckpoint{Token: domain.SourceRevisionToken{HouseholdID: "00000000-0000-4000-8000-000000000001", Epoch: epoch, Revision: revision, TrackingVersion: tracking, ResolverPolicyVersion: domain.MarketDataResolverPolicy, EvaluatorVersion: domain.ReviewEvaluator, MetricPolicyVersion: domain.ReviewMetricPolicyVersion}, JournalFloor: floorBefore}}
-	raw, err := json.Marshal(certificate)
+	raw, err := jsoncodec.Marshal(certificate)
 	if err != nil {
 		t.Fatal(err)
 	}

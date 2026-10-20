@@ -1,11 +1,11 @@
 package domain
 
 import (
-	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const TroyOunceGrams = "31.1034768"
@@ -19,7 +19,7 @@ func MetalConversionRawQuotedAt(value string) (time.Time, bool) {
 		Policy      string    `json:"policy"`
 		RawQuotedAt time.Time `json:"rawQuotedAt"`
 	}
-	if json.Unmarshal([]byte(value), &evidence) != nil || evidence.Policy != MetalConversionPolicy || evidence.RawQuotedAt.IsZero() {
+	if jsoncodec.Unmarshal([]byte(value), &evidence) != nil || evidence.Policy != MetalConversionPolicy || evidence.RawQuotedAt.IsZero() {
 		return time.Time{}, false
 	}
 	return evidence.RawQuotedAt, true

@@ -1,11 +1,11 @@
 package domain
 
 import (
-	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // ProductContractID identifies one managed term deposit or locked product.
@@ -218,12 +218,12 @@ func (c ProductContract) MarshalJSON() ([]byte, error) {
 		id := c.ClosedOperationID.String()
 		payload.ClosedOperationID = &id
 	}
-	return json.Marshal(payload)
+	return jsoncodec.Marshal(payload)
 }
 
 func (c *ProductContract) UnmarshalJSON(raw []byte) error {
 	var payload productContractJSON
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &payload); err != nil {
 		return err
 	}
 	id, err := ParseProductContractID(payload.ID)

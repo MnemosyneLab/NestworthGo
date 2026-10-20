@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const reviewRuleSelect = `SELECT r.id,r.household_id,r.name,r.enabled,r.severity,r.evaluator,r.row_revision,r.current_condition_version,r.created_at,r.updated_at,r.archived_at,v.canonical_spec_json,v.semantic_hash
@@ -102,12 +102,12 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 		if err != nil {
 			return empty, err
 		}
-		specJSON, err = json.Marshal(m.Spec)
+		specJSON, err = jsoncodec.Marshal(m.Spec)
 		if err != nil {
 			return empty, err
 		}
 	}
-	request, err := json.Marshal(struct {
+	request, err := jsoncodec.Marshal(struct {
 		Operation        string
 		HouseholdID      domain.HouseholdID
 		RuleID           domain.ReviewRuleID
@@ -135,7 +135,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 			return empty, reviewRuleConflict("mutation ID was already used for a different request")
 		}
 		var previous domain.ReviewRule
-		if err := json.Unmarshal([]byte(previousJSON), &previous); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(previousJSON), &previous); err != nil {
 			return empty, err
 		}
 		if err := tx.Commit(); err != nil {
@@ -227,7 +227,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 	if err != nil {
 		return empty, err
 	}
-	serialized, err := json.Marshal(result)
+	serialized, err := jsoncodec.Marshal(result)
 	if err != nil {
 		return empty, err
 	}

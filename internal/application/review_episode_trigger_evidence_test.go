@@ -1,12 +1,12 @@
 package application
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type storedReviewEpisodeEvidence struct {
@@ -64,7 +64,7 @@ func TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances(t *testi
 				t.Fatal(err)
 			}
 			var stored storedReviewEpisodeEvidence
-			if err := json.Unmarshal([]byte(evidenceJSON), &stored); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &stored); err != nil {
 				t.Fatal(err)
 			}
 			if triggered != test.triggeredOn || firstHit != test.firstHitOn || stored.FirstHitOn != test.firstHitOn || stored.TriggerWindow.WindowStart != test.triggerWindowStart || stored.TriggerWindow.WindowEnd != test.triggeredOn || stored.TriggerWindow.HitCount != test.triggerHits || stored.TriggerWindow.FalseCount != test.triggerFalse {
@@ -82,7 +82,7 @@ func TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances(t *testi
 				t.Fatal(err)
 			}
 			var opened storedReviewEpisodeEvidence
-			if err := json.Unmarshal([]byte(openedPayload), &opened); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(openedPayload), &opened); err != nil {
 				t.Fatal(err)
 			}
 			if opened.TriggerWindow != stored.TriggerWindow || opened.Window != stored.TriggerWindow || opened.FirstHitOn != test.firstHitOn || opened.LatestResult == nil || opened.LatestResult.On != test.triggeredOn {
@@ -133,7 +133,7 @@ func TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances(t *testi
 				t.Fatalf("projection rebuild changed episode identity/ack or failed to repair first hit: id=%s first=%s ack=%q", repairedID, repairedFirstHit, acknowledged)
 			}
 			var repaired storedReviewEpisodeEvidence
-			if err := json.Unmarshal([]byte(repairedEvidenceJSON), &repaired); err != nil || repaired.TriggerWindow.WindowStart != test.triggerWindowStart || repaired.FirstHitOn != test.firstHitOn {
+			if err := jsoncodec.Unmarshal([]byte(repairedEvidenceJSON), &repaired); err != nil || repaired.TriggerWindow.WindowStart != test.triggerWindowStart || repaired.FirstHitOn != test.firstHitOn {
 				t.Fatalf("projection rebuild failed to restore initial snapshot: %+v %v", repaired, err)
 			}
 
@@ -179,7 +179,7 @@ func TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances(t *testi
 			if repairedFirstHit != test.firstHitOn || acknowledged == "" {
 				t.Fatalf("ordinary continuation changed first hit or ack: first=%s ack=%q", repairedFirstHit, acknowledged)
 			}
-			if err := json.Unmarshal([]byte(repairedEvidenceJSON), &repaired); err != nil || repaired.Window.WindowEnd != "2026-10-17" || repaired.TriggerWindow.WindowStart != test.triggerWindowStart {
+			if err := jsoncodec.Unmarshal([]byte(repairedEvidenceJSON), &repaired); err != nil || repaired.Window.WindowEnd != "2026-10-17" || repaired.TriggerWindow.WindowStart != test.triggerWindowStart {
 				t.Fatalf("ordinary continuation failed to advance only current window: %+v %v", repaired, err)
 			}
 		})
@@ -220,7 +220,7 @@ func TestReviewHistoricalCorrectionReconstructsTriggerAndFirstHitWithoutLosingAc
 		t.Fatal(err)
 	}
 	var repaired storedReviewEpisodeEvidence
-	if err := json.Unmarshal([]byte(evidenceJSON), &repaired); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &repaired); err != nil {
 		t.Fatal(err)
 	}
 	if got := reviewTruthAt(t, f, rule, "2026-08-08"); got != "true" {
@@ -253,7 +253,7 @@ func TestReviewRollingTriggerEvidenceIncludesFalseAndUnknownDaysAcrossPagination
 		t.Fatal(err)
 	}
 	var stored storedReviewEpisodeEvidence
-	if err := json.Unmarshal([]byte(evidenceJSON), &stored); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &stored); err != nil {
 		t.Fatal(err)
 	}
 	if triggered != "2026-10-12" || firstHit != "2026-10-10" || stored.TriggerWindow.WindowStart != "2026-10-03" || stored.TriggerWindow.HitCount != 3 || stored.TriggerWindow.FalseCount != 1 || stored.TriggerWindow.UnknownCount != 6 || stored.Window.WindowStart != "2026-10-07" || stored.Window.HitCount != 3 || stored.Window.UnknownCount != 7 {

@@ -2,13 +2,13 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func batchPreview(t *testing.T, c *mcp.ClientSession, commands ...map[string]any) map[string]any {
@@ -157,7 +157,7 @@ func TestBatchRejectsStaleExpiredAndWrongCommitTool(t *testing.T) {
 		t.Fatal(err)
 	}
 	var saved map[string]any
-	if err := json.Unmarshal(raw, &saved); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &saved); err != nil {
 		t.Fatal(err)
 	}
 	saved["expiresAt"] = time.Now().Add(-time.Second).UTC().Format(time.RFC3339Nano)
@@ -319,7 +319,7 @@ func TestBatchPendingReceiptRecoversWithoutReposting(t *testing.T) {
 		t.Fatal(err)
 	}
 	var saved map[string]any
-	if err := json.Unmarshal(raw, &saved); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &saved); err != nil {
 		t.Fatal(err)
 	}
 	saved["expiresAt"] = time.Now().Add(-time.Second).UTC().Format(time.RFC3339Nano)

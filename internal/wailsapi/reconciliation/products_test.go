@@ -2,7 +2,6 @@ package reconciliation
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 )
 
@@ -83,7 +83,7 @@ func TestProductRefusalAndReceiptRecovery(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := json.Unmarshal([]byte(preview.NormalizedJSON), &p.operation); err != nil {
+				if err := jsoncodec.Unmarshal([]byte(preview.NormalizedJSON), &p.operation); err != nil {
 					t.Fatal(err)
 				}
 				p.token, p.state = token, preview.ReviewedStateHash

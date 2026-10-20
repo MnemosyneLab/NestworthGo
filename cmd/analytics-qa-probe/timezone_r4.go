@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type tzCase struct {
@@ -508,7 +508,7 @@ func writeTZProbe(outPath string, out tzProbeOut, cases []tzCase) error {
 	}
 	out.AllPass = all
 	out.Summary = fmt.Sprintf("%d PASS / %d FAIL", pass, fail)
-	raw, err := json.MarshalIndent(out, "", "  ")
+	raw, err := jsoncodec.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err
 	}

@@ -2,10 +2,10 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type cachedReviewPosition struct {
@@ -219,7 +219,7 @@ func (c *reviewProjectionCache) dailyInput(ctx context.Context, spec domain.Revi
 		return domain.ReviewDailyInput{On: on, InstrumentID: instrumentID, FXProviderKey: c.providerKey}, ReviewHistoricalCoverage{On: on, Missing: []string{"history_origin"}}, nil
 	}
 	needsCost, lookbacks, currencies := reviewRequiredInputs(spec.Predicate)
-	policy, err := json.Marshal(struct {
+	policy, err := jsoncodec.Marshal(struct {
 		Timezone   string
 		NeedsCost  bool
 		Lookbacks  []int

@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -116,14 +116,14 @@ func (s *Service) commitCorrection(ctx context.Context, in CommitChangeInput) (a
 		return nil, err
 	}
 	var plan correctionPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
 	}
 	id, err := domain.ParseActivityID(plan.Input.ActivityID)
 	if err != nil {
 		return nil, err
 	}
-	payload, err := json.Marshal(struct {
+	payload, err := jsoncodec.Marshal(struct {
 		Input       CorrectionInput
 		EffectiveAt time.Time
 	}{plan.Input, plan.EffectiveAt})

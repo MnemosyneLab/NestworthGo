@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -130,7 +130,7 @@ func (s *Service) commitBatch(ctx context.Context, in CommitChangeInput) (any, e
 		return nil, err
 	}
 	var plan batchPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
 	}
 	var result BatchChangeResult
@@ -139,7 +139,7 @@ func (s *Service) commitBatch(ctx context.Context, in CommitChangeInput) (any, e
 		if err != nil {
 			return err
 		}
-		payload, err := json.Marshal(BatchChangeInput{Commands: plan.Commands})
+		payload, err := jsoncodec.Marshal(BatchChangeInput{Commands: plan.Commands})
 		if err != nil {
 			return err
 		}

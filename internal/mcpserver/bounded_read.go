@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const readTTL = 5 * time.Minute
@@ -127,7 +128,7 @@ func readRows[T any](values []T) ([]json.RawMessage, error) {
 	rows := make([]json.RawMessage, 0, len(values))
 	size := 0
 	for _, v := range values {
-		b, e := json.Marshal(v)
+		b, e := jsoncodec.Marshal(v)
 		if e != nil {
 			return nil, e
 		}
@@ -140,7 +141,7 @@ func readRows[T any](values []T) ([]json.RawMessage, error) {
 	return rows, nil
 }
 func (c *boundedReadCache) cursor(id, section string, e readCapture, offset int) string {
-	b, _ := json.Marshal(readCursor{1, id, section, e.hash, c.generation, offset})
+	b, _ := jsoncodec.Marshal(readCursor{1, id, section, e.hash, c.generation, offset})
 	mac := hmac.New(sha256.New, c.key[:])
 	mac.Write(b)
 	return base64.RawURLEncoding.EncodeToString(append(b, mac.Sum(nil)...))
@@ -160,7 +161,7 @@ func (c *boundedReadCache) decode(v string) (readCursor, error) {
 	if !hmac.Equal(sig, mac.Sum(nil)) {
 		return out, fail("validation", "invalid read cursor")
 	}
-	if json.Unmarshal(data, &out) != nil || out.Version != 1 {
+	if jsoncodec.Unmarshal(data, &out) != nil || out.Version != 1 {
 		return out, fail("validation", "invalid read cursor")
 	}
 	return out, nil
@@ -242,7 +243,7 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 		e.CapturedAt = c.now()
 	}
 	e.Query = normalizeFrozenQuery(e.Query)
-	b, err := json.Marshal(e)
+	b, err := jsoncodec.Marshal(e)
 	if err != nil {
 		return ReadEnvelope{}, err
 	}
@@ -255,7 +256,7 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 	}
 	h := sha256.Sum256(b)
 	e.hash = hex.EncodeToString(h[:])
-	summary, _ := json.Marshal(e.Summary)
+	summary, _ := jsoncodec.Marshal(e.Summary)
 	h = sha256.Sum256(summary)
 	e.summaryHash = hex.EncodeToString(h[:])
 	e.size = len(b)
@@ -399,7 +400,7 @@ func isReadScaleTool(name string) bool {
 }
 
 func normalizeFrozenQuery(v any) any {
-	b, err := json.Marshal(v)
+	b, err := jsoncodec.Marshal(v)
 	if err != nil {
 		return v
 	}
@@ -421,7 +422,7 @@ func normalizeFrozenValue(v any, key string) any {
 		keys := []string{}
 		for _, value := range x {
 			value = normalizeFrozenValue(value, key)
-			b, _ := json.Marshal(value)
+			b, _ := jsoncodec.Marshal(value)
 			k := string(b)
 			if _, ok := byJSON[k]; !ok {
 				keys = append(keys, k)
@@ -465,7 +466,7 @@ func (c *boundedReadCache) outputRows(id string, e readCapture, section string, 
 		if len(sections) > 0 {
 			v["sections"] = sections
 		}
-		b, _ := json.Marshal(v)
+		b, _ := jsoncodec.Marshal(v)
 		out = append(out, b)
 	}
 	return out
@@ -474,7 +475,7 @@ func (c *boundedReadCache) outputRows(id string, e readCapture, section string, 
 // Keep revision/CAS integers exact when freezing heterogeneous DTO envelopes.
 // Financial amounts remain their existing decimal-string projections.
 func decodeReadValue(raw []byte, value any) error {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	return decoder.Decode(value)
 }

@@ -1,12 +1,12 @@
 package app_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/version"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/app"
 )
@@ -21,13 +21,13 @@ func TestAppInfoMatchesVersionPackage(t *testing.T) {
 
 func TestAppInfoRoundTripsAsJSON(t *testing.T) {
 	service := app.NewService(nil)
-	encoded, err := json.Marshal(service.AppInfo())
+	encoded, err := jsoncodec.Marshal(service.AppInfo())
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("jsoncodec.Marshal: %v", err)
 	}
 	var decoded app.AppInfoDTO
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	if err := jsoncodec.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("jsoncodec.Unmarshal: %v", err)
 	}
 	if decoded.Name != version.Name {
 		t.Fatalf("decoded.Name = %q, want %q", decoded.Name, version.Name)
@@ -53,9 +53,9 @@ func TestStartupReportsUnavailableAsWireErrorShape(t *testing.T) {
 	if startup.Code != string(domain.ErrDatabaseUnavailable) || startup.Field != "database" {
 		t.Fatalf("Startup() = %+v, want database_unavailable/database", startup)
 	}
-	encoded, err := json.Marshal(startup)
+	encoded, err := jsoncodec.Marshal(startup)
 	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
+		t.Fatalf("jsoncodec.Marshal: %v", err)
 	}
 	if !strings.Contains(string(encoded), `"available":false`) {
 		t.Fatalf("encoded startup = %s", encoded)
@@ -85,7 +85,7 @@ func TestStartupMapsEveryBootstrapStatus(t *testing.T) {
 		if startup.SupportedSchemaVersion == nil || *startup.SupportedSchemaVersion != testCase.supported {
 			t.Fatalf("supported schema = %v, want %d", startup.SupportedSchemaVersion, testCase.supported)
 		}
-		encoded, err := json.Marshal(startup)
+		encoded, err := jsoncodec.Marshal(startup)
 		if err != nil {
 			t.Fatal(err)
 		}

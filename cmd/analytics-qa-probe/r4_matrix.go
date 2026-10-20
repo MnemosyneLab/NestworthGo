@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -365,7 +365,7 @@ func writeMatrixProbe(outPath string, out matrixOut, cases []matrixCase) error {
 	}
 	out.AllPass = all
 	out.Summary = fmt.Sprintf("%d PASS / %d FAIL / %d SKIP / %d BLOCKED", pass, fail, skip, blocked)
-	raw, err := json.MarshalIndent(out, "", "  ")
+	raw, err := jsoncodec.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err
 	}

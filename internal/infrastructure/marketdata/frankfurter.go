@@ -12,6 +12,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const (
@@ -202,7 +203,7 @@ type normalizedFrankfurterRate struct {
 
 func normalizeFrankfurterRate(body []byte, expectedBase, expectedQuote domain.CurrencyCode) (normalizedFrankfurterRate, error) {
 	var response frankfurterRateResponse
-	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder := jsoncodec.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	if err := decoder.Decode(&response); err != nil {
 		return normalizedFrankfurterRate{}, malformedProvider()

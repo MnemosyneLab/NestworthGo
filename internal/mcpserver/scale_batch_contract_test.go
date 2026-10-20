@@ -1,7 +1,6 @@
 package mcpserver
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -9,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -24,7 +24,7 @@ func TestScaleMetadataCompetingVersionsHaveOneWinner(t *testing.T) {
 	for _, alias := range []string{"A", "B"} {
 		go func(alias string) {
 			<-start
-			raw, _ := json.Marshal(alias)
+			raw, _ := jsoncodec.Marshal(alias)
 			_, err := fx.app.UpdateInstrumentsBatch(t.Context(), application.InstrumentMetadataBatchInput{Items: []domain.InstrumentMetadataUpdate{{ID: fx.instrument, ExpectedMetadataVersion: version, Changes: domain.InstrumentMetadataChanges{ShortName: raw}}}})
 			results <- err
 		}(alias)

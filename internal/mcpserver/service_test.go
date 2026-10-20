@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
 
@@ -59,18 +59,18 @@ func call(t *testing.T, c *mcp.ClientSession, name string, args any, wantError b
 		t.Fatal(err)
 	}
 	if res.IsError != wantError {
-		raw, _ := json.Marshal(res.Content)
+		raw, _ := jsoncodec.Marshal(res.Content)
 		t.Fatalf("%s error=%v content=%s", name, res.IsError, raw)
 	}
 	if wantError {
 		return nil
 	}
-	data, err := json.Marshal(res.StructuredContent)
+	data, err := jsoncodec.Marshal(res.StructuredContent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var obj map[string]any
-	if err = json.Unmarshal(data, &obj); err != nil {
+	if err = jsoncodec.Unmarshal(data, &obj); err != nil {
 		t.Fatal(err)
 	}
 	return obj

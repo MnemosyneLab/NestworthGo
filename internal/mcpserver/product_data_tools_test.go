@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
@@ -75,7 +75,7 @@ func productEditPlan(t *testing.T, s *Service, id string, change func(map[string
 		t.Fatal(err)
 	}
 	var plan map[string]any
-	if err := json.Unmarshal(raw, &plan); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		t.Fatal(err)
 	}
 	change(plan)
@@ -111,7 +111,7 @@ func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
 				}
 				continue
 			}
-			raw, _ := json.Marshal(found[name].InputSchema)
+			raw, _ := jsoncodec.Marshal(found[name].InputSchema)
 			if !strings.Contains(string(raw), `"additionalProperties":false`) || strings.Contains(string(raw), "releaseReservationIds") || strings.Contains(string(raw), "mutationId") {
 				t.Fatal(string(raw))
 			}
@@ -120,7 +120,7 @@ func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
 			}
 		}
 		info := call(t, c, "get_context", Empty{}, false)["data"].(map[string]any)
-		caps, _ := json.Marshal(info["capabilities"])
+		caps, _ := jsoncodec.Marshal(info["capabilities"])
 		for _, cap := range []string{"managed_product_terms", "managed_product_valuation"} {
 			if strings.Contains(string(caps), cap) != (mode == LedgerWrite) {
 				t.Fatal(info)

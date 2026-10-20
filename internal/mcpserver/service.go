@@ -8,9 +8,9 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"net"
 	"net/http"
@@ -102,7 +102,7 @@ func (s *Service) Resume() error {
 		return err
 	}
 	var config Config
-	if err = json.Unmarshal(data, &config); err != nil {
+	if err = jsoncodec.Unmarshal(data, &config); err != nil {
 		s.lastError = "invalid_configuration"
 		return err
 	}
@@ -241,7 +241,7 @@ func (s *Service) Connection() (Connection, error) {
 		return Connection{}, fmt.Errorf("agent server is disabled")
 	}
 	value := map[string]any{"mcpServers": map[string]any{"nestworth": map[string]any{"url": s.endpoint, "headers": map[string]string{"Authorization": "Bearer " + s.config.Token}}}}
-	data, err := json.MarshalIndent(value, "", "  ")
+	data, err := jsoncodec.MarshalIndent(value, "", "  ")
 	return Connection{Endpoint: s.endpoint, Token: s.config.Token, JSON: string(data)}, err
 }
 
@@ -275,7 +275,7 @@ func writePrivateJSON(path string, value any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	data, err := json.Marshal(value)
+	data, err := jsoncodec.Marshal(value)
 	if err != nil {
 		return err
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 const (
@@ -283,7 +283,7 @@ func writeLoanSettings(report *Report, base string, cfg loanConfig) {
 		"fx_provider":        "frankfurter",
 		"quote_cache_ttl":    "12h",
 	}
-	sb, _ := json.MarshalIndent(settings, "", "  ")
+	sb, _ := jsoncodec.MarshalIndent(settings, "", "  ")
 	if err := os.WriteFile(settingsPath, append(sb, '\n'), 0o644); err != nil {
 		add(report, "settings", "FAIL", err.Error())
 		return

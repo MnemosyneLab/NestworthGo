@@ -2,10 +2,10 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type reconciliationPlanRepository interface {
@@ -17,7 +17,7 @@ type reconciliationPlanRepository interface {
 // Desktop recovery material is private configuration, never business export data.
 // Callers must retain the returned identity and may only retry that reviewed plan.
 func (s *Service) SaveReconciliationPlan(ctx context.Context, family, id string, raw []byte) error {
-	if _, err := uuid.Parse(id); err != nil || !json.Valid(raw) {
+	if _, err := uuid.Parse(id); err != nil || !jsoncodec.Valid(raw) {
 		return reconciliationError("planId", "invalid saved plan")
 	}
 	h, err := s.requireHousehold(ctx)

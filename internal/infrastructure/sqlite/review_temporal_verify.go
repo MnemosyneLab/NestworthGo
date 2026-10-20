@@ -3,12 +3,12 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func verifyReviewTemporalSchema(ctx context.Context, q schemaQuery) error {
@@ -31,7 +31,7 @@ func verifyReviewTemporalSchema(ctx context.Context, q schemaQuery) error {
 			return err
 		}
 		var c domain.ReviewTemporalCertificate
-		if json.Unmarshal([]byte(raw), &c) != nil || c.EvaluatedAt.IsZero() || !c.NextTransitionAt.After(c.EvaluatedAt) || c.ClockEpoch == "" || c.PolicyVersion == "" || c.DependencyScope == "" || evaluated != c.EvaluatedAt.UTC().Format(time.RFC3339Nano) || next != c.NextTransitionAt.UTC().Format(time.RFC3339Nano) || c.Source != nil && (!c.Source.Valid() || c.Source.Token.HouseholdID.String() != id) {
+		if jsoncodec.Unmarshal([]byte(raw), &c) != nil || c.EvaluatedAt.IsZero() || !c.NextTransitionAt.After(c.EvaluatedAt) || c.ClockEpoch == "" || c.PolicyVersion == "" || c.DependencyScope == "" || evaluated != c.EvaluatedAt.UTC().Format(time.RFC3339Nano) || next != c.NextTransitionAt.UTC().Format(time.RFC3339Nano) || c.Source != nil && (!c.Source.Valid() || c.Source.Token.HouseholdID.String() != id) {
 			return fmt.Errorf("invalid persisted review temporal checkpoint")
 		}
 	}

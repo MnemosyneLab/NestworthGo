@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -42,12 +42,12 @@ func dataHealthFixture(t *testing.T, startHistory bool) (*Service, *application.
 
 func decodeDataHealthDTO[T any](t *testing.T, value any) T {
 	t.Helper()
-	raw, err := json.Marshal(value)
+	raw, err := jsoncodec.Marshal(value)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decoded T
-	if err := json.Unmarshal(raw, &decoded); err != nil {
+	if err := jsoncodec.Unmarshal(raw, &decoded); err != nil {
 		t.Fatal(err)
 	}
 	return decoded

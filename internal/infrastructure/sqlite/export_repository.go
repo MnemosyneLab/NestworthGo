@@ -3,8 +3,8 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Source revision/journal tables are derived invalidation metadata and are
@@ -153,7 +153,7 @@ func readExportRecords(ctx context.Context, tx *sql.Tx, query string) ([]domain.
 			case "reconciliationEvidence":
 				if value != nil {
 					var evidence any
-					if err := json.Unmarshal([]byte(value.(string)), &evidence); err != nil {
+					if err := jsoncodec.Unmarshal([]byte(value.(string)), &evidence); err != nil {
 						return nil, err
 					}
 					value = evidence
@@ -161,7 +161,7 @@ func readExportRecords(ctx context.Context, tx *sql.Tx, query string) ([]domain.
 			case "conversion":
 				if value != nil && value != "" {
 					var conversion domain.ExportConversion
-					if err := json.Unmarshal([]byte(value.(string)), &conversion); err != nil {
+					if err := jsoncodec.Unmarshal([]byte(value.(string)), &conversion); err != nil {
 						return nil, err
 					}
 					value = conversion

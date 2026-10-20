@@ -6,11 +6,11 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type reviewHistoryCursor struct {
@@ -20,7 +20,7 @@ type reviewHistoryCursor struct {
 }
 
 func reviewHistoryRevision(parts ...any) (string, error) {
-	raw, err := json.Marshal(parts)
+	raw, err := jsoncodec.Marshal(parts)
 	if err != nil {
 		return "", err
 	}
@@ -34,7 +34,7 @@ func decodeReviewHistoryCursor(raw, revision string) (reviewHistoryCursor, error
 		return value, &domain.Error{Code: domain.ErrValidation, Field: "cursor", Message: "invalid review history cursor"}
 	}
 	decoded, err := base64.RawURLEncoding.DecodeString(raw)
-	if err != nil || json.Unmarshal(decoded, &value) != nil {
+	if err != nil || jsoncodec.Unmarshal(decoded, &value) != nil {
 		return value, &domain.Error{Code: domain.ErrValidation, Field: "cursor", Message: "invalid review history cursor"}
 	}
 	if value.Revision != revision {
@@ -44,7 +44,7 @@ func decodeReviewHistoryCursor(raw, revision string) (reviewHistoryCursor, error
 }
 
 func encodeReviewHistoryCursor(cursor reviewHistoryCursor) string {
-	raw, _ := json.Marshal(cursor)
+	raw, _ := jsoncodec.Marshal(cursor)
 	return base64.RawURLEncoding.EncodeToString(raw)
 }
 
@@ -182,7 +182,7 @@ func (r *Repository) ListReviewEpisodeEventsV2(ctx context.Context, householdID 
 			rows.Close()
 			return empty, err
 		}
-		if !json.Valid([]byte(item.PayloadJSON)) {
+		if !jsoncodec.Valid([]byte(item.PayloadJSON)) {
 			rows.Close()
 			return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review event is invalid"}
 		}

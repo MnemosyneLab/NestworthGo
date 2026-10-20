@@ -1,8 +1,8 @@
 package application
 
 import (
-	"encoding/json"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"sort"
 	"strconv"
 	"time"
@@ -11,8 +11,8 @@ import (
 func compatibilityKeys(scope, basis [][]string) (string, string) {
 	sort.Slice(scope, func(i, j int) bool { return scope[i][0] < scope[j][0] })
 	sort.Slice(basis, func(i, j int) bool { return basis[i][0] < basis[j][0] })
-	s, _ := json.Marshal(scope)
-	b, _ := json.Marshal(basis)
+	s, _ := jsoncodec.Marshal(scope)
+	b, _ := jsoncodec.Marshal(basis)
 	return string(s), string(b)
 }
 func priceCompatibility(q domain.InstrumentQuote) []string {
@@ -135,9 +135,9 @@ func conversionCompatibility(raw string) string {
 		return ""
 	}
 	var e metalConversionEvidence
-	if json.Unmarshal([]byte(raw), &e) != nil {
+	if jsoncodec.Unmarshal([]byte(raw), &e) != nil {
 		return "unknown"
 	}
-	value, _ := json.Marshal([]string{e.Policy, e.Symbol, e.RawCurrency, e.RawUnit, e.FXSource, e.Currency, e.Unit})
+	value, _ := jsoncodec.Marshal([]string{e.Policy, e.Symbol, e.RawCurrency, e.RawUnit, e.FXSource, e.Currency, e.Unit})
 	return string(value)
 }

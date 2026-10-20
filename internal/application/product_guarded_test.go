@@ -1,11 +1,11 @@
 package application
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func TestProductGuardedReviewedTimeIsPrivateAndDoesNotMutateCaller(t *testing.T) {
@@ -23,7 +23,7 @@ func TestProductGuardedReviewedTimeIsPrivateAndDoesNotMutateCaller(t *testing.T)
 		t.Fatal("caller command was modified", command)
 	}
 	var frozen ProductCommand
-	if err := json.Unmarshal([]byte(preview.NormalizedJSON), &frozen); err != nil {
+	if err := jsoncodec.Unmarshal([]byte(preview.NormalizedJSON), &frozen); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.PreviewProductOperation(ctx, frozen); err == nil {

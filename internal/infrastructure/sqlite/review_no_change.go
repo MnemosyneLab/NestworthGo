@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"slices"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // WithReviewNoChangeCandidate is deliberately opt-in pending manual review of
@@ -223,7 +223,7 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 	if n, err := cas.RowsAffected(); err != nil || n != 1 {
 		return empty, false, reviewRuleConflict("review no-change control CAS failed")
 	}
-	oldJSON, err := json.Marshal(certificate)
+	oldJSON, err := jsoncodec.Marshal(certificate)
 	if err != nil {
 		return empty, false, err
 	}
@@ -237,7 +237,7 @@ func (r *Repository) confirmReviewNoChange(ctx context.Context, id domain.Househ
 			return empty, false, err
 		}
 	}
-	newJSON, err := json.Marshal(certificate)
+	newJSON, err := jsoncodec.Marshal(certificate)
 	if err != nil {
 		return empty, false, err
 	}
@@ -283,7 +283,7 @@ func noChangeProjectionCounts(ctx context.Context, tx *sql.Tx, id domain.Househo
 // text catches even an out-of-band edit that forgot to advance its revision.
 func noChangeReviewFingerprint(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (string, error) {
 	digest := sha256.New()
-	encoder := json.NewEncoder(digest)
+	encoder := jsoncodec.NewEncoder(digest)
 	if err := encoder.Encode("c3a-review-metadata-v1"); err != nil {
 		return "", err
 	}

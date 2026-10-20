@@ -15,6 +15,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Clone authoritative facts before any projection exists: a new DB handle
@@ -261,7 +262,7 @@ func certifiedPerfRows(t *testing.T, f reviewFullPipelineFixture) map[string][]s
 	table := "investment_review_daily_inputs"
 	for i, raw := range result[table] {
 		var values []any
-		if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(raw), &values); err != nil {
 			t.Fatal(err)
 		}
 		for j, v := range values {
@@ -270,12 +271,12 @@ func certifiedPerfRows(t *testing.T, f reviewFullPipelineFixture) map[string][]s
 				continue
 			}
 			var obj map[string]json.RawMessage
-			if err := json.Unmarshal([]byte(text), &obj); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(text), &obj); err != nil {
 				t.Fatal(err)
 			}
 			delete(obj, "ExactSelectedFXRates")
 			// Marshal both forms via maps so key ordering is identical.
-			clean, err := json.Marshal(obj)
+			clean, err := jsoncodec.Marshal(obj)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -285,13 +286,13 @@ func certifiedPerfRows(t *testing.T, f reviewFullPipelineFixture) map[string][]s
 		for j, v := range values {
 			if text, ok := v.(string); ok && strings.HasPrefix(text, "{") {
 				var obj map[string]json.RawMessage
-				if json.Unmarshal([]byte(text), &obj) == nil {
-					clean, _ := json.Marshal(obj)
+				if jsoncodec.Unmarshal([]byte(text), &obj) == nil {
+					clean, _ := jsoncodec.Marshal(obj)
 					values[j] = string(clean)
 				}
 			}
 		}
-		clean, err := json.Marshal(values)
+		clean, err := jsoncodec.Marshal(values)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -305,11 +306,11 @@ func certifiedPerfRows(t *testing.T, f reviewFullPipelineFixture) map[string][]s
 	table = "investment_review_episode_events"
 	for i, raw := range result[table] {
 		var values []any
-		if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		if err := jsoncodec.Unmarshal([]byte(raw), &values); err != nil {
 			t.Fatal(err)
 		}
 		values[0] = "new-event:" + values[2].(string)
-		clean, err := json.Marshal(values)
+		clean, err := jsoncodec.Marshal(values)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -2,12 +2,12 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func comparisonFor(t *testing.T, s *Service, left, right string, ids ...domain.AccountID) FinancialComparisonResult {
@@ -55,7 +55,7 @@ func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T)
 			t.Fatal("side alias mismatch", p)
 		}
 	}
-	raw, _ := json.Marshal(r.Content)
+	raw, _ := jsoncodec.Marshal(r.Content)
 	for _, secret := range []string{"Secret", a.Account.ID.String(), b.Account.ID.String(), debt.Account.ID.String()} {
 		if strings.Contains(string(raw), secret) {
 			t.Fatal("identity leak", secret)

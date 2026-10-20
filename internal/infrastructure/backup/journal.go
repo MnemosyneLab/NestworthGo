@@ -2,7 +2,6 @@ package backup
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -62,7 +62,7 @@ func StatusPath(liveDBPath string) string {
 
 func WriteJournal(liveDBPath string, journal Journal) error {
 	journal.FormatVersion = FormatVersion
-	data, err := json.MarshalIndent(journal, "", "  ")
+	data, err := jsoncodec.MarshalIndent(journal, "", "  ")
 	if err != nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "restore journal could not be encoded"}
 	}
@@ -82,7 +82,7 @@ func ReadJournal(liveDBPath string) (Journal, error) {
 		return Journal{}, &domain.Error{Code: domain.ErrUnavailable, Message: "restore journal could not be read"}
 	}
 	var journal Journal
-	if err := json.Unmarshal(data, &journal); err != nil {
+	if err := jsoncodec.Unmarshal(data, &journal); err != nil {
 		return Journal{}, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "restore journal could not be parsed"}
 	}
 	return journal, nil
@@ -98,7 +98,7 @@ func RemoveJournal(liveDBPath string) error {
 
 func WriteStatus(liveDBPath string, status Status) error {
 	status.FormatVersion = FormatVersion
-	data, err := json.MarshalIndent(status, "", "  ")
+	data, err := jsoncodec.MarshalIndent(status, "", "  ")
 	if err != nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "backup status could not be encoded"}
 	}
@@ -118,7 +118,7 @@ func ReadStatus(liveDBPath string) (Status, error) {
 		return Status{}, &domain.Error{Code: domain.ErrUnavailable, Message: "backup status could not be read"}
 	}
 	var status Status
-	if err := json.Unmarshal(data, &status); err != nil {
+	if err := jsoncodec.Unmarshal(data, &status); err != nil {
 		return Status{}, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "backup status could not be parsed"}
 	}
 	return status, nil
@@ -246,7 +246,7 @@ func finalizeVerified(liveDBPath string, journal Journal, store *settings.Store)
 				return err
 			}
 			backupSettings := current
-			if err := json.Unmarshal([]byte(journal.SettingsJSON), &backupSettings); err != nil {
+			if err := jsoncodec.Unmarshal([]byte(journal.SettingsJSON), &backupSettings); err != nil {
 				return err
 			}
 			// Durable configuration always comes from the restored database.
@@ -255,7 +255,7 @@ func finalizeVerified(liveDBPath string, journal Journal, store *settings.Store)
 				return err
 			}
 			backupSettings = current
-			if err := json.Unmarshal(presentation, &backupSettings); err != nil {
+			if err := jsoncodec.Unmarshal(presentation, &backupSettings); err != nil {
 				return err
 			}
 			merged := MergeSettings(current, backupSettings, journal.RestoreChrome, journal.RestoreFormat, false)

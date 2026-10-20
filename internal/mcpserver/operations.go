@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 )
 
@@ -57,7 +58,7 @@ func (s *Service) GetOperation(id string) (Operation, error) {
 		return Operation{}, err
 	}
 	var op Operation
-	if err = json.Unmarshal(data, &op); err != nil {
+	if err = jsoncodec.Unmarshal(data, &op); err != nil {
 		return op, err
 	}
 	// A persisted pending receipt is deliberately never retried automatically.
@@ -114,7 +115,7 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 	if err != nil {
 		return nil, err
 	}
-	payload, err := json.Marshal(input)
+	payload, err := jsoncodec.Marshal(input)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +159,7 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 			op.Status = "unknown"
 		}
 	} else {
-		op.Result, err = json.Marshal(value)
+		op.Result, err = jsoncodec.Marshal(value)
 		if err != nil {
 			return nil, fail("operation_outcome_unknown", "Write completed but its result could not be saved; inspect current data")
 		}

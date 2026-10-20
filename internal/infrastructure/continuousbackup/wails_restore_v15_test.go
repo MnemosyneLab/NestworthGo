@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,6 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	infra "github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/version"
 	wailsbackup "github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/recovery"
@@ -146,7 +146,7 @@ func cloudRows(t *testing.T, db *sql.DB) map[string][]string {
 			if err := rows.Scan(dest...); err != nil {
 				t.Fatal(err)
 			}
-			raw, err := json.Marshal(values)
+			raw, err := jsoncodec.Marshal(values)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -188,7 +188,7 @@ func TestPopulatedV15CloudInspectConfirmAndUpgrade(t *testing.T) {
 			if scenario == "mismatched-schema" {
 				schema = 16
 			}
-			identity, err := json.Marshal(map[string]any{"format": 1, "appID": version.AppID, "appVersion": "0.3.7", "appBuild": "synthetic-v15", "schema": schema, "streamID": stream, "startedAt": "2026-09-01T00:00:00Z"})
+			identity, err := jsoncodec.Marshal(map[string]any{"format": 1, "appID": version.AppID, "appVersion": "0.3.7", "appBuild": "synthetic-v15", "schema": schema, "streamID": stream, "startedAt": "2026-09-01T00:00:00Z"})
 			if err != nil {
 				t.Fatal(err)
 			}

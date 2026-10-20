@@ -3,7 +3,6 @@
 package application
 
 import (
-	"encoding/json"
 	"os"
 	"reflect"
 	"runtime"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Reopen an existing C2 ledger whose complete derived namespace has no episode
@@ -30,7 +30,7 @@ func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			raw, err := json.Marshal(spec)
+			raw, err := jsoncodec.Marshal(spec)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -106,7 +106,7 @@ func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 					// the publication counter stays at 1 in both arms.
 					for i, raw := range rows["investment_review_evaluation_state"] {
 						var values []any
-						if err := json.Unmarshal([]byte(raw), &values); err != nil {
+						if err := jsoncodec.Unmarshal([]byte(raw), &values); err != nil {
 							t.Fatal(err)
 						}
 						want := float64(1)
@@ -115,7 +115,7 @@ func TestReviewCertifiedHistoryFreeBootstrapEvidence(t *testing.T) {
 							t.Fatal("unexpected publication counter", values[len(values)-1], want)
 						}
 						values[len(values)-1] = nil
-						clean, err := json.Marshal(values)
+						clean, err := jsoncodec.Marshal(values)
 						if err != nil {
 							t.Fatal(err)
 						}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type ReconciliationAction struct {
@@ -343,7 +343,7 @@ func (s *Service) captureReconciliation(ctx context.Context, ids []string, revis
 	for _, p := range products {
 		managed[p.HoldingID] = true
 		if a := result[p.AccountID.String()]; a != nil {
-			raw, err := json.Marshal(p)
+			raw, err := jsoncodec.Marshal(p)
 			if err != nil {
 				return nil, err
 			}
@@ -362,7 +362,7 @@ func (s *Service) captureReconciliation(ctx context.Context, ids []string, revis
 		}
 		item := domain.ReconciliationItem{ID: "holding:" + h.ID.String(), Kind: "holding", Label: instrument.Name, HoldingID: h.ID.String(), InstrumentID: h.InstrumentID.String(), Value: h.Quantity.Canonical(), Currency: instrument.QuoteCurrency.String()}
 		item.ArchivedNonzero = !h.Quantity.IsZero() && (h.ArchivedAt != nil || instrument.ArchivedAt != nil)
-		item.Detail, _ = json.Marshal(map[string]string{"name": instrument.Name, "symbol": pointerText(instrument.Symbol), "isin": pointerText(instrument.ISIN), "marketCode": pointerText(instrument.MarketCode), "quantityUnit": instrument.QuantityUnit})
+		item.Detail, _ = jsoncodec.Marshal(map[string]string{"name": instrument.Name, "symbol": pointerText(instrument.Symbol), "isin": pointerText(instrument.ISIN), "marketCode": pointerText(instrument.MarketCode), "quantityUnit": instrument.QuantityUnit})
 		lot, err := costs.replay(ctx, h.ID, nil)
 		if err != nil {
 			var domainErr *domain.Error
@@ -648,7 +648,7 @@ func (s *Service) CommitReconciliationSession(ctx context.Context, plan Reconcil
 	if err != nil {
 		return domain.ReconciliationSession{}, err
 	}
-	raw, err := json.Marshal(plan)
+	raw, err := jsoncodec.Marshal(plan)
 	if err != nil {
 		return domain.ReconciliationSession{}, err
 	}
@@ -668,8 +668,8 @@ func (s *Service) CommitReconciliationSession(ctx context.Context, plan Reconcil
 	if err != nil {
 		return result, err
 	}
-	a, _ := json.Marshal(result)
-	b, _ := json.Marshal(plan.Result)
+	a, _ := jsoncodec.Marshal(result)
+	b, _ := jsoncodec.Marshal(plan.Result)
 	if string(a) != string(b) {
 		return result, reconciliationStale("preview")
 	}

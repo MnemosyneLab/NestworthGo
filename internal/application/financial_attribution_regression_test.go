@@ -1,7 +1,6 @@
 package application
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func assertAttributionPrecisionIdentity(t *testing.T, r FinancialComparisonResult) {
@@ -58,7 +58,7 @@ func TestFinancialAttributionScopeDescribesAccountEnteringPeriod(t *testing.T) {
 		t.Fatal("misleading attribution scope", link)
 	}
 	assertAttributionPrecisionIdentity(t, r)
-	raw, _ := json.Marshal(r.Content)
+	raw, _ := jsoncodec.Marshal(r.Content)
 	for _, secret := range []string{"Private", a.Account.ID.String(), b.Account.ID.String()} {
 		if strings.Contains(string(raw), secret) {
 			t.Fatal("scope description leaked identity", secret)
@@ -124,7 +124,7 @@ func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				encoded, _ := json.Marshal(struct {
+				encoded, _ := jsoncodec.Marshal(struct {
 					Dates                         []string
 					Watermark, DirtyFrom, DirtyTo *string
 					InputGeneration, PhysicalRows int
@@ -227,7 +227,7 @@ func TestFinancialAttributionPreservesEarlierDirtyRange(t *testing.T) {
 	}
 	wantAttributionStatus(t, attributionFor(t, s, "2026-08-10", "2026-08-11"), "compatible", "")
 	state, err = s.DailySnapshotState(t.Context(), a.Account.HouseholdID)
-	encoded, _ := json.Marshal(struct {
+	encoded, _ := jsoncodec.Marshal(struct {
 		DirtyFrom, DirtyTo, Watermark *string
 		Generation                    int
 	}{state.DirtyFrom, state.DirtyTo, state.LastCompletedClosedOn, state.InputGeneration})
@@ -343,7 +343,7 @@ func TestFinancialAttributionPrecisionSixDecimalFX(t *testing.T) {
 			wantOverviewAmount(t, r.Content.Left.Summary.NetWorth.Value, exactLeft)
 			wantOverviewAmount(t, r.Content.Right.Summary.NetWorth.Value, exactRight)
 			assertAttributionPrecisionIdentity(t, r)
-			raw, _ := json.Marshal(struct {
+			raw, _ := jsoncodec.Marshal(struct {
 				ComparisonLeft, ComparisonRight, ComparisonChange FinancialContextAmount
 				Attribution                                       *FinancialAttributionLink
 			}{r.Content.Left.Summary.NetWorth, r.Content.Right.Summary.NetWorth, r.Content.Change.NetWorth, r.Content.Attribution})
