@@ -499,7 +499,7 @@ func (r *Repository) AccountRecord(ctx context.Context, householdID domain.House
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	owners, err := loadOwnership(ctx, r.database.SQL, householdID)
+	owners, err := loadOwnership(ctx, r.database.SQL, householdID, []domain.AccountID{record.Account.ID})
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -510,7 +510,7 @@ func (r *Repository) AccountRecord(ctx context.Context, householdID domain.House
 		}
 		record.Ownership = parsed
 	}
-	values, err := loadLatestValues(ctx, r.database.SQL, householdID)
+	values, err := loadLatestValues(ctx, r.database.SQL, householdID, []domain.AccountID{record.Account.ID})
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -573,7 +573,11 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 	if len(accounts) == 0 {
 		return accounts, nil
 	}
-	owners, err := loadOwnership(ctx, query, householdID)
+	ids := make([]domain.AccountID, len(accounts))
+	for i := range accounts {
+		ids[i] = accounts[i].Account.ID
+	}
+	owners, err := loadOwnership(ctx, query, householdID, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -586,7 +590,7 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 			accounts[index].Ownership = parsed
 		}
 	}
-	values, err := loadLatestValues(ctx, query, householdID)
+	values, err := loadLatestValues(ctx, query, householdID, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -598,8 +602,11 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 	return accounts, nil
 }
 
-func loadOwnership(ctx context.Context, query queryer, householdID domain.HouseholdID) (map[domain.AccountID][]domain.OwnershipShare, error) {
-	rows, err := query.QueryContext(ctx, `SELECT ao.account_id, ao.member_id, ao.share_bps FROM account_ownership ao JOIN accounts a ON a.id = ao.account_id WHERE a.household_id = ? ORDER BY ao.account_id, ao.member_id`, householdID.String())
+func loadOwnership(ctx context.Context, query queryer, householdID domain.HouseholdID, scope ...[]domain.AccountID) (map[domain.AccountID][]domain.OwnershipShare, error) {
+	return loadAccountHydration(ctx, query, householdID, scope, `SELECT ao.account_id, ao.member_id, ao.share_bps FROM account_ownership ao JOIN accounts a ON a.id = ao.account_id WHERE a.household_id = ? ORDER BY ao.account_id, ao.member_id`, scanOwnershipRows)
+}
+
+func scanOwnershipRows(rows *sql.Rows, err error) (map[domain.AccountID][]domain.OwnershipShare, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -633,8 +640,11 @@ const latestAccountValuesQuery = `SELECT av.id, av.account_id, av.value_kind, av
 		ORDER BY latest.effective_at DESC, latest.created_at DESC, latest.rowid DESC LIMIT 1
 	) WHERE a.household_id = ?`
 
-func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID) (map[domain.AccountID]*domain.AccountValue, error) {
-	rows, err := query.QueryContext(ctx, latestAccountValuesQuery, householdID.String())
+func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID, scope ...[]domain.AccountID) (map[domain.AccountID]*domain.AccountValue, error) {
+	return loadAccountHydration(ctx, query, householdID, scope, latestAccountValuesQuery, scanLatestValuesRows)
+}
+
+func scanLatestValuesRows(rows *sql.Rows, err error) (map[domain.AccountID]*domain.AccountValue, error) {
 	if err != nil {
 		return nil, err
 	}
