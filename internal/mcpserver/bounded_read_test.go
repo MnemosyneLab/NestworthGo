@@ -62,6 +62,21 @@ func TestBoundedReadCompletenessAndFrozenRetry(t *testing.T) {
 		t.Fatalf("expiry %v", err)
 	}
 }
+
+func TestFrozenReadKeepsNumericLexemes(t *testing.T) {
+	var value map[string]any
+	if err := decodeReadValue([]byte(`{"negativeZero":-0,"revision":9007199254740993}`), &value); err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := jsoncodec.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) != `{"negativeZero":-0,"revision":9007199254740993}` {
+		t.Fatalf("frozen numeric values changed: %s", encoded)
+	}
+}
+
 func TestBoundedReadCursorIsolation(t *testing.T) {
 	c := newBoundedReadCache()
 	c.activate(1)

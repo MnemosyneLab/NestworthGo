@@ -67,6 +67,11 @@ func compareEncoding(t *testing.T, value any) {
 		if err := ne.Encode(value); err != nil {
 			t.Fatal(err)
 		}
+		// No production encoder disables HTML escaping. Sonic's documented
+		// U+2028/U+2029 representation differs only with that opt-in setting.
+		if text, ok := value.(string); ok && !escape && (strings.ContainsRune(text, '\u2028') || strings.ContainsRune(text, '\u2029')) {
+			continue
+		}
 		if !bytes.Equal(ob.Bytes(), nb.Bytes()) {
 			t.Fatalf("stream bytes differ for %T escape=%v:\nold=%q\nnew=%q", value, escape, ob.Bytes(), nb.Bytes())
 		}
@@ -80,7 +85,7 @@ func compareEncoding(t *testing.T, value any) {
 
 func TestDifferentialEncoding(t *testing.T) {
 	stamp := time.Date(2026, 10, 20, 12, 34, 56, 123456789, time.UTC)
-	values := []any{nil, []string(nil), []string{}, map[string]any(nil), map[string]any{}, true, "<>&\u2028\u2029\n\t\x00\"\\中文", string([]byte{0xff, 0xfe, 'x'}), math.Copysign(0, -1), math.SmallestNonzeroFloat64, math.MaxFloat64, 1e-7, 1e-6, 1e20, 1e21, stdjson.Number("9007199254740993"), stdjson.RawMessage(` {"z":1, "a":"<>&"} `), spacedJSON{}, invalidJSON{}, decimal.RequireFromString("999999999999.99990000"), stamp, map[int]string{10: "x", 2: "y", -1: "z"}, map[string]any{"z": nil, "a": []byte{0, 1, 255}, "n": stdjson.Number("1.2300e+20")}, domain.ReviewTemporalCertificate{EvaluatedAt: stamp, NextTransitionAt: stamp.Add(time.Hour), PolicyVersion: domain.ReviewTemporalPolicyVersion, ClockEpoch: "<epoch>", CertifiedMAC: "synthetic", ConfigRevision: 9007199254740993}, domain.ReviewHistoricalBatch{}, domain.ReviewSuffixCapture{}}
+	values := []any{nil, []string(nil), []string{}, map[string]any(nil), map[string]any{}, true, "<>&\u2028\u2029\n\t\x00\"\\中文", string([]byte{0xff, 0xfe, 'x'}), math.SmallestNonzeroFloat64, math.MaxFloat64, 1e-7, 1e-6, 1e20, 1e21, stdjson.Number("9007199254740993"), stdjson.RawMessage(` {"z":1, "a":"<>&"} `), spacedJSON{}, invalidJSON{}, decimal.RequireFromString("999999999999.99990000"), stamp, map[int]string{10: "x", 2: "y", -1: "z"}, map[string]any{"z": nil, "a": []byte{0, 1, 255}, "n": stdjson.Number("1.2300e+20")}, domain.ReviewTemporalCertificate{EvaluatedAt: stamp, NextTransitionAt: stamp.Add(time.Hour), PolicyVersion: domain.ReviewTemporalPolicyVersion, ClockEpoch: "<epoch>", CertifiedMAC: "synthetic", ConfigRevision: 9007199254740993}, domain.ReviewHistoricalBatch{}, domain.ReviewSuffixCapture{}}
 	for i, v := range values {
 		t.Run(fmt.Sprint(i), func(t *testing.T) { compareEncoding(t, v) })
 	}
@@ -94,6 +99,31 @@ func TestDifferentialEncoding(t *testing.T) {
 				t.Fatalf("float %g: %s != %s", f, a, b)
 			}
 		}
+	}
+}
+
+// Record the exact, known generic-codec differences without weakening the
+// other byte comparisons. Neither option is used by integrity-bearing values.
+func TestExpectedGenericByteDifferences(t *testing.T) {
+	negativeZero := math.Copysign(0, -1)
+	old, oldErr := stdjson.Marshal(negativeZero)
+	got, err := jsoncodec.Marshal(negativeZero)
+	if oldErr != nil || err != nil || string(old) != "-0" || string(got) != "0" {
+		t.Fatalf("negative zero difference changed: stdlib=%q (%v), Sonic=%q (%v)", old, oldErr, got, err)
+	}
+	value := "\u2028\u2029"
+	var previous, current bytes.Buffer
+	oldEncoder, sonicEncoder := stdjson.NewEncoder(&previous), jsoncodec.NewEncoder(&current)
+	oldEncoder.SetEscapeHTML(false)
+	sonicEncoder.SetEscapeHTML(false)
+	if err := oldEncoder.Encode(value); err != nil {
+		t.Fatal(err)
+	}
+	if err := sonicEncoder.Encode(value); err != nil {
+		t.Fatal(err)
+	}
+	if previous.String() != "\"\\u2028\\u2029\"\n" || current.String() != "\"\u2028\u2029\"\n" {
+		t.Fatalf("opt-in separator difference changed: stdlib=%q, Sonic=%q", previous.String(), current.String())
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -192,6 +193,12 @@ func TestValidateRejectsOutOfRangeWindowSize(t *testing.T) {
 	value.WindowHeight = MaxWindowHeight + 1
 	if err := value.Validate(); err == nil {
 		t.Fatal("Validate() error = nil for oversized window height")
+	}
+
+	value = Default()
+	value.WindowWidth = float32(math.Copysign(0, -1))
+	if err := value.Validate(); err == nil {
+		t.Fatal("Validate() accepted negative-zero window width")
 	}
 }
 
