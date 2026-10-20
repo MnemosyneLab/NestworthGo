@@ -394,7 +394,7 @@ func runReviewPerfEpochPairs(t *testing.T, config reviewPerfConfig, samples, cyc
 							run := cloneReviewPerfFixture(t, fixture)
 							repo := sqlite.NewRepository(run.db)
 							if path == 0 {
-								repo = repo
+								repo = repo.WithFullReviewRecompute()
 							}
 							var measuredRepository Repository = repo
 							var stages *reviewPerfStageRepository

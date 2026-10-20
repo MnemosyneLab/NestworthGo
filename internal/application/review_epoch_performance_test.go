@@ -53,7 +53,7 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 					run := cloneReviewPerfFixture(t, source)
 					repo := sqlite.NewRepository(run.db)
 					if path == 0 {
-						repo = repo
+						repo = repo.WithFullReviewRecompute()
 					}
 					service := NewService(repo)
 					service.setClock(func() time.Time { return *run.now })
@@ -182,17 +182,13 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 	}
 	f.day(t, "2026-10-08")
 	source := reviewFullPipelineFixture{service: f.s, db: f.db, now: f.now, householdID: f.account.Account.HouseholdID, instruments: []domain.Instrument{f.instrument}}
-	for _, mode := range []string{"full", "baseline", "bounded"} {
+	for _, mode := range []string{"full", "baseline"} {
 		t.Run(mode, func(t *testing.T) {
 			run := cloneReviewPerfFixture(t, source)
 			repo := sqlite.NewRepository(run.db)
 			switch mode {
 			case "full":
 				repo = repo.WithFullReviewRecompute()
-			case "baseline":
-				repo = repo
-			case "bounded":
-				repo = repo
 			}
 			prepare := func() domain.ReviewPublication {
 				t.Helper()
