@@ -33,8 +33,9 @@ The old counting-only no-change experiment and independent lineage/runtime shado
 are rejected designs. Their runtime/test dependency chains still require cleanup
 on this branch; existing tests and helpers are retained until their useful safety
 regressions have been migrated. Full-recompute and constructor-only test controls,
-observation fields, profile/RSS/multi-arm harnesses and perf selectors also remain
-pending. Removing those dependencies must preserve the complete independent
+observation fields and remaining profile/multi-arm harnesses also remain
+pending. Eight standalone old no-change/RSS/lineage/bootstrap/dispatch/memo/epoch
+and historical CPU-profile harness files have been removed. Removing those dependencies must preserve the complete independent
 financial/lifecycle oracle rather than only compare the latest day.
 
 Legacy/restart bootstrap cannot establish absent historical handling provenance.
@@ -107,7 +108,8 @@ are removed from that test. The nested reconciliation App test has an individual
 10-second integration budget, justified by main's 5.087s and prior PR's 4.634s
 against the old 5-second limit; assertions and global timeouts are unchanged.
 
-Final exact-head ordinary CI, perf-selector synchronization and the remaining
-harness migration are pending. Race stays in the daily/manual perf workflow and
+Final exact-head ordinary CI and the remaining harness migration are pending.
+Perf selectors are synchronized with retained tests; a preflight checks both
+zero matches and individual deleted alternatives before starting expensive runs. Race stays in the daily/manual perf workflow and
 the schedule cost gate remains intact. No race reruns or broad matrices were run
 for this cleanup. Native packaging, launch, signing and deployment are unverified.

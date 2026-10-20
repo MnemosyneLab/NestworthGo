@@ -199,7 +199,7 @@ default branch is still at the last successful scheduled run; the first
 scheduled run and every manual dispatch execute them. Performance evidence
 is compiled only with `go test -tags perf`
 in that workflow (scale, 365-day pipeline, paired samples, and epoch
-diagnostics as separate jobs). The same workflow runs the sharded
+full-oracle scale checks as separate jobs). The same workflow runs the sharded
 `go test -race` suite without the perf tag. The race aggregate is `race`.
 [ci-pause.md](ci-pause.md) records an earlier manual-only pause; this branch
 restores automatic `check` triggers. Native `.app`/DMG packaging, signing, and notarization stay

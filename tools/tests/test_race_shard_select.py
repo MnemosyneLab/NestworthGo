@@ -265,7 +265,8 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("-benchtime=1x", perf)
         self.assertIn("TestReviewFullPipelinePerformanceEvidence", perf)
         self.assertIn("TestReviewPairedPerformanceEvidence", perf)
-        self.assertIn("TestReviewEpochStageDiagnostics", perf)
+        self.assertIn("TestReviewRepeatedEpochWindowOracleScale", perf)
+        self.assertIn("tools/perf-selector-check.py", perf)
         self.assertIn("timeout: 110", perf)
         race = perf.split("\n  race-shard:\n", 1)[1]
         self.assertNotIn("-tags perf", race)

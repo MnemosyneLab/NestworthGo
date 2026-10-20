@@ -14,7 +14,7 @@ name: perf
 #                         financial-source writes default to 10 samples)
 #   pipeline  25–60 min  (365-day book, 2000 pairs, cold + 10 incrementals)
 #   paired    10–25 min  (3 samples of the reference R30 book)
-#   epoch     10–30 min  (10 samples, 64 no-op cycles, stage trace)
+#   epoch     retained repeated-epoch correctness and full-oracle scale fixture
 # NW_REVIEW_PERF_SAMPLES overrides those counts; 30 restores the previous
 # sample size. Job timeouts include native-dependency install and stay above
 # the new upper estimates: pipeline 90m test / 110m job, paired 50m / 70m,
@@ -116,7 +116,7 @@ jobs:
             timeout: 75
             test_timeout: 50m
             packages: ./internal/application ./internal/infrastructure/marketdata ./internal/infrastructure/sqlite
-            run: ^(TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesMemoryEvidence|TestHistoricalSeriesBenchmarkCancellationEvidence|TestReviewRepeatedEpochWindowOracleScale|TestUpcomingActionsPerformanceReport|TestHistoricalOverviewDenseRapidSwitchEvidence|TestSourceTrackingProviderRefreshEvidence|TestAnalysisEndToEndPerformanceEvidence|TestSourceTrackingProviderImportBatchEvidence|TestFinancialSourceWriteAmplificationEvidence)$
+            run: ^(TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesMemoryEvidence|TestHistoricalSeriesBenchmarkCancellationEvidence|TestUpcomingActionsPerformanceReport|TestHistoricalOverviewDenseRapidSwitchEvidence|TestSourceTrackingProviderRefreshEvidence|TestAnalysisEndToEndPerformanceEvidence|TestSourceTrackingProviderImportBatchEvidence|TestFinancialSourceWriteAmplificationEvidence)$
             bench: ^(BenchmarkHistoricalSeriesBounded|BenchmarkHistoricalOverviewRapidSwitch|BenchmarkUpcomingActionsScale|BenchmarkReviewProjectionIncremental100x20|BenchmarkLegacySnapshotCoverageWarmBoundedTrend|BenchmarkLegacySnapshotCoverageColdBoundedTrend)$
           - label: pipeline
             timeout: 110
@@ -134,7 +134,7 @@ jobs:
             timeout: 65
             test_timeout: 45m
             packages: ./internal/application
-            run: ^TestReviewEpochStageDiagnostics$
+            run: ^TestReviewRepeatedEpochWindowOracleScale$
             bench: ""
     steps:
       - uses: actions/checkout@v7
@@ -150,6 +150,8 @@ jobs:
       - name: Perf-tagged evidence
         run: |
           set -euo pipefail
+          python3 tools/perf-selector-check.py --run "${{ matrix.run }}" \
+            --bench "${{ matrix.bench }}" ${{ matrix.packages }}
           bench=()
           if [ -n "${{ matrix.bench }}" ]; then
             bench=(-bench "${{ matrix.bench }}" -benchtime=1x)
