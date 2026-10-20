@@ -20,20 +20,22 @@ type ReviewPlannedDay struct {
 }
 
 type ReviewRuleInstrumentPlan struct {
-	RuleID            domain.ReviewRuleID
-	ConditionVersion  int
-	InstrumentID      domain.InstrumentID
-	LatestClosedOn    string
-	Days              []ReviewPlannedDay
-	LatestWindow      domain.ReviewPolicyWindow
-	LatestResult      *domain.ReviewDailyResult
-	LatestCoverage    []string
-	Incremental       bool
-	RecomputedDays    int
-	PreviousLatestOn  string
-	Position          ReviewPositionTimeline
-	EpochIDs          []string
-	ActiveSuppression *domain.ReviewSuppression
+	RuleID           domain.ReviewRuleID
+	ConditionVersion int
+	InstrumentID     domain.InstrumentID
+	LatestClosedOn   string
+	Days             []ReviewPlannedDay
+	LatestWindow     domain.ReviewPolicyWindow
+	LatestResult     *domain.ReviewDailyResult
+	LatestCoverage   []string
+	Incremental      bool
+	RecomputedDays   int
+	// RetainedOutputDays is allocation accounting only, not publication authority.
+	RetainedOutputDays int
+	PreviousLatestOn   string
+	Position           ReviewPositionTimeline
+	EpochIDs           []string
+	ActiveSuppression  *domain.ReviewSuppression
 }
 
 // PlanReviewRuleInstrument replays every reliable civil day so that a later
@@ -79,6 +81,9 @@ func planReviewRuleInstrument(ctx context.Context, capture domain.ReviewProjecti
 		var cached domain.ReviewReusableDailyEvidence
 		if reuse {
 			cached = cache.capture.Suffix.Prefix[prefixIndex].Evidence
+			if cache.capture.Suffix.Prefix[prefixIndex].OutputAttested {
+				result.RetainedOutputDays++
+			}
 		}
 		input, coverage, daily, fingerprint := cached.Input, ReviewHistoricalCoverage{On: on, Missing: cached.CoverageMissing}, cached.Result, cached.InputFingerprint
 		if !reuse {

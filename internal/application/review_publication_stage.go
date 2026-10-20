@@ -116,15 +116,7 @@ func prepareReviewPublication(ctx context.Context, capture domain.ReviewProjecti
 				return domain.ReviewPublication{}, err
 			}
 			timezoneVersion := rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion
-			emittedDays := len(plan.Days)
-			if cache.hasAttestedSuffix {
-				for _, day := range plan.Days {
-					key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: timezoneVersion, On: day.On}
-					if index, ok := cache.suffixEvidence[key]; ok && capture.Suffix.Prefix[index].OutputAttested {
-						emittedDays--
-					}
-				}
-			}
+			emittedDays := len(plan.Days) - plan.RetainedOutputDays
 			entry := domain.ReviewRulePublication{
 				RuleID: rule.ID, RuleRevision: rule.RowRevision, ConditionVersion: rule.CurrentConditionVersion,
 				InstrumentID: instrumentID, TimezoneVersion: timezoneVersion,
