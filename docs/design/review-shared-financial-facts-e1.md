@@ -123,9 +123,9 @@ join and index costs, bounded migration and atomic activation, old-reference
 retention/GC, and restore/import behavior. E1's sampled refs are not a complete
 migration frontier. No old-table deletion or F checkpoint is authorized.
 
-The [E2a reader-cutover assessment](review-shared-financial-facts-e2a.md) identifies
-the missing current-reference and complete-proof boundary. It is design evidence,
-not an implemented or enabled E2 production path.
+The [E2a authoritative shared-input contract](review-shared-financial-facts-e2a.md)
+documents the implemented bounded reader/writer and proof integration. It remains
+disabled by default because its small observations show higher total overhead.
 
 ## Synthetic observations and validation
 

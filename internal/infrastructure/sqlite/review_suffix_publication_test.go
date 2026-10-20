@@ -64,7 +64,7 @@ func TestReviewSuffixAttestationRequiresCompleteTypedOutput(t *testing.T) {
 			}
 			evidence := map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence{}
 			attested := map[domain.ReviewDailyEvidenceKey]bool{}
-			if err = scanReviewSuffixOutput(rows, c, rule, item.TimezoneVersion, scenario != "changed-source", evidence, attested); err != nil {
+			if err = scanReviewSuffixOutput(rows, c, rule, item.TimezoneVersion, scenario != "changed-source", evidence, attested, nil); err != nil {
 				t.Fatal(err)
 			}
 			key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: 1, InstrumentID: id, TimezoneVersion: item.TimezoneVersion, On: input.On}

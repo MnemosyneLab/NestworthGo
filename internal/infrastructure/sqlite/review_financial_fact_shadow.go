@@ -54,6 +54,10 @@ type reviewFactSemanticKey struct {
 }
 
 func reviewFactKey(p domain.ReviewPublication, rule domain.ReviewRule, day domain.ReviewPublicationDay) (string, error) {
+	return reviewFactKeyVersion(p, rule, day, "e1-v1")
+}
+
+func reviewFactKeyVersion(p domain.ReviewPublication, rule domain.ReviewRule, day domain.ReviewPublicationDay, version string) (string, error) {
 	requirements := []string{}
 	var visit func(domain.ReviewPredicateNode) error
 	visit = func(node domain.ReviewPredicateNode) error {
@@ -90,7 +94,7 @@ func reviewFactKey(p domain.ReviewPublication, rule domain.ReviewRule, day domai
 		return "", fmt.Errorf("shared fact requires a pinned calendar session")
 	}
 	raw, err := jsoncodec.Marshal(reviewFactSemanticKey{
-		Version: "e1-v1", Scope: "household-aggregate-all-historical-accounts-v1", On: day.On,
+		Version: version, Scope: "household-aggregate-all-historical-accounts-v1", On: day.On,
 		Cutoff: cutoff.UTC().Format(time.RFC3339Nano), Schedule: rule.Spec.Schedule, DataPolicy: rule.Spec.DataPolicy,
 		MetricPolicy: rule.Spec.MetricPolicyVersion, ResolverPolicy: p.Capture.Historical.History.ResolverPolicyVersion,
 		Provider: p.FXProviderKey, CalendarSession: p.Capture.Temporal.ClockEpoch,

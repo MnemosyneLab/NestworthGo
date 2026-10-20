@@ -12,6 +12,7 @@ import (
 )
 
 type Repository struct {
+	reviewSharedInputs                bool
 	reviewFinancialFactShadowDays     int
 	database                          *DB
 	reviewFullRecompute               bool

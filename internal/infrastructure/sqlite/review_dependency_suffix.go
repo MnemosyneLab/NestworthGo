@@ -249,9 +249,9 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 				return err
 			}
 			if unchanged {
-				err = scanReviewSuffixOutput(rows, *c, rule, tz, true, evidence, attested, memoTarget)
+				err = scanReviewSuffixOutput(rows, *c, rule, tz, true, evidence, attested, &reviewSharedInputResolver{ctx: ctx, tx: tx, household: c.HouseholdID}, memoTarget)
 			} else {
-				err = scanReusableReviewWindow(rows, rule, tz, evidence)
+				err = scanReusableReviewWindow(rows, rule, tz, evidence, &reviewSharedInputResolver{ctx: ctx, tx: tx, household: c.HouseholdID})
 			}
 			if err != nil {
 				if ctx.Err() != nil {
@@ -389,7 +389,7 @@ func (r *Repository) verifyReviewSuffixPrefix(c domain.ReviewProjectionCapture) 
 
 // Decode the complete SQL image once. Only compact attestations leave this
 // coherent transaction; SQL images are never retained or used as financial input.
-func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCapture, rule domain.ReviewRule, tz string, unchanged bool, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, attested map[domain.ReviewDailyEvidenceKey]bool, memo ...*reviewMemoReadTarget) error {
+func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCapture, rule domain.ReviewRule, tz string, unchanged bool, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, attested map[domain.ReviewDailyEvidenceKey]bool, resolver *reviewSharedInputResolver, memo ...*reviewMemoReadTarget) error {
 	defer rows.Close()
 	// Only decoded owned values and immutable strings leave each iteration.
 	// The SQL tuples are compared immediately and never retained.
@@ -408,8 +408,13 @@ func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCaptu
 			return err
 		}
 		on := text(3)
+		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: tz, On: on}
+		inputJSON, err := resolver.resolve(text(10), key, text(11), text(12))
+		if err != nil {
+			return err
+		}
 		var item domain.ReviewReusableDailyEvidence
-		if err = decodeReviewInput([]byte(text(10)), &item.Input); err != nil {
+		if err = decodeReviewInput([]byte(inputJSON), &item.Input); err != nil {
 			return err
 		}
 		if err = jsoncodec.Unmarshal([]byte(text(11)), &item.CoverageMissing); err != nil {
@@ -428,7 +433,6 @@ func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCaptu
 			}
 			item.HasResult = item.Result.On == on
 		}
-		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: tz, On: on}
 		if _, exists := evidence[key]; exists {
 			return fmt.Errorf("duplicate suffix key")
 		}
@@ -443,9 +447,14 @@ func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCaptu
 			if err != nil {
 				return err
 			}
-			attested[key] = reflect.DeepEqual(values[:13], input[:13]) && reflect.DeepEqual(values[13:], result[:9])
+			// Validate the resolved input exactly, then compare the actual raw
+			// selector row image. The complete seal separately binds its fact/ref.
+			fullInput := input[10].(string)
+
+			input[10] = values[10]
+			attested[key] = fullInput == inputJSON && reflect.DeepEqual(values[:13], input[:13]) && reflect.DeepEqual(values[13:], result[:9])
 			if attested[key] && len(memo) > 0 && memo[0] != nil {
-				memo[0].add(reviewMemoEntry{Key: key, Input: input[10].(string), Coverage: input[11].(string), Result: result[7].(string), Fingerprint: item.InputFingerprint, Prior: item.PriorConsecutiveCount})
+				memo[0].add(reviewMemoEntry{Key: key, Input: fullInput, Coverage: input[11].(string), Result: result[7].(string), Fingerprint: item.InputFingerprint, Prior: item.PriorConsecutiveCount})
 			}
 		}
 	}

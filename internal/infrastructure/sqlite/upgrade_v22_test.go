@@ -42,7 +42,7 @@ func TestV22SharedFactUpgradeRecoveryAndSnapshot(t *testing.T) {
 	}
 	defer db.Close()
 	var version, count int
-	if err := db.SQL.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != 23 {
+	if err := db.SQL.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != CurrentSchemaVersion {
 		t.Fatal(version, err)
 	}
 	if err := db.SQL.QueryRow(`SELECT count(*) FROM review_financial_daily_facts`).Scan(&count); err != nil || count != 0 {

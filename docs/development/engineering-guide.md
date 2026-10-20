@@ -130,14 +130,17 @@ date semantics, interaction conventions, enforced boundaries and exceptions.
 ## Persistence and settings
 
 The current SQLite schema is verified before business writes. Startup enables
-foreign keys and checks structural integrity. New databases use schema 23.
-Verified v15–22 databases receive additive upgrades in order: short names (16),
+foreign keys and checks structural integrity. New databases use schema 24.
+Verified v15–23 databases receive additive upgrades in order: short names (16),
 reconciliation (17), reconciliation evidence/revisions (18), investment review
 (19), shadow financial source revision/journal metadata (20), and temporal
 review publication checkpoints (21), per-instrument Agent closure facts (22), and
-bounded shared review financial fact shadow tables (23). See
+bounded shared review financial fact shadow tables (23), followed by the shared-input
+format fence (24). See
 [E1 storage and rollback boundaries](../design/review-shared-financial-facts-e1.md).
-The E1 shadow is opt-in only; production readers stay on per-rule tables. Each step
+The E1 shadow is opt-in only. The [E2a mixed-format reader/writer](../design/review-shared-financial-facts-e2a.md)
+is implemented; new shared-input writes remain default-off after small observations
+showed higher total cost. Each step
 retains a verified read-only recovery copy. Schema20 keeps the full financial
 fingerprint/recheck algorithm authoritative; see the
 [source coverage, recovery and rollback contract](../testing/performance-c1-source-coverage-2026-10-19.md).

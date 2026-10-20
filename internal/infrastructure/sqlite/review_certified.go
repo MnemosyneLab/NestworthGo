@@ -95,7 +95,7 @@ func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string,
 // not a narrow fingerprint or an assumption that conditional writes repair it.
 func certifiedProjectionSeal(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (string, error) {
 	digest := sha256.New()
-	digest.Write([]byte("certified-row-bytes-v2\x00"))
+	digest.Write([]byte("certified-row-bytes-v3\x00"))
 	var rowbuf []byte
 	queries := []string{
 		`SELECT * FROM investment_review_control WHERE household_id=? ORDER BY household_id`,
@@ -104,6 +104,8 @@ func certifiedProjectionSeal(ctx context.Context, tx *sql.Tx, id domain.Househol
 		`SELECT t.* FROM investment_review_rule_targets t JOIN investment_review_rules r ON r.id=t.rule_id WHERE r.household_id=? ORDER BY t.rule_id,t.instrument_id`,
 		`SELECT * FROM investment_review_suppressions WHERE household_id=? ORDER BY id`,
 		`SELECT * FROM investment_review_daily_inputs WHERE household_id=? ORDER BY instrument_id,timezone_version,on_date,input_policy`,
+		`SELECT * FROM review_financial_daily_facts WHERE household_id=? ORDER BY id`,
+		`SELECT x.* FROM review_result_fact_refs x JOIN investment_review_rules r ON r.id=x.rule_id WHERE r.household_id=? ORDER BY x.rule_id,x.condition_version,x.instrument_id,x.timezone_version,x.on_date,x.fact_id,x.input_fingerprint`,
 		`SELECT d.* FROM investment_review_daily_results d JOIN investment_review_rules r ON r.id=d.rule_id WHERE r.household_id=? ORDER BY d.rule_id,d.condition_version,d.instrument_id,d.timezone_version,d.on_date`,
 		`SELECT * FROM investment_review_position_epochs WHERE household_id=? ORDER BY id`,
 		`SELECT s.* FROM investment_review_evaluation_state s JOIN investment_review_rules r ON r.id=s.rule_id WHERE r.household_id=? ORDER BY s.rule_id,s.instrument_id,s.position_epoch_id`,

@@ -102,7 +102,7 @@ func (r *Repository) loadReusableReviewWindow(ctx context.Context, tx queryer, c
 			if err != nil {
 				return err
 			}
-			if err := scanReusableReviewWindow(rows, rule, tz, evidence); err != nil {
+			if err := scanReusableReviewWindow(rows, rule, tz, evidence, &reviewSharedInputResolver{ctx: ctx, tx: tx, household: capture.HouseholdID}); err != nil {
 				return err
 			}
 			continue
@@ -118,7 +118,7 @@ func (r *Repository) loadReusableReviewWindow(ctx context.Context, tx queryer, c
 			if err != nil {
 				return err
 			}
-			if err := scanReusableReviewWindow(rows, rule, tz, evidence); err != nil {
+			if err := scanReusableReviewWindow(rows, rule, tz, evidence, &reviewSharedInputResolver{ctx: ctx, tx: tx, household: capture.HouseholdID}); err != nil {
 				return err
 			}
 		}
@@ -163,7 +163,7 @@ func reviewWindowChunkQuery(capture domain.ReviewProjectionCapture, rule domain.
 	return statement, args
 }
 
-func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVersion string, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence) error {
+func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVersion string, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, resolvers ...*reviewSharedInputResolver) error {
 	for rows.Next() {
 		var instrumentID, on, inputFingerprint, inputJSON, coverageJSON string
 		var resultJSON, resultFingerprint sql.NullString
@@ -173,6 +173,16 @@ func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVe
 			return err
 		}
 		id, err := domain.ParseInstrumentID(instrumentID)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		var resolver *reviewSharedInputResolver
+		if len(resolvers) > 0 {
+			resolver = resolvers[0]
+		}
+		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: timezoneVersion, On: on}
+		inputJSON, err = resolver.resolve(inputJSON, key, coverageJSON, inputFingerprint)
 		if err != nil {
 			rows.Close()
 			return err
@@ -199,7 +209,6 @@ func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVe
 			}
 			item.HasResult = item.Result.On == on
 		}
-		key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: timezoneVersion, On: on}
 		evidence[key] = item
 	}
 	if err := rows.Err(); err != nil {

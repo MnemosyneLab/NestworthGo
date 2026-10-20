@@ -280,7 +280,7 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	// Bootstrap never trusts retained derived values. Only a signed, supported
 	// history-free capture can request full replacement under this reservation.
 	bootstrap := reviewBootstrapProvenanceEnabled && certified && mayCertify && capture.Certified != nil && capture.Certified.MayBootstrap && capture.TemporalFullRecompute && len(capture.ReusableDailyEvidence) == 0 && publication.CertifiedFullOracle == nil
-	inputSQL := `INSERT INTO investment_review_daily_inputs(household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint,computed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(household_id,instrument_id,timezone_version,on_date,input_policy) DO UPDATE SET quantity=excluded.quantity,native_currency=excluded.native_currency,instrument_type=excluded.instrument_type,amount_exact=excluded.amount_exact,cost_exact=excluded.cost_exact,evidence_json=excluded.evidence_json,coverage_json=excluded.coverage_json,input_fingerprint=excluded.input_fingerprint,computed_at=excluded.computed_at WHERE input_fingerprint<>excluded.input_fingerprint`
+	inputSQL := `INSERT INTO investment_review_daily_inputs(household_id,instrument_id,timezone_version,on_date,input_policy,quantity,native_currency,instrument_type,amount_exact,cost_exact,evidence_json,coverage_json,input_fingerprint,computed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(household_id,instrument_id,timezone_version,on_date,input_policy) DO UPDATE SET quantity=excluded.quantity,native_currency=excluded.native_currency,instrument_type=excluded.instrument_type,amount_exact=excluded.amount_exact,cost_exact=excluded.cost_exact,evidence_json=excluded.evidence_json,coverage_json=excluded.coverage_json,input_fingerprint=excluded.input_fingerprint,computed_at=excluded.computed_at WHERE input_fingerprint<>excluded.input_fingerprint OR (evidence_json<>excluded.evidence_json AND (instr(evidence_json,'"SharedFactV1"')>0 OR instr(excluded.evidence_json,'"SharedFactV1"')>0))`
 	if r.CertifiedReviewEnabled() {
 		inputSQL += ` OR evidence_json<>excluded.evidence_json OR coverage_json<>excluded.coverage_json`
 	}
@@ -305,8 +305,12 @@ func (r *Repository) publishReviewProjection(ctx context.Context, publication do
 	if err != nil {
 		return err
 	}
+	sharedInputs, err := r.publishSharedInputs(ctx, tx, publication)
+	if err != nil {
+		return err
+	}
 	for _, item := range publication.Rules {
-		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement, existingStateEpochs[reviewEvaluationStateKey(item.RuleID, item.InstrumentID)], bootstrap, equalDaily); err != nil {
+		if err := publishReviewRule(ctx, tx, capture, item, publication.At, inputStatement, resultStatement, existingStateEpochs[reviewEvaluationStateKey(item.RuleID, item.InstrumentID)], bootstrap, equalDaily, sharedInputs); err != nil {
 			return err
 		}
 	}
@@ -471,7 +475,7 @@ func verifyReviewOpenEpisodes(ctx context.Context, tx *sql.Tx, capture domain.Re
 	return nil
 }
 
-func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt, existingStateEpochs []string, bootstrap bool, equalDaily *reviewPublicationEquality) error {
+func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewProjectionCapture, item domain.ReviewRulePublication, at time.Time, inputStatement, resultStatement *sql.Stmt, existingStateEpochs []string, bootstrap bool, equalDaily *reviewPublicationEquality, sharedInputs reviewSharedInputPlan) error {
 	if item.TargetExcluded {
 		if len(item.Days) != 0 || len(item.Epochs) != 0 || item.CurrentEpisode != nil || item.OpenedEpisode {
 			return &domain.Error{Code: domain.ErrValidation, Field: "target", Message: "an excluded target cannot publish daily evidence or an open episode"}
@@ -506,6 +510,9 @@ func publishReviewRule(ctx context.Context, tx *sql.Tx, capture domain.ReviewPro
 		inputValues, resultValues, err := reviewDailyPublicationArguments(capture, item, day, atText)
 		if err != nil {
 			return err
+		}
+		if ref, ok := sharedInputs[sharedDayKey(item, day)]; ok {
+			inputValues[10] = ref
 		}
 		omit, err := equalDaily.omitInput(inputValues)
 		if err != nil {

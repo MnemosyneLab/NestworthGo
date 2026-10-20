@@ -21,7 +21,7 @@ import (
 //go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql source_changes_schema_v20.sql review_temporal_schema_v21.sql agent_closures_schema_v22.sql review_facts_schema_v23.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 23
+const CurrentSchemaVersion = 24
 
 type BootstrapStatus string
 
@@ -103,7 +103,7 @@ type DB struct {
 func Open(path string) (*DB, error) { return openDatabase(path, "sqlite") }
 
 func openDatabase(path, driverName string) (*DB, error) {
-	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) || isV20RecoveryCopy(path) || isV21RecoveryCopy(path) || isV22RecoveryCopy(path) {
+	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) || isV20RecoveryCopy(path) || isV21RecoveryCopy(path) || isV22RecoveryCopy(path) || isV23RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -144,7 +144,7 @@ func openDatabase(path, driverName string) (*DB, error) {
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 && found != 20 && found != 21 && found != 22 {
+		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 && found != 20 && found != 21 && found != 22 && found != 23 {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -225,6 +225,12 @@ func openDatabase(path, driverName string) (*DB, error) {
 		}
 		found = 23
 	}
+	if found == 23 && existed {
+		if err := upgradeV23(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 24
+	}
 	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)
 	}
@@ -265,6 +271,10 @@ func openDatabase(path, driverName string) (*DB, error) {
 			return closeOnError(StatusUnavailable, found, err)
 		}
 		if err := installReviewFactSchema(context.Background(), tx); err != nil {
+			tx.Rollback()
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		if err := applyV23Upgrade(context.Background(), tx); err != nil {
 			tx.Rollback()
 			return closeOnError(StatusUnavailable, found, err)
 		}
