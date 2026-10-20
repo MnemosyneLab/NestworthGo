@@ -1081,10 +1081,55 @@ it("resets reconciliation to the global list unless the target names an account 
   expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
   expect(screen.queryByText(/Savings · In progress/)).not.toBeInTheDocument();
 
+  // Continue locally: the navigation target contains only the account, not this session.
+  await userEvent.click(screen.getByRole("button", { name: "Continue session" }));
+  expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
+  await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+  await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
+  expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+  expect(reconciliationGet).toHaveBeenCalledWith("open-checking");
+
   await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
   expect(await screen.findByTestId("account-detail")).toBeVisible();
   await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
   expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
   expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
   expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+});
+
+it("opens an unfiltered global reconciliation list when Tasks is reselected on Tasks", async () => {
+  await i18n.changeLanguage("en");
+  listAccounts.mockResolvedValue([checkingAccount]);
+  accountValuations.mockResolvedValue([checkingValuation]);
+  reconciliationList.mockResolvedValue([
+    { id: "local-session", status: "in_progress", accountIds: ["acc-1"], accountNames: ["Checking"], counts: { pending: 1, confirmed: 0, skipped: 0, unresolved: 0 } },
+  ]);
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  await userEvent.click(await screen.findByRole("button", { name: "Reconciliation, 1 unfinished" }));
+  const filter = screen.getByLabelText(i18n.t("reconciliation.history"));
+  await userEvent.selectOptions(filter, "paused");
+  await userEvent.click(screen.getByRole("checkbox", { name: "Checking · USD" }));
+  await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+  await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
+  expect(filter).toHaveValue("paused");
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).not.toBeChecked();
+  await userEvent.click(await screen.findByRole("button", { name: "Continue session" }));
+  expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+    expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+  } finally {
+    resolveSheetConfirmation(owner);
+  }
+  await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+  expect(await screen.findByRole("button", { name: "Continue session" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+  expect(screen.getByLabelText(i18n.t("reconciliation.history"))).toHaveValue("");
+  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
 });

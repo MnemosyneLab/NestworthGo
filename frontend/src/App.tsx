@@ -61,6 +61,7 @@ function App() {
   const [holdingDraftRequest, setHoldingDraftRequest] = useState<{ requestId: number; accountId: string }>();
   const nextHoldingDraftRequest = useRef(0);
   const [instrumentDetail, setInstrumentDetail] = useState<InstrumentDetailContext>();
+  const [reconciliationRequestId, setReconciliationRequestId] = useState(0);
   const [reconciliationFocus, setReconciliationFocus] = useState<ReconciliationNavigationFocus>({});
   const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
   const [historyActivityId, setHistoryActivityId] = useState<string>();
@@ -153,8 +154,7 @@ function App() {
       const nextTab = resolveTasksTab({ explicit: navigation.tab, previous: tasksTab, attention: cached.attention, actionable: cached.actionable });
       setTasksTab(nextTab);
       setReconciliationFocus(reconciliationFocusFromTarget(navigation));
-    } else if (activePageId === "tasks") {
-      setReconciliationFocus({});
+      setReconciliationRequestId(previous => previous + 1);
     }
     if (navigation.page === "historical-overview") { setHistoricalDate(navigation.date); setHistoricalContext(navigation.historical); setHistoricalRequest(previous => previous + 1); }
     // Top-level Accounts navigation always returns to the list. Opening a
@@ -271,7 +271,7 @@ function App() {
         </WorkspaceLazy>
         </div>
       )}
-      {retained("tasks") && <div hidden={activePageId !== "tasks"}><WorkspaceLazy><TasksPage isActive={activePageId === "tasks"} tab={tasksTab ?? "upcoming"} onTabChange={setTasksTab} accountId={reconciliationFocus.accountId} sessionId={reconciliationFocus.sessionId} /></WorkspaceLazy></div>}
+      {retained("tasks") && <div hidden={activePageId !== "tasks"}><WorkspaceLazy><TasksPage isActive={activePageId === "tasks"} tab={tasksTab ?? "upcoming"} onTabChange={setTasksTab} accountId={reconciliationFocus.accountId} sessionId={reconciliationFocus.sessionId} navigationRequestId={reconciliationRequestId} /></WorkspaceLazy></div>}
       {retained("portfolio") && (
         <div hidden={activePageId !== "portfolio"}>
         <WorkspaceLazy>
