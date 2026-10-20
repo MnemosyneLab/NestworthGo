@@ -325,6 +325,15 @@ func listDailyValuationSnapshotsForAccountQuery(ctx context.Context, db queryer,
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
+	// Incomplete household headers do not identify the missing-data reason.
+	// Analysis must inspect every item to distinguish a funding-only gap from
+	// unrelated missing evidence before proving activity-backed opening zeroes.
+	for _, snapshot := range result {
+		if !snapshot.Complete {
+			accountID = ""
+			break
+		}
+	}
 	if err := attachDailyValuationSnapshotItemsForAccount(ctx, db, result, accountID, known); err != nil {
 		return nil, err
 	}

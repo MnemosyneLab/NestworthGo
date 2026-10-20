@@ -472,3 +472,142 @@ func (r *analysisAccountSnapshotReader) LoadAnalysisQuoteBatch(ctx context.Conte
 func (r *analysisMissingMetadataRepository) LoadAnalysisQuoteBatch(ctx context.Context, h domain.HouseholdID, ids []domain.InstrumentID) ([]domain.InstrumentQuote, error) {
 	return r.Repository.(AnalysisQuoteBatchRepository).LoadAnalysisQuoteBatch(ctx, h, ids)
 }
+
+// An outside funding gap must retain the household evidence used to prove a
+// selected holding's activity-backed opening and closing zero.
+func TestAnalysisAccountSnapshotsOutsideFundingGap(t *testing.T) {
+	s, db, owner, now := overviewFixture(t)
+	ctx := t.Context()
+	selected := overviewAccount(t, s, owner, "Healthy broker", "brokerage", "asset", "holdings", "CNY", "")
+	outside := overviewAccount(t, s, owner, "Late funded bank", "bank_account", "asset", "holdings", "CNY", "")
+	if _, err := s.AppendAccountCashValue(ctx, selected.Account.ID, "100", "CNY", ""); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic opening", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-01", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.StartHistoryWithCosts(ctx, "UTC", nil); err != nil {
+		t.Fatal(err)
+	}
+	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: selected.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	*now = time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	for index, side := range []domain.TradeSide{domain.TradeBuy, domain.TradeSell} {
+		_, err = s.RecordChange(ctx, domain.TradeInput{HouseholdID: selected.Account.HouseholdID, Side: side, SettlementAccountID: selected.Account.ID, HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "1"), Gross: mustMoney(t, "10", "CNY"), EffectiveAt: time.Date(2026, 8, 2+index, 12, 0, 0, 0, time.UTC)})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = s.AppendAccountCashValue(ctx, outside.Account.ID, "150", "CNY", "2026-08-08T12:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{AccountID: outside.Account.ID.String(), Currency: "CNY", Principal: "100", EffectiveAt: "2026-08-01T12:00:00Z", Terms: ProductTermsInput{Kind: "term_deposit", Name: "Synthetic late deposit", StartOn: "2026-08-01", MaturityOn: strPtr("2026-12-20"), InterestMode: "simple_act_365", AnnualRatePercent: strPtr("3"), InterestPaidThroughOn: strPtr("2026-08-01")}, Policy: depositPolicy()}}
+	preview, err := s.PreviewProductOperation(ctx, command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.RecordProductOperation(ctx, command, domain.NewProductOperationID().String(), preview.ReviewedStateHash); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ensureClosedDaySnapshots(ctx, "2026-08-01", "2026-08-04"); err != nil {
+		t.Fatal(err)
+	}
+	reader := &analysisAccountSnapshotReader{Repository: s.repository}
+	scoped := NewAnalysisService(reader, s.clock)
+	full := NewAnalysisService(&analysisBatchQuoteRepository{analysisLegacyQuoteRepository: &analysisLegacyQuoteRepository{Repository: s.repository}}, s.clock)
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeAccount, ID: selected.Account.ID.String()}, From: "2026-08-02", To: "2026-08-04", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+	want, err := full.loadInputs(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := scoped.loadInputs(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, investment := range []bool{false, true} {
+		expected, wantErr := computeAnalysisForValuationUniverseContext(ctx, want, query, investment)
+		actual, gotErr := computeAnalysisForValuationUniverseContext(ctx, got, query, investment)
+		if wantErr != nil || gotErr != nil {
+			t.Fatalf("analysis: %v / %v", wantErr, gotErr)
+		}
+		if !reflect.DeepEqual(expected, actual) {
+			t.Fatalf("outside funding gap changes selected opening/closure (investment=%v)", investment)
+		}
+		count := 0
+		for _, day := range actual.Days {
+			if day.Component.HoldingID != nil && *day.Component.HoldingID == holding.ID && (day.Date == "2026-08-02" || day.Date == "2026-08-03") {
+				count++
+				if day.Status != domain.CompletenessOK || day.ReturnAmount == nil {
+					t.Fatalf("known opening/closure became incomplete: %+v", day)
+				}
+			}
+		}
+		if count != 2 {
+			t.Fatalf("opening/closure coverage=%d", count)
+		}
+	}
+	if !reflect.DeepEqual(want.Snapshots, got.Snapshots) {
+		t.Fatal("incomplete household snapshots must retain full evidence")
+	}
+	t.Run("selected gap retains outside missing price", func(t *testing.T) {
+		// Inject unavailable historical price evidence into the synthetic persisted
+		// selected holding, then select the other account, which has the cash gap.
+		// The full oracle must reject the funding-only predicate in both loaders.
+		if _, err := db.SQL.ExecContext(ctx, `UPDATE daily_valuation_snapshot_items SET complete = 0, base_amount = NULL, missing_reason = 'missing quote' WHERE holding_id = ?`, holding.ID.String()); err != nil {
+			t.Fatal(err)
+		}
+		q := query
+		q.Scope.ID = outside.Account.ID.String()
+		want, err := full.loadInputs(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := scoped.loadInputs(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(want.Snapshots, got.Snapshots) {
+			t.Fatal("outside missing-price evidence was clipped")
+		}
+		sawMixed := false
+		for _, snapshot := range got.Snapshots {
+			if snapshot.LocalDate != "2026-08-02" {
+				continue
+			}
+			sawMixed = true
+			if snapshotFundingGapAnnotated(snapshot) {
+				t.Fatal("unrelated missing price admitted as funding-only gap")
+			}
+		}
+		if !sawMixed {
+			t.Fatal("missing mixed-gap snapshot")
+		}
+		for _, investment := range []bool{false, true} {
+			expected, e1 := computeAnalysisForValuationUniverseContext(ctx, want, q, investment)
+			actual, e2 := computeAnalysisForValuationUniverseContext(ctx, got, q, investment)
+			if e1 != nil || e2 != nil || !reflect.DeepEqual(expected, actual) {
+				t.Fatalf("mixed-gap differential investment=%v: %v / %v", investment, e1, e2)
+			}
+			unknown := false
+			for _, day := range actual.Days {
+				if day.Component.Cash && day.Date == "2026-08-02" {
+					unknown = true
+					if day.ReturnAmount != nil || day.Status == domain.CompletenessOK {
+						t.Fatal("funding cash became a known return")
+					}
+				}
+			}
+			if !unknown {
+				t.Fatal("missing unknown cash day")
+			}
+		}
+	})
+
+}

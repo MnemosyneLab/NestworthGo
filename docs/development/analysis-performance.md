@@ -144,7 +144,11 @@ Normal SQLite analysis hydrates selected-account stored snapshot items for
 explicit account scope, including households with activities. It retains full
 activities, archived-inclusive portfolio metadata, FX and selected source evidence.
 All historical account IDs must resolve against the captured portfolio; unknown
-accounts and other scopes retain full hydration. Headers and full origin opening
+accounts and other scopes retain full hydration. If any requested household header
+is incomplete, the request also retains full item hydration: omitted outside-account
+items may distinguish a funding-only gap from an unrelated missing price, and
+that distinction controls activity-proven opening/closing zeroes. Complete requests
+retain selected-account hydration. Headers and full origin opening
 construction remain unchanged. The initial activity-free restriction was removed
 after tracing classifier/daily dependencies and adding real-loader differential
 coverage for transfers, corrections, positions and outside cash attribution.
