@@ -10,7 +10,7 @@ export type AnalyticsRange =
   | { kind: "trend"; value: AnalyticsTrendRange }
   | { kind: "custom"; from: string; to: string };
 
-export function useNetWorthTrend(range: AnalyticsRange) {
+export function useNetWorthTrend(range: AnalyticsRange, active = true) {
   return useQuery({
     queryKey: queryKeys.analytics.netWorthTrend(range),
     queryFn: () => {
@@ -19,7 +19,7 @@ export function useNetWorthTrend(range: AnalyticsRange) {
       }
       return callService(() => PortfolioService.NetWorthTrend(range.value));
     },
-    enabled: range.kind === "trend",
+    enabled: active && range.kind === "trend",
   });
 }
 

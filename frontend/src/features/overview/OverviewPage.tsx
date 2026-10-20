@@ -409,7 +409,7 @@ export function OverviewPage({
         <OverviewUpcomingActionsCard isActive={isActive} presentation="homepage" />
       </div>
 
-      <NetWorthTrendCard />
+      <NetWorthTrendCard active={isActive} />
 
       <div className="grid grid-cols-1 gap-4">
         {(showAssetComposition || showLiabilityComposition) && (

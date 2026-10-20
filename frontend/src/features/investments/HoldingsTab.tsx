@@ -46,8 +46,10 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
     (record) => record.account.trackingMode === "holdings" && record.account.accountType !== "cash_on_hand" && !record.account.archivedAt,
   );
   const holdings = useInstrumentHoldingGroups();
-  const products = useProducts({ includeClosed: true });
-  const selectableInstruments = (instruments.data ?? []).filter((instrument) => ordinaryInstrument(instrument) && !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id));
+  const products = useProducts({ includeClosed: true }, open && !origin.isLoading && !origin.data);
+  const productsReady = products.isSuccess && products.fetchStatus === "idle";
+  const excludedInstrumentIds = new Set((products.data ?? []).map((detail) => detail.product.instrumentId));
+  const selectableInstruments = productsReady ? (instruments.data ?? []).filter((instrument) => ordinaryInstrument(instrument) && !excludedInstrumentIds.has(instrument.id)) : [];
   const selectionLabels = instrumentSelectionLabels(selectableInstruments);
   const handledDraft = useRef(0);
   useEffect(() => {
@@ -56,12 +58,11 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
     setAccountId(draftRequest.accountId);
     setOpen(true);
   }, [draftRequest, holdingsAccounts]);
-
-  if (accounts.isLoading || instruments.isLoading || holdings.isLoading || origin.isLoading || products.isLoading) {
+  if (accounts.isLoading || instruments.isLoading || holdings.isLoading || origin.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
   }
 
-  if (accounts.isError || instruments.isError || holdings.isError || origin.isError || products.isError) {
+  if (accounts.isError || instruments.isError || holdings.isError || origin.isError) {
     return (
       <ErrorState
         title={t("portfolio.loadError")}
@@ -71,7 +72,6 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
           void instruments.refetch();
           void holdings.refetch();
           void origin.refetch();
-          void products.refetch();
         }}
         retryLabel={t("common.retryAction")}
       />
@@ -86,7 +86,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
   }
 
   const submit = () => {
-    if (!accountId || !selectableInstruments.some(item => item.id === instrumentId) || !quantity.trim()) {
+    if (!productsReady || !accountId || !selectableInstruments.some(item => item.id === instrumentId) || !quantity.trim()) {
       setFormError(t("portfolio.holdingRequired"));
       return;
     }
@@ -122,6 +122,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
               </SheetHeader>
               {origin.data ? <PositionImportForm account={holdingsAccounts.find((record) => record.account.id === accountId)?.account}
                 onRecorded={() => { toast.success(t("history.recorded")); setOpen(false); setAccountId(""); }} /> : <div className="flex flex-col gap-4">
+                {products.isError ? <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void products.refetch()} retryLabel={t("common.retryAction")} /> : !productsReady ? <LoadingState label={t("portfolio.loading")} /> : null}
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="holding-account">{t("history.accountSelect")}</Label>
                   <NativeSelect id="holding-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
@@ -135,7 +136,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="holding-instrument">{t("history.instrument")}</Label>
-                  <NativeSelect id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)}>
+                  <NativeSelect id="holding-instrument" value={productsReady && selectableInstruments.some((item) => item.id === instrumentId) ? instrumentId : ""} disabled={!productsReady} onChange={(event) => setInstrumentId(event.target.value)}>
                     <option value="">{t("history.selectInstrument")}</option>
                     {selectableInstruments.map((instrument) => (
                       <option key={instrument.id} value={instrument.id}>
@@ -166,7 +167,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
                     {formError ?? displayError(createHolding.error, t("portfolio.createError"))}
                   </p>
                 )}
-                <Button onClick={submit} disabled={createHolding.isPending}>
+                <Button onClick={submit} disabled={createHolding.isPending || !productsReady}>
                   {createHolding.isPending ? t("common.pending") : t("portfolio.addHolding")}
                 </Button>
               </div>}

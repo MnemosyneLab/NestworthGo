@@ -1,10 +1,11 @@
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: () => historyOrigin() } }));
 import type { ComponentProps } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { onlineManager, QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import { queryKeys } from "@/queries/keys";
 import { HoldingsTab } from "./HoldingsTab";
 import i18n from "@/i18n";
 
@@ -15,6 +16,7 @@ const createHolding = vi.fn();
 const holdingsByAccounts = vi.fn();
 const instrumentHoldingGroups = vi.fn();
 const positionImport = vi.fn();
+const listProducts = vi.fn();
 vi.mock("./PositionImportForm", () => ({ PositionImportForm: (props: { account?: { id: string } }) => {
   positionImport(props);
   return <div data-testid="position-import-form">Dated position import</div>;
@@ -61,11 +63,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
   Service: { SupportedCurrencies: () => Promise.resolve(["USD"]) },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
-  Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
+  Service: { ListProducts: (...args: unknown[]) => listProducts(...args), Overview: vi.fn() },
 }));
 
-function renderPage(props: ComponentProps<typeof HoldingsTab> = {}) {
-  const queryClient = createTestQueryClient();
+function renderPage(props: ComponentProps<typeof HoldingsTab> = {}, queryClient = createTestQueryClient({ retry: false })) {
   return render(
     <QueryClientProvider client={queryClient}>
       <HoldingsTab {...props} />
@@ -74,10 +75,13 @@ function renderPage(props: ComponentProps<typeof HoldingsTab> = {}) {
 }
 
 beforeEach(() => {
+  onlineManager.setOnline(true);
   historyOrigin.mockResolvedValue(null);
   listInstruments.mockReset();
   listAccounts.mockReset();
   createHolding.mockReset();
+  listProducts.mockReset();
+  listProducts.mockResolvedValue([]);
   holdingsByAccounts.mockReset();
   instrumentHoldingGroups.mockReset();
   listInstruments.mockResolvedValue([]);
@@ -88,8 +92,96 @@ beforeEach(() => {
   instrumentHoldingGroups.mockResolvedValue([]);
   createHolding.mockResolvedValue({ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" });
 });
+afterEach(() => onlineManager.setOnline(true));
 
 describe("HoldingsTab", () => {
+  it("loads product exclusions only for the ordinary sheet and blocks selection until fresh exclusions arrive", async () => {
+    let resolveProducts!: (value: unknown[]) => void;
+    listProducts.mockImplementation(() => new Promise((resolve) => { resolveProducts = resolve; }));
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage();
+    expect(await screen.findByText(i18n.t("portfolio.noHoldings"))).toBeInTheDocument();
+    expect(listProducts).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
+    await waitFor(() => expect(listProducts).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("Instrument")).toBeDisabled();
+    const submitButtons = screen.getAllByRole("button", { name: "Add holding" });
+    const submit = submitButtons[submitButtons.length - 1];
+    expect(submit).toBeDisabled();
+    resolveProducts([{ product: { instrumentId: "i1" } }]);
+    await waitFor(() => expect(screen.getByLabelText("Instrument")).not.toBeDisabled());
+    expect(screen.getByLabelText("Instrument")).not.toHaveTextContent("NVIDIA");
+  });
+
+  it("does not submit with a stale cached product list during refresh", async () => {
+    const client = createTestQueryClient({ retry: false });
+    client.setQueryData(queryKeys.liquidity.products("", true), []);
+    let resolveProducts!: (value: unknown[]) => void;
+    listProducts.mockImplementation(() => new Promise((resolve) => { resolveProducts = resolve; }));
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage({}, client);
+    await userEvent.click(await screen.findByRole("button", { name: "Add holding" }));
+    await waitFor(() => expect(listProducts).toHaveBeenCalled());
+    expect(screen.getByLabelText("Instrument")).toBeDisabled();
+    resolveProducts([{ product: { instrumentId: "i1" } }]);
+    await waitFor(() => expect(screen.getByLabelText("Instrument")).not.toBeDisabled());
+    expect(screen.getByLabelText("Instrument")).not.toHaveTextContent("NVIDIA");
+    expect(createHolding).not.toHaveBeenCalled();
+  });
+
+  it("blocks cached product selections while their refresh is paused offline", async () => {
+    const client = createTestQueryClient({ retry: false });
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage({}, client);
+    await userEvent.click(await screen.findByRole("button", { name: "Add holding" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
+    expect(screen.getByLabelText("Instrument")).toHaveValue("i1");
+    act(() => onlineManager.setOnline(false));
+    act(() => { void client.invalidateQueries({ queryKey: queryKeys.liquidity.products("", true) }); });
+    await waitFor(() => expect(client.getQueryState(queryKeys.liquidity.products("", true))?.fetchStatus).toBe("paused"));
+    expect(client.getQueryData(queryKeys.liquidity.products("", true))).toEqual([]);
+    expect(screen.getByLabelText("Instrument")).toBeDisabled();
+    const submitButtons = screen.getAllByRole("button", { name: "Add holding" });
+    expect(submitButtons[submitButtons.length - 1]).toBeDisabled();
+    expect(createHolding).not.toHaveBeenCalled();
+    act(() => onlineManager.setOnline(true));
+    await waitFor(() => expect(client.getQueryState(queryKeys.liquidity.products("", true))?.fetchStatus).toBe("idle"));
+    await waitFor(() => expect(screen.getByLabelText("Instrument")).not.toBeDisabled());
+  });
+
+  it("revalidates a selected instrument after exclusions refresh", async () => {
+    const client = createTestQueryClient({ retry: false });
+    let resolveProducts!: (value: unknown[]) => void;
+    listProducts.mockResolvedValueOnce([]).mockImplementation(() => new Promise((resolve) => { resolveProducts = resolve; }));
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage({}, client);
+    await userEvent.click(await screen.findByRole("button", { name: "Add holding" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
+    expect(screen.getByLabelText("Instrument")).toHaveValue("i1");
+    act(() => { void client.invalidateQueries({ queryKey: queryKeys.liquidity.products("", true) }); });
+    await waitFor(() => expect(listProducts).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText("Instrument")).toBeDisabled();
+    resolveProducts([{ product: { instrumentId: "i1" } }]);
+    await waitFor(() => expect(screen.getByLabelText("Instrument")).not.toBeDisabled());
+    expect(screen.getByLabelText("Instrument")).toHaveValue("");
+    await userEvent.selectOptions(screen.getByLabelText("Account"), "acc-1");
+    await userEvent.type(screen.getByLabelText("Quantity"), "10");
+    const submitButtons = screen.getAllByRole("button", { name: "Add holding" });
+    await userEvent.click(submitButtons[submitButtons.length - 1]);
+    expect(createHolding).not.toHaveBeenCalled();
+  });
+
+  it("keeps product lookup errors inside the sheet and retries there", async () => {
+    listProducts.mockRejectedValueOnce(new Error("unavailable")).mockResolvedValue([]);
+    renderPage();
+    await screen.findByText(i18n.t("portfolio.noHoldings"));
+    await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
+    await screen.findByRole("button", { name: "Try again" });
+    expect(screen.getByText(i18n.t("portfolio.noHoldings"))).toBeInTheDocument();
+    expect(screen.getByLabelText("Instrument")).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.getByLabelText("Instrument")).not.toBeDisabled());
+  });
   it("does not duplicate instrument management on the holdings page", async () => {
     renderPage();
     expect(await screen.findByText(i18n.t("portfolio.noHoldings"))).toBeInTheDocument();

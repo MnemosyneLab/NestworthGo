@@ -211,7 +211,7 @@ export function syncJobIsRunning(job: SyncJobDTO | null | undefined): boolean {
 	return Boolean(job?.jobId) && job?.outcome === "running";
 }
 
-export function useCurrentSyncJob() {
+export function useCurrentSyncJob(observeCompletion = false) {
 	const queryClient = useQueryClient();
 	const query = useQuery({
 		queryKey: queryKeys.marketdata.currentSync,
@@ -229,14 +229,19 @@ export function useCurrentSyncJob() {
 	const seenRunning = useRef(false);
 	const observedTerminal = useRef("");
 	useEffect(() => {
+		seenRunning.current = false;
+		observedTerminal.current = "";
+	}, [queryClient]);
+	useEffect(() => {
 		const job = query.data;
 		if (syncJobIsRunning(job)) {
 			seenRunning.current = true;
 			return;
 		}
+		if (!observeCompletion) return;
 		if (seenRunning.current) {
 			seenRunning.current = false;
-			invalidateMarketDataSync(queryClient);
+			if (!job?.jobId) invalidateMarketDataSync(queryClient);
 		}
 		// A workspace observer can first see a terminal job after the page that
 		// started it has been unmounted. Compensate on the first terminal read,
@@ -248,14 +253,14 @@ export function useCurrentSyncJob() {
 				invalidateMarketDataSync(queryClient);
 			}
 		}
-	}, [query.data, queryClient]);
+	}, [query.data, queryClient, observeCompletion]);
 
 	return query;
 }
 
 /** Mount once under AppShell so sync observation survives page navigation. */
 export function MarketDataSyncWorkspaceObserver() {
-	useCurrentSyncJob();
+	useCurrentSyncJob(true);
 	return null;
 }
 

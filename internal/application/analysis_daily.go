@@ -59,6 +59,9 @@ func computeAnalysisForValuationUniverseContext(ctx context.Context, input Analy
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
+	universe.activityPresence = make(map[componentActivityKey]bool)
+	universe.activityChecked = make(map[componentActivityKey]bool)
+	universe.indexStampedQuotes(input)
 	universe.displayEvidence = newSnapshotDisplayEvidence(domain.HistoricalSnapshotBatch{Portfolio: input.Portfolio, InstrumentQuoteFacts: input.InstrumentQuotes, FXQuoteFacts: input.FXQuotes}, time.Time{}, 12*time.Hour)
 	universe.displayEvidence.balances = make(map[balanceDisplayKey]balanceDisplayValue)
 	valuationComponents := universe.context.Universe.Components
@@ -157,6 +160,24 @@ func computeAnalysisForValuationUniverseContext(ctx context.Context, input Analy
 	return result, nil
 }
 
+func (u *analysisUniverse) indexStampedQuotes(input AnalysisInputs) {
+	u.stampedQuotes = make(map[stampedInstrumentQuoteKey]*domain.InstrumentQuote, len(input.InstrumentQuotes))
+	for index := range input.InstrumentQuotes {
+		quote := &input.InstrumentQuotes[index]
+		key := stampedInstrumentQuoteKey{quote.ID.String(), quote.InstrumentID, quote.Currency}
+		if _, exists := u.stampedQuotes[key]; !exists {
+			u.stampedQuotes[key] = quote
+		}
+	}
+	u.stampedFXQuotes = make(map[string]*domain.FXQuote, len(input.FXQuotes))
+	for index := range input.FXQuotes {
+		quote := &input.FXQuotes[index]
+		if _, exists := u.stampedFXQuotes[quote.ID.String()]; !exists {
+			u.stampedFXQuotes[quote.ID.String()] = quote
+		}
+	}
+}
+
 func investmentCurrencies(components domain.Components) map[domain.CurrencyCode]struct{} {
 	currencies := make(map[domain.CurrencyCode]struct{})
 	for _, component := range components {
@@ -213,7 +234,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 	if !component.Cash && snapshotFundingGapAnnotated(previousSnapshot) && snapshotFundingGapAnnotated(currentSnapshot) {
 		openingKnown = true
 	}
-	if (len(effects) > 0 || componentHasActivityInRange(component, input.Activities, query.From, query.To)) && openingKnown {
+	if (len(effects) > 0 || universe.componentHasActivityInRange(component, input.Activities, query.From, query.To)) && openingKnown {
 		previousMissing := previous.AccountID == ""
 		currentMissing := current.AccountID == ""
 		if previousMissing && !currentMissing && current.Complete {
@@ -512,6 +533,38 @@ func componentHasActivityInRange(component domain.ComponentID, activities []doma
 	return false
 }
 
+type componentActivityKey struct {
+	accountID     domain.AccountID
+	holdingID     domain.HoldingID
+	hasHolding    bool
+	instrumentID  domain.InstrumentID
+	hasInstrument bool
+	currency      domain.CurrencyCode
+	assetClass    string
+	cash          bool
+}
+
+func (u analysisUniverse) componentHasActivityInRange(component domain.ComponentID, activities []domain.Activity, from, to domain.LocalDate) bool {
+	key := componentActivityKey{accountID: component.AccountID, currency: component.Currency, assetClass: component.AssetClass, cash: component.Cash}
+	if component.HoldingID != nil {
+		key.holdingID = *component.HoldingID
+		key.hasHolding = true
+	}
+	if component.InstrumentID != nil {
+		key.instrumentID = *component.InstrumentID
+		key.hasInstrument = true
+	}
+	if u.activityChecked[key] {
+		return u.activityPresence[key]
+	}
+	present := componentHasActivityInRange(component, activities, from, to)
+	if u.activityChecked != nil {
+		u.activityChecked[key] = true
+		u.activityPresence[key] = present
+	}
+	return present
+}
+
 func accountAbsentBeforeCreation(account domain.Account, cutoff time.Time, input AnalysisInputs) bool {
 	if cutoff.IsZero() || account.CreatedAt.IsZero() || !account.CreatedAt.After(cutoff) {
 		return false
@@ -729,11 +782,20 @@ func fxQuoteAt(quotes []domain.FXQuote, preferences []domain.FXPreference, house
 	return selected
 }
 
+type stampedInstrumentQuoteKey struct {
+	id           string
+	instrumentID domain.InstrumentID
+	currency     domain.CurrencyCode
+}
+
 func (u analysisUniverse) quoteForItem(item domain.DailyValuationSnapshotItem, quotes []domain.InstrumentQuote, cutoff time.Time) *domain.InstrumentQuote {
 	if item.InstrumentID == nil {
 		return nil
 	}
 	if item.QuoteID != nil {
+		if u.stampedQuotes != nil {
+			return u.stampedQuotes[stampedInstrumentQuoteKey{*item.QuoteID, *item.InstrumentID, item.NativeCurrency}]
+		}
 		for index := range quotes {
 			if quotes[index].ID.String() == *item.QuoteID && quotes[index].InstrumentID == *item.InstrumentID && quotes[index].Currency == item.NativeCurrency {
 				return &quotes[index]
@@ -758,6 +820,13 @@ func (u analysisUniverse) fxQuoteForItem(item domain.DailyValuationSnapshotItem,
 		return nil, true
 	}
 	if item.FXQuoteID != nil {
+		if u.stampedFXQuotes != nil {
+			quote := u.stampedFXQuotes[*item.FXQuoteID]
+			if quote != nil && quote.HouseholdID == input.Portfolio.Household.ID && ((quote.BaseCurrency == item.NativeCurrency && quote.QuoteCurrency == base) || (quote.BaseCurrency == base && quote.QuoteCurrency == item.NativeCurrency)) {
+				return quote, true
+			}
+			return nil, false
+		}
 		for _, quote := range input.FXQuotes {
 			if quote.ID.String() == *item.FXQuoteID {
 				if quote.HouseholdID == input.Portfolio.Household.ID && ((quote.BaseCurrency == item.NativeCurrency && quote.QuoteCurrency == base) || (quote.BaseCurrency == base && quote.QuoteCurrency == item.NativeCurrency)) {
