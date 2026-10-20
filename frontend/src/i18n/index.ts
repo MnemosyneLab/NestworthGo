@@ -10,6 +10,7 @@ import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./upcomingActions";
 import { homepageEn, homepageZhCN, homepageZhTW } from "./homepage";
 import { investmentAssetsEn, investmentAssetsZhCN, investmentAssetsZhTW } from "./investmentAssets";
+import { tasksEn, tasksZhCN, tasksZhTW } from "./tasks";
 import { deepMerge } from "./deepMerge";
 
 // The supported locales are English, Simplified Chinese, and Traditional
@@ -21,9 +22,9 @@ export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
 
 void i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), errorCode: errorCodesEn },
-    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), errorCode: errorCodesZhCN },
-    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), errorCode: errorCodesZhTW },
+    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), tasksEn), errorCode: errorCodesEn },
+    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodesZhCN },
+    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodesZhTW },
   },
   lng: DEFAULT_LANGUAGE,
   fallbackLng: DEFAULT_LANGUAGE,

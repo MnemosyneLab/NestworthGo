@@ -7,11 +7,12 @@ because they had not been used. This document describes the current contract.
 ## Scope and user interface
 
 Investment review is a rule-based reminder to inspect data or an investment;
-it never recommends selling or records financial facts. The dedicated review
-page is reachable from Overview and Upcoming actions. It groups active alerts
-by investment, shows rule conditions and daily evidence, and supports filters,
-acknowledgement, suppressions, rule history and explicit refresh. Overview
-shows a compact summary. Upcoming actions embeds the same V2 page.
+it never recommends selling or records financial facts. Investment review is the second tab of Tasks & checks, after Upcoming actions
+and before Reconciliation. It groups active alerts by investment, shows rule
+conditions and daily evidence, and supports filters, acknowledgement,
+suppressions, rule history and explicit refresh. Overview shows one Tasks &
+checks summary; the review count opens this tab. There is not a second review
+summary on the homepage.
 
 Rules are named and target selected instruments or all current holdings. Each
 rule has a closed predicate and a separate trigger policy: one daily hit,
