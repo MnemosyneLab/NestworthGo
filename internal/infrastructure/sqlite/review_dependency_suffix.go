@@ -23,7 +23,7 @@ func (r *Repository) WithReviewDependencySuffix() *Repository {
 	return &copy
 }
 
-func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture) error {
+func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *domain.ReviewProjectionCapture, memoGeneration uint64) error {
 	memoEligible := false
 	if (r.reviewPrefixMemoEnabled || r.reviewPrefixMemoObserve) && c.Certified != nil {
 		receipt, observation := c.Certified.SuffixMemoReceipt, c.Certified.SuffixMemoObservation
@@ -38,7 +38,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	if r.reviewPrefixMemoEnabled {
 		defer func() {
 			if !memoEligible {
-				r.clearReviewMemo()
+				r.clearReviewMemoGeneration(memoGeneration)
 			}
 		}()
 	}
@@ -127,7 +127,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	var memoTarget *reviewMemoReadTarget
 	if (r.reviewPrefixMemoEnabled || r.reviewPrefixMemoObserve) && unchanged {
 		if r.reviewPrefixMemoEnabled {
-			memoHits = r.readReviewMemo(*c)
+			memoHits = r.readReviewMemo(*c, memoGeneration)
 		}
 		proof.SuffixMemoObservation = &domain.ReviewPrefixMemoObservation{}
 		memoOrigins = map[string]string{}
@@ -167,8 +167,14 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 		for _, id := range ids {
 			on := origin
 			scopeKey := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: id, TimezoneVersion: tz}
-			if memoTarget != nil {
-				memoOrigins[reviewMemoScope(scopeKey)] = origin
+			if memoTarget != nil && !memoTarget.disabled {
+				if len(memoOrigins) >= reviewPrefixMemoMaxEntries {
+					memoTarget.disabled = true
+					memoTarget.entries = nil
+					memoOrigins = nil
+				} else {
+					memoOrigins[reviewMemoScope(scopeKey)] = origin
+				}
 			}
 			for memoTarget != nil && on <= through[id] {
 				key := scopeKey
@@ -270,7 +276,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 		return err
 	}
 	if memoTarget != nil && r.reviewPrefixMemoEnabled {
-		if err = r.stageReviewMemo(c, memoTarget.entries, memoOrigins); err != nil {
+		if err = r.stageReviewMemo(c, memoTarget.entries, memoOrigins, memoGeneration); err != nil {
 			return err
 		}
 		memoEligible = true

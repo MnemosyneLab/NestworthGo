@@ -56,3 +56,13 @@ content digest after that successful CAS, requiring identical source checkpoint,
 row seal, provider and clock. It seeds no entries. Decoder still visits all prefix
 entries on warm use; actual SQL decode/argument-encode counts are measured
 separately. Optional observation-only configuration disables storage/reuse.
+
+Capture samples the private generation before financial reads. Stale read
+snapshots cannot evict or stage over a newer committed snapshot: lookup, internal
+invalidation and pending installation are generation-fenced too. Explicit user
+eviction remains unconditional and affects no certificate.
+
+The feature is explicitly opt-in through WithReviewPrefixMemoExperiment. Normal
+D2 does not activate memo storage or hooks; the existing D2 enablement and process
+rollback switch are unchanged. Once activated on a handle, other publications
+can invalidate its optional state without changing certification authority.

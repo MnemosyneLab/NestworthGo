@@ -35,10 +35,15 @@ func TestReviewMemoCoverageStopsAtMissingOrUnattestedEntry(t *testing.T) {
 // Pure state fencing, without minting or modifying any certificate.
 func TestReviewMemoStaleCommitHookLeavesNewerState(t *testing.T) {
 	db := &DB{}
+	db.reviewPrefixMemo.active.Store(true)
 	r := NewRepository(db)
 	newer := &reviewMemoSnapshot{receipt: 9}
 	db.reviewPrefixMemo.generation = 4
 	db.reviewPrefixMemo.committed = newer
+	r.clearReviewMemoGeneration(3)
+	if len(r.readReviewMemo(domain.ReviewProjectionCapture{}, 3)) != 0 {
+		t.Fatal("stale capture read memo")
+	}
 	r.commitReviewMemo(domain.ReviewProjectionCapture{}, domain.ReviewTemporalCertificate{}, 3)
 	r.commitReviewMemoNoop(nil, domain.ReviewTemporalCertificate{}, 3)
 	if db.reviewPrefixMemo.generation != 4 || db.reviewPrefixMemo.committed != newer {

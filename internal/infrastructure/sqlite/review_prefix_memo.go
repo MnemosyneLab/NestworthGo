@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -21,6 +22,9 @@ func (r *Repository) WithReviewPrefixMemoExperiment(enabled ...bool) *Repository
 	copy := *r.WithReviewDependencySuffix()
 	copy.reviewPrefixMemoEnabled = len(enabled) == 0 || enabled[0]
 	copy.reviewPrefixMemoObserve = true
+	if copy.reviewPrefixMemoEnabled {
+		copy.database.reviewPrefixMemo.active.Store(true)
+	}
 	return &copy
 }
 
@@ -63,6 +67,7 @@ type reviewMemoSnapshot struct {
 	generation, receipt uint64
 }
 type reviewPrefixMemoState struct {
+	active             atomic.Bool
 	mu                 sync.Mutex
 	generation, next   uint64
 	committed, pending *reviewMemoSnapshot
@@ -106,10 +111,14 @@ func (r *Repository) clearReviewMemo() {
 	m.pending = nil
 	m.mu.Unlock()
 }
-func (r *Repository) readReviewMemo(c domain.ReviewProjectionCapture) map[domain.ReviewDailyEvidenceKey]reviewMemoEntry {
+func (r *Repository) readReviewMemo(c domain.ReviewProjectionCapture, expected uint64) map[domain.ReviewDailyEvidenceKey]reviewMemoEntry {
 	out := map[domain.ReviewDailyEvidenceKey]reviewMemoEntry{}
 	m := &r.database.reviewPrefixMemo
 	m.mu.Lock()
+	if m.generation != expected {
+		m.mu.Unlock()
+		return out
+	}
 	s := m.committed
 	m.mu.Unlock()
 	if s == nil {
@@ -117,13 +126,13 @@ func (r *Repository) readReviewMemo(c domain.ReviewProjectionCapture) map[domain
 	}
 	// Immutable private snapshots can be authenticated without holding the mutex.
 	mac, err := r.memoMAC(s)
-	if err != nil || s.binding != reviewMemoBind(c) || s.digest != reviewMemoDigest(s.entries) || mac != s.mac {
-		r.clearReviewMemo()
+	if err != nil || s.generation != expected || s.binding != reviewMemoBind(c) || s.digest != reviewMemoDigest(s.entries) || mac != s.mac {
+		r.clearReviewMemoGeneration(expected)
 		return out
 	}
 	for _, e := range s.entries {
 		if _, exists := out[e.Key]; exists {
-			r.clearReviewMemo()
+			r.clearReviewMemoGeneration(expected)
 			return map[domain.ReviewDailyEvidenceKey]reviewMemoEntry{}
 		}
 		out[e.Key] = e
@@ -152,7 +161,7 @@ func (e reviewMemoEntry) decode() (domain.ReviewReusableDailyEvidence, error) {
 
 // Only private entries supplied by the coherent reader are considered. A gap
 // stops that scope; successful UPSERTs and caller-owned typed values never seed.
-func (r *Repository) stageReviewMemo(c *domain.ReviewProjectionCapture, entries map[domain.ReviewDailyEvidenceKey]reviewMemoEntry, origins map[string]string) error {
+func (r *Repository) stageReviewMemo(c *domain.ReviewProjectionCapture, entries map[domain.ReviewDailyEvidenceKey]reviewMemoEntry, origins map[string]string, expected uint64) error {
 	if len(entries) == 0 {
 		return nil
 	}
@@ -170,6 +179,9 @@ func (r *Repository) stageReviewMemo(c *domain.ReviewProjectionCapture, entries 
 	m := &r.database.reviewPrefixMemo
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.generation != expected {
+		return nil
+	}
 	m.next++
 	s := &reviewMemoSnapshot{binding: reviewMemoBind(*c), entries: list, digest: reviewMemoDigest(list), generation: m.generation, receipt: m.next}
 	var err error
@@ -194,6 +206,9 @@ func reviewMemoNextDay(on string) string {
 // The generation is observed inside the SQL transaction. A delayed postcommit
 // hook cannot replace newer state. No mutex is held across SQLite COMMIT.
 func (r *Repository) commitReviewMemo(c domain.ReviewProjectionCapture, out domain.ReviewTemporalCertificate, expected uint64) {
+	if !r.database.reviewPrefixMemo.active.Load() {
+		return
+	}
 	m := &r.database.reviewPrefixMemo
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -227,6 +242,9 @@ func (r *Repository) commitReviewMemo(c domain.ReviewProjectionCapture, out doma
 // Certified noop writes only existing control/checkpoint CAS metadata. Preserve
 // the old authenticated content digest; never attest or add daily evidence here.
 func (r *Repository) commitReviewMemoNoop(oldJSON []byte, out domain.ReviewTemporalCertificate, expected uint64) {
+	if !r.database.reviewPrefixMemo.active.Load() {
+		return
+	}
 	m := &r.database.reviewPrefixMemo
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -284,8 +302,21 @@ func contiguousReviewMemoEntries(prefix []domain.ReviewSuffixDay, entries map[do
 }
 
 func (r *Repository) reviewMemoGeneration() uint64 {
+	if !r.database.reviewPrefixMemo.active.Load() {
+		return 0
+	}
 	m := &r.database.reviewPrefixMemo
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.generation
+}
+
+func (r *Repository) clearReviewMemoGeneration(expected uint64) {
+	m := &r.database.reviewPrefixMemo
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.generation == expected {
+		m.committed = nil
+		m.pending = nil
+	}
 }
