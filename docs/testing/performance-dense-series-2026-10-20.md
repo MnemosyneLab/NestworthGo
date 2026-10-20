@@ -45,14 +45,17 @@ same 86,433 facts, 13,513,678 bytes, 1,000 leaves and 31 output points.
 | --- | ---: | ---: |
 | n | 10 | 10 |
 | Median | 5.222 s | 2.902 s |
-| Nearest-rank p95 (sample 9) | 5.397 s | 3.067 s |
+| Nearest-rank p95 (rank `ceil(0.95 × 10) = 10`, the observed maximum) | 5.552 s | 3.153 s |
 | Min / max | 5.020 / 5.552 s | 2.707 / 3.153 s |
 | Median counted SQL calls | 623 | 273 |
 | Median allocated bytes | 1,112,066,212 | 1,107,275,008 |
 
-Median latency improved 44.4% and nearest-rank p95 improved 43.2% in this
-matched run. All ten paired samples had identical fact, byte, leaf and point
-counts. The elapsed timer covers the full 31-day service call and result
+Median latency improved 44.4%; the observed maximum decreased 43.2% in this
+matched run. With ten observations, the nearest-rank p95 is the maximum because
+`ceil(0.95 × 10) = 10`. This small sample does not support a stable tail
+estimate, so the maximum is reported descriptively rather than as a robust p95
+acceptance result. All ten paired samples had identical fact, byte, leaf and
+point counts. The elapsed timer covers the full 31-day service call and result
 consumption; fixture creation, read-only verification, process startup and GC
 are outside it. This is an isolated Linux synthetic-database result with warm
 OS file data and fresh processes/connections, not a native macOS measurement or
