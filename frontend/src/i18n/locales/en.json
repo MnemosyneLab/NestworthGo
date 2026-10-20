@@ -1226,7 +1226,7 @@
     "insufficient": "Cleanup is skipped until two sealed streams can be restored and verified.",
     "empty": "No streams found in this backup target.",
     "candidates": "Deletion candidates and protected streams",
-    "bytes": "Bytes",
+    "bytes": "bytes",
     "warning": "Deletion is permanent and cannot be undone. Cleanup deletes eligible whole backup streams after rechecking the target and protected copies. Partial cleanup may finish on a later attempt. Only enable this if you accept losing older recovery history.",
     "acknowledge": "I understand older backup history will be permanently deleted.",
     "confirmEnable": "Enable cleanup",
@@ -1428,6 +1428,8 @@
     "noCategories": "No retained categories on either side.",
     "noComparableCategories": "Category amounts are unavailable. Inspect the retained states and evidence below.",
     "categoryMissing": "{{count}} included leaves have missing valuation inputs",
+    "categoryMissing_one": "{{count}} included leaf has missing valuation inputs",
+    "categoryMissing_other": "{{count}} included leaves have missing valuation inputs",
     "comparability": "Comparability",
     "comparable": "Comparable",
     "returnToCategories": "Back to categories",
@@ -1463,9 +1465,9 @@
       "membership_changed": "Category membership changed between A and B"
     },
     "shareBasis": {
-      "total": "Of total",
-      "known_subtotal": "Of known subtotal only",
-      "unavailable": "Unavailable"
+      "total": "of total",
+      "known_subtotal": "of known subtotal only",
+      "unavailable": "unavailable"
     },
     "fxOperation": {
       "multiply": "Native amount multiplied by this recorded rate.",
@@ -1580,7 +1582,7 @@
       "nativeCurrency": "Native currency only",
       "convertOnDay": "Convert using the day’s FX",
       "lookbackDays": "Performance lookback",
-      "days": "Days",
+      "days": "days",
       "remove": "Remove",
       "addCondition": "Add condition",
       "trigger": "Alert after",
@@ -1833,6 +1835,8 @@
       "label": "Returns by period",
       "title": "Returns",
       "window": "{{count}}-day",
+      "window_one": "{{count}}-day",
+      "window_other": "{{count}}-day",
       "loadError": "Couldn’t load returns"
     }
   },
@@ -1875,6 +1879,8 @@
     "adjust": "Correct current balance or holding",
     "recordMissing": "Record missing income, expense, buy or sell",
     "attempts": "Check attempts ({{count}})",
+    "attempts_one": "Check attempt ({{count}})",
+    "attempts_other": "Check attempts ({{count}})",
     "allowPartial": "Finish partially with outstanding checks",
     "closingNote": "Closing explanation",
     "preview": "Preview",
@@ -1894,6 +1900,8 @@
     "commit": "Save reviewed result",
     "linkedChanges": "Linked corrections",
     "linkedChange": "Linked change {{count}}",
+    "linkedChange_one": "Linked change {{count}}",
+    "linkedChange_other": "Linked change {{count}}",
     "open": "Open account reconciliation",
     "kind": {
       "scope": "Completeness",

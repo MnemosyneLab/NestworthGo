@@ -1428,6 +1428,8 @@
     "noCategories": "兩側均無保留的分類記錄。",
     "noComparableCategories": "分類金額不可用，請查看下方保留的狀態與證據。",
     "categoryMissing": "{{count}} 個已納入葉子項缺少估值輸入",
+    "categoryMissing_one": "{{count}} 個已納入葉子項缺少估值輸入",
+    "categoryMissing_other": "{{count}} 個已納入葉子項缺少估值輸入",
     "comparability": "可比性",
     "comparable": "可比",
     "returnToCategories": "返回分類",
@@ -1833,6 +1835,8 @@
       "label": "各區間報酬",
       "title": "報酬",
       "window": "{{count}}天",
+      "window_one": "{{count}}天",
+      "window_other": "{{count}}天",
       "loadError": "無法載入報酬"
     }
   },
@@ -1875,6 +1879,8 @@
     "adjust": "直接更正餘額或持倉",
     "recordMissing": "補記收入、支出、買入或賣出",
     "attempts": "核對嘗試（{{count}}）",
+    "attempts_one": "核對嘗試（{{count}}）",
+    "attempts_other": "核對嘗試（{{count}}）",
     "allowPartial": "明確保留待核對項並部分完成",
     "closingNote": "結束說明",
     "preview": "預覽",
@@ -1894,6 +1900,8 @@
     "commit": "儲存核對結果",
     "linkedChanges": "關聯的更正",
     "linkedChange": "關聯變更 {{count}}",
+    "linkedChange_one": "關聯變更 {{count}}",
+    "linkedChange_other": "關聯變更 {{count}}",
     "open": "查看帳戶核對",
     "kind": {
       "scope": "完整性",
