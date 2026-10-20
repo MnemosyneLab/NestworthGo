@@ -1,13 +1,12 @@
 # Review dependency invalidation and suffix preparation (D1/D2)
 
-Stage three follows section 6 of the [approved optimization plan](../development/performance-optimization-report.md).
-C3 publication equality is the prerequisite, not stage three. Normal desktop
-initialization selects `WithReviewDependencySuffix`; GUI and MCP use that same
-repository/service. Ineligible evidence uses the existing complete-source/
+The [performance report](../development/performance-optimization-report.md) records
+the shipped choices. Certified publication equality is a prerequisite. Normal
+desktop initialization selects `WithDefaultReviewOptimizations`; GUI and MCP
+use that same repository/service. Ineligible evidence uses the existing complete-source/
 full-preparation fallback automatically. No schema migration,
 ledger setting, shared-fact layout, analysis batching, or history truncation is
-introduced. Explicitly selecting the old lineage shadow retains its full runtime
-oracle and excludes D2 selection.
+introduced. The abandoned independent lineage/runtime shadow is removed.
 
 ## Scope and dependency proof
 

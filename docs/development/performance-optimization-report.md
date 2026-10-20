@@ -3,9 +3,14 @@
 ## Source and implementation status
 
 Audit and cleanup base: `dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d`.
-The cleanup branch is in progress; its reviewed final head and CI results belong
-in the pull request. This report does not claim that pending runtime/harness
-cleanup is finished.
+Implementation: [cleanup PR #154](https://github.com/MnemosyneLab/NestworthGo/pull/154).
+Runtime/harness consolidation is `b35f3ce`; oracle isolation is `f2733ff`.
+The PR records their full immutable SHAs, final documentation head and exact-head
+ordinary CI as the delivery record. The
+first validated checkpoint was `826449a2815e387e485b54851eaae271bbc9c1f5`;
+`ccfacd5711f1431d6a0522930b89e443c1cb9678` exposed a legacy-fixture migration
+error in ordinary CI, corrected by seeding genuinely uncertified C2 history.
+The assertion that legacy history never gains integrity authority is preserved.
 
 Normal desktop GUI/MCP startup always enables certified no-change, dependency
 suffix preparation and same-handle prefix memo. The two environment rollback
@@ -13,7 +18,7 @@ switches have been removed. Bare repositories retain the non-certified C2
 compatibility path and baseline key-first window SQL. B bounded production
 selection and the constant-false bootstrap implementation have been removed.
 The memo experiment alias, boolean argument and observation-only mode are also
-removed; callers select the normal memo initializer without an on/off argument.
+removed; callers select the single normal default initializer without an on/off argument.
 Complete preparation and recomputation remain normal safety fallbacks.
 
 ## Shipped improvements
@@ -29,16 +34,34 @@ Complete preparation and recomputation remain normal safety fallbacks.
 These describe implemented/default behavior, not deployment or native acceptance.
 No schema or financial policy change is part of this cleanup.
 
-## Rejected work and remaining cleanup
+## Rejected work and removed experiments
 
-The old counting-only no-change experiment and independent lineage/runtime shadow
-are rejected designs. Their runtime/test dependency chains still require cleanup
-on this branch; existing tests and helpers are retained until their useful safety
-regressions have been migrated. Full-recompute and constructor-only test controls,
-observation fields and remaining profile/multi-arm harnesses also remain
-pending. Eight standalone old no-change/RSS/lineage/bootstrap/dispatch/memo/epoch
-and historical CPU-profile harness files have been removed. Removing those dependencies must preserve the complete independent
-financial/lifecycle oracle rather than only compare the latest day.
+Removed the old counting-only no-change experiment, independent lineage/runtime
+shadow, constant-false bootstrap, unused B bounded candidate, rollout constructors
+and environment overrides. Bare `NewRepository` retains reachable non-certified
+C2 baseline SQL; desktop initialization remains certified, suffix-enabled and
+memo-enabled. Business controls and automatic safety fallbacks are unchanged.
+
+Full-source preparation and quote-loading oracles now live in tests. The review
+oracle uses supported certified capture to bypass C2 cached-window decoding,
+then discards every reuse input before independently computing all days.
+In-flight publication comparisons recompute from the coherent captured source
+without recapturing on the candidate handle; durable-row comparisons additionally
+use an independently reopened source clone. Small
+regressions cover valid poisoned and malformed input/result JSON. Query counters
+and fault injection belong to test drivers. Removed memo observation counters
+from both capture-MAC producer and verifier; eligibility/receipt tampering tests
+retain the security boundary.
+
+Retired the default-off/on-off matrices, profile/RSS/stage probes, artifact
+snapshot generators, repeated paired/full-pipeline and write-amplification
+harnesses. Shared small fixtures, exact durable-row/day-set/lifecycle comparators,
+crash/CAS faults, memo/source ownership and cancellation regressions remain.
+Whole-household account hydration is now a test oracle; production always passes
+an explicit selected-account scope. Exactly 722 audited historical artifacts
+(690 files in 24 directories and 32 top-level reports) were removed, plus the
+four separately audited obsolete plan/memo/codec/QA documents. Durable protocol
+details live in existing maintenance guides, not additional process reports.
 
 Legacy/restart bootstrap cannot establish absent historical handling provenance.
 B bounded is not enabled. E1 was reverted in `c14308c`; existing request-local
@@ -117,8 +140,16 @@ are removed from that test. The nested reconciliation App test has an individual
 10-second integration budget, justified by main's 5.087s and prior PR's 4.634s
 against the old 5-second limit; assertions and global timeouts are unchanged.
 
-Final exact-head ordinary CI and the remaining harness migration are pending.
-Perf selectors are synchronized with retained tests; a preflight checks both
+`TestReviewDefaultPerformance` is a small perf-tagged default-path smoke check
+with full financial and durable-result comparisons. The extended dependency
+oracle and eight-cycle epoch check remain opt-in through the perf workflow.
+Normal checks keep only the small epoch/lifecycle regression. Tagged JSON checks
+compare six maintained synthetic integrity outputs directly without generating
+repository snapshots. On this Linux Go 1.26.0 executor Sonic emits native `-0`
+byte parity; the older platform's documented `0` exception remains explicitly
+accepted for generic floats, outside strict integrity-output comparisons.
+
+Final exact-head ordinary CI is required in the PR. Perf selectors are synchronized with retained tests; a preflight checks both
 zero matches and individual deleted alternatives before starting expensive runs. Race stays in the daily/manual perf workflow and
 the schedule cost gate remains intact. No race reruns or broad matrices were run
 for this cleanup. Native packaging, launch, signing and deployment are unverified.
