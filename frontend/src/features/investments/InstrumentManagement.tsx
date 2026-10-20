@@ -1,4 +1,5 @@
 import type { HealthFocus } from "@/app/navigation";
+import { formatCivilDateRange } from "@/lib/time";
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -420,7 +421,7 @@ export function InstrumentManagement({
         <SheetContent className="overflow-y-auto overscroll-contain">
           <SheetHeader className="shrink-0">
             <SheetTitle>{t("portfolio.editInstrument")}</SheetTitle>
-            {focus && <p className="text-sm">{focus.label} {focus.rangeStart} {focus.rangeEnd}</p>}
+            {focus && <p className="text-sm">{focus.label} {focus.rangeStart ? formatCivilDateRange(focus.rangeStart, focus.rangeEnd || focus.rangeStart) : ""}</p>}
           </SheetHeader>
           {editTarget && (
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border pb-4">

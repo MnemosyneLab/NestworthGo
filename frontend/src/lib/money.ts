@@ -36,6 +36,15 @@ function numericAffixes(formatter: Intl.NumberFormat, sample: number) {
   };
 }
 
+function minorUnit(fractionDigits: number): string {
+  if (fractionDigits <= 0) return "1";
+  return `0.${"0".repeat(fractionDigits - 1)}1`;
+}
+
+function tinyHint(negative: boolean, threshold: string): string {
+  return ` · ${i18n.t("moneyDisplay.tiny", { direction: negative ? "−" : "+", threshold })}`;
+}
+
 function groupInteger(integer: string, separator: string): string {
   let grouped = "";
   for (let end = integer.length; end > 0; end -= 3) {
@@ -354,7 +363,9 @@ export function formatAmount(amount: string, currency?: string): string {
       });
       const affixes = stableCurrencyAffixes(currency, numericAffixes(currencyFormatter, negative && /[1-9]/.test(integerPart + fractionPart) ? -1234.5 : 1234.5));
       const currencyNumber = `${groupInteger(integerPart, groupingSeparator)}${fractionPart ? decimalSeparator + fractionPart : ""}`;
-      return `${affixes.prefix}${currencyNumber}${affixes.suffix}${!/[1-9]/.test(integerPart + fractionPart) && /[1-9]/.test(rawInteger + rawFraction) ? ` · ${i18n.t("moneyDisplay.tiny", { direction: negative ? "−" : "+" })}` : ""}`;
+      const roundedAway = !/[1-9]/.test(integerPart + fractionPart) && /[1-9]/.test(rawInteger + rawFraction);
+      const threshold = roundedAway ? formatAmount(minorUnit(fractionDigits), currency) : "";
+      return `${affixes.prefix}${currencyNumber}${affixes.suffix}${roundedAway ? tinyHint(negative, threshold) : ""}`;
     } catch {
       // An unrecognized ISO code (should not happen; domain.CurrencyCode
       // already validates it) falls back to a plain number instead of
@@ -388,11 +399,16 @@ export function formatCount(value: number): string {
   return `${negative ? "-" : ""}${groupInteger(digits, groupingSeparatorChar())}`;
 }
 
-/** Annual rates are stored as ratios. This only scales them for display. */
+/** Contract rates are stored as ratios. Display keeps every entered percent digit and drops only trailing zeros. */
 export function formatAnnualRatePercent(rate: string): string {
-  const percent = multiplyCanonical(rate, "100");
+  const percent = shiftDecimalRight(rate, 2);
   if (!percent) return rate;
-  return formatDecimalPercent(percent);
+  const parts = parseCanonicalParts(percent);
+  if (!parts) return rate;
+  const fraction = parts.fraction.replace(/0+$/, "");
+  const magnitude = fraction ? `${parts.integer}.${fraction}` : parts.integer;
+  const negative = parts.negative && /[1-9]/.test(parts.integer + fraction);
+  return `${negative ? "-" : ""}${formatAmount(magnitude)}%`;
 }
 
 /** Keep the ledger's canonical decimal visible when currency rounding hides digits. */
@@ -428,7 +444,7 @@ export function formatMoney(value: string, currency?: string): string {
   const [integer, fraction] = roundDecimal(parts.integer, parts.fraction, 2);
   const roundedZero = !/[1-9]/.test(integer + fraction);
   const hint = roundedZero && /[1-9]/.test(parts.integer + parts.fraction)
-    ? ` · ${i18n.t("moneyDisplay.tiny", { direction: parts.negative ? "−" : "+" })}` : "";
+    ? tinyHint(parts.negative, formatAmount(minorUnit(2))) : "";
   return formatAmount(`${parts.negative && !roundedZero ? "-" : ""}${integer}.${fraction}`) + hint;
 }
 

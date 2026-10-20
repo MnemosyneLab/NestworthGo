@@ -532,7 +532,7 @@ describe("MarketDataPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Sync and repair" }));
     expect(await screen.findByTestId("sync-preview")).toHaveTextContent("3 estimated provider requests");
     expect(screen.getByTestId("sync-work-details")).toHaveTextContent("QQQM");
-    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("2026-09-07 → 2026-09-17");
+    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("2026-09-07 – 2026-09-17");
     expect(screen.getByTestId("sync-work-details")).toHaveTextContent("yahoo_finance");
     expect(previewSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
     await userEvent.click(screen.getByRole("button", { name: "Start sync" }));

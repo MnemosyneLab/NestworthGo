@@ -8,7 +8,7 @@ export const rebuildDataEn = {
     rebuildProgress: "Recalculating your data. Keep this window open until it finishes.",
     rebuildError: "Could not recalculate the data. You can try again.",
     rebuildComplete: "Recalculation complete.",
-    rebuildRange: "Period: {{from}} to {{to}}.",
+    rebuildRange: "Period: {{range}}.",
     rebuildCounts: "{{snapshotDays}} snapshot days · {{incompleteDays}} incomplete days",
   } },
 };
@@ -23,7 +23,7 @@ export const rebuildDataZhCN = {
     rebuildProgress: "正在重算数据，请保持此窗口打开直至完成。",
     rebuildError: "无法重算数据，请重试。",
     rebuildComplete: "重算完成。",
-    rebuildRange: "重算范围：{{from}} 至 {{to}}。",
+    rebuildRange: "重算范围：{{range}}。",
     rebuildCounts: "{{snapshotDays}} 天快照 · {{incompleteDays}} 天不完整",
   } },
 };
@@ -38,7 +38,7 @@ export const rebuildDataZhTW = {
     rebuildProgress: "正在重算資料，請保持此視窗開啟直到完成。",
     rebuildError: "無法重算資料，請重試。",
     rebuildComplete: "重算完成。",
-    rebuildRange: "重算範圍：{{from}} 至 {{to}}。",
+    rebuildRange: "重算範圍：{{range}}。",
     rebuildCounts: "{{snapshotDays}} 天快照 · {{incompleteDays}} 天不完整",
   } },
 };

@@ -207,7 +207,7 @@ export function TrendChart({
             `${point.seriesName}: ${formatValue(raw)}`,
             meta?.observationLabel,
  meta?.qualityLabel,
-            meta?.effectiveDate ? `${t("quoteDetails.effectiveDate")}: ${meta.effectiveDate}` : null,
+            meta?.effectiveDate ? `${t("quoteDetails.effectiveDate")}: ${formatCivilDate(meta.effectiveDate)}` : null,
             meta?.sourceLabel ? `${t("charts.source")}: ${meta.sourceLabel}` : null,
             meta?.delayed == null ? null : (meta.delayed ? t("charts.delayed") : t("charts.onTime")),
           ];
@@ -270,7 +270,7 @@ export function TrendChart({
   };
 
   const columns = extraTableColumns ?? [t("charts.date"), ...series.map((item) => item.name)];
-  const rows = extraTableRows ?? dates.map((date, index) => [date, ...series.map((item) => formatValue(item.values[index]))]);
+  const rows = (extraTableRows ?? dates.map((date, index) => [date, ...series.map((item) => formatValue(item.values[index]))])).map((row) => row.length > 0 ? [formatCivilDate(row[0] ?? ""), ...row.slice(1)] : row);
 
   return (
     <EChart

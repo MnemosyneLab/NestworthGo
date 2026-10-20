@@ -5,7 +5,7 @@ import { useRebuildHistoricalSnapshots } from "@/queries/history";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayError } from "@/lib/display";
-import { formatCivilDate } from "@/lib/time";
+import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 
 /** The snapshot API accepts at most 31 days per transaction. Retry resumes at the failed chunk. */
 export function SnapshotRepair({ focus, onClose }: { focus: HealthFocus; onClose: () => void }) {
@@ -33,9 +33,9 @@ export function SnapshotRepair({ focus, onClose }: { focus: HealthFocus; onClose
     finally { setRunning(false); }
   };
   return <Sheet open onOpenChange={open => { if (!open && !running) onClose(); }}><SheetContent><SheetHeader><SheetTitle>{t("connections.rebuildSnapshots")}</SheetTitle></SheetHeader>
-    <p>{formatCivilDate(focus.rangeStart ?? "")} – {formatCivilDate(focus.rangeEnd ?? "")}</p>
+    <p>{focus.rangeStart && focus.rangeEnd ? formatCivilDateRange(focus.rangeStart, focus.rangeEnd) : formatCivilDate(focus.rangeStart || focus.rangeEnd || "")}</p>
     <p className="text-sm text-muted-foreground">{t("connections.snapshotNote")}</p>
-    {running && <p role="status">{t("common.pending")} · {nextDate}</p>}
+    {running && <p role="status">{t("common.pending")} · {formatCivilDate(nextDate)}</p>}
     {error && <p role="alert">{error}</p>}
     {done ? <p role="status">{t("connections.rebuilt")}</p> : <Button disabled={running || !nextDate || !focus.rangeEnd} onClick={() => void run()}>{t(error ? "common.retryAction" : "connections.rebuildSnapshots")}</Button>}
     <Button variant="outline" disabled={running} onClick={onClose}>{t("common.close")}</Button>

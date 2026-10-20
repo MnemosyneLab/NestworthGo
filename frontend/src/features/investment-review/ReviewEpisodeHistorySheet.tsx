@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { useSettings } from "@/queries/settings";
-import { formatCivilDate, formatTimestamp } from "@/lib/time";
+import { formatCivilDate, formatCivilDateRange, formatTimestamp } from "@/lib/time";
 import { NativeSelect } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useReviewEpisodeEventPage, useReviewEpisodeHistoryPage, useReviewRulesV2 } from "@/queries/investmentReviewV2";
@@ -49,7 +49,7 @@ function EpisodeRow({ item, isActive, timezone }: { item: ReviewEpisodeHistoryIt
   const stateVariant = item.resolvedAt ? "success" : item.acknowledgedAt ? "secondary" : "warning";
   return <li className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 text-sm shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-2"><span className="min-w-0 break-words font-semibold">{item.instrumentName}</span><Badge variant={stateVariant}>{state}</Badge></div>
-    <p className="num">{t("reviewV2.historyTriggered", { date: formatCivilDate(item.triggeredOn), hits: item.hitCount, from: formatCivilDate(item.windowStart), to: formatCivilDate(item.windowEnd) })}</p>
+    <p className="num">{t("reviewV2.historyTriggered", { date: formatCivilDate(item.triggeredOn), hits: item.hitCount, range: formatCivilDateRange(item.windowStart, item.windowEnd) })}</p>
     <p className="num text-xs text-muted-foreground">{t("reviewV2.historyVersion", { version: item.openedConditionVersion, detected: formatTimestamp(item.firstDetectedAt, timezone) })}</p>
     {item.acknowledgedAt && <p className="num text-xs text-muted-foreground">{t("reviewV2.historyAcknowledged", { at: formatTimestamp(item.acknowledgedAt, timezone) })}</p>}
     {item.resolvedAt && <p className="num text-xs text-muted-foreground">{t("reviewV2.historyClosed", { at: formatTimestamp(item.resolvedAt, timezone) })}</p>}

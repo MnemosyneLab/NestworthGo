@@ -79,7 +79,7 @@ describe("Derived data rebuild", () => {
     expect(rebuildDerivedData).toHaveBeenCalledTimes(1);
 
     await act(async () => finish({ from: "2026-01-01", to: "2026-09-28", snapshotDays: 271, incompleteDays: 2 }));
-    expect(await screen.findByText("Period: 2026-01-01 to 2026-09-28.")).toBeInTheDocument();
+    expect(await screen.findByText("Period: 2026-01-01 – 2026-09-28.")).toBeInTheDocument();
     expect(screen.getByText("271 snapshot days · 2 incomplete days")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Recalculate all data" })).toBeEnabled();
     for (const key of [queryKeys.overview.all, queryKeys.history.all, queryKeys.analysis.all]) {
@@ -94,7 +94,7 @@ describe("Derived data rebuild", () => {
     await userEvent.click(screen.getByRole("button", { name: "Recalculate all data" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("The local database could not be opened");
     await userEvent.click(screen.getByRole("button", { name: "Recalculate all data" }));
-    expect(await screen.findByText("Period: 2026-09-29 to 2026-09-29.")).toBeInTheDocument();
+    expect(await screen.findByText("Period: 2026-09-29.")).toBeInTheDocument();
     expect(rebuildDerivedData).toHaveBeenCalledTimes(2);
   });
 });

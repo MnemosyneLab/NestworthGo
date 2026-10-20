@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { formatAmount, formatPercent, isPositiveCanonical } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
-import { formatTimestamp } from "@/lib/time";
+import { formatCivilDate, formatTimestamp } from "@/lib/time";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -507,7 +507,7 @@ export function OverviewPage({
               {activityGroups.map((group) => (
                 <section key={group.date} className="flex flex-col gap-3">
                   <h3 className="num text-xs font-semibold text-muted-foreground">
-                    <time dateTime={group.items[0].effectiveAt}>{group.date}</time>
+                    <time dateTime={group.items[0].effectiveAt}>{formatCivilDate(group.date)}</time>
                   </h3>
                   <ul className="flex flex-col gap-3">
                     {group.items.map((activity) => {

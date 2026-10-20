@@ -9,7 +9,7 @@ import { TrendChart } from "@/components/charts/TrendChart";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Button } from "@/components/ui/button";
 import { formatAmount } from "@/lib/money";
-import { formatCivilDate } from "@/lib/time";
+import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 
 export function NetWorthTrendCard() {
   const { t } = useTranslation();
@@ -25,7 +25,7 @@ export function NetWorthTrendCard() {
     {trend.isLoading ? <LoadingState label={t("ui.state.loadingPage")} /> : trend.isError && !data ? <ErrorState title={t("overview.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void trend.refetch()} retryLabel={t("common.retryAction")} /> : <>
       {trend.isFetching && data && <p role="status">{t("valuation.updating")}</p>}
  {trend.isError && data && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void trend.refetch()}>{t("common.retryAction")}</Button></p>}
- <p className="text-sm">{data?.startDate} {data?.endDate && `– ${data.endDate}`}</p>
+ <p className="text-sm">{data?.startDate ? formatCivilDateRange(data.startDate, data.endDate || data.startDate) : ""}</p>
       <p className="num text-lg font-bold">{t("connections.periodChange")}: {data?.change ? formatAmount(data.change.amount, data.change.currency) : t("connections.changeUnavailable")}</p>
       {data?.estimatedChange && !data.change && <p className="num text-sm">{t("valuation.estimatedChange")}: {formatAmount(data.estimatedChange.amount,data.estimatedChange.currency)}</p>}
  {!data?.change && !data?.estimatedChange && <p className="text-sm text-muted-foreground">{t(data?.summaryReason === "missing_boundary" ? "connections.missingBoundary" : "charts.insufficientHistory")}</p>}

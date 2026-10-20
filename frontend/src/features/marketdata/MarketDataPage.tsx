@@ -31,7 +31,7 @@ import { useOverview } from "@/queries/portfolio";
 import { useHistoryOrigin } from "@/queries/history";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatQuotePrice, formatAmount } from "@/lib/money";
-import { formatCivilDate, formatQuoteAsOf, formatTimestamp } from "@/lib/time";
+import { formatCivilDateRange, formatQuoteAsOf, formatTimestamp } from "@/lib/time";
 import { ymdInTimeZone } from "@/features/insights/calendar";
 import { sortFxPairs } from "@/lib/groupByInstrumentType";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
@@ -576,7 +576,7 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
       />
       {focus && <section className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4" aria-label={t("connections.viewGap")}>
         <p className="font-medium">{focus.label || (focus.instrumentId ? t("portfolio.unknownInstrument") : `${focus.currencyA}/${focus.currencyB}`)}</p>
-        <p className="text-sm">{formatCivilDate(focus.rangeStart ?? "")} {focus.rangeEnd && `– ${formatCivilDate(focus.rangeEnd)}`} {focus.reason && displayEnum(t, "dataHealth.reason", focus.reason)}</p>
+        <p className="text-sm">{focus.rangeStart ? formatCivilDateRange(focus.rangeStart, focus.rangeEnd || focus.rangeStart) : ""} {focus.reason && displayEnum(t, "dataHealth.reason", focus.reason)}</p>
         <p className="text-sm text-muted-foreground">{t("connections.currentVsHistory")}</p>
         {(focus.kind === "missing_agent_price" || focus.kind === "missing_agent_fx") && <p className="text-sm text-muted-foreground">{t("dataHealth.agentEntry")}</p>}
         <div className="flex flex-wrap gap-2">

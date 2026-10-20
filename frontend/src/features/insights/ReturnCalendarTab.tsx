@@ -22,6 +22,7 @@ import { useSettings } from "@/queries/settings";
 import { useInstruments } from "@/queries/investments";
 import { analysisReason } from "@/features/insights/analysisText";
 import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
+import { formatCivilDateRange } from "@/lib/time";
 
 function amountText(value?: { amount: string; currency: string } | null): string {
   if (!value) return "—";
@@ -240,7 +241,7 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
   const selectedQuery = useReturnCalendar(analysisRequest(session, selectedRange.from, selectedRange.to), "", originReady && scopeReady && hasSelection && selectedRange.from <= selectedRange.to);
   const summaryData = hasSelection ? selectedQuery.data : data;
   const summary = hasSelection && selectedQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : hasSelection && selectedQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => selectedQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData ? <>
-    <p className="text-xs text-muted-foreground">{hasSelection ? `${selectedRange.from} – ${selectedRange.to}` : `${range.from} – ${range.to}`}</p>
+    <p className="text-xs text-muted-foreground">{formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)}</p>
     <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
     <Summary data={summaryData} />
   </> : null;

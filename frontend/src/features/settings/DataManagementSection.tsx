@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { displayError } from "@/lib/display";
+import { formatCivilDateRange } from "@/lib/time";
 import { useLastBackupStatus, useCreateBackup, useExportJSON, useRebuildDerivedData } from "@/queries/data";
 import { RestoreBackupButton } from "@/features/backup/RestoreBackupButton";
 
@@ -67,7 +68,7 @@ export function DataManagementSection({ onRestoreBusyChange }: { onRestoreBusyCh
         {rebuild.isSuccess && (
           <div role="status" className="text-sm">
             <p className="font-medium">{t("settings.data.rebuildComplete")}</p>
-            <p>{t("settings.data.rebuildRange", { from: rebuild.data.from, to: rebuild.data.to })}</p>
+            <p>{t("settings.data.rebuildRange", { range: formatCivilDateRange(rebuild.data.from, rebuild.data.to) })}</p>
             <p>{t("settings.data.rebuildCounts", { snapshotDays: rebuild.data.snapshotDays, incompleteDays: rebuild.data.incompleteDays })}</p>
           </div>
         )}

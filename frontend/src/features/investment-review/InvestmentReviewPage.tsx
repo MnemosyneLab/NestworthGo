@@ -16,7 +16,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { LoadingState, ErrorState, EmptyState } from "@/components/layout/PageState";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { useReviewAlertPage, useReviewCoveragePage, useReviewDailyEvidencePage, useReviewRulesV2, useReviewSuppressionsV2, useReviewV2Commands } from "@/queries/investmentReviewV2";
-import { formatCivilDate } from "@/lib/time";
+import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 import { useHistoryOrigin } from "@/queries/history";
 import { useInstruments } from "@/queries/investments";
 import { instrumentDisplayLabel, trimInstrumentText } from "@/lib/instrumentDisplay";
@@ -50,7 +50,7 @@ function ruleWindow(rule: ReviewAlertRule, t: (key: string, options?: Record<str
   const policy = rule.triggerPolicy;
   if (policy.kind === "consecutive") return t("reviewV2.windowConsecutive", { days: rule.window.consecutiveCount, needed: policy.count });
   if (policy.kind === "rolling") return t("reviewV2.windowRolling", { hits: rule.window.hitCount, needed: policy.minHits, days: policy.windowDays, unknowns: rule.window.unknownCount });
-  return t("reviewV2.windowSingle", { date: rule.window.windowEnd });
+  return t("reviewV2.windowSingle", { date: formatCivilDate(rule.window.windowEnd) });
 }
 
 function SuppressedInstrumentName({ instrumentId }: { instrumentId: string }) {
@@ -70,14 +70,14 @@ function ReviewEvidenceDetails({ rule, isActive }: { rule: ReviewAlertRule; isAc
   return <details className={detailsClass} onToggle={event => setExpanded(event.currentTarget.open)}>
     <summary className={detailsSummaryClass}>{t("reviewV2.why")}</summary>
     <div className="flex flex-col gap-2 border-t border-border px-3 py-3">
-      <p className="num">{t("reviewV2.evidenceDates", { first: rule.firstHitOn, triggered: rule.triggeredOn, latest: rule.latestClosedOn })}</p>
+      <p className="num">{t("reviewV2.evidenceDates", { first: formatCivilDate(rule.firstHitOn), triggered: formatCivilDate(rule.triggeredOn), latest: formatCivilDate(rule.latestClosedOn) })}</p>
       <p className="num">{t("reviewV2.windowCounts", { hits: rule.window.hitCount, falseCount: rule.window.falseCount, unknowns: rule.window.unknownCount })}</p>
-      {(rule.latestResult?.leaves ?? []).map((leaf, i) => <p key={i} className="num text-foreground">{t(`reviewV2.metrics.${leaf.metric}`)}: {reviewLeafActual(t, leaf)} {leaf.truth === "true" ? "✓" : leaf.truth === "false" ? "×" : "?"}{leaf.reason ? ` · ${reviewReasonLabel(t, leaf.reason)}` : ""}{leaf.effectiveOn ? ` · ${leaf.effectiveOn}` : ""}</p>)}
+      {(rule.latestResult?.leaves ?? []).map((leaf, i) => <p key={i} className="num text-foreground">{t(`reviewV2.metrics.${leaf.metric}`)}: {reviewLeafActual(t, leaf)} {leaf.truth === "true" ? "✓" : leaf.truth === "false" ? "×" : "?"}{leaf.reason ? ` · ${reviewReasonLabel(t, leaf.reason)}` : ""}{leaf.effectiveOn ? ` · ${formatCivilDate(leaf.effectiveOn)}` : ""}</p>)}
       {(rule.coverage ?? []).map((code, i) => <p key={i}>{reviewReasonLabel(t, code)}</p>)}
       {evidence.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
       {evidence.isError && <Notice tone="warning" role="alert"><div className="flex flex-wrap items-center justify-between gap-2"><span>{t("reviewV2.staleRead")}</span><Button size="sm" variant="outline" onClick={() => { setCursor(""); setHistory([]); }}>{t("reviewV2.refresh")}</Button></div></Notice>}
       {evidence.data && <><ol className="flex flex-col gap-1.5" aria-label={t("reviewV2.dailyEvidence")}>
-        {(evidence.data.items ?? []).map(day => <li key={day.on} className={`num flex flex-col gap-0.5 rounded-lg border px-3 py-2 ${day.truth === "true" ? "border-warning/40 bg-warning/5" : "border-border bg-card"}`}><span className="font-semibold text-foreground">{day.on} · {t(`reviewV2.daily${day.truth === "true" ? "True" : day.truth === "false" ? "False" : "Unknown"}`)}</span>{(day.leaves ?? []).map((leaf, i) => <p key={i}>{t(`reviewV2.metrics.${leaf.metric}`)}: {reviewLeafActual(t, leaf)}{leaf.reason ? ` · ${reviewReasonLabel(t, leaf.reason)}` : ""}</p>)}</li>)}
+        {(evidence.data.items ?? []).map(day => <li key={day.on} className={`num flex flex-col gap-0.5 rounded-lg border px-3 py-2 ${day.truth === "true" ? "border-warning/40 bg-warning/5" : "border-border bg-card"}`}><span className="font-semibold text-foreground">{formatCivilDate(day.on)} · {t(`reviewV2.daily${day.truth === "true" ? "True" : day.truth === "false" ? "False" : "Unknown"}`)}</span>{(day.leaves ?? []).map((leaf, i) => <p key={i}>{t(`reviewV2.metrics.${leaf.metric}`)}: {reviewLeafActual(t, leaf)}{leaf.reason ? ` · ${reviewReasonLabel(t, leaf.reason)}` : ""}</p>)}</li>)}
       </ol><div className="flex justify-end gap-2"><Button size="sm" variant="outline" disabled={!history.length || evidence.isFetching} onClick={() => { setCursor(history[history.length - 1] ?? ""); setHistory(values => values.slice(0, -1)); }}>{t("reviewV2.previous")}</Button><Button size="sm" variant="outline" disabled={!evidence.data.nextCursor || evidence.isFetching} onClick={() => { setHistory(values => [...values, cursor]); setCursor(evidence.data!.nextCursor ?? ""); }}>{t("reviewV2.next")}</Button></div></>}
     </div>
   </details>;
@@ -221,7 +221,7 @@ export function InvestmentReviewPage({ isActive = true, embedded = false }: { is
     <ul className="flex flex-col gap-4">{(coveragePage?.items ?? []).map(group => <li key={group.instrumentId} className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-muted/30 px-5 py-4"><div className="min-w-0"><h2 className="break-words text-base font-semibold">{group.displayName}</h2><p className="text-xs text-muted-foreground">{t(`reviewV2.types.${group.instrumentType}`)}</p></div><Badge variant={group.status === "unknown" || group.status === "uncomputed" ? "warning" : "secondary"}>{t(`reviewV2.status.${group.status}`)}</Badge></div>
       <div className="flex flex-col gap-3 px-5 py-4">
-      {(group.rules ?? []).map(rule => <div key={rule.ruleId} className="flex flex-col gap-1 rounded-xl bg-muted/40 px-3 py-2.5 text-sm"><p className="font-semibold">{rule.name} · {t(`reviewV2.status.${rule.state}`)}</p><p className="num">{t("reviewV2.coverageWindow", { from: formatCivilDate(rule.window.windowStart), to: formatCivilDate(rule.latestClosedOn), hits: rule.window.hitCount, unknowns: rule.window.unknownCount })}</p>{(rule.missing ?? []).length > 0 && <p className="text-xs text-muted-foreground">{t("reviewV2.coverageReason", { reasons: reviewReasonList(t, rule.missing ?? []) })}</p>}</div>)}
+      {(group.rules ?? []).map(rule => <div key={rule.ruleId} className="flex flex-col gap-1 rounded-xl bg-muted/40 px-3 py-2.5 text-sm"><p className="font-semibold">{rule.name} · {t(`reviewV2.status.${rule.state}`)}</p><p className="num">{t("reviewV2.coverageWindow", { range: formatCivilDateRange(rule.window.windowStart, rule.latestClosedOn), hits: rule.window.hitCount, unknowns: rule.window.unknownCount })}</p>{(rule.missing ?? []).length > 0 && <p className="text-xs text-muted-foreground">{t("reviewV2.coverageReason", { reasons: reviewReasonList(t, rule.missing ?? []) })}</p>}</div>)}
       {!group.rules?.length && <p className="text-sm text-muted-foreground">{t("reviewV2.uncomputedHelp")}</p>}
       {navigation && <Button size="sm" variant="outline" className="self-start" onClick={() => openInstrument(group.instrumentId, "performance")}>{t("reviewV2.viewPerformance")}</Button>}
       </div>

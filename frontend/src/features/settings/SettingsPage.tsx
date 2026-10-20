@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { SecretField } from "./SecretField";
 import { ContinuousBackupSection } from "./ContinuousBackupSection";
 import { useBootstrap } from "@/queries/household";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { FilterableSelect } from "@/components/ui/filterable-select";
@@ -61,6 +62,12 @@ function groupingOptionKey(value: string): string {
   if (value === ".") return "dot";
   if (value === "'") return "apostrophe";
   return value;
+}
+
+function separatorsConflict(decimal: string, grouping: string): boolean {
+  if (!grouping || grouping === "none") return false;
+  const mark = grouping === "space" ? " " : grouping;
+  return mark === decimal;
 }
 const ACCENT_ORDER = ["indigo", "lavender", "mint", "sky", "peach"] as const;
 // Fixed preview colors so every accent stays visible regardless of the active theme.
@@ -150,9 +157,13 @@ export function SettingsPage() {
     setLanguage(value.language);
   };
 
+  const separatorMessage = separatorsConflict(draft.decimalSeparator, draft.groupingSeparator)
+    ? t("error.settings.separatorsMatch")
+    : "";
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!isDirty || preferenceRequest.current || tabsLocked) return;
+    if (!isDirty || preferenceRequest.current || tabsLocked || separatorsConflict(draft.decimalSeparator, draft.groupingSeparator)) return;
     preferenceRequest.current = true;
     saveSettings.mutate(draft, {
       onSettled: () => { preferenceRequest.current = false; },
@@ -326,6 +337,8 @@ export function SettingsPage() {
             <NativeSelect
               id="settings-decimal" form="settings-preferences" disabled={preferencesBusy}
               value={draft.decimalSeparator}
+              aria-invalid={Boolean(separatorMessage)}
+              aria-describedby={separatorMessage ? "settings-separator-error" : undefined}
               onChange={(event) => update({ decimalSeparator: event.target.value })}
             >
               {DECIMAL_SEPARATORS.map((separator) => (
@@ -339,12 +352,15 @@ export function SettingsPage() {
             <NativeSelect
               id="settings-grouping" form="settings-preferences" disabled={preferencesBusy}
               value={draft.groupingSeparator}
+              aria-invalid={Boolean(separatorMessage)}
+              aria-describedby={separatorMessage ? "settings-separator-error" : undefined}
               onChange={(event) => update({ groupingSeparator: event.target.value })}
             >
               {GROUPING_SEPARATORS.map((separator) => (
                 <option key={separator} value={separator}>{t(`option.grouping.${groupingOptionKey(separator)}`)}</option>
               ))}
             </NativeSelect>
+            <FieldError id="settings-separator-error">{separatorMessage}</FieldError>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-currency">{t("review.householdCurrency")}</Label>
@@ -489,7 +505,7 @@ export function SettingsPage() {
         </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-sm text-xs text-muted-foreground">{t(isDirty ? "settings.sections.unsaved" : "settings.sections.saveHelp")}</p>
-        {(saveSettings.isError || resetSettings.isError) && (
+        {separatorMessage ? <p className="text-sm text-destructive">{separatorMessage}</p> : (saveSettings.isError || resetSettings.isError) && (
           <p role="alert" className="text-sm text-destructive">
             {saveSettings.isError
               ? displayError(saveSettings.error, t("settings.saveError"))
@@ -498,7 +514,7 @@ export function SettingsPage() {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" form="settings-preferences" disabled={!isDirty || preferencesBusy || localRestoreBusy || cloudInteractionBusy || agentBusy}>
+          <Button type="submit" form="settings-preferences" disabled={!isDirty || Boolean(separatorMessage) || preferencesBusy || localRestoreBusy || cloudInteractionBusy || agentBusy}>
             {saveSettings.isPending ? t("common.pending") : t("settings.saveChanges")}
           </Button>
           {isDirty && (

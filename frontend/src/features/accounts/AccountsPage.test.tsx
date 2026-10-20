@@ -896,15 +896,15 @@ describe("AccountsPage", () => {
     expect(within(history).getByText("Salary")).toBeInTheDocument();
     expect(within(history).getByText("Broker fee")).toBeInTheDocument();
     expect(history.textContent).not.toContain("+SGD");
-    expect(history.textContent).toContain("+ nonzero, below 0.01");
+    expect(history.textContent).toContain("+ nonzero, below SGD");
     expect(history.textContent).toContain("− nonzero");
     const rows = within(history).getAllByRole("row").slice(1);
-    expect(within(rows[0]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · \+ nonzero, below 0\.01$/);
+    expect(within(rows[0]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · \+ nonzero, below SGD\s*0\.01$/);
     expect(within(rows[0]).getAllByRole("cell")[2]).toHaveTextContent(/^CN¥12,345\.68$/);
-    expect(within(rows[1]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below 0\.01$/);
-    expect(within(rows[1]).getAllByRole("cell")[2]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below 0\.01$/);
+    expect(within(rows[1]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below SGD\s*0\.01$/);
+    expect(within(rows[1]).getAllByRole("cell")[2]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below SGD\s*0\.01$/);
     expect(history.textContent).not.toMatch(/12345\.6789|0\.004|0\.0001|\([^)]*(?:CNY|SGD)\)/);
-    expect(history.textContent).toMatch(/SGD\s*0\.00 · − nonzero, below 0\.01/);
+    expect(history.textContent).toMatch(/SGD\s*0\.00 · − nonzero, below SGD\s*0\.01/);
     expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
       "2026-09-15T03:00:00.000Z",
       "2026-09-15T03:05:00.000Z",
@@ -1749,7 +1749,7 @@ it("cash review shows origin-local time and exact sub-minor-unit values alongsid
   const review = await within(form).findByRole("status");
   expect(review).toHaveTextContent("CN¥10.00");
   expect(review).toHaveTextContent("10.0001 CNY");
-  expect(review).toHaveTextContent("CN¥0.00 · + nonzero, below 0.01 (0.0001 CNY)");
+  expect(review).toHaveTextContent("CN¥0.00 · + nonzero, below CN¥0.01 (0.0001 CNY)");
   expect(review).toHaveTextContent("2026-10-11");
   expect(review).toHaveTextContent("00:30:00.000 (Asia/Shanghai)");
   expect(review).not.toHaveTextContent("2026-10-10T16:30:00Z");

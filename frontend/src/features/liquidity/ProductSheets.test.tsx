@@ -480,7 +480,7 @@ it("shows contract dates and rate without requiring the edit form", async () => 
   expect(await screen.findByText("Maturity date")).toBeVisible();
   expect(screen.getByText("2026-09-20")).toBeVisible();
   expect(screen.getByText("Annual rate (%)")).toBeVisible();
-  expect(screen.getByText("2.50%")).toBeVisible();
+  expect(screen.getByText("2.5%")).toBeVisible();
   expect(screen.getByText("Original terms")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Grouped undo" })).not.toBeInTheDocument();
   expect(screen.queryByText("Reservations")).not.toBeInTheDocument();

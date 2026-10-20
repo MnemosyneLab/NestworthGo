@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
+import { formatCivilDateRange } from "@/lib/time";
 import { reviewLeafActual, reviewReasonLabel, reviewReasonList } from "./reviewEvidenceDisplay";
 
 const REASON_CODES = [
@@ -50,16 +51,17 @@ describe("review count plurals", () => {
   it("uses singular and plural English forms", () => {
     expect(i18n.t("reviewV2.windowCounts", counts)).toBe("1 hit · 1 miss · 1 unknown");
     expect(i18n.t("reviewV2.windowCounts", { hits: 0, falseCount: 2, unknowns: 3 })).toBe("0 hits · 2 misses · 3 unknowns");
-    expect(i18n.t("reviewV2.historyTriggered", { date: "2026-10-02", hits: 1, from: "2026-10-01", to: "2026-10-02" })).toBe("Triggered 2026-10-02 · 1 hit day · 2026-10-01–2026-10-02");
-    expect(i18n.t("reviewV2.historyTriggered", { date: "2026-10-02", hits: 2, from: "2026-10-01", to: "2026-10-02" })).toContain("2 hit days");
+    expect(i18n.t("reviewV2.historyTriggered", { date: "2026-10-02", hits: 1, range: "2026-10-01–2026-10-02" })).toBe("Triggered 2026-10-02 · 1 hit day · 2026-10-01–2026-10-02");
+    expect(i18n.t("reviewV2.historyTriggered", { date: "2026-10-02", hits: 2, range: formatCivilDateRange("2026-10-19", "2026-10-19") })).toBe("Triggered 2026-10-02 · 2 hit days · 2026-10-19");
     expect(i18n.t("reviewV2.ruleSummary", { count: 1, mode: "Single", timezone: "UTC" })).toBe("1 condition · Single · UTC");
     expect(i18n.t("reviewV2.ruleSummary", { count: 2, mode: "Single", timezone: "UTC" })).toBe("2 conditions · Single · UTC");
     expect(i18n.t("reviewV2.unknownDays", { count: 1 })).toBe("1 unknown day");
     expect(i18n.t("reviewV2.unknownDays", { count: 4 })).toBe("4 unknown days");
     expect(i18n.t("reviewV2.windowRolling", { hits: 1, needed: 5, days: 1, unknowns: 0 })).toBe("1/5 hits in 1 day · 0 unknowns");
     expect(i18n.t("reviewV2.count.unknown", { count: 2 })).toBe("2 unknowns");
-    expect(i18n.t("reviewV2.coverageWindow", { from: "a", to: "b", hits: 1, unknowns: 1 })).toBe("a–b · 1 hit · 1 unknown day");
-    expect(i18n.t("reviewV2.previewResult", { from: "a", to: "b", hits: 1, misses: 1, unknowns: 1 })).toBe("a–b: 1 hit, 1 miss, 1 unknown");
+    expect(i18n.t("reviewV2.coverageWindow", { range: formatCivilDateRange("2026-10-19", "2026-10-19"), hits: 1, unknowns: 1 })).toBe("2026-10-19 · 1 hit · 1 unknown day");
+    expect(i18n.t("reviewV2.coverageWindow", { range: "a–b", hits: 1, unknowns: 1 })).toBe("a–b · 1 hit · 1 unknown day");
+    expect(i18n.t("reviewV2.previewResult", { range: "a–b", hits: 1, misses: 1, unknowns: 1 })).toBe("a–b: 1 hit, 1 miss, 1 unknown");
     expect(i18n.t("reviewV2.summaryCounts", { total: 1, matched: 1, pending: 1, actionable: 1, unknown: 0 })).toBe("1 of 1 investment · 1 needs attention · 1 actionable rule · 0 with missing data");
     expect(i18n.t("reviewV2.summaryCounts", { total: 5, matched: 2, pending: 2, actionable: 3, unknown: 1 })).toBe("2 of 5 investments · 2 need attention · 3 actionable rules · 1 with missing data");
   });

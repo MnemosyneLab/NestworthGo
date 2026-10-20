@@ -29,7 +29,7 @@ import { useObjectNavigation } from "@/app/NavigationContext";
 import type { HistoricalCategoryFilter, HistoricalNavigationContext } from "@/app/navigation";
 import { displayEnum } from "@/lib/display";
 import { formatQuantity, formatQuotePrice } from "@/lib/money";
-import { formatCivilDate, formatTimestamp } from "@/lib/time";
+import { formatCivilDate, formatCivilDateRange, formatTimestamp } from "@/lib/time";
 import { formatHistoricalAmount } from "./historicalAmount";
 import { SignedChange } from "./SignedChange";
 import type {
@@ -305,7 +305,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
         {comparison !== "none" && <Button variant="soft" size="sm" onClick={() => chooseComparison("current")}>{t("historicalOverview.baselineToCurrent")}</Button>}
       </div>
       <p id="historical-date-range" className="text-xs text-muted-foreground">
-        {t("historicalOverview.dateRange", { first: firstDate, last: lastDate, timezone })}
+        {t("historicalOverview.dateRange", { range: formatCivilDateRange(firstDate, lastDate), timezone })}
         {comparison !== "none" && <> · {t("historicalOverview.deltaBA")}</>}
       </p>
       {comparison === "date" && valid && compareDate < date && <p className="text-xs text-muted-foreground">{t("historicalOverview.reverseComparison")}</p>}
@@ -346,8 +346,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
               <Button variant="link" aria-label={t("historicalOverview.openCard", { name: account.name })} className="h-auto min-w-0 whitespace-normal p-0 text-left" onClick={event => openDetail(account.key, event.currentTarget)}>{account.name}</Button>
               {account.role === "liability" && <Badge variant="outline">{t("historicalOverview.debt")}</Badge>}
               <dl className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 text-sm">
-                <div><dt>A · {data.left.date}</dt><dd className="overflow-x-auto"><CellValue cell={account.left} currency={data.left.currency} /></dd></div>
-                {data.right && <><div><dt>B · {data.right.current ? t("historicalOverview.current") : data.right.date}</dt><dd className="overflow-x-auto"><CellValue cell={account.right} currency={data.right.currency} /></dd></div><div><dt>{t("historicalOverview.deltaBA")}</dt><dd className="overflow-x-auto">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</dd></div></>}
+                <div><dt>A · {formatCivilDate(data.left.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.left} currency={data.left.currency} /></dd></div>
+                {data.right && <><div><dt>B · {data.right.current ? t("historicalOverview.current") : formatCivilDate(data.right.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.right} currency={data.right.currency} /></dd></div><div><dt>{t("historicalOverview.deltaBA")}</dt><dd className="overflow-x-auto">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</dd></div></>}
               </dl>
             </li>)}</ul>
             <Button variant="outline" size="sm" className="min-[700px]:hidden" onClick={() => setFullTable(!fullTable)}>{t(fullTable ? "historicalOverview.hideFullTable" : "historicalOverview.fullChartData")}</Button>
@@ -357,8 +357,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                 <caption className="sr-only">{t("historicalOverview.table")}</caption>
                 <thead className="bg-muted/60"><tr>
                   <th scope="col" data-account-column className="sticky left-0 z-10 w-60 max-w-60 bg-card p-3 text-left">{t("historicalOverview.account")}</th>
-                  <th scope="col" className="p-3 text-right">{data.left.date}</th>
-                  {data.right && <><th scope="col" className="p-3 text-right">{data.right.current ? t("historicalOverview.current") : data.right.date}</th><th scope="col" className="p-3 text-right">{t("historicalOverview.change")}</th></>}
+                  <th scope="col" className="p-3 text-right">{formatCivilDate(data.left.date)}</th>
+                  {data.right && <><th scope="col" className="p-3 text-right">{data.right.current ? t("historicalOverview.current") : formatCivilDate(data.right.date)}</th><th scope="col" className="p-3 text-right">{t("historicalOverview.change")}</th></>}
                 </tr></thead>
                 <tbody>{accounts.map(account => <Fragment key={account.key}>
                   <tr className="border-t border-border bg-card">

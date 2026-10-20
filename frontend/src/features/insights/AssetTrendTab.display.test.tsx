@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { resetDisplayPreferences, setDisplayPreferences } from "@/lib/displayPreferences";
 import * as echarts from "echarts/core";
 import { AssetTrendTab } from "./AssetTrendTab";
 import { useAnalysisStore } from "@/stores/analysis";
@@ -17,6 +18,7 @@ const partial = { currency: "CNY", total: null, knownSubtotal: { amount: "200", 
 function point(period: string, displayValuation: unknown = partial) { return { period, value: null, rate: null, available: true, status: "partial", ratedDays: 0, totalDays: 1, valuationForced: null, displayValuation }; }
 function chartData() {const chart = harness.charts[harness.charts.length - 1] as echarts.ECharts;return (chart.getOption().series as Array<{ data: Array<{ value: [number, number | null] }> }>).flatMap(series => series.data.map(point => point.value[1]));}
 beforeEach(() => { useAnalysisStore.getState().reset(); harness.charts = []; harness.data = { available: true, status: "partial", ratedDays: 0, totalDays: 2, valuationForced: null, points: [] }; });
+afterEach(() => resetDisplayPreferences());
 it("keeps all-partial known contributions and quality in the actual keyboard-accessible source table without plotting a total", async () => {
   harness.data = { ...harness.data, available: false, points: [point("2026-10-12"), point("2026-10-13")] };
   render(<AssetTrendTab session={useAnalysisStore.getState()} />);
@@ -41,4 +43,15 @@ it.each(["USD", ""])("uses declared/subtotal native currency for an all-partial 
   expect(screen.getByRole("heading", { name: /USD/ })).not.toHaveTextContent("CNY");
   await userEvent.click(screen.getByText("View data table"));
   expect(screen.getByRole("table")).toHaveTextContent("$200.00");
+});
+
+it("formats asset trend table dates with the display preference", async () => {
+  setDisplayPreferences({ dateFormat: "day-first" });
+  harness.data = { ...harness.data, points: [point("2026-10-12"), point("2026-09")] };
+  render(<AssetTrendTab session={useAnalysisStore.getState()} />);
+  await userEvent.click(screen.getByText("View data table"));
+  const table = screen.getByRole("table");
+  expect(table).toHaveTextContent("12/10/2026");
+  expect(table).not.toHaveTextContent("2026-10-12");
+  expect(table).toHaveTextContent("2026-09");
 });

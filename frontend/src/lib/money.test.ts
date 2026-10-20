@@ -173,7 +173,16 @@ it("keeps display scales separate from command scales and normalizes negative di
   expect(formatQuotePrice("1.1066", "USD")).toBe("$1.1066");
   expect(formatQuotePrice("0.0000000012", "USD")).toBe("$0.0000000012");
   expect(formatMoney("12.3456")).toBe("12.35");
-  expect(formatAmount("-0.004", "USD")).toBe("$0.00 · − nonzero, below 0.01");
+  expect(formatAmount("-0.004", "USD")).toBe("$0.00 · − nonzero, below $0.01");
+  expect(formatAmount("0.1", "JPY")).toBe("¥0 · + nonzero, below ¥1");
+  expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − nonzero, below ¥1");
+  expect(formatAmount("-0.4", "KRW")).toBe("₩0 · − nonzero, below ₩1");
+  await i18n.changeLanguage("zh-CN");
+  expect(formatAmount("0.1", "JPY")).toBe("¥0 · + 非零，小于 ¥1");
+  expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − 非零，小于 ¥1");
+  await i18n.changeLanguage("zh-TW");
+  expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − 非零，小於 ¥1");
+  await i18n.changeLanguage("en");
   expect(formatAmount("-0.00", "USD")).toBe("$0.00");
   expect(formatAmount("0.005", "USD")).toContain("$0.00");
   expect(formatAmount("0.015", "USD")).toBe("$0.02");
@@ -183,8 +192,9 @@ it("keeps display scales separate from command scales and normalizes negative di
 it("keeps percentage presentation concise and signed rounded money zero neutral", () => {
  expect(formatDecimalPercent("33.3333333333333333333333")).toBe("33.33%");
  expect(formatDecimalPercent("-0.004")).toBe("0.00%");
- expect(formatSignedMoney("0.004", "USD")).toBe("$0.00 · + nonzero, below 0.01");
- expect(formatSignedMoney("-0.004", "USD")).toBe("$0.00 · − nonzero, below 0.01");
+ expect(formatSignedMoney("0.004", "USD")).toBe("$0.00 · + nonzero, below $0.01");
+ expect(formatSignedMoney("-0.004", "USD")).toBe("$0.00 · − nonzero, below $0.01");
+ expect(formatDecimalPercent("3.525")).toBe("3.52%");
  expect(formatSignedMoney("1.23", "USD")).toBe("+$1.23");
 });
 
@@ -215,7 +225,11 @@ it("formats quantities, counts, annual rates and separator settings without chan
   expect(formatQuantity("1000")).toBe("1,000");
   expect(formatQuantity("-0.0100")).toBe("-0.01");
   expect(formatCount(1500)).toBe("1,500");
-  expect(formatAnnualRatePercent("0.035")).toBe("3.50%");
+  expect(formatAnnualRatePercent("0.035")).toBe("3.5%");
+  expect(formatAnnualRatePercent("0.03525")).toBe("3.525%");
+  expect(formatAnnualRatePercent("0.0250")).toBe("2.5%");
+  expect(formatAnnualRatePercent("0.1000")).toBe("10%");
+  expect(formatAnnualRatePercent("-0.03525")).toBe("-3.525%");
   expect(formatAuditMoney("1000.00", "JPY")).toBe("¥1,000");
   expect(formatAuditMoney("1000.40", "JPY")).toBe("¥1,000 (1000.40 JPY)");
   setDisplayPreferences({ decimalSeparator: ",", groupingSeparator: "." });
@@ -230,7 +244,7 @@ it.each([
   ["0.004", "0.008", "$0.01", "+"],
   ["-0.004", "-0.008", "-$0.01", "−"],
 ])("formats exact rows %s independently of the authoritative aggregate %s", (row, aggregate, total, direction) => {
-  expect(formatAmount(row, "USD")).toBe(`$0.00 · ${direction} nonzero, below 0.01`);
+  expect(formatAmount(row, "USD")).toBe(`$0.00 · ${direction} nonzero, below $0.01`);
   expect(formatAmount(aggregate, "USD")).toBe(total);
   expect(formatSignedMoney(aggregate, "USD")).toBe(aggregate.startsWith("-") ? total : `+${total}`);
 });

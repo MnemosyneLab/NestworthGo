@@ -206,14 +206,14 @@ export function DataHealthPage({
         <EmptyState
           variant="success"
           title={t("dataHealth.healthyTitle")}
-          description={t("dataHealth.healthyDescription", { date: report.coverageThrough || report.lastFinalizedMarketDate })}
+          description={t("dataHealth.healthyDescription", { date: formatCivilDate(report.coverageThrough || report.lastFinalizedMarketDate || "") })}
           action={!focus && <Button variant="outline" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>}
         />
       ) : (
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
             <div className="flex flex-col gap-2">
-              <CardTitle>{report.incompleteSince ? t("dataHealth.incompleteSince", { date: report.incompleteSince }) : t("nav.dataHealth")}</CardTitle>
+              <CardTitle>{report.incompleteSince ? t("dataHealth.incompleteSince", { date: formatCivilDate(report.incompleteSince) }) : t("nav.dataHealth")}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 {t("dataHealth.summaryGaps", { count: report.issueCount })}
                 {report.snapshotDays > 0 ? ` · ${t("dataHealth.summarySnapshots", { count: report.snapshotDays })}` : ""}
@@ -240,7 +240,7 @@ export function DataHealthPage({
       )}
 
       {(!report.healthy || focus) && <div className="flex flex-wrap items-center gap-2 text-sm">
-        {focus && <p role="status">{focus.label} {formatCivilDate(focus.rangeStart ?? "")} {focus.rangeEnd && `– ${formatCivilDate(focus.rangeEnd)}`} · {t("connections.focusedGaps")}</p>}
+        {focus && <p role="status">{focus.label} {focus.rangeStart ? formatCivilDateRange(focus.rangeStart, focus.rangeEnd || focus.rangeStart) : ""} · {t("connections.focusedGaps")}</p>}
         <Button variant="ghost" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>
         {focus && !health.isFetching && issues.length === 0 && <p role="status">{t("connections.noMatchingGaps")}</p>}
       </div>}
