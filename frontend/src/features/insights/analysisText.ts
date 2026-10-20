@@ -21,6 +21,7 @@ const reasonKeys: Record<string, string> = {
   "return days are unavailable": "returnDaysUnavailable",
   "gain is unavailable": "gainUnavailable",
   "valuation available; return pending": "valuationAvailableReturnPending",
+  "funding cash is recorded after the product start": "fundingCashAfterProductStart",
 };
 
 /** Translate stable analytics sentences. Unknown machine codes use a translated fallback. */

@@ -184,7 +184,7 @@ describe("SettingsPage", () => {
     await screen.findByRole("form", { name: "Settings" });
     await userEvent.selectOptions(screen.getByLabelText("Decimal separator"), ",");
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("decimal and grouping separators must differ");
+    expect(alert).toHaveTextContent("Decimal and grouping separators must differ");
     expect(screen.getByLabelText("Decimal separator")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Grouping separator")).toHaveAttribute("aria-describedby", "settings-separator-error");
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();

@@ -15,4 +15,9 @@ describe("analysis completeness and rate coverage", () => {
     expect(screen.getByText("Partial coverage")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Issues/ })).toBeInTheDocument();
   });
+
+  it("shows the funding-gap reason instead of a raw sentence", () => {
+    render(<CompletenessBanner issues={[{ date: "2026-10-02", status: "partial", missingReason: "funding cash is recorded after the product start" }]} ratedDays={1} totalDays={4} />);
+    expect(screen.getByText("Funding cash is recorded after the product start.")).toBeInTheDocument();
+  });
 });

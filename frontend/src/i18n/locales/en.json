@@ -201,27 +201,27 @@
   },
   "error": {
     "account": {
-      "closedBeforeOpened": "cannot be earlier than openedOn",
-      "currencyImmutable": "account currency is immutable and must match the Household base currency",
-      "currencyImmutableAfterCreation": "account currency is immutable after creation",
-      "currencyMatch": "currency must match account currency",
-      "holdingsPlanned": "holdings accounts are available for portfolio tracking",
-      "householdCurrency": "accounts must use the Household base currency",
-      "initialValueMismatch": "initial value does not match the account",
-      "initialValueRequired": "is required for Balance and Manual Value accounts",
-      "noCurrentValue": "account has no current value",
-      "invalidCombination": "is not a valid account combination",
-      "roleImmutable": "balance sheet role is immutable after account creation",
-      "balanceSheetRole": "is not supported",
-      "trackingImmutable": "tracking mode is immutable after account creation",
-      "valueTrackingMode": "account values are not valid for this tracking mode"
+      "closedBeforeOpened": "Cannot be earlier than openedOn",
+      "currencyImmutable": "Account currency is immutable and must match the Household base currency",
+      "currencyImmutableAfterCreation": "Account currency is immutable after creation",
+      "currencyMatch": "Currency must match account currency",
+      "holdingsPlanned": "Holdings accounts are available for portfolio tracking",
+      "householdCurrency": "Accounts must use the Household base currency",
+      "initialValueMismatch": "Initial value does not match the account",
+      "initialValueRequired": "Is required for Balance and Manual Value accounts",
+      "noCurrentValue": "Account has no current value",
+      "invalidCombination": "Is not a valid account combination",
+      "roleImmutable": "Balance sheet role is immutable after account creation",
+      "balanceSheetRole": "Is not supported",
+      "trackingImmutable": "Tracking mode is immutable after account creation",
+      "valueTrackingMode": "Account values are not valid for this tracking mode"
     },
     "archive": {
-      "unsupportedTable": "unsupported archive table"
+      "unsupportedTable": "Unsupported archive table"
     },
     "cash": {
-      "accountMode": "cash observations require a Holdings account",
-      "nonNegative": "cash must not be negative"
+      "accountMode": "Cash observations require a Holdings account",
+      "nonNegative": "Cash must not be negative"
     },
     "costBasis": {
       "required": "A per-unit cost is required for this positive Holding quantity"
@@ -257,59 +257,59 @@
       "unavailable": "History snapshots could not be prepared"
     },
     "holding": {
-      "accountIDInvalid": "must be a valid account ID",
+      "accountIDInvalid": "Must be a valid account ID",
       "accountMode": "Holdings must belong to a Holdings account",
-      "duplicate": "an active holding already uses this instrument in the account",
-      "instrumentIDInvalid": "must be a valid instrument ID",
-      "sameHousehold": "account and instrument must belong to the same Household"
+      "duplicate": "An active holding already uses this instrument in the account",
+      "instrumentIDInvalid": "Must be a valid instrument ID",
+      "sameHousehold": "Account and instrument must belong to the same Household"
     },
     "icon": {
-      "required": "icon is required",
-      "unsupported": "unsupported icon"
+      "required": "Icon is required",
+      "unsupported": "Unsupported icon"
     },
     "id": {
-      "lowercaseUUID": "must be a lowercase UUID"
+      "lowercaseUUID": "Must be a lowercase UUID"
     },
     "instrument": {
-      "providerBindingConflict": "an active instrument already uses this provider binding",
-      "providerBindingRequired": "provider key and symbol are required when Provider is selected"
+      "providerBindingConflict": "An active instrument already uses this provider binding",
+      "providerBindingRequired": "Provider key and symbol are required when Provider is selected"
     },
     "member": {
-      "lastActive": "household must retain at least one active member"
+      "lastActive": "Household must retain at least one active member"
     },
     "notFound": {
-      "account": "account was not found",
-      "cashValue": "cash value was not found",
+      "account": "Account was not found",
+      "cashValue": "Cash value was not found",
       "fxPreference": "FX preference was not found",
       "fxQuote": "FX quote was not found",
-      "group": "group was not found",
-      "groupReference": "account_groups reference was not found",
-      "holding": "holding was not found",
-      "household": "household was not found",
-      "institution": "institution was not found",
-      "institutionReference": "institutions reference was not found",
-      "instrument": "instrument was not found",
-      "instrumentQuote": "instrument quote was not found",
-      "member": "member was not found"
+      "group": "Group was not found",
+      "groupReference": "The account_groups reference was not found",
+      "holding": "Holding was not found",
+      "household": "Household was not found",
+      "institution": "Institution was not found",
+      "institutionReference": "Institutions reference was not found",
+      "instrument": "Instrument was not found",
+      "instrumentQuote": "Instrument quote was not found",
+      "member": "Member was not found"
     },
     "onboarding": {
-      "householdExists": "a Household already exists",
-      "memberRequired": "at least one member is required",
-      "required": "complete onboarding first"
+      "householdExists": "A Household already exists",
+      "memberRequired": "At least one member is required",
+      "required": "Complete onboarding first"
     },
     "ownership": {
-      "atLeastOneOwner": "at least one owner is required",
-      "duplicateOwner": "an owner may appear only once",
-      "newOwnerActive": "new owners must be active members",
-      "otherHousehold": "owner belongs to another household",
-      "ownerActive": "all owners must be active members",
-      "ownerIDInvalid": "owner ID is invalid",
-      "percentageFormat": "percentage must be between 0 and 100 with at most two decimals",
-      "percentagePrecision": "percentage supports at most two decimals",
-      "percentageRange": "percentage must be between 0 and 100",
-      "percentageRequired": "one percentage is required for each owner",
-      "shareRange": "each share must be between 1 and 10000 basis points",
-      "total": "shares must total exactly 10000 basis points"
+      "atLeastOneOwner": "At least one owner is required",
+      "duplicateOwner": "An owner may appear only once",
+      "newOwnerActive": "New owners must be active members",
+      "otherHousehold": "Owner belongs to another household",
+      "ownerActive": "All owners must be active members",
+      "ownerIDInvalid": "Owner ID is invalid",
+      "percentageFormat": "Percentage must be between 0 and 100 with at most two decimals",
+      "percentagePrecision": "Percentage supports at most two decimals",
+      "percentageRange": "Percentage must be between 0 and 100",
+      "percentageRequired": "One percentage is required for each owner",
+      "shareRange": "Each share must be between 1 and 10000 basis points",
+      "total": "Shares must total exactly 10000 basis points"
     },
     "provider": {
       "authentication": "The provider rejected authentication",
@@ -321,53 +321,53 @@
       "unsupportedSymbol": "This provider symbol is unsupported"
     },
     "quote": {
-      "baseCurrencyRequired": "currency pair must include the Household base currency",
-      "currencyPairDifferent": "base and quote currencies must differ",
-      "firstCurrencyInvalid": "first currency is invalid",
-      "instrumentCurrency": "must match instrument quote currency",
-      "secondCurrencyInvalid": "second currency is invalid",
-      "sourceKeyLength": "must be 64 characters or fewer",
-      "sourceKeyRequired": "is required for provider observations"
+      "baseCurrencyRequired": "Currency pair must include the Household base currency",
+      "currencyPairDifferent": "Base and quote currencies must differ",
+      "firstCurrencyInvalid": "First currency is invalid",
+      "instrumentCurrency": "Must match instrument quote currency",
+      "secondCurrencyInvalid": "Second currency is invalid",
+      "sourceKeyLength": "Must be 64 characters or fewer",
+      "sourceKeyRequired": "Is required for provider observations"
     },
     "reference": {
-      "accountArchived": "account is archived",
-      "archived": "reference is archived",
-      "groupInactive": "group is not an active reference",
-      "holdingArchived": "holding is archived",
-      "institutionInactive": "institution is not an active reference",
-      "instrumentArchived": "instrument is archived",
-      "invalid": "referenced object is invalid",
-      "otherHousehold": "reference belongs to another household"
+      "accountArchived": "Account is archived",
+      "archived": "Reference is archived",
+      "groupInactive": "Group is not an active reference",
+      "holdingArchived": "Holding is archived",
+      "institutionInactive": "Institution is not an active reference",
+      "instrumentArchived": "Instrument is archived",
+      "invalid": "Referenced object is invalid",
+      "otherHousehold": "Reference belongs to another household"
     },
     "settings": {
-      "separatorsMatch": "decimal and grouping separators must differ",
-      "timezoneEmpty": "timezone cannot be empty"
+      "separatorsMatch": "Decimal and grouping separators must differ",
+      "timezoneEmpty": "Timezone cannot be empty"
     },
     "timestamp": {
-      "rfc3339": "must be an RFC 3339 timestamp"
+      "rfc3339": "Must be an RFC 3339 timestamp"
     },
     "validation": {
-      "amountRange": "is outside the supported range",
-      "calculationRange": "calculation is outside the supported range",
-      "countryCode": "must contain two uppercase letters",
-      "currencyFormat": "must contain exactly three uppercase letters",
-      "currencyInvalid": "must be a valid currency",
-      "currencyRequired": "currency is required",
-      "dateFormat": "must use YYYY-MM-DD",
-      "decimalInvalid": "is not a valid decimal",
-      "fxRateFormat": "must be a canonical positive decimal with up to twelve fractional digits",
-      "moneyCurrencyMatch": "money currencies must match",
-      "moneyFormat": "must be a canonical non-negative decimal with up to four fractional digits",
-      "nameLength": "must be 120 characters or fewer",
-      "nonNegative": "must not be negative",
-      "notEmpty": "must not be empty",
-      "noteLength": "must be 2000 characters or fewer",
-      "portfolioDecimalFormat": "must be a canonical non-negative decimal with up to eight fractional digits",
-      "portfolioRange": "value is outside the supported range",
-      "portfolioTextLength": "is too long",
-      "portfolioTimestamp": "must use an RFC 3339 timestamp or YYYY-MM-DD",
-      "positive": "must be greater than zero",
-      "unsupported": "is not supported"
+      "amountRange": "Is outside the supported range",
+      "calculationRange": "Calculation is outside the supported range",
+      "countryCode": "Must contain two uppercase letters",
+      "currencyFormat": "Must contain exactly three uppercase letters",
+      "currencyInvalid": "Must be a valid currency",
+      "currencyRequired": "Currency is required",
+      "dateFormat": "Must use YYYY-MM-DD",
+      "decimalInvalid": "Is not a valid decimal",
+      "fxRateFormat": "Must be a canonical positive decimal with up to twelve fractional digits",
+      "moneyCurrencyMatch": "Money currencies must match",
+      "moneyFormat": "Must be a canonical non-negative decimal with up to four fractional digits",
+      "nameLength": "Must be 120 characters or fewer",
+      "nonNegative": "Must not be negative",
+      "notEmpty": "Must not be empty",
+      "noteLength": "Must be 2000 characters or fewer",
+      "portfolioDecimalFormat": "Must be a canonical non-negative decimal with up to eight fractional digits",
+      "portfolioRange": "Value is outside the supported range",
+      "portfolioTextLength": "Is too long",
+      "portfolioTimestamp": "Must use an RFC 3339 timestamp or YYYY-MM-DD",
+      "positive": "Must be greater than zero",
+      "unsupported": "Is not supported"
     }
   },
   "format": {
@@ -1226,7 +1226,7 @@
     "insufficient": "Cleanup is skipped until two sealed streams can be restored and verified.",
     "empty": "No streams found in this backup target.",
     "candidates": "Deletion candidates and protected streams",
-    "bytes": "bytes",
+    "bytes": "Bytes",
     "warning": "Deletion is permanent and cannot be undone. Cleanup deletes eligible whole backup streams after rechecking the target and protected copies. Partial cleanup may finish on a later attempt. Only enable this if you accept losing older recovery history.",
     "acknowledge": "I understand older backup history will be permanently deleted.",
     "confirmEnable": "Enable cleanup",
@@ -1463,9 +1463,9 @@
       "membership_changed": "Category membership changed between A and B"
     },
     "shareBasis": {
-      "total": "of total",
-      "known_subtotal": "of known subtotal only",
-      "unavailable": "unavailable"
+      "total": "Of total",
+      "known_subtotal": "Of known subtotal only",
+      "unavailable": "Unavailable"
     },
     "fxOperation": {
       "multiply": "Native amount multiplied by this recorded rate.",
@@ -1580,7 +1580,7 @@
       "nativeCurrency": "Native currency only",
       "convertOnDay": "Convert using the day’s FX",
       "lookbackDays": "Performance lookback",
-      "days": "days",
+      "days": "Days",
       "remove": "Remove",
       "addCondition": "Add condition",
       "trigger": "Alert after",

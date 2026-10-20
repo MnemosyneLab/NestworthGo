@@ -448,7 +448,7 @@ it("retains a failed refresh's prior totals with an explicit error and retry", a
   await userEvent.click(screen.getByRole("button", { name: "Refresh date" }));
   await screen.findByRole("alert");
   expect(screen.getByRole("table")).toBeInTheDocument();
- expect(screen.getByRole("alert")).toHaveTextContent("Prior result; refresh failed");
+ expect(screen.getByRole("alert")).toHaveTextContent("Prior result; refresh failed.");
   expect(screen.getByRole("button", { name: "Bank" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
   await screen.findByRole("button", { name: "Bank" });
