@@ -1,6 +1,6 @@
 # D1/D2 dependency/suffix implementation and validation
 
-Implementation head: `f122578` (see the manifest for full SHA). Base:
+Implementation head: `647371973483574cd66eac39213ddae4ae119f57` (see the manifest for full SHA). Base:
 `784eacc8396885b95ae9b02bb4b8e4572d342208`, PR129 merge. This is the
 third high-level stage, D1/D2, not another interpretation of C3 as stage three.
 The user's explicit activation authorization supersedes prior default-off
@@ -70,7 +70,15 @@ focused certified/D1/D2/domain/SQLite matrix passed (application 34.091s,
 SQLite 0.799s, domain 0.004s), with integrated historical-input/cost tests
 6.086s and internal vet/build. The full broad suite was not rerun after that
 integration; the exact scope of each log is retained. Formatting and diff checks
-pass. Native desktop build remains blocked by those dependencies.
+pass. After the final prefix batching change, the complete D1/D2 oracle matrix
+passed again (12.156s), and internal vet/build passed.
+
+[CI run 39353736515](https://github.com/MnemosyneLab/NestworthGo/actions/runs/39353736515)
+passed every check, including all three Go shards, both frontend shards, meta
+and aggregate `test`, on exact code commit `647371973483574cd66eac39213ddae4ae119f57`.
+This supplies broad integrated-head validation without duplicating it locally.
+Local native desktop build remains blocked by the dependencies above; passing
+Linux CI is not native Apple Silicon runtime/package acceptance.
 
 ## Final small paired diagnostics
 
@@ -84,24 +92,77 @@ pair-days); these are diagnostic medians, not an identical-workload p95.
 
 | Scenario / median n=3 | C2 | Enabled D1/D2 |
 |---|---:|---:|
-| Same-day confirmation | 39.766ms | 10.036ms |
-| Clock-only | 38.110ms | 82.075ms |
-| Quote + FX append (full fallback) | 57.649ms | 72.190ms |
-| Quote correction | 52.954ms | 83.958ms |
-| Quote-only append | 56.369ms | 88.088ms |
+| Same-day confirmation | 35.208ms | 9.033ms |
+| Clock-only | 40.497ms | 80.361ms |
+| Quote + FX append (full fallback) | 59.567ms | 74.958ms |
+| Quote correction | 56.382ms | 79.590ms |
+| Quote-only append | 56.345ms | 83.355ms |
 
 All independent oracles pass. Clock/quote-only append recompute 10 pair-days
 and reuse 300. Correction recomputes only the affected instrument's 25/24/23-day
 suffix and reuses 275/276/277. Mixed quote+FX append honestly recomputes all 310.
 Complete publication/policy replay still contains the full date set. Reduced
 financial recomputation **does not establish a latency win**: clock-only is
-115.4% slower in this small diagnostic. Extra source/proof/prefix/serialization/
+98.4% slower in this small diagnostic. Extra source/proof/prefix/serialization/
 publication work remains; no isolated CPU attribution is claimed.
 
-## Outstanding final validation
+## Final large paired diagnostics
 
-Large paired diagnostics and the single final relevant race invocation are
-in progress when this draft is created. Results will be appended to this PR.
+The final serial run passes all independent full/durable oracles on the same
+code commit. Fixture: 1 account, 100 instruments/holdings, 20 rules, 30 history
+days, 100,000 generated quotes and 50,000 cash activities. These are individual
+n=1 observations, not p95 or native acceptance.
+
+| Scenario / n=1 | C2 | Enabled D1/D2 | Recomputed / reused pair-days |
+|---|---:|---:|---:|
+| Clock-only | 5.890865s | 10.241296s | 2,000 / 60,000 |
+| Quote + FX append (full fallback) | 9.710322s | 8.880526s | 62,000 / 0 |
+| Quote correction | 9.897613s | 10.391025s | 500 / 59,500 |
+| Quote-only append | 10.398464s | 10.892903s | 2,000 / 60,000 |
+
+Clock-only remains **73.9% slower**. Batching reduces the initial implementation's
+2,647 queries to 667, versus C2's 625, but does not establish an elapsed-time
+improvement. It returns 714,382 rows versus C2's 513,151; both execute 8,242
+statements and affect exactly 6,242 rows. D2 clock-only cumulative allocation is
+4,060,713,464 bytes versus C2's 1,977,624,568. These are total allocations, not
+peak live heap or RSS. Correction executes 4,056 statements versus C2's 124,002,
+affecting the same 156 rows; it still regresses about 5.0% in this diagnostic.
+Quote-only append affects the same 6,342 rows in both arms.
+
+Full source capture, independent quote-bucket checks, typed prefix decoding and
+hashing, full policy/lifecycle replay, complete stage serialization and exact SQL
+publication comparison all remain costs. These timings/counts do not isolate
+CPU causality. Reduced recomputation and write elision are not accepted as an
+end-to-end performance win. The draft remains open for that unresolved issue.
+
+The final large package took 391.418s including fixture generation, clones,
+bootstrap, all independent oracles and both timed arms. Whole-process VmHWM was
+1,122,536kB, explicitly not isolated per-arm RSS. An earlier superseded large run
+was stopped after prefix batching was implemented; a targeted check briefly
+overlapped that old run, so its later timing samples are not final evidence.
+The final small/large logs here were collected serially with no concurrent
+build/test/race process. The earlier small log is retained under its source SHA;
+no controlled cross-commit speedup is inferred from it.
+
+## Final race and remaining acceptance
+
+The single final relevant race invocation completed with **NOT PASS**:
+domain 1.023s and SQLite 24.981s passed; application timed out at 600.032s
+(the unchanged 10-minute budget) during
+`TestReviewDependencySuffixFullDurableOracle/rolling/quote-and-quantity`.
+There were 184 completed test/subtest pass events across the invocation and
+no `WARNING: DATA RACE` message. This is not an application race pass or a
+repository-wide race pass. The application timeout remains an acceptance gap.
+No intermediate/second race was run, no timeout increased, and no workflow
+edited or manually dispatched. An executor reconnect lost the session registry,
+but the original Go and application processes continued; complete JSON package
+events confirm the final timeout outcome. Validation was not restarted.
+
+The exact command, code SHA, package results and complete raw JSON log are in
+[the manifest](artifacts/d1-d2-2026-10-20/validation.json) and
+[race-final.jsonl](artifacts/d1-d2-2026-10-20/race-final.jsonl).
+[SHA-256 checksums](artifacts/d1-d2-2026-10-20/SHA256SUMS) cover retained artifacts.
+
 Thirty-sample p95, isolated per-arm peak RSS, native Apple Silicon latency,
 native app/package/restore acceptance and the previously incomplete whole
 application race gate remain open. Whole-process VmHWM includes fixture seeding,
