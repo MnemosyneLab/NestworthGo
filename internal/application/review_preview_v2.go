@@ -51,7 +51,7 @@ func (s *Service) PreviewReviewRuleV2(ctx context.Context, spec domain.ReviewRul
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId", Message: "instrument is outside the rule target"}
 		}
 	}
-	now := s.clock()
+	now := s.reviewNow()
 	latestAvailable, err := domain.ReviewLatestClosedDay(now, spec.Schedule.Timezone)
 	if err != nil {
 		return empty, err
@@ -116,7 +116,7 @@ func (s *Service) PreviewReviewRuleV2(ctx context.Context, spec domain.ReviewRul
 		}
 	}
 	if allWindowTrue {
-		location, _ := time.LoadLocation(spec.Schedule.Timezone)
+		location, _ := domain.LoadFinancialLocation(spec.Schedule.Timezone)
 		originDay := batch.History.Origin.StartedAt.In(location).Format(time.DateOnly)
 		for day := end.AddDate(0, 0, -width); day.Format(time.DateOnly) >= originDay; day = day.AddDate(0, 0, -1) {
 			if err := ctx.Err(); err != nil {

@@ -1,0 +1,1492 @@
+=== RUN   TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache
+=== PAUSE TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache
+=== RUN   TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept
+=== PAUSE TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept
+=== RUN   TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary
+=== PAUSE TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary
+=== RUN   TestReviewF03SplitAndReconciliationAreNotDietzCapital
+=== PAUSE TestReviewF03SplitAndReconciliationAreNotDietzCapital
+=== RUN   TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar
+=== PAUSE TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar
+=== RUN   TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding
+=== PAUSE TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding
+=== RUN   TestReviewD5WaterfallAllocatesMultiBucketRoundingRemainder
+=== PAUSE TestReviewD5WaterfallAllocatesMultiBucketRoundingRemainder
+=== RUN   TestReviewD5WaterfallKeepsGenuineExactMismatchVisible
+=== PAUSE TestReviewD5WaterfallKeepsGenuineExactMismatchVisible
+=== RUN   TestReviewD5AssetDriverDetailAggregatesExactAttributionBeforeRounding
+=== PAUSE TestReviewD5AssetDriverDetailAggregatesExactAttributionBeforeRounding
+=== RUN   TestReviewD5CategoryRowsAggregateExactBeforeRounding
+=== PAUSE TestReviewD5CategoryRowsAggregateExactBeforeRounding
+=== RUN   TestReviewD5AssetTrendAggregatesExactPeriodAmountBeforeRounding
+=== PAUSE TestReviewD5AssetTrendAggregatesExactPeriodAmountBeforeRounding
+=== RUN   TestReviewF11ContributionHistoryHintUsesWholeGroup
+=== PAUSE TestReviewF11ContributionHistoryHintUsesWholeGroup
+=== RUN   TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions
+=== PAUSE TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions
+=== RUN   TestFXProviderSelectionRoutesRequiredFXOnly
+=== PAUSE TestFXProviderSelectionRoutesRequiredFXOnly
+=== RUN   TestSetFXProviderRejectsMissingOrFXIncapableProvider
+=== PAUSE TestSetFXProviderRejectsMissingOrFXIncapableProvider
+=== RUN   TestReviewAcknowledgementV2MutatesOnlyEpisodeHandling
+--- PASS: TestReviewAcknowledgementV2MutatesOnlyEpisodeHandling (1.86s)
+=== RUN   TestReviewPreviewFundedBuyUsesConsistentProjection
+=== RUN   TestReviewPreviewFundedBuyUsesConsistentProjection/late_metadata_unknown
+=== RUN   TestReviewPreviewFundedBuyUsesConsistentProjection/known_metadata_true
+--- PASS: TestReviewPreviewFundedBuyUsesConsistentProjection (6.33s)
+    --- PASS: TestReviewPreviewFundedBuyUsesConsistentProjection/late_metadata_unknown (3.14s)
+    --- PASS: TestReviewPreviewFundedBuyUsesConsistentProjection/known_metadata_true (3.19s)
+=== RUN   TestReviewCertifiedFreshSessionNoopAndBoundedPublication
+--- PASS: TestReviewCertifiedFreshSessionNoopAndBoundedPublication (8.31s)
+=== RUN   TestReviewCertifiedProviderLeaseAndStaleRead
+--- PASS: TestReviewCertifiedProviderLeaseAndStaleRead (6.32s)
+=== RUN   TestReviewCertifiedProviderExhaustionAndDefault
+=== RUN   TestReviewCertifiedProviderExhaustionAndDefault/default
+=== RUN   TestReviewCertifiedProviderExhaustionAndDefault/exhausted
+=== RUN   TestReviewCertifiedProviderExhaustionAndDefault/registry
+--- PASS: TestReviewCertifiedProviderExhaustionAndDefault (11.71s)
+    --- PASS: TestReviewCertifiedProviderExhaustionAndDefault/default (4.35s)
+    --- PASS: TestReviewCertifiedProviderExhaustionAndDefault/exhausted (3.94s)
+    --- PASS: TestReviewCertifiedProviderExhaustionAndDefault/registry (3.42s)
+=== RUN   TestReviewCertifiedLegacyRestartAndTrackingFallback
+=== RUN   TestReviewCertifiedLegacyRestartAndTrackingFallback/legacy
+=== RUN   TestReviewCertifiedLegacyRestartAndTrackingFallback/restart
+=== RUN   TestReviewCertifiedLegacyRestartAndTrackingFallback/rollback
+=== RUN   TestReviewCertifiedLegacyRestartAndTrackingFallback/epoch
+=== RUN   TestReviewCertifiedLegacyRestartAndTrackingFallback/tracking-policy
+=== RUN   TestReviewCertifiedLegacyRestartAndTrackingFallback/temporary-schema
+--- PASS: TestReviewCertifiedLegacyRestartAndTrackingFallback (25.00s)
+    --- PASS: TestReviewCertifiedLegacyRestartAndTrackingFallback/legacy (3.60s)
+    --- PASS: TestReviewCertifiedLegacyRestartAndTrackingFallback/restart (5.23s)
+    --- PASS: TestReviewCertifiedLegacyRestartAndTrackingFallback/rollback (4.49s)
+    --- PASS: TestReviewCertifiedLegacyRestartAndTrackingFallback/epoch (4.15s)
+    --- PASS: TestReviewCertifiedLegacyRestartAndTrackingFallback/tracking-policy (3.74s)
+    --- PASS: TestReviewCertifiedLegacyRestartAndTrackingFallback/temporary-schema (3.78s)
+=== RUN   TestReviewCertifiedRewoundSourceMetadata
+=== RUN   TestReviewCertifiedRewoundSourceMetadata/same
+=== RUN   TestReviewCertifiedRewoundSourceMetadata/other
+--- PASS: TestReviewCertifiedRewoundSourceMetadata (17.28s)
+    --- PASS: TestReviewCertifiedRewoundSourceMetadata/same (8.41s)
+    --- PASS: TestReviewCertifiedRewoundSourceMetadata/other (8.87s)
+=== RUN   TestReviewCertifiedCancelledPreparation
+--- PASS: TestReviewCertifiedCancelledPreparation (4.20s)
+=== RUN   TestReviewCertifiedHoldsSQLiteWriteReservation
+=== RUN   TestReviewCertifiedHoldsSQLiteWriteReservation/no-op
+=== RUN   TestReviewCertifiedHoldsSQLiteWriteReservation/publication
+--- PASS: TestReviewCertifiedHoldsSQLiteWriteReservation (8.86s)
+    --- PASS: TestReviewCertifiedHoldsSQLiteWriteReservation/no-op (3.87s)
+    --- PASS: TestReviewCertifiedHoldsSQLiteWriteReservation/publication (4.98s)
+=== RUN   TestReviewCertifiedRolledBackWritesInvalidateConnectionProof
+--- PASS: TestReviewCertifiedRolledBackWritesInvalidateConnectionProof (6.70s)
+=== RUN   TestReviewCertifiedCaptureFencesExternalCommitDuringSnapshot
+--- PASS: TestReviewCertifiedCaptureFencesExternalCommitDuringSnapshot (5.57s)
+=== RUN   TestReviewCertifiedFXEvidenceAndOracleIsolation
+--- PASS: TestReviewCertifiedFXEvidenceAndOracleIsolation (5.22s)
+=== RUN   TestReviewCertifiedFullOracleDoesNotAliasFrozenOutput
+--- PASS: TestReviewCertifiedFullOracleDoesNotAliasFrozenOutput (4.26s)
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/old-input-json
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/old-result-json
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/frozen-json
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/frozen-json-and-fingerprint
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/event-json
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/evaluation
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/control-without-revision
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/old-version-json
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/missing-day
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/same-count-key
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/forged-certificate
+=== RUN   TestReviewCertifiedCorruptionCannotBeRecertified/malformed-authority
+--- PASS: TestReviewCertifiedCorruptionCannotBeRecertified (68.92s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/old-input-json (6.00s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/old-result-json (5.78s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/frozen-json (5.61s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/frozen-json-and-fingerprint (5.62s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/event-json (5.92s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/evaluation (5.87s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/control-without-revision (6.14s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/old-version-json (6.29s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/missing-day (5.42s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/same-count-key (5.45s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/forged-certificate (5.44s)
+    --- PASS: TestReviewCertifiedCorruptionCannotBeRecertified/malformed-authority (5.39s)
+=== RUN   TestReviewCertifiedLegitimateHandlingPreservesChain
+--- PASS: TestReviewCertifiedLegitimateHandlingPreservesChain (7.74s)
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/source
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/projection
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/review-without-revision
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/provider
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/staged-provider
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/provider-aba
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/floor
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/clock
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/cancel
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/control-ignore
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/checkpoint-ignore
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/checkpoint-abort
+=== RUN   TestReviewCertifiedPublicationGuardsAndAtomicity/source-proof-forged
+--- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity (59.81s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/source (4.52s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/projection (4.85s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/review-without-revision (5.01s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/provider (4.73s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/staged-provider (4.23s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/provider-aba (4.40s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/floor (4.89s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/clock (4.77s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/cancel (5.02s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/control-ignore (4.49s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/checkpoint-ignore (4.26s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/checkpoint-abort (4.40s)
+    --- PASS: TestReviewCertifiedPublicationGuardsAndAtomicity/source-proof-forged (4.23s)
+=== RUN   TestReviewCertifiedOracleAndDirectCallerFallback
+=== RUN   TestReviewCertifiedOracleAndDirectCallerFallback/oracle-mismatch
+=== RUN   TestReviewCertifiedOracleAndDirectCallerFallback/unleased
+=== RUN   TestReviewCertifiedOracleAndDirectCallerFallback/missing-oracle
+--- PASS: TestReviewCertifiedOracleAndDirectCallerFallback (19.17s)
+    --- PASS: TestReviewCertifiedOracleAndDirectCallerFallback/oracle-mismatch (6.44s)
+    --- PASS: TestReviewCertifiedOracleAndDirectCallerFallback/unleased (6.89s)
+    --- PASS: TestReviewCertifiedOracleAndDirectCallerFallback/missing-oracle (5.84s)
+=== RUN   TestReviewCertifiedRuleAndSuppressionContinuity
+=== RUN   TestReviewCertifiedRuleAndSuppressionContinuity/condition
+=== RUN   TestReviewCertifiedRuleAndSuppressionContinuity/policy
+=== RUN   TestReviewCertifiedRuleAndSuppressionContinuity/timezone
+=== RUN   TestReviewCertifiedRuleAndSuppressionContinuity/suppression
+--- PASS: TestReviewCertifiedRuleAndSuppressionContinuity (28.97s)
+    --- PASS: TestReviewCertifiedRuleAndSuppressionContinuity/condition (7.15s)
+    --- PASS: TestReviewCertifiedRuleAndSuppressionContinuity/policy (7.09s)
+    --- PASS: TestReviewCertifiedRuleAndSuppressionContinuity/timezone (7.05s)
+    --- PASS: TestReviewCertifiedRuleAndSuppressionContinuity/suppression (7.68s)
+=== RUN   TestReviewCertifiedConnectionRenewalAndNoopCancellation
+--- PASS: TestReviewCertifiedConnectionRenewalAndNoopCancellation (6.62s)
+=== RUN   TestReviewCertifiedFutureActivationAndPublicationFence
+=== RUN   TestReviewCertifiedFutureActivationAndPublicationFence/exit
+=== RUN   TestReviewCertifiedFutureActivationAndPublicationFence/entry
+=== RUN   TestReviewCertifiedFutureActivationAndPublicationFence/clear-rebuy
+=== RUN   TestReviewCertifiedFutureActivationAndPublicationFence/transfer
+--- PASS: TestReviewCertifiedFutureActivationAndPublicationFence (60.68s)
+    --- PASS: TestReviewCertifiedFutureActivationAndPublicationFence/exit (13.33s)
+    --- PASS: TestReviewCertifiedFutureActivationAndPublicationFence/entry (13.20s)
+    --- PASS: TestReviewCertifiedFutureActivationAndPublicationFence/clear-rebuy (19.96s)
+    --- PASS: TestReviewCertifiedFutureActivationAndPublicationFence/transfer (14.19s)
+=== RUN   TestReviewCertifiedPersistsRecheckedTemporalMinimum
+--- PASS: TestReviewCertifiedPersistsRecheckedTemporalMinimum (5.50s)
+=== RUN   TestReviewCompletenessLineageStoredTruth
+=== RUN   TestReviewCompletenessLineageStoredTruth/true
+=== RUN   TestReviewCompletenessLineageStoredTruth/false
+=== RUN   TestReviewCompletenessLineageStoredTruth/unknown
+--- PASS: TestReviewCompletenessLineageStoredTruth (15.94s)
+    --- PASS: TestReviewCompletenessLineageStoredTruth/true (5.16s)
+    --- PASS: TestReviewCompletenessLineageStoredTruth/false (5.39s)
+    --- PASS: TestReviewCompletenessLineageStoredTruth/unknown (5.40s)
+=== RUN   TestReviewCompletenessLineageShadowFullOracle
+=== RUN   TestReviewCompletenessLineageShadowFullOracle/single
+=== RUN   TestReviewCompletenessLineageShadowFullOracle/consecutive
+=== RUN   TestReviewCompletenessLineageShadowFullOracle/rolling
+--- PASS: TestReviewCompletenessLineageShadowFullOracle (16.47s)
+    --- PASS: TestReviewCompletenessLineageShadowFullOracle/single (5.69s)
+    --- PASS: TestReviewCompletenessLineageShadowFullOracle/consecutive (5.31s)
+    --- PASS: TestReviewCompletenessLineageShadowFullOracle/rolling (5.47s)
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix/missing-input
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix/same-count-key-substitution
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix/old-input-fingerprint
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix/old-result-truth
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix/window-payload
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix/window-streak
+=== RUN   TestReviewCompletenessLineageRejectsIncompletePrefix/unreadable-window
+--- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix (27.71s)
+    --- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix/missing-input (4.98s)
+    --- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix/same-count-key-substitution (3.13s)
+    --- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix/old-input-fingerprint (5.16s)
+    --- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix/old-result-truth (5.12s)
+    --- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix/window-payload (3.21s)
+    --- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix/window-streak (3.01s)
+    --- PASS: TestReviewCompletenessLineageRejectsIncompletePrefix/unreadable-window (3.09s)
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle/missing
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle/unknown-version
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle/missing-binding
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle/incremental-oracle
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle/provider
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle/duplicate-day
+=== RUN   TestReviewCompletenessLineageRequiresFullOracle/extra-key
+--- PASS: TestReviewCompletenessLineageRequiresFullOracle (3.12s)
+    --- PASS: TestReviewCompletenessLineageRequiresFullOracle/missing (0.00s)
+    --- PASS: TestReviewCompletenessLineageRequiresFullOracle/unknown-version (0.00s)
+    --- PASS: TestReviewCompletenessLineageRequiresFullOracle/missing-binding (0.00s)
+    --- PASS: TestReviewCompletenessLineageRequiresFullOracle/incremental-oracle (0.00s)
+    --- PASS: TestReviewCompletenessLineageRequiresFullOracle/provider (0.00s)
+    --- PASS: TestReviewCompletenessLineageRequiresFullOracle/duplicate-day (0.00s)
+    --- PASS: TestReviewCompletenessLineageRequiresFullOracle/extra-key (0.00s)
+=== RUN   TestReviewCompletenessLineageFailsClosed
+=== RUN   TestReviewCompletenessLineageFailsClosed/missing-proof
+=== RUN   TestReviewCompletenessLineageFailsClosed/unknown-proof
+=== RUN   TestReviewCompletenessLineageFailsClosed/temporal-policy
+=== RUN   TestReviewCompletenessLineageFailsClosed/tracking-policy
+=== RUN   TestReviewCompletenessLineageFailsClosed/rule-namespace
+=== RUN   TestReviewCompletenessLineageFailsClosed/rule-revision
+=== RUN   TestReviewCompletenessLineageFailsClosed/rule-metadata
+=== RUN   TestReviewCompletenessLineageFailsClosed/handling
+=== RUN   TestReviewCompletenessLineageFailsClosed/source
+=== RUN   TestReviewCompletenessLineageFailsClosed/floor-gap
+=== RUN   TestReviewCompletenessLineageFailsClosed/tracking-damage
+=== RUN   TestReviewCompletenessLineageFailsClosed/foreign-keys
+=== RUN   TestReviewCompletenessLineageFailsClosed/epoch
+=== RUN   TestReviewCompletenessLineageFailsClosed/rollback
+=== RUN   TestReviewCompletenessLineageFailsClosed/restart
+=== RUN   TestReviewCompletenessLineageFailsClosed/provider
+--- PASS: TestReviewCompletenessLineageFailsClosed (47.53s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/missing-proof (2.64s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/unknown-proof (2.69s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/temporal-policy (2.81s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/tracking-policy (2.71s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/rule-namespace (2.96s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/rule-revision (3.08s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/rule-metadata (2.98s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/handling (3.53s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/source (3.19s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/floor-gap (3.05s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/tracking-damage (2.78s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/foreign-keys (2.78s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/epoch (2.73s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/rollback (2.67s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/restart (3.70s)
+    --- PASS: TestReviewCompletenessLineageFailsClosed/provider (3.21s)
+=== RUN   TestReviewCompletenessLineagePublicationReservation
+=== RUN   TestReviewCompletenessLineagePublicationReservation/count-change
+=== RUN   TestReviewCompletenessLineagePublicationReservation/same-count-change
+=== RUN   TestReviewCompletenessLineagePublicationReservation/window-change
+=== RUN   TestReviewCompletenessLineagePublicationReservation/lifecycle-change
+=== RUN   TestReviewCompletenessLineagePublicationReservation/floor-change
+=== RUN   TestReviewCompletenessLineagePublicationReservation/source-change
+=== RUN   TestReviewCompletenessLineagePublicationReservation/handling-change
+=== RUN   TestReviewCompletenessLineagePublicationReservation/cancel
+=== RUN   TestReviewCompletenessLineagePublicationReservation/cancel-at-final-clock
+=== RUN   TestReviewCompletenessLineagePublicationReservation/final-clock
+=== RUN   TestReviewCompletenessLineagePublicationReservation/write-abort
+=== RUN   TestReviewCompletenessLineagePublicationReservation/writer-reservation
+--- PASS: TestReviewCompletenessLineagePublicationReservation (55.63s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/count-change (5.46s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/same-count-change (5.73s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/window-change (5.54s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/lifecycle-change (5.41s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/floor-change (5.62s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/source-change (3.47s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/handling-change (3.47s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/cancel (3.54s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/cancel-at-final-clock (4.32s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/final-clock (3.83s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/write-abort (3.51s)
+    --- PASS: TestReviewCompletenessLineagePublicationReservation/writer-reservation (5.73s)
+=== RUN   TestReviewCompletenessLineageFutureActivation
+=== RUN   TestReviewCompletenessLineageFutureActivation/cash
+=== RUN   TestReviewCompletenessLineageFutureActivation/quantity
+--- PASS: TestReviewCompletenessLineageFutureActivation (16.22s)
+    --- PASS: TestReviewCompletenessLineageFutureActivation/cash (8.41s)
+    --- PASS: TestReviewCompletenessLineageFutureActivation/quantity (7.82s)
+=== RUN   TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute
+=== RUN   TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute/quote_correction_at_its_original_date
+=== RUN   TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute/activity_correction_changes_a_value_at_its_original_effective_date
+=== RUN   TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute/FX_correction_at_its_original_economic_date
+--- PASS: TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute (9.15s)
+    --- PASS: TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute/quote_correction_at_its_original_date (2.97s)
+    --- PASS: TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute/activity_correction_changes_a_value_at_its_original_effective_date (2.96s)
+    --- PASS: TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute/FX_correction_at_its_original_economic_date (3.22s)
+=== RUN   TestReviewTimezoneEditThroughMutationAndPublicationKeepsAcknowledgement
+--- PASS: TestReviewTimezoneEditThroughMutationAndPublicationKeepsAcknowledgement (2.66s)
+=== RUN   TestReviewPublicationFailureAfterFinancialCommitDoesNotHalfWrite
+--- PASS: TestReviewPublicationFailureAfterFinancialCommitDoesNotHalfWrite (2.58s)
+=== RUN   TestReviewEpisodeHistoryPagesResolvedAcknowledgedAndReboughtEpisodes
+--- PASS: TestReviewEpisodeHistoryPagesResolvedAcknowledgedAndReboughtEpisodes (2.87s)
+=== RUN   TestReviewPublicationMaterialEditKeepsOriginalTriggerSnapshotAcrossUnknownThenTrue
+--- PASS: TestReviewPublicationMaterialEditKeepsOriginalTriggerSnapshotAcrossUnknownThenTrue (3.01s)
+=== RUN   TestReviewPublicationRetainsLegacyAcknowledgedEpisodeWithoutTriggerEvidence
+--- PASS: TestReviewPublicationRetainsLegacyAcknowledgedEpisodeWithoutTriggerEvidence (4.02s)
+=== RUN   TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances
+=== RUN   TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances/single
+=== RUN   TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances/consecutive
+=== RUN   TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances/rolling
+--- PASS: TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances (8.99s)
+    --- PASS: TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances/single (3.15s)
+    --- PASS: TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances/consecutive (2.93s)
+    --- PASS: TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances/rolling (2.91s)
+=== RUN   TestReviewHistoricalCorrectionReconstructsTriggerAndFirstHitWithoutLosingAcknowledgement
+--- PASS: TestReviewHistoricalCorrectionReconstructsTriggerAndFirstHitWithoutLosingAcknowledgement (3.13s)
+=== RUN   TestReviewRollingTriggerEvidenceIncludesFalseAndUnknownDaysAcrossPagination
+--- PASS: TestReviewRollingTriggerEvidenceIncludesFalseAndUnknownDaysAcrossPagination (2.80s)
+=== RUN   TestReviewRepeatedEpochWindowOracle
+    review_epoch_performance_test.go:99: manifest={"Accounts":1,"Instruments":1,"Holdings":1,"Rules":4,"HistoryDays":10,"Quotes":10,"CashActivities":0,"MixedActivities":0,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-10-27T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a154dc-649d-76fb-b4d8-d38f6ef1879b
+    review_epoch_performance_test.go:99: cold initial projection (single sample, includes capture through atomic publish; excludes fixture generation)=344.064106ms
+=== RUN   TestReviewRepeatedEpochWindowOracle/epoch-publish
+=== RUN   TestReviewRepeatedEpochWindowOracle/epoch-publish#01
+=== RUN   TestReviewRepeatedEpochWindowOracle/epoch-publish#02
+=== RUN   TestReviewRepeatedEpochWindowOracle/epoch-publish#03
+=== NAME  TestReviewRepeatedEpochWindowOracle
+    review_epoch_performance_test.go:99: real epoch history cycles=1 positionEpochs=2 evaluationStates=8; both exit and re-entry checked against full oracle and durable baseline
+=== RUN   TestReviewRepeatedEpochWindowOracle/no-op
+=== RUN   TestReviewRepeatedEpochWindowOracle/no-op/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=131.122948ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=127.125059ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewRepeatedEpochWindowOracle/no-op/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=674.611576ms pairDays=40 allocatedBytes=2506920 allocations=34059 sql queries=115 returnedRows=334 Query-to-Rows.Close=574.362894ms execs=98 writeStatements=98 rowsAffected=1 driverExecTime=62.536429ms prepares=2 prepareTime=2.091421ms writeTransactions=1 reserved-to-finish=197.195683ms
+=== RUN   TestReviewRepeatedEpochWindowOracle/no-op/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=576.559346ms pairDays=40 allocatedBytes=2521544 allocations=34217 sql queries=115 returnedRows=334 Query-to-Rows.Close=482.306602ms execs=98 writeStatements=98 rowsAffected=1 driverExecTime=63.58803ms prepares=2 prepareTime=1.757886ms writeTransactions=1 reserved-to-finish=200.256118ms
+=== NAME  TestReviewRepeatedEpochWindowOracle/no-op
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=no-op path=0 n=1 median=674.611576ms nearest-rank-p95=674.611576ms raw=[674.611576ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=no-op path=1 n=1 median=576.559346ms nearest-rank-p95=576.559346ms raw=[576.559346ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=no-op path=0 n=1 median=131.122948ms nearest-rank-p95=131.122948ms raw=[131.122948ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=no-op path=1 n=1 median=127.125059ms nearest-rank-p95=127.125059ms raw=[127.125059ms]
+=== RUN   TestReviewRepeatedEpochWindowOracle/clock-only
+=== RUN   TestReviewRepeatedEpochWindowOracle/clock-only/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=125.578568ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=126.730478ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewRepeatedEpochWindowOracle/clock-only/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=597.516848ms pairDays=44 allocatedBytes=2639648 allocations=35403 sql queries=119 returnedRows=338 Query-to-Rows.Close=485.498022ms execs=110 writeStatements=110 rowsAffected=22 driverExecTime=75.681627ms prepares=2 prepareTime=1.829453ms writeTransactions=1 reserved-to-finish=205.89383ms
+=== RUN   TestReviewRepeatedEpochWindowOracle/clock-only/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=590.988018ms pairDays=44 allocatedBytes=2629240 allocations=35380 sql queries=119 returnedRows=338 Query-to-Rows.Close=476.575097ms execs=110 writeStatements=110 rowsAffected=22 driverExecTime=80.015823ms prepares=2 prepareTime=2.094732ms writeTransactions=1 reserved-to-finish=220.170535ms
+=== NAME  TestReviewRepeatedEpochWindowOracle/clock-only
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=clock-only path=0 n=1 median=597.516848ms nearest-rank-p95=597.516848ms raw=[597.516848ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=clock-only path=1 n=1 median=590.988018ms nearest-rank-p95=590.988018ms raw=[590.988018ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=clock-only path=0 n=1 median=125.578568ms nearest-rank-p95=125.578568ms raw=[125.578568ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=clock-only path=1 n=1 median=126.730478ms nearest-rank-p95=126.730478ms raw=[126.730478ms]
+=== RUN   TestReviewRepeatedEpochWindowOracle/append
+=== RUN   TestReviewRepeatedEpochWindowOracle/append/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=142.421285ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=128.076948ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewRepeatedEpochWindowOracle/append/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=595.660396ms pairDays=44 allocatedBytes=2705096 allocations=36880 sql queries=119 returnedRows=358 Query-to-Rows.Close=493.924735ms execs=110 writeStatements=110 rowsAffected=24 driverExecTime=69.474952ms prepares=2 prepareTime=1.741861ms writeTransactions=1 reserved-to-finish=210.056783ms
+=== RUN   TestReviewRepeatedEpochWindowOracle/append/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=576.13957ms pairDays=44 allocatedBytes=2727824 allocations=36996 sql queries=119 returnedRows=358 Query-to-Rows.Close=468.990948ms execs=110 writeStatements=110 rowsAffected=24 driverExecTime=74.917204ms prepares=2 prepareTime=1.709873ms writeTransactions=1 reserved-to-finish=210.267004ms
+=== NAME  TestReviewRepeatedEpochWindowOracle/append
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=append path=0 n=1 median=595.660396ms nearest-rank-p95=595.660396ms raw=[595.660396ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=append path=1 n=1 median=576.13957ms nearest-rank-p95=576.13957ms raw=[576.13957ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=append path=0 n=1 median=142.421285ms nearest-rank-p95=142.421285ms raw=[142.421285ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=append path=1 n=1 median=128.076948ms nearest-rank-p95=128.076948ms raw=[128.076948ms]
+=== RUN   TestReviewRepeatedEpochWindowOracle/correction
+=== RUN   TestReviewRepeatedEpochWindowOracle/correction/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=132.382787ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=129.127799ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewRepeatedEpochWindowOracle/correction/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=570.492206ms pairDays=40 allocatedBytes=2531728 allocations=34215 sql queries=115 returnedRows=334 Query-to-Rows.Close=480.948179ms execs=98 writeStatements=98 rowsAffected=12 driverExecTime=61.424424ms prepares=2 prepareTime=1.834842ms writeTransactions=1 reserved-to-finish=185.899399ms
+=== RUN   TestReviewRepeatedEpochWindowOracle/correction/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=626.661215ms pairDays=40 allocatedBytes=2526552 allocations=34179 sql queries=115 returnedRows=334 Query-to-Rows.Close=529.549398ms execs=98 writeStatements=98 rowsAffected=12 driverExecTime=67.528232ms prepares=2 prepareTime=1.740199ms writeTransactions=1 reserved-to-finish=197.157757ms
+=== NAME  TestReviewRepeatedEpochWindowOracle/correction
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=correction path=0 n=1 median=570.492206ms nearest-rank-p95=570.492206ms raw=[570.492206ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=correction path=1 n=1 median=626.661215ms nearest-rank-p95=626.661215ms raw=[626.661215ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=correction path=0 n=1 median=132.382787ms nearest-rank-p95=132.382787ms raw=[132.382787ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=correction path=1 n=1 median=129.127799ms nearest-rank-p95=129.127799ms raw=[129.127799ms]
+=== NAME  TestReviewRepeatedEpochWindowOracle
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	  195448 kB
+--- PASS: TestReviewRepeatedEpochWindowOracle (39.88s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/epoch-publish (2.31s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/epoch-publish#01 (2.23s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/epoch-publish#02 (2.11s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/epoch-publish#03 (2.15s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/no-op (6.54s)
+        --- PASS: TestReviewRepeatedEpochWindowOracle/no-op/sample-00 (6.54s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/no-op/sample-00/publish-0 (2.44s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/no-op/sample-00/publish-1 (2.33s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/clock-only (6.38s)
+        --- PASS: TestReviewRepeatedEpochWindowOracle/clock-only/sample-00 (6.38s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/clock-only/sample-00/publish-0 (2.35s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/clock-only/sample-00/publish-1 (2.24s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/append (6.42s)
+        --- PASS: TestReviewRepeatedEpochWindowOracle/append/sample-00 (6.41s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/append/sample-00/publish-0 (2.31s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/append/sample-00/publish-1 (2.28s)
+    --- PASS: TestReviewRepeatedEpochWindowOracle/correction (6.49s)
+        --- PASS: TestReviewRepeatedEpochWindowOracle/correction/sample-00 (6.49s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/correction/sample-00/publish-0 (2.27s)
+            --- PASS: TestReviewRepeatedEpochWindowOracle/correction/sample-00/publish-1 (2.46s)
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight/full
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight/baseline
+=== RUN   TestReviewReentryEpisodeFullReplayAcrossMidnight/bounded
+--- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight (10.11s)
+    --- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight/full (2.21s)
+    --- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight/baseline (2.70s)
+    --- PASS: TestReviewReentryEpisodeFullReplayAcrossMidnight/bounded (2.58s)
+=== RUN   TestReviewFullOracleRejectsDaySetMutations
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/full-rebuild-missing-middle-day
+    review_full_oracle_regression_test.go:66: rejected mutation: oracle emitted day count differs rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213: got=9 want=10
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/full-rebuild-empty-days
+    review_full_oracle_regression_test.go:69: rejected mutation: oracle emitted day count differs rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213: got=0 want=10
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/full-rebuild-duplicate-replaces-required-day
+    review_full_oracle_regression_test.go:72: rejected mutation: oracle duplicate emitted day rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213 on=2025-10-22
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/no-op-unexpected-prefix
+    review_full_oracle_regression_test.go:84: rejected mutation: oracle emitted day count differs rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213: got=1 want=0
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-missing-first-new-day
+    review_full_oracle_regression_test.go:98: rejected mutation: oracle emitted day count differs rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213: got=1 want=2
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-empty-days
+    review_full_oracle_regression_test.go:101: rejected mutation: oracle emitted day count differs rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213: got=0 want=2
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-duplicate-replaces-new-day
+    review_full_oracle_regression_test.go:104: rejected mutation: oracle duplicate emitted day rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213 on=2025-10-28
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/incremental-wrong-date-same-count
+    review_full_oracle_regression_test.go:107: rejected mutation: oracle emitted date differs rule=01a154dd-2adb-74f9-8c32-47d8ce49d209 instrument=01a154dd-2870-71d8-9469-84804b97f213: got=2025-10-17 want=2025-10-27
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-date
+    review_full_oracle_regression_test.go:111: rejected mutation: oracle cached key has no full day: {RuleID:01a154dd-2adb-74f9-8c32-47d8ce49d209 ConditionVersion:1 InstrumentID:01a154dd-2870-71d8-9469-84804b97f213 TimezoneVersion:UTC/civil_day_end_v1 On:2099-01-01}
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-namespace
+    review_full_oracle_regression_test.go:111: rejected mutation: oracle cached key has no full day: {RuleID:01a154dd-2ae2-70ad-8881-5f03ff3e9c5b ConditionVersion:2 InstrumentID:01a154dd-2870-71d8-9469-84804b97f213 TimezoneVersion:America/Los_Angeles/civil_day_end_v1 On:2025-10-24}
+=== RUN   TestReviewFullOracleRejectsDaySetMutations/gap-repair-missing-required-day
+    review_full_oracle_regression_test.go:136: rejected mutation: oracle emitted day count differs rule=01a154dd-2ae2-70ad-8881-5f03ff3e9c5b instrument=01a154dd-2870-71d8-9469-84804b97f213: got=11 want=12
+--- PASS: TestReviewFullOracleRejectsDaySetMutations (3.98s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/full-rebuild-missing-middle-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/full-rebuild-empty-days (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/full-rebuild-duplicate-replaces-required-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/no-op-unexpected-prefix (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-missing-first-new-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-empty-days (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-duplicate-replaces-new-day (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/incremental-wrong-date-same-count (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-date (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/cached-key-without-full-day-namespace (0.00s)
+    --- PASS: TestReviewFullOracleRejectsDaySetMutations/gap-repair-missing-required-day (0.00s)
+=== RUN   TestReviewHistoricalBatchDoesNotBackfillCurrentHolding
+--- PASS: TestReviewHistoricalBatchDoesNotBackfillCurrentHolding (2.48s)
+=== RUN   TestReviewHistoricalDayBeforeOriginIsUnknown
+--- PASS: TestReviewHistoricalDayBeforeOriginIsUnknown (2.30s)
+=== RUN   TestReviewHistoricalCostKeepsActivityUntilEffectiveReversalDate
+--- PASS: TestReviewHistoricalCostKeepsActivityUntilEffectiveReversalDate (2.49s)
+=== RUN   TestReviewHistoricalDayDoesNotBorrowAnotherStocksDailyPrices
+--- PASS: TestReviewHistoricalDayDoesNotBorrowAnotherStocksDailyPrices (2.25s)
+=== RUN   TestReviewLifecycleKeepsAcknowledgementThroughUnknownAndReturn
+--- PASS: TestReviewLifecycleKeepsAcknowledgementThroughUnknownAndReturn (0.00s)
+=== RUN   TestReviewLifecycleRebuyUsesNewEpochButKeepsRollingVotesAndIgnore
+--- PASS: TestReviewLifecycleRebuyUsesNewEpochButKeepsRollingVotesAndIgnore (0.00s)
+=== RUN   TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval
+=== RUN   TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/all_true_after_material_edit
+=== RUN   TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/unknown_relation_after_material_edit
+=== RUN   TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/proven_recovery_then_new_hit
+=== RUN   TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/new_position_epoch
+--- PASS: TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval (0.00s)
+    --- PASS: TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/all_true_after_material_edit (0.00s)
+    --- PASS: TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/unknown_relation_after_material_edit (0.00s)
+    --- PASS: TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/proven_recovery_then_new_hit (0.00s)
+    --- PASS: TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval/new_position_epoch (0.00s)
+=== RUN   TestReviewLifecycleKeepsEpisodeWhenTimezoneMovesLatestBeforeTrigger
+--- PASS: TestReviewLifecycleKeepsEpisodeWhenTimezoneMovesLatestBeforeTrigger (0.00s)
+=== RUN   TestReviewIncrementalLifecycleReplaysAllNewPolicyDates
+=== RUN   TestReviewIncrementalLifecycleReplaysAllNewPolicyDates/true_then_unknown_does_not_open_a_stale_episode
+=== RUN   TestReviewIncrementalLifecycleReplaysAllNewPolicyDates/recovery_then_true_starts_an_unacknowledged_episode
+--- PASS: TestReviewIncrementalLifecycleReplaysAllNewPolicyDates (0.00s)
+    --- PASS: TestReviewIncrementalLifecycleReplaysAllNewPolicyDates/true_then_unknown_does_not_open_a_stale_episode (0.00s)
+    --- PASS: TestReviewIncrementalLifecycleReplaysAllNewPolicyDates/recovery_then_true_starts_an_unacknowledged_episode (0.00s)
+=== RUN   TestReviewNoChangePerformanceEvidence
+    review_no_change_performance_test.go:21: opt-in synthetic C3 evidence
+--- SKIP: TestReviewNoChangePerformanceEvidence (0.00s)
+=== RUN   TestReviewNoChangeOptInAndFullOracle
+--- PASS: TestReviewNoChangeOptInAndFullOracle (4.95s)
+=== RUN   TestReviewNoChangeConservativeFallbacks
+=== RUN   TestReviewNoChangeConservativeFallbacks/source
+=== RUN   TestReviewNoChangeConservativeFallbacks/config
+=== RUN   TestReviewNoChangeConservativeFallbacks/state
+=== RUN   TestReviewNoChangeConservativeFallbacks/rule-without-revision
+=== RUN   TestReviewNoChangeConservativeFallbacks/episode-without-state
+=== RUN   TestReviewNoChangeConservativeFallbacks/pending
+=== RUN   TestReviewNoChangeConservativeFallbacks/missing-proof
+=== RUN   TestReviewNoChangeConservativeFallbacks/unknown-policy
+=== RUN   TestReviewNoChangeConservativeFallbacks/journal-gap
+=== RUN   TestReviewNoChangeConservativeFallbacks/trigger-drop-recreate
+=== RUN   TestReviewNoChangeConservativeFallbacks/foreign-keys
+=== RUN   TestReviewNoChangeConservativeFallbacks/recursive-triggers
+=== RUN   TestReviewNoChangeConservativeFallbacks/rollback
+=== RUN   TestReviewNoChangeConservativeFallbacks/restart
+=== RUN   TestReviewNoChangeConservativeFallbacks/epoch-reset
+=== RUN   TestReviewNoChangeConservativeFallbacks/provider
+--- PASS: TestReviewNoChangeConservativeFallbacks (68.61s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/source (5.30s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/config (6.03s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/state (5.56s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/rule-without-revision (5.66s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/episode-without-state (5.69s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/pending (5.57s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/missing-proof (3.18s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/unknown-policy (3.45s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/journal-gap (3.21s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/trigger-drop-recreate (2.67s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/foreign-keys (2.66s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/recursive-triggers (2.72s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/rollback (2.60s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/restart (3.88s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/epoch-reset (5.17s)
+    --- PASS: TestReviewNoChangeConservativeFallbacks/provider (5.27s)
+=== RUN   TestReviewNoChangeCrashChild
+    review_no_change_test.go:226: subprocess crash helper
+--- SKIP: TestReviewNoChangeCrashChild (0.00s)
+=== RUN   TestReviewNoChangeCrashBeforeCommitAndRecovery
+--- PASS: TestReviewNoChangeCrashBeforeCommitAndRecovery (8.86s)
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/exit
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/entry
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/clear-rebuy
+=== RUN   TestReviewNoChangeActivationLifecycleFullOracle/transfer
+--- PASS: TestReviewNoChangeActivationLifecycleFullOracle (45.68s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/exit (10.07s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/entry (9.87s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/clear-rebuy (15.22s)
+    --- PASS: TestReviewNoChangeActivationLifecycleFullOracle/transfer (10.52s)
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/control-ignore
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-ignore
+=== RUN   TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-abort
+--- PASS: TestReviewNoChangeCASFailureAndBoundedRetry (15.65s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/control-ignore (5.55s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-ignore (5.41s)
+    --- PASS: TestReviewNoChangeCASFailureAndBoundedRetry/checkpoint-abort (4.69s)
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/boundary
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/cancel
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/writer
+=== RUN   TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/provider
+--- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation (12.66s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/boundary (3.09s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/cancel (2.95s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/writer (3.59s)
+    --- PASS: TestReviewNoChangeFinalBoundaryCancellationAndWriterReservation/provider (3.02s)
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_inputs
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_results
+=== RUN   TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_evaluation_state
+--- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild (16.28s)
+    --- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_inputs (5.12s)
+    --- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_daily_results (5.67s)
+    --- PASS: TestReviewNoChangeMissingProjectionRequiresFullRebuild/investment_review_evaluation_state (5.49s)
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/pruned-floor
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/resolver
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/tracking-policy
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/evaluator-policy
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/metric-policy
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/temporal-scope
+=== RUN   TestReviewNoChangeFloorPolicyAndRolledBackSource/source-rollback
+--- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource (21.22s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/pruned-floor (2.96s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/resolver (2.96s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/tracking-policy (3.12s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/evaluator-policy (3.10s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/metric-policy (2.91s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/temporal-scope (3.00s)
+    --- PASS: TestReviewNoChangeFloorPolicyAndRolledBackSource/source-rollback (3.17s)
+=== RUN   TestReviewNoChangeResponseLossAndSuppressionExpiry
+--- PASS: TestReviewNoChangeResponseLossAndSuppressionExpiry (6.10s)
+=== RUN   TestReviewNoChangeInvalidatesOutstandingFullPublication
+--- PASS: TestReviewNoChangeInvalidatesOutstandingFullPublication (3.37s)
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/journal-gap
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/schema-cookie
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/foreign-keys
+=== RUN   TestReviewNoChangeDamagedTrackingRequiresFullRebuild/recursive-triggers
+--- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild (12.06s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/journal-gap (3.48s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/schema-cookie (2.86s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/foreign-keys (2.80s)
+    --- PASS: TestReviewNoChangeDamagedTrackingRequiresFullRebuild/recursive-triggers (2.92s)
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/c2-opt-in
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/missing-proof
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/missing-counts
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/expired-proof
+    review_no_change_test.go:735: fallback emitted=12 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/changed-metadata
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/legacy-manifest
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/unknown-manifest
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/direct-capture
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+=== RUN   TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/cross-repository-publication
+    review_no_change_test.go:735: fallback emitted=11 oldDayRows=1 subsequentConfirmation=true
+--- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow (51.70s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/c2-opt-in (5.05s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/missing-proof (5.62s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/missing-counts (5.51s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/expired-proof (5.33s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/changed-metadata (5.69s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/legacy-manifest (6.19s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/unknown-manifest (6.40s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/direct-capture (5.77s)
+    --- PASS: TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow/cross-repository-publication (6.14s)
+=== RUN   TestReviewPerfConfiguration
+--- PASS: TestReviewPerfConfiguration (0.00s)
+=== RUN   TestReviewPerfSampleCount
+=== RUN   TestReviewPerfSampleCount/override
+--- PASS: TestReviewPerfSampleCount (0.00s)
+    --- PASS: TestReviewPerfSampleCount/override (0.00s)
+=== RUN   TestReviewPerformanceFullOracle
+    review_performance_baseline_test.go:287: manifest={"Accounts":2,"Instruments":3,"Holdings":4,"Rules":4,"HistoryDays":10,"Quotes":30,"CashActivities":0,"MixedActivities":8,"MixedKind":""}; deterministic arithmetic source generation (no PRNG); clock=2025-10-27T12:00:00Z schema=21 Go=go1.26.1 SQLite=3.53.0 GOOS=linux GOARCH=amd64 GOMAXPROCS=4; UUIDs generated once then cloned; synthetic household=01a154e1-705c-7f33-bf8d-753074aa8952
+    review_performance_baseline_test.go:287: cold initial projection (single sample, includes capture through atomic publish; excludes fixture generation)=541.014629ms
+=== RUN   TestReviewPerformanceFullOracle/no-op
+=== RUN   TestReviewPerformanceFullOracle/no-op/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=177.778895ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=153.113211ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/no-op/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=739.488248ms pairDays=120 allocatedBytes=4736840 allocations=68158 sql queries=115 returnedRows=510 Query-to-Rows.Close=526.372592ms execs=266 writeStatements=266 rowsAffected=1 driverExecTime=149.059977ms prepares=2 prepareTime=2.038611ms writeTransactions=1 reserved-to-finish=317.176339ms
+=== RUN   TestReviewPerformanceFullOracle/no-op/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=697.478333ms pairDays=120 allocatedBytes=4723288 allocations=68135 sql queries=115 returnedRows=510 Query-to-Rows.Close=483.622053ms execs=266 writeStatements=266 rowsAffected=1 driverExecTime=151.420413ms prepares=2 prepareTime=1.941222ms writeTransactions=1 reserved-to-finish=311.851195ms
+=== NAME  TestReviewPerformanceFullOracle/no-op
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=no-op path=0 n=1 median=739.488248ms nearest-rank-p95=739.488248ms raw=[739.488248ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=no-op path=1 n=1 median=697.478333ms nearest-rank-p95=697.478333ms raw=[697.478333ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=no-op path=0 n=1 median=177.778895ms nearest-rank-p95=177.778895ms raw=[177.778895ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=no-op path=1 n=1 median=153.113211ms nearest-rank-p95=153.113211ms raw=[153.113211ms]
+=== RUN   TestReviewPerformanceFullOracle/clock-only
+=== RUN   TestReviewPerformanceFullOracle/clock-only/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=136.314092ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=141.005324ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/clock-only/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=890.086482ms pairDays=132 allocatedBytes=5014512 allocations=71744 sql queries=119 returnedRows=514 Query-to-Rows.Close=610.657876ms execs=294 writeStatements=294 rowsAffected=42 driverExecTime=196.871308ms prepares=2 prepareTime=2.13808ms writeTransactions=1 reserved-to-finish=401.334778ms
+=== RUN   TestReviewPerformanceFullOracle/clock-only/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=786.244542ms pairDays=132 allocatedBytes=4996824 allocations=71711 sql queries=119 returnedRows=514 Query-to-Rows.Close=535.068146ms execs=294 writeStatements=294 rowsAffected=42 driverExecTime=179.836404ms prepares=2 prepareTime=2.168496ms writeTransactions=1 reserved-to-finish=351.115036ms
+=== NAME  TestReviewPerformanceFullOracle/clock-only
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=clock-only path=0 n=1 median=890.086482ms nearest-rank-p95=890.086482ms raw=[890.086482ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=clock-only path=1 n=1 median=786.244542ms nearest-rank-p95=786.244542ms raw=[786.244542ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=clock-only path=0 n=1 median=136.314092ms nearest-rank-p95=136.314092ms raw=[136.314092ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=clock-only path=1 n=1 median=141.005324ms nearest-rank-p95=141.005324ms raw=[141.005324ms]
+=== RUN   TestReviewPerformanceFullOracle/append
+=== RUN   TestReviewPerformanceFullOracle/append/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=159.715091ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=148.012149ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/append/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=757.229754ms pairDays=132 allocatedBytes=5082656 allocations=73915 sql queries=119 returnedRows=542 Query-to-Rows.Close=527.248803ms execs=294 writeStatements=294 rowsAffected=45 driverExecTime=163.969373ms prepares=2 prepareTime=1.722034ms writeTransactions=1 reserved-to-finish=337.514243ms
+=== RUN   TestReviewPerformanceFullOracle/append/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=812.898095ms pairDays=132 allocatedBytes=5087928 allocations=74065 sql queries=119 returnedRows=542 Query-to-Rows.Close=566.061754ms execs=294 writeStatements=294 rowsAffected=45 driverExecTime=175.346609ms prepares=2 prepareTime=2.229708ms writeTransactions=1 reserved-to-finish=354.688507ms
+=== NAME  TestReviewPerformanceFullOracle/append
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=append path=0 n=1 median=757.229754ms nearest-rank-p95=757.229754ms raw=[757.229754ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=append path=1 n=1 median=812.898095ms nearest-rank-p95=812.898095ms raw=[812.898095ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=append path=0 n=1 median=159.715091ms nearest-rank-p95=159.715091ms raw=[159.715091ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=append path=1 n=1 median=148.012149ms nearest-rank-p95=148.012149ms raw=[148.012149ms]
+=== RUN   TestReviewPerformanceFullOracle/correction
+=== RUN   TestReviewPerformanceFullOracle/correction/sample-00
+    review_performance_baseline_test.go:354: capture path=0 sample=0 elapsed=133.603277ms reusableRows=0 (includes source fingerprint and Rows consumption)
+    review_performance_baseline_test.go:354: capture path=1 sample=0 elapsed=132.760828ms reusableRows=0 (includes source fingerprint and Rows consumption)
+=== RUN   TestReviewPerformanceFullOracle/correction/sample-00/publish-0
+    review_performance_baseline_test.go:400: full reconcile path=0 sample=0 elapsed=782.785009ms pairDays=120 allocatedBytes=4757568 allocations=68387 sql queries=115 returnedRows=510 Query-to-Rows.Close=546.340015ms execs=266 writeStatements=266 rowsAffected=13 driverExecTime=162.569406ms prepares=2 prepareTime=2.109317ms writeTransactions=1 reserved-to-finish=328.670583ms
+=== RUN   TestReviewPerformanceFullOracle/correction/sample-00/publish-1
+    review_performance_baseline_test.go:400: full reconcile path=1 sample=0 elapsed=726.217674ms pairDays=120 allocatedBytes=4790088 allocations=68560 sql queries=115 returnedRows=510 Query-to-Rows.Close=513.317412ms execs=266 writeStatements=266 rowsAffected=13 driverExecTime=150.559171ms prepares=2 prepareTime=1.961014ms writeTransactions=1 reserved-to-finish=314.746963ms
+=== NAME  TestReviewPerformanceFullOracle/correction
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=correction path=0 n=1 median=782.785009ms nearest-rank-p95=782.785009ms raw=[782.785009ms]
+    review_performance_baseline_test.go:411: full reconcile distribution scenario=correction path=1 n=1 median=726.217674ms nearest-rank-p95=726.217674ms raw=[726.217674ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=correction path=0 n=1 median=133.603277ms nearest-rank-p95=133.603277ms raw=[133.603277ms]
+    review_performance_baseline_test.go:414: capture distribution scenario=correction path=1 n=1 median=132.760828ms nearest-rank-p95=132.760828ms raw=[132.760828ms]
+=== NAME  TestReviewPerformanceFullOracle
+    review_performance_baseline_test.go:120: process peak RSS (whole test lifetime including fixture generation, clones and oracle; not B/op): VmHWM:	  238368 kB
+--- PASS: TestReviewPerformanceFullOracle (35.31s)
+    --- PASS: TestReviewPerformanceFullOracle/no-op (7.55s)
+        --- PASS: TestReviewPerformanceFullOracle/no-op/sample-00 (7.55s)
+            --- PASS: TestReviewPerformanceFullOracle/no-op/sample-00/publish-0 (2.61s)
+            --- PASS: TestReviewPerformanceFullOracle/no-op/sample-00/publish-1 (2.64s)
+    --- PASS: TestReviewPerformanceFullOracle/clock-only (7.48s)
+        --- PASS: TestReviewPerformanceFullOracle/clock-only/sample-00 (7.48s)
+            --- PASS: TestReviewPerformanceFullOracle/clock-only/sample-00/publish-0 (2.74s)
+            --- PASS: TestReviewPerformanceFullOracle/clock-only/sample-00/publish-1 (2.70s)
+    --- PASS: TestReviewPerformanceFullOracle/append (7.52s)
+        --- PASS: TestReviewPerformanceFullOracle/append/sample-00 (7.52s)
+            --- PASS: TestReviewPerformanceFullOracle/append/sample-00/publish-0 (2.63s)
+            --- PASS: TestReviewPerformanceFullOracle/append/sample-00/publish-1 (2.75s)
+    --- PASS: TestReviewPerformanceFullOracle/correction (7.24s)
+        --- PASS: TestReviewPerformanceFullOracle/correction/sample-00 (7.24s)
+            --- PASS: TestReviewPerformanceFullOracle/correction/sample-00/publish-0 (2.60s)
+            --- PASS: TestReviewPerformanceFullOracle/correction/sample-00/publish-1 (2.59s)
+=== RUN   TestReviewPerfDurableRowsPreserveExistingEventIdentity
+--- PASS: TestReviewPerfDurableRowsPreserveExistingEventIdentity (4.36s)
+=== RUN   TestReviewPositionEpochsUseAtomicQuantityEffects
+--- PASS: TestReviewPositionEpochsUseAtomicQuantityEffects (0.00s)
+=== RUN   TestReviewPositionEpochCannotInventOriginQuantity
+--- PASS: TestReviewPositionEpochCannotInventOriginQuantity (0.00s)
+=== RUN   TestReviewRulePreviewIsReadOnlyAndDateKeyed
+--- PASS: TestReviewRulePreviewIsReadOnlyAndDateKeyed (2.39s)
+=== RUN   TestReviewRulePreviewCountsFullTrailingTrueSuffix
+--- PASS: TestReviewRulePreviewCountsFullTrailingTrueSuffix (2.25s)
+=== RUN   TestReviewRulePreviewMarksSkippedApiaDateUnknown
+--- PASS: TestReviewRulePreviewMarksSkippedApiaDateUnknown (2.37s)
+=== RUN   TestReviewCashOnlyActivityFilteringPreservesDailyInputs
+--- PASS: TestReviewCashOnlyActivityFilteringPreservesDailyInputs (2.30s)
+=== RUN   TestReviewHistoricalCaptureRetainsPositionActivityAndSkipsCashOnlyActivity
+--- PASS: TestReviewHistoricalCaptureRetainsPositionActivityAndSkipsCashOnlyActivity (2.56s)
+=== RUN   TestReviewProjectionCaptureContainsRulesSuppressionAndFinancialFacts
+--- PASS: TestReviewProjectionCaptureContainsRulesSuppressionAndFinancialFacts (2.34s)
+=== RUN   TestReviewPublicationIsAtomicAndSameDayIdempotent
+--- PASS: TestReviewPublicationIsAtomicAndSameDayIdempotent (2.62s)
+=== RUN   TestReviewPublicationRejectsDeletedFinancialSource
+--- PASS: TestReviewPublicationRejectsDeletedFinancialSource (2.44s)
+=== RUN   TestReviewProjectionCacheProjectsTargetQuotesWithoutRetainingDailyQuoteCopies
+--- PASS: TestReviewProjectionCacheProjectsTargetQuotesWithoutRetainingDailyQuoteCopies (2.32s)
+=== RUN   TestReviewProjectionReplaysOnlyNewDateSlotsAndPreservesAcknowledgement
+--- PASS: TestReviewProjectionReplaysOnlyNewDateSlotsAndPreservesAcknowledgement (2.52s)
+=== RUN   TestReviewIncrementalReplayPreservesFullDailyTrueSuffix
+--- PASS: TestReviewIncrementalReplayPreservesFullDailyTrueSuffix (2.51s)
+=== RUN   TestReviewIncrementalReplayTThenUDoesNotOpenStaleEpisode
+--- PASS: TestReviewIncrementalReplayTThenUDoesNotOpenStaleEpisode (2.69s)
+=== RUN   TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange
+--- PASS: TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange (2.42s)
+=== RUN   TestReviewCorrectedPositionHistoryDropsObsoleteEpochStreak
+--- PASS: TestReviewCorrectedPositionHistoryDropsObsoleteEpochStreak (2.85s)
+=== RUN   TestReviewProjectionReplayInvalidatesPersistedCacheOnFXProviderChange
+--- PASS: TestReviewProjectionReplayInvalidatesPersistedCacheOnFXProviderChange (2.59s)
+=== RUN   TestReviewPublicationPreservesAcknowledgementAcrossUnknownDay
+--- PASS: TestReviewPublicationPreservesAcknowledgementAcrossUnknownDay (2.88s)
+=== RUN   TestReviewPublicationRejectsConcurrentAcknowledgement
+--- PASS: TestReviewPublicationRejectsConcurrentAcknowledgement (2.73s)
+=== RUN   TestReviewPublicationRejectsConcurrentIgnoreAndMidnight
+--- PASS: TestReviewPublicationRejectsConcurrentIgnoreAndMidnight (2.56s)
+=== RUN   TestReviewPublicationRebuyOpensNewEpisodeWithoutDiscardingRollingVotes
+--- PASS: TestReviewPublicationRebuyOpensNewEpisodeWithoutDiscardingRollingVotes (2.90s)
+=== RUN   TestReviewSuppressionExpirySurvivesRestoredProjection
+--- PASS: TestReviewSuppressionExpirySurvivesRestoredProjection (4.19s)
+=== RUN   TestReviewReportRevisionChangesAtSuppressionDayNotEveryMinute
+--- PASS: TestReviewReportRevisionChangesAtSuppressionDayNotEveryMinute (2.31s)
+=== RUN   TestReviewCoverageIncludesUnknownWithoutAnAlertAndExcludesZeroHolding
+--- PASS: TestReviewCoverageIncludesUnknownWithoutAnAlertAndExcludesZeroHolding (2.70s)
+=== RUN   TestReviewCoveragePausePreservesUnknownDailyTruth
+--- PASS: TestReviewCoveragePausePreservesUnknownDailyTruth (2.30s)
+=== RUN   TestReviewAlertPageCursorExpiresOnHandlingChange
+--- PASS: TestReviewAlertPageCursorExpiresOnHandlingChange (2.70s)
+=== RUN   TestReviewSameDayClearAndRebuyUsesNewEpisodeWithClosedVotes
+--- PASS: TestReviewSameDayClearAndRebuyUsesNewEpisodeWithClosedVotes (2.78s)
+=== RUN   TestReviewSameDayClearClosesEpisodeBeforeNextDailyVote
+--- PASS: TestReviewSameDayClearClosesEpisodeBeforeNextDailyVote (2.74s)
+=== RUN   TestReviewAtomicSameDayTransferKeepsEpisodeAndAcknowledgement
+--- PASS: TestReviewAtomicSameDayTransferKeepsEpisodeAndAcknowledgement (2.85s)
+=== RUN   TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne
+=== RUN   TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne/explicit
+=== RUN   TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne/all_current
+--- PASS: TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne (6.35s)
+    --- PASS: TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne/explicit (3.27s)
+    --- PASS: TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne/all_current (3.08s)
+=== RUN   TestReviewMaterialEditKeepsAcknowledgedPublishedEpisodeWhenIntervalStaysTrue
+--- PASS: TestReviewMaterialEditKeepsAcknowledgedPublishedEpisodeWhenIntervalStaysTrue (2.64s)
+=== RUN   TestReviewDailyEvidencePagesClosedVotesAndExpiresOnRevision
+--- PASS: TestReviewDailyEvidencePagesClosedVotesAndExpiresOnRevision (2.36s)
+=== RUN   TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows
+=== RUN   TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows/consecutive
+=== RUN   TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows/rolling
+--- PASS: TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows (4.82s)
+    --- PASS: TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows/consecutive (2.32s)
+    --- PASS: TestReviewDailyEvidenceIncludesConsecutiveAndRollingTriggerWindows/rolling (2.50s)
+=== RUN   TestReviewRuleV2MutationCASCanonicalVersionAndReceipt
+--- PASS: TestReviewRuleV2MutationCASCanonicalVersionAndReceipt (2.00s)
+=== RUN   TestReviewRuleV2RejectsForeignOrUnknownTarget
+--- PASS: TestReviewRuleV2RejectsForeignOrUnknownTarget (2.04s)
+=== RUN   TestReviewWindowOracleCompleteOutputs
+=== RUN   TestReviewWindowOracleCompleteOutputs/missing
+=== RUN   TestReviewWindowOracleCompleteOutputs/unknown
+=== RUN   TestReviewWindowOracleCompleteOutputs/prepare-failed
+=== RUN   TestReviewWindowOracleCompleteOutputs/missing-rule
+=== RUN   TestReviewWindowOracleCompleteOutputs/namespace
+=== RUN   TestReviewWindowOracleCompleteOutputs/missing-new-day
+=== RUN   TestReviewWindowOracleCompleteOutputs/empty-days
+=== RUN   TestReviewWindowOracleCompleteOutputs/duplicate-day
+=== RUN   TestReviewWindowOracleCompleteOutputs/extra-prefix
+=== RUN   TestReviewWindowOracleCompleteOutputs/input
+=== RUN   TestReviewWindowOracleCompleteOutputs/coverage
+=== RUN   TestReviewWindowOracleCompleteOutputs/truth
+=== RUN   TestReviewWindowOracleCompleteOutputs/policy
+=== RUN   TestReviewWindowOracleCompleteOutputs/latest-result
+=== RUN   TestReviewWindowOracleCompleteOutputs/latest-coverage
+=== RUN   TestReviewWindowOracleCompleteOutputs/first-hit
+=== RUN   TestReviewWindowOracleCompleteOutputs/trigger
+=== RUN   TestReviewWindowOracleCompleteOutputs/epoch
+=== RUN   TestReviewWindowOracleCompleteOutputs/ack
+=== RUN   TestReviewWindowOracleCompleteOutputs/closure
+=== RUN   TestReviewWindowOracleCompleteOutputs/excluded
+=== RUN   TestReviewWindowOracleCompleteOutputs/revision
+--- PASS: TestReviewWindowOracleCompleteOutputs (3.05s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/missing (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/unknown (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/prepare-failed (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/missing-rule (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/namespace (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/missing-new-day (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/empty-days (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/duplicate-day (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/extra-prefix (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/input (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/coverage (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/truth (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/policy (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/latest-result (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/latest-coverage (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/first-hit (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/trigger (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/epoch (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/ack (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/closure (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/excluded (0.00s)
+    --- PASS: TestReviewWindowOracleCompleteOutputs/revision (0.00s)
+=== RUN   TestReviewWindowOracleFreshEpisodeAndFullEscape
+--- PASS: TestReviewWindowOracleFreshEpisodeAndFullEscape (3.51s)
+=== RUN   TestReviewWindowOraclePublicationRechecksOutput
+=== RUN   TestReviewWindowOraclePublicationRechecksOutput/missing
+=== RUN   TestReviewWindowOraclePublicationRechecksOutput/day
+=== RUN   TestReviewWindowOraclePublicationRechecksOutput/lifecycle
+=== RUN   TestReviewWindowOraclePublicationRechecksOutput/honest
+--- PASS: TestReviewWindowOraclePublicationRechecksOutput (20.93s)
+    --- PASS: TestReviewWindowOraclePublicationRechecksOutput/missing (4.96s)
+    --- PASS: TestReviewWindowOraclePublicationRechecksOutput/day (5.13s)
+    --- PASS: TestReviewWindowOraclePublicationRechecksOutput/lifecycle (5.29s)
+    --- PASS: TestReviewWindowOraclePublicationRechecksOutput/honest (5.54s)
+=== RUN   TestReviewWindowOracleDoesNotAuthenticatePreexistingArchive
+=== RUN   TestReviewWindowOracleDoesNotAuthenticatePreexistingArchive/historical-json
+=== RUN   TestReviewWindowOracleDoesNotAuthenticatePreexistingArchive/frozen-lifecycle
+--- PASS: TestReviewWindowOracleDoesNotAuthenticatePreexistingArchive (10.86s)
+    --- PASS: TestReviewWindowOracleDoesNotAuthenticatePreexistingArchive/historical-json (5.47s)
+    --- PASS: TestReviewWindowOracleDoesNotAuthenticatePreexistingArchive/frozen-lifecycle (5.39s)
+=== RUN   TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint
+=== RUN   TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/unchanged
+=== RUN   TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/configuration
+=== RUN   TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/quote
+=== RUN   TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/untracked-quote
+--- PASS: TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint (9.23s)
+    --- PASS: TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/unchanged (2.22s)
+    --- PASS: TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/configuration (2.45s)
+    --- PASS: TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/quote (2.27s)
+    --- PASS: TestReviewSourceShadowChecksPublicationAlongsideFullFingerprint/untracked-quote (2.29s)
+=== RUN   TestReviewSourceShadowPublicationHoldsWriterReservationBeforeComparison
+--- PASS: TestReviewSourceShadowPublicationHoldsWriterReservationBeforeComparison (3.29s)
+=== RUN   TestReviewSourceShadowFutureActivationAndClockRollbackRemainIncomparable
+--- PASS: TestReviewSourceShadowFutureActivationAndClockRollbackRemainIncomparable (2.57s)
+=== RUN   TestReviewSourceShadowFloorResetAndReopenNeverCertifyMissingHistory
+--- PASS: TestReviewSourceShadowFloorResetAndReopenNeverCertifyMissingHistory (4.66s)
+=== RUN   TestReviewHistoricalSourceTokenDetectsQuoteDeletionWithoutGenerationBump
+--- PASS: TestReviewHistoricalSourceTokenDetectsQuoteDeletionWithoutGenerationBump (2.25s)
+=== RUN   TestReviewSuppressionV2ReceiptKeepsAbsoluteCivilExpiry
+--- PASS: TestReviewSuppressionV2ReceiptKeepsAbsoluteCivilExpiry (1.94s)
+=== RUN   TestReviewSuppressionV2CustomRetryAfterExpiry
+--- PASS: TestReviewSuppressionV2CustomRetryAfterExpiry (1.99s)
+=== RUN   TestReviewSuppressionV2CanBeSetAgainAfterExpiryConcurrently
+--- PASS: TestReviewSuppressionV2CanBeSetAgainAfterExpiryConcurrently (2.06s)
+=== RUN   TestReviewSuppressionV2ExpiresAtHouseholdCivilDateWithFakeClock
+--- PASS: TestReviewSuppressionV2ExpiresAtHouseholdCivilDateWithFakeClock (2.31s)
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/later-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/expired-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-tracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/quantity-untracked
+--- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection (12.95s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-untracked (2.66s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/later-untracked (2.60s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/expired-untracked (2.50s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-tracked (2.63s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/quantity-untracked (2.55s)
+=== RUN   TestReviewTemporalRequiresFinalClockAwarePublicationPort
+--- PASS: TestReviewTemporalRequiresFinalClockAwarePublicationPort (2.13s)
+=== RUN   TestReviewTemporalCrashPublicationChild
+    review_temporal_recovery_test.go:50: subprocess crash helper
+--- SKIP: TestReviewTemporalCrashPublicationChild (0.00s)
+=== RUN   TestReviewTemporalCrashBeforeCommitRollsBackCompletePublication
+--- PASS: TestReviewTemporalCrashBeforeCommitRollsBackCompletePublication (5.67s)
+=== RUN   TestReviewTemporalMetadataFailureIsAtomicAndUnknownPolicyUsesOracle
+--- PASS: TestReviewTemporalMetadataFailureIsAtomicAndUnknownPolicyUsesOracle (3.59s)
+=== RUN   TestReviewTemporalFutureSourceEditsRetainFullOracleFallback
+=== RUN   TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/unknown-source
+=== RUN   TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/untracked-future
+--- PASS: TestReviewTemporalFutureSourceEditsRetainFullOracleFallback (5.09s)
+    --- PASS: TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/unknown-source (2.46s)
+    --- PASS: TestReviewTemporalFutureSourceEditsRetainFullOracleFallback/untracked-future (2.62s)
+=== RUN   TestReviewTemporalLogicalAsOfDoesNotExtendValidityPastCommit
+--- PASS: TestReviewTemporalLogicalAsOfDoesNotExtendValidityPastCommit (2.43s)
+=== RUN   TestReviewTemporalPreviewObservationInvalidatesRollbackAbovePublication
+--- PASS: TestReviewTemporalPreviewObservationInvalidatesRollbackAbovePublication (2.46s)
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00Z
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00.123456789Z
+=== RUN   TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T15:30:00+02:30
+--- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision (7.27s)
+    --- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00Z (2.41s)
+    --- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T13:00:00.123456789Z (2.44s)
+    --- PASS: TestReviewTemporalQuantityCapturePreservesStoredInstantPrecision/2026-10-03T15:30:00+02:30 (2.42s)
+=== RUN   TestReviewTemporalMixedPrecisionRetainsEconomicReplayOrder
+--- PASS: TestReviewTemporalMixedPrecisionRetainsEconomicReplayOrder (2.41s)
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/exit
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/entry
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/clear-rebuy
+=== RUN   TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/transfer
+--- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle (22.86s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/exit (5.43s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/entry (5.05s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/clear-rebuy (6.65s)
+    --- PASS: TestReviewTemporalPreexistingFutureQuantityLifecycleOracle/transfer (5.73s)
+=== RUN   TestReviewTemporalFinalClockRejectsActivationDuringFullRecheck
+--- PASS: TestReviewTemporalFinalClockRejectsActivationDuringFullRecheck (3.04s)
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/instrument-quote
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/fx-quote
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/origin
+=== RUN   TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/holding
+panic: test timed out after 20m0s
+	running tests:
+		TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers (9s)
+		TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers/holding (1s)
+
+goroutine 618565 [running]:
+testing.(*M).startAlarm.func1()
+	/tmp/go/src/testing/testing.go:2802 +0x605
+created by time.goFunc
+	/tmp/go/src/time/sleep.go:215 +0x45
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0xc0001f2488, {0x1ea9b4d, 0x37}, 0x1f08b08)
+	/tmp/go/src/testing/testing.go:2109 +0xb3e
+testing.runTests.func1(0xc0001f2488)
+	/tmp/go/src/testing/testing.go:2585 +0x86
+testing.tRunner(0xc0001f2488, 0xc000161ad0)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+testing.runTests({0x1e85895, 0x20}, {0x1ea6e96, 0x35}, 0xc0001240c0, {0x2a38460, 0x346, 0x346}, {0xc2adad98de7eb866, 0x11766093ace, ...})
+	/tmp/go/src/testing/testing.go:2583 +0x9ea
+testing.(*M).Run(0xc0001175e0)
+	/tmp/go/src/testing/testing.go:2443 +0xf4c
+main.main()
+	_testmain.go:1732 +0x165
+
+goroutine 37 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f26c8)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache(0xc0001f26c8)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:37 +0x3f
+testing.tRunner(0xc0001f26c8, 0x1f08868)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 38 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f2908)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept(0xc0001f2908)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:91 +0x3f
+testing.tRunner(0xc0001f2908, 0x1f08870)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 39 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f2b48)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary(0xc0001f2b48)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:166 +0x47
+testing.tRunner(0xc0001f2b48, 0x1f08878)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 40 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f2d88)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewF03SplitAndReconciliationAreNotDietzCapital(0xc0001f2d88)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:219 +0x3f
+testing.tRunner(0xc0001f2d88, 0x1f08880)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 41 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f2fc8)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar(0xc0001f2fc8)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:247 +0x3f
+testing.tRunner(0xc0001f2fc8, 0x1f08888)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 42 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f3208)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding(0xc0001f3208)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:265 +0x3f
+testing.tRunner(0xc0001f3208, 0x1f08818)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 43 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f3448)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewD5WaterfallAllocatesMultiBucketRoundingRemainder(0xc0001f3448)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:292 +0x3f
+testing.tRunner(0xc0001f3448, 0x1f08838)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 44 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f3688)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewD5WaterfallKeepsGenuineExactMismatchVisible(0xc0001f3688)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:336 +0x3f
+testing.tRunner(0xc0001f3688, 0x1f08840)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 24 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0000b6008)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewD5AssetDriverDetailAggregatesExactAttributionBeforeRounding(0xc0000b6008)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:357 +0x3f
+testing.tRunner(0xc0000b6008, 0x1f08820)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 25 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0000b6248)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewD5CategoryRowsAggregateExactBeforeRounding(0xc0000b6248)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:382 +0x3f
+testing.tRunner(0xc0000b6248, 0x1f08830)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 26 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0000b6488)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewD5AssetTrendAggregatesExactPeriodAmountBeforeRounding(0xc0000b6488)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:407 +0x3f
+testing.tRunner(0xc0000b6488, 0x1f08828)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 27 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0000b66c8)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewF11ContributionHistoryHintUsesWholeGroup(0xc0000b66c8)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:437 +0x3f
+testing.tRunner(0xc0000b66c8, 0x1f08890)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 3 [chan receive, 20 minutes]:
+testing.(*T).Parallel(0xc0001f2008)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions(0xc0001f2008)
+	/workspace/NestworthGo/internal/application/analysis_review_test.go:536 +0x3f
+testing.tRunner(0xc0001f2008, 0x1f08898)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 50 [chan receive, 19 minutes]:
+testing.(*T).Parallel(0xc0000b6908)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestFXProviderSelectionRoutesRequiredFXOnly(0xc0000b6908)
+	/workspace/NestworthGo/internal/application/refresh_test.go:218 +0x3f
+testing.tRunner(0xc0000b6908, 0x1f07b48)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 51 [chan receive, 19 minutes]:
+testing.(*T).Parallel(0xc0000b6b48)
+	/tmp/go/src/testing/testing.go:1803 +0x50c
+github.com/waltwang/nestworth-go/internal/application.TestSetFXProviderRejectsMissingOrFXIncapableProvider(0xc0000b6b48)
+	/workspace/NestworthGo/internal/application/refresh_test.go:295 +0x3c
+testing.tRunner(0xc0000b6b48, 0x1f08bf0)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 618704 [select]:
+database/sql.(*DB).connectionOpener(0xc000431ad0, {0x1f17598, 0xc000330230})
+	/tmp/go/src/database/sql/sql.go:1261 +0xed
+created by database/sql.OpenDB in goroutine 618703
+	/tmp/go/src/database/sql/sql.go:841 +0x287
+
+goroutine 618705 [chan receive]:
+database/sql.(*Tx).awaitDone(0xc00016cd80)
+	/tmp/go/src/database/sql/sql.go:2212 +0x49
+created by database/sql.(*DB).beginDC in goroutine 618703
+	/tmp/go/src/database/sql/sql.go:1925 +0x41f
+
+goroutine 614112 [chan receive]:
+testing.(*T).Run(0xc0001f38c8, {0x1e660d1, 0x7}, 0xc0003d6660)
+	/tmp/go/src/testing/testing.go:2109 +0xb3e
+github.com/waltwang/nestworth-go/internal/application.TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers(0xc0001f38c8)
+	/workspace/NestworthGo/internal/application/review_temporal_test.go:290 +0xdd
+testing.tRunner(0xc0001f38c8, 0x1f08b08)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+
+goroutine 618703 [runnable]:
+modernc.org/sqlite/lib._sqlite3ApiExit(...)
+	/tmp/nestworth-c3-mod/modernc.org/sqlite@v1.49.1/lib/sqlite_linux_amd64.go:14668
+modernc.org/sqlite/lib.Xsqlite3_reset(0xc000148c60, 0x7f6371c0b428)
+	/tmp/nestworth-c3-mod/modernc.org/sqlite@v1.49.1/lib/sqlite_linux_amd64.go:60983 +0x4b4
+modernc.org/sqlite.(*conn).reset(0xc0004e4ea0, 0x7f6371c0b428)
+	/tmp/nestworth-c3-mod/modernc.org/sqlite@v1.49.1/rows.go:302 +0x4e
+modernc.org/sqlite.(*stmt).exec(0xc000608690, {0x1f171a0, 0x2a5fec0}, {0x2a5fec0, 0x0, 0x0})
+	/tmp/nestworth-c3-mod/modernc.org/sqlite@v1.49.1/stmt.go:180 +0x2f2
+modernc.org/sqlite.(*conn).exec(0xc0004e4ea0, {0x1f171a0, 0x2a5fec0}, {0xc000231600, 0x53f}, {0x2a5fec0, 0x0, 0x0})
+	/tmp/nestworth-c3-mod/modernc.org/sqlite@v1.49.1/conn.go:855 +0x17a
+modernc.org/sqlite.(*conn).ExecContext(0xc0004e4ea0, {0x1f171a0, 0x2a5fec0}, {0xc000231600, 0x53f}, {0x2a5fec0, 0x0, 0x0})
+	/tmp/nestworth-c3-mod/modernc.org/sqlite@v1.49.1/conn.go:1112 +0x95
+database/sql.ctxDriverExec({0x1f171a0, 0x2a5fec0}, {0x7f63786824f0, 0xc0004e4ea0}, {0x0, 0x0}, {0xc000231600, 0x53f}, {0x2a5fec0, 0x0, ...})
+	/tmp/go/src/database/sql/ctxutil.go:31 +0xeb
+database/sql.(*DB).execDC.func2()
+	/tmp/go/src/database/sql/sql.go:1713 +0x266
+database/sql.withLock({0x1f16748, 0xc00016cd00}, 0xc0005125c0)
+	/tmp/go/src/database/sql/sql.go:3572 +0xa3
+database/sql.(*DB).execDC(0xc000159b90?, {0x1f171a0, 0x2a5fec0}, 0xc00016cd00, 0xc0003354b0, {0xc000231600, 0x53f}, {0x0, 0x0, 0x0})
+	/tmp/go/src/database/sql/sql.go:1708 +0x405
+database/sql.(*Tx).ExecContext(0xc00016cd80, {0x1f171a0, 0x2a5fec0}, {0xc000231600, 0x53f}, {0x0, 0x0, 0x0})
+	/tmp/go/src/database/sql/sql.go:2516 +0x129
+github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.installFinancialSourceTracking({0x1f171a0, 0x2a5fec0}, 0xc00016cd80)
+	/workspace/NestworthGo/internal/infrastructure/sqlite/financial_source_tracking.go:207 +0x414
+github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.Open({0xc000092680, 0x72})
+	/workspace/NestworthGo/internal/infrastructure/sqlite/database.go:233 +0x2332
+github.com/waltwang/nestworth-go/internal/application.overviewFixture(0xc0001f2248)
+	/workspace/NestworthGo/internal/application/historical_overview_test.go:15 +0x70
+github.com/waltwang/nestworth-go/internal/application.newSeriesZeroFixture(_, _, {_, _}, {_, _}, {_, _})
+	/workspace/NestworthGo/internal/application/historical_series_zero_test.go:26 +0xb2
+github.com/waltwang/nestworth-go/internal/application.TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers.func1(0xc0001f2248)
+	/workspace/NestworthGo/internal/application/review_temporal_test.go:291 +0xb9
+testing.tRunner(0xc0001f2248, 0xc0003d6660)
+	/tmp/go/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 614112
+	/tmp/go/src/testing/testing.go:2101 +0xb13
+FAIL	github.com/waltwang/nestworth-go/internal/application	1200.047s
+=== RUN   TestReviewDailyEntirePredicateUsesSameDate
+--- PASS: TestReviewDailyEntirePredicateUsesSameDate (0.00s)
+=== RUN   TestReviewFXEconomicDateBranches
+--- PASS: TestReviewFXEconomicDateBranches (0.00s)
+=== RUN   TestReviewFXReferenceAgesAndReciprocal
+--- PASS: TestReviewFXReferenceAgesAndReciprocal (0.00s)
+=== RUN   TestReviewDailyPerformanceNeedsTrueEndpointAndBoundedBaseline
+--- PASS: TestReviewDailyPerformanceNeedsTrueEndpointAndBoundedBaseline (0.00s)
+=== RUN   TestReviewDailyCloseDoesNotCarryPrices
+--- PASS: TestReviewDailyCloseDoesNotCarryPrices (0.00s)
+=== RUN   TestReviewDailyQuoteSeriesMatchesSameDateSelectionAndExactEndpoint
+--- PASS: TestReviewDailyQuoteSeriesMatchesSameDateSelectionAndExactEndpoint (0.00s)
+=== RUN   TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes
+=== RUN   TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes/CNY
+=== RUN   TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes/USD
+--- PASS: TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes (0.00s)
+    --- PASS: TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes/CNY (0.00s)
+    --- PASS: TestReviewDailyEvidenceDoesNotBorrowOtherInstrumentQuotes/USD (0.00s)
+=== RUN   TestReviewCivilDateBoundaries
+--- PASS: TestReviewCivilDateBoundaries (0.00s)
+=== RUN   TestReviewDailyGoldenWindows
+=== RUN   TestReviewDailyGoldenWindows/D01_single
+=== RUN   TestReviewDailyGoldenWindows/single_unknown
+=== RUN   TestReviewDailyGoldenWindows/D02_three_dates
+=== RUN   TestReviewDailyGoldenWindows/D04_gap
+=== RUN   TestReviewDailyGoldenWindows/D04_after_gap
+=== RUN   TestReviewDailyGoldenWindows/D05_false_gap
+=== RUN   TestReviewDailyGoldenWindows/D06_sufficient_known
+=== RUN   TestReviewDailyGoldenWindows/D07_impossible
+=== RUN   TestReviewDailyGoldenWindows/D07_uncertain
+=== RUN   TestReviewDailyGoldenWindows/D28_false_does_not_cancel_hits
+--- PASS: TestReviewDailyGoldenWindows (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D01_single (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/single_unknown (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D02_three_dates (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D04_gap (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D04_after_gap (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D05_false_gap (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D06_sufficient_known (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D07_impossible (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D07_uncertain (0.00s)
+    --- PASS: TestReviewDailyGoldenWindows/D28_false_does_not_cancel_hits (0.00s)
+=== RUN   TestReviewPolicyTimelineMatchesDateKeyedEvaluation
+--- PASS: TestReviewPolicyTimelineMatchesDateKeyedEvaluation (0.00s)
+=== RUN   TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass
+--- PASS: TestReviewPolicyTimelineHandlesLongDailySuffixInOnePass (0.01s)
+=== RUN   TestReviewDateSlotsAreIdempotentAndAdvanceWithoutQuotes
+--- PASS: TestReviewDateSlotsAreIdempotentAndAdvanceWithoutQuotes (0.00s)
+=== RUN   TestReviewConsecutiveCountIsFullTrailingSuffix
+=== RUN   TestReviewConsecutiveCountIsFullTrailingSuffix/six_hits
+=== RUN   TestReviewConsecutiveCountIsFullTrailingSuffix/false_then_six
+=== RUN   TestReviewConsecutiveCountIsFullTrailingSuffix/unknown_then_six
+=== RUN   TestReviewConsecutiveCountIsFullTrailingSuffix/later_unknown_breaks
+--- PASS: TestReviewConsecutiveCountIsFullTrailingSuffix (0.00s)
+    --- PASS: TestReviewConsecutiveCountIsFullTrailingSuffix/six_hits (0.00s)
+    --- PASS: TestReviewConsecutiveCountIsFullTrailingSuffix/false_then_six (0.00s)
+    --- PASS: TestReviewConsecutiveCountIsFullTrailingSuffix/unknown_then_six (0.00s)
+    --- PASS: TestReviewConsecutiveCountIsFullTrailingSuffix/later_unknown_breaks (0.00s)
+=== RUN   TestReviewDailyBooleanGate
+--- PASS: TestReviewDailyBooleanGate (0.00s)
+=== RUN   TestReviewPolicyValidationAndNormalization
+--- PASS: TestReviewPolicyValidationAndNormalization (0.00s)
+=== RUN   TestReviewThreeValuedPoliciesAgreeWithAllCompletions
+--- PASS: TestReviewThreeValuedPoliciesAgreeWithAllCompletions (0.00s)
+=== RUN   TestReviewEpisodeKeepsIdentityAcrossRotationAndUnknown
+--- PASS: TestReviewEpisodeKeepsIdentityAcrossRotationAndUnknown (0.00s)
+=== RUN   TestReviewEpisodeProvenFalseSplitsHiddenRecovery
+--- PASS: TestReviewEpisodeProvenFalseSplitsHiddenRecovery (0.00s)
+=== RUN   TestReviewEpisodePositionCloseAndUncertainCurrentQuantity
+--- PASS: TestReviewEpisodePositionCloseAndUncertainCurrentQuantity (0.00s)
+=== RUN   TestReviewLegacyConfigurationRejectsPartialStateWithoutInferringPreferences
+--- PASS: TestReviewLegacyConfigurationRejectsPartialStateWithoutInferringPreferences (0.00s)
+=== RUN   TestReviewLegacyConfigurationRetainsFalseEnrollmentAndUnknownAcknowledgementKey
+--- PASS: TestReviewLegacyConfigurationRetainsFalseEnrollmentAndUnknownAcknowledgementKey (0.00s)
+=== RUN   TestReviewSpecStrictDecodeAndCanonicalHash
+--- PASS: TestReviewSpecStrictDecodeAndCanonicalHash (0.00s)
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/native_threshold_with_excessive_minor_units
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/scientific_percentage
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/unscoped_annualized
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/stock_cannot_scope_annualized
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/unknown_type
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/old_duration
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/wrong_timezone
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/unknown_data_policy
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/machine-local_timezone
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/impossible_amount_interval
+=== RUN   TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/too_many_nested_groups
+--- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/native_threshold_with_excessive_minor_units (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/scientific_percentage (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/unscoped_annualized (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/stock_cannot_scope_annualized (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/unknown_type (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/old_duration (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/wrong_timezone (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/unknown_data_policy (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/machine-local_timezone (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/impossible_amount_interval (0.00s)
+    --- PASS: TestReviewSpecRejectsAmbiguousOrUnsupportedSemantics/too_many_nested_groups (0.00s)
+=== RUN   TestReviewSpecOneDayPoliciesNormalizeTogether
+--- PASS: TestReviewSpecOneDayPoliciesNormalizeTogether (0.00s)
+=== RUN   TestReviewPredicateTwentyLeafLimitIncludesNestedGroups
+--- PASS: TestReviewPredicateTwentyLeafLimitIncludesNestedGroups (0.00s)
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/same
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/scalar-without-revision
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/revision-and-scalar
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/conservative
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/new-epoch-same-number
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/policy
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/evaluator
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/metric
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/tracking
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/nanosecond-activation
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/clock-rollback
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/no-checkpoint
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/invalid-epoch
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/invalid-floor
+=== RUN   TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/missing-policy
+--- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/same (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/scalar-without-revision (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/revision-and-scalar (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/conservative (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/new-epoch-same-number (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/policy (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/evaluator (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/metric (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/tracking (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/nanosecond-activation (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/clock-rollback (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/no-checkpoint (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/invalid-epoch (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/invalid-floor (0.00s)
+    --- PASS: TestReviewSourceShadowRequiresFixedCutoffAndCompleteCheckpoint/missing-policy (0.00s)
+=== RUN   TestReviewHistoricalFingerprintChangesOnCostCorrectionAndDeletion
+--- PASS: TestReviewHistoricalFingerprintChangesOnCostCorrectionAndDeletion (0.00s)
+=== RUN   TestReviewHistoricalFingerprintChangesWhenExistingQuoteValuesAreCorrected
+--- PASS: TestReviewHistoricalFingerprintChangesWhenExistingQuoteValuesAreCorrected (0.00s)
+=== RUN   TestReviewHistoricalFingerprintChangesWhenExistingExactPositionAndAmountValuesAreCorrected
+--- PASS: TestReviewHistoricalFingerprintChangesWhenExistingExactPositionAndAmountValuesAreCorrected (0.00s)
+=== RUN   TestReviewSuppressionCivilExpiryAndIdempotentAbsoluteDate
+--- PASS: TestReviewSuppressionCivilExpiryAndIdempotentAbsoluteDate (0.00s)
+=== RUN   TestReviewSuppressionScopesAndAcknowledgementRemainIndependent
+--- PASS: TestReviewSuppressionScopesAndAcknowledgementRemainIndependent (0.00s)
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/UTC2026-10-19T23:59:59.999999999Z
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/Asia/Kathmandu2026-10-19T12:00:00Z
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-03-08T06:59:59.999999999Z
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-03-08T07:00:00Z
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-11-01T05:59:59.999999999Z
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-11-01T06:00:00Z
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/Pacific/Apia2011-12-30T09:59:59.999999999Z
+=== RUN   TestReviewTemporalCalendarNanosecondBoundaries/Pacific/Apia2011-12-30T10:00:00Z
+--- PASS: TestReviewTemporalCalendarNanosecondBoundaries (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/UTC2026-10-19T23:59:59.999999999Z (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/Asia/Kathmandu2026-10-19T12:00:00Z (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-03-08T06:59:59.999999999Z (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-03-08T07:00:00Z (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-11-01T05:59:59.999999999Z (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/America/New_York2026-11-01T06:00:00Z (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/Pacific/Apia2011-12-30T09:59:59.999999999Z (0.00s)
+    --- PASS: TestReviewTemporalCalendarNanosecondBoundaries/Pacific/Apia2011-12-30T10:00:00Z (0.00s)
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/restart-or-calendar
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/rollback-above-published
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/missing-source
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/unknown-current-policy
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/unknown-current-scope
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/new-revision
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/restore
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/rule
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/config
+=== RUN   TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/handling
+--- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/restart-or-calendar (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/rollback-above-published (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/missing-source (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/unknown-current-policy (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/unknown-current-scope (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/new-revision (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/restore (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/rule (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/config (0.00s)
+    --- PASS: TestReviewTemporalCertificateNeverCertifiesUnknownOrExpiredInputs/handling (0.00s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/domain	1.052s
+=== RUN   TestFinancialSourceInsertConflictSemantics
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/fresh-insert
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/identical-upsert
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/changed-upsert
+=== RUN   TestFinancialSourceInsertConflictSemantics/app_configuration/ignored-insert
+--- PASS: TestFinancialSourceInsertConflictSemantics (10.24s)
+    --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration (10.24s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/fresh-insert (2.62s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/identical-upsert (2.51s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/changed-upsert (2.59s)
+        --- PASS: TestFinancialSourceInsertConflictSemantics/app_configuration/ignored-insert (2.52s)
+=== RUN   TestFinancialSourceReplaceAndRollback
+=== RUN   TestFinancialSourceReplaceAndRollback/app_configuration
+=== RUN   TestFinancialSourceReplaceAndRollback/app_configuration/recursive-0
+=== RUN   TestFinancialSourceReplaceAndRollback/app_configuration/recursive-1
+--- PASS: TestFinancialSourceReplaceAndRollback (5.18s)
+    --- PASS: TestFinancialSourceReplaceAndRollback/app_configuration (5.18s)
+        --- PASS: TestFinancialSourceReplaceAndRollback/app_configuration/recursive-0 (2.59s)
+        --- PASS: TestFinancialSourceReplaceAndRollback/app_configuration/recursive-1 (2.59s)
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-insert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-ignored-insert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/changed-upsert
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/replace
+=== RUN   TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/delete
+--- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource (2.55s)
+    --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration (2.55s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-insert (0.00s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/fresh-ignored-insert (0.00s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/changed-upsert (0.01s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/replace (0.01s)
+        --- PASS: TestFinancialSourceFailedJournalPublicationRollsBackSource/app_configuration/delete (0.00s)
+=== RUN   TestFinancialSourceVerifierRejectsBeforeInsertDefinition
+--- PASS: TestFinancialSourceVerifierRejectsBeforeInsertDefinition (2.04s)
+=== RUN   TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer
+=== RUN   TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-0
+=== RUN   TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-1
+--- PASS: TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer (86.23s)
+    --- PASS: TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-0 (42.28s)
+    --- PASS: TestFinancialSourceBoundedRetentionContinuityReopenAndStaleConsumer/recursive-1 (43.94s)
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic/delete-abort
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic/delete-ignore
+=== RUN   TestFinancialSourceRetentionFailureIsAtomic/floor-ignore
+--- PASS: TestFinancialSourceRetentionFailureIsAtomic (72.69s)
+    --- PASS: TestFinancialSourceRetentionFailureIsAtomic/delete-abort (23.81s)
+    --- PASS: TestFinancialSourceRetentionFailureIsAtomic/delete-ignore (24.42s)
+    --- PASS: TestFinancialSourceRetentionFailureIsAtomic/floor-ignore (24.45s)
+=== RUN   TestFinancialSourceIgnoredJournalPublicationAbortsSource
+--- PASS: TestFinancialSourceIgnoredJournalPublicationAbortsSource (2.78s)
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/households
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/app_configuration
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/instrument_quotes
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/holding_quantity_values
+=== RUN   TestFinancialSourceEveryTableColumnAndOperation/history_snapshot_state
+--- PASS: TestFinancialSourceEveryTableColumnAndOperation (1.39s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/households (0.04s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/app_configuration (0.02s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/instrument_quotes (0.35s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/holding_quantity_values (0.08s)
+    --- PASS: TestFinancialSourceEveryTableColumnAndOperation/history_snapshot_state (0.08s)
+=== RUN   TestFinancialSourceOldNewRollbackReplaceAndReplay
+--- PASS: TestFinancialSourceOldNewRollbackReplaceAndReplay (0.94s)
+=== RUN   TestFinancialSourceActualDatabaseConcurrentRollbackAndVerifier
+--- PASS: TestFinancialSourceActualDatabaseConcurrentRollbackAndVerifier (3.97s)
+=== RUN   TestFinancialSourceActualCascadeAndOldNewIdentity
+--- PASS: TestFinancialSourceActualCascadeAndOldNewIdentity (3.64s)
+=== RUN   TestFinancialSourceParentTimesAndTamperedVerifier
+--- PASS: TestFinancialSourceParentTimesAndTamperedVerifier (3.01s)
+=== RUN   TestFinancialSourceManifestMatchesActualSchema
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	households	id,singleton_key,name,base_currency,created_at,updated_at	json_object('id',OLD.id,'base_currency',OLD.base_currency,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	members	id,household_id,name,icon_key,note,sort_order,created_at,updated_at,archived_at	json_object('id',OLD.id,'household_id',OLD.household_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	institutions	id,household_id,name,institution_type,country_code,website,note,sort_order,created_at,updated_at,archived_at,icon_key	json_object('id',OLD.id,'household_id',OLD.household_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	account_groups	id,household_id,name,icon_key,color,description,sort_order,created_at,updated_at,archived_at	json_object('id',OLD.id,'household_id',OLD.household_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	accounts	id,household_id,institution_id,group_id,name,account_type,balance_sheet_role,tracking_mode,default_currency,note,include_in_net_worth,include_in_portfolio,include_in_liquid_assets,opened_on,closed_on,sort_order,created_at,updated_at,archived_at,icon_key	json_object('id',OLD.id,'household_id',OLD.household_id,'institution_id',OLD.institution_id,'group_id',OLD.group_id,'opened_on',OLD.opened_on,'closed_on',OLD.closed_on,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	account_ownership	account_id,member_id,share_bps	json_object('account_id',OLD.account_id,'member_id',OLD.member_id)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	account_values	id,account_id,value_kind,amount,currency,effective_at,created_at,activity_effect_id,projection_kind	json_object('id',OLD.id,'account_id',OLD.account_id,'currency',OLD.currency,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'activity_effect_id',OLD.activity_effect_id,'projection_kind',OLD.projection_kind)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	instruments	id,household_id,name,instrument_type,quote_currency,symbol,market_code,country_code,isin,note,icon_key,sort_order,quote_source,provider_key,provider_symbol,created_at,updated_at,archived_at,metal_template,quantity_unit,short_name	json_object('id',OLD.id,'household_id',OLD.household_id,'quote_currency',OLD.quote_currency,'provider_key',OLD.provider_key,'provider_symbol',OLD.provider_symbol,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	holdings	id,account_id,instrument_id,quantity,note,sort_order,created_at,updated_at,archived_at	json_object('id',OLD.id,'account_id',OLD.account_id,'instrument_id',OLD.instrument_id,'created_at',OLD.created_at,'archived_at',OLD.archived_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	account_cash_values	id,account_id,amount,currency,effective_at,created_at,activity_effect_id,projection_kind	json_object('id',OLD.id,'account_id',OLD.account_id,'currency',OLD.currency,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'activity_effect_id',OLD.activity_effect_id,'projection_kind',OLD.projection_kind)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	instrument_quotes	id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at,delayed,observation_kind,effective_date,provider_timestamp,fetched_at,value_effective_at,binding_revision,source_policy_version,price_basis,timestamp_basis,revision,supersedes_quote_id,split_factor,dividend_cash,conversion_json	json_object('id',OLD.id,'instrument_id',OLD.instrument_id,'currency',OLD.currency,'source_kind',OLD.source_kind,'quoted_at',OLD.quoted_at,'created_at',OLD.created_at,'observation_kind',OLD.observation_kind,'effective_date',OLD.effective_date,'provider_timestamp',OLD.provider_timestamp,'value_effective_at',OLD.value_effective_at,'binding_revision',OLD.binding_revision,'source_policy_version',OLD.source_policy_version,'price_basis',OLD.price_basis,'timestamp_basis',OLD.timestamp_basis,'supersedes_quote_id',OLD.supersedes_quote_id)	COALESCE(OLD.value_effective_at,OLD.effective_date,OLD.quoted_at)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	fx_quotes	id,household_id,base_currency,quote_currency,rate,source_kind,source_key,quoted_at,created_at,delayed,observation_kind,effective_date,fetched_at,value_effective_at,source_policy_version,timestamp_basis,revision,supersedes_quote_id	json_object('id',OLD.id,'household_id',OLD.household_id,'base_currency',OLD.base_currency,'quote_currency',OLD.quote_currency,'source_kind',OLD.source_kind,'quoted_at',OLD.quoted_at,'created_at',OLD.created_at,'observation_kind',OLD.observation_kind,'effective_date',OLD.effective_date,'value_effective_at',OLD.value_effective_at,'source_policy_version',OLD.source_policy_version,'timestamp_basis',OLD.timestamp_basis,'supersedes_quote_id',OLD.supersedes_quote_id)	COALESCE(OLD.value_effective_at,OLD.effective_date,OLD.quoted_at)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	fx_preferences	household_id,currency_a,currency_b,source_kind,created_at,updated_at	json_object('household_id',OLD.household_id,'currency_a',OLD.currency_a,'currency_b',OLD.currency_b,'source_kind',OLD.source_kind,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	history_origins	id,household_id,timezone,started_at,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'timezone',OLD.timezone,'started_at',OLD.started_at,'created_at',OLD.created_at)	OLD.started_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	history_origin_components	id,origin_id,component_kind,account_id,holding_id,instrument_id,amount,currency,quantity,created_at,unit_cost	json_object('id',OLD.id,'origin_id',OLD.origin_id,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'currency',OLD.currency,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	history_origin_account_states	origin_id,account_id,archived_at,include_in_net_worth,include_in_portfolio,include_in_liquid_assets,created_at	json_object('origin_id',OLD.origin_id,'account_id',OLD.account_id,'archived_at',OLD.archived_at,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	history_origin_ownership	origin_id,account_id,member_id,share_bps	json_object('origin_id',OLD.origin_id,'account_id',OLD.account_id,'member_id',OLD.member_id)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	history_origin_instrument_preferences	origin_id,instrument_id,source_kind,created_at	json_object('origin_id',OLD.origin_id,'instrument_id',OLD.instrument_id,'source_kind',OLD.source_kind,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	history_origin_fx_preferences	origin_id,currency_a,currency_b,source_kind,created_at	json_object('origin_id',OLD.origin_id,'currency_a',OLD.currency_a,'currency_b',OLD.currency_b,'source_kind',OLD.source_kind,'created_at',OLD.created_at)	(SELECT started_at FROM history_origins WHERE id=OLD.origin_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	activities	id,household_id,kind,reason,effective_at,effective_local_date,created_at,note,reverses_activity_id,correction_group_id,transaction_fx_rate	json_object('id',OLD.id,'household_id',OLD.household_id,'kind',OLD.kind,'effective_at',OLD.effective_at,'effective_local_date',OLD.effective_local_date,'created_at',OLD.created_at,'reverses_activity_id',OLD.reverses_activity_id,'correction_group_id',OLD.correction_group_id)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	activity_effects	id,activity_id,sequence,role,direction,target,classification,account_id,holding_id,instrument_id,amount,currency,quantity,cost_unit_price	json_object('id',OLD.id,'activity_id',OLD.activity_id,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'currency',OLD.currency)	(SELECT effective_at FROM activities WHERE id=OLD.activity_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	activity_trade_details	activity_id,side,instrument_id,holding_id,quantity,gross_amount,gross_currency,unit_price,fee_amount,fee_currency	json_object('activity_id',OLD.activity_id,'instrument_id',OLD.instrument_id,'holding_id',OLD.holding_id)	(SELECT effective_at FROM activities WHERE id=OLD.activity_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	activity_dividend_details	activity_id,holding_id,instrument_id,amount,currency	json_object('activity_id',OLD.activity_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'currency',OLD.currency)	(SELECT effective_at FROM activities WHERE id=OLD.activity_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	activity_correction_groups	id,household_id,original_activity_id,replacement_activity_id,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'original_activity_id',OLD.original_activity_id,'replacement_activity_id',OLD.replacement_activity_id,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	holding_quantity_values	id,holding_id,quantity,effective_at,created_at,activity_effect_id,projection_kind	json_object('id',OLD.id,'holding_id',OLD.holding_id,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'activity_effect_id',OLD.activity_effect_id,'projection_kind',OLD.projection_kind)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	account_state_observations	id,account_id,effective_at,archived_at,include_in_net_worth,include_in_portfolio,include_in_liquid_assets,activity_id,created_at	json_object('id',OLD.id,'account_id',OLD.account_id,'effective_at',OLD.effective_at,'archived_at',OLD.archived_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	account_state_ownership	observation_id,member_id,share_bps	json_object('observation_id',OLD.observation_id,'member_id',OLD.member_id)	(SELECT effective_at FROM account_state_observations WHERE id=OLD.observation_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	instrument_preference_observations	id,instrument_id,source_kind,effective_at,activity_id,created_at	json_object('id',OLD.id,'instrument_id',OLD.instrument_id,'source_kind',OLD.source_kind,'effective_at',OLD.effective_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	fx_preference_observations	id,household_id,currency_a,currency_b,source_kind,effective_at,activity_id,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'currency_a',OLD.currency_a,'currency_b',OLD.currency_b,'source_kind',OLD.source_kind,'effective_at',OLD.effective_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	history_snapshot_state	household_id,dirty_from,last_completed_closed_on,updated_at,dirty_to,input_generation,resolver_policy_version	json_object('household_id',OLD.household_id)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	instrument_state_observations	id,instrument_id,effective_at,archived_at,activity_id,created_at	json_object('id',OLD.id,'instrument_id',OLD.instrument_id,'effective_at',OLD.effective_at,'archived_at',OLD.archived_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	holding_state_observations	id,holding_id,effective_at,archived_at,activity_id,created_at	json_object('id',OLD.id,'holding_id',OLD.holding_id,'effective_at',OLD.effective_at,'archived_at',OLD.archived_at,'activity_id',OLD.activity_id,'created_at',OLD.created_at)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	instrument_provider_bindings	instrument_id,provider_key,provider_symbol,market,currency,enabled,created_at,updated_at,binding_revision,effective_from	json_object('instrument_id',OLD.instrument_id,'provider_key',OLD.provider_key,'provider_symbol',OLD.provider_symbol,'currency',OLD.currency,'created_at',OLD.created_at,'binding_revision',OLD.binding_revision,'effective_from',OLD.effective_from)	OLD.effective_from
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	instrument_provider_binding_revisions	instrument_id,provider_key,binding_revision,provider_symbol,market,currency,enabled,effective_from,created_at	json_object('instrument_id',OLD.instrument_id,'provider_key',OLD.provider_key,'binding_revision',OLD.binding_revision,'provider_symbol',OLD.provider_symbol,'currency',OLD.currency,'effective_from',OLD.effective_from,'created_at',OLD.created_at)	OLD.effective_from
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	instrument_observation_slots	instrument_id,provider_key,binding_revision,source_policy_version,market_date,observation_kind,quote_id,updated_at	json_object('instrument_id',OLD.instrument_id,'provider_key',OLD.provider_key,'binding_revision',OLD.binding_revision,'source_policy_version',OLD.source_policy_version,'market_date',OLD.market_date,'observation_kind',OLD.observation_kind,'quote_id',OLD.quote_id)	OLD.market_date
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	fx_observation_slots	household_id,base_currency,quote_currency,provider_key,source_policy_version,market_date,observation_kind,quote_id,updated_at	json_object('household_id',OLD.household_id,'base_currency',OLD.base_currency,'quote_currency',OLD.quote_currency,'provider_key',OLD.provider_key,'source_policy_version',OLD.source_policy_version,'market_date',OLD.market_date,'observation_kind',OLD.observation_kind,'quote_id',OLD.quote_id)	OLD.market_date
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	market_data_day_status	target_type,target_id,provider_key,household_id,binding_revision,source_policy_version,effective_date,status,reason,checked_at,next_check_at,expires_at	json_object('target_type',OLD.target_type,'target_id',OLD.target_id,'provider_key',OLD.provider_key,'household_id',OLD.household_id,'binding_revision',OLD.binding_revision,'source_policy_version',OLD.source_policy_version,'effective_date',OLD.effective_date,'next_check_at',OLD.next_check_at,'expires_at',OLD.expires_at)	OLD.effective_date
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	product_operations	id,household_id,kind,payload_sha256,request_version,request_json,result_json,effective_at,created_at,reverses_operation_id	json_object('id',OLD.id,'household_id',OLD.household_id,'kind',OLD.kind,'effective_at',OLD.effective_at,'created_at',OLD.created_at,'reverses_operation_id',OLD.reverses_operation_id)	OLD.effective_at
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	product_contracts	id,household_id,account_id,holding_id,instrument_id,kind,name,note,currency,principal,start_on,maturity_on,interest_mode,annual_rate,maturity_interest,interest_paid_through_on,renewed_from_id,state,opened_operation_id,closed_operation_id,revision,created_at,updated_at	json_object('id',OLD.id,'household_id',OLD.household_id,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'instrument_id',OLD.instrument_id,'kind',OLD.kind,'currency',OLD.currency,'renewed_from_id',OLD.renewed_from_id,'opened_operation_id',OLD.opened_operation_id,'closed_operation_id',OLD.closed_operation_id,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	liquidity_policies	id,household_id,source_kind,account_id,holding_id,currency,access_kind,unlock_on,settlement_days,day_basis,receipt_on_override,accessible_amount_cap,normal_exit_fee,early_kind,early_settlement_days,early_day_basis,early_fee,early_amount_mode,early_gross_amount,confirmed_at,note,revision,created_at,updated_at	json_object('id',OLD.id,'household_id',OLD.household_id,'source_kind',OLD.source_kind,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'currency',OLD.currency,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	liquidity_reservations	id,household_id,source_kind,account_id,holding_id,currency,label,amount,revision,created_at,updated_at,released_at	json_object('id',OLD.id,'household_id',OLD.household_id,'source_kind',OLD.source_kind,'account_id',OLD.account_id,'holding_id',OLD.holding_id,'currency',OLD.currency,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	product_operation_products	operation_id,product_id,role	json_object('operation_id',OLD.operation_id,'product_id',OLD.product_id,'role',OLD.role)	(SELECT effective_at FROM product_operations WHERE id=OLD.operation_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	product_operation_activities	operation_id,activity_id,sequence,purpose,product_id	json_object('operation_id',OLD.operation_id,'activity_id',OLD.activity_id,'product_id',OLD.product_id)	(SELECT effective_at FROM product_operations WHERE id=OLD.operation_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	product_operation_reservations	operation_id,reservation_id,previous_released_at,resulting_released_at,resulting_revision	json_object('operation_id',OLD.operation_id,'reservation_id',OLD.reservation_id)	(SELECT effective_at FROM product_operations WHERE id=OLD.operation_id)
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	agent_quote_records	id,request_key,household_id,target_type,operation,quote_id,target_quote_id,source_title,source_url,created_at	json_object('id',OLD.id,'household_id',OLD.household_id,'target_type',OLD.target_type,'quote_id',OLD.quote_id,'target_quote_id',OLD.target_quote_id,'created_at',OLD.created_at)	NULL
+    financial_source_tracking_test.go:381: SOURCE_MANIFEST	app_configuration	key,value	json_object('configuration',1)	NULL
+--- PASS: TestFinancialSourceManifestMatchesActualSchema (1.87s)
+=== RUN   TestReviewCertifiedUnknownConnectionKeepsFullPublication
+--- PASS: TestReviewCertifiedUnknownConnectionKeepsFullPublication (2.76s)
+=== RUN   TestReviewReusableWindowEquivalent
+    review_reusable_window_test.go:45: epoch fixture: 128 stored states per instrument (production primary key, no extra index)
+=== RUN   TestReviewReusableWindowEquivalent/days-30
+    review_reusable_window_test.go:174: bounded dates EXPLAIN: [SEARCH investment_review_daily_inputs USING COVERING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=?)]
+    review_reusable_window_test.go:181: instrumented date-key predicate evaluations: baseline=216 bounded=50 returnedRows=14
+    review_reusable_window_test.go:183: EXPLAIN bounded-chunk: MATERIALIZE window_keys | MATERIALIZE requested | SCAN 2 CONSTANT ROWS | SCAN i | SEARCH d USING COVERING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=? AND on_date=? AND input_policy=?) | CORRELATED LIST SUBQUERY 3 | SEARCH k USING COVERING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=?) | MATERIALIZE latest_streak | CO-ROUTINE latest_date | SCAN window_keys | USE TEMP B-TREE FOR GROUP BY | SCAN ld | SEARCH s USING INDEX sqlite_autoindex_investment_review_evaluation_state_1 (rule_id=? AND instrument_id=?) LEFT-JOIN | USE TEMP B-TREE FOR GROUP BY | SCAN k | SEARCH d USING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=? AND on_date=? AND input_policy=?) | SEARCH r USING INDEX sqlite_autoindex_investment_review_daily_results_1 (rule_id=? AND condition_version=? AND instrument_id=? AND timezone_version=? AND on_date=?) LEFT-JOIN | BLOOM FILTER ON s (instrument_id=?) | SEARCH s USING AUTOMATIC COVERING INDEX (instrument_id=?) | USE TEMP B-TREE FOR ORDER BY
+    review_reusable_window_test.go:193: bounded epoch predicate visits=256 storedStates=256 returnedDays=14
+    review_reusable_window_test.go:199: EXPLAIN baseline-ranking: MATERIALIZE ranked_keys | CO-ROUTINE (subquery-5) | SEARCH d USING COVERING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=?) | USE TEMP B-TREE FOR LAST TERM OF ORDER BY | SCAN (subquery-5) | MATERIALIZE latest_date | SCAN k | USE TEMP B-TREE FOR GROUP BY | MATERIALIZE latest_streak | SEARCH s USING INDEX sqlite_autoindex_investment_review_evaluation_state_1 (rule_id=?) | USE TEMP B-TREE FOR GROUP BY | SCAN k | SEARCH d USING INDEX sqlite_autoindex_investment_review_daily_inputs_1 (household_id=? AND instrument_id=? AND timezone_version=? AND on_date=? AND input_policy=?) | SEARCH r USING INDEX sqlite_autoindex_investment_review_daily_results_1 (rule_id=? AND condition_version=? AND instrument_id=? AND timezone_version=? AND on_date=?) LEFT-JOIN | SEARCH ld USING AUTOMATIC COVERING INDEX (instrument_id=?) LEFT-JOIN | SEARCH s USING AUTOMATIC COVERING INDEX (instrument_id=? AND latest_closed_on=?) LEFT-JOIN | USE TEMP B-TREE FOR ORDER BY
+--- PASS: TestReviewReusableWindowEquivalent (0.96s)
+    --- PASS: TestReviewReusableWindowEquivalent/days-30 (0.96s)
+=== RUN   TestReviewWindowCandidateUniverse
+--- PASS: TestReviewWindowCandidateUniverse (0.00s)
+=== RUN   TestReviewSourceShadowLegacyReadonlyKeepsFullCaptureWithoutCheckpoint
+--- PASS: TestReviewSourceShadowLegacyReadonlyKeepsFullCaptureWithoutCheckpoint (0.96s)
+=== RUN   TestReviewSourceShadowMissingPolicyKeepsFullOracleAvailable
+--- PASS: TestReviewSourceShadowMissingPolicyKeepsFullOracleAvailable (2.00s)
+=== RUN   TestReviewTemporalClockStoresWallInstantsAndRotatesOnRollback
+--- PASS: TestReviewTemporalClockStoresWallInstantsAndRotatesOnRollback (0.00s)
+=== RUN   TestFinancialSourceSnapshotReadonlyResetAndIntegrity
+--- PASS: TestFinancialSourceSnapshotReadonlyResetAndIntegrity (5.29s)
+=== RUN   TestFinancialSourcePruneAndFinanceOnlyImportEpoch
+--- PASS: TestFinancialSourcePruneAndFinanceOnlyImportEpoch (5.20s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	214.737s
+FAIL

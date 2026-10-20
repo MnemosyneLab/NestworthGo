@@ -29,7 +29,7 @@ func enableReviewSQLMetrics(t testingT, fixture reviewFullPipelineFixture) *revi
 	if err := fixture.db.SQL.Close(); err != nil {
 		t.Fatal(err)
 	}
-	database, err := sql.Open(reviewPerfDriverName, fixture.dbPath+"?_txlock=immediate&_pragma=busy_timeout%3d5000&_pragma=foreign_keys%3d1")
+	database, err := sql.Open(reviewPerfDriverName, fixture.dbPath+"?_txlock=immediate&_pragma=busy_timeout%3d5000&_pragma=foreign_keys%3d1&_pragma=recursive_triggers%3d1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,6 +66,14 @@ type reviewSQLConn struct {
 	stats *reviewSQLStats
 }
 
+// Preserve the real driver's optional commit capability; the wrapper must not
+// make a synthetic benchmark silently take an unknown-driver fallback.
+func (c *reviewSQLConn) RegisterCommitHook(fn modernsqlite.CommitHookFn) {
+	c.Conn.(interface {
+		RegisterCommitHook(modernsqlite.CommitHookFn)
+	}).RegisterCommitHook(fn)
+}
+
 func (c *reviewSQLConn) Prepare(query string) (driver.Stmt, error) {
 	started := time.Now()
 	statement, err := c.Conn.Prepare(query)
@@ -93,14 +101,40 @@ func (c *reviewSQLConn) PrepareContext(ctx context.Context, query string) (drive
 }
 
 func (c *reviewSQLConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	var tx driver.Tx
+	var err error
 	if beginner, ok := c.Conn.(driver.ConnBeginTx); ok {
-		return beginner.BeginTx(ctx, opts)
+		tx, err = beginner.BeginTx(ctx, opts)
+	} else {
+		if opts.ReadOnly || opts.Isolation != driver.IsolationLevel(0) {
+			return nil, driver.ErrSkip
+		}
+		tx, err = c.Conn.Begin()
 	}
-	if opts.ReadOnly || opts.Isolation != driver.IsolationLevel(0) {
-		return nil, driver.ErrSkip
+	if err != nil || opts.ReadOnly {
+		return tx, err
 	}
-	return c.Conn.Begin()
+	return &reviewSQLWriteTx{Tx: tx, stats: c.stats, opened: time.Now()}, nil
 }
+
+type reviewSQLWriteTx struct {
+	driver.Tx
+	stats  *reviewSQLStats
+	opened time.Time
+	once   sync.Once
+}
+
+func (tx *reviewSQLWriteTx) finish() {
+	tx.once.Do(func() {
+		tx.stats.mu.Lock()
+		defer tx.stats.mu.Unlock()
+		tx.stats.writeTransactions++
+		tx.stats.writeTransactionTime += time.Since(tx.opened)
+	})
+}
+
+func (tx *reviewSQLWriteTx) Commit() error   { defer tx.finish(); return tx.Tx.Commit() }
+func (tx *reviewSQLWriteTx) Rollback() error { defer tx.finish(); return tx.Tx.Rollback() }
 
 func (c *reviewSQLConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	started := time.Now()
@@ -247,6 +281,8 @@ type reviewSQLStatement struct {
 }
 
 type reviewSQLSnapshot struct {
+	writeTransactions       int64
+	writeTransactionTime    time.Duration
 	queries, rows           int64
 	queryTime               time.Duration
 	execs, writes, affected int64
@@ -257,23 +293,26 @@ type reviewSQLSnapshot struct {
 }
 
 type reviewSQLStats struct {
-	mu          sync.Mutex
-	byStatement map[string]*reviewSQLStatement
-	queries     int64
-	rows        int64
-	queryTime   time.Duration
-	execs       int64
-	writes      int64
-	affected    int64
-	execTime    time.Duration
-	prepares    int64
-	prepareTime time.Duration
+	writeTransactions    int64
+	writeTransactionTime time.Duration
+	mu                   sync.Mutex
+	byStatement          map[string]*reviewSQLStatement
+	queries              int64
+	rows                 int64
+	queryTime            time.Duration
+	execs                int64
+	writes               int64
+	affected             int64
+	execTime             time.Duration
+	prepares             int64
+	prepareTime          time.Duration
 }
 
 func (s *reviewSQLStats) reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.byStatement = make(map[string]*reviewSQLStatement)
+	s.writeTransactions, s.writeTransactionTime = 0, 0
 	s.queries, s.rows, s.queryTime = 0, 0, 0
 	s.execs, s.writes, s.affected, s.execTime = 0, 0, 0, 0
 	s.prepares, s.prepareTime = 0, 0
@@ -345,6 +384,7 @@ func (s *reviewSQLStats) snapshot(limit int) reviewSQLSnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	result := reviewSQLSnapshot{queries: s.queries, rows: s.rows, queryTime: s.queryTime, execs: s.execs, writes: s.writes, affected: s.affected, execTime: s.execTime, prepares: s.prepares, prepareTime: s.prepareTime}
+	result.writeTransactions, result.writeTransactionTime = s.writeTransactions, s.writeTransactionTime
 	for _, item := range s.byStatement {
 		result.statements = append(result.statements, *item)
 	}
@@ -356,7 +396,7 @@ func (s *reviewSQLStats) snapshot(limit int) reviewSQLSnapshot {
 }
 
 func (s reviewSQLSnapshot) summary() string {
-	return fmt.Sprintf("sql queries=%d returnedRows=%d Query-to-Rows.Close=%s execs=%d writeStatements=%d rowsAffected=%d driverExecTime=%s prepares=%d prepareTime=%s", s.queries, s.rows, s.queryTime, s.execs, s.writes, s.affected, s.execTime, s.prepares, s.prepareTime)
+	return fmt.Sprintf("sql queries=%d returnedRows=%d Query-to-Rows.Close=%s execs=%d writeStatements=%d rowsAffected=%d driverExecTime=%s prepares=%d prepareTime=%s writeTransactions=%d reserved-to-finish=%s", s.queries, s.rows, s.queryTime, s.execs, s.writes, s.affected, s.execTime, s.prepares, s.prepareTime, s.writeTransactions, s.writeTransactionTime)
 }
 
 func (s reviewSQLSnapshot) slowest() string {

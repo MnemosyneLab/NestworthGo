@@ -12,15 +12,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql source_changes_schema_v20.sql
+//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql source_changes_schema_v20.sql review_temporal_schema_v21.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 20
+const CurrentSchemaVersion = 21
 
 type BootstrapStatus string
 
@@ -83,13 +84,25 @@ func (e *BootstrapError) SafeError() *domain.Error {
 // DB is a single local SQLite connection pool. It is intentionally capped at
 // one writer connection to make transaction boundaries and snapshots explicit.
 type DB struct {
-	SQL    *sql.DB
-	Path   string
-	Status BootstrapStatus
+	SQL                  *sql.DB
+	Path                 string
+	Status               BootstrapStatus
+	reviewClock          reviewTemporalClock
+	reviewCertificateKey reviewCertificateKey
+	// Process-private genesis evidence. Existing/upgraded files never get it;
+	// publication/handling/import consumes it before exposing review history.
+	reviewInitialPublicationAllowed atomic.Bool
+	reviewGenesisConnection         any
+	reviewGenesisDataVersion        int64
+	// Any DDL after verified open conservatively disables no-change reuse for
+	// this handle, including drop/recreate of a tracking trigger around DML.
+	reviewVerifiedSchemaVersion int
 }
 
-func Open(path string) (*DB, error) {
-	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) {
+func Open(path string) (*DB, error) { return openDatabase(path, "sqlite") }
+
+func openDatabase(path, driverName string) (*DB, error) {
+	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) || isV20RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -119,7 +132,7 @@ func Open(path string) (*DB, error) {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
 		found, readErr := readVersion(probe)
-		if readErr == nil && (found == 15 || found == 16 || found == 17 || found == 18 || found == 19) {
+		if readErr == nil && (found == 15 || found == 16 || found == 17 || found == 18 || found == 19 || found == 20) {
 			readErr = verifySchemaVersion(context.Background(), probe, found)
 			if readErr != nil {
 				probe.Close()
@@ -130,7 +143,7 @@ func Open(path string) (*DB, error) {
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 {
+		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 && found != 20 {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -145,7 +158,7 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 	}
-	database, err := sql.Open("sqlite", dsn)
+	database, err := sql.Open(driverName, dsn)
 	if err != nil {
 		return nil, &BootstrapError{Status: StatusUnavailable, Err: err}
 	}
@@ -193,9 +206,16 @@ func Open(path string) (*DB, error) {
 		}
 		found = 20
 	}
+	if found == 20 && existed {
+		if err := upgradeV20(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 21
+	}
 	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)
 	}
+	initializedHere := false
 	if found == 0 {
 		tx, err := database.BeginTx(context.Background(), nil)
 		if err != nil {
@@ -223,6 +243,10 @@ func Open(path string) (*DB, error) {
 			_ = tx.Rollback()
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
+		if err := installReviewTemporalSchema(context.Background(), tx); err != nil {
+			_ = tx.Rollback()
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
 		if err := verifySchema(context.Background(), tx); err != nil {
 			_ = tx.Rollback()
 			return closeOnError(StatusIntegrityFailed, CurrentSchemaVersion, err)
@@ -230,6 +254,7 @@ func Open(path string) (*DB, error) {
 		if err := tx.Commit(); err != nil {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
+		initializedHere = !existed
 	} else {
 		if err := verifySchema(context.Background(), database); err != nil {
 			return closeOnError(StatusIntegrityFailed, found, err)
@@ -253,13 +278,22 @@ func Open(path string) (*DB, error) {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
 	}
-	return &DB{SQL: database, Path: path, Status: StatusReady}, nil
+	var schemaVersion int
+	if err := database.QueryRow(`PRAGMA schema_version`).Scan(&schemaVersion); err != nil {
+		return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+	}
+	result := &DB{SQL: database, Path: path, Status: StatusReady, reviewVerifiedSchemaVersion: schemaVersion}
+	if initializedHere {
+		result.establishReviewGenesis()
+	}
+	return result, nil
 }
 
 func (db *DB) Close() error {
 	if db == nil || db.SQL == nil {
 		return nil
 	}
+	db.releaseReviewCommitHook()
 	err := db.SQL.Close()
 	db.SQL = nil
 	return err

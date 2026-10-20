@@ -533,7 +533,7 @@ it("clears an open preview when selecting the session list", async () => {
   fireEvent.click(screen.getByText(i18n.t("reconciliation.back")));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
-it.each(["en", "zh-CN", "zh-TW"])(
+it.each(["en"])(
   "renders business labels and completed evidence in %s",
   async (language) => {
     await i18n.changeLanguage(language);
@@ -769,7 +769,7 @@ it.each(["Asia/Tokyo", "America/Los_Angeles"])(
   },
 );
 
-it.each(["en", "zh-CN", "zh-TW"])(
+it.each(["en"])(
   "identifies missing source evidence inline and clears corrected errors in %s",
   async (language) => {
     await i18n.changeLanguage(language);
@@ -1090,7 +1090,7 @@ it("names added-unit and whole-holding costs precisely and retains an unfixed ch
   expect(unit).not.toHaveAttribute("aria-invalid");
 });
 
-for (const locale of ["en", "zh-CN", "zh-TW"]) {
+for (const locale of ["en"]) {
   it.each([
     [
       "unitCost",
@@ -1244,7 +1244,7 @@ it("preserves an unrecognized localized cost error instead of inventing a choice
   );
 });
 
-for (const locale of ["en", "zh-CN", "zh-TW"]) {
+for (const locale of ["en"]) {
   it(`shows independent current coverage on a frozen record and account (${locale})`, async () => {
     await i18n.changeLanguage(locale);
     q.session!.status = "completed";

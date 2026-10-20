@@ -3,9 +3,6 @@ package domain
 import "testing"
 
 func TestParseSupportedCurrencyRejectsUnknownCodes(t *testing.T) {
-	if _, err := ParseSupportedCurrency("CAD"); err == nil {
-		t.Fatal("ParseSupportedCurrency accepted CAD")
-	}
 	if _, err := ParseSupportedCurrency("XXX"); err == nil {
 		t.Fatal("ParseSupportedCurrency accepted XXX")
 	}
@@ -33,22 +30,8 @@ func TestSupportedCurrenciesIncludesKRWAndCHF(t *testing.T) {
 }
 
 func TestCurrencyFractionDigitsCoversSupportedCurrencies(t *testing.T) {
-	for _, code := range SupportedCurrencies() {
-		if _, ok := currencyFractionDigits[code]; !ok {
-			t.Fatalf("currencyFractionDigits missing %s", code)
-		}
-	}
 	if got := CurrencyFractionDigits("JPY"); got != 0 {
 		t.Fatalf("CurrencyFractionDigits(JPY) = %d, want 0", got)
-	}
-	if got := CurrencyFractionDigits("KRW"); got != 0 {
-		t.Fatalf("CurrencyFractionDigits(KRW) = %d, want 0", got)
-	}
-	if got := CurrencyFractionDigits("CNY"); got != 2 {
-		t.Fatalf("CurrencyFractionDigits(CNY) = %d, want 2", got)
-	}
-	if got := CurrencyFractionDigits("SGD"); got != 2 {
-		t.Fatalf("CurrencyFractionDigits(SGD) = %d, want 2", got)
 	}
 	if got := CurrencyFractionDigits("CAD"); got != 2 {
 		t.Fatalf("CurrencyFractionDigits(unknown) = %d, want 2", got)

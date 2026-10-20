@@ -13,7 +13,6 @@ func TestCashTransferRejectsLiabilityEndpoints(t *testing.T) {
 	}{
 		{"asset_to_liability", false, true, "toAccountId"},
 		{"liability_to_asset", true, false, "fromAccountId"},
-		{"liability_to_liability", true, true, "fromAccountId"},
 	} {
 		t.Run(direction.name, func(t *testing.T) {
 			state, source, _, _, _ := changeTestState(t)

@@ -1,0 +1,51 @@
+{
+  "pr": 129,
+  "url": "https://github.com/MnemosyneLab/NestworthGo/pull/129",
+  "is_draft": true,
+  "head": "53dbd180c3d75884a0132c9400a5a14f94015d7b",
+  "checks": [
+    {
+      "name": "meta",
+      "status": "QUEUED",
+      "conclusion": "",
+      "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39279839391/job/118151844568"
+    },
+    {
+      "name": "frontend (tests 1/2)",
+      "status": "QUEUED",
+      "conclusion": "",
+      "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39279839391/job/118151844452"
+    },
+    {
+      "name": "frontend (tests 2/2)",
+      "status": "QUEUED",
+      "conclusion": "",
+      "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39279839391/job/118151844516"
+    },
+    {
+      "name": "go (application 1/2 + continuousbackup)",
+      "status": "QUEUED",
+      "conclusion": "",
+      "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39279839391/job/118151844555"
+    },
+    {
+      "name": "go (application 2/2 + remainder)",
+      "status": "IN_PROGRESS",
+      "conclusion": "",
+      "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39279839391/job/118151844245"
+    },
+    {
+      "name": "go (mcpserver + sqlite)",
+      "status": "QUEUED",
+      "conclusion": "",
+      "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39279839391/job/118151844616"
+    },
+    {
+      "name": "test",
+      "status": "QUEUED",
+      "conclusion": "",
+      "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39279839391/job/118154779305"
+    }
+  ],
+  "manual_workflow_dispatches": 0
+}

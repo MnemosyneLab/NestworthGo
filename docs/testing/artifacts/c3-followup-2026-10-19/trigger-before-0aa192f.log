@@ -1,0 +1,21 @@
+--- FAIL: TestReviewCertifiedPreopenUnknownTriggerCannotBootstrap (0.18s)
+    review_certified_trigger_test.go:45: unknown persistent writer authorized no-op
+    review_certified_trigger_test.go:45: unknown persistent writer authorized no-op
+    review_certified_trigger_test.go:49: confirmation fired unknown writer and changed historical evidence
+    review_certified_trigger_test.go:51: unknown or damaged state acquired integrity authority
+--- FAIL: TestReviewCertifiedHandlingCannotResealUnknownWriters (1.45s)
+    --- FAIL: TestReviewCertifiedHandlingCannotResealUnknownWriters/TEMP/ack (0.24s)
+        review_certified_trigger_test.go:122: handling laundered an unrecognized writer into integrity authority
+    --- FAIL: TestReviewCertifiedHandlingCannotResealUnknownWriters/TEMP/rule (0.24s)
+        review_certified_trigger_test.go:122: handling laundered an unrecognized writer into integrity authority
+    --- FAIL: TestReviewCertifiedHandlingCannotResealUnknownWriters/TEMP/suppression (0.26s)
+        review_certified_trigger_test.go:122: handling laundered an unrecognized writer into integrity authority
+    --- FAIL: TestReviewCertifiedHandlingCannotResealUnknownWriters/permanent/ack (0.23s)
+        review_certified_trigger_test.go:122: handling laundered an unrecognized writer into integrity authority
+    --- FAIL: TestReviewCertifiedHandlingCannotResealUnknownWriters/permanent/rule (0.23s)
+        review_certified_trigger_test.go:122: handling laundered an unrecognized writer into integrity authority
+    --- FAIL: TestReviewCertifiedHandlingCannotResealUnknownWriters/permanent/suppression (0.25s)
+        review_certified_trigger_test.go:122: handling laundered an unrecognized writer into integrity authority
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	1.638s
+FAIL

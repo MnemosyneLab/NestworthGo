@@ -1,0 +1,19 @@
+{
+  "allocatedBytes": 3524081984,
+  "allocationScope": "after minus before cumulative alloc_space; GC twice at both boundaries",
+  "allocs": 33831577,
+  "arm": "certified",
+  "cpuScope": "one actual reconcile only",
+  "elapsed": "7.236587575s",
+  "memProfileRate": 65536,
+  "outsideRepository": "1.783361363s",
+  "outsideRepositoryIsNotPurePrepare": true,
+  "pairDays": 62000,
+  "profiled": true,
+  "repositoryPhases": {
+    "capture": 2203631884,
+    "confirm": 3778638,
+    "publish": 3245815690
+  },
+  "size": "large"
+}

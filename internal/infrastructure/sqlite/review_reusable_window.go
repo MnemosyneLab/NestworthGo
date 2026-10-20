@@ -88,7 +88,7 @@ func reviewWindowInstruments(capture domain.ReviewProjectionCapture, rule domain
 func (r *Repository) loadReusableReviewWindow(ctx context.Context, tx queryer, capture *domain.ReviewProjectionCapture) error {
 	evidence := make(map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence)
 	capture.ReusableDailyEvidence = evidence
-	if r.reviewFullRecompute || capture.Control.ProjectionStatus != "complete" || capture.Control.PublishedFingerprint != capture.HistoricalFingerprint {
+	if r.reviewFullRecompute || capture.TemporalFullRecompute || capture.Control.ProjectionStatus != "complete" || capture.Control.PublishedFingerprint != capture.HistoricalFingerprint {
 		return nil
 	}
 	for _, rule := range capture.Rules {
@@ -178,7 +178,7 @@ func scanReusableReviewWindow(rows *sql.Rows, rule domain.ReviewRule, timezoneVe
 			return err
 		}
 		var item domain.ReviewReusableDailyEvidence
-		if err := json.Unmarshal([]byte(inputJSON), &item.Input); err != nil {
+		if err := decodeReviewInput([]byte(inputJSON), &item.Input); err != nil {
 			rows.Close()
 			return err
 		}

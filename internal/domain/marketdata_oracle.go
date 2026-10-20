@@ -444,7 +444,7 @@ func stringsEmpty(value string) bool {
 }
 
 func mustLocation(timezone string) *time.Location {
-	location, err := time.LoadLocation(timezone)
+	location, err := LoadFinancialLocation(timezone)
 	if err != nil {
 		return time.UTC
 	}

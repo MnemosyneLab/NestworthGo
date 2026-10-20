@@ -2,11 +2,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
+import i18n from "@/i18n";
 import { createTestQueryClient } from "@/test/queryClient";
 import { settingsQueryKey } from "@/queries/settings";
 import { DatePicker } from "./date-picker";
 
-afterEach(() => vi.useRealTimers());
+afterEach(async () => {
+  vi.useRealTimers();
+  await i18n.changeLanguage("en");
+});
 
 function renderPicker(props: Partial<ComponentProps<typeof DatePicker>> = {}) {
   const client = createTestQueryClient();
@@ -46,6 +50,13 @@ it("honors the supplied household date across a browser timezone and year edge",
   grid = screen.getByRole("grid");
   expect(grid.querySelector('[data-day="2026-01-01"] button')).toBeEnabled();
   expect(grid.querySelector('[data-day="2026-01-02"] button')).toBeDisabled();
+});
+
+it.each(["zh-CN", "zh-TW"])("opens the calendar with the %s date-fns locale", async (language) => {
+  await i18n.changeLanguage(language);
+  renderPicker();
+  fireEvent.click(screen.getByRole("button", { name: "Date" }));
+  expect(screen.getByRole("grid")).toBeInTheDocument();
 });
 
 it("keeps future scheduling dates selectable when explicitly allowed", async () => {

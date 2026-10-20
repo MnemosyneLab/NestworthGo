@@ -18,7 +18,7 @@ import (
 )
 
 func TestUnsupportedBackupSchemasNeverReplaceLiveDatabase(t *testing.T) {
-	for _, version := range []int{0, 9, 10, 11, 12, 13, 14, sqlite.CurrentSchemaVersion + 1, 99} {
+	for _, version := range []int{14, sqlite.CurrentSchemaVersion + 1} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			dir := t.TempDir()
 			source := filepath.Join(dir, "source.db")

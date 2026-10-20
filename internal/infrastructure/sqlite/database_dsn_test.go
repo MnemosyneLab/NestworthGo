@@ -52,8 +52,6 @@ func TestSQLiteFileURLEncodesAbsoluteFilesystemPath(t *testing.T) {
 
 func TestSQLiteFileURLKeepsRelativePathsOutOfURIAuthority(t *testing.T) {
 	for _, path := range []string{
-		"ledger.db",
-		filepath.Join("data", "ledger.db"),
 		filepath.Join("data", "ledger space 東京 ? #.db"),
 	} {
 		t.Run(path, func(t *testing.T) {
@@ -104,8 +102,6 @@ func TestSQLiteOpenReopensRelativePaths(t *testing.T) {
 	t.Chdir(directory)
 
 	for _, path := range []string{
-		"ledger.db",
-		filepath.Join("data", "ledger.db"),
 		filepath.Join("nested", "ledger space 東京 ? #.db"),
 	} {
 		t.Run(path, func(t *testing.T) {

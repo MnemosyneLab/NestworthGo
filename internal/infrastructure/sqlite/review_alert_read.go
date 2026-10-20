@@ -25,10 +25,11 @@ func (r *Repository) GetReviewAlertV2(ctx context.Context, householdID domain.Ho
 	if now.IsZero() {
 		return empty, &domain.Error{Code: domain.ErrValidation, Field: "now", Message: "read time is required"}
 	}
-	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, release, connectionID, err := r.beginReviewStatusRead(ctx)
 	if err != nil {
 		return empty, err
 	}
+	defer release()
 	defer tx.Rollback()
 	var instrumentID string
 	err = tx.QueryRowContext(ctx, `SELECT e.instrument_id FROM investment_review_episodes e JOIN investment_review_rules r ON r.id=e.rule_id WHERE e.id=? AND r.household_id=? AND e.resolved_at IS NULL AND EXISTS(SELECT 1 FROM holdings h WHERE h.instrument_id=e.instrument_id AND CAST(h.quantity AS NUMERIC)>0)`, string(episodeID), householdID.String()).Scan(&instrumentID)
@@ -40,6 +41,9 @@ func (r *Repository) GetReviewAlertV2(ctx context.Context, householdID domain.Ho
 	}
 	control, _, err := reviewControlInTx(ctx, tx, householdID)
 	if err != nil {
+		return empty, err
+	}
+	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now, connectionID); err != nil {
 		return empty, err
 	}
 	suppressions, err := reviewSuppressionsInTx(ctx, tx, householdID)
@@ -58,6 +62,7 @@ func (r *Repository) GetReviewAlertV2(ctx context.Context, householdID domain.Ho
 	if !ok {
 		return empty, &domain.Error{Code: domain.ErrNotFound, Field: "episodeId", Message: "current review episode not found"}
 	}
+	group.ProjectionStatus = control.ProjectionStatus
 	found := false
 	for _, rule := range group.Rules {
 		found = found || rule.EpisodeID == episodeID
@@ -103,13 +108,17 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 	}
 	filterDigest := sha256.Sum256(filterBytes)
 	filterHash := hex.EncodeToString(filterDigest[:])
-	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, release, connectionID, err := r.beginReviewStatusRead(ctx)
 	if err != nil {
 		return empty, err
 	}
+	defer release()
 	defer tx.Rollback()
 	control, _, err := reviewControlInTx(ctx, tx, householdID)
 	if err != nil {
+		return empty, err
+	}
+	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now, connectionID); err != nil {
 		return empty, err
 	}
 	suppressions, err := reviewSuppressionsInTx(ctx, tx, householdID)
@@ -125,7 +134,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 		if item.Mode != "until_date" {
 			continue
 		}
-		location, err := time.LoadLocation(item.Timezone)
+		location, err := domain.LoadFinancialLocation(item.Timezone)
 		if err != nil {
 			return empty, err
 		}
@@ -183,6 +192,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 			if !exists {
 				continue
 			}
+			group.ProjectionStatus = control.ProjectionStatus
 			result.Summary.TotalGroups++
 			switch group.Status {
 			case "pending":

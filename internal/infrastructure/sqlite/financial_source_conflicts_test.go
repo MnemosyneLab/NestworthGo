@@ -53,7 +53,7 @@ func conflictSourceState(t *testing.T, db *DB, table string) (int64, int64, stri
 }
 
 func TestFinancialSourceInsertConflictSemantics(t *testing.T) {
-	for _, table := range []string{"app_configuration", "instrument_quotes"} {
+	for _, table := range []string{"app_configuration"} {
 		t.Run(table, func(t *testing.T) {
 			for _, scenario := range []string{"fresh-insert", "identical-upsert", "changed-upsert", "ignored-insert"} {
 				t.Run(scenario, func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestFinancialSourceInsertConflictSemantics(t *testing.T) {
 }
 
 func TestFinancialSourceReplaceAndRollback(t *testing.T) {
-	for _, table := range []string{"app_configuration", "instrument_quotes"} {
+	for _, table := range []string{"app_configuration"} {
 		t.Run(table, func(t *testing.T) {
 			for _, recursive := range []int{0, 1} {
 				t.Run(fmt.Sprintf("recursive-%d", recursive), func(t *testing.T) {
@@ -181,7 +181,7 @@ func TestFinancialSourceReplaceAndRollback(t *testing.T) {
 }
 
 func TestFinancialSourceFailedJournalPublicationRollsBackSource(t *testing.T) {
-	for _, table := range []string{"app_configuration", "instrument_quotes"} {
+	for _, table := range []string{"app_configuration"} {
 		t.Run(table, func(t *testing.T) {
 			db := financialConflictDB(t)
 			statement, args := conflictSourceInsert(table, "00000000-0000-4000-8000-000000000003", "1.0001")

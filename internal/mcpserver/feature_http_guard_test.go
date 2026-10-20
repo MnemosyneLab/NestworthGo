@@ -22,7 +22,8 @@ func TestFeatureHTTPBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range featureHTTPTools {
+	// The three feature names share one isFeatureTool case arm.
+	for _, name := range featureHTTPTools[:1] {
 		t.Run(name, func(t *testing.T) {
 			// The SDK's closed schemas reject the private field and can include
 			// the entire request in diagnostics. The envelope replaces those
@@ -57,11 +58,11 @@ func TestFeatureHTTPBoundaries(t *testing.T) {
 			}
 
 			payload["id"] = 1
-			for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
-				status, raw = productHTTP(t, fx.service, []any{payload}, protocol)
-				if status != http.StatusBadRequest || len(raw) > contextWireLimit {
-					t.Fatalf("batch bypass in protocol %q: status=%d bytes=%d", protocol, status, len(raw))
-				}
+			// The envelope rejects a bounded batch before it reads the protocol header.
+			// Protocol-specific SDK batch behavior stays in TestFinancialContextHTTPParamsShadowBatch.
+			status, raw = productHTTP(t, fx.service, []any{payload}, "")
+			if status != http.StatusBadRequest || len(raw) > contextWireLimit {
+				t.Fatalf("batch bypass: status=%d bytes=%d", status, len(raw))
 			}
 		})
 	}
@@ -75,7 +76,7 @@ func TestFeatureHTTPResponseBudgetAllRegisteredNames(t *testing.T) {
 	})))
 	t.Cleanup(server.Close)
 
-	for _, name := range featureHTTPTools {
+	for _, name := range featureHTTPTools[:1] {
 		t.Run(name, func(t *testing.T) {
 			payload, err := json.Marshal(map[string]any{
 				"jsonrpc": "2.0", "id": 7, "method": "tools/call",

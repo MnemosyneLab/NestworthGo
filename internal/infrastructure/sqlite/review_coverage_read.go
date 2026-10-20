@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -17,9 +18,9 @@ type reviewCoverageCursor struct{ Revision, FilterHash, AfterID string }
 // ListReviewCoverageV2 pages current positive holdings by instrument ID and
 // retrieves each batch's published rule results in one query. It never
 // evaluates a day or mutates a projection from a read path.
-func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domain.HouseholdID, filter domain.ReviewCoverageFilter, cursor string, pageSize int) (domain.ReviewCoveragePage, error) {
+func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domain.HouseholdID, filter domain.ReviewCoverageFilter, cursor string, pageSize int, now time.Time) (domain.ReviewCoveragePage, error) {
 	empty := domain.ReviewCoveragePage{Items: []domain.ReviewCoverageGroup{}}
-	if pageSize < 1 || pageSize > 100 {
+	if pageSize < 1 || pageSize > 100 || now.IsZero() {
 		return empty, &domain.Error{Code: domain.ErrValidation, Field: "pageSize", Message: "use 1–100 groups"}
 	}
 	if filter.Status == "" {
@@ -42,13 +43,17 @@ func (r *Repository) ListReviewCoverageV2(ctx context.Context, householdID domai
 	filterBytes, _ := json.Marshal(filter)
 	filterDigest := sha256.Sum256(filterBytes)
 	filterHash := hex.EncodeToString(filterDigest[:])
-	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, release, connectionID, err := r.beginReviewStatusRead(ctx)
 	if err != nil {
 		return empty, err
 	}
+	defer release()
 	defer tx.Rollback()
 	control, _, err := reviewControlInTx(ctx, tx, householdID)
 	if err != nil {
+		return empty, err
+	}
+	if err := r.reviewTemporalReadStatus(ctx, tx, householdID, &control, now, connectionID); err != nil {
 		return empty, err
 	}
 	stateBytes, _ := json.Marshal(control)

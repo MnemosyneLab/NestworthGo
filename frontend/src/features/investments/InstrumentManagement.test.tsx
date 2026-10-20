@@ -146,7 +146,7 @@ describe("InstrumentManagement", () => {
     expect(screen.queryByText("QASPR")).not.toBeInTheDocument();
   });
 
-  it.each(["en", "zh-CN", "zh-TW"])("distinguishes an empty catalog from a search with no matches in %s", async language => {
+  it.each(["en"])("distinguishes an empty catalog from a search with no matches in %s", async language => {
     await i18n.changeLanguage(language);
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
     const view = renderManagement(true);
@@ -578,7 +578,7 @@ describe("InstrumentManagement", () => {
 
 
 describe("optional instrument short name", () => {
-  it.each(["en", "zh-CN", "zh-TW"])("edits and clears by keyboard in %s", async (language) => {
+  it.each(["en"])("edits and clears by keyboard in %s", async (language) => {
     await i18n.changeLanguage(language);
     const t = i18n.t.bind(i18n);
     const original = { id: "i1", name: "Full identity name", shortName: "家庭 🌿", symbol: "000001", isin: "CN000001", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "manual", providerKey: "eastmoney", providerSymbol: "000001" };

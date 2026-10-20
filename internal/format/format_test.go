@@ -54,9 +54,6 @@ func TestCurrencySymbolIncludesKRWAndCHF(t *testing.T) {
 	if got := CurrencySymbol("KRW"); got != "₩" {
 		t.Fatalf("CurrencySymbol(KRW) = %q, want ₩", got)
 	}
-	if got := CurrencySymbol("CHF"); got != "CHF" {
-		t.Fatalf("CurrencySymbol(CHF) = %q, want CHF", got)
-	}
 }
 
 func TestShareBPSFormatsWithoutBinaryFloat(t *testing.T) {

@@ -123,13 +123,59 @@ date semantics, interaction conventions, enforced boundaries and exceptions.
 ## Persistence and settings
 
 The current SQLite schema is verified before business writes. Startup enables
-foreign keys and checks structural integrity. New databases use schema 20.
-Verified v15–19 databases receive additive upgrades in order: short names (16),
+foreign keys and checks structural integrity. New databases use schema 21.
+Verified v15–20 databases receive additive upgrades in order: short names (16),
 reconciliation (17), reconciliation evidence/revisions (18), investment review
-(19), and shadow financial source revision/journal metadata (20). Each step
+(19), shadow financial source revision/journal metadata (20), and temporal
+review publication checkpoints (21). Each step
 retains a verified read-only recovery copy. Schema20 keeps the full financial
 fingerprint/recheck algorithm authoritative; see the
 [source coverage, recovery and rollback contract](../testing/performance-c1-source-coverage-2026-10-19.md).
+C2 shadow capture/publication also compares typed source checkpoints alongside the
+full fingerprint; see the [C2 validation boundary](../testing/performance-c2-2026-10-19.md).
+This does not enable a source-token fast path or remove full source rechecks.
+The [C2 temporal contract](../testing/performance-c2-temporal-2026-10-19.md)
+adds a final injected-clock fence, session-bound calendar/rollback invalidation,
+and stale status for expired reads. Full financial and future-source rechecks
+remain authoritative; C3 is not enabled.
+An internal [C3a no-change candidate](../testing/performance-c3-no-change-2026-10-19.md)
+is opt-in only for reviewed synthetic experiments. It confirms a complete,
+unchanged source/review/temporal checkpoint under the SQLite write reservation,
+without reading financial/evidence JSON or rewriting daily/lifecycle rows.
+Production initialization keeps C2; forced full recomputation disables the
+candidate. Changed-source publication retains all existing rechecks.
+The [corrected C3 benchmark evidence](../testing/performance-c3-corrected-2026-10-19.md)
+separates bootstrap/full-fallback cost from warm confirmation and measures RSS
+in isolated synthetic arm processes. It does not establish native rollout gates.
+An opt-in [completeness-lineage shadow](../testing/performance-c3-lineage-shadow-2026-10-19.md)
+compares narrow historical coverage and a separate bounded window with a full
+preparation oracle, then revalidates under the publication reservation. It
+forces full preparation and grants no reuse authority. Normal initialization
+remains unchanged; full recomputation disables the internal candidates.
+The [certified C3 candidate](../testing/performance-c3-certified-2026-10-19.md)
+adds a separate default-off internal constructor, `WithCertifiedReviewCandidate()`.
+It binds complete projection integrity to one DB handle, fences explicit provider
+selection through commit, and verifies source publication CAS with full fallback.
+Same-day confirmation avoids financial/evidence JSON. A missed confirmation uses
+one full preparation; `WithCertifiedReviewCandidate()` does not select the separate
+lineage/window experiment. Explicitly combining it with
+`WithReviewCompletenessLineageShadow(...)` retains the independent full runtime
+oracle for bounded experiments. Observation alone can use
+`WithReviewLineageObserver(...)` without changing dispatch. Certification verifies
+the complete compiled table/index contract as well as all user triggers, including
+FK and deferred-action definitions; unknown schema objects disable authority.
+Full preparation may omit an individual daily UPSERT only after an authenticated
+same-handle publication recheck and exact comparison of its actual SQL parameter
+image with the persisted row under the writer reservation. This transaction-local
+comparison never supplies computation facts or omits lifecycle/checkpoint work.
+Unsafe `writable_schema` forgery of SQLite's stored versus cached schema is outside
+the documented SQLite engine/connection trust contract; this is not engine
+attestation or an authenticated hostile-database protocol.
+Legacy/restarted/damaged projections
+cannot acquire reuse authority from a fresh checksum; legitimate handling preserves
+only an already valid chain. Production initialization still uses C2, and native,
+performance and review gates remain blocking. The old counting-only constructor
+is retained for historical experiments, not activation.
 No other legacy migration is supported.
 See [reconciliation storage](account-reconciliation.md#schema-18-backup-and-export). Other older, unversioned, future, or invalid databases remain blocked.
 See the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade)
@@ -152,10 +198,22 @@ presentation preferences.
 Use sanitized deterministic fixtures. Provider tests use fakes and must not
 depend on live network responses.
 
-GitHub Actions workflow `.github/workflows/check.yml` runs the same automated
-gates on `main` and pull requests: gofmt, `go test ./...`, a separate race job,
-vet, `go build ./cmd/nestworth`, frontend build/lint/typecheck/test, and
-`git diff --check`. Native `.app`/DMG packaging, signing, and notarization stay
+GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to
+`main`, on pull requests, and on manual dispatch. Its gates are gofmt, binned
+non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
+build/lint/typecheck/test, and `git diff --check`. Go tests are three parallel
+jobs and Vitest is two shards, sized from measured whole-job times so each
+lands near 4–5 minutes. The required aggregate check name is `test`. Race detection is not part
+of that workflow. `.github/workflows/perf.yml` runs daily at 21:00 UTC and on
+manual dispatch. A scheduled run skips the perf and race jobs when the
+default branch is still at the last successful scheduled run; the first
+scheduled run and every manual dispatch execute them. Performance evidence
+is compiled only with `go test -tags perf`
+in that workflow (scale, 365-day pipeline, paired samples, and epoch
+diagnostics as separate jobs). The same workflow runs the sharded
+`go test -race` suite without the perf tag. The race aggregate is `race`.
+[ci-pause.md](ci-pause.md) records an earlier manual-only pause; this branch
+restores automatic `check` triggers. Native `.app`/DMG packaging, signing, and notarization stay
 manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
 `3.0.0-beta.32`); upgrade those versions only in a dedicated change.
 

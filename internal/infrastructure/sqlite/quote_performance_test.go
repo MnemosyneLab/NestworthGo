@@ -81,7 +81,9 @@ func TestQuotePerformanceIgnoresLegacyCorrectedPersonalDividend(t *testing.T) {
 }
 
 func TestQuotePerformanceAllSourcesIgnorePreferenceAndExcludeIntraday(t *testing.T) {
-	for _, preference := range []domain.QuoteSourceKind{domain.QuoteSourceAgent, domain.QuoteSourceManual, domain.QuoteSourceProvider} {
+	// Agent and manual preferences share the no-provider-key path. Provider is
+	// the binding sync arm.
+	for _, preference := range []domain.QuoteSourceKind{domain.QuoteSourceManual, domain.QuoteSourceProvider} {
 		t.Run(string(preference), func(t *testing.T) {
 			database, repository, _, _, i := seedPortfolioRepository(t)
 			i.ID = domain.NewInstrumentID()

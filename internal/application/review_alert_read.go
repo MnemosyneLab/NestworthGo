@@ -48,7 +48,7 @@ func (s *Service) ListReviewAlertGroupsV2(ctx context.Context, filter domain.Rev
 	if household == nil {
 		return domain.ReviewAlertPage{Items: []domain.ReviewAlertGroup{}, ProjectionStatus: "pending"}, nil
 	}
-	return reader.ListReviewAlertGroupsV2(ctx, household.ID, filter, cursor, pageSize, s.clock())
+	return reader.ListReviewAlertGroupsV2(ctx, household.ID, filter, cursor, pageSize, s.reviewNow())
 }
 
 // GetReviewAlertV2 reads exactly one currently open episode and returns the
@@ -70,5 +70,5 @@ func (s *Service) GetReviewAlertV2(ctx context.Context, episodeID string) (domai
 	if household == nil {
 		return empty, &domain.Error{Code: domain.ErrNotFound, Field: "episodeId", Message: "review episode not found"}
 	}
-	return reader.GetReviewAlertV2(ctx, household.ID, id, s.clock())
+	return reader.GetReviewAlertV2(ctx, household.ID, id, s.reviewNow())
 }

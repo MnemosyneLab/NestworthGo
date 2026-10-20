@@ -12,7 +12,9 @@ import (
 // parse failure must not allow a financial call to bypass its wire/batch bounds.
 func TestFinancialContextHTTPTrailingJSONValue(t *testing.T) {
 	t.Parallel()
-	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page"} {
+	// Tool identity is the same isFinancialContextTool statement. Per-tool
+	// dispatch of a trailing value stays in TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior.
+	for _, tool := range []string{"get_financial_context"} {
 		for _, variant := range []string{"long-id", "schema-error", "batch", "batch-long-id", "batch-schema-error"} {
 			protocols := []string{""}
 			if strings.HasPrefix(variant, "batch") {

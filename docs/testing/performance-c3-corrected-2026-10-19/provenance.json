@@ -1,0 +1,62 @@
+{
+  "recorded_at_utc": "2026-10-19T11:56:08.125217+00:00",
+  "base_main": "ab06a3f7ca342419948ae7a986cd8e5a73440536",
+  "measurement_head": "6b5f7b33a807b16247b20ab736adfbb913633413",
+  "branch": "perf/c3-corrected-evidence",
+  "harness_sha256": {
+    "internal/application/review_no_change_performance_test.go": "9780c6dbff6ccfd33bbb79e00c06b690621d4b524c80d0a1debbc5f427166750",
+    "internal/application/review_no_change_perf_scope_test.go": "b243efbe8799bed3cf84ff3915beeaf1fd2f02c2ccc187aa4664b26fd5689953",
+    "internal/application/review_no_change_refresh_perf_test.go": "12edfa774f09b03de9d4ad54fc104426aeac3ae5573d57a0a81cd0f720596040",
+    "internal/application/review_no_change_rss_perf_test.go": "3008fd08854252dd6a7a8b5a17f240d7d42e470270ced4aa496c329b2484c2a6"
+  },
+  "go": "go version go1.26.1 linux/amd64",
+  "go_archive_sha256": "031f088e5d955bab8657ede27ad4e3bc5b7c1ba281f05f245bcc304f327c987a",
+  "go_download": "https://go.dev/dl/go1.26.1.linux-amd64.tar.gz",
+  "sqlite": "3.53.0",
+  "kernel": "Linux 3bcfae2b30fa 6.18.55 #1 SMP Wed Oct 14 19:45:18 UTC 2026 x86_64 GNU/Linux",
+  "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+  "exposed_cpus": 5,
+  "cpu_max": "400000 100000",
+  "memory_max": "17179869184",
+  "gomaxprocs": 4,
+  "storage": "ephemeral container volume; physical medium unknown",
+  "isolated_inputs": "Test-created synthetic SQLite fixtures only; fixed clock and deterministic arithmetic. Generated UUIDs shared within VACUUM INTO pairs. No provider network, real ledger, credentials, native launch or cloud backup.",
+  "measurement_sequence": "Serial warm then fallback then RSS commands; no other local test/build/profile process active. Documentation only was written while frozen test/application sources remained unchanged.",
+  "sample_counts": {
+    "warm_pairs_per_size": 30,
+    "fallback_pairs_per_size_per_scenario": 3,
+    "rss_process_pairs_per_size": 3,
+    "rss_operations_per_child": 3
+  },
+  "rss_method": "Read-only Linux /proc VmRSS sampling at requested1ms, after full bootstrap and explicit GC+FreeOSMemory, ending before JSON/SQL reporting. Sampled lower bound, not exact operation-only high water. VmHWM separately includes process startup/bootstrap. Parent polling means child durations are not primary latency samples.",
+  "exit_codes": {
+    "small_smoke_race": 0,
+    "vet_perf_internal": 0,
+    "internal_build": 0,
+    "native_build": 1,
+    "warm": 0,
+    "fallback": 0,
+    "rss": 0,
+    "ci_preservation_diff": 0
+  },
+  "not_run": [
+    "new full local test/race suites",
+    "frontend/bindings (no wire/frontend changes)",
+    "native Apple Silicon matrix/package/accessibility/IME",
+    "kernel RSS-counter reset",
+    "manual workflow dispatch",
+    "candidate activation",
+    "merge/release"
+  ],
+  "old_results": "Old PR123/pre-bootstrap-correction logs and source heads retained untouched; no relabelled distributions.",
+  "ci": {
+    "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/39244315587",
+    "head": "ab06a3f7ca342419948ae7a986cd8e5a73440536",
+    "event": "push",
+    "conclusion": "success",
+    "read_only": true
+  },
+  "integration_main": "604d7faf3b87d4962a167a38e9449cfb8dc80c2f",
+  "integration_head": "aaccd1a066d08a6de2da1e4b7adbd3928fe6fbb2",
+  "integration_scope": "CI-only PR124 integrated unchanged after measurement. No measured/production Go source difference; no tests/timings relabelled. Workflows and CI helper scripts match latest main."
+}

@@ -140,7 +140,11 @@ It regenerates the frontend bundle, then runs `gofmt` validation, Go tests,
 frontend tests, and `git diff --check`.
 
 The same automated gates run in GitHub Actions on `main` and pull requests
-(`.github/workflows/check.yml`), with race detection as a separate job. Native
+(`.github/workflows/check.yml`). Non-race Go tests are checksum shards. Race
+detection and `//go:build perf` evidence run daily at 21:00 UTC, and on
+manual dispatch, in `.github/workflows/perf.yml`, not on every pull request.
+The daily run skips those jobs when the default branch is unchanged since the
+last successful scheduled run. Manual dispatch always runs them. Native
 packaging, signing, and notarization remain manual.
 
 The release task also runs `python3 -m unittest discover -s tools/tests -v`
@@ -150,7 +154,10 @@ When neither GNU tool is available, a Python POSIX timeout fixture exercises
 the same retry, failure, exit-code, and real TERM/KILL assertions. Every host
 also replays those tests with GNU discovery disabled. Linux GitHub Actions
 requires the GNU backend for the original tests, so the portable fixture does
-not replace validation of production timeout behavior. The fixture is only
+not replace validation of production timeout behavior. Ubuntu 26.04 ships
+uutils as `/usr/bin/timeout` and GNU coreutils as `gnutimeout`; the install
+script switches the provider with `coreutils-from-gnu` before the long apt
+install so `timeout` on `PATH` is GNU again. The fixture is only
 for synthetic tests, not the apt installation script. Mac packaging still
 requires its own full `wails3 task package:release` acceptance run.
 Synthetic apt commands have a 3-second test budget and 1-second TERM-to-KILL
@@ -162,12 +169,18 @@ with both backends. These timings do not change production apt budgets.
 
 ## CI race budgets and SDK test lifetime
 
-The required `race` aggregate fails unless every matrix part succeeds.
-Application tests use four checksum partitions; MCP uses two. Infrastructure
-and all remaining packages also run with the detector. Enumeration uses the
-race build and includes Test, Example, and Fuzz names. Each process has an
-explicit 10-minute test budget, `-parallel 4` for the split packages, and
-`-p 1`; each race job has a 30-minute outer bound including setup. Sequential
+The daily `race` aggregate fails unless every matrix part succeeds.
+Application tests use eight checksum partitions; MCP uses four; sqlite uses
+two. Infrastructure and all remaining packages also run with the detector.
+Enumeration uses the race build and includes Test, Example, and Fuzz names.
+Each process has an explicit 10-minute test budget, `-parallel 4` for
+application and MCP, and `-p 1` on the heavy shards; each race job has a
+30-minute outer bound including setup. Pull-request `check` bins non-race
+tests into three jobs from measured whole-job times: application in two
+checksum parts, paired with continuous backup and the remainder, plus one
+job for MCP and sqlite. Vitest runs as `--shard=1/2` and `--shard=2/2`,
+with lint/typecheck on the first shard and the production build on the
+second. Sequential
 fault-injection and performance tests remain sequential. Matrix regression
 checks require every part exactly once and a complete, disjoint name union.
 There are no automatic test retries. Seven-day

@@ -27,9 +27,44 @@ func TestReviewPerfConfiguration(t *testing.T) {
 			t.Fatalf("invalid config accepted: %+v", c)
 		}
 	}
-	if durationPercentile([]time.Duration{3, 1, 2}, .95) != 3 {
+	if durationPercentile([]time.Duration{3, 1, 2}, .95) != 3 || durationPercentile([]time.Duration{3, 1, 2}, .5) != 2 {
 		t.Fatal("nearest-rank percentile")
 	}
+	if durationPercentile([]time.Duration{5}, .95) != 5 || durationPercentile(nil, .95) != 0 {
+		t.Fatal("nearest-rank percentile n=1")
+	}
+	ten := make([]time.Duration, 10)
+	for index := range ten {
+		ten[index] = time.Duration(index + 1)
+	}
+	if durationPercentile(ten, .95) != 10 || durationPercentile(ten, .5) != 5 {
+		t.Fatal("nearest-rank percentile n=10")
+	}
+}
+
+func TestReviewPerfSampleCount(t *testing.T) {
+	if reviewPerfSampleCount(t, 3) != 3 || reviewPerfSampleCount(t, 10) != 10 {
+		t.Fatal("sample default")
+	}
+	t.Run("override", func(t *testing.T) {
+		t.Setenv("NW_REVIEW_PERF_SAMPLES", "30")
+		if reviewPerfSampleCount(t, 3) != 30 || reviewPerfSampleCount(t, 10) != 30 {
+			t.Fatal("sample override")
+		}
+	})
+}
+
+func reviewPerfSampleCount(t *testing.T, fallback int) int {
+	t.Helper()
+	value := os.Getenv("NW_REVIEW_PERF_SAMPLES")
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		t.Fatal("invalid NW_REVIEW_PERF_SAMPLES")
+	}
+	return parsed
 }
 
 // Each measured mutation starts from this identical, checkpointed synthetic
@@ -248,31 +283,6 @@ func TestReviewPerformanceFullOracle(t *testing.T) {
 	runReviewPerfPairs(t, reviewPerfConfig{Accounts: 2, Instruments: 3, Holdings: 4, Rules: 4, HistoryDays: 10, Quotes: 30, MixedActivities: 8}, 1)
 }
 
-// Opt-in distribution evidence: samples are independent clones, paths alternate
-// order, and all correctness/oracle work occurs outside reported timings.
-func TestReviewPairedPerformanceEvidence(t *testing.T) {
-	if os.Getenv("NW_REVIEW_PERF_EVIDENCE") != "1" {
-		t.Skip("set NW_REVIEW_PERF_EVIDENCE=1")
-	}
-	samples := 30
-	if value := os.Getenv("NW_REVIEW_PERF_SAMPLES"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 {
-			t.Fatal("invalid NW_REVIEW_PERF_SAMPLES")
-		}
-		samples = parsed
-	}
-	cycles := 0
-	if value := os.Getenv("NW_REVIEW_PERF_EPOCH_CYCLES"); value != "" {
-		var err error
-		cycles, err = strconv.Atoi(value)
-		if err != nil || cycles < 0 {
-			t.Fatal("invalid NW_REVIEW_PERF_EPOCH_CYCLES")
-		}
-	}
-	runReviewPerfEpochPairs(t, reviewPerfEnvironmentConfig(t), samples, cycles)
-}
-
 func runReviewPerfPairs(t *testing.T, config reviewPerfConfig, samples int) {
 	runReviewPerfEpochPairs(t, config, samples, 0)
 }
@@ -462,7 +472,7 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 	}
 	rows.Close()
 	tables := map[string][]string{}
-	for _, table := range []string{"investment_review_control", "investment_review_daily_inputs", "investment_review_daily_results", "investment_review_position_epochs", "investment_review_episodes", "investment_review_evaluation_state", "investment_review_episode_events"} {
+	for _, table := range []string{"investment_review_control", "investment_review_daily_inputs", "investment_review_daily_results", "investment_review_position_epochs", "investment_review_episodes", "investment_review_evaluation_state", "investment_review_episode_events", "review_temporal_checkpoints"} {
 		rows, err := f.db.SQL.Query(`SELECT * FROM ` + table)
 		if err != nil {
 			t.Fatal(err)
@@ -481,6 +491,18 @@ func reviewPerfPublishedRows(t *testing.T, f, source reviewFullPipelineFixture) 
 				t.Fatal(err)
 			}
 			for i, value := range values {
+				if table == "review_temporal_checkpoints" && columns[i] == "certificate_json" {
+					var certificate domain.ReviewTemporalCertificate
+					if err := json.Unmarshal([]byte(value.(string)), &certificate); err != nil {
+						t.Fatal(err)
+					}
+					certificate.ClockEpoch = "independent-synthetic-session"
+					raw, err := json.Marshal(certificate)
+					if err != nil {
+						t.Fatal(err)
+					}
+					value = string(raw)
+				}
 				if text, ok := value.(string); ok {
 					for id, alias := range aliases {
 						text = strings.ReplaceAll(text, id, alias)

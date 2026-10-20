@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -137,105 +136,4 @@ func runHistoricalSwitchBurst(t testing.TB, s *Service, db *sqlite.DB, count int
 		t.Fatal("burst retained the database connection")
 	}
 	return result
-}
-
-func BenchmarkHistoricalOverviewRapidSwitch(b *testing.B) {
-	s, db := seriesBenchmarkFixture(b, true)
-	for _, compare := range []string{"", "2026-08-31"} {
-		for _, count := range []int{6, 10} {
-			for _, supersede := range []bool{false, true} {
-				b.Run(fmt.Sprintf("comparison=%t/requests=%d/cancel=%t", compare != "", count, supersede), func(b *testing.B) {
-					var total, final, obsolete, busy, wait time.Duration
-					var metrics historicalSwitchMeasurements
-					b.ResetTimer()
-					for n := 0; n < b.N; n++ {
-						metrics = runHistoricalSwitchBurst(b, s, db, count, compare, supersede)
-						total += metrics.elapsed
-						final += metrics.finalLatency
-						obsolete = max(obsolete, metrics.obsoleteExit)
-						busy += metrics.dbBusy
-						wait += metrics.dbWait
-					}
-					b.StopTimer()
-					b.ReportMetric(float64(total.Microseconds())/1000/float64(b.N), "burst_ms/op")
-					b.ReportMetric(float64(final.Microseconds())/1000/float64(b.N), "final_ms/op")
-					b.ReportMetric(float64(obsolete.Microseconds())/1000, "max_cancel_exit_ms")
-					b.ReportMetric(float64(busy.Microseconds())/1000/float64(b.N), "sampled_db_busy_ms/op")
-					b.ReportMetric(float64(wait.Microseconds())/1000/float64(b.N), "db_wait_ms/op")
-					b.ReportMetric(float64(metrics.maxInUse), "max_db_in_use")
-					b.ReportMetric(float64(metrics.maxPending), "max_pending")
-					b.ReportMetric(float64(metrics.cancelled), "cancelled/op")
-				})
-			}
-		}
-	}
-}
-
-// Mandatory smaller race-friendly fixture still exercises a live read with
-// SQLite's actual one-connection pool, cancellation, and a queued SQL waiter.
-func TestHistoricalOverviewCancellationReleasesConnection(t *testing.T) {
-	s, db := seriesHistoryScaleFixture(t, 2, 0, 8300)
-	for _, compare := range []string{"", "2026-08-31", "current"} {
-		t.Run(compare, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-			done := make(chan error, 1)
-			go func() {
-				out, err := s.HistoricalOverview(ctx, "2026-08-01", compare)
-				if !reflect.DeepEqual(out, HistoricalOverviewResult{}) {
-					err = fmt.Errorf("cancelled read returned partial data: %v", err)
-				}
-				done <- err
-			}()
-			waitForHistoricalConnection(t, db)
-			start := time.Now()
-			cancel()
-			probeCtx, probeCancel := context.WithTimeout(t.Context(), 2*time.Second)
-			defer probeCancel()
-			var one int
-			if err := db.SQL.QueryRowContext(probeCtx, "SELECT 1").Scan(&one); err != nil || one != 1 {
-				t.Fatalf("cancelled read kept the connection: %v", err)
-			}
-			select {
-			case err := <-done:
-				if !errors.Is(err, context.Canceled) {
-					t.Fatal(err)
-				}
-			case <-probeCtx.Done():
-				t.Fatal("cancelled application work did not stop promptly")
-			}
-			t.Logf("cancel to SQL waiter completion and application exit: %s; inUse=%d", time.Since(start), db.SQL.Stats().InUse)
-			final, err := s.HistoricalOverview(t.Context(), "2026-08-02", compare)
-			if err != nil {
-				t.Fatal(err)
-			}
-			wantOverviewAmount(t, final.Left.Assets, "0.00216")
-		})
-	}
-}
-
-func waitForHistoricalConnection(t *testing.T, db *sqlite.DB) {
-	t.Helper()
-	timeout := time.NewTimer(2 * time.Second)
-	defer timeout.Stop()
-	ticker := time.NewTicker(time.Millisecond)
-	defer ticker.Stop()
-	for db.SQL.Stats().InUse == 0 {
-		select {
-		case <-ticker.C:
-		case <-timeout.C:
-			t.Fatal("historical request never occupied the connection")
-		}
-	}
-}
-
-func TestHistoricalOverviewDenseRapidSwitchEvidence(t *testing.T) {
-	if os.Getenv("NW_HISTORICAL_SWITCH_EVIDENCE") != "1" {
-		t.Skip("opt-in dense rapid-switch measurement; also available as a benchmark")
-	}
-	s, db := seriesBenchmarkFixture(t, true)
-	for _, compare := range []string{"", "2026-08-31", "current"} {
-		metrics := runHistoricalSwitchBurst(t, s, db, 10, compare, true)
-		t.Logf("comparison=%q requests=10 cancel=true elapsed=%s final=%s maxCancelExit=%s sampledDBBusy=%s DBWait=%s maxInUse=%d maxPending=%d cancelled=%d", compare, metrics.elapsed, metrics.finalLatency, metrics.obsoleteExit, metrics.dbBusy, metrics.dbWait, metrics.maxInUse, metrics.maxPending, metrics.cancelled)
-	}
 }

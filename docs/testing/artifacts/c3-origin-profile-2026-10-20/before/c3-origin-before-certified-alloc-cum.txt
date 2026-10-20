@@ -1,0 +1,68 @@
+File: application.test
+Build ID: e6e5b45e2242c3ad1b9fddf29b8d4c215b528ecc
+Type: alloc_space
+Time: 2026-10-20 00:57:28 UTC
+Showing nodes accounting for 2899.22MB, 86.01% of 3370.92MB total
+Dropped 236 nodes (cum <= 16.85MB)
+Showing top 60 nodes out of 97
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%  3367.47MB 99.90%  github.com/waltwang/nestworth-go/internal/application.TestReviewClockOnlyCPUAllocationProfile.func1
+         0     0%     0%  3367.47MB 99.90%  testing.tRunner
+         0     0%     0%  3362.90MB 99.76%  github.com/waltwang/nestworth-go/internal/application.(*Service).ReconcileInvestmentReviewsV2
+         0     0%     0%  1802.14MB 53.46%  github.com/waltwang/nestworth-go/internal/application.PrepareReviewPublication
+         0     0%     0%  1802.14MB 53.46%  github.com/waltwang/nestworth-go/internal/application.prepareCertifiedReviewPublication
+   20.21MB   0.6%   0.6%  1802.14MB 53.46%  github.com/waltwang/nestworth-go/internal/application.prepareReviewPublication
+   46.55MB  1.38%  1.98%  1619.24MB 48.04%  github.com/waltwang/nestworth-go/internal/application.planReviewRuleInstrument
+         0     0%  1.98%  1560.76MB 46.30%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).phase
+         0     0%  1.98%  1560.76MB 46.30%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).phase.func1
+         0     0%  1.98%  1560.76MB 46.30%  runtime/pprof.Do
+    0.56MB 0.017%  2.00%  1501.86MB 44.55%  github.com/waltwang/nestworth-go/internal/application.evaluateReviewHistoricalDateCached
+   20.02MB  0.59%  2.59%  1365.32MB 40.50%  github.com/waltwang/nestworth-go/internal/application.(*reviewProjectionCache).dailyInput
+ 1278.91MB 37.94% 40.53%  1327.71MB 39.39%  github.com/waltwang/nestworth-go/internal/application.projectReviewHistoricalDayFromPortfolioWithQuoteSeries
+         0     0% 40.53%   817.45MB 24.25%  github.com/waltwang/nestworth-go/internal/application.(*Service).withReviewProviderLease
+         0     0% 40.53%   816.31MB 24.22%  github.com/waltwang/nestworth-go/internal/application.(*Service).ReconcileInvestmentReviewsV2.func2
+         0     0% 40.53%   816.31MB 24.22%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).PublishCertifiedReviewProjection
+         0     0% 40.53%   816.31MB 24.22%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).PublishCertifiedReviewProjection.func1
+         0     0% 40.53%   816.31MB 24.22%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).PublishCertifiedReviewProjection
+         0     0% 40.53%   816.31MB 24.22%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).PublishCertifiedReviewProjection.func1
+    0.22MB 0.0064% 40.54%   816.31MB 24.22%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).publishReviewProjection
+         0     0% 40.54%   743.31MB 22.05%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).CaptureReviewProjection
+         0     0% 40.54%   743.31MB 22.05%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).CaptureReviewProjection.func1
+    0.56MB 0.017% 40.55%   743.31MB 22.05%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).CaptureReviewProjection
+   89.58MB  2.66% 43.21%   428.35MB 12.71%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.publishReviewRule
+         0     0% 43.21%   393.20MB 11.66%  database/sql.withLock
+         0     0% 43.21%   386.48MB 11.46%  database/sql.(*Rows).Next
+         0     0% 43.21%   386.48MB 11.46%  database/sql.(*Rows).Next.func1
+    0.06MB 0.0019% 43.21%   386.48MB 11.46%  database/sql.(*Rows).nextLocked
+         0     0% 43.21%   386.41MB 11.46%  github.com/waltwang/nestworth-go/internal/application.(*reviewSQLRows).Next
+   62.82MB  1.86% 45.08%   386.41MB 11.46%  modernc.org/sqlite.(*rows).Next
+         0     0% 45.08%   365.59MB 10.85%  github.com/waltwang/nestworth-go/internal/domain.ReviewHistoricalFingerprint
+         0     0% 45.08%   364.34MB 10.81%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadHistoricalSnapshotBatchQueryMode
+         0     0% 45.08%   364.34MB 10.81%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadReviewHistoricalBatchQuery
+         0     0% 45.08%   364.34MB 10.81%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadReviewHistoricalSnapshotBatchQuery (inline)
+         0     0% 45.08%   363.50MB 10.78%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.listAllInstrumentQuotesQuery
+  199.11MB  5.91% 50.98%   363.50MB 10.78%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.scanInstrumentQuotes
+  164.98MB  4.89% 55.88%   324.01MB  9.61%  encoding/json.Marshal
+  305.84MB  9.07% 64.95%   305.84MB  9.07%  modernc.org/sqlite.(*conn).columnText
+   65.18MB  1.93% 66.88%   214.46MB  6.36%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadReviewPublicationEquality
+         0     0% 66.88%   160.10MB  4.75%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).certifyPublishedReview
+         0     0% 66.88%   160.04MB  4.75%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.certifiedProjectionSeal
+         0     0% 66.88%   159.03MB  4.72%  encoding/json.(*encodeState).marshal
+         0     0% 66.88%   159.03MB  4.72%  encoding/json.(*encodeState).reflectValue
+         0     0% 66.88%   158.97MB  4.72%  encoding/json.structEncoder.encode
+  114.43MB  3.39% 70.28%   157.19MB  4.66%  github.com/waltwang/nestworth-go/internal/application.newReviewProjectionCache
+         0     0% 70.28%   153.29MB  4.55%  github.com/waltwang/nestworth-go/internal/domain.writeReviewFingerprintScalars
+         0     0% 70.28%   152.90MB  4.54%  encoding/json.arrayEncoder.encode
+         0     0% 70.28%   152.90MB  4.54%  encoding/json.sliceEncoder.encode
+  149.42MB  4.43% 74.71%   149.42MB  4.43%  reflect.unsafe_New
+         0     0% 74.71%   145.85MB  4.33%  reflect.Value.Interface (inline)
+         0     0% 74.71%   145.85MB  4.33%  reflect.packEface (inline)
+         0     0% 74.71%   145.85MB  4.33%  reflect.packEfaceData
+         0     0% 74.71%   145.85MB  4.33%  reflect.valueInterface
+  141.98MB  4.21% 78.92%   143.93MB  4.27%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.publishReviewEpisodes
+         0     0% 78.92%   135.98MB  4.03%  github.com/waltwang/nestworth-go/internal/domain.EvaluateReviewDaily
+         0     0% 78.92%   128.14MB  3.80%  bytes.(*Buffer).grow
+  128.14MB  3.80% 82.72%   128.14MB  3.80%  bytes.growSlice
+   27.28MB  0.81% 83.53%   109.89MB  3.26%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*reviewPublicationEquality).omit
+   83.37MB  2.47% 86.01%   107.07MB  3.18%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.scanInstrumentQuote
+         0     0% 86.01%    99.58MB  2.95%  bytes.(*Buffer).WriteString

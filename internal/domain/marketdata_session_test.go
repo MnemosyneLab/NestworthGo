@@ -51,13 +51,13 @@ func TestLastFinalizedEquityMarketDateUsesMarketSession(t *testing.T) {
 }
 
 func TestUSListedEquityMarketIncludesCommonUSVenues(t *testing.T) {
-	for _, market := range []string{"NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX", "XASE", "ARCX", "BATS", "IEXG"} {
-		if !USListedEquityMarket(market) {
-			t.Fatalf("USListedEquityMarket(%q) = false", market)
-		}
-		if _, ok := EquitySessionScheduleForMarket(market); !ok {
-			t.Fatalf("EquitySessionScheduleForMarket(%q) missing", market)
-		}
+	// Venue aliases such as NYSE, AMEX, and ARCA share the US switch case.
+	market := "NASDAQ"
+	if !USListedEquityMarket(market) {
+		t.Fatalf("USListedEquityMarket(%q) = false", market)
+	}
+	if _, ok := EquitySessionScheduleForMarket(market); !ok {
+		t.Fatalf("EquitySessionScheduleForMarket(%q) missing", market)
 	}
 	if USListedEquityMarket("HKEX") {
 		t.Fatal("HKEX must not be treated as a US listed equity market")

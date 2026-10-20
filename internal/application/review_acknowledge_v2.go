@@ -39,5 +39,5 @@ func (s *Service) AcknowledgeReviewEpisodeV2(ctx context.Context, episodeID, mut
 	if household == nil {
 		return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 	}
-	return port.AcknowledgeReviewEpisodeV2(ctx, domain.ReviewAcknowledgeMutation{HouseholdID: household.ID, EpisodeID: episode, MutationID: mutation, ExpectedRevision: expectedRevision, At: s.clock()})
+	return port.AcknowledgeReviewEpisodeV2(ctx, domain.ReviewAcknowledgeMutation{HouseholdID: household.ID, EpisodeID: episode, MutationID: mutation, ExpectedRevision: expectedRevision, At: s.reviewNow()})
 }

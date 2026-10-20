@@ -1,0 +1,28 @@
+=== RUN   TestReviewCertifiedGenesisRequiresPrivateLifecycleProof
+=== RUN   TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/new
+=== RUN   TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/reopened-unpublished
+=== RUN   TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/external-commit
+=== RUN   TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/pool-replaced
+=== RUN   TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/restore-boundary
+=== RUN   TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/c2-history-erased
+--- PASS: TestReviewCertifiedGenesisRequiresPrivateLifecycleProof (0.70s)
+    --- PASS: TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/new (0.11s)
+    --- PASS: TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/reopened-unpublished (0.13s)
+    --- PASS: TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/external-commit (0.13s)
+    --- PASS: TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/pool-replaced (0.11s)
+    --- PASS: TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/restore-boundary (0.10s)
+    --- PASS: TestReviewCertifiedGenesisRequiresPrivateLifecycleProof/c2-history-erased (0.11s)
+=== RUN   TestReviewCertifiedCapturedGenesisCannotSurvivePublicationAndErasure
+--- PASS: TestReviewCertifiedCapturedGenesisCannotSurvivePublicationAndErasure (0.11s)
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap/open-ack
+    review_certified_missing_history_test.go:96: pre-corruption acknowledged identity 01a15552-65b6-761f-bcb8-8bea1c04321c at 2026-10-12T12:00:00Z differs from newly planned unacknowledged identity 01a15552-65f8-7158-8d27-30c618dbec5f
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap/resolved-ack
+=== RUN   TestReviewCertifiedDeletedHistoryCannotBootstrap/empty-namespace-with-ack-receipt
+    review_certified_missing_history_test.go:96: pre-corruption acknowledged identity 01a15552-670b-7d3f-a455-db48d5f1d7b1 at 2026-10-12T12:00:00Z differs from newly planned unacknowledged identity 01a15552-674b-71ac-a613-1978f16fae60
+--- PASS: TestReviewCertifiedDeletedHistoryCannotBootstrap (0.50s)
+    --- PASS: TestReviewCertifiedDeletedHistoryCannotBootstrap/open-ack (0.16s)
+    --- PASS: TestReviewCertifiedDeletedHistoryCannotBootstrap/resolved-ack (0.17s)
+    --- PASS: TestReviewCertifiedDeletedHistoryCannotBootstrap/empty-namespace-with-ack-receipt (0.17s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	1.312s

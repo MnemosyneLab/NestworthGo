@@ -1,197 +1,294 @@
 name: check
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Wall clock is the slowest job. Race detection is daily in perf.yml.
+# Non-race Go tests are checksum shards so one package cannot hold the run.
+# The aggregate check name stays `test`.
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  meta:
+    name: meta
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
-      - uses: pnpm/action-setup@v4
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
+      - name: Install native Go build dependencies
+        timeout-minutes: 17
+        run: bash tools/ci-install-native-deps.sh
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Go vet
+        run: go vet ./...
+      - name: Go build
+        run: go build ./cmd/nestworth
+      - name: Validate user skill and installer
+        run: |
+          python3 tools/check-nestworth-skill.py
+          python3 -m unittest discover -s tools/tests -v
+      - name: Trailing whitespace
+        run: git diff --check
+
+  # Two copies of the bindings setup (~117s on run 39229083742) plus half
+  # of the 236s Vitest run. Lint and typecheck ride on shard 1; the
+  # production build rides on shard 2, so neither job repeats those steps.
+  frontend:
+    name: frontend (${{ matrix.label }})
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: tests 1/2
+            shard: 1
+            shards: 2
+            lint: true
+            typecheck: true
+            build: false
+          - label: tests 2/2
+            shard: 2
+            shards: 2
+            lint: false
+            typecheck: false
+            build: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@v6
         with:
           version: 12.2.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install native Go build dependencies
-        timeout-minutes: 15
+        timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
+      # setup-go cache never reused the Wails compile (~70s median).
+      - name: Reuse Go build cache for Wails bindings
+        run: echo "NESTWORTH_WAILS_GOCACHE=$GOCACHE" >> "$GITHUB_ENV"
       - name: Generate Wails bindings
         working-directory: frontend
         run: pnpm run generate:bindings
       - name: Verify generated Wails bindings
         working-directory: frontend
         run: pnpm run check:bindings
-      - name: gofmt
-        run: test -z "$(gofmt -l cmd internal)"
-      - name: Frontend build
-        working-directory: frontend
-        run: pnpm run build
-      - name: Go tests
-        run: go test ./...
-      - name: Validate user skill and installer
-        run: |
-          python3 tools/check-nestworth-skill.py
-          python3 -m unittest discover -s tools/tests -v
-      - name: Go vet
-        run: go vet ./...
-      - name: Go build
-        run: go build ./cmd/nestworth
       - name: Frontend lint
+        if: matrix.lint
         working-directory: frontend
         run: pnpm run lint
       - name: Frontend typecheck
+        if: matrix.typecheck
         working-directory: frontend
         run: pnpm run typecheck
+      - name: Frontend build
+        if: matrix.build
+        working-directory: frontend
+        run: pnpm run build
       - name: Frontend tests
         working-directory: frontend
-        run: pnpm run test
+        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}
       - name: Trailing whitespace
         run: git diff --check
 
-  # Application 2/2 repeatedly exhausted Go's cumulative 10m test budget
-  # (PR #60, main, PR #61); no assertion or race detector failure preceded it.
-  # Four application parts reduce work per runner without increasing in-process
-  # concurrency or skipping tests. MCP remains two parts. Keep the 10m bound
-  # explicit and retain per-test JSON evidence for future distribution reviews.
-  # Test/Example/Fuzz names come from the same race build as the run. Fault
-  # injection and uncontended performance tests retain their sequential status.
-  race-shard:
-    name: race (${{ matrix.label }})
-    runs-on: ubuntu-latest
+  # Run 39229083742 Go test steps were 42–89s inside 85–164s jobs.
+  # Setup is ~45–75s, so three bins of ~200–220s of tests land near 4–5m.
+  # Application stays two checksum parts (the old 1+3 and 2+4 quarters).
+  # MCP and sqlite are whole packages. Each part is still selected once.
+  go-shard:
+    name: go (${{ matrix.label }})
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - shard: application
-            part: 0
-            parts: 4
-            label: application 1/4
-          - shard: application
-            part: 1
-            parts: 4
-            label: application 2/4
-          - shard: application
-            part: 2
-            parts: 4
-            label: application 3/4
-          - shard: application
-            part: 3
-            parts: 4
-            label: application 4/4
-          - shard: mcpserver
-            part: 0
-            parts: 2
-            label: mcpserver 1/2
-          - shard: mcpserver
-            part: 1
-            parts: 2
-            label: mcpserver 2/2
-          - shard: infrastructure
-            part: 0
-            parts: 1
-            label: infrastructure
-          - shard: remainder
-            part: 0
-            parts: 1
-            label: remainder
+          - label: application 1/2 + continuousbackup
+            artifact: application-1-continuousbackup
+            selections: |
+              application 0 2
+              continuousbackup 0 1
+          - label: application 2/2 + remainder
+            artifact: application-2-remainder
+            selections: |
+              application 1 2
+              remainder 0 1
+          - label: mcpserver + sqlite
+            artifact: mcpserver-sqlite
+            selections: |
+              mcpserver 0 1
+              sqlite 0 1
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
+          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
+          cache-dependency-path: go.sum
       - name: Install native Go build dependencies
-        timeout-minutes: 15
+        timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
-      - name: Go tests with race detector
+      - name: Go tests
         run: |
           set -euo pipefail
-          shard="${{ matrix.shard }}"
-          part="${{ matrix.part }}"
-          parts="${{ matrix.parts }}"
-          parallel=()
-          run_args=()
+          run_one() {
+          local shard="$1" part="$2" parts="$3"
+          local pkg_parallel=(-p 1)
+          local run_args=()
           case "$shard" in
             application)
               pkgs=(./internal/application)
-              parallel=(-parallel 4)
               ;;
             mcpserver)
               pkgs=(./internal/mcpserver)
-              parallel=(-parallel 4)
               ;;
-            infrastructure)
-              pkgs=(./internal/infrastructure/...)
+            sqlite)
+              pkgs=(./internal/infrastructure/sqlite)
+              ;;
+            continuousbackup)
+              pkgs=(./internal/infrastructure/continuousbackup)
               ;;
             remainder)
+              pkg_parallel=(-p 2)
               # Check enumeration before filtering; process substitution hides
               # a failed go list and can silently drop packages.
-              go list ./... > "$RUNNER_TEMP/race-packages.txt"
-              mapfile -t pkgs < <(grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure($|/))' "$RUNNER_TEMP/race-packages.txt")
+              go list ./... > "$RUNNER_TEMP/go-packages.txt"
+              mapfile -t pkgs < <(grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure/sqlite($|/)|infrastructure/continuousbackup($|/))' "$RUNNER_TEMP/go-packages.txt")
+              go list ./internal/infrastructure/... > "$RUNNER_TEMP/infrastructure-packages.txt"
+              covered=0
+              while IFS= read -r pkg || [ -n "$pkg" ]; do
+                case "$pkg" in
+                  */infrastructure/sqlite|*/infrastructure/sqlite/*|*/infrastructure/continuousbackup|*/infrastructure/continuousbackup/*)
+                    covered=$((covered + 1))
+                    ;;
+                  *)
+                    found=0
+                    for selected in "${pkgs[@]}"; do
+                      if [ "$selected" = "$pkg" ]; then
+                        found=1
+                        break
+                      fi
+                    done
+                    if [ "$found" -ne 1 ]; then
+                      echo "infrastructure package missing from remainder: $pkg" >&2
+                      exit 1
+                    fi
+                    ;;
+                esac
+              done < "$RUNNER_TEMP/infrastructure-packages.txt"
+              if [ "$covered" -lt 2 ]; then
+                echo "infrastructure partition does not cover go list" >&2
+                exit 1
+              fi
+              dedicated=0
+              while IFS= read -r pkg || [ -n "$pkg" ]; do
+                case "$pkg" in
+                  */internal/application|*/internal/mcpserver|*/infrastructure/sqlite|*/infrastructure/continuousbackup)
+                    dedicated=$((dedicated + 1))
+                    ;;
+                esac
+              done < "$RUNNER_TEMP/go-packages.txt"
+              if [ "$dedicated" -ne 4 ]; then
+                echo "go list does not contain exactly the four dedicated packages" >&2
+                exit 1
+              fi
               ;;
             *)
-              echo "unknown race shard: $shard" >&2
+              echo "unknown go shard: $shard" >&2
               exit 1
               ;;
           esac
           if [ "${#pkgs[@]}" -eq 0 ]; then
-            echo "race shard selected no packages" >&2
+            echo "go shard selected no packages" >&2
             exit 1
           fi
           if [ "$parts" != "1" ]; then
             if [ "${#pkgs[@]}" -ne 1 ]; then
-              echo "split race shard must list exactly one package" >&2
+              echo "split go shard must list exactly one package" >&2
               exit 1
             fi
-            # stdout is only the -run regex. A non-zero selector status
-            # (list failure, empty runnable set, or empty part) fails the shard.
-            if ! regex=$(bash tools/race-shard-select.sh "$part" "$parts" "${pkgs[0]}"); then
-              echo "race shard $shard part $part selector failed" >&2
+            # Non-race list. A non-zero selector status fails the shard,
+            # including an empty part.
+            if ! regex=$(bash tools/race-shard-select.sh --enumerate "$part" "$parts" -- go test -count=1 -list . "${pkgs[0]}"); then
+              echo "go shard $shard part $part selector failed" >&2
               exit 1
             fi
             if [ -z "$regex" ]; then
-              echo "race shard $shard part $part selector returned an empty regex" >&2
+              echo "go shard $shard part $part selector returned an empty regex" >&2
               exit 1
             fi
             run_args=(-run "$regex")
           fi
-          printf 'shard %s packages:\n' "$shard"
+          printf 'shard %s part %s/%s packages:\n' "$shard" "$((part + 1))" "$parts"
           printf '  %s\n' "${pkgs[@]}"
-          go test -race -count=1 -json -timeout 10m -p 1 "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee "$RUNNER_TEMP/race-results.jsonl"
-      - name: Retain race test timings and failures
+          go test -count=1 -json -timeout 20m "${pkg_parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee -a "$RUNNER_TEMP/go-results.jsonl"
+          }
+          ran=0
+          while read -r shard part parts; do
+            if [ -z "${shard:-}" ]; then
+              continue
+            fi
+            ran=1
+            run_one "$shard" "$part" "$parts"
+          done <<< "${{ matrix.selections }}"
+          if [ "$ran" -ne 1 ]; then
+            echo "go shard ran no selections" >&2
+            exit 1
+          fi
+      - name: Retain Go test timings and failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: race-${{ matrix.shard }}-${{ matrix.part }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/race-results.jsonl
+          name: go-${{ matrix.artifact }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/go-results.jsonl
           if-no-files-found: error
           retention-days: 7
 
-  race:
-    needs: race-shard
-    runs-on: ubuntu-latest
+  # Required check name. Fails closed unless every gate job succeeded.
+  test:
+    name: test
+    needs: [meta, frontend, go-shard]
     if: always()
+    runs-on: ubuntu-26.04
     steps:
-      - name: Require every race shard
+      - name: Require every test gate
         run: |
-          if [ "${{ needs.race-shard.result }}" != "success" ]; then
-            echo "race shards result: ${{ needs.race-shard.result }}"
-            exit 1
-          fi
-          echo "all race shards passed"
+          set -euo pipefail
+          results=(
+            "meta=${{ needs.meta.result }}"
+            "frontend=${{ needs.frontend.result }}"
+            "go-shard=${{ needs.go-shard.result }}"
+          )
+          printf '%s\n' "${results[@]}"
+          for item in "${results[@]}"; do
+            if [ "${item#*=}" != "success" ]; then
+              echo "test gate failed: $item" >&2
+              exit 1
+            fi
+          done
+          echo "all test gates passed"

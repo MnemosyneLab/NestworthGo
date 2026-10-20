@@ -16,17 +16,44 @@ import (
 // not create control rows or daily snapshots as a side effect of reading.
 func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID domain.HouseholdID, cutoff time.Time) (domain.ReviewProjectionCapture, error) {
 	var empty domain.ReviewProjectionCapture
-	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	epoch, rollback := r.database.reviewClock.observe(cutoff)
+	var tx *sql.Tx
+	var err error
+	var connectionID uint64
+	if r.CertifiedReviewEnabled() {
+		var conn *sql.Conn
+		conn, connectionID, err = r.certifiedConnection(ctx)
+		if err != nil {
+			return empty, err
+		}
+		defer conn.Close()
+		tx, err = conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	} else {
+		tx, err = r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	}
 	if err != nil {
 		return empty, err
 	}
 	defer tx.Rollback()
+	var connectionProof domain.ReviewConnectionCheckpoint
+	if r.CertifiedReviewEnabled() {
+		// Sample before any financial snapshot reads. A later external commit
+		// must not be absorbed into the proof of an older read snapshot.
+		connectionProof, err = r.certifiedConnectionCheckpoint(ctx, tx, connectionID)
+		if err != nil {
+			return empty, err
+		}
+	}
 	result := domain.ReviewProjectionCapture{HouseholdID: householdID, SourceCutoff: cutoff, Rules: []domain.ReviewRule{}, Suppressions: []domain.ReviewSuppression{}, OpenEpisodes: []domain.ReviewStoredEpisode{}, EvaluatedInstruments: map[domain.ReviewRuleID][]domain.InstrumentID{}}
 	result.Historical, err = loadReviewHistoricalBatchQuery(ctx, tx, householdID, cutoff)
 	if err != nil {
 		return empty, err
 	}
 	result.HistoricalFingerprint, err = domain.ReviewHistoricalFingerprint(result.Historical)
+	if err != nil {
+		return empty, err
+	}
+	result.SourceRevision, err = readReviewSourceCheckpoint(ctx, tx, householdID, result.Historical.History.ResolverPolicyVersion)
 	if err != nil {
 		return empty, err
 	}
@@ -142,6 +169,56 @@ func (r *Repository) CaptureReviewProjection(ctx context.Context, householdID do
 	stateRows.Close()
 	if err != nil {
 		return empty, err
+	}
+	result.Temporal, err = buildReviewTemporal(ctx, tx, result, epoch)
+	if err != nil {
+		return empty, err
+	}
+	result.PublishedTemporal, err = readReviewTemporal(ctx, tx, householdID)
+	if err != nil {
+		return empty, err
+	}
+	previous := result.PublishedTemporal
+	result.Control.PublishedTemporalRevision = reviewTemporalDigest(previous)
+	// A full source capture still happens on EVERY C2 call. Normal forward
+	// calendar advancement may reuse independently proven fixed-day facts;
+	// restart, rollback and incompatible certificates require the full oracle.
+	result.TemporalFullRecompute = rollback || previous == nil || previous.ClockEpoch != epoch || previous.PolicyVersion != domain.ReviewTemporalPolicyVersion || previous.DependencyScope != domain.ReviewTemporalDependencyScope || cutoff.Before(previous.EvaluatedAt) || previous.Source == nil || result.SourceRevision == nil
+	if !result.TemporalFullRecompute {
+		result.TemporalFullRecompute = previous.Source.Token.Epoch != result.SourceRevision.Token.Epoch || previous.Source.Token.TrackingVersion != result.SourceRevision.Token.TrackingVersion || previous.Source.Token.ResolverPolicyVersion != result.SourceRevision.Token.ResolverPolicyVersion || previous.Source.Token.EvaluatorVersion != result.SourceRevision.Token.EvaluatorVersion || previous.Source.Token.MetricPolicyVersion != result.SourceRevision.Token.MetricPolicyVersion || previous.Source.Token.Revision < result.SourceRevision.JournalFloor
+	}
+	// Verify certified writer assumptions once in this snapshot before the
+	// diagnostic lineage reads. No verification result crosses transactions.
+	trackingVerified := false
+	if r.CertifiedReviewEnabled() {
+		if err := r.captureCertifiedReview(ctx, tx, &result, connectionProof); err != nil {
+			return empty, err
+		}
+		trackingVerified = result.Certified.SourceMAC != ""
+	}
+	if r.ReviewCompletenessLineageShadowEnabled() {
+		result.CompletenessLineage, err = r.captureReviewLineage(ctx, tx, result, epoch, trackingVerified)
+		if err != nil {
+			return empty, err
+		}
+		r.observeReviewLineage("capture", result.CompletenessLineage.Reason)
+	}
+	// Every non-confirmed C3 call starts with full source/preparation. Only an
+	// authenticated, supported lineage can propose the existing bounded plan;
+	// that proposal still requires its separate complete runtime oracle.
+	if r.ReviewNoChangeEnabled() || r.ReviewCompletenessLineageShadowEnabled() {
+		result.TemporalFullRecompute = true
+	}
+	if r.CertifiedReviewEnabled() && trackingVerified {
+		proof := result.Certified
+		proof.MayReuse = proof.MayCertify && r.authenticReview(result.PublishedTemporal, proof.ProjectionSeal) && result.CompletenessLineage != nil && result.CompletenessLineage.Candidate
+		proof.SourceMAC, err = r.sourceCaptureMAC(result)
+		if err != nil {
+			return empty, err
+		}
+		if proof.MayReuse {
+			result.TemporalFullRecompute = false
+		}
 	}
 	if err := r.loadReusableReviewWindow(ctx, tx, &result); err != nil {
 		return empty, err

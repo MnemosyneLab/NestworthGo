@@ -1,0 +1,19 @@
+{
+  "branch": "perf/c3-runtime-window-oracle",
+  "code_head": "e112f58a56c21c56b9b82cec8a7fe9b6892d3c3a",
+  "verified_main": "326688ce86d35216a9fe55a3bee63bcbb379683d",
+  "required_ancestors": {
+    "c3867c626d3b6a0cdbcf669a0047ff8d07d4215f": true,
+    "09d6276bb0f0be6ebdbfa4afacfcca843c1e623a": true,
+    "2fa0a34f59e577b81e80c5cef81dc962315d6319": true,
+    "326688ce86d35216a9fe55a3bee63bcbb379683d": true
+  },
+  "workflow_diff": [],
+  "synthetic_only": true,
+  "default_constructor_unchanged": true,
+  "manual_workflow_dispatches": 0,
+  "race_runs_so_far": 1,
+  "main_sync_commit": "7853e7e423b704fd03e86c4baf56ec3cd03b79b9",
+  "review_source_equals_e112f58": true,
+  "race_head": "53dbd180c3d75884a0132c9400a5a14f94015d7b"
+}

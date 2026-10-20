@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +13,15 @@ import (
 
 type rowScanner interface {
 	Scan(...any) error
+}
+
+type reviewOrderedActivityScanner struct {
+	rows  *sql.Rows
+	order *string
+}
+
+func (s reviewOrderedActivityScanner) Scan(values ...any) error {
+	return s.rows.Scan(append(values, s.order)...)
 }
 
 func (r *Repository) Activity(ctx context.Context, householdID domain.HouseholdID, activityID domain.ActivityID) (domain.Activity, error) {
@@ -374,8 +384,12 @@ func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdI
 	statement := correctedActivityCTE + `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ?`
 	args := []any{householdID.String(), formatTimestamp(cutoff)}
 	if reviewRead {
-		statement = reviewFactActivityCTE + `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ?`
-		args = []any{householdID.String(), householdID.String(), formatTimestamp(cutoff)}
+		statement = reviewFactActivityCTE + `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate, ordering_id FROM economic_activities WHERE household_id = ?`
+		args = []any{householdID.String(), householdID.String()}
+		// Compare parsed instants below. RFC3339Nano's optional fractional
+		// digits are not lexicographically ordered with legacy whole-second
+		// timestamps, and formatTimestamp intentionally stores milliseconds.
+		// The review scope is still restricted to quantity correction chains.
 		// Review replay projects holding quantities only. Cost basis is read
 		// separately; money effects cannot be replayed from this sparse slice.
 		statement += ` AND EXISTS(SELECT 1 FROM activity_effects review_effect WHERE review_effect.activity_id=economic_activities.id AND review_effect.target='holding_quantity')`
@@ -387,13 +401,28 @@ func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdI
 	}
 	defer rows.Close()
 	var activities []domain.Activity
+	var ordering map[domain.ActivityID]string
+	if reviewRead {
+		ordering = make(map[domain.ActivityID]string)
+	}
 	for rows.Next() {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		activity, scanErr := activityFromScanner(rows)
+		var scanner rowScanner = rows
+		var order string
+		if reviewRead {
+			scanner = reviewOrderedActivityScanner{rows, &order}
+		}
+		activity, scanErr := activityFromScanner(scanner)
 		if scanErr != nil {
 			return nil, scanErr
+		}
+		if reviewRead && activity.EffectiveAt.After(cutoff) {
+			continue
+		}
+		if reviewRead {
+			ordering[activity.ID] = order
 		}
 		activities = append(activities, activity)
 	}
@@ -402,6 +431,23 @@ func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdI
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
+	}
+	if reviewRead {
+		// Preserve the correction chain's original tie key while comparing
+		// actual instants, including mixed precision and UTC offsets.
+		sort.SliceStable(activities, func(i, j int) bool {
+			left, right := activities[i], activities[j]
+			if !left.EffectiveAt.Equal(right.EffectiveAt) {
+				return left.EffectiveAt.Before(right.EffectiveAt)
+			}
+			if !left.CreatedAt.Equal(right.CreatedAt) {
+				return left.CreatedAt.Before(right.CreatedAt)
+			}
+			return ordering[left.ID] < ordering[right.ID]
+		})
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
 	hydrate := hydrateHistoricalActivities
 	if reviewRead {

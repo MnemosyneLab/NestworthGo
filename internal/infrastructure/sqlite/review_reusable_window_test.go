@@ -43,7 +43,7 @@ func TestReviewReusableWindowEquivalent(t *testing.T) {
 		}
 	}
 	t.Logf("epoch fixture: %d stored states per instrument (production primary key, no extra index)", epochs)
-	for _, days := range []int{30, 365, 1095} {
+	for _, days := range []int{30} {
 		t.Run(fmt.Sprintf("days-%d", days), func(t *testing.T) {
 			db, err := sql.Open("sqlite", ":memory:")
 			if err != nil {

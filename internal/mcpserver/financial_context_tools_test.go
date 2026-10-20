@@ -171,7 +171,8 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
 	t.Parallel()
 	for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
-		for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page"} {
+		// Every name shares isFinancialContextTool. One protected tool covers the batch rejection.
+		for _, tool := range []string{"get_financial_context"} {
 			for _, variant := range []string{"large-property", "long-id", "mixed-first", "mixed-last"} {
 				t.Run(protocol+"/"+tool+"/"+variant, func(t *testing.T) {
 					s, _, _ := fixture(t)
@@ -332,7 +333,9 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 
 func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
 	t.Parallel()
-	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_context"} {
+	// Page and item share isFinancialContextTool with get_financial_context.
+	// get_context is the pass-through arm.
+	for _, tool := range []string{"get_financial_context", "get_context"} {
 		t.Run(tool, func(t *testing.T) {
 			body := strings.Repeat("x", contextWireLimit+1)
 			handler := financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

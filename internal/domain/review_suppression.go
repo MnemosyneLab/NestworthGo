@@ -39,7 +39,7 @@ func ReviewSuppressionUntil(now time.Time, timezone string, days int, customUnti
 	if now.IsZero() {
 		return "", validation("now", "an operation time is required")
 	}
-	location, err := time.LoadLocation(timezone)
+	location, err := LoadFinancialLocation(timezone)
 	if err != nil || timezone == "Local" {
 		return "", validation("timezone", "a fixed IANA timezone is required")
 	}
@@ -79,7 +79,7 @@ func ActiveReviewSuppression(entries []ReviewSuppression, instrumentID Instrumen
 		if item.InstrumentID != instrumentID || (item.RuleID != "" && item.RuleID != ruleID) {
 			continue
 		}
-		location, err := time.LoadLocation(item.Timezone)
+		location, err := LoadFinancialLocation(item.Timezone)
 		if err != nil || item.Timezone == "Local" {
 			return nil, validation("timezone", "suppression has an invalid IANA timezone")
 		}

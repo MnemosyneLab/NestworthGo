@@ -102,7 +102,7 @@ func (s *Service) saveReviewRuleV2(ctx context.Context, operation string, input 
 	if household == nil {
 		return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 	}
-	return port.MutateReviewRuleV2(ctx, domain.ReviewRuleMutation{Operation: operation, HouseholdID: household.ID, RuleID: ruleID, MutationID: mutationID, ExpectedRevision: input.ExpectedRevision, Name: name, Enabled: input.Enabled, Severity: input.Severity, Spec: input.Spec, At: s.clock().UTC()})
+	return port.MutateReviewRuleV2(ctx, domain.ReviewRuleMutation{Operation: operation, HouseholdID: household.ID, RuleID: ruleID, MutationID: mutationID, ExpectedRevision: input.ExpectedRevision, Name: name, Enabled: input.Enabled, Severity: input.Severity, Spec: input.Spec, At: s.reviewNow().UTC()})
 }
 
 // DecodeReviewRuleV2Input is available to Wails/MCP adapters that accept raw

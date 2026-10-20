@@ -1,0 +1,17 @@
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-untracked
+    review_temporal_publication_interval_test.go:112: at 2026-10-03 13:00:00 +0000 UTC: status=complete want=stale err=<nil>
+    review_temporal_publication_interval_test.go:116: persisted 2026-10-03 14:00:00 +0000 UTC; intersection must end at 2026-10-03 13:00:00 +0000 UTC
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/later-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/expired-untracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-tracked
+=== RUN   TestReviewTemporalPublicationPersistsIntervalIntersection/quantity-untracked
+--- FAIL: TestReviewTemporalPublicationPersistsIntervalIntersection (1.04s)
+    --- FAIL: TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-untracked (0.14s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/later-untracked (0.14s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/expired-untracked (0.33s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/earlier-tracked (0.23s)
+    --- PASS: TestReviewTemporalPublicationPersistsIntervalIntersection/quantity-untracked (0.19s)
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	1.050s
+FAIL

@@ -2,12 +2,13 @@ package application
 
 import (
 	"context"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 type ReviewCoverageV2Repository interface {
-	ListReviewCoverageV2(context.Context, domain.HouseholdID, domain.ReviewCoverageFilter, string, int) (domain.ReviewCoveragePage, error)
+	ListReviewCoverageV2(context.Context, domain.HouseholdID, domain.ReviewCoverageFilter, string, int, time.Time) (domain.ReviewCoveragePage, error)
 }
 
 // ListReviewCoverageV2 is a pure read of the last complete publication.
@@ -25,5 +26,5 @@ func (s *Service) ListReviewCoverageV2(ctx context.Context, filter domain.Review
 	if household == nil {
 		return domain.ReviewCoveragePage{Items: []domain.ReviewCoverageGroup{}, ProjectionStatus: "pending"}, nil
 	}
-	return reader.ListReviewCoverageV2(ctx, household.ID, filter, cursor, pageSize)
+	return reader.ListReviewCoverageV2(ctx, household.ID, filter, cursor, pageSize, s.reviewNow())
 }

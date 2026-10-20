@@ -11,7 +11,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/shopspring/decimal"
 )
@@ -108,7 +107,7 @@ func (s ReviewRuleSpec) Normalize() (ReviewRuleSpec, error) {
 	if s.Schedule.Period != "calendar_day" || s.Schedule.CutoffVersion != ReviewCutoffVersion || strings.TrimSpace(s.Schedule.Timezone) != s.Schedule.Timezone || s.Schedule.Timezone == "" || s.Schedule.Timezone == "Local" {
 		return ReviewRuleSpec{}, validation("schedule", "a fixed IANA timezone and civil-day cutoff are required")
 	}
-	if _, err := time.LoadLocation(s.Schedule.Timezone); err != nil {
+	if _, err := LoadFinancialLocation(s.Schedule.Timezone); err != nil {
 		return ReviewRuleSpec{}, validation("timezone", "must be an available IANA timezone")
 	}
 	if s.DataPolicy != DefaultReviewRuleDataPolicy() {

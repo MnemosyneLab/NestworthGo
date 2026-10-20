@@ -64,7 +64,10 @@ func openProductListFixture(t *testing.T, s *Service, ctx context.Context, accou
 	}})
 }
 func TestProductListOneSnapshotIndependentOfCount(t *testing.T) {
-	for _, count := range []int{0, 1, 10, 50, 100} {
+	// 0, 1, and 10 cover an empty list, a single contract, and the settle/undo
+	// branches inside a multi-contract snapshot. 50 and 100 repeated that same
+	// read-budget assertion without another branch.
+	for _, count := range []int{0, 1, 10} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 			account := seedHoldingsCash(t, s, ctx, "1000000")

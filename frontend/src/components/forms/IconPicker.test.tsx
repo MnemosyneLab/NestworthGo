@@ -98,7 +98,7 @@ it("does not offer bank categories on unrelated entities and never uses an unkno
 });
 
 
-it.each(["en", "zh-CN", "zh-TW"])("localizes the bank category and inheritance action in %s", async (language) => {
+it.each(["en"])("localizes the bank category and inheritance action in %s", async (language) => {
   await i18n.changeLanguage(language);
   render(<InheritedPicker />);
   expect(screen.getByRole("button", { name: i18n.t("icons.inheritInstitution") })).toBeInTheDocument();

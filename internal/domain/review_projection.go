@@ -10,12 +10,18 @@ type ReviewProjectionCapture struct {
 	SourceCutoff          time.Time
 	Historical            ReviewHistoricalBatch
 	HistoricalFingerprint string
+	SourceRevision        *ReviewSourceCheckpoint
+	Temporal              *ReviewTemporalCertificate
+	PublishedTemporal     *ReviewTemporalCertificate
+	TemporalFullRecompute bool
 	Control               ReviewProjectionControl
 	Rules                 []ReviewRule
 	Suppressions          []ReviewSuppression
 	OpenEpisodes          []ReviewStoredEpisode
 	EvaluatedInstruments  map[ReviewRuleID][]InstrumentID
 	ReusableDailyEvidence map[ReviewDailyEvidenceKey]ReviewReusableDailyEvidence
+	CompletenessLineage   *ReviewCompletenessLineage
+	Certified             *ReviewCertifiedCapture
 }
 
 // ReviewDailyEvidenceKey identifies one persisted daily input/result for the
@@ -39,13 +45,14 @@ type ReviewReusableDailyEvidence struct {
 }
 
 type ReviewProjectionControl struct {
-	Enabled              bool
-	ConfigRevision       int
-	InputGeneration      int
-	ReviewStateRevision  int
-	ProjectionStatus     string
-	PublishedOn          string
-	PublishedFingerprint string
+	Enabled                   bool
+	ConfigRevision            int
+	InputGeneration           int
+	ReviewStateRevision       int
+	ProjectionStatus          string
+	PublishedOn               string
+	PublishedFingerprint      string
+	PublishedTemporalRevision string
 }
 
 type ReviewStoredEpisode struct {
@@ -65,9 +72,12 @@ type ReviewStoredEpisode struct {
 }
 
 type ReviewPublication struct {
-	Capture ReviewProjectionCapture
-	At      time.Time
-	Rules   []ReviewRulePublication
+	Capture             ReviewProjectionCapture
+	At                  time.Time
+	Rules               []ReviewRulePublication
+	FXProviderKey       string
+	WindowOracle        *ReviewWindowOracle
+	CertifiedFullOracle *ReviewCertifiedFullOracle
 }
 
 type ReviewRulePublication struct {

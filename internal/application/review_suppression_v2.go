@@ -105,7 +105,7 @@ func (s *Service) SetReviewSuppressionV2(ctx context.Context, in SetReviewSuppre
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "untilOn", Message: "resume date is required"}
 		}
 	}
-	result, err := port.MutateReviewSuppressionV2(ctx, domain.ReviewSuppressionMutation{Operation: "set", HouseholdID: household.ID, SuppressionID: id, MutationID: mutation, InstrumentID: instrument, RuleID: rule, Mode: in.Mode, Timezone: timezone, RelativeDays: in.Days, CustomUntil: in.UntilOn, ExpectedRevision: in.ExpectedRevision, At: s.clock()})
+	result, err := port.MutateReviewSuppressionV2(ctx, domain.ReviewSuppressionMutation{Operation: "set", HouseholdID: household.ID, SuppressionID: id, MutationID: mutation, InstrumentID: instrument, RuleID: rule, Mode: in.Mode, Timezone: timezone, RelativeDays: in.Days, CustomUntil: in.UntilOn, ExpectedRevision: in.ExpectedRevision, At: s.reviewNow()})
 	if err != nil {
 		return empty, err
 	}
@@ -140,6 +140,6 @@ func (s *Service) ClearReviewSuppressionV2(ctx context.Context, suppressionID, m
 	if household == nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 	}
-	_, err = port.MutateReviewSuppressionV2(ctx, domain.ReviewSuppressionMutation{Operation: "clear", HouseholdID: household.ID, SuppressionID: id, MutationID: mutation, ExpectedRevision: expectedRevision, At: s.clock()})
+	_, err = port.MutateReviewSuppressionV2(ctx, domain.ReviewSuppressionMutation{Operation: "clear", HouseholdID: household.ID, SuppressionID: id, MutationID: mutation, ExpectedRevision: expectedRevision, At: s.reviewNow()})
 	return err
 }

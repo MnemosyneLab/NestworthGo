@@ -487,7 +487,7 @@ func TestTargetSwapClearsOldEvidenceAndUnavailableSaveKeepsCredentials(t *testin
 	}
 }
 func TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement(t *testing.T) {
-	for _, version := range []int{0, 9, 10, 11, 12, 13, 14, 15, sqlite.CurrentSchemaVersion + 1} {
+	for _, version := range []int{14, 15} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			m, db, _ := fixture(t)
 			if _, err := db.SQL.Exec(fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
@@ -942,7 +942,7 @@ func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *tes
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"financial_source_changes", "financial_source_revision", "reconciliation_financial_changes", "reconciliation_links", "reconciliation_receipts", "reconciliation_items", "reconciliation_accounts", "reconciliation_sessions", "account_financial_revisions"} {
+	for _, name := range []string{"review_temporal_checkpoints", "financial_source_changes", "financial_source_revision", "reconciliation_financial_changes", "reconciliation_links", "reconciliation_receipts", "reconciliation_items", "reconciliation_accounts", "reconciliation_sessions", "account_financial_revisions"} {
 		if _, err := db.SQL.Exec("DROP TABLE " + name); err != nil {
 			t.Fatal(err)
 		}

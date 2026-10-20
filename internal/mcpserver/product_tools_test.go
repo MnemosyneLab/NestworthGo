@@ -438,7 +438,9 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 	if _, err := fx.service.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"list_products", "get_product", "list_product_operations", "get_liquidity_overview"} {
+	// These reads share isProductReadTool. Oversized list and overview results
+	// below still exercise the two handlers that can exceed the wire budget.
+	for _, name := range []string{"list_products"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{strings.Repeat("private", 12000): true}}}
 		status, raw := productHTTP(t, fx.service, payload, "")
 		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "privateprivate") || !strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {

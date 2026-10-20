@@ -1,7 +1,9 @@
 package mcpserver
 
 import (
+	"context"
 	"encoding/json"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,12 +13,46 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
 func TestReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T) {
+	testReviewV2FundedTradeHTTPPreviewAndRefresh(t, false)
+}
+
+func TestReviewNoChangeMCPWailsParity(t *testing.T) {
+	testReviewV2FundedTradeHTTPPreviewAndRefresh(t, true)
+}
+
+type noChangeParityRepository struct {
+	*sqlite.Repository
+	confirmed int
+}
+
+func (r *noChangeParityRepository) ConfirmReviewNoChange(ctx context.Context, id domain.HouseholdID, now time.Time, clock func() time.Time, provider func() string) (domain.ReviewNoChangeResult, bool, error) {
+	result, ok, err := r.Repository.ConfirmReviewNoChange(ctx, id, now, clock, provider)
+	if ok {
+		r.confirmed++
+	}
+	return result, ok, err
+}
+
+func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) {
 	now := time.Date(2026, 9, 1, 0, 5, 0, 0, time.UTC)
-	f := newLedgerFixtureWithClock(t, func() time.Time { return now })
+	var f ledgerFixture
+	var repository *noChangeParityRepository
+	if candidate {
+		db, err := sqlite.Open(filepath.Join(t.TempDir(), "synthetic-c3-parity.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = db.Close() })
+		repository = &noChangeParityRepository{Repository: sqlite.NewRepository(db).WithReviewNoChangeCandidate()}
+		f = newLedgerFixtureWithApp(t, application.NewService(repository), func() time.Time { return now })
+	} else {
+		f = newLedgerFixtureWithClock(t, func() time.Time { return now })
+	}
 	now = time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	client := ledgerSession(t, f)
 	bootstrap, err := f.app.Bootstrap(t.Context())
@@ -79,6 +115,34 @@ func TestReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T) {
 	wailsRefresh, err := liquidity.NewService(f.app).ReconcileInvestmentReviewsV2(t.Context())
 	if err != nil || refreshed.(map[string]any)["sourceFingerprint"] != wailsRefresh.SourceFingerprint || refreshed.(map[string]any)["ruleInstrumentCount"] != float64(wailsRefresh.RuleInstrumentCount) || refreshed.(map[string]any)["latestClosedOn"] != wailsRefresh.LatestClosedOn || wailsRefresh.DayCount != 0 {
 		t.Fatalf("MCP and Wails refresh differ: MCP=%+v Wails=%+v err=%v", refreshed, wailsRefresh, err)
+	}
+	if candidate && repository.confirmed != 1 {
+		t.Fatal("Wails did not use shared no-change confirmation", repository.confirmed)
+	}
+	if candidate {
+		call(t, client, "refresh_investment_reviews", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{}}, false)
+		if repository.confirmed != 2 {
+			t.Fatal("MCP did not use shared no-change confirmation", repository.confirmed)
+		}
+	}
+	// Both adapters read the same expired publication after a time-only boundary;
+	// neither implicitly refreshes it or claims that its certificate is current.
+	now = now.AddDate(0, 0, 1)
+	page, err := liquidity.NewService(f.app).ListReviewAlertsV2(t.Context(), liquidity.ListReviewAlertsV2Request{Filter: domain.ReviewAlertFilter{Status: "all"}, PageSize: 10})
+	if err != nil || page.ProjectionStatus != "stale" {
+		t.Fatalf("expired Wails publication: %+v %v", page, err)
+	}
+	listed := call(t, client, "list_investment_review_alerts", ReviewV2AlertPageInput{Filter: domain.ReviewAlertFilter{Status: "all"}, PageSize: 10}, false)["data"]
+	if !reflect.DeepEqual(listed, jsonObject(t, page)) {
+		t.Fatal("MCP/Wails temporal alert status differs")
+	}
+	coverage, err := liquidity.NewService(f.app).ListReviewCoverageV2(t.Context(), liquidity.ListReviewCoverageV2Request{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 10})
+	if err != nil || coverage.ProjectionStatus != "stale" {
+		t.Fatalf("expired Wails coverage: %+v %v", coverage, err)
+	}
+	covered := call(t, client, "get_investment_review_coverage", ReviewV2CoverageInput{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 10}, false)["data"]
+	if !reflect.DeepEqual(covered, jsonObject(t, coverage)) {
+		t.Fatal("MCP/Wails temporal coverage status differs")
 	}
 }
 

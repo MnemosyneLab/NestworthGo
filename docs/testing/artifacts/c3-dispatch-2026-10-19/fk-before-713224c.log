@@ -1,0 +1,8 @@
+--- FAIL: TestReviewCertifiedPreCaptureForeignKeyCascadeCannotCertify (0.12s)
+    review_certified_fk_contract_test.go:79: checkpoint FK action rewrote frozen detection time: 2026-10-12T12:00:00Z -> 2026-10-12T12:00:00.000000001Z (confirmation=true)
+    review_certified_fk_contract_test.go:82: modified FK contract authorized no-op
+    review_certified_fk_contract_test.go:85: rejected confirmation changed projection rows
+    review_certified_fk_contract_test.go:87: unknown or damaged state acquired integrity authority
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	0.125s
+FAIL

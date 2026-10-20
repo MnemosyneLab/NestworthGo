@@ -54,12 +54,17 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 		if err := json.Unmarshal([]byte(previousJSON), &previous); err != nil {
 			return empty, err
 		}
+		r.database.reviewInitialPublicationAllowed.Store(false)
 		if err := tx.Commit(); err != nil {
 			return empty, err
 		}
 		return previous, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
+		return empty, err
+	}
+	integrity, err := r.beforeCertifiedHandling(ctx, tx, m.HouseholdID)
+	if err != nil {
 		return empty, err
 	}
 	var revision int
@@ -111,6 +116,10 @@ func (r *Repository) AcknowledgeReviewEpisodeV2(ctx context.Context, m domain.Re
 	if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_mutation_receipts(household_id,mutation_id,request_hash,result_json,created_at) VALUES(?,?,?,?,?)`, m.HouseholdID.String(), string(m.MutationID), requestHash, string(encoded), m.At.UTC().Format(time.RFC3339Nano)); err != nil {
 		return empty, err
 	}
+	if err := r.afterCertifiedHandling(ctx, tx, m.HouseholdID, integrity); err != nil {
+		return empty, err
+	}
+	r.database.reviewInitialPublicationAllowed.Store(false)
 	if err := tx.Commit(); err != nil {
 		return empty, err
 	}

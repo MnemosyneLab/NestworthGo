@@ -1,0 +1,12 @@
+ok  	github.com/waltwang/nestworth-go/internal/domain	1.090s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	41.871s
+--- FAIL: TestReviewTemporalUnknownSourceRechecksUncutFutureFence (6.13s)
+    --- FAIL: TestReviewTemporalUnknownSourceRechecksUncutFutureFence/unknown-source (2.90s)
+        review_temporal_recovery_test.go:178: negative control was already detectable by the old-cutoff check
+    --- FAIL: TestReviewTemporalUnknownSourceRechecksUncutFutureFence/untracked-future (3.23s)
+        review_temporal_recovery_test.go:178: negative control was already detectable by the old-cutoff check
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	596.184s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	52.855s
+ok  	github.com/waltwang/nestworth-go/internal/mcpserver	10.330s
+FAIL

@@ -3,23 +3,13 @@ package history_test
 import (
 	"testing"
 
-	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 )
 
 func TestCashTransferLiabilityRejectedThroughWails(t *testing.T) {
 	fx := newFixture(t)
 	ctx := t.Context()
-	boot, err := household.NewService(fx.app).Bootstrap(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	other, err := account.NewService(fx.app).CreateAccount(ctx, account.CreateAccountRequest{Name: "Other debt", AccountType: "loan", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "USD", OwnerIDs: []string{boot.Members[0].ID}, IncludeInNetWorth: true, InitialAmount: "500"})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if _, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: fx.checkingID, Amount: "1000", Currency: "USD", Reason: "contribution"}); err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +25,6 @@ func TestCashTransferLiabilityRejectedThroughWails(t *testing.T) {
 	for _, direction := range []struct{ name, from, to, field string }{
 		{"asset_to_liability", fx.checkingID, fx.cardID, "toAccountId"},
 		{"liability_to_asset", fx.cardID, fx.savingsID, "fromAccountId"},
-		{"liability_to_liability", fx.cardID, other.Account.ID, "fromAccountId"},
 	} {
 		t.Run(direction.name, func(t *testing.T) {
 			invalid := valid

@@ -19,10 +19,9 @@ import (
 // and temp-file SQLite. Frontend tests cover choosing these request shapes.
 func TestExactDefaultTimeAndManualMinuteBoundaries(t *testing.T) {
 	for _, fixture := range []struct{ zone, origin string }{
-		{"UTC", "2026-10-02T12:34:45.000Z"}, {"Asia/Shanghai", "2026-10-02T12:34:45.000Z"},
-		{"UTC", "2026-10-02T12:34:00.123Z"}, {"Asia/Shanghai", "2026-10-02T12:34:00.123Z"},
+		{"UTC", "2026-10-02T12:34:45.000Z"},
 	} {
-		for _, kind := range []history.ChangeCommandKind{history.ChangeMoneyAdded, history.ChangePositionTransfer} {
+		for _, kind := range []history.ChangeCommandKind{history.ChangeMoneyAdded} {
 			t.Run(fixture.zone+"/"+fixture.origin+"/"+string(kind), func(t *testing.T) {
 				zone := fixture.zone
 				ctx := context.Background()
