@@ -335,6 +335,20 @@ func readReviewSuffixChanges(ctx context.Context, tx *sql.Tx, id domain.Househol
 				}
 			}
 		}
+		if c.Table == "agent_quote_records" {
+			for _, v := range []struct {
+				raw    sql.NullString
+				target **domain.ReviewFXProvenanceDependency
+			}{{old, &c.OldAgent}, {new, &c.NewAgent}} {
+				if v.raw.Valid {
+					var scope domain.ReviewFXProvenanceDependency
+					if jsoncodec.Unmarshal([]byte(v.raw.String), &scope) != nil {
+						return nil, nil
+					}
+					*v.target = &scope
+				}
+			}
+		}
 		result = append(result, c)
 	}
 	return result, errors.Join(rows.Err(), rows.Close())

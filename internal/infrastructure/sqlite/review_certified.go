@@ -261,6 +261,9 @@ func (r *Repository) captureCertifiedReview(ctx context.Context, tx *sql.Tx, c *
 			if err != nil {
 				return err
 			}
+			if err = captureReviewFXProvenance(ctx, tx, c.HouseholdID, proof.FXDescription); err != nil {
+				return err
+			}
 		}
 	}
 	proof.SourceMAC, err = r.sourceCaptureMAC(*c)

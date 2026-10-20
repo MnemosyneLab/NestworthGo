@@ -17,10 +17,11 @@ import (
 // ReviewSourceChange contains only the non-secret journal scope required by D1.
 // Unknown sources or incomplete OLD/NEW tombstones require full recomputation.
 type ReviewSourceChange struct {
-	Revision         int64
-	Table, Operation string
-	Old, New         *ReviewQuoteDependency
-	OldFX, NewFX     *ReviewFXDependency
+	Revision           int64
+	Table, Operation   string
+	Old, New           *ReviewQuoteDependency
+	OldFX, NewFX       *ReviewFXDependency
+	OldAgent, NewAgent *ReviewFXProvenanceDependency
 }
 type ReviewQuoteDependency struct {
 	InstrumentID  InstrumentID `json:"instrument_id"`

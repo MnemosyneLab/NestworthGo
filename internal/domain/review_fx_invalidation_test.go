@@ -77,19 +77,32 @@ func TestReviewFXPlanRequiresCompleteOldNewCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	before.ProvenanceVersion = ReviewFXProvenanceVersion
+	for _, q := range c.Historical.History.FXQuoteFacts {
+		before.Provenance = append(before.Provenance, ReviewFXProvenanceSeal{ID: string(q.ID), TargetType: "fx", Operation: "append", QuoteID: q.ID, Fingerprint: "old-creation"})
+	}
 	q := c.Historical.History.FXQuoteFacts[0]
-	c.Historical.History.FXQuoteFacts[0].Rate, _ = ParseFXRate("3")
+	replacement := q
+	replacement.ID = NewFXQuoteID()
+	target := q.ID.String()
+	replacement.SupersedesQuoteID = &target
+	replacement.Rate, _ = ParseFXRate("3")
+	c.Historical.History.FXQuoteFacts[0] = replacement
 	after, err := DescribeReviewFX(c.Historical)
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope := &ReviewFXDependency{q.ID, q.BaseCurrency, q.QuoteCurrency, q.EffectiveDate}
-	changes := []ReviewSourceChange{{Table: "fx_quotes", Operation: "update", OldFX: scope, NewFX: scope}}
+	after.ProvenanceVersion = ReviewFXProvenanceVersion
+	after.Provenance = append([]ReviewFXProvenanceSeal{}, before.Provenance...)
+	after.Provenance = append(after.Provenance, ReviewFXProvenanceSeal{ID: "correction", TargetType: "fx", Operation: "correct", QuoteID: replacement.ID, TargetQuoteID: q.ID, Fingerprint: "new-correction"})
+	scope := &ReviewFXDependency{replacement.ID, replacement.BaseCurrency, replacement.QuoteCurrency, replacement.EffectiveDate}
+	changes := []ReviewSourceChange{{Table: "fx_quotes", Operation: "insert", NewFX: scope}, {Table: "agent_quote_records", Operation: "insert", NewAgent: &ReviewFXProvenanceDependency{ID: "correction", TargetType: "fx", QuoteID: replacement.ID, TargetQuoteID: q.ID}}}
 	plan := PlanReviewFXInvalidation(changes, before, after, c)
 	if plan.Full || !reflect.DeepEqual(plan.Dirty, []ReviewDirtyPair{{"rule", "instrument", "2026-10-01"}}) {
 		t.Fatal("complete candidate correction rejected", plan)
 	}
-	for _, scenario := range []string{"missing-description", "legacy-version", "missing-journal", "wrong-date", "hidden-delete", "mixed", "selection", "inverse-rule", "date-move", "non-fx"} {
+	for _, scenario := range []string{"missing-description", "legacy-version", "missing-journal", "wrong-date", "hidden-delete", "mixed", "selection", "inverse-rule", "date-move", "non-fx", "missing-provenance", "missing-record-journal", "edited-old-record", "wrong-record-target", "unrelated-record", "unknown-record-operation"} {
 		t.Run(scenario, func(t *testing.T) {
 			b, a := *before, *after
 			cc := c
@@ -111,8 +124,9 @@ func TestReviewFXPlanRequiresCompleteOldNewCoverage(t *testing.T) {
 				cs[0].OldFX = &bad
 				cs[0].NewFX = &bad
 			case "hidden-delete":
-				cs[0].Operation = "insert"
-				cs[0].OldFX = nil
+				cs[0].Operation = "delete"
+				cs[0].OldFX = cs[0].NewFX
+				cs[0].NewFX = nil
 			case "mixed":
 				cs = append(cs, ReviewSourceChange{Table: "instrument_quotes", Operation: "update"})
 			case "selection":
@@ -129,6 +143,22 @@ func TestReviewFXPlanRequiresCompleteOldNewCoverage(t *testing.T) {
 				bad := *scope
 				bad.On = "2026-10-06"
 				cs[0].NewFX = &bad
+			case "missing-provenance":
+				a.ProvenanceVersion = ""
+			case "missing-record-journal":
+				cs = cs[:1]
+			case "edited-old-record":
+				a.Provenance = append([]ReviewFXProvenanceSeal{}, a.Provenance...)
+				a.Provenance[0].Fingerprint = "changed"
+			case "wrong-record-target":
+				bad := *cs[1].NewAgent
+				bad.TargetQuoteID = replacement.ID
+				cs[1].NewAgent = &bad
+			case "unrelated-record":
+				a.Provenance = append(append([]ReviewFXProvenanceSeal{}, a.Provenance...), ReviewFXProvenanceSeal{ID: "extra", TargetType: "instrument", Operation: "append", Fingerprint: "unrelated"})
+			case "unknown-record-operation":
+				a.Provenance = append([]ReviewFXProvenanceSeal{}, a.Provenance...)
+				a.Provenance[len(a.Provenance)-1].Operation = "unknown"
 			case "non-fx":
 				a.NonFXFingerprint = "changed"
 			}

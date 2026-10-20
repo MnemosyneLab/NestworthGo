@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const ReviewFXDescriptionVersion = "direct-agent-daily-fx-v1"
+const ReviewFXDescriptionVersion = "direct-agent-import-fx-v2"
 
 // The complete two-location inventory is MAC-bound with the non-FX invariant.
 // Fingerprints include every captured field and exact private financial scalar.
@@ -17,11 +17,13 @@ type ReviewFXDescription struct {
 	SourceKey, SourcePolicyVersion, TimestampBasis string
 	Eligible                                       bool
 	Buckets                                        []ReviewFXDaySeal
+	ProvenanceVersion                              string
+	Provenance                                     []ReviewFXProvenanceSeal
 }
 type ReviewFXCandidateSeal struct {
-	ID                   FXQuoteID
-	Fingerprint          string
-	SelectionFingerprint string
+	ID          FXQuoteID
+	Fingerprint string
+	Supersedes  FXQuoteID
 }
 type ReviewFXDaySeal struct {
 	Location    string
@@ -29,11 +31,26 @@ type ReviewFXDaySeal struct {
 	On          string
 	Candidates  []ReviewFXCandidateSeal
 }
+
+const ReviewFXProvenanceVersion = "complete-agent-records-v1"
+
+type ReviewFXProvenanceSeal struct {
+	ID                     string
+	TargetType, Operation  string
+	QuoteID, TargetQuoteID FXQuoteID
+	Fingerprint            string
+}
 type ReviewFXDependency struct {
 	ID    FXQuoteID    `json:"id"`
 	Base  CurrencyCode `json:"base_currency"`
 	Quote CurrencyCode `json:"quote_currency"`
 	On    string       `json:"effective_date"`
+}
+type ReviewFXProvenanceDependency struct {
+	ID            string    `json:"id"`
+	TargetType    string    `json:"target_type"`
+	QuoteID       FXQuoteID `json:"quote_id"`
+	TargetQuoteID FXQuoteID `json:"target_quote_id"`
 }
 
 func DescribeReviewFX(batch ReviewHistoricalBatch) (*ReviewFXDescription, error) {
@@ -77,7 +94,7 @@ func DescribeReviewFX(batch ReviewHistoricalBatch) (*ReviewFXDescription, error)
 				out.SourceKey, out.SourcePolicyVersion, out.TimestampBasis = q.SourceKey, q.SourcePolicyVersion, q.TimestampBasis
 			}
 			// Agent reference selection is gated by the civil label, never by the
-			// timestamp branch. Keep manual/provider quality/routing outside v1.
+			// timestamp branch. Keep manual/provider quality/routing outside this version.
 			_, dateErr := time.Parse(time.DateOnly, q.EffectiveDate)
 			_, baseErr := ParseSupportedCurrency(string(q.BaseCurrency))
 			_, quoteErr := ParseSupportedCurrency(string(q.QuoteCurrency))
@@ -85,14 +102,11 @@ func DescribeReviewFX(batch ReviewHistoricalBatch) (*ReviewFXDescription, error)
 				out.Eligible = false
 			}
 			k := key{input.location, q.BaseCurrency, q.QuoteCurrency, q.EffectiveDate}
-			selection := q
-			selection.Rate = FxRate{}
-			selection.Revision = 0
-			selectionFP, e := ReviewHistoricalFingerprint(ReviewHistoricalBatch{History: HistoricalSnapshotBatch{FXQuoteFacts: []FXQuote{selection}}})
-			if e != nil {
-				return nil, e
+			supersedes := FXQuoteID("")
+			if q.SupersedesQuoteID != nil {
+				supersedes = FXQuoteID(*q.SupersedesQuoteID)
 			}
-			groups[k] = append(groups[k], ReviewFXCandidateSeal{q.ID, fp, selectionFP})
+			groups[k] = append(groups[k], ReviewFXCandidateSeal{q.ID, fp, supersedes})
 		}
 	}
 	if len(facts) == 0 {
@@ -119,8 +133,9 @@ func DescribeReviewFX(batch ReviewHistoricalBatch) (*ReviewFXDescription, error)
 }
 
 // PlanReviewFXInvalidation compares complete authenticated inventories before
-// consulting journal claims. Every changed historical candidate needs exact
-// OLD/NEW pair/date/ID coverage. Date/pair moves and mixed families fail closed.
+// consulting journal claims. Every active-set change needs exact captured
+// append/correct/retract provenance plus matching journal coverage. Date/pair
+// moves and unrelated source families fail closed.
 // Portfolio is an independently sealed subset of history; replacing its latest
 // view cannot introduce a new historical candidate. Daily review explicitly
 // replaces portfolio.FXQuotes with the captured complete historical facts.
@@ -156,7 +171,7 @@ func PlanReviewFXInvalidation(changes []ReviewSourceChange, before, after *Revie
 	type entry struct {
 		scope       ReviewFXDependency
 		fingerprint string
-		selection   string
+		supersedes  FXQuoteID
 	}
 	inventory := func(d *ReviewFXDescription) map[FXQuoteID]entry {
 		m := map[FXQuoteID]entry{}
@@ -165,7 +180,7 @@ func PlanReviewFXInvalidation(changes []ReviewSourceChange, before, after *Revie
 				continue
 			}
 			for _, c := range b.Candidates {
-				m[c.ID] = entry{ReviewFXDependency{c.ID, b.Base, b.Quote, b.On}, c.Fingerprint, c.SelectionFingerprint}
+				m[c.ID] = entry{ReviewFXDependency{c.ID, b.Base, b.Quote, b.On}, c.Fingerprint, c.Supersedes}
 			}
 		}
 		return m
@@ -185,7 +200,7 @@ func PlanReviewFXInvalidation(changes []ReviewSourceChange, before, after *Revie
 			}
 			for _, candidate := range b.Candidates {
 				e, ok := history[candidate.ID]
-				if !ok || e.scope.Base != b.Base || e.scope.Quote != b.Quote || e.scope.On != b.On || e.fingerprint != candidate.Fingerprint || e.selection != candidate.SelectionFingerprint {
+				if !ok || e.scope.Base != b.Base || e.scope.Quote != b.Quote || e.scope.On != b.On || e.fingerprint != candidate.Fingerprint || e.supersedes != candidate.Supersedes {
 					return false
 				}
 			}
@@ -195,83 +210,180 @@ func PlanReviewFXInvalidation(changes []ReviewSourceChange, before, after *Revie
 	if !portfolioCovered(before, old) || !portfolioCovered(after, current) {
 		return fail
 	}
-	covered := map[FXQuoteID]bool{}
-	from := ""
+
+	// The production importer appends immutable replacement/withdrawal provenance;
+	// it never updates/deletes quote rows. Cover active-set changes through exactly
+	// those independently captured records, retaining all prior provenance bytes.
+	if before.ProvenanceVersion != ReviewFXProvenanceVersion || after.ProvenanceVersion != ReviewFXProvenanceVersion {
+		return fail
+	}
+	priorRecords := map[string]ReviewFXProvenanceSeal{}
+	currentRecords := map[string]ReviewFXProvenanceSeal{}
+	for _, r := range before.Provenance {
+		if r.ID == "" || r.Fingerprint == "" {
+			return fail
+		}
+		if _, ok := priorRecords[r.ID]; ok {
+			return fail
+		}
+		priorRecords[r.ID] = r
+	}
+	for _, r := range after.Provenance {
+		if r.ID == "" || r.Fingerprint == "" {
+			return fail
+		}
+		if _, ok := currentRecords[r.ID]; ok {
+			return fail
+		}
+		currentRecords[r.ID] = r
+	}
+	for id, r := range priorRecords {
+		if currentRecords[id] != r {
+			return fail
+		}
+	}
+	// Active candidates need a corresponding creation record and no withdrawal.
+	activeProven := func(entries map[FXQuoteID]entry, records map[string]ReviewFXProvenanceSeal) bool {
+		origins, withdrawals := map[FXQuoteID]int{}, map[FXQuoteID]int{}
+		for _, r := range records {
+			if r.TargetType != "fx" {
+				continue
+			}
+			if r.QuoteID != "" {
+				origins[r.QuoteID]++
+			}
+			if r.TargetQuoteID != "" {
+				withdrawals[r.TargetQuoteID]++
+			}
+		}
+		for id := range entries {
+			if origins[id] != 1 || withdrawals[id] != 0 {
+				return false
+			}
+		}
+		return true
+	}
+	if !activeProven(old, priorRecords) || !activeProven(current, currentRecords) {
+		return fail
+	}
+	recordClaims := map[string]bool{}
+	quoteClaims := map[FXQuoteID]bool{}
 	for _, c := range changes {
 		if c.Table == "history_snapshot_state" && c.Operation == "update" {
 			continue
 		}
-		if c.Table != "fx_quotes" {
+		switch c.Table {
+		case "fx_quotes":
+			if c.Operation != "insert" || c.OldFX != nil || c.NewFX == nil {
+				return fail
+			}
+			e, ok := current[c.NewFX.ID]
+			if !ok || e.scope != *c.NewFX {
+				return fail
+			}
+			if _, had := old[c.NewFX.ID]; had || quoteClaims[c.NewFX.ID] {
+				return fail
+			}
+			quoteClaims[c.NewFX.ID] = true
+		case "agent_quote_records":
+			if c.Operation != "insert" || c.OldAgent != nil || c.NewAgent == nil {
+				return fail
+			}
+			claim := c.NewAgent
+			r, ok := currentRecords[claim.ID]
+			if !ok || r.TargetType != "fx" || r.TargetType != claim.TargetType || r.QuoteID != claim.QuoteID || r.TargetQuoteID != claim.TargetQuoteID || recordClaims[r.ID] {
+				return fail
+			}
+			if _, had := priorRecords[r.ID]; had {
+				return fail
+			}
+			recordClaims[r.ID] = true
+		default:
 			return fail
 		}
-		switch c.Operation {
-		case "insert":
-			if c.OldFX != nil || c.NewFX == nil {
+	}
+	added, removed := map[FXQuoteID]bool{}, map[FXQuoteID]bool{}
+	from := ""
+	touch := func(on string) {
+		if from == "" || on < from {
+			from = on
+		}
+	}
+	for id, r := range currentRecords {
+		if _, had := priorRecords[id]; had {
+			continue
+		}
+		if !recordClaims[id] || r.TargetType != "fx" {
+			return fail
+		}
+		switch r.Operation {
+		case "append":
+			if r.QuoteID == "" || r.TargetQuoteID != "" {
 				return fail
 			}
-		case "delete":
-			if c.NewFX != nil || c.OldFX == nil {
+		case "correct":
+			if r.QuoteID == "" || r.TargetQuoteID == "" {
 				return fail
 			}
-		case "update":
-			if c.OldFX == nil || c.NewFX == nil || *c.OldFX != *c.NewFX {
+		case "retract":
+			if r.QuoteID != "" || r.TargetQuoteID == "" {
 				return fail
 			}
 		default:
 			return fail
 		}
-		var id FXQuoteID
-		for _, side := range []struct {
-			scope   *ReviewFXDependency
-			entries map[FXQuoteID]entry
-		}{{c.OldFX, old}, {c.NewFX, current}} {
-			if side.scope == nil {
-				continue
-			}
-			e, ok := side.entries[side.scope.ID]
-			if !ok || e.scope != *side.scope {
+		if r.QuoteID != "" {
+			e, ok := current[r.QuoteID]
+			if !ok || !quoteClaims[r.QuoteID] || added[r.QuoteID] {
 				return fail
 			}
-			if id != "" && id != side.scope.ID {
+			if _, had := old[r.QuoteID]; had {
 				return fail
 			}
-			id = side.scope.ID
-			if from == "" || side.scope.On < from {
-				from = side.scope.On
+			if e.supersedes != r.TargetQuoteID {
+				return fail
 			}
+			added[r.QuoteID] = true
+			touch(e.scope.On)
 		}
-		// v1 accepts one mutation per ID; intermediate states need a separate proof.
-		if covered[id] {
-			return fail
+		if r.TargetQuoteID != "" {
+			e, ok := old[r.TargetQuoteID]
+			if !ok || removed[r.TargetQuoteID] {
+				return fail
+			}
+			if _, has := current[r.TargetQuoteID]; has {
+				return fail
+			}
+			// Correction cannot change pair/date. All other policy fields are already
+			// constrained by the common description; quote IDs/timestamps legitimately
+			// differ for an append-only replacement.
+			if r.Operation == "correct" && current[r.QuoteID].scope.On != e.scope.On {
+				return fail
+			}
+			removed[r.TargetQuoteID] = true
+			touch(e.scope.On)
 		}
-		_, had := old[id]
-		_, has := current[id]
-		if (c.Operation == "insert" && had) || (c.Operation == "delete" && has) {
-			return fail
-		}
-		if c.Operation == "update" && old[id].selection != current[id].selection {
-			return fail
-		}
-		covered[id] = true
 	}
-	changed := false
 	for id, e := range old {
-		if n, ok := current[id]; !ok || e != n {
-			if !covered[id] {
+		if n, ok := current[id]; ok {
+			if e != n {
 				return fail
 			}
-			changed = true
+		} else if !removed[id] {
+			return fail
 		}
 	}
-	for id, e := range current {
-		if o, ok := old[id]; !ok || e != o {
-			if !covered[id] {
-				return fail
-			}
-			changed = true
+	for id := range current {
+		if _, had := old[id]; !had && !added[id] {
+			return fail
 		}
 	}
-	if !changed || from == "" {
+	for id := range quoteClaims {
+		if !added[id] {
+			return fail
+		}
+	}
+	if from == "" {
 		return fail
 	}
 	plan := ReviewInvalidationPlan{Reason: "direct_fx_suffix", Dirty: []ReviewDirtyPair{}}
