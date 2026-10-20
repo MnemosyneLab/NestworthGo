@@ -166,3 +166,12 @@ following explicit user approval. `NESTWORTH_REVIEW_PREFIX_MEMO_DISABLE=1`
 disables that memo while retaining D1/D2; the full-recompute switch above takes
 precedence. See [the memo contract](review-prefix-memo-experiment.md) for limits,
 authority requirements and the measured cold/memory tradeoff.
+
+## FX extension boundary
+
+FX mutations still require full recomputation. The current signed non-quote
+fingerprint includes FX, while the candidate inventory and OLD/NEW coverage proof
+above describe instrument quotes only. See the [D-FX boundary evidence](../testing/performance-d-fx-boundary-2026-10-20.md)
+for synthetic full-oracle fallback coverage and the missing authentication proof
+that blocks a narrow direct-pair extension. Unchanged-source prefixes may retain
+already authenticated selected FX; this does not authorize FX-source mutations.
