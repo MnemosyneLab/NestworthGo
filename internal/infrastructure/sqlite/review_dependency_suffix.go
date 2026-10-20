@@ -58,14 +58,24 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 			return nil
 		}
 	}
-	// An independent signed hash of all non-quote facts detects time activation
-	// even when simultaneous quote edits make the complete source hash differ.
-	invariant, err := domain.ReviewNonQuoteFingerprint(c.Historical)
-	if err != nil {
-		return err
-	}
-	if p.SuffixNonQuoteFingerprint == "" || invariant != p.SuffixNonQuoteFingerprint {
+	// An unchanged complete authoritative fingerprint + source token proves
+	// both deterministic descriptions identical to the authenticated prior
+	// certificate. Otherwise compute both from this coherent source snapshot.
+	if p.SuffixNonQuoteFingerprint == "" {
 		return nil
+	}
+	unchanged := old == current && c.HistoricalFingerprint == c.Control.PublishedFingerprint
+	invariant := p.SuffixNonQuoteFingerprint
+	seals := p.SuffixQuoteSeals
+	var err error
+	if !unchanged {
+		invariant, err = domain.ReviewNonQuoteFingerprint(c.Historical)
+		if err != nil {
+			return err
+		}
+		if invariant != p.SuffixNonQuoteFingerprint {
+			return nil
+		}
 	}
 	changes, err := readReviewSuffixChanges(ctx, tx, c.HouseholdID, old.Revision, current.Revision)
 	if err != nil {
@@ -78,9 +88,11 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 	if plan.Full {
 		return nil
 	}
-	seals, err := domain.ReviewQuoteDaySeals(c.Historical)
-	if err != nil {
-		return err
+	if !unchanged {
+		seals, err = domain.ReviewQuoteDaySeals(c.Historical)
+		if err != nil {
+			return err
+		}
 	}
 	if !domain.ReviewQuoteChangesCovered(p.SuffixQuoteSeals, seals, plan, c.Rules) {
 		return nil
@@ -160,6 +172,7 @@ func (r *Repository) captureReviewSuffix(ctx context.Context, tx *sql.Tx, c *dom
 		}
 	}
 	c.Suffix = suffix
+	proof.SuffixSourceProof = &domain.ReviewSuffixSourceProof{NonQuoteFingerprint: invariant, QuoteSeals: seals}
 	// Rebind the exact prefix and dirty scope to the coherent capture. The final
 	// publisher still requires source/control/checkpoint/connection CAS and lease.
 	proof.SuffixDigest, err = domain.ReviewSuffixFingerprint(suffix)

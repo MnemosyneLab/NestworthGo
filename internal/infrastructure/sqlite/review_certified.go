@@ -333,13 +333,23 @@ func (r *Repository) certifyPublishedReview(ctx context.Context, tx *sql.Tx, c d
 		return err
 	}
 	if r.reviewDependencySuffix {
-		out.SuffixQuoteSeals, err = domain.ReviewQuoteDaySeals(c.Historical)
-		if err != nil {
-			return err
-		}
-		out.SuffixNonQuoteFingerprint, err = domain.ReviewNonQuoteFingerprint(c.Historical)
-		if err != nil {
-			return err
+		if c.Suffix != nil && c.Certified.SuffixSourceProof != nil {
+			// SourceMAC was checked above and the writer still holds the
+			// source/control/checkpoint CAS + provider lease. Reuse exactly
+			// the derived description authenticated in this capture, not
+			// caller assertions or unsigned persisted hashes.
+			source := c.Certified.SuffixSourceProof
+			out.SuffixQuoteSeals = source.QuoteSeals
+			out.SuffixNonQuoteFingerprint = source.NonQuoteFingerprint
+		} else {
+			out.SuffixQuoteSeals, err = domain.ReviewQuoteDaySeals(c.Historical)
+			if err != nil {
+				return err
+			}
+			out.SuffixNonQuoteFingerprint, err = domain.ReviewNonQuoteFingerprint(c.Historical)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	out.CertifiedProvider = c.Certified.Provider

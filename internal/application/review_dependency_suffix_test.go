@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -168,7 +169,7 @@ func TestReviewDependencySuffixFullDurableOracle(t *testing.T) {
 }
 
 func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
-	for _, scenario := range []string{"source", "handling", "tamper-prefix", "cancel", "legacy-publisher", "disabled-publisher", "clock", "provider-aba", "projection", "floor", "checkpoint-abort", "external-source", "final-cancel", "final-prefix-change", "final-digest-change"} {
+	for _, scenario := range []string{"source", "handling", "tamper-prefix", "cancel", "legacy-publisher", "disabled-publisher", "clock", "provider-aba", "projection", "floor", "checkpoint-abort", "external-source", "final-cancel", "final-prefix-change", "final-digest-change", "final-source-proof-change"} {
 		t.Run(scenario, func(t *testing.T) {
 			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
 			f.day(t, "2026-10-13")
@@ -226,6 +227,12 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 				ctx, cancel = context.WithCancel(ctx)
 				defer cancel()
 				clock = func() time.Time { cancel(); return *f.now }
+			}
+			if scenario == "final-source-proof-change" {
+				clock = func() time.Time {
+					p.Capture.Certified.SuffixSourceProof.QuoteSeals[0].Fingerprint = "synthetic-drift"
+					return *f.now
+				}
 			}
 			if scenario == "final-prefix-change" {
 				clock = func() time.Time { p.Capture.Suffix.Prefix[0].Evidence.Result.Truth = domain.ReviewFalse; return *f.now }
@@ -522,5 +529,47 @@ func TestReviewDependencySuffixLookbackBaseline(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("correction did not propagate beyond the rolling window to its lookback endpoint")
+	}
+}
+
+func TestReviewDependencySourceDescriptionMatchesFullDerivation(t *testing.T) {
+	for _, changed := range []bool{false, true} {
+		t.Run(fmt.Sprint(changed), func(t *testing.T) {
+			f, r, _ := suffixFixture(t, domain.ReviewTriggerPolicy{Kind: "single"})
+			f.day(t, "2026-10-13")
+			if changed {
+				suffixQuote(t, f, f.instrument.ID, "2026-10-09", "90")
+			}
+			p := certifiedStage(t, f, r)
+			if p.Capture.Suffix == nil || p.Capture.Certified.SuffixSourceProof == nil {
+				t.Fatal("no authenticated source description")
+			}
+			quotes, err := domain.ReviewQuoteDaySeals(p.Capture.Historical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			nonquote, err := domain.ReviewNonQuoteFingerprint(p.Capture.Historical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual := p.Capture.Certified.SuffixSourceProof
+			if !reflect.DeepEqual(quotes, actual.QuoteSeals) || nonquote != actual.NonQuoteFingerprint {
+				t.Fatal("description differs from independent complete derivation")
+			}
+			if err = certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
+				t.Fatal(err)
+			}
+			var raw string
+			if err = f.db.SQL.QueryRow(`SELECT certificate_json FROM review_temporal_checkpoints`).Scan(&raw); err != nil {
+				t.Fatal(err)
+			}
+			var cert domain.ReviewTemporalCertificate
+			if err = json.Unmarshal([]byte(raw), &cert); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(cert.SuffixQuoteSeals, quotes) || cert.SuffixNonQuoteFingerprint != nonquote {
+				t.Fatal("published source description differs")
+			}
+		})
 	}
 }
