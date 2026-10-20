@@ -12,7 +12,6 @@ import (
 )
 
 type Repository struct {
-	reviewFinancialFactShadowDays     int
 	database                          *DB
 	reviewFullRecompute               bool
 	reviewWindowBaseline              bool

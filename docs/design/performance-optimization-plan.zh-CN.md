@@ -256,11 +256,6 @@ D1 新增应用层 `review_invalidation.go`、domain dependency 类型及纯函�
 
 ## 7. 共享持久化输入（PR-E1/E2，依赖 D）
 
-E1 实现的精确边界、默认关闭的有界影子写入和 schema 23 恢复规则见
-[共享金融事实 E1](review-shared-financial-facts-e1.md)。不可变共享 fact 版本不改变现有
-同条件更正重放语义：基线允许修正 opening payload，同时保留 episode 身份及确认状态。
-E1 以 shadow off/on 精确等价验证这点，不新增生命周期或冻结规则。
-
 目前 `investment_review_daily_inputs.input_policy = rule:<id>/v:<condition>`，即使内存计算共享，持久化仍按规则重复。新增 `review_financial_daily_facts`（下一个独立 schema 版本）和规则→fact 引用，不直接重命名既有表：
 
 - fact 主键：`household_id, instrument_id, scope_key, timezone_version, on_date, financial_policy_key, fact_kind`。`scope_key` 起初固定为 household aggregate，预留未来账户过滤不能碰撞；不得拿账户不同的结果共用。
