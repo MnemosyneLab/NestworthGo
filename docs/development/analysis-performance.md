@@ -133,7 +133,7 @@ for other adapters. One read transaction covers household/instrument validation
 and bounded 900-ID chunks; dates and candidates are not clipped. Requested
 instrument order and the legacy quote tie order remain unchanged. Household
 portfolio hydration, snapshot maintenance, the analysis kernel and memo policy
-remain unchanged. See [G correctness and query evidence](../testing/performance-g-analysis-quotes-2026-10-20.md)
+remain unchanged. See [G correctness and query evidence](https://github.com/MnemosyneLab/NestworthGo/blob/dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d/docs/testing/performance-g-analysis-quotes-2026-10-20.md)
 for differential tests, net SQL counts and the limits of two small Linux timing
 observations. This input-loading evidence is separate from the historical
 kernel measurements above.
@@ -152,4 +152,4 @@ retain selected-account hydration. Headers and full origin opening
 construction remain unchanged. The initial activity-free restriction was removed
 after tracing classifier/daily dependencies and adding real-loader differential
 coverage for transfers, corrections, positions and outside cash attribution.
-See [H2b dependency boundary and synthetic evidence](../testing/performance-h2b-analysis-snapshots-2026-10-20.md).
+See [H2b dependency boundary and synthetic evidence](https://github.com/MnemosyneLab/NestworthGo/blob/dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d/docs/testing/performance-h2b-analysis-snapshots-2026-10-20.md).

@@ -137,58 +137,17 @@ reconciliation (17), reconciliation evidence/revisions (18), investment review
 review publication checkpoints (21), and per-instrument Agent closure facts (22). Each step
 retains a verified read-only recovery copy. Schema20 keeps the full financial
 fingerprint/recheck algorithm authoritative; see the
-[source coverage, recovery and rollback contract](../testing/performance-c1-source-coverage-2026-10-19.md).
+[source tracking contract](../design/investment-review.md#financial-source-tracking-maintenance).
 
-### Historical C1/C2/C3 evolution
+### Review source and publication integrity
 
-The following C2/default-off descriptions record earlier slices. For current
-normal dispatch and rollback behavior, see [Current review dispatcher](#current-review-dispatcher).
-
-C2 shadow capture/publication also compares typed source checkpoints alongside the
-full fingerprint; see the [C2 validation boundary](../testing/performance-c2-2026-10-19.md).
-This does not enable a source-token fast path or remove full source rechecks.
-The [C2 temporal contract](../testing/performance-c2-temporal-2026-10-19.md)
-adds a final injected-clock fence, session-bound calendar/rollback invalidation,
-and stale status for expired reads. Full financial and future-source rechecks
-remain authoritative; C3 is not enabled.
-An internal [C3a no-change candidate](../testing/performance-c3-no-change-2026-10-19.md)
-is opt-in only for reviewed synthetic experiments. It confirms a complete,
-unchanged source/review/temporal checkpoint under the SQLite write reservation,
-without reading financial/evidence JSON or rewriting daily/lifecycle rows.
-Production initialization keeps C2; forced full recomputation disables the
-candidate. Changed-source publication retains all existing rechecks.
-The [corrected C3 benchmark evidence](../testing/performance-c3-corrected-2026-10-19.md)
-separates bootstrap/full-fallback cost from warm confirmation and measures RSS
-in isolated synthetic arm processes. It does not establish native rollout gates.
-An opt-in [completeness-lineage shadow](../testing/performance-c3-lineage-shadow-2026-10-19.md)
-compares narrow historical coverage and a separate bounded window with a full
-preparation oracle, then revalidates under the publication reservation. It
-forces full preparation and grants no reuse authority. Normal initialization
-remains unchanged; full recomputation disables the internal candidates.
-The [certified C3 candidate](../testing/performance-c3-certified-2026-10-19.md)
-adds a separate default-off internal constructor, `WithCertifiedReviewCandidate()`.
-It binds complete projection integrity to one DB handle, fences explicit provider
-selection through commit, and verifies source publication CAS with full fallback.
-Same-day confirmation avoids financial/evidence JSON. A missed confirmation uses
-one full preparation; `WithCertifiedReviewCandidate()` does not select the separate
-lineage/window experiment. Explicitly combining it with
-`WithReviewCompletenessLineageShadow(...)` retains the independent full runtime
-oracle for bounded experiments. Observation alone can use
-`WithReviewLineageObserver(...)` without changing dispatch. Certification verifies
-the complete compiled table/index contract as well as all user triggers, including
-FK and deferred-action definitions; unknown schema objects disable authority.
-Full preparation may omit an individual daily UPSERT only after an authenticated
-same-handle publication recheck and exact comparison of its actual SQL parameter
-image with the persisted row under the writer reservation. This transaction-local
-comparison never supplies computation facts or omits lifecycle/checkpoint work.
-Unsafe `writable_schema` forgery of SQLite's stored versus cached schema is outside
-the documented SQLite engine/connection trust contract; this is not engine
-attestation or an authenticated hostile-database protocol.
-Legacy/restarted/damaged projections
-cannot acquire reuse authority from a fresh checksum; legitimate handling preserves
-only an already valid chain. Production initialization still uses C2, and native,
-performance and review gates remain blocking. The old counting-only constructor
-is retained for historical experiments, not activation.
+The maintained [review protocol](../design/investment-review.md#financial-source-tracking-maintenance)
+records source fields, writer ownership, exclusions, restore handling and the
+[temporal publication fence](../design/investment-review.md#temporal-publication-maintenance).
+Certified same-handle reuse requires authenticated source/projection integrity,
+provider continuity and clock/CAS fences. Legacy, restarted and damaged
+namespaces keep complete preparation; current absence never proves that episode
+or acknowledgement history never existed.
 
 ### Current review dispatcher
 
@@ -264,3 +223,16 @@ git diff --check
 
 Record unexecuted manual accessibility, signing, notarization, or publication
 checks explicitly; passing unit tests does not prove those gates.
+
+## JSON codec compatibility
+
+Maintained first-party Go code uses `internal/jsoncodec`, backed by Sonic
+`ConfigStd`. Stream framing preserves sequential values, numeric lexemes,
+read-ahead, strict/exact fields, reader errors and malformed trailing input.
+Decode immutable captures into fresh destinations to prevent slice aliasing.
+Integrity-bearing captures, certificates and receipts use exact decimal values;
+SQL row seals preserve REAL bits directly. Keep exact-byte, malformed/stream,
+strict-field and no-float domain-shape regressions when changing the wrapper.
+Generic float negative zero and nondefault HTML escaping are not universally
+byte-identical to stdlib JSON. Never infer compatibility for future signed fields
+from semantic JSON equality. Segmentio remains an indirect MCP SDK dependency.

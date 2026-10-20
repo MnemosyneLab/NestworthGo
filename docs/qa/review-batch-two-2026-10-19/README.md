@@ -81,7 +81,7 @@ were installed without lockfile changes. Generated artifacts are not committed.
   Isolated performance diagnostic passed all three unchanged budgets in 3.78s
   (cold month 0.07s; cold three years 3.70s). This supports contention as the
   explanation for the broad-run budget failures; it is **not** a full-suite
-  rerun/pass. See [isolated diagnostic](logs/performance-isolated.log).
+  rerun/pass. See [isolated diagnostic](https://github.com/MnemosyneLab/NestworthGo/blob/dc097f8f7232639d04fa961d1eb3d6a3e8f0f20d/docs/qa/review-batch-two-2026-10-19/logs/performance-isolated.log).
 
 See [native full-run log](logs/go-full-native.log),
 [targeted race log](logs/gain-targeted-race.log), and

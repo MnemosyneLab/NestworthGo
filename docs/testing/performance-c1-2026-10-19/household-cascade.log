@@ -1,4 +1,0 @@
-=== RUN   TestFinancialSourceActualCascadeAndOldNewIdentity
---- PASS: TestFinancialSourceActualCascadeAndOldNewIdentity (0.40s)
-PASS
-ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	0.467s

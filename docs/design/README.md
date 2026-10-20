@@ -62,6 +62,6 @@ not product contracts.
 - [Investment review](investment-review.md) — Daily rule-based investment review, persisted evidence, suppressions, and historical episodes.
 - [Upcoming actions](upcoming-actions.md) — Implemented read-only normal-route projection and App entry points; native acceptance pending.
 
-## Planned engineering work
+## Performance maintenance
 
-- [Performance optimization plan (Simplified Chinese)](performance-optimization-plan.zh-CN.md) — Staged review/analysis query, transactional invalidation, shared facts, correctness and measurement design; not implemented. Chinese is the explicit task-requested documentation exception.
+See the [performance optimization report](../development/performance-optimization-report.md) for shipped choices, evidence limits and cleanup status.

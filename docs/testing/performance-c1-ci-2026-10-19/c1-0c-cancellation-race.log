@@ -1,4 +1,0 @@
-=== RUN   TestHistoricalSeriesBenchmarkCancellationEvidence
-    historical_series_benchmark_test.go:222: dense cancellation latency=11.249658ms (cancel scheduled at 10ms)
---- PASS: TestHistoricalSeriesBenchmarkCancellationEvidence (408.23s)
-PASS

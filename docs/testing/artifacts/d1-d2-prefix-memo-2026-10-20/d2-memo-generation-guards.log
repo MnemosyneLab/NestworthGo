@@ -1,4 +1,0 @@
-# github.com/waltwang/nestworth-go/internal/application.test
-/tmp/go/pkg/tool/linux_amd64/link: mapping output file failed: no space left on device
-FAIL	github.com/waltwang/nestworth-go/internal/application [build failed]
-FAIL
