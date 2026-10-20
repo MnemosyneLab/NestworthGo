@@ -1,12 +1,93 @@
 package application
 
 import (
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
+
+func TestReviewHistoricalOriginBaselinePresenceAndLastEntry(t *testing.T) {
+	for _, kind := range []string{"missing", "nil-quantity", "nil-cost", "duplicate-last-cost", "unrelated-kind", "nil-holding"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "2")
+			f.day(t, "2026-08-02")
+			cutoff, err := domain.ReviewCivilCutoff("2026-08-01", "UTC")
+			if err != nil {
+				t.Fatal(err)
+			}
+			batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, cutoff)
+			if err != nil {
+				t.Fatal(err)
+			}
+			portfolio, err := (HistoricalReplay{batch: &batch.History}).Snapshot(t.Context(), &batch.History.Origin, cutoff.Add(-time.Nanosecond))
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Isolate baseline presence from holdings legitimately created after
+			// the origin: absence must make this preexisting quantity unknown.
+			for i := range portfolio.Holdings {
+				portfolio.Holdings[i].CreatedAt = batch.History.Origin.StartedAt
+			}
+			at := slices.IndexFunc(batch.History.OriginData.Components, func(c domain.HistoryOriginComponent) bool {
+				return c.Kind == domain.HistoryOriginHoldingQuantity && c.HoldingID != nil && *c.HoldingID == f.holding.ID
+			})
+			if at < 0 {
+				t.Fatal("missing synthetic origin baseline")
+			}
+			switch kind {
+			case "missing":
+				batch.History.OriginData.Components = slices.Delete(batch.History.OriginData.Components, at, at+1)
+			case "nil-quantity":
+				batch.History.OriginData.Components[at].Quantity = nil
+			case "nil-cost":
+				batch.History.OriginData.Components[at].UnitCost = nil
+			default:
+				extra := batch.History.OriginData.Components[at]
+				cost, err := domain.ParseUnitPrice("150")
+				if err != nil {
+					t.Fatal(err)
+				}
+				extra.UnitCost = &cost
+				if kind == "unrelated-kind" {
+					extra.Kind = domain.HistoryOriginAccountCash
+				}
+				if kind == "nil-holding" {
+					extra.HoldingID = nil
+				}
+				batch.History.OriginData.Components = append(batch.History.OriginData.Components, extra)
+			}
+			input, coverage, err := projectReviewHistoricalDayFromPortfolio(t.Context(), batch, "", syntheticHistoricalReviewSpec(), f.instrument.ID, "2026-08-01", cutoff, portfolio)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if kind == "missing" {
+				if input.Quantity != nil || !slices.Contains(coverage.Missing, "historical_quantity") {
+					t.Fatal("missing origin fabricated quantity", input, coverage)
+				}
+				return
+			}
+			if input.Quantity == nil || *input.Quantity != "2" {
+				t.Fatal("present origin lost quantity coverage", input, coverage)
+			}
+			if kind == "nil-quantity" || kind == "nil-cost" {
+				if input.CostExact != nil || !slices.Contains(coverage.Missing, "historical_cost") {
+					t.Fatal("unknown baseline fabricated cost", input, coverage)
+				}
+				return
+			}
+			want := "200"
+			if kind == "duplicate-last-cost" {
+				want = "300"
+			}
+			if input.CostExact == nil || *input.CostExact != want {
+				t.Fatal("baseline selection changed", want, input, coverage)
+			}
+		})
+	}
+}
 
 func syntheticHistoricalReviewSpec() domain.ReviewRuleSpec {
 	return domain.ReviewRuleSpec{
