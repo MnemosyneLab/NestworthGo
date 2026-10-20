@@ -1,0 +1,129 @@
+Total: 2.39GB
+ROUTINE ======================== github.com/waltwang/nestworth-go/internal/application.projectReviewHistoricalDayFromPortfolioWithQuoteSeries in /workspace/NestworthGo/internal/application/review_historical_inputs.go
+  343.81MB   394.49MB (flat, cum) 16.13% of Total
+         .          .     49:func projectReviewHistoricalDayFromPortfolioWithQuoteSeries(ctx context.Context, captured domain.ReviewHistoricalBatch, providerKey string, spec domain.ReviewRuleSpec, instrumentID domain.InstrumentID, on string, cutoff time.Time, portfolio domain.PortfolioSnapshot, quoteSeries domain.ReviewDailyQuoteSeries) (domain.ReviewDailyInput, ReviewHistoricalCoverage, error) {
+         .          .     50:	batch := captured.History
+    4.75MB     4.75MB     51:	input := domain.ReviewDailyInput{On: on, InstrumentID: instrumentID, FXProviderKey: providerKey, Performance: map[int]domain.QuotePerformance{}, SelectedFX: map[domain.CurrencyCode]domain.ReviewSelectedFX{}}
+         .          .     52:	coverage := ReviewHistoricalCoverage{On: on, Missing: []string{}}
+         .          .     53:	if batch.Origin.StartedAt.IsZero() || !batch.Origin.StartedAt.Before(cutoff) {
+         .          .     54:		coverage.Missing = append(coverage.Missing, "history_origin")
+         .          .     55:		return input, coverage, nil
+         .          .     56:	}
+         .          .     57:	// HistoricalReplay.Snapshot includes an effective fact at its cutoff. The
+         .          .     58:	// review day is half-open, so callers pass the last instant before the next day.
+         .          .     59:	positionAt := cutoff.Add(-time.Nanosecond)
+         .          .     60:	var instrument *domain.Instrument
+         .          .     61:	for index := range portfolio.Instruments {
+         .          .     62:		if portfolio.Instruments[index].ID == instrumentID {
+         .          .     63:			instrument = &portfolio.Instruments[index]
+         .          .     64:			break
+         .          .     65:		}
+         .          .     66:	}
+         .          .     67:	if instrument == nil {
+         .          .     68:		// The ID did not exist at this economic day. Once the complete origin
+         .          .     69:		// proves the ID was absent, its position is known zero.
+         .          .     70:		zero := "0"
+         .          .     71:		input.Quantity = &zero
+         .          .     72:		return input, coverage, nil
+         .          .     73:	}
+         .          .     74:	// Type/currency can be edited without historical values in older schemas.
+         .          .     75:	// A later updated_at cannot prove what those fields were on D.
+         .          .     76:	if !instrument.UpdatedAt.After(positionAt) {
+    1.19MB     1.19MB     77:		kind, currency := instrument.Type, instrument.QuoteCurrency
+         .          .     78:		input.InstrumentType = &kind
+         .          .     79:		input.NativeCurrency = &currency
+         .          .     80:	} else {
+         .          .     81:		coverage.Missing = append(coverage.Missing, "historical_instrument_metadata")
+         .          .     82:	}
+         .          .     83:	// Cost replay and quantity coverage only read these two origin fields.
+         .          .     84:	// Keep membership even for a nil quantity, and preserve last-entry wins.
+         .          .     85:	// Copying the full (metadata-heavy) component into every daily map creates
+         .          .     86:	// substantial allocation during full preparation without adding evidence.
+         .          .     87:	baselines := make(map[domain.HoldingID]reviewOriginCostBaseline)
+         .          .     88:	for _, component := range batch.OriginData.Components {
+         .          .     89:		if component.Kind == domain.HistoryOriginHoldingQuantity && component.HoldingID != nil {
+  325.15MB   325.15MB     90:			baselines[*component.HoldingID] = reviewOriginCostBaseline{Quantity: component.Quantity, UnitCost: component.UnitCost}
+         .          .     91:		}
+         .          .     92:	}
+         .          .     93:	holdings := make([]domain.Holding, 0)
+         .          .     94:	quantity := decimal.Zero
+         .          .     95:	quantityKnown := true
+         .          .     96:	for _, holding := range portfolio.Holdings {
+         .          .     97:		if err := ctx.Err(); err != nil {
+         .          .     98:			return domain.ReviewDailyInput{}, ReviewHistoricalCoverage{}, err
+         .          .     99:		}
+         .          .    100:		if holding.InstrumentID != instrumentID {
+         .          .    101:			continue
+         .          .    102:		}
+    5.26MB     5.26MB    103:		holdings = append(holdings, holding)
+         .          .    104:		_, hasOrigin := baselines[holding.ID]
+         .          .    105:		if !hasOrigin && !holding.CreatedAt.After(batch.Origin.StartedAt) {
+         .          .    106:			quantityKnown = false
+         .          .    107:		}
+         .     3.13MB    108:		quantity = quantity.Add(holding.Quantity.Decimal())
+         .          .    109:	}
+         .          .    110:	if quantityKnown {
+         .     7.50MB    111:		known, err := domain.NewQuantity(quantity)
+         .          .    112:		if err != nil {
+         .          .    113:			return domain.ReviewDailyInput{}, ReviewHistoricalCoverage{}, err
+         .          .    114:		}
+  576.07kB     2.06MB    115:		value := known.Canonical()
+         .          .    116:		input.Quantity = &value
+         .          .    117:	} else {
+         .          .    118:		coverage.Missing = append(coverage.Missing, "historical_quantity")
+         .          .    119:	}
+         .          .    120:	if input.Quantity != nil && quantity.IsPositive() && input.NativeCurrency != nil {
+         .    13.23MB    121:		quote, reason := quoteSeries.ResolveDailyClose(*instrument, on)
+         .          .    122:		if quote == nil {
+         .          .    123:			coverage.Missing = append(coverage.Missing, reason)
+         .          .    124:		} else {
+  384.05kB     5.38MB    125:			exact := quantity.Mul(quote.UnitPrice.Decimal()).String()
+         .          .    126:			input.AmountExact = &exact
+         .          .    127:		}
+         .          .    128:	}
+         .   192.02kB    129:	needsCost, lookbacks, currencies := reviewRequiredInputs(spec.Predicate)
+         .          .    130:	if needsCost && input.Quantity != nil && quantity.IsPositive() {
+         .          .    131:		cost := decimal.Zero
+         .          .    132:		known := true
+         .          .    133:		for _, holding := range holdings {
+         .          .    134:			if holding.Quantity.IsZero() {
+         .          .    135:				continue
+         .          .    136:			}
+         .     5.25MB    137:			lot, ok := reviewCostLot(holding.ID, portfolio.Holdings, baselines, captured.CostEvents, batch.Origin.StartedAt, cutoff, nil, map[domain.HoldingID]bool{})
+         .          .    138:			if !ok || !lot.Current.Quantity.Decimal().Equal(holding.Quantity.Decimal()) {
+         .          .    139:				known = false
+         .          .    140:				break
+         .          .    141:			}
+         .     2.06MB    142:			cost = cost.Add(lot.Current.Quantity.Decimal().Mul(lot.Current.AverageUnitCost.Decimal()))
+         .          .    143:		}
+         .          .    144:		if known {
+   64.01kB   832.16kB    145:			value := cost.String()
+         .          .    146:			input.CostExact = &value
+         .          .    147:		} else {
+         .          .    148:			coverage.Missing = append(coverage.Missing, "historical_cost")
+         .          .    149:		}
+         .          .    150:	}
+         .          .    151:	if input.InstrumentType != nil {
+         .          .    152:		for _, lookback := range lookbacks {
+         .    12.07MB    153:			item, reason := quoteSeries.ResolveDailyPerformance(*instrument, on, lookback, spec.DataPolicy.BaselineMaxGapDays)
+         .          .    154:			if item == nil {
+  128.02kB   128.02kB    155:				coverage.Missing = append(coverage.Missing, reason)
+         .          .    156:				continue
+         .          .    157:			}
+    6.03MB     6.03MB    158:			input.Performance[lookback] = *item
+         .          .    159:		}
+         .          .    160:	}
+         .          .    161:	if input.NativeCurrency != nil && portfolio.Household != nil {
+         .          .    162:		for _, target := range currencies {
+         .          .    163:			if target == *input.NativeCurrency {
+         .          .    164:				continue
+         .          .    165:			}
+         .          .    166:			preference := implicitFXPreferenceTo(portfolio, *input.NativeCurrency, target)
+         .          .    167:			quote := selectHistoricalFXQuoteAtMarketDate(preference, portfolio.FXQuotes, *input.NativeCurrency, target, providerKey, on, positionAt)
+         .          .    168:			if quote == nil {
+  320.05kB   320.05kB    169:				coverage.Missing = append(coverage.Missing, "fx_missing")
+         .          .    170:				continue
+         .          .    171:			}
+         .          .    172:			kind := "timestamped"
+         .          .    173:			if quote.ObservationKind == string(FXObservationDailyReference) && quote.EffectiveDate != "" {
+         .          .    174:				kind = "daily_reference"

@@ -1,0 +1,69 @@
+File: application.test
+Build ID: 04530e09979a31a024d82b83112fdb0bebfa97e5
+Type: cpu
+Time: 2026-10-20 01:06:48 UTC
+Duration: 5.99s, Total samples = 7.27s (121.30%)
+Showing nodes accounting for 1.74s, 23.93% of 7.27s total
+Dropped 431 nodes (cum <= 0.04s)
+Showing top 60 nodes out of 324
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      6.03s 82.94%  github.com/waltwang/nestworth-go/internal/application.(*Service).ReconcileInvestmentReviewsV2
+         0     0%     0%      6.03s 82.94%  github.com/waltwang/nestworth-go/internal/application.TestReviewClockOnlyCPUAllocationProfile.func1
+         0     0%     0%      6.03s 82.94%  testing.tRunner
+         0     0%     0%      5.81s 79.92%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).phase
+         0     0%     0%      5.81s 79.92%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).phase.func1
+         0     0%     0%      5.81s 79.92%  runtime/pprof.Do
+         0     0%     0%      3.26s 44.84%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadReviewHistoricalBatchQuery
+         0     0%     0%      3.18s 43.74%  database/sql.withLock
+         0     0%     0%      3.15s 43.33%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).PublishReviewProjectionWithClock
+         0     0%     0%      3.15s 43.33%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).PublishReviewProjectionWithClock.func1
+         0     0%     0%      3.15s 43.33%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).PublishReviewProjectionWithClock (inline)
+         0     0%     0%      3.15s 43.33%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).publishReviewProjection
+         0     0%     0%      2.73s 37.55%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadHistoricalSnapshotBatchQueryMode
+         0     0%     0%      2.73s 37.55%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.loadReviewHistoricalSnapshotBatchQuery (inline)
+         0     0%     0%      2.66s 36.59%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).CaptureReviewProjection
+         0     0%     0%      2.66s 36.59%  github.com/waltwang/nestworth-go/internal/application.(*reviewProfileRepository).CaptureReviewProjection.func1
+         0     0%     0%      2.66s 36.59%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.(*Repository).CaptureReviewProjection
+         0     0%     0%      2.45s 33.70%  modernc.org/sqlite/lib.Xsqlite3_step
+         0     0%     0%      2.43s 33.43%  modernc.org/sqlite.(*conn).step
+     0.01s  0.14%  0.14%      2.42s 33.29%  modernc.org/sqlite/lib._sqlite3Step
+     0.53s  7.29%  7.43%      2.40s 33.01%  modernc.org/sqlite/lib._sqlite3VdbeExec
+         0     0%  7.43%      2.04s 28.06%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.listAllInstrumentQuotesQuery
+         0     0%  7.43%      1.80s 24.76%  database/sql.(*DB).queryDC
+         0     0%  7.43%      1.80s 24.76%  database/sql.(*DB).queryDC.func1
+         0     0%  7.43%      1.80s 24.76%  database/sql.(*Tx).QueryContext
+         0     0%  7.43%      1.80s 24.76%  database/sql.ctxDriverQuery
+         0     0%  7.43%      1.80s 24.76%  github.com/waltwang/nestworth-go/internal/application.(*reviewSQLConn).QueryContext
+         0     0%  7.43%      1.80s 24.76%  modernc.org/sqlite.(*conn).QueryContext
+         0     0%  7.43%      1.80s 24.76%  modernc.org/sqlite.(*conn).query
+         0     0%  7.43%      1.77s 24.35%  modernc.org/sqlite.(*stmt).query
+     0.06s  0.83%  8.25%      1.58s 21.73%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.scanInstrumentQuotes
+         0     0%  8.25%      1.28s 17.61%  runtime.systemstack
+         0     0%  8.25%      1.24s 17.06%  github.com/waltwang/nestworth-go/internal/domain.ReviewHistoricalFingerprint
+         0     0%  8.25%      0.91s 12.52%  runtime.gcBgMarkWorker
+         0     0%  8.25%      0.90s 12.38%  runtime.gcBgMarkWorker.func2
+         0     0%  8.25%      0.90s 12.38%  runtime.gcDrain
+         0     0%  8.25%      0.86s 11.83%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.publishReviewRule
+         0     0%  8.25%      0.84s 11.55%  database/sql.(*Rows).Next
+         0     0%  8.25%      0.82s 11.28%  database/sql.(*Rows).Next.func1
+         0     0%  8.25%      0.82s 11.28%  database/sql.(*Rows).nextLocked
+         0     0%  8.25%      0.82s 11.28%  github.com/waltwang/nestworth-go/internal/application.(*reviewSQLRows).Next
+         0     0%  8.25%      0.82s 11.28%  modernc.org/sqlite.(*rows).Next
+         0     0%  8.25%      0.71s  9.77%  modernc.org/sqlite/lib._getAndInitPage
+     0.01s  0.14%  8.39%      0.71s  9.77%  modernc.org/sqlite/lib._sqlite3PagerGet (inline)
+     0.01s  0.14%  8.53%      0.70s  9.63%  modernc.org/sqlite/lib._getPageNormal
+     0.03s  0.41%  8.94%      0.66s  9.08%  runtime.mallocgc
+     0.08s  1.10% 10.04%      0.61s  8.39%  github.com/waltwang/nestworth-go/internal/domain.writeReviewFingerprintScalars
+     0.61s  8.39% 18.43%      0.61s  8.39%  internal/runtime/syscall/linux.Syscall6
+         0     0% 18.43%      0.61s  8.39%  syscall.RawSyscall6
+         0     0% 18.43%      0.60s  8.25%  encoding/json.Marshal
+     0.03s  0.41% 18.84%      0.60s  8.25%  github.com/waltwang/nestworth-go/internal/infrastructure/sqlite.scanInstrumentQuote
+         0     0% 18.84%      0.60s  8.25%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 18.84%      0.58s  7.98%  modernc.org/sqlite/lib._sqlite3VdbeFinishMoveto
+         0     0% 18.84%      0.57s  7.84%  syscall.Syscall6
+     0.08s  1.10% 19.94%      0.56s  7.70%  modernc.org/sqlite/lib._sqlite3BtreeTableMoveto
+     0.01s  0.14% 20.08%      0.54s  7.43%  database/sql.(*Tx).ExecContext
+         0     0% 20.08%      0.54s  7.43%  modernc.org/libc.___syscall_cp
+     0.28s  3.85% 23.93%      0.54s  7.43%  runtime.tryDeferToSpanScan
+         0     0% 23.93%      0.53s  7.29%  database/sql.(*DB).execDC
+         0     0% 23.93%      0.53s  7.29%  database/sql.(*DB).execDC.func2
