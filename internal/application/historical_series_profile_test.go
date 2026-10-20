@@ -22,7 +22,7 @@ func TestHistoricalSeriesCPUProfileEvidence(t *testing.T) {
 	fixture := os.Getenv("NW_SERIES_EVIDENCE_DB")
 	if fixture != "" {
 		if _, err := os.Stat(fixture); os.IsNotExist(err) {
-			_, db := seriesBenchmarkFixture(t, true)
+			_, db := seriesHistoryScaleFixture(t, 100, 1000, 25000)
 			if _, err := db.SQL.Exec(`PRAGMA query_only=OFF`); err != nil {
 				t.Fatal(err)
 			}
@@ -42,7 +42,7 @@ func TestHistoricalSeriesCPUProfileEvidence(t *testing.T) {
 		s = NewService(sqlite.NewRepository(db))
 		s.setClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	} else {
-		s, _ = seriesBenchmarkFixture(t, true)
+		s, _ = seriesHistoryScaleFixture(t, 100, 1000, 25000)
 	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
