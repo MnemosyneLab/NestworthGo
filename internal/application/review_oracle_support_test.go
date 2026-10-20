@@ -46,13 +46,14 @@ func cloneReviewPerfFixture(t *testing.T, source reviewFullPipelineFixture) revi
 // mapped; persisted IDs and acknowledgement times must remain identical.
 func assertReviewFullOracle(t *testing.T, f reviewFullPipelineFixture, candidate domain.ReviewPublication) {
 	t.Helper()
-	capture, err := fullReviewOracle(sqlite.NewRepository(f.db)).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(capture.ReusableDailyEvidence) != 0 {
-		t.Fatal("full oracle reused evidence")
-	}
+	// Recompute from the candidate's coherent authoritative source snapshot.
+	// Do not recapture on its handle: capture would replace pending memo receipts
+	// between preparation and publication, changing the operation under test.
+	capture := candidate.Capture
+	capture.TemporalFullRecompute = true
+	capture.ReusableDailyEvidence = nil
+	capture.Suffix = nil
+	capture.Certified = nil
 	full, err := PrepareReviewPublication(t.Context(), capture, *f.now, f.service.FXProviderKey())
 	if err != nil {
 		t.Fatal(err)
