@@ -20,9 +20,9 @@ func certifiedQuantityFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec,
 	t.Helper()
 	return certifiedPublicationFixture(t, fx, spec, quantity, true)
 }
-func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec, quantity string, lineage bool) (seriesZeroFixture, *sqlite.Repository) {
+func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSpec, quantity string, lineage bool, databases ...*sqlite.DB) (seriesZeroFixture, *sqlite.Repository) {
 	t.Helper()
-	f := newSeriesZeroFixture(t, fx, "UTC", "2026-10-01", quantity)
+	f := newSeriesZeroFixture(t, fx, "UTC", "2026-10-01", quantity, databases...)
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic certified review", spec)
 	r := sqlite.NewRepository(f.db).WithCertifiedReviewCandidate()

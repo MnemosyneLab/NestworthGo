@@ -10,11 +10,17 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func overviewFixture(t *testing.T) (*Service, *sqlite.DB, domain.MemberID, *time.Time) {
+func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.DB, domain.MemberID, *time.Time) {
 	t.Helper()
-	db, err := sqlite.Open(t.TempDir() + "/overview.db")
-	if err != nil {
-		t.Fatal(err)
+	var db *sqlite.DB
+	if len(databases) > 0 {
+		db = databases[0]
+	} else {
+		var err error
+		db, err = sqlite.Open(t.TempDir() + "/overview.db")
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	t.Cleanup(func() { db.Close() })
 	s := NewService(sqlite.NewRepository(db))

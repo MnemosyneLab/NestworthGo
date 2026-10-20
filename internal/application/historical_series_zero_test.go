@@ -21,9 +21,9 @@ type seriesZeroFixture struct {
 	fx         bool
 }
 
-func newSeriesZeroFixture(t *testing.T, fx bool, zone, first, quantity string) seriesZeroFixture {
+func newSeriesZeroFixture(t *testing.T, fx bool, zone, first, quantity string, databases ...*sqlite.DB) seriesZeroFixture {
 	t.Helper()
-	s, db, owner, now := overviewFixture(t)
+	s, db, owner, now := overviewFixture(t, databases...)
 	location, err := time.LoadLocation(zone)
 	if err != nil {
 		t.Fatal(err)

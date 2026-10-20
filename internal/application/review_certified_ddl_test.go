@@ -2,10 +2,9 @@ package application
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 // DDL does not increment total_changes(). Rewinding the writable schema cookie
@@ -92,20 +91,21 @@ func TestReviewCertifiedOwnDDLCommitRejectsNoop(t *testing.T) {
 }
 
 func TestReviewCertifiedOwnDDLCommitSelectsFullSourceRecheck(t *testing.T) {
-	f, r := certifiedFixture(t)
+	db, faults := openReviewFaultDatabase(t)
+	f, r := certifiedPublicationFixture(t, false, syntheticHistoricalReviewSpec(), "1", true, db)
 	p := certifiedStage(t, f, r)
 	certifiedOwnDDL(t, f, false, false)
-	verdict := "missing"
-	r = r.WithReviewCompletenessLineageShadow(func(o domain.ReviewCompletenessLineageObservation) {
-		if o.Phase == "certified_publication" {
-			verdict = o.Verdict
+	fullReads := 0
+	faults.afterQuery = func(query string) {
+		if strings.Contains(query, "FROM history_origins") {
+			fullReads++
 		}
-	})
+	}
 	if err := certifiedPublish(t.Context(), f, r, p, func() time.Time { return *f.now }); err != nil {
 		t.Fatal(err)
 	}
-	if verdict != "full_source_recheck" {
-		t.Fatal("DDL used counter-only source CAS", verdict)
+	if fullReads == 0 {
+		t.Fatal("DDL used counter-only source CAS")
 	}
 }
 
