@@ -269,12 +269,14 @@ func (r *Repository) verifyReviewSuffixPrefix(c domain.ReviewProjectionCapture) 
 // coherent transaction; SQL images are never retained or used as financial input.
 func scanReviewSuffixOutput(rows *sql.Rows, capture domain.ReviewProjectionCapture, rule domain.ReviewRule, tz string, unchanged bool, evidence map[domain.ReviewDailyEvidenceKey]domain.ReviewReusableDailyEvidence, attested map[domain.ReviewDailyEvidenceKey]bool) error {
 	defer rows.Close()
+	// Only decoded owned values and immutable strings leave each iteration.
+	// The SQL tuples are compared immediately and never retained.
+	values := make([]any, 22)
+	pointers := make([]any, 22)
+	for i := range values {
+		pointers[i] = &values[i]
+	}
 	for rows.Next() {
-		values := make([]any, 22)
-		pointers := make([]any, 22)
-		for i := range values {
-			pointers[i] = &values[i]
-		}
 		if err := rows.Scan(pointers...); err != nil {
 			return err
 		}

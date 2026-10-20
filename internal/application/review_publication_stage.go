@@ -115,14 +115,24 @@ func prepareReviewPublication(ctx context.Context, capture domain.ReviewProjecti
 			if err != nil {
 				return domain.ReviewPublication{}, err
 			}
+			timezoneVersion := rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion
+			emittedDays := len(plan.Days)
+			if cache.hasAttestedSuffix {
+				for _, day := range plan.Days {
+					key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: timezoneVersion, On: day.On}
+					if index, ok := cache.suffixEvidence[key]; ok && capture.Suffix.Prefix[index].OutputAttested {
+						emittedDays--
+					}
+				}
+			}
 			entry := domain.ReviewRulePublication{
 				RuleID: rule.ID, RuleRevision: rule.RowRevision, ConditionVersion: rule.CurrentConditionVersion,
-				InstrumentID: instrumentID, TimezoneVersion: rule.Spec.Schedule.Timezone + "/" + rule.Spec.Schedule.CutoffVersion,
+				InstrumentID: instrumentID, TimezoneVersion: timezoneVersion,
 				LatestClosedOn: plan.LatestClosedOn, LatestResult: plan.LatestResult, LatestCoverage: append([]string{}, plan.LatestCoverage...),
 				FirstHitOn: firstHit, TriggerWindow: triggerWindow, TriggerResult: triggerResult, TriggerCoverage: triggerCoverage,
 				LatestWindow: plan.LatestWindow, PositionKnown: plan.Position.Known, CurrentEpochID: lifecycle.CurrentEpochID,
 				CurrentEpisode: lifecycle.Current, ClosedEpisodes: lifecycle.Closed, OpenedEpisode: lifecycle.Opened,
-				Days: make([]domain.ReviewPublicationDay, 0, len(plan.Days)), Epochs: make([]domain.ReviewPublicationEpoch, 0, len(plan.Position.Epochs)),
+				Days: make([]domain.ReviewPublicationDay, 0, emittedDays), Epochs: make([]domain.ReviewPublicationEpoch, 0, len(plan.Position.Epochs)),
 			}
 			for _, day := range plan.Days {
 				key := domain.ReviewDailyEvidenceKey{RuleID: rule.ID, ConditionVersion: rule.CurrentConditionVersion, InstrumentID: instrumentID, TimezoneVersion: entry.TimezoneVersion, On: day.On}
