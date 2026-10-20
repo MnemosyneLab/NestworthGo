@@ -1417,6 +1417,7 @@
       "missing_instrument": "Instrument reference is missing",
       "fx_rate": "Exchange rate is missing",
       "account_value": "Recorded account value is missing",
+      "funding_cash_after_product_start": "Funding cash is recorded after the product start.",
       "history_coverage": "Historical market coverage is unverified"
     },
     "categoryCompare": "Category comparison",

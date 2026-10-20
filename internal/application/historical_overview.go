@@ -472,6 +472,7 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 			}
 		}
 	}
+	applyOverviewFundingGaps(portfolio, accounts, &rows, &displayAssets, &displayDebts, &assetComplete, &debtComplete)
 	state.DisplayValuation, err = householdDisplay(displayAssets, displayDebts, portfolio.Household.BaseCurrency)
 	if err != nil {
 		return HistoricalOverviewState{}, nil, err

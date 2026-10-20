@@ -1417,6 +1417,7 @@
       "missing_instrument": "缺少投资标的资料",
       "fx_rate": "缺少汇率",
       "account_value": "缺少账户余额记录",
+      "funding_cash_after_product_start": "资金到账记录晚于产品起始日。",
       "history_coverage": "历史行情覆盖尚未验证"
     },
     "categoryCompare": "分类比较",

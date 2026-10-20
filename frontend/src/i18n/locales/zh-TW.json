@@ -1417,6 +1417,7 @@
       "missing_instrument": "缺少投資標的資料",
       "fx_rate": "缺少匯率",
       "account_value": "缺少帳戶餘額紀錄",
+      "funding_cash_after_product_start": "資金入帳記錄晚於產品起始日。",
       "history_coverage": "歷史行情涵蓋範圍尚未驗證"
     },
     "categoryCompare": "分類比較",

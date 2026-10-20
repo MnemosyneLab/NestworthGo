@@ -1105,6 +1105,39 @@ it("colors asset changes with a gain cue and keeps debt balance changes neutral"
   expect(debt.querySelector(".text-gain-positive, .text-gain-negative")).toBeNull();
 });
 
+it.each(["en", "zh-CN", "zh-TW"])("warns that a funding-gap day is incomplete instead of a full total (%s)", async (locale) => {
+  await i18n.changeLanguage(locale);
+  read.mockImplementation((date: string) => {
+    const data = result(date);
+    data.left.currency = "USD";
+    data.left.complete = false;
+    data.left.assets = null;
+    data.left.netWorth = null;
+    data.left.knownAssets = "100000";
+    const partial = { availability: "partial", coverage: "provisional", includedCount: 2, valuedCount: 1, unpricedCount: 1, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: ["account_value_missing"] };
+    const full = { availability: "full", coverage: "verified", includedCount: 0, valuedCount: 0, unpricedCount: 0, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: [] };
+    data.left.displayValuation = {
+      assets: { currency: "USD", total: null, knownSubtotal: { amount: "100000", currency: "USD" }, quality: partial },
+      liabilities: { currency: "USD", total: { amount: "0", currency: "USD" }, knownSubtotal: { amount: "0", currency: "USD" }, quality: full },
+      netWorth: { currency: "USD", total: null, knownSubtotal: { amount: "100000", currency: "USD" }, quality: partial },
+    } as HistoricalOverviewState["displayValuation"];
+    data.rows = [
+      { key: "bank", accountId: "", holdingId: "", instrumentId: "", parentKey: "", kind: "account", name: "Bank", role: "asset", left: cell("100000", { currency: "USD", complete: false, baseAmount: null, missing: ["funding_cash_after_product_start"] }), right: null, baseChange: null, nativeChange: null, quantityChange: null, changed: false },
+      { key: "cash-usd", accountId: "", holdingId: "", instrumentId: "", parentKey: "bank", kind: "cash", name: "USD", role: "asset", left: cell(null, { currency: "USD", status: "unknown", complete: false, nativeAmount: null, baseAmount: null, missing: ["funding_cash_after_product_start"] }), right: null, baseChange: null, nativeChange: null, quantityChange: null, changed: false },
+    ];
+    return Promise.resolve(data);
+  });
+  show(true);
+  const partial = i18n.t("historicalOverview.coveragePartial");
+  expect(await screen.findByText((_, element) => element?.tagName === "SPAN" && element.textContent?.includes(partial) === true)).toBeInTheDocument();
+  expect(screen.getAllByText(i18n.t("valuation.knownSubtotal")).length).toBeGreaterThan(0);
+  await userEvent.click(await screen.findByRole("button", { name: i18n.t("historicalOverview.viewEvidence") }));
+  const detail = await screen.findByRole("dialog");
+  expect(detail).toHaveTextContent(i18n.t("historicalOverview.missing.funding_cash_after_product_start"));
+  expect(detail).not.toHaveTextContent("US$0.00");
+  await i18n.changeLanguage("en");
+});
+
 it("opens the first incomplete component in the evidence sheet from the coverage banner", async () => {
   read.mockImplementation((date: string, compare: string) => {
     const data = result(date, compare);

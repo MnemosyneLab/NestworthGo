@@ -15,6 +15,14 @@ type displayAccumulator struct {
 	uncertain bool
 }
 
+// omitUnknown counts a cash sleeve historical replay could not materialize.
+// The known subtotal is unchanged and the total stays unpublished.
+func (a *displayAccumulator) omitUnknown() {
+	a.quality.IncludedCount++
+	a.quality.UnpricedCount++
+	a.reason(domain.ReasonAccountValueMissing)
+}
+
 func (a *displayAccumulator) reason(r domain.ValuationReason) {
 	for _, old := range a.quality.Reasons {
 		if old == r {

@@ -34,6 +34,36 @@ it.each(["en"])("keeps exact source values, local selection and explicit recaptu
  const option = chart.options[chart.options.length - 1] as { tooltip: { formatter: (p: unknown) => string }; series: Array<{connectNulls: boolean}> };
  expect(option.tooltip.formatter({name:"2026-08-01"})).toContain(formatAmount("-0.00012", "CNY")); expect(option.series[0].connectNulls).toBe(false);
 });
+it.each(["en", "zh-CN", "zh-TW"])("keeps a funding-gap day off the complete trend and shows its reason (%s)", async (locale) => {
+  await i18n.changeLanguage(locale);
+  const gap = point("2026-10-02", null, {
+    assets: null,
+    liabilities: null,
+    knownLiabilities: null,
+    knownAssets: "100000",
+    assetsComplete: false,
+    connectAssets: false,
+    connectNetWorth: false,
+    assetCoverage: { included: 2, known: 1, missing: 1 },
+    displayValuation: {
+      assets: { currency: "USD", total: null, knownSubtotal: { amount: "100000", currency: "USD" }, quality: { availability: "partial", coverage: "provisional", includedCount: 2, valuedCount: 1, unpricedCount: 1, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: ["account_value_missing"] } },
+      liabilities: { currency: "USD", total: null, knownSubtotal: null, quality: { availability: "full", coverage: "verified", includedCount: 0, valuedCount: 0, unpricedCount: 0, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: [] } },
+      netWorth: { currency: "USD", total: null, knownSubtotal: { amount: "100000", currency: "USD" }, quality: { availability: "partial", coverage: "provisional", includedCount: 2, valuedCount: 1, unpricedCount: 1, provisionalCount: 0, carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: ["account_value_missing"] } },
+    } as HistoricalSeriesPoint["displayValuation"],
+    missing: [{ key: "bank:cash:USD", name: "Bank · USD", role: "asset", reasons: ["funding_cash_after_product_start"] }],
+  });
+  expect(historicalTrendSegments([gap], "assets")).toEqual([]);
+  expect(historicalTrendSegments([gap], "netWorth")).toEqual([]);
+  const captureForGap = capture([gap]);
+  captureForGap.overview.left.currency = "USD";
+  render(<HistoricalTrend capture={captureForGap} metric="assets" selectedDate={null} onMetric={vi.fn()} onSelect={vi.fn()} onEndpoint={vi.fn()} onOpenDay={vi.fn()} />);
+  expect(screen.getByText(i18n.t("historicalOverview.trend.noCompleteTotals"))).toBeInTheDocument();
+  const table = screen.getByRole("table");
+  expect(table).toHaveTextContent(i18n.t("historicalOverview.missing.funding_cash_after_product_start"));
+  expect(table).toHaveTextContent(i18n.t("valuation.knownSubtotal"));
+  expect(table).not.toHaveTextContent("US$0.00");
+  await i18n.changeLanguage("en");
+});
 it("provides an exact table fallback for numerical overflow and explicit skipped-day gaps", async () => {
  await i18n.changeLanguage("en");
  render(<HistoricalTrend capture={capture([point("2026-08-01", "9".repeat(400)), point("2026-08-02", null, { available: false, gapReason: "nonexistent_civil_date", assets: null, liabilities: null })])} metric="netWorth" selectedDate={null} onMetric={vi.fn()} onSelect={vi.fn()} onEndpoint={vi.fn()} onOpenDay={vi.fn()} />);
