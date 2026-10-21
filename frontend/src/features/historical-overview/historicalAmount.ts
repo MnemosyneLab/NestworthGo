@@ -1,13 +1,11 @@
 import type { TFunction } from "i18next";
 import { hasDisplay, type DisplayValuation, type DisplayMoney } from "@/components/valuation/valuationQuality";
-import { formatMoney, compareCanonical } from "@/lib/money";
+import { formatMoney, formatSignedMoney } from "@/lib/money";
 
 /** Historical money shares the ordinary display policy; canonical values stay untouched. */
 export function formatHistoricalAmount(value: string | null | undefined, currency: string, signed = false): string | null {
   if (value == null) return null;
-  const display = formatMoney(value, currency);
-  const plus = signed && compareCanonical(value, "0.005") > 0 ? "+" : "";
-  return plus + display;
+  return signed ? formatSignedMoney(value, currency) : formatMoney(value, currency);
 }
 export function historicalDisplayAmount(t: TFunction, value: DisplayValuation | null | undefined, legacy: DisplayMoney | null | undefined, net = false, includeSubtotalLabel = true): string {
   // Callers supply the exact complete amount for this same metric/row as

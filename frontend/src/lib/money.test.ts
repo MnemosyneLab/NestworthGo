@@ -263,3 +263,17 @@ it.each([
   expect(formatAmount(aggregate, "USD")).toBe(total);
   expect(formatSignedMoney(aggregate, "USD")).toBe(aggregate.startsWith("-") ? total : `+${total}`);
 });
+
+
+it.each(["JPY", "KRW", "USD"])("adds a sign only to a nonzero currency-rounded %s amount", currency => {
+  const boundary = currency === "USD" ? "0.005" : "0.5";
+  const above = currency === "USD" ? "0.0050001" : "0.5000001";
+  for (const value of ["0", "-0", "0.005", "0.1", boundary, `-${boundary}`]) {
+    const nonzero = currency === "USD" && value === "0.1";
+    expect(formatSignedMoney(value, currency)).toBe(`${nonzero ? "+" : ""}${formatAmount(value, currency)}`);
+  }
+  expect(formatSignedMoney(above, currency)).toBe(`+${formatAmount(above, currency)}`);
+  expect(formatSignedMoney(`-${above}`, currency)).toBe(formatAmount(`-${above}`, currency));
+  expect(formatSignedMoney(`-${boundary}`, currency)).toContain(" · − nonzero, below ");
+  expect(formatSignedMoney(boundary, currency)).toContain(" · + nonzero, below ");
+});

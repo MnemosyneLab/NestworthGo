@@ -464,7 +464,10 @@ export function formatMoney(value: string, currency?: string): string {
 }
 
 export function formatSignedMoney(value: string, currency: string): string {
-  return `${compareCanonical(value, "0.005") > 0 ? "+" : ""}${formatAmount(value, currency)}`;
+  const parts = parseCanonicalParts(value);
+  const rounded = parts && roundDecimal(parts.integer, parts.fraction, currencyFractionDigits(currency));
+  const positive = parts && !parts.negative && rounded && /[1-9]/.test(rounded.join(""));
+  return `${positive ? "+" : ""}${formatAmount(value, currency)}`;
 }
 
 /** Descriptive percentages use two decimals without currency or tiny-money hints. */

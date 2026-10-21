@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -121,7 +122,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 				return domain.PortfolioSnapshot{}, err
 			}
 			if effect.Money != nil && effect.AccountID != nil {
-				if err := applyHistoricalMoney(values, cash, effect, activity.ID); err != nil {
+				if err := applyHistoricalMoney(values, cash, effect, activity); err != nil {
 					return domain.PortfolioSnapshot{}, err
 				}
 			}
@@ -366,6 +367,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 				)
 				snapshot.ReplayFundingGaps = append(snapshot.ReplayFundingGaps, domain.ReplayFundingGap{
 					AccountID: accountID, Currency: balance.currency, ActivityID: balance.gapActivity, Cutoff: cutoff,
+					HoldingIDs: balance.gapHoldings,
 				})
 				continue
 			}
@@ -610,11 +612,12 @@ type replayCashBalance struct {
 	signed      decimal.Decimal
 	currency    domain.CurrencyCode
 	gapActivity domain.ActivityID
+	gapHoldings []domain.HoldingID
 	negative    bool
 	known       bool
 }
 
-func applyHistoricalMoney(values map[domain.AccountID]domain.Money, cash map[domain.AccountID]map[domain.CurrencyCode]replayCashBalance, effect domain.ActivityEffect, activityID domain.ActivityID) error {
+func applyHistoricalMoney(values map[domain.AccountID]domain.Money, cash map[domain.AccountID]map[domain.CurrencyCode]replayCashBalance, effect domain.ActivityEffect, activity domain.Activity) error {
 	amount := *effect.Money
 	if effect.Target == domain.EffectTargetAccountValue {
 		current := values[*effect.AccountID]
@@ -624,9 +627,18 @@ func applyHistoricalMoney(values map[domain.AccountID]domain.Money, cash map[dom
 		cash[*effect.AccountID] = make(map[domain.CurrencyCode]replayCashBalance)
 	}
 	current := cash[*effect.AccountID][amount.Currency()]
-	updated, err := stepReplayCash(current, amount, effect.Direction, activityID)
+	updated, err := stepReplayCash(current, amount, effect.Direction, activity.ID)
 	if err != nil {
 		return err
+	}
+	// A deficit can span several purchases. The first gap activity is only
+	// diagnostic identity; each cash-consuming acquisition needs protection.
+	if updated.negative && effect.Direction == domain.EffectRemoved && !amount.IsZero() {
+		for _, acquisition := range activity.Effects {
+			if acquisition.Target == domain.EffectTargetHoldingQuantity && acquisition.Direction == domain.EffectAdded && acquisition.HoldingID != nil && acquisition.Quantity != nil && !acquisition.Quantity.IsZero() && !slices.Contains(updated.gapHoldings, *acquisition.HoldingID) {
+				updated.gapHoldings = append(updated.gapHoldings, *acquisition.HoldingID)
+			}
+		}
 	}
 	cash[*effect.AccountID][amount.Currency()] = updated
 	return nil
@@ -649,7 +661,7 @@ func stepReplayCash(current replayCashBalance, amount domain.Money, direction do
 		if gap == "" {
 			gap = activityID
 		}
-		return replayCashBalance{signed: value.RoundBank(4), currency: amount.Currency(), gapActivity: gap, negative: true, known: true}, nil
+		return replayCashBalance{signed: value.RoundBank(4), currency: amount.Currency(), gapActivity: gap, gapHoldings: current.gapHoldings, negative: true, known: true}, nil
 	}
 	updated, err := domain.NewMoney(value, amount.Currency())
 	if err != nil {

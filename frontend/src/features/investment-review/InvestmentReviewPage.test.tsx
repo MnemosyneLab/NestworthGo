@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
+import { resetDisplayPreferences, setDisplayPreferences } from "@/lib/displayPreferences";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import { NavigationContext } from "@/app/NavigationContext";
 import type { ReviewAlertPage, ReviewCoveragePage } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
@@ -63,10 +64,29 @@ beforeEach(async () => {
   state.rules.data = [];
   state.rules.hasNextPage = false;
   state.suppressions.hasNextPage = false;
+  state.suppressions.data = [];
   state.coverage.data = { items: [{ instrumentId: "synthetic-gap", displayName: "Synthetic gap", instrumentType: "stock" as never, status: "unknown", rules: [{ ruleId: "rule-gap", name: "Missing price", state: "unknown", latestClosedOn: "2026-10-15", window: { truth: "" as never, windowStart: "2026-10-06", windowEnd: "2026-10-15", hitCount: 0, falseCount: 0, unknownCount: 10, consecutiveCount: 0 }, missing: ["quote_missing"] }] }], reportRevision: "coverage-1", projectionStatus: "complete", publishedOn: "2026-10-15" };
 });
 
+afterEach(() => resetDisplayPreferences());
+
 describe("daily investment review page", () => {
+  it.each([
+    ["day-first", "15/10/2026", "15/11/2026"],
+    ["month-first", "10/15/2026", "11/15/2026"],
+  ] as const)("formats publication and both suppression dates using %s", async (dateFormat, published, until) => {
+    setDisplayPreferences({ dateFormat, timezone: "America/Los_Angeles" });
+    state.alert.data!.items![0].rules![0].suppressedUntil = "2026-11-15";
+    state.suppressions.data = [{ ID: "synthetic-suppression", InstrumentID: "synthetic-investment", Mode: "until_date", UntilOn: "2026-11-15", Revision: 1 }] as never[];
+    mount();
+    expect(screen.getByText(i18n.t("reviewV2.publishedOn", { date: published }))).toBeVisible();
+    expect(screen.getByText(i18n.t("reviewV2.suppressedUntil", { date: until }))).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Ignored investments" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent(i18n.t("reviewV2.suppressedUntil", { date: until }));
+    expect(state.alert.data!.publishedOn).toBe("2026-10-15");
+    expect(state.alert.data!.items![0].rules![0].suppressedUntil).toBe("2026-11-15");
+    expect(state.suppressions.data[0]).toMatchObject({ UntilOn: "2026-11-15" });
+  });
   it.each([
     ["complete", false],
     ["pending", true],

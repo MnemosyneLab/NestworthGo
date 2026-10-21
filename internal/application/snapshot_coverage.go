@@ -58,7 +58,7 @@ func (s *Service) ensureSnapshotCoverage(ctx context.Context, householdID domain
 		if dirty && generationAware && state.InputGeneration > 0 && *state.DirtyFrom < left && snapshot.InputGeneration == state.InputGeneration {
 			dirty = false
 		}
-		if !exists || dirty || snapshotHashNeedsRebuild(snapshot.ContentHash) || snapshot.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
+		if !exists || dirty || snapshotNeedsRebuild(snapshot) || snapshot.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
 			if gapStart.IsZero() {
 				gapStart = day
 			}

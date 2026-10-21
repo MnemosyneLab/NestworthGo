@@ -42,8 +42,12 @@ func (s *Service) incompleteSnapshotHealth(ctx context.Context, origin *domain.H
 			continue
 		}
 		present[snapshot.LocalDate] = true
+		if fundingGapItemReason(snapshot.Items...) != "" && snapshotNeedsRebuild(snapshot) {
+			issues = append(issues, readyIssue(snapshot.LocalDate, HealthKindSnapshotOutdated, "snapshot_outdated"))
+			continue
+		}
 		if snapshot.Complete {
-			if snapshotHashNeedsRebuild(snapshot.ContentHash) || snapshot.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
+			if snapshotNeedsRebuild(snapshot) || snapshot.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
 				issues = append(issues, readyIssue(snapshot.LocalDate, HealthKindSnapshotOutdated, "snapshot_outdated"))
 			}
 			continue
