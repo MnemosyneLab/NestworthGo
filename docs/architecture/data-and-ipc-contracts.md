@@ -663,3 +663,16 @@ used by MCP, with explicit user-declared provenance. No quote-source switch or
 synthetic price is written. The editor retains the operation UUID for retries,
 refreshes valuation/analysis/review and snapshot-state queries after success,
 and distinguishes a durable closure save from a pending snapshot rebuild.
+
+## Frontend preference writes
+
+Settings edits retain only explicitly edited fields. Header, onboarding, and
+Settings saves share a queue per query client; each save loads the current
+nonsecret document before merging its patch through the existing full-document
+`Save` IPC. Explicit fields win in submission order, including when a user
+explicitly edits a field also changed in the header. Untouched fields retain
+newer values. Reset participates in the same queue. Failed writes do not restore
+cached snapshots or prevent later writes. The service continues to preserve
+separately managed provider credentials. This ordering covers the desktop's
+shared query client, not independent external processes writing the settings
+file.

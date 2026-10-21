@@ -106,7 +106,7 @@ export function SettingsPage() {
   const tiingoRequest = useRef(false);
   const tabsLocked = localRestoreBusy || cloudInteractionBusy || agentBusy || resetOpen;
   const preferencesBusy = saveSettings.isPending || resetSettings.isPending;
-  const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
+  const [draftOverride, setDraftOverride] = useState<Partial<Settings> | null>(null);
   const [coinGeckoKey, setCoinGeckoKey] = useState("");
   const [tiingoKey, setTiingoKey] = useState("");
   const pageChrome = <PageChrome pageId="settings" title={t("settings.title")} />;
@@ -129,11 +129,7 @@ export function SettingsPage() {
     );
   }
 
-  const draft = draftOverride ?? settings.data;
-  if (!draft) {
-    return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
-  }
-
+  const draft = { ...settings.data, ...draftOverride };
   const isDirty =
     (draft.logLevel || "off") !== (settings.data.logLevel || "off") ||
     draft.appearance !== settings.data.appearance ||
@@ -148,7 +144,7 @@ export function SettingsPage() {
     quoteCacheTtlOf(draft) !== quoteCacheTtlOf(settings.data);
   const update = (patch: Partial<Settings>) => {
     if (preferenceRequest.current) return;
-    setDraftOverride((current) => ({ ...(current ?? settings.data), ...patch }));
+    setDraftOverride((current) => ({ ...current, ...patch }));
   };
 
   const applyLivePreferences = (value: Settings) => {
@@ -165,12 +161,12 @@ export function SettingsPage() {
     event.preventDefault();
     if (!isDirty || preferenceRequest.current || tabsLocked || separatorsConflict(draft.decimalSeparator, draft.groupingSeparator)) return;
     preferenceRequest.current = true;
-    saveSettings.mutate(draft, {
+    saveSettings.mutate(draftOverride ?? {}, {
       onSettled: () => { preferenceRequest.current = false; },
-      onSuccess: () => {
+      onSuccess: (saved) => {
         setDraftOverride(null);
         toast.success(t("settings.changesSaved"));
-        applyLivePreferences(draft);
+        applyLivePreferences(saved);
       },
     });
   };
