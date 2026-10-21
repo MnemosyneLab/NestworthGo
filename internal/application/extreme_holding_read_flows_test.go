@@ -81,6 +81,10 @@ func TestExtremePersistedHoldingKeepsOverviewAndUpcomingActionsReadable(t *testi
 	if ordinaryAction.Amount == nil || ordinaryAction.Amount.CanonicalAmount() != "4" || ordinaryAction.AmountStatus != "known" {
 		t.Fatalf("ordinary control action = %+v", ordinaryAction)
 	}
+	controlHealth, err := service.ScanMarketDataHealth(ctx)
+	if err != nil || !controlHealth.Healthy {
+		t.Fatalf("ordinary health = %+v, err=%v", controlHealth, err)
+	}
 
 	extreme := addHolding("Extreme synthetic holding", "1000000000000", "1")
 	saveScheduledPolicy(extreme)
@@ -110,5 +114,25 @@ func TestExtremePersistedHoldingKeepsOverviewAndUpcomingActionsReadable(t *testi
 	extremeAction := findAction(actions, extreme)
 	if extremeAction.Amount != nil || extremeAction.AmountStatus != "unknown" || len(extremeAction.ReasonCodes) != 1 || extremeAction.ReasonCodes[0] != "unknown_amount" {
 		t.Fatalf("extreme holding was represented as an amount: %+v", extremeAction)
+	}
+	health, err := service.ScanMarketDataHealth(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if health.Healthy || health.IssueCount != 1 || health.ExecutableCount != 0 {
+		t.Fatalf("extreme holding health = %+v", health)
+	}
+	var found bool
+	for _, issue := range health.Issues {
+		if issue.Code != string(domain.MissingHoldingAmount) {
+			continue
+		}
+		found = true
+		if issue.Kind != HealthKindIncompleteValuation || issue.Severity != HealthSeverityBlocking || issue.InstrumentID != extreme.InstrumentID.String() || issue.AccountID != account.Account.ID.String() || issue.Label != "Extreme synthetic holding" || issue.Action != HealthActionInstrumentEditor || issue.Executable {
+			t.Fatalf("holding amount issue = %+v", issue)
+		}
+	}
+	if !found {
+		t.Fatalf("holding amount issue is missing: %+v", health)
 	}
 }

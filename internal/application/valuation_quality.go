@@ -202,7 +202,7 @@ func displayDate(p domain.PortfolioSnapshot, now time.Time) string {
 
 // Translate legacy persisted text at this boundary only.
 func coverageOnlySnapshotItem(item domain.DailyValuationSnapshotItem) bool {
-	return !item.Complete && snapshotItemBaseAmountString(item) != "" && item.MissingReason != nil && *item.MissingReason == "historical market-data coverage is unverified"
+	return !item.Complete && snapshotItemBaseAmountString(item) != "" && item.MissingReason != nil && *item.MissingReason == snapshotHistoryCoverageMissingReason
 }
 
 func currentHouseholdDisplay(accounts []domain.AccountValuation, p domain.PortfolioSnapshot, now time.Time) (domain.HouseholdDisplayValuation, error) {
@@ -345,6 +345,17 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 	if item.Complete {
 		return c, nil, false
 	}
+	if item.MissingReason != nil {
+		reason := *item.MissingReason
+		withCoverage := reason == snapshotHoldingAmountMissingReason+"; "+snapshotHistoryCoverageMissingReason
+		if reason == snapshotHoldingAmountMissingReason || withCoverage {
+			missing := []domain.MissingInputView{{Kind: domain.MissingHoldingAmount}}
+			if withCoverage {
+				missing = append(missing, domain.MissingInputView{Kind: domain.MissingHistoryCoverage})
+			}
+			return c, missing, false
+		}
+	}
 	if coverageOnlySnapshotItem(item) && hydrated && (c.PriceEvidence != nil || c.FXEvidence != nil) {
 		return c, []domain.MissingInputView{{Kind: domain.MissingHistoryCoverage}}, false
 	}
@@ -359,7 +370,7 @@ func snapshotDisplayItem(item domain.DailyValuationSnapshotItem, e snapshotDispl
 		kind = domain.MissingFXRate
 	}
 	missing := []domain.MissingInputView{{Kind: kind}}
-	if item.MissingReason != nil && *item.MissingReason == "historical market-data coverage is unverified" {
+	if item.MissingReason != nil && *item.MissingReason == snapshotHistoryCoverageMissingReason {
 		missing = append(missing, domain.MissingInputView{Kind: domain.MissingHistoryCoverage})
 	}
 	return c, missing, false
