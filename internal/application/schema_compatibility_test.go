@@ -35,9 +35,24 @@ func TestSchema21UpgradePreservesFinancialRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.RecordProductOperation(ctx, cmd, domain.NewProductOperationID().String(), preview.ReviewedStateHash); err != nil {
+	receipt, err := s.RecordProductOperation(ctx, cmd, domain.NewProductOperationID().String(), preview.ReviewedStateHash)
+	if err != nil {
 		t.Fatal(err)
 	}
+	product, err := s.Product(ctx, receipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep sealed guarded terms receipts in the supported migration fixture.
+	terms := UpdateProductTermsInput{ProductID: product.Contract.ID, ExpectedRevision: product.Contract.Revision, Terms: cmd.Open.Terms, Policy: depositPolicy()}
+	termsPreview, token, err := s.PreviewProductTermsGuarded(ctx, terms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CommitProductTermsGuarded(ctx, terms, domain.NewProductOperationID().String(), termsPreview.ReviewedStateHash, token); err != nil {
+		t.Fatal(err)
+	}
+
 	testutil.Schema21(t, db.SQL)
 	// Include immutable facts, exact decimals, cost basis, ownership, provenance,
 	// idempotency receipts, financial revisions and journal in the comparison.
@@ -64,12 +79,49 @@ func TestSchema21UpgradePreservesFinancialRows(t *testing.T) {
 	if err := upgraded.Verify(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// Alias edits must leave financial history intact and survive a schema22
+	// snapshot/reopen. This preserves the current-data part of the retired test.
+	service := NewService(sqlite.NewRepository(upgraded))
+	service.setClock(func() time.Time { return now })
+	loaded, err := service.Product(ctx, product.Contract.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	terms.ExpectedRevision = loaded.Contract.Revision
+	terms.Terms.ShortName = strPtr("存款 🌿")
+	aliasPreview, token, err := service.PreviewProductTermsGuarded(ctx, terms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CommitProductTermsGuarded(ctx, terms, domain.NewProductOperationID().String(), aliasPreview.ReviewedStateHash, token); err != nil {
+		t.Fatal(err)
+	}
+	afterAlias := supportedFinancialRows(t, upgraded.SQL)
+	for _, table := range []string{"account_cash_values", "holdings", "activities", "activity_effects", "product_operations"} {
+		if !reflect.DeepEqual(before[table], afterAlias[table]) {
+			t.Fatalf("alias changed financial history: %s", table)
+		}
+	}
+	snapshot := filepath.Join(t.TempDir(), "alias-snapshot22.db")
+	if err := upgraded.SnapshotTo(ctx, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := sqlite.Open(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	alias, err := sqlite.NewRepository(reopened).Instrument(ctx, product.Contract.HouseholdID, product.Contract.InstrumentID)
+	if err != nil || alias.ShortName != "存款 🌿" {
+		t.Fatalf("snapshot alias lost: %+v %v", alias, err)
+	}
+
 }
 
 func supportedFinancialRows(t *testing.T, db *sql.DB) map[string][]string {
 	t.Helper()
 	result := map[string][]string{}
-	for _, table := range []string{"households", "members", "accounts", "account_ownership", "account_cash_values", "instruments", "holdings", "product_contracts", "liquidity_policies", "activities", "activity_effects", "product_operations", "activity_mutation_keys", "product_operation_products", "product_operation_activities", "financial_source_revision", "financial_source_changes"} {
+	for _, table := range []string{"households", "members", "accounts", "account_ownership", "account_cash_values", "instruments", "holdings", "product_contracts", "liquidity_policies", "activities", "activity_effects", "product_operations", "activity_mutation_keys", "product_operation_products", "product_operation_activities", "financial_source_revision", "financial_source_changes", "app_configuration"} {
 		rows, err := db.Query(`SELECT * FROM ` + table + ` ORDER BY rowid`)
 		if err != nil {
 			t.Fatal(err)

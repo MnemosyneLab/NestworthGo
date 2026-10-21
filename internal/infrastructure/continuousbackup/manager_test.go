@@ -1002,4 +1002,39 @@ func TestCloudSchema21StageAndRestorePreserveSource(t *testing.T) {
 	if err != nil || !bytes.Equal(data, after) {
 		t.Fatal("old stream identity changed")
 	}
+	// Preserve the supported-source negative cases from the retired v15 suite.
+	info.Schema = 22 // Supported metadata, but the staged SQLite source is21.
+	mismatched, err := jsoncodec.Marshal(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, mismatched, 0600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.WriteFile(path, data, 0600)
+	if _, err := m.Stage(ctx, points[0]); err == nil {
+		t.Fatal("accepted supported identity/database schema mismatch")
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	files, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(stream), "ltx", "0", "*.ltx"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("missing synthetic LTX: %v", err)
+	}
+	ltxBytes, err := os.ReadFile(files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(files[0], []byte("corrupt synthetic LTX"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.WriteFile(files[0], ltxBytes, 0600)
+	if _, err := m.Stage(ctx, points[0]); err == nil {
+		t.Fatal("accepted corrupt supported-source LTX")
+	}
+	if err := db.SQL.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != 21 {
+		t.Fatal("rejected cloud source changed live schema")
+	}
+
 }
