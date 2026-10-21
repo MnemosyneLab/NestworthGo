@@ -142,6 +142,7 @@ export const additionsEn = {
     },
     nextCheckAt: "Earliest next check: {{time}} (provider data may arrive later)",
     reason: {
+      holding_amount_out_of_range: "Holding amount exceeds the supported range. Check the quantity and price.",
       agent_data_required: "Agent quote required",
       daily_reference_pending: "Daily reference is not yet finalized",
       snapshot_incomplete: "Snapshot still lacks verified valuation inputs",
@@ -1327,6 +1328,7 @@ export const additionsZhCN = {
     },
     nextCheckAt: "最早可再次检查：{{time}}（数据源可能稍后才提供）",
     reason: {
+      holding_amount_out_of_range: "持仓金额超出支持范围，请检查数量和价格。",
       agent_data_required: "需要 Agent 报价",
       daily_reference_pending: "当天历史日线尚未满足确认时间",
       snapshot_incomplete: "快照仍缺少已验证的估值数据",
@@ -2496,6 +2498,7 @@ export const additionsZhTW = {
     },
     nextCheckAt: "最早可再次檢查：{{time}}（資料來源可能稍後才提供）",
     reason: {
+      holding_amount_out_of_range: "持倉金額超出支援範圍，請檢查數量和價格。",
       agent_data_required: "需要 Agent 報價",
       daily_reference_pending: "當天歷史日線尚未滿足確認時間",
       snapshot_incomplete: "快照仍缺少已驗證的估值資料",

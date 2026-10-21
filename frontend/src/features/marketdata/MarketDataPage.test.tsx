@@ -553,6 +553,21 @@ describe("MarketDataPage", () => {
     expect(startSync).toHaveBeenCalledWith({ scope: "instrument", instrumentId: "i1" });
     expect(startSync).not.toHaveBeenCalledWith(expect.objectContaining({ scope: "repair_all" }));
   });
+  it("explains the focused holding overflow without offering quote repair", async () => {
+    renderPage({
+      kind: "incomplete_valuation", accountId: "broker", instrumentId: "i1", label: "Family brokerage · Equity fund",
+      reason: "holding_amount_out_of_range", action: "instrument_editor", executable: false,
+    });
+    const detail = await screen.findByRole("region", { name: "View gap" });
+    expect(detail).toHaveTextContent("Family brokerage · Equity fund");
+    expect(detail).toHaveTextContent("Holding amount exceeds the supported range. Check the quantity and price.");
+    expect(detail).not.toHaveTextContent("Unknown");
+    expect(within(detail).queryByRole("button", { name: "Preview repair" })).not.toBeInTheDocument();
+    expect(previewSync).not.toHaveBeenCalled();
+    expect(startSync).not.toHaveBeenCalled();
+    expect(refreshAll).not.toHaveBeenCalled();
+  });
+
   it("does not offer targeted repair for unsupported coverage", async () => {
     renderPage({ currencyA: "USD", currencyB: "CNY", action: "none", executable: false });
     expect(await screen.findByText(/Automatic repair is unavailable/)).toBeInTheDocument();

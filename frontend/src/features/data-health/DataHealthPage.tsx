@@ -101,7 +101,7 @@ function healthIssueActionLabel(t: (key: string, options?: Record<string, unknow
   }
   const action = displayEnum(t, "dataHealth.action", issue.action);
   if (issue.code === "valuation_coverage_pending") return t("valuation.returnPending") + " · " + t("valuation.awaitingUpdate");
- if (issue.action !== "none" || !issue.reason) {
+  if (!issue.reason) {
     return action;
   }
   const reason = displayEnum(t, "dataHealth.reason", issue.reason);
@@ -142,7 +142,7 @@ export function DataHealthPage({
 
   const runAction = (issue: HealthIssueDTO) => {
     if (issue.kind.startsWith("snapshot")) { setSnapshotFocus(issue); return; }
-    if (navigation) { navigation.openHealth(issue); return; }
+    if (navigation) { navigation.openHealth({ ...issue, label: healthIssueLabel(t, issue, accountNames) }); return; }
     if (issue.action === "provider_settings") {
       onOpenSettings?.();
       return;

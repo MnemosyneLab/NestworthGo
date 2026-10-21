@@ -422,6 +422,7 @@ export function InstrumentManagement({
           <SheetHeader className="shrink-0">
             <SheetTitle>{t("portfolio.editInstrument")}</SheetTitle>
             {focus && <p className="text-sm">{focus.label} {focus.rangeStart ? formatCivilDateRange(focus.rangeStart, focus.rangeEnd || focus.rangeStart) : ""}</p>}
+            {focus?.reason && <p className="text-sm text-muted-foreground">{displayEnum(t, "dataHealth.reason", focus.reason)}</p>}
           </SheetHeader>
           {editTarget && (
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border pb-4">
