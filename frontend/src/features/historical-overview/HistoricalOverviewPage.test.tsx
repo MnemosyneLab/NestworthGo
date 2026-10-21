@@ -858,6 +858,26 @@ it.each(["en"])("shows applied evidence and concrete side-specific missing input
   expect(read).toHaveBeenCalledTimes(1);
 });
 
+it.each([
+  ["en", "Holding amount exceeds the supported range"],
+  ["zh-CN", "持仓金额超出支持范围"],
+  ["zh-TW", "持倉金額超出支持範圍"],
+])("renders the localized partial-holding explanation in Wealth history detail (%s)", async (locale, expected) => {
+  await i18n.changeLanguage(locale);
+  const data = result();
+  data.left.complete = false;
+  data.rows![0].left = cell(null, { complete: false, nativeAmount: null, baseAmount: null, missing: ["holding_amount"], missingDetails: [{ kind: "holding_amount" }] });
+  read.mockResolvedValue(data);
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
+  await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
+  const detail = await screen.findByRole("dialog");
+  expect(detail).toHaveTextContent(i18n.t("historicalOverview.incomplete"));
+  expect(detail).toHaveTextContent(expected);
+  expect(detail).not.toHaveTextContent("historicalOverview.missing.holding_amount");
+  expect(read).toHaveBeenCalledTimes(1);
+});
+
 it("opens ledger activity with explicit identity and ordered dates", async () => {
   const data = result("2026-08-09", "2026-08-01");
   data.rows![0].accountId = "explicit-account"; data.rows![0].instrumentId = "explicit-instrument";

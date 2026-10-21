@@ -1417,6 +1417,7 @@
       "fx_rate": "Exchange rate is missing",
       "account_value": "Recorded account value is missing",
       "funding_cash_after_product_start": "Funding cash is recorded after the product start.",
+      "holding_amount": "Holding amount exceeds the supported range",
       "history_coverage": "Historical market coverage is unverified"
     },
     "categoryCompare": "Category comparison",
