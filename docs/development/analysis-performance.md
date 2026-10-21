@@ -17,7 +17,7 @@ non-USD snapshots reference the supplied manual FX quote evidence, exercising
 the kernel's exact opening/closing cash FX bridge with zero FX change. Fixture
 conversion consistency and complete, unchanged result balances are asserted
 outside the timer. This does not exercise live providers, FX input loading,
-changing rates or event-time conversion. The 10-second budget is unchanged.
+changing rates or event-time conversion. The ordinary gate has a 5-second compute budget.
 
 The independent `BenchmarkAnalysisColdComputeUpperBound` retains its original
 500 USD balance components, each valued at 100, with no activities or quotes.
@@ -44,7 +44,7 @@ The current kernel avoids redundant work:
 
 The kernel optimizations preserve cache contracts and financial formulas. The
 ordinary gate reduction described above does not change the benchmark fixture
-or timing budgets.
+or the warm-memo and cold-month timing budgets.
 
 ## Correctness evidence
 

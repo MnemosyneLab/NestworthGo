@@ -687,7 +687,7 @@ func TestAnalysisPerformanceBudgets(t *testing.T) {
 	})
 	t.Run("cold-2y", func(t *testing.T) {
 		if analysisRaceDetector {
-			t.Skip("§18.1 production 3s / Linux CI 10s budget is a production-runtime number; -race inflates wall-clock cost")
+			t.Skip("§18.1 production 3s / Linux CI 5s budget is a production-runtime number; -race inflates wall-clock cost")
 		}
 		input, query := analysisColdTwoYearInputs(t)
 		started := time.Now()
@@ -697,8 +697,8 @@ func TestAnalysisPerformanceBudgets(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Logf("cold 2Y/200 mixed-currency accounts compute took %s", elapsed)
-		if elapsed >= 10*time.Second {
-			t.Fatalf("cold 2Y/200 mixed-currency accounts took %s, want < 10s", elapsed)
+		if elapsed >= 5*time.Second {
+			t.Fatalf("cold 2Y/200 mixed-currency accounts took %s, want < 5s", elapsed)
 		}
 		if result.Status != domain.CompletenessOK || len(result.Days) != 731*200 {
 			t.Fatalf("status=%s days=%d, want complete 146200 component-days", result.Status, len(result.Days))
