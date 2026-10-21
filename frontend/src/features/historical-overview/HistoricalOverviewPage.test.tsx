@@ -1167,6 +1167,36 @@ function displayState(coverage: ContractCoverage, state: { assets: string | null
   return { netWorth: displayMetric(state.netWorth, coverage, patch), assets: displayMetric(state.assets, coverage, patch), liabilities: displayMetric(state.liabilities, coverage, patch) };
 }
 
+it("rounds the same complete valuation once in the headline, account and holding detail rows", async () => {
+  const exact = "1.00505";
+  const money = { amount: "1.005", currency: "USD" };
+  const full = { ...displayMetric("1.005", "verified"), currency: "USD", total: money, knownSubtotal: money,
+    quality: { ...displayMetric("1.005", "verified").quality, includedCount: 1, valuedCount: 1 } };
+  const zero = { amount: "0", currency: "USD" };
+  read.mockImplementation((date: string) => {
+    const data = result(date);
+    Object.assign(data.left, { currency: "USD", assets: exact, netWorth: exact, knownAssets: exact,
+      byClass: [{ key: "cash", amount: exact, share: "100" }], byCurrency: [{ key: "USD", amount: exact, share: "100" }],
+      displayValuation: { assets: full, netWorth: full, liabilities: { ...full, total: zero, knownSubtotal: zero,
+        quality: { ...full.quality, includedCount: 0, valuedCount: 0 } } } });
+    data.rows = data.rows!.slice(0, 2).map((row, index) => ({ ...row,
+      ...(index === 1 ? { kind: "holding", name: "Fund" } : {}),
+      left: cell(exact, { currency: "USD", displayValuation: full }) }));
+    return Promise.resolve(data);
+  });
+  show(true);
+  const metrics = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+  expect(within(metrics).getByLabelText("Assets")).toHaveTextContent("US$1.01");
+  await userEvent.click(screen.getByRole("tab", { name: i18n.t("historicalOverview.view.accounts") }));
+  const table = screen.getByRole("table", { name: i18n.t("historicalOverview.table") });
+  await userEvent.click(within(table).getByRole("button", { name: i18n.t("historicalOverview.expand", { name: "Bank" }) }));
+  for (const name of ["Bank", "Fund"]) {
+    const row = within(table).getByRole("button", { name }).closest("tr")!;
+    expect(within(row).getByTitle("US$1.01")).toHaveTextContent("US$1.01");
+    expect(row).not.toHaveTextContent("US$1.00");
+  }
+});
+
 function comparedWithCoverage(left: ContractCoverage, right: ContractCoverage, decorate?: (data: HistoricalOverviewResult) => void) {
   read.mockImplementation((date: string, compare: string) => {
     const data = result(date, compare);

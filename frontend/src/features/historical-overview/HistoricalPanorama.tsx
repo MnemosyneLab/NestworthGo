@@ -46,6 +46,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
       const headline = side(right ? "right" : "left");
       const baseline = right ? side("left") : null;
       const changeValue = change?.[key];
+      const displayAmount = (state: HistoricalOverviewState) => historicalDisplayAmount(t, state.displayValuation?.[key], state[key] == null ? null : { amount: state[key], currency: state.currency }, key === "netWorth", false);
       const showKnown = (which: { state: HistoricalOverviewState; known: string | null }) => fullDisplayAmount(which.state.displayValuation?.[key], which.state[key]) == null && !which.state.displayValuation && key !== "netWorth";
       return <Card key={key} className="min-w-0">
         <CardHeader className="flex-row items-center justify-between gap-2 p-4 pb-1">
@@ -57,7 +58,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
             <div className="min-w-0">
               <dt className="text-xs text-muted-foreground">{stateLabel(headline.state, right ? "right" : "left", t("historicalOverview.current"))}</dt>
               <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-0.5 overflow-x-auto text-2xl font-bold tracking-tight focus-visible:outline-primary">
-                <span className="num whitespace-nowrap" title={headline.state[key] == null ? undefined : amount(headline.state[key], headline.state.currency) ?? undefined}>{historicalDisplayAmount(t, headline.state.displayValuation?.[key], headline.state[key] == null ? null : { amount: headline.state[key], currency: headline.state.currency }, key === "netWorth", false)}</span>
+                <span className="num whitespace-nowrap" title={displayAmount(headline.state)}>{displayAmount(headline.state)}</span>
               </dd>
               <ValuationQualitySummary value={headline.state.displayValuation?.[key]} current={headline.state.current} net={key === "netWorth"} compact />
               {showKnown(headline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(headline.known, headline.state.currency) ?? t("historicalOverview.unknown")}</p>}
@@ -73,7 +74,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
             {baseline && <div className="min-w-0 border-t border-border pt-1.5">
               <dt className="text-xs text-muted-foreground">{stateLabel(baseline.state, "left", t("historicalOverview.current"))}</dt>
               <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="overflow-x-auto text-sm font-medium focus-visible:outline-primary">
-                <span className="num whitespace-nowrap" title={baseline.state[key] == null ? undefined : amount(baseline.state[key], baseline.state.currency) ?? undefined}>{historicalDisplayAmount(t, baseline.state.displayValuation?.[key], baseline.state[key] == null ? null : { amount: baseline.state[key], currency: baseline.state.currency }, key === "netWorth", false)}</span>
+                <span className="num whitespace-nowrap" title={displayAmount(baseline.state)}>{displayAmount(baseline.state)}</span>
               </dd>
               <ValuationQualitySummary value={baseline.state.displayValuation?.[key]} current={baseline.state.current} net={key === "netWorth"} compact />
               {showKnown(baseline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(baseline.known, baseline.state.currency) ?? t("historicalOverview.unknown")}</p>}
