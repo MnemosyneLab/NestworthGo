@@ -46,28 +46,26 @@ bash nestworth-skill/install.sh --version latest
 ```
 
 Pin a published **App release tag** instead with `--version vX.Y.Z`. This selects
-the GitHub release, not the skill's own `VERSION`. The published v0.3.8
-release includes skill 1.9.0; v0.3.7 historically includes skill 1.6.0. Each
-release must include the two named assets. If the latest App release lacks
+the GitHub release, not the skill's own `VERSION`. The published v0.3.9
+release includes skill 1.11.0; v0.3.8 historically includes skill 1.9.0 and
+v0.3.7 includes skill 1.6.0. Each release must include the two named assets. If the latest App release lacks
 them, use a release that includes them or a local bundle; there is no fallback
 to unreleased main-branch content.
 
-### Current repository and published skill: 1.9.0
+### Current repository and published skill: 1.11.0
 
-The v0.3.8 bundle publishes skill 1.9.0 with expanded local MCP reads and
-permission-checked workflows. Its examples remain synthetic; they do not prove
-external Codex discovery, client reasoning or live Mac acceptance. Those
-acceptance checks were owner-deferred for v0.3.8. The App and skill are separate
-components. An older App does not gain tools by installing a newer skill. The
-published v0.3.7 release historically bundles skill 1.6.0. Running the
-installer with `--version latest` selects v0.3.8 and its 1.9.0 skill; pin
-`--version v0.3.7` to select its historical 1.6.0 bundle.
+The [v0.3.9 bundle](../releases/v0.3.9.md) publishes skill 1.11.0. Its examples
+remain synthetic; they do not prove external Codex discovery, client reasoning
+or live Mac acceptance. External-client acceptance was not run for this
+release. The App and skill are separate components: installing a newer skill
+does not add tools to an older App. The installer with `--version latest`
+selects v0.3.9 and skill 1.11.0; `--version v0.3.8` selects historical skill
+1.9.0, and `--version v0.3.7` selects skill 1.6.0.
 
 Existing clients do **not** update their installed skill automatically when the
-App or repository changes. The published v0.3.8 bundle installs skill 1.9.0;
-older clients still have to update explicitly. Check `--status` for the intended
+App or repository changes. Update explicitly, check `--status` for the intended
 skill version and reopen the chat if discovery is stale. A locally built archive
-is not a published release asset unless it is uploaded as part of a release.
+is not a published release asset unless uploaded as part of a release.
 
 For Inspector CLI 2.10.0, the shipped connection reference includes a separate
 configuration example with explicit `"type": "http"`; preserve the App's endpoint
@@ -167,8 +165,8 @@ contracts change, update the relevant reference/example and rerun these checks.
 See [Local MCP](https://github.com/MnemosyneLab/NestworthGo/blob/main/docs/development/mcp.md)
 for the implementation contract; the web copy follows the main branch.
 
-The development Skill 1.10.0 adds account reconciliation sessions; this does not
-change the published v0.3.8 release bundle. Discover reconciliation_session_read
+Account reconciliation sessions, added in skill 1.10.0, are included in the
+published v0.3.9 skill 1.11.0 bundle. Discover reconciliation_session_read
 and reconciliation_session_write in the connected App before using it. It can
 start/pause/resume sessions, read paged evidence, link existing direct corrections
 or real missing transactions, explicitly check sourced evidence and finish fully

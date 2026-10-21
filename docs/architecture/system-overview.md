@@ -2,8 +2,8 @@
 
 ## Current baseline
 
-Current `main` identifies as Nestworth `v0.3.9` / build `10` (not yet covered
-by a release record). The latest published release is `v0.3.8` / build `9`. The
+Current `main` identifies as Nestworth `v0.3.9` / build `10`, published on
+2026-10-21; see the [release record](../releases/v0.3.9.md). The
 application is a local-first desktop app with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
 provides typed domain contracts, SQLite bootstrap with current schema `22`
