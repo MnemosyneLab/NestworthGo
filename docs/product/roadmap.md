@@ -3,7 +3,7 @@
 ## Authority
 
 The application source and tests define current behavior. The latest published
-release is [v0.3.8](../releases/v0.3.8.md); current main identifies itself in
+release is [v0.3.9](../releases/v0.3.9.md); current main identifies itself in
 [local workflow](../development/local-workflow.md). Release records own shipped
 scope and acceptance evidence. This page describes future directions only; it
 is not a delivery commitment.

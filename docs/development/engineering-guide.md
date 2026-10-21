@@ -3,8 +3,8 @@
 ## Current baseline
 
 Current `main` identifies as Nestworth `v0.3.9` / build `10`; the latest published
-release is `v0.3.8`, published 2026-10-14. The project is a Go 1.26 module
-with a Wails v3 desktop shell and a React + TypeScript frontend.
+release is [v0.3.9](../releases/v0.3.9.md), published 2026-10-21. The project
+is a Go 1.26 module with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
 provider routing. The frontend owns presentation, interaction state,
@@ -47,8 +47,8 @@ Run affected checks first during development; the normal automated check set
 uses a writable cache:
 
 ```bash
-GOCACHE=/tmp/nestworth-go-0.3.8 go test ./...
-GOCACHE=/tmp/nestworth-go-0.3.8 go vet ./...
+GOCACHE=/tmp/nestworth-go-0.3.9 go test ./...
+GOCACHE=/tmp/nestworth-go-0.3.9 go vet ./...
 gofmt -l cmd internal
 go build ./cmd/nestworth
 cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
@@ -58,7 +58,7 @@ Race detection is heavy validation in `perf`, or an explicitly needed local run,
 not a default every-PR check:
 
 ```bash
-GOCACHE=/tmp/nestworth-go-0.3.8 go test -race ./...
+GOCACHE=/tmp/nestworth-go-0.3.9 go test -race ./...
 ```
 
 Generate Wails bindings after changing a bound Go service:
@@ -213,8 +213,8 @@ application or performance runs. For application changes, the check set includes
 
 ```bash
 gofmt -l cmd internal
-GOCACHE=/tmp/nestworth-go-0.3.8 go test ./...
-GOCACHE=/tmp/nestworth-go-0.3.8 go vet ./...
+GOCACHE=/tmp/nestworth-go-0.3.9 go test ./...
+GOCACHE=/tmp/nestworth-go-0.3.9 go vet ./...
 go build ./cmd/nestworth
 git diff --check
 ```

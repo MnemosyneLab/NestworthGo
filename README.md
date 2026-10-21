@@ -2,8 +2,8 @@
 
 Nestworth is a local-first personal finance desktop application for building
 and maintaining a personal or household balance sheet. The current release
-is [v0.3.8](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8)
-(build `9`), published 2026-10-14. Nestworth is a Wails v3 desktop shell
+is [v0.3.9](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.9)
+(build `10`), published 2026-10-21. Nestworth is a Wails v3 desktop shell
 with a Go backend and a React + TypeScript frontend.
 
 ## Current scope
@@ -34,14 +34,17 @@ place brokerage orders. Multi-device synchronization, direct bank/brokerage
 integrations and automatic market-data refresh remain outside this release.
 Continuous backup and whole-stream history cleanup are off by default. Optional
 30/90-day cleanup protects the current stream and two verified sealed survivors;
-it does not bound storage for a long-running stream. v0.3.8 adds Upcoming
-actions, Historical Panorama, investment reviews, and expanded local MCP
-workflows. Its Apple Silicon arm64 DMG/ZIP and skill 1.9.0 bundle are published.
-Package metadata, archive payloads, signatures and checksums were verified
-without launching the app. Native GUI/functional, archive-launch/household,
-schema recovery, test-ledger, and external-client acceptance were owner-deferred
-and are not claimed as passed. See the [v0.3.8 release record](docs/releases/v0.3.8.md) and
-[dated Mac package QA](docs/qa/v0.3.8-release-package-2026-10-14.md).
+it does not bound storage for a long-running stream. v0.3.9 adds the unified
+Tasks hub, account reconciliation, richer investment reviews and historical
+analysis, and financial correctness fixes. Its Apple Silicon arm64 DMG/ZIP
+and skill 1.11.0 bundle are published. The app requires macOS 27.0 or newer
+and supports only database schemas 21/22; v0.3.8's schema 16 cannot be opened
+directly. Package metadata, archive payloads, signatures and checksums were
+verified without launching the app. The owner authorized publication with
+ad-hoc signing, no notarization and native GUI/archive-launch acceptance
+deferred. Schema recovery, test-ledger and external-client acceptance were
+not run. See the [release record](docs/releases/v0.3.9.md) and
+[dated Mac package QA](docs/qa/v0.3.9-release-package-2026-10-21.md).
 
 ## Run locally
 
@@ -71,17 +74,16 @@ manifest, and standalone user-skill bundle:
 wails3 task package:release
 ```
 
-For the unreleased v0.3.9 / build 10 development version, the default outputs
-are `dist/macos/Nestworth.app`,
+For v0.3.9 / build 10, the default outputs are `dist/macos/Nestworth.app`,
 `dist/macos/Nestworth-0.3.9-arm64.dmg`,
 `dist/macos/Nestworth-0.3.9-arm64.zip`, `dist/macos/SHA256SUMS`,
 `dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
 ad-hoc signed for local launch. Developer ID signing, notarization, artifact
 retention, and full GUI/accessibility regression remain separate distribution
-gates. The public [v0.3.8 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8)
+gates. The public [v0.3.9 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.9)
 contains the verified package assets. The app is ad-hoc signed and is not
 notarized; macOS may warn or block it. Native GUI and functional acceptance
-remain owner-deferred. See the [release record](docs/releases/v0.3.8.md) for
+remain owner-deferred. See the [release record](docs/releases/v0.3.9.md) for
 the full gate status.
 
 ## Technology

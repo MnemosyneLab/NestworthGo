@@ -3,9 +3,9 @@
 This document describes the implemented contract. See the
 [reusable validation matrix](../testing/account-reconciliation.md) and the
 [PR #89 implementation evidence](https://github.com/MnemosyneLab/NestworthGo/pull/89).
-The [v0.3.8 release record](../releases/v0.3.8.md) records a native acceptance
-gate for that historical release; it does not establish current-main
-reconciliation acceptance. Current feature evidence is PR #89 and the validation
+The [v0.3.9 release record](../releases/v0.3.9.md) records publication and
+deferred native acceptance; package verification does not establish
+reconciliation acceptance. Feature evidence is PR #89 and the validation
 matrix linked above.
 Reconciliation changes the local ledger,
 never a financial institution or brokerage order.

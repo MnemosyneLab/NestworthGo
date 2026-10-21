@@ -341,7 +341,7 @@ standalone skill bundle/checksum, then builds the app and arm64 DMG/ZIP on macOS
     git rev-parse HEAD
     wails3 task package:release
 
-For the unreleased v0.3.9/build 10 development version, default outputs are:
+For v0.3.9/build 10, default outputs are:
 
     dist/macos/Nestworth.app
     dist/macos/Nestworth-0.3.9-arm64.dmg
@@ -466,7 +466,9 @@ checksums; build and publish from one unchanged source commit. A successful
 task does not establish accessibility, Gatekeeper, live provider, or minimum
 macOS version acceptance.
 
-See the [latest published release record](../releases/v0.3.8.md) for the
-v0.3.8 checklist and evidence status. It does not establish acceptance or
-publication of the v0.3.9 development version. Historical v0.3.6 closeout evidence remains in
+See the [latest published release record](../releases/v0.3.9.md) and
+[dated Mac package QA](../qa/v0.3.9-release-package-2026-10-21.md) for v0.3.9
+publication evidence and owner-waived/deferred gates. The archive-launch
+commands above describe acceptance still not run for that release. Historical
+v0.3.6 closeout evidence remains in
 the [v0.3.6 contract](../releases/v0.3.6.md).

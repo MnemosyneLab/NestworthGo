@@ -2,6 +2,39 @@
 
 All notable changes to Nestworth are recorded here.
 
+## [0.3.9] — 2026-10-21
+
+Published as [v0.3.9](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.9)
+(build 10) from `57ddf33f650149ff6764c705dd2433d1c7788d44`, with Apple Silicon
+DMG/ZIP, checksums and portable skill 1.11.0. See the
+[release record](docs/releases/v0.3.9.md), [notes](docs/releases/v0.3.9-notes.md)
+and [dated package QA](docs/qa/v0.3.9-release-package-2026-10-21.md).
+
+### Added and changed
+
+- Unified Tasks hub, audited account reconciliation, richer holdings and daily
+  investment reviews, and updated historical/Available Funds analysis.
+- Contribution filters, funding-gap attribution, shared money/date formatting
+  and rounding explanations; preserved navigation and edited-preview context.
+- Scoped historical-series, selected-account and review-reuse optimizations
+  with full fallback; no whole-app or Mac startup performance claim.
+- Wails beta.34 and maintained first-party Go JSON through the shared wrapper.
+
+### Compatibility, fixes and validation
+
+- Requires macOS 27.0 or newer. Supports only verified database schemas 21/22;
+  v0.3.8's schema 16 cannot be opened directly. The only upgrade is verified
+  21→22 with a retained read-only recovery copy. Older/invalid databases and
+  backups remain blocked, without a general migration chain.
+- Fixed realized gains, adjusted/transferred and blended cost, historical FX
+  precision, overflow, funding-gap attribution and sync-preview freshness.
+- Exact-source check and perf/race CI passed. Fresh native packaging and 69
+  tool/installer tests passed; all five uploaded assets matched downloaded
+  bytes, sizes and SHA-256 digests.
+- The owner authorized publication with ad-hoc signing, no notarization and
+  native GUI/archive-launch acceptance deferred. Schema recovery, synthetic
+  ledger and external-client acceptance were not run for these artifacts.
+
 ## [0.3.8] — 2026-10-14
 
 Published as [v0.3.8](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.8)

@@ -1,7 +1,7 @@
 # Nestworth Documentation
 
 This directory documents current `main`. The latest published release is
-v0.3.8 (build 9, 2026-10-14); `main` has advanced beyond that release. The
+[v0.3.9 (build 10, 2026-10-21)](releases/v0.3.9.md). The
 current version/build and implementation status come from source and tests,
 while release records describe only published artifacts.
 
@@ -32,6 +32,8 @@ while release records describe only published artifacts.
 | Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Current published release, historical release contracts, and closeout evidence |
+| Release | [v0.3.9 Release Record](releases/v0.3.9.md) | Published scope, exact source/tag identity and acceptance boundaries |
+| Release | [v0.3.9 Release Notes](releases/v0.3.9-notes.md) | Published summary and macOS/database compatibility |
 | Release | [v0.3.8 Release Record](releases/v0.3.8.md) | Published scope, source/tag identity, package verification, and acceptance boundaries |
 | Release | [v0.3.8 Release Notes](releases/v0.3.8-notes.md) | Published release summary, compatibility, and package/acceptance status |
 | Release | [v0.3.7 Contract](releases/v0.3.7.md) | Published release scope, acceptance evidence, and remaining GUI/distribution boundaries |
@@ -39,6 +41,7 @@ while release records describe only published artifacts.
 | Release | [v0.3.6 Contract](releases/v0.3.6.md) | Historical scope, acceptance, and release gates for v0.3.6 |
 | QA | [Real MCP and skill acceptance](testing/qa-mcp-skill-acceptance-2026-10-09.md) | Scoped Mac mini client acceptance, source SHA, provenance, and exclusions |
 | QA | [v0.3.7 package acceptance](testing/qa-v0.3.7-release-package-2026-10-09.md) | Published asset digests and scoped synthetic package checks |
+| QA | [v0.3.9 Mac package verification](qa/v0.3.9-release-package-2026-10-21.md) | Exact toolchain, five asset hashes and manual acceptance boundaries |
 | QA | [v0.3.8 Mac package verification](qa/v0.3.8-release-package-2026-10-14.md) | Published arm64 asset hashes, non-interactive integrity checks, signature status, and owner-deferred acceptance |
 | QA | [PR101/PR102 post-merge browser acceptance](qa/post-merge-pr101-pr102-2026-10-17/REPORT.md) | Real backend and cloud-browser results for the merged interaction/review changes; includes one reproducible P2 replay defect |
 | Testing | [Testing and Acceptance](testing/README.md) | Reusable validation methods and dated evidence boundaries |
