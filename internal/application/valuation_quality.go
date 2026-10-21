@@ -49,6 +49,9 @@ func (a *displayAccumulator) add(c domain.ValuationComponent, missing []domain.M
 		case domain.MissingAccountValue:
 			available = false
 			a.reason(domain.ReasonAccountValueMissing)
+		case domain.MissingHoldingAmount:
+			available = false
+			a.reason(domain.ReasonEvidenceUnavailable)
 		}
 	}
 	for n, e := range []*domain.QuoteEvidenceView{c.PriceEvidence, c.FXEvidence} {

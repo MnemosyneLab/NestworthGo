@@ -1,11 +1,11 @@
-# Historical panorama
+# Wealth history
 
-Owner: Historical panorama maintainers. Status: implemented P0/P1/P2a and endpoint reconciliation behavior;
+Owner: Wealth history maintainers. Status: implemented P0/P1/P2a and endpoint reconciliation behavior;
 automated contracts are tested, native visual acceptance is pending.
 
-Historical panorama reconstructs retained balances at the end of a household
+Wealth history reconstructs retained balances at the end of a household
 day. Later corrections and backfilled observations can change a new read of
-that day. Names and classifications use current metadata. Opening the panorama
+that day. Names and classifications use current metadata. Opening the view
 reads local facts once; it does not fetch prices, rebuild snapshots or edit data.
 
 Choose a closed day for a single-date view, or use A (baseline) and B (comparison)
@@ -51,10 +51,10 @@ available source, date, rate direction and valuation basis. Missing inputs say
 which currency or instrument is affected. Missing provenance is left blank;
 there is no replacement with a current quote.
 
-**Leave panorama · View transaction history** opens a separate current view for
+**Leave wealth history · View ledger activity** opens a separate current view for
 the explicit account/instrument and date range. For a current comparison that
 range stops at the last closed day; today's activity may also affect the
-capture. Use the App's **Back to Historical overview** action to recover the
+capture. Use the App's **Back to Wealth history** action to recover the
 same frozen capture, dates, filters, open detail and position. Exit through the
 page's return action or main navigation to end that session.
 

@@ -268,7 +268,7 @@ it("recovers from errors, rejects future dates and localizes the read-only label
   const user = userEvent.setup();
   read.mockRejectedValueOnce(new Error("read failed"));
   show();
-  await screen.findByText("Historical overview could not be loaded");
+  await screen.findByText("Wealth history could not be loaded");
   await user.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
   await screen.findByRole("button", { name: "Bank" });
   const count = read.mock.calls.length;
@@ -276,7 +276,7 @@ it("recovers from errors, rejects future dates and localizes the read-only label
   await screen.findByText("Choose a recorded, closed day");
   expect(read).toHaveBeenCalledTimes(count);
   await act(async () => { await i18n.changeLanguage("zh-CN"); });
-  expect(screen.getByRole("heading", { name: "历史全景" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "资产回溯" })).toBeInTheDocument();
   expect(screen.getByText("只读")).toBeInTheDocument();
   await act(async () => { await i18n.changeLanguage("zh-TW"); });
   expect(screen.getByText("唯讀")).toBeInTheDocument();
@@ -858,13 +858,13 @@ it.each(["en"])("shows applied evidence and concrete side-specific missing input
   expect(read).toHaveBeenCalledTimes(1);
 });
 
-it("uses explicit identity and ordered dates for a History navigation, keeping current capture semantics clear", async () => {
+it("opens ledger activity with explicit identity and ordered dates", async () => {
   const data = result("2026-08-09", "2026-08-01");
   data.rows![0].accountId = "explicit-account"; data.rows![0].instrumentId = "explicit-instrument";
   read.mockResolvedValue(data); const open = vi.fn(); const client = createTestQueryClient();
   render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-09" initialContext={{ compareTo: "2026-08-01", view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider></NavigationContext.Provider>);
   await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
-  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Leave panorama · View transaction history" }));
+  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Leave wealth history · View ledger activity" }));
   expect(open).toHaveBeenCalledWith({ page: "history", filters: { accountId: "explicit-account", instrumentId: "explicit-instrument", from: "2026-08-01", to: "2026-08-09" } });
   expect(read).toHaveBeenCalledTimes(1);
 });

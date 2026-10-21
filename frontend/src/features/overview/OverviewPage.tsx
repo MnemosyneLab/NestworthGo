@@ -142,7 +142,7 @@ function missingItemLabel(
   item: OverviewMissingInput,
   accountNames: Map<string, string>,
 ): string {
-  if (item.kind === "instrument_price") {
+  if (item.kind === "instrument_price" || item.kind === "holding_amount") {
     return instrumentDisplayLabel({ name: item.instrumentName, shortName: item.instrumentShortName, symbol: item.instrumentSymbol }, t("overview.unknownInstrument"));
   }
   if (item.kind === "fx_rate" && (item.baseCurrency || item.quoteCurrency)) {

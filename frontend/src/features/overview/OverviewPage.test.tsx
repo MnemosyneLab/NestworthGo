@@ -199,6 +199,22 @@ describe("OverviewPage", () => {
     expect(onOpenDataHealth).toHaveBeenCalled();
   });
 
+  it("labels an out-of-range holding amount as unknown for its instrument", async () => {
+    await renderWithMockedOverview({
+      currency: "USD", accountCount: 1, complete: false,
+      missingInputs: [{ kind: "holding_amount", accountId: "acc-1", instrumentId: "i1", instrumentName: "Extreme holding" }],
+      assets: "0", liabilities: "0", netWorth: "0", assetsByType: [], liabilitiesByType: [],
+      byMember: [], byInstitution: [], byGroup: [], ...defaultHeadlines,
+      instrumentLabels: [{ id: "i1", name: "Extreme holding", quoteSource: "manual" }], recentActivities: [],
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Extreme holding");
+    expect(alert).toHaveTextContent("holding amount exceeds the supported range");
+    expect(screen.queryByText(/instrument needs a manual price/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/instrument price needs a refresh/)).not.toBeInTheDocument();
+  });
+
   it("asks to refresh provider-sourced prices on Market Data", async () => {
     await renderWithMockedOverview({
       currency: "USD",

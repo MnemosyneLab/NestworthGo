@@ -384,7 +384,7 @@ func buildNormalRoute(today string, source LiquiditySource, policy LiquidityPoli
 	if gross == nil {
 		route.Status = StatusUnavailable
 		route.MissingReasons = append(route.MissingReasons, "amount is unknown")
-		if source.CurrentNativeValue == nil {
+		if source.CurrentNativeValue == nil && source.PriceEvidence == nil {
 			route.Assumptions = appendUniqueAssumption(route.Assumptions, AssumptionMissingPrice)
 		}
 		return route, nil

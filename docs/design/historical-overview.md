@@ -1,4 +1,4 @@
-# Historical overview
+# Wealth history
 
 Implemented as an independent, read-only page. Desktop visual acceptance is
 pending; automated component and application tests cover the contracts below.

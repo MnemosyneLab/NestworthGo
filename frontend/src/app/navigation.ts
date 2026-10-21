@@ -1,6 +1,6 @@
 import type { SourceRefDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import type { LucideIcon } from "lucide-react";
-import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, Banknote, ClipboardCheck } from "lucide-react";
+import { House, Wallet, PieChart, RefreshCw, Users, ReceiptText, CalendarClock, ChartLine, Settings, GitCompareArrows, Banknote, ClipboardCheck } from "lucide-react";
 
 export type PageId =
   | "overview"
@@ -147,13 +147,13 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: "activity",
     translationKey: "navGroups.activity",
-    items: [{ id: "tasks", translationKey: "nav.tasks", icon: ClipboardCheck }, { id: "history", translationKey: "nav.history", icon: History }],
+    items: [{ id: "tasks", translationKey: "nav.tasks", icon: ClipboardCheck }, { id: "history", translationKey: "nav.history", icon: ReceiptText }],
   },
   {
     id: "insights",
     translationKey: "navGroups.insights",
     items: [
-      { id: "historical-overview", translationKey: "nav.historicalOverview", icon: History },
+      { id: "historical-overview", translationKey: "nav.historicalOverview", icon: CalendarClock },
       { id: "return-analysis", translationKey: "nav.returnAnalysis", icon: ChartLine },
       { id: "asset-changes", translationKey: "nav.assetChanges", icon: GitCompareArrows },
     ],

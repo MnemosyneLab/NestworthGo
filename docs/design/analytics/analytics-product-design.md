@@ -1027,7 +1027,7 @@ Total
 Component / day
 QQQ · Sep 12     closing quantity change unpriced
 
-[ View in History ]
+[ View in ledger activity ]
 ```
 
 ### Cross-page linking
@@ -1165,7 +1165,7 @@ Sep 05    Restaurant                  -¥260
 Sep 08    Pharmacy                    -¥410
 ...
 
-[ View in History ]
+[ View in ledger activity ]
 ```
 
 Do not invent budget subcategories (Household / Travel / Dining / Groceries).

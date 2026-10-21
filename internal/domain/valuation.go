@@ -81,6 +81,7 @@ const (
 	MissingFXRate          MissingInputKind = "fx_rate"
 	MissingAccountValue    MissingInputKind = "account_value"
 	MissingHistoryCoverage MissingInputKind = "history_coverage"
+	MissingHoldingAmount   MissingInputKind = "holding_amount"
 )
 
 type MissingInputView struct {
