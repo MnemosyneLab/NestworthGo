@@ -1,6 +1,10 @@
 package application
 
-import "github.com/waltwang/nestworth-go/internal/domain"
+import (
+	"slices"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+)
 
 // fundingCashAfterProductStart is the stable analytics sentence mapped by the
 // frontend reason table for a product recorded before the cash that funds it.
@@ -16,7 +20,7 @@ func annotateReplayFundingGaps(items []domain.DailyValuationSnapshotItem, gaps [
 		reason := fundingCashAfterProductStart
 		for index := range items {
 			item := &items[index]
-			if item.HoldingID == nil || item.AccountID != gap.AccountID || !item.Complete {
+			if item.HoldingID == nil || item.AccountID != gap.AccountID || !item.Complete || !slices.Contains(gap.HoldingIDs, *item.HoldingID) {
 				continue
 			}
 			if item.NativeCurrency != "" && item.NativeCurrency != gap.Currency {

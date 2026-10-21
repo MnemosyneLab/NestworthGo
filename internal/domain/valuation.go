@@ -199,6 +199,9 @@ type PortfolioSnapshot struct {
 // not materialize. Amounts stay off this value so a negative balance is never
 // persisted or treated as zero.
 type ReplayFundingGap struct {
+	// HoldingIDs includes acquisitions funded by removals during this unresolved
+	// deficit. ActivityID remains the first negative-cash activity for diagnostics.
+	HoldingIDs []HoldingID
 	AccountID  AccountID
 	Currency   CurrencyCode
 	ActivityID ActivityID

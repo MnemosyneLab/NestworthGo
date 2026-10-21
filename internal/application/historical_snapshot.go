@@ -207,6 +207,10 @@ func (s *Service) historicalPortfolioSnapshot(ctx context.Context, origin *domai
 // days. Older snapshots are rebuilt append-only; ledger facts are unchanged.
 const snapshotContentHashVersion = "v4"
 
+// Only funding-gap snapshots need a new hash namespace for attribution. Keep
+// unrelated history reusable; normal requested-range coverage rebuilds old gaps.
+const fundingGapSnapshotHashPrefix = snapshotContentHashVersion + ":funding-v2:"
+
 func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities domain.Money, netWorth domain.SignedMoney, items []domain.DailyValuationSnapshotItem) string {
 	sort.Slice(items, func(i, j int) bool {
 		return snapshotItemSortKey(items[i]) < snapshotItemSortKey(items[j])
@@ -216,11 +220,20 @@ func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities
 	for _, item := range items {
 		fmt.Fprintf(hash, "|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%t|%s", item.AccountID.String(), snapshotItemHoldingIDString(item), snapshotItemInstrumentIDString(item), snapshotItemStateObservationIDString(item), snapshotItemPreferenceObservationIDString(item), snapshotItemFXPreferenceObservationIDString(item), item.NativeAmount, item.NativeCurrency.String(), snapshotItemBaseAmountString(item), snapshotItemQuoteIDString(item), snapshotItemFXQuoteIDString(item), item.Complete, snapshotItemMissingReasonString(item))
 	}
-	return snapshotContentHashVersion + ":" + hex.EncodeToString(hash.Sum(nil))
+	prefix := snapshotContentHashVersion + ":"
+	if fundingGapItemReason(items...) != "" {
+		prefix = fundingGapSnapshotHashPrefix
+	}
+	return prefix + hex.EncodeToString(hash.Sum(nil))
 }
 
 func snapshotHashNeedsRebuild(contentHash string) bool {
 	return !strings.HasPrefix(contentHash, snapshotContentHashVersion+":")
+}
+
+func snapshotNeedsRebuild(snapshot domain.DailyValuationSnapshot) bool {
+	return snapshotHashNeedsRebuild(snapshot.ContentHash) ||
+		(fundingGapItemReason(snapshot.Items...) != "" && !strings.HasPrefix(snapshot.ContentHash, fundingGapSnapshotHashPrefix))
 }
 
 func snapshotItemSortKey(item domain.DailyValuationSnapshotItem) string {

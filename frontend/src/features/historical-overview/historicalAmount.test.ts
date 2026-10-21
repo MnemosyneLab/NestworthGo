@@ -40,3 +40,15 @@ it.each(["en"])("keeps signed sub-cent values visible in %s", async locale => {
   expect(formatHistoricalAmount("-0.01", "CNY")).toBe(formatAmount("-0.01", "CNY"));
   expect(formatHistoricalAmount("0", "CNY", true)).toBe(formatAmount("0", "CNY"));
 });
+
+
+it.each(["JPY", "KRW", "USD"])("shares exact signed rounding and tiny hints for %s", currency => {
+  const boundary = currency === "USD" ? "0.005" : "0.5";
+  const above = currency === "USD" ? "0.0050001" : "0.5000001";
+  for (const value of ["0", "-0", "0.005", boundary, `-${boundary}`, `-${above}`]) {
+    expect(formatHistoricalAmount(value, currency, true)).toBe(formatAmount(value, currency));
+  }
+  expect(formatHistoricalAmount(above, currency, true)).toBe(`+${formatAmount(above, currency)}`);
+  expect(formatHistoricalAmount(above, currency)).toBe(formatAmount(above, currency));
+  expect(formatHistoricalAmount(null, currency, true)).toBeNull();
+});

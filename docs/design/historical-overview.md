@@ -467,6 +467,21 @@ the instrument's current setting. Provider and Agent preferences keep their
 existing daily coverage requirements. Resolver policy v6 invalidates prior
 derived completeness through the existing rebuild mechanism.
 
+### Historical funding gaps
+
+When cash replay is negative, omit the cash sleeve and retain a synthetic
+missing-cash snapshot item. Account and household totals remain incomplete.
+Only holdings acquired by cash removals within that unresolved deficit receive
+funding-gap annotations; older unrelated holdings retain their known returns.
+The diagnostic activity ID identifies the first negative balance, while replay
+tracks every affected acquisition until cash recovers. Analysis still checks
+both daily endpoints, including the resolution day's opening gap.
+
+Gap-bearing snapshots use a versioned funding-attribution hash prefix. Existing
+coverage checks and health repair rebuild older gap snapshots append-only from
+local facts; requested-range reads do not backfill unrelated history. Ledger
+facts, missing-price reasons, overflow handling and exact amounts are unchanged.
+
 ### Closed-day valuation coverage
 
 Stocks, ETFs, mutual funds and ordinary bank investment products default to no
