@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
@@ -283,6 +283,7 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
   const [previewKey, setPreviewKey] = useState("");
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof Service.PreviewReviewRuleV2>> | null>(null);
   const [error, setError] = useState("");
+  const [previewError, setPreviewError] = useState("");
   const selectedTimeZoneOptions = useMemo(() => {
     if (!isValidTimeZone(selectedTimezone) || timeZoneSelectOptions.some(option => option.value === selectedTimezone)) return timeZoneSelectOptions;
     return [{ value: selectedTimezone, label: selectedTimezone }, ...timeZoneSelectOptions];
@@ -309,10 +310,33 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
       onOpenChange(false);
     } catch (cause) { setError(String(cause)); }
   };
+  const inputKey = JSON.stringify([spec, previewInstrument]);
+  // Clear visible output during the input render, so A→B→A cannot revive it.
+  const [previousInput, setPreviousInput] = useState(inputKey + open);
+  if (previousInput !== inputKey + open) {
+    setPreviousInput(inputKey + open);
+    setPreview(null);
+    setPreviewError("");
+  }
+  const previewGeneration = useRef({ value: 0 });
+  useLayoutEffect(() => {
+    const generation = previewGeneration.current;
+    generation.value++;
+    return () => { generation.value++; };
+  }, [inputKey, open]);
   const runPreview = async () => {
-    setError(""); setPreview(null);
-    try { const result = await callService(() => Service.PreviewReviewRuleV2({ spec, instrumentId: previewInstrument, latestClosedOn: "", expectedSourceToken: "" })); setPreview(result); setPreviewKey(JSON.stringify(spec)); }
-    catch (cause) { setError(String(cause)); }
+    const generation = ++previewGeneration.current.value;
+    const key = inputKey;
+    setPreviewError(""); setPreview(null);
+    try {
+      const result = await callService(() => Service.PreviewReviewRuleV2({ spec, instrumentId: previewInstrument, latestClosedOn: "", expectedSourceToken: "" }));
+      if (previewGeneration.current.value === generation) {
+        setPreview(result);
+        setPreviewKey(key);
+      }
+    } catch (cause) {
+      if (previewGeneration.current.value === generation) setPreviewError(String(cause));
+    }
   };
   return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent size="xl"><SheetHeader><SheetTitle>{t(rule ? "reviewV2.editRule" : "reviewV2.newRule")}</SheetTitle></SheetHeader>
     <div className="space-y-5 pb-5">
@@ -325,8 +349,8 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
       {policy === "consecutive" && <div className="flex flex-col gap-1"><label className="flex items-center gap-2 text-sm">{t("reviewV2.consecutiveDays")}<Input className="w-20" type="number" min={1} max={365} value={count} aria-invalid={countInvalid || undefined} aria-describedby={countInvalid ? "review-rule-count-error" : undefined} onChange={event => setCount(Number(event.target.value))} /></label><FieldError id="review-rule-count-error">{countInvalid ? t("reviewV2.triggerValueInvalid") : undefined}</FieldError></div>}
       {policy === "rolling" && <div className="flex flex-wrap gap-3"><div className="flex flex-col gap-1"><label className="flex items-center gap-2 text-sm">{t("reviewV2.windowDays")}<Input className="w-20" type="number" min={1} max={365} value={windowDays} aria-invalid={windowInvalid || undefined} aria-describedby={windowInvalid ? "review-rule-window-error" : undefined} onChange={event => setWindowDays(Number(event.target.value))} /></label><FieldError id="review-rule-window-error">{windowInvalid ? t("reviewV2.triggerValueInvalid") : undefined}</FieldError></div><div className="flex flex-col gap-1"><label className="flex items-center gap-2 text-sm">{t("reviewV2.minHits")}<Input className="w-20" type="number" min={1} max={windowDays} value={minHits} aria-invalid={minHitsInvalid || undefined} aria-describedby={minHitsInvalid ? "review-rule-hits-error" : undefined} onChange={event => setMinHits(Number(event.target.value))} /></label><FieldError id="review-rule-hits-error">{minHitsInvalid ? t("reviewV2.triggerValueInvalid") : undefined}</FieldError></div></div>}</fieldset>
       <div className="space-y-2"><Label htmlFor="review-rule-timezone">{t("reviewV2.timezone")}</Label><FilterableSelect id="review-rule-timezone" className="w-64" aria-label={t("reviewV2.timezone")} value={selectedTimezone} options={selectedTimeZoneOptions} noOptionsLabel={t("common.noMatches")} aria-invalid={timezoneInvalid || undefined} aria-describedby={timezoneInvalid ? "review-rule-timezone-help review-rule-timezone-error" : "review-rule-timezone-help"} onValueChange={setTimezone} /><p id="review-rule-timezone-help" className="text-xs text-muted-foreground">{t("reviewV2.dailyHelp", { timezone: selectedTimezone || "…" })}</p><FieldError id="review-rule-timezone-error">{timezoneInvalid ? t("reviewV2.timezoneInvalid") : undefined}</FieldError></div>
-      <div className="space-y-2 rounded-lg border p-3"><p className="font-medium">{t("reviewV2.preview")}</p><NativeSelect aria-label={t("reviewV2.previewInstrument")} value={previewInstrument} onChange={event => setPreviewInstrument(event.target.value)}><option value="">{t("reviewV2.selectInstrument")}</option>{(instruments.data ?? []).filter(item => !target.length || target.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</NativeSelect><Button type="button" variant="outline" disabled={invalid || !previewInstrument} onClick={() => void runPreview()}>{t("reviewV2.preview")}</Button>{preview && previewKey === JSON.stringify(spec) && <p className="text-sm">{t("reviewV2.previewResult", { hits: preview.window.hitCount, misses: preview.window.falseCount, unknowns: preview.window.unknownCount, range: formatCivilDateRange(preview.window.windowStart, preview.window.windowEnd) })}</p>}</div>
-      {error && <FieldError>{error}</FieldError>}{invalid && <FieldError>{t("reviewV2.invalidRule")}</FieldError>}
+      <div className="space-y-2 rounded-lg border p-3"><p className="font-medium">{t("reviewV2.preview")}</p><NativeSelect aria-label={t("reviewV2.previewInstrument")} value={previewInstrument} onChange={event => setPreviewInstrument(event.target.value)}><option value="">{t("reviewV2.selectInstrument")}</option>{(instruments.data ?? []).filter(item => !target.length || target.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</NativeSelect><Button type="button" variant="outline" disabled={invalid || !previewInstrument} onClick={() => void runPreview()}>{t("reviewV2.preview")}</Button>{preview && previewKey === inputKey && <p className="text-sm">{t("reviewV2.previewResult", { hits: preview.window.hitCount, misses: preview.window.falseCount, unknowns: preview.window.unknownCount, range: formatCivilDateRange(preview.window.windowStart, preview.window.windowEnd) })}</p>}</div>
+      {previewError && <FieldError>{previewError}</FieldError>}{error && <FieldError>{error}</FieldError>}{invalid && <FieldError>{t("reviewV2.invalidRule")}</FieldError>}
       <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button><Button disabled={invalid || commands.createRule.isPending || commands.updateRule.isPending} onClick={() => void save()}>{t("common.save")}</Button></div>
     </div>
   </SheetContent></Sheet>;

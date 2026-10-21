@@ -141,7 +141,7 @@ func coinGeckoPrice(value json.Number) (domain.UnitPrice, error) {
 	if err != nil || !d.IsPositive() {
 		return domain.UnitPrice{}, malformedProvider()
 	}
-	rounded := d.Round(8)
+	rounded := d.RoundBank(8)
 	if rounded.IsZero() {
 		return domain.UnitPrice{}, providerError(domain.ErrUnavailable, "price is below supported precision")
 	}

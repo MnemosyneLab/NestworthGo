@@ -374,3 +374,46 @@ func TestCostBasisBoundaryUsesStableEconomicActivityOrder(t *testing.T) {
 		})
 	}
 }
+
+// Quantities differ by only 0.0001: division at 16 places falsely makes the
+// near-midpoint cases ties. Exercise the blend itself with exact input costs.
+func TestBlendCostExactMidpoints(t *testing.T) {
+	for _, base := range []struct{ low, high, below, tie, above string }{
+		{"1", "1.00000001", "1", "1", "1.00000001"},
+		{"1.00000001", "1.00000002", "1.00000001", "1.00000002", "1.00000002"},
+	} {
+		for _, tc := range []struct{ quantity, want string }{
+			{"9999.9999", base.below}, {"10000", base.tie}, {"10000.0001", base.above},
+		} {
+			t.Run(base.low+"/"+tc.quantity, func(t *testing.T) {
+				lot, err := blendCost(CostLot{AverageUnitCost: mustUnitPrice(t, base.low), Quantity: mustQuantity(t, "10000")}, unitPricePointer(t, base.high), mustQuantity(t, tc.quantity), true)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := lot.AverageUnitCost.Canonical(); got != tc.want {
+					t.Fatalf("cost = %s, want %s", got, tc.want)
+				}
+			})
+		}
+	}
+}
+
+func TestReplayCostBasisNearMidpointRealizedGain(t *testing.T) {
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisTransferIn, Quantity: mustQuantity(t, "10000"), UnitCost: unitPricePointer(t, "1")},
+		{Kind: CostBasisTransferIn, Quantity: mustQuantity(t, "10000.0001"), UnitCost: unitPricePointer(t, "1.00000001")},
+		{Kind: CostBasisSell, Quantity: mustQuantity(t, "20000"), UnitPrice: unitPricePointer(t, "2"), Currency: "USD"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Current.AverageUnitCost.Canonical() != "1.00000001" || result.Current.Quantity.Canonical() != "0.0001" {
+		t.Fatalf("current = %+v", result.Current)
+	}
+	if len(result.Realized) != 1 {
+		t.Fatalf("realized count = %d", len(result.Realized))
+	}
+	if got := result.Realized[0].RealizedGain.CanonicalAmount(); got != "19999.9998" {
+		t.Fatalf("gain = %s, want 19999.9998 (old path: 20000)", got)
+	}
+}

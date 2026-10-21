@@ -313,9 +313,13 @@ func buyAcquisitionUnitCostFromGross(quantity Quantity, gross decimal.Decimal, f
 	if fee != nil {
 		total = total.Add(fee.Amount())
 	}
-	// Divide at the supported scale using the exact remainder so an
-	// intermediate decimal division cannot round a near-half value into a tie.
-	divisor := quantity.Decimal()
+	return nonNegativeUnitCostQuotient(total, quantity.Decimal())
+}
+
+// nonNegativeUnitCostQuotient rounds a non-negative cost divided by a positive
+// quantity once, using the exact remainder to distinguish near-half values.
+// Callers validate quantities and preserve their existing intermediate bounds.
+func nonNegativeUnitCostQuotient(total, divisor decimal.Decimal) (UnitPrice, error) {
 	quotient, remainder := total.QuoRem(divisor, 8)
 	step := decimal.New(1, -8)
 	comparison := remainder.Mul(decimal.NewFromInt(2)).Cmp(divisor.Mul(step))
@@ -344,8 +348,7 @@ func blendCost(current CostLot, incoming *UnitPrice, incomingQuantity Quantity, 
 	if err != nil {
 		return CostLot{}, err
 	}
-	sum := oldValue.Add(incomingValue).Div(total.Decimal())
-	average, err := UnitPriceFromExact(sum)
+	average, err := nonNegativeUnitCostQuotient(oldValue.Add(incomingValue), total.Decimal())
 	if err != nil {
 		return CostLot{}, err
 	}

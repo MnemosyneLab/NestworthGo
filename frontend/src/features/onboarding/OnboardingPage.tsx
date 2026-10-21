@@ -72,7 +72,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
       return;
     }
     saveSettings.mutate(
-      { ...current, language: next },
+      { language: next },
       {
         onError: () => {
           setLanguagePreference(current.language);
