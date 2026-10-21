@@ -188,8 +188,8 @@ importers:
         specifier: ^8.21.3
         version: 8.21.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@wailsio/runtime':
-        specifier: 3.0.0-beta.32
-        version: 3.0.0-beta.32
+        specifier: 3.0.0-beta.34
+        version: 3.0.0-beta.34
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1039,8 +1039,8 @@ packages:
   '@vitest/utils@4.1.11':
     resolution: {integrity: sha512-zTCVGpyFsGWBhllOyKlTw/vnr6D9qxsfSDyfbyZmTyjHw5N/VuvzHpHoQjm2ZJzn4RJgx5w4r7V0er69CmLgPQ==}
 
-  '@wailsio/runtime@3.0.0-beta.32':
-    resolution: {integrity: sha512-lZgs1KgUSedSvPkGGEmjLwCkHwpEZKr3B9hr/ZL0sz5ipYM9kN8WpWPZOVLCFllrJhtmtNygR/h4VbmiELi4tQ==}
+  '@wailsio/runtime@3.0.0-beta.34':
+    resolution: {integrity: sha512-uchPkqqbH+yAweQh4J0y0G1NRE6ILcas6huNTruTVU84aWqCFanlpdVM/KYJdcNzWKhdHGcGGBJYCUYn3ualoQ==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2700,7 +2700,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.1
 
-  '@wailsio/runtime@3.0.0-beta.32': {}
+  '@wailsio/runtime@3.0.0-beta.34': {}
 
   acorn-jsx@5.3.2(acorn@8.18.0):
     dependencies:

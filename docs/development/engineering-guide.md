@@ -14,7 +14,7 @@ localization, accessibility, and chart rendering.
 
 - Go 1.26 or newer;
 - Node.js 24.22.0 (Active LTS, Krypton) with pnpm;
-- Wails CLI `v3.0.0-beta.32`;
+- Wails CLI `v3.0.0-beta.34`;
 - macOS 27.0 or newer on Apple Silicon, with a macOS 27 SDK, for the primary
   desktop and packaging target.
 - Linux compile of `./cmd/nestworth` also needs `gcc`, `pkg-config`,
@@ -201,8 +201,8 @@ sample, RSS, or full-pipeline review trials. The same workflow runs the sharded
 Current check triggers and budgets are maintained in
 [Local Development and Packaging](local-workflow.md#frontend-only-checks) and
 the repository workflows. Native `.app`/DMG packaging, signing, and notarization stay
-manual. Wails v3 is pinned at `v3.0.0-beta.32` (`@wailsio/runtime` at
-`3.0.0-beta.32`); upgrade those versions only in a dedicated change.
+manual. Wails v3 is pinned at `v3.0.0-beta.34` (`@wailsio/runtime` at
+`3.0.0-beta.34`); upgrade those versions only in a dedicated change.
 
 ## Documentation and change gate
 
