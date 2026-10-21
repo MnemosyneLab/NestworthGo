@@ -1,20 +1,21 @@
 import { formatAmount } from "@/lib/money";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow, HistoricalOverviewState } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
-import { HistoricalAccountDeltaView, HistoricalAllocationView } from "./HistoricalPanorama";
+import { HistoricalAccountDeltaView, HistoricalAllocationView, HistoricalMetricCards } from "./HistoricalPanorama";
+import { CompositionChart } from "@/components/charts/CompositionChart";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const chart = vi.hoisted(() => ({ options: [] as unknown[] }));
 vi.mock("@/components/charts/EChart", () => ({
-  EChart: ({ option, ariaLabel, onSelectName }: {
+  EChart: ({ option, ariaLabel, onSelectName, center }: {
     option: { series?: Array<{ data?: Array<{ name?: string } | null> }> };
-    ariaLabel: string; onSelectName?: (name: string) => void;
+    ariaLabel: string; onSelectName?: (name: string) => void; center?: ReactNode;
   }) => {
     chart.options.push(option);
-    return <div role="img" aria-label={ariaLabel}>{option.series?.[0]?.data?.map(item => item?.name &&
+    return <div role="img" aria-label={ariaLabel}>{center}{option.series?.[0]?.data?.map(item => item?.name &&
       <button key={item.name} onClick={() => onSelectName?.(item.name!)}>chart-on-{item.name}</button>)}</div>;
   },
 }));
@@ -40,6 +41,63 @@ function result(right: HistoricalOverviewState | null): HistoricalOverviewResult
     change: right ? { assets: "10", liabilities: "0", netWorth: "10" } : null,
     rows: [account("first", "10"), account("second", "20")] };
 }
+
+function displayState(exact: string, projected: string, partial = false): HistoricalOverviewState {
+  const data = state("2026-08-01", exact);
+  data.currency = "USD";
+  const money = { amount: projected, currency: "USD" };
+  const assets = { currency: "USD", total: partial ? null : money, knownSubtotal: money,
+    quality: { availability: partial ? "partial" : "full", coverage: partial ? "provisional" : "verified",
+      includedCount: 2, valuedCount: partial ? 1 : 2, unpricedCount: partial ? 1 : 0, provisionalCount: 0,
+      carriedCount: 0, staleCount: 0, oldestMarketDate: null, newestMarketDate: null, reasons: [] } };
+  const zero = { amount: "0", currency: "USD" };
+  const liabilities = { currency: "USD", total: zero, knownSubtotal: zero,
+    quality: { ...assets.quality, availability: "full", coverage: "verified", includedCount: 0, valuedCount: 0, unpricedCount: 0 } };
+  data.displayValuation = { assets, netWorth: assets, liabilities } as HistoricalOverviewState["displayValuation"];
+  if (partial) { data.complete = false; data.assets = null; data.netWorth = null; }
+  return data;
+}
+
+it("aligns complete metric text, hover text and both composition centers at a rounding boundary", () => {
+  const data = { ...result(null), left: displayState("1.00505", "1.005") };
+  render(<>
+    <HistoricalMetricCards data={{ ...data, right: { ...data.left, date: "2026-08-09" } }} />
+    <HistoricalAllocationView data={data} onFilter={vi.fn()} />
+    <CompositionChart title="Account composition" currency="USD" centerValue="1.00505" centerCaption="Valued subtotal"
+      ariaLabel="Account composition" summary="Synthetic account" items={[{ key: "cash", label: "Cash", amount: "1.00505", shareBps: 10000 }]} />
+  </>);
+  for (const metric of screen.getAllByLabelText("Assets")) {
+    expect(metric).toHaveTextContent("US$1.01");
+    expect(within(metric).getByTitle("US$1.01")).toHaveTextContent("US$1.01");
+  }
+  for (const name of ["Asset allocation", "Account composition"]) {
+    expect(screen.getByRole("img", { name })).toHaveTextContent("US$1.01");
+  }
+  const option = [...chart.options].reverse().find(value => (value as { series?: Array<{ id?: string }> }).series?.[0]?.id === "historical-allocation") as {
+    tooltip: { formatter: (point: unknown) => string }; series: Array<{ data: Array<{ value: number }> }>;
+  };
+  expect(option.tooltip.formatter({ name: "cash" })).toContain("US$1.01 · 100%");
+  expect(option.series[0].data[0].value).toBe(1.00505);
+  expect(data.left.assets).toBe("1.00505");
+});
+
+it("keeps partial and provisional metric projections separate from known-only donut totals", () => {
+  const data = { ...result(null), left: displayState("1.00505", "1.005", true) };
+  const view = render(<><HistoricalMetricCards data={data} /><HistoricalAllocationView data={data} onFilter={vi.fn()} /></>);
+  const assets = screen.getByLabelText("Assets");
+  expect(within(assets).getByTitle("US$1.00")).toHaveTextContent("US$1.00");
+  expect(screen.getByRole("img", { name: "Asset allocation" })).toHaveTextContent("US$1.01");
+  const estimate = data.left.displayValuation!.assets;
+  estimate.total = { amount: "20", currency: "USD" };
+  estimate.knownSubtotal = estimate.total;
+  estimate.quality.availability = "full" as typeof estimate.quality.availability;
+  estimate.quality.valuedCount = 2;
+  estimate.quality.unpricedCount = 0;
+  estimate.quality.provisionalCount = 1;
+  view.rerender(<><HistoricalMetricCards data={data} /><HistoricalAllocationView data={data} onFilter={vi.fn()} /></>);
+  expect(within(screen.getByLabelText("Assets")).getByTitle("US$20.00")).toHaveTextContent("US$20.00");
+  expect(screen.getByRole("img", { name: "Asset allocation" })).toHaveTextContent("US$1.01");
+});
 
 it("opens the correct read-only account from a chart bar when names collide and restores focus", async () => {
   const data = result(state("2026-08-09", "20"));
