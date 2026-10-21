@@ -1,7 +1,6 @@
 import { quoteObservationLabel } from "@/lib/quoteEvidencePresentation";
 import { useValuationDateGeneration } from "@/queries/useValuationDayBoundary";
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
-import { hasDisplay } from "@/components/valuation/valuationQuality";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -30,7 +29,7 @@ import type { HistoricalCategoryFilter, HistoricalNavigationContext } from "@/ap
 import { displayEnum } from "@/lib/display";
 import { formatQuantity, formatQuotePrice } from "@/lib/money";
 import { formatCivilDate, formatCivilDateRange, formatTimestamp } from "@/lib/time";
-import { formatHistoricalAmount } from "./historicalAmount";
+import { formatHistoricalAmount, historicalDisplayAmount } from "./historicalAmount";
 import { SignedChange } from "./SignedChange";
 import type {
   HistoricalOverviewCell, HistoricalOverviewEvidence, HistoricalOverviewRow,
@@ -61,8 +60,9 @@ function rowLabel(row: HistoricalOverviewRow, t: TFunction): string {
 function CellValue({ cell, currency }: { cell?: HistoricalOverviewCell | null; currency: string }) {
   const { t } = useTranslation();
   if (!cell) return <span className="text-sm text-muted-foreground">{t("historicalOverview.notPresent")}</span>;
+  const displayAmount = historicalDisplayAmount(t, cell.displayValuation, cell.baseAmount == null ? null : { amount: cell.baseAmount, currency }, false, false);
   return <div className="flex flex-col items-end gap-1">
-    <span className="whitespace-nowrap"><Amount value={hasDisplay(cell.displayValuation) ? cell.displayValuation.total?.amount ?? cell.displayValuation.knownSubtotal?.amount : cell.baseAmount} currency={currency} />
+    <span className="whitespace-nowrap"><span className="num whitespace-nowrap" title={displayAmount}>{displayAmount}</span>
  <ValuationQualitySummary value={cell.displayValuation} /></span>
     {cell.nativeAmount != null && cell.currency && cell.currency !== currency && (
       <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={cell.nativeAmount} currency={cell.currency} /></span>
