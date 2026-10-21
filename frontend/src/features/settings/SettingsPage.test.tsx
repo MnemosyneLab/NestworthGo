@@ -6,8 +6,11 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { useUiStore } from "@/stores/ui";
 import { tabbable } from "tabbable";
 import i18n from "@/i18n";
+import { Language } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
+import { useSaveSettings } from "@/queries/settings";
 import { SettingsPage } from "./SettingsPage";
 
+vi.mock("@wailsio/runtime", () => ({ Call: { ByID: vi.fn(() => { throw new Error("Unexpected native call"); }) } }));
 const load = vi.fn();
 const save = vi.fn().mockResolvedValue(undefined);
 const reset = vi.fn();
@@ -545,4 +548,22 @@ it("locks retention confirmation but can cancel it when background cleanup start
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   await selectTab("About");
   expect(screen.getByRole("tab", { name: "About" })).toHaveAttribute("aria-selected", "true");
+});
+
+function HeaderChange() {
+  const save = useSaveSettings();
+  return <button onClick={() => save.mutate({ language: Language.LanguageZhCN })}>Synthetic header language</button>;
+}
+it.each([false, true])("merges a topbar save with unsaved edits; explicit language edit=%s wins", async (editLanguage) => {
+  const client = createTestQueryClient({ retry: false });
+  render(<QueryClientProvider client={client}><SettingsPage /><HeaderChange /></QueryClientProvider>);
+  await screen.findByRole("form", { name: "Settings" });
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Appearance" }), "dark");
+  if (editLanguage) await userEvent.selectOptions(screen.getByLabelText("Language"), "zh-TW");
+  await userEvent.click(screen.getByRole("button", { name: "Synthetic header language" }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByLabelText("Language")).toHaveValue(editLanguage ? "zh-TW" : "zh-CN"));
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ appearance: "dark", language: editLanguage ? "zh-TW" : "zh-CN" }));
 });

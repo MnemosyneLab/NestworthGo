@@ -121,17 +121,12 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
   const [pageBarTarget, setPageBarTarget] = React.useState<HTMLDivElement | null>(null);
 
   const persistHeaderSetting = (patch: Partial<Settings>) => {
-    const next = { ...settings, ...patch };
-    if (patch.appearance) {
-      setAppearance(patch.appearance as Appearance);
-    }
-    if (patch.language) {
-      setLanguage(patch.language);
-    }
-    saveSettings.mutate(next, {
+    saveSettings.mutate(patch, {
+      onSuccess: (saved) => {
+        setAppearance(saved.appearance as Appearance);
+        setLanguage(saved.language);
+      },
       onError: (error) => {
-        setAppearance(settings.appearance as Appearance);
-        setLanguage(settings.language);
         toast.error(displayError(error, t("settings.saveError")));
       },
     });

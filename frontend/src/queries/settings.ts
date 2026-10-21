@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Service as SettingsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings";
 import type { SettingsDTO as Settings, CoinGeckoKeyStatusDTO, TiingoKeyStatusDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { applySettingsDisplayPreferences } from "@/lib/displayPreferences";
@@ -20,32 +20,41 @@ export function useSettings(options?: { enabled?: boolean }) {
   return query;
 }
 
+// All hook instances share submission ordering, including reset. Explicit patch
+// fields win; untouched fields come from the latest authoritative document.
+const writes = new WeakMap<QueryClient, Promise<unknown>>();
+function enqueue<T>(client: QueryClient, write: () => Promise<T>): Promise<T> {
+  const result = (writes.get(client) ?? Promise.resolve()).catch(() => undefined).then(write);
+  writes.set(client, result);
+  void result.finally(() => {
+    if (writes.get(client) === result) writes.delete(client);
+  }).catch(() => undefined);
+  return result;
+}
+
 export function useSaveSettings() {
-  const queryClient = useQueryClient();
+  const client = useQueryClient();
   return useMutation({
-    mutationFn: (value: Settings) => callService(() => SettingsService.Save(value)),
-    onMutate: async (value) => {
-      await queryClient.cancelQueries({ queryKey: settingsQueryKey });
-      const previous = queryClient.getQueryData<Settings>(settingsQueryKey);
-      queryClient.setQueryData(settingsQueryKey, value);
-      return { previous };
-    },
-    onError: (_error, _value, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(settingsQueryKey, context.previous);
-      }
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: settingsQueryKey }),
+    mutationFn: (patch: Partial<Settings>) => enqueue(client, async () => {
+      await client.cancelQueries({ queryKey: settingsQueryKey });
+      const latest = await callService(() => SettingsService.Load());
+      await callService(() => SettingsService.Save({ ...latest, ...patch }));
+      const saved = await callService(() => SettingsService.Load());
+      client.setQueryData(settingsQueryKey, saved);
+      return saved;
+    }),
   });
 }
 
 export function useResetSettings() {
-  const queryClient = useQueryClient();
+  const client = useQueryClient();
   return useMutation({
-    mutationFn: () => callService(() => SettingsService.Reset()),
-    onSuccess: (defaults) => {
-      queryClient.setQueryData(settingsQueryKey, defaults);
-    },
+    mutationFn: () => enqueue(client, async () => {
+      await client.cancelQueries({ queryKey: settingsQueryKey });
+      const defaults = await callService(() => SettingsService.Reset());
+      client.setQueryData(settingsQueryKey, defaults);
+      return defaults;
+    }),
   });
 }
 
