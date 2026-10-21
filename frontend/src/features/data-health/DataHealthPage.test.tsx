@@ -7,6 +7,7 @@ import type { HealthFocus } from "@/app/navigation";
 import { NavigationContext, type ObjectNavigation } from "@/app/NavigationContext";
 import { DataHealthPage, focusedHealthIssues } from "./DataHealthPage";
 import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
+import i18n from "@/i18n";
 
 const scanHealth = vi.fn();
 const previewSync = vi.fn();
@@ -94,6 +95,56 @@ describe("DataHealthPage", () => {
     const issue = await screen.findByTestId("health-issue-missing_agent_price");
     expect(issue).toHaveTextContent("Ask your Agent to supply this quote through MCP.");
     expect(within(issue).queryByRole("button", { name: "Add manual data" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("repair-all")).toBeDisabled();
+  });
+
+  it.each([
+    ["en", "Holding amount exceeds the supported range. Check the quantity and price."],
+    ["zh-CN", "持仓金额超出支持范围，请检查数量和价格。"],
+    ["zh-TW", "持倉金額超出支援範圍，請檢查數量和價格。"],
+  ])("explains holding overflow with distinct accounts and actions in %s", async (language, reason) => {
+    await i18n.changeLanguage(language);
+    const issues = ["broker", "archived"].map(accountId => ({
+      id: `overflow-${accountId}`, kind: "incomplete_valuation", severity: "blocking", groupKey: "instrument:i1",
+      targetKey: "instrument:i1", instrumentId: "i1", accountId, label: "Equity fund", code: "holding_amount",
+      reason: "holding_amount_out_of_range", action: "instrument_editor", executable: false,
+    }));
+    scanHealth.mockResolvedValue({ healthy: false, issueCount: 2, executableCount: 0, prerequisiteCount: 2, snapshotDays: 0, issues });
+    const navigation = { open: vi.fn(), openHealth: vi.fn() };
+    renderPage({}, navigation);
+    await screen.findByText("Family brokerage · Equity fund");
+    expect(screen.getByText("Previous bank · Equity fund")).toBeInTheDocument();
+    const rows = screen.getAllByTestId("health-issue-incomplete_valuation");
+    for (const row of rows) {
+      expect(row).toHaveTextContent(reason);
+      expect(row).not.toHaveTextContent(i18n.t("common.unknownValue"));
+      expect(row).toHaveTextContent(i18n.t("dataHealth.action.instrument_editor"));
+      expect(within(row).getByRole("button", { name: i18n.t("dataHealth.openInstrument") })).toBeEnabled();
+    }
+    expect(screen.getByTestId("repair-all")).toBeDisabled();
+    await userEvent.click(within(rows[0]).getByRole("button", { name: i18n.t("connections.viewGap") }));
+    expect(navigation.openHealth).toHaveBeenLastCalledWith(expect.objectContaining({
+      accountId: "broker", instrumentId: "i1", label: "Family brokerage · Equity fund",
+      reason: "holding_amount_out_of_range", action: "instrument_editor", executable: false,
+    }));
+    await userEvent.click(within(rows[1]).getByRole("button", { name: i18n.t("dataHealth.openInstrument") }));
+    expect(navigation.openHealth).toHaveBeenLastCalledWith({ ...issues[1], label: "Previous bank · Equity fund" });
+    expect(previewSync).not.toHaveBeenCalled();
+    expect(startSync).not.toHaveBeenCalled();
+    expect(refreshAll).not.toHaveBeenCalled();
+  });
+
+  it("keeps pending coverage distinct from an unavailable holding amount", async () => {
+    scanHealth.mockResolvedValue({
+      healthy: false, issueCount: 1, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0,
+      issues: [{ id: "pending", kind: "valuation_provisional", severity: "info", targetKey: "instrument:i1", label: "Equity fund",
+        code: "valuation_coverage_pending", reason: "valuation_coverage_pending", action: "none", executable: false }],
+    });
+    renderPage();
+    const row = await screen.findByTestId("health-issue-valuation_provisional");
+    expect(row).toHaveTextContent(i18n.t("valuation.returnPending"));
+    expect(row).toHaveTextContent(i18n.t("valuation.awaitingUpdate"));
+    expect(row).not.toHaveTextContent(i18n.t("common.unknownValue"));
     expect(screen.getByTestId("repair-all")).toBeDisabled();
   });
 

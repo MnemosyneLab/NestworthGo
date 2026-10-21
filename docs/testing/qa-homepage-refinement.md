@@ -24,7 +24,7 @@ First-row measurements matched main in both light and dark themes (rounded to
 | 480 | 353 × 306 | 353 × 337 | 36px | 18px | 24px |
 
 The lower row placed Needs attention and Next 30 days side by side at wide
-widths and stacked them at narrow widths. The top Historical overview shortcut
+widths and stacked them at narrow widths. The top Wealth history shortcut
 was hidden at 960px and wider; it and the accessible sidebar rail destination
 remained available in narrow windows.
 

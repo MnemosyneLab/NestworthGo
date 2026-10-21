@@ -302,11 +302,24 @@ func missingForComponent(component domain.ValuationComponent, missing []domain.M
 	return result
 }
 
+const snapshotHoldingAmountMissingReason = "holding amount exceeds the supported range"
+const snapshotHistoryCoverageMissingReason = "historical market-data coverage is unverified"
+
 func missingReason(component domain.ValuationComponent, missing []domain.MissingInputView) string {
+	holdingAmount, coverage := false, false
 	for _, item := range missing {
-		if item.Kind == domain.MissingHistoryCoverage {
-			return "historical market-data coverage is unverified"
+		holdingAmount = holdingAmount || item.Kind == domain.MissingHoldingAmount
+		coverage = coverage || item.Kind == domain.MissingHistoryCoverage
+	}
+	if holdingAmount {
+		reason := snapshotHoldingAmountMissingReason
+		if coverage {
+			reason += "; " + snapshotHistoryCoverageMissingReason
 		}
+		return reason
+	}
+	if coverage {
+		return snapshotHistoryCoverageMissingReason
 	}
 	if component.InstrumentID != nil {
 		return "missing instrument price or FX rate"

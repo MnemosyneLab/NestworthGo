@@ -674,7 +674,7 @@ Name A → Z
 - partial 标记和原因正确。
 - composition 显示 Price / FX / Dividend / Fee。
 - By Account 正确。
-- `View in History` 带正确 from/to/accountId/instrumentId/kinds。
+- `View in ledger activity` 带正确 from/to/accountId/instrumentId/kinds。
 
 ---
 
@@ -779,7 +779,7 @@ P0：
 2. 页面显示 `Unexplained difference`。
 3. 打开 Sheet。
 4. 显示 date / component key / account / instrument / amount。
-5. `View in History` 精确跳转。
+5. `View in ledger activity` 精确跳转。
 6. 修正数据 / invalidation 后已打开的 Sheet 不得显示 stale total。
 
 ---
@@ -864,7 +864,7 @@ Dividend & Interest
 | CAT-07 | P0 | 点击 row | Detail Sheet |
 | CAT-08 | P0 | Detail children | 与 backend 一致 |
 | CAT-09 | P0 | Activity refs | 日期 / amount 正确 |
-| CAT-10 | P0 | View in History | 精确 day + dimensions |
+| CAT-10 | P0 | View in ledger activity | 精确 day + dimensions |
 | CAT-11 | P1 | Partial | Main 与 Detail 都显示状态 |
 | CAT-12 | P1 | Forced Base | 主 list 可见 |
 

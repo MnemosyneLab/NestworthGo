@@ -8,9 +8,9 @@ remain synchronized.
 The current repository baseline is:
 
 ```text
-Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.32
-Frontend:       @wailsio/runtime 3.0.0-beta.32
-CLI/fallback:   v3.0.0-beta.32
+Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.34
+Frontend:       @wailsio/runtime 3.0.0-beta.34
+CLI/fallback:   v3.0.0-beta.34
 ```
 
 For another target, replace the version variables below. Go and CLI versions use
@@ -21,6 +21,20 @@ Official references:
 - [Wails releases](https://github.com/wailsapp/wails/releases)
 - [Wails v3 documentation](https://v3.wails.io/)
 - [Wails bindings documentation](https://v3.wails.io/features/bindings/methods/)
+
+## beta.34 compatibility notes
+
+The [beta.33 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.33)
+adds generated event-name constants in `bindings/events` for discoverable
+compile-time event registrations. Regenerate the complete ignored bindings
+rather than copying an older generated tree.
+
+The [beta.34 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.34)
+uses a TCP readiness probe for Vite in `wails3 dev`, fixes tray-menu updates
+while a menu is open, and corrects Windows focus, dialogs and WebView2 COM
+handling. Native dev startup, menus and application lifecycle still require
+isolated platform acceptance. Keep Nestworth's customized output and packaging
+tasks when comparing regenerated build assets.
 
 ## beta.32 compatibility notes
 
@@ -107,8 +121,8 @@ Set the target versions and writable caches. Restricted environments should not
 rely on the default Go cache directories:
 
 ```bash
-WAILS_GO_VERSION=v3.0.0-beta.32
-WAILS_RUNTIME_VERSION=3.0.0-beta.32
+WAILS_GO_VERSION=v3.0.0-beta.34
+WAILS_RUNTIME_VERSION=3.0.0-beta.34
 GOCACHE=/tmp/nestworth-wails-gocache
 GOMODCACHE=/tmp/nestworth-wails-gomodcache
 export WAILS_GO_VERSION WAILS_RUNTIME_VERSION GOCACHE GOMODCACHE
@@ -144,7 +158,7 @@ PATH="$(go env GOPATH)/bin:$PATH" wails3 version
 The output must be the target version:
 
 ```text
-v3.0.0-beta.32
+v3.0.0-beta.34
 ```
 
 If an old version is still reported, inspect `type -a wails3` and retry with the
@@ -407,5 +421,5 @@ needs migration, record it as a separate compatibility change with tests.
 For a dependency-only change, a suitable Conventional Commit is:
 
 ```text
-chore(deps): upgrade Wails to v3.0.0-beta.32
+chore(deps): upgrade Wails to v3.0.0-beta.34
 ```

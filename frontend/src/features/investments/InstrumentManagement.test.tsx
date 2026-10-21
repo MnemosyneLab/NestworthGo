@@ -165,6 +165,21 @@ describe("InstrumentManagement", () => {
     expect(screen.queryByText(i18n.t("marketData.noInstrumentMatches"))).not.toBeInTheDocument();
   });
 
+  it("keeps the holding overflow diagnosis visible inside the focused editor", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Equity fund", type: "stock", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderManagement(true, {
+      instrumentId: "i1", accountId: "broker", label: "Family brokerage · Equity fund",
+      reason: "holding_amount_out_of_range", action: "instrument_editor", executable: false,
+    });
+    const editor = await screen.findByRole("dialog", { name: "Edit instrument" });
+    expect(editor).toHaveTextContent("Family brokerage · Equity fund");
+    expect(editor).toHaveTextContent("Holding amount exceeds the supported range. Check the quantity and price.");
+    expect(editor).not.toHaveTextContent("Unknown");
+    expect(createInstrument).not.toHaveBeenCalled();
+    expect(updateInstrument).not.toHaveBeenCalled();
+    expect(appendManualQuote).not.toHaveBeenCalled();
+  });
+
   it("shows the latest saved instrument price in the instrument list", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "provider" }]);
     currentInstrumentQuote.mockResolvedValue({

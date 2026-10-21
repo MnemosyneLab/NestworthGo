@@ -680,7 +680,7 @@ it("returns from account analysis with the source archive filter and scroll posi
 });
 
 
-it("opens historical overview from Overview, removes current queries and exits back", async () => {
+it("opens Wealth history from Overview, removes current queries and exits back", async () => {
   await i18n.changeLanguage("en");
   render(<AppProviders><App /></AppProviders>);
   await screen.findByTestId("overview-net-worth");
@@ -780,7 +780,7 @@ it.each([
   ["UTC", "2026-10-31T23:59:30Z", "2026-11-01T00:00:30Z", true],
   ["Asia/Shanghai", "2026-10-31T15:59:30Z", "2026-10-31T16:00:30Z", false],
   ["Asia/Shanghai", "2026-10-31T15:59:30Z", "2026-10-31T16:00:30Z", true],
-])("returns from transaction history across a household month boundary with the same capture, dates, detail and position (%s)", async (timezone, before, after, trendEnabled) => {
+])("returns from ledger activity across a household month boundary with the same capture, dates, detail and position (%s)", async (timezone, before, after, trendEnabled) => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(before as string));
   historyOrigin.mockResolvedValue({ id: "origin-1", timezone, startedAt: "2026-01-01T00:00:00Z" });
@@ -795,7 +795,7 @@ it.each([
   render(<AppProviders><App /></AppProviders>);
   await screen.findByTestId("overview-net-worth");
   const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
-  await userEvent.click(within(nav).getByRole("button", { name: "Historical overview" }));
+  await userEvent.click(within(nav).getByRole("button", { name: "Wealth history" }));
   await screen.findByLabelText("Historical date", {}, { timeout: 5000 });
   await userEvent.click(within(screen.getByRole("group", { name: "View mode" })).getByRole("button", { name: "Date vs. now" }));
   if (trendEnabled) {
@@ -808,7 +808,7 @@ it.each([
   await userEvent.click(await screen.findByRole("tab", { name: "Account details" }));
   await userEvent.click(await screen.findByRole("button", { name: "Synthetic retained bank" }));
   const dialog = await screen.findByRole("dialog");
-  const sourceButton = within(dialog).getByRole("button", { name: "Leave panorama · View transaction history" });
+  const sourceButton = within(dialog).getByRole("button", { name: "Leave wealth history · View ledger activity" });
   const main = document.getElementById("main-content")!; main.scrollTop = 210;
   const capturedReads = historicalRead.mock.calls.length; const seriesReads = seriesRead.mock.calls.length;
   const capturedAt = new Date(before as string).toISOString();
@@ -820,7 +820,7 @@ it.each([
   expect(history).toHaveTextContent('"from":"2026-09-30"'); expect(history).toHaveTextContent(trendEnabled ? '"to":"2026-10-30"' : '"to":"2026-10-11"');
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   vi.setSystemTime(new Date(after as string));
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Historical overview" }));
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Wealth history" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toHaveTextContent("Synthetic retained bank"));
   expect(within(screen.getByRole("group", { name: "View mode", hidden: true })).getByRole("button", { name: trendEnabled ? "Compare dates" : "Date vs. now", hidden: true })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveTextContent("2026-09-30");
@@ -828,7 +828,7 @@ it.each([
   expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveTextContent("Account details");
   expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveAttribute("aria-selected", "true");
   await waitFor(() => expect(main.scrollTop).toBe(210));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Leave panorama · View transaction history" })).toHaveFocus());
+  await waitFor(() => expect(screen.getByRole("button", { name: "Leave wealth history · View ledger activity" })).toHaveFocus());
   expect(historicalRead).toHaveBeenCalledTimes(capturedReads); expect(seriesRead).toHaveBeenCalledTimes(seriesReads);
   await userEvent.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

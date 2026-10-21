@@ -190,11 +190,11 @@ describe("insight tabs", () => {
     await waitFor(() => expect(contributionItem).toHaveBeenCalledWith(expect.anything(), "total_return", "instrument", "cash:SGD"));
   });
 
-  it("opens History from a contribution item with date and scope filters and empty kinds", async () => {
+  it("opens ledger activity from a contribution item with date and scope filters", async () => {
     const onOpenHistory = vi.fn();
     renderWithClient(<ConnectedContributionTab onOpenHistory={onOpenHistory} />);
     fireEvent.click(await screen.findByRole("button", { name: /QQQ/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "View in History" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View in ledger activity" }));
     expect(onOpenHistory).toHaveBeenCalledWith({
       from: "2026-09-01",
       to: "2026-09-01",
@@ -208,20 +208,20 @@ describe("insight tabs", () => {
     ["currency", { currency: "USD" }, true],
     ["asset class", { assetClass: "stock" }, true],
     ["exact date, account, and instrument filters", {}, false],
-  ] as const)("reports History drilldown filter loss for realized contributions when applicable (%s)", async (_context, moreFilters, warns) => {
+  ] as const)("reports ledger activity filter loss for realized contributions when applicable (%s)", async (_context, moreFilters, warns) => {
     useAnalysisStore.getState().replaceFilters({ returnType: "realized", moreFilters });
     mockRealizedContribution();
     const onOpenHistory = vi.fn();
 
     renderWithClient(<ConnectedContributionTab onOpenHistory={onOpenHistory} />);
     fireEvent.click(await screen.findByRole("button", { name: /QQQ/ }));
-    const historyButton = await screen.findByRole("button", { name: "View in History" });
-    const historyFilterWarning = "History keeps the date, account, and instrument filters, but not the currency or asset-class filter used for this contribution.";
+    const historyButton = await screen.findByRole("button", { name: "View in ledger activity" });
+    const historyFilterWarning = "Ledger activity keeps the date, account, and instrument filters, but not the currency or asset-class filter used for this contribution.";
     if (warns) {
       expect(await screen.findByText(historyFilterWarning)).toBeInTheDocument();
     } else {
       expect(screen.queryByText(historyFilterWarning)).not.toBeInTheDocument();
-      expect(screen.queryByText("History will open for the full selected period, not a single account or instrument.")).not.toBeInTheDocument();
+      expect(screen.queryByText("Ledger activity will open for the full selected period, not a single account or instrument.")).not.toBeInTheDocument();
     }
 
     fireEvent.click(historyButton);
@@ -274,11 +274,11 @@ describe("insight tabs", () => {
     expect(categoryDetail).toHaveBeenCalledWith(expect.anything(), "spending", "account-1");
   });
 
-  it("opens History from a category record for the selected day and account", async () => {
+  it("opens ledger activity from a category record for the selected day and account", async () => {
     const onOpenHistory = vi.fn();
     renderWithClient(<CategoriesTab session={useAnalysisStore.getState()} onOpenHistory={onOpenHistory} />);
     fireEvent.click(await screen.findByRole("button", { name: /Brokerage/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "View in History" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View in ledger activity" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-01", to: "2026-09-01", accountId: "account-1", instrumentId: undefined }, "activity-1");
   });
 

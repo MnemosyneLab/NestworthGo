@@ -520,6 +520,14 @@ updates remain valuation inputs: they invalidate snapshots even when no price
 observation changes. Return totals stay partial until the rebuilt snapshot is
 complete.
 
+An out-of-range holding value is a `holding_amount` gap, even when its price
+observation is known. Data Health reports a blocking, non-executable valuation
+issue for that account and instrument; it does not propose an automatic quote
+refresh. New daily snapshot items retain the quote ID and an explicit holding
+amount reason, including unverified history coverage when both apply. Reloaded
+display projections preserve those reasons and leave the total unavailable.
+Ambiguous legacy missing-price/FX text keeps its existing conservative meaning.
+
 Daily snapshot items keep separate decimal contracts: `NativeAmount` accepts
 up to 16 fractional digits (quantity times unit price), while `BaseAmountExact`
 accepts up to 28 fractional digits, sufficient for a single snapshot FX

@@ -503,6 +503,8 @@ func contextGapCode(kind string) (string, string) {
 		return "missing_account_value", "review_account_value"
 	case domain.MissingHistoryCoverage:
 		return "missing_coverage", "open_data_health"
+	case domain.MissingHoldingAmount:
+		return "holding_amount_out_of_range", "review_instrument"
 	default:
 		return "missing_instrument", "review_instrument"
 	}

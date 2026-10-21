@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strings"
 	"time"
@@ -452,10 +453,6 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	if quote == nil {
 		return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency}}, nil
 	}
-	native, err := holding.Quantity.Multiply(quote.UnitPrice)
-	if err != nil {
-		return domain.ValuationComponent{}, nil, err
-	}
 	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now(), v.quoteTTL())
 	evidence.EffectiveDate, evidence.ValueEffectiveAt, evidence.FetchedAt = quote.EffectiveDate, quote.ValueEffectiveAt, quote.FetchedAt
 	targetDate := v.historicalDate()
@@ -469,15 +466,35 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 		evidence.Freshness = domain.FreshnessFresh
 	}
 	evidence.Carried = !evidence.ClosedCarry && instrument.QuoteSource != domain.QuoteSourceManual && quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
+	if instrument.QuoteSource == domain.QuoteSourceManual {
+		evidence.Freshness = domain.FreshnessManual
+	}
+	native, err := holding.Quantity.Multiply(quote.UnitPrice)
+	if err != nil {
+		var problem *domain.Error
+		if !errors.As(err, &problem) || problem.Code != domain.ErrDecimalOverflow {
+			return domain.ValuationComponent{}, nil, err
+		}
+		holdingID := holding.ID
+		component := domain.ValuationComponent{
+			InstrumentType: instrument.Type, AccountID: accountID, HoldingID: &holdingID, InstrumentID: &id,
+			InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol,
+			NativeCurrency: instrument.QuoteCurrency, PriceEvidence: &evidence,
+			PreferenceObservationID: instrument.PreferenceObservationID, Available: false,
+		}
+		missing := []domain.MissingInputView{{Kind: domain.MissingHoldingAmount, AccountID: accountID, InstrumentID: &id,
+			InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, QuoteCurrency: instrument.QuoteCurrency}}
+		if v.historical && !historyCoverageComplete {
+			missing = append(missing, domain.MissingInputView{Kind: domain.MissingHistoryCoverage, AccountID: accountID, InstrumentID: &id,
+				InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency})
+		}
+		return component, missing, nil
+	}
 	component, missing, err := v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
 	}
-	// Freshness follows the valuation preference; provenance remains unchanged.
-	if instrument.QuoteSource == domain.QuoteSourceManual {
-		evidence.Freshness = domain.FreshnessManual
-		component.PriceEvidence = &evidence
-	}
+	component.PriceEvidence = &evidence
 	component.InstrumentType = instrument.Type
 	component.InstrumentName = name
 	component.InstrumentShortName = instrument.ShortName
@@ -1268,7 +1285,7 @@ func missingForInstrumentComponents(missing []domain.MissingInputView, holdings 
 		switch item.Kind {
 		case domain.MissingAccountValue:
 			continue
-		case domain.MissingInstrumentPrice, domain.MissingInstrument:
+		case domain.MissingInstrumentPrice, domain.MissingInstrument, domain.MissingHoldingAmount:
 			if item.InstrumentID != nil {
 				if _, ok := instruments[*item.InstrumentID]; ok {
 					filtered = append(filtered, item)

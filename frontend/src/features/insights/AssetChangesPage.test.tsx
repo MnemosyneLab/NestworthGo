@@ -168,18 +168,18 @@ describe("AssetChangesPage", () => {
     expect(assetDriverDetail).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-01", to: "2026-09-06" }), "residual");
   });
 
-  it("opens the matching History day and dimensions from residual detail", async () => {
+  it("opens the matching ledger activity day and dimensions from residual detail", async () => {
     const user = userEvent.setup();
     const onOpenHistory = vi.fn();
     renderPage({ onOpenHistory });
     await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Unexplained difference/ }));
-    await user.click(await screen.findByRole("button", { name: "View in History" }));
+    await user.click(await screen.findByRole("button", { name: "View in ledger activity" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
   });
 
-  it("passes a category record ID separately from its History list filters", async () => {
+  it("passes a category record ID separately from its ledger activity list filters", async () => {
     useAnalysisStore.getState().setAssetView({ tab: "categories" });
     categories.mockResolvedValue({ available: true, status: "ok", rows: [{ key: "groceries", label: "Groceries", amount: { amount: "-25", currency: "USD" } }] });
     categoryDetail.mockResolvedValue({ available: true, status: "ok", activityRefs: [{ activityId: "activity-exact", date: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1", amount: { amount: "-25", currency: "USD" } }] });
@@ -188,7 +188,7 @@ describe("AssetChangesPage", () => {
     renderPage({ onOpenHistory });
     await user.click(await screen.findByRole("button", { name: /Groceries/ }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(await within(dialog).findByRole("button", { name: "View in History" }));
+    await user.click(await within(dialog).findByRole("button", { name: "View in ledger activity" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" }, "activity-exact");
   });
 

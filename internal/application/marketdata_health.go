@@ -681,6 +681,22 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 	var issues []HealthIssue
 	for _, missing := range overview.MissingInputs {
 		switch missing.Kind {
+		case domain.MissingHoldingAmount:
+			id := ""
+			if missing.InstrumentID != nil {
+				id = missing.InstrumentID.String()
+			}
+			// A known quote produced an out-of-range amount. Keep this separate
+			// from quote gaps; an automatic price refresh cannot repair it.
+			issues = append(issues, HealthIssue{
+				ID:   "valuation-holding-amount-" + missing.AccountID.String() + "-" + id,
+				Kind: HealthKindIncompleteValuation, Severity: HealthSeverityBlocking,
+				GroupKey: "instrument:" + id, TargetKey: instrumentTargetKeyPtr(missing.InstrumentID),
+				Label:        domain.InstrumentDisplayLabel(missing.InstrumentName, missing.InstrumentSymbol, missing.InstrumentShortName),
+				InstrumentID: id, AccountID: missing.AccountID.String(),
+				Code: string(missing.Kind), Reason: "holding_amount_out_of_range",
+				Action: HealthActionInstrumentEditor, Executable: false,
+			})
 		case domain.MissingInstrumentPrice:
 			if missing.InstrumentID != nil {
 				if _, ok := instruments[missing.InstrumentID.String()]; ok {

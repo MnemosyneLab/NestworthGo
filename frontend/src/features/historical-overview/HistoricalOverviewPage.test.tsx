@@ -268,7 +268,7 @@ it("recovers from errors, rejects future dates and localizes the read-only label
   const user = userEvent.setup();
   read.mockRejectedValueOnce(new Error("read failed"));
   show();
-  await screen.findByText("Historical overview could not be loaded");
+  await screen.findByText("Wealth history could not be loaded");
   await user.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
   await screen.findByRole("button", { name: "Bank" });
   const count = read.mock.calls.length;
@@ -276,7 +276,7 @@ it("recovers from errors, rejects future dates and localizes the read-only label
   await screen.findByText("Choose a recorded, closed day");
   expect(read).toHaveBeenCalledTimes(count);
   await act(async () => { await i18n.changeLanguage("zh-CN"); });
-  expect(screen.getByRole("heading", { name: "历史全景" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "资产回溯" })).toBeInTheDocument();
   expect(screen.getByText("只读")).toBeInTheDocument();
   await act(async () => { await i18n.changeLanguage("zh-TW"); });
   expect(screen.getByText("唯讀")).toBeInTheDocument();
@@ -858,13 +858,33 @@ it.each(["en"])("shows applied evidence and concrete side-specific missing input
   expect(read).toHaveBeenCalledTimes(1);
 });
 
-it("uses explicit identity and ordered dates for a History navigation, keeping current capture semantics clear", async () => {
+it.each([
+  ["en", "Holding amount exceeds the supported range"],
+  ["zh-CN", "持仓金额超出支持范围"],
+  ["zh-TW", "持倉金額超出支持範圍"],
+])("renders the localized partial-holding explanation in Wealth history detail (%s)", async (locale, expected) => {
+  await i18n.changeLanguage(locale);
+  const data = result();
+  data.left.complete = false;
+  data.rows![0].left = cell(null, { complete: false, nativeAmount: null, baseAmount: null, missing: ["holding_amount"], missingDetails: [{ kind: "holding_amount", baseCurrency: "", quoteCurrency: "CNY", source: "", instrumentId: "instrument-id" }] });
+  read.mockResolvedValue(data);
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
+  await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
+  const detail = await screen.findByRole("dialog");
+  expect(detail).toHaveTextContent(i18n.t("historicalOverview.incomplete"));
+  expect(detail).toHaveTextContent(expected);
+  expect(detail).not.toHaveTextContent("historicalOverview.missing.holding_amount");
+  expect(read).toHaveBeenCalledTimes(1);
+});
+
+it("opens ledger activity with explicit identity and ordered dates", async () => {
   const data = result("2026-08-09", "2026-08-01");
   data.rows![0].accountId = "explicit-account"; data.rows![0].instrumentId = "explicit-instrument";
   read.mockResolvedValue(data); const open = vi.fn(); const client = createTestQueryClient();
   render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-09" initialContext={{ compareTo: "2026-08-01", view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider></NavigationContext.Provider>);
   await userEvent.click(await screen.findByRole("button", { name: "Bank" }));
-  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Leave panorama · View transaction history" }));
+  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Leave wealth history · View ledger activity" }));
   expect(open).toHaveBeenCalledWith({ page: "history", filters: { accountId: "explicit-account", instrumentId: "explicit-instrument", from: "2026-08-01", to: "2026-08-09" } });
   expect(read).toHaveBeenCalledTimes(1);
 });
