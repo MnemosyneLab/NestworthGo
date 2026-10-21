@@ -7,6 +7,34 @@ import (
 
 func reviewString(value string) *string { return &value }
 
+func TestReviewDailyAmountBounds(t *testing.T) {
+	spec := syntheticReviewSpec()
+	spec.Predicate = ReviewPredicateNode{All: []ReviewPredicateNode{{Leaf: &ReviewRuleLeaf{Metric: "amount", Operator: ">", Value: "1", Currency: "CNY", FXMode: "convert_on_day"}}}}
+	spec.Schedule.Timezone = "UTC"
+	rate, _ := ParseFxRate("2")
+	fx := ReviewSelectedFX{EconomicKind: "daily_reference", Quote: FXQuote{ID: NewFXQuoteID(), BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate, ObservationKind: "daily_reference", EffectiveDate: "2026-10-10"}}
+	input := ReviewDailyInput{On: "2026-10-10", InstrumentID: NewInstrumentID(), Quantity: reviewString("1"), NativeCurrency: func() *CurrencyCode { c := CurrencyCode("USD"); return &c }(), SelectedFX: map[CurrencyCode]ReviewSelectedFX{"CNY": fx}}
+	for _, tc := range []struct{ name, native, rate, reason, actual string }{
+		{"native overflow despite FX reduction", "1000000000000", "0.1", "historical_amount_unknown", ""},
+		{"converted overflow", "999999999999", "2", "historical_amount_unknown", ""},
+		{"normal conversion", "100.125", "2", "", "200.2500"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := ParseFxRate(tc.rate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fx.Quote.Rate = parsed
+			input.SelectedFX["CNY"] = fx
+			input.AmountExact = reviewString(tc.native)
+			got, err := EvaluateReviewDaily(spec, input)
+			if err != nil || len(got.Leaves) != 1 || got.Leaves[0].Reason != tc.reason || got.Leaves[0].Actual != tc.actual {
+				t.Fatalf("result=%+v err=%v", got, err)
+			}
+		})
+	}
+}
+
 func TestReviewDailyEntirePredicateUsesSameDate(t *testing.T) {
 	spec := syntheticReviewSpec()
 	bank, cny := InstrumentBankInvestmentProduct, CurrencyCode("CNY")

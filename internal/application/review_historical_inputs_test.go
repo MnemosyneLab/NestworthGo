@@ -5,9 +5,65 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
+
+func TestReviewHistoricalNativeProductAndAggregateBounds(t *testing.T) {
+	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "2")
+	f.day(t, "2026-08-02")
+	cutoff, err := domain.ReviewCivilCutoff("2026-08-01", "UTC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, cutoff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	portfolio, err := (HistoricalReplay{batch: &batch.History}).Snapshot(t.Context(), &batch.History.Origin, cutoff.Add(-time.Nanosecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	quantity, _ := domain.NewQuantity(decimal.RequireFromString("1000000000000"))
+	price, _ := domain.ParseUnitPrice("1")
+	portfolio.Holdings[0].Quantity = quantity
+	for i := range batch.History.OriginData.Components {
+		c := &batch.History.OriginData.Components[i]
+		if c.HoldingID != nil && *c.HoldingID == f.holding.ID && c.Kind == domain.HistoryOriginHoldingQuantity {
+			c.Quantity, c.UnitCost = &quantity, &price
+		}
+	}
+	batch.CostEvents[f.holding.ID] = []domain.CostBasisEvent{}
+	input, coverage, err := projectReviewHistoricalDayFromPortfolio(t.Context(), batch, "", syntheticHistoricalReviewSpec(), f.instrument.ID, "2026-08-01", cutoff, portfolio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.AmountExact != nil || !slices.Contains(coverage.Missing, "historical_amount_unknown") {
+		t.Fatalf("overflow product: %+v %+v", input, coverage)
+	}
+	// Each lot is representable; their total is not.
+	portfolio.InstrumentQuotes = nil
+	portfolio.Holdings[0].Quantity, _ = domain.NewQuantity(decimal.RequireFromString("600000000000"))
+	other := portfolio.Holdings[0]
+	other.ID = domain.NewHoldingID()
+	portfolio.Holdings = append(portfolio.Holdings, other)
+	for i := range batch.History.OriginData.Components {
+		c := &batch.History.OriginData.Components[i]
+		if c.HoldingID != nil && *c.HoldingID == f.holding.ID && c.Kind == domain.HistoryOriginHoldingQuantity {
+			c.Quantity = &other.Quantity
+		}
+	}
+	batch.History.OriginData.Components = append(batch.History.OriginData.Components, domain.HistoryOriginComponent{Kind: domain.HistoryOriginHoldingQuantity, HoldingID: &other.ID, Quantity: &other.Quantity, UnitCost: &price})
+	batch.CostEvents[other.ID] = []domain.CostBasisEvent{}
+	input, coverage, err = projectReviewHistoricalDayFromPortfolio(t.Context(), batch, "", syntheticHistoricalReviewSpec(), f.instrument.ID, "2026-08-01", cutoff, portfolio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.CostExact != nil || !slices.Contains(coverage.Missing, "historical_cost") {
+		t.Fatalf("overflow aggregate: %+v %+v", input, coverage)
+	}
+}
 
 func TestReviewHistoricalOriginBaselinePresenceAndLastEntry(t *testing.T) {
 	for _, kind := range []string{"missing", "nil-quantity", "nil-cost", "duplicate-last-cost", "unrelated-kind", "nil-holding"} {

@@ -129,8 +129,12 @@ func projectReviewHistoricalDayFromPortfolioWithQuoteSeries(ctx context.Context,
 		if quote == nil || !selection.coverageComplete {
 			coverage.Missing = append(coverage.Missing, "daily_close_missing")
 		} else {
-			exact := quantity.Mul(quote.UnitPrice.Decimal()).String()
-			input.AmountExact = &exact
+			exact, err := domain.ParseNativeAmount(quantity.Mul(quote.UnitPrice.Decimal()).String())
+			if err != nil {
+				coverage.Missing = append(coverage.Missing, "historical_amount_unknown")
+			} else {
+				input.AmountExact = &exact
+			}
 		}
 	}
 	needsCost, lookbacks, currencies := reviewRequiredInputs(spec.Predicate)
@@ -149,9 +153,14 @@ func projectReviewHistoricalDayFromPortfolioWithQuoteSeries(ctx context.Context,
 			cost = cost.Add(lot.Current.Quantity.Decimal().Mul(lot.Current.AverageUnitCost.Decimal()))
 		}
 		if known {
-			value := cost.String()
-			input.CostExact = &value
-		} else {
+			value, err := domain.ParseNativeAmount(cost.String())
+			if err == nil {
+				input.CostExact = &value
+			} else {
+				known = false
+			}
+		}
+		if !known {
 			coverage.Missing = append(coverage.Missing, "historical_cost")
 		}
 	}

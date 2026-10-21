@@ -271,6 +271,10 @@ func evaluateReviewLeaf(leaf ReviewRuleLeaf, input ReviewDailyInput, spec Review
 		if err != nil || exact.IsNegative() {
 			return item, validation(leaf.Metric, "historical monetary input is invalid")
 		}
+		if _, err := ParseNativeAmount(exact.String()); err != nil {
+			item.Reason = "historical_amount_unknown"
+			break
+		}
 		if leaf.FXMode == "native" {
 			if *input.NativeCurrency != leaf.Currency {
 				item.Reason = "currency_mismatch"
@@ -295,6 +299,10 @@ func evaluateReviewLeaf(leaf ReviewRuleLeaf, input ReviewDailyInput, spec Review
 		}
 		money, err := NewMoney(exact, leaf.Currency)
 		if err != nil {
+			if domainErr, ok := err.(*Error); ok && domainErr.Code == ErrDecimalOverflow {
+				item.Reason = "historical_amount_unknown"
+				break
+			}
 			return item, err
 		}
 		comparison := money.Amount()
