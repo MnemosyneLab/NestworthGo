@@ -9,7 +9,7 @@ import (
 )
 
 func verifyReviewSchema(ctx context.Context, query schemaQuery) error {
-	raw, err := schemaFS.ReadFile("review_schema_v19.sql")
+	raw, err := schemaFS.ReadFile("review_schema.sql")
 	if err != nil {
 		return err
 	}

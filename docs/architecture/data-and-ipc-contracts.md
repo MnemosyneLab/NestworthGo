@@ -30,27 +30,25 @@ recreate a user's database after an open failure.
 
 ## Database support and storage recovery
 
-Current `main` creates schema `22` databases and supports verified upgrades
-from schemas `15` through `21`. Each migration step verifies its input,
-publishes a flushed read-only recovery copy, then applies and verifies the
-additive migration transaction before continuing. Schema `15` starts the
-supported chain; schemas `14` and older, zero/unversioned, malformed, and
-future schemas are blocked without repair or recreation.
+Current `main` creates schema `22` databases and supports only schemas `21`
+and `22`. The single 21→22 migration verifies its input, publishes a flushed
+read-only recovery copy, then applies and verifies the additive transaction.
+Schemas 20 and older, zero/unversioned, malformed and future schemas are blocked
+without repair or recreation.
 
 | Condition | Required behavior |
 | --- | --- |
 | Database absent | Create and verify schema 22, then initialize settings |
 | Verified schema 22 | Open and verify |
-| Verified schema 15–21 | Migrate in order, retaining a verified read-only recovery copy at each step |
+| Verified schema 21 | Upgrade to 22, retaining a verified read-only recovery copy |
 | Unsupported older, zero/unversioned, malformed, or future schema | Block before business/settings writes and preserve the source |
 | Integrity or path/open failure | Block startup and preserve the source |
 
-Existing files are inspected read-only before writable open and reverified at
-each migration step. The historical v15→v16 short-name step is documented in
-the [feature migration note](../development/investment-short-names.md); it is
-one step in the current chain.
+Existing files are inspected read-only before writable open and reverified
+inside the migration transaction. Unsupported versions are rejected before
+writable open; neither financial data nor schema is reset or converted.
 
-Read-only backup inspection accepts verified schemas 15–22 without upgrading
+Read-only backup inspection accepts verified schemas 21/22 without upgrading
 the inspected source. Local packages require manifest/database schema versions
 to match. Restore validates a staged candidate before installation; normal live
 open then runs supported migrations. Cloud recovery also verifies the staged
@@ -462,7 +460,7 @@ lead-in and bounded opening-anchor fallback. Normal repair reuses fresh checks;
 force recheck remains explicit. Repair estimates may differ from actual requests
 because of batching, caches, retries, and conversion dependencies.
 
-Backup inspection validates supported v15–22 databases without modifying the
+Backup inspection validates supported 21/22 databases without modifying the
 inspected database. Local restore requires matching manifest and database
 versions; supported older copies upgrade on normal open, while the source package
 stays unchanged. Other older, unversioned, future, or invalid backup databases are rejected before

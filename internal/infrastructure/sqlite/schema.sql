@@ -775,7 +775,6 @@ CREATE TABLE agent_quote_records (
 CREATE UNIQUE INDEX ux_agent_quote_records_quote ON agent_quote_records(target_type, quote_id) WHERE quote_id IS NOT NULL;
 CREATE UNIQUE INDEX ux_agent_quote_records_target ON agent_quote_records(target_type, target_quote_id) WHERE target_quote_id IS NOT NULL;
 CREATE INDEX idx_agent_quote_records_household ON agent_quote_records(household_id, created_at, id);
-PRAGMA user_version = 16;
 
 CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
 
@@ -878,4 +877,3 @@ CREATE TRIGGER reconciliation_product_policy_update AFTER UPDATE ON liquidity_po
  UPDATE account_financial_revisions SET revision=revision+1 WHERE account_id=NEW.account_id;
  INSERT INTO reconciliation_financial_changes SELECT NEW.account_id,revision,'product_policy',NEW.id,NEW.updated_at,NEW.updated_at,json_object('accountName',(SELECT name FROM accounts WHERE id=NEW.account_id),'holdingId',NEW.holding_id,'accessKind',NEW.access_kind,'unlockOn',NEW.unlock_on,'normalExitFee',NEW.normal_exit_fee,'earlyFee',NEW.early_fee) FROM account_financial_revisions WHERE account_id=NEW.account_id;
 END;
-PRAGMA user_version = 18;

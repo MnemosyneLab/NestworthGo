@@ -13,12 +13,13 @@ func TestReconciliationProductValuationPreservesChecksInFreshAndUpgradedSchemas(
 	for _, upgraded := range []bool{false, true} {
 		name := "fresh"
 		if upgraded {
-			name = "v16-upgrade"
+			name = "v21-upgrade"
 		}
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "synthetic.db")
 			if upgraded {
-				path = syntheticV16(t)
+				old := syntheticV21(t, path)
+				old.Close()
 			}
 			db, err := Open(path)
 			if err != nil {

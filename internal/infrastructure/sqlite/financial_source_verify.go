@@ -21,7 +21,7 @@ func verifyFinancialSourceTrackingState(ctx context.Context, q schemaQuery, veri
 	if recursive != 1 {
 		return fmt.Errorf("financial source recursive triggers disabled")
 	}
-	raw, err := schemaFS.ReadFile("source_changes_schema_v20.sql")
+	raw, err := schemaFS.ReadFile("source_changes_schema.sql")
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func verifyFinancialSourceTrackingState(ctx context.Context, q schemaQuery, veri
 			return err
 		}
 		for name, statement := range financialTriggerStatements() {
-			if schemaVersion < 22 && strings.HasPrefix(name, "financial_source_agent_instrument_closures_") {
+			if schemaVersion == 21 && strings.HasPrefix(name, "financial_source_agent_instrument_closures_") {
 				continue
 			}
 			expected[name] = statement

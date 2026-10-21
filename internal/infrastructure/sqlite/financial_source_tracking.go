@@ -188,7 +188,7 @@ END`, financialJournalRetain, financialJournalPruneEvery, financialJournalRetain
 	return result
 }
 func installFinancialSourceTracking(ctx context.Context, tx *sql.Tx) error {
-	raw, err := schemaFS.ReadFile("source_changes_schema_v20.sql")
+	raw, err := schemaFS.ReadFile("source_changes_schema.sql")
 	if err != nil {
 		return err
 	}

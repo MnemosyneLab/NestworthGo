@@ -1187,7 +1187,7 @@ export const additionsEn = {
     unavailableTitle: "Local database unavailable",
     unavailableDescription: "Nestworth could not open the local database.",
     unavailableGuidance: "Check file permissions and available disk space, then reload. Restore from a backup if the file cannot be opened.",
-    schemaVersion: "Found schema {{found}}; this application supports schema {{supported}}.",
+    schemaVersion: "Found schema {{found}}; supported schemas are 21 and 22 (current: {{supported}}).",
   },
 };
 
@@ -2355,7 +2355,7 @@ export const additionsZhCN = {
     unavailableTitle: "本地数据库不可用",
     unavailableDescription: "Nestworth 无法打开本地数据库。",
     unavailableGuidance: "请检查文件权限和磁盘空间，然后重新加载。如果仍无法打开，请从备份恢复。",
-    schemaVersion: "发现 schema {{found}}；此应用支持 schema {{supported}}。",
+    schemaVersion: "发现 schema {{found}}；仅支持 schema 21 和 22（当前：{{supported}}）。",
   },
 };
 
@@ -3523,6 +3523,6 @@ export const additionsZhTW = {
     unavailableTitle: "本機資料庫無法使用",
     unavailableDescription: "Nestworth 無法開啟本機資料庫。",
     unavailableGuidance: "請檢查檔案權限和磁碟空間，然後重新載入。如果仍無法開啟，請從備份還原。",
-    schemaVersion: "發現 schema {{found}}；此應用程式支援 schema {{supported}}。",
+    schemaVersion: "發現 schema {{found}}；僅支援 schema 21 和 22（目前：{{supported}}）。",
   },
 };

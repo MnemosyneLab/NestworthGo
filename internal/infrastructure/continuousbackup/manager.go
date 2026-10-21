@@ -459,6 +459,9 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 	if identityErr != nil {
 		os.RemoveAll(dir)
 		m.setStatus(func(s *status) { s.RestoreState = "error" })
+		if errors.Is(identityErr, errUnsupportedSchema) {
+			return Candidate{}, errUnsupportedSchema
+		}
 		return Candidate{}, ErrUnavailable
 	}
 	if err := restorePoint(stageCtx, m.factory(c), p, destination); err != nil {

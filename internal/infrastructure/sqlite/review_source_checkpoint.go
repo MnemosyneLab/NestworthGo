@@ -8,16 +8,9 @@ import (
 )
 
 // The caller owns the SAME transaction as the full financial capture/recheck.
-// Older verified readonly snapshots have no C1 checkpoint; they retain their
-// existing full-source behavior and cannot establish a shadow equivalence.
+// Missing or unknown metadata in supported snapshots retains full-source
+// behavior and cannot establish a shadow equivalence.
 func readReviewSourceCheckpoint(ctx context.Context, q schemaQuery, id domain.HouseholdID, resolver string) (*domain.ReviewSourceCheckpoint, error) {
-	var version int
-	if err := q.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil {
-		return nil, err
-	}
-	if version < 20 {
-		return nil, nil
-	}
 	checkpoint := &domain.ReviewSourceCheckpoint{Token: domain.SourceRevisionToken{HouseholdID: id, ResolverPolicyVersion: resolver, EvaluatorVersion: domain.ReviewEvaluator, MetricPolicyVersion: domain.ReviewMetricPolicyVersion}}
 	err := q.QueryRowContext(ctx, `SELECT revision,journal_floor,tracking_epoch,tracking_version FROM financial_source_revision WHERE household_id=?`, id.String()).Scan(&checkpoint.Token.Revision, &checkpoint.JournalFloor, &checkpoint.Token.Epoch, &checkpoint.Token.TrackingVersion)
 	if err == sql.ErrNoRows {

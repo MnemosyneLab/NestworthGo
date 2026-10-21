@@ -50,13 +50,11 @@ change.
 
 Schema 19 tables hold daily rule definitions, immutable condition versions,
 evaluation inputs/results, episodes, events, suppressions and mutation receipts.
-Historical migration files and schema verification remain intact. The v18-to-v19
-upgrade preserves its existing behavior: it stores the original V1 preference
-JSON and hash in archival migration state, keeps malformed/orphaned keys in
-quarantine, and creates a migration-only `legacy_v1` compatibility rule for
-valid preferences. Active V2 queries select daily rules only; the old settings
-reader remains read-only for recovery. The verified recovery copy remains part
-of the upgrade. No schema or ledger data is changed by this cleanup.
+Supported schemas 21/22 may contain original V1 preference JSON and hashes in
+archival state, malformed/orphaned keys in quarantine, and `legacy_v1` rules.
+These immutable records remain valid supported data. Active V2 queries select
+daily rules only; the old settings reader remains read-only for recovery.
+Pre21 SQLite migrations are no longer supported.
 
 ## Validation references
 
@@ -477,15 +475,18 @@ Observations strip Go's monotonic clock component before comparison, so a still-
 
 ## Schema21 and recovery
 
-Only `review_temporal_checkpoints` is added. Verified v20 gets a flushed, verified, read-only `.nestworth-v20-recovery-*/original-v20.sqlite` before atomic upgrade. No financial facts/history are backfilled. Existing complete projections become pending for revalidation. Verified older readonly snapshots stay readable without migration. Startup verifies exact table definition and checkpoint structure. Unknown nonempty policy versions cannot establish reuse and are replaced by full publication.
+Both supported schemas contain `review_temporal_checkpoints`. Startup verifies
+its exact definition and checkpoint structure. Unknown nonempty policy versions
+cannot establish reuse and are replaced by full publication. Schema21→22 adds
+closure facts without replaying financial history and retains a verified
+read-only recovery copy before mutation.
 
 Complete SQLite snapshots preserve certificates consistently. Restore retains diagnostic metadata while rotating the live source epoch before resume, invalidating its source binding. Checkpoint writes are derived/excluded from C1 and cannot feed back into source revision. JSON v2 export excludes them. Algorithm rollback retains schema21/full recomputation; an older binary requires the verified pre-upgrade copy, which lacks later financial writes and must not automatically overwrite live data.
 
 ### Source journal retention and recovery
 
-Schema20 upgrades verified schema19 through the established flushed, verified,
-read-only recovery-copy protocol. Existing financial facts are unchanged; the
-initial empty journal is not a historical completeness proof. Each changed source
+Both supported schemas retain the financial source journal. An initial empty
+journal is not a historical completeness proof. Each changed source
 row advances its revision and journal atomically with its business transaction.
 At multiples of 256 revisions above 4096, retention advances the floor to at
 least revision minus 4096 and deletes the covered prefix atomically. It retains

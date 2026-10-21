@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -87,14 +86,7 @@ func (r *Repository) ListLiquidityReservations(ctx context.Context, householdID 
 }
 
 func listProductContractsQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.ProductContract, error) {
-	var version int
-	if err := query.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
-		return nil, err
-	}
 	statement := productContractSelect
-	if version == 15 {
-		statement = strings.Replace(statement, productShortNameSelect, "''", 1)
-	}
 	rows, err := query.QueryContext(ctx, statement+` WHERE household_id = ? ORDER BY created_at, id`, householdID.String())
 	if err != nil {
 		return nil, err

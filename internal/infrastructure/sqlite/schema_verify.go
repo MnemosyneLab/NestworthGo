@@ -50,6 +50,9 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 }
 
 func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion int) error {
+	if !SupportsSchemaVersion(expectedVersion) {
+		return fmt.Errorf("unsupported database schema %d; supported versions are 21 and 22", expectedVersion)
+	}
 	var version int
 	if err := query.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
@@ -72,25 +75,17 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 		return fmt.Errorf("integrity check returned %q", integrity)
 	}
 
-	if expectedVersion >= 17 {
-		if err := verifyReconciliationSchema(ctx, query, expectedVersion); err != nil {
-			return err
-		}
+	if err := verifyReconciliationSchema(ctx, query); err != nil {
+		return err
 	}
-	if expectedVersion >= 19 {
-		if err := verifyReviewSchema(ctx, query); err != nil {
-			return err
-		}
+	if err := verifyReviewSchema(ctx, query); err != nil {
+		return err
 	}
-	if expectedVersion >= 20 {
-		if err := verifyFinancialSourceTracking(ctx, query); err != nil {
-			return err
-		}
+	if err := verifyFinancialSourceTracking(ctx, query); err != nil {
+		return err
 	}
-	if expectedVersion >= 21 {
-		if err := verifyReviewTemporalSchema(ctx, query); err != nil {
-			return err
-		}
+	if err := verifyReviewTemporalSchema(ctx, query); err != nil {
+		return err
 	}
 	if expectedVersion >= 22 {
 		if err := verifyAgentClosureSchema(ctx, query); err != nil {
@@ -98,15 +93,7 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 		}
 	}
 	tables := expectedSchemaTables()
-	if expectedVersion == 15 {
-		columns := []schemaColumn{}
-		for _, column := range tables["instruments"] {
-			if column.name != "short_name" {
-				columns = append(columns, column)
-			}
-		}
-		tables["instruments"] = columns
-	}
+
 	tableNames := make([]string, 0, len(tables))
 	for name := range tables {
 		tableNames = append(tableNames, name)

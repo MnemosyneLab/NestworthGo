@@ -129,14 +129,12 @@ with `python3 tools/package-nestworth-skill.py`; no skill is installed by a buil
 
 ## Database support
 
-The app creates new databases with SQLite schema 16. Existing v16 databases
-must pass verification; verified v15 databases receive the single supported
-additive upgrade, adding an empty instrument short-name column after retaining
-a verified read-only v15 recovery copy. This is not a general migration chain.
-The schema-11 database from v0.3.4, other older or unversioned schemas, future
-schemas, and malformed v15/v16 databases remain blocked. Preserve the original
-database and backup. Restore accepts verified v15/v16 backups with matching
-manifest and database versions; inspection leaves the source unchanged, and
-an installed v15 copy upgrades on normal open. See the
-[narrow storage upgrade](docs/development/investment-short-names.md#narrow-storage-upgrade). JSON export is a structured external copy, not a
-restorable backup. CSV import and export are no longer available.
+The app creates schema 22 databases and supports only SQLite schemas 21 and 22.
+Writable open verifies schema 21, retains a flushed read-only recovery copy,
+and upgrades it atomically to 22. Read-only inspection and file/continuous
+backup restore accept verified 21/22 sources; metadata must match the database.
+Older, unversioned, future and malformed databases are rejected without repair
+or recreation. Preserve the original database and backup. See
+[storage recovery](docs/architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery).
+JSON export formats are independent of SQLite schema versions and are not
+restorable backups. CSV import and export are no longer available.

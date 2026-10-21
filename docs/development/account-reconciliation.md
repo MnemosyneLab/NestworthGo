@@ -118,17 +118,11 @@ existing guarded services and financial invariants. Saving a correction leaves
 its check pending. All scope/ownership and managed-position guards remain on the
 backend. Financial mutations and evidence receipts are never best-effort paired.
 
-## Schema 18, backup and export
+## Storage, backup and export
 
-Schema 17 adds reconciliation session/account/item/link/receipt, financial
-revision and recorded-change tables, indexes and revision triggers. New-database
-DDL and the additive migration have equivalent verified definitions. v16 is
-verified before a flushed, verified, read-only recovery copy is retained. DDL and
-version advance in one transaction, followed by full verification. Existing v15
-uses its original verified v15 → v16 step and then v16 → v17 → v18. Recovery copies
-cannot be opened as writable live files; restore a copy to a new path.
-
-Read-only inspection accepts verified v15–v22 without upgrading the source.
+Reconciliation tables, indexes, revision triggers and evidence remain required
+in both supported schemas 21/22. Read-only inspection verifies either version
+without upgrading the source.
 Normal live open upgrades a restored copy. Unsupported versions, missing current
 structures and malformed facts remain blocked. Backup containers and continuous
 backup stream identity retain these exact compatibility boundaries. JSON export
@@ -176,13 +170,8 @@ separate from Linux server-tag builds, jsdom tests and generated bindings.
 
 ## Approved reconciliation follow-up
 
-The v17 → v18 migration verifies the old DDL, publishes a flushed verified
-read-only v17 recovery copy, then adds closing_note and replaces the product
-revision triggers in one verified transaction. Fresh DDL and both upgrade paths
-share the same final definitions. An unfinished v17 note is an opening note.
-A completed v17 note was a closing explanation: migration moves it to closing_note.
-An overwritten legacy opening note cannot be reconstructed. Existing receipts
-remain original historical outcomes.
+Opening and closing notes remain distinct stored fields. Existing receipts
+remain original historical outcomes; overwritten old notes cannot be reconstructed.
 
 Actual OLD/NEW economic values drive revisions: principal, currency, state,
 dates, interest and product access/fee terms matter. Name, note, updated_at,

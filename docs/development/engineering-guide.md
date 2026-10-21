@@ -132,12 +132,12 @@ date semantics, interaction conventions, enforced boundaries and exceptions.
 
 The current SQLite schema is verified before business writes. Startup enables
 foreign keys and checks structural integrity. New databases use schema 22.
-Verified v15–21 databases receive additive upgrades in order: short names (16),
-reconciliation (17), reconciliation evidence/revisions (18), investment review
-(19), shadow financial source revision/journal metadata (20), and temporal
-review publication checkpoints (21), and per-instrument Agent closure facts (22). Each step
-retains a verified read-only recovery copy. Schema20 keeps the full financial
-fingerprint/recheck algorithm authoritative; see the
+Only verified schemas 21 and 22 are supported. Schema21 receives the additive
+per-instrument Agent closure facts upgrade to 22 after a verified, flushed,
+read-only recovery copy is retained. Older, unversioned and future databases
+are rejected before writable open. Required reconciliation, review and source
+tracking definitions remain part of fresh schema22 bootstrap. The full financial
+fingerprint/recheck algorithm stays authoritative; see the
 [source tracking contract](../design/investment-review.md#financial-source-tracking-maintenance).
 
 ### Review source and publication integrity
@@ -165,7 +165,7 @@ status and remaining performance acceptance limits are maintained in the
 
 ### Storage compatibility
 
-See [database support and storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery) for the current schema, supported historical versions, migration order, recovery-copy guarantees, and blocked database states. Missing current tables and old constraints fail verification rather than being repaired. The [short-name release note](investment-short-names.md) records only the historical v15→v16 feature migration. Durable settings and
+See [database support and storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery) for the current schema, supported historical versions, migration order, recovery-copy guarantees, and blocked database states. Missing current tables and old constraints fail verification rather than being repaired. Durable settings and
 provider credentials live in SQLite; the separate versioned JSON file stores
 presentation preferences.
 

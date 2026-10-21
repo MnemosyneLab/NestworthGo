@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -15,10 +14,12 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+
+	"github.com/waltwang/nestworth-go/internal/testutil"
 )
 
 func TestUnsupportedBackupSchemasNeverReplaceLiveDatabase(t *testing.T) {
-	for _, version := range []int{14, sqlite.CurrentSchemaVersion + 1} {
+	for _, version := range []int{20, sqlite.CurrentSchemaVersion + 1} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			dir := t.TempDir()
 			source := filepath.Join(dir, "source.db")
@@ -39,6 +40,11 @@ func TestUnsupportedBackupSchemasNeverReplaceLiveDatabase(t *testing.T) {
 			config := []byte(`{"schema_version":1}`)
 			pkg := Package{Manifest: NewManifest(time.Now(), data, config, sqlite.EntityCounts{}), Database: data, Settings: config}
 			pkg.Manifest.SchemaVersion = version
+			rejectedOutput := filepath.Join(dir, "rejected.nestworth-backup")
+			assertUnsupportedSchema(t, WritePackage(rejectedOutput, pkg))
+			if _, err := os.Stat(rejectedOutput); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("unsupported creation wrote a package")
+			}
 			archive := filepath.Join(dir, "unsupported.nestworth-backup")
 			file, err := os.Create(archive)
 			if err != nil {
@@ -118,73 +124,9 @@ func assertUnsupportedSchema(t *testing.T, err error) {
 	}
 }
 
-func TestV15PackageRestoreUpgradesAndKeepsOriginalPackage(t *testing.T) {
-	dir := t.TempDir()
-	source := filepath.Join(dir, "synthetic-v15.sqlite")
-	schema, err := os.ReadFile("../sqlite/testdata/schema_v15.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	seed, err := sql.Open("sqlite", source+"?_pragma=foreign_keys%3d1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := seed.Exec(string(schema)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := seed.Exec(`INSERT INTO households VALUES('00000000-0000-4000-8000-000000000001',1,'Synthetic','USD','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z');
- INSERT INTO instruments(id,household_id,name,instrument_type,quote_currency,symbol,icon_key,created_at,updated_at)
- VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','Full identity','mutual_fund','USD','000001','chart-line','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z');`); err != nil {
-		t.Fatal(err)
-	}
-	seed.Close()
-	database, err := os.ReadFile(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := []byte(`{"schema_version":1}`)
-	pkg := Package{Manifest: NewManifest(time.Now(), database, config, sqlite.EntityCounts{Households: 1, Instruments: 1}), Database: database, Settings: config}
-	pkg.Manifest.SchemaVersion = 15
-	archive := filepath.Join(dir, "v15.nestworth-backup")
-	if err := WritePackage(archive, pkg); err != nil {
-		t.Fatal(err)
-	}
-	before, err := os.ReadFile(archive)
-	if err != nil {
-		t.Fatal(err)
-	}
-	read, err := ReadPackage(archive)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dest := filepath.Join(dir, "restored.sqlite")
-	if err := InstallRestore(context.Background(), dest, read, nil, RestoreClasses{}, time.Now()); err != nil {
-		t.Fatal(err)
-	}
-	if err := ReconcileOnStartup(dest, nil); err != nil {
-		t.Fatal(err)
-	}
-	restored, err := sqlite.Open(dest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer restored.Close()
-	var name, symbol, alias string
-	if err := restored.SQL.QueryRow(`SELECT name,symbol,short_name FROM instruments`).Scan(&name, &symbol, &alias); err != nil || name != "Full identity" || symbol != "000001" || alias != "" {
-		t.Fatalf("identity %q %q %q: %v", name, symbol, alias, err)
-	}
-	after, err := os.ReadFile(archive)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatal("restore changed old backup package")
-	}
-}
-
 func TestSupportedManifestVersionMustMatchDatabase(t *testing.T) {
 	dir := t.TempDir()
-	source := filepath.Join(dir, "v16.sqlite")
+	source := filepath.Join(dir, "v22.sqlite")
 	db, err := sqlite.Open(source)
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +138,7 @@ func TestSupportedManifestVersionMustMatchDatabase(t *testing.T) {
 	}
 	config := []byte(`{}`)
 	pkg := Package{Manifest: NewManifest(time.Now(), data, config, sqlite.EntityCounts{}), Database: data, Settings: config}
-	pkg.Manifest.SchemaVersion = 15
+	pkg.Manifest.SchemaVersion = 21
 	dest := filepath.Join(dir, "live.sqlite")
 	err = InstallRestore(context.Background(), dest, pkg, nil, RestoreClasses{}, time.Now())
 	var failure *domain.Error
@@ -205,5 +147,59 @@ func TestSupportedManifestVersionMustMatchDatabase(t *testing.T) {
 	}
 	if _, err := os.Stat(dest); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("mismatched package was installed")
+	}
+}
+
+func TestSupportedPackageRestorePreservesSource(t *testing.T) {
+	for _, version := range []int{21, 22} {
+		t.Run(fmt.Sprint(version), func(t *testing.T) {
+			dir := t.TempDir()
+			source := filepath.Join(dir, "source.db")
+			db, err := sqlite.Open(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if version == 21 {
+				testutil.Schema21(t, db.SQL)
+			}
+			db.Close()
+			data, err := os.ReadFile(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			config := []byte(`{"schema_version":1}`)
+			pkg := Package{Manifest: NewManifest(time.Now(), data, config, sqlite.EntityCounts{}), Database: data, Settings: config}
+			if pkg.Manifest.SchemaVersion != version {
+				t.Fatal("manifest mislabeled supported source")
+			}
+			archive := filepath.Join(dir, "supported.nestworth-backup")
+			if err := WritePackage(archive, pkg); err != nil {
+				t.Fatal(err)
+			}
+			before, _ := os.ReadFile(archive)
+			read, err := ReadPackage(archive)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dest := filepath.Join(dir, "restored.db")
+			if err := InstallRestore(t.Context(), dest, read, nil, RestoreClasses{}, time.Now()); err != nil {
+				t.Fatal(err)
+			}
+			if err := ReconcileOnStartup(dest, nil); err != nil {
+				t.Fatal(err)
+			}
+			restored, err := sqlite.Open(dest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer restored.Close()
+			if err := restored.Verify(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			after, _ := os.ReadFile(archive)
+			if !bytes.Equal(before, after) {
+				t.Fatal("source archive changed")
+			}
+		})
 	}
 }

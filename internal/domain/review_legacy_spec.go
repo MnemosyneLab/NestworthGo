@@ -17,7 +17,7 @@ import (
 const ReviewLegacyEvaluator = "legacy_v1"
 
 // InvestmentReviewPolicy is retained only to validate historical v1 preference
-// JSON while the v18 upgrade stores its original bytes in the recovery tables.
+// JSON retained in immutable recovery records inside supported schema21/22.
 type InvestmentReviewPolicy struct {
 	Enabled              bool   `json:"enabled"`
 	WindowDays           int    `json:"windowDays"`
@@ -107,7 +107,7 @@ func DecodeReviewLegacyConfiguration(raw []byte) (ReviewLegacyConfiguration, err
 }
 
 // DecodeReviewLegacySpec remains available to the read-only settings recovery
-// path for rules imported by the schema-v19 migration.
+// path for existing legacy_v1 rules in supported schema21/22 databases.
 func DecodeReviewLegacySpec(raw []byte) (ReviewLegacySpec, error) {
 	var value ReviewLegacySpec
 	decoder := jsoncodec.NewDecoder(bytes.NewReader(raw))

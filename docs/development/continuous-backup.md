@@ -8,10 +8,8 @@ remain in the [v0.3.6 contract](../releases/v0.3.6.md); current package acceptan
 
 The backend embeds `github.com/benbjohnson/litestream` at v0.5.17 behind
 `internal/infrastructure/continuousbackup`. The SQLite driver rises from
-modernc v1.44.3 to v1.49.1 to match the library. That feature shipped on schema
-15 without adding business migrations. Current main uses schema 22 with verified additive upgrades from v15 through
-v21. The [narrow investment short-name migration](investment-short-names.md#narrow-storage-upgrade)
-adds only its stated v15/v16 recovery and compatibility guarantees.
+modernc v1.44.3 to v1.49.1 to match the library. Current main supports only
+schemas 21 and 22; a restored schema21 copy upgrades to 22 on writable open.
 Litestream itself creates `_litestream_seq` and
 `_litestream_lock` bookkeeping tables. Current Nestworth schema verification
 still verifies all required tables, constraints, indexes, integrity and foreign
@@ -97,7 +95,7 @@ TLS mode. R2 uses a validated account ID to construct its HTTPS endpoint,
 region `auto`, explicit static credentials and normal TLS verification.
 
 Cloud inspection downloads to a private temporary directory, validates the
-supported v15–22 schemas nondestructively, requires its version to match the
+supported 21/22 schemas nondestructively, requires its version to match the
 stream identity, and creates a temporary local package
 for the existing token-based restore preview. Empty/not-found and incompatible
 candidates are errors. Installation requires typed `RESTORE` plus acknowledgment
@@ -127,7 +125,7 @@ bucket, stable BackupID and exact stream UUID. Existing remote identities are
 not adopted into the ledger. Legacy, foreign, unknown and crash-abandoned
 streams remain protected. The current stream and the newest two sealed streams
 are protected. On each scan those two streams must actually restore to private
-temporary databases and pass supported v15–22 schema, integrity and foreign-key
+temporary databases and pass supported 21/22 schema, integrity and foreign-key
 verification. If either fails, cleanup is skipped; an older unverified stream
 is never substituted. Temporary verification files are removed on completion,
 failure or cancellation. Verification honors cancellation without weakening

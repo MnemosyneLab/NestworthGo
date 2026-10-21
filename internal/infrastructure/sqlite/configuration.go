@@ -15,25 +15,19 @@ func (r *ConfigurationRepository) LoadConfiguration(key string) ([]byte, bool, e
 		return nil, false, sql.ErrConnDone
 	}
 	if householdID, ok := legacyReviewHousehold(key); ok {
-		var schema int
-		if err := r.database.SQL.QueryRow("PRAGMA user_version").Scan(&schema); err != nil {
-			return nil, false, err
+		if data, found, err := r.loadLegacyReviewConfiguration(householdID); err != nil || found {
+			return data, found, err
 		}
-		if schema >= 19 {
-			if data, found, err := r.loadLegacyReviewConfiguration(householdID); err != nil || found {
-				return data, found, err
-			}
-			var status string
-			err := r.database.SQL.QueryRow(`SELECT status FROM investment_review_legacy_state WHERE household_id=?`, householdID.String()).Scan(&status)
-			if err == nil && status == "compatible" {
-				return nil, false, errors.New("legacy review rule missing after migration")
-			}
-			if err == nil && status == "needs_repair" {
-				return nil, false, errors.New("legacy investment review settings need repair")
-			}
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, false, err
-			}
+		var status string
+		err := r.database.SQL.QueryRow(`SELECT status FROM investment_review_legacy_state WHERE household_id=?`, householdID.String()).Scan(&status)
+		if err == nil && status == "compatible" {
+			return nil, false, errors.New("legacy review rule missing after migration")
+		}
+		if err == nil && status == "needs_repair" {
+			return nil, false, errors.New("legacy investment review settings need repair")
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, false, err
 		}
 	}
 	var data []byte

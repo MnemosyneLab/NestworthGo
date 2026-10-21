@@ -3,7 +3,7 @@
 > Historical implementation notes below record the feature rollout before the
 > cleanup on 2026-10-18. The active runtime now exposes V2 daily rules only. V1
 > panels, conversion, app APIs, MCP tools and batch tools are retired. The
-> existing v18-to-v19 migration is unchanged: it preserves preference bytes,
+> supported schemas 21/22 preserve existing legacy preference bytes,
 > quarantine records and migration-only `legacy_v1` compatibility rules. V2
 > queries expose daily rules only; the old settings reader remains read-only.
 
@@ -30,12 +30,10 @@ existing PR98 worktree and retains its earlier implementation.
   backfill a historical day. FX references and observed quotes retain their
   distinct date admission rules. Position epochs and T/U/F transitions
   preserve an acknowledged episode across U and resolve it on proven F.
-- Schema 19 with a verified, flushed schema-18 recovery copy before upgrade;
-  explicit 15–19 verification and full-backup compatibility. Historical v1
-  preference JSON remains byte-for-byte preserved in migration state with its
-  hash; malformed/orphaned values remain quarantined. Valid v1 values continue
-  to produce migration-only compatibility rules, hidden from V2 reads. The
-  settings recovery reader is retained and no V1 preference writer remains.
+- Only schemas 21/22 are supported. Historical v1 preference JSON remains
+  byte-for-byte preserved with its hash; malformed/orphaned values remain
+  quarantined. Existing `legacy_v1` rules stay hidden from V2 reads. The settings
+  recovery reader is retained and no V1 preference writer remains.
   Publication stages outside the write transaction, rechecks the
   authoritative source fingerprint, and commits days, states and episodes
   atomically with mutation receipts and same-day idempotence.
