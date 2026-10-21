@@ -33,7 +33,8 @@ it("replaces real provisional segments on NAV revision, removing old values/date
   ]);
   const model = chart as unknown as { getModel(): { getSeriesByIndex(index: number): { getData(): { get(dimension: string, index: number): number } }; getSeries(): unknown[] } };
   expect(model.getModel().getSeries()).toHaveLength(1);
-  expect(Number.isNaN(model.getModel().getSeriesByIndex(0).getData().get("y", 1))).toBe(true);
+  // getOption changes before lazyUpdate finishes the real data pipeline.
+  await waitFor(() => expect(Number.isNaN(model.getModel().getSeriesByIndex(0).getData().get("y", 1))).toBe(true));
 });
 it("replaces dynamic series while preserving user zoom and legend state on the same chart", async () => {
   const option: EChartsOption = { animation: false, legend: {}, xAxis: { type: "category", data: ["A", "B", "C"] }, yAxis: {},
