@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/version"
@@ -20,6 +21,8 @@ import (
 
 const identityFile = "stream.json"
 const maxIdentityBytes = 16 << 10
+
+var errUnsupportedSchema = &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup database schema; supported versions are 21 and 22; source unchanged"}
 
 type streamIdentity struct {
 	Format     int    `json:"format"`
@@ -40,11 +43,14 @@ func readIdentity(r io.Reader, stream string) (streamIdentity, error) {
 	if err != nil || len(data) > maxIdentityBytes || jsoncodec.Unmarshal(data, &info) != nil {
 		return info, ErrUnavailable
 	}
-	if info.Format != 1 || info.AppID != version.AppID || (info.Schema != sqlite.CurrentSchemaVersion && info.Schema != 15 && info.Schema != 16 && info.Schema != 17 && info.Schema != 18) || info.StreamID != stream || !validStream(stream) || info.AppVersion == "" || info.AppBuild == "" {
+	if info.Format != 1 || info.AppID != version.AppID || info.StreamID != stream || !validStream(stream) || info.AppVersion == "" || info.AppBuild == "" {
 		return info, ErrUnavailable
 	}
 	if _, err := time.Parse(time.RFC3339Nano, info.StartedAt); err != nil {
 		return info, ErrUnavailable
+	}
+	if !sqlite.SupportsSchemaVersion(info.Schema) {
+		return info, errUnsupportedSchema
 	}
 	return info, nil
 }

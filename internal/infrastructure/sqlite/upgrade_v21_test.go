@@ -1,25 +1,18 @@
 package sqlite
 
 import (
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/testutil"
 )
 
 func TestV21ClosureUpgradePreservesRecoveryAndTracksFacts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "synthetic-v21.db")
-	old := syntheticV20(t, path)
-	tx, err := old.BeginTx(t.Context(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = applyV20Upgrade(t.Context(), tx); err != nil {
-		t.Fatal(err)
-	}
-	if err = tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
+	old := syntheticV21(t, path)
 	old.Close()
 	upgraded, err := Open(path)
 	if err != nil {
@@ -63,24 +56,27 @@ func TestV21ClosureUpgradePreservesRecoveryAndTracksFacts(t *testing.T) {
 }
 func TestV21ClosureUpgradeStopsAfterRecoveryFlushFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "synthetic-v21.db")
-	old := syntheticV20(t, path)
+	old := syntheticV21(t, path)
 	defer old.Close()
-	tx, err := old.BeginTx(t.Context(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = applyV20Upgrade(t.Context(), tx); err != nil {
-		t.Fatal(err)
-	}
-	if err = tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
 	failure := errors.New("synthetic fsync failure")
-	if _, err = prepareV21Recovery(t.Context(), old, path, func(*os.File) error { return failure }, syncV21UpgradeDir); !errors.Is(err, failure) {
+	if _, err := prepareV21Recovery(t.Context(), old, path, func(*os.File) error { return failure }, syncV21UpgradeDir); !errors.Is(err, failure) {
 		t.Fatal(err)
 	}
 	var version int
-	if err = old.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 21 {
+	if err := old.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 21 {
 		t.Fatal("upgrade ran before recovery")
 	}
+}
+
+func syntheticV21(t *testing.T, path string) *sql.DB {
+	t.Helper()
+	current, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Schema21(t, current.SQL)
+	if err := verifySchemaVersion(t.Context(), current.SQL, 21); err != nil {
+		t.Fatal(err)
+	}
+	return current.SQL
 }

@@ -20,6 +20,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	appversion "github.com/waltwang/nestworth-go/internal/version"
+
+	"github.com/waltwang/nestworth-go/internal/testutil"
 )
 
 func fixture(t *testing.T) (*Manager, *sqlite.DB, string) {
@@ -487,7 +489,7 @@ func TestTargetSwapClearsOldEvidenceAndUnavailableSaveKeepsCredentials(t *testin
 	}
 }
 func TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement(t *testing.T) {
-	for _, version := range []int{14, 15} {
+	for _, version := range []int{20, 23} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			m, db, _ := fixture(t)
 			if _, err := db.SQL.Exec(fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
@@ -885,11 +887,13 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 	if strings.Contains(string(original), "local-test-access") || strings.Contains(string(original), "local-test-secret") {
 		t.Fatal("identity contains credential")
 	}
-	for _, kind := range []string{"other-app", "future-schema", "wrong-stream"} {
+	for _, kind := range []string{"other-app", "old-schema", "future-schema", "wrong-stream"} {
 		invalid := info
 		switch kind {
 		case "other-app":
 			invalid.AppID = "other.app"
+		case "old-schema":
+			invalid.Schema = 20
 		case "future-schema":
 			invalid.Schema = sqlite.CurrentSchemaVersion + 1
 		case "wrong-stream":
@@ -901,6 +905,8 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 		}
 		if _, err := m.Stage(ctx, points[0]); err == nil {
 			t.Fatalf("accepted %s", kind)
+		} else if (kind == "old-schema" || kind == "future-schema") && !errors.Is(err, errUnsupportedSchema) {
+			t.Fatalf("schema rejection lost actionable error: %v", err)
 		}
 		if err := db.Verify(ctx); err != nil {
 			t.Fatal("failed identity changed local database")
@@ -921,64 +927,10 @@ func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
 	}
 }
 
-func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *testing.T) {
+func TestCloudSchema21StageAndRestorePreserveSource(t *testing.T) {
 	m, db, root := fixture(t)
 	ctx := context.Background()
-	rows, err := db.SQL.Query("SELECT name FROM sqlite_master WHERE type='trigger' AND (name LIKE 'reconciliation_%' OR substr(name,1,length('financial_source_'))='financial_source_')")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var triggers []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			t.Fatal(err)
-		}
-		triggers = append(triggers, name)
-	}
-	rows.Close()
-	for _, name := range triggers {
-		if _, err := db.SQL.Exec("DROP TRIGGER " + name); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, name := range []string{"agent_instrument_closures", "review_temporal_checkpoints", "financial_source_changes", "financial_source_revision", "reconciliation_financial_changes", "reconciliation_links", "reconciliation_receipts", "reconciliation_items", "reconciliation_accounts", "reconciliation_sessions", "account_financial_revisions"} {
-		if _, err := db.SQL.Exec("DROP TABLE " + name); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// This synthetic fixture starts as current schema and is manually reduced
-	// to v15. Remove v19-only review tables before exercising the upgrade chain.
-	if _, err := db.SQL.Exec(`PRAGMA foreign_keys=OFF`); err != nil {
-		t.Fatal(err)
-	}
-	reviewRows, err := db.SQL.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'investment_review_%'`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var reviewTables []string
-	for reviewRows.Next() {
-		var name string
-		if err := reviewRows.Scan(&name); err != nil {
-			t.Fatal(err)
-		}
-		reviewTables = append(reviewTables, name)
-	}
-	if err := reviewRows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	reviewRows.Close()
-	for _, name := range reviewTables {
-		if _, err := db.SQL.Exec(`DROP TABLE "` + name + `"`); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, err := db.SQL.Exec(`PRAGMA foreign_keys=ON`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.SQL.Exec(`ALTER TABLE instruments DROP COLUMN short_name; PRAGMA user_version=15`); err != nil {
-		t.Fatal(err)
-	}
+	testutil.Schema21(t, db.SQL)
 	if err := m.Configure(ctx, testUpdate(true)); err != nil {
 		t.Fatal(err)
 	}
@@ -992,7 +944,7 @@ func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *tes
 	if err := jsoncodec.Unmarshal(data, &info); err != nil {
 		t.Fatal(err)
 	}
-	info.Schema = 15
+	info.Schema = 21
 	data, err = jsoncodec.Marshal(info)
 	if err != nil {
 		t.Fatal(err)
@@ -1014,11 +966,25 @@ func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *tes
 		t.Fatal(err)
 	}
 	var version int
-	if err := legacy.SQL.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != 15 {
-		t.Fatalf("stage changed v15: %d %v", version, err)
+	if err := legacy.SQL.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != 21 {
+		t.Fatalf("stage changed v21: %d %v", version, err)
 	}
 	legacy.Close()
-	current, err := sqlite.Open(candidate.Path)
+	staged, err := os.ReadFile(candidate.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := []byte(`{"schema_version":1}`)
+	pkg := backup.Package{Manifest: backup.NewManifest(time.Now(), staged, settings, sqlite.EntityCounts{}), Database: staged, Settings: settings}
+	pkg.Manifest.SchemaVersion = 21
+	destination := filepath.Join(t.TempDir(), "restored21.db")
+	if err := backup.InstallRestore(ctx, destination, pkg, nil, backup.RestoreClasses{}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := backup.ReconcileOnStartup(destination, nil); err != nil {
+		t.Fatal(err)
+	}
+	current, err := sqlite.Open(destination)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1026,9 +992,49 @@ func TestCloudStageAcceptsVerifiedV15IdentityAndUpgradesOnlySyntheticCopy(t *tes
 	if err := current.Verify(ctx); err != nil {
 		t.Fatal(err)
 	}
+	afterStage, err := os.ReadFile(candidate.Path)
+	if err != nil || !bytes.Equal(staged, afterStage) {
+		t.Fatal("restore changed staged source")
+	}
+
 	// Source stream metadata is never overwritten by recovery or upgrade.
 	after, err := os.ReadFile(path)
 	if err != nil || !bytes.Equal(data, after) {
 		t.Fatal("old stream identity changed")
 	}
+	// Preserve the supported-source negative cases from the retired v15 suite.
+	info.Schema = 22 // Supported metadata, but the staged SQLite source is21.
+	mismatched, err := jsoncodec.Marshal(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, mismatched, 0600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.WriteFile(path, data, 0600)
+	if _, err := m.Stage(ctx, points[0]); err == nil {
+		t.Fatal("accepted supported identity/database schema mismatch")
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	files, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(stream), "ltx", "0", "*.ltx"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("missing synthetic LTX: %v", err)
+	}
+	ltxBytes, err := os.ReadFile(files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(files[0], []byte("corrupt synthetic LTX"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.WriteFile(files[0], ltxBytes, 0600)
+	if _, err := m.Stage(ctx, points[0]); err == nil {
+		t.Fatal("accepted corrupt supported-source LTX")
+	}
+	if err := db.SQL.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != 21 {
+		t.Fatal("rejected cloud source changed live schema")
+	}
+
 }

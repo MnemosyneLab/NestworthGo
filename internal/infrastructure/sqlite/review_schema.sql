@@ -118,4 +118,3 @@ CREATE TABLE investment_review_mutation_receipts (
  mutation_id TEXT NOT NULL, request_hash TEXT NOT NULL, result_json TEXT NOT NULL CHECK(json_valid(result_json)),
  created_at TEXT NOT NULL, PRIMARY KEY(household_id,mutation_id)
 );
-PRAGMA user_version=19;

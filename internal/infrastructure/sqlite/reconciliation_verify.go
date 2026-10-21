@@ -6,17 +6,13 @@ import (
 	"strings"
 )
 
-func verifyReconciliationSchema(ctx context.Context, query schemaQuery, version int) error {
-	file := "reconciliation_schema.sql"
-	if version == 17 {
-		file = "reconciliation_schema_v17.sql"
-	}
-	raw, err := schemaFS.ReadFile(file)
+func verifyReconciliationSchema(ctx context.Context, query schemaQuery) error {
+	raw, err := schemaFS.ReadFile("reconciliation_schema.sql")
 	if err != nil {
 		return err
 	}
 	// Compare the actual DDL, including constraints, indexes and revision triggers.
-	// This additive artifact is shared by new databases and the v16 upgrade.
+	// This additive artifact is shared by supported databases.
 	for _, part := range strings.Split(string(raw), "CREATE ")[1:] {
 		lines := strings.Split(part, "\n")
 		var statement string

@@ -16,7 +16,7 @@ import (
 // conservatively disable authority too. This is immutable schema metadata.
 var certifiedSchemaDefinitions = sync.OnceValues(func() (map[string]string, error) {
 	expected := map[string]string{}
-	for _, file := range []string{"schema.sql", "review_schema_v19.sql", "source_changes_schema_v20.sql", "review_temporal_schema_v21.sql", "agent_closures_schema_v22.sql"} {
+	for _, file := range []string{"schema.sql", "review_schema.sql", "source_changes_schema.sql", "review_temporal_schema_v21.sql", "agent_closures_schema_v22.sql"} {
 		raw, err := schemaFS.ReadFile(file)
 		if err != nil {
 			return nil, err

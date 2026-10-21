@@ -7,7 +7,7 @@ by a release record). The latest published release is `v0.3.8` / build `9`. The
 application is a local-first desktop app with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
 provides typed domain contracts, SQLite bootstrap with current schema `22`
-(with ordered additive upgrades from verified v15–21),
+(with a verified additive upgrade from 21),
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Return Analysis, Asset Changes, exact valuation, explicit
@@ -119,7 +119,7 @@ reloads the authoritative application result.
 | Area | Choice | Boundary |
 | --- | --- | --- |
 | Language | Go 1.26 | Application, domain, and infrastructure code |
-| Persistence | SQLite, verified schema 22 (verified v15–21 receive ordered additive upgrades) | Local durable source of truth |
+| Persistence | SQLite, verified schema 22 (verified schema 21 upgrades to 22) | Local durable source of truth |
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
 | Charts | Apache ECharts | Rendering only; no financial calculations |
 | Desktop shell | Wails v3 | Bound Go services + embedded React frontend |

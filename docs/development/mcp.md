@@ -205,7 +205,7 @@ preserve daily instrument metadata; they do not create ledger activities.
   Follow with `get_market_data` and `scan_data_health`. An initially unconfigured
   FX pair gets an Agent preference; an existing preference remains unchanged.
 - Full SQLite backup and JSON export retain the Agent facts and audit records.
-  Schema 15 stores the quote-source constraints and durable import/audit
+  Both supported schemas store the quote-source constraints and durable import/audit
   tables. Existing provider/manual records and source preferences are preserved.
 
 Validation: full Go suite; application Agent-flow and MCP import race tests;
@@ -383,11 +383,10 @@ erroneous historical trade, use the historical fix workflow instead.
 
 Generic undo/fix is not offered for a cost-adjustment record; submit a new target
 cost to correct it again. The frontend displays its cost effect in activity
-history. Current schema is 16. Existing files are probed read-only; verified
-v15 receives the single additive short-name upgrade after a verified recovery
-copy is retained. Other older schemas, including schema 11 from v0.3.4,
-unversioned, future, and invalid schemas remain blocked. There is no general
-migration chain; see the [narrow storage upgrade](investment-short-names.md#narrow-storage-upgrade).
+history. Current schema is 22. Existing files are probed read-only; only verified
+schema 21 upgrades to 22 after a verified, flushed recovery copy is retained.
+Older, unversioned, future and invalid schemas remain blocked. See the
+[storage contract](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery).
 This cost-adjustment event is preserved in full SQLite backups and versioned
 household JSON exports.
 
@@ -483,11 +482,10 @@ rejected: this operation does not add to or reconcile an existing quantity.
 Archived and managed-product instruments are also rejected. It can be used with
 single preview/commit or inside an atomic batch.
 
-Batch retries use the `change_batch_mutation_keys` table in schema-16 databases;
-the supported v15 upgrade preserves that existing table and its receipts.
-Unsupported older databases and backup files, including schema-v13 files, are
-rejected without adding a table or changing the file. Backup inspection accepts
-verified schema versions v15–22; supported older copies upgrade on normal open. Full SQLite backups preserve batch receipts;
+Batch retries use the `change_batch_mutation_keys` table in both supported
+schemas 21/22. Unsupported databases and backup files are rejected without
+adding tables or changing the source. Read-only inspection preserves either
+supported version; writable open upgrades 21 to 22. Full SQLite backups preserve batch receipts;
 credential-free household JSON exports exclude retry bookkeeping.
 
 ## Historical queries

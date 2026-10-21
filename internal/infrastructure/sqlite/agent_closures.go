@@ -34,7 +34,7 @@ func agentClosureByID(ctx context.Context, q queryer, id string) (*domain.Instru
 func listAgentClosuresQuery(ctx context.Context, q queryer, h domain.HouseholdID) ([]domain.InstrumentClosure, error) {
 	if domain.IsBoundedRead(ctx) {
 		if err := checkReadTableBudget(ctx, q, "agent_instrument_closures", "instrument_id IN (SELECT id FROM instruments WHERE household_id=?)", h.String()); err != nil {
-			if legacyClosureTableAbsent(ctx, q, err) {
+			if schema21ClosureTableAbsent(ctx, q, err) {
 				return nil, nil
 			}
 			return nil, err
@@ -42,7 +42,7 @@ func listAgentClosuresQuery(ctx context.Context, q queryer, h domain.HouseholdID
 	}
 	rows, err := q.QueryContext(ctx, `SELECT c.id,c.instrument_id,c.effective_date,c.effective_at,c.timezone,c.created_at FROM agent_instrument_closures c JOIN instruments i ON i.id=c.instrument_id JOIN agent_quote_records r ON r.quote_id=c.id AND r.target_type='instrument' WHERE i.household_id=? AND NOT EXISTS(SELECT 1 FROM agent_quote_records x WHERE x.target_type='instrument' AND x.target_quote_id=c.id) ORDER BY c.instrument_id,c.effective_date,c.id`, h.String())
 	if err != nil {
-		if legacyClosureTableAbsent(ctx, q, err) {
+		if schema21ClosureTableAbsent(ctx, q, err) {
 			return nil, nil
 		}
 		return nil, err
@@ -88,12 +88,12 @@ func (r *Repository) ListInstrumentClosures(ctx context.Context, h domain.Househ
 	return listAgentClosuresQuery(ctx, r.database.SQL, h)
 }
 
-// Verified legacy backups remain readable without creating new tables or
+// Verified schema21 backups remain readable without creating new tables or
 // claiming facts that their schema could not store. Current schemas fail closed.
-func legacyClosureTableAbsent(ctx context.Context, q queryer, err error) bool {
+func schema21ClosureTableAbsent(ctx context.Context, q queryer, err error) bool {
 	if err == nil || !strings.Contains(err.Error(), "no such table: agent_instrument_closures") {
 		return false
 	}
 	var version int
-	return q.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version) == nil && version >= 15 && version < 22
+	return q.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version) == nil && version == 21
 }

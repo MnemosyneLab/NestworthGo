@@ -28,7 +28,7 @@ sets package boundaries and validation expectations.
 - [Account Reconciliation](account-reconciliation.md) and
   [Historical Reconciliation](historical-reconciliation.md) — transaction,
   evidence, and recovery contracts.
-- [Investment Short Names](investment-short-names.md) — scoped v15/v16 feature
+- [Investment Short Names](investment-short-names.md) — current short-name feature
   migration evidence and its current compatibility boundaries.
 - [Bank Logos](bank-logos.md) and [Icon Catalog](icon-catalog.md) — asset
   ownership and licensing references.

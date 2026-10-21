@@ -19,4 +19,3 @@ CREATE TABLE financial_source_changes (
  dependency_kind TEXT NOT NULL CHECK(dependency_kind='household_all'),
  PRIMARY KEY(household_id,revision,change_ordinal)
 );
-PRAGMA user_version=20;

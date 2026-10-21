@@ -179,13 +179,6 @@ func (r *Repository) reviewTemporalReadStatus(ctx context.Context, q schemaQuery
 }
 
 func readReviewTemporal(ctx context.Context, q schemaQuery, id domain.HouseholdID) (*domain.ReviewTemporalCertificate, error) {
-	var version int
-	if err := q.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil {
-		return nil, err
-	}
-	if version < 21 {
-		return nil, nil
-	}
 	var raw string
 	err := q.QueryRowContext(ctx, `SELECT certificate_json FROM review_temporal_checkpoints WHERE household_id=?`, id.String()).Scan(&raw)
 	if errors.Is(err, sql.ErrNoRows) {

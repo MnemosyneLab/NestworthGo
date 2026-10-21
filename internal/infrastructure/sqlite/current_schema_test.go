@@ -13,18 +13,17 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func TestOpenRejectsEveryNonCurrentVersionWithoutWriting(t *testing.T) {
-	// 14 is the last version below the v15 upgrade window. Current+1 is the
-	// future rejection. Other non-upgradable versions use those same blocks.
-	// Read-only verification uses one unsupported-schema return for every
-	// rejected version, so only the legacy boundary opens read-only.
+func TestOpenRejectsUnsupportedVersionsWithoutWriting(t *testing.T) {
+	// Representative old boundary, unversioned file and future versions.
 	cases := []struct {
 		version  int
 		readOnly bool
 	}{
-		{version: 14, readOnly: false},
-		{version: 14, readOnly: true},
+		{version: 20, readOnly: false},
+		{version: 20, readOnly: true},
 		{version: CurrentSchemaVersion + 1, readOnly: false},
+		{version: CurrentSchemaVersion + 1, readOnly: true},
+		{version: 0, readOnly: false},
 	}
 	for _, testCase := range cases {
 		version, readOnly := testCase.version, testCase.readOnly
@@ -98,10 +97,6 @@ func TestOpenRejectsEveryNonCurrentVersionWithoutWriting(t *testing.T) {
 }
 
 func TestCurrentSchemaDoesNotRepairMissingTablesOrOldConstraints(t *testing.T) {
-	schema, err := schemaFS.ReadFile("schema.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, defect := range []string{"activity_mutation_keys", "change_batch_mutation_keys", "agent_quote_records", "old_cash_check"} {
 		t.Run(defect, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "incomplete.db")
@@ -109,12 +104,26 @@ func TestCurrentSchemaDoesNotRepairMissingTablesOrOldConstraints(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			statement := string(schema)
-			if defect == "old_cash_check" {
-				statement = strings.Replace(statement, "account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')", "account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode = 'balance'", 1)
-			}
-			if _, err := seed.Exec(statement); err != nil {
+			tx, err := seed.BeginTx(t.Context(), nil)
+			if err != nil {
 				t.Fatal(err)
+			}
+			if err := createCurrentSchema(t.Context(), tx); err != nil {
+				t.Fatal(err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatal(err)
+			}
+			if defect == "old_cash_check" {
+				// Mutate only this synthetic definition after using the current bootstrap.
+				// Reopen below so SQLite reparses the altered CHECK constraint.
+				if _, err := seed.Exec(`PRAGMA writable_schema=ON;
+ UPDATE sqlite_master SET sql=replace(sql,
+ "account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')",
+ "account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode = 'balance'") WHERE name='accounts';
+ PRAGMA writable_schema=OFF;`); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if defect != "old_cash_check" {
 				if _, err := seed.Exec("DROP TABLE " + defect); err != nil {

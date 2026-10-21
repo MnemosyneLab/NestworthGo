@@ -18,10 +18,14 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql reconciliation_schema.sql reconciliation_schema_v17.sql upgrade_v17.sql review_schema_v19.sql source_changes_schema_v20.sql review_temporal_schema_v21.sql agent_closures_schema_v22.sql
+//go:embed schema.sql reconciliation_schema.sql review_schema.sql source_changes_schema.sql review_temporal_schema_v21.sql agent_closures_schema_v22.sql
 var schemaFS embed.FS
 
 const CurrentSchemaVersion = 22
+
+// SupportsSchemaVersion is the database policy shared by opens and backup formats.
+// Format/protocol versions are independent of SQLite user_version.
+func SupportsSchemaVersion(version int) bool { return version == 21 || version == 22 }
 
 type BootstrapStatus string
 
@@ -50,10 +54,10 @@ func (e *BootstrapError) Error() string {
 		path = "(unknown path)"
 	}
 	if e.Status == StatusUnsupportedFuture {
-		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d, path %s; please create a new database", e.Found, e.Supported, path)
+		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d (supported schemas: 21 and 22), path %s; source unchanged; preserve the original and create a new database", e.Found, e.Supported, path)
 	}
 	if e.Status == StatusLegacyDatabase {
-		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d, path %s; please create a new database", e.Found, e.Supported, path)
+		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d (supported schemas: 21 and 22), path %s; source unchanged; preserve the original and create a new database", e.Found, e.Supported, path)
 	}
 	if e.Err == nil {
 		return fmt.Sprintf("%s: found version %d, supported version %d, path %s; please create a new database", e.Status, e.Found, e.Supported, path)
@@ -71,7 +75,7 @@ func (e *BootstrapError) SafeError() *domain.Error {
 	}
 	switch e.Status {
 	case StatusLegacyDatabase:
-		return &domain.Error{Code: domain.ErrDatabaseUpgradeRequired, Field: "database", Message: "this database was created by an older Nestworth version"}
+		return &domain.Error{Code: domain.ErrDatabaseUpgradeRequired, Field: "database", Message: "unsupported database schema; only versions 21 and 22 are supported; the database has not been changed"}
 	case StatusUnsupportedFuture:
 		return &domain.Error{Code: domain.ErrDatabaseFromNewerVersion, Field: "database", Message: "this database was created by a newer Nestworth version"}
 	case StatusIntegrityFailed:
@@ -103,7 +107,7 @@ type DB struct {
 func Open(path string) (*DB, error) { return openDatabase(path, "sqlite") }
 
 func openDatabase(path, driverName string) (*DB, error) {
-	if isV15RecoveryCopy(path) || isV16RecoveryCopy(path) || isV17RecoveryCopy(path) || isV18RecoveryCopy(path) || isV19RecoveryCopy(path) || isV20RecoveryCopy(path) || isV21RecoveryCopy(path) {
+	if isV21RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -119,7 +123,7 @@ func openDatabase(path, driverName string) (*DB, error) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Err: err}
 	}
 	// Inspect existing files before opening a writable connection. Every existing
-	// database, including version zero, must use the current schema or verified v15.
+	// database, including version zero, must use the supported schema 21 or 22.
 	if existed {
 		probeDSN, dsnErr := sqliteDSN(path, url.Values{
 			"mode":    {"ro"},
@@ -133,18 +137,11 @@ func openDatabase(path, driverName string) (*DB, error) {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
 		}
 		found, readErr := readVersion(probe)
-		if readErr == nil && (found == 15 || found == 16 || found == 17 || found == 18 || found == 19 || found == 20) {
-			readErr = verifySchemaVersion(context.Background(), probe, found)
-			if readErr != nil {
-				probe.Close()
-				return nil, &BootstrapError{Status: StatusIntegrityFailed, Found: found, Supported: CurrentSchemaVersion, Path: path, Err: readErr}
-			}
-		}
 		closeErr := probe.Close()
 		if readErr != nil || closeErr != nil {
 			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
 		}
-		if found != CurrentSchemaVersion && found != 15 && found != 16 && found != 17 && found != 18 && found != 19 && found != 20 && found != 21 {
+		if !SupportsSchemaVersion(found) {
 			status := StatusLegacyDatabase
 			if found > CurrentSchemaVersion {
 				status = StatusUnsupportedFuture
@@ -177,42 +174,6 @@ func openDatabase(path, driverName string) (*DB, error) {
 	if found > CurrentSchemaVersion {
 		return closeOnError(StatusUnsupportedFuture, found, nil)
 	}
-	if found == 15 && existed {
-		if err := upgradeV15(context.Background(), database, path); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 16
-	}
-	if found == 16 && existed {
-		if err := upgradeV16(context.Background(), database, path); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 17
-	}
-	if found == 17 && existed {
-		if err := upgradeV17(context.Background(), database, path); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 18
-	}
-	if found == 18 && existed {
-		if err := upgradeV18(context.Background(), database, path); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 19
-	}
-	if found == 19 && existed {
-		if err := upgradeV19(context.Background(), database, path); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 20
-	}
-	if found == 20 && existed {
-		if err := upgradeV20(context.Background(), database, path); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 21
-	}
 	if found == 21 && existed {
 		if err := upgradeV21(context.Background(), database, path); err != nil {
 			return closeOnError(StatusUnavailable, found, err)
@@ -228,34 +189,8 @@ func openDatabase(path, driverName string) (*DB, error) {
 		if err != nil {
 			return closeOnError(StatusUnavailable, found, err)
 		}
-		schema, readErr := schemaFS.ReadFile("schema.sql")
-		if readErr != nil {
+		if err := createCurrentSchema(context.Background(), tx); err != nil {
 			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, found, readErr)
-		}
-		if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
-			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, found, execErr)
-		}
-		reviewSchema, readErr := schemaFS.ReadFile("review_schema_v19.sql")
-		if readErr != nil {
-			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, found, readErr)
-		}
-		if _, execErr := tx.ExecContext(context.Background(), string(reviewSchema)); execErr != nil {
-			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, found, execErr)
-		}
-		if err := installFinancialSourceTracking(context.Background(), tx); err != nil {
-			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
-		}
-		if err := installReviewTemporalSchema(context.Background(), tx); err != nil {
-			_ = tx.Rollback()
-			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
-		}
-		if err := installAgentClosureSchema(context.Background(), tx); err != nil {
-			tx.Rollback()
 			return closeOnError(StatusUnavailable, found, err)
 		}
 		if err := verifySchema(context.Background(), tx); err != nil {
@@ -392,4 +327,25 @@ func restrictLiveDatabaseFiles(path string) error {
 		}
 	}
 	return nil
+}
+
+// createCurrentSchema installs required current definitions directly. These
+// tables originated in earlier releases but are not an upgrade chain.
+func createCurrentSchema(ctx context.Context, tx *sql.Tx) error {
+	for _, file := range []string{"schema.sql", "review_schema.sql"} {
+		raw, err := schemaFS.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, string(raw)); err != nil {
+			return err
+		}
+	}
+	if err := installFinancialSourceTracking(ctx, tx); err != nil {
+		return err
+	}
+	if err := installReviewTemporalSchema(ctx, tx); err != nil {
+		return err
+	}
+	return installAgentClosureSchema(ctx, tx)
 }

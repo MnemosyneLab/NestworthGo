@@ -5,4 +5,3 @@ CREATE TABLE review_temporal_checkpoints (
  certificate_json TEXT NOT NULL CHECK(json_valid(certificate_json))
 );
 UPDATE investment_review_control SET projection_status='pending' WHERE projection_status='complete';
-PRAGMA user_version=21;

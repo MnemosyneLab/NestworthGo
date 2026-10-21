@@ -15,13 +15,13 @@ providers. Never run these checks on a personal financial database. Implemented 
 | Immutable completion with a separate current recheck indicator | Application completion tests and localized GUI history tests |
 | Mixed USD/EUR cash, ordinary holdings, managed contracts and complete scope | Application mixed-account test |
 | Multiple removed holdings retain attempts and deterministic preview/commit order | Application removed-item regression |
-| Guarded product valuation preserves confirmations/finish previews; financial terms/cash still require recheck; metadata does not | Fresh-schema and verified-v16-upgrade integration regression |
+| Guarded product valuation preserves confirmations/finish previews; financial terms/cash still require recheck; metadata does not | Fresh-schema and verified-v21-upgrade integration regression |
 | Direct targets versus real records; missing instrument/product inventory; atomic renewal | Existing target/cost/trade suite plus linked inventory and MCP workflows |
 | Linked financial facts, working-item capture and receipt rollback/recovery | Injected activity failure, restart replay and scope-refresh tests |
 | Legacy unlinked target-plan receipt hash remains recoverable | MCP legacy receipt compatibility regression |
 | Account-entry session filtering and cached scope isolation | Reconciliation query-hook test |
 | Read-only/directory/ledger permission dispatch; cursor conflicts and wire budgets | MCP permission and encoded paging tests |
-| Verified v15–v21 upgrades, read-only recovery, rollback/flush failure/retry, backup/restore | SQLite upgrade and backup/continuous-backup suites |
+| Verified 21→22 upgrade, read-only recovery, rollback/flush failure/retry, backup/restore | SQLite upgrade and backup/continuous-backup suites |
 | Pending/unknown review retains identity and guards Escape/navigation; same-plan retry | Reconciliation GUI tests plus existing Record/Sheet recovery tests |
 | Receipt-checked expiry permits fresh review; missing plans stay guarded; expired committed plans replay receipts | Application expiry/receipt and GUI dismissal/review regressions |
 | Maintained Skill examples and portable bundle/installer behavior | Skill checker and Python tool suite |
@@ -101,7 +101,7 @@ the source review, not the implementation branch.
 | AR05/07/09: comparable references, partial-finish intent, exact cost choice | Exact-decimal application cases, historical/text reference exclusion, real field-error/checkbox interactions and wire cost-field mapping |
 | AR08/12/13: refresh known conflicts, unknown guard, action labels and immutable completion | Session/product recovery and dismissal tests; pause-to-finish backend test; destination-specific labels |
 | AR10/11: conditional reused product fields, maturity versus receipt, valuation route and current/target | Real ProductCorrection test with canonical DepositFields/DatePicker; conditional receipt/valuation fields and neutral adjustment display |
-| AR15/20: financial OLD/NEW triggers, separate opening/closing notes | Fresh and upgraded schema tests, metadata/no-op exclusion, principal/currency/state/date/interest changes; verified v17 recovery copy and legacy-note migration |
+| AR15/20: financial OLD/NEW triggers, separate opening/closing notes | Fresh and upgraded schema tests, metadata/no-op exclusion, principal/currency/state/date/interest changes; verified schema 21 recovery copy |
 | AR16/17: frozen interval versus later changes, exports, concrete links and companions | Application business-export assertions and private-data exclusion; wrong-holding/cash correction rollback and successful atomic companion |
 | AR18: durable desktop mapping, SQLite MCP recovery, unknown old commits | Adapter/process recreation, missing-body receipts, canonical five-command round trip, succeeded/pending/old-not_found operations, and old unknown plan after a newer plan/revision |
 
