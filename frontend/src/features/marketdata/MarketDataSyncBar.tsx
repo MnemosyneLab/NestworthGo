@@ -6,6 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatTimestamp } from "@/lib/time";
@@ -78,18 +79,17 @@ export function MarketDataSyncBar({
   const [progressOpen, setProgressOpen] = useState(false);
   const job = current.data;
   const busy = latestRefreshing || running || preview.isPending || start.isPending;
+  const previewReady = previewOpen && preview.isSuccess && Boolean(preview.data)
+    && preview.variables?.scope === "repair_all" && preview.variables.forceRecheck === forceRecheck;
+  const currentPreview = previewReady ? preview.data : undefined;
 
   const openPreview = () => {
-    preview.mutate(
-      { scope: "repair_all", forceRecheck },
-      {
-        onSuccess: () => setPreviewOpen(true),
-        onError: (error) => toast.error(displayError(error, t("marketData.loadError"))),
-      },
-    );
+    setPreviewOpen(true);
+    preview.mutate({ scope: "repair_all", forceRecheck });
   };
 
   const confirmStart = () => {
+    if (!previewReady || start.isPending) return;
     setPreviewOpen(false);
     startScope({ scope: "repair_all", forceRecheck });
   };
@@ -144,21 +144,28 @@ export function MarketDataSyncBar({
             <SheetTitle>{t("marketData.syncPreviewTitle")}</SheetTitle>
             <p className="text-sm text-muted-foreground">{t("marketData.syncPreviewDescription")}</p>
           </SheetHeader>
-          {preview.data && (
+          {preview.isPending && <LoadingState label={t("common.loading")} variant="list" />}
+          {preview.isError && <ErrorState
+            title={t("marketData.loadError")}
+            description={displayError(preview.error, t("marketData.loadError"))}
+            onRetry={() => preview.mutate({ scope: "repair_all", forceRecheck })}
+            retryLabel={t("common.retry")}
+          />}
+          {currentPreview && (
             <ul className="flex flex-col gap-2 text-sm" data-testid="sync-preview">
-              <li>{t("marketData.previewRequests", { count: preview.data.estimatedRequestCount })}</li>
-              <li>{t("marketData.previewInstruments", { count: preview.data.instrumentTargets })}</li>
-              <li>{t("marketData.previewFx", { count: preview.data.fxTargets })}</li>
-              <li>{t("marketData.previewLatest", { instruments: preview.data.latestInstrumentCount, fx: preview.data.latestFxCount })}</li>
-              <li>{t("marketData.previewSnapshots", { count: preview.data.snapshotWorkEstimate })}</li>
+              <li>{t("marketData.previewRequests", { count: currentPreview.estimatedRequestCount })}</li>
+              <li>{t("marketData.previewInstruments", { count: currentPreview.instrumentTargets })}</li>
+              <li>{t("marketData.previewFx", { count: currentPreview.fxTargets })}</li>
+              <li>{t("marketData.previewLatest", { instruments: currentPreview.latestInstrumentCount, fx: currentPreview.latestFxCount })}</li>
+              <li>{t("marketData.previewSnapshots", { count: currentPreview.snapshotWorkEstimate })}</li>
             </ul>
           )}
-          <SyncWorkDetails items={preview.data?.items} />
-          {(preview.data?.unresolved ?? []).length > 0 && (
+          <SyncWorkDetails items={currentPreview?.items} />
+          {(currentPreview?.unresolved ?? []).length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">{t("marketData.previewUnresolved")}</p>
               <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
-                {(preview.data?.unresolved ?? []).map((item) => (
+                {(currentPreview?.unresolved ?? []).map((item) => (
                   <li key={`${item.targetKey}-${item.code}`}><SyncBlockerText item={item} /></li>
                 ))}
               </ul>
@@ -181,7 +188,7 @@ export function MarketDataSyncBar({
             <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="button" onClick={confirmStart} disabled={start.isPending}>
+            <Button type="button" onClick={confirmStart} disabled={!previewReady || start.isPending}>
               {t("marketData.startSync")}
             </Button>
           </SheetFooter>
