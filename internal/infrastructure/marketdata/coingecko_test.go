@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -115,5 +116,41 @@ func TestCoinGeckoSupportedCurrenciesExcludeTokens(t *testing.T) {
 	values, err := p.SupportedQuoteCurrencies(context.Background())
 	if err != nil || strings.Join(values, ",") != "USD,CNY,SGD" {
 		t.Fatalf("currencies=%v err=%v", values, err)
+	}
+}
+
+func TestCoinGeckoPriceHalfEvenAndAvailability(t *testing.T) {
+	for _, tc := range []struct {
+		value, want string
+		code        domain.ErrorCode
+	}{
+		{value: "1.234567885", want: "1.23456788"},
+		{value: "1.234567895", want: "1.2345679"},
+		{value: "1.234567885000000001", want: "1.23456789"},
+		{value: "0.000000005", code: domain.ErrUnavailable},
+		{value: "0.000000004999999999", code: domain.ErrUnavailable},
+		{value: "0.000000005000000001", want: "0.00000001"},
+		{value: "999999999999.99999999", want: "999999999999.99999999"},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			// Decode via the maintained Sonic wrapper to retain the numeric lexeme.
+			p := cgFixture(t, fmt.Sprintf(`{"bitcoin":{"usd":%s,"last_updated_at":1789700000}}`, tc.value), nil)
+			quote, err := p.decodeLatest([]byte(fmt.Sprintf(`{"bitcoin":{"usd":%s,"last_updated_at":1789700000}}`, tc.value)), cgIdentity("bitcoin"))
+			if tc.code != "" {
+				assertProviderCode(t, err, tc.code)
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := quote.Price.Canonical(); got != tc.want {
+				t.Fatalf("price = %s, want %s", got, tc.want)
+			}
+		})
+	}
+	for _, value := range []string{"", "invalid", "0", "-1", "1000000000000", "999999999999.999999995"} {
+		if _, err := coinGeckoPrice(json.Number(value)); err == nil {
+			t.Fatalf("accepted invalid/out-of-range price %q", value)
+		}
 	}
 }
