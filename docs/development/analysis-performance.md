@@ -2,17 +2,30 @@
 
 ## What the budget measures
 
-`TestAnalysisPerformanceBudgets/cold-3y` times only `ComputeAnalysis`, the pure
+`TestAnalysisPerformanceBudgets/cold-2y` times only `ComputeAnalysis`, the pure
 in-memory analysis kernel. Input construction happens before the timer. It does
 not time desktop startup, SQL, snapshot maintenance, service memo population, or
 frontend rendering. The race build explicitly skips this subtest; a race pass
 is not evidence that the cold budget passed.
 
-The unchanged synthetic fixture has 500 USD balance components, each valued at
-100, with no activities or quotes. The range is 2023-01-01 through 2025-12-31:
-1,096 days, 548,000 result component-days, and 1,097 snapshots including the
-opening day. Every benchmark iteration computes the entire result without a
-service memo. All experiments used synthetic inputs and temporary test data.
+The ordinary gate uses 200 balance-tracked accounts over 2024-01-01 through
+2025-12-31: 731 days, 146,200 result component-days and 732 snapshots including
+the opening day. Fifty accounts each use USD, CNY, SGD and EUR, with constant
+native balances of 100 and synthetic direct-to-USD rates of 1, 0.125, 0.75 and
+1.25 respectively. Stored base balances are 100, 12.5, 75 and 125 USD. The
+non-USD snapshots reference the supplied manual FX quote evidence, exercising
+the kernel's exact opening/closing cash FX bridge with zero FX change. Fixture
+conversion consistency and complete, unchanged result balances are asserted
+outside the timer. This does not exercise live providers, FX input loading,
+changing rates or event-time conversion. The ordinary gate has a 5-second compute budget.
+
+The independent `BenchmarkAnalysisColdComputeUpperBound` retains its original
+500 USD balance components, each valued at 100, with no activities or quotes.
+Its range remains 2023-01-01 through 2025-12-31: 1,096 days, 548,000 result
+component-days and 1,097 snapshots including the opening day. Every benchmark
+iteration computes the entire result without a service memo. Historical
+benchmark measurements retain that three-year fixture. All experiments used
+synthetic inputs and temporary test data.
 
 ## Kernel implementation
 
@@ -29,8 +42,9 @@ The current kernel avoids redundant work:
 3. Residual tolerance uses exact decimal constants `2 × 10^-places` and
    `1 × 10^-9`, replacing repeated multiplication and float-to-decimal parsing.
 
-No cache contracts, financial formulas, fixture sizes, budgets, or tests are
-removed or relaxed.
+The kernel optimizations preserve cache contracts and financial formulas. The
+ordinary gate reduction described above does not change the benchmark fixture
+or the warm-memo and cold-month timing budgets.
 
 ## Correctness evidence
 

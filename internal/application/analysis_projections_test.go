@@ -649,7 +649,8 @@ func TestAnalysisCase44SnapshotRebuildChangesWindowResult(t *testing.T) {
 	}
 }
 
-// TestAnalysisPerformanceBudgets enforces architecture §18.1. The 3Y/500-component
+// TestAnalysisPerformanceBudgets guards architecture §18.1 with a reduced
+// ordinary 2Y/200-account mixed-currency fixture. This
 // cold path is skipped under the race detector because that instrumentation
 // changes wall-clock cost by more than the budget.
 func TestAnalysisPerformanceBudgets(t *testing.T) {
@@ -684,17 +685,42 @@ func TestAnalysisPerformanceBudgets(t *testing.T) {
 			t.Fatalf("cold 1-month/200-component took %s, want < %s", elapsed, budget)
 		}
 	})
-	t.Run("cold-3y", func(t *testing.T) {
+	t.Run("cold-2y", func(t *testing.T) {
 		if analysisRaceDetector {
-			t.Skip("§18.1 production 3s / Linux CI 10s budget is a production-runtime number; -race inflates wall-clock cost")
+			t.Skip("§18.1 production 3s / Linux CI 5s budget is a production-runtime number; -race inflates wall-clock cost")
 		}
-		input, query := analysisUpperBoundInputs()
+		input, query := analysisColdTwoYearInputs(t)
 		started := time.Now()
-		if _, err := ComputeAnalysis(input, query); err != nil {
+		result, err := ComputeAnalysis(input, query)
+		elapsed := time.Since(started)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if elapsed := time.Since(started); elapsed >= 10*time.Second {
-			t.Fatalf("cold 3Y/500-component took %s, want < 10s", elapsed)
+		t.Logf("cold 2Y/200 mixed-currency accounts compute took %s", elapsed)
+		if elapsed >= 5*time.Second {
+			t.Fatalf("cold 2Y/200 mixed-currency accounts took %s, want < 5s", elapsed)
+		}
+		if result.Status != domain.CompletenessOK || len(result.Days) != 731*200 {
+			t.Fatalf("status=%s days=%d, want complete 146200 component-days", result.Status, len(result.Days))
+		}
+		counts := map[domain.CurrencyCode]int{}
+		wantBase := map[domain.CurrencyCode]string{"USD": "100", "CNY": "12.5", "SGD": "75", "EUR": "125"}
+		for _, day := range result.Days {
+			counts[day.Component.Currency]++
+			want, ok := wantBase[day.Component.Currency]
+			if !ok || day.Status != domain.CompletenessOK || !day.BeginningValue.Amount().Equal(decimal.RequireFromString(want)) || !day.EndingValue.Amount().Equal(decimal.RequireFromString(want)) {
+				t.Fatalf("unexpected mixed-currency component-day: %+v", day)
+			}
+			for bucket, amount := range day.AssetBuckets {
+				if !amount.Amount().IsZero() {
+					t.Fatalf("constant balances/rates produced %s=%s", bucket, amount.Amount())
+				}
+			}
+		}
+		for currency := range wantBase {
+			if counts[currency] != 731*50 {
+				t.Fatalf("%s component-days=%d, want %d", currency, counts[currency], 731*50)
+			}
 		}
 	})
 }
@@ -711,6 +737,46 @@ func BenchmarkAnalysisColdComputeUpperBound(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// analysisColdTwoYearInputs keeps the ordinary gate independent of the 3Y benchmark.
+// Constant synthetic direct FX quotes support the kernel's cash FX bridge;
+// stored base balances are preconverted, with no provider or SQL access.
+func analysisColdTwoYearInputs(t *testing.T) (AnalysisInputs, domain.AnalysisQuery) {
+	t.Helper()
+	input, query := analysisSizedInputs(200, "2024-01-01", "2025-12-31")
+	currencies := []domain.CurrencyCode{"USD", "CNY", "SGD", "EUR"}
+	rates := []string{"1", "0.125", "0.75", "1.25"}
+	bases := []string{"100", "12.5", "75", "125"}
+	quoteIDs := make([]string, len(currencies))
+	for index, currency := range currencies {
+		if currency == "USD" {
+			continue
+		}
+		quote := analysisFXQuote(t, input.Portfolio.Household.ID, currency, "USD", rates[index], time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC))
+		converted, err := domain.ConvertFXAmountExact(decimal.NewFromInt(100), currency, "USD", quote)
+		if err != nil || converted == nil || decimalAtMoneyBoundary(converted).String() != bases[index] {
+			t.Fatalf("%s synthetic FX/base mismatch: converted=%v err=%v", currency, converted, err)
+		}
+		quote.ID = domain.FXQuoteID(fmt.Sprintf("00000000-0000-0000-0001-%012d", index))
+		quoteIDs[index] = quote.ID.String()
+		input.FXQuotes = append(input.FXQuotes, quote)
+	}
+	for index := range input.Portfolio.Accounts {
+		input.Portfolio.Accounts[index].Account.DefaultCurrency = currencies[index%len(currencies)]
+	}
+	for snapshotIndex := range input.Snapshots {
+		for index := range input.Snapshots[snapshotIndex].Items {
+			item := &input.Snapshots[snapshotIndex].Items[index]
+			currencyIndex := index % len(currencies)
+			item.NativeCurrency = currencies[currencyIndex]
+			item.BaseAmountExact = bases[currencyIndex]
+			if currencyIndex != 0 {
+				item.FXQuoteID = &quoteIDs[currencyIndex]
+			}
+		}
+	}
+	return input, query
 }
 
 func analysisUpperBoundInputs() (AnalysisInputs, domain.AnalysisQuery) {
