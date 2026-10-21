@@ -866,7 +866,7 @@ it.each([
   await i18n.changeLanguage(locale);
   const data = result();
   data.left.complete = false;
-  data.rows![0].left = cell(null, { complete: false, nativeAmount: null, baseAmount: null, missing: ["holding_amount"], missingDetails: [{ kind: "holding_amount" }] });
+  data.rows![0].left = cell(null, { complete: false, nativeAmount: null, baseAmount: null, missing: ["holding_amount"], missingDetails: [{ kind: "holding_amount", baseCurrency: "", quoteCurrency: "CNY", source: "", instrumentId: "instrument-id" }] });
   read.mockResolvedValue(data);
   const client = createTestQueryClient();
   render(<QueryClientProvider client={client}><HistoricalOverviewPage initialDate="2026-08-01" initialContext={{ view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
