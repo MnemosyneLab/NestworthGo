@@ -40,6 +40,8 @@ export function useSaveSettings() {
       const latest = await callService(() => SettingsService.Load());
       await callService(() => SettingsService.Save({ ...latest, ...patch }));
       const saved = await callService(() => SettingsService.Load());
+      // Reads can start while Save/Load is pending; discard them before publishing.
+      await client.cancelQueries({ queryKey: settingsQueryKey });
       client.setQueryData(settingsQueryKey, saved);
       return saved;
     }),
@@ -52,6 +54,7 @@ export function useResetSettings() {
     mutationFn: () => enqueue(client, async () => {
       await client.cancelQueries({ queryKey: settingsQueryKey });
       const defaults = await callService(() => SettingsService.Reset());
+      await client.cancelQueries({ queryKey: settingsQueryKey });
       client.setQueryData(settingsQueryKey, defaults);
       return defaults;
     }),
