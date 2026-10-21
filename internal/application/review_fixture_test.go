@@ -21,6 +21,9 @@ type reviewFullPipelineFixture struct {
 }
 
 type reviewPerfConfig struct {
+	// Accounts counts brokerage accounts available to holdings and mixed activity.
+	// CashActivities adds one cash-only account so absolute observations cannot
+	// overwrite mixed-activity funding.
 	Accounts, Instruments, Holdings, Rules, HistoryDays, Quotes, CashActivities, MixedActivities int
 	MixedKind                                                                                    string
 }
@@ -72,6 +75,14 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 		}
 		accounts[index] = account.Account.ID
 	}
+	cashAccountID := accounts[0]
+	if config.CashActivities > 0 {
+		account, err := service.CreateAccount(ctx, AccountInput{Name: "Synthetic cash observations", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		cashAccountID = account.Account.ID
+	}
 	currencies := []string{"CNY", "USD", "EUR", "JPY", "SGD"}
 	types := []domain.InstrumentType{domain.InstrumentStock, domain.InstrumentMutualFund, domain.InstrumentCrypto, domain.InstrumentBond}
 	instruments := make([]domain.Instrument, config.Instruments)
@@ -107,7 +118,7 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 		t.Fatal(err)
 	}
 
-	if err := seedReviewFullPipelineFacts(ctx, db, bootstrap.Household.ID, instruments, accounts[0], start, historyDays, config.Quotes, config.CashActivities); err != nil {
+	if err := seedReviewFullPipelineFacts(ctx, db, bootstrap.Household.ID, instruments, cashAccountID, start, historyDays, config.Quotes, config.CashActivities); err != nil {
 		t.Fatalf("seed synthetic source facts: %v", err)
 	}
 	now = start.AddDate(0, 0, historyDays)

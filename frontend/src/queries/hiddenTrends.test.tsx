@@ -8,6 +8,11 @@ import { useNetWorthTrend } from "./analytics";
 import { usePortfolioTrend } from "./portfolio";
 
 const trendCalls = vi.hoisted(() => ({ netWorth: vi.fn(async () => ({ points: [] })), portfolio: vi.fn(async () => ({ points: [] })) }));
+// analytics imports the native runtime transitively through bindings and the
+// cancellation helper. Keep its browser drag polling out of this hook test.
+vi.mock("@wailsio/runtime", () => ({
+  Call: { ByID: vi.fn(() => { throw new Error("Unexpected native call in hidden trend test"); }) },
+}));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
   Service: { NetWorthTrend: trendCalls.netWorth, PortfolioTrend: trendCalls.portfolio },
 }));
