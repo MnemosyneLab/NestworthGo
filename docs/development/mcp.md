@@ -58,8 +58,9 @@ All permission modes expose `get_upcoming_actions`, using the App's
 `upcoming-actions/1` aggregation and DTO so dates, timezone, capture freshness,
 coverage and reason codes are not reconstructed from product lists. All modes
 also expose `get_historical_overview` and `get_historical_overview_series` as
-read-only application service calls. The overview preserves the App's immutable
-history result and PR68 `endpoint_bridge/1` convention, including exact values,
+read-only application service calls with default bounded `historical-read/2`
+responses in the `mcp-read/1` envelope. The overview preserves the App's immutable
+history values and PR68 `endpoint_bridge/1` convention, including exact values,
 completeness, timestamp basis, later-endpoint FX and no-write behavior. It does
 not replace closed-period `compare_financial_attribution`.
 
@@ -782,3 +783,63 @@ Private production plans use SQLite, and missing pending bodies remain unknown.
 An explicit same-ID recovery can inspect session/adjustment business receipts;
 unknown IDs never execute. See the maintained reconciliation and recovery Skill
 references for continuation, concrete target links and export boundaries.
+
+## Historical read v2 and compact account valuations
+
+Historical overview and series now return `data.schemaVersion=mcp-read/1` and
+`summary.responseVersion=historical-read/2`. This is a breaking response-shape
+change: migrate direct `data.rows` / `data.overview` / `data.points` consumers to
+`data.summary` and `data.sections`. There is no legacy historical mode. Dates,
+financial calculations and the GUI contract are unchanged.
+
+Initial historical responses default to five items per section, selected after
+measuring SDK duplication; explicit limit is 1–100. Continuations default to 25.
+`view=compact` is default; `view=evidence` preserves full row evidence on pages.
+Both use the existing five-minute frozen captures and signed `get_read_page`
+cursors. Default rows are leaves. Every row has `id`, `aggregation` (leaf/rollup),
+account/holding/instrument identifiers and per-side `countedLeaf` /
+`pendingContribution` plus effective `displayValuation`. Only included leaves
+contribute to pending; price and FX carried on the same leaf count once.
+
+`filter` supports accountIds, instrumentIds, kinds (account/holding/balance/cash),
+included, quality (pending/missing/provisional/verified), reasons (display quality
+reason codes) and side (left/right/either). Right requires a comparison. Arrays
+are OR, fields are AND, and all cell predicates must match the same side.
+Filters select endpoint rows; `totalsScope=household` and series
+`pointsScope=household` explicitly retain household financial scope.
+`matchedLeft`/`matchedRight` describe the entire filtered set, independent of
+page size; summing included leaf pending contributions across its pages equals
+those pendingCount values. `totalRowCount`, `totalLeafCount`, matchedRowCount and
+pointCount distinguish household, filtered and time-point cardinalities.
+
+`get_read_item` accepts the captureId, section and id:
+
+- `rows/<row id>`: full row with exact adopted price/FX values, source/time/policy
+  evidence and missing details. Compact rows keep provenance/date/freshness.
+- `points/<YYYY-MM-DD>`: complete point header and a signed entry to the
+  independent `missing/<date>` section; page it for all missing-row evidence.
+- `overview/endpoints`: signed categories/contributions entries; these retain
+  full household bridge scope. `states/left` and `states/right` retain allocations.
+
+Series points keep amounts, coverage, gap/scope/basis/connect flags and dates;
+full Overview and per-point missing arrays are not embedded. Metadata is shared
+once. No missing values, financial precision or evidence are discarded.
+Effective freshness is valuation policy, including manual instruments with Agent
+observations and valid closed-day carry. `observationFreshness`, when present,
+is raw diagnostic age. It does not create stale_observation gaps. FX evidence is
+independent. Informational gaps cannot identify a pending asset by themselves.
+
+`get_account_valuations` adds `responseMode=paged`, optional accountIds and limit
+while preserving all existing account filters and its no-option full DTO.
+Compact `accounts` rows hold exact totals/completeness/counts. Read
+`get_read_item` with section=accounts and id for full account/ownership detail and
+separate component, missing-input, display FX and composition-layout sections.
+The GUI's ranked details, type grouping and slices are not repeated in a list row.
+
+All new pages/items preserve the complete 65,536-byte wire ceiling, including
+SDK text, structuredContent and JSON-RPC envelope. Computation bounds and the
+4 MiB capture limit are separate. Empty matches return explicit zero counts.
+Oversized single items return deterministic too_large/single_item; narrowing the
+query is required, and reducing page limit cannot fix an oversized single item.
+See [response review](mcp-response-review.md) for the complete inventory and
+synthetic byte/coverage evidence.

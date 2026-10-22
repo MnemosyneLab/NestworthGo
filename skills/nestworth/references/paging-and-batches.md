@@ -1,7 +1,10 @@
 # Frozen management reads and atomic batches
 
 Discover support first. Skill 1.9.0 prefers `responseMode:"paged"` for liquidity,
-products, instruments, upcoming actions and Agent records.
+products, instruments, upcoming actions, Agent records and account valuations.
+Historical read v2 uses mcp-read/1 by default with five initial items/section;
+continuations default to 25. Discover the actual response schema before choosing
+the path; older Apps may return full historical DTOs.
 Keep pure minimal financial-context workflows on their existing disclosure path.
 Older Apps retain their existing reads and single-item writes; do not infer new
 support from version text or bypass permissions, managed guards or an overflow.

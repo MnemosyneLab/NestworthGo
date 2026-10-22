@@ -16,7 +16,7 @@ Base: `1ee6cc4257a2efe4d1155e895b032370173738f8`. Synthetic data only.
   with no parallel legacy implementation. Existing date arguments remain valid.
   `view=compact` is the default; `view=evidence` expands page rows. Both use
   `get_read_page` and `get_read_item`, the existing hash/HMAC/generation/TTL
-  cache, default 25/max 100 and complete 64 KiB wire sizing. Computation and
+  cache, initial default 5 per section, continuation 25/max 100 and complete 64 KiB wire sizing. Computation and
   capture limits remain separate. Oversized items fail explicitly; no truncation.
 - Summary holds household endpoint totals and reconciliation header only.
   Rows, allocations/categories, reconciliation contributions, points and per-point

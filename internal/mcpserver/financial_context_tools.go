@@ -434,7 +434,7 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 	if isBoundedTool(request.Params.Name) {
 		return true
 	}
-	if request.Params.Name != "list_instruments" && request.Params.Name != "list_agent_market_data" {
+	if request.Params.Name != "list_instruments" && request.Params.Name != "list_agent_market_data" && request.Params.Name != "get_account_valuations" {
 		return false
 	}
 	if len(request.Params.Arguments) == 0 {
@@ -444,13 +444,13 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 	if decodeFinancialContextJSON(request.Params.Arguments, &options) != nil {
 		return true
 	}
-	for _, field := range []string{"responseMode", "filter", "sort"} {
+	for _, field := range []string{"responseMode", "filter", "sort", "accountIds"} {
 		if _, present := options[field]; present {
 			return true
 		}
 	}
 	_, limitPresent := options["limit"]
-	return request.Params.Name == "list_instruments" && limitPresent
+	return (request.Params.Name == "list_instruments" || request.Params.Name == "get_account_valuations") && limitPresent
 }
 
 // The SDK does not expose IDs to tool handlers and may return input-schema

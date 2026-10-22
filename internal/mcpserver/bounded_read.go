@@ -63,6 +63,7 @@ type ReadEnvelope struct {
 	Page          *ReadPageInfo          `json:"page,omitempty"`
 }
 type readCapture struct {
+	DetailSections    map[string][]string          `json:"detailSections,omitempty"`
 	InitialSections   []string                     `json:"initialSections,omitempty"`
 	Kind              string                       `json:"kind"`
 	Query             any                          `json:"query"`
@@ -367,12 +368,31 @@ func (s *Service) boundedReadTools(server *mcp.Server, g uint64) {
 		}
 		return s.reads.page(g, in)
 	})
-	readTool(server, "get_read_item", "Read a product detail from the same frozen products capture. Reservations are a separate section; follow its cursor to completion.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical or account-valuations capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		s.reads.mu.Lock()
 		defer s.reads.mu.Unlock()
 		e, err := s.reads.entry(g, in.CaptureID)
 		if err != nil {
 			return nil, err
+		}
+		if e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" {
+			key := in.Section + "/" + in.ID
+			v, ok := e.Details[key]
+			if !ok {
+				return nil, fail("not_found", "item not found in capture section")
+			}
+			r := s.reads.base(in.CaptureID, e)
+			r.Section, r.Summary = in.Section, v
+			r.Sections = map[string]ReadSection{}
+			for _, section := range e.DetailSections[key] {
+				r.Sections[section] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, section, e, 0, 0)}
+			}
+			if ok, err := readFits(r); err != nil {
+				return nil, err
+			} else if !ok {
+				return nil, fail("too_large", "single_item detail exceeds read wire budget; narrow the source query")
+			}
+			return r, nil
 		}
 		if in.Section != "products" || e.Kind != "products" {
 			return nil, fail("validation", "item section must be products")

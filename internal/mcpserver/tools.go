@@ -257,8 +257,14 @@ func (s *Service) tools(mode string) *mcp.Server {
 		}
 		return wire.FromHoldings(values), nil
 	})
-	readTool(server, "get_account_valuations", "Read current account values, holdings, costs and missing valuation inputs. Do not present incomplete values as complete.", func(ctx context.Context, in account.AccountFilterRequest) (any, error) {
-		return accounts.AccountValuations(ctx, in)
+	readTool(server, "get_account_valuations", "Read current account values, holdings, costs and missing valuation inputs. responseMode=paged returns frozen compact account headers; get_read_item accounts/id opens separate components, composition and missing/evidence sections without repeated GUI layouts. Account filters retain existing scope; accountIds selects matching rows. Default page 25/max 100, complete 64 KiB wire. Without responseMode preserves the original full DTO. Do not present incomplete values as complete; account rows are rollups.", func(ctx context.Context, in AccountValuationReadInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, len(in.AccountIDs) > 0 || in.Limit != 0); err != nil {
+			return nil, err
+		}
+		if in.ResponseMode == "paged" {
+			return s.pagedAccountValuations(ctx, generation, in)
+		}
+		return accounts.AccountValuations(ctx, in.AccountFilterRequest)
 	})
 	readTool(server, "get_account_snapshot", "Read one account's current valuation, cash and holdings, including missing inputs. Supply its ID from list_accounts.", func(ctx context.Context, in IDInput) (any, error) {
 		id, err := domain.ParseAccountID(in.ID)
