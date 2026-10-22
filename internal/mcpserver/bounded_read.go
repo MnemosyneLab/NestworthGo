@@ -375,7 +375,7 @@ func (s *Service) boundedReadTools(server *mcp.Server, g uint64) {
 		if err != nil {
 			return nil, err
 		}
-		if e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" {
+		if e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" {
 			key := in.Section + "/" + in.ID
 			v, ok := e.Details[key]
 			if !ok {

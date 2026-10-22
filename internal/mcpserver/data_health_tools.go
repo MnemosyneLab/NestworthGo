@@ -11,6 +11,7 @@ import (
 )
 
 type DataRepairJobInput struct {
+	HealthReadInput
 	JobID string `json:"jobId" jsonschema:"Exact jobId returned by start_data_repair. Jobs are retained only in the running application process."`
 }
 
@@ -20,15 +21,37 @@ type DataRepairJobResult struct {
 }
 
 func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
-	readTool(server, "scan_data_health", "Run the same local Data Health scan as the UI, without provider requests. Returns issues, executable repairs, prerequisites and missing/outdated/incomplete snapshots. Missing data is not zero.", func(ctx context.Context, _ Empty) (any, error) {
-		report, err := s.app.ScanMarketDataHealth(ctx)
-		return marketdata.HealthReportDTO(report), err
+	generation := s.contextGeneration
+	readTool(server, "scan_data_health", "Run the same local Data Health scan as the UI, without provider requests. responseMode=paged returns frozen issue pages with complete header/counts; default 25/max 100 and 64 KiB complete wire. No-option legacy shape is retained. Missing data is not zero.", func(ctx context.Context, in HealthReadInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
+		read := func(ctx context.Context) (any, error) {
+			report, err := s.app.ScanMarketDataHealth(ctx)
+			return marketdata.HealthReportDTO(report), err
+		}
+		if in.ResponseMode == "paged" {
+			return s.pagedHealth(ctx, generation, in, "data_health", read, "issues")
+		}
+		return read(ctx)
 	})
-	readTool(server, "preview_data_repair", "Preview the UI repair_all plan locally: targets, estimated provider requests, snapshot work and unresolved prerequisites. No data is repaired. This is an estimate, not a locked ledger preview; starting repair replans against current data.", func(ctx context.Context, _ Empty) (any, error) {
-		preview, err := s.app.PreviewMarketDataSync(ctx, application.SyncRequest{Scope: application.SyncScopeRepairAll})
-		return marketdata.SyncPreviewDTO(preview), err
+	readTool(server, "preview_data_repair", "Preview repair_all locally: targets, provider estimates, snapshot work and unresolved prerequisites. responseMode=paged independently pages items/unresolved while preserving all totals. Default 25/max 100, 64 KiB complete wire. No-option legacy shape is retained. No repairs; this is an estimate and start replans current data.", func(ctx context.Context, in HealthReadInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
+		read := func(ctx context.Context) (any, error) {
+			preview, err := s.app.PreviewMarketDataSync(ctx, application.SyncRequest{Scope: application.SyncScopeRepairAll})
+			return marketdata.SyncPreviewDTO(preview), err
+		}
+		if in.ResponseMode == "paged" {
+			return s.pagedHealth(ctx, generation, in, "data_repair_preview", read, "items", "unresolved")
+		}
+		return read(ctx)
 	})
-	readTool(server, "get_data_repair_job", "Read progress/result for the exact repair jobId plus a fresh local health scan. Inspect outcome, blockers, snapshotDaysPlanned and snapshotDaysRebuilt. Rebuilt snapshots can still be incomplete. health is current state, not an immutable completion report; during running it is provisional. Jobs are process-local; not_found after restart does not imply success or failure. Use scan_data_health to recheck actual data.", func(ctx context.Context, in DataRepairJobInput) (any, error) {
+	readTool(server, "get_data_repair_job", "Read progress/result for the exact repair jobId plus a fresh local health scan. responseMode=paged separates issues and job items/blockers/prerequisites with 64 KiB pages (default 25/max 100). Inspect outcome, blockers, snapshotDaysPlanned and snapshotDaysRebuilt. Rebuilt snapshots can still be incomplete. health is current state, not an immutable completion report; during running it is provisional. Jobs are process-local; not_found after restart does not imply success or failure. Use scan_data_health to recheck actual data.", func(ctx context.Context, in DataRepairJobInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
 		id := strings.TrimSpace(in.JobID)
 		if _, err := uuid.Parse(id); err != nil {
 			return nil, fail("validation", "jobId must be a UUID returned by start_data_repair")
@@ -41,7 +64,25 @@ func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
 		if err != nil {
 			return nil, err
 		}
-		return DataRepairJobResult{Job: marketdata.SyncSnapshotDTO(job), Health: marketdata.HealthReportDTO(report)}, nil
+		value := DataRepairJobResult{Job: marketdata.SyncSnapshotDTO(job), Health: marketdata.HealthReportDTO(report)}
+		if in.ResponseMode == "paged" {
+			return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
+				c, err := healthReadCapture("data_repair_job", in, value.Health, "issues")
+				if err != nil {
+					return c, err
+				}
+				j, err := healthReadCapture("data_repair_job", in, value.Job, "items", "blockers", "prerequisites")
+				if err != nil {
+					return c, err
+				}
+				c.Summary = map[string]any{"job": j.Summary, "health": c.Summary, "healthScope": "current local scan, independent of recorded job completion"}
+				for name, rows := range j.Sections {
+					c.Sections["job_"+name] = rows
+				}
+				return c, nil
+			})
+		}
+		return value, nil
 	})
 	if mode != LedgerWrite {
 		return

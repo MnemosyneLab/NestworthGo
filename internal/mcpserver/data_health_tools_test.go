@@ -228,6 +228,14 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	if terminal.SnapshotDaysPlanned == 0 || terminal.SnapshotDaysRebuilt != terminal.SnapshotDaysPlanned {
 		t.Fatalf("expected rebuilt snapshots with unresolved provider data: %+v", terminal)
 	}
+	paged := scaleCapture(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID, "responseMode": "paged", "limit": 1})
+	header := paged["summary"].(map[string]any)
+	if header["job"].(map[string]any)["jobId"] != terminal.JobID || header["job"].(map[string]any)["outcome"] != terminal.Outcome {
+		t.Fatal("paged job changed recorded outcome")
+	}
+	for section := range paged["sections"].(map[string]any) {
+		scaleSection(t, c2, paged, section)
+	}
 	blockedByIncompleteSnapshot := false
 	for _, blocker := range terminal.Blockers {
 		if blocker.Reason == "snapshot_incomplete" {

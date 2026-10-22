@@ -7,6 +7,8 @@ import (
 
 func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	fields := map[string][]string{
+		"scan_data_health": {}, "preview_data_repair": {}, "get_data_repair_job": {},
+		"list_members": {}, "list_institutions": {}, "list_groups": {}, "list_accounts": {}, "list_holdings": {},
 		"get_historical_overview": {}, "get_historical_overview_series": {}, "get_account_valuations": {},
 		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data_batch": {"targetKey", "displayName"}, "get_read_page": {}, "get_read_item": {}}
 	sortFields, ok := fields[name]
@@ -39,6 +41,9 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		}
 	}
 	pagingOptions := []string{"filter", "sort", "limit"}
+	if name == "list_accounts" {
+		pagingOptions = []string{"limit"}
+	}
 	if name == "list_agent_market_data" {
 		pagingOptions = []string{"filter", "sort"}
 	}

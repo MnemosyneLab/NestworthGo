@@ -143,7 +143,15 @@ func TestHistoricalAndAccountCompleteWireMeasurements(t *testing.T) {
 				if status != 200 || len(wire) > contextWireLimit || strings.Contains(string(wire), `"isError":true`) {
 					t.Fatalf("%s %d/%d: %s", name, status, len(wire), wire)
 				}
-				t.Logf("synthetic holdings=%d %s first-page complete JSON-RPC bytes=%d", n, name, len(wire))
+				wrapped, err := readSummary(result.StructuredContent)
+				if err != nil {
+					t.Fatal(err)
+				}
+				reserved, err := financialContextWireSize(wrapped["data"])
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Logf("synthetic holdings=%d %s first-page complete JSON-RPC bytes=%d matched-wire-reserve=%d", n, name, len(wire), reserved)
 				cap := scaleCapture(t, c, name, args)
 				section := "rows"
 				if name == "get_account_valuations" {

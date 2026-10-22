@@ -108,6 +108,12 @@ jobs:
             packages: ./internal/application ./internal/infrastructure/marketdata ./internal/infrastructure/sqlite
             run: ^(TestHistoricalOverviewDenseFullScale|TestHistoricalSeriesMemoryEvidence|TestHistoricalSeriesBenchmarkCancellationEvidence|TestUpcomingActionsPerformanceReport|TestHistoricalOverviewDenseRapidSwitchEvidence|TestSourceTrackingProviderRefreshEvidence|TestAnalysisEndToEndPerformanceEvidence|TestSourceTrackingProviderImportBatchEvidence)$
             bench: ^(BenchmarkHistoricalSeriesBounded|BenchmarkHistoricalOverviewRapidSwitch|BenchmarkUpcomingActionsScale|BenchmarkReviewProjectionIncremental100x20|BenchmarkLegacySnapshotCoverageWarmBoundedTrend|BenchmarkLegacySnapshotCoverageColdBoundedTrend)$
+          - label: mcp-payload
+            timeout: 25
+            test_timeout: 5m
+            packages: ./internal/mcpserver
+            run: ^TestMCPPayloadBudgetsLarge$
+            bench: ""
           - label: review
             timeout: 30
             test_timeout: 20m

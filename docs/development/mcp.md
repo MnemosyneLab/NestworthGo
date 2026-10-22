@@ -803,7 +803,7 @@ contribute to pending; price and FX carried on the same leaf count once.
 
 `filter` supports accountIds, instrumentIds, kinds (account/holding/balance/cash),
 included, quality (pending/missing/provisional/verified), reasons (display quality
-reason codes) and side (left/right/either). Right requires a comparison. Arrays
+reason codes or strict missing-input codes) and side (left/right/either). Right requires a comparison. Arrays
 are OR, fields are AND, and all cell predicates must match the same side.
 Filters select endpoint rows; `totalsScope=household` and series
 `pointsScope=household` explicitly retain household financial scope.
@@ -818,6 +818,8 @@ pointCount distinguish household, filtered and time-point cardinalities.
   evidence and missing details. Compact rows keep provenance/date/freshness.
 - `points/<YYYY-MM-DD>`: complete point header and a signed entry to the
   independent `missing/<date>` section; page it for all missing-row evidence.
+- `categories/<category id>`: category header and separately pageable missing
+  row identities, including large incomplete categories.
 - `overview/endpoints`: signed categories/contributions entries; these retain
   full household bridge scope. `states/left` and `states/right` retain allocations.
 
@@ -843,3 +845,19 @@ Oversized single items return deterministic too_large/single_item; narrowing the
 query is required, and reducing page limit cannot fix an oversized single item.
 See [response review](mcp-response-review.md) for the complete inventory and
 synthetic byte/coverage evidence.
+
+Directory `list_members`, `list_institutions`, `list_groups`, `list_accounts` and
+`list_holdings` also accept responseMode=paged and limit (default 25/max 100).
+They retain their existing filters and no-option response shapes. Paginated rows
+sort by persistent id. `get_read_item` with the corresponding section and id
+retains notes/metadata omitted from compact rows. Existing list_accounts.filter
+continues to work without responseMode.
+
+Health reads `scan_data_health`, `preview_data_repair` and `get_data_repair_job`
+accept responseMode=paged and limit. Scans page issues; previews independently
+page items/unresolved; jobs page issues and job_items/job_blockers/job_prerequisites.
+Header counts describe the entire capture. Plural sectionCount fields are
+serialized row counts; domain issueCount/range counts retain their original
+meaning. Job outcomes and current health remain distinct authorities. Polling
+creates a new capture; continuation does not rescan or extend TTL. Starting or
+retrying repairs, durable receipts and provider permissions are unchanged.

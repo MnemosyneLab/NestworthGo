@@ -19,7 +19,7 @@ Base: `1ee6cc4257a2efe4d1155e895b032370173738f8`. Synthetic data only.
   cache, initial default 5 per section, continuation 25/max 100 and complete 64 KiB wire sizing. Computation and
   capture limits remain separate. Oversized items fail explicitly; no truncation.
 - Summary holds household endpoint totals and reconciliation header only.
-  Rows, allocations/categories, reconciliation contributions, points and per-point
+  Rows, allocations/categories (with pageable missing identities), reconciliation contributions, points and per-point
   missing evidence are independent sections. Series never embeds full Overview.
   Rows sort by immutable key; points by civil date. Filters select endpoint rows
   before paging: account/instrument, leaf/rollup, pending/actionable quality/reason
@@ -75,7 +75,7 @@ legacy tools retain SDK behavior; a universal wire-contract change is deferred.
 
 | Family | Current shape / bound / repetition | Decision |
 | --- | --- | --- |
-| Context/catalog, members/institutions/groups/accounts/holdings | Bootstrap/catalog or directory arrays; query/account filters but directory cardinality unbounded; identities/ownership are useful | Retain contracts; use scoped discovery, financial context for summaries; directory-wide default migration deferred |
+| Context/catalog, members/institutions/groups/accounts/holdings | Bootstrap/catalog or directory arrays; query/account filters but directory cardinality unbounded; identities/ownership are useful | Add opt-in frozen directory/holdings pages and full item metadata; preserve existing filters/default contracts |
 | Current overview/account valuations/snapshot | Household breakdown or account array/detail; components + composition details + slices repeat, unbounded holdings | Add bounded account projection with full evidence retrieval; retain explicit legacy contract |
 | Historical overview/series | Full rows/evidence/categories/reconciliation; series 1–31 points plus full overview and per-point missing rows; wire can fail below compute limits | Default bounded historical read v2 |
 | Financial context/comparison/attribution | Frozen 4 MiB captures, 5 min TTL, 64 KiB pages/item; repeated mandatory basis/summary and disclosure | Add effective leaf quality/contributions; retain coherence, aliases and financial precision evidence |
@@ -85,7 +85,7 @@ legacy tools retain SDK behavior; a universal wire-contract change is deferred.
 | Period analysis | Four full projections with trends/categories/drivers/coverage; range computation bounded independently of encoded output | Prefer comparison attribution for two endpoints; named projection migration deferred |
 | Review V2 | Rules/suppressions <=100; report groups, daily evidence, episodes/events/coverage revision-bound pages; one episode includes sibling alerts | Retain rule grouping and complete audit evidence; no unsafe field removal |
 | Reconciliation sessions | Bounded header/page/item/attempt routes; links retain before/after review evidence | Retain; already separates heavy histories |
-| Health/repair | Full issue/plan arrays; polling repeats health scan; job contains per-target detail | Defer named summary/paged job migration; retain unresolved issues and prerequisite evidence |
+| Health/repair | Full issue/plan arrays; polling repeats health scan; job contains per-target detail | Add opt-in frozen issue/preview/job sections; retain unresolved issues, prerequisites and separate current health |
 | Preview/commit, directory writes, market import, policy/product/review writes, operation receipt | One item or <=100 commands/targets; normalized requests/effects/receipts can be large | Preserve safety evidence, original outcomes and retry hashes; no destructive compaction |
 
 Discovery includes every tool's input/output schema and long business/safety
@@ -112,4 +112,89 @@ closed dates; no external providers. Wire figures include SDK duplication and
 | 80 | 485,490 | 520,142 | 228,222 |
 
 Ledger-write discovery: 103 tools, 141,783 serialized result bytes. Discovery
-cost is separate from call output limits. After figures follow implementation.
+cost is separate from call output limits. After profiles, measured with the identical SDK + 1,024-byte reserve model:
+
+| Holdings | Overview first page | 10-day series first page | Account headers |
+| --- | ---: | ---: | ---: |
+| 3 | 31,752 | 49,856 | 7,302 |
+| 80 | 31,810 | 50,052 | 7,316 |
+
+For 80 holdings this reduces initial output by approximately 93%, 90% and 97%.
+These are initial pages, not claims that all evidence fits into one response.
+The corresponding actual complete JSON-RPC results (512-byte request ID) were
+31,329 / 49,575 / 6,837 bytes. Small differences between runs come from opaque
+cursor/identifier lengths. No exact token counts or latency percentile claims.
+
+## Realistic synthetic payload regression coverage
+
+`payload_budget_test.go` observes the actual HTTP transport, including request
+serialization and the complete JSON-RPC response with SDK text/structuredContent.
+Success paths must return useful data; too_large is not accepted as a passing
+normal result. Pathological single-item failures are separately tested through
+an actual MCP client with deterministic single_item recovery guidance.
+
+Two reusable shapes: ordinary = 20 accounts / 24 holdings / 8 instruments / 42
+retained days; larger = 200 accounts / 100 holdings / 25 instruments / about two
+years. Both have four currencies, shared holdings/quotes, 12 ledger activities,
+long names/notes/provenance, two saved review rules with real published episodes,
+a managed product and a reconciliation session. All facts are synthetic and
+created with validated application services; none is sampled from user data.
+The two-year history is intentionally sparse. Preparation is shared per tier;
+analysis queries use two closed dates and one account, rather than rebuilding
+full history independently for every probe.
+
+The ordinary test runs in existing PR Go-test shards (~1.5 seconds locally).
+The larger test is perf-tagged and has its own existing-perf-workflow matrix
+entry, one focused test with a five-minute process bound (~6 seconds locally).
+There are no additional full-suite or benchmark rounds in CI.
+
+Every probed tool response must fit 65,536 actual bytes. Lower default budgets:
+catalog 24 KiB, context 16 KiB, financial-context initial 28 KiB, historical
+initial 56 KiB (five rows/points per section; measured near 50 KiB). Discovery
+has a separate 160 KiB regression ceiling: 103 tools / about 148.7 KB, up from
+141.8 KB because bounded options, filter enums and retrieval guidance are now
+published. SDK text compatibility and all safety instructions remain.
+
+| Complete representative journey | Ordinary calls / bytes | Larger calls / bytes |
+| --- | ---: | ---: |
+| All directory pages + one full item | 2 / 36,868 | 9 / 359,699 |
+| All 31-day history leaves/points + row and point detail | 10 / 311,736 | 32 / 1,374,046 |
+| Targeted account historical holdings | 1 / 17,121 | 1 / 20,197 |
+| All financial-context sections + one item | 7 / 165,815 | 27 / 1,227,602 |
+| All health / repair-preview sections | 3 / 23,781 | 10 / 499,396 |
+
+Journey assertions bound both call counts and total bytes. Health audits request
+100 on continuation to avoid tiny pages; every page still honors the wire cap.
+The larger legacy health scan measured 482,246 bytes; the new first issue page
+is about 18.6 KB. Complete evidence remains available and can legitimately use
+more aggregate bytes than the old oversized response because pagination adds
+metadata. Filtering is the main context reduction for targeted explanations.
+
+Ordinary probes cover 60 registered tools; larger probes cover the same families
+except legacy get_overview (59). Covered reads include directory/catalog/context,
+account values/snapshot, both historical endpoints and frozen page/item routes,
+financial context/comparison/attribution and pages/items, market current/history
+and Agent provenance, activities/items, period analysis/contribution/item/day/
+driver, product/list/operation/liquidity/upcoming, reconciliation header/page/item,
+and rules/alerts/coverage/daily evidence/episode history/events/suppressions.
+Synthetic ledger, product, session and rule preview/commit/receipt responses are
+also measured without weakening their safeguards. Page unions, unique IDs,
+matched counts, filters, shared evidence and same-capture detail are checked.
+
+Coverage limits: get_data_repair_job paging is covered by the isolated existing
+repair/retry test, not the 200-account tier. Remote search/provider I/O is excluded.
+Specialized batch/correction/reconciliation/product-terms/product-valuation/
+liquidity-policy previews retain their existing safety tests but are not claimed
+as realistic-scale payload probes. Legacy full arrays, get_overview at larger
+scale, long-range whole-household return analysis, dense multi-year provider
+history and hundreds of simultaneously active review rules remain unbounded or
+unmeasured; use the documented bounded alternatives. No blanket claim that every
+legacy result or every possible single-item payload fits 64 KiB.
+
+Focused regressions additionally cover manual old Agent quotes across days,
+valid closed-day carry, independently missing/carried FX, both carried counting
+once, shared quotes, pending 1 -> 0, missing funding-cash leaf -> household
+aggregation/reason filters, immutable source changes, empty matches, signed
+cursor tampering/cross-capture/section/expiry and oversized item errors. Category
+and point missing identities remain independently pageable. GUI accounting,
+quote/ledger facts, as-of selection and preview/commit safety are unchanged.

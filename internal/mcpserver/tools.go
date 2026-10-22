@@ -24,12 +24,16 @@ import (
 // Tools are an explicit allowlist; no Wails reflection or arbitrary method calls.
 type Empty struct{}
 type ListInput struct {
+	ResponseMode    string `json:"responseMode,omitempty"`
+	Limit           int    `json:"limit,omitempty"`
 	IncludeArchived bool   `json:"includeArchived,omitempty"`
 	Query           string `json:"query,omitempty" jsonschema:"Optional case-insensitive name or symbol filter"`
 }
 type AccountListInput struct {
-	Filter account.AccountFilterRequest `json:"filter,omitempty"`
-	Query  string                       `json:"query,omitempty" jsonschema:"Optional case-insensitive account name filter"`
+	ResponseMode string                       `json:"responseMode,omitempty"`
+	Limit        int                          `json:"limit,omitempty"`
+	Filter       account.AccountFilterRequest `json:"filter,omitempty"`
+	Query        string                       `json:"query,omitempty" jsonschema:"Optional case-insensitive account name filter"`
 }
 type IDInput struct {
 	ID string `json:"id"`
@@ -85,6 +89,8 @@ type SearchInput struct {
 	InstrumentType string `json:"instrumentType"`
 }
 type HoldingListInput struct {
+	ResponseMode    string `json:"responseMode,omitempty"`
+	Limit           int    `json:"limit,omitempty"`
 	AccountID       string `json:"accountId"`
 	IncludeArchived bool   `json:"includeArchived,omitempty"`
 }
@@ -170,7 +176,10 @@ func (s *Service) tools(mode string) *mcp.Server {
 	})
 	readTool(server, "get_catalog", "Read valid account combinations, institution/instrument types, currencies and other business vocabulary. Use these values when creating entities.", func(context.Context, Empty) (any, error) { return catalog.NewService().Catalog(), nil })
 	readTool(server, "get_operation", "Read a durable receipt by operation UUID. unknown requires checking actual data; receipts describe past execution, not current state.", func(_ context.Context, in IDInput) (any, error) { return s.GetOperation(in.ID) })
-	readTool(server, "list_members", "List or search household members.", func(ctx context.Context, in ListInput) (any, error) {
+	readTool(server, "list_members", "List or search household members. responseMode=paged provides stable frozen pages (default 25/max 100); get_read_item with section=members and id retains complete metadata/notes. Legacy no-option shape is preserved.", func(ctx context.Context, in ListInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
 		v, err := dir.ListMembers(ctx, in.IncludeArchived)
 		if err != nil {
 			return nil, err
@@ -181,9 +190,15 @@ func (s *Service) tools(mode string) *mcp.Server {
 				out = append(out, x)
 			}
 		}
+		if in.ResponseMode == "paged" {
+			return s.pagedDirectory(ctx, generation, "members", in, in.Limit, out)
+		}
 		return out, nil
 	})
-	readTool(server, "list_institutions", "List or search institutions.", func(ctx context.Context, in ListInput) (any, error) {
+	readTool(server, "list_institutions", "List or search institutions. responseMode=paged provides stable frozen pages (default 25/max 100); get_read_item with section=institutions and id retains complete metadata/notes. Legacy no-option shape is preserved.", func(ctx context.Context, in ListInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
 		v, err := dir.ListInstitutions(ctx, in.IncludeArchived)
 		if err != nil {
 			return nil, err
@@ -194,9 +209,15 @@ func (s *Service) tools(mode string) *mcp.Server {
 				out = append(out, x)
 			}
 		}
+		if in.ResponseMode == "paged" {
+			return s.pagedDirectory(ctx, generation, "institutions", in, in.Limit, out)
+		}
 		return out, nil
 	})
-	readTool(server, "list_groups", "List or search account groups.", func(ctx context.Context, in ListInput) (any, error) {
+	readTool(server, "list_groups", "List or search account groups. responseMode=paged provides stable frozen pages (default 25/max 100); get_read_item with section=groups and id retains complete metadata/notes. Legacy no-option shape is preserved.", func(ctx context.Context, in ListInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
 		v, err := dir.ListGroups(ctx, in.IncludeArchived)
 		if err != nil {
 			return nil, err
@@ -207,9 +228,15 @@ func (s *Service) tools(mode string) *mcp.Server {
 				out = append(out, x)
 			}
 		}
+		if in.ResponseMode == "paged" {
+			return s.pagedDirectory(ctx, generation, "groups", in, in.Limit, out)
+		}
 		return out, nil
 	})
-	readTool(server, "list_accounts", "List account definitions with ownership and supported filters. Use this result for account IDs and editable fields.", func(ctx context.Context, in AccountListInput) (any, error) {
+	readTool(server, "list_accounts", "List account definitions with ownership and supported filters. Use this result for account IDs and editable fields. responseMode=paged provides stable frozen pages (default 25/max 100); get_read_item with section=accounts and id retains complete metadata/notes. Legacy no-option shape is preserved.", func(ctx context.Context, in AccountListInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
 		records, err := accounts.ListAccounts(ctx, in.Filter)
 		if err != nil {
 			return nil, err
@@ -219,6 +246,9 @@ func (s *Service) tools(mode string) *mcp.Server {
 			if matches(in.Query, record.Account.Name) {
 				out = append(out, record)
 			}
+		}
+		if in.ResponseMode == "paged" {
+			return s.pagedDirectory(ctx, generation, "accounts", in, in.Limit, out)
 		}
 		return out, nil
 	})
@@ -246,7 +276,10 @@ func (s *Service) tools(mode string) *mcp.Server {
 		}
 		return out, nil
 	})
-	readTool(server, "list_holdings", "Read holdings for an account; this does not place orders or modify positions.", func(ctx context.Context, in HoldingListInput) (any, error) {
+	readTool(server, "list_holdings", "Read holdings for an account; this does not place orders or modify positions. responseMode=paged provides stable frozen pages (default 25/max 100); get_read_item with section=holdings and id retains complete metadata/notes. Legacy no-option shape is preserved.", func(ctx context.Context, in HoldingListInput) (any, error) {
+		if err := validateResponseMode(in.ResponseMode, in.Limit != 0); err != nil {
+			return nil, err
+		}
 		id, err := domain.ParseAccountID(in.AccountID)
 		if err != nil {
 			return nil, err
@@ -254,6 +287,9 @@ func (s *Service) tools(mode string) *mcp.Server {
 		values, err := s.app.ListHoldings(ctx, id, in.IncludeArchived)
 		if err != nil {
 			return nil, err
+		}
+		if in.ResponseMode == "paged" {
+			return s.pagedDirectory(ctx, generation, "holdings", in, in.Limit, wire.FromHoldings(values))
 		}
 		return wire.FromHoldings(values), nil
 	})

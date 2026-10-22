@@ -26,6 +26,14 @@ Example `create_account`, choosing a sole owner explicitly:
 {"operationId":"${operationId}","input":{"name":"Example broker","accountType":"brokerage","balanceSheetRole":"asset","trackingMode":"holdings","defaultCurrency":"USD","includeInNetWorth":true,"includeInPortfolio":true,"includeInLiquidAssets":false,"ownerIds":["${memberId}"]}}
 ```
 
+When discovered, prefer responseMode=paged for list_members, list_institutions,
+list_groups, list_accounts and list_holdings. Existing filters still apply;
+follow every cursor. get_read_item with the section and id preserves full notes
+and metadata from that capture. get_account_valuations also supports paged mode:
+compact account headers, with separate component/composition/missing/evidence
+sections reached through get_read_item accounts/id. Never add account rollups to
+their component amounts.
+
 After creation query `list_accounts` / `get_account_snapshot`. Directory
 creation is not atomic with subsequent funding or trades. If a later step
 fails, recover that step; do not recreate the account.
