@@ -42,6 +42,46 @@ func TestManualPreferenceCarriesAgentPriceAcrossValuationAndHealth(t *testing.T)
 					t.Fatalf("manual %s: %+v", point.LocalDate, point)
 				}
 			}
+			for _, date := range []string{"2026-10-10", "2026-10-19", "current"} {
+				context, err := s.BuildFinancialContext(ctx, FinancialContextRequest{AsOf: date})
+				if err != nil {
+					t.Fatal(err)
+				}
+				pending := 0
+				for _, position := range context.Content.Positions {
+					pending += position.PendingContribution
+					if position.Kind == "holding" && (position.DisplayValuation.Quality.CarriedCount != 0 || position.PendingContribution != 0 || !position.CountedLeaf) {
+						t.Fatalf("manual leaf %s: %+v", date, position)
+					}
+				}
+				if pending != context.Content.Summary.DisplayValuation.NetWorth.Quality.CarriedCount {
+					t.Fatal("pending leaf total differs")
+				}
+				for _, gap := range context.Content.Gaps {
+					if gap.Code == "stale_observation" {
+						t.Fatalf("old valid manual quote warned on %s: %+v", date, gap)
+					}
+				}
+				for _, evidence := range context.Content.Evidence {
+					if evidence.Kind == "price" && (evidence.Freshness != "manual" || evidence.SourceKind != "agent" || evidence.EffectiveDate != "2026-10-09") {
+						t.Fatalf("effective freshness/provenance %s: %+v", date, evidence)
+					}
+				}
+			}
+			overview, err := s.HistoricalOverview(ctx, "2026-10-10", "2026-10-19")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range overview.Rows {
+				if row.Kind != "holding" {
+					continue
+				}
+				for _, cell := range []*HistoricalOverviewCell{row.Left, row.Right} {
+					if cell.Price.Freshness != "manual" || cell.Price.Source != "agent" || !cell.Manual || cell.Price.ObservationFreshness != "stale" {
+						t.Fatalf("manual evidence was replaced by observation age: %+v", cell.Price)
+					}
+				}
+			}
 			health, err := s.ScanMarketDataHealth(ctx)
 			if err != nil {
 				t.Fatal(err)

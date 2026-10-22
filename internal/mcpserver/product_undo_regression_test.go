@@ -77,7 +77,7 @@ func TestProductHTTPInterestAndSettlementUndoPreserveDietzAndAttribution(t *test
 			if actual != (result{"50", "0.025", "2000"}) {
 				t.Fatalf("treated=%s scope=%s got=%+v", treated, scope.Kind, actual)
 			}
-			http := call(t, c, "analyze_period", map[string]any{"query": map[string]any{"from": "2026-09-21", "to": "2026-09-21", "scopeKind": string(scope.Kind), "scopeId": scope.ID, "valuation": "base", "basis": "investment", "includeCash": true}}, false)["data"].(map[string]any)["investmentReturns"].(map[string]any)
+			http := sectionEvidence(t, c, "analyze_period", map[string]any{"query": map[string]any{"from": "2026-09-21", "to": "2026-09-21", "scopeKind": string(scope.Kind), "scopeId": scope.ID, "valuation": "base", "basis": "investment", "includeCash": true}})["investmentReturns"].(map[string]any)
 			if http["amount"].(map[string]any)["amount"] != actual.amount || http["rate"] != actual.rate {
 				t.Fatal(http)
 			}

@@ -18,15 +18,13 @@ use `compare_financial_attribution` for a fresh coherent capture with a compatib
 link; follow [analysis.md](references/analysis.md#link-a-comparison-to-change-attribution).
 Use `get_financial_context_item` for a ref in a single-state
 frozen package, inheriting its disclosure. No `get_context`, catalog or directory
-read is required. `get_context` discloses household, member, institution and group
-names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
+read is required. `get_context` discloses household metadata; directory tools disclose names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
 disclosure choices. A summary or two-state difference does not answer period-return questions.
 
 For ordinary management and identity-bearing period analysis, call `get_context` and `get_catalog`
 to identify the instance, household, history timezone/start, permission mode and
 vocabulary. Refresh that context after reconnection or a permission/instance
 change. Use actual tool schemas and availability over examples in this skill.
-Do not infer App compatibility from the MCP protocol/server version alone.
 
 If the connection, household setup or required history start is missing, follow
 [connection.md](references/connection.md). Guide the user through the App;
@@ -105,3 +103,5 @@ never create sell recommendations or ledger entries.
 Ordinary NAV-priced fund/wealth-product holdings use
 the documented instrument/holding path only when they are not App-managed
 products. Do not substitute general trades for a managed product operation.
+
+Skill 2 uses bounded reads by default; follow section cursors and retain capture hashes.

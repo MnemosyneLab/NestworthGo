@@ -170,12 +170,12 @@ func TestFinancialContextHTTPShadowKeysAndDuplicateSemantics(t *testing.T) {
 		{"Params-shadow", `"id":` + string(bigID) + `,"params":` + page + `,"Params":` + unrelated, 400, "", true},
 		{"ID-shadow", `"id":` + string(bigID) + `,"ID":1,"params":` + page, 400, "", true},
 		{"ID-shadow-inverse", `"id":1,"ID":` + string(bigID) + `,"params":` + page, 200, "1", true},
-		{"unrelated-Name-shadow", `"id":` + string(bigID) + `,"params":{"name":"get_context","Name":"get_financial_comparison_page","arguments":{}}`, 200, string(bigID), false},
-		{"unrelated-Params-shadow", `"id":` + string(bigID) + `,"params":` + unrelated + `,"Params":` + page, 200, string(bigID), false},
+		{"unrelated-Name-shadow", `"id":` + string(bigID) + `,"params":{"name":"get_context","Name":"get_financial_comparison_page","arguments":{}}`, 400, "", true},
+		{"unrelated-Params-shadow", `"id":` + string(bigID) + `,"params":` + unrelated + `,"Params":` + page, 400, "", true},
 		{"duplicate-name-protected-last", `"id":` + string(bigID) + `,"params":{"name":"get_context","name":"get_financial_comparison_page","arguments":{"comparisonId":"missing","section":"positions","cursor":"missing"}}`, 400, "", true},
-		{"duplicate-name-unrelated-last", `"id":` + string(bigID) + `,"params":{"name":"get_financial_comparison_page","name":"get_context","arguments":{}}`, 200, string(bigID), false},
+		{"duplicate-name-unrelated-last", `"id":` + string(bigID) + `,"params":{"name":"get_financial_comparison_page","name":"get_context","arguments":{}}`, 400, "", true},
 		{"duplicate-params-protected-last", `"id":` + string(bigID) + `,"params":` + unrelated + `,"params":` + page, 400, "", true},
-		{"duplicate-params-unrelated-last", `"id":` + string(bigID) + `,"params":` + page + `,"params":` + unrelated, 200, string(bigID), false},
+		{"duplicate-params-unrelated-last", `"id":` + string(bigID) + `,"params":` + page + `,"params":` + unrelated, 400, "", true},
 		{"duplicate-params-no-merge", `"id":` + string(bigID) + `,"params":` + page + `,"params":{"arguments":{}}`, 200, string(bigID), false},
 		{"duplicate-name-null", `"id":` + string(bigID) + `,"params":{"name":"get_financial_comparison_page","name":null,"arguments":{"comparisonId":"missing","section":"positions","cursor":"missing"}}`, 400, "", true},
 	} {
@@ -245,18 +245,12 @@ func TestFinancialContextHTTPParamsShadowBatch(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				want := http.StatusOK
-				if protected || protocol == "2025-06-18" {
-					want = http.StatusBadRequest
-				}
+				want := http.StatusBadRequest
 				if res.StatusCode != want {
 					t.Errorf("status=%d want=%d bytes=%d", res.StatusCode, want, len(raw))
 				}
-				if protected && !strings.Contains(string(raw), "require a single JSON-RPC request") {
+				if !strings.Contains(string(raw), "require a single JSON-RPC request") {
 					t.Error("batch bypassed the financial guard")
-				}
-				if !protected && strings.Contains(string(raw), "require a single JSON-RPC request") {
-					t.Error("guard changed an unrelated tool's batch behavior")
 				}
 			})
 		}

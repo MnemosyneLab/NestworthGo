@@ -26,21 +26,16 @@ func TestPagedStandaloneProductRequiresCanonicalIdentity(t *testing.T) {
 		}
 	}
 	c := ledgerSession(t, fx)
-	for _, mode := range []string{"", "paged"} {
-		for _, id := range []string{"", " ", "not-a-uuid"} {
-			args := map[string]any{"id": id}
-			if mode != "" {
-				args["responseMode"] = mode
-			}
-			before := len(fx.service.reads.entries)
-			call(t, c, "get_product", args, true)
-			if len(fx.service.reads.entries) != before {
-				t.Fatal("invalid single-get built a list capture")
-			}
+	for _, id := range []string{"", " ", "not-a-uuid"} {
+		args := map[string]any{"id": id}
+		before := len(fx.service.reads.entries)
+		call(t, c, "get_product", args, true)
+		if len(fx.service.reads.entries) != before {
+			t.Fatal("invalid single-get built a list capture")
 		}
 	}
 	for _, input := range []string{strings.ToUpper(ids[0]), "  " + strings.ToUpper(ids[0]) + "  "} {
-		cap := scaleCapture(t, c, "get_product", map[string]any{"id": input, "responseMode": "paged", "limit": 1})
+		cap := scaleCapture(t, c, "get_product", map[string]any{"id": input, "limit": 1})
 		products := scaleSection(t, c, cap, "products")
 		if len(products) != 1 || products[0].(map[string]any)["id"] != ids[0] {
 			t.Fatal("single-get became list")

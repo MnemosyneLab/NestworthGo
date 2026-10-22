@@ -18,9 +18,8 @@ type ProductReadFilter struct {
 	Query        string   `json:"query,omitempty"`
 }
 type ProductGetInput struct {
-	ID           string `json:"id"`
-	ResponseMode string `json:"responseMode,omitempty"`
-	Limit        int    `json:"limit,omitempty"`
+	ID    string `json:"id"`
+	Limit int    `json:"limit,omitempty"`
 }
 type productReadSummary struct {
 	ID               string `json:"id"`

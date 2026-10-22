@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -21,7 +22,6 @@ type InstrumentReadFilter struct {
 type InstrumentReadInput struct {
 	IncludeArchived bool                  `json:"includeArchived,omitempty"`
 	Query           string                `json:"query,omitempty"`
-	ResponseMode    string                `json:"responseMode,omitempty"`
 	Filter          *InstrumentReadFilter `json:"filter,omitempty"`
 	Sort            *ReadSort             `json:"sort,omitempty"`
 	Limit           int                   `json:"limit,omitempty"`
@@ -43,6 +43,7 @@ func (s *Service) pagedInstruments(ctx context.Context, g uint64, in InstrumentR
 	if in.Query != "" {
 		f.Query = in.Query
 	}
+	f.Query = strings.TrimFunc(f.Query, func(r rune) bool { return unicode.IsSpace(r) || r == '\uFEFF' })
 	if err := validateReadQuery(f.Query); err != nil {
 		return ReadEnvelope{}, err
 	}

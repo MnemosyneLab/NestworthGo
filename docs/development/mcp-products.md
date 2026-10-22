@@ -305,7 +305,7 @@ and atomic writes still apply. See [the App history contract](product-operation-
 
 ## Scalable product and liquidity reads
 
-Use responseMode=paged on list_products, get_product and get_liquidity_overview.
+Use the bounded contracts on list_products, get_product and get_liquidity_overview.
 Legacy responses retain their current full shape. New filters/sort/limit require
 explicit paged mode. The complete envelope, cache/cursor/byte contracts and
 permission matrix are specified in [MCP integration](mcp.md#scalable-management-reads-and-batches-mcp-read1).

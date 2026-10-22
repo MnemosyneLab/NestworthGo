@@ -236,62 +236,6 @@ func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
 	}
 }
 
-func TestFinancialContextPreservesOtherLegacyHTTPBatch(t *testing.T) {
-	t.Parallel()
-	for _, protocol := range []string{"", "2025-03-26"} {
-		t.Run(protocol, func(t *testing.T) {
-			s, _, _ := fixture(t)
-			if _, err := s.Enable(ReadOnly); err != nil {
-				t.Fatal(err)
-			}
-			cfg, err := s.Connection()
-			if err != nil {
-				t.Fatal(err)
-			}
-			// Other tools retain the SDK's old batch and request-ID behavior.
-			id := strings.Repeat("x", 70000)
-			payload, _ := jsoncodec.Marshal([]any{
-				map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": map[string]any{"name": "get_context", "arguments": map[string]any{}}},
-				map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{"name": "get_catalog", "arguments": map[string]any{}}},
-			})
-			req, _ := http.NewRequest(http.MethodPost, cfg.Endpoint, strings.NewReader(string(payload)))
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Accept", "application/json, text/event-stream")
-			req.Header.Set("Authorization", "Bearer "+cfg.Token)
-			if protocol != "" {
-				req.Header.Set("MCP-Protocol-Version", protocol)
-			}
-			res, err := http.DefaultClient.Do(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			raw, _ := io.ReadAll(res.Body)
-			res.Body.Close()
-			var replies []struct {
-				ID     json.RawMessage `json:"id"`
-				Result struct {
-					IsError bool `json:"isError"`
-				} `json:"result"`
-			}
-			if err := jsoncodec.Unmarshal(raw, &replies); err != nil || res.StatusCode != http.StatusOK || len(replies) != 2 {
-				t.Fatalf("legacy batch changed: status=%d bytes=%d replies=%d err=%v", res.StatusCode, len(raw), len(replies), err)
-			}
-			found := false
-			for _, reply := range replies {
-				if reply.Result.IsError {
-					t.Fatal("other tool failed")
-				}
-				if string(reply.ID) == `"`+id+`"` {
-					found = true
-				}
-			}
-			if !found {
-				t.Fatal("legacy ID changed")
-			}
-		})
-	}
-}
-
 func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	t.Parallel()
 	c := newFinancialContextCache()
@@ -332,10 +276,10 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	}
 }
 
-func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
+func TestFinancialContextEnvelopeBoundsBootstrapToo(t *testing.T) {
 	t.Parallel()
 	// Page and item share isFinancialContextTool with get_financial_context.
-	// get_context is the pass-through arm.
+	// Bootstrap receives the same complete-wire cap.
 	for _, tool := range []string{"get_financial_context", "get_context"} {
 		t.Run(tool, func(t *testing.T) {
 			body := strings.Repeat("x", contextWireLimit+1)
@@ -350,11 +294,7 @@ func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"`+tool+`","arguments":{}}}`))
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
-			if tool == "get_context" {
-				if response.Code != http.StatusBadRequest || response.Body.String() != body+"tail" || response.Header().Get("X-Test") != "preserved" {
-					t.Fatal("other tools' responses changed")
-				}
-			} else if response.Code != http.StatusOK || response.Body.Len() > contextWireLimit || !strings.Contains(response.Body.String(), `"id":7`) || !strings.Contains(response.Body.String(), `"isError":true`) {
+			if response.Code != http.StatusOK || response.Body.Len() > contextWireLimit || !strings.Contains(response.Body.String(), `"id":7`) || !strings.Contains(response.Body.String(), `"isError":true`) {
 				t.Fatal("expected full replacement of oversized response", response.Code, response.Body.Len())
 			}
 		})

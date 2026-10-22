@@ -53,7 +53,7 @@ func TestScaleMetadataInvalidAndManagedLastTargetsAreAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := ledgerSession(t, fx)
-	capture := scaleCapture(t, c, "list_instruments", map[string]any{"responseMode": "paged"})
+	capture := scaleCapture(t, c, "list_instruments", map[string]any{})
 	versions := map[string]any{}
 	for _, r := range scaleSection(t, c, capture, "instruments") {
 		row := r.(map[string]any)

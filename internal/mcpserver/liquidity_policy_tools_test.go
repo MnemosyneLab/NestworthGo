@@ -25,7 +25,7 @@ func ordinaryPolicy() application.ProductPolicyInput {
 
 func policyOverview(t *testing.T, c *mcp.ClientSession) map[string]any {
 	t.Helper()
-	return call(t, c, "get_liquidity_overview", LiquidityOverviewInput{CustomHorizonOn: productString("2026-10-09"), IncludeEarlyWithdrawal: true}, false)["data"].(map[string]any)
+	return sectionEvidence(t, c, "get_liquidity_overview", LiquidityOverviewInput{CustomHorizonOn: productString("2026-10-09"), IncludeEarlyWithdrawal: true})
 }
 
 func assertPolicyGUIParity(t *testing.T, fx ledgerFixture, c *mcp.ClientSession) {
@@ -40,7 +40,7 @@ func assertPolicyGUIParity(t *testing.T, fx ledgerFixture, c *mcp.ClientSession)
 		t.Fatal(err)
 	}
 	got := policyOverview(t, c)
-	if !reflect.DeepEqual(got, want) {
+	if !reflect.DeepEqual(canonicalEvidence(got), canonicalEvidence(want)) {
 		t.Fatalf("MCP liquidity differs from GUI: %v vs %v", got, want)
 	}
 }
@@ -108,7 +108,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 	holdings := batchHoldings(t, c, fx.brokerage)
 	holding := holdings[0].(map[string]any)["id"].(string)
 	call(t, c, "import_market_data", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{map[string]any{"instrumentId": fx.instrument, "currency": "USD", "kind": "latest", "value": "20", "quotedAt": "2026-09-29T12:00:00Z", "sourceTitle": "Synthetic price"}}}}, false)
-	factsBefore := call(t, c, "get_overview", Empty{}, false)["data"]
+	factsBefore := sectionEvidence(t, c, "get_overview", Empty{})
 	holdingsBefore := batchHoldings(t, c, fx.brokerage)
 
 	refs := []liquidity.SourceRefDTO{{Kind: "account_value", AccountID: fx.checking}, {Kind: "account_cash", AccountID: fx.brokerage, Currency: productString("USD")}, {Kind: "holding", AccountID: fx.brokerage, HoldingID: &holding}}
@@ -192,7 +192,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 			}
 		})
 	}
-	if !reflect.DeepEqual(factsBefore, call(t, c, "get_overview", Empty{}, false)["data"]) || !reflect.DeepEqual(holdingsBefore, batchHoldings(t, c, fx.brokerage)) {
+	if !reflect.DeepEqual(factsBefore, sectionEvidence(t, c, "get_overview", Empty{})) || !reflect.DeepEqual(holdingsBefore, batchHoldings(t, c, fx.brokerage)) {
 		t.Fatal("policy workflow changed ledger/valuation facts")
 	}
 }
@@ -310,7 +310,7 @@ func TestLiquidityPolicyHTTPManagedRejection(t *testing.T) {
 	c := ledgerSession(t, fx)
 	for _, kind := range []string{"term_deposit", "locked_product"} {
 		id, _ := productDataSeed(t, fx, c, kind)
-		product := call(t, c, "get_product", IDInput{ID: id}, false)["data"].(map[string]any)["product"].(map[string]any)
+		product := productEvidence(t, c, IDInput{ID: id})["product"].(map[string]any)
 		holding := product["holdingId"].(string)
 		ref := liquidity.SourceRefDTO{Kind: "holding", AccountID: fx.brokerage, HoldingID: &holding}
 		for _, tool := range []string{"preview_save_liquidity_policy", "preview_reset_liquidity_policy"} {

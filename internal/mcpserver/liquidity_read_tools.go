@@ -79,15 +79,6 @@ func validateReadSort(s *ReadSort, fields []string, field, direction string) err
 	}
 	return nil
 }
-func validateResponseMode(mode string, hasOptions bool) error {
-	if mode != "" && mode != "paged" {
-		return fail("validation", "responseMode must be paged or omitted")
-	}
-	if mode == "" && hasOptions {
-		return fail("validation", "filter, sort and paging options require responseMode=paged")
-	}
-	return nil
-}
 func (s *Service) pagedLiquidity(ctx context.Context, generation uint64, in LiquidityOverviewInput) (ReadEnvelope, error) {
 	f := in.Filter
 	if f == nil {

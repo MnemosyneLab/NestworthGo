@@ -238,6 +238,17 @@ func assertFundingGapHistoricalTotals(t *testing.T, service *Service, ctx contex
 		}
 		for _, reason := range row.Left.Missing {
 			if reason == historicalFundingGapReason {
+				q := row.Left.DisplayValuation.Quality
+				if q.Availability != domain.ValuationNone || q.Coverage != domain.CoverageUnavailable || q.IncludedCount != 1 || q.UnpricedCount != 1 || q.CarriedCount != 0 {
+					t.Fatalf("funding cash leaf classification: %+v", q)
+				}
+				found := false
+				for _, r := range q.Reasons {
+					found = found || r == domain.ReasonAccountValueMissing
+				}
+				if !found {
+					t.Fatal("funding cash has no effective missing-value reason")
+				}
 				gapCash = true
 			}
 		}

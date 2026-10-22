@@ -304,7 +304,7 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 	itemKey := stock.ID.String()
 	stockIDString := stock.ID.String()
 	usdCurrency := "USD"
-	item := call(t, client, "get_contribution_item", map[string]any{"query": combinedQuery, "returnType": "realized", "groupBy": "instrument", "groupKey": itemKey}, false)["data"]
+	item := sectionEvidence(t, client, "get_contribution_item", map[string]any{"query": combinedQuery, "returnType": "realized", "groupBy": "instrument", "groupKey": itemKey})
 	wantItem, err := adapter.ContributionItem(t.Context(), analysis.AnalysisQueryRequest{
 		From: request.From, To: request.To, AccountID: &accountA, InstrumentID: &stockIDString, Currency: &usdCurrency, AssetClass: "stock",
 	}, "realized", "instrument", itemKey)
@@ -409,9 +409,9 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 		if key != brokerageID && key != secondBrokerageID {
 			t.Fatalf("contribution key = %q, want brokerage IDs %q or %q", key, brokerageID, secondBrokerageID)
 		}
-		item := call(t, client, "get_contribution_item", map[string]any{
+		item := sectionEvidence(t, client, "get_contribution_item", map[string]any{
 			"query": query, "returnType": "dividend_interest", "groupBy": "account", "groupKey": key,
-		}, false)["data"].(map[string]any)
+		})
 		wantItem, err := adapter.ContributionItem(ctx, request, "dividend_interest", "account", key)
 		if err != nil {
 			t.Fatal(err)
@@ -421,7 +421,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 		}
 	}
 
-	day := call(t, client, "get_return_day", map[string]any{"query": query, "date": "2025-03-03"}, false)["data"]
+	day := sectionEvidence(t, client, "get_return_day", map[string]any{"query": query, "date": "2025-03-03"})
 	wantDay, err := adapter.ReturnDay(ctx, request, "2025-03-03")
 	if err != nil {
 		t.Fatal(err)
@@ -429,7 +429,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	if !reflect.DeepEqual(day, jsonObject(t, wantDay)) {
 		t.Fatalf("return day = %+v, want %+v", day, wantDay)
 	}
-	driver := call(t, client, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "income"}, false)["data"]
+	driver := sectionEvidence(t, client, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "income"})
 	wantDriver, err := adapter.AssetDriverDetail(ctx, request, "income")
 	if err != nil {
 		t.Fatal(err)

@@ -61,22 +61,26 @@ type HistoricalOverviewAllocation struct {
 }
 
 type HistoricalOverviewEvidence struct {
-	FetchedAt           *string `json:"fetchedAt,omitempty"`
-	ID                  string  `json:"id"`
-	Source              string  `json:"source"`
-	EffectiveAt         string  `json:"effectiveAt"`
-	MarketDate          string  `json:"marketDate"`
-	Freshness           string  `json:"freshness"`
-	SourceKey           string  `json:"sourceKey"`
-	Value               *string `json:"value"`
-	Currency            string  `json:"currency"`
-	BaseCurrency        string  `json:"baseCurrency"`
-	QuoteCurrency       string  `json:"quoteCurrency"`
-	Operation           string  `json:"operation"`
-	ObservationKind     string  `json:"observationKind"`
-	PriceBasis          string  `json:"priceBasis"`
-	TimestampBasis      string  `json:"timestampBasis"`
-	SourcePolicyVersion string  `json:"sourcePolicyVersion"`
+	// Freshness is the effective valuation decision. ObservationFreshness is
+	// diagnostic quote age and must not override manual or closed-day policy.
+	ObservationFreshness string  `json:"observationFreshness,omitempty"`
+	ClosedCarry          bool    `json:"closedCarry,omitempty"`
+	FetchedAt            *string `json:"fetchedAt,omitempty"`
+	ID                   string  `json:"id"`
+	Source               string  `json:"source"`
+	EffectiveAt          string  `json:"effectiveAt"`
+	MarketDate           string  `json:"marketDate"`
+	Freshness            string  `json:"freshness"`
+	SourceKey            string  `json:"sourceKey"`
+	Value                *string `json:"value"`
+	Currency             string  `json:"currency"`
+	BaseCurrency         string  `json:"baseCurrency"`
+	QuoteCurrency        string  `json:"quoteCurrency"`
+	Operation            string  `json:"operation"`
+	ObservationKind      string  `json:"observationKind"`
+	PriceBasis           string  `json:"priceBasis"`
+	TimestampBasis       string  `json:"timestampBasis"`
+	SourcePolicyVersion  string  `json:"sourcePolicyVersion"`
 }
 
 type HistoricalMissingDetail struct {
@@ -408,7 +412,7 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 					cell.FX.Operation = "multiply"
 				}
 			}
-			cell.Manual = a.TrackingMode == domain.TrackingManualValue || (cell.Price != nil && cell.Price.Source == "manual")
+			cell.Manual = a.TrackingMode == domain.TrackingManualValue || (cell.Price != nil && cell.Price.Freshness == string(domain.FreshnessManual))
 			if kind == "balance" || kind == "cash" {
 				if current {
 					cell.ValueSourceAt, cell.ValueSourceID = currentBalanceSource(portfolio, a.ID, cell.Currency, kind == "cash")
@@ -472,7 +476,9 @@ func (s *Service) historicalOverviewPortfolioWithSelections(ctx context.Context,
 			}
 		}
 	}
-	applyOverviewFundingGaps(portfolio, accounts, &rows, &displayAssets, &displayDebts, &assetComplete, &debtComplete)
+	if err := applyOverviewFundingGaps(portfolio, accounts, &rows, &displayAssets, &displayDebts, &assetComplete, &debtComplete); err != nil {
+		return HistoricalOverviewState{}, nil, err
+	}
 	state.DisplayValuation, err = householdDisplay(displayAssets, displayDebts, portfolio.Household.BaseCurrency)
 	if err != nil {
 		return HistoricalOverviewState{}, nil, err
@@ -580,7 +586,7 @@ func historicalPriceEvidence(e *domain.QuoteEvidenceView, quotes []domain.Instru
 	if e == nil {
 		return nil
 	}
-	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), SourceKey: e.SourceKey, Freshness: string(e.Freshness), EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
+	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), SourceKey: e.SourceKey, Freshness: string(e.Freshness), ClosedCarry: e.ClosedCarry, EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
 	for _, q := range quotes {
 		if q.ID.String() == e.ObservationID {
 			r.Value, r.Currency = historicalString(q.UnitPrice.Canonical()), q.Currency.String()
@@ -600,7 +606,13 @@ func historicalPriceEvidence(e *domain.QuoteEvidenceView, quotes []domain.Instru
 				if at.After(cutoff) && q.EffectiveDate != "" && q.SourceKind != domain.QuoteSourceManual {
 					evidenceCutoff = at
 				}
-				r.Freshness = string(domain.QuoteFreshness(q.SourceKind, q.Delayed, at, evidenceCutoff, ttl))
+				r.ObservationFreshness = string(domain.QuoteFreshness(q.SourceKind, q.Delayed, at, evidenceCutoff, ttl))
+				// Retain the established date-labelled historical close
+				// normalization (a valid close/revision can arrive later).
+				// Manual preference and closed-day carry remain authoritative.
+				if e.Freshness != domain.FreshnessManual && !e.ClosedCarry {
+					r.Freshness = r.ObservationFreshness
+				}
 			}
 			break
 		}
@@ -612,7 +624,7 @@ func historicalFXEvidence(e *domain.QuoteEvidenceView, quotes []domain.FXQuote, 
 	if e == nil {
 		return nil
 	}
-	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), SourceKey: e.SourceKey, Freshness: string(e.Freshness), EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
+	r := &HistoricalOverviewEvidence{ID: e.ObservationID, Source: string(e.Source), SourceKey: e.SourceKey, Freshness: string(e.Freshness), ClosedCarry: e.ClosedCarry, EffectiveAt: e.QuotedAt.UTC().Format(time.RFC3339Nano)}
 	for _, q := range quotes {
 		if q.ID.String() == e.ObservationID {
 			r.Value = historicalString(q.Rate.Canonical())
@@ -631,7 +643,13 @@ func historicalFXEvidence(e *domain.QuoteEvidenceView, quotes []domain.FXQuote, 
 				if at.After(cutoff) && q.EffectiveDate != "" && q.SourceKind != domain.QuoteSourceManual {
 					evidenceCutoff = at
 				}
-				r.Freshness = string(domain.QuoteFreshness(q.SourceKind, q.Delayed, at, evidenceCutoff, ttl))
+				r.ObservationFreshness = string(domain.QuoteFreshness(q.SourceKind, q.Delayed, at, evidenceCutoff, ttl))
+				// Retain the established date-labelled historical close
+				// normalization (a valid close/revision can arrive later).
+				// Manual preference and closed-day carry remain authoritative.
+				if e.Freshness != domain.FreshnessManual && !e.ClosedCarry {
+					r.Freshness = r.ObservationFreshness
+				}
 			}
 			break
 		}

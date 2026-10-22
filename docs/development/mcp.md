@@ -58,8 +58,9 @@ All permission modes expose `get_upcoming_actions`, using the App's
 `upcoming-actions/1` aggregation and DTO so dates, timezone, capture freshness,
 coverage and reason codes are not reconstructed from product lists. All modes
 also expose `get_historical_overview` and `get_historical_overview_series` as
-read-only application service calls. The overview preserves the App's immutable
-history result and PR68 `endpoint_bridge/1` convention, including exact values,
+read-only application service calls with default bounded `historical-read/2`
+responses in the `mcp-read/1` envelope. The overview preserves the App's immutable
+history values and PR68 `endpoint_bridge/1` convention, including exact values,
 completeness, timestamp basis, later-endpoint FX and no-write behavior. It does
 not replace closed-period `compare_financial_attribution`.
 
@@ -119,7 +120,7 @@ overlay. Existing provider adapters are unchanged.
 
 ### Tools and permissions
 
-- `get_market_data`: read the selected price/rate and local history for an
+- `get_market_data`: read the selected current price/rate for an
   instrument or oriented currency pair. No provider requests.
 - `list_agent_market_data`: page audit records, original source title/URL,
   exact values, effective dates, corrections and withdrawals. `active` means
@@ -633,11 +634,11 @@ UI, external client, provider, credentials or real financial data is required.
 
 ## Scalable management reads and batches (mcp-read/1)
 
-Legacy no-option results keep their original shapes. Explicit responseMode=paged
-is required for new filter/sort/limit options on get_liquidity_overview,
-list_products, get_product, get_upcoming_actions and
-list_instruments. list_agent_market_data keeps its original offset/limit path;
-filter/sort require paged mode and offset cannot be combined with it.
+The bounded mcp-read/1 contract is the sole response for liquidity, products,
+upcoming actions, instruments, Agent records, directories/holdings, valuations,
+overviews and health/repair reads. responseMode and Agent offset are removed;
+unknown arguments fail schema validation. Filters, sorting and limits work with
+ordinary requests. There are no old-version wrappers or full-response fallback.
 
 The initial envelope includes schemaVersion=mcp-read/1, captureId/captureKind,
 capturedAt/expiresAt, contentHash/summaryHash, normalized query, summary and
@@ -662,8 +663,7 @@ read_revoked covers revocation; validation covers invalid or mismatched cursors.
 Restart all sections from a fresh capture, never combine captures. too_large
 messages distinguish summary, single_item and capture; rows are never skipped
 or truncated. JSON-RPC arrays and IDs over 512 bytes are rejected for bounded
-calls. The final guard also scrubs schema errors. Unbounded legacy instrument,
-Agent or market reads receive no new output cap without opting into the new path.
+calls. The final guard also scrubs schema errors. Default calls receive the same complete wire cap and sanitized schema errors.
 
 ### Filter and sorting matrix
 
@@ -749,10 +749,10 @@ changedCount and items {id,changed,metadataVersion}.
 
 ### Remaining scale boundaries
 
-Data health/repair issues/targets/jobs, account/directory/holding/valuation reads,
-historical bridge details, activity/contribution/return-driver details and extreme
-nested upcoming targets still need targeted bounded alternatives. Their legacy
-behavior is retained; they are not blanket-capped. Existing financial-context
+Individual unusually large notes/provenance or nested source evidence can still
+exceed the single-item budget; the server fails explicitly without truncation.
+Capture size and computation limits are separate from page size.
+Existing financial-context
 aliases/disclosure, activity/contribution pagination, live product-operation
 history, ledger batches/reconciliation and market imports remain their own
 contracts. Ordinary liquidity policy batching and arbitrary detail batching are
@@ -782,3 +782,111 @@ Private production plans use SQLite, and missing pending bodies remain unknown.
 An explicit same-ID recovery can inspect session/adjustment business receipts;
 unknown IDs never execute. See the maintained reconciliation and recovery Skill
 references for continuation, concrete target links and export boundaries.
+
+## Historical read v2 and compact account valuations
+
+Historical overview and series now return `data.schemaVersion=mcp-read/1` and
+`summary.responseVersion=historical-read/2`. This is a breaking response-shape
+change: migrate direct `data.rows` / `data.overview` / `data.points` consumers to
+`data.summary` and `data.sections`. There is no legacy historical mode. Dates,
+financial calculations and the GUI contract are unchanged.
+
+Initial historical responses default to five items per section, selected after
+measuring SDK duplication; explicit limit is 1–100. Continuations default to 25.
+`view=compact` is default; `view=evidence` preserves full row evidence on pages.
+Both use the existing five-minute frozen captures and signed `get_read_page`
+cursors. Default rows are leaves. Every row has `id`, `aggregation` (leaf/rollup),
+account/holding/instrument identifiers and per-side `countedLeaf` /
+`pendingContribution` plus effective `displayValuation`. Only included leaves
+contribute to pending; price and FX carried on the same leaf count once.
+
+`filter` supports accountIds, instrumentIds, kinds (account/holding/balance/cash),
+included, quality (pending/missing/provisional/verified), reasons (display quality
+reason codes or strict missing-input codes) and side (left/right/either). Right requires a comparison. Arrays
+are OR, fields are AND, and all cell predicates must match the same side.
+Filters select endpoint rows; `totalsScope=household` and series
+`pointsScope=household` explicitly retain household financial scope.
+`matchedLeft`/`matchedRight` describe the entire filtered set, independent of
+page size; `rowDetailScope` also permits household category missing-row
+references excluded by that list filter to be fetched from the same capture.
+These extra item reads do not change the filtered counts. Summing included leaf pending contributions across its pages equals
+those pendingCount values. `totalRowCount`, `totalLeafCount`, matchedRowCount and
+pointCount distinguish household, filtered and time-point cardinalities.
+
+`get_read_item` accepts the captureId, section and id:
+
+- `rows/<row id>`: full row with exact adopted price/FX values, source/time/policy
+  evidence and missing details. Compact rows keep provenance/date/freshness.
+- `points/<YYYY-MM-DD>`: complete point header and a signed entry to the
+  independent `missing/<date>` section; page it for all missing-row evidence.
+- `categories/<category id>`: category header and separately pageable missing
+  row identities, including large incomplete categories.
+- `overview/endpoints`: signed categories/contributions entries; these retain
+  full household bridge scope. `states/left` and `states/right` retain allocations.
+
+Series points keep amounts, coverage, gap/scope/basis/connect flags and dates;
+full Overview and per-point missing arrays are not embedded. Metadata is shared
+once. No missing values, financial precision or evidence are discarded.
+Effective freshness is valuation policy, including manual instruments with Agent
+observations and valid closed-day carry. `observationFreshness`, when present,
+is raw diagnostic age. It does not create stale_observation gaps. FX evidence is
+independent. Informational gaps cannot identify a pending asset by themselves.
+
+`get_account_valuations` accepts optional accountIds and limit with existing account filters.
+Compact `accounts` rows hold exact totals/completeness/counts. Read
+`get_read_item` with section=accounts and id for full account/ownership detail and
+separate component, missing-input, display FX and composition-layout sections.
+The GUI's ranked details, type grouping and slices are not repeated in a list row.
+
+All new pages/items preserve the complete 65,536-byte wire ceiling, including
+SDK text, structuredContent and JSON-RPC envelope. Computation bounds and the
+4 MiB capture limit are separate. Empty matches return explicit zero counts.
+Oversized single items return deterministic too_large/single_item; narrowing the
+query is required, and reducing page limit cannot fix an oversized single item.
+See [response review](mcp-response-review.md) for the complete inventory and
+synthetic byte/coverage evidence.
+
+Directory `list_members`, `list_institutions`, `list_groups`, `list_accounts` and
+`list_holdings` accept limit (default 25/max 100) and existing filters. Paginated rows
+sort by persistent id. `get_read_item` with the corresponding section and id
+retains notes/metadata omitted from compact rows. Existing list_accounts.filter
+selects rows before paging.
+
+Health reads `scan_data_health`, `preview_data_repair` and `get_data_repair_job`
+accept limit and return bounded captures. Scans page issues; previews independently
+page items/unresolved; jobs page issues and job_items/job_blockers/job_prerequisites.
+Header counts describe the entire capture. Plural sectionCount fields are
+serialized row counts; domain issueCount/range counts retain their original
+meaning. Job outcomes and current health remain distinct authorities. Polling
+creates a new capture; continuation does not rescan or extend TTL. Starting or
+retrying repairs, durable receipts and provider permissions are unchanged.
+
+`get_overview` accepts the existing account filters and limit.
+It preserves the complete current GUI overview: exact monetary values, complete,
+displayValuation and historyStarted in the summary; independent missingInputs,
+assetsByType/liabilitiesByType, byMember/byInstitution/byGroup/byAccountType,
+recentActivities, accountLabels, instrumentLabels and holdingLabels sections.
+Initial default is five per section, continuation default 25/max 100; all output
+uses mcp-read/1. totalsScope=request_account_filters. Counts describe complete
+section cardinalities. Use get_financial_context for a minimal-disclosure summary and adopted evidence.
+A 200-account regression fetches every section and compares every field with the
+application overview; no GUI DTO or valuation arithmetic changes.
+
+### Additional compact read contracts
+
+get_context returns household metadata, history origin, identity, permissions and
+names of directory tools. Names/notes for members, institutions and groups are
+retrievable through those tools instead of being embedded in bootstrap.
+get_catalog is a small static vocabulary and retains its direct object shape.
+get_account_snapshot returns the same account capture as get_account_valuations,
+filtered to its required id; get_read_item accounts/id opens all evidence sections.
+get_market_data returns only the selected current quote; range/history is solely
+on get_market_data_batch (view=current/coverage/history). No history is discarded.
+
+analyze_period returns mcp-read/1 with four projection headers in summary and
+income/rows, expenses/rows, assetChange/waterfall, assetChange/groups,
+investmentReturns/points and investmentReturns/sources sections (initial default 5).
+get_contribution_item pages components/byAccount; get_return_day pages composition,
+contributors/issues; get_asset_driver_detail pages byInstrument/byAccount/residualDetails.
+These use the same capture/hash/cursor/TTL infrastructure. They retain analysis
+snapshot maintenance and non-read-only annotations; execute before write previews.

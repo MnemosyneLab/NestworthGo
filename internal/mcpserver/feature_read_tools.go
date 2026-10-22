@@ -18,10 +18,9 @@ type UpcomingReadFilter struct {
 	Groups     []string `json:"groups,omitempty"`
 }
 type UpcomingReadInput struct {
-	ResponseMode string              `json:"responseMode,omitempty"`
-	Filter       *UpcomingReadFilter `json:"filter,omitempty"`
-	Sort         *ReadSort           `json:"sort,omitempty"`
-	Limit        int                 `json:"limit,omitempty"`
+	Filter *UpcomingReadFilter `json:"filter,omitempty"`
+	Sort   *ReadSort           `json:"sort,omitempty"`
+	Limit  int                 `json:"limit,omitempty"`
 }
 
 func ptrString(s *string) string {

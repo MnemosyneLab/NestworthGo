@@ -7,6 +7,10 @@ import (
 
 func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	fields := map[string][]string{
+		"analyze_period": {}, "get_account_snapshot": {}, "get_overview": {},
+		"scan_data_health": {}, "preview_data_repair": {}, "get_data_repair_job": {},
+		"list_members": {}, "list_institutions": {}, "list_groups": {}, "list_accounts": {}, "list_holdings": {},
+		"get_historical_overview": {}, "get_historical_overview_series": {}, "get_account_valuations": {},
 		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data_batch": {"targetKey", "displayName"}, "get_read_page": {}, "get_read_item": {}}
 	sortFields, ok := fields[name]
 	if !ok {
@@ -19,9 +23,6 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	if name == "get_product" {
 		minimum := 1
 		schema.Properties["id"].MinLength = &minimum
-	}
-	if p := schema.Properties["responseMode"]; p != nil {
-		p.Enum = []any{"paged"}
 	}
 	if p := schema.Properties["limit"]; p != nil {
 		min := float64(0)
@@ -37,25 +38,17 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 			setSchemaEnum(v, []string{"asc", "desc"})
 		}
 	}
-	pagingOptions := []string{"filter", "sort", "limit"}
-	if name == "list_agent_market_data" {
-		pagingOptions = []string{"filter", "sort"}
-	}
-	if schema.Properties["responseMode"] != nil {
-		conditions := []*jsonschema.Schema{}
-		for _, field := range pagingOptions {
-			if schema.Properties[field] != nil {
-				conditions = append(conditions, &jsonschema.Schema{Required: []string{field}})
-			}
-		}
-		if len(conditions) > 0 {
-			schema.If = &jsonschema.Schema{AnyOf: conditions}
-			schema.Then = &jsonschema.Schema{Required: []string{"responseMode"}}
-		}
-	}
 	walkScaleSchema(schema)
 	if name == "list_instruments" {
 		schema.Properties["query"].MaxLength = nil
+	}
+	if name == "get_historical_overview" || name == "get_historical_overview_series" {
+		setSchemaEnum(schema.Properties["view"], []string{"compact", "evidence"})
+		filter := schema.Properties["filter"]
+		setSchemaEnum(filter.Properties["quality"], []string{"pending", "missing", "provisional", "verified"})
+		setSchemaEnum(filter.Properties["side"], []string{"left", "right", "either"})
+		setSchemaEnum(filter.Properties["kinds"].Items, []string{"account", "holding", "balance", "cash"})
+		setSchemaEnum(filter.Properties["reasons"].Items, historicalReasons)
 	}
 	filter := schema.Properties["filter"]
 	if filter != nil {

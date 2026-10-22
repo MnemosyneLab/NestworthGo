@@ -31,6 +31,7 @@ type ContributionPageDTO struct {
 }
 
 type GetContributionItemInput struct {
+	Limit      int                 `json:"limit,omitempty" jsonschema:"Initial rows per section, default 25, maximum 100"`
 	Query      PeriodAnalysisQuery `json:"query" jsonschema:"Use the same query as list_contributions, including all realized scope and filters"`
 	ReturnType string              `json:"returnType" jsonschema:"Use the same returnType as list_contributions"`
 	GroupBy    string              `json:"groupBy" jsonschema:"Use the same groupBy as list_contributions"`
@@ -38,11 +39,13 @@ type GetContributionItemInput struct {
 }
 
 type GetReturnDayInput struct {
+	Limit int                 `json:"limit,omitempty" jsonschema:"Initial rows per section, default 25, maximum 100"`
 	Query PeriodAnalysisQuery `json:"query" jsonschema:"Inclusive closed-day range in the History Origin timezone"`
 	Date  string              `json:"date" jsonschema:"YYYY-MM-DD date within query.from and query.to"`
 }
 
 type GetAssetDriverDetailInput struct {
+	Limit     int                 `json:"limit,omitempty" jsonschema:"Initial rows per section, default 25, maximum 100"`
 	Query     PeriodAnalysisQuery `json:"query" jsonschema:"Use the same query as analyze_period"`
 	DriverKey string              `json:"driverKey" jsonschema:"One assetChange row bucket: external_flow, income, spending, dividend_interest, price_change, fx_impact, fx_conversion_spread, fee, liability_impact, adjustment, residual"`
 }
@@ -83,6 +86,7 @@ func readAttributionTool[I any](server *mcp.Server, name, description string, en
 }
 
 func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service) {
+	generation := s.contextGeneration
 	readAttributionTool(server, "list_contributions", "Page investment return contributions by instrument, account, currency or asset class. Realized contributions can be filtered by scope and filters, which intersect: currency selects the native sell-event denomination, asset class selects the instrument's current Type, and account/instrument constraints also intersect. Member filtering remains unsupported. Realized rows group by instrument or account only; currency and asset-class filters do not add grouping modes. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Use a row key with get_contribution_item; repeat the same query, returnType and groupBy. Dates are inclusive closed days in the History Origin timezone.", map[string][]any{
 		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},
 		"groupBy":    {"instrument", "account", "currency", "asset_class"},
@@ -118,7 +122,7 @@ func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service
 		}
 		return page, nil
 	})
-	readAttributionTool(server, "get_contribution_item", "Read the full components, account breakdown and related History activity hint for one contribution row. Use an exact key from list_contributions with the same query, returnType and groupBy; the hint may identify a broader set of related records when currency or asset-class filters are active, and is not an exact matching breakdown or a second calculation of the amount.", map[string][]any{
+	readAttributionTool(server, "get_contribution_item", "Read frozen mcp-read/1 sections with get_read_page continuation for components, account breakdown and related History activity hint for one contribution row. Use an exact key from list_contributions with the same query, returnType and groupBy; the hint may identify a broader set of related records when currency or asset-class filters are active, and is not an exact matching breakdown or a second calculation of the amount.", map[string][]any{
 		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},
 		"groupBy":    {"instrument", "account", "currency", "asset_class"},
 	}, func(ctx context.Context, in GetContributionItemInput) (any, error) {
@@ -131,9 +135,14 @@ func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service
 			value, err = adapter.ContributionItem(ctx, in.Query.request(), in.ReturnType, in.GroupBy, in.GroupKey)
 			return err
 		})
-		return value, err
+		if err != nil {
+			return nil, err
+		}
+		return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
+			return sectionedReadCapture("get_contribution_item", in, value, "components", "byAccount")
+		})
 	})
-	readAttributionTool(server, "get_return_day", "Read one day's return amount, rate, composition, contributors, coverage and valuation issues. The date must be within the query's inclusive closed-day range. Preserve nullable values and amountStatus; partial amounts are not complete totals.", nil, func(ctx context.Context, in GetReturnDayInput) (any, error) {
+	readAttributionTool(server, "get_return_day", "Read frozen mcp-read/1 sections with get_read_page continuation for one day's return amount, rate, composition, contributors, coverage and valuation issues. The date must be within the query's inclusive closed-day range. Preserve nullable values and amountStatus; partial amounts are not complete totals.", nil, func(ctx context.Context, in GetReturnDayInput) (any, error) {
 		query, err := in.Query.request().ToDomain()
 		if err != nil {
 			return nil, err
@@ -148,9 +157,14 @@ func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service
 			value, err = adapter.ReturnDay(ctx, in.Query.request(), in.Date)
 			return err
 		})
-		return value, err
+		if err != nil {
+			return nil, err
+		}
+		return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
+			return sectionedReadCapture("get_return_day", in, value, "composition", "contributors", "issues")
+		})
 	})
-	readAttributionTool(server, "get_asset_driver_detail", "Read the instrument and account amounts plus residual source records for one asset-change driver bucket. Use a bucket key from analyze_period.assetChange. Dates are inclusive closed days in the History Origin timezone; preserve available, status, missingReason and nullable amounts.", map[string][]any{
+	readAttributionTool(server, "get_asset_driver_detail", "Read frozen mcp-read/1 sections with get_read_page continuation for instrument and account amounts plus residual source records for one asset-change driver bucket. Use a bucket key from analyze_period.assetChange. Dates are inclusive closed days in the History Origin timezone; preserve available, status, missingReason and nullable amounts.", map[string][]any{
 		"driverKey": {"external_flow", "income", "spending", "dividend_interest", "price_change", "fx_impact", "fx_conversion_spread", "fee", "liability_impact", "adjustment", "residual"},
 	}, func(ctx context.Context, in GetAssetDriverDetailInput) (any, error) {
 		if strings.TrimSpace(in.DriverKey) == "" {
@@ -162,6 +176,11 @@ func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service
 			value, err = adapter.AssetDriverDetail(ctx, in.Query.request(), in.DriverKey)
 			return err
 		})
-		return value, err
+		if err != nil {
+			return nil, err
+		}
+		return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
+			return sectionedReadCapture("get_asset_driver_detail", in, value, "byInstrument", "byAccount", "residualDetails")
+		})
 	})
 }

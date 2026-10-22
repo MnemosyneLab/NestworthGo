@@ -64,6 +64,8 @@ func connectHistoryTools(t *testing.T, service *Service) *mcp.ClientSession {
 	t.Helper()
 	ctx := context.Background()
 	server := mcp.NewServer(&mcp.Implementation{Name: "history-test", Version: "1"}, nil)
+	service.reads.activate(service.contextGeneration)
+	service.boundedReadTools(server, service.contextGeneration)
 	service.historyTools(server)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(ctx, serverTransport, nil)
@@ -101,11 +103,11 @@ func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 7 {
+	if len(listed.Tools) != 9 {
 		t.Fatalf("history tool count = %d", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {
-		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint != (tool.Name == "list_activities" || tool.Name == "get_activity") {
+		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint != (tool.Name == "list_activities" || tool.Name == "get_activity" || tool.Name == "get_read_page" || tool.Name == "get_read_item") {
 			t.Fatalf("%s has incorrect snapshot-write annotation", tool.Name)
 		}
 	}
@@ -145,9 +147,9 @@ func TestAnalyzePeriodReturnsExistingDTOsAndCoverage(t *testing.T) {
 	s, app, _, _ := historyFixture(t)
 	c := connectHistoryTools(t, s)
 	query := analysis.AnalysisQueryRequest{From: "2025-03-02", To: "2025-03-03", IncludeCash: true}
-	actual := call(t, c, "analyze_period", map[string]any{"query": map[string]any{
+	actual := sectionEvidence(t, c, "analyze_period", map[string]any{"query": map[string]any{
 		"from": query.From, "to": query.To, "includeCash": true,
-	}}, false)["data"].(map[string]any)
+	}})
 	adapter := analysis.NewService(app)
 	ctx := context.Background()
 	income, err := adapter.Categories(ctx, query, "income")

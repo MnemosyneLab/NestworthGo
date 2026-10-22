@@ -1,10 +1,11 @@
 # Frozen management reads and atomic batches
 
-Discover support first. Skill 1.9.0 prefers `responseMode:"paged"` for liquidity,
-products, instruments, upcoming actions and Agent records.
-Keep pure minimal financial-context workflows on their existing disclosure path.
-Older Apps retain their existing reads and single-item writes; do not infer new
-support from version text or bypass permissions, managed guards or an overflow.
+Discover tools first. Liquidity, products, instruments, upcoming actions, Agent
+records, account valuations, directory lists/holdings and health/repair reads
+return mcp-read/1 by default. There is one contract; do not pass responseMode.
+Historical/current overview reads default to five initial items per section;
+continuations default to 25. Pure minimal financial-context workflows retain
+their disclosure path. Inspect permissions before writes.
 
 ## Completeness and recovery
 
@@ -54,17 +55,17 @@ names exactly, including reservations/<productId> or a market target section.
 
 <!-- example: scale-liquidity-funds -->
 ```json
-{"responseMode":"paged","filter":{"instrumentTypes":["mutual_fund","bank_investment_product"],"policyOrigins":["explicit"]},"sort":{"field":"displayName","direction":"asc"},"limit":1}
+{"filter":{"instrumentTypes":["mutual_fund","bank_investment_product"],"policyOrigins":["explicit"]},"sort":{"field":"displayName","direction":"asc"},"limit":1}
 ```
 
 <!-- example: scale-liquidity-unconfigured -->
 ```json
-{"responseMode":"paged","filter":{"hasRule":false},"limit":1}
+{"filter":{"hasRule":false},"limit":1}
 ```
 
 <!-- example: scale-products -->
 ```json
-{"responseMode":"paged","limit":1}
+{"limit":1}
 ```
 
 <!-- example: scale-product-item -->
@@ -94,12 +95,12 @@ names exactly, including reservations/<productId> or a market target section.
 
 <!-- example: scale-agent-retractions -->
 ```json
-{"responseMode":"paged","filter":{"instrumentIds":["${instrumentId}"],"operations":["retract"],"active":false},"sort":{"field":"createdAt","direction":"desc"}}
+{"filter":{"instrumentIds":["${instrumentId}"],"operations":["retract"],"active":false},"sort":{"field":"createdAt","direction":"desc"}}
 ```
 
 <!-- example: scale-instruments -->
 ```json
-{"responseMode":"paged","filter":{"ids":["${instrumentId}"]},"sort":{"field":"displayName","direction":"asc"},"limit":1}
+{"filter":{"ids":["${instrumentId}"]},"sort":{"field":"displayName","direction":"asc"},"limit":1}
 ```
 
 <!-- example: scale-metadata -->
@@ -109,7 +110,7 @@ names exactly, including reservations/<productId> or a market target section.
 
 <!-- example: scale-empty-match -->
 ```json
-{"responseMode":"paged","filter":{"policyOrigins":["explicit"],"hasRule":false}}
+{"filter":{"policyOrigins":["explicit"],"hasRule":false}}
 ```
 
 ## Reconciliation evidence

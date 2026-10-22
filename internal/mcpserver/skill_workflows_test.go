@@ -67,7 +67,7 @@ func TestSkillAccountTradeImportAndReconciliationExamples(t *testing.T) {
 	c := ledgerSession(t, fx)
 	call(t, c, "get_context", map[string]any{}, false)
 	call(t, c, "get_catalog", map[string]any{}, false)
-	members := call(t, c, "list_members", map[string]any{}, false)["data"].([]any)
+	members := scaleSection(t, c, scaleCapture(t, c, "list_members", map[string]any{}), "members")
 	created := call(t, c, "create_account", skillExample(t, "accounts-and-instruments", "create-brokerage", map[string]string{
 		"operationId": uuid.NewString(), "memberId": members[0].(map[string]any)["id"].(string),
 	}), false)["data"].(map[string]any)["result"].(map[string]any)
@@ -142,9 +142,16 @@ func TestSkillFundQuoteAnalysisAndHealthExamples(t *testing.T) {
 	fund := call(t, c, "create_instrument", skillExample(t, "accounts-and-instruments", "create-fund", values), false)["data"].(map[string]any)["result"].(map[string]any)
 	values["instrumentId"], values["operationId"] = fund["id"].(string), uuid.NewString()
 	imported := call(t, c, "import_market_data", skillExample(t, "market-data", "fund-nav", values), false)["data"].(map[string]any)["result"].(map[string]any)
-	data := call(t, c, "get_market_data", map[string]any{"instrumentId": values["instrumentId"], "range": "2026-09-28:2026-09-28"}, false)["data"].(map[string]any)
-	if data["current"].(map[string]any)["unitPrice"] != "1.0197" || len(data["history"].(map[string]any)["observations"].([]any)) != 1 {
+	data := call(t, c, "get_market_data", map[string]any{"instrumentId": values["instrumentId"]}, false)["data"].(map[string]any)
+	if data["current"].(map[string]any)["unitPrice"] != "1.0197" {
 		t.Fatal("documented fund NAV date/value not available through MCP")
+	}
+	history := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"instrumentId": values["instrumentId"]}}, "view": "history", "range": "all"})
+	targets := scaleSection(t, c, history, "targets")
+	target := targets[0].(map[string]any)["targetKey"].(string)
+	history["sections"] = targets[0].(map[string]any)["sections"]
+	if len(scaleSection(t, c, history, target+"/observations")) != 1 {
+		t.Fatal("NAV history missing")
 	}
 	values["quoteId"], values["operationId"] = imported["quoteIds"].([]any)[0].(string), uuid.NewString()
 	call(t, c, "import_market_data", skillExample(t, "market-data", "withdraw-quote", values), false)
@@ -157,7 +164,7 @@ func TestSkillFundQuoteAnalysisAndHealthExamples(t *testing.T) {
 	values["operationId"] = uuid.NewString()
 	call(t, c, "import_market_data", skillExample(t, "market-data", "fx-reference", values), false)
 	query := skillExample(t, "analysis", "analyze-period", nil)
-	report := call(t, c, "analyze_period", query, false)["data"].(map[string]any)
+	report := sectionEvidence(t, c, "analyze_period", query)
 	for _, section := range []string{"income", "expenses", "assetChange", "investmentReturns"} {
 		if _, ok := report[section]; !ok {
 			t.Fatalf("documented analysis query missing %s: %v", section, report)
@@ -282,12 +289,10 @@ func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
 	if !strings.Contains(string(namedRaw), "Private account") || namedContent.Disclosure != "named" {
 		t.Fatal("named example did not reveal the requested account identities")
 	}
-	// Ordinary management still receives the existing Bootstrap names and IDs.
-	contextRaw, _ := jsoncodec.Marshal(call(t, c, "get_context", Empty{}, false))
-	for _, secret := range secrets[:8] {
-		if !strings.Contains(string(contextRaw), secret) {
-			t.Fatalf("ordinary get_context unexpectedly changed: %s", secret)
-		}
+	// Bootstrap is metadata-only; names remain available through directory pages.
+	members := scaleSection(t, c, scaleCapture(t, c, "list_members", Empty{}), "members")
+	if len(members) == 0 {
+		t.Fatal("directory identities missing")
 	}
 	if changes.Load() != 0 {
 		t.Fatal("read-only skill examples emitted a write event")

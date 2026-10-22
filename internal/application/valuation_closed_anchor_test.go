@@ -59,6 +59,10 @@ func TestCurrentClosedCarryRequiresDailyAnchor(t *testing.T) {
 			} else if scenario != "close" && e.Freshness == domain.FreshnessFresh {
 				t.Fatalf("ineligible quote certified fresh: %+v", e)
 			}
+			projected := historicalPriceEvidence(e, quotes, now, true, 12*time.Hour)
+			if projected.Freshness != string(e.Freshness) || projected.ClosedCarry != e.ClosedCarry || projected.Source != string(e.Source) {
+				t.Fatalf("effective price policy lost in historical evidence: %+v", projected)
+			}
 			if c.BaseAmountExact != "12.3456789" || e.QuotedAt != q.QuotedAt || e.EffectiveDate != q.EffectiveDate {
 				t.Fatalf("amount/provenance changed: %+v", c)
 			}

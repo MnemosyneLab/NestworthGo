@@ -59,7 +59,7 @@ func TestAgentCorrectionRetractionTargetDateFilter(t *testing.T) {
 	target := corrected["quoteIds"].([]any)[0]
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": target, "sourceTitle": "Synthetic withdrawal"}}})
 	for _, direction := range []string{"asc", "desc"} {
-		args := map[string]any{"responseMode": "paged", "filter": map[string]any{"instrumentIds": []string{fx.instrument}, "operations": []string{"correct", "retract"}, "fromDate": "2026-09-28", "toDate": "2026-09-28"}, "sort": map[string]any{"field": "observationDate", "direction": direction}, "limit": 1}
+		args := map[string]any{"filter": map[string]any{"instrumentIds": []string{fx.instrument}, "operations": []string{"correct", "retract"}, "fromDate": "2026-09-28", "toDate": "2026-09-28"}, "sort": map[string]any{"field": "observationDate", "direction": direction}, "limit": 1}
 		cap := scaleCapture(t, c, "list_agent_market_data", args)
 		rows := scaleSection(t, c, cap, "records")
 		if len(rows) != 2 {
@@ -75,11 +75,11 @@ func TestAgentCorrectionRetractionTargetDateFilter(t *testing.T) {
 			}
 		}
 	}
-	empty := scaleCapture(t, c, "list_agent_market_data", map[string]any{"responseMode": "paged", "filter": map[string]any{"operations": []string{"retract"}, "instrumentIds": []string{fx.instrument}, "fromDate": "2026-09-27", "toDate": "2026-09-27"}})
+	empty := scaleCapture(t, c, "list_agent_market_data", map[string]any{"filter": map[string]any{"operations": []string{"retract"}, "instrumentIds": []string{fx.instrument}, "fromDate": "2026-09-27", "toDate": "2026-09-27"}})
 	if len(scaleSection(t, c, empty, "records")) != 0 {
 		t.Fatal("retraction incorrectly filtered by original superseded date")
 	}
-	call(t, c, "list_agent_market_data", map[string]any{"responseMode": "paged", "filter": map[string]any{"instrumentIds": []string{uuid.NewString()}}}, false)
+	call(t, c, "list_agent_market_data", map[string]any{"filter": map[string]any{"instrumentIds": []string{uuid.NewString()}}}, false)
 }
 
 type scaleForbiddenProvider struct{ calls atomic.Int32 }
@@ -136,7 +136,7 @@ func TestUpcomingSortNullTieAcrossPageBoundaries(t *testing.T) {
 	c := ledgerSession(t, fx)
 	for _, field := range []string{"priority", "sortOn", "displayName"} {
 		for _, direction := range []string{"asc", "desc"} {
-			args := map[string]any{"responseMode": "paged", "sort": map[string]any{"field": field, "direction": direction}, "limit": 1}
+			args := map[string]any{"sort": map[string]any{"field": field, "direction": direction}, "limit": 1}
 			small := scaleCapture(t, c, "get_upcoming_actions", args)
 			a := scaleSection(t, c, small, "items")
 			args["limit"] = 100

@@ -105,7 +105,7 @@ func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 	}
 	c := connect(t, fx.service)
 
-	upcoming := call(t, c, "get_upcoming_actions", skillExample(t, "products", "upcoming-actions", nil), false)["data"]
+	upcoming := sectionEvidence(t, c, "get_upcoming_actions", skillExample(t, "products", "upcoming-actions", nil))
 	guiUpcoming, err := liquidity.NewService(fx.app).UpcomingActions(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -118,35 +118,53 @@ func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	featureJSONEqual(t, historyView, guiHistory)
 	view := historyView.(map[string]any)
-	if view["change"].(map[string]any)["netWorth"] != "50" {
-		t.Fatalf("historical exact endpoint delta lost: %+v", view["change"])
+	summary := view["summary"].(map[string]any)
+	if summary["change"].(map[string]any)["netWorth"] != "50" {
+		t.Fatal(summary)
 	}
-	reconciliation := view["reconciliation"].(map[string]any)
-	if !strings.Contains(reconciliation["basis"].(string), "endpoint_bridge/1") {
-		t.Fatalf("historical endpoint bridge contract missing: %+v", reconciliation)
+	if !strings.Contains(summary["reconciliation"].(map[string]any)["basis"].(string), "endpoint_bridge/1") {
+		t.Fatal(summary)
 	}
-
+	rows := scaleSection(t, c, view, "rows")
+	wantRows := map[string]any{}
+	for _, row := range guiHistory.Rows {
+		if row.Kind == "account" {
+			continue
+		}
+		want, err := historicalRowProjection(row, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantRows[row.Key] = want
+	}
+	if len(rows) != len(wantRows) {
+		t.Fatalf("leaf union %d/%d", len(rows), len(wantRows))
+	}
+	for _, raw := range rows {
+		row := raw.(map[string]any)
+		item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: view["captureId"].(string), Section: "rows", ID: row["id"].(string)})
+		featureJSONEqual(t, item["summary"], wantRows[row["id"].(string)])
+	}
 	seriesArgs := skillExample(t, "analysis", "historical-overview-series", nil)
-	expanded, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_historical_overview_series", Arguments: seriesArgs})
-	if err != nil {
-		t.Fatal(err)
-	}
-	encoded, _ := jsoncodec.Marshal(expanded)
-	if !expanded.IsError || !strings.Contains(string(encoded), "too_large") {
-		t.Fatalf("oversized quality capture must fail explicitly, never truncate: %+v", expanded)
-	}
-	// Added quality increases payload cost. Preserve the wire budget; parity
-	// uses an explicitly narrower capture rather than truncating returned dates.
-	seriesArgs["to"] = "2026-10-03"
-	series := call(t, c, "get_historical_overview_series", seriesArgs, false)["data"]
+	series := scaleCapture(t, c, "get_historical_overview_series", seriesArgs)
 	guiSeries, err := analytics.NewService(fx.app).HistoricalOverviewSeries(t.Context(), seriesArgs["from"].(string), seriesArgs["to"].(string))
 	if err != nil {
 		t.Fatal(err)
 	}
-	featureJSONEqual(t, series, guiSeries)
-	if len(series.(map[string]any)["points"].([]any)) != 3 {
-		t.Fatal("historical series did not preserve the requested closed dates")
+	points := scaleSection(t, c, series, "points")
+	if len(points) != len(guiSeries.Points) {
+		t.Fatal("dates lost")
+	}
+	for i, raw := range points {
+		point := raw.(map[string]any)
+		full, err := readSummary(guiSeries.Points[i], "missing")
+		if err != nil {
+			t.Fatal(err)
+		}
+		full["id"], full["missingCount"] = guiSeries.Points[i].Date, len(guiSeries.Points[i].Missing)
+		featureJSONEqual(t, point, full)
+		item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: series["captureId"].(string), Section: "points", ID: point["id"].(string)})
+		featureJSONEqual(t, scaleSection(t, c, item, "missing/"+point["id"].(string)), guiSeries.Points[i].Missing)
 	}
 }
