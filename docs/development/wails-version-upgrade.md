@@ -41,7 +41,7 @@ tasks when comparing regenerated build assets.
 The [beta.31 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.31)
 requires Go 1.26+, fixes binding generation with Go 1.27 JSON aliases, and adds
 `@wailsio/runtime/cancellable` for imports that must avoid root-runtime side
-effects. Nestworth already requires Go 1.26; regenerate bindings rather than
+effects. Nestworth now requires Go 1.27.3; regenerate bindings rather than
 preserving generated `encoding/json/v2` models from an older generator.
 
 The [beta.30 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.30)

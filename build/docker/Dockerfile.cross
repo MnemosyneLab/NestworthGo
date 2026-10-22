@@ -14,7 +14,7 @@
 #   docker run --rm -v $(pwd):/app wails-cross windows arm64
 
 # Debian 13 provides the GTK >= 4.14 API baseline used by the default Linux backend.
-FROM golang:1.26-trixie
+FROM golang:1.27.3-trixie
 
 ARG TARGETARCH
 ARG GARBLE_VERSION=v0.16.0

@@ -1,17 +1,6 @@
 module github.com/waltwang/nestworth-go
 
-go 1.26.0
-
-require (
-	github.com/google/uuid v1.6.0
-	github.com/shopspring/decimal v1.4.0
-	// Wails v3 is still beta. Keep this module version pinned; upgrade only
-	// in a dedicated change with regenerated bindings, full automated gates,
-	// and native/package smoke tests.
-	github.com/wailsapp/wails/v3 v3.0.0-beta.34
-	github.com/wnjoon/go-yfinance v1.7.0
-	modernc.org/sqlite v1.49.1
-)
+go 1.27.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.5
@@ -21,8 +10,16 @@ require (
 	github.com/bytedance/sonic v1.15.4
 	github.com/gofrs/flock v0.12.1
 	github.com/google/jsonschema-go v0.4.3
+	github.com/google/uuid v1.6.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/shopspring/decimal v1.4.0
 	github.com/superfly/ltx v0.5.2
+	// Wails v3 is still beta. Keep this module version pinned; upgrade only
+	// in a dedicated change with regenerated bindings, full automated gates,
+	// and native/package smoke tests.
+	github.com/wailsapp/wails/v3 v3.0.0-beta.34
+	github.com/wnjoon/go-yfinance v1.7.0
+	modernc.org/sqlite v1.49.1
 )
 
 require (

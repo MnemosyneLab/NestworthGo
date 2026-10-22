@@ -4,7 +4,7 @@
 
 Current `main` identifies as Nestworth `v0.3.9` / build `10`; the latest published
 release is [v0.3.9](../releases/v0.3.9.md), published 2026-10-21. The project
-is a Go 1.26 module with a Wails v3 desktop shell and a React + TypeScript frontend.
+is a Go 1.27.3 module with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
 provider routing. The frontend owns presentation, interaction state,
@@ -12,7 +12,7 @@ localization, accessibility, and chart rendering.
 
 ## Prerequisites
 
-- Go 1.26 or newer;
+- Go 1.27.3 or newer;
 - Node.js 24.22.0 (Active LTS, Krypton) with pnpm;
 - Wails CLI `v3.0.0-beta.34`;
 - macOS 27.0 or newer on Apple Silicon, with a macOS 27 SDK, for the primary

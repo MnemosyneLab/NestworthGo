@@ -6,7 +6,7 @@ cross-compilation tasks for other platforms.
 
 ## Prerequisites
 
-- Go 1.26 or newer;
+- Go 1.27.3 or newer;
 - Node.js 24.22.0 (Active LTS, Krypton) with pnpm. `.nvmrc` and `.node-version` pin this release. Node 26 is still Current until 2026-10-28, and Node 20 is not supported for frontend tests;
 - Wails CLI `v3.0.0-beta.34` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
@@ -16,6 +16,10 @@ cross-compilation tasks for other platforms.
 ```bash
 sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
 ```
+
+`go.mod` defines the minimum Go version and the toolchain selected by both
+GitHub Actions workflows. Keep the Docker builder image tags and the server
+build task default aligned with that version when upgrading Go.
 
 Check the local toolchain before starting:
 
