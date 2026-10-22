@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -42,6 +43,7 @@ func (s *Service) pagedInstruments(ctx context.Context, g uint64, in InstrumentR
 	if in.Query != "" {
 		f.Query = in.Query
 	}
+	f.Query = strings.TrimFunc(f.Query, func(r rune) bool { return unicode.IsSpace(r) || r == '\uFEFF' })
 	if err := validateReadQuery(f.Query); err != nil {
 		return ReadEnvelope{}, err
 	}

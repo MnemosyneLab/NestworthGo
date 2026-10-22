@@ -14,9 +14,10 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
 
-`get_account_valuations` also returns per-account `composition`: `types` groups
-components by instrument type/cash, `details` contains the full ranked detail
-list, and `detailSlices` retains its first ten rows plus an exact grouped
+From `get_account_valuations`, open `get_read_item` accounts/id. Its
+composition_types section groups components by instrument type/cash;
+composition_details contains ranked details, and composition_detailSlices
+retains the first ten rows plus an exact grouped
 remainder when there are more than ten. `totalExact` and each
 `baseAmountExact` are decimal strings; `baseAmount` is a presentation money
 view and may be rounded. Read `status`, `complete`, `valuedCount` and

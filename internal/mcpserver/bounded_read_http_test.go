@@ -98,7 +98,20 @@ func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 func TestBoundedReadOptionsAndRetiredModes(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	for _, name := range []string{"get_liquidity_overview", "list_products", "get_upcoming_actions", "list_instruments", "list_agent_market_data"} {
+	listed, err := c.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range listed.Tools {
+		schema, err := jsoncodec.Marshal(tool.InputSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(schema), "responseMode") {
+			t.Fatalf("retired mode remains discoverable on %s", tool.Name)
+		}
+	}
+	for _, name := range []string{"get_liquidity_overview", "list_products", "get_upcoming_actions", "list_instruments", "list_agent_market_data", "list_members", "list_institutions", "list_groups", "list_accounts", "get_overview", "get_account_valuations", "scan_data_health", "preview_data_repair"} {
 		scaleCapture(t, c, name, map[string]any{"limit": 0})
 		for _, mode := range []string{"paged", "full", "legacy", ""} {
 			call(t, c, name, map[string]any{"responseMode": mode}, true)

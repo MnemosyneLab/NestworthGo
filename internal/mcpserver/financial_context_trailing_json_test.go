@@ -1,7 +1,6 @@
 package mcpserver
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -174,8 +173,7 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 			}
 		})
 	}
-	// Preserve unrelated batch behavior under both legacy defaults and newer SDK
-	// protocol rejection, even when trailing JSON contains a protected tool name.
+	// Bootstrap batches are rejected under every protocol, including trailing JSON.
 	for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
 		t.Run("unrelated-batch/"+protocol, func(t *testing.T) {
 			s, _, _ := fixture(t)
@@ -203,19 +201,14 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := 200
-			if protocol == "2025-06-18" {
-				want = 400
+			want := 400
+			if len(body) > contextWireLimit {
+				t.Fatal("oversized batch failure")
 			}
 			if res.StatusCode != want {
 				t.Fatalf("status=%d want=%d", res.StatusCode, want)
 			}
-			if want == 200 {
-				var replies []json.RawMessage
-				if jsoncodec.Unmarshal(body, &replies) != nil || len(replies) != 2 {
-					t.Fatal("unexpected batch response")
-				}
-			}
+
 			s.contexts.mu.Lock()
 			cached := len(s.contexts.entries)
 			s.contexts.mu.Unlock()

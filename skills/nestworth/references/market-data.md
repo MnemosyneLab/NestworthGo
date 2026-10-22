@@ -44,7 +44,7 @@ ledger split/dividend transaction.
 
 ## Preference, correction and withdrawal
 
-Read `list_agent_market_data` (offset/limit up to 100) to find audit records and
+Read `list_agent_market_data` (limit up to 100; follow `get_read_page` cursors) for audit records and
 actual quote IDs. `active` means eligible, not necessarily selected.
 `operation:"correct"` requires an existing Agent `targetQuoteId` and the full
 replacement observation. `operation:"retract"` accepts only targetQuoteId,
@@ -90,13 +90,13 @@ Use range 30d/ytd/1y/all and sourceFilter from the actual schema. Targets sort b
 targetKey or displayName; historySort can select quotedAt/effectiveDate and
 asc/desc. Missing/not-found targets remain visible with status/reasons.
 
-Paged `list_agent_market_data` filters instrumentIds, oriented fxPairs,
+`list_agent_market_data` filters instrumentIds, oriented fxPairs,
 operations append/correct/retract, nullable active, observationKinds, civil
 fromDate/toDate and RFC3339 createdFrom/createdTo. Observation date differs from
 creation time. Retractions resolve their targeted observation identity before
 filtering; active means not corrected/retracted, not currently selected. Sort
 createdAt (default desc), observationDate or operation, recordId asc ties.
-Legacy offset cannot be combined with paged mode.
+Offset is not an argument; continue the frozen records section using its cursor.
 
 ## Per-instrument closed-day facts
 

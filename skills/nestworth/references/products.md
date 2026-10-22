@@ -40,8 +40,9 @@ holding has recorded cost. Do not infer that field from principal/current value.
 
 ## Upcoming actions and reasons
 
-`get_upcoming_actions` returns the same aggregated `upcoming-actions/1` read
-model as the GUI. It covers the next 30 household-local civil dates and includes
+`get_upcoming_actions` returns mcp-read/1 pages of the GUI
+`upcoming-actions/1` projection; summary holds its header and sections hold
+actions and data checks. It covers the next 30 household-local civil dates and includes
 the capture instant, local date, timezone, window bounds, base currency,
 completeness, counts, scope warnings, actions and separate data checks. Preserve
 its exact `reasonCodes`, assumptions, targets, coverage and amount statuses.

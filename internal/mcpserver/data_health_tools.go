@@ -15,11 +15,6 @@ type DataRepairJobInput struct {
 	JobID string `json:"jobId" jsonschema:"Exact jobId returned by start_data_repair. Jobs are retained only in the running application process."`
 }
 
-type DataRepairJobResult struct {
-	Job    marketdata.SyncJobDTO                `json:"job"`
-	Health marketdata.MarketDataHealthReportDTO `json:"health"`
-}
-
 func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
 	generation := s.contextGeneration
 	readTool(server, "scan_data_health", "Run the same local Data Health scan as the UI, without provider requests. The bounded read contract returns frozen issue pages with complete header/counts; default 25/max 100 and 64 KiB complete wire. Missing data is not zero.", func(ctx context.Context, in HealthReadInput) (any, error) {
@@ -49,13 +44,12 @@ func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
 		if err != nil {
 			return nil, err
 		}
-		value := DataRepairJobResult{Job: marketdata.SyncSnapshotDTO(job), Health: marketdata.HealthReportDTO(report)}
 		return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
-			c, err := sectionedReadCapture("data_repair_job", in, value.Health, "issues")
+			c, err := sectionedReadCapture("data_repair_job", in, marketdata.HealthReportDTO(report), "issues")
 			if err != nil {
 				return c, err
 			}
-			j, err := sectionedReadCapture("data_repair_job", in, value.Job, "items", "blockers", "prerequisites")
+			j, err := sectionedReadCapture("data_repair_job", in, marketdata.SyncSnapshotDTO(job), "items", "blockers", "prerequisites")
 			if err != nil {
 				return c, err
 			}

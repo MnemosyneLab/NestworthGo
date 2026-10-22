@@ -39,8 +39,8 @@ Base: `1ee6cc4257a2efe4d1155e895b032370173738f8`. Cutover starts from PR169 revi
   Single-market reads select current only; existing market batch history preserves
   all selected points and raw observations. Period analysis and attribution detail
   now split their growing arrays into the same frozen section infrastructure.
-- Preserve SDK text + structuredContent: existing text-only consumers parse the
-  JSON text. Removing it is a client migration, not a safe field optimization.
+- Preserve the SDK text + structuredContent transport representation and count
+  both copies in every wire budget; no deployed consumer compatibility is assumed.
   Keep preview commands/effects, CAS revisions, authorization, receipts,
   idempotency and errors unchanged. No generic mutation-result shrinking.
 
@@ -161,7 +161,7 @@ The baseline 103-tool figure (141.8 KB) is a serialized result-only measurement;
 final tests separately log raw HTTP JSON-RPC and reconstructed JSON-RPC sizes
 (149,386 bytes each in the final sample).
 Initialize instructions are outside these figures. Discovery grows because
-bounded options, filter enums and retrieval guidance are now published. SDK text compatibility and all safety instructions remain.
+bounded options, filter enums and retrieval guidance are now published. SDK transport serialization and all safety instructions remain.
 
 | Complete representative journey | Ordinary calls / bytes | Larger calls / bytes |
 | --- | ---: | ---: |
@@ -239,8 +239,7 @@ quote/ledger facts, as-of semantics, GUI DTOs or write safety contracts change.
 
 All synthetic scale requests omit mode arguments. The earlier tables above are
 recorded pre-cutover measurements, including the former full-response baselines;
-they are not claims that those response paths still exist. Fresh default-request
-measurements and final validation results are recorded below after execution.
+they are not claims that those response paths still exist. Fresh default-request measurements follow (Linux/amd64, Go 1.27.3, SDK 1.7.0).
 
 New contracts: analysis summary has income, expenses, assetChange and
 investmentReturns headers. Sections are income/rows, expenses/rows,
@@ -262,3 +261,48 @@ were removed; retired mode values and Agent offsets must fail schema validation.
 Storage migration, restore/backup compatibility and financial domain fallbacks
 are outside this cutover and remain intact. SDK text plus structuredContent is
 still the transport result; both copies count toward the complete wire budget.
+
+
+| Default raw HTTP JSON-RPC response / journey | 20 accounts | 200 accounts |
+| --- | ---: | ---: |
+| Discovery (103 tools) | 147,472 B | 147,472 B |
+| Context metadata | 3,248 B | 3,249 B |
+| Catalog | 15,622 B | 15,622 B |
+| Current overview first page | 28,403 B | 28,430 B |
+| Selected account valuation header | 3,173 B | 3,177 B |
+| Period analysis first page | 6,045 B | 6,046 B |
+| Health + repair preview, all pages | 3 calls / 23,689 B | 10 / 499,300 B |
+| Directory, all pages + item | 2 / 36,818 B | 9 / 359,649 B |
+| History, all leaves/points + item | 10 / 311,920 B | 32 / 1,374,210 B |
+| Current overview, all evidence | 5 / 58,891 B | 7 / 228,556 B |
+| Analysis + attribution, complete sections | 5 / 16,961 B | 5 / 17,454 B |
+| Maximum observed response | 64,193 B | 64,633 B |
+
+Both tiers passed, probing 60 distinct tools. All calls and journeys are checked
+against budgets; each result includes the actual raw HTTP JSON-RPC envelope and
+both SDK representations. The large fixture retains four currencies and sparse
+two-year history. Analysis uses two days/one account and does not establish
+multi-year whole-household computation performance. Discovery decreased from the
+prior 149,386-byte raw result by 1,914 bytes despite adding analysis paging guidance.
+Opaque identifiers/timestamps can cause small run-to-run size differences.
+
+The full package run exposed search BOM/Unicode whitespace behavior that had
+only existed in the removed branch. Normalization is now on the sole instrument
+read path; its existing alias/name/code/duplicate regression verifies it. Default
+snapshot tests traverse all account evidence and preserve not_found for archived
+or absent accounts, matching the application's current-valuation semantics.
+
+Final cutover checks: `go test -tags server ./internal/mcpserver` passed in
+49.330s; this includes the preserved freshness, FX attribution, pending-leaf,
+funding-gap, filtered missing-row, current-overview, signed-cursor/TTL/generation,
+write/receipt/idempotency and complete-wire regressions. The combined ordinary
+and perf-tagged larger payload run passed in 15.294s. MCP vet, gofmt/diff checks,
+70 Skill JSON examples, the larger-test perf selector and 69 Python tooling tests
+passed. No whole expensive application/race/performance suites were repeated.
+
+The prior reviewed head's application-level valuation validation remains relevant:
+this cutover changes no application/domain/GUI implementation. Native desktop
+build/binding/UI checks were not run; this Linux host lacks GTK4/WebKit6/libsoup
+pkg-config dependencies and cannot establish native macOS packaging or acceptance.
+No live providers or real household data were used. CI review belongs to the
+parent after the normal push; nothing was merged or deployed.

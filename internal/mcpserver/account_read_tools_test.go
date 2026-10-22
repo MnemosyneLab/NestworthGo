@@ -57,3 +57,22 @@ func TestAccountReadPreservesAllEvidenceLayouts(t *testing.T) {
 		t.Fatal("empty filtered accounts")
 	}
 }
+
+func TestDefaultAccountSnapshotEvidenceAndMissingIdentity(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	cap := scaleCapture(t, c, "get_account_snapshot", IDInput{ID: fx.checking})
+	rows := scaleSection(t, c, cap, "accounts")
+	if len(rows) != 1 || rows[0].(map[string]any)["id"] != fx.checking {
+		t.Fatal("account lost")
+	}
+	item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "accounts", ID: fx.checking})
+	for section := range item["sections"].(map[string]any) {
+		scaleSection(t, c, item, section)
+	}
+	if err := account.NewService(fx.app).ArchiveAccount(t.Context(), fx.checking, true); err != nil {
+		t.Fatal(err)
+	}
+	call(t, c, "get_account_snapshot", IDInput{ID: fx.checking}, true)
+	call(t, c, "get_account_snapshot", IDInput{ID: "00000000-0000-4000-8000-000000000000"}, true)
+}

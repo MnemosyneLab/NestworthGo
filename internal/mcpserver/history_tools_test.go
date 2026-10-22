@@ -103,11 +103,11 @@ func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 7 {
+	if len(listed.Tools) != 9 {
 		t.Fatalf("history tool count = %d", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {
-		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint != (tool.Name == "list_activities" || tool.Name == "get_activity") {
+		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint != (tool.Name == "list_activities" || tool.Name == "get_activity" || tool.Name == "get_read_page" || tool.Name == "get_read_item") {
 			t.Fatalf("%s has incorrect snapshot-write annotation", tool.Name)
 		}
 	}

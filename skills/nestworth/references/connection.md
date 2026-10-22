@@ -58,8 +58,7 @@ permissions or an older App. Explain the specific needed setting/update; do not
 attempt another tool to bypass it. `get_context.capabilities` is helpful, but
 actual tool availability and schemas decide whether an operation is supported.
 For a pure minimal summary, discovery followed directly by `get_financial_context`
-is sufficient. Do not require `get_context`: it returns household, member,
-institution and group names. Ordinary management still starts with `get_context`
+is sufficient. Do not require `get_context`: it returns identity-bearing household metadata. Ordinary management still starts with `get_context`
 and `get_catalog`. If the context tools are missing, explain the needed App
 update; an identity-bearing fallback requires an explicit disclosure choice,
 not a silent directory read. Skill updates do not update the App or MCP connection. Analysis tools, including

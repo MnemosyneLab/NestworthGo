@@ -276,10 +276,10 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	}
 }
 
-func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
+func TestFinancialContextEnvelopeBoundsBootstrapToo(t *testing.T) {
 	t.Parallel()
 	// Page and item share isFinancialContextTool with get_financial_context.
-	// get_context is the pass-through arm.
+	// Bootstrap receives the same complete-wire cap.
 	for _, tool := range []string{"get_financial_context", "get_context"} {
 		t.Run(tool, func(t *testing.T) {
 			body := strings.Repeat("x", contextWireLimit+1)
@@ -294,11 +294,7 @@ func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"`+tool+`","arguments":{}}}`))
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
-			if tool == "get_context" {
-				if response.Code != http.StatusBadRequest || response.Body.String() != body+"tail" || response.Header().Get("X-Test") != "preserved" {
-					t.Fatal("other tools' responses changed")
-				}
-			} else if response.Code != http.StatusOK || response.Body.Len() > contextWireLimit || !strings.Contains(response.Body.String(), `"id":7`) || !strings.Contains(response.Body.String(), `"isError":true`) {
+			if response.Code != http.StatusOK || response.Body.Len() > contextWireLimit || !strings.Contains(response.Body.String(), `"id":7`) || !strings.Contains(response.Body.String(), `"isError":true`) {
 				t.Fatal("expected full replacement of oversized response", response.Code, response.Body.Len())
 			}
 		})
