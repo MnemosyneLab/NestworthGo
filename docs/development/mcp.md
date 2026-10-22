@@ -808,7 +808,9 @@ are OR, fields are AND, and all cell predicates must match the same side.
 Filters select endpoint rows; `totalsScope=household` and series
 `pointsScope=household` explicitly retain household financial scope.
 `matchedLeft`/`matchedRight` describe the entire filtered set, independent of
-page size; summing included leaf pending contributions across its pages equals
+page size; `rowDetailScope` also permits household category missing-row
+references excluded by that list filter to be fetched from the same capture.
+These extra item reads do not change the filtered counts. Summing included leaf pending contributions across its pages equals
 those pendingCount values. `totalRowCount`, `totalLeafCount`, matchedRowCount and
 pointCount distinguish household, filtered and time-point cardinalities.
 

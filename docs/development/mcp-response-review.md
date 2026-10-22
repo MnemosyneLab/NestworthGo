@@ -198,3 +198,18 @@ aggregation/reason filters, immutable source changes, empty matches, signed
 cursor tampering/cross-capture/section/expiry and oversized item errors. Category
 and point missing identities remain independently pageable. GUI accounting,
 quote/ledger facts, as-of selection and preview/commit safety are unchanged.
+
+
+Filtered captures retain full row evidence for household category missing-row
+references even when those leaves are excluded from the list. rowDetailScope
+states this explicitly; filtered counts and household monetary scope do not
+change. A client regression follows every categoryMissing key from a filtered
+capture and verifies matching capture hash and full row evidence.
+
+Validation environment: Linux/amd64, Go 1.27.3, isolated temporary SQLite data.
+Focused application/MCP regressions and vet passed; 69 Python tooling tests and
+the maintained skill/selector checks passed. The whole Go test attempt passed
+all internal packages but could not build cmd/nestworth because GTK4/WebKit6
+(and related native development packages) are absent. Desktop build, whole-tree
+vet and binding generation have the same host dependency blocker. No native
+macOS, browser/UI, signing, deployment or real-household validation is claimed.

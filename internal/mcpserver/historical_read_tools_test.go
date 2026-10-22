@@ -234,13 +234,37 @@ func TestHistoricalFundingCashReasonFilterAndItem(t *testing.T) {
 	if aggregate["unpricedCount"] != quality["unpricedCount"] || aggregate["coverage"] != "provisional" {
 		t.Fatal("leaf-to-aggregate missing mapping", aggregate, quality)
 	}
+	// Household categories may reference a leaf excluded by the list filter.
+	// Every emitted key still has full evidence inside this same capture.
+	cap = scaleCapture(t, c, "get_historical_overview", map[string]any{"date": "2026-10-02", "compareTo": "2026-10-09", "filter": map[string]any{"accountIds": []string{fx.brokerage}, "kinds": []string{"holding"}}})
+	filteredRows := assertHistoricalMatches(t, c, cap)
+	included := map[string]bool{}
+	for _, raw := range filteredRows {
+		row := raw.(map[string]any)
+		if row["kind"] != "holding" {
+			t.Fatal("filter escaped")
+		}
+		included[row["id"].(string)] = true
+	}
+	outsideFilter := false
 	// A category's many missing identities are separately pageable as well.
 	header := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "overview", ID: "endpoints"})
 	for _, raw := range scaleSection(t, c, header, "categories") {
 		category := raw.(map[string]any)
 		detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "categories", ID: category["id"].(string)})
 		for section := range detail["sections"].(map[string]any) {
-			scaleSection(t, c, detail, section)
+			for _, rawKey := range scaleSection(t, c, detail, section) {
+				key := rawKey.(string)
+				evidence := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "rows", ID: key})
+				if evidence["contentHash"] != cap["contentHash"] || evidence["summary"].(map[string]any)["id"] != key {
+					t.Fatal("category reference changed capture")
+				}
+				outsideFilter = outsideFilter || !included[key]
+			}
 		}
 	}
+	if !outsideFilter {
+		t.Fatal("fixture did not follow an excluded category reference")
+	}
+	assertHistoricalMatches(t, c, cap)
 }

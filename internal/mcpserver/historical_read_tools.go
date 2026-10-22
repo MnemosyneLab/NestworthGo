@@ -233,6 +233,7 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 			return c, err
 		}
 	}
+	referencedRows := map[string]bool{}
 	categories := []map[string]any{}
 	for _, category := range overview.Categories {
 		row, e := readSummary(category)
@@ -246,6 +247,11 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 			keys, ok := cell["missingRowKeys"].([]any)
 			if !ok {
 				keys = []any{}
+			}
+			for _, key := range keys {
+				if key, ok := key.(string); ok {
+					referencedRows[key] = true
+				}
 			}
 			section := "categoryMissing/" + id + "/" + side
 			c.Sections[section], err = readRows(keys)
@@ -280,7 +286,8 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 		if r.Kind != "account" {
 			totalLeaves++
 		}
-		if !historicalRowMatches(r, f) {
+		matches := historicalRowMatches(r, f)
+		if !matches && !referencedRows[r.Key] {
 			continue
 		}
 		detail, e := historicalRowProjection(r, false)
@@ -288,6 +295,9 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 			return c, e
 		}
 		c.Details["rows/"+r.Key] = detail
+		if !matches {
+			continue
+		}
 		row := detail
 		if in.View == "compact" {
 			row, e = historicalRowProjection(r, true)
@@ -301,6 +311,7 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 	}
 	summary["totalRowCount"], summary["totalLeafCount"], summary["matchedRowCount"] = len(rows), totalLeaves, len(selected)
 	summary["matchedLeft"], summary["matchedRight"] = left, right
+	summary["rowDetailScope"] = "filtered rows plus household category missing-row references"
 	c.Sections["rows"], err = readRows(selected)
 	if err != nil {
 		return c, err
