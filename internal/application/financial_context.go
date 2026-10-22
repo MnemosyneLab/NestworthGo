@@ -89,22 +89,25 @@ type FinancialContextDataAsOf struct {
 	StaleCount          int     `json:"staleCount"`
 }
 type FinancialContextPosition struct {
-	Ref             string   `json:"ref"`
-	ParentRef       string   `json:"parentRef,omitempty"`
-	Kind            string   `json:"kind"`
-	Name            string   `json:"name,omitempty"`
-	Status          string   `json:"status"`
-	Included        bool     `json:"included"`
-	ExclusionReason string   `json:"exclusionReason,omitempty"`
-	Complete        bool     `json:"complete"`
-	Role            string   `json:"role"`
-	Currency        string   `json:"currency,omitempty"`
-	AssetClass      string   `json:"assetClass,omitempty"`
-	NativeAmount    *string  `json:"nativeAmount"`
-	BaseAmount      *string  `json:"baseAmount"`
-	Quantity        *string  `json:"quantity"`
-	Missing         []string `json:"missing"`
-	EvidenceRefs    []string `json:"evidenceRefs"`
+	DisplayValuation    domain.ValuationAmount `json:"displayValuation"`
+	CountedLeaf         bool                   `json:"countedLeaf"`
+	PendingContribution int                    `json:"pendingContribution"`
+	Ref                 string                 `json:"ref"`
+	ParentRef           string                 `json:"parentRef,omitempty"`
+	Kind                string                 `json:"kind"`
+	Name                string                 `json:"name,omitempty"`
+	Status              string                 `json:"status"`
+	Included            bool                   `json:"included"`
+	ExclusionReason     string                 `json:"exclusionReason,omitempty"`
+	Complete            bool                   `json:"complete"`
+	Role                string                 `json:"role"`
+	Currency            string                 `json:"currency,omitempty"`
+	AssetClass          string                 `json:"assetClass,omitempty"`
+	NativeAmount        *string                `json:"nativeAmount"`
+	BaseAmount          *string                `json:"baseAmount"`
+	Quantity            *string                `json:"quantity"`
+	Missing             []string               `json:"missing"`
+	EvidenceRefs        []string               `json:"evidenceRefs"`
 }
 type FinancialContextGap struct {
 	Code            string   `json:"code"`
@@ -126,20 +129,22 @@ type FinancialContextConversion struct {
 	Unit        string  `json:"unit"`
 }
 type FinancialContextEvidence struct {
-	Ref             string                      `json:"ref"`
-	Kind            string                      `json:"kind"`
-	Status          string                      `json:"status"`
-	SourceKind      string                      `json:"sourceKind"`
-	ObservationKind string                      `json:"observationKind"`
-	EffectiveAt     *string                     `json:"effectiveAt"`
-	EffectiveDate   string                      `json:"effectiveDate,omitempty"`
-	TimestampBasis  string                      `json:"timestampBasis"`
-	Freshness       string                      `json:"freshness"`
-	Value           *string                     `json:"value"`
-	Currency        string                      `json:"currency,omitempty"`
-	BaseCurrency    string                      `json:"baseCurrency,omitempty"`
-	QuoteCurrency   string                      `json:"quoteCurrency,omitempty"`
-	Conversion      *FinancialContextConversion `json:"conversion"`
+	ObservationFreshness string                      `json:"observationFreshness,omitempty"`
+	ClosedCarry          bool                        `json:"closedCarry,omitempty"`
+	Ref                  string                      `json:"ref"`
+	Kind                 string                      `json:"kind"`
+	Status               string                      `json:"status"`
+	SourceKind           string                      `json:"sourceKind"`
+	ObservationKind      string                      `json:"observationKind"`
+	EffectiveAt          *string                     `json:"effectiveAt"`
+	EffectiveDate        string                      `json:"effectiveDate,omitempty"`
+	TimestampBasis       string                      `json:"timestampBasis"`
+	Freshness            string                      `json:"freshness"`
+	Value                *string                     `json:"value"`
+	Currency             string                      `json:"currency,omitempty"`
+	BaseCurrency         string                      `json:"baseCurrency,omitempty"`
+	QuoteCurrency        string                      `json:"quoteCurrency,omitempty"`
+	Conversion           *FinancialContextConversion `json:"conversion"`
 }
 type FinancialContextResult struct {
 	CapturedAt  time.Time
@@ -407,7 +412,10 @@ func projectFinancialContext(ctx context.Context, in FinancialContextRequest, si
 	}
 	for _, row := range rows {
 		c := row.Left
-		p := FinancialContextPosition{Ref: refs[row.Key], ParentRef: refs[row.ParentKey], Kind: row.Kind, Status: c.Status, Included: c.Included, Complete: c.Complete, Role: row.Role, Currency: c.Currency, AssetClass: c.AssetClass, NativeAmount: c.NativeAmount, BaseAmount: c.BaseAmount, Quantity: c.Quantity, Missing: append([]string{}, c.Missing...), EvidenceRefs: []string{}}
+		p := FinancialContextPosition{DisplayValuation: c.DisplayValuation, CountedLeaf: row.Kind != "account" && c.Included, Ref: refs[row.Key], ParentRef: refs[row.ParentKey], Kind: row.Kind, Status: c.Status, Included: c.Included, Complete: c.Complete, Role: row.Role, Currency: c.Currency, AssetClass: c.AssetClass, NativeAmount: c.NativeAmount, BaseAmount: c.BaseAmount, Quantity: c.Quantity, Missing: append([]string{}, c.Missing...), EvidenceRefs: []string{}}
+		if p.CountedLeaf {
+			p.PendingContribution = c.DisplayValuation.Quality.CarriedCount
+		}
 		sort.Strings(p.Missing)
 		if in.Disclosure == "named" {
 			p.Name = row.Name
@@ -467,7 +475,7 @@ func projectFinancialContext(ctx context.Context, in FinancialContextRequest, si
 		}
 		for _, key := range rowEvidence[row.Key] {
 			e := evidenceByKey[key]
-			if e.Freshness == "stale" || e.Freshness == "manual" {
+			if (e.Freshness == "stale" && !e.ClosedCarry) || e.Freshness == "manual" {
 				code := "stale_observation"
 				if e.Freshness == "manual" {
 					code = "manual_valuation"
@@ -553,7 +561,7 @@ func contextObserveTime(data *FinancialContextDataAsOf, value *string) {
 }
 
 func contextQuoteEvidence(kind string, old *HistoricalOverviewEvidence, p domain.PortfolioSnapshot) FinancialContextEvidence {
-	e := FinancialContextEvidence{Kind: kind, Status: "unavailable", SourceKind: old.Source, ObservationKind: "unavailable", TimestampBasis: "unknown", Freshness: old.Freshness}
+	e := FinancialContextEvidence{ObservationFreshness: old.ObservationFreshness, ClosedCarry: old.ClosedCarry, Kind: kind, Status: "unavailable", SourceKind: old.Source, ObservationKind: "unavailable", TimestampBasis: "unknown", Freshness: old.Freshness}
 	if kind == "price" {
 		for _, q := range p.InstrumentQuotes {
 			if q.ID.String() != old.ID {
