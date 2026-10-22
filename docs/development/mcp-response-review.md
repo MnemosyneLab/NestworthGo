@@ -208,8 +208,11 @@ capture and verifies matching capture hash and full row evidence.
 
 Validation environment: Linux/amd64, Go 1.27.3, isolated temporary SQLite data.
 Focused application/MCP regressions and vet passed; 69 Python tooling tests and
-the maintained skill/selector checks passed. The whole Go test attempt passed
-all internal packages but could not build cmd/nestworth because GTK4/WebKit6
+the maintained skill/selector checks passed. The single whole Go test attempt found two historical late-close freshness
+regressions and an item test's obsolete 100/8 packing assumption. Follow-up
+regressions verify the preserved market-date close normalization and complete
+unique byte-bounded item union; manual/closed-day policy remains authoritative.
+That whole-tree run also could not build cmd/nestworth because GTK4/WebKit6
 (and related native development packages) are absent. Desktop build, whole-tree
 vet and binding generation have the same host dependency blocker. No native
 macOS, browser/UI, signing, deployment or real-household validation is claimed.

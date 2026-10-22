@@ -150,12 +150,30 @@ func TestFinancialContextItemBudgetAndPagination(t *testing.T) {
 	}
 	s.contexts.entries["package-a"] = entry
 	first := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions", Limit: 100})
-	if first.PositionsPage.Returned != 100 || !first.PositionsPage.HasMore {
-		t.Fatal(first.PositionsPage)
+	// Material per-leaf quality makes rows larger. A limit is an upper bound;
+	// validate the complete unique union and final wire budget, not 100/8 packing.
+	seen := map[string]bool{}
+	pageOfPositions := first
+	for {
+		if pageOfPositions.PositionsPage.Total != 108 || pageOfPositions.PositionsPage.Returned < 1 || pageOfPositions.PositionsPage.Returned > 100 {
+			t.Fatal(pageOfPositions.PositionsPage)
+		}
+		for _, position := range pageOfPositions.Positions {
+			if seen[position.Ref] {
+				t.Fatal("duplicate position")
+			}
+			seen[position.Ref] = true
+		}
+		if size, err := financialContextWireSize(pageOfPositions); err != nil || size > contextWireLimit {
+			t.Fatal(size, err)
+		}
+		if !pageOfPositions.PositionsPage.HasMore {
+			break
+		}
+		pageOfPositions = readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions", Cursor: pageOfPositions.PositionsPage.NextCursor, Limit: 100})
 	}
-	next := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions", Cursor: first.PositionsPage.NextCursor, Limit: 100})
-	if next.PositionsPage.Returned != 8 || next.PositionsPage.HasMore {
-		t.Fatal(next.PositionsPage)
+	if len(seen) != 108 {
+		t.Fatalf("lost positions: %d/108", len(seen))
 	}
 	// Use large synthetic decimals to exercise duplicated/escaped SDK wire sizing.
 	s, g = itemFixture(t)

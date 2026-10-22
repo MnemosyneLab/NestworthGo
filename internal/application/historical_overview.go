@@ -607,6 +607,12 @@ func historicalPriceEvidence(e *domain.QuoteEvidenceView, quotes []domain.Instru
 					evidenceCutoff = at
 				}
 				r.ObservationFreshness = string(domain.QuoteFreshness(q.SourceKind, q.Delayed, at, evidenceCutoff, ttl))
+				// Retain the established date-labelled historical close
+				// normalization (a valid close/revision can arrive later).
+				// Manual preference and closed-day carry remain authoritative.
+				if e.Freshness != domain.FreshnessManual && !e.ClosedCarry {
+					r.Freshness = r.ObservationFreshness
+				}
 			}
 			break
 		}
@@ -638,6 +644,12 @@ func historicalFXEvidence(e *domain.QuoteEvidenceView, quotes []domain.FXQuote, 
 					evidenceCutoff = at
 				}
 				r.ObservationFreshness = string(domain.QuoteFreshness(q.SourceKind, q.Delayed, at, evidenceCutoff, ttl))
+				// Retain the established date-labelled historical close
+				// normalization (a valid close/revision can arrive later).
+				// Manual preference and closed-day carry remain authoritative.
+				if e.Freshness != domain.FreshnessManual && !e.ClosedCarry {
+					r.Freshness = r.ObservationFreshness
+				}
 			}
 			break
 		}
