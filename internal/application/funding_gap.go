@@ -141,7 +141,7 @@ func markDisplayIncomplete(value *domain.ValuationAmount) {
 // applyOverviewFundingGaps turns an omitted cash sleeve into an incomplete
 // leaf. Household and account totals stay unpublished; known component amounts
 // remain available as a subtotal.
-func applyOverviewFundingGaps(portfolio domain.PortfolioSnapshot, accounts map[domain.AccountID]domain.AccountRecord, rows *[]HistoricalOverviewRow, assets, debts *displayAccumulator, assetComplete, debtComplete *bool) {
+func applyOverviewFundingGaps(portfolio domain.PortfolioSnapshot, accounts map[domain.AccountID]domain.AccountRecord, rows *[]HistoricalOverviewRow, assets, debts *displayAccumulator, assetComplete, debtComplete *bool) error {
 	for _, gap := range portfolio.ReplayFundingGaps {
 		record, ok := accounts[gap.AccountID]
 		if !ok {
@@ -181,6 +181,15 @@ func applyOverviewFundingGaps(portfolio domain.PortfolioSnapshot, accounts map[d
 				AssetClass: string(domain.BucketCash), Missing: []string{reason},
 				MissingDetails: []HistoricalMissingDetail{{Kind: reason, QuoteCurrency: currency}},
 			}
+			// Use the same missing-cash classification as the household
+			// accumulator, with one unknown leaf and no invented amount.
+			var missingCash displayAccumulator
+			missingCash.omitUnknown()
+			var err error
+			cell.DisplayValuation, err = missingCash.amount(portfolio.Household.BaseCurrency, false)
+			if err != nil {
+				return err
+			}
 			*rows = append(*rows, HistoricalOverviewRow{
 				Key: childKey, AccountID: parentKey, ParentKey: parentKey, Kind: kind,
 				Name: currency, Role: string(account.BalanceSheetRole), Left: &cell,
@@ -215,6 +224,7 @@ func applyOverviewFundingGaps(portfolio domain.PortfolioSnapshot, accounts map[d
 			}
 		}
 	}
+	return nil
 }
 
 // applySeriesFundingGaps records the same omitted sleeve on a trend point.

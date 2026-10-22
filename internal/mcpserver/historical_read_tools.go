@@ -27,7 +27,7 @@ type HistoricalReadOptions struct {
 	Limit  int                   `json:"limit,omitempty" jsonschema:"Initial default 5 per section, maximum 100; continuations default 25; byte-aware pages may contain fewer rows"`
 }
 
-var historicalReasons = []string{"carried_nav", "carried_price", "carried_fx", "history_unverified", "price_missing", "fx_missing", "account_value_missing", "evidence_unavailable"}
+var historicalReasons = []string{"carried_nav", "carried_price", "carried_fx", "history_unverified", "price_missing", "fx_missing", "account_value_missing", "evidence_unavailable", "instrument_price", "missing_instrument", "fx_rate", "account_value", "history_coverage", "holding_amount", "funding_cash_after_product_start"}
 
 func normalizeHistoricalRead(in HistoricalReadOptions) (HistoricalReadOptions, HistoricalReadFilter, error) {
 	f := HistoricalReadFilter{}
@@ -101,6 +101,14 @@ func historicalCellMatches(c *application.HistoricalOverviewCell, f HistoricalRe
 			if hasString(f.Reasons, string(reason)) {
 				found = true
 				break
+			}
+		}
+		if !found {
+			for _, reason := range c.Missing {
+				if hasString(f.Reasons, reason) {
+					found = true
+					break
+				}
 			}
 		}
 		if !found {
@@ -225,7 +233,33 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 			return c, err
 		}
 	}
-	c.Sections["categories"], err = readRows(overview.Categories)
+	categories := []map[string]any{}
+	for _, category := range overview.Categories {
+		row, e := readSummary(category)
+		if e != nil {
+			return c, e
+		}
+		id := category.Role + ":" + category.Dimension + ":" + category.Key
+		row["id"] = id
+		for _, side := range []string{"left", "right"} {
+			cell := row[side].(map[string]any)
+			keys, ok := cell["missingRowKeys"].([]any)
+			if !ok {
+				keys = []any{}
+			}
+			section := "categoryMissing/" + id + "/" + side
+			c.Sections[section], err = readRows(keys)
+			if err != nil {
+				return c, err
+			}
+			delete(cell, "missingRowKeys")
+			cell["missingRowCount"] = len(keys)
+			c.DetailSections["categories/"+id] = append(c.DetailSections["categories/"+id], section)
+		}
+		c.Details["categories/"+id] = row
+		categories = append(categories, row)
+	}
+	c.Sections["categories"], err = readRows(categories)
 	if err != nil {
 		return c, err
 	}

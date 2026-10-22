@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
 func assertHistoricalMatches(t *testing.T, c *mcp.ClientSession, cap map[string]any) []any {
@@ -87,6 +89,7 @@ func TestHistoricalReadClientFiltersAndFrozenEvidence(t *testing.T) {
 	} {
 		cap := scaleCapture(t, c, "get_historical_overview", map[string]any{"date": "2026-10-01", "compareTo": "2026-10-10", "filter": filter, "limit": 1})
 		assertHistoricalMatches(t, c, cap)
+		featureJSONEqual(t, cap["summary"].(map[string]any)["left"], initial["summary"].(map[string]any)["left"])
 		if cap["summary"].(map[string]any)["totalsScope"] != "household" {
 			t.Fatal("ambiguous totals")
 		}
@@ -158,5 +161,78 @@ func TestHistoricalAndAccountCompleteWireMeasurements(t *testing.T) {
 				t.Fatal("single day lost")
 			}
 		})
+	}
+}
+
+func TestHistoricalOversizedItemClientRecovery(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	payload := map[string]any{"id": "oversized", "evidence": strings.Repeat("synthetic😀", 10000)}
+	rows, err := readRows([]any{payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture, err := fx.service.reads.store(fx.service.contextGeneration, readCapture{Kind: "historical_overview", Summary: map[string]int{"matchedRowCount": 1}, Sections: map[string][]json.RawMessage{"rows": rows}, Details: map[string]any{"rows/oversized": payload}}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cursor := capture.Sections["rows"].Page.NextCursor
+	if cursor == nil || capture.Sections["rows"].Page.Returned != 0 {
+		t.Fatal("oversized item was silently skipped")
+	}
+	for _, request := range []struct {
+		name string
+		args any
+	}{
+		{"get_read_page", ReadPageInput{CaptureID: capture.CaptureID, Section: "rows", Cursor: *cursor, Limit: 1}},
+		{"get_read_item", ReadItemInput{CaptureID: capture.CaptureID, Section: "rows", ID: "oversized"}},
+	} {
+		res, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: request.name, Arguments: request.args})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := jsoncodec.Marshal(res)
+		if !res.IsError || len(raw) > contextWireLimit || !strings.Contains(string(raw), "single_item") || !strings.Contains(string(raw), "too_large") {
+			t.Fatalf("unrecoverable oversized item response: %s", raw)
+		}
+	}
+}
+
+func TestHistoricalFundingCashReasonFilterAndItem(t *testing.T) {
+	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
+	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC) })
+	if _, err := fx.app.AppendAccountCashValue(t.Context(), domain.AccountID(fx.brokerage), "150000", "USD", "2026-10-08T04:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "open", Open: &application.OpenProductCommand{AccountID: fx.brokerage, Currency: "USD", Principal: "100000", EffectiveAt: "2026-10-01T04:00:00Z", Terms: application.ProductTermsInput{Kind: "term_deposit", Name: "Synthetic funding gap", StartOn: "2026-10-01", MaturityOn: productString("2026-12-01"), InterestMode: "none"}, Policy: productPolicy("2026-12-01")}})
+	c := ledgerSession(t, fx)
+	cap := scaleCapture(t, c, "get_historical_overview", map[string]any{"date": "2026-10-02", "compareTo": "2026-10-09", "filter": map[string]any{"accountIds": []string{fx.brokerage}, "reasons": []string{"account_value_missing"}, "side": "left"}})
+	rows := assertHistoricalMatches(t, c, cap)
+	if len(rows) != 1 {
+		t.Fatalf("funding cause omitted by reason filter: %v", rows)
+	}
+	row := rows[0].(map[string]any)
+	item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "rows", ID: row["id"].(string)})
+	cell := item["summary"].(map[string]any)["left"].(map[string]any)
+	quality := cell["displayValuation"].(map[string]any)["quality"].(map[string]any)
+	if cell["complete"] != false || cell["baseAmount"] != nil || quality["coverage"] != "unavailable" || quality["unpricedCount"] != float64(1) || cell["pendingContribution"] != float64(0) {
+		t.Fatal(cell)
+	}
+	summary := cap["summary"].(map[string]any)["left"].(map[string]any)
+	if summary["assets"] != nil || summary["knownAssets"] != "100000" {
+		t.Fatal("funding gap changed financial values", summary)
+	}
+	aggregate := summary["displayValuation"].(map[string]any)["netWorth"].(map[string]any)["quality"].(map[string]any)
+	if aggregate["unpricedCount"] != quality["unpricedCount"] || aggregate["coverage"] != "provisional" {
+		t.Fatal("leaf-to-aggregate missing mapping", aggregate, quality)
+	}
+	// A category's many missing identities are separately pageable as well.
+	header := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "overview", ID: "endpoints"})
+	for _, raw := range scaleSection(t, c, header, "categories") {
+		category := raw.(map[string]any)
+		detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "categories", ID: category["id"].(string)})
+		for section := range detail["sections"].(map[string]any) {
+			scaleSection(t, c, detail, section)
+		}
 	}
 }
