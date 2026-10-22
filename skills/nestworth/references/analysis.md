@@ -1,5 +1,15 @@
 # Current wealth, returns and asset-change explanations
 
+After schema discovery, prefer `get_overview` and `get_account_valuations` with
+`responseMode:"paged"` for bounded current reads. Overview summary preserves GUI
+exact totals, currency, completeness and display quality; independently page all
+relevant breakdowns, missing inputs, recent activities and identity-label sections
+with get_read_page. Its totals follow the existing account filters. Default five
+initial items per section, continuations 25/max 100. Preserve complete and quality
+when interpreting amounts. Legacy no-option current overview can be oversized;
+do not use it as a large-household fallback. get_financial_context remains the
+direct minimal-disclosure summary and evidence path.
+
 Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 **current** net worth/account values, holdings, costs and missing inputs. They
 do not answer last month's income or investment return. Preserve ownership,

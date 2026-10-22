@@ -12,7 +12,7 @@ type HealthReadInput struct {
 
 // Health/repair arrays can grow with retained history, even for a modest number
 // of holdings. Keep the complete issue/plan evidence independently pageable.
-func healthReadCapture(kind string, query, value any, fields ...string) (readCapture, error) {
+func sectionedReadCapture(kind string, query, value any, fields ...string) (readCapture, error) {
 	summary, err := readSummary(value)
 	if err != nil {
 		return readCapture{}, err
@@ -38,6 +38,6 @@ func (s *Service) pagedHealth(ctx context.Context, g uint64, in HealthReadInput,
 		if err != nil {
 			return readCapture{}, err
 		}
-		return healthReadCapture(kind, in, value, fields...)
+		return sectionedReadCapture(kind, in, value, fields...)
 	})
 }

@@ -863,3 +863,16 @@ serialized row counts; domain issueCount/range counts retain their original
 meaning. Job outcomes and current health remain distinct authorities. Polling
 creates a new capture; continuation does not rescan or extend TTL. Starting or
 retrying repairs, durable receipts and provider permissions are unchanged.
+
+`get_overview` adds responseMode=paged with the existing account filters and limit.
+It preserves the complete current GUI overview: exact monetary values, complete,
+displayValuation and historyStarted in the summary; independent missingInputs,
+assetsByType/liabilitiesByType, byMember/byInstitution/byGroup/byAccountType,
+recentActivities, accountLabels, instrumentLabels and holdingLabels sections.
+Initial default is five per section, continuation default 25/max 100; all output
+uses mcp-read/1. totalsScope=request_account_filters. Counts describe complete
+section cardinalities. No-option legacy behavior remains unchanged and can be
+oversized. Prefer the discoverable paged mode for this identity-bearing view,
+or get_financial_context for a minimal-disclosure summary and adopted evidence.
+A 200-account regression fetches every section and compares every field with the
+application overview; no GUI DTO or valuation arithmetic changes.

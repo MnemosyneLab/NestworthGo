@@ -76,7 +76,7 @@ legacy tools retain SDK behavior; a universal wire-contract change is deferred.
 | Family | Current shape / bound / repetition | Decision |
 | --- | --- | --- |
 | Context/catalog, members/institutions/groups/accounts/holdings | Bootstrap/catalog or directory arrays; query/account filters but directory cardinality unbounded; identities/ownership are useful | Add opt-in frozen directory/holdings pages and full item metadata; preserve existing filters/default contracts |
-| Current overview/account valuations/snapshot | Household breakdown or account array/detail; components + composition details + slices repeat, unbounded holdings | Add bounded account projection with full evidence retrieval; retain explicit legacy contract |
+| Current overview/account valuations/snapshot | Household breakdown or account array/detail; components + composition details + slices repeat, unbounded holdings | Add bounded current overview and account projections preserving every GUI total/breakdown/evidence field; retain explicit legacy defaults |
 | Historical overview/series | Full rows/evidence/categories/reconciliation; series 1–31 points plus full overview and per-point missing rows; wire can fail below compute limits | Default bounded historical read v2 |
 | Financial context/comparison/attribution | Frozen 4 MiB captures, 5 min TTL, 64 KiB pages/item; repeated mandatory basis/summary and disclosure | Add effective leaf quality/contributions; retain coherence, aliases and financial precision evidence |
 | Products/liquidity/upcoming/instruments/Agent history/market batch | Legacy full DTO plus opt-in mcp-read/1; compact sections, filters/sort, detail links, byte-aware pages | Reuse infrastructure; recommend paged paths; preserve current compatibility |
@@ -116,13 +116,13 @@ cost is separate from call output limits. After profiles, measured with the iden
 
 | Holdings | Overview first page | 10-day series first page | Account headers |
 | --- | ---: | ---: | ---: |
-| 3 | 31,752 | 49,856 | 7,302 |
-| 80 | 31,810 | 50,052 | 7,316 |
+| 3 | 31,916 | 50,020 | 7,300 |
+| 80 | 31,974 | 50,218 | 7,316 |
 
 For 80 holdings this reduces initial output by approximately 93%, 90% and 97%.
 These are initial pages, not claims that all evidence fits into one response.
 The corresponding actual complete JSON-RPC results (512-byte request ID) were
-31,329 / 49,575 / 6,837 bytes. Small differences between runs come from opaque
+31,495 / 49,739 / 6,837 bytes. Small differences between runs come from opaque
 cursor/identifier lengths. No exact token counts or latency percentile claims.
 
 ## Realistic synthetic payload regression coverage
@@ -150,18 +150,23 @@ There are no additional full-suite or benchmark rounds in CI.
 
 Every probed tool response must fit 65,536 actual bytes. Lower default budgets:
 catalog 24 KiB, context 16 KiB, financial-context initial 28 KiB, historical
-initial 56 KiB (five rows/points per section; measured near 50 KiB). Discovery
-has a separate 160 KiB regression ceiling: 103 tools / about 148.7 KB, up from
-141.8 KB because bounded options, filter enums and retrieval guidance are now
-published. SDK text compatibility and all safety instructions remain.
+initial 56 KiB (five rows/points per section; measured near 50 KiB), bounded
+current overview initial 32 KiB (measured near 28.5 KiB). Raw HTTP tools/list
+discovery has a separate 160 KiB regression ceiling.
+The baseline 103-tool figure (141.8 KB) is a serialized result-only measurement;
+final tests separately log raw HTTP JSON-RPC and reconstructed JSON-RPC sizes
+(149,386 bytes each in the final sample).
+Initialize instructions are outside these figures. Discovery grows because
+bounded options, filter enums and retrieval guidance are now published. SDK text compatibility and all safety instructions remain.
 
 | Complete representative journey | Ordinary calls / bytes | Larger calls / bytes |
 | --- | ---: | ---: |
 | All directory pages + one full item | 2 / 36,868 | 9 / 359,699 |
-| All 31-day history leaves/points + row and point detail | 10 / 311,736 | 32 / 1,374,046 |
-| Targeted account historical holdings | 1 / 17,121 | 1 / 20,197 |
-| All financial-context sections + one item | 7 / 165,815 | 27 / 1,227,602 |
+| All 31-day history leaves/points + row and point detail | 10 / 311,920 | 32 / 1,374,210 |
+| Targeted account historical holdings | 1 / 17,285 | 1 / 20,361 |
+| All financial-context sections + one item | 7 / 165,813 | 27 / 1,227,654 |
 | All health / repair-preview sections | 3 / 23,781 | 10 / 499,396 |
+| Current overview: all breakdowns/evidence/labels | 5 / 58,939 | 7 / 228,604 |
 
 Journey assertions bound both call counts and total bytes. Health audits request
 100 on continuation to avoid tiny pages; every page still honors the wire cap.
@@ -170,8 +175,9 @@ is about 18.6 KB. Complete evidence remains available and can legitimately use
 more aggregate bytes than the old oversized response because pagination adds
 metadata. Filtering is the main context reduction for targeted explanations.
 
-Ordinary probes cover 60 registered tools; larger probes cover the same families
-except legacy get_overview (59). Covered reads include directory/catalog/context,
+Both tiers probe 60 registered tools. Current get_overview is tested through
+its bounded opt-in path at both scales, with exact equivalence for every GUI
+summary field and every section; the ordinary tier also probes its legacy path. Covered reads include directory/catalog/context,
 account values/snapshot, both historical endpoints and frozen page/item routes,
 financial context/comparison/attribution and pages/items, market current/history
 and Agent provenance, activities/items, period analysis/contribution/item/day/
@@ -185,8 +191,8 @@ Coverage limits: get_data_repair_job paging is covered by the isolated existing
 repair/retry test, not the 200-account tier. Remote search/provider I/O is excluded.
 Specialized batch/correction/reconciliation/product-terms/product-valuation/
 liquidity-policy previews retain their existing safety tests but are not claimed
-as realistic-scale payload probes. Legacy full arrays, get_overview at larger
-scale, long-range whole-household return analysis, dense multi-year provider
+as realistic-scale payload probes. Legacy full defaults (including current overview), long-range
+whole-household return analysis, dense multi-year provider
 history and hundreds of simultaneously active review rules remain unbounded or
 unmeasured; use the documented bounded alternatives. No blanket claim that every
 legacy result or every possible single-item payload fits 64 KiB.
@@ -216,3 +222,11 @@ That whole-tree run also could not build cmd/nestworth because GTK4/WebKit6
 (and related native development packages) are absent. Desktop build, whole-tree
 vet and binding generation have the same host dependency blocker. No native
 macOS, browser/UI, signing, deployment or real-household validation is claimed.
+
+
+Current overview acceptance: the new opt-in mcp-read/1 projection splits only
+collections, preserving every original field. The 200-account client follows
+all breakdown/missing/activity/label cursors, compares exact header totals,
+currency/completeness/quality and the full section union to the GUI adapter.
+The skill and tool description prefer this bounded route; legacy defaults can
+still overflow, and this review does not claim every MCP payload problem solved.

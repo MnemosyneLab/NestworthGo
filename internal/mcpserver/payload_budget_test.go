@@ -16,7 +16,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
 
@@ -115,22 +117,30 @@ func newPayloadHousehold(t *testing.T, large bool) payloadHousehold {
 
 type payloadMetric struct{ Calls, Bytes, Max int }
 type payloadRecorder struct {
-	t       *testing.T
-	token   string
-	mu      sync.Mutex
-	metrics map[string]payloadMetric
+	t              *testing.T
+	token          string
+	mu             sync.Mutex
+	metrics        map[string]payloadMetric
+	discoveryBytes int
 }
 
 // Observe actual HTTP request and final complete JSON-RPC response bytes. This
 // includes SDK text/structuredContent, escaping and metadata; no token estimates.
 func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 	name := ""
+	method := ""
 	if req.Body != nil {
 		raw, e := io.ReadAll(req.Body)
 		if e != nil {
 			return nil, e
 		}
 		req.Body = io.NopCloser(bytes.NewReader(raw))
+		var envelope struct {
+			Method string `json:"method"`
+		}
+		if jsoncodec.Unmarshal(raw, &envelope) == nil {
+			method = envelope.Method
+		}
 		var call financialContextHTTPCall
 		if jsoncodec.Unmarshal(raw, &call) == nil {
 			name = call.Params.Name
@@ -148,6 +158,11 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	res.Body = io.NopCloser(bytes.NewReader(raw))
+	if method == "tools/list" {
+		p.mu.Lock()
+		p.discoveryBytes = len(raw)
+		p.mu.Unlock()
+	}
 	if name != "" {
 		p.mu.Lock()
 		metric := p.metrics[name]
@@ -166,7 +181,7 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 			budget = 16 << 10
 		case "get_financial_context":
 			budget = 28 << 10
-		case "get_historical_overview", "get_historical_overview_series":
+		case "get_historical_overview", "get_historical_overview_series", "get_overview":
 			budget = 56 << 10
 		}
 		if len(raw) > budget {
@@ -246,10 +261,13 @@ func runPayloadBudgets(t *testing.T, large bool) {
 		t.Fatal(err)
 	}
 	discovery, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "result": tools})
-	if len(discovery) > 160<<10 {
-		t.Fatalf("tool discovery grew to %d bytes", len(discovery))
+	rec.mu.Lock()
+	rawDiscoveryBytes := rec.discoveryBytes
+	rec.mu.Unlock()
+	if rawDiscoveryBytes == 0 || rawDiscoveryBytes > 160<<10 {
+		t.Fatalf("raw tool discovery grew to %d bytes", rawDiscoveryBytes)
 	}
-	t.Logf("discovery registered=%d complete-JSON-RPC-bytes=%d", len(tools.Tools), len(discovery))
+	t.Logf("discovery registered=%d raw-HTTP-JSON-RPC-bytes=%d reconstructed-JSON-RPC-bytes=%d", len(tools.Tools), rawDiscoveryBytes, len(discovery))
 	// Management and catalog (including note-preserving full item retrieval).
 	for name, args := range map[string]any{"get_context": Empty{}, "get_catalog": Empty{}, "list_members": map[string]any{"responseMode": "paged"}, "list_institutions": map[string]any{"responseMode": "paged"}, "list_groups": map[string]any{"responseMode": "paged"}, "list_instruments": map[string]any{"responseMode": "paged"}, "list_holdings": map[string]any{"accountId": f.brokerage, "responseMode": "paged"}, "get_account_snapshot": IDInput{f.brokerage}, "get_market_data": map[string]any{"instrumentId": f.instrument}, "scan_data_health": map[string]any{"responseMode": "paged"}, "preview_data_repair": map[string]any{"responseMode": "paged"}} {
 		call(t, c, name, args, false)
@@ -391,6 +409,33 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	if !large {
 		call(t, c, "get_overview", Empty{}, false)
 	}
+	// The bounded primary current overview is equivalent to every GUI field,
+	// including evidence/labels; its legacy default can exceed the wire budget.
+	start = rec.total()
+	guiOverview, err := portfolio.NewService(f.app).Overview(t.Context(), account.AccountFilterRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantOverview, err := readSummary(guiOverview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	overviewStart := rec.total()
+	boundedOverview := scaleCapture(t, c, "get_overview", map[string]any{"responseMode": "paged"})
+	initialOverviewBytes := rec.total().Bytes - overviewStart.Bytes
+	if initialOverviewBytes > 32<<10 {
+		t.Fatalf("current overview initial summary grew to %d bytes", initialOverviewBytes)
+	}
+	t.Logf("current overview first page raw-HTTP-JSON-RPC-bytes=%d", initialOverviewBytes)
+	for section := range boundedOverview["sections"].(map[string]any) {
+		rows := payloadSection(t, c, boundedOverview, section)
+		featureJSONEqual(t, rows, wantOverview[section])
+		delete(wantOverview, section)
+		wantOverview[section+"Count"] = len(rows)
+	}
+	wantOverview["totalsScope"] = "request_account_filters"
+	featureJSONEqual(t, boundedOverview["summary"], wantOverview)
+	rec.journey("current overview all breakdowns/evidence/labels", start, 20, 1<<20)
 	// Ledger previews/commits and managed contracts run only in this synthetic DB.
 	plan := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": f.checking, "amount": "1.2345", "currency": "USD", "reason": "income", "effectiveAt": "2026-10-12T12:00:00Z"})
 	op := uuid.NewString()

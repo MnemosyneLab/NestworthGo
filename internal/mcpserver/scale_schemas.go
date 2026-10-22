@@ -7,6 +7,7 @@ import (
 
 func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	fields := map[string][]string{
+		"get_overview":     {},
 		"scan_data_health": {}, "preview_data_repair": {}, "get_data_repair_job": {},
 		"list_members": {}, "list_institutions": {}, "list_groups": {}, "list_accounts": {}, "list_holdings": {},
 		"get_historical_overview": {}, "get_historical_overview_series": {}, "get_account_valuations": {},

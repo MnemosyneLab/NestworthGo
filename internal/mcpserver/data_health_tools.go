@@ -67,11 +67,11 @@ func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
 		value := DataRepairJobResult{Job: marketdata.SyncSnapshotDTO(job), Health: marketdata.HealthReportDTO(report)}
 		if in.ResponseMode == "paged" {
 			return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
-				c, err := healthReadCapture("data_repair_job", in, value.Health, "issues")
+				c, err := sectionedReadCapture("data_repair_job", in, value.Health, "issues")
 				if err != nil {
 					return c, err
 				}
-				j, err := healthReadCapture("data_repair_job", in, value.Job, "items", "blockers", "prerequisites")
+				j, err := sectionedReadCapture("data_repair_job", in, value.Job, "items", "blockers", "prerequisites")
 				if err != nil {
 					return c, err
 				}

@@ -434,7 +434,7 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 	if isBoundedTool(request.Params.Name) {
 		return true
 	}
-	optionalPaged := map[string]bool{"list_instruments": true, "list_agent_market_data": true, "get_account_valuations": true, "list_members": true, "list_institutions": true, "list_groups": true, "list_accounts": true, "list_holdings": true, "scan_data_health": true, "preview_data_repair": true, "get_data_repair_job": true}
+	optionalPaged := map[string]bool{"list_instruments": true, "list_agent_market_data": true, "get_account_valuations": true, "get_overview": true, "list_members": true, "list_institutions": true, "list_groups": true, "list_accounts": true, "list_holdings": true, "scan_data_health": true, "preview_data_repair": true, "get_data_repair_job": true}
 	if !optionalPaged[request.Params.Name] {
 		return false
 	}
