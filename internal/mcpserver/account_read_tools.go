@@ -11,9 +11,8 @@ import (
 
 type AccountValuationReadInput struct {
 	account.AccountFilterRequest
-	ResponseMode string   `json:"responseMode,omitempty"`
-	AccountIDs   []string `json:"accountIds,omitempty"`
-	Limit        int      `json:"limit,omitempty"`
+	AccountIDs []string `json:"accountIds,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
 }
 
 func (s *Service) pagedAccountValuations(ctx context.Context, g uint64, in AccountValuationReadInput) (ReadEnvelope, error) {

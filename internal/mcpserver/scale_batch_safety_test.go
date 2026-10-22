@@ -13,7 +13,7 @@ func TestScaleMetadataUnknownReceiptAndProtectedTargets(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	read := func() map[string]any {
-		cap := scaleCapture(t, c, "list_instruments", map[string]any{"responseMode": "paged", "filter": map[string]any{"ids": []string{fx.instrument}}})
+		cap := scaleCapture(t, c, "list_instruments", map[string]any{"filter": map[string]any{"ids": []string{fx.instrument}}})
 		return scaleSection(t, c, cap, "instruments")[0].(map[string]any)
 	}
 	before, err := fx.app.ListInstruments(t.Context(), true)
@@ -49,7 +49,7 @@ func TestScaleMetadataUnknownReceiptAndProtectedTargets(t *testing.T) {
 	if err := fx.app.ArchiveInstrument(t.Context(), domain.InstrumentID(fx.instrument), true); err != nil {
 		t.Fatal(err)
 	}
-	cap := scaleCapture(t, c, "list_instruments", map[string]any{"responseMode": "paged", "includeArchived": true, "filter": map[string]any{"ids": []string{fx.instrument}}})
+	cap := scaleCapture(t, c, "list_instruments", map[string]any{"includeArchived": true, "filter": map[string]any{"ids": []string{fx.instrument}}})
 	archived := scaleSection(t, c, cap, "instruments")[0].(map[string]any)
 	call(t, c, "update_instruments_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{map[string]any{"id": fx.instrument, "expectedMetadataVersion": archived["metadataVersion"], "changes": map[string]any{"name": "Rejected"}}}}}, true)
 }

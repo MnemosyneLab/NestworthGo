@@ -133,11 +133,11 @@ func TestAgentMarketDataImportCorrectWithdrawAndRetry(t *testing.T) {
 		t.Fatalf("withdrawal did not restore eligible manual quote: %v", q)
 	}
 	records := call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
-	if records["total"] != float64(4) {
+	if records["summary"].(map[string]any)["totalRecordCount"] != float64(4) {
 		t.Fatal(records)
 	}
 	active := 0
-	for _, raw := range records["items"].([]any) {
+	for _, raw := range scaleSection(t, c, records, "records") {
 		if raw.(map[string]any)["active"] == true {
 			active++
 		}
@@ -155,7 +155,7 @@ func TestAgentMarketDataBatchValidationIsAtomic(t *testing.T) {
 	invalid := map[string]any{"instrumentId": fx.instrument, "currency": "USD", "value": "3", "kind": "nav", "date": "2026-10-01", "sourceTitle": "Issuer"}
 	call(t, c, "import_market_data", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{valid, invalid}}}, true)
 	records := call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
-	if records["total"] != float64(0) {
+	if records["summary"].(map[string]any)["totalRecordCount"] != float64(0) {
 		t.Fatal("invalid batch persisted a partial observation")
 	}
 	for _, patch := range []map[string]any{{"currency": "SGD"}, {"quotedAt": ""}, {"value": "-1"}, {"sourceUrl": "file:///tmp/quote"}, {"sourceTitle": ""}, {"kind": "annualized_yield"}, {"date": "2026-09-28"}} {
@@ -181,7 +181,7 @@ func TestAgentClosedDayMCPImportAuditAndWithdrawal(t *testing.T) {
 		t.Fatal(result)
 	}
 	records := call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
-	rows := records["items"].([]any)
+	rows := scaleSection(t, c, records, "records")
 	if len(rows) != 1 {
 		t.Fatal(records)
 	}
@@ -191,7 +191,7 @@ func TestAgentClosedDayMCPImportAuditAndWithdrawal(t *testing.T) {
 	}
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": ids[0], "sourceTitle": "Synthetic closure withdrawn"}}})
 	records = call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
-	for _, raw := range records["items"].([]any) {
+	for _, raw := range scaleSection(t, c, records, "records") {
 		if raw.(map[string]any)["active"] == true {
 			t.Fatal("withdrawn closure remains active")
 		}

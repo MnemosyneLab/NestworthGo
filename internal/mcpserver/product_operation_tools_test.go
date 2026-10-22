@@ -37,7 +37,7 @@ func productSkillPlan(t *testing.T, c *mcp.ClientSession, name string, values ma
 
 func productAssertNetWorth(t *testing.T, c *mcp.ClientSession, want string) {
 	t.Helper()
-	actual := call(t, c, "get_overview", map[string]any{}, false)["data"].(map[string]any)
+	actual := scaleCapture(t, c, "get_overview", Empty{})["summary"].(map[string]any)
 	if actual["netWorth"] != want {
 		t.Fatal(actual)
 	}
@@ -135,7 +135,7 @@ func TestProductHTTPLifecycleFrozenTimesAndAccounting(t *testing.T) {
 	interest := productSkillPlan(t, c, "product-interest", map[string]string{"productId": id})
 	now = now.Add(time.Minute)
 	productCommitHTTP(t, c, interest["planId"].(string), uuid.NewString())
-	detail := call(t, c, "get_product", IDInput{ID: id}, false)["data"].(map[string]any)["product"].(map[string]any)
+	detail := productEvidence(t, c, IDInput{ID: id})["product"].(map[string]any)
 	if batchCash(t, c, fx.brokerage) != "510" || detail["currentValue"].(map[string]any)["amount"] != "1000" || detail["maturityInterest"].(map[string]any)["amount"] != "40" {
 		t.Fatal(detail)
 	}
@@ -193,7 +193,7 @@ func TestProductHTTPLifecycleFrozenTimesAndAccounting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	analysis := call(t, c, "analyze_period", map[string]any{"query": map[string]any{"from": "2026-09-29", "to": "2026-09-29", "scopeKind": "instrument", "scopeId": original.Contract.InstrumentID.String(), "valuation": "base", "basis": "investment", "includeCash": true}}, false)["data"].(map[string]any)
+	analysis := sectionEvidence(t, c, "analyze_period", map[string]any{"query": map[string]any{"from": "2026-09-29", "to": "2026-09-29", "scopeKind": "instrument", "scopeId": original.Contract.InstrumentID.String(), "valuation": "base", "basis": "investment", "includeCash": true}})
 	returns := analysis["investmentReturns"].(map[string]any)
 	if returns["amount"].(map[string]any)["amount"] != "10" {
 		t.Fatal(returns)

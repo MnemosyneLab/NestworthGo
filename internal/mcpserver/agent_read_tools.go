@@ -22,9 +22,6 @@ type AgentReadFilter struct {
 }
 
 func (s *Service) pagedAgentRecords(ctx context.Context, g uint64, in AgentDataListInput) (ReadEnvelope, error) {
-	if in.Offset != 0 {
-		return ReadEnvelope{}, fail("validation", "offset cannot be used with responseMode=paged")
-	}
 	f := AgentReadFilter{}
 	if in.Filter != nil {
 		f = *in.Filter

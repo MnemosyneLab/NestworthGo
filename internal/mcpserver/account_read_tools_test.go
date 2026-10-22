@@ -14,11 +14,11 @@ func TestAccountReadPreservesAllEvidenceLayouts(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := ledgerSession(t, fx)
-	legacy := call(t, c, "list_accounts", map[string]any{"filter": map[string]any{"accountType": "brokerage"}}, false)["data"].([]any)
-	if len(legacy) != 1 {
-		t.Fatal("legacy account filter contract changed")
+	rowsFiltered := scaleSection(t, c, scaleCapture(t, c, "list_accounts", map[string]any{"filter": map[string]any{"accountType": "brokerage"}}), "accounts")
+	if len(rowsFiltered) != 1 {
+		t.Fatal("account filter contract changed")
 	}
-	cap := scaleCapture(t, c, "get_account_valuations", map[string]any{"responseMode": "paged", "limit": 1})
+	cap := scaleCapture(t, c, "get_account_valuations", map[string]any{"limit": 1})
 	rows := scaleSection(t, c, cap, "accounts")
 	if len(rows) != len(full) {
 		t.Fatal("accounts omitted")
@@ -52,7 +52,7 @@ func TestAccountReadPreservesAllEvidenceLayouts(t *testing.T) {
 		}
 		featureJSONEqual(t, item["summary"], expected)
 	}
-	empty := scaleCapture(t, c, "get_account_valuations", map[string]any{"responseMode": "paged", "accountIds": []string{fx.checking}, "memberId": "00000000-0000-4000-8000-000000000000"})
+	empty := scaleCapture(t, c, "get_account_valuations", map[string]any{"accountIds": []string{fx.checking}, "memberId": "00000000-0000-4000-8000-000000000000"})
 	if len(scaleSection(t, c, empty, "accounts")) != 0 {
 		t.Fatal("empty filtered accounts")
 	}

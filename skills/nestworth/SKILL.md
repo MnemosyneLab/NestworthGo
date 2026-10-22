@@ -105,3 +105,9 @@ never create sell recommendations or ledger entries.
 Ordinary NAV-priced fund/wealth-product holdings use
 the documented instrument/holding path only when they are not App-managed
 products. Do not substitute general trades for a managed product operation.
+
+The bundled Skill 2 contract uses bounded MCP reads by default. Follow
+`data.sections` cursors and retain capture IDs/hashes; never request responseMode
+or parse a directory response as a bare array. `get_context` contains household
+metadata; use directory pages for people and institutions. Account snapshots
+open account evidence through `get_read_item`. See the paging reference.

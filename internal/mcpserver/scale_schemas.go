@@ -7,7 +7,7 @@ import (
 
 func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	fields := map[string][]string{
-		"get_overview":     {},
+		"analyze_period": {}, "get_account_snapshot": {}, "get_overview": {},
 		"scan_data_health": {}, "preview_data_repair": {}, "get_data_repair_job": {},
 		"list_members": {}, "list_institutions": {}, "list_groups": {}, "list_accounts": {}, "list_holdings": {},
 		"get_historical_overview": {}, "get_historical_overview_series": {}, "get_account_valuations": {},
@@ -24,9 +24,6 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		minimum := 1
 		schema.Properties["id"].MinLength = &minimum
 	}
-	if p := schema.Properties["responseMode"]; p != nil {
-		p.Enum = []any{"paged"}
-	}
 	if p := schema.Properties["limit"]; p != nil {
 		min := float64(0)
 		p.Minimum = &min
@@ -39,25 +36,6 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		}
 		if v := p.Properties["direction"]; v != nil {
 			setSchemaEnum(v, []string{"asc", "desc"})
-		}
-	}
-	pagingOptions := []string{"filter", "sort", "limit"}
-	if name == "list_accounts" {
-		pagingOptions = []string{"limit"}
-	}
-	if name == "list_agent_market_data" {
-		pagingOptions = []string{"filter", "sort"}
-	}
-	if schema.Properties["responseMode"] != nil {
-		conditions := []*jsonschema.Schema{}
-		for _, field := range pagingOptions {
-			if schema.Properties[field] != nil {
-				conditions = append(conditions, &jsonschema.Schema{Required: []string{field}})
-			}
-		}
-		if len(conditions) > 0 {
-			schema.If = &jsonschema.Schema{AnyOf: conditions}
-			schema.Then = &jsonschema.Schema{Required: []string{"responseMode"}}
 		}
 	}
 	walkScaleSchema(schema)

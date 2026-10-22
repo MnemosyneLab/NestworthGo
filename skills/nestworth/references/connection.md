@@ -111,17 +111,15 @@ managed_product_valuation. Daily investment-review reads are available in all
 modes; rule, acknowledgement, suppression and explicit refresh tools require
 ledger_write. These update review rules/episodes and derived projections, not
 financial facts.
-Discover each actual pair; an older App may expose only a subset. Skill updates
-do not install/update the connected App or client.
+Discover tools and verify the connected permission mode before acting.
 
 ## Scale capabilities and permissions
 
 See [paging and batches](paging-and-batches.md). Discover bounded_read,
 instrument_paging and market_data_batch. `get_read_page`/`get_read_item` and
-paged modes are available in every permission mode. instrument_metadata_batch
+bounded contracts are available in every permission mode. instrument_metadata_batch
 and `update_instruments_batch` require directory_write or ledger_write.
-Older Apps keep legacy paths; missing tools do not authorize filesystem/provider
-workarounds. Repository bundle updates do not install or enable a real client.
+Missing tools do not authorize filesystem/provider workarounds. Repository bundle updates do not install or enable a real client.
 
 Reconciliation sessions expose reconciliation_session_read in every permission
 mode and reconciliation_session_write only with ledger_write. Directory access

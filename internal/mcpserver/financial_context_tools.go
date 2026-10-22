@@ -434,28 +434,11 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 	if isBoundedTool(request.Params.Name) {
 		return true
 	}
-	optionalPaged := map[string]bool{"list_instruments": true, "list_agent_market_data": true, "get_account_valuations": true, "get_overview": true, "list_members": true, "list_institutions": true, "list_groups": true, "list_accounts": true, "list_holdings": true, "scan_data_health": true, "preview_data_repair": true, "get_data_repair_job": true}
-	if !optionalPaged[request.Params.Name] {
-		return false
-	}
-
-	if len(request.Params.Arguments) == 0 {
-		return false
-	}
-	var options map[string]json.RawMessage
-	if decodeFinancialContextJSON(request.Params.Arguments, &options) != nil {
+	switch request.Params.Name {
+	case "analyze_period", "get_contribution_item", "get_return_day", "get_asset_driver_detail", "get_context", "get_catalog", "get_account_snapshot", "get_market_data", "list_instruments", "list_agent_market_data", "get_account_valuations", "get_overview", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "scan_data_health", "preview_data_repair", "get_data_repair_job":
 		return true
 	}
-	for _, field := range []string{"responseMode", "filter", "sort", "accountIds"} {
-		if field == "filter" && request.Params.Name == "list_accounts" {
-			continue
-		}
-		if _, present := options[field]; present {
-			return true
-		}
-	}
-	_, limitPresent := options["limit"]
-	return request.Params.Name != "list_agent_market_data" && limitPresent
+	return false
 }
 
 // The SDK does not expose IDs to tool handlers and may return input-schema
@@ -510,7 +493,7 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 					result := &mcp.CallToolResult{}
 					message := "financial context response exceeds the MCP wire budget"
 					if isProductTool(request.Params.Name) {
-						message = "product response exceeds the MCP wire budget; retry " + request.Params.Name + " with responseMode=\"paged\", then follow every nextCursor; use the GUI to view the complete result if a single item is oversized"
+						message = "product response exceeds the MCP wire budget; retry " + request.Params.Name + " with a smaller limit, then follow every nextCursor; use the GUI to view the complete result if a single item is oversized"
 					} else if isFeatureTool(request.Params.Name) {
 						message = "feature response exceeds the MCP wire budget; retry paged reviews/upcoming reads and follow every nextCursor; narrow the requested data for other tools"
 					}

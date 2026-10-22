@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
 type HistoricalOverviewInput struct {
@@ -37,14 +36,8 @@ func ledgerWriteTool[I any](s *Service, server *mcp.Server, name, description st
 
 func (s *Service) featureTools(server *mcp.Server) {
 	generation := s.contextGeneration
-	readTool(server, "get_upcoming_actions", "Read the GUI's aggregated upcoming product, reservation, receipt, eligibility and data-check actions for the next 30 household-local civil dates. responseMode=paged independently pages filtered globally sorted items and dataChecks while retaining household header/counts. Follow every cursor. Returns the shared upcoming-actions/1 projection, exact reasons, source evidence, timezone, capture time and completeness; do not reconstruct it from product lists or treat estimates as posted facts.", func(ctx context.Context, in UpcomingReadInput) (any, error) {
-		if err := validateResponseMode(in.ResponseMode, in.Filter != nil || in.Sort != nil || in.Limit != 0); err != nil {
-			return nil, err
-		}
-		if in.ResponseMode == "paged" {
-			return s.pagedUpcoming(ctx, generation, in)
-		}
-		return liquidity.NewService(s.app).UpcomingActions(ctx)
+	readTool(server, "get_upcoming_actions", "Read the GUI's aggregated upcoming product, reservation, receipt, eligibility and data-check actions for the next 30 household-local civil dates. The bounded read contract independently pages filtered globally sorted items and dataChecks while retaining household header/counts. Follow every cursor. Returns the shared upcoming-actions/1 projection, exact reasons, source evidence, timezone, capture time and completeness; do not reconstruct it from product lists or treat estimates as posted facts.", func(ctx context.Context, in UpcomingReadInput) (any, error) {
+		return s.pagedUpcoming(ctx, generation, in)
 	})
 	readTool(server, "get_historical_overview", "Capture historical-read/2 in frozen mcp-read/1 pages. Default compact leaves; view=evidence expands rows. Filter endpoint rows by account/instrument/kind/inclusion/effective quality/reason/side; household monetary totals remain full scope, matchedLeft/Right counts cover filtered leaves only. Pending is one included leaf with carried price OR FX, never account rollups or informational warnings. Dates are closed household civil dates; compareTo may be current. get_read_page continues sections; get_read_item rows/id returns full adopted price/FX evidence, overview/endpoints opens categories/contributions, states/left or right gives allocations. Initial default 5/section, continuation 25/max 100, byte-aware 64 KiB complete wire. No provider/snapshot/ledger writes. endpoint_bridge/1 explains movement, not return. ", func(ctx context.Context, in HistoricalOverviewInput) (any, error) {
 		return s.pagedHistoricalOverview(ctx, generation, in)

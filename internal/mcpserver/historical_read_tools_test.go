@@ -125,7 +125,7 @@ func TestHistoricalAndAccountCompleteWireMeasurements(t *testing.T) {
 			for name, args := range map[string]map[string]any{
 				"get_historical_overview":        {"date": "2026-10-01", "compareTo": "2026-10-10"},
 				"get_historical_overview_series": {"from": "2026-10-01", "to": "2026-10-10"},
-				"get_account_valuations":         {"responseMode": "paged"},
+				"get_account_valuations":         {},
 			} {
 				result, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: args})
 				if err != nil || result.IsError {

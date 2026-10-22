@@ -6,8 +6,7 @@ import (
 )
 
 type HealthReadInput struct {
-	ResponseMode string `json:"responseMode,omitempty"`
-	Limit        int    `json:"limit,omitempty"`
+	Limit int `json:"limit,omitempty"`
 }
 
 // Health/repair arrays can grow with retained history, even for a modest number

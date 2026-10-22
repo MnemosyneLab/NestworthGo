@@ -9,8 +9,7 @@ import (
 
 type OverviewReadInput struct {
 	account.AccountFilterRequest
-	ResponseMode string `json:"responseMode,omitempty"`
-	Limit        int    `json:"limit,omitempty" jsonschema:"Paged initial default 5 per section, maximum 100; continuation default 25"`
+	Limit int `json:"limit,omitempty" jsonschema:"Paged initial default 5 per section, maximum 100; continuation default 25"`
 }
 
 // Preserve the complete current GUI overview, including all breakdowns,

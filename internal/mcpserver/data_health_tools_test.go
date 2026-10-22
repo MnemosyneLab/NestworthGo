@@ -93,7 +93,7 @@ func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			gotHealth := decodeDataHealthDTO[marketdata.MarketDataHealthReportDTO](t, call(t, c, "scan_data_health", Empty{}, false)["data"])
+			gotHealth := decodeDataHealthDTO[marketdata.MarketDataHealthReportDTO](t, sectionEvidence(t, c, "scan_data_health", Empty{}))
 			if !reflect.DeepEqual(gotHealth, wantHealth) {
 				t.Fatalf("MCP health differs from Wails: got %+v, want %+v", gotHealth, wantHealth)
 			}
@@ -102,7 +102,7 @@ func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			gotPreview := decodeDataHealthDTO[marketdata.SyncPlanPreviewDTO](t, call(t, c, "preview_data_repair", Empty{}, false)["data"])
+			gotPreview := decodeDataHealthDTO[marketdata.SyncPlanPreviewDTO](t, sectionEvidence(t, c, "preview_data_repair", Empty{}))
 			if gotPreview.Scope.Scope != "repair_all" || !reflect.DeepEqual(gotPreview, wantPreview) {
 				t.Fatalf("MCP preview differs from Wails repair_all: got %+v, want %+v", gotPreview, wantPreview)
 			}
@@ -208,7 +208,7 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	var status map[string]any
 	var terminal marketdata.SyncJobDTO
 	for {
-		status = call(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID}, false)["data"].(map[string]any)
+		status = repairJobEvidence(t, c2, map[string]any{"jobId": result.Job.JobID})
 		job := decodeDataHealthDTO[marketdata.SyncJobDTO](t, status["job"])
 		if job.JobID != result.Job.JobID {
 			t.Fatalf("requested job %s, got %+v", result.Job.JobID, job)
@@ -228,7 +228,7 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	if terminal.SnapshotDaysPlanned == 0 || terminal.SnapshotDaysRebuilt != terminal.SnapshotDaysPlanned {
 		t.Fatalf("expected rebuilt snapshots with unresolved provider data: %+v", terminal)
 	}
-	paged := scaleCapture(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID, "responseMode": "paged", "limit": 1})
+	paged := scaleCapture(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID, "limit": 1})
 	header := paged["summary"].(map[string]any)
 	if header["job"].(map[string]any)["jobId"] != terminal.JobID || header["job"].(map[string]any)["outcome"] != terminal.Outcome {
 		t.Fatal("paged job changed recorded outcome")
@@ -279,7 +279,7 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	if newResult.Job.JobID == result.Job.JobID || newResult.Attached || newResult.Conflict {
 		t.Fatalf("expected a new repair after completion: %+v", newResult)
 	}
-	oldStatus := call(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID}, false)["data"].(map[string]any)
+	oldStatus := repairJobEvidence(t, c2, map[string]any{"jobId": result.Job.JobID})
 	oldJob := decodeDataHealthDTO[marketdata.SyncJobDTO](t, oldStatus["job"])
 	if !reflect.DeepEqual(oldJob, terminal) {
 		t.Fatalf("old job was replaced by a newer repair: got %+v, want %+v", oldJob, terminal)

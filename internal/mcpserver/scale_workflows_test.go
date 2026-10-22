@@ -80,7 +80,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 	if item["contentHash"] != cap["contentHash"] {
 		t.Fatal("detail recaptured")
 	}
-	one := scaleCapture(t, c, "get_product", map[string]any{"responseMode": "paged", "id": id, "limit": 1})
+	one := scaleCapture(t, c, "get_product", map[string]any{"id": id, "limit": 1})
 	if one["query"].(map[string]any)["id"] != id {
 		t.Fatal("standalone product query identity missing")
 	}
@@ -91,7 +91,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	liq := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "limit": 1})
+	liq := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"limit": 1})
 	if liq["query"].(map[string]any)["includeEarlyWithdrawal"] != false {
 		t.Fatal("liquidity request basis missing from frozen query")
 	}
@@ -101,7 +101,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 	}
 	summary := liq["summary"].(map[string]any)
 	productJSONEqual(t, summary["buckets"], overview.Buckets)
-	filtered := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "filter": map[string]any{"instrumentTypes": []string{"bank_investment_product"}, "policyOrigins": []string{"contract"}, "hasRule": true}, "sort": map[string]any{"field": "currentValueBase", "direction": "desc"}, "limit": 1})
+	filtered := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"filter": map[string]any{"instrumentTypes": []string{"bank_investment_product"}, "policyOrigins": []string{"contract"}, "hasRule": true}, "sort": map[string]any{"field": "currentValueBase", "direction": "desc"}, "limit": 1})
 	for _, r := range scaleSection(t, c, filtered, "sources") {
 		v := r.(map[string]any)
 		if v["hasRule"] != true || v["policyEditable"] != false || v["policyOrigin"] != "contract" {
@@ -113,8 +113,8 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 		t.Fatal("empty intersection")
 	}
 	productJSONEqual(t, empty["summary"].(map[string]any)["buckets"], overview.Buckets)
-	call(t, c, "get_liquidity_overview", map[string]any{"filter": map[string]any{}}, true)
-	call(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "sort": map[string]any{"field": "availableBase"}}, true)
+	call(t, c, "get_liquidity_overview", map[string]any{"filter": map[string]any{}}, false)
+	call(t, c, "get_liquidity_overview", map[string]any{"sort": map[string]any{"field": "availableBase"}}, true)
 	for _, name := range []string{"get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{strings.Repeat("private", 12000): true}}}
 		status, wire := productHTTP(t, fx.service, payload, "")
@@ -134,7 +134,7 @@ func TestScaleHTTPMetadataAtomicCASAndReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := ledgerSession(t, fx)
-	capture := scaleCapture(t, c, "list_instruments", map[string]any{"responseMode": "paged", "limit": 1})
+	capture := scaleCapture(t, c, "list_instruments", map[string]any{"limit": 1})
 	rows := scaleSection(t, c, capture, "instruments")
 	versions := map[string]string{}
 	for _, r := range rows {
@@ -143,7 +143,7 @@ func TestScaleHTTPMetadataAtomicCASAndReceipts(t *testing.T) {
 	}
 	items := []any{map[string]any{"id": fx.instrument, "expectedMetadataVersion": versions[fx.instrument], "changes": map[string]any{"shortName": "Alias", "note": nil}}, map[string]any{"id": second.ID.String(), "expectedMetadataVersion": strings.Repeat("0", 64), "changes": map[string]any{"name": "Changed second"}}}
 	call(t, c, "update_instruments_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": items}}, true)
-	now := scaleCapture(t, c, "list_instruments", map[string]any{"responseMode": "paged"})
+	now := scaleCapture(t, c, "list_instruments", map[string]any{})
 	for _, r := range scaleSection(t, c, now, "instruments") {
 		v := r.(map[string]any)
 		if versions[v["id"].(string)] != v["metadataVersion"] {
@@ -220,5 +220,5 @@ func TestScaleHTTPMarketCurrentHistoryAndAgentRetraction(t *testing.T) {
 		t.Fatal("100 target completeness")
 	}
 	call(t, c, "get_market_data_batch", map[string]any{"targets": []any{targets[0], targets[0]}}, true)
-	call(t, c, "list_agent_market_data", map[string]any{"responseMode": "paged", "offset": 1}, true)
+	call(t, c, "list_agent_market_data", map[string]any{"offset": 1}, true)
 }

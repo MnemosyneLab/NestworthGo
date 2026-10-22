@@ -105,7 +105,7 @@ func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 	}
 	c := connect(t, fx.service)
 
-	upcoming := call(t, c, "get_upcoming_actions", skillExample(t, "products", "upcoming-actions", nil), false)["data"]
+	upcoming := sectionEvidence(t, c, "get_upcoming_actions", skillExample(t, "products", "upcoming-actions", nil))
 	guiUpcoming, err := liquidity.NewService(fx.app).UpcomingActions(t.Context())
 	if err != nil {
 		t.Fatal(err)

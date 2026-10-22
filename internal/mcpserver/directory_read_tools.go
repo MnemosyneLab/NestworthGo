@@ -6,8 +6,7 @@ import (
 	"sort"
 )
 
-// One projection for legacy discovery arrays that can grow with a household.
-// The optional mode preserves full legacy contracts; item reads retain notes.
+// Frozen compact directory rows; item reads retain complete notes and metadata.
 func (s *Service) pagedDirectory(ctx context.Context, g uint64, section string, query any, limit int, values any) (ReadEnvelope, error) {
 	return s.buildRead(ctx, g, limit, func(context.Context) (readCapture, error) {
 		encoded, e := readSummary(map[string]any{"items": values})

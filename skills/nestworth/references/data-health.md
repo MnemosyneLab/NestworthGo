@@ -1,12 +1,12 @@
 # Diagnose and repair data health
 
-Discover the schema first. When responseMode is supported, call scan_data_health,
-preview_data_repair and get_data_repair_job with `responseMode:"paged"` and follow
+Discover the schema first. Call scan_data_health, preview_data_repair and
+get_data_repair_job with ordinary arguments and follow
 all relevant `get_read_page` cursors. Scans use issues, previews items/unresolved,
 and jobs issues/job_items/job_blockers/job_prerequisites. Counts describe the full
 capture. A new poll captures current progress/health; old pages stay frozen.
 For a full issue audit, limit=100 reduces calls while byte-aware sizing still
-applies. Older Apps keep their `{}` / jobId paths.
+applies.
 
 For “检查数据健康” call `scan_data_health` and explain affected dates,
 instruments/currencies, missing/outdated/incomplete snapshots and actionable

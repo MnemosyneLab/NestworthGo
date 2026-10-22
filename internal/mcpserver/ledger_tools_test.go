@@ -154,7 +154,8 @@ func ledgerErrorCode(t *testing.T, c *mcp.ClientSession, name string, arguments 
 func ledgerAmount(t *testing.T, c *mcp.ClientSession, accountID, currency string) string {
 	t.Helper()
 	snapshot := call(t, c, "get_account_snapshot", IDInput{ID: accountID}, false)["data"].(map[string]any)
-	for _, raw := range snapshot["components"].([]any) {
+	snapshot = scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: snapshot["captureId"].(string), Section: "accounts", ID: accountID})
+	for _, raw := range scaleSection(t, c, snapshot, "components/"+accountID) {
 		component := raw.(map[string]any)
 		if component["holdingId"] == nil && component["nativeCurrency"] == currency {
 			return component["nativeAmount"].(string)
@@ -266,13 +267,13 @@ func TestLedgerTradeFirstBuyAndSell(t *testing.T) {
 	if holdingID == "" || detail["side"] != "buy" || ledgerCash(t, c, fx.brokerage) != "795" {
 		t.Fatalf("first buy=%v cash=%s", detail, ledgerCash(t, c, fx.brokerage))
 	}
-	holdings := call(t, c, "list_holdings", map[string]any{"accountId": fx.brokerage}, false)["data"].([]any)
+	holdings := scaleSection(t, c, scaleCapture(t, c, "list_holdings", map[string]any{"accountId": fx.brokerage}), "holdings")
 	if len(holdings) != 1 || holdings[0].(map[string]any)["id"] != holdingID || holdings[0].(map[string]any)["quantity"] != "10" {
 		t.Fatalf("first buy holdings=%v", holdings)
 	}
 	sell := ledgerPreview(t, c, map[string]any{"kind": "trade", "side": "sell", "settlementAccountId": fx.brokerage, "holdingId": holdingID, "instrumentId": fx.instrument, "quantity": "4", "gross": "120", "grossCurrency": "USD", "fee": "2", "feeCurrency": "USD", "effectiveAt": "2026-09-29T12:00:00Z"})
 	ledgerCommit(t, c, uuid.NewString(), sell["planId"].(string))
-	holdings = call(t, c, "list_holdings", map[string]any{"accountId": fx.brokerage}, false)["data"].([]any)
+	holdings = scaleSection(t, c, scaleCapture(t, c, "list_holdings", map[string]any{"accountId": fx.brokerage}), "holdings")
 	if len(holdings) != 1 || holdings[0].(map[string]any)["quantity"] != "6" || ledgerCash(t, c, fx.brokerage) != "913" {
 		t.Fatalf("sell holdings=%v cash=%s", holdings, ledgerCash(t, c, fx.brokerage))
 	}
@@ -449,7 +450,7 @@ func TestLedgerHistoricalFirstBuyReplaysLaterCashAndHolding(t *testing.T) {
 	buy := ledgerPreview(t, c, map[string]any{"kind": "trade", "side": "buy", "settlementAccountId": fx.brokerage, "instrumentId": fx.instrument, "quantity": "10", "gross": "200", "grossCurrency": "USD", "fee": "5", "feeCurrency": "USD", "effectiveAt": "2026-09-21T12:00:00Z"})
 	result := ledgerCommit(t, c, uuid.NewString(), buy["planId"].(string))
 	holdingID := result["activity"].(map[string]any)["tradeDetail"].(map[string]any)["holdingId"]
-	holdings := call(t, c, "list_holdings", map[string]any{"accountId": fx.brokerage}, false)["data"].([]any)
+	holdings := scaleSection(t, c, scaleCapture(t, c, "list_holdings", map[string]any{"accountId": fx.brokerage}), "holdings")
 	if len(holdings) != 1 || holdings[0].(map[string]any)["id"] != holdingID || holdings[0].(map[string]any)["quantity"] != "10" || ledgerCash(t, c, fx.brokerage) != "795" {
 		t.Fatalf("historical first buy holdings=%v cash=%s", holdings, ledgerCash(t, c, fx.brokerage))
 	}

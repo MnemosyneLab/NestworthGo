@@ -44,7 +44,7 @@ func TestScaleLiquidityInstrumentTypesPolicyAndSortMatrix(t *testing.T) {
 	}
 	c := ledgerSession(t, fx)
 	for kind := range ids {
-		cap := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "filter": map[string]any{"instrumentTypes": []string{kind}}})
+		cap := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"filter": map[string]any{"instrumentTypes": []string{kind}}})
 		rows := scaleSection(t, c, cap, "sources")
 		if len(rows) != 1 || rows[0].(map[string]any)["instrumentId"] != ids[kind] {
 			t.Fatalf("type filter %s", kind)
@@ -56,8 +56,8 @@ func TestScaleLiquidityInstrumentTypesPolicyAndSortMatrix(t *testing.T) {
 			if field == "availableBase" {
 				order["horizonOn"] = "2026-09-29"
 			}
-			a := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "sort": order, "limit": 1})
-			b := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "sort": order, "limit": 100})
+			a := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"sort": order, "limit": 1})
+			b := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"sort": order, "limit": 100})
 			if !reflect.DeepEqual(scaleSection(t, c, a, "sources"), scaleSection(t, c, b, "sources")) {
 				t.Fatalf("page sort matrix %s %s", field, direction)
 			}
@@ -67,7 +67,7 @@ func TestScaleLiquidityInstrumentTypesPolicyAndSortMatrix(t *testing.T) {
 		filter   map[string]any
 		expected int
 	}{{map[string]any{"instrumentTypes": []string{"bond"}, "hasRule": true, "excluded": true, "policyOrigins": []string{"explicit"}}, 1}, {map[string]any{"instrumentTypes": []string{"stock", "etf"}, "hasRule": false}, 2}, {map[string]any{"instrumentTypes": []string{"stock"}, "policyOrigins": []string{"explicit"}}, 0}, {map[string]any{"instrumentIds": []string{ids["mutual_fund"]}, "hasRule": false}, 0}, {map[string]any{"instrumentTypes": []string{"mutual_fund"}, "query": " SAME "}, 1}, {map[string]any{"sourceKinds": []string{"account_value"}, "instrumentTypes": []string{"stock"}}, 0}} {
-		cap := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "filter": tc.filter})
+		cap := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"filter": tc.filter})
 		rows := scaleSection(t, c, cap, "sources")
 		if len(rows) != tc.expected {
 			t.Fatalf("filter %v count %d", tc.filter, len(rows))
@@ -87,7 +87,7 @@ func TestScaleLiquidityManagedProductKindsRemainDistinct(t *testing.T) {
 		guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "record_existing", RecordExisting: &application.RecordExistingProductCommand{AccountID: fx.brokerage, Currency: "USD", Principal: "100", TotalCostBasis: "100", CurrentValue: "100", CashExcludesProduct: true, Terms: terms, Policy: policy}})
 	}
 	c := ledgerSession(t, fx)
-	cap := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged", "limit": 1})
+	cap := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"limit": 1})
 	seen := map[string]bool{}
 	for _, r := range scaleSection(t, c, cap, "sources") {
 		row := r.(map[string]any)

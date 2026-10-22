@@ -54,13 +54,14 @@ func batchChanges(t *testing.T, result map[string]any, count int) []any {
 
 func batchHoldings(t *testing.T, c *mcp.ClientSession, accountID string) []any {
 	t.Helper()
-	return call(t, c, "list_holdings", map[string]any{"accountId": accountID}, false)["data"].([]any)
+	return scaleSection(t, c, scaleCapture(t, c, "list_holdings", map[string]any{"accountId": accountID}), "holdings")
 }
 
 func batchCash(t *testing.T, c *mcp.ClientSession, accountID string) string {
 	t.Helper()
 	snapshot := call(t, c, "get_account_snapshot", IDInput{ID: accountID}, false)["data"].(map[string]any)
-	for _, raw := range snapshot["components"].([]any) {
+	snapshot = scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: snapshot["captureId"].(string), Section: "accounts", ID: accountID})
+	for _, raw := range scaleSection(t, c, snapshot, "components/"+accountID) {
 		component := raw.(map[string]any)
 		if component["holdingId"] == nil && component["nativeCurrency"] == "USD" {
 			return component["nativeAmount"].(string)

@@ -269,19 +269,19 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	}
 	t.Logf("discovery registered=%d raw-HTTP-JSON-RPC-bytes=%d reconstructed-JSON-RPC-bytes=%d", len(tools.Tools), rawDiscoveryBytes, len(discovery))
 	// Management and catalog (including note-preserving full item retrieval).
-	for name, args := range map[string]any{"get_context": Empty{}, "get_catalog": Empty{}, "list_members": map[string]any{"responseMode": "paged"}, "list_institutions": map[string]any{"responseMode": "paged"}, "list_groups": map[string]any{"responseMode": "paged"}, "list_instruments": map[string]any{"responseMode": "paged"}, "list_holdings": map[string]any{"accountId": f.brokerage, "responseMode": "paged"}, "get_account_snapshot": IDInput{f.brokerage}, "get_market_data": map[string]any{"instrumentId": f.instrument}, "scan_data_health": map[string]any{"responseMode": "paged"}, "preview_data_repair": map[string]any{"responseMode": "paged"}} {
+	for name, args := range map[string]any{"get_context": Empty{}, "get_catalog": Empty{}, "list_members": map[string]any{}, "list_institutions": map[string]any{}, "list_groups": map[string]any{}, "list_instruments": map[string]any{}, "list_holdings": map[string]any{"accountId": f.brokerage}, "get_account_snapshot": IDInput{f.brokerage}, "get_market_data": map[string]any{"instrumentId": f.instrument}, "scan_data_health": map[string]any{}, "preview_data_repair": map[string]any{}} {
 		call(t, c, name, args, false)
 	}
 	start := rec.total()
 	for _, name := range []string{"scan_data_health", "preview_data_repair"} {
-		cap := scaleCapture(t, c, name, map[string]any{"responseMode": "paged"})
+		cap := scaleCapture(t, c, name, map[string]any{})
 		for section := range cap["sections"].(map[string]any) {
 			payloadSection(t, c, cap, section)
 		}
 	}
 	rec.journey("health and repair preview all sections", start, 25, 1<<20)
 	start = rec.total()
-	directory := scaleCapture(t, c, "list_accounts", map[string]any{"responseMode": "paged"})
+	directory := scaleCapture(t, c, "list_accounts", map[string]any{})
 	rows := scaleSection(t, c, directory, "accounts")
 	if len(rows) != len(f.accounts) {
 		t.Fatal("directory omitted accounts")
@@ -300,7 +300,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	}
 	rec.journey("directory all pages + one item", start, 20, 1<<20)
 	// Current account DTO layouts are all reachable through separate sections.
-	accountCap := scaleCapture(t, c, "get_account_valuations", map[string]any{"responseMode": "paged", "accountIds": []string{f.brokerage}})
+	accountCap := scaleCapture(t, c, "get_account_valuations", map[string]any{"accountIds": []string{f.brokerage}})
 	accountItem := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: accountCap["captureId"].(string), Section: "accounts", ID: f.brokerage})
 	for section := range accountItem["sections"].(map[string]any) {
 		scaleSection(t, c, accountItem, section)
@@ -394,7 +394,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 			}
 		}
 	}
-	agents := scaleCapture(t, c, "list_agent_market_data", map[string]any{"responseMode": "paged"})
+	agents := scaleCapture(t, c, "list_agent_market_data", map[string]any{})
 	scaleSection(t, c, agents, "records")
 	// Activity lists use their native three-part keyset and complete item reads.
 	activities := call(t, c, "list_activities", map[string]any{"accountId": f.checking, "limit": 5}, false)["data"].(map[string]any)
@@ -406,11 +406,8 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	if cursor, ok := activities["next"].(map[string]any); ok {
 		call(t, c, "list_activities", map[string]any{"accountId": f.checking, "limit": 5, "afterEffectiveAt": cursor["effectiveAt"], "afterCreatedAt": cursor["createdAt"], "afterId": cursor["id"]}, false)
 	}
-	if !large {
-		call(t, c, "get_overview", Empty{}, false)
-	}
 	// The bounded primary current overview is equivalent to every GUI field,
-	// including evidence/labels; its legacy default can exceed the wire budget.
+	// including evidence/labels, using ordinary default requests.
 	start = rec.total()
 	guiOverview, err := portfolio.NewService(f.app).Overview(t.Context(), account.AccountFilterRequest{})
 	if err != nil {
@@ -421,7 +418,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 		t.Fatal(err)
 	}
 	overviewStart := rec.total()
-	boundedOverview := scaleCapture(t, c, "get_overview", map[string]any{"responseMode": "paged"})
+	boundedOverview := scaleCapture(t, c, "get_overview", map[string]any{})
 	initialOverviewBytes := rec.total().Bytes - overviewStart.Bytes
 	if initialOverviewBytes > 32<<10 {
 		t.Fatalf("current overview initial summary grew to %d bytes", initialOverviewBytes)
@@ -442,13 +439,13 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	ledgerCommit(t, c, op, plan["planId"].(string))
 	call(t, c, "get_operation", IDInput{op}, false)
 	product, _ := productDataSeed(t, f.ledgerFixture, c, "locked_product")
-	products := scaleCapture(t, c, "list_products", map[string]any{"responseMode": "paged"})
+	products := scaleCapture(t, c, "list_products", map[string]any{})
 	scaleSection(t, c, products, "products")
-	call(t, c, "get_product", map[string]any{"id": product, "responseMode": "paged"}, false)
+	call(t, c, "get_product", map[string]any{"id": product}, false)
 	call(t, c, "list_product_operations", map[string]any{"productId": product}, false)
-	liquidity := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"responseMode": "paged"})
+	liquidity := scaleCapture(t, c, "get_liquidity_overview", map[string]any{})
 	scaleSection(t, c, liquidity, "sources")
-	upcoming := scaleCapture(t, c, "get_upcoming_actions", map[string]any{"responseMode": "paged"})
+	upcoming := scaleCapture(t, c, "get_upcoming_actions", map[string]any{})
 	scaleSection(t, c, upcoming, "items")
 	scaleSection(t, c, upcoming, "dataChecks")
 	session := sessionAction(t, c, map[string]any{"action": "start", "accountIds": []string{f.checking}})
@@ -459,14 +456,16 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	call(t, c, "get_reconciliation_item", map[string]any{"sessionId": session["id"], "accountId": f.checking, "itemId": checkItem["id"]}, false)
 	// Analysis work is narrow and done once; other probes reuse those snapshots.
 	query := map[string]any{"from": "2026-10-01", "to": "2026-10-02", "scopeKind": "account", "scopeId": f.checking}
-	call(t, c, "analyze_period", map[string]any{"query": query}, false)
+	start = rec.total()
+	sectionEvidence(t, c, "analyze_period", map[string]any{"query": query})
 	contributionQuery := map[string]any{"from": "2026-10-01", "to": "2026-10-02", "scopeKind": "account", "scopeId": f.brokerage}
 	contributions := call(t, c, "list_contributions", map[string]any{"query": contributionQuery, "returnType": "total_return", "groupBy": "instrument", "limit": 5}, false)["data"].(map[string]any)
 	if rows := contributions["rows"].([]any); len(rows) > 0 {
-		call(t, c, "get_contribution_item", map[string]any{"query": contributionQuery, "returnType": "total_return", "groupBy": "instrument", "groupKey": rows[0].(map[string]any)["key"]}, false)
+		sectionEvidence(t, c, "get_contribution_item", map[string]any{"query": contributionQuery, "returnType": "total_return", "groupBy": "instrument", "groupKey": rows[0].(map[string]any)["key"]})
 	}
-	call(t, c, "get_return_day", map[string]any{"query": query, "date": "2026-10-02"}, false)
-	call(t, c, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "external_flow"}, false)
+	sectionEvidence(t, c, "get_return_day", map[string]any{"query": query, "date": "2026-10-02"})
+	sectionEvidence(t, c, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "external_flow"})
+	rec.journey("analysis and attribution complete sections", start, 20, 512<<10)
 	comparisonArgs := map[string]any{"leftAsOf": "2026-10-01", "rightAsOf": "2026-10-02", "scope": map[string]any{"kind": "accounts", "accountIds": []string{f.checking}}}
 	comparison := call(t, c, "compare_financial_context", comparisonArgs, false)["data"].(map[string]any)
 	page := comparison["positionsPage"].(map[string]any)

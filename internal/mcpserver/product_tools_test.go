@@ -52,10 +52,12 @@ func productJSONEqual(t *testing.T, actual, expected any) {
 		if err := jsoncodec.Unmarshal(raw, &decoded); err != nil {
 			t.Fatal(err)
 		}
-		return decoded
+		return canonicalEvidence(decoded)
 	}
 	if !reflect.DeepEqual(encode(actual), encode(expected)) {
-		t.Fatalf("MCP/GUI mismatch:\n%v\n%v", actual, expected)
+		a, _ := jsoncodec.Marshal(actual)
+		b, _ := jsoncodec.Marshal(expected)
+		t.Fatalf("MCP/GUI mismatch:\n%s\n%s", a, b)
 	}
 }
 
@@ -131,7 +133,7 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 	client := connect(t, fx.service)
 	read := func(wantCash, wantValue, wantState string) map[string]any {
 		t.Helper()
-		actual := call(t, client, "get_product", map[string]any{"id": id}, false)["data"].(map[string]any)
+		actual := productEvidence(t, client, map[string]any{"id": id})
 		expected, err := gui.Product(t.Context(), id)
 		if err != nil {
 			t.Fatal(err)
@@ -150,11 +152,11 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 	}
 	settled := guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "settle", Settle: &application.SettleProductCommand{ProductID: id, ReturnedPrincipal: productString("1000"), Interest: productString("40"), Fee: productString("2"), EffectiveAt: "2026-09-29T12:00:00Z"}})
 	read("1548", "0", "settled")
-	openOnly := call(t, client, "list_products", map[string]any{}, false)["data"].([]any)
+	openOnly := productListEvidence(t, client, map[string]any{})
 	if len(openOnly) != 0 {
 		t.Fatal("closed product in default list")
 	}
-	all := call(t, client, "list_products", skillExample(t, "products", "product-list", map[string]string{"accountId": fx.brokerage}), false)["data"]
+	all := productListEvidence(t, client, skillExample(t, "products", "product-list", map[string]string{"accountId": fx.brokerage}))
 	expected, err := gui.ListProducts(t.Context(), liquidity.ListProductsRequest{AccountID: &fx.brokerage, IncludeClosed: true})
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +215,7 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 		t.Fatal("maturity was mistaken for actual settlement", product)
 	}
 	args := skillExample(t, "products", "product-liquidity", nil)
-	overview := call(t, client, "get_liquidity_overview", args, false)["data"]
+	overview := sectionEvidence(t, client, "get_liquidity_overview", args)
 	expectedOverview, err := gui.Overview(t.Context(), liquidity.OverviewRequest{CustomHorizonOn: productString("2026-10-08"), IncludeEarlyWithdrawal: true})
 	if err != nil {
 		t.Fatal(err)
@@ -257,7 +259,7 @@ func TestProductHTTPReservesUnknownFXAndReadPurity(t *testing.T) {
 	// These reads must not invalidate an already reviewed unrelated ledger plan.
 	plan := ledgerPreview(t, client, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-29T12:00:00Z"})
 	count := ledgerActivityCount(t, fx.app)
-	list := call(t, client, "list_products", map[string]any{}, false)["data"]
+	list := productListEvidence(t, client, map[string]any{})
 	expected, err := gui.ListProducts(t.Context(), liquidity.ListProductsRequest{})
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +267,7 @@ func TestProductHTTPReservesUnknownFXAndReadPurity(t *testing.T) {
 	productJSONEqual(t, list, expected)
 	call(t, client, "get_product", skillExample(t, "products", "product-detail", map[string]string{"productId": locked.ProductIDs[0]}), false)
 	call(t, client, "list_product_operations", map[string]any{"productId": locked.ProductIDs[0]}, false)
-	actual := call(t, client, "get_liquidity_overview", map[string]any{}, false)["data"]
+	actual := sectionEvidence(t, client, "get_liquidity_overview", map[string]any{})
 	overview, err := gui.Overview(t.Context(), liquidity.OverviewRequest{})
 	if err != nil {
 		t.Fatal(err)
@@ -457,8 +459,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 			}
 		}
 	}
-	// Valid stored notes can exceed the final wire budget after SDK duplication
-	// into both text and structuredContent. Fail the whole result, never truncate.
+	// Ordinary defaults must page long stored notes without losing any product.
 	var productID string
 	for range 12 {
 		policy := productPolicy("2026-12-01")
@@ -474,12 +475,12 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 		args any
 	}{{"list_products", map[string]any{}}, {"get_liquidity_overview", map[string]any{}}} {
 		status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": tc.name, "arguments": tc.args}}, "")
-		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "stored-private-note") || !strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {
-			t.Fatalf("oversize product was not rejected privately: %d %d", status, len(raw))
+		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "mcp-read/1") {
+			t.Fatalf("default product read did not page: %d %d", status, len(raw))
 		}
 	}
 	client := connect(t, fx.service)
-	if list := call(t, client, "list_products", map[string]any{"accountId": fx.savings}, false)["data"].([]any); len(list) != 0 {
+	if list := productListEvidence(t, client, map[string]any{"accountId": fx.savings}); len(list) != 0 {
 		t.Fatal("account filter did not narrow oversized list")
 	}
 	detail, err := fx.app.Product(t.Context(), domain.ProductContractID(productID))
@@ -493,9 +494,14 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 		}
 	}
 	status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "get_product", "arguments": map[string]any{"id": productID}}}, "")
-	if status != http.StatusOK || len(raw) > contextWireLimit || !strings.Contains(string(raw), "too_large") || strings.Contains(string(raw), "stored-private-reserve") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {
-		t.Fatalf("oversized detail leaked/truncated reservations: %d %d", status, len(raw))
+	if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "too_large") {
+		t.Fatalf("default reservation detail did not page: %d %d", status, len(raw))
 	}
+	capture := scaleCapture(t, client, "get_product", map[string]any{"id": productID})
+	if len(scaleSection(t, client, capture, "reservations/"+productID)) != 90 {
+		t.Fatal("reservation evidence lost")
+	}
+
 }
 
 func TestProductHTTPLongHistoryDefaultAndMaximumPages(t *testing.T) {
@@ -531,7 +537,7 @@ func TestProductHTTPLongHistoryDefaultAndMaximumPages(t *testing.T) {
 	if code := ledgerErrorCode(t, client, "list_product_operations", map[string]any{"productId": id, "cursor": "private-invalid-cursor"}); code != "validation" {
 		t.Fatal("invalid cursor accepted", code)
 	}
-	detail := call(t, client, "get_product", map[string]any{"id": id}, false)["data"].(map[string]any)["product"].(map[string]any)
+	detail := productEvidence(t, client, map[string]any{"id": id})["product"].(map[string]any)
 	if detail["currency"] != "USD" || detail["currentValue"].(map[string]any)["amount"] != "110" || detail["currentCostBasis"] != nil || batchCash(t, client, fx.brokerage) != "0" {
 		t.Fatal("valuation/import facts did not survive read model", detail)
 	}

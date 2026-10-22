@@ -42,7 +42,7 @@ func TestMCPInstrumentSearchAliasNameCodeAndDuplicates(t *testing.T) {
 		query string
 		ids   []string
 	}{{" family FUND ", []string{first["id"].(string), second["id"].(string)}}, {"\uFEFF\u0085Family Fund\uFEFF", []string{first["id"].(string), second["id"].(string)}}, {" SHARE CLASS a ", []string{first["id"].(string)}}, {" 000002 ", []string{second["id"].(string)}}, {"missing", nil}} {
-		rows := call(t, c, "list_instruments", map[string]any{"query": tc.query}, false)["data"].([]any)
+		rows := scaleSection(t, c, scaleCapture(t, c, "list_instruments", map[string]any{"query": tc.query}), "instruments")
 		if len(rows) != len(tc.ids) {
 			t.Fatalf("query %q: got %v want %v", tc.query, rows, tc.ids)
 		}

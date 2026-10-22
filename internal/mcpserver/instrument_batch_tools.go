@@ -21,7 +21,6 @@ type InstrumentReadFilter struct {
 type InstrumentReadInput struct {
 	IncludeArchived bool                  `json:"includeArchived,omitempty"`
 	Query           string                `json:"query,omitempty"`
-	ResponseMode    string                `json:"responseMode,omitempty"`
 	Filter          *InstrumentReadFilter `json:"filter,omitempty"`
 	Sort            *ReadSort             `json:"sort,omitempty"`
 	Limit           int                   `json:"limit,omitempty"`

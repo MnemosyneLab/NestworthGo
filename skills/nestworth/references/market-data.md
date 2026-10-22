@@ -1,9 +1,10 @@
 # Prices, unit NAV and FX observations
 
-`get_market_data` reads selected current price/rate and local history without
-fetching a provider. Use `instrumentId`, or both oriented `baseCurrency` and
-`quoteCurrency`, plus optional `range` (`30d`, `ytd`, `1y`, `all`, or a supported
-explicit `YYYY-MM-DD:YYYY-MM-DD` range). Identify the observation date/source;
+`get_market_data` reads one selected current price/rate without provider requests.
+Supply `instrumentId` or an oriented `baseCurrency`/`quoteCurrency` pair.
+Use `get_market_data_batch` with view=history for complete locally stored selected
+points and raw observations, following all section cursors.
+Identify the observation date/source;
 a carried NAV is not a newly published NAV.
 
 For “补上昨天的基金净值”, obtain the actual issuer/market evidence from the

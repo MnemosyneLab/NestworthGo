@@ -11,12 +11,11 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
-	// Read-scale names share one isReadScaleTool case. list_instruments and
-	// list_agent_market_data share the responseMode early return.
+func TestBoundedReadHTTPExactByteBoundaryDefault(t *testing.T) {
+	// Default calls receive complete-wire enforcement without mode arguments.
 	for _, name := range []string{"get_read_page", "list_instruments"} {
 		for _, size := range []int{contextWireLimit, contextWireLimit + 1} {
-			request := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{"responseMode": "paged"}}}
+			request := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{}}}
 			b, _ := jsoncodec.Marshal(request)
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
@@ -32,23 +31,15 @@ func TestBoundedReadHTTPExactByteBoundaryAndSelectiveLegacy(t *testing.T) {
 			}
 		}
 	}
-	// get_market_data misses the selective-legacy names. One list tool covers the empty-arguments return.
-	for _, name := range []string{"list_instruments", "get_market_data"} {
-		b, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{}}})
-		w := httptest.NewRecorder()
-		financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(strings.Repeat("x", contextWireLimit+1))) })).ServeHTTP(w, httptest.NewRequest("POST", "/mcp", strings.NewReader(string(b))))
-		if w.Body.Len() != contextWireLimit+1 {
-			t.Fatalf("legacy capped %s", name)
-		}
-	}
 }
-func TestBoundedReadLegacyOmittedArgumentsRemainUncapped(t *testing.T) {
+
+func TestBoundedReadOmittedArgumentsAreCapped(t *testing.T) {
 	for _, name := range []string{"list_instruments"} {
 		b, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name}})
 		w := httptest.NewRecorder()
 		financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(strings.Repeat("x", contextWireLimit+1))) })).ServeHTTP(w, httptest.NewRequest("POST", "/mcp", strings.NewReader(string(b))))
-		if w.Body.Len() != contextWireLimit+1 {
-			t.Fatalf("legacy omitted arguments capped %s", name)
+		if w.Body.Len() > contextWireLimit || !strings.Contains(w.Body.String(), "too_large") {
+			t.Fatalf("omitted arguments not capped %s", name)
 		}
 	}
 }
@@ -87,7 +78,7 @@ func TestBoundedReadEvictionFixedTTLAndImmutableInput(t *testing.T) {
 func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	capture := scaleCapture(t, c, "list_instruments", map[string]any{"responseMode": "paged"})
+	capture := scaleCapture(t, c, "list_instruments", map[string]any{})
 	id := capture["captureId"].(string)
 	g := fx.service.contextGeneration
 	if err := fx.service.RevokeForRestore(t.Context()); err != nil {
@@ -104,20 +95,16 @@ func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 	}
 }
 
-func TestBoundedReadPagedOptionPresenceAndLegacyAgentLimit(t *testing.T) {
+func TestBoundedReadOptionsAndRetiredModes(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	for _, name := range []string{"get_liquidity_overview", "list_products", "get_upcoming_actions", "list_instruments"} {
-		for _, option := range []string{"filter", "sort", "limit"} {
-			value := any(nil)
-			if option == "limit" {
-				value = 0
-			}
-			call(t, c, name, map[string]any{option: value}, true)
+	for _, name := range []string{"get_liquidity_overview", "list_products", "get_upcoming_actions", "list_instruments", "list_agent_market_data"} {
+		scaleCapture(t, c, name, map[string]any{"limit": 0})
+		for _, mode := range []string{"paged", "full", "legacy", ""} {
+			call(t, c, name, map[string]any{"responseMode": mode}, true)
 		}
 	}
-	call(t, c, "list_agent_market_data", map[string]any{"limit": 0, "offset": 0}, false)
-	call(t, c, "list_agent_market_data", map[string]any{"filter": nil}, true)
+	call(t, c, "list_agent_market_data", map[string]any{"offset": 0}, true)
 	for _, field := range []string{"limit", "responseMode"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "list_instruments", "arguments": map[string]any{field: map[string]any{"private": strings.Repeat("private", 12000)}}}}
 		status, wire := productHTTP(t, fx.service, payload, "")

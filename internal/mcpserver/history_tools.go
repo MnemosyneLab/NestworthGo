@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
@@ -33,6 +34,7 @@ func (in ListActivitiesInput) request() history.ActivityQueryRequest {
 }
 
 type AnalyzePeriodInput struct {
+	Limit int                 `json:"limit,omitempty" jsonschema:"Initial rows per section, default 5, maximum 100"`
 	Query PeriodAnalysisQuery `json:"query" jsonschema:"Inclusive from/to YYYY-MM-DD local dates and optional scope, valuation, and filters"`
 }
 
@@ -70,6 +72,7 @@ type PeriodAnalysisDTO struct {
 }
 
 func (s *Service) historyTools(server *mcp.Server) {
+	generation := s.contextGeneration
 	historyService := history.NewService(s.app)
 	analysisService := analysis.NewService(s.app)
 	readTool(server, "list_activities", "Page recorded activities, including corrections, with optional account, instrument, persisted activity kind and inclusive local-date filters. Dates use the immutable History Origin timezone. Pass all three next cursor fields as afterEffectiveAt, afterCreatedAt and afterId; an empty next means the end.", func(ctx context.Context, in ListActivitiesInput) (any, error) {
@@ -90,7 +93,7 @@ func (s *Service) historyTools(server *mcp.Server) {
 	readTool(server, "get_activity", "Read one recorded activity by UUID, including its effects, trade or dividend details, and correction links. IDs come from list_activities.", func(ctx context.Context, in IDInput) (any, error) {
 		return historyService.Activity(ctx, in.ID)
 	})
-	analysisTool(server, "analyze_period", "Analyze income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the immutable History Origin timezone. The range must end before the current local day; missing prices/FX can leave closed-day results partial or unavailable. Preserve each DTO's available, status, missingReason, nullable amounts/rates and ratedDays/totalDays; missing values are not zero. This reads local records and does not place brokerage orders.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
+	analysisTool(server, "analyze_period", "Analyze income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the immutable History Origin timezone. The range must end before the current local day; missing prices/FX can leave closed-day results partial or unavailable. Preserve each DTO's available, status, missingReason, nullable amounts/rates and ratedDays/totalDays; missing values are not zero. Frozen mcp-read/1 summary preserves each projection header; income/expenses rows, assetChange waterfall/groups and investmentReturns points/sources have independent sections. Follow get_read_page cursors. This reads local records and does not place brokerage orders.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
 		var result PeriodAnalysisDTO
 		query := in.Query.request()
 		// Keep all four projections on one application revision. Nested snapshot
@@ -115,7 +118,34 @@ func (s *Service) historyTools(server *mcp.Server) {
 		if err != nil {
 			return nil, err
 		}
-		return result, nil
+		limit := in.Limit
+		if limit == 0 {
+			limit = 5
+		}
+		return s.buildRead(ctx, generation, limit, func(context.Context) (readCapture, error) {
+			capture := readCapture{Kind: "period_analysis", Query: in, Summary: map[string]any{}, Sections: map[string][]json.RawMessage{}}
+			projections := []struct {
+				name   string
+				value  any
+				fields []string
+			}{
+				{"income", result.Income, []string{"rows"}},
+				{"expenses", result.Expenses, []string{"rows"}},
+				{"assetChange", result.AssetChange, []string{"waterfall", "groups"}},
+				{"investmentReturns", result.InvestmentReturns, []string{"points", "sources"}},
+			}
+			for _, projection := range projections {
+				part, err := sectionedReadCapture("period_analysis", in, projection.value, projection.fields...)
+				if err != nil {
+					return capture, err
+				}
+				capture.Summary.(map[string]any)[projection.name] = part.Summary
+				for name, rows := range part.Sections {
+					capture.Sections[projection.name+"/"+name] = rows
+				}
+			}
+			return capture, nil
+		})
 	})
 	s.attributionTools(server, analysisService)
 }

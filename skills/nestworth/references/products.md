@@ -149,7 +149,7 @@ interest 50. Replace dates, currency, complete terms/policy and amounts with the
 user's actual contract; do not infer rates, costs, cash confirmation or fees.
 
 Responses are capped at 64 KiB including the MCP envelope; send one JSON-RPC
-object per call. Retry large list, detail and overview reads with responseMode=paged and follow
+object per call. Retry large list, detail and overview reads using bounded pages and follow
 every cursor. Product reservations are separately paged; full detail is available
 from the same capture. A truly oversized summary or single item still fails
 explicitly; do not omit evidence or present an incomplete result as complete. Invalid fields/types
@@ -376,7 +376,7 @@ sort startOn (default desc), maturityOn, displayName or state, productId asc tie
 Rows are explicit compact summaries with reservationCount. `get_read_item`
 section products returns full ProductDTO/actions/reasons from that capture;
 reservations/<productId> pages sort createdAt asc then reservationId asc.
-`get_product` also supports responseMode=paged. Do not substitute summary rows
+`get_product` returns bounded pages. Do not substitute summary rows
 for complete revisioned terms or change live product-operation-history semantics.
 
 For a reconciliation session, the product lifecycle, terms and valuation previews

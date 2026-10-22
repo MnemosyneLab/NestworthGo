@@ -120,7 +120,7 @@ overlay. Existing provider adapters are unchanged.
 
 ### Tools and permissions
 
-- `get_market_data`: read the selected price/rate and local history for an
+- `get_market_data`: read the selected current price/rate for an
   instrument or oriented currency pair. No provider requests.
 - `list_agent_market_data`: page audit records, original source title/URL,
   exact values, effective dates, corrections and withdrawals. `active` means
@@ -634,11 +634,11 @@ UI, external client, provider, credentials or real financial data is required.
 
 ## Scalable management reads and batches (mcp-read/1)
 
-Legacy no-option results keep their original shapes. Explicit responseMode=paged
-is required for new filter/sort/limit options on get_liquidity_overview,
-list_products, get_product, get_upcoming_actions and
-list_instruments. list_agent_market_data keeps its original offset/limit path;
-filter/sort require paged mode and offset cannot be combined with it.
+The bounded mcp-read/1 contract is the sole response for liquidity, products,
+upcoming actions, instruments, Agent records, directories/holdings, valuations,
+overviews and health/repair reads. responseMode and Agent offset are removed;
+unknown arguments fail schema validation. Filters, sorting and limits work with
+ordinary requests. There are no old-version wrappers or full-response fallback.
 
 The initial envelope includes schemaVersion=mcp-read/1, captureId/captureKind,
 capturedAt/expiresAt, contentHash/summaryHash, normalized query, summary and
@@ -663,8 +663,7 @@ read_revoked covers revocation; validation covers invalid or mismatched cursors.
 Restart all sections from a fresh capture, never combine captures. too_large
 messages distinguish summary, single_item and capture; rows are never skipped
 or truncated. JSON-RPC arrays and IDs over 512 bytes are rejected for bounded
-calls. The final guard also scrubs schema errors. Unbounded legacy instrument,
-Agent or market reads receive no new output cap without opting into the new path.
+calls. The final guard also scrubs schema errors. Default calls receive the same complete wire cap and sanitized schema errors.
 
 ### Filter and sorting matrix
 
@@ -750,10 +749,10 @@ changedCount and items {id,changed,metadataVersion}.
 
 ### Remaining scale boundaries
 
-Data health/repair issues/targets/jobs, account/directory/holding/valuation reads,
-historical bridge details, activity/contribution/return-driver details and extreme
-nested upcoming targets still need targeted bounded alternatives. Their legacy
-behavior is retained; they are not blanket-capped. Existing financial-context
+Individual unusually large notes/provenance or nested source evidence can still
+exceed the single-item budget; the server fails explicitly without truncation.
+Capture size and computation limits are separate from page size.
+Existing financial-context
 aliases/disclosure, activity/contribution pagination, live product-operation
 history, ledger batches/reconciliation and market imports remain their own
 contracts. Ordinary liquidity policy batching and arbitrary detail batching are
@@ -833,8 +832,7 @@ observations and valid closed-day carry. `observationFreshness`, when present,
 is raw diagnostic age. It does not create stale_observation gaps. FX evidence is
 independent. Informational gaps cannot identify a pending asset by themselves.
 
-`get_account_valuations` adds `responseMode=paged`, optional accountIds and limit
-while preserving all existing account filters and its no-option full DTO.
+`get_account_valuations` accepts optional accountIds and limit with existing account filters.
 Compact `accounts` rows hold exact totals/completeness/counts. Read
 `get_read_item` with section=accounts and id for full account/ownership detail and
 separate component, missing-input, display FX and composition-layout sections.
@@ -849,14 +847,13 @@ See [response review](mcp-response-review.md) for the complete inventory and
 synthetic byte/coverage evidence.
 
 Directory `list_members`, `list_institutions`, `list_groups`, `list_accounts` and
-`list_holdings` also accept responseMode=paged and limit (default 25/max 100).
-They retain their existing filters and no-option response shapes. Paginated rows
+`list_holdings` accept limit (default 25/max 100) and existing filters. Paginated rows
 sort by persistent id. `get_read_item` with the corresponding section and id
 retains notes/metadata omitted from compact rows. Existing list_accounts.filter
-continues to work without responseMode.
+selects rows before paging.
 
 Health reads `scan_data_health`, `preview_data_repair` and `get_data_repair_job`
-accept responseMode=paged and limit. Scans page issues; previews independently
+accept limit and return bounded captures. Scans page issues; previews independently
 page items/unresolved; jobs page issues and job_items/job_blockers/job_prerequisites.
 Header counts describe the entire capture. Plural sectionCount fields are
 serialized row counts; domain issueCount/range counts retain their original
@@ -864,15 +861,32 @@ meaning. Job outcomes and current health remain distinct authorities. Polling
 creates a new capture; continuation does not rescan or extend TTL. Starting or
 retrying repairs, durable receipts and provider permissions are unchanged.
 
-`get_overview` adds responseMode=paged with the existing account filters and limit.
+`get_overview` accepts the existing account filters and limit.
 It preserves the complete current GUI overview: exact monetary values, complete,
 displayValuation and historyStarted in the summary; independent missingInputs,
 assetsByType/liabilitiesByType, byMember/byInstitution/byGroup/byAccountType,
 recentActivities, accountLabels, instrumentLabels and holdingLabels sections.
 Initial default is five per section, continuation default 25/max 100; all output
 uses mcp-read/1. totalsScope=request_account_filters. Counts describe complete
-section cardinalities. No-option legacy behavior remains unchanged and can be
-oversized. Prefer the discoverable paged mode for this identity-bearing view,
-or get_financial_context for a minimal-disclosure summary and adopted evidence.
+section cardinalities. Use get_financial_context for a minimal-disclosure summary and adopted evidence.
 A 200-account regression fetches every section and compares every field with the
 application overview; no GUI DTO or valuation arithmetic changes.
+
+### Additional compact read contracts
+
+get_context returns household metadata, history origin, identity, permissions and
+names of directory tools. Names/notes for members, institutions and groups are
+retrievable through those tools instead of being embedded in bootstrap.
+get_catalog is a small static vocabulary and retains its direct object shape.
+get_account_snapshot returns the same account capture as get_account_valuations,
+filtered to its required id; get_read_item accounts/id opens all evidence sections.
+get_market_data returns only the selected current quote; range/history is solely
+on get_market_data_batch (view=current/coverage/history). No history is discarded.
+
+analyze_period returns mcp-read/1 with four projection headers in summary and
+income/rows, expenses/rows, assetChange/waterfall, assetChange/groups,
+investmentReturns/points and investmentReturns/sources sections (initial default 5).
+get_contribution_item pages components/byAccount; get_return_day pages composition,
+contributors/issues; get_asset_driver_detail pages byInstrument/byAccount/residualDetails.
+These use the same capture/hash/cursor/TTL infrastructure. They retain analysis
+snapshot maintenance and non-read-only annotations; execute before write previews.
