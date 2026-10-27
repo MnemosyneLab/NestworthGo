@@ -199,6 +199,8 @@ the default review smoke plus extended dependency oracle, and the repeated
 epoch-window oracle. The workflow does not run the retired multi-arm, paired-
 sample, RSS, or full-pipeline review trials. The same workflow runs the sharded
 `go test -race` suite without the perf tag. The race aggregate is `race`.
+The native CI image, safe bootstrap, publication boundary and digest
+activation procedure are maintained in [Linux native CI image](ci-native-image.md).
 Current check triggers and budgets are maintained in
 [Local Development and Packaging](local-workflow.md#frontend-only-checks) and
 the repository workflows. Native `.app`/DMG packaging, signing, and notarization stay

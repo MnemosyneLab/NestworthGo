@@ -6,6 +6,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Container run steps otherwise default to sh; Go shards require Bash arrays,
+# mapfile and process substitution on both the host and image paths.
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -17,6 +26,11 @@ jobs:
   meta:
     name: meta
     runs-on: ubuntu-26.04
+    # Empty image keeps the hosted-runner bootstrap path. Replace only after
+    # public digest + full container gates are verified (docs/development/ci-native-image.md).
+    container: &native-ci
+      image: ${{ '' }}
+      options: --user 1001:1001
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -26,17 +40,27 @@ jobs:
           cache: true
           # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
           cache-dependency-path: go.sum
-      - name: Install native Go build dependencies
+      - name: Install native Go build dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
         timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
+      - name: Verify native tools, user and cache permissions
+        run: bash build/ci/verify-native.sh --with-toolchains
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal)"
       - name: Go vet
         run: go vet ./...
       - name: Go build
         run: go build ./cmd/nestworth
+      # Minimal CI images have no Node until setup-node runs. The Python
+      # BindingsCLITests suite would silently skip without it.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
       - name: Validate user skill and installer
         run: |
+          node --version
           python3 tools/check-nestworth-skill.py
           python3 -m unittest discover -s tools/tests -v
       - name: Trailing whitespace
@@ -48,6 +72,7 @@ jobs:
   frontend:
     name: frontend (${{ matrix.label }})
     runs-on: ubuntu-26.04
+    container: *native-ci
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -73,6 +98,13 @@ jobs:
           cache: true
           # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
           cache-dependency-path: go.sum
+      # pnpm/action-setup invokes npm, which is absent in the native image.
+      # Bootstrap Node first; the second setup-node restores the existing pnpm
+      # cache after pnpm is available and reuses this installed Node toolchain.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
       - uses: pnpm/action-setup@v6
         with:
           version: 12.14.0
@@ -81,16 +113,19 @@ jobs:
           node-version: 24.22.0
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-      - name: Install native Go build dependencies
+      - name: Install native Go build dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
         timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
+      - name: Verify native tools, user and cache permissions
+        run: bash build/ci/verify-native.sh --with-toolchains
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
       # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
       # setup-go cache never reused the Wails compile (~70s median).
       - name: Reuse Go build cache for Wails bindings
-        run: echo "NESTWORTH_WAILS_GOCACHE=$GOCACHE" >> "$GITHUB_ENV"
+        run: echo "NESTWORTH_WAILS_GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
       - name: Generate Wails bindings
         working-directory: frontend
         run: pnpm run generate:bindings
@@ -122,6 +157,7 @@ jobs:
   go-shard:
     name: go (${{ matrix.label }})
     runs-on: ubuntu-26.04
+    container: *native-ci
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -150,9 +186,12 @@ jobs:
           cache: true
           # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
           cache-dependency-path: go.sum
-      - name: Install native Go build dependencies
+      - name: Install native Go build dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
         timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
+      - name: Verify native tools, user and cache permissions
+        run: bash build/ci/verify-native.sh --with-toolchains
       - name: Go tests
         run: |
           set -euo pipefail
