@@ -13,7 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-const reviewRuleSelect = `SELECT r.id,r.household_id,r.name,r.enabled,r.severity,r.evaluator,r.row_revision,r.current_condition_version,r.created_at,r.updated_at,r.archived_at,v.canonical_spec_json,v.semantic_hash
+const reviewRuleSelect = `SELECT r.id,r.household_id,r.name,r.enabled,` + reviewPrioritySQL + `,r.evaluator,r.row_revision,r.current_condition_version,r.created_at,r.updated_at,r.archived_at,v.canonical_spec_json,v.semantic_hash
  FROM investment_review_rules r JOIN investment_review_rule_versions v ON v.rule_id=r.id AND v.condition_version=r.current_condition_version`
 
 func scanReviewRule(row rowScanner) (domain.ReviewRule, error) {
@@ -164,7 +164,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 			return empty, err
 		}
 		at := m.At.UTC().Format(time.RFC3339Nano)
-		_, err = tx.ExecContext(ctx, `INSERT INTO investment_review_rules(id,household_id,name,enabled,severity,evaluator,row_revision,current_condition_version,created_at,updated_at) VALUES(?,?,?,?,?,'daily_predicate_v1',1,1,?,?)`, string(m.RuleID), m.HouseholdID.String(), m.Name, m.Enabled, m.Severity, at, at)
+		_, err = tx.ExecContext(ctx, `INSERT INTO investment_review_rules(id,household_id,name,enabled,severity,evaluator,row_revision,current_condition_version,created_at,updated_at) VALUES(?,?,?,?,?,'daily_predicate_v1',1,1,?,?)`, string(m.RuleID), m.HouseholdID.String(), m.Name, m.Enabled, domain.ReviewLegacySeverity(m.Severity), at, at)
 		if err != nil {
 			return empty, mapSQLiteError(err)
 		}
@@ -192,7 +192,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 				return empty, err
 			}
 			changed = true
-		} else if current.Name != m.Name || current.Enabled != m.Enabled || current.Severity != m.Severity || current.SemanticHash != semanticHash {
+		} else if current.Name != m.Name || current.Enabled != m.Enabled || domain.ReviewPriorityRank(current.Severity) != domain.ReviewPriorityRank(m.Severity) || current.SemanticHash != semanticHash {
 			if err := reviewRuleInstrumentMembership(ctx, tx, m.HouseholdID, m.Spec); err != nil {
 				return empty, err
 			}
@@ -201,7 +201,7 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 				version++
 			}
 			at := m.At.UTC().Format(time.RFC3339Nano)
-			if _, err := tx.ExecContext(ctx, `UPDATE investment_review_rules SET name=?,enabled=?,severity=?,current_condition_version=?,updated_at=?,row_revision=row_revision+1 WHERE id=? AND row_revision=?`, m.Name, m.Enabled, m.Severity, version, at, string(m.RuleID), m.ExpectedRevision); err != nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE investment_review_rules SET name=?,enabled=?,severity=?,current_condition_version=?,updated_at=?,row_revision=row_revision+1 WHERE id=? AND row_revision=?`, m.Name, m.Enabled, domain.ReviewLegacySeverity(m.Severity), version, at, string(m.RuleID), m.ExpectedRevision); err != nil {
 				return empty, err
 			}
 			if version != current.CurrentConditionVersion {
@@ -216,6 +216,12 @@ func (r *Repository) MutateReviewRuleV2(ctx context.Context, m domain.ReviewRule
 				}
 			}
 			changed = true
+		}
+	}
+	if changed && m.Operation != "archive" {
+		priority, _ := domain.NormalizeReviewPriority(m.Severity)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO investment_review_rule_priorities(rule_id,priority) VALUES(?,?) ON CONFLICT(rule_id) DO UPDATE SET priority=excluded.priority`, string(m.RuleID), priority); err != nil {
+			return empty, err
 		}
 	}
 	if changed {

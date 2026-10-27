@@ -229,3 +229,11 @@ select semantics. A combobox search session starts empty, commits only an
 explicit option, and cancels on Escape/Tab/blur. IME composition never confirms
 an option or submits the outer form. Preserve disabled, error and active-option
 accessibility semantics; test reopening while already focused.
+
+Instrument details preserve the backend aggregate and show every account member,
+including a single account and zero quantities, with owner/institution metadata,
+quantity, cost, value and unrealized gain. These figures use the existing native
+instrument-currency replay; no frontend summation or FX conversion is allowed.
+Missing fields remain unavailable independently. A zero quantity is labelled as
+closed/zero, rather than hidden or given an invented value. Account links use the
+ordinary account destination; Portfolio already links to instrument details.

@@ -1519,6 +1519,16 @@
     "coverageEstimated": "完整暫估總額"
   },
     "reviewV2": {
+    "conditionNumber": "條件 {{ordinal}}",
+    "conditionWindow": "{{days}} 天",
+    "conditionTrue": "命中",
+    "conditionFalse": "未命中",
+    "conditionUnknown": "未知",
+    "observedValue": "實際值",
+    "conditionEvidence": "條件證據",
+    "ruleResult": "整條規則結果",
+    "instrumentCount": "{{total}} 個標的",
+    "priority": {"p0": "P0 · 最高", "p1": "P1 · 高", "p2": "P2 · 一般"},
       "title": "投資複核",
       "openReview": "開啟投資複核",
       "refresh": "重新整理",
@@ -1575,7 +1585,7 @@
       "amount": "持倉金額",
       "cost": "成本",
       "priceChange": "近期漲跌",
-      "annualized": "估算年化",
+      "annualized": "價格／淨值區間簡單年化",
       "operator": "比較方式",
       "value": "數值",
       "currency": "幣別",
@@ -1608,7 +1618,7 @@
       "previewInstrument": "預覽標的",
       "selectInstrument": "選擇標的",
       "previewResult": "{{range}}：$t(reviewV2.count.hits, {\"count\": {{hits}}})，$t(reviewV2.count.misses, {\"count\": {{misses}}})，未知{{unknowns}}天",
-      "invalidRule": "請補全規則。估算年化需要「全部符合」下的單一銀行理財類型條件；視窗命中數不能超過天數。",
+      "invalidRule": "請補全規則。年化條件需要「全部符合」下僅包含銀行理財、基金或 ETF 的類型條件；視窗命中數不能超過天數。",
       "statusFilter": "狀態",
       "typeFilter": "類型",
       "allTypes": "全部類型",
@@ -1744,7 +1754,7 @@
         "amount": "金額",
         "cost": "成本",
         "price_change": "近期漲跌",
-        "annualized": "估算年化"
+        "annualized": "價格／淨值區間簡單年化"
       }
     },
   "moneyDisplay": {
@@ -1800,6 +1810,7 @@
     "empty": "尚無持倉。"
   },
   "holdingPerformance": {
+    "annualizedNote": "年化為價格／淨值區間漲跌幅 × 365 / 實際天數，並非個人持有期報酬或產品報價收益率。",
     "label": "價格表現",
     "periodLabel": "區間",
     "periods": {
@@ -1817,7 +1828,7 @@
     },
     "annualized": "年化 {{percent}}",
     "info": "關於此數字",
-    "infoBody": "所示日期之間每日收盤價或單位淨值的漲跌幅。不含日內報價，不含股息，也未依公司行動調整，因此並非個人持倉報酬。年化數字僅基於歷史，並非預期或保證報酬。",
+    "infoBody": "所示日期之間每日收盤價或單位淨值的漲跌幅。不含日內報價，不含股息，也未依公司行動調整，因此並非個人持倉報酬。年化數字僅基於歷史，並非預期或保證報酬。 簡單年化為區間漲跌幅 × 365 / 實際天數；不計個人買賣、費用及轉帳，並非持有期報酬或產品報價收益率。",
     "reason": {
       "insufficient_daily_history": "此區間歷史資料不足",
       "incomparable_daily_prices": "此區間價格無法比較",
@@ -1842,6 +1853,15 @@
     }
   },
   "reconciliation": {
+    "allAccountFilters": "全部",
+    "noAccountMatches": "沒有符合目前篩選的帳戶。",
+    "deselectAll": "取消全選帳戶",
+    "clearFilters": "清空帳戶篩選",
+    "selectVisible": "選擇篩選內帳戶",
+    "deselectVisible": "取消篩選內選擇",
+    "noInstitution": "無機構",
+    "selectionSummary": "已選 {{selected}} / {{total}} 個帳戶 · 目前篩選已選 {{visibleSelected}} / {{visible}} 個 · 篩選外已選 {{hidden}} 個",
+    "institution": "機構",
     "title": "帳戶核對",
     "localOnly": "將銀行或券商記錄與 Nestworth 核對。更正只更新本機帳本，不會操作銀行或券商。行情和匯率延遲不影響現金或數量核對。",
     "selectAccounts": "選擇要核對的帳戶",
@@ -1976,5 +1996,10 @@
     "pendingReview": "部分檢查點仍需複核，完成前請確認。",
     "coverageNewCheck": "請新增核對以檢查目前涵蓋範圍。歷史證據和完成時間維持不變。",
     "restoreBeforeCorrection": "請先還原已封存的持倉或標的，再更正或補記交易。仍可核對證據、標記處理結果或部分完成。"
+  },
+  "instrumentDetail": {
+    "openAccount": "進入帳戶：{{name}}",
+    "closedHolding": "數量為零／已平倉，金額為剩餘帳面紀錄。",
+    "holdingsScopeNote": "顯示未封存帳戶的目前持倉（包括零數量）。金額使用標的幣別，缺失數值維持不可用。"
   }
 }

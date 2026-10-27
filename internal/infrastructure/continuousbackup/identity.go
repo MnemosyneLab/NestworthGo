@@ -22,7 +22,7 @@ import (
 const identityFile = "stream.json"
 const maxIdentityBytes = 16 << 10
 
-var errUnsupportedSchema = &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup database schema; supported versions are 21 and 22; source unchanged"}
+var errUnsupportedSchema = &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup database schema; supported versions are 21, 22 and 23; source unchanged"}
 
 type streamIdentity struct {
 	Format     int    `json:"format"`

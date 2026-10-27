@@ -7,7 +7,7 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. Current `main` uses schema `22`; the complete support,
+and query results. Current `main` uses schema `23`; the complete support,
 migration and recovery policy is in
 [Database support and storage recovery](#database-support-and-storage-recovery).
 UI code consumes view models and must not reconstruct authoritative financial
@@ -30,17 +30,20 @@ recreate a user's database after an open failure.
 
 ## Database support and storage recovery
 
-Current `main` creates schema `22` databases and supports only schemas `21`
-and `22`. The single 21→22 migration verifies its input, publishes a flushed
-read-only recovery copy, then applies and verifies the additive transaction.
+Current `main` creates schema `23` databases and supports schemas `21`, `22`
+and `23`. The 21→22 closure-facts and 22→23 review-priority migrations each
+verify their input, publish a flushed read-only recovery copy, then apply and
+verify the additive transaction. The priority upgrade adds only a metadata table;
+legacy severity columns, financial rows, rule conditions and receipts are retained.
 Schemas 20 and older, zero/unversioned, malformed and future schemas are blocked
 without repair or recreation.
 
 | Condition | Required behavior |
 | --- | --- |
-| Database absent | Create and verify schema 22, then initialize settings |
-| Verified schema 22 | Open and verify |
-| Verified schema 21 | Upgrade to 22, retaining a verified read-only recovery copy |
+| Database absent | Create and verify schema 23, then initialize settings |
+| Verified schema 23 | Open and verify |
+| Verified schema 22 | Upgrade to 23, retaining a verified read-only recovery copy |
+| Verified schema 21 | Upgrade through 22 to 23, retaining verified read-only recovery copies |
 | Unsupported older, zero/unversioned, malformed, or future schema | Block before business/settings writes and preserve the source |
 | Integrity or path/open failure | Block startup and preserve the source |
 
@@ -48,12 +51,12 @@ Existing files are inspected read-only before writable open and reverified
 inside the migration transaction. Unsupported versions are rejected before
 writable open; neither financial data nor schema is reset or converted.
 
-Read-only backup inspection accepts verified schemas 21/22 without upgrading
+Read-only backup inspection accepts verified schemas 21/22/23 without upgrading
 the inspected source. Local packages require manifest/database schema versions
 to match. Restore validates a staged candidate before installation; normal live
 open then runs supported migrations. Cloud recovery also verifies the staged
 schema against its stream identity and leaves staged bytes and source-stream
-metadata unchanged. New backup streams use schema 22. Recovery artifacts stay
+metadata unchanged. New backup streams use schema 23. Recovery artifacts stay
 read-only and must be copied to a new live path before opening.
 
 ## Persistence responsibilities
@@ -460,7 +463,7 @@ lead-in and bounded opening-anchor fallback. Normal repair reuses fresh checks;
 force recheck remains explicit. Repair estimates may differ from actual requests
 because of batching, caches, retries, and conversion dependencies.
 
-Backup inspection validates supported 21/22 databases without modifying the
+Backup inspection validates supported 21/22/23 databases without modifying the
 inspected database. Local restore requires matching manifest and database
 versions; supported older copies upgrade on normal open, while the source package
 stays unchanged. Other older, unversioned, future, or invalid backup databases are rejected before

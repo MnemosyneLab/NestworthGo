@@ -51,7 +51,7 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 
 func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion int) error {
 	if !SupportsSchemaVersion(expectedVersion) {
-		return fmt.Errorf("unsupported database schema %d; supported versions are 21 and 22", expectedVersion)
+		return fmt.Errorf("unsupported database schema %d; supported versions are 21, 22 and 23", expectedVersion)
 	}
 	var version int
 	if err := query.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
@@ -89,6 +89,11 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 	}
 	if expectedVersion >= 22 {
 		if err := verifyAgentClosureSchema(ctx, query); err != nil {
+			return err
+		}
+	}
+	if expectedVersion >= 23 {
+		if err := verifyReviewPrioritySchema(ctx, query); err != nil {
 			return err
 		}
 	}

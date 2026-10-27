@@ -59,7 +59,7 @@ func OpenReadOnlyForVerifyContext(ctx context.Context, path string) (*DB, error)
 	}
 	if !SupportsSchemaVersion(found) {
 		_ = database.Close()
-		return nil, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: fmt.Sprintf("unsupported database schema %d; supported versions are 21 and 22; source unchanged", found)}
+		return nil, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: fmt.Sprintf("unsupported database schema %d; supported versions are 21, 22 and 23; source unchanged", found)}
 	}
 	db := &DB{SQL: database, Path: path, Status: StatusReady}
 	if err := verifySchemaVersion(ctx, database, found); err != nil {

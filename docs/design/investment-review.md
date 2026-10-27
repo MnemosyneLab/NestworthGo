@@ -23,6 +23,40 @@ can be paused, edited, or archived; archival retains evidence and history.
 
 ## Evidence and calculations
 
+Review priority uses P0 (highest), P1 and P2. The API's `severity` field accepts
+`p0`, `p1`, `p2`, plus historical `warning` (P1) and `notice` (P2) aliases.
+Schema23 adds a priority table without rewriting the old severity column or
+condition versions. An absent priority row uses the historical mapping. Priority
+edits retain mutation receipts, CAS and projection invalidation. The complete
+schema allowlist and certified row seal include priority records. Alert groups
+and rules sort by handling status, then priority, then stable identity; cursors
+include the complete order key and remain bound to the publication and filter.
+
+Why-alert summaries and daily history attach the immutable condition version's
+predicate at read time. The version must be uniquely proven by matching the
+episode's complete latest vote bytes to its persisted daily result and immutable
+rule version. Current and episode-opening versions are not substitutes: an episode
+can survive edits, pending publication and recomputation failures. Ambiguous or
+unmatched evidence receives no predicate; daily history is unavailable until its
+version can be proven. The UI displays its AND/OR tree, numbered conditions,
+lookback, comparison/threshold, actual evidence and each leaf's own truth.
+The whole-rule result is separate. Stored votes and historical receipts are
+never rewritten to add display context.
+
+Simple annualized price/NAV change supports bank investment products, mutual
+funds and ETFs. Review validation, daily evaluation and descriptive returns use
+the same explicit type eligibility and decimal projection: interval percent ×
+365 / actual civil days. Every annualized branch needs an inclusive type gate
+containing only supported types in an AND ancestor; OR siblings and exclusion
+gates cannot scope it. Descriptive history ends at the latest actual daily quote;
+review additionally applies its existing evaluation-day carry, freshness and
+baseline-gap policies. These are historical instrument returns, excluding personal
+trades, fees and transfers, and are neither personal holding-period returns nor
+quoted product yields. Raw-close ETF changes exclude dividends; NAV histories
+with distribution evidence and unsafe split/basis/currency/binding histories
+remain unavailable. Missing or invalid evidence is not an invented zero return.
+Other priced types retain period price changes without this annualized field.
+
 The application layer evaluates persisted local financial facts and published
 quotes. It owns eligibility, exact decimal calculations, currency conversion,
 missing-data handling, quote admission, source fingerprints, correction replay,

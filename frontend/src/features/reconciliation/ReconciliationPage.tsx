@@ -1,3 +1,4 @@
+import { AccountSelection } from "./AccountSelection";
 import { ReconciliationCoverageNotice } from "./ReconciliationCoverageNotice";
 import { useHistoryOrigin } from "@/queries/history";
 import { localDateTimeInTimeZone } from "@/lib/time";
@@ -327,36 +328,7 @@ export function ReconciliationPage({
                   <legend className="mb-4 p-0 text-base font-semibold">
                     {t("reconciliation.selectAccounts")}
                   </legend>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {activeAccounts.map((a) => (
-                      <label
-                        key={a.account.id}
-                        className={cn(
-                          "flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
-                          "focus-within:ring-2 focus-within:ring-primary/50",
-                          chosen.includes(a.account.id)
-                            ? "border-primary/40 bg-primary/5"
-                            : "border-border bg-card hover:border-primary/30 hover:bg-muted/50",
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          className="size-4 shrink-0 accent-primary"
-                          checked={chosen.includes(a.account.id)}
-                          onChange={(e) =>
-                            setSelected(
-                              e.target.checked
-                                ? [...chosen, a.account.id]
-                                : chosen.filter((id) => id !== a.account.id),
-                            )
-                          }
-                        />
-                        <span className="min-w-0 break-words font-medium">
-                          {a.account.name} · {a.account.defaultCurrency}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  <AccountSelection accounts={activeAccounts} selected={chosen} onChange={setSelected} />
                   {(sessions.data ?? []).some(
                     (s) =>
                       s.status !== "completed" &&
@@ -367,14 +339,6 @@ export function ReconciliationPage({
                     </Notice>
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        setSelected(activeAccounts.map((a) => a.account.id))
-                      }
-                    >
-                      {t("reconciliation.selectAll")}
-                    </Button>
                     <Button
                       disabled={busy || !chosen.length}
                       onClick={() =>

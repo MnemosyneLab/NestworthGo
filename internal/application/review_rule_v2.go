@@ -82,8 +82,8 @@ func (s *Service) saveReviewRuleV2(ctx context.Context, operation string, input 
 		if len([]rune(name)) < 1 || len([]rune(name)) > 120 {
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "name", Message: "rule name must contain 1–120 characters"}
 		}
-		if input.Severity != "notice" && input.Severity != "warning" {
-			return empty, &domain.Error{Code: domain.ErrValidation, Field: "severity", Message: "use notice or warning"}
+		if _, valid := domain.NormalizeReviewPriority(input.Severity); !valid {
+			return empty, &domain.Error{Code: domain.ErrValidation, Field: "severity", Message: "use p0, p1 or p2 (legacy notice/warning are accepted)"}
 		}
 		input.Spec, err = input.Spec.Normalize()
 		if err != nil {

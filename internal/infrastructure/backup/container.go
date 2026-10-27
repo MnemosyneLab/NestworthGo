@@ -87,7 +87,7 @@ func sha256Hex(data []byte) string {
 
 func WritePackage(dest string, pkg Package) error {
 	if !sqlite.SupportsSchemaVersion(pkg.Manifest.SchemaVersion) {
-		return &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup schema; supported versions are 21 and 22"}
+		return &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup schema; supported versions are 21, 22 and 23"}
 	}
 	if !strings.HasSuffix(strings.ToLower(dest), FileExt) {
 		return &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "backup file must use the .nestworth-backup extension"}
@@ -225,7 +225,7 @@ func ReadPackage(path string) (Package, error) {
 		return Package{}, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "backup format is not supported"}
 	}
 	if !sqlite.SupportsSchemaVersion(manifest.SchemaVersion) {
-		return Package{}, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup schema; supported versions are 21 and 22; source unchanged"}
+		return Package{}, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup schema; supported versions are 21, 22 and 23; source unchanged"}
 	}
 	if err := verifyMember(manifest, MemberDatabase, contents[MemberDatabase]); err != nil {
 		return Package{}, err
@@ -272,7 +272,7 @@ func DefaultBackupFileName(now time.Time) string {
 
 func ExtractDatabase(pkg Package, dest string) error {
 	if !sqlite.SupportsSchemaVersion(pkg.Manifest.SchemaVersion) {
-		return &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup schema; supported versions are 21 and 22; source unchanged"}
+		return &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "unsupported backup schema; supported versions are 21, 22 and 23; source unchanged"}
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "restore directory could not be created"}

@@ -1519,6 +1519,16 @@
     "coverageEstimated": "Complete estimated totals"
   },
     "reviewV2": {
+    "conditionNumber": "Condition {{ordinal}}",
+    "conditionWindow": "{{days}} days",
+    "conditionTrue": "Matched",
+    "conditionFalse": "Not matched",
+    "conditionUnknown": "Unknown",
+    "observedValue": "Observed",
+    "conditionEvidence": "Condition evidence",
+    "ruleResult": "Whole rule result",
+    "instrumentCount": "{{total}} instruments",
+    "priority": {"p0": "P0 · Highest", "p1": "P1 · High", "p2": "P2 · Normal"},
       "title": "Investment review",
       "openReview": "Open investment review",
       "refresh": "Refresh",
@@ -1575,7 +1585,7 @@
       "amount": "Holding amount",
       "cost": "Cost",
       "priceChange": "Price change",
-      "annualized": "Estimated annualized return",
+      "annualized": "Simple annualized price / NAV change",
       "operator": "Comparison",
       "value": "Value",
       "currency": "Currency",
@@ -1608,7 +1618,7 @@
       "previewInstrument": "Preview investment",
       "selectInstrument": "Select an investment",
       "previewResult": "{{range}}: $t(reviewV2.count.hits, {\"count\": {{hits}}}), $t(reviewV2.count.misses, {\"count\": {{misses}}}), $t(reviewV2.count.unknown, {\"count\": {{unknowns}}})",
-      "invalidRule": "Complete the rule. Annualized conditions require an all-match bank investment type condition; rolling hits cannot exceed days.",
+      "invalidRule": "Complete the rule. Annualized conditions require an all-match type condition limited to bank investments, mutual funds or ETFs; rolling hits cannot exceed days.",
       "statusFilter": "Status",
       "typeFilter": "Type",
       "allTypes": "All types",
@@ -1744,7 +1754,7 @@
         "amount": "Amount",
         "cost": "Cost",
         "price_change": "Price change",
-        "annualized": "Estimated annualized return"
+        "annualized": "Simple annualized price / NAV change"
       }
     },
   "moneyDisplay": {
@@ -1800,6 +1810,7 @@
     "empty": "No holdings yet."
   },
   "holdingPerformance": {
+    "annualizedNote": "Annualized figures describe price / NAV change × 365 / actual days. They are not your holding return or a product yield.",
     "label": "Price performance",
     "periodLabel": "Period",
     "periods": {
@@ -1817,7 +1828,7 @@
     },
     "annualized": "{{percent}} annualized",
     "info": "About this figure",
-    "infoBody": "Change in the daily closing price or unit NAV between the dates shown. Intraday quotes are excluded, dividends are not included and corporate actions are not adjusted, so this is not your holding return. Annualized figures are historical, not an expected or guaranteed yield.",
+    "infoBody": "Change in the daily closing price or unit NAV between the dates shown. Intraday quotes are excluded, dividends are not included and corporate actions are not adjusted, so this is not your holding return. Annualized figures are historical, not an expected or guaranteed yield. Simple annualization is interval change × 365 / actual days; it excludes personal trades, fees and transfers and is not a holding return or product yield.",
     "reason": {
       "insufficient_daily_history": "Not enough history for this period",
       "incomparable_daily_prices": "Prices can’t be compared here",
@@ -1842,6 +1853,15 @@
     }
   },
   "reconciliation": {
+    "allAccountFilters": "All",
+    "noAccountMatches": "No accounts match these filters.",
+    "deselectAll": "Deselect all accounts",
+    "clearFilters": "Clear account filters",
+    "selectVisible": "Select filtered accounts",
+    "deselectVisible": "Deselect filtered accounts",
+    "noInstitution": "No institution",
+    "selectionSummary": "Selected {{selected}} of {{total}} accounts · Filtered: {{visibleSelected}} of {{visible}} selected · {{hidden}} selected outside this filter",
+    "institution": "Institution",
     "title": "Reconciliation",
     "localOnly": "Check your records against Nestworth. Corrections update this local ledger, not your bank or broker. Market prices and FX can lag without invalidating cash or quantity checks.",
     "selectAccounts": "Select accounts to check",
@@ -1976,5 +1996,10 @@
     "pendingReview": "Some checkpoints still need review before finishing.",
     "coverageNewCheck": "Start a new reconciliation to review the current coverage. The historical evidence and completion time are unchanged.",
     "restoreBeforeCorrection": "Restore the archived holding or instrument before adjusting it or recording a missing transaction. Evidence review, disposition and partial finish remain available."
+  },
+  "instrumentDetail": {
+    "openAccount": "Open account: {{name}}",
+    "closedHolding": "Zero quantity / closed position. Figures show remaining recorded values.",
+    "holdingsScopeNote": "Current holdings in active accounts, including zero quantities. Amounts use the instrument currency; missing values remain unavailable."
   }
 }

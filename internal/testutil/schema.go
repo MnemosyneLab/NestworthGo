@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// Schema21 removes only schema22's additive closure facts from a synthetic
+// Schema21 removes schema22 closure facts and schema23 priority metadata from a synthetic
 // current database. Never call this on an existing user database.
 // Provenance: cb93bed4c24d5d09789e7d63e6288db23b3c826d was schema21.
 // Its base/reconciliation/review/source/temporal DDL is unchanged in schema22;
@@ -18,6 +18,7 @@ func Schema21(t testing.TB, db *sql.DB) {
  DROP TRIGGER financial_source_agent_instrument_closures_update;
  DROP TRIGGER financial_source_agent_instrument_closures_delete;
  DROP TABLE agent_instrument_closures;
+ DROP TABLE IF EXISTS investment_review_rule_priorities;
  PRAGMA user_version=21;`); err != nil {
 		t.Fatal(err)
 	}

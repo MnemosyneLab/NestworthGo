@@ -19,7 +19,7 @@ type reviewDailyEvidenceCursor struct {
 }
 
 // ListReviewDailyEvidenceV2 reads a bounded slice of the current episode's
-// persisted votes under its current condition version. Historical episodes
+// persisted votes under the condition version proven by its latest evidence. Historical episodes
 // need their own version-aware event view before they can be exposed here.
 func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID domain.HouseholdID, episodeID domain.ReviewEpisodeID, cursor string, pageSize int) (domain.ReviewDailyEvidencePage, error) {
 	empty := domain.ReviewDailyEvidencePage{Items: []domain.ReviewDailyResult{}}
@@ -35,32 +35,32 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 	if err != nil {
 		return empty, err
 	}
-	var ruleID, instrumentID, triggeredOn, latest, specJSON, episodeEvidenceJSON string
-	var episodeRevision, conditionVersion int
-	err = tx.QueryRowContext(ctx, `SELECT e.rule_id,e.instrument_id,e.triggered_on,e.latest_closed_on,e.revision,e.evidence_json,
-	 r.current_condition_version,
-	 v.canonical_spec_json
+	var ruleID, instrumentID, triggeredOn, latest, episodeEvidenceJSON string
+	var episodeRevision int
+	err = tx.QueryRowContext(ctx, `SELECT e.rule_id,e.instrument_id,e.triggered_on,e.latest_closed_on,e.revision,e.evidence_json
 	 FROM investment_review_episodes e JOIN investment_review_rules r ON r.id=e.rule_id
-	 JOIN investment_review_rule_versions v ON v.rule_id=e.rule_id AND v.condition_version=r.current_condition_version
-	 WHERE e.id=? AND e.resolved_at IS NULL AND r.household_id=? AND r.evaluator=?`, string(episodeID), householdID.String(), domain.ReviewEvaluator).Scan(&ruleID, &instrumentID, &triggeredOn, &latest, &episodeRevision, &episodeEvidenceJSON, &conditionVersion, &specJSON)
+	 WHERE e.id=? AND e.resolved_at IS NULL AND r.household_id=? AND r.evaluator=?`, string(episodeID), householdID.String(), domain.ReviewEvaluator).Scan(&ruleID, &instrumentID, &triggeredOn, &latest, &episodeRevision, &episodeEvidenceJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return empty, &domain.Error{Code: domain.ErrNotFound, Field: "episodeId", Message: "review episode not found"}
 	}
 	if err != nil {
 		return empty, err
 	}
-	spec, err := domain.DecodeReviewRuleSpec([]byte(specJSON))
+	var storedEvidence reviewEpisodeEvidence
+	if err := jsoncodec.Unmarshal([]byte(episodeEvidenceJSON), &storedEvidence); err != nil {
+		return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review episode evidence is invalid"}
+	}
+	spec, conditionVersion, proven, err := reviewEvidenceVersion(ctx, tx, ruleID, instrumentID, storedEvidence.LatestResult)
 	if err != nil {
 		return empty, err
+	}
+	if !proven {
+		return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "review evidence condition version unavailable"}
 	}
 	timezoneVersion := spec.Schedule.Timezone + "/" + spec.Schedule.CutoffVersion
 	// The latest rolling window advances as the episode continues. Evidence
 	// pagination instead starts at the window that originally caused this
 	// episode to open, including its false and unknown votes.
-	var storedEvidence reviewEpisodeEvidence
-	if err := jsoncodec.Unmarshal([]byte(episodeEvidenceJSON), &storedEvidence); err != nil {
-		return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored review episode evidence is invalid"}
-	}
 	firstOn := storedEvidence.TriggerWindow.WindowStart
 	if firstOn == "" {
 		// Compatibility for an episode created before trigger windows were
@@ -123,6 +123,7 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 			rows.Close()
 			return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored daily review evidence is invalid"}
 		}
+		item.Predicate = &spec.Predicate
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {

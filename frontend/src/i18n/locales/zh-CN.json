@@ -1519,6 +1519,16 @@
     "coverageEstimated": "完整暂估总额"
   },
     "reviewV2": {
+    "conditionNumber": "条件 {{ordinal}}",
+    "conditionWindow": "{{days}} 天",
+    "conditionTrue": "命中",
+    "conditionFalse": "未命中",
+    "conditionUnknown": "未知",
+    "observedValue": "实际值",
+    "conditionEvidence": "条件证据",
+    "ruleResult": "整条规则结果",
+    "instrumentCount": "{{total}} 个标的",
+    "priority": {"p0": "P0 · 最高", "p1": "P1 · 高", "p2": "P2 · 普通"},
       "title": "投资复核",
       "openReview": "打开投资复核",
       "refresh": "刷新",
@@ -1575,7 +1585,7 @@
       "amount": "持仓金额",
       "cost": "成本",
       "priceChange": "近期涨跌",
-      "annualized": "估算年化",
+      "annualized": "价格／净值区间简单年化",
       "operator": "比较方式",
       "value": "数值",
       "currency": "币种",
@@ -1608,7 +1618,7 @@
       "previewInstrument": "预览标的",
       "selectInstrument": "选择标的",
       "previewResult": "{{range}}：$t(reviewV2.count.hits, {\"count\": {{hits}}})，$t(reviewV2.count.misses, {\"count\": {{misses}}})，未知{{unknowns}}天",
-      "invalidRule": "请补全规则。估算年化需要“全部满足”下的单一银行理财类型条件；窗口命中数不能超过天数。",
+      "invalidRule": "请补全规则。年化条件需要“全部满足”下仅包含银行理财、基金或 ETF 的类型条件；窗口命中数不能超过天数。",
       "statusFilter": "状态",
       "typeFilter": "类型",
       "allTypes": "全部类型",
@@ -1744,7 +1754,7 @@
         "amount": "金额",
         "cost": "成本",
         "price_change": "近期涨跌",
-        "annualized": "估算年化"
+        "annualized": "价格／净值区间简单年化"
       }
     },
   "moneyDisplay": {
@@ -1800,6 +1810,7 @@
     "empty": "暂无持仓。"
   },
   "holdingPerformance": {
+    "annualizedNote": "年化为价格／净值区间涨跌幅 × 365 / 实际天数，并非个人持有期收益或产品报价收益率。",
     "label": "价格表现",
     "periodLabel": "区间",
     "periods": {
@@ -1817,7 +1828,7 @@
     },
     "annualized": "年化 {{percent}}",
     "info": "关于此数字",
-    "infoBody": "所示日期之间每日收盘价或单位净值的涨跌幅。不含日内报价，不含分红，也未按公司行为复权，因此并非个人持仓收益。年化数字仅基于历史，并非预期或保证收益。",
+    "infoBody": "所示日期之间每日收盘价或单位净值的涨跌幅。不含日内报价，不含分红，也未按公司行为复权，因此并非个人持仓收益。年化数字仅基于历史，并非预期或保证收益。 简单年化为区间涨跌幅 × 365 / 实际天数；不计个人买卖、费用及转账，并非持有期收益或产品报价收益率。",
     "reason": {
       "insufficient_daily_history": "此区间历史数据不足",
       "incomparable_daily_prices": "此区间价格无法比较",
@@ -1842,6 +1853,15 @@
     }
   },
   "reconciliation": {
+    "allAccountFilters": "全部",
+    "noAccountMatches": "没有符合当前筛选的账户。",
+    "deselectAll": "取消全选账户",
+    "clearFilters": "清空账户筛选",
+    "selectVisible": "选择筛选内账户",
+    "deselectVisible": "取消筛选内选择",
+    "noInstitution": "无机构",
+    "selectionSummary": "已选 {{selected}} / {{total}} 个账户 · 当前筛选已选 {{visibleSelected}} / {{visible}} 个 · 筛选外已选 {{hidden}} 个",
+    "institution": "机构",
     "title": "账户核对",
     "localOnly": "将银行或券商记录与 Nestworth 核对。更正只更新本地账本，不会操作银行或券商。行情和汇率延迟不影响现金或数量核对。",
     "selectAccounts": "选择要核对的账户",
@@ -1976,5 +1996,10 @@
     "pendingReview": "部分检查点仍需复核，完成前请确认。",
     "coverageNewCheck": "请新建核对以检查当前覆盖范围。历史证据和完成时间保持不变。",
     "restoreBeforeCorrection": "请先恢复已归档的持仓或标的，再更正或补记交易。仍可核对证据、标记处理结果或部分完成。"
+  },
+  "instrumentDetail": {
+    "openAccount": "进入账户：{{name}}",
+    "closedHolding": "数量为零／已平仓，金额为剩余账面记录。",
+    "holdingsScopeNote": "展示未归档账户中的当前持仓（包括零数量）。金额使用标的币种，缺失数值保持不可用。"
   }
 }

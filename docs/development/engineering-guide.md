@@ -131,12 +131,13 @@ date semantics, interaction conventions, enforced boundaries and exceptions.
 ## Persistence and settings
 
 The current SQLite schema is verified before business writes. Startup enables
-foreign keys and checks structural integrity. New databases use schema 22.
-Only verified schemas 21 and 22 are supported. Schema21 receives the additive
-per-instrument Agent closure facts upgrade to 22 after a verified, flushed,
-read-only recovery copy is retained. Older, unversioned and future databases
+foreign keys and checks structural integrity. New databases use schema 23.
+Verified schemas 21, 22 and 23 are supported. Schema21 receives the additive
+per-instrument Agent closure facts upgrade to 22; schema22 receives the additive
+review-priority table upgrade to 23. Each upgrade retains a verified, flushed,
+read-only recovery copy before mutation. Older, unversioned and future databases
 are rejected before writable open. Required reconciliation, review and source
-tracking definitions remain part of fresh schema22 bootstrap. The full financial
+tracking definitions remain part of fresh schema23 bootstrap. The full financial
 fingerprint/recheck algorithm stays authoritative; see the
 [source tracking contract](../design/investment-review.md#financial-source-tracking-maintenance).
 
