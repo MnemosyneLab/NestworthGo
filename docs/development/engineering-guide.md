@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-Current `main` identifies as Nestworth `v0.3.9` / build `10`; the latest published
+Current development identifies as Nestworth `v0.3.10` / build `11`; the latest published
 release is [v0.3.9](../releases/v0.3.9.md), published 2026-10-21. The project
 is a Go 1.27.3 module with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own

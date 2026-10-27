@@ -10,7 +10,7 @@
   <Identity 
     Name="com.nestworth.app"
     Publisher="CN=Nestworth"
-    Version="0.3.9.10"
+    Version="0.3.10.11"
     ProcessorArchitecture="x64" />
   
   <Properties>

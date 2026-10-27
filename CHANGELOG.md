@@ -2,6 +2,34 @@
 
 All notable changes to Nestworth are recorded here.
 
+## [0.3.10] — Unreleased
+
+Release preparation for build 11. See the [prepared release notes](docs/releases/v0.3.10-notes.md).
+
+### Added and changed
+
+- Reconciliation groups unfinished work first, preserves confirmed evidence for
+  unaffected items, and supports explicit whole-account completeness confirmation.
+- Optional statement references and ledger-timezone cutoff defaults simplify
+  reconciliation. Supplemental entries retain their account and holding context.
+- Investment views show each account's holdings and historical simple annualized
+  price/NAV return for eligible funds, ETFs and bank investment products.
+- Review explanations retain the evidence's condition version, AND/OR structure,
+  individual observations and P0/P1/P2 priorities. Account selection adds combined
+  filters and filtered bulk actions without losing hidden selections.
+- Liability balances and institution net totals use consistent signs; ordinary
+  reversals preserve income, expense, interest and inverse-trade semantics.
+- MCP reads now require bounded compact pages; legacy responseMode and Agent
+  offset reads are removed. The separately installed portable skill is 2.0.0.
+- Wails advances to stable 3.0.0 and Go to 1.27.3. macOS packages require
+  macOS 27.0 or newer on Apple Silicon.
+- Verified schemas 21/22 receive ordered additive upgrades to schema23, retaining
+  a verified read-only recovery copy before each upgrade. Older schemas remain
+  unsupported; no general migration chain is introduced.
+
+Packaging, native acceptance, signing and publication results must be recorded
+for the final release source; this preparation entry does not claim they passed.
+
 ## [0.3.9] — 2026-10-21
 
 Published as [v0.3.9](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.9)
