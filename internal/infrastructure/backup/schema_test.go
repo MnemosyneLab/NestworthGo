@@ -151,7 +151,7 @@ func TestSupportedManifestVersionMustMatchDatabase(t *testing.T) {
 }
 
 func TestSupportedPackageRestorePreservesSource(t *testing.T) {
-	for _, version := range []int{21, 22} {
+	for _, version := range []int{21, 22, sqlite.CurrentSchemaVersion} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			dir := t.TempDir()
 			source := filepath.Join(dir, "source.db")
@@ -161,6 +161,10 @@ func TestSupportedPackageRestorePreservesSource(t *testing.T) {
 			}
 			if version == 21 {
 				testutil.Schema21(t, db.SQL)
+			} else if version == 22 {
+				if _, err := db.SQL.Exec(`DROP TABLE investment_review_rule_priorities; PRAGMA user_version=22;`); err != nil {
+					t.Fatal(err)
+				}
 			}
 			db.Close()
 			data, err := os.ReadFile(source)

@@ -142,21 +142,25 @@ func (s ReviewRuleSpec) Normalize() (ReviewRuleSpec, error) {
 	}
 	s.Predicate = predicate
 	if !reviewAnnualizedScoped(predicate, false) {
-		return ReviewRuleSpec{}, validation("predicate", "annualized conditions require an explicit bank-product type in the same all group")
+		return ReviewRuleSpec{}, validation("predicate", "annualized conditions require explicit supported price/NAV types in the same all group")
 	}
 	return s, nil
 }
 
-// Every path to an annualized leaf needs a bank-only type gate in an AND
+// Every path to an annualized leaf needs a supported-type gate in an AND
 // ancestor. An OR sibling cannot restrict an annualized branch.
-func reviewAnnualizedScoped(node ReviewPredicateNode, bankOnly bool) bool {
+func reviewAnnualizedScoped(node ReviewPredicateNode, supportedOnly bool) bool {
 	if node.Leaf != nil {
-		return node.Leaf.Metric != "annualized" || bankOnly
+		return node.Leaf.Metric != "annualized" || supportedOnly
 	}
 	if node.All != nil {
 		for _, child := range node.All {
-			if child.Leaf != nil && child.Leaf.Metric == "type" && len(child.Leaf.Types) == 1 && child.Leaf.Types[0] == InstrumentBankInvestmentProduct {
-				bankOnly = true
+			if child.Leaf != nil && child.Leaf.Metric == "type" && child.Leaf.Operator == "in" && len(child.Leaf.Types) > 0 {
+				eligible := true
+				for _, kind := range child.Leaf.Types {
+					eligible = eligible && SupportsAnnualizedQuoteReturn(kind)
+				}
+				supportedOnly = supportedOnly || eligible
 			}
 		}
 	}
@@ -165,7 +169,7 @@ func reviewAnnualizedScoped(node ReviewPredicateNode, bankOnly bool) bool {
 		children = node.Any
 	}
 	for _, child := range children {
-		if !reviewAnnualizedScoped(child, bankOnly) {
+		if !reviewAnnualizedScoped(child, supportedOnly) {
 			return false
 		}
 	}

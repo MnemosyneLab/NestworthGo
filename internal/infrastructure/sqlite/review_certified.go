@@ -85,11 +85,12 @@ func (r *Repository) sourceCaptureMAC(c domain.ReviewProjectionCapture) (string,
 // not a narrow fingerprint or an assumption that conditional writes repair it.
 func certifiedProjectionSeal(ctx context.Context, tx *sql.Tx, id domain.HouseholdID) (string, error) {
 	digest := sha256.New()
-	digest.Write([]byte("certified-row-bytes-v2\x00"))
+	digest.Write([]byte("certified-row-bytes-v3\x00"))
 	var rowbuf []byte
 	queries := []string{
 		`SELECT * FROM investment_review_control WHERE household_id=? ORDER BY household_id`,
 		`SELECT * FROM investment_review_rules WHERE household_id=? ORDER BY id`,
+		`SELECT p.* FROM investment_review_rule_priorities p JOIN investment_review_rules r ON r.id=p.rule_id WHERE r.household_id=? ORDER BY p.rule_id`,
 		`SELECT v.* FROM investment_review_rule_versions v JOIN investment_review_rules r ON r.id=v.rule_id WHERE r.household_id=? ORDER BY v.rule_id,v.condition_version`,
 		`SELECT t.* FROM investment_review_rule_targets t JOIN investment_review_rules r ON r.id=t.rule_id WHERE r.household_id=? ORDER BY t.rule_id,t.instrument_id`,
 		`SELECT * FROM investment_review_suppressions WHERE household_id=? ORDER BY id`,

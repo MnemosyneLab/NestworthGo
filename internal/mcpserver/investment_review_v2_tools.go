@@ -64,7 +64,7 @@ type ReviewV2RuleInput struct {
 	ExpectedRevision int            `json:"expectedRevision"`
 	Name             string         `json:"name"`
 	Enabled          bool           `json:"enabled"`
-	Severity         string         `json:"severity"`
+	Severity         string         `json:"severity" jsonschema:"Review priority: p0 (highest), p1, p2. Legacy warning maps to p1; notice maps to p2."`
 	Spec             map[string]any `json:"spec"`
 }
 

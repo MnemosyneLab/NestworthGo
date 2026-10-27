@@ -15,9 +15,11 @@ import (
 )
 
 type reviewAlertCursor struct {
-	Revision   string `json:"revision"`
-	FilterHash string `json:"filterHash"`
-	AfterID    string `json:"afterId"`
+	Revision      string `json:"revision"`
+	FilterHash    string `json:"filterHash"`
+	AfterID       string `json:"afterId"`
+	AfterStatus   string `json:"afterStatus"`
+	AfterPriority int    `json:"afterPriority"`
 }
 
 func (r *Repository) GetReviewAlertV2(ctx context.Context, householdID domain.HouseholdID, episodeID domain.ReviewEpisodeID, now time.Time) (domain.ReviewAlertGroup, error) {
@@ -143,11 +145,12 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 	stateBytes, _ := jsoncodec.Marshal(struct {
 		Control domain.ReviewProjectionControl
 		Days    []suppressionDay
-	}{control, days})
+		Order   string
+	}{control, days, "status-priority-v1"})
 	stateDigest := sha256.Sum256(stateBytes)
 	revision := hex.EncodeToString(stateDigest[:])
 	result := domain.ReviewAlertPage{Items: []domain.ReviewAlertGroup{}, ReportRevision: revision, ProjectionStatus: control.ProjectionStatus, PublishedOn: control.PublishedOn}
-	afterID := ""
+	afterID, afterStatus, afterPriority := "", "", 0
 	if cursor != "" {
 		decoded, err := base64.RawURLEncoding.DecodeString(cursor)
 		if err != nil {
@@ -163,7 +166,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 		if _, err := domain.ParseInstrumentID(previous.AfterID); err != nil {
 			return empty, err
 		}
-		afterID = previous.AfterID
+		afterID, afterStatus, afterPriority = previous.AfterID, previous.AfterStatus, previous.AfterPriority
 	}
 	byInstrument := make(map[domain.InstrumentID][]domain.ReviewSuppression)
 	for _, item := range suppressions {
@@ -173,7 +176,7 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 	// summary. Page contents still carry only the requested bounded slice.
 	// A later candidate may not match the filter, so the same pass also proves
 	// whether NextCursor will actually have a subsequent result.
-	pageAfter, scanAfter, lastPageID, hasMore := afterID, "", "", false
+	scanAfter := ""
 	for {
 		ids, err := reviewAlertCandidateIDs(ctx, tx, householdID, scanAfter, 100)
 		if err != nil {
@@ -215,28 +218,45 @@ func (r *Repository) ListReviewAlertGroupsV2(ctx context.Context, householdID do
 				continue
 			}
 			result.Summary.MatchedGroups++
-			if id <= pageAfter {
+			if afterID != "" && !reviewAlertOrderLess(afterStatus, afterPriority, afterID, group.Status, domain.ReviewPriorityRank(group.Rules[0].Severity), id) {
 				continue
 			}
-			if len(result.Items) < pageSize {
-				result.Items = append(result.Items, group)
-				lastPageID = id
-			} else {
-				hasMore = true
+			result.Items = append(result.Items, group)
+			sort.Slice(result.Items, func(i, j int) bool {
+				a, b := result.Items[i], result.Items[j]
+				return reviewAlertOrderLess(a.Status, domain.ReviewPriorityRank(a.Rules[0].Severity), string(a.InstrumentID), b.Status, domain.ReviewPriorityRank(b.Rules[0].Severity), string(b.InstrumentID))
+			})
+			if len(result.Items) > pageSize+1 {
+				result.Items = result.Items[:pageSize+1]
 			}
 		}
 		if len(ids) < 100 {
 			break
 		}
 	}
-	if hasMore {
-		encoded, _ := jsoncodec.Marshal(reviewAlertCursor{Revision: revision, FilterHash: filterHash, AfterID: lastPageID})
+	if len(result.Items) > pageSize {
+		result.Items = result.Items[:pageSize]
+		last := result.Items[len(result.Items)-1]
+		encoded, _ := jsoncodec.Marshal(reviewAlertCursor{Revision: revision, FilterHash: filterHash, AfterID: string(last.InstrumentID), AfterStatus: last.Status, AfterPriority: domain.ReviewPriorityRank(last.Rules[0].Severity)})
 		result.NextCursor = base64.RawURLEncoding.EncodeToString(encoded)
 	}
 	if err := tx.Commit(); err != nil {
 		return empty, err
 	}
 	return result, nil
+}
+
+// Status remains the handling order; priority is explicit within each status.
+// ID breaks ties and is carried with the complete order key in the cursor.
+func reviewAlertOrderLess(aStatus string, aPriority int, aID string, bStatus string, bPriority int, bID string) bool {
+	status := map[string]int{"pending": 0, "unknown": 1, "acknowledged": 2, "ignored": 3, "paused": 4}
+	if status[aStatus] != status[bStatus] {
+		return status[aStatus] < status[bStatus]
+	}
+	if aPriority != bPriority {
+		return aPriority < bPriority
+	}
+	return aID < bID
 }
 
 func reviewAlertMatchesFilter(group domain.ReviewAlertGroup, filter domain.ReviewAlertFilter) bool {
@@ -296,7 +316,7 @@ func reviewSuppressionsInTx(ctx context.Context, tx *sql.Tx, householdID domain.
 
 func reviewAlertGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, ids []string, suppressions map[domain.InstrumentID][]domain.ReviewSuppression, masterEnabled bool, now time.Time) (map[string]domain.ReviewAlertGroup, error) {
 	placeholders, args := sqlInArgs(ids)
-	query := `SELECT i.id,i.name,i.instrument_type,i.quote_currency,r.id,r.name,r.severity,r.enabled,v.canonical_spec_json,e.id,e.revision,e.triggered_on,e.first_hit_on,e.first_detected_at,e.acknowledged_at,s.latest_closed_on,s.policy_state,s.window_start,s.window_end,s.hit_count,s.false_count,s.unknown_count,s.consecutive_count,e.evidence_json,d.amount_exact,d.cost_exact FROM investment_review_evaluation_state s JOIN investment_review_rules r ON r.id=s.rule_id JOIN investment_review_rule_versions v ON v.rule_id=r.id AND v.condition_version=r.current_condition_version JOIN investment_review_episodes e ON e.id=s.episode_id JOIN instruments i ON i.id=s.instrument_id LEFT JOIN investment_review_daily_inputs d ON d.household_id=r.household_id AND d.instrument_id=i.id AND d.timezone_version=(SELECT timezone_version FROM investment_review_daily_results dr WHERE dr.rule_id=r.id AND dr.condition_version=r.current_condition_version AND dr.instrument_id=i.id AND dr.on_date=s.latest_closed_on LIMIT 1) AND d.on_date=s.latest_closed_on AND d.input_policy='rule:'||r.id||'/v:'||r.current_condition_version WHERE r.household_id=? AND i.id IN (` + placeholders + `) AND e.resolved_at IS NULL ORDER BY i.id,r.id`
+	query := `SELECT i.id,i.name,i.instrument_type,i.quote_currency,r.id,r.name,` + reviewPrioritySQL + `,r.enabled,v.canonical_spec_json,e.id,e.revision,e.triggered_on,e.first_hit_on,e.first_detected_at,e.acknowledged_at,s.latest_closed_on,s.policy_state,s.window_start,s.window_end,s.hit_count,s.false_count,s.unknown_count,s.consecutive_count,e.evidence_json,d.amount_exact,d.cost_exact FROM investment_review_evaluation_state s JOIN investment_review_rules r ON r.id=s.rule_id JOIN investment_review_rule_versions v ON v.rule_id=r.id AND v.condition_version=r.current_condition_version JOIN investment_review_episodes e ON e.id=s.episode_id JOIN instruments i ON i.id=s.instrument_id LEFT JOIN investment_review_daily_inputs d ON d.household_id=r.household_id AND d.instrument_id=i.id AND d.timezone_version=(SELECT timezone_version FROM investment_review_daily_results dr WHERE dr.rule_id=r.id AND dr.condition_version=r.current_condition_version AND dr.instrument_id=i.id AND dr.on_date=s.latest_closed_on LIMIT 1) AND d.on_date=s.latest_closed_on AND d.input_policy='rule:'||r.id||'/v:'||r.current_condition_version WHERE r.household_id=? AND i.id IN (` + placeholders + `) AND e.resolved_at IS NULL ORDER BY i.id,r.id`
 	// The input policy is rule+condition scoped; use the evaluation state's
 	// timezone and closed date so a later rule edit cannot leak an old input.
 	parameters := append([]any{householdID.String()}, args...)
@@ -355,6 +375,9 @@ func reviewAlertGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID domain
 			return nil, err
 		}
 		entry.LatestResult = evidence.LatestResult
+		if entry.LatestResult != nil {
+			entry.LatestResult.Predicate = &spec.Predicate
+		}
 		if evidence.Coverage != nil {
 			entry.Coverage = evidence.Coverage
 		}
@@ -405,8 +428,8 @@ func reviewAlertGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID domain
 			if priority[a.Status] != priority[b.Status] {
 				return priority[a.Status] < priority[b.Status]
 			}
-			if a.Severity != b.Severity {
-				return a.Severity > b.Severity
+			if domain.ReviewPriorityRank(a.Severity) != domain.ReviewPriorityRank(b.Severity) {
+				return domain.ReviewPriorityRank(a.Severity) < domain.ReviewPriorityRank(b.Severity)
 			}
 			return a.RuleID < b.RuleID
 		})

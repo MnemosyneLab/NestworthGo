@@ -247,7 +247,7 @@ func TestAgentMarketDataEquityClosePerformance(t *testing.T) {
 					if endpoint == "0" {
 						want = "-100"
 					}
-					if err != nil || len(got.Items) != 1 || got.Items[0].WindowDays != 7 || got.Items[0].PeriodPercent != want || got.Items[0].ElapsedDays != 8 || got.Items[0].BaselineOn != "2026-10-01" || got.Items[0].LatestOn != "2026-10-09" || got.Items[0].AnnualizedPercent != nil {
+					if err != nil || len(got.Items) != 1 || got.Items[0].WindowDays != 7 || got.Items[0].PeriodPercent != want || got.Items[0].ElapsedDays != 8 || got.Items[0].BaselineOn != "2026-10-01" || got.Items[0].LatestOn != "2026-10-09" || (got.Items[0].AnnualizedPercent != nil) != domain.SupportsAnnualizedQuoteReturn(instrument.Type) {
 						t.Fatalf("imported Agent performance %+v, error %v", got, err)
 					}
 				})

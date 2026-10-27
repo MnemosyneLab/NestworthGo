@@ -18,14 +18,14 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql reconciliation_schema.sql review_schema.sql source_changes_schema.sql review_temporal_schema_v21.sql agent_closures_schema_v22.sql
+//go:embed schema.sql reconciliation_schema.sql review_schema.sql source_changes_schema.sql review_temporal_schema_v21.sql agent_closures_schema_v22.sql review_priority_schema_v23.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 22
+const CurrentSchemaVersion = 23
 
 // SupportsSchemaVersion is the database policy shared by opens and backup formats.
 // Format/protocol versions are independent of SQLite user_version.
-func SupportsSchemaVersion(version int) bool { return version == 21 || version == 22 }
+func SupportsSchemaVersion(version int) bool { return version == 21 || version == 22 || version == 23 }
 
 type BootstrapStatus string
 
@@ -54,10 +54,10 @@ func (e *BootstrapError) Error() string {
 		path = "(unknown path)"
 	}
 	if e.Status == StatusUnsupportedFuture {
-		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d (supported schemas: 21 and 22), path %s; source unchanged; preserve the original and create a new database", e.Found, e.Supported, path)
+		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d (supported schemas: 21, 22 and 23), path %s; source unchanged; preserve the original and create a new database", e.Found, e.Supported, path)
 	}
 	if e.Status == StatusLegacyDatabase {
-		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d (supported schemas: 21 and 22), path %s; source unchanged; preserve the original and create a new database", e.Found, e.Supported, path)
+		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d (supported schemas: 21, 22 and 23), path %s; source unchanged; preserve the original and create a new database", e.Found, e.Supported, path)
 	}
 	if e.Err == nil {
 		return fmt.Sprintf("%s: found version %d, supported version %d, path %s; please create a new database", e.Status, e.Found, e.Supported, path)
@@ -75,7 +75,7 @@ func (e *BootstrapError) SafeError() *domain.Error {
 	}
 	switch e.Status {
 	case StatusLegacyDatabase:
-		return &domain.Error{Code: domain.ErrDatabaseUpgradeRequired, Field: "database", Message: "unsupported database schema; only versions 21 and 22 are supported; the database has not been changed"}
+		return &domain.Error{Code: domain.ErrDatabaseUpgradeRequired, Field: "database", Message: "unsupported database schema; only versions 21, 22 and 23 are supported; the database has not been changed"}
 	case StatusUnsupportedFuture:
 		return &domain.Error{Code: domain.ErrDatabaseFromNewerVersion, Field: "database", Message: "this database was created by a newer Nestworth version"}
 	case StatusIntegrityFailed:
@@ -107,7 +107,7 @@ type DB struct {
 func Open(path string) (*DB, error) { return openDatabase(path, "sqlite") }
 
 func openDatabase(path, driverName string) (*DB, error) {
-	if isV21RecoveryCopy(path) {
+	if isV21RecoveryCopy(path) || isV22RecoveryCopy(path) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.New("recovery copies are read-only; copy to a new live path before restoring")}
 	}
 	if strings.TrimSpace(path) == "" {
@@ -123,7 +123,7 @@ func openDatabase(path, driverName string) (*DB, error) {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Err: err}
 	}
 	// Inspect existing files before opening a writable connection. Every existing
-	// database, including version zero, must use the supported schema 21 or 22.
+	// database, including version zero, must use the supported schemas 21, 22 or 23.
 	if existed {
 		probeDSN, dsnErr := sqliteDSN(path, url.Values{
 			"mode":    {"ro"},
@@ -179,6 +179,12 @@ func openDatabase(path, driverName string) (*DB, error) {
 			return closeOnError(StatusUnavailable, found, err)
 		}
 		found = 22
+	}
+	if found == 22 && existed {
+		if err := upgradeV22(context.Background(), database, path); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 23
 	}
 	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)
@@ -347,5 +353,8 @@ func createCurrentSchema(ctx context.Context, tx *sql.Tx) error {
 	if err := installReviewTemporalSchema(ctx, tx); err != nil {
 		return err
 	}
-	return installAgentClosureSchema(ctx, tx)
+	if err := installAgentClosureSchema(ctx, tx); err != nil {
+		return err
+	}
+	return installReviewPrioritySchema(ctx, tx)
 }

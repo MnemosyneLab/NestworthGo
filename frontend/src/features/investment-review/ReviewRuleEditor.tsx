@@ -1,3 +1,4 @@
+import { reviewPriority } from "./ReviewPriority";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -98,11 +99,12 @@ function isPredicateNode(value: unknown, depth = 0, leaves = { count: 0 }): valu
   return Array.isArray(children) && children.length > 0 && children.length <= 20 && children.every(child => isPredicateNode(child, depth + 1, leaves));
 }
 
-function annualizedLeavesAreScoped(node: ReviewPredicateNode, bankOnly = false): boolean {
-  if (node.leaf) return node.leaf.metric !== "annualized" || bankOnly;
+function annualizedLeavesAreScoped(node: ReviewPredicateNode, supportedOnly = false): boolean {
+  if (node.leaf) return node.leaf.metric !== "annualized" || supportedOnly;
   const children = groupChildren(node);
-  const scoped = groupMode(node) === "all" && children.some(child => child.leaf?.metric === "type" && child.leaf.types?.length === 1 && child.leaf.types[0] === InstrumentType.InstrumentBankInvestmentProduct);
-  return children.every(child => annualizedLeavesAreScoped(child, bankOnly || scoped));
+  const supported = [InstrumentType.InstrumentBankInvestmentProduct, InstrumentType.InstrumentMutualFund, InstrumentType.InstrumentETF];
+  const scoped = groupMode(node) === "all" && children.some(child => child.leaf?.metric === "type" && child.leaf.operator === "in" && Boolean(child.leaf.types?.length) && child.leaf.types!.every(type => supported.includes(type)));
+  return children.every(child => annualizedLeavesAreScoped(child, supportedOnly || scoped));
 }
 
 function currencyIsValid(value: string, currencies: string[], currencyCatalogLoaded: boolean): boolean {
@@ -264,7 +266,7 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
   const sourcePredicateIsValid = !rule || isPredicateNode(ruleSpec?.predicate);
   const [name, setName] = useState(rule?.name ?? "");
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
-  const [severity, setSeverity] = useState(rule?.severity ?? "notice");
+  const [severity, setSeverity] = useState<string>(reviewPriority(rule?.severity ?? "p2"));
   const [timezone, setTimezone] = useState<string | null>(ruleSpec?.schedule?.timezone ?? null);
   const selectedTimezone = timezone ?? householdTimezone;
   const [targetKind, setTargetKind] = useState(ruleSpec?.target?.kind ?? "all_current");
@@ -341,7 +343,7 @@ export function ReviewRuleEditor({ open, onOpenChange, rule }: { open: boolean; 
   return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent size="xl"><SheetHeader><SheetTitle>{t(rule ? "reviewV2.editRule" : "reviewV2.newRule")}</SheetTitle></SheetHeader>
     <div className="space-y-5 pb-5">
       <div className="grid gap-2"><Label htmlFor="review-rule-name">{t("reviewV2.name")}</Label><Input id="review-rule-name" value={name} onChange={event => setName(event.target.value)} maxLength={120} aria-invalid={nameInvalid || undefined} aria-describedby={nameInvalid ? "review-rule-name-error" : undefined} /><FieldError id="review-rule-name-error">{nameInvalid ? t("reviewV2.nameRequired") : undefined}</FieldError></div>
-      <div className="flex flex-wrap gap-4"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} />{t("reviewV2.enabled")}</label><label className="flex items-center gap-2 text-sm">{t("reviewV2.severity")}<NativeSelect value={severity} onChange={event => setSeverity(event.target.value)}><option value="notice">{t("reviewV2.notice")}</option><option value="warning">{t("reviewV2.warning")}</option></NativeSelect></label></div>
+      <div className="flex flex-wrap gap-4"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} />{t("reviewV2.enabled")}</label><label className="flex items-center gap-2 text-sm">{t("reviewV2.severity")}<NativeSelect value={severity} onChange={event => setSeverity(event.target.value)}>{["p0", "p1", "p2"].map(value => <option key={value} value={value}>{t(`reviewV2.priority.${value}`)}</option>)}</NativeSelect></label></div>
       <fieldset className="space-y-2" aria-invalid={targetInvalid || undefined} aria-describedby={targetInvalid ? "review-rule-target-error" : undefined}><legend className="font-medium">{t("reviewV2.target")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.positiveHoldings")}</p><NativeSelect aria-label={t("reviewV2.targetMode")} value={targetKind} aria-invalid={targetInvalid || undefined} aria-describedby={targetInvalid ? "review-rule-target-error" : undefined} onChange={event => { const kind = event.target.value; setTargetKind(kind); if (kind === "instruments" && !target.length && instruments.data?.[0]) setTarget([instruments.data[0].id]); }}><option value="all_current">{t("reviewV2.allCurrent")}</option><option value="instruments">{t("reviewV2.selectedInstruments")}</option></NativeSelect>
       {targetKind === "instruments" && <div className="max-h-36 overflow-auto rounded-lg border p-2">{(instruments.data ?? []).map(item => <label key={item.id} className="flex gap-2 p-1 text-sm"><input type="checkbox" checked={target.includes(item.id)} onChange={event => setTarget(ids => event.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id))} />{item.name}</label>)}</div>}<FieldError id="review-rule-target-error">{targetInvalid ? t("reviewV2.targetRequired") : undefined}</FieldError></fieldset>
       <fieldset className="space-y-3"><legend className="font-medium">{t("reviewV2.dailyConditions")}</legend><p className="text-xs text-muted-foreground">{t("reviewV2.predicateBuilderHelp")}</p>{catalog.isError && <p role="alert" className="text-sm text-destructive">{t("reviewV2.currencyCatalogError")} <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => void catalog.refetch()}>{t("common.retry")}</Button></p>}<PredicateGroupEditor node={predicateTreeWithCurrencyDefaults} path={[]} depth={0} tree={predicateTreeWithCurrencyDefaults} onTreeChange={changePredicateTree} instruments={instruments.data ?? []} currencies={currencies} currencyCatalogLoaded={currencyCatalogLoaded} defaultCurrency={defaultCurrency} invalid={predicateInvalid} /></fieldset>

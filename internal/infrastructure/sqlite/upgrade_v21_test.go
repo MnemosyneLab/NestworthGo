@@ -20,7 +20,7 @@ func TestV21ClosureUpgradePreservesRecoveryAndTracksFacts(t *testing.T) {
 	}
 	defer upgraded.Close()
 	var version int
-	if err = upgraded.SQL.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 22 {
+	if err = upgraded.SQL.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != CurrentSchemaVersion {
 		t.Fatalf("version %d %v", version, err)
 	}
 	copies, err := filepath.Glob(filepath.Join(filepath.Dir(path), ".nestworth-v21-recovery-*", "original-v21.sqlite"))

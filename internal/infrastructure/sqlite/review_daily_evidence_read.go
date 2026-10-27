@@ -123,6 +123,7 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 			rows.Close()
 			return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored daily review evidence is invalid"}
 		}
+		item.Predicate = &spec.Predicate
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {

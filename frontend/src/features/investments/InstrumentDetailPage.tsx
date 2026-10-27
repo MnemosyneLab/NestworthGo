@@ -5,6 +5,9 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChangeText } from "@/components/ui/change-text";
+import { useMembers } from "@/queries/directory";
+import { amountDirection } from "./holdingGroups";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccounts } from "@/queries/accounts";
 import { useInstrumentHoldingGroups } from "@/queries/analytics";
@@ -27,10 +30,10 @@ function HoldingFigures({ amounts }: { amounts: HoldingAmountsDTO }) {
     [t("portfolio.quantity"), formatAmount(amounts.quantity)],
     [t("portfolio.cost"), amounts.totalCost ? formatAmount(amounts.totalCost.amount, amounts.totalCost.currency) : t("accounts.noValue")],
     [t("portfolio.currentValue"), amounts.currentValue ? formatAmount(amounts.currentValue.amount, amounts.currentValue.currency) : t("accounts.noValue")],
-    [t("portfolio.unrealizedGain"), amounts.unrealizedGain ? formatSignedMoney(amounts.unrealizedGain.amount, amounts.unrealizedGain.currency) : t("accounts.noValue")],
   ];
   return <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
     {fields.map(([label, value]) => <div key={label} className="rounded-xl bg-muted/40 p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="num mt-1 font-semibold">{value}</dd></div>)}
+    <div className="rounded-xl bg-muted/40 p-3"><dt className="text-xs text-muted-foreground">{t("portfolio.unrealizedGain")}</dt><dd className="num mt-1 font-semibold">{amounts.unrealizedGain ? <ChangeText direction={amountDirection(amounts.unrealizedGain.amount) ?? "flat"}>{formatSignedMoney(amounts.unrealizedGain.amount, amounts.unrealizedGain.currency)}</ChangeText> : t("accounts.noValue")}</dd></div>
   </dl>;
 }
 
@@ -53,23 +56,32 @@ function HoldingProjection({ instrument, holding, accountId, from, to }: {
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
   const accounts = useAccounts({ includeArchived: true });
+  const members = useMembers(true);
   const accountName = accountId ? accounts.data?.find((record) => record.account.id === accountId)?.account.name : undefined;
   const member = accountId ? (holding?.holdings ?? []).find((item) => item.accountId === accountId) : undefined;
   const amounts = accountId ? member?.amounts : holding?.amounts;
-  const scope = accountId ? t("instrumentDetail.accountScope", { name: accountName ?? member?.accountName ?? accountId }) : t("instrumentDetail.allAccounts");
+  const scope = accountId ? t("instrumentDetail.accountScope", { name: accountName ?? member?.accountName ?? t("accounts.noValue") }) : t("instrumentDetail.allAccounts");
 
   if (instrument.managedProductId) return <ManagedProductEntry productId={instrument.managedProductId} />;
 
   return <section aria-label={t("instrumentDetail.holdings")} className="flex flex-col gap-4">
     <p className="text-sm text-muted-foreground">{t("instrumentDetail.personalNote")}</p>
     <p className="text-sm font-medium">{scope}</p>
+    {!accountId && <p className="text-xs text-muted-foreground">{t("instrumentDetail.holdingsScopeNote")}</p>}
     {amounts ? <HoldingFigures amounts={amounts} /> : <EmptyState title={t("instrumentDetail.noHolding")} />}
-    {!accountId && (holding?.holdings ?? []).length > 1 && <ul className="flex flex-col gap-2" aria-label={t("portfolio.accounts")}>
-      {(holding?.holdings ?? []).map((item) => <li key={item.holdingId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-sm">
-        <span>{item.accountName}</span>
-        <span className="num">{formatAmount(item.amounts.quantity)}</span>
-        {navigation && <Button type="button" variant="link" size="sm" onClick={() => navigation.open({ page: "instrument-detail", instrumentId: instrument.id, accountId: item.accountId, section: "holdings", from, to })}>{t("investmentAssets.openInstrument", { name: item.accountName })}</Button>}
-      </li>)}
+    {!accountId && (holding?.holdings ?? []).length > 0 && <ul className="flex flex-col gap-3" aria-label={t("portfolio.accounts")}>
+      {(holding?.holdings ?? []).map((item) => {
+        const record = accounts.data?.find(a => a.account.id === item.accountId);
+        const owners = (record?.ownership ?? []).map(share => members.data?.find(m => m.id === share.memberId)?.name ?? t("common.unknownValue")).join(" · ");
+        return <li key={item.holdingId} className="flex min-w-0 flex-col gap-3 rounded-xl border border-border p-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0 break-words"><h3 className="font-medium">{item.accountName}</h3><p className="text-xs text-muted-foreground">{[owners, record?.institutionName].filter(Boolean).join(" · ") || t("common.unknownValue")}</p></div>
+            {navigation && <Button type="button" variant="link" size="sm" onClick={() => navigation.open({ page: "accounts", accountId: item.accountId })}>{t("instrumentDetail.openAccount", { name: item.accountName })}</Button>}
+          </div>
+          {amountDirection(item.amounts.quantity) === "flat" && <p className="text-xs text-muted-foreground">{t("instrumentDetail.closedHolding")}</p>}
+          <HoldingFigures amounts={item.amounts} />
+        </li>;
+      })}
     </ul>}
     <div className="flex flex-wrap items-center gap-2">
       <AnalyzeMenu instrumentId={instrument.id} accountId={accountId} label={instrumentDisplayLabel(instrument)} from={from} to={to} inline includeHistory={false} />

@@ -88,6 +88,13 @@ func ValidQuotePeriodWindow(days int) bool {
 
 type quotePerformanceKind int
 
+// SupportsAnnualizedQuoteReturn opts types into descriptive simple annualized
+// price/NAV change. This is never a personal money-weighted return or a quoted
+// product yield. The projection still requires comparable daily evidence.
+func SupportsAnnualizedQuoteReturn(t InstrumentType) bool {
+	return t == InstrumentBankInvestmentProduct || t == InstrumentMutualFund || t == InstrumentETF
+}
+
 const (
 	quotePerformanceNAV quotePerformanceKind = iota + 1
 	quotePerformancePrice
@@ -195,7 +202,7 @@ func projectQuotePerformanceWindowsAsOf(i Instrument, points []InstrumentQuote, 
 		}
 		period, annual := priceWindowPercent(first.UnitPrice.Decimal(), latest.UnitPrice.Decimal(), elapsed)
 		item := QuotePerformance{AsOfOn: asOf, WindowDays: window, BaselineOn: first.EffectiveDate, LatestOn: latest.EffectiveDate, ElapsedDays: elapsed, PeriodPercent: period}
-		if i.Type == InstrumentBankInvestmentProduct {
+		if SupportsAnnualizedQuoteReturn(i.Type) {
 			item.AnnualizedPercent = &annual
 		}
 		result = append(result, item)

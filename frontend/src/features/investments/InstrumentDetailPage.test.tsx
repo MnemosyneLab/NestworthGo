@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { NavigationContext } from "@/app/NavigationContext";
 import type { InstrumentDetailContext } from "@/app/navigation";
 import { InstrumentDetailPage } from "./InstrumentDetailPage";
@@ -21,6 +21,7 @@ vi.mock("@/queries/analytics", () => ({ useInstrumentHoldingGroups: (enabled: bo
   return { data: q.accountGroups[accountId] ?? q.groups, isLoading: false, isError: false };
 } }));
 vi.mock("@/queries/accounts", () => ({ useAccounts: () => ({ data: [{ account: { id: "broker-a", name: "Broker A" } }, { account: { id: "broker-b", name: "Broker B" } }, { account: { id: "archived-broker", name: "Old Broker", archivedAt: "2026-05-01" } }] }) }));
+vi.mock("@/queries/directory", () => ({ useMembers: () => ({ data: [] }) }));
 vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "UTC" } }) }));
 vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: { timezone: "UTC", startedAt: "2026-01-01" } }) }));
 vi.mock("./PricePerformancePanel", () => ({ PricePerformancePanel: () => <div data-testid="market-performance" /> }));
@@ -56,6 +57,29 @@ beforeEach(() => {
   q.groups = [{ key: "fund", instruments: [holdings], subtotals: [] }];
   q.accountGroups = {};
   q.quote = undefined;
+});
+
+it("shows every account's backend cost, value and gain alongside the aggregate and opens its account", () => {
+  const view = show({ instrumentId: "fund-1" });
+  const rows = within(screen.getByRole("list", { name: "Accounts" })).getAllByRole("listitem");
+  expect(rows).toHaveLength(2);
+  expect(rows[0]).toHaveTextContent("US$40.00");
+  expect(rows[0]).toHaveTextContent("US$48.00");
+  expect(rows[1]).toHaveTextContent("US$60.00");
+  expect(rows[1]).toHaveTextContent("US$72.00");
+  expect(screen.getByText("US$100.00")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Open account: Broker A" }));
+  expect(view.open).toHaveBeenCalledWith({ page: "accounts", accountId: "broker-a" });
+});
+
+it("keeps a single zero-quantity account visible and leaves missing valuation unavailable", () => {
+  q.groups = [{ key: "fund", instruments: [{ ...holdings, holdings: [{ ...holdings.holdings[0], amounts: { quantity: "0", totalCost: { amount: "0", currency: "JPY" }, valueMissingReason: "missing_quote" } }] }], subtotals: [] }];
+  show({ instrumentId: "fund-1" });
+  const rows = within(screen.getByRole("list", { name: "Accounts" })).getAllByRole("listitem");
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toHaveTextContent("Zero quantity / closed position");
+  expect(rows[0]).toHaveTextContent("¥0");
+  expect(within(rows[0]).getAllByText("No current value")).toHaveLength(2);
 });
 
 it("shows backend account figures without replacing them with household totals, and preserves scope in History", () => {

@@ -85,7 +85,7 @@ func TestDescriptiveFlatOrdinaryFundNAV(t *testing.T) {
 	_, i := reviewFixture(t)
 	points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "1.2345"), reviewQuote(t, i, "2026-10-10", "1.2345")}
 	got := ProjectQuotePerformance(i, points)
-	if len(got) != 1 || got[0].PeriodPercent != "0" || got[0].ElapsedDays != 9 || got[0].BaselineOn != "2026-10-01" || got[0].LatestOn != "2026-10-10" || got[0].AnnualizedPercent != nil {
+	if len(got) != 1 || got[0].PeriodPercent != "0" || got[0].ElapsedDays != 9 || got[0].BaselineOn != "2026-10-01" || got[0].LatestOn != "2026-10-10" || got[0].AnnualizedPercent == nil || *got[0].AnnualizedPercent != "0" {
 		t.Fatalf("flat NAV %+v", got)
 	}
 }

@@ -12,6 +12,15 @@ never a financial institution or brokerage order.
 
 ## Authority and evidence
 
+Before starting a session, owner, account type and institution filters combine
+with AND. Owner filtering matches any ownership share by member ID; institution
+filtering uses institution ID, including an explicit no-institution choice.
+Filters change visibility only. Select/deselect filtered accounts changes that
+subset while preserving hidden selections; deselect all clears the whole scope.
+The UI shows selected/total, selected/visible and hidden-selected counts. Clearing
+filters preserves selection, empty filters cannot add accounts, and preview
+receives the full chosen active-account set.
+
 `application.Service` owns session state, capture, explicit outcomes and finish.
 The Wails reconciliation adapter and MCP session tools call the same methods.
 The working model has session, selected-account and per-item rows. Accounts are

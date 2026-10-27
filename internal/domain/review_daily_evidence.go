@@ -173,9 +173,11 @@ type ReviewDailyLeafEvidence struct {
 }
 
 type ReviewDailyResult struct {
-	On     string                    `json:"on"`
-	Truth  ReviewTruth               `json:"truth"`
-	Leaves []ReviewDailyLeafEvidence `json:"leaves"`
+	// Read-only context from the immutable condition version, never a rewritten vote.
+	Predicate *ReviewPredicateNode      `json:"predicate,omitempty"`
+	On        string                    `json:"on"`
+	Truth     ReviewTruth               `json:"truth"`
+	Leaves    []ReviewDailyLeafEvidence `json:"leaves"`
 }
 
 func EvaluateReviewDaily(spec ReviewRuleSpec, input ReviewDailyInput) (ReviewDailyResult, error) {
@@ -310,7 +312,7 @@ func evaluateReviewLeaf(leaf ReviewRuleLeaf, input ReviewDailyInput, spec Review
 		threshold, _ := decimal.NewFromString(leaf.Value)
 		item.Truth = reviewBool(reviewCompare(comparison, threshold, leaf.Operator))
 	case "price_change", "annualized":
-		if leaf.Metric == "annualized" && (input.InstrumentType == nil || *input.InstrumentType != InstrumentBankInvestmentProduct) {
+		if leaf.Metric == "annualized" && (input.InstrumentType == nil || !SupportsAnnualizedQuoteReturn(*input.InstrumentType)) {
 			item.Reason = "unsupported_instrument"
 			break
 		}

@@ -375,6 +375,18 @@ describe("investment review rule editor", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(state.save).not.toHaveBeenCalled();
   });
+  it.each([["mutual_fund"], ["etf"], ["mutual_fund", "etf"]])("saves annualized conditions scoped to supported types %j with explicit priority", async (...types) => {
+    const scopedRule = { ...rule, spec: { ...rule.spec, predicate: { all: [
+      { leaf: { metric: "type", operator: "in", types } },
+      { leaf: { metric: "annualized", operator: "<", value: "1", lookbackDays: 30 } },
+    ] } } } as unknown as ReviewRule;
+    render(<ReviewRuleEditor open onOpenChange={vi.fn()} rule={scopedRule} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Priority" }), "p0");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledOnce());
+    expect(state.save.mock.calls[0][0]).toMatchObject({ severity: "p0" });
+  });
   it.each([7, 30, 90, 180, 365])("submits the supported %s-day performance lookback", async days => {
     const lookbackRule = {
       ...rule,

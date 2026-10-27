@@ -25,6 +25,7 @@ export function PerformanceReturns({ instrumentId }: { instrumentId: string }) {
   return (
     <section aria-label={t("holdingPerformance.returns.label")} className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-4">
       <h4 className="text-sm font-medium">{t("holdingPerformance.returns.title")}</h4>
+      {items.some(item => item.annualizedPercent != null) && <p className="text-xs text-muted-foreground">{t("holdingPerformance.annualizedNote")}</p>}
       <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => {
           const direction = amountDirection(item.periodPercent) ?? "flat";
