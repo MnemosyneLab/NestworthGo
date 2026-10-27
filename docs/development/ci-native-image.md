@@ -61,6 +61,50 @@ not export the hosted runner's `GOCACHE` environment variable.
 Frontend retains Node 24.22.0 and pnpm 12.14.0; Go comes
 from `go.mod` (currently 1.27.3), never from a separate image toolchain pin.
 
+## CGO build-cache boundaries
+
+`setup-go@v7` does not derive a container identity from `/etc/os-release`.
+Its Linux key includes the runner's `ImageOS`, Go version and the hash of
+`cache-dependency-path`; see its
+[restore implementation](https://github.com/actions/setup-go/blob/v7/src/cache-restore.ts).
+All six workers list **both `go.sum` and `.github/ci-native-image.txt`** in
+that input. Setup-go restores only its exact key, without a broad restore
+prefix. Consequently a first digest, a different digest, or a changed Go
+version/dependency lock cannot restore another image's compiled CGO artifacts.
+This also invalidates the previous go.sum-only archive. Each immutable digest
+has its own build-cache boundary. Returning to an earlier identical pin can
+restore that digest's earlier cache, if it is still retained.
+
+Module downloads remain reusable across these boundaries. `GOMODCACHE` is
+explicitly `/tmp/nestworth-ci-go-modules` on both host and container jobs.
+When setup-go misses, a separate `actions/cache` restores **only that directory**
+under an OS/architecture/go.sum key that excludes the image pin. Its fixed
+path also avoids a cache-version/path mismatch between host and container
+homes. Successful cold runs save this shared module archive and setup-go's
+image-specific combined archive; warm setup-go hits skip the extra module
+cache action. No compiled build-cache directory enters the shared archive.
+
+A blank pin runs the original apt helper and then `go clean -cache` in each
+worker, before any native build/test/bindings command. Apt can change C headers
+without changing the blank pin, so the host path intentionally discards restored
+compiled artifacts on every run. It never calls `go clean -modcache`; downloaded
+modules survive. Switching to an immutable digest can reuse the module archive
+but compiles against that image on its first run. Digest A -> B starts a distinct
+build cache, B -> A can reuse A, and either digest -> blank cleans the host build
+cache again. Frontend bindings use the resulting `go env GOCACHE` as before.
+
+The optional `bash tools/check-ci-native-cache.sh` probe requires Go with
+CGO and a C compiler. It creates only synthetic files and cache directories,
+changes an external C header, and asserts fresh-image compilation, rollback
+and unpinned cleanup while retaining a module marker. With Go 1.27.3 the
+shared-cache run still returned header value 1 after the header changed to 2;
+the distinct cache returned 2, rollback returned 1, and cleanup returned 3.
+It remains opt-in because it cold-compiles standard-library cache entries.
+
+Blank-pin bootstrap therefore has cold native compilation and an extra cache
+fallback on misses. Image activation and warm digest runs have different cache
+costs; whole-workflow cold/warm timing still requires measurement.
+
 ## Trusted publishing and first-use bootstrap
 
 `ci-native-image.yml` builds and smoke-tests relevant PR changes with

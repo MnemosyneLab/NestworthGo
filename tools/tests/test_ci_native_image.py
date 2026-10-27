@@ -18,11 +18,11 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertEqual(workflow.count('needs: runtime'), 3)
         self.assertIn('python3 tools/ci-native-container.py >> "$GITHUB_OUTPUT"', workflow)
         self.assertIn('defaults:\n  run:\n    shell: bash', workflow)
-        self.assertEqual(workflow.count('if: ${{ !job.container.id }}'), 3)
+        self.assertEqual(workflow.count('if: ${{ !job.container.id }}'), 6)
         self.assertEqual(workflow.count('bash tools/ci-install-native-deps.sh'), 3)
         self.assertEqual(workflow.count('bash build/ci/verify-native.sh --with-toolchains'), 3)
         # Keep action-managed caches, all test shards and native checks intact.
-        self.assertEqual(workflow.count('cache-dependency-path: go.sum'), 3)
+        self.assertEqual(workflow.count('cache-dependency-path: |\n            go.sum\n            .github/ci-native-image.txt'), 3)
         self.assertIn('cache: pnpm', workflow)
         self.assertIn('NESTWORTH_WAILS_GOCACHE=$(go env GOCACHE)', workflow)
         for gate in ('go vet ./...', 'go build ./cmd/nestworth', 'go test -count=1 -json',
@@ -38,6 +38,26 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('node-version: 24.22.0', meta)
         self.assertIn('node --version\n', meta)
         self.assertLess(meta.index('node --version'), meta.index('python3 -m unittest'))
+
+    def test_cgo_cache_is_pinned_and_modules_are_shared(self):
+        workflow = (ROOT / '.github/workflows/check.yml').read_text()
+        # setup-go v7 hashes every listed dependency file into an exact key.
+        # No restore prefix may cross the native-image boundary.
+        self.assertEqual(workflow.count('id: go'), 3)
+        self.assertEqual(workflow.count("if: steps.go.outputs.cache-hit != 'true'"), 3)
+        self.assertEqual(workflow.count('path: ${{ env.GOMODCACHE }}'), 3)
+        module_key = "key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}"
+        self.assertEqual(workflow.count(module_key), 3)
+        self.assertIn('GOMODCACHE: /tmp/nestworth-ci-go-modules', workflow)
+        self.assertNotIn('restore-keys:', workflow)
+        self.assertNotIn('go clean -modcache', workflow)
+        self.assertEqual(workflow.count('name: Reset unpinned native build cache\n        if: ${{ !job.container.id }}\n        run: go clean -cache'), 3)
+        # Cleanup must follow apt and precede any native compilation, bindings,
+        # or verification, in every job definition (including both matrices).
+        for job, end in (('meta', 'frontend'), ('frontend', 'go-shard'), ('go-shard', 'test')):
+            section = workflow.split('\n  ' + job + ':', 1)[1].split('\n  ' + end + ':', 1)[0]
+            self.assertLess(section.index('bash tools/ci-install-native-deps.sh'), section.index('go clean -cache'))
+            self.assertLess(section.index('go clean -cache'), section.index('bash build/ci/verify-native.sh'))
 
     def test_runtime_bootstrap_and_digest_validation(self):
         spec = importlib.util.spec_from_file_location('ci_native_container', ROOT / 'tools/ci-native-container.py')
