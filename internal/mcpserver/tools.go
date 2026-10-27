@@ -97,8 +97,8 @@ type Response struct {
 	Data any `json:"data"`
 }
 
-func readTool[I any](server *mcp.Server, name, description string, fn func(context.Context, I) (any, error)) {
-	localTool(server, name, description, true, fn)
+func readTool[I any](server *mcp.Server, name, description string, fn func(context.Context, I) (any, error), schemas ...any) {
+	localTool(server, name, description, true, fn, schemas...)
 }
 
 // Analysis only mutates local derived snapshots, and remains available in all
@@ -106,10 +106,12 @@ func readTool[I any](server *mcp.Server, name, description string, fn func(conte
 func analysisTool[I any](server *mcp.Server, name, description string, fn func(context.Context, I) (any, error)) {
 	localTool(server, name, description+" May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode; no extra token permission.", false, fn)
 }
-func localTool[I any](server *mcp.Server, name, description string, readOnly bool, fn func(context.Context, I) (any, error)) {
+func localTool[I any](server *mcp.Server, name, description string, readOnly bool, fn func(context.Context, I) (any, error), schemas ...any) {
 	closed, destructive := false, false
 	tool := &mcp.Tool{Name: name, Description: description, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: readOnly, DestructiveHint: &destructive, OpenWorldHint: &closed}}
-	if schema := scaleReadSchema[I](name); schema != nil {
+	if len(schemas) > 0 {
+		tool.InputSchema = schemas[0]
+	} else if schema := scaleReadSchema[I](name); schema != nil {
 		tool.InputSchema = schema
 	}
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in I) (*mcp.CallToolResult, Response, error) {

@@ -89,7 +89,7 @@ func TestReconciliationSessionEvidenceDurabilityPartialAndImmutable(t *testing.T
 	v = recAction(t, s, ReconciliationAction{Action: "resume", SessionID: v.ID, ExpectedRevision: v.Revision})
 	a := ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: "balance", FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed"}
 	if _, err := s.PreviewReconciliationSession(ctx, a); err == nil {
-		t.Fatal("fabricated source accepted")
+		t.Fatal("missing as-of date accepted")
 	}
 	a.Source = domain.ReconciliationSource{Reference: "Synthetic statement", AsOfDate: "2026-09-01"}
 	v = recAction(t, s, a)
@@ -962,5 +962,37 @@ func TestReconciliationConcreteHoldingAndAtomicCompanion(t *testing.T) {
 	v, err = s.GetReconciliationSession(ctx, v.ID)
 	if err != nil || v.Counts.Confirmed != 0 {
 		t.Fatal("correction implied attestation")
+	}
+}
+
+func TestReconciliationOptionalSourceReferenceDurability(t *testing.T) {
+	s, db, aid := reconciliationFixture(t)
+	ctx := t.Context()
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	for _, id := range []string{"scope", "balance"} {
+		a := ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: id, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{AsOfDate: "2026-08-31"}}
+		for _, bad := range []domain.ReconciliationSource{{}, {AsOfDate: "2026-02-30"}, {AsOfDate: "2026-08-31", AsOfTime: "24:00"}, {Reference: strings.Repeat("中", 171), AsOfDate: "2026-08-31"}} {
+			a.Source = bad
+			if _, err := s.PreviewReconciliationSession(ctx, a); err == nil {
+				t.Fatalf("invalid source accepted: %+v", bad)
+			}
+		}
+		a.Source = domain.ReconciliationSource{AsOfDate: "2026-08-31"}
+		v = recAction(t, s, a)
+	}
+	v = recAction(t, s, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: v.Revision})
+	restarted := NewService(sqlite.NewRepository(db))
+	saved, err := restarted.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Partial || saved.Counts.Confirmed != 2 {
+		t.Fatalf("completion: %+v", saved)
+	}
+	for _, item := range saved.Accounts[0].Items {
+		want := domain.ReconciliationSource{AsOfDate: "2026-08-31"}
+		if item.Source != want || len(item.Attempts) != 1 || item.Attempts[0].Source != want {
+			t.Fatalf("invented or changed evidence: %+v", item)
+		}
 	}
 }

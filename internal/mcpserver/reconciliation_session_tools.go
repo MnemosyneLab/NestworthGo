@@ -6,10 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -123,7 +125,7 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 	if mode != LedgerWrite {
 		return
 	}
-	readTool(server, "preview_reconciliation_session", "Preview start, pause, resume, check or finish. Start selects active accountIds (omitted means all, max 100). All other actions require sessionId/expectedRevision. check requires accountId/itemId/current financialRevision and explicit outcome confirmed/skipped/unresolved/pending. Confirmed requires actual user-supplied source.reference and source.asOfDate; optional HH:mm uses the ledger timezone, date-only remains date-only. Never fabricate an attestation. Skip/unresolved require a note. Partial finish requires allowPartial and explanation. A correction never confirms an item. Inspect returned counts before commit.", func(ctx context.Context, in application.ReconciliationAction) (any, error) {
+	readTool(server, "preview_reconciliation_session", "Preview start, pause, resume, check or finish. Start selects active accountIds (omitted means all, max 100). All other actions require sessionId/expectedRevision. check requires accountId/itemId/current financialRevision and explicit outcome confirmed/skipped/unresolved/pending. Confirmed requires source.asOfDate; source.reference is optional and may be omitted or empty; optional HH:mm uses the ledger timezone, date-only remains date-only. Never fabricate an attestation. Skip/unresolved require a note. Partial finish requires allowPartial and explanation. A correction never confirms an item. Inspect returned counts before commit.", func(ctx context.Context, in application.ReconciliationAction) (any, error) {
 		p, e := s.app.PreviewReconciliationSession(ctx, in)
 		if e != nil {
 			return nil, e
@@ -154,7 +156,7 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 			result.Accounts[i].Items = nil
 		}
 		return map[string]any{"planId": p.ID, "expiresAt": p.ExpiresAt, "result": result, "action": p.Action, "checkedItem": checked}, nil
-	})
+	}, reconciliationActionSchema())
 	closed := false
 	mcp.AddTool(server, &mcp.Tool{Name: "commit_reconciliation_session", Description: "Commit exactly the saved session preview. Requires ledger_write. Retry same operationId and planId after an unknown outcome. Durable session receipt is checked before expiry, completed-state and revision checks. Returned header is the original committed outcome; reread current evidence separately.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
 		v, e := s.executeWithRecovery(ctx, in.OperationID, "commit_reconciliation_session", in.Input, true, func(ctx context.Context) (any, error) {
@@ -330,4 +332,17 @@ func (s *Service) reconciliationSessionPage(ctx context.Context, in Reconciliati
 		}
 	}
 	return pageReconciliation(in, rows, v.Revision)
+}
+
+// Keep persisted source JSON stable for existing plans and receipts. Only the
+// request schema relaxes reference presence; omitted text decodes to empty.
+func reconciliationActionSchema() *jsonschema.Schema {
+	schema, err := jsonschema.For[application.ReconciliationAction](nil)
+	if err != nil {
+		panic(err)
+	}
+	source := schema.Properties["source"]
+	source.Required = slices.DeleteFunc(source.Required, func(field string) bool { return field == "reference" })
+	source.Properties["reference"].Description = "Optional statement or source reference; leave absent when unknown"
+	return schema
 }

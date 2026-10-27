@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   act,
   fireEvent,
@@ -24,6 +24,10 @@ const q = vi.hoisted(() => ({
   session: undefined as ReconciliationSession | undefined,
   error: false,
   timezone: "UTC",
+  historyLoading: false,
+  historyError: false,
+  historyCached: false,
+  historyAbsent: false,
   sessions: [] as ReconciliationSession[],
   auditError: false,
   archivedAccountId: "",
@@ -88,7 +92,7 @@ vi.mock("@/queries/accounts", () => ({
   useAccountValuations: () => ({ data: [{ account: { id: "one", name: "Synthetic bank" }, components: [{ nativeCurrency: "USD", nativeAmount: "5000" }] }] }),
 }));
 vi.mock("@/queries/history", () => ({
-  useHistoryOrigin: () => ({ data: { timezone: q.timezone } }),
+  useHistoryOrigin: () => ({ data: q.historyLoading || (q.historyError && !q.historyCached) ? undefined : q.historyAbsent ? null : { timezone: q.timezone }, isLoading: q.historyLoading, isError: q.historyError, refetch: q.refetch }),
 }));
 vi.mock("@/queries/settings", () => ({
   useSettings: () => ({
@@ -195,6 +199,10 @@ beforeEach(async () => {
   q.session = session();
   q.error = false;
   q.timezone = "UTC";
+  q.historyLoading = false;
+  q.historyError = false;
+  q.historyCached = false;
+  q.historyAbsent = false;
   q.sessions = [];
   q.auditError = false;
   q.archivedAccountId = "";
@@ -256,22 +264,21 @@ it("uses the actual date/time controls and passes explicit source evidence with 
   const trigger = within(
     screen.getByText(/Synthetic bank · Account balance/).closest("article")!,
   ).getByRole("button", { name: "Check item" });
-  await userEvent.click(trigger);
-  await userEvent.type(
-    screen.getByLabelText("Statement or source reference"),
-    "Synthetic September statement",
-  );
-  await userEvent.click(screen.getByLabelText("Source as-of date"));
+  fireEvent.click(trigger);
+  fireEvent.change(screen.getByLabelText("Statement or source reference (optional)"), {
+    target: { value: "Synthetic September statement" },
+  });
+  fireEvent.click(screen.getByLabelText("Source as-of date"));
   const grid = await screen.findByRole("grid");
-  await userEvent.click(
+  fireEvent.click(
     grid.querySelector('[data-day="2026-09-02"] button') as HTMLElement,
   );
-  await userEvent.click(
+  fireEvent.click(
     screen.getByLabelText("Source time (optional, ledger timezone)"),
   );
   const lists = await screen.findAllByRole("list", { name: "Local time" });
-  await userEvent.click(within(lists[0]).getByRole("button", { name: "23" }));
-  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  fireEvent.click(within(lists[0]).getByRole("button", { name: "23" }));
+  fireEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(q.preview).toHaveBeenCalledWith(
     expect.objectContaining({
       action: "check",
@@ -516,13 +523,13 @@ it("keeps a late new-product preview closed after Escape and a session switch", 
   let resolveProduct!: (value: unknown) => void;
   q.newProductPreview.mockImplementationOnce(() => new Promise((resolve) => { resolveProduct = resolve; }));
   mount("session-one");
-  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.addProduct") }));
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.addProduct") }));
   fireEvent.change(screen.getByLabelText("Principal"), { target: { value: "1000" } });
-  await userEvent.click(screen.getByLabelText("Start date"));
-  await userEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
-  await userEvent.click(screen.getByLabelText("Maturity date"));
-  await userEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
-  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  fireEvent.click(screen.getByLabelText("Start date"));
+  fireEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
+  fireEvent.click(screen.getByLabelText("Maturity date"));
+  fireEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
+  fireEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(q.newProductPreview).toHaveBeenCalledOnce();
   await userEvent.keyboard("{Escape}");
@@ -719,7 +726,7 @@ it.each(["a", "中", "😀"])(
     );
     const preview = screen.getByRole("button", { name: "Preview" });
     for (const [label, limit] of [
-      ["Statement or source reference", 512],
+      ["Statement or source reference (optional)", 512],
       ["Value shown by your source (optional)", 256],
       ["Explanation or note", 2000],
     ] as const) {
@@ -776,40 +783,21 @@ it.each(["Asia/Tokyo", "America/Los_Angeles"])(
   },
 );
 
-it.each(["en"])(
-  "identifies missing source evidence inline and clears corrected errors in %s",
-  async (language) => {
-    await i18n.changeLanguage(language);
-    q.preview.mockRejectedValueOnce(
-      Object.assign(new Error("Source: Check this field and try again."), {
-        wireError: {
-          code: "validation",
-          field: "source",
-          message:
-            "confirmation requires a user-provided source and as-of date",
-        },
-      }),
-    );
-    mount("session-one");
-    await userEvent.click(
-      screen.getAllByRole("button", {
-        name: i18n.t("reconciliation.review"),
-      })[0],
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: i18n.t("reconciliation.preview") }),
-    );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      i18n.t("reconciliation.validation.source"),
-    );
-    const reference = screen.getByLabelText(i18n.t("reconciliation.source"));
-    expect(reference).toHaveAttribute("aria-invalid", "true");
-    expect(reference).toHaveAccessibleDescription(/source|来源|來源/);
-    await userEvent.type(reference, "Synthetic statement");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(reference).not.toHaveAttribute("aria-invalid");
-  },
-);
+it("identifies a missing cutoff date inline and clears the error after choosing one", async () => {
+  q.preview.mockRejectedValueOnce(Object.assign(new Error("Missing date"), {
+    wireError: { code: "validation", field: "asOfDate", message: "confirmation requires an as-of date" },
+  }));
+  mount("session-one");
+  await openBalanceCheck();
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("reconciliation.validation.asOfDate"));
+  const date = screen.getByLabelText("Source as-of date");
+  expect(date).toHaveAttribute("aria-invalid", "true");
+  await userEvent.click(date);
+  await userEvent.click((await screen.findByRole("grid")).querySelector('[data-day="2026-09-02"] button') as HTMLElement);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Source as-of date")).not.toHaveAttribute("aria-invalid");
+});
 
 it("identifies partial finish intent and closing explanation and clears stale errors", async () => {
   q.preview.mockRejectedValueOnce(
@@ -1536,4 +1524,163 @@ it("discards a late preview after an explicit reconciliation entry", async () =>
   view.rerender(workspace(2));
   await act(async () => { resolvePreview({ planId: "late-entry-preview", result: q.session }); });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+afterEach(() => vi.useRealTimers());
+
+async function openScopeCheck() {
+  await userEvent.click(within(screen.getByRole("heading", { name: "Anything missing? · Completeness" }).closest("article")!).getByRole("button", { name: "Check item" }));
+}
+
+it("defaults an empty completeness check to ledger today with no invented reference or time", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.timezone = "Asia/Shanghai";
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-27");
+  expect(screen.getByLabelText("Statement or source reference (optional)")).toHaveValue("");
+  expect(screen.getByPlaceholderText("e.g. Bank-app balance or September statement")).toHaveAccessibleDescription(/Optional/);
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ itemId: "scope", source: { reference: "", asOfDate: "2026-10-27", asOfTime: "" } }));
+});
+
+it("refreshes untouched defaults at midnight, resolves them again at preview and resets on reopen", async () => {
+  vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+  vi.setSystemTime(new Date("2026-10-27T06:59:59Z"));
+  q.timezone = "America/Los_Angeles";
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-26");
+  await act(async () => vi.advanceTimersByTime(30_000));
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-27");
+  await userEvent.keyboard("{Escape}");
+  vi.setSystemTime(new Date("2026-10-28T08:00:00Z"));
+  await openScopeCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-28");
+  vi.setSystemTime(new Date("2026-10-29T08:00:00Z"));
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ source: { reference: "", asOfDate: "2026-10-29", asOfTime: "" } }));
+});
+
+it("preserves saved and explicitly selected historical dates and intentional clearing across midnight", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-27T12:00:00Z"));
+  mount("session-one");
+  await openBalanceCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-09-01");
+  vi.setSystemTime(new Date("2026-10-28T12:00:00Z"));
+  fireEvent(document, new Event("visibilitychange"));
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-09-01");
+  await userEvent.keyboard("{Escape}");
+  await openBalanceCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-09-01");
+  await userEvent.click(screen.getByLabelText("Source as-of date"));
+  await userEvent.click((await screen.findByRole("grid")).querySelector('[data-day="2026-09-02"] button') as HTMLElement);
+  vi.setSystemTime(new Date("2026-10-29T12:00:00Z"));
+  fireEvent.focus(window);
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-09-02");
+  await userEvent.click(screen.getByLabelText("Source as-of date"));
+  await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+  fireEvent.focus(window);
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ source: { reference: "", asOfDate: "", asOfTime: "" } }));
+});
+
+it("waits for the ledger timezone and follows it when the history read completes", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.historyLoading = true;
+  q.timezone = "Asia/Shanghai";
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent(i18n.t("common.selectDate"));
+  q.historyLoading = false;
+  fireEvent.focus(window);
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-27");
+});
+
+
+async function openBalanceCheck() {
+  await userEvent.click(within(screen.getByText(/Synthetic bank · Account balance/).closest("article")!).getByRole("button", { name: "Check item" }));
+}
+
+
+it("explains a failed ledger-timezone read and allows retry before preview", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.historyError = true;
+  q.timezone = "Asia/Shanghai";
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("reconciliation.sourceTimezoneError"));
+  expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+  expect(screen.getByLabelText("Source as-of date")).toBeDisabled();
+  expect(screen.getByLabelText("Source time (optional, ledger timezone)")).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(q.refetch).toHaveBeenCalledOnce();
+  q.historyError = false;
+  fireEvent.focus(window);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-27");
+});
+
+
+it("uses a cached ledger timezone after a refetch failure without replacing explicit dates", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.historyError = true;
+  q.historyCached = true;
+  q.timezone = "Asia/Shanghai";
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("reconciliation.sourceTimezoneRefreshError"));
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-27");
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await userEvent.keyboard("{Escape}");
+  await openBalanceCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-09-01");
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ source: { reference: "", asOfDate: "2026-09-01", asOfTime: "" } }));
+});
+
+it("previews an explicit saved date even when the initial timezone read fails", async () => {
+  q.historyError = true;
+  q.session!.accounts![0].items![0].source.asOfTime = "09:15";
+  mount("session-one");
+  await openBalanceCheck();
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ source: { reference: "", asOfDate: "2026-09-01", asOfTime: "09:15" } }));
+});
+
+it.each(["pending", "skipped", "unresolved"])("previews %s without guessing a date after the initial timezone read fails", async (outcome) => {
+  q.historyError = true;
+  mount("session-one");
+  await openScopeCheck();
+  fireEvent.change(screen.getByLabelText("Check outcome"), { target: { value: outcome } });
+  fireEvent.change(screen.getByLabelText("Explanation or note"), { target: { value: "Synthetic outstanding evidence" } });
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ outcome, source: { reference: "", asOfDate: "", asOfTime: "" } }));
+});
+
+
+it("does not guess UTC from a cached absence after a timezone refetch failure", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.historyError = true;
+  q.historyCached = true;
+  q.historyAbsent = true;
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent(i18n.t("common.selectDate"));
+  expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+  q.historyError = false;
+  fireEvent.focus(window);
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-26");
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
 });

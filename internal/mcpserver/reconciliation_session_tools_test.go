@@ -345,3 +345,42 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 		t.Fatalf("unexpected executions: %d %v", len(rows), err)
 	}
 }
+
+func TestReconciliationSessionOptionalSourceReferenceHTTP(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	tools, err := c.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range tools.Tools {
+		if tool.Name != "preview_reconciliation_session" {
+			continue
+		}
+		raw, _ := jsoncodec.Marshal(tool.InputSchema)
+		var schema map[string]any
+		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
+			t.Fatal(err)
+		}
+		source := schema["properties"].(map[string]any)["source"].(map[string]any)
+		required := source["required"].([]any)
+		if len(required) != 1 || required[0] != "asOfDate" {
+			t.Fatalf("source schema: %s", raw)
+		}
+	}
+	v := sessionAction(t, c, map[string]any{"action": "start", "accountIds": []string{fx.checking}})
+	for n, id := range []string{"scope", "balance"} {
+		full := call(t, c, "get_reconciliation_item", map[string]any{"sessionId": v["id"], "accountId": fx.checking, "itemId": id}, false)["data"].(map[string]any)
+		item := full["item"].(map[string]any)
+		source := map[string]any{"asOfDate": "2026-09-01"}
+		if n == 1 {
+			source["reference"] = ""
+		}
+		v = sessionAction(t, c, map[string]any{"action": "check", "sessionId": v["id"], "expectedRevision": v["revision"], "accountId": fx.checking, "itemId": id, "financialRevision": item["financialRevision"], "outcome": "confirmed", "source": source})
+		full = call(t, c, "get_reconciliation_item", map[string]any{"sessionId": v["id"], "accountId": fx.checking, "itemId": id}, false)["data"].(map[string]any)
+		evidence := full["item"].(map[string]any)["source"].(map[string]any)
+		if evidence["reference"] != "" || evidence["asOfDate"] != "2026-09-01" || evidence["asOfTime"] != nil {
+			t.Fatalf("invented evidence: %+v", evidence)
+		}
+	}
+}
