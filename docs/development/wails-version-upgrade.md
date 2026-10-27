@@ -8,9 +8,9 @@ remain synchronized.
 The current repository baseline is:
 
 ```text
-Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.34
-Frontend:       @wailsio/runtime 3.0.0-beta.34
-CLI/fallback:   v3.0.0-beta.34
+Go module:      github.com/wailsapp/wails/v3 v3.0.0
+Frontend:       @wailsio/runtime 3.0.0
+CLI/fallback:   v3.0.0
 ```
 
 For another target, replace the version variables below. Go and CLI versions use
@@ -19,8 +19,28 @@ a `v` prefix; the npm runtime version does not.
 Official references:
 
 - [Wails releases](https://github.com/wailsapp/wails/releases)
-- [Wails v3 documentation](https://v3.wails.io/)
-- [Wails bindings documentation](https://v3.wails.io/features/bindings/methods/)
+- [Wails v3 documentation](https://wails.io/)
+- [Wails bindings documentation](https://wails.io/features/bindings/methods/)
+
+## v3.0.0 compatibility notes
+
+The [official stable release](https://github.com/wailsapp/wails/releases/tag/v3.0.0)
+requires Go 1.26+; the existing Go 1.27.3 baseline meets that requirement.
+Go, the CLI/binding generator and the npm runtime are pinned to v3.0.0 together.
+The [official migration guide](https://wails.io/migration/v2-to-v3/) describes
+v2 application, service, event and binding changes; Nestworth already uses the
+v3 APIs. Regenerate ignored bindings with the stable generator and validate
+installed-runtime cancellation and error integration before accepting the upgrade.
+The CLI guard compares the complete version output so a beta or nightly cannot
+match the stable version by prefix; synthetic CLI-selection tests cover this.
+
+Changes since beta.34 include Windows menu painting/dark-mode crash fixes,
+staged-updater recovery and a CLI update fix. The release also updates upstream
+security dependencies and documents remaining iframe bridge limitations.
+Keep the customized Darwin staging/packaging tasks and the local-storage
+restriction below; updating dependencies does not regenerate project Taskfiles.
+Native macOS GUI and packaging, live AI/provider clients and public release
+acceptance remain separate gates from cloud server and jsdom tests.
 
 ## beta.34 compatibility notes
 
@@ -121,8 +141,8 @@ Set the target versions and writable caches. Restricted environments should not
 rely on the default Go cache directories:
 
 ```bash
-WAILS_GO_VERSION=v3.0.0-beta.34
-WAILS_RUNTIME_VERSION=3.0.0-beta.34
+WAILS_GO_VERSION=v3.0.0
+WAILS_RUNTIME_VERSION=3.0.0
 GOCACHE=/tmp/nestworth-wails-gocache
 GOMODCACHE=/tmp/nestworth-wails-gomodcache
 export WAILS_GO_VERSION WAILS_RUNTIME_VERSION GOCACHE GOMODCACHE
@@ -137,14 +157,14 @@ pnpm --version
 type -a wails3 2>/dev/null || true
 wails3 version 2>/dev/null || true
 go list -m github.com/wailsapp/wails/v3
-rg -n 'v3\.0\.0-beta|@wailsio/runtime' \
+rg -n 'v3\.0\.0|@wailsio/runtime' \
   go.mod frontend/package.json frontend/pnpm-lock.yaml \
   frontend/scripts/ensure-bindings.mjs README.md docs .github
 ```
 
 Read the target release notes, especially Changed, Fixed, Removed, and
 bindings/runtime sections. Passing automated tests does not prove native GUI or
-package behavior for a beta release.
+package behavior for a release.
 
 ## 2. Install the matching `wails3` CLI
 
@@ -158,7 +178,7 @@ PATH="$(go env GOPATH)/bin:$PATH" wails3 version
 The output must be the target version:
 
 ```text
-v3.0.0-beta.34
+v3.0.0
 ```
 
 If an old version is still reported, inspect `type -a wails3` and retry with the
@@ -225,7 +245,7 @@ Update current-version statements in README, Engineering Guide, Local Workflow,
 and this guide:
 
 ```bash
-rg -n 'v3\.0\.0-beta|@wailsio/runtime' \
+rg -n 'v3\.0\.0|@wailsio/runtime' \
   README.md docs/development frontend/scripts/ensure-bindings.mjs
 ```
 
@@ -241,10 +261,11 @@ PATH="$(go env GOPATH)/bin:$PATH" \
   wails3 task generate:bindings
 ```
 
-The task runs `go mod tidy` and then an equivalent production-tag generation:
+The task runs `go mod tidy` and then the version-checked frontend guard,
+which generates bindings with the equivalent command:
 
 ```bash
-wails3 generate bindings -f '-tags production' -clean=true -ts -i ./...
+wails3 generate bindings -clean=true -ts -i -d frontend/bindings ./...
 ```
 
 Do not omit `./...`. Wails services are registered under `cmd/nestworth`; a
@@ -254,7 +275,7 @@ Without a global CLI, use the exact target directly:
 
 ```bash
 go run "github.com/wailsapp/wails/v3/cmd/wails3@$WAILS_GO_VERSION" \
-  generate bindings -f '-tags production' -clean=true -ts -i ./...
+  generate bindings -clean=true -ts -i -d frontend/bindings ./...
 ```
 
 Confirm that the generator reports services, methods, models, and events, then
@@ -421,5 +442,5 @@ needs migration, record it as a separate compatibility change with tests.
 For a dependency-only change, a suitable Conventional Commit is:
 
 ```text
-chore(deps): upgrade Wails to v3.0.0-beta.34
+chore(deps): upgrade Wails to v3.0.0
 ```

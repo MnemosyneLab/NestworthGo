@@ -189,7 +189,7 @@ tasks:
       - frontend/bindings/**/*
     cmds:
       # The frontend generator verifies the CLI version and falls back to the
-      # pinned Wails beta when no matching global binary is installed.
+      # pinned Wails version when no matching global binary is installed.
       - task: frontend:run
         vars:
           SCRIPT: generate:bindings
