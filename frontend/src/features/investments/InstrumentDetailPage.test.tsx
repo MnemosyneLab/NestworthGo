@@ -82,6 +82,14 @@ it("keeps a single zero-quantity account visible and leaves missing valuation un
   expect(within(rows[0]).getAllByText("No current value")).toHaveLength(2);
 });
 
+it.each(["0", "0.001", "0.005", "-0.001", "-0.005"])("only labels exact zero as closed for quantity %s", quantity => {
+  q.groups = [{ key: "fund", instruments: [{ ...holdings, holdings: [{ ...holdings.holdings[0], amounts: { ...holdings.holdings[0].amounts, quantity } }] }], subtotals: [] }];
+  show({ instrumentId: "fund-1" });
+  const list = screen.getByRole("list", { name: "Accounts" });
+  expect(within(list).getByText(quantity, { exact: true })).toBeVisible();
+  expect(within(list).queryByText(/Zero quantity \/ closed position/)).toBe(quantity === "0" ? within(list).getByText(/Zero quantity \/ closed position/) : null);
+});
+
 it("shows backend account figures without replacing them with household totals, and preserves scope in History", () => {
   const context = { instrumentId: "fund-1", accountId: "broker-a", from: "2026-01-01", to: "2026-09-30" };
   const view = show(context);

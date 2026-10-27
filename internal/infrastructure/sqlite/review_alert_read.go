@@ -376,7 +376,15 @@ func reviewAlertGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID domain
 		}
 		entry.LatestResult = evidence.LatestResult
 		if entry.LatestResult != nil {
-			entry.LatestResult.Predicate = &spec.Predicate
+			entry.LatestResult.Predicate = nil
+			evidenceSpec, _, proven, err := reviewEvidenceVersion(ctx, tx, ruleID, id, entry.LatestResult)
+			if err != nil {
+				return nil, err
+			}
+			if proven {
+				entry.LatestResult.Predicate = &evidenceSpec.Predicate
+				entry.TriggerPolicy = evidenceSpec.TriggerPolicy
+			}
 		}
 		if evidence.Coverage != nil {
 			entry.Coverage = evidence.Coverage

@@ -15,7 +15,7 @@ import { useCurrentInstrumentQuote, useInstruments } from "@/queries/investments
 import { useSettings } from "@/queries/settings";
 import { displayEnum } from "@/lib/display";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
-import { formatAmount, formatQuotePrice, formatSignedMoney } from "@/lib/money";
+import { compareCanonical, formatAmount, formatQuotePrice, formatSignedMoney } from "@/lib/money";
 import { formatQuoteAsOf } from "@/lib/time";
 import { QuoteHistoryContent } from "@/features/marketdata/QuoteHistorySheet";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
@@ -78,7 +78,7 @@ function HoldingProjection({ instrument, holding, accountId, from, to }: {
             <div className="min-w-0 break-words"><h3 className="font-medium">{item.accountName}</h3><p className="text-xs text-muted-foreground">{[owners, record?.institutionName].filter(Boolean).join(" · ") || t("common.unknownValue")}</p></div>
             {navigation && <Button type="button" variant="link" size="sm" onClick={() => navigation.open({ page: "accounts", accountId: item.accountId })}>{t("instrumentDetail.openAccount", { name: item.accountName })}</Button>}
           </div>
-          {amountDirection(item.amounts.quantity) === "flat" && <p className="text-xs text-muted-foreground">{t("instrumentDetail.closedHolding")}</p>}
+          {compareCanonical(item.amounts.quantity, "0") === 0 && <p className="text-xs text-muted-foreground">{t("instrumentDetail.closedHolding")}</p>}
           <HoldingFigures amounts={item.amounts} />
         </li>;
       })}

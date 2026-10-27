@@ -33,7 +33,12 @@ and rules sort by handling status, then priority, then stable identity; cursors
 include the complete order key and remain bound to the publication and filter.
 
 Why-alert summaries and daily history attach the immutable condition version's
-predicate at read time. The UI displays its AND/OR tree, numbered conditions,
+predicate at read time. The version must be uniquely proven by matching the
+episode's complete latest vote bytes to its persisted daily result and immutable
+rule version. Current and episode-opening versions are not substitutes: an episode
+can survive edits, pending publication and recomputation failures. Ambiguous or
+unmatched evidence receives no predicate; daily history is unavailable until its
+version can be proven. The UI displays its AND/OR tree, numbered conditions,
 lookback, comparison/threshold, actual evidence and each leaf's own truth.
 The whole-rule result is separate. Stored votes and historical receipts are
 never rewritten to add display context.

@@ -105,3 +105,18 @@ revision/CAS path. Alert grouping/status filters are retained; groups and rules
 sort by handling status, priority and stable identity. Pagination holds only a
 bounded page-plus-one result and carries its complete ordering key. No benchmark
 or broad performance improvement is claimed.
+
+## Independent review follow-up
+
+Fixed stale evidence context after a rule edit: alert List/Get and daily history
+now prove the latest evidence's own version from its complete persisted daily vote
+bytes, retaining the immutable AND/OR tree. Neither the current rule version nor
+the episode-opening version establishes that provenance. A new regression covers
+a 7-day `< 0` vote of -2%/true, editing to 30-day `< -10`, pending publication,
+injected recomputation failure, ambiguous version evidence and a successful new
+publication retained in the original episode. Ambiguity omits the alert predicate
+and refuses daily history instead of attaching unrelated conditions.
+
+Fixed zero/closed labels to compare canonical quantity exactly to zero. Component
+regressions cover 0, 0.001, 0.005 and negative nonzero quantities; display rounding
+continues to apply only to gain direction.
