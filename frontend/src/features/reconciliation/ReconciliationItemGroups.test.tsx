@@ -31,3 +31,21 @@ it("preserves manual expansion on refetch, defers movement while a dialog is ope
   rerender(<Harness rows={completed.map(item => ({ ...item, recheckRequired: true }))} />);
   expect(screen.getByText("Items to review (4)")).toBeInTheDocument();
 });
+
+it("resurfaces the affected holding while leaving unrelated confirmations collapsed", () => {
+ const confirmed = ["first", "second", "cash-usd", "cash-eur"].map(id => ({ id, kind: id.startsWith("cash") ? "cash" : "holding", outcome: "confirmed" }) as ReconciliationItem);
+ const view = render(<ReconciliationItemGroups items={confirmed} locked={false}>{row => <span>{row.id}</span>}</ReconciliationItemGroups>);
+ expect(screen.getByText("second")).not.toBeVisible();
+ view.rerender(<ReconciliationItemGroups items={confirmed.map(row => row.id === "first" ? {...row,outcome:"pending",recheckRequired:true} : row)} locked={false}>{row => <span>{row.id}</span>}</ReconciliationItemGroups>);
+ expect(screen.getByText("first")).toBeVisible();
+ for(const id of ["second","cash-usd","cash-eur"]) expect(screen.getByText(id)).not.toBeVisible();
+});
+
+it("keeps focus on the confirmed disclosure when the last pending item moves and skipped work remains", () => {
+ const rows = [{id:"current",kind:"holding",outcome:"pending"},{id:"skipped",kind:"holding",outcome:"skipped"}] as ReconciliationItem[];
+ const view = render(<Harness rows={rows}/>);
+ screen.getByRole("button",{name:"current"}).focus();
+ view.rerender(<Harness rows={rows.map(row => row.id === "current" ? {...row,outcome:"confirmed"} : row)}/>);
+ expect(screen.getByRole("button",{name:"Confirmed items (1)"})).toHaveFocus();
+ expect(screen.getByRole("button",{name:"skipped"})).toBeVisible();
+});

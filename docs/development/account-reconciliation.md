@@ -101,9 +101,24 @@ Recorded revision order detects newly recorded backdated activity, rather than
 using its effective date as a watermark. Separate change-log rows retain recorded
 and effective timestamps. There is no prior watermark on a first session.
 
-A changed working account refreshes its current items, retains earlier attempts,
-surfaces removed points and requires renewed explicit review. Other accounts keep
-their progress. All refreshed points, including removed points, use stable-ID
+A changed working account refreshes only affected points. Account revision changes
+still expire stale previews, including whole-account and finish plans; they do
+not by themselves clear unrelated confirmations. The append-only change log maps
+activity effects to exact holding/cost or account/currency endpoints, including
+backdated changes, reversals and multiple events whose net amount is unchanged.
+A dividend rechecks its cash endpoint, while unchanged holding quantity/cost stays
+confirmed. Product principal, terms, policy and lifecycle changes recheck that
+product; price, FX, descriptive metadata and pure valuation observations do not
+clear quantity/cash confirmations. Unknown legacy change families or missing
+endpoint evidence retain a conservative account-wide fallback.
+
+Completeness reopens for added/removed identities, instrument scope changes and
+account archive/mode/currency boundaries, rather than ordinary amount events.
+New and removed points remain pending. Unaffected points retain their outcome,
+source, timestamp and attempts; their working revision advances for account CAS,
+while every attempt retains the original revision and values. Refresh alone
+never appends an attempt or confirms a new point. Other accounts retain their
+progress unless the same atomic operation changes one of their endpoints. All refreshed points, including removed points, use stable-ID
 ordering so unchanged previews and commits compare the same evidence.
 Removed points carry the current financial revision; their retained attempts
 keep the historical revision originally checked. Completed
@@ -114,8 +129,10 @@ reconciliation reads; they do not use the broad agent.data.changed notification.
 Descriptive instrument price/NAV performance remains independent of personal
 ledger/reconciliation inputs, preserving merged PR90. No investment-review
 rule-engine overhaul is part of this feature. The revision is deliberately
-account-granular: a relevant edit requires that
-account's points and scope to be checked again.
+account-granular for optimistic concurrency; renewed attestation is item-scoped.
+A buy/sell can reopen both a holding and its cash currency; transfers reopen both
+actual endpoints, and FX reopens both currencies. Unrelated currencies, holdings
+and completeness evidence remain confirmed.
 
 `reconciliationLink` is part of the immutable ledger/product command and request
 hash. It names a session, selected account/item, session revision and financial

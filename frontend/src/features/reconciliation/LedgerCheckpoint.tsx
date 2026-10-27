@@ -9,7 +9,7 @@ import type { ReconciliationItem } from "../../../bindings/github.com/waltwang/n
 
 export function LedgerCheckpoint({ item, evidence = false }: { item: ReconciliationItem; evidence?: boolean }) {
   const { t } = useTranslation();
-  const liability = useContext(ReconciliationLedgerContext).has(item.accountId);
+  const liability = useContext(ReconciliationLedgerContext)(item.accountId);
   const timestamp = useReconciliationTimestamp();
   const label = item.kind === "scope" ? t("reconciliation.kind.scope") : item.label;
   const numeric = /^-?\d+(\.\d+)?$/;

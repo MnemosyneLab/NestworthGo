@@ -35,7 +35,25 @@ func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot
 	if activity.Kind == domain.ActivityReversal && activity.ProductContext == nil && activity.ReversesActivityID != nil {
 		if original, ok := u.activities[*activity.ReversesActivityID]; ok && original.Kind != domain.ActivityReversal {
 			activity.Kind, activity.Reason = original.Kind, original.Reason
-			activity.TradeDetail, activity.DividendDetail = original.TradeDetail, original.DividendDetail
+			activity.DividendDetail = original.DividendDetail
+			if original.TradeDetail != nil {
+				// The inverse carries reversed physical effects. Copy the parent's
+				// price/identity evidence, but derive its side from that quantity leg.
+				// Reusing the parent's side would walk a buy twice in the lot bridge.
+				for _, effect := range activity.Effects {
+					if effect.Target != domain.EffectTargetHoldingQuantity || effect.HoldingID == nil || *effect.HoldingID != original.TradeDetail.HoldingID || effect.Quantity == nil {
+						continue
+					}
+					detail := *original.TradeDetail
+					detail.Quantity = *effect.Quantity
+					detail.Side, activity.Kind = domain.TradeBuy, domain.ActivityBuy
+					if effect.Direction == domain.EffectRemoved {
+						detail.Side, activity.Kind = domain.TradeSell, domain.ActivitySell
+					}
+					activity.TradeDetail = &detail
+					break
+				}
+			}
 		}
 	}
 	activity = u.productReversalTrade(activity)

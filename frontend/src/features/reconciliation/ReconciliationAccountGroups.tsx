@@ -41,7 +41,7 @@ function scrollingParent(element: HTMLElement): HTMLElement | null {
   return element.ownerDocument.scrollingElement as HTMLElement | null;
 }
 
-export function ReconciliationAccountGroups({ accounts, locked, trigger, registerHeader, children, notices, actions }: {
+export function ReconciliationAccountGroups({ accounts, locked, trigger: triggerRef, registerHeader, children, notices, actions }: {
   accounts: ReconciliationAccount[];
   locked: boolean;
   trigger: MutableRefObject<HTMLElement | null>;
@@ -63,7 +63,7 @@ export function ReconciliationAccountGroups({ accounts, locked, trigger, registe
     const next = reconcile(view, accounts);
     if (next !== view) {
       const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      const source = active && root.current?.contains(active) ? active : wasLocked.current ? trigger.current : null;
+      const source = active && root.current?.contains(active) ? active : wasLocked.current ? triggerRef.current : null;
       const accountId = source?.closest("[data-reconciliation-account]")?.getAttribute("data-reconciliation-account");
       if (source && accountId) {
         let target = source;
@@ -77,10 +77,12 @@ export function ReconciliationAccountGroups({ accounts, locked, trigger, registe
         }
         anchor.current = { element: target, top: Math.max(16, Math.min(source.getBoundingClientRect().top, window.innerHeight - 64)), scroll: scrollingParent(source), focus: true, view: next };
       }
+      // Capture the old DOM before moving sections, then restore its focus/scroll before paint.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setView(next);
     }
     wasLocked.current = false;
-  }, [accounts, locked, trigger, view]);
+  }, [accounts, locked, triggerRef, view]);
 
   useLayoutEffect(() => {
     const saved = anchor.current;
@@ -90,9 +92,9 @@ export function ReconciliationAccountGroups({ accounts, locked, trigger, registe
     if (saved.scroll) saved.scroll.scrollTop += saved.element.getBoundingClientRect().top - saved.top;
     if (saved.focus) {
       saved.element.focus({ preventScroll: true });
-      trigger.current = saved.element;
+      triggerRef.current = saved.element;
     }
-  }, [view, locked, trigger]);
+  }, [view, locked, triggerRef]);
 
   const byId = new Map(accounts.map((account) => [account.accountId, account]));
   const ordered = view.order.flatMap((accountId) => byId.has(accountId) ? [byId.get(accountId)!] : []);

@@ -34,17 +34,19 @@ export function formatRecordedDate(value?: string | null): string {
   return formatCivilDate(value);
 }
 
-export function checkpointValue(t: TFunction, item: CheckpointItem, exact = false, liability = false): string {
+export function checkpointValue(t: TFunction, item: CheckpointItem, exact = false, liability: boolean | null = false): string {
   if (item.kind === "scope") return "";
+  if (item.kind === "balance" && liability === null) return t("reconciliation.unavailable");
   if (!item.value) return t("reconciliation.unavailable");
-  return presentCheckpointNumber(t, item, item.kind === "balance" ? signedAccountAmount(item.value, liability) : item.value, exact);
+  return presentCheckpointNumber(t, item, item.kind === "balance" ? signedAccountAmount(item.value, liability === true) : item.value, exact);
 }
 
 /** Preserve free-text scope evidence; format numeric sources like the ledger value they are compared to. */
-export function checkpointReference(t: TFunction, item: CheckpointItem, exact = false, liability = false): string {
+export function checkpointReference(t: TFunction, item: CheckpointItem, exact = false, liability: boolean | null = false): string {
   if (!item.referenceValue) return "";
+  if (item.kind === "balance" && liability === null) return t("reconciliation.unavailable");
   if (item.kind === "scope") return item.referenceValue;
-  return presentCheckpointNumber(t, item, item.kind === "balance" && /^\d+(\.\d+)?$/.test(item.referenceValue) ? signedAccountAmount(item.referenceValue, liability) : item.referenceValue, exact);
+  return presentCheckpointNumber(t, item, item.kind === "balance" && /^\d+(\.\d+)?$/.test(item.referenceValue) ? signedAccountAmount(item.referenceValue, liability === true) : item.referenceValue, exact);
 }
 
 export function sourceText(source?: { reference?: string; asOfDate?: string; asOfTime?: string; timezone?: string }): string {

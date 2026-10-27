@@ -1101,7 +1101,7 @@ it("resets reconciliation to the global list unless the target names an account 
   expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
 });
 
-it("opens an unfiltered global reconciliation list when Tasks is reselected on Tasks", async () => {
+it("opens the global reconciliation list with completed history when Tasks is reselected on Tasks", async () => {
   await i18n.changeLanguage("en");
   listAccounts.mockResolvedValue([checkingAccount]);
   accountValuations.mockResolvedValue([checkingValuation]);
@@ -1132,7 +1132,7 @@ it("opens an unfiltered global reconciliation list when Tasks is reselected on T
   await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
   expect(await screen.findByRole("button", { name: "Continue session" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
-  expect(screen.getByLabelText(i18n.t("reconciliation.history"))).toHaveValue("");
+  expect(screen.getByLabelText(i18n.t("reconciliation.history"))).toHaveValue("completed");
   expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
 });
 
@@ -1173,7 +1173,7 @@ it.each([false, true])("restores the original reconciliation entry after a neste
   expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
   expect(screen.getByRole("checkbox", { name: "Checking · USD" })).not.toBeChecked();
   const nestedFilter = screen.getByRole("combobox", { name: i18n.t("reconciliation.history") });
-  expect(nestedFilter).toHaveValue("");
+  expect(nestedFilter).toHaveValue("completed");
   await userEvent.selectOptions(nestedFilter, "completed");
   await userEvent.click(screen.getByRole("button", { name: "Continue session" }));
   expect(await screen.findByText(/Synthetic session session-b/)).toBeVisible();

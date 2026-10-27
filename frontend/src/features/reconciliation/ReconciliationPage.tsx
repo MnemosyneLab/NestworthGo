@@ -166,7 +166,7 @@ export function ReconciliationPage({
   const client = useQueryClient();
   const formatTimestamp = useReconciliationTimestamp();
   const filterId = useId();
-  const accounts = useAccounts();
+  const accounts = useAccounts({ includeArchived: true });
   const sessions = useReconciliationSessions(accountId, isActive);
   const [selected, setSelected] = useState<string[] | null>(
     accountId ? [accountId] : null,
@@ -278,11 +278,14 @@ export function ReconciliationPage({
   const rows = sessionRows.filter((s) =>
     filter ? s.status === filter : true,
   );
+  const lastHistoryPage = Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1);
+  if (page > lastHistoryPage) setPage(lastHistoryPage);
   const hasUnfinished = sessionRows.some(
     (s) => s.status === "in_progress" || s.status === "paused",
   );
   const current = detail.data;
-  const liabilities = new Set((accounts.data ?? []).filter(row => row.account.balanceSheetRole === "liability").map(row => row.account.id));
+  const accountRoles = new Map((accounts.data ?? []).filter(row => ["asset", "liability"].includes(row.account.balanceSheetRole)).map(row => [row.account.id, row.account.balanceSheetRole === "liability"]));
+  const liabilities = (id: string) => accountRoles.get(id) ?? null;
   const select = (id: string) => {
     if (hasUnresolvedSheetConfirmation()) return;
     invalidatePreview();
@@ -304,6 +307,10 @@ export function ReconciliationPage({
           {error}
         </Notice>
       )}
+      {current?.accounts?.some(account => liabilities(account.accountId) === null) && <Notice tone={accounts.isError ? "warning" : undefined} role="status">
+        {t(accounts.isLoading ? "reconciliation.loading" : "reconciliation.unavailable")}
+        {accounts.isError && <Button variant="outline" size="sm" onClick={() => void accounts.refetch()}>{t("reconciliation.retry")}</Button>}
+      </Notice>}
       {!active ? (
         <>
           {accounts.isLoading || sessions.isLoading ? (
@@ -602,7 +609,7 @@ export function ReconciliationPage({
                                             "font-normal text-muted-foreground",
                                         )}
                                       >
-                                        {checkpointValue(t, item, false, liabilities.has(a.accountId))}
+                                        {checkpointValue(t, item, false, liabilities(a.accountId))}
                                       </p>
                                     )}
                                     {item.cost && (
@@ -657,7 +664,7 @@ export function ReconciliationPage({
                                       )}
                                     >
                                       {t("reconciliation.referenceValue")}:{" "}
-                                      {checkpointReference(t, item, false, liabilities.has(a.accountId))}
+                                      {checkpointReference(t, item, false, liabilities(a.accountId))}
                                     </p>
                                   )}
                                   {sourceDiffers && (
@@ -755,7 +762,7 @@ export function ReconciliationPage({
                                           {[
                                             formatTimestamp(attempt.checkedAt),
                                             t(`reconciliation.${attempt.outcome}`),
-                                            checkpointValue(t, attempt, true, liabilities.has(a.accountId)),
+                                            checkpointValue(t, attempt, true, liabilities(a.accountId)),
                                             sourceText(attempt.source),
                                             attempt.note,
                                           ]
@@ -784,7 +791,7 @@ export function ReconciliationPage({
         <Sheet
           open
           onOpenChange={(open) => {
-            if (!open) {
+            if (!open && !review) {
               invalidatePreview();
               setClosing(false);
               clearError();
@@ -862,7 +869,7 @@ export function ReconciliationPage({
         <Sheet
           open
           onOpenChange={(open) => {
-            if (!open) {
+            if (!open && !review) {
               invalidatePreview();
               endEditing();
               clearError();
@@ -991,7 +998,7 @@ export function ReconciliationPage({
             financialRevision: editing.account.financialRevision,
           }}
           onOpenChange={(open) => {
-            if (!open) {
+            if (!open && !review) {
               endEditing();
               clearError();
             }
@@ -1001,7 +1008,7 @@ export function ReconciliationPage({
       )}
       {review && (
         <Sheet open onOpenChange={(open) => !open && setReview(undefined)}>
-          <SheetContent size="lg" finalFocus={restoreFocus}>
+          <SheetContent size="lg" finalFocus={editing || closing ? undefined : restoreFocus}>
             <SheetHeader>
               <SheetTitle>{t("reconciliation.preview")}</SheetTitle>
             </SheetHeader>
@@ -1171,7 +1178,7 @@ function CheckForm({
         {batchAccount.items?.filter((row) => row.outcome !== "confirmed" || row.recheckRequired).map((row) => <LedgerCheckpoint key={row.id} item={row} />)}
         <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4 accent-primary" checked={scopeReviewed} onChange={(event) => { setScopeReviewed(event.target.checked); onEdit(); }} />{t("reconciliation.scopeReviewed")}</label>
         {fieldError("scopeReviewed")}
-      </> : <LedgerCheckpoint item={item} />}
+      </> : <><LedgerCheckpoint item={item} />{item.kind === "product" && <ProductEvidence detail={item.detail} />}</>}
       {item.kind === "product" && <ProductEvidence detail={item.detail} />}
       {(history.isLoading || (!timezoneKnown && history.isFetching)) && <p role="status" className="text-sm text-muted-foreground">{t("reconciliation.sourceTimezoneLoading")}</p>}
       {history.isError && (
@@ -1342,7 +1349,7 @@ function AdjustmentForm({
   onPreview: (p: AdjustmentPreview) => void;
 }) {
   const { t } = useTranslation();
-  const liability = useContext(ReconciliationLedgerContext).has(account.accountId);
+  const liability = useContext(ReconciliationLedgerContext)(account.accountId);
   const client = useQueryClient();
   const [value, setValue] = useState(
     item.kind === "scope" ? "" : (item.value ?? ""),
@@ -1387,7 +1394,7 @@ function AdjustmentForm({
       </p>
       <p className="num break-words rounded-xl bg-muted/50 px-3 py-2.5 text-sm font-medium">
         {t("reconciliation.current")}: {checkpointValue(t, item, true, liability)} →{" "}
-        {value ? item.kind === "balance" ? signedAccountAmount(value, liability) : value : t("reconciliation.unavailable")}
+        {value ? item.kind === "balance" ? liability === null ? t("reconciliation.unavailable") : signedAccountAmount(value, liability) : value : t("reconciliation.unavailable")}
       </p>
       {item.kind === "scope" && (
         <FormField>
@@ -1464,7 +1471,7 @@ function AdjustmentForm({
       )}
       <Button
         className="self-end"
-        disabled={busy || utf8ByteLength(note) > 2000}
+        disabled={busy || utf8ByteLength(note) > 2000 || (item.kind === "balance" && liability === null)}
         onClick={() => {
           const sequence = ++previewSequence.current;
           setBusy(true);
@@ -1670,7 +1677,7 @@ function CommitReview({
           ))}
           {change.resulting?.map((v, j) => (
             <p key={j}>
-              {v.name} · {formatRecordedAmount(v.amount ? signedAccountAmount(v.amount, liabilities.has(v.accountId ?? "")) : v.quantity, v.amount ? v.currency : "")}
+              {v.name} · {v.amount && !v.holdingId && liabilities(v.accountId ?? "") === null ? t("reconciliation.unavailable") : formatRecordedAmount(v.amount ? signedAccountAmount(v.amount, liabilities(v.accountId ?? "") === true) : v.quantity, v.amount ? v.currency : "")}
             </p>
           ))}
         </div>
@@ -1847,7 +1854,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
               </h4>
               <p>
                 {t("reconciliation.reviewedBefore")}:{" "}
-                {before && checkpointValue(t, before, true, liabilities.has(before.accountId ?? ""))}{" "}
+                {before && checkpointValue(t, before, true, liabilities(before.accountId ?? ""))}{" "}
                 {before?.cost &&
                   `${t("reconciliation.unitCost")}: ${formatRecordedAmount(before.cost, before.currency)}`}
               </p>
@@ -1868,7 +1875,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
               )}
               {after?.resulting?.map((value, j) => (
                 <p key={j}>
-                  {value.Name}: {formatRecordedAmount(value.Amount ? signedAccountAmount(value.Amount, liabilities.has(value.AccountID ?? before?.accountId ?? "")) : value.Quantity, value.Amount ? value.Currency : "")}
+                  {value.Name}: {value.Amount && liabilities(value.AccountID ?? before?.accountId ?? "") === null ? t("reconciliation.unavailable") : formatRecordedAmount(value.Amount ? signedAccountAmount(value.Amount, liabilities(value.AccountID ?? before?.accountId ?? "") === true) : value.Quantity, value.Amount ? value.Currency : "")}
                 </p>
               ))}
               {after?.effects?.map((effect, j) => (

@@ -1,4 +1,4 @@
-import { signedAccountAmount, signedAccountMoney, signedAccountValuation } from "@/lib/liabilityDisplay";
+import { negateDisplayAmount, signedAccountAmount, signedAccountMoney, signedAccountValuation } from "@/lib/liabilityDisplay";
 import { compareCanonical } from "@/lib/money";
 import { fullDisplayAmount, valuationDetails, valuationTableAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { AssetValueSummary } from "./AssetValueSummary";
@@ -55,6 +55,12 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   const context = useAnalysisProjectionContext(session);
   const trend = useAssetTrend(context.request, granularity, metric, context.enabled);
   const data = trend.data;
+  const valueChange = data?.valueChange && metric === "liabilities" ? {
+    ...data.valueChange,
+    beginningValue: signedAccountMoney(data.valueChange.beginningValue, true),
+    endingValue: signedAccountMoney(data.valueChange.endingValue, true),
+    change: data.valueChange.change ? { ...data.valueChange.change, amount: negateDisplayAmount(data.valueChange.change.amount) } : data.valueChange.change,
+  } : data?.valueChange;
   const isLevel = ["net_worth","assets","liabilities"].includes(metric);
   const hasLevelDisplay = isLevel && (data?.points ?? []).some(point => hasDisplay(point.displayValuation));
   const dates = useMemo(() => (data?.points ?? []).map((point) => point.period), [data?.points]);
@@ -81,7 +87,7 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   else if (!data || (!data.available && !hasLevelDisplay)) results = trendEmpty(data, t);
   else results = (
     <>
-      {data.valueChange && <Card><CardContent className="pt-5"><AssetValueSummary summary={data.valueChange} /></CardContent></Card>}
+      {data.valueChange && <Card><CardContent className="pt-5"><AssetValueSummary summary={valueChange!} /></CardContent></Card>}
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>

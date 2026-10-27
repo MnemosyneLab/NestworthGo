@@ -1,4 +1,4 @@
-import { signedAccountAmount } from "@/lib/liabilityDisplay";
+import { negateDisplayAmount, signedAccountAmount } from "@/lib/liabilityDisplay";
 import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
 import { formatAmount, formatAuditMoney } from "@/lib/money";
@@ -151,13 +151,18 @@ function coreSentence(
       if (!amount) {
         return displayEnum(t, "history.kind", activity.kind);
       }
-      const canonical = firstMoney?.money?.amount ?? "";
+      const raw = firstMoney?.money?.amount ?? "";
+      // Modern effects carry positive magnitudes and a separate direction. Retain
+      // the signed legacy fallback only when no direction was recorded.
+      const movement = firstMoney?.direction === "removed" ? negateDisplayAmount(raw.replace(/^-/, "")) : firstMoney?.direction === "added" ? raw.replace(/^-/, "") : raw;
+      const canonical = liabilities.has(firstMoney?.accountId ?? "") ? negateDisplayAmount(movement) : movement;
       const increased = !canonical.startsWith("-");
       const magnitude = canonical.startsWith("-") ? canonical.slice(1) : canonical;
       const delta = firstMoney?.money?.currency
         ? formatAuditMoney(canonical, firstMoney.money.currency).replace(/^-/, "")
         : formatAmount(magnitude);
-      const key = increased ? "history.sentence.updatedValueIncreased" : "history.sentence.updatedValueDecreased";
+      const debt = liabilities.has(firstMoney?.accountId ?? "");
+      const key = debt ? increased ? "history.sentence.liabilityValueIncreased" : "history.sentence.liabilityValueDecreased" : increased ? "history.sentence.updatedValueIncreased" : "history.sentence.updatedValueDecreased";
       return t(key, { delta, account: accountName(firstMoney) });
     }
     case "buy":

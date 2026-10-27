@@ -31,6 +31,11 @@ const q = vi.hoisted(() => ({
   sessions: [] as ReconciliationSession[],
   auditError: false,
   archivedAccountId: "",
+  accountRole: "asset",
+  accountsLoading: false,
+  accountsError: false,
+  accountFilters: [] as unknown[],
+  links: [] as unknown[],
   preview: vi.fn(),
   commit: vi.fn(),
   adjust: vi.fn(),
@@ -59,7 +64,7 @@ vi.mock("@/queries/reconciliation", () => ({
     refetch: q.refetch,
   }),
   useReconciliationLinks: () => ({
-    data: [],
+    data: q.links,
     isError: q.auditError,
     refetch: q.refetch,
   }),
@@ -78,17 +83,17 @@ vi.mock("@/queries/reconciliation", () => ({
   },
 }));
 vi.mock("@/queries/accounts", () => ({
-  useAccounts: () => ({
-    data: [
+  useAccounts: (filter: unknown) => { q.accountFilters.push(filter); return ({
+    data: q.accountsLoading || q.accountsError ? undefined : [
       {
-        account: { id: "one", name: "Synthetic bank", defaultCurrency: "USD", archivedAt: q.archivedAccountId === "one" ? "2026-09-02T00:00:00Z" : undefined },
+        account: { id: "one", name: "Synthetic bank", defaultCurrency: "USD", balanceSheetRole: q.accountRole, archivedAt: q.archivedAccountId === "one" ? "2026-09-02T00:00:00Z" : undefined },
       },
-      { account: { id: "two", name: "Other bank", defaultCurrency: "EUR" } },
+      { account: { id: "two", name: "Other bank", defaultCurrency: "EUR", balanceSheetRole: "asset" } },
     ],
-    isLoading: false,
-    isError: false,
+    isLoading: q.accountsLoading,
+    isError: q.accountsError,
     refetch: q.refetch,
-  }),
+  }); },
   useAccountValuations: () => ({ data: [{ account: { id: "one", name: "Synthetic bank" }, components: [{ nativeCurrency: "USD", nativeAmount: "5000" }] }] }),
 }));
 vi.mock("@/queries/history", () => ({
@@ -206,6 +211,10 @@ beforeEach(async () => {
   q.sessions = [];
   q.auditError = false;
   q.archivedAccountId = "";
+  q.accountRole = "asset";
+  q.accountsLoading = q.accountsError = false;
+  q.accountFilters = [];
+  q.links = [];
   q.preview.mockResolvedValue({ planId: "review-plan", result: q.session });
   q.commit.mockResolvedValue(q.session);
   q.adjust.mockResolvedValue({ planId: "adjust-plan", changes: [] });
@@ -885,7 +894,7 @@ it("keeps free-text scope source evidence visible in preview and saved completed
   expect(screen.getByLabelText("Value shown by your source (optional)")).toHaveValue("3 holdings");
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   const review = await screen.findByRole("dialog");
-  expect(within(review).getByText(/Value shown by your source.*3 holdings/, { selector: "p" })).toBeVisible();
+  expect(within(review).getAllByText(/Value shown by your source.*3 holdings/, { selector: "p" }).some(row => !row.closest("details:not([open])"))).toBe(true);
   expect(review).toHaveTextContent("Synthetic inventory");
   expect(review).toHaveTextContent("2026-09-01");
   expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({
@@ -917,8 +926,8 @@ it("preserves the canonical cash amount in the reviewed checkpoint", async () =>
   );
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(
-    await screen.findByText(/Ledger balance:.*100.001 USD/, { selector: "p" }),
-  ).toBeInTheDocument();
+    (await screen.findAllByText("Ledger balance:", { selector: "span" }))[0].closest("p"),
+  ).toHaveTextContent("100.001 USD");
 });
 
 it("keeps unfinished sessions out of the default history list", () => {
@@ -1725,7 +1734,46 @@ it("keeps unrelated confirmed items collapsed in a large preview while surfacing
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByRole("heading", { name: "Changes in this confirmation" })).toBeVisible();
-  expect(within(dialog).getByText(/Unrelated synthetic source 11/)).not.toBeVisible();
-  expect(within(dialog).getByRole("alert")).toBeVisible();
-  expect(within(dialog).getByRole("alert")).toHaveTextContent("Synthetic other 0");
+  for (const source of within(dialog).getAllByText(/Unrelated synthetic source 11/)) expect(source).not.toBeVisible();
+  expect(within(dialog).getAllByRole("alert")[0]).toBeVisible();
+  expect(within(dialog).getAllByRole("alert")[0]).toHaveTextContent("Synthetic other 0");
+});
+
+it("signs archived liability checkpoints, attempts and linked resulting balances using archived metadata", async () => {
+ q.archivedAccountId = "one"; q.accountRole = "liability";
+ q.session!.status = "completed";
+ const item = q.session!.accounts![0].items![0];
+ item.attempts = [{ ...item, value: "100.001", checkedAt: "2026-09-01T12:00:00Z" }];
+ q.links = [{ evidence: { reviewedBefore: item, committed: { resulting: [{ AccountID: "one", Name: "Synthetic debt result", Amount: "80", Currency: "USD" }] } } }];
+ mount("session-one");
+ expect(q.accountFilters).toContainEqual({ includeArchived: true });
+ expect(screen.getByText(/Synthetic bank · Account balance/).closest("article")).toHaveTextContent("-US$100.00");
+ await userEvent.click(screen.getByText(i18n.t("reconciliation.attempts", {count:1})));
+ expect(screen.getByText(/Pending.*100.001 USD/)).toHaveTextContent("-100.001 USD");
+ await userEvent.click(screen.getByText(i18n.t("reconciliation.linkedChanges")));
+ expect(screen.getByText(new RegExp(i18n.t("reconciliation.reviewedBefore") + ":"))).toHaveTextContent("-100.001 USD");
+ expect(screen.getByText(/Synthetic debt result:/)).toHaveTextContent("-US$80.00");
+ expect(item.value).toBe("100.001");
+});
+it.each(["loading", "error"])("does not assume unknown reconciliation balance roles are assets during metadata %s", (state) => {
+ q.accountsLoading = state === "loading"; q.accountsError = state === "error";
+ const item = q.session!.accounts![0].items![0];
+ item.attempts = [{ ...item, value: "100.001", checkedAt: "2026-09-01T12:00:00Z" }];
+ q.links = [{ evidence: { reviewedBefore: item, committed: { resulting: [{ AccountID: "one", Name: "Synthetic unknown debt result", Amount: "80", Currency: "USD" }] } } }];
+ mount("session-one");
+ const article = screen.getByText(/Synthetic bank · Account balance/).closest("article")!;
+ expect(article).toHaveTextContent(i18n.t("reconciliation.unavailable"));
+ expect(article).not.toHaveTextContent("US$100");
+ expect(screen.getByText(/Synthetic unknown debt result:/)).toHaveTextContent(i18n.t("reconciliation.unavailable"));
+ expect(screen.getByText(/Synthetic unknown debt result:/)).not.toHaveTextContent("US$80");
+ expect(screen.getByText(new RegExp(i18n.t("reconciliation.reviewedBefore") + ":"))).toHaveTextContent(i18n.t("reconciliation.unavailable"));
+});
+it("clamps history pagination after a session list shrinks", async () => {
+ q.sessions = Array.from({ length: 26 }, (_, index) => ({ ...session(), id: `done-${index}`, status: "completed", accountNames: [`Synthetic history ${index}`] }));
+ const view = mount();
+ await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.next") }));
+ expect(screen.getByRole("button", { name: /Synthetic history 25/ })).toBeInTheDocument();
+ q.sessions = q.sessions.slice(0, 1);
+ view.rerender(<QueryClientProvider client={createTestQueryClient()}><ReconciliationPage /></QueryClientProvider>);
+ expect(screen.getByRole("button", { name: /Synthetic history 0/ })).toBeInTheDocument();
 });

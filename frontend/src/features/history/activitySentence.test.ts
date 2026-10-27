@@ -9,6 +9,8 @@ const catalog: Record<string, string> = {
   "history.sentence.transferred": "Transferred {{amount}} from {{from}} to {{to}}",
   "history.sentence.bought": "Bought {{quantity}} {{instrument}} in {{account}} for {{amount}}",
   "history.sentence.sold": "Sold {{quantity}} {{instrument}} in {{account}} for {{amount}}",
+  "history.sentence.liabilityValueIncreased": "{{account}} signed liability balance increased {{delta}}",
+  "history.sentence.liabilityValueDecreased": "{{account}} signed liability balance decreased {{delta}}",
   "history.sentence.updatedValueIncreased": "{{account}} increased {{delta}}",
   "history.sentence.updatedValueDecreased": "{{account}} decreased {{delta}}",
   "history.sentence.converted": "Converted {{sold}} to {{bought}} in {{account}}",
@@ -175,4 +177,10 @@ it("names card purchases and refunds as consumption rather than cash income", ()
   const common = { effects: [{ accountId: "card", money: { amount: "100", currency: "USD" } }] };
   expect(activitySentence(t, { ...common, kind: "cash_in", reason: "card_purchase" } as unknown as ActivityDTO, names, new Map())).toBe("Card purchase US$100.00 on Synthetic card");
   expect(activitySentence(t, { ...common, kind: "cash_out", reason: "card_refund" } as unknown as ActivityDTO, names, new Map())).toBe("Card refund US$100.00 on Synthetic card");
+});
+
+it.each([false, true])("uses removed magnitude direction for value-update fallback (liability=%s)", liability => {
+ const activity = { kind: "value_update", effects: [{ accountId: "acc-1", direction: "removed", money: {amount:"20",currency:"USD"} }], resulting: [] } as unknown as ActivityDTO;
+ const sentence = activitySentence(t,activity,new Map([["acc-1","Synthetic account"]]),new Map(),new Map(),new Set(liability ? ["acc-1"] : []));
+ expect(sentence).toBe(`Synthetic account ${liability ? "signed liability balance increased" : "decreased"} US$20.00`);
 });

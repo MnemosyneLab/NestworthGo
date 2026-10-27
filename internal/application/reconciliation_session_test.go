@@ -140,8 +140,8 @@ func TestReconciliationSessionRevisionAndSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Counts.Pending != 2 || v.Counts.Confirmed != 0 {
-		t.Fatalf("changed facts retained confirmation: %+v", v)
+	if v.Counts.Pending != 1 || v.Counts.Confirmed != 1 {
+		t.Fatalf("only the changed balance should lose confirmation: %+v", v)
 	}
 	for _, item := range v.Accounts[0].Items {
 		v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: item.ID, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic bank", AsOfDate: "2026-09-01"}})
@@ -266,6 +266,9 @@ func TestReconciliationMixedAccountProductLinksAndMarketDataIsolation(t *testing
 	if kinds["scope"] != 1 || kinds["cash"] != 2 || kinds["holding"] != 1 || kinds["product"] != 1 {
 		t.Fatalf("mixed contents lost: %v", kinds)
 	}
+	for _, item := range v.Accounts[0].Items {
+		v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid.String(), ItemID: item.ID, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic mixed account", AsOfDate: "2026-09-20"}})
+	}
 	rev := v.Accounts[0].FinancialRevision
 	// Ordinary manual quotes affect valuation, not a cash/quantity attestation.
 	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "30", "", false); err != nil {
@@ -306,7 +309,7 @@ func TestReconciliationMixedAccountProductLinksAndMarketDataIsolation(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.Counts.Confirmed != 0 || current.Accounts[0].FinancialRevision == rev {
+	if current.Counts.Confirmed != len(v.Accounts[0].Items)-1 || current.Counts.Pending != 1 || current.Accounts[0].FinancialRevision == rev {
 		t.Fatal("terms did not require renewed review")
 	}
 }
@@ -507,7 +510,7 @@ func TestReconciliationRemovedItemsHaveStablePreviewAndCommitOrder(t *testing.T)
 		}
 	}
 	v = recAction(t, s, ReconciliationAction{Action: "pause", SessionID: v.ID, ExpectedRevision: v.Revision})
-	if v.Status != "paused" || v.Counts.Pending != 4 {
+	if v.Status != "paused" || v.Counts.Pending != 3 || v.Counts.Confirmed != 1 {
 		t.Fatalf("unchanged preview did not commit refreshed evidence: %+v", v)
 	}
 }

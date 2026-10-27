@@ -142,71 +142,26 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 	}
 	for i := range session.Accounts {
 		a := &session.Accounts[i]
-		if a.FinancialRevision == revisions[a.AccountID] {
-			// Older versions omitted archived nonzero positions entirely.
-			// Surface that known inventory gap even without a new financial
-			// write. Preserve existing evidence; the added point stays pending.
-			known := map[string]int{}
-			for index, item := range a.Items {
-				known[item.ID] = index
-			}
-			uncovered := map[string]bool{}
-			for _, holding := range a.UncoveredArchivedHoldings {
-				uncovered[holding.HoldingID] = true
-			}
-			if fresh := current[a.AccountID]; fresh != nil {
-				for _, item := range fresh.Items {
-					if !item.ArchivedNonzero && !uncovered[item.HoldingID] {
-						continue
-					}
-					index, exists := known[item.ID]
-					if exists && a.Items[index].Kind != "removed" {
-						a.Items[index].ArchivedNonzero = item.ArchivedNonzero
-						continue
-					}
-					item.RecheckRequired = true
-					if exists {
-						item.Attempts = a.Items[index].Attempts
-						a.Items[index] = item
-					} else {
-						a.Items = append(a.Items, item)
-					}
-				}
-			}
-			sort.Slice(a.Items, func(i, j int) bool { return a.Items[i].ID < a.Items[j].ID })
-			continue
-		}
 		fresh := current[a.AccountID]
 		if fresh == nil {
 			return session, reconciliationStale("accountId")
 		}
-		old := map[string]domain.ReconciliationItem{}
-		for _, item := range a.Items {
-			old[item.ID] = item
+		if a.FinancialRevision == fresh.FinancialRevision {
+			refreshLegacyReconciliationCoverage(a, *fresh)
+			continue
 		}
-		a.Items = nil
-		for _, item := range fresh.Items {
-			if prior, ok := old[item.ID]; ok {
-				item.Attempts = prior.Attempts
-				delete(old, item.ID)
+		var changes []domain.ReconciliationFinancialChange
+		if a.FinancialRevision != revisions[a.AccountID] {
+			changes, err = r.ReconciliationFinancialChanges(ctx, a.AccountID, a.FinancialRevision)
+			if err != nil {
+				return session, err
 			}
-			item.RecheckRequired = true
-			a.Items = append(a.Items, item)
 		}
-		for _, item := range old {
-			item.RecheckRequired = true
-			item.FinancialRevision = revisions[a.AccountID]
-			item.Outcome = "pending"
-			item.Kind = "removed"
-			item.CheckedAt = ""
-			a.Items = append(a.Items, item)
+		touched, err := s.reconciliationTouchedItems(ctx, h.ID, *a, *fresh, changes)
+		if err != nil {
+			return session, err
 		}
-		// Removed points originate in a map. Keep the entire refreshed evidence
-		// in the same stable-ID order used by capture and persisted reads.
-		sort.Slice(a.Items, func(i, j int) bool { return a.Items[i].ID < a.Items[j].ID })
-		a.FinancialRevision = revisions[a.AccountID]
-		a.RecheckRequired = true
-		a.Outcome = "pending"
+		refreshReconciliationItems(a, *fresh, touched)
 	}
 	countReconciliation(&session)
 	return session, nil

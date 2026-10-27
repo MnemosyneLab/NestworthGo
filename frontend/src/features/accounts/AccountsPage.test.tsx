@@ -1005,6 +1005,7 @@ describe("AccountsPage", () => {
     await userEvent.selectOptions(screen.getByLabelText("Instrument"), "i1");
     await userEvent.type(screen.getByLabelText("Quantity"), "2");
     await userEvent.type(screen.getByLabelText("Original per-unit acquisition cost (required)"), "80");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
     await userEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "position_import", accountId: brokerageAccount.account.id, instrumentId: "i1", quantity: "2", unitCost: "80" })));
     expect(createHolding).not.toHaveBeenCalled();

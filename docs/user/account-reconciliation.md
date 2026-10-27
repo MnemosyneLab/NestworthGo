@@ -99,3 +99,11 @@ Resolve skipped, unresolved or previously recorded exception evidence individual
 The batch is one atomic preview/commit and preserves an attempt per confirmed item.
 This shortcut currently requires the desktop review; MCP continues to use individual
 check previews because its bounded session response cannot show a whole batch.
+
+While a session is open, recording a transaction reopens only its affected
+checkpoints. A buy or sell can reopen both its holding and settlement cash;
+FX and transfers can affect two endpoints. Other confirmed holdings and cash
+currencies retain their checks. Completeness reopens when the contents or scope
+change, such as adding a holding or currency. Historical attempts stay available,
+and a preview made before any relevant account change must still be reviewed
+again before it can be committed.

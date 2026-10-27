@@ -15,7 +15,7 @@ it("preserves tiny and full holding quantities instead of displaying rounded zer
 });
 it("distinguishes ledger cash, exact debt balances and positive source inputs without mutating evidence", () => {
   const debt = { ...item("balance", "100.001"), referenceValue: "90", referenceComparable: true, outcome: "confirmed" };
-  render(<ReconciliationLedgerContext.Provider value={new Set(["account"])}><LedgerCheckpoint item={debt} evidence /></ReconciliationLedgerContext.Provider>);
+  render(<ReconciliationLedgerContext.Provider value={id => id === "account"}><LedgerCheckpoint item={debt} evidence /></ReconciliationLedgerContext.Provider>);
   expect(screen.getByText(/Ledger balance:/).closest("p")).toHaveTextContent("-100.001 USD");
   expect(screen.getByText(/Value shown by your source/)).toHaveTextContent("-US$90.00");
   expect(screen.getByRole("alert")).toBeInTheDocument();

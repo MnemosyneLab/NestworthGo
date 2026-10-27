@@ -549,7 +549,9 @@ function RecordChangeFormReady({
   const contextLiability = contextAccount?.balanceSheetRole === "liability";
   const [incoming, setIncoming] = useState(false);
   const lockedHolding = holdings.data.find(holding => holding.id === lock?.holdingId);
-  const contextKinds = KINDS.filter(candidate => {
+  // Dedicated account actions may lock a kind that is intentionally absent from the general chooser.
+  const candidates = lock?.kind && !KINDS.includes(lock.kind) ? [...KINDS, lock.kind] : KINDS;
+  const contextKinds = candidates.filter(candidate => {
     if (lock?.holdingId && ![ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionAdjustment, ChangeCommandKind.ChangePositionTransfer].includes(candidate)) return false;
     if (!contextId || !contextAccount) return true;
     if ([ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment, ChangeCommandKind.ChangePositionImport].includes(candidate)) return contextAccount.trackingMode === "holdings" && contextAccount.accountType !== "cash_on_hand";
@@ -1418,7 +1420,7 @@ function RecordChangeFormReady({
       {repeat && repeatConfirmResult && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : repeatConfirmResult === "plan_unavailable" ? "history.repeatPlanUnavailableHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
       {submitted?.phase === "unknown" && <p role="status" className="text-sm text-muted-foreground">{t(scopeMatches && intentMatches ? "history.submissionRetryHelp" : "history.submissionOwnerChangedHelp")}</p>}
 
-      {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(signedAccountAmount(endpoint.amount, accountById.get(endpoint.accountId ?? "")?.account.balanceSheetRole === "liability"), endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
+      {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(signedAccountAmount(endpoint.amount, accountById.get(endpoint.accountId ?? "")?.account.balanceSheetRole === "liability"), endpoint.currency) : endpoint.quantity != null ? formatAmount(endpoint.quantity) : t("reconciliation.unavailable")}</p>)}</div>}
 
       </fieldset>
       <div className="flex gap-2">

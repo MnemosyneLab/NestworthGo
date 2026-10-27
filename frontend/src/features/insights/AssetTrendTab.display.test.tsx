@@ -55,3 +55,19 @@ it("formats asset trend table dates with the display preference", async () => {
   expect(table).not.toHaveTextContent("2026-10-12");
   expect(table).toHaveTextContent("2026-09");
 });
+
+it("keeps liability summary, chart and table signed consistently without changing asset summaries", async () => {
+ const money = (amount: string) => ({amount, currency: "USD"});
+ harness.data = { ...harness.data, points: [{period:"2026-10-12",value:money("30")},{period:"2026-10-13",value:money("35")}], valueChange: {beginningValue:money("30"),endingValue:money("35"),change:money("5"),changeRate:"0.1667"} };
+ const view = render(<AssetTrendTab session={useAnalysisStore.getState()} />);
+ await userEvent.selectOptions(screen.getByLabelText("Metric"), "liabilities");
+ const summary = screen.getByText("Beginning value").closest("dl")!;
+ expect(summary).toHaveTextContent("-US$30.00"); expect(summary).toHaveTextContent("-US$35.00"); expect(summary).toHaveTextContent("-US$5.00"); expect(summary).toHaveTextContent("+16.67%");
+ expect(chartData()).toEqual([-30,-35]);
+ await userEvent.click(screen.getByText("View data table"));
+ expect(screen.getByRole("table")).toHaveTextContent("-US$30.00"); expect(screen.getByRole("table")).toHaveTextContent("-US$35.00");
+ await userEvent.selectOptions(screen.getByLabelText("Metric"), "assets");
+ expect(summary).toHaveTextContent("+US$5.00"); expect(chartData()).toEqual([30,35]);
+ expect((harness.data.valueChange as {change:{amount:string}}).change.amount).toBe("5");
+ view.unmount();
+});

@@ -1,4 +1,4 @@
 import { createContext } from "react";
 
-/** Roles come from authoritative account metadata; immutable evidence stays raw. */
-export const ReconciliationLedgerContext = createContext<ReadonlySet<string>>(new Set());
+/** null means role metadata is unavailable; never assume that an unknown balance is an asset. */
+export const ReconciliationLedgerContext = createContext<(accountId: string) => boolean | null>(() => false);
