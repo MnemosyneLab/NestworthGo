@@ -14,10 +14,10 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/superfly/ltx v0.5.2
-	// Wails v3 is still beta. Keep this module version pinned; upgrade only
+	// Keep Wails and its frontend runtime/CLI pinned together; upgrade only
 	// in a dedicated change with regenerated bindings, full automated gates,
 	// and native/package smoke tests.
-	github.com/wailsapp/wails/v3 v3.0.0-beta.34
+	github.com/wailsapp/wails/v3 v3.0.0
 	github.com/wnjoon/go-yfinance v1.7.0
 	modernc.org/sqlite v1.49.1
 )
@@ -59,7 +59,7 @@ require (
 	github.com/hablullah/go-juliandays v1.0.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jalaali/go-jalaali v0.0.0-20210801064154-80525e88d958 // indirect
-	github.com/klauspost/compress v1.18.3 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/lmittmann/tint v1.1.3 // indirect
 	github.com/magefile/mage v1.14.0 // indirect

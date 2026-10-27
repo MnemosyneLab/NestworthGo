@@ -60,12 +60,12 @@ export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
 go version
 ```
 
-The project CLI prerequisite is Wails `v3.0.0-beta.34`, invoked as `wails3`.
+The project CLI prerequisite is Wails `v3.0.0`, invoked as `wails3`.
 When it is not already installed, install the CLI from the matching module
 version:
 
 ```bash
-go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
 wails3 version
 ```
 

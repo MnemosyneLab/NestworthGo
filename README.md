@@ -152,7 +152,7 @@ restorable backups; CSV import/export is not available.
 
 ## Build it yourself
 
-**Go 1.27.3+ · Node.js 24.22.0 · pnpm · Wails CLI v3.0.0-beta.34**
+**Go 1.27.3+ · Node.js 24.22.0 · pnpm · Wails CLI v3.0.0**
 
 Native Mac builds require Apple Silicon, macOS 27+ and a macOS 27 SDK.
 
