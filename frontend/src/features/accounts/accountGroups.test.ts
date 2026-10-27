@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupAccounts, UNASSIGNED_INSTITUTION } from "./accountGroups";
+import { accountGroupNet, groupAccounts, UNASSIGNED_INSTITUTION } from "./accountGroups";
 import type { AccountDTO, AccountRecordDTO, AccountValuationDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 function account(id: string, name: string, institutionId?: string): AccountDTO {
@@ -69,4 +69,35 @@ describe("groupAccounts", () => {
     expect(grouped.map((group) => group.key)).toEqual(["broker", "bank", UNASSIGNED_INSTITUTION]);
     expect(grouped[1]?.records.map((item) => item.account.name)).toEqual(["Alpha Savings", "Alpha Checking"]);
   });
+});
+
+it("uses net signed group totals and suppresses incomplete or mixed-currency totals", () => {
+  const records = [{ account: { id: "bank", name: "Synthetic bank", balanceSheetRole: "asset" } }, { account: { id: "card", name: "Synthetic card", balanceSheetRole: "liability" } }] as AccountRecordDTO[];
+  const valuations = new Map([ ["bank", { complete: true, baseValue: { amount: "100", currency: "USD" } }], ["card", { complete: true, baseValue: { amount: "150", currency: "USD" } }] ]) as Map<string, AccountValuationDTO>;
+  expect(accountGroupNet(records, valuations)).toEqual({ amount: "-50", currency: "USD" });
+  expect(accountGroupNet(records.slice(1), valuations)?.amount).toBe("-150");
+  valuations.get("bank")!.complete = false;
+  expect(accountGroupNet(records, valuations)).toBeUndefined();
+  valuations.get("bank")!.complete = true;
+  valuations.get("bank")!.baseValue!.currency = "EUR";
+  expect(accountGroupNet(records, valuations)).toBeUndefined();
+  valuations.delete("bank");
+  expect(accountGroupNet(records, valuations)).toBeUndefined();
+});
+
+it("sorts by signed net and uses normalized base amounts across currencies and archived filters", () => {
+  const asset = record("bank", "Synthetic bank", "mixed", "Synthetic institution");
+  const debt = record("card", "Synthetic card", "mixed", "Synthetic institution");
+  debt.account.balanceSheetRole = "liability"; debt.account.defaultCurrency = "EUR";
+  const other = record("other", "Synthetic other", "other", "Other institution");
+  const values = [valuation("bank", "100"), valuation("card", "150"), valuation("other", "0")];
+  const groups = groupAccounts([debt, asset, other], values);
+  expect(groups.map(group => group.key)).toEqual(["other", "mixed"]);
+  expect(groups[1].records.map(row => row.account.id)).toEqual(["bank", "card"]);
+  const map = new Map(values.map(value => [value.account.id, value]));
+  expect(accountGroupNet([asset, debt], map)?.amount).toBe("-50");
+  // Group totals cover exactly the caller's filtered account set.
+  debt.account.archivedAt = "2026-08-01T00:00:00Z";
+  expect(accountGroupNet([asset], map)?.amount).toBe("100");
+  expect(accountGroupNet([debt], map)?.amount).toBe("-150");
 });

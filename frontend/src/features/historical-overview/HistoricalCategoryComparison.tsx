@@ -1,3 +1,4 @@
+import { signedAccountAmount, negateDisplayAmount } from "@/lib/liabilityDisplay";
 import { Fragment, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,11 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
   const safe = !mismatch && knownValues.every(value => geometry(value) !== null);
   const allKnownZero = knownValues.length > 0 && knownValues.every(isZero);
   const zero = allKnownZero && items.every(item => item.left.amount != null && item.right.amount != null);
-  const money = (value: string | null, signed = false, unit = currency) => value == null ? t("historicalOverview.notComparable") : `${signed && compareCanonical(value, "0.005") > 0 ? "+" : ""}${formatAmount(value, unit)}`;
+  const money = (value: string | null, signed = false, unit = currency) => {
+    if (value == null) return t("historicalOverview.notComparable");
+    const shown = role === "liability" ? signed ? negateDisplayAmount(value) : signedAccountAmount(value, true) : value;
+    return `${signed && compareCanonical(shown, "0.005") > 0 ? "+" : ""}${formatAmount(shown, unit)}`;
+  };
   const points = (value: string | null) => value == null ? t("historicalOverview.notComparable") : t("historicalOverview.percentagePoints", { value: `${compareCanonical(value, "0") > 0 ? "+" : ""}${value}` });
   const reason = (value: string) => t(`historicalOverview.categoryReason.${value}`);
   const cellText = (cell: HistoricalCategoryCell, side: "left" | "right") => cell.amount == null ? reason(cell.status) : money(cell.amount, false, data[side]?.currency ?? currency);
@@ -58,7 +63,7 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
     yAxis: { type: "category", inverse: true, data: items.map(item => label(item.key)), axisLabel: { color: theme.foreground, width: 110, overflow: "truncate" } },
     series: (["left", "right"] as const).map(side => ({ id: `historical-category-${side}`, name: side === "left" ? "A" : "B", type: "bar", barMaxWidth: 17,
       itemStyle: side === "left" ? { color: theme.border, borderColor: theme.primary, borderWidth: 1 } : { color: theme.primary },
-      data: items.map(item => item[side].amount == null ? null : { name: item.key, value: geometry(item[side].amount)! }),
+      data: items.map(item => item[side].amount == null ? null : { name: item.key, value: geometry(signedAccountAmount(item[side].amount, role === "liability"))! }),
     })),
   };
   return <section aria-label={t("historicalOverview.categoryCompare")} className="min-w-0 rounded-xl border border-border bg-card p-4">

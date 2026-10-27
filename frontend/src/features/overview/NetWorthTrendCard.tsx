@@ -1,3 +1,4 @@
+import { signedAccountMoney, signedAccountValuation } from "@/lib/liabilityDisplay";
 import { fullDisplayAmount, valuationDetails, valuationTableAmount } from "@/components/valuation/valuationQuality";
 import { useTranslation } from "react-i18next";
 import { useNetWorthTrend } from "@/queries/analytics";
@@ -37,7 +38,7 @@ export function NetWorthTrendCard({ active = true }: { active?: boolean } = {}) 
           point.localDate,
           valuationTableAmount(t,point.displayValuation?.netWorth,point.netWorth,true),
  valuationTableAmount(t,point.displayValuation?.assets,point.assets),
- valuationTableAmount(t,point.displayValuation?.liabilities,point.liabilities),
+ valuationTableAmount(t,signedAccountValuation(point.displayValuation?.liabilities,true),signedAccountMoney(point.liabilities,true)),
           valuationDetails(t,point.displayValuation?.netWorth,point.current) || t(point.current ? "connections.currentPoint" : point.complete ? "overview.healthy" : "overview.needsAttention"),
         ])} />
       {points.length > 0 && <p className="text-xs text-muted-foreground">{t("connections.currentPointNote")}</p>}

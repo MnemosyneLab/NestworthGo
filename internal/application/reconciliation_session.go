@@ -31,6 +31,7 @@ type ReconciliationAction struct {
 	ReferenceValue      string                      `json:"referenceValue,omitempty"`
 	Note                string                      `json:"note,omitempty"`
 	AllowPartial        bool                        `json:"allowPartial,omitempty"`
+	ScopeReviewed       bool                        `json:"scopeReviewed,omitempty"`
 }
 type ReconciliationSessionPlan struct {
 	ID        string                       `json:"id"`
@@ -141,71 +142,26 @@ func (s *Service) getReconciliationSession(ctx context.Context, id string) (doma
 	}
 	for i := range session.Accounts {
 		a := &session.Accounts[i]
-		if a.FinancialRevision == revisions[a.AccountID] {
-			// Older versions omitted archived nonzero positions entirely.
-			// Surface that known inventory gap even without a new financial
-			// write. Preserve existing evidence; the added point stays pending.
-			known := map[string]int{}
-			for index, item := range a.Items {
-				known[item.ID] = index
-			}
-			uncovered := map[string]bool{}
-			for _, holding := range a.UncoveredArchivedHoldings {
-				uncovered[holding.HoldingID] = true
-			}
-			if fresh := current[a.AccountID]; fresh != nil {
-				for _, item := range fresh.Items {
-					if !item.ArchivedNonzero && !uncovered[item.HoldingID] {
-						continue
-					}
-					index, exists := known[item.ID]
-					if exists && a.Items[index].Kind != "removed" {
-						a.Items[index].ArchivedNonzero = item.ArchivedNonzero
-						continue
-					}
-					item.RecheckRequired = true
-					if exists {
-						item.Attempts = a.Items[index].Attempts
-						a.Items[index] = item
-					} else {
-						a.Items = append(a.Items, item)
-					}
-				}
-			}
-			sort.Slice(a.Items, func(i, j int) bool { return a.Items[i].ID < a.Items[j].ID })
-			continue
-		}
 		fresh := current[a.AccountID]
 		if fresh == nil {
 			return session, reconciliationStale("accountId")
 		}
-		old := map[string]domain.ReconciliationItem{}
-		for _, item := range a.Items {
-			old[item.ID] = item
+		if a.FinancialRevision == fresh.FinancialRevision {
+			refreshLegacyReconciliationCoverage(a, *fresh)
+			continue
 		}
-		a.Items = nil
-		for _, item := range fresh.Items {
-			if prior, ok := old[item.ID]; ok {
-				item.Attempts = prior.Attempts
-				delete(old, item.ID)
+		var changes []domain.ReconciliationFinancialChange
+		if a.FinancialRevision != revisions[a.AccountID] {
+			changes, err = r.ReconciliationFinancialChanges(ctx, a.AccountID, a.FinancialRevision)
+			if err != nil {
+				return session, err
 			}
-			item.RecheckRequired = true
-			a.Items = append(a.Items, item)
 		}
-		for _, item := range old {
-			item.RecheckRequired = true
-			item.FinancialRevision = revisions[a.AccountID]
-			item.Outcome = "pending"
-			item.Kind = "removed"
-			item.CheckedAt = ""
-			a.Items = append(a.Items, item)
+		touched, err := s.reconciliationTouchedItems(ctx, h.ID, *a, *fresh, changes)
+		if err != nil {
+			return session, err
 		}
-		// Removed points originate in a map. Keep the entire refreshed evidence
-		// in the same stable-ID order used by capture and persisted reads.
-		sort.Slice(a.Items, func(i, j int) bool { return a.Items[i].ID < a.Items[j].ID })
-		a.FinancialRevision = revisions[a.AccountID]
-		a.RecheckRequired = true
-		a.Outcome = "pending"
+		refreshReconciliationItems(a, *fresh, touched)
 	}
 	countReconciliation(&session)
 	return session, nil
@@ -495,7 +451,11 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 			session.Status = "paused"
 		case "resume":
 			session.Status = "in_progress"
-		case "check":
+		case "check", "check_account":
+			batch := in.Action == "check_account"
+			if batch && (!in.ScopeReviewed || in.Outcome != "confirmed" || in.ItemID != "" || in.ReferenceComparable || in.ReferenceValue != "") {
+				return session, nil, reconciliationError("scopeReviewed", "account confirmation requires explicit completeness review and confirmed outcome; source figures must be reviewed individually")
+			}
 			if session.Status != "in_progress" {
 				return session, nil, reconciliationError("status", "resume the session before checking")
 			}
@@ -508,9 +468,18 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 				if a.FinancialRevision != in.FinancialRevision {
 					return session, nil, reconciliationStale("financialRevision")
 				}
+				if batch {
+					if err := validateAccountConfirmation(*a); err != nil {
+						return session, nil, err
+					}
+				}
 				for j := range a.Items {
 					item := &a.Items[j]
-					if item.ID != in.ItemID {
+					if batch {
+						if item.Outcome == "confirmed" && !item.RecheckRequired {
+							continue
+						}
+					} else if item.ID != in.ItemID {
 						continue
 					}
 					found = true
@@ -599,6 +568,9 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 				}
 			}
 			if !found {
+				if batch {
+					return session, nil, reconciliationError("accountId", "account has no eligible pending checks; review individual items to explicitly recheck them")
+				}
 				return session, nil, reconciliationError("itemId", "item is outside the selected scope")
 			}
 		case "finish":
@@ -770,6 +742,7 @@ func (s *Service) ValidateReconciliationLink(ctx context.Context, link *domain.R
 	}
 	matched := len(previews) == 0
 	for _, p := range previews {
+		matched = matched || domain.ReconciliationDividendMatches(*selected, p.Activity)
 		for _, e := range p.Effects {
 			account := ""
 			if e.AccountID != nil {
@@ -862,9 +835,59 @@ func (s *Service) ReconciliationChanges(ctx context.Context, id, account string)
 	return result, nil
 }
 
+// Keep the account being reconciled as an actual command endpoint. A transfer
+// may be incoming or outgoing, but incidental effects cannot substitute for the
+// command's owning account. Standalone commands have no reconciliation context.
+func (s *Service) validateReconciliationCommandAccount(ctx context.Context, link *domain.ReconciliationLink, command any) error {
+	if link == nil {
+		return nil
+	}
+	matches := func(id domain.AccountID) bool { return id.String() == link.AccountID }
+	holdingMatches := func(id domain.HoldingID) bool {
+		h, err := s.repository.Holding(ctx, id)
+		return err == nil && matches(h.AccountID)
+	}
+	valid := false
+	switch in := command.(type) {
+	case domain.MoneyAddedInput:
+		valid = matches(in.AccountID)
+	case domain.MoneyRemovedInput:
+		valid = matches(in.AccountID)
+	case domain.ValueUpdateInput:
+		valid = matches(in.AccountID)
+	case domain.FXConversionInput:
+		valid = matches(in.AccountID)
+	case domain.PositionImportInput:
+		valid = matches(in.AccountID)
+	case domain.TradeInput:
+		valid = matches(in.SettlementAccountID)
+	case domain.CashDividendInput:
+		valid = holdingMatches(in.HoldingID)
+	case domain.PositionAdjustmentInput:
+		valid = holdingMatches(in.HoldingID)
+	case domain.PositionCostAdjustmentInput:
+		valid = holdingMatches(in.HoldingID)
+	case domain.CashTransferInput:
+		valid = matches(in.FromAccountID) || matches(in.ToAccountID)
+	case domain.PositionTransferInput:
+		valid = holdingMatches(in.FromHoldingID) || holdingMatches(in.ToHoldingID) || (in.ToAccountID != nil && matches(*in.ToAccountID))
+	case domain.DebtDrawInput:
+		valid = matches(in.DebtAccountID) || matches(in.CashAccountID)
+	case domain.DebtPaymentInput:
+		valid = matches(in.DebtAccountID) || matches(in.CashAccountID)
+	}
+	if !valid {
+		return reconciliationError("reconciliationLink", "the command must keep the account being reconciled as its owning or transfer endpoint")
+	}
+	return nil
+}
+
 func (s *Service) ValidateReconciliationCommandLink(ctx context.Context, link *domain.ReconciliationLink, command any, preview domain.ChangePreview) error {
 	if link == nil {
 		return nil
+	}
+	if err := s.validateReconciliationCommandAccount(ctx, link, command); err != nil {
+		return err
 	}
 	if in, ok := command.(domain.PositionImportInput); ok {
 		if err := s.ValidateReconciliationLink(ctx, link, nil); err != nil {
@@ -915,4 +938,23 @@ func (s *Service) reconciliationCommitContext(ctx context.Context) (context.Cont
 		}
 	}
 	return ctx, reconciliationError("reconciliationLink", "reviewed point is outside the current scope")
+}
+
+// Account confirmation is one explicit attestation, never inferred from financial
+// inactivity. Preserve reviewed exceptions and prior evidence for individual review.
+func validateAccountConfirmation(account domain.ReconciliationAccount) error {
+	scope := false
+	for _, item := range account.Items {
+		scope = scope || item.Kind == "scope"
+		if item.Outcome == "confirmed" && !item.RecheckRequired {
+			continue
+		}
+		if item.Outcome != "pending" || item.Kind == "removed" || item.CheckedAt != "" || item.Note != "" || item.Source != (domain.ReconciliationSource{}) || item.ReferenceValue != "" || item.ReferenceComparable {
+			return reconciliationError("accountId", "review skipped, unresolved, removed or previously recorded evidence individually before confirming the account")
+		}
+	}
+	if !scope {
+		return reconciliationError("accountId", "account completeness check is missing; refresh or start a new session")
+	}
+	return nil
 }

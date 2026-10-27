@@ -1,3 +1,4 @@
+import { negateDisplayAmount } from "@/lib/liabilityDisplay";
 import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
 import { formatMoney, compareCanonical, formatQuotePrice, formatAmount, formatAuditMoney } from "@/lib/money";
@@ -19,12 +20,13 @@ function moneyText(amount?: string, currency?: string): string {
   return amount ? (currency ? formatAuditMoney(amount, currency) : formatMoney(amount)) : "";
 }
 
-function valueUpdateDelta(effect?: ActivityEffectDTO): string {
+function valueUpdateDelta(effect?: ActivityEffectDTO, liability = false): string {
   if (!effect?.money) return "";
   const { amount, currency } = effect.money;
   const magnitude = amount.replace(/^[+-]/, "");
   const sign = effect.direction === "removed" ? "-" : effect.direction === "added" ? "+" : amount.startsWith("-") ? "-" : "+";
-  const signed = sign === "-" ? `-${magnitude}` : magnitude;
+  const raw = sign === "-" ? `-${magnitude}` : magnitude;
+  const signed = liability ? negateDisplayAmount(raw) : raw;
   const display = formatAuditMoney(signed, currency);
   return compareCanonical(signed, "0.005") > 0 ? `+${display}` : display;
 }
@@ -66,8 +68,9 @@ function holdingName(t: Translator, effect: ActivityEffectDTO | undefined, holdi
 }
 
 function ActivityDetailBody({
-  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings, onRepeat, t,
+  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings, onRepeat, t, liabilities,
 }: {
+  liabilities: ReadonlySet<string>;
   activity: ActivityDTO;
   originalActivity?: ActivityDTO;
   originalActivityLoading?: boolean;
@@ -78,7 +81,7 @@ function ActivityDetailBody({
   onRepeat?: () => void;
   t: Translator;
 }) {
-  const sentence = activitySentence(t, activity, accounts, instruments, holdings);
+  const sentence = activitySentence(t, activity, accounts, instruments, holdings, liabilities);
   const product = productActivityText(t, activity, accounts, instruments);
   const detail = activity.tradeDetail;
   const effects = activity.effects ?? [];
@@ -176,13 +179,13 @@ function ActivityDetailBody({
       {activity.kind === "value_update" && (
         <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailAccount")}: {accountName(t, effects[0], accounts)}</p>
-          {effects[0]?.money && <p>{t("history.detailDelta")}: {valueUpdateDelta(effects[0])}</p>}
+          {effects[0]?.money && <p>{t("history.detailDelta")}: {valueUpdateDelta(effects[0],liabilities.has(effects[0]?.accountId ?? ""))}</p>}
           {activity.reason && <p>{t("history.reasonLabel")}: {displayEnum(t, "history.reason", activity.reason)}</p>}
         </div>
       )}
       {activity.kind === "reversal" && (
         <div className="flex flex-col gap-2 rounded-2xl bg-muted/50 p-4">
-          <p>{t("history.detailOriginalActivity")}: {originalActivityLoading ? t("history.detailOriginalActivityLoading") : originalActivity ? activitySentence(t, originalActivity, accounts, instruments, holdings) : t("history.detailOriginalActivityUnavailable")}</p>
+          <p>{t("history.detailOriginalActivity")}: {originalActivityLoading ? t("history.detailOriginalActivityLoading") : originalActivity ? activitySentence(t, originalActivity, accounts, instruments, holdings, liabilities) : t("history.detailOriginalActivityUnavailable")}</p>
           <p>{t("history.detailReversalDirection")}: {t("history.detailOppositeDirection")}</p>
           <div>
             <p>{t("history.detailAffectedItems")}</p>
@@ -208,7 +211,7 @@ function ActivityDetailBody({
 }
 
 export function ActivityDetailSheet({
-  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings = new Map(), finalFocus, onClose, onRepeat, t,
+  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings = new Map(), liabilities = new Set(), finalFocus, onClose, onRepeat, t,
 }: {
   activity: ActivityDTO | null;
   originalActivity?: ActivityDTO;
@@ -217,6 +220,7 @@ export function ActivityDetailSheet({
   accounts: Map<string, string>;
   instruments: Map<string, string>;
   holdings?: Map<string, string>;
+  liabilities?: ReadonlySet<string>;
   finalFocus?: () => HTMLElement | null;
   onClose: () => void;
   onRepeat?: () => void;
@@ -227,7 +231,7 @@ export function ActivityDetailSheet({
       <SheetContent size="lg" finalFocus={finalFocus}>
         <SheetHeader><SheetTitle>{t("common.details")}</SheetTitle></SheetHeader>
         <div>
-          {activity && <ActivityDetailBody activity={activity} originalActivity={originalActivity} originalActivityLoading={originalActivityLoading} timezone={timezone} accounts={accounts} instruments={instruments} holdings={holdings} onRepeat={onRepeat} t={t} />}
+          {activity && <ActivityDetailBody activity={activity} originalActivity={originalActivity} originalActivityLoading={originalActivityLoading} timezone={timezone} accounts={accounts} instruments={instruments} holdings={holdings} liabilities={liabilities} onRepeat={onRepeat} t={t} />}
         </div>
       </SheetContent>
     </Sheet>

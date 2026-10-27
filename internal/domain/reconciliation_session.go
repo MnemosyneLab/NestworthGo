@@ -181,3 +181,17 @@ func ReconciliationEffectMatches(item ReconciliationItem, account string, e Acti
 	}
 	return false
 }
+
+// ReconciliationDividendMatches retains an exact Holding association even though
+// a cash dividend changes cash rather than the Holding's quantity.
+func ReconciliationDividendMatches(item ReconciliationItem, activity Activity) bool {
+	if item.Kind != "holding" || activity.Kind != ActivityCashDividend || activity.DividendDetail == nil || activity.DividendDetail.HoldingID.String() != item.HoldingID {
+		return false
+	}
+	for _, effect := range activity.Effects {
+		if effect.AccountID != nil && effect.AccountID.String() == item.AccountID {
+			return true
+		}
+	}
+	return false
+}

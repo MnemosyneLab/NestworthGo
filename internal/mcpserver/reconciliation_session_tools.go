@@ -126,6 +126,11 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 		return
 	}
 	readTool(server, "preview_reconciliation_session", "Preview start, pause, resume, check or finish. Start selects active accountIds (omitted means all, max 100). All other actions require sessionId/expectedRevision. check requires accountId/itemId/current financialRevision and explicit outcome confirmed/skipped/unresolved/pending. Confirmed requires source.asOfDate; source.reference is optional and may be omitted or empty; optional HH:mm uses the ledger timezone, date-only remains date-only. Never fabricate an attestation. Skip/unresolved require a note. Partial finish requires allowPartial and explanation. A correction never confirms an item. Inspect returned counts before commit.", func(ctx context.Context, in application.ReconciliationAction) (any, error) {
+		// The desktop shows every proposed item. The MCP session envelope is
+		// deliberately bounded and has no pageable preview-item protocol yet.
+		if in.Action == "check_account" {
+			return nil, fail("validation", "account-wide confirmation requires the desktop account review; use individual check previews through MCP")
+		}
 		p, e := s.app.PreviewReconciliationSession(ctx, in)
 		if e != nil {
 			return nil, e

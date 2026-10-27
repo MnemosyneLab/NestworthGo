@@ -1,3 +1,4 @@
+import { signedAccountAmount } from "@/lib/liabilityDisplay";
 import type { AccountRecordDTO, AccountValuationDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 type DisplayMoney = { amount: string; currency: string };
@@ -16,9 +17,10 @@ export function accountDisplayMoney(
   const fallback = recorded?.currency === currency ? recorded : base?.currency === currency ? base : undefined;
   const primary = display ? display.value ?? undefined : fallback;
   const secondary = base && base.currency !== currency ? base : undefined;
+  const liability = record?.account.balanceSheetRole === "liability" || valuation?.account?.balanceSheetRole === "liability";
   return {
-    primary,
-    secondary,
+    primary: liability && primary ? { ...primary, amount: signedAccountAmount(primary.amount, true) } : primary,
+    secondary: liability && secondary ? { ...secondary, amount: signedAccountAmount(secondary.amount, true) } : secondary,
     pendingConversion: Boolean(primary && !base && valuation && valuation.missingInputs?.some((input) => input.kind === "fx_rate" && input.baseCurrency !== currency)),
     primaryPartial: Boolean(primary && (display ? !display.complete : primary === base && valuation && !valuation.complete)),
     secondaryPartial: Boolean(secondary && valuation && !valuation.complete),

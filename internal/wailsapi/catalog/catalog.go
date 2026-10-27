@@ -40,6 +40,8 @@ type CatalogDTO struct {
 	Appearances                []string                `json:"appearances"`
 	Languages                  []string                `json:"languages"`
 	Accents                    []string                `json:"accents"`
+	LiabilityIncreaseReasons   []string                `json:"liabilityIncreaseReasons"`
+	LiabilityDecreaseReasons   []string                `json:"liabilityDecreaseReasons"`
 	MoneyInReasons             []string                `json:"moneyInReasons"`
 	MoneyOutReasons            []string                `json:"moneyOutReasons"`
 	ValueUpdateReasons         []string                `json:"valueUpdateReasons"`
@@ -92,6 +94,8 @@ func (s *Service) Catalog() CatalogDTO {
 		Appearances:                stringSlice(settings.AllAppearances()),
 		Languages:                  stringSlice(settings.AllLanguages()),
 		Accents:                    stringSlice(settings.AllAccents()),
+		LiabilityIncreaseReasons:   stringSlice(domain.LiabilityIncreaseReasons()),
+		LiabilityDecreaseReasons:   stringSlice(domain.LiabilityDecreaseReasons()),
 		MoneyInReasons:             stringSlice(domain.MoneyInReasons()),
 		MoneyOutReasons:            stringSlice(domain.MoneyOutReasons()),
 		ValueUpdateReasons:         stringSlice(domain.ValueUpdateReasons()),

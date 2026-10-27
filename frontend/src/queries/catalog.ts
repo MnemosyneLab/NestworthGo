@@ -23,6 +23,8 @@ export type CatalogDTO = {
   appearances: string[];
   languages: string[];
   accents: string[];
+  liabilityIncreaseReasons: string[];
+  liabilityDecreaseReasons: string[];
   moneyInReasons: string[];
   moneyOutReasons: string[];
   valueUpdateReasons: string[];
@@ -49,6 +51,8 @@ function normalizeCatalog(value: GeneratedCatalogDTO): CatalogDTO {
     appearances: value.appearances ?? [],
     languages: value.languages ?? [],
     accents: value.accents ?? [],
+    liabilityIncreaseReasons: value.liabilityIncreaseReasons ?? [],
+    liabilityDecreaseReasons: value.liabilityDecreaseReasons ?? [],
     moneyInReasons: value.moneyInReasons ?? [],
     moneyOutReasons: value.moneyOutReasons ?? [],
     valueUpdateReasons: value.valueUpdateReasons ?? [],

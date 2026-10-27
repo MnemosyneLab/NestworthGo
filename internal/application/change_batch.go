@@ -98,6 +98,11 @@ func (s *Service) RecordChangesGuarded(ctx context.Context, commands []any, muta
 	if err != nil {
 		return nil, err
 	}
+	for _, command := range commands {
+		if err := s.validateReconciliationCommandAccount(ctx, domain.ReconciliationLinkFrom(ctx), command); err != nil {
+			return nil, err
+		}
+	}
 	previews, holdings, commits, err := s.prepareChangeBatch(ctx, commands)
 	if err != nil {
 		return nil, err

@@ -409,3 +409,40 @@ func findAccount(state ChangeState, name string) AccountID {
 	}
 	return ""
 }
+
+func TestLiabilityPurchaseAndRefundKeepPositiveDebtAndEconomicClassification(t *testing.T) {
+	state, asset, _, _, _ := changeTestState(t)
+	debt := NewAccountID()
+	zero, _ := ParseMoney("0", "CNY")
+	state.Accounts[debt] = ChangeAccountState{ID: debt, Name: "Synthetic card", Currency: "CNY", Mode: TrackingBalance, Liability: true, Current: zero}
+	amount, _ := ParseMoney("100", "CNY")
+	purchase := MoneyAddedInput{HouseholdID: state.HouseholdID, AccountID: debt, Amount: amount, Reason: ReasonCardPurchase}
+	preview, err := PreviewChange(state, purchase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Resulting[0].Amount != "100" || preview.Effects[0].Classification != ClassificationExternalOutflow || len(preview.Effects) != 1 {
+		t.Fatalf("purchase: %+v", preview)
+	}
+	refund := MoneyRemovedInput{HouseholdID: state.HouseholdID, AccountID: debt, Amount: amount, Reason: ReasonCardRefund}
+	if _, err = PreviewChange(state, refund); err == nil {
+		t.Fatal("refund created a credit balance")
+	}
+	account := state.Accounts[debt]
+	account.Current = amount
+	state.Accounts[debt] = account
+	preview, err = PreviewChange(state, refund)
+	if err != nil || preview.Resulting[0].Amount != "0" || preview.Effects[0].Classification != ClassificationExternalInflow {
+		t.Fatalf("refund: %+v %v", preview, err)
+	}
+	purchase.AccountID = asset
+	if _, err = PreviewChange(state, purchase); err == nil {
+		t.Fatal("purchase reason accepted for asset cash")
+	}
+	if _, err = PreviewChange(state, MoneyAddedInput{HouseholdID: state.HouseholdID, AccountID: debt, Amount: amount, Reason: ReasonCardRefund}); err == nil {
+		t.Fatal("refund increased debt")
+	}
+	if _, err = PreviewChange(state, MoneyRemovedInput{HouseholdID: state.HouseholdID, AccountID: debt, Amount: amount, Reason: ReasonCardPurchase}); err == nil {
+		t.Fatal("purchase reduced debt")
+	}
+}

@@ -1,3 +1,4 @@
+import { signedAccountAmount, signedAccountValuation, negateDisplayAmount } from "@/lib/liabilityDisplay";
 import { quoteObservationLabel } from "@/lib/quoteEvidencePresentation";
 import { useValuationDateGeneration } from "@/queries/useValuationDayBoundary";
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
@@ -57,15 +58,15 @@ function rowLabel(row: HistoricalOverviewRow, t: TFunction): string {
   return row.name;
 }
 
-function CellValue({ cell, currency }: { cell?: HistoricalOverviewCell | null; currency: string }) {
+function CellValue({ cell, currency, liability = false }: { cell?: HistoricalOverviewCell | null; currency: string; liability?: boolean }) {
   const { t } = useTranslation();
   if (!cell) return <span className="text-sm text-muted-foreground">{t("historicalOverview.notPresent")}</span>;
-  const displayAmount = historicalDisplayAmount(t, cell.displayValuation, cell.baseAmount == null ? null : { amount: cell.baseAmount, currency }, false, false);
+  const displayAmount = historicalDisplayAmount(t, signedAccountValuation(cell.displayValuation, liability), cell.baseAmount == null ? null : { amount: signedAccountAmount(cell.baseAmount, liability), currency }, false, false);
   return <div className="flex flex-col items-end gap-1">
     <span className="whitespace-nowrap"><span className="num whitespace-nowrap" title={displayAmount}>{displayAmount}</span>
  <ValuationQualitySummary value={cell.displayValuation} /></span>
     {cell.nativeAmount != null && cell.currency && cell.currency !== currency && (
-      <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={cell.nativeAmount} currency={cell.currency} /></span>
+      <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={cell.nativeAmount == null ? cell.nativeAmount : signedAccountAmount(cell.nativeAmount, liability)} currency={cell.currency} /></span>
     )}
     {cell.quantity != null && <span className="num text-xs">{t("historicalOverview.quantityValue", { value: cell.quantity })}</span>}
     <div className="flex flex-wrap justify-end gap-1">
@@ -83,10 +84,10 @@ function RowChanges({ row, currency }: { row: HistoricalOverviewRow; currency: s
   if (!row.left || !row.right) return <span className="text-xs text-muted-foreground">{t("historicalOverview.notComparable")}</span>;
   return <div className="flex flex-col gap-1 text-right">
     <span className="whitespace-nowrap font-medium">{row.baseChange == null
-      ? <Amount value={row.baseChange} currency={currency} signed />
-      : <SignedChange value={row.baseChange} currency={currency} neutral={row.role === "liability"} />}</span>
+      ? <Amount value={row.role === "liability" && row.baseChange != null ? negateDisplayAmount(row.baseChange) : row.baseChange} currency={currency} signed />
+      : <SignedChange value={row.role === "liability" && row.baseChange != null ? negateDisplayAmount(row.baseChange) : row.baseChange} currency={currency} neutral={row.role === "liability"} />}</span>
     {row.nativeChange != null && row.left.currency && row.left.currency !== currency && (
-      <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={row.nativeChange} currency={row.left.currency} signed /></span>
+      <span className="whitespace-nowrap text-xs text-muted-foreground"><Amount value={row.role === "liability" && row.nativeChange != null ? negateDisplayAmount(row.nativeChange) : row.nativeChange} currency={row.left.currency} signed /></span>
     )}
     {row.quantityChange != null && <span className="num text-xs">{t("historicalOverview.quantityChange", { value: row.quantityChange })}</span>}
   </div>;
@@ -113,17 +114,17 @@ function Evidence({ title, value, timezone }: { title: string; value?: Historica
   </div>;
 }
 
-function CellDetail({ cell, state, timezone }: { cell?: HistoricalOverviewCell | null; state: HistoricalOverviewState; timezone: string }) {
+function CellDetail({ cell, state, timezone, liability = false }: { cell?: HistoricalOverviewCell | null; state: HistoricalOverviewState; timezone: string; liability?: boolean }) {
   const { t } = useTranslation();
   return <section className="flex flex-col gap-3 border-t border-border pt-4">
     <h3 className="font-semibold">{state.current ? t("historicalOverview.current") : formatCivilDate(state.date)}</h3>
     <p className="text-xs text-muted-foreground">
       {t(state.current ? "historicalOverview.captureTime" : "historicalOverview.dayCutoff")}: <ObservationTime value={state.cutoffAt} timezone={timezone} />
     </p>
-    <CellValue cell={cell} currency={state.currency} />
+    <CellValue cell={cell} currency={state.currency} liability={liability} />
     {cell && <>
-      {cell.nativeAmount != null && cell.currency && <p className="text-sm">{t("historicalOverview.original")}: <Amount value={cell.nativeAmount} currency={cell.currency} /></p>}
-      {cell.baseAmount != null && <p className="text-sm">{t("historicalOverview.exactBase")}: <Amount value={cell.baseAmount} currency={state.currency} /></p>}
+      {cell.nativeAmount != null && cell.currency && <p className="text-sm">{t("historicalOverview.original")}: <Amount value={signedAccountAmount(cell.nativeAmount, liability)} currency={cell.currency} /></p>}
+      {cell.baseAmount != null && <p className="text-sm">{t("historicalOverview.exactBase")}: <Amount value={signedAccountAmount(cell.baseAmount, liability)} currency={state.currency} /></p>}
       {cell.valueSourceAt && <p className="text-sm">{t("historicalOverview.balanceSource")}: <ObservationTime value={cell.valueSourceAt} timezone={timezone} /></p>}
       {cell.manual && cell.nativeAmount != null && <p className="text-xs text-muted-foreground">{t("historicalOverview.manualNote")}</p>}
       {(cell.missing ?? []).length > 0 && <ul className="text-sm text-warning-foreground">
@@ -346,8 +347,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
               <Button variant="link" aria-label={t("historicalOverview.openCard", { name: account.name })} className="h-auto min-w-0 whitespace-normal p-0 text-left" onClick={event => openDetail(account.key, event.currentTarget)}>{account.name}</Button>
               {account.role === "liability" && <Badge variant="outline">{t("historicalOverview.debt")}</Badge>}
               <dl className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 text-sm">
-                <div><dt>A · {formatCivilDate(data.left.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.left} currency={data.left.currency} /></dd></div>
-                {data.right && <><div><dt>B · {data.right.current ? t("historicalOverview.current") : formatCivilDate(data.right.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.right} currency={data.right.currency} /></dd></div><div><dt>{t("historicalOverview.deltaBA")}</dt><dd className="overflow-x-auto">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</dd></div></>}
+                <div><dt>A · {formatCivilDate(data.left.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.left} currency={data.left.currency} liability={account.role === "liability"} /></dd></div>
+                {data.right && <><div><dt>B · {data.right.current ? t("historicalOverview.current") : formatCivilDate(data.right.date)}</dt><dd className="overflow-x-auto"><CellValue cell={account.right} currency={data.right.currency} liability={account.role === "liability"} /></dd></div><div><dt>{t("historicalOverview.deltaBA")}</dt><dd className="overflow-x-auto">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</dd></div></>}
               </dl>
             </li>)}</ul>
             <Button variant="outline" size="sm" className="min-[700px]:hidden" onClick={() => setFullTable(!fullTable)}>{t(fullTable ? "historicalOverview.hideFullTable" : "historicalOverview.fullChartData")}</Button>
@@ -371,8 +372,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                         {account.role === "liability" && <Badge variant="outline">{t("historicalOverview.debt")}</Badge>}
                       </div>
                     </th>
-                    <td className="p-3"><CellValue cell={account.left} currency={data.left.currency} /></td>
-                    {data.right && <><td className="p-3"><CellValue cell={account.right} currency={data.right.currency} /></td><td className="p-3">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</td></>}
+                    <td className="p-3"><CellValue cell={account.left} currency={data.left.currency} liability={account.role === "liability"} /></td>
+                    {data.right && <><td className="p-3"><CellValue cell={account.right} currency={data.right.currency} liability={account.role === "liability"} /></td><td className="p-3">{data.left.currency === data.right.currency ? <RowChanges row={account} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</td></>}
                   </tr>
                   {expanded.has(account.key) && (childrenByParent.get(account.key) ?? []).filter(row =>
                     (!changesOnly || !data.right || row.changed) && matchesCategory(row),
@@ -380,8 +381,8 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                     <th scope="row" data-account-column className="sticky left-0 z-10 max-w-60 bg-card py-3 pl-12 pr-3 text-left font-normal">
                       <Button variant="link" className="h-auto whitespace-normal [overflow-wrap:anywhere] p-0 text-left" onClick={event => openDetail(row.key, event.currentTarget)}>{rowLabel(row, t)}</Button>
                     </th>
-                    <td className="p-3"><CellValue cell={row.left} currency={data.left.currency} /></td>
-                    {data.right && <><td className="p-3"><CellValue cell={row.right} currency={data.right.currency} /></td><td className="p-3">{data.left.currency === data.right.currency ? <RowChanges row={row} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</td></>}
+                    <td className="p-3"><CellValue cell={row.left} currency={data.left.currency} liability={row.role === "liability"} /></td>
+                    {data.right && <><td className="p-3"><CellValue cell={row.right} currency={data.right.currency} liability={row.role === "liability"} /></td><td className="p-3">{data.left.currency === data.right.currency ? <RowChanges row={row} currency={data.left.currency} /> : t("historicalOverview.notComparable")}</td></>}
                   </tr>)}
                 </Fragment>)}</tbody>
               </table>
@@ -411,9 +412,9 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
                 </section>;
               })}
               {parent && <Button variant="outline" size="sm" className="h-auto min-h-8 max-w-full shrink-0 self-start whitespace-normal py-1.5 text-left [overflow-wrap:anywhere]" onClick={() => setSelectedKey(parent.key)}>{t("historicalOverview.returnToAccount", { name: parent.name })}</Button>}
-              <CellDetail cell={selected.left} state={data.left} timezone={data.timezone} />
+              <CellDetail cell={selected.left} state={data.left} timezone={data.timezone} liability={selected.role === "liability"} />
               {data.right && <>
-                <CellDetail cell={selected.right} state={data.right} timezone={data.timezone} />
+                <CellDetail cell={selected.right} state={data.right} timezone={data.timezone} liability={selected.role === "liability"} />
                 <section className="border-t border-border pt-4">
                   <h3 className="mb-2 text-sm font-semibold">{t("historicalOverview.change")}</h3>
                   <p className="mb-2 text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>

@@ -185,6 +185,9 @@ func (s *Service) recordChangeWithMutationChecked(ctx context.Context, command a
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
+	if err := s.validateReconciliationCommandAccount(ctx, domain.ReconciliationLinkFrom(ctx), command); err != nil {
+		return domain.ChangePreview{}, err
+	}
 	if err := s.rejectManagedCommand(ctx, command); err != nil {
 		return domain.ChangePreview{}, err
 	}

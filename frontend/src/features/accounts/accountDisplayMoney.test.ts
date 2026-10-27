@@ -71,3 +71,11 @@ it("keeps same-currency known zero on one line even when household conversion la
   expect(result.secondary).toBeUndefined();
   expect(result.pendingConversion).toBe(false);
 });
+
+it("shows liability balances as negative without changing ledger values or inventing missing amounts", () => {
+  const record = { account: { id: "debt", trackingMode: "balance", balanceSheetRole: "liability", defaultCurrency: "USD" }, latestValue: { amount: { amount: "20.005", currency: "USD" } } } as Parameters<typeof accountDisplayMoney>[0];
+  expect(accountDisplayMoney(record).primary?.amount).toBe("-20.005");
+  expect(record!.latestValue!.amount.amount).toBe("20.005");
+  expect(accountDisplayMoney({ ...record!, latestValue: null }).primary).toBeUndefined();
+  expect(accountDisplayMoney({ ...record!, latestValue: { ...record!.latestValue!, amount: { amount: "0.000", currency: "USD" } } }).primary?.amount).toBe("0");
+});

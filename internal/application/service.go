@@ -1293,7 +1293,7 @@ func (s *Service) attachOverviewHeadlines(ctx context.Context, snapshot domain.P
 	result.AccountLabels = make([]domain.OverviewNamedRef, 0, len(snapshot.Accounts))
 	for _, record := range snapshot.Accounts {
 		accountNames[record.Account.ID] = record.Account.Name
-		result.AccountLabels = append(result.AccountLabels, domain.OverviewNamedRef{ID: record.Account.ID.String(), Name: record.Account.Name})
+		result.AccountLabels = append(result.AccountLabels, domain.OverviewNamedRef{ID: record.Account.ID.String(), Name: record.Account.Name, BalanceSheetRole: record.Account.BalanceSheetRole})
 	}
 	sort.Slice(result.AccountLabels, func(i, j int) bool { return result.AccountLabels[i].ID < result.AccountLabels[j].ID })
 	instrumentNames := make(map[domain.InstrumentID]string, len(snapshot.Instruments))

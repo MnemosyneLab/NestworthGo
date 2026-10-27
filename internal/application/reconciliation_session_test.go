@@ -140,8 +140,8 @@ func TestReconciliationSessionRevisionAndSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Counts.Pending != 2 || v.Counts.Confirmed != 0 {
-		t.Fatalf("changed facts retained confirmation: %+v", v)
+	if v.Counts.Pending != 1 || v.Counts.Confirmed != 1 {
+		t.Fatalf("only the changed balance should lose confirmation: %+v", v)
 	}
 	for _, item := range v.Accounts[0].Items {
 		v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: item.ID, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic bank", AsOfDate: "2026-09-01"}})
@@ -266,6 +266,9 @@ func TestReconciliationMixedAccountProductLinksAndMarketDataIsolation(t *testing
 	if kinds["scope"] != 1 || kinds["cash"] != 2 || kinds["holding"] != 1 || kinds["product"] != 1 {
 		t.Fatalf("mixed contents lost: %v", kinds)
 	}
+	for _, item := range v.Accounts[0].Items {
+		v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid.String(), ItemID: item.ID, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{Reference: "Synthetic mixed account", AsOfDate: "2026-09-20"}})
+	}
 	rev := v.Accounts[0].FinancialRevision
 	// Ordinary manual quotes affect valuation, not a cash/quantity attestation.
 	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "30", "", false); err != nil {
@@ -306,7 +309,7 @@ func TestReconciliationMixedAccountProductLinksAndMarketDataIsolation(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.Counts.Confirmed != 0 || current.Accounts[0].FinancialRevision == rev {
+	if current.Counts.Confirmed != len(v.Accounts[0].Items)-1 || current.Counts.Pending != 1 || current.Accounts[0].FinancialRevision == rev {
 		t.Fatal("terms did not require renewed review")
 	}
 }
@@ -507,7 +510,7 @@ func TestReconciliationRemovedItemsHaveStablePreviewAndCommitOrder(t *testing.T)
 		}
 	}
 	v = recAction(t, s, ReconciliationAction{Action: "pause", SessionID: v.ID, ExpectedRevision: v.Revision})
-	if v.Status != "paused" || v.Counts.Pending != 4 {
+	if v.Status != "paused" || v.Counts.Pending != 3 || v.Counts.Confirmed != 1 {
 		t.Fatalf("unchanged preview did not commit refreshed evidence: %+v", v)
 	}
 }
@@ -994,5 +997,151 @@ func TestReconciliationOptionalSourceReferenceDurability(t *testing.T) {
 		if item.Source != want || len(item.Attempts) != 1 || item.Attempts[0].Source != want {
 			t.Fatalf("invented or changed evidence: %+v", item)
 		}
+	}
+}
+
+func TestReconciliationAccountConfirmationAtomicAndIdempotent(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	ctx := t.Context()
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	input := ReconciliationAction{Action: "check_account", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}}
+	if _, err := s.PreviewReconciliationSession(ctx, input); err == nil {
+		t.Fatal("implicit completeness accepted")
+	}
+	input.ScopeReviewed = true
+	input.Source.AsOfTime = "24:00"
+	if _, err := s.PreviewReconciliationSession(ctx, input); err == nil {
+		t.Fatal("invalid time accepted")
+	}
+	saved, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil || saved.Counts.Confirmed != 0 {
+		t.Fatalf("failed preview partially confirmed: %+v %v", saved, err)
+	}
+	input.Source.AsOfTime = ""
+	plan, err := s.PreviewReconciliationSession(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		saved, err = s.CommitReconciliationSession(ctx, plan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if saved.Counts.Confirmed != 2 || saved.Revision != v.Revision+1 {
+			t.Fatalf("batch outcome: %+v", saved)
+		}
+		for _, item := range saved.Accounts[0].Items {
+			if len(item.Attempts) != 1 || item.Source.Reference != "" || item.Source.AsOfTime != "" {
+				t.Fatalf("duplicated or invented evidence: %+v", item)
+			}
+		}
+	}
+	input.ExpectedRevision = saved.Revision
+	if _, err = s.PreviewReconciliationSession(ctx, input); err == nil {
+		t.Fatal("duplicate account recheck accepted")
+	}
+}
+
+func TestReconciliationAccountConfirmationPreservesExistingChecksAndExceptions(t *testing.T) {
+	for _, outcome := range []string{"confirmed", "skipped", "unresolved", "pending"} {
+		t.Run(outcome, func(t *testing.T) {
+			s, _, aid := reconciliationFixture(t)
+			v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+			v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: "balance", FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: outcome, Note: "Synthetic reviewed evidence", Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}})
+			input := ReconciliationAction{Action: "check_account", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", ScopeReviewed: true, Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}}
+			plan, err := s.PreviewReconciliationSession(t.Context(), input)
+			if outcome != "confirmed" {
+				if err == nil {
+					t.Fatal("exception evidence overwritten")
+				}
+				saved, e := s.GetReconciliationSession(t.Context(), v.ID)
+				if e != nil || saved.Revision != v.Revision {
+					t.Fatalf("failed batch wrote state: %+v %v", saved, e)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			saved, err := s.CommitReconciliationSession(t.Context(), plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, item := range saved.Accounts[0].Items {
+				if len(item.Attempts) != 1 {
+					t.Fatalf("existing confirmation duplicated: %+v", item)
+				}
+			}
+		})
+	}
+	for _, account := range []domain.ReconciliationAccount{{}, {Items: []domain.ReconciliationItem{{ID: "balance", Kind: "balance", Outcome: "pending"}}}, {Items: []domain.ReconciliationItem{{ID: "scope", Kind: "scope", Outcome: "pending"}, {ID: "removed", Kind: "removed", Outcome: "pending"}}}} {
+		if err := validateAccountConfirmation(account); err == nil {
+			t.Fatalf("ineligible scope accepted: %+v", account)
+		}
+	}
+}
+
+func TestReconciliationAccountConfirmationRejectsStaleCommit(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	ctx := t.Context()
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	input := ReconciliationAction{Action: "check_account", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, FinancialRevision: v.Accounts[0].FinancialRevision, ScopeReviewed: true, Outcome: "confirmed", Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}}
+	plan, err := s.PreviewReconciliationSession(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: "balance", FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "unresolved", Note: "Synthetic mismatch"})
+	if _, err = s.CommitReconciliationSession(ctx, plan); err == nil {
+		t.Fatal("stale account batch committed")
+	}
+	saved, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Counts.Unresolved != 1 || saved.Counts.Confirmed != 0 {
+		t.Fatalf("partial/stale overwrite: %+v", saved)
+	}
+}
+
+func TestReconciliationHoldingContextIncludesExactDividendAssociation(t *testing.T) {
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	aid := seedHoldingsCash(t, s, ctx, "1000")
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	link := &domain.ReconciliationLink{SessionID: v.ID, AccountID: aid.String(), ItemID: "holding:" + holding.ID.String(), ExpectedRevision: v.Revision, FinancialRevision: v.Accounts[0].FinancialRevision}
+	household, _ := s.requireHousehold(ctx)
+	money := mustMoney(t, "1", "USD")
+	command := domain.CashDividendInput{HouseholdID: household.ID, HoldingID: holding.ID, Amount: money, EffectiveAt: s.clock()}
+	preview, err := s.PreviewChange(ctx, command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ValidateReconciliationCommandLink(ctx, link, command, preview); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.RecordChangeWithMutation(domain.WithReconciliationLink(ctx, link), command, domain.NewMutationID().String(), strings.Repeat("c", 64)); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Counts.Confirmed != 0 {
+		t.Fatal("dividend automatically confirmed holding")
+	}
+	links, err := s.ReconciliationLinkedChanges(ctx, v.ID)
+	if err != nil || len(links) != 1 {
+		t.Fatalf("missing exact audit: %+v %v", links, err)
+	}
+	wrong := domain.NewAccountID()
+	if err = s.validateReconciliationCommandAccount(ctx, link, domain.MoneyAddedInput{AccountID: wrong}); err == nil {
+		t.Fatal("crafted wrong account accepted")
 	}
 }

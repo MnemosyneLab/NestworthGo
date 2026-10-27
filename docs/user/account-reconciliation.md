@@ -77,3 +77,33 @@ Desktop reconciliation previews now keep private recovery material across
 restart. Unavailable older plans can still remain unknown; do not compensate by
 creating another financial write. JSON export includes business revisions and
 change logs, and excludes private plans and receipts. It is not a restorable backup.
+
+## Account overview and confirmation
+
+The session groups accounts requiring review before verified accounts. Verified
+means every checkpoint, including completeness, is confirmed and current; empty,
+skipped, unresolved or stale accounts remain in the review group. Account headers
+can be expanded with keyboard or pointer. Valid completed accounts start collapsed;
+a manual expansion survives refetches within the same session.
+
+The item form shows the recorded ledger checkpoint separately from source evidence.
+The confirmation preview leads with the current changes; other accounts and the
+session are available as collapsed context. Corrections still require their own
+review and do not automatically confirm a check.
+
+“Confirm account” explicitly reviews the account's remaining checkpoints together.
+Review all listed values and affirm completeness, including missing currencies,
+holdings and managed products. The common source date/reference is evidence only;
+no source amounts are generated. Existing valid confirmations are preserved.
+Resolve skipped, unresolved or previously recorded exception evidence individually.
+The batch is one atomic preview/commit and preserves an attempt per confirmed item.
+This shortcut currently requires the desktop review; MCP continues to use individual
+check previews because its bounded session response cannot show a whole batch.
+
+While a session is open, recording a transaction reopens only its affected
+checkpoints. A buy or sell can reopen both its holding and settlement cash;
+FX and transfers can affect two endpoints. Other confirmed holdings and cash
+currencies retain their checks. Completeness reopens when the contents or scope
+change, such as adding a holding or currency. Historical attempts stay available,
+and a preview made before any relevant account change must still be reviewed
+again before it can be committed.

@@ -62,7 +62,7 @@ func linkReconciliationActivityTx(ctx context.Context, tx *sql.Tx, commit domain
 	if item == nil {
 		return reconciliationConflict("reconciliationLink")
 	}
-	affected := false
+	affected := domain.ReconciliationDividendMatches(*item, commit.Activity)
 	effects := []map[string]any{}
 	for _, e := range commit.Effects {
 		account := ""

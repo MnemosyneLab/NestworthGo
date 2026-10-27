@@ -1120,7 +1120,7 @@ it("colors asset changes with a gain cue and keeps debt balance changes neutral"
   const direction = i18n.t("holdingPerformance.direction.up");
   const asset = within(region).getByTitle("+" + formatAmount("20", "CNY")).closest("dd")!;
   expect(asset).toHaveTextContent(direction);
-  const debt = within(region).getByTitle("+" + formatAmount("5", "CNY")).closest("dd")!;
+  const debt = within(region).getByTitle(formatAmount("-5", "CNY")).closest("dd")!;
   expect(debt).not.toHaveTextContent(direction);
   expect(debt.querySelector(".text-gain-positive, .text-gain-negative")).toBeNull();
 });

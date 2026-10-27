@@ -4,6 +4,8 @@ import type { CatalogDTO } from "@/queries/catalog";
  * production values. Page tests assert that forms render exactly these
  * options so a leftover hardcoded array cannot hide behind the mock. */
 export const TEST_CATALOG: CatalogDTO = {
+  liabilityIncreaseReasons: ["card_purchase", "interest", "fee", "other", "reconciliation"],
+  liabilityDecreaseReasons: ["card_refund", "other", "reconciliation"],
   currencies: ["USD", "SGD", "CNY"],
   instrumentTypes: ["stock", "etf", "crypto"],
   institutionTypes: ["bank", "brokerage", "insurer", "exchange", "employer", "government", "other"],

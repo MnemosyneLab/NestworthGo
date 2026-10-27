@@ -1,3 +1,9 @@
+import { signedAccountAmount } from "@/lib/liabilityDisplay";
+import { ReconciliationItemGroups } from "./ReconciliationItemGroups";
+import { ReconciliationLedgerContext } from "./ReconciliationLedgerContext";
+import { useContext } from "react";
+import { accountCanBatchConfirm, accountIsVerified, ReconciliationAccountGroups } from "./ReconciliationAccountGroups";
+import { LedgerCheckpoint } from "./LedgerCheckpoint";
 import { AccountSelection } from "./AccountSelection";
 import { ReconciliationCoverageNotice } from "./ReconciliationCoverageNotice";
 import { useHistoryOrigin } from "@/queries/history";
@@ -110,6 +116,7 @@ const validationFields = new Set([
   "outcome",
   "referenceValue",
   "referenceComparable",
+  "scopeReviewed",
 ]);
 
 const reconciliationAction = (
@@ -126,6 +133,9 @@ const reconciliationAction = (
 });
 type Review = {
   action?: string;
+  request?: ReconciliationAction;
+  beforeItems?: ReconciliationItem[];
+  target?: ReconciliationItem;
   planId: string;
   result?: ReconciliationSession;
   adjustment?: AdjustmentPreview;
@@ -156,14 +166,14 @@ export function ReconciliationPage({
   const client = useQueryClient();
   const formatTimestamp = useReconciliationTimestamp();
   const filterId = useId();
-  const accounts = useAccounts();
+  const accounts = useAccounts({ includeArchived: true });
   const sessions = useReconciliationSessions(accountId, isActive);
   const [selected, setSelected] = useState<string[] | null>(
     accountId ? [accountId] : null,
   );
   const [active, setActive] = useState(sessionId ?? "");
   const detail = useReconciliationSession(active);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState("completed");
   const [page, setPage] = useState(0);
   const [review, setReview] = useState<Review>();
   const [error, setError] = useState<string>();
@@ -176,7 +186,7 @@ export function ReconciliationPage({
   type EditingIntent = {
     account: ReconciliationAccount;
     item: ReconciliationItem;
-    route: "check" | "adjust" | "record" | "product" | "import" | "newProduct";
+    route: "check" | "batch" | "adjust" | "record" | "product" | "import" | "newProduct";
   };
   const [editing, setEditing] = useState<EditingIntent & { requestId: number }>();
   const editingRequestId = useRef(0);
@@ -186,6 +196,14 @@ export function ReconciliationPage({
   const [closingNote, setClosingNote] = useState("");
   const [partial, setPartial] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
+  const accountHeaders = useRef(new Map<string, HTMLButtonElement>());
+  const triggerAccount = useRef<string>();
+  const restoreFocus = () => {
+    const original = trigger.current;
+    const target = original?.isConnected && !original.closest("[hidden]") ? original : accountHeaders.current.get(triggerAccount.current ?? "");
+    target?.focus({ preventScroll: true });
+    return false;
+  };
   const previewSequence = useRef(0);
   const invalidatePreview = () => {
     previewSequence.current += 1;
@@ -203,7 +221,7 @@ export function ReconciliationPage({
     setBusy(false);
     setActive(sessionId ?? "");
     setSelected(accountId ? [accountId] : null);
-    setFilter("");
+    setFilter("completed");
     setPage(0);
     setEditing(undefined);
     setReview(undefined);
@@ -226,7 +244,7 @@ export function ReconciliationPage({
         ReconciliationService.Preview(action),
       );
       if (sequence !== previewSequence.current) return;
-      setReview({ ...result, action: action.action });
+      setReview({ ...result, action: action.action, request: { ...action }, beforeItems: current?.accounts?.find((account) => account.accountId === action.accountId)?.items?.map((item) => ({ ...item, source: { ...item.source } })) });
     } catch (cause) {
       if (sequence !== previewSequence.current) return;
       const wire = (cause as { wireError?: WireError })?.wireError;
@@ -258,12 +276,16 @@ export function ReconciliationPage({
   const chosen = selected ? selected.filter((id) => activeAccountIds.has(id)) : [...activeAccountIds];
   const sessionRows = sessions.data ?? [];
   const rows = sessionRows.filter((s) =>
-    filter ? s.status === filter : s.status === "completed",
+    filter ? s.status === filter : true,
   );
+  const lastHistoryPage = Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1);
+  if (page > lastHistoryPage) setPage(lastHistoryPage);
   const hasUnfinished = sessionRows.some(
     (s) => s.status === "in_progress" || s.status === "paused",
   );
   const current = detail.data;
+  const accountRoles = new Map((accounts.data ?? []).filter(row => ["asset", "liability"].includes(row.account.balanceSheetRole)).map(row => [row.account.id, row.account.balanceSheetRole === "liability"]));
+  const liabilities = (id: string) => accountRoles.get(id) ?? null;
   const select = (id: string) => {
     if (hasUnresolvedSheetConfirmation()) return;
     invalidatePreview();
@@ -276,7 +298,7 @@ export function ReconciliationPage({
     clearError();
   };
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <ReconciliationLedgerContext.Provider value={liabilities}><div className="flex min-w-0 flex-col gap-6">
       <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
         {t("reconciliation.localOnly")}
       </p>
@@ -285,6 +307,10 @@ export function ReconciliationPage({
           {error}
         </Notice>
       )}
+      {current?.accounts?.some(account => liabilities(account.accountId) === null) && <Notice tone={accounts.isError ? "warning" : undefined} role="status">
+        {t(accounts.isLoading ? "reconciliation.loading" : "reconciliation.unavailable")}
+        {accounts.isError && <Button variant="outline" size="sm" onClick={() => void accounts.refetch()}>{t("reconciliation.retry")}</Button>}
+      </Notice>}
       {!active ? (
         <>
           {accounts.isLoading || sessions.isLoading ? (
@@ -515,49 +541,29 @@ export function ReconciliationPage({
                     </Notice>
                   )}
                 </Card>
-                {(current.accounts ?? []).map((a) => {
+                <ReconciliationAccountGroups key={current.id} accounts={current.accounts ?? []} locked={Boolean(editing || review || closing)} trigger={trigger}
+                  actions={(account) => current.status === "in_progress" && !accountIsVerified(account) && account.items?.some((item) => item.kind === "scope") ? <Button variant="outline" size="sm" onClick={(event) => {
+                    trigger.current = event.currentTarget;
+                    triggerAccount.current = account.accountId;
+                    beginEditing({ account, item: { ...account.items!.find((item) => item.kind === "scope")!, source: { reference: "", asOfDate: "" }, note: "", referenceValue: "", referenceComparable: false }, route: "batch" });
+                  }}>{t("reconciliation.checkAccount")}</Button> : null}
+                  registerHeader={(id, element) => { if (element) accountHeaders.current.set(id, element); else accountHeaders.current.delete(id); }}
+                  notices={(a) => <>
+                    <ReconciliationCoverageNotice account={a} completed={current.status === "completed"} />
+                    {a.recheckRequired && <Notice tone="warning" role="status">{t(`reconciliation.${current.status === "completed" ? "recheck" : a.financialRevisionChanged ? "workingBookkeepingChanged" : "pendingReview"}`)}</Notice>}
+                  </>}>
+                  {(a) => {
                   const edit =
                     (item: ReconciliationItem, route: EditingIntent["route"]) =>
                     (e: ReactMouseEvent<HTMLButtonElement>) => {
                       trigger.current = e.currentTarget;
+                      triggerAccount.current = a.accountId;
                       beginEditing({ account: a, item, route });
                     };
-                  return (
-                    <section
-                      key={a.accountId}
-                      className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
-                    >
-                      <header className="flex min-w-0 flex-col gap-3 border-b border-border bg-muted/30 px-5 py-4">
-                        <h3 className="break-words text-base font-semibold">
-                          {a.name} · {a.currency}
-                        </h3>
-                        <Counts counts={a.counts} />
-                        <p className="num text-xs text-muted-foreground">
-                          {t("reconciliation.lastSuccess")}:{" "}
-                          {a.lastSuccessfulAt
-                            ? formatTimestamp(a.lastSuccessfulAt)
-                            : t("reconciliation.never")}
-                        </p>
-                        <ReconciliationCoverageNotice
-                          account={a}
-                          completed={current.status === "completed"}
-                        />
-                        {a.recheckRequired && (
-                          <Notice tone="warning" role="status">
-                            {t(
-                              `reconciliation.${current.status === "completed" ? "recheck" : a.financialRevisionChanged ? "workingBookkeepingChanged" : "pendingReview"}`,
-                            )}
-                          </Notice>
-                        )}
-                      </header>
-                      <div className="divide-y divide-border">
-                        {[...(a.items ?? [])]
-                          .sort(
-                            (left, right) =>
-                              Number(right.kind === "scope") -
-                              Number(left.kind === "scope"),
-                          )
-                          .map((item) => {
+                    return <>
+                      <p className="num px-5 pt-3 text-xs text-muted-foreground">{t("reconciliation.lastSuccess")}: {a.lastSuccessfulAt ? formatTimestamp(a.lastSuccessfulAt) : t("reconciliation.never")}</p>
+                      <ReconciliationItemGroups items={a.items ?? []} locked={Boolean(editing || review || closing)}>
+                          {(item) => {
                             const sourceDiffers =
                               item.outcome === "confirmed" &&
                               item.referenceComparable &&
@@ -579,12 +585,12 @@ export function ReconciliationPage({
                               >
                                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                                   <div className="flex min-w-0 flex-1 basis-56 flex-col gap-1">
-                                    <h4 className="break-words font-semibold">
+                                    <h5 className="break-words font-semibold">
                                       {item.kind === "scope"
                                         ? t("reconciliation.scope")
                                         : item.label}{" "}
                                       · {t(`reconciliation.kind.${item.kind}`)}
-                                    </h4>
+                                    </h5>
                                     {item.kind === "holding" && (
                                       <HoldingIdentity detail={item.detail} />
                                     )}
@@ -603,7 +609,7 @@ export function ReconciliationPage({
                                             "font-normal text-muted-foreground",
                                         )}
                                       >
-                                        {checkpointValue(t, item)}
+                                        {checkpointValue(t, item, false, liabilities(a.accountId))}
                                       </p>
                                     )}
                                     {item.cost && (
@@ -658,7 +664,7 @@ export function ReconciliationPage({
                                       )}
                                     >
                                       {t("reconciliation.referenceValue")}:{" "}
-                                      {checkpointReference(t, item)}
+                                      {checkpointReference(t, item, false, liabilities(a.accountId))}
                                     </p>
                                   )}
                                   {sourceDiffers && (
@@ -756,7 +762,7 @@ export function ReconciliationPage({
                                           {[
                                             formatTimestamp(attempt.checkedAt),
                                             t(`reconciliation.${attempt.outcome}`),
-                                            checkpointValue(t, attempt, true),
+                                            checkpointValue(t, attempt, true, liabilities(a.accountId)),
                                             sourceText(attempt.source),
                                             attempt.note,
                                           ]
@@ -769,13 +775,13 @@ export function ReconciliationPage({
                                 )}
                               </article>
                             );
-                          })}
-                      </div>
-                    </section>
-                  );
-                })}
-                <RecentChanges sessionId={active} session={current} />
-                <LinkedChanges sessionId={active} />
+                          }}
+                      </ReconciliationItemGroups>
+                    </>;
+                  }}
+                </ReconciliationAccountGroups>
+                <RecentChanges key={`changes-${active}`} sessionId={active} session={current} />
+                <LinkedChanges key={`links-${active}`} sessionId={active} />
               </>
             )
           )}
@@ -785,14 +791,14 @@ export function ReconciliationPage({
         <Sheet
           open
           onOpenChange={(open) => {
-            if (!open) {
+            if (!open && !review) {
               invalidatePreview();
               setClosing(false);
               clearError();
             }
           }}
         >
-          <SheetContent finalFocus={() => trigger.current}>
+          <SheetContent finalFocus={restoreFocus}>
             <SheetHeader>
               <SheetTitle>{t("reconciliation.finish")}</SheetTitle>
             </SheetHeader>
@@ -863,14 +869,14 @@ export function ReconciliationPage({
         <Sheet
           open
           onOpenChange={(open) => {
-            if (!open) {
+            if (!open && !review) {
               invalidatePreview();
               endEditing();
               clearError();
             }
           }}
         >
-          <SheetContent size="lg" finalFocus={() => trigger.current}>
+          <SheetContent size="lg" finalFocus={restoreFocus}>
             <SheetHeader>
               <SheetTitle>
                 {editing.item.kind === "scope"
@@ -878,12 +884,12 @@ export function ReconciliationPage({
                   : editing.item.label}{" "}
                 ·{" "}
                 {t(
-                  `reconciliation.${editing.route === "check" ? "review" : editing.route === "adjust" ? "adjust" : editing.route === "product" ? "productRoute" : editing.route === "import" ? "importPosition" : "recordMissing"}`,
+                  `reconciliation.${editing.route === "batch" ? "checkAccountTitle" : editing.route === "check" ? "review" : editing.route === "adjust" ? "adjust" : editing.route === "product" ? "productRoute" : editing.route === "import" ? "importPosition" : "recordMissing"}`,
                 )}
               </SheetTitle>
             </SheetHeader>
             {error &&
-              (editing.route !== "check" ||
+              (!["check", "batch"].includes(editing.route) ||
                 ![
                   "source",
                   "asOfDate",
@@ -892,22 +898,24 @@ export function ReconciliationPage({
                   "outcome",
                   "referenceValue",
                   "referenceComparable",
+                  "scopeReviewed",
                 ].includes(errorField ?? "")) && (
                 <FieldError>{error}</FieldError>
               )}
-            {editing.route === "check" ? (
+            {editing.route === "check" || editing.route === "batch" ? (
               <CheckForm
                 key={editing.item.id}
                 item={editing.item}
+                batchAccount={editing.route === "batch" ? editing.account : undefined}
                 error={error}
                 errorField={errorField}
                 onEdit={clearError}
                 disabled={busy}
                 onPreview={(fields) =>
                   preview({
-                    ...reconciliationAction("check", current),
+                    ...reconciliationAction(editing.route === "batch" ? "check_account" : "check", current),
                     accountId: editing.account.accountId,
-                    itemId: editing.item.id,
+                    itemId: editing.route === "batch" ? undefined : editing.item.id,
                     financialRevision: editing.account.financialRevision,
                     ...fields,
                   })
@@ -922,7 +930,7 @@ export function ReconciliationPage({
                         hideKind: true,
                         accountId: editing.account.accountId,
                       }
-                    : undefined
+                    : { accountId: editing.account.accountId, settlementAccountId: editing.account.accountId, holdingId: editing.item.kind === "holding" ? editing.item.holdingId : undefined }
                 }
                 initial={{
                   ...emptyChangeRequest(
@@ -934,6 +942,7 @@ export function ReconciliationPage({
                     editing.item.currency || editing.account.currency,
                   ),
                   accountId: editing.account.accountId,
+                  reason: accounts.data?.find(row => row.account.id === editing.account.accountId)?.account.balanceSheetRole === "liability" ? "card_purchase" : "other",
                   holdingId: editing.item.holdingId,
                   instrumentId: editing.item.instrumentId,
                   side: editing.item.kind === "holding" ? "buy" : undefined,
@@ -961,7 +970,7 @@ export function ReconciliationPage({
                   expectedRevision: current.revision,
                   financialRevision: editing.account.financialRevision,
                 }}
-                onPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, product: p }); }}
+                onPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, product: p, target: editing.item }); }}
               />
             ) : (
               <AdjustmentForm
@@ -969,7 +978,7 @@ export function ReconciliationPage({
                 session={current}
                 account={editing.account}
                 item={editing.item}
-                onPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, adjustment: p }); }}
+                onPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, adjustment: p, target: editing.item }); }}
               />
             )}
           </SheetContent>
@@ -989,22 +998,32 @@ export function ReconciliationPage({
             financialRevision: editing.account.financialRevision,
           }}
           onOpenChange={(open) => {
-            if (!open) {
+            if (!open && !review) {
               endEditing();
               clearError();
             }
           }}
-          onReconciliationPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, product: p }); }}
+          onReconciliationPreview={(p) => { if (editing.requestId === editingRequestId.current) setReview({ planId: p.planId, product: p, target: editing.item }); }}
         />
       )}
       {review && (
         <Sheet open onOpenChange={(open) => !open && setReview(undefined)}>
-          <SheetContent size="lg">
+          <SheetContent size="lg" finalFocus={editing || closing ? undefined : restoreFocus}>
             <SheetHeader>
               <SheetTitle>{t("reconciliation.preview")}</SheetTitle>
             </SheetHeader>
             <CommitReview
               review={review}
+              onReturn={() => {
+                setReview(undefined);
+                clearError();
+                if (editing) {
+                  const account = current?.accounts?.find((row) => row.accountId === editing.account.accountId);
+                  const item = account?.items?.find((row) => row.id === editing.item.id);
+                  if (account && item) beginEditing({ ...editing, account, item });
+                  else endEditing();
+                }
+              }}
               onDone={(result) => {
                 if (review.adjustment || review.product)
                   invalidateActivityChange(client);
@@ -1020,7 +1039,7 @@ export function ReconciliationPage({
           </SheetContent>
         </Sheet>
       )}
-    </div>
+    </div></ReconciliationLedgerContext.Provider>
   );
 }
 function ProductEvidence({ detail }: { detail: unknown }) {
@@ -1084,6 +1103,7 @@ function ProductEvidence({ detail }: { detail: unknown }) {
 
 function CheckForm({
   item,
+  batchAccount,
   onPreview,
   disabled,
   error,
@@ -1094,6 +1114,7 @@ function CheckForm({
   errorField?: string;
   onEdit: () => void;
   item: ReconciliationItem;
+  batchAccount?: ReconciliationAccount;
   onPreview: (fields: Partial<ReconciliationAction>) => Promise<void>;
   disabled: boolean;
 }) {
@@ -1120,6 +1141,7 @@ function CheckForm({
   }, []);
   const today = defaultDate() || undefined;
   const [outcome, setOutcome] = useState("confirmed");
+  const [scopeReviewed, setScopeReviewed] = useState(false);
   const [reference, setReference] = useState(item.source.reference);
   // undefined follows today; saved dates, user selections and explicit clearing stay fixed.
   const [selectedDate, setDate] = useState<string | undefined>(item.source.asOfDate || undefined);
@@ -1149,6 +1171,15 @@ function CheckForm({
   );
   return (
     <div className="flex flex-col gap-4">
+      {batchAccount ? <>
+        <h3 className="font-semibold">{batchAccount.name} · {batchAccount.currency}</h3>
+        <Notice>{t("reconciliation.checkAccountHelp")}</Notice>
+        {!accountCanBatchConfirm(batchAccount) && <Notice tone="warning" role="alert">{t("reconciliation.checkAccountExceptions")}</Notice>}
+        {batchAccount.items?.filter((row) => row.outcome !== "confirmed" || row.recheckRequired).map((row) => <LedgerCheckpoint key={row.id} item={row} />)}
+        <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4 accent-primary" checked={scopeReviewed} onChange={(event) => { setScopeReviewed(event.target.checked); onEdit(); }} />{t("reconciliation.scopeReviewed")}</label>
+        {fieldError("scopeReviewed")}
+      </> : <><LedgerCheckpoint item={item} />{item.kind === "product" && <ProductEvidence detail={item.detail} />}</>}
+      {item.kind === "product" && <ProductEvidence detail={item.detail} />}
       {(history.isLoading || (!timezoneKnown && history.isFetching)) && <p role="status" className="text-sm text-muted-foreground">{t("reconciliation.sourceTimezoneLoading")}</p>}
       {history.isError && (
         <Notice tone="danger" role="alert">
@@ -1156,7 +1187,7 @@ function CheckForm({
           <Button variant="outline" disabled={history.isFetching} onClick={() => void history.refetch()}>{t("reconciliation.retry")}</Button>
         </Notice>
       )}
-      <FormField>
+      {!batchAccount && <FormField>
         <Label htmlFor="check-outcome">{t("reconciliation.outcome")}</Label>
         <NativeSelect
           id="check-outcome"
@@ -1174,7 +1205,7 @@ function CheckForm({
           ))}
         </NativeSelect>
         {fieldError("outcome")}
-      </FormField>
+      </FormField>}
       <FormField>
         <Label htmlFor="check-source">{t("reconciliation.source")}</Label>
         <Input
@@ -1225,7 +1256,7 @@ function CheckForm({
           {fieldError("asOfTime")}
         </FormField>
       </div>
-      <FormField>
+      {!batchAccount && <FormField>
         <Label htmlFor="check-value">{t("reconciliation.referenceValue")}</Label>
         <Input
           id="check-value"
@@ -1239,7 +1270,7 @@ function CheckForm({
           }}
         />
         {fieldError("referenceValue")}
-      </FormField>
+      </FormField>}
       {["cash", "balance", "holding"].includes(item.kind) && (
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-3">
           <label className="flex cursor-pointer items-start gap-3 text-sm font-medium">
@@ -1284,6 +1315,7 @@ function CheckForm({
         className="self-end"
         disabled={
           disabled ||
+          Boolean(batchAccount && (!scopeReviewed || !accountCanBatchConfirm(batchAccount))) ||
           (outcome === "confirmed" && selectedDate === undefined && !timezoneKnown) ||
           utf8ByteLength(reference) > 512 ||
           utf8ByteLength(value) > 256 ||
@@ -1292,6 +1324,7 @@ function CheckForm({
         onClick={() =>
           void onPreview({
             outcome,
+            scopeReviewed: batchAccount ? scopeReviewed : undefined,
             source: { reference, asOfDate: selectedDate ?? defaultDate(), asOfTime: time },
             referenceValue: value,
             referenceComparable: comparable,
@@ -1316,6 +1349,7 @@ function AdjustmentForm({
   onPreview: (p: AdjustmentPreview) => void;
 }) {
   const { t } = useTranslation();
+  const liability = useContext(ReconciliationLedgerContext)(account.accountId);
   const client = useQueryClient();
   const [value, setValue] = useState(
     item.kind === "scope" ? "" : (item.value ?? ""),
@@ -1359,8 +1393,8 @@ function AdjustmentForm({
         {t("reconciliation.correctionHelp")}
       </p>
       <p className="num break-words rounded-xl bg-muted/50 px-3 py-2.5 text-sm font-medium">
-        {t("reconciliation.current")}: {checkpointValue(t, item, true)} →{" "}
-        {value || t("reconciliation.unavailable")}
+        {t("reconciliation.current")}: {checkpointValue(t, item, true, liability)} →{" "}
+        {value ? item.kind === "balance" ? liability === null ? t("reconciliation.unavailable") : signedAccountAmount(value, liability) : value : t("reconciliation.unavailable")}
       </p>
       {item.kind === "scope" && (
         <FormField>
@@ -1437,7 +1471,7 @@ function AdjustmentForm({
       )}
       <Button
         className="self-end"
-        disabled={busy || utf8ByteLength(note) > 2000}
+        disabled={busy || utf8ByteLength(note) > 2000 || (item.kind === "balance" && liability === null)}
         onClick={() => {
           const sequence = ++previewSequence.current;
           setBusy(true);
@@ -1490,12 +1524,15 @@ function AdjustmentForm({
 }
 function CommitReview({
   review,
+  onReturn,
   onDone,
 }: {
   review: Review;
+  onReturn: () => void;
   onDone: (result?: ReconciliationSession) => void;
 }) {
   const { t } = useTranslation();
+  const liabilities = useContext(ReconciliationLedgerContext);
   const client = useQueryClient();
   const confirmation = useSheetConfirmation();
   const [busy, setBusy] = useState(false);
@@ -1567,48 +1604,55 @@ function CommitReview({
   };
   return (
     <div className="flex flex-col gap-4">
-      {review.result && (
-        <>
-          <p className="text-base font-semibold">
-            {t(`reconciliation.${review.result.status}`)}
-          </p>
-          <Counts counts={review.result.counts} />
-          <p className="break-words text-sm">{review.result.note}</p>
-          <p className="break-words text-sm">{review.result.closingNote}</p>
-          {review.result.accounts?.map((a) => (
-            <p key={a.accountId} className="text-sm font-medium">
-              {a.name} · {t(`reconciliation.${a.outcome}`)}
-            </p>
-          ))}
-          {review.result.accounts?.flatMap((a) =>
-            (a.items ?? [])
-              .filter((item) => item.checkedAt)
-              .map((item) => (
-                <div
-                  key={`${a.accountId}:${item.id}`}
-                  className="flex flex-col gap-1 rounded-xl border border-border p-3 text-sm"
-                >
-                  <p className="font-semibold">
-                    {a.name} ·{" "}
-                    {item.kind === "scope"
-                      ? t("reconciliation.kind.scope")
-                      : item.label}{" "}
-                    · {t(`reconciliation.${item.outcome}`)}
-                  </p>
-                  <p className="num break-words">
-                    {[checkpointValue(t, item, true), checkpointReference(t, item, true)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  <p className="break-words text-xs text-muted-foreground">
-                    {sourceText(item.source)}
-                  </p>
-                  <p className="break-words">{item.note}</p>
-                </div>
-              )),
-          )}
-        </>
-      )}
+      {review.target && <LedgerCheckpoint item={review.target} />}
+      {review.result?.accounts?.map(account => <div key={`warnings-${account.accountId}`}>
+        <ReconciliationCoverageNotice account={account} completed={review.result?.status === "completed"} />
+        {account.items?.filter(item => item.referenceComparable && /^-?\d+(\.\d+)?$/.test(item.value ?? "") && /^-?\d+(\.\d+)?$/.test(item.referenceValue ?? "") && compareCanonical(item.value!, item.referenceValue!) !== 0).map(item => <Notice key={item.id} tone="warning" role="alert">{account.name} · {item.label}: {t("reconciliation.mismatch")}</Notice>)}
+      </div>)}
+      {review.result && (() => {
+        const targetAction = review.action === "check" || review.action === "check_account";
+        const focused = targetAction ? (review.result.accounts ?? []).flatMap((account) => {
+          if (account.accountId !== review.request?.accountId) return [];
+          return (account.items ?? []).filter((item) => {
+            if (review.action === "check") return item.id === review.request?.itemId;
+            const before = review.beforeItems?.find((row) => row.id === item.id);
+            return !before || before.checkedAt !== item.checkedAt || before.outcome !== item.outcome || (before.attempts?.length ?? 0) !== (item.attempts?.length ?? 0);
+          });
+        }) : [];
+        return <>
+          <h3 className="text-base font-semibold">{t(targetAction ? "reconciliation.thisReview" : review.action === "finish" ? "reconciliation.finish" : review.action === "start" ? "reconciliation.start" : review.action === "pause" ? "reconciliation.pause" : "reconciliation.resume")}</h3>
+          {targetAction && <>
+            <p className="text-sm text-muted-foreground">{t("reconciliation.checkOnlyHint")}</p>
+            <p className="text-sm font-medium">{t("reconciliation.previewItems", { count: focused.length })}</p>
+            {!focused.length && <Notice tone="warning" role="alert">{t("reconciliation.reviewContextUnavailable")}</Notice>}
+            {focused.map((item) => {
+              const before = review.beforeItems?.find((row) => row.id === item.id);
+              return <div key={`${item.accountId}:${item.id}`} className="flex flex-col gap-2">
+                {before && before.outcome !== item.outcome && <p className="text-sm">{t("reconciliation.outcome")}: {t(`reconciliation.${before.outcome}`)} → {t(`reconciliation.${item.outcome}`)}</p>}
+                <LedgerCheckpoint item={item} evidence />
+              </div>;
+            })}
+          </>}
+          {!targetAction && <>
+            <p className="text-sm font-medium">{t(`reconciliation.${review.result.status}`)}</p>
+            <Counts counts={review.result.counts} />
+            {review.result.note && <p className="break-words text-sm">{t("reconciliation.openingNote")}: {review.result.note}</p>}
+            {review.result.closingNote && <p className="break-words text-sm">{t("reconciliation.closingNote")}: {review.result.closingNote}</p>}
+            {review.result.partial && <Notice tone="warning" role="alert">{t("reconciliation.partial")}</Notice>}
+            {(review.result.accounts ?? []).map((account) => <p key={account.accountId} className="text-sm">{account.name} · {t(`reconciliation.${account.outcome}`)}</p>)}
+          </>}
+          <details className={detailsClass}>
+            <summary className={summaryClass}>{t("reconciliation.sessionContext")}</summary>
+            <div className="flex flex-col gap-3 border-t border-border p-3">
+              {targetAction && <Counts counts={review.result.counts} />}
+              {review.result.accounts?.map((account) => <details key={account.accountId} className={detailsClass}>
+                <summary className={summaryClass}>{account.name} · {t(`reconciliation.${account.outcome}`)}</summary>
+                <div className="flex flex-col gap-2 p-3">{account.items?.map((item) => <LedgerCheckpoint key={item.id} item={item} evidence={Boolean(item.checkedAt)} />)}</div>
+              </details>)}
+            </div>
+          </details>
+        </>;
+      })()}
       {review.adjustment?.changes?.map((change, i) => (
         <div
           key={i}
@@ -1633,7 +1677,7 @@ function CommitReview({
           ))}
           {change.resulting?.map((v, j) => (
             <p key={j}>
-              {v.name} · {formatRecordedAmount(v.amount || v.quantity, v.amount ? v.currency : "")}
+              {v.name} · {v.amount && !v.holdingId && liabilities(v.accountId ?? "") === null ? t("reconciliation.unavailable") : formatRecordedAmount(v.amount ? signedAccountAmount(v.amount, liabilities(v.accountId ?? "") === true) : v.quantity, v.amount ? v.currency : "")}
             </p>
           ))}
         </div>
@@ -1698,9 +1742,10 @@ function CommitReview({
           {error}
         </Notice>
       )}
+      {refusedReview && <Button variant="outline" onClick={onReturn}>{t("reconciliation.returnToDraft")}</Button>}
       <Button
         className="self-end"
-        disabled={busy}
+        disabled={busy || refusedReview}
         aria-disabled={refusedReview || undefined}
         onClick={() => void commit()}
       >
@@ -1723,6 +1768,7 @@ function CommitReview({
 }
 type LinkedAudit = {
   reviewedBefore?: {
+    accountId?: string;
     accountName: string;
     label: string;
     kind: string;
@@ -1739,6 +1785,7 @@ type LinkedAudit = {
     recordedAt?: string;
     note?: string;
     resulting?: {
+      AccountID?: string;
       Name: string;
       Amount?: string;
       Quantity?: string;
@@ -1769,9 +1816,12 @@ type LinkedAudit = {
 };
 function LinkedChanges({ sessionId }: { sessionId: string }) {
   const { t } = useTranslation();
+  const liabilities = useContext(ReconciliationLedgerContext);
   const formatTimestamp = useReconciliationTimestamp();
   const links = useReconciliationLinks(sessionId);
   const [page, setPage] = useState(0);
+  const lastPage = Math.max(0, Math.ceil((links.data?.length ?? 0) / PAGE_SIZE) - 1);
+  if (page > lastPage) setPage(lastPage);
   return (
     <details className={cn(detailsClass, "shadow-sm")}>
       <summary className={cn(summaryClass, "px-5 py-3.5 text-sm")}>
@@ -1804,7 +1854,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
               </h4>
               <p>
                 {t("reconciliation.reviewedBefore")}:{" "}
-                {before && checkpointValue(t, before, true)}{" "}
+                {before && checkpointValue(t, before, true, liabilities(before.accountId ?? ""))}{" "}
                 {before?.cost &&
                   `${t("reconciliation.unitCost")}: ${formatRecordedAmount(before.cost, before.currency)}`}
               </p>
@@ -1825,7 +1875,7 @@ function LinkedChanges({ sessionId }: { sessionId: string }) {
               )}
               {after?.resulting?.map((value, j) => (
                 <p key={j}>
-                  {value.Name}: {formatRecordedAmount(value.Amount || value.Quantity, value.Amount ? value.Currency : "")}
+                  {value.Name}: {value.Amount && liabilities(value.AccountID ?? before?.accountId ?? "") === null ? t("reconciliation.unavailable") : formatRecordedAmount(value.Amount ? signedAccountAmount(value.Amount, liabilities(value.AccountID ?? before?.accountId ?? "") === true) : value.Quantity, value.Amount ? value.Currency : "")}
                 </p>
               ))}
               {after?.effects?.map((effect, j) => (
@@ -1884,6 +1934,8 @@ function RecentChanges({
   const formatTimestamp = useReconciliationTimestamp();
   const changes = useReconciliationChanges(sessionId);
   const [page, setPage] = useState(0);
+  const lastPage = Math.max(0, Math.ceil((changes.data?.length ?? 0) / PAGE_SIZE) - 1);
+  if (page > lastPage) setPage(lastPage);
   return (
     <details className={cn(detailsClass, "shadow-sm")}>
       <summary className={cn(summaryClass, "px-5 py-3.5 text-sm")}>

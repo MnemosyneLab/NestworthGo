@@ -1,3 +1,4 @@
+import { negateDisplayAmount, signedAccountAmount, signedAccountMoney, signedAccountValuation } from "@/lib/liabilityDisplay";
 import { compareCanonical } from "@/lib/money";
 import { fullDisplayAmount, valuationDetails, valuationTableAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { AssetValueSummary } from "./AssetValueSummary";
@@ -54,10 +55,16 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   const context = useAnalysisProjectionContext(session);
   const trend = useAssetTrend(context.request, granularity, metric, context.enabled);
   const data = trend.data;
+  const valueChange = data?.valueChange && metric === "liabilities" ? {
+    ...data.valueChange,
+    beginningValue: signedAccountMoney(data.valueChange.beginningValue, true),
+    endingValue: signedAccountMoney(data.valueChange.endingValue, true),
+    change: data.valueChange.change ? { ...data.valueChange.change, amount: negateDisplayAmount(data.valueChange.change.amount) } : data.valueChange.change,
+  } : data?.valueChange;
   const isLevel = ["net_worth","assets","liabilities"].includes(metric);
   const hasLevelDisplay = isLevel && (data?.points ?? []).some(point => hasDisplay(point.displayValuation));
   const dates = useMemo(() => (data?.points ?? []).map((point) => point.period), [data?.points]);
-  const values = useMemo(() => (data?.points ?? []).map((point) => metric === "return_rate" ? point.rate : isLevel ? fullDisplayAmount(point.displayValuation,point.value?.amount) : point.value?.amount ?? null), [data?.points, metric, isLevel]);
+  const values = useMemo(() => (data?.points ?? []).map((point) => metric === "return_rate" ? point.rate : isLevel ? fullDisplayAmount(signedAccountValuation(point.displayValuation,metric === "liabilities"),point.value ? signedAccountAmount(point.value.amount,metric === "liabilities") : null) : point.value?.amount ?? null), [data?.points, metric, isLevel]);
   const display = isLevel ? data?.points?.find(point => point.displayValuation?.currency || point.displayValuation?.total?.currency || point.displayValuation?.knownSubtotal?.currency)?.displayValuation : undefined;
   const currency = data?.summary?.currency || display?.currency || display?.total?.currency || display?.knownSubtotal?.currency || data?.points?.find(point => point.value?.currency)?.value?.currency || settings.data?.currency || "";
 
@@ -80,13 +87,13 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   else if (!data || (!data.available && !hasLevelDisplay)) results = trendEmpty(data, t);
   else results = (
     <>
-      {data.valueChange && <Card><CardContent className="pt-5"><AssetValueSummary summary={data.valueChange} /></CardContent></Card>}
+      {data.valueChange && <Card><CardContent className="pt-5"><AssetValueSummary summary={valueChange!} /></CardContent></Card>}
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
         </CardHeader>
-        <CardContent>{dates.length === 0 || (values.every((value) => value == null) && !hasLevelDisplay) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:isLevel && point.displayValuation?.quality?.coverage === "provisional",qualityLabel:isLevel ? valuationDetails(t,point.displayValuation) : ""})) }]} extraTableColumns={[t("charts.date"),metricLabel(t,metric),t("connections.coverage")]} extraTableRows={(data.points ?? []).map(point=>[point.period,metric === "return_rate" ? rateText(point.rate) : valuationTableAmount(t,isLevel ? point.displayValuation : null,point.value,metric === "net_worth"),trendCoverage(t, point, isLevel)])} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => formatDecimalRatioPercent(value, 1, false, false) : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
+        <CardContent>{dates.length === 0 || (values.every((value) => value == null) && !hasLevelDisplay) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values, pointMeta: (data.points ?? []).map(point => ({provisional:isLevel && point.displayValuation?.quality?.coverage === "provisional",qualityLabel:isLevel ? valuationDetails(t,point.displayValuation) : ""})) }]} extraTableColumns={[t("charts.date"),metricLabel(t,metric),t("connections.coverage")]} extraTableRows={(data.points ?? []).map(point=>[point.period,metric === "return_rate" ? rateText(point.rate) : valuationTableAmount(t,isLevel ? signedAccountValuation(point.displayValuation,metric === "liabilities") : null,signedAccountMoney(point.value,metric === "liabilities"),metric === "net_worth"),trendCoverage(t, point, isLevel)])} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => formatDecimalRatioPercent(value, 1, false, false) : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
       </Card>
       {!data.valueChange && <Card>
         <CardContent className="pt-6">

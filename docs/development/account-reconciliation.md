@@ -101,9 +101,24 @@ Recorded revision order detects newly recorded backdated activity, rather than
 using its effective date as a watermark. Separate change-log rows retain recorded
 and effective timestamps. There is no prior watermark on a first session.
 
-A changed working account refreshes its current items, retains earlier attempts,
-surfaces removed points and requires renewed explicit review. Other accounts keep
-their progress. All refreshed points, including removed points, use stable-ID
+A changed working account refreshes only affected points. Account revision changes
+still expire stale previews, including whole-account and finish plans; they do
+not by themselves clear unrelated confirmations. The append-only change log maps
+activity effects to exact holding/cost or account/currency endpoints, including
+backdated changes, reversals and multiple events whose net amount is unchanged.
+A dividend rechecks its cash endpoint, while unchanged holding quantity/cost stays
+confirmed. Product principal, terms, policy and lifecycle changes recheck that
+product; price, FX, descriptive metadata and pure valuation observations do not
+clear quantity/cash confirmations. Unknown legacy change families or missing
+endpoint evidence retain a conservative account-wide fallback.
+
+Completeness reopens for added/removed identities, instrument scope changes and
+account archive/mode/currency boundaries, rather than ordinary amount events.
+New and removed points remain pending. Unaffected points retain their outcome,
+source, timestamp and attempts; their working revision advances for account CAS,
+while every attempt retains the original revision and values. Refresh alone
+never appends an attempt or confirms a new point. Other accounts retain their
+progress unless the same atomic operation changes one of their endpoints. All refreshed points, including removed points, use stable-ID
 ordering so unchanged previews and commits compare the same evidence.
 Removed points carry the current financial revision; their retained attempts
 keep the historical revision originally checked. Completed
@@ -114,8 +129,10 @@ reconciliation reads; they do not use the broad agent.data.changed notification.
 Descriptive instrument price/NAV performance remains independent of personal
 ledger/reconciliation inputs, preserving merged PR90. No investment-review
 rule-engine overhaul is part of this feature. The revision is deliberately
-account-granular: a relevant edit requires that
-account's points and scope to be checked again.
+account-granular for optimistic concurrency; renewed attestation is item-scoped.
+A buy/sell can reopen both a holding and its cash currency; transfers reopen both
+actual endpoints, and FX reopens both currencies. Unrelated currencies, holdings
+and completeness evidence remain confirmed.
 
 `reconciliationLink` is part of the immutable ledger/product command and request
 hash. It names a session, selected account/item, session revision and financial
@@ -254,3 +271,40 @@ does not label zero quantities as nonzero. Ordinary archived positions retain ev
 partial-finish controls, but adjustment and missing-trade actions are hidden
 until the holding or instrument is restored. Backend refusals remain authoritative.
 Paused sessions may still finish directly.
+
+## Account review presentation and liability conventions
+
+The account shortcut is an explicit `check_account` action with `scopeReviewed`.
+It uses the existing immutable preview, session CAS, financial revision fence,
+transaction and receipt replay. The backend validates all eligible items before a
+single session save. Valid previous confirmations keep their attempts; skipped,
+unresolved, removed or previously recorded pending evidence needs individual review.
+No financial events or source figures are inferred from account inactivity.
+Desktop previews show every changed item. MCP rejects this action until its
+bounded protocol supports reviewing every batch item.
+
+Reconciliation supplement commands keep the linked account as their owning or
+transfer endpoint, checked at preview and commit. A holding item retains its exact
+holding/instrument identity. A cash dividend may link to that holding by its
+explicit dividend detail even though only cash changes. Corrections still do not
+confirm reconciliation items.
+
+Liability balances remain nonnegative debt magnitudes in storage and APIs. Signed
+presentation is applied once from authoritative balance-sheet role metadata, not
+names or symbols. Entry amounts, principal, fees and source-comparison inputs stay
+positive magnitudes. Net totals use normalized base-currency values; a group with
+missing or incomplete valuations has no complete-looking net subtotal.
+
+New `card_purchase` / `card_refund` reasons distinguish one-sided liability
+consumption from income and principal. Purchase increases debt with external-outflow
+classification and a negative Spending attribution; refund reduces debt with
+external-inflow classification and offsets Spending. Repayment remains paired debt
+and cash reduction; no second expense is recorded for principal. Value correction
+uses reconciliation remeasurement. Refunds/repayments beyond debt owed are rejected;
+credit balances and matching a refund to a historical original purchase are not
+implemented by these shortcuts. Existing reason-coded records are not rewritten.
+
+Simple account analysis uses the canonical account taxonomy. Property and other
+non-investment values do not become cash merely because they have no instrument.
+Ordinary undo reporting derives kind/reason from a known immutable parent while
+retaining the undo's time and inverted effects; persisted activities are unchanged.

@@ -30,6 +30,32 @@ type classifiedAnalysisEffect struct {
 // and Return Analysis. It keeps physical AssetBucket, economic
 // ReturnComponent, and non-return DietzCapitalFlow assignments separate.
 func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot domain.DailyValuationSnapshot, previousSnapshot *domain.DailyValuationSnapshot, input AnalysisInputs, query domain.AnalysisQuery) ([]classifiedAnalysisEffect, error) {
+	// Derive an ordinary undo's reporting semantics from its immutable parent.
+	// Keep its ID, time, inverted effects and reversal link; never rewrite facts.
+	if activity.Kind == domain.ActivityReversal && activity.ProductContext == nil && activity.ReversesActivityID != nil {
+		if original, ok := u.activities[*activity.ReversesActivityID]; ok && original.Kind != domain.ActivityReversal {
+			activity.Kind, activity.Reason = original.Kind, original.Reason
+			activity.DividendDetail = original.DividendDetail
+			if original.TradeDetail != nil {
+				// The inverse carries reversed physical effects. Copy the parent's
+				// price/identity evidence, but derive its side from that quantity leg.
+				// Reusing the parent's side would walk a buy twice in the lot bridge.
+				for _, effect := range activity.Effects {
+					if effect.Target != domain.EffectTargetHoldingQuantity || effect.HoldingID == nil || *effect.HoldingID != original.TradeDetail.HoldingID || effect.Quantity == nil {
+						continue
+					}
+					detail := *original.TradeDetail
+					detail.Quantity = *effect.Quantity
+					detail.Side, activity.Kind = domain.TradeBuy, domain.ActivityBuy
+					if effect.Direction == domain.EffectRemoved {
+						detail.Side, activity.Kind = domain.TradeSell, domain.ActivitySell
+					}
+					activity.TradeDetail = &detail
+					break
+				}
+			}
+		}
+	}
 	activity = u.productReversalTrade(activity)
 	endItems := snapshotItemsByComponent(daySnapshot, u.accounts, u.instruments)
 	startItems := make(map[string]domain.DailyValuationSnapshotItem)
@@ -397,6 +423,11 @@ func assetBucketFor(activity domain.Activity, effect domain.ActivityEffect, comp
 		return nil
 	}
 	// Semantic reasons take precedence over funding/principal labels.
+	if account.IsLiability() && effect.Target == domain.EffectTargetAccountValue && (activity.Reason == domain.ReasonCardPurchase || activity.Reason == domain.ReasonCardRefund || (activity.Kind == domain.ActivityCashIn && activity.Reason == domain.ReasonInterest)) {
+		bucket := domain.BucketSpending
+		return &bucket
+	}
+
 	if isProductInterestEffect(activity, effect) {
 		bucket := domain.BucketDividendInterest
 		return &bucket

@@ -124,6 +124,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
       .map((activity) => activity.reversesActivityId)
       .filter((id): id is string => Boolean(id)),
   );
+  const liabilities = new Set((accounts.data ?? []).filter(record => record.account.balanceSheetRole === "liability").map(record => record.account.id));
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const prefillAccount = (accounts.data ?? []).find((record) => record.account.id === accountFilter && !record.account.archivedAt)?.account;
   const prefillInstrument = (instruments.data ?? []).find((instrument) => instrument.id === instrumentFilter && !instrument.archivedAt && ordinaryInstrument(instrument));
@@ -244,7 +245,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
               <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
                 {group.items.map((activity) => {
                   const canModify = activity.kind !== "cost_adjustment" && !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
-                  const summary = activitySentence(t, activity, accountNames, instrumentNames, holdingNames);
+                  const summary = activitySentence(t, activity, accountNames, instrumentNames, holdingNames, liabilities);
                   const style = activityStyle(activity.kind);
                   const menuItems = canModify && !activity.productContext
                     ? [
@@ -354,6 +355,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
         activity={detailTarget}
         timezone={origin.data?.timezone}
         accounts={accountNames}
+        liabilities={liabilities}
         instruments={instrumentNames}
         holdings={holdingNames}
         originalActivity={originalActivity.data}

@@ -22,6 +22,7 @@ type AnalysisInputs struct {
 }
 
 type analysisUniverse struct {
+	activities              map[domain.ActivityID]domain.Activity
 	displayEvidence         snapshotDisplayEvidence
 	activityPresence        map[componentActivityKey]bool
 	activityChecked         map[componentActivityKey]bool
@@ -135,8 +136,13 @@ func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (
 	for _, component := range context.InvestmentUniverse.Components {
 		investmentComponentKeys[component.Key()] = struct{}{}
 	}
+	activities := make(map[domain.ActivityID]domain.Activity, len(input.Activities))
+	for _, activity := range input.Activities {
+		activities[activity.ID] = activity
+	}
 	return analysisUniverse{
-		context: context, accounts: accounts, ownership: ownership, instruments: instruments, holdings: holdings,
+		activities: activities,
+		context:    context, accounts: accounts, ownership: ownership, instruments: instruments, holdings: holdings,
 		componentKeys: componentKeys, investmentComponentKeys: investmentComponentKeys, unknownAccountDates: unknownAccountDates,
 	}, nil
 }
@@ -222,10 +228,7 @@ func componentIDForItem(item domain.DailyValuationSnapshotItem, account domain.A
 		component.InstrumentID = item.InstrumentID
 		return component
 	}
-	// Every account-value component without an instrument is cash/simple cash.
-	// TrackingBalance accounts must use the same cash bridge as brokerage cash;
-	// TrackingMode describes persistence, not whether FX attribution applies.
-	component.Cash = true
+	component.Cash = itemAssetClass(account, nil, item) == domain.BucketCash
 	return component
 }
 
@@ -252,7 +255,7 @@ func componentForEffect(effect domain.ActivityEffect, accounts map[domain.Accoun
 	if !ok {
 		return domain.ComponentID{}, false
 	}
-	return domain.ComponentID{AccountID: account.ID, Currency: effect.Money.Currency(), AssetClass: itemAssetClass(account, nil, domain.DailyValuationSnapshotItem{NativeCurrency: effect.Money.Currency()}), Cash: true}, true
+	return domain.ComponentID{AccountID: account.ID, Currency: effect.Money.Currency(), AssetClass: itemAssetClass(account, nil, domain.DailyValuationSnapshotItem{NativeCurrency: effect.Money.Currency()}), Cash: itemAssetClass(account, nil, domain.DailyValuationSnapshotItem{}) == domain.BucketCash}, true
 }
 
 func instrumentForItem(item domain.DailyValuationSnapshotItem, instruments map[domain.InstrumentID]domain.Instrument) (*domain.Instrument, bool) {
@@ -282,10 +285,14 @@ func itemAssetClass(account domain.Account, instrument *domain.Instrument, item 
 		return string(instrument.Type)
 	}
 	if item.HoldingID == nil {
-		if account.IsLiability() {
-			return string(account.AccountType)
+		if account.TrackingMode == domain.TrackingHoldings {
+			return domain.ClassifyCashBalance(account).Bucket
 		}
-		return domain.BucketCash
+		class, err := domain.ClassifySimpleAccount(account.AccountType, account.BalanceSheetRole, account.TrackingMode)
+		if err == nil {
+			return class.Bucket
+		}
+		return "unknown"
 	}
 	return "unknown"
 }
@@ -296,11 +303,8 @@ func componentAssetClass(component domain.ComponentID, accounts map[domain.Accou
 			return string(instrument.Type)
 		}
 	}
-	if account, ok := accounts[component.AccountID]; ok && account.IsLiability() {
-		return string(account.AccountType)
-	}
-	if component.Cash || component.HoldingID == nil {
-		return domain.BucketCash
+	if account, ok := accounts[component.AccountID]; ok && (component.Cash || component.HoldingID == nil) {
+		return itemAssetClass(account, nil, domain.DailyValuationSnapshotItem{})
 	}
 	return "unknown"
 }
