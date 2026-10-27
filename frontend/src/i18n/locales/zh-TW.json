@@ -1906,7 +1906,9 @@
     "closingNote": "結束說明",
     "preview": "預覽",
     "outcome": "核對結果",
-    "source": "對帳單或來源參考",
+    "source": "對帳單或來源參考（選填）",
+    "sourcePlaceholder": "例如：銀行 App 餘額、九月對帳單",
+    "sourceHelp": "選填，記錄你核對的來源；無需參考說明時可留空。",
     "sourceDate": "來源截至日期",
     "sourceTime": "來源時間（選填，帳本時區）",
     "referenceValue": "來源顯示的值（選填）",
@@ -1950,7 +1952,7 @@
       "cancelled": "已取消"
     },
     "validation": {
-      "source": "來源憑證與來源日期：請填寫兩項後再確認本項核對。",
+      "source": "對帳單或來源參考：請勿超過 512 個 UTF-8 位元組。",
       "asOfDate": "來源日期：請選擇有效日期。",
       "asOfTime": "來源時間：請選擇帳本時區內的有效時間。",
       "allowPartial": "請勾選「明確保留待核對項並部分完成」，並填寫結束說明。",

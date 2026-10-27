@@ -1099,10 +1099,27 @@ function CheckForm({
 }) {
   const { t } = useTranslation();
   const history = useHistoryOrigin();
-  const today = localDateTimeInTimeZone(history.data?.timezone ?? "UTC")?.date;
+  const timezone = history.data?.timezone ?? "UTC";
+  // Refresh untouched defaults and calendar bounds across midnight/backgrounding.
+  // Resolve again at preview so a timer delay cannot submit yesterday's default.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const refresh = () => tick((value) => value + 1);
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+  const today = localDateTimeInTimeZone(timezone)?.date;
   const [outcome, setOutcome] = useState("confirmed");
   const [reference, setReference] = useState(item.source.reference);
-  const [date, setDate] = useState(item.source.asOfDate);
+  // undefined follows today; saved dates, user selections and explicit clearing stay fixed.
+  const [selectedDate, setDate] = useState<string | undefined>(item.source.asOfDate || undefined);
+  const date = selectedDate ?? today ?? "";
   const [time, setTime] = useState(item.source.asOfTime ?? "");
   const [note, setNote] = useState(item.note);
   const [value, setValue] = useState(item.referenceValue ?? "");
@@ -1154,11 +1171,14 @@ function CheckForm({
           maxBytes={512}
           value={reference}
           {...aria("source")}
+          aria-describedby={["check-source-help", invalid("source") ? "check-source-error" : ""].filter(Boolean).join(" ")}
+          placeholder={t("reconciliation.sourcePlaceholder")}
           onChange={(e) => {
             setReference(e.target.value);
             onEdit();
           }}
         />
+        <p id="check-source-help" className="text-xs text-muted-foreground">{t("reconciliation.sourceHelp")}</p>
         {fieldError("source")}
       </FormField>
       <div className="flex flex-col gap-4">
@@ -1251,6 +1271,8 @@ function CheckForm({
         className="self-end"
         disabled={
           disabled ||
+          history.isLoading ||
+          history.isError ||
           utf8ByteLength(reference) > 512 ||
           utf8ByteLength(value) > 256 ||
           utf8ByteLength(note) > 2000
@@ -1258,7 +1280,7 @@ function CheckForm({
         onClick={() =>
           void onPreview({
             outcome,
-            source: { reference, asOfDate: date, asOfTime: time },
+            source: { reference, asOfDate: selectedDate ?? localDateTimeInTimeZone(timezone)?.date ?? "", asOfTime: time },
             referenceValue: value,
             referenceComparable: comparable,
             note,

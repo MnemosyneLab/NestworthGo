@@ -10,7 +10,9 @@ providers. Never run these checks on a personal financial database. Implemented 
 | --- | --- |
 | Start selected/all active scope; duplicate/foreign identities refused; equality stays pending | Application and MCP session tests |
 | Pause/resume across service and physical database recreation | Application reopen and receipt tests |
-| Explicit sourced confirmation, date-only precision, partial intent and outstanding counts | Application, MCP HTTP and real GUI date/time interaction tests |
+| Explicit confirmation with optional source reference, date-only precision, partial intent and outstanding counts | Application, MCP HTTP and real-component date/time interaction tests |
+| Empty/omitted source reference survives preview, commit and saved reads for scope and balance checks; malformed dates/times and source byte limits remain enforced | Application optional-reference durability, desktop adapter and MCP HTTP regressions |
+| New cutoff defaults to ledger today across timezone differences, midnight and reopen; saved/manual dates and intentional clearing stay unchanged | ReconciliationPage tests with actual shared controls and synthetic clocks (jsdom, not native GUI) |
 | Last successful account completion, including fractional-second ordering | Application success/reopen/time-order tests |
 | Immutable completion with a separate current recheck indicator | Application completion tests and localized GUI history tests |
 | Mixed USD/EUR cash, ordinary holdings, managed contracts and complete scope | Application mixed-account test |

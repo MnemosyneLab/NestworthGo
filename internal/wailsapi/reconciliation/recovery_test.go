@@ -141,3 +141,54 @@ func TestDesktopAdjustmentCostErrorsNameTheReviewedField(t *testing.T) {
 		}
 	}
 }
+
+func TestDesktopReconciliationOptionalReference(t *testing.T) {
+	ctx := t.Context()
+	db, err := sqlite.Open(filepath.Join(t.TempDir(), "synthetic.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	app := application.NewService(sqlite.NewRepository(db))
+	app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
+	if err = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, _ := app.Bootstrap(ctx)
+	account, err := app.CreateAccount(ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(app)
+	preview, err := service.Preview(ctx, application.ReconciliationAction{Action: "start", AccountIDs: []string{account.Account.ID.String()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := service.Commit(ctx, preview.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Decode an API request with reference omitted; keep the persisted source shape.
+	var action application.ReconciliationAction
+	if err = jsoncodec.Unmarshal([]byte(`{"action":"check","itemId":"scope","outcome":"confirmed","source":{"asOfDate":"2026-08-31"}}`), &action); err != nil {
+		t.Fatal(err)
+	}
+	action.SessionID, action.AccountID = session.ID, account.Account.ID.String()
+	action.ExpectedRevision, action.FinancialRevision = session.Revision, session.Accounts[0].FinancialRevision
+	preview, err = service.Preview(ctx, action)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := NewService(app).Commit(ctx, preview.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Counts.Confirmed != 1 {
+		t.Fatalf("check not confirmed: %+v", saved.Counts)
+	}
+	for _, item := range saved.Accounts[0].Items {
+		if item.ID == "scope" && (item.Outcome != "confirmed" || item.Source != (domain.ReconciliationSource{AsOfDate: "2026-08-31"})) {
+			t.Fatalf("changed evidence: %+v", item)
+		}
+	}
+}

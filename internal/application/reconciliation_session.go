@@ -522,8 +522,8 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 						if item.Kind == "holding" && item.Cost == "" {
 							return session, nil, reconciliationError("itemId", "current cost is unavailable; leave this check pending or unresolved")
 						}
-						if strings.TrimSpace(in.Source.Reference) == "" || in.Source.AsOfDate == "" {
-							return session, nil, reconciliationError("source", "confirmation requires a user-provided source and as-of date")
+						if in.Source.AsOfDate == "" {
+							return session, nil, reconciliationError("asOfDate", "confirmation requires an as-of date")
 						}
 						if _, err := time.Parse("2006-01-02", in.Source.AsOfDate); err != nil {
 							return session, nil, reconciliationError("asOfDate", "provide a valid civil date")

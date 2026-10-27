@@ -26,7 +26,10 @@ correction is linked to the session and returns you to the same check. Review
 the refreshed evidence and explicitly confirm it; a saved correction never
 confirms a point automatically.
 
-Each confirmation needs a statement/source reference and its as-of date. Supply
+Each confirmation needs an as-of date. The GUI defaults a new check to today in
+the ledger timezone; historical dates remain editable and saved dates are retained.
+A statement/source reference is optional (for example, a bank-app balance or
+statement reference); leaving it blank records no invented reference. Supply
 a source time only when known; it uses the ledger timezone. The App separately
 records when you actually checked the point. You can skip or leave an unresolved
 difference with an explanation, or keep it pending.

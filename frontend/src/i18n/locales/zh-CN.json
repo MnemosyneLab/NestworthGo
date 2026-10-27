@@ -1906,7 +1906,9 @@
     "closingNote": "结束说明",
     "preview": "预览",
     "outcome": "核对结果",
-    "source": "对账单或来源参考",
+    "source": "对账单或来源参考（选填）",
+    "sourcePlaceholder": "例如：银行 App 余额、九月对账单",
+    "sourceHelp": "选填，记录你核对的来源；无需参考说明时可留空。",
     "sourceDate": "来源截至日期",
     "sourceTime": "来源时间（可选，账本时区）",
     "referenceValue": "来源显示的值（可选）",
@@ -1950,7 +1952,7 @@
       "cancelled": "已取消"
     },
     "validation": {
-      "source": "来源凭证与来源日期：请填写两项后再确认本项核对。",
+      "source": "对账单或来源参考：请勿超过 512 个 UTF-8 字节。",
       "asOfDate": "来源日期：请选择有效日期。",
       "asOfTime": "来源时间：请选择账本时区内的有效时间。",
       "allowPartial": "请勾选“明确保留待核对项并部分完成”，并填写结束说明。",

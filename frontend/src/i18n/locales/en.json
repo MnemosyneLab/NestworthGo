@@ -1906,7 +1906,9 @@
     "closingNote": "Closing explanation",
     "preview": "Preview",
     "outcome": "Check outcome",
-    "source": "Statement or source reference",
+    "source": "Statement or source reference (optional)",
+    "sourcePlaceholder": "e.g. Bank-app balance or September statement",
+    "sourceHelp": "Optional: note what you checked. Leave blank if no reference is needed.",
     "sourceDate": "Source as-of date",
     "sourceTime": "Source time (optional, ledger timezone)",
     "referenceValue": "Value shown by your source (optional)",
@@ -1950,7 +1952,7 @@
       "cancelled": "Cancelled"
     },
     "validation": {
-      "source": "Statement or source reference and source date: provide both to confirm this check.",
+      "source": "Statement or source reference: use at most 512 UTF-8 bytes.",
       "asOfDate": "Source date: choose a valid date.",
       "asOfTime": "Source time: choose a valid time in the ledger timezone.",
       "allowPartial": "Select “Finish partially with outstanding checks” and add a closing explanation.",

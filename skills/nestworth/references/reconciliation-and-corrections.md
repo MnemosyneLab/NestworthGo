@@ -91,7 +91,8 @@ reported with pending/skipped/unresolved counts, never as all passed.
 4. Reread after a correction. Outcomes remain pending until the user explicitly
    checks the refreshed evidence. Check with action check, expectedRevision,
    financialRevision and confirmed/skipped/unresolved/pending. Confirmation
-   requires source.reference and source.asOfDate. A date-only source must omit
+   requires source.asOfDate. source.reference is optional; omit it or leave it empty
+   when no reference was supplied. Never invent reference text. A date-only source must omit
    asOfTime; HH:mm uses the ledger timezone. Actual checked/completion times
    are recorded separately by the App. Skipped/unresolved requires a note.
 5. Preview and commit finish. If anything remains outstanding, require explicit
