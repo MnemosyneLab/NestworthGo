@@ -996,3 +996,84 @@ func TestReconciliationOptionalSourceReferenceDurability(t *testing.T) {
 		}
 	}
 }
+
+func TestReconciliationAccountConfirmationAtomicAndIdempotent(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	ctx := t.Context()
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	input := ReconciliationAction{Action: "check_account", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}}
+	if _, err := s.PreviewReconciliationSession(ctx, input); err == nil {
+		t.Fatal("implicit completeness accepted")
+	}
+	input.ScopeReviewed = true
+	input.Source.AsOfTime = "24:00"
+	if _, err := s.PreviewReconciliationSession(ctx, input); err == nil {
+		t.Fatal("invalid time accepted")
+	}
+	saved, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil || saved.Counts.Confirmed != 0 {
+		t.Fatalf("failed preview partially confirmed: %+v %v", saved, err)
+	}
+	input.Source.AsOfTime = ""
+	plan, err := s.PreviewReconciliationSession(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		saved, err = s.CommitReconciliationSession(ctx, plan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if saved.Counts.Confirmed != 2 || saved.Revision != v.Revision+1 {
+			t.Fatalf("batch outcome: %+v", saved)
+		}
+		for _, item := range saved.Accounts[0].Items {
+			if len(item.Attempts) != 1 || item.Source.Reference != "" || item.Source.AsOfTime != "" {
+				t.Fatalf("duplicated or invented evidence: %+v", item)
+			}
+		}
+	}
+	input.ExpectedRevision = saved.Revision
+	if _, err = s.PreviewReconciliationSession(ctx, input); err == nil {
+		t.Fatal("duplicate account recheck accepted")
+	}
+}
+
+func TestReconciliationAccountConfirmationPreservesExistingChecksAndExceptions(t *testing.T) {
+	for _, outcome := range []string{"confirmed", "skipped", "unresolved", "pending"} {
+		t.Run(outcome, func(t *testing.T) {
+			s, _, aid := reconciliationFixture(t)
+			v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+			v = recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: "balance", FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: outcome, Note: "Synthetic reviewed evidence", Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}})
+			input := ReconciliationAction{Action: "check_account", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "confirmed", ScopeReviewed: true, Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}}
+			plan, err := s.PreviewReconciliationSession(t.Context(), input)
+			if outcome != "confirmed" {
+				if err == nil {
+					t.Fatal("exception evidence overwritten")
+				}
+				saved, e := s.GetReconciliationSession(t.Context(), v.ID)
+				if e != nil || saved.Revision != v.Revision {
+					t.Fatalf("failed batch wrote state: %+v %v", saved, e)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			saved, err := s.CommitReconciliationSession(t.Context(), plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, item := range saved.Accounts[0].Items {
+				if len(item.Attempts) != 1 {
+					t.Fatalf("existing confirmation duplicated: %+v", item)
+				}
+			}
+		})
+	}
+	for _, account := range []domain.ReconciliationAccount{{}, {Items: []domain.ReconciliationItem{{ID: "balance", Kind: "balance", Outcome: "pending"}}}, {Items: []domain.ReconciliationItem{{ID: "scope", Kind: "scope", Outcome: "pending"}, {ID: "removed", Kind: "removed", Outcome: "pending"}}}} {
+		if err := validateAccountConfirmation(account); err == nil {
+			t.Fatalf("ineligible scope accepted: %+v", account)
+		}
+	}
+}
