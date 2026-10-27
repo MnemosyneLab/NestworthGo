@@ -13,7 +13,7 @@ function Harness({ accounts, locked = false, session = "one" }: { accounts: Reco
   const trigger = useRef<HTMLElement | null>(null);
   return <ReconciliationAccountGroups key={session} accounts={accounts} locked={locked} trigger={trigger} registerHeader={() => {}} notices={() => null}>{row => <button onClick={event => { trigger.current = event.currentTarget; }}>Review {row.name}</button>}</ReconciliationAccountGroups>;
 }
-beforeEach(() => { void i18n.changeLanguage("en"); });
+beforeEach(async () => { await i18n.changeLanguage("en"); });
 it("groups unfinished first, keeps exact progress semantics, and supports keyboard toggles", async () => {
   const done = account("done", true), pending = account("pending");
   render(<Harness accounts={[done, pending]} />);
@@ -22,9 +22,10 @@ it("groups unfinished first, keeps exact progress semantics, and supports keyboa
   const toggle = screen.getByRole("button", { name: "Collapse Synthetic pending · USD" });
   expect(toggle).toHaveAttribute("aria-expanded", "true");
   expect(screen.queryByRole("button", { name: "Review Synthetic done" })).not.toBeInTheDocument();
-  toggle.focus(); await userEvent.keyboard("{Enter}");
+  const user = userEvent.setup({ delay: null });
+  toggle.focus(); await user.keyboard("{Enter}");
   expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await userEvent.keyboard(" ");
+  await user.keyboard(" ");
   expect(toggle).toHaveAttribute("aria-expanded", "true");
   for (const bad of [ { ...done, items: [] }, { ...done, items: done.items!.filter(item => item.kind !== "scope") }, { ...done, recheckRequired: true }, { ...done, inventoryCoverageGap: true }, { ...done, counts: { ...done.counts, skipped: 1 } }, { ...done, items: done.items!.map(item => ({ ...item, outcome: "unresolved" })) } ]) expect(accountIsVerified(bad)).toBe(false);
 });

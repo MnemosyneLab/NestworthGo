@@ -1857,6 +1857,7 @@
     }
   },
   "reconciliation": {
+    "holdingContextUnavailable": "此持仓在当前账户中已不可用。请关闭表单、刷新核对会话，检查最新状态后重新预览。",
     "cardBalanceCorrection": "纠正当前欠款",
     "cardOutstandingInput": "当前应还欠款（填正数）",
     "previewItems": "本次确认项目（{{count}}）",

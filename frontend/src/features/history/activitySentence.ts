@@ -53,7 +53,7 @@ export function activitySentence(
   const core = product?.sentence ?? coreSentence(t, activity, effects, accountName, instrumentName, holdingName, liabilities);
   const fee = feeLabel(activity, effects);
   const sentence = fee && !activity.reversesActivityId ? t("history.sentence.withFee", { sentence: core, fee }) : core;
-  const skipReason = Boolean(product) || activity.kind === "buy" || activity.kind === "sell" || activity.kind === "cash_dividend";
+  const skipReason = activity.reason === "card_purchase" || activity.reason === "card_refund" || Boolean(product) || activity.kind === "buy" || activity.kind === "sell" || activity.kind === "cash_dividend";
   const reason = activity.reason ? displayEnum(t, "history.reason", activity.reason) : "";
   if (!skipReason && reason && activity.reason !== "other") {
     return t("history.sentence.withReason", { sentence, reason });

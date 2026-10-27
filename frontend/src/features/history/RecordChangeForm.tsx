@@ -431,8 +431,13 @@ function RecordChangeFormReady({
 
   const initialRequest: ChangeCommandRequest = (() => {
     const base = initial ?? { ...emptyChangeRequest(lock?.kind ?? ChangeCommandKind.ChangeMoneyAdded, suggested.cash ? prefill?.account?.defaultCurrency ?? defaultCurrency : defaultCurrency), accountId: suggested.cash };
+    const lockedAccount = (accounts.data ?? []).find(record => record.account.id === lock?.accountId)?.account;
+    const debtKind = [ChangeCommandKind.ChangeDebtDraw, ChangeCommandKind.ChangeDebtPayment].includes(lock?.kind ?? base.kind);
     return {
       ...base,
+      debtAccountId: debtKind && lockedAccount?.balanceSheetRole === "liability" ? lock?.accountId : base.debtAccountId,
+      cashAccountId: debtKind && lockedAccount && lockedAccount.balanceSheetRole !== "liability" ? lock?.accountId : base.cashAccountId,
+      fromHoldingId: (lock?.kind ?? base.kind) === ChangeCommandKind.ChangePositionTransfer ? lock?.holdingId ?? base.fromHoldingId : base.fromHoldingId,
       kind: lock?.kind ?? base.kind,
       accountId: lock?.accountId ?? base.accountId,
       settlementAccountId: lock?.settlementAccountId ?? lock?.accountId ?? base.settlementAccountId,
@@ -798,7 +803,8 @@ function RecordChangeFormReady({
   const repeatConfirmResult = repeat ? repeatRecovery : null;
   const ordinarySelection = (!request.instrumentId || eligibleIds.has(request.instrumentId)) && [request.holdingId, request.fromHoldingId, request.toHoldingId].every(id => !id || holdings.data.some(item => item.id === id));
   const needsOrdinaryEligibility = [ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment].includes(kind) || Boolean(request.instrumentId || request.holdingId || request.fromHoldingId || request.toHoldingId);
-  const canPreview = (!lock?.holdingId || Boolean(lockedHolding && lockedHolding.accountId === contextId && !lockedHolding.archivedAt)) && (!contextId || (Boolean(contextAccount) && contextKinds.includes(kind))) && (!needsOrdinaryEligibility || (ordinarySelection && !instruments.isError && !holdings.isError)) && (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
+  const holdingContextValid = !lock?.holdingId || Boolean(lockedHolding && lockedHolding.accountId === contextId && !lockedHolding.archivedAt);
+  const canPreview = holdingContextValid && (!contextId || (Boolean(contextAccount) && contextKinds.includes(kind))) && (!needsOrdinaryEligibility || (ordinarySelection && !instruments.isError && !holdings.isError)) && (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const normalizeTransfer = kind === ChangeCommandKind.ChangeCashTransfer && sameCurrencyTransfer;
@@ -1071,6 +1077,7 @@ function RecordChangeFormReady({
 
   return (
     <div role="form" aria-label={t("history.formLabel")}>
+      {lock?.holdingId && !holdings.isLoading && !holdingContextValid && <p role="alert" className="text-sm text-destructive">{t("reconciliation.holdingContextUnavailable")}</p>}
       {needsOrdinaryEligibility && (inventory.isError || allHoldings.isError) && <div role="alert" className="text-sm text-destructive">{t("portfolio.loadError")} <Button type="button" variant="outline" onClick={() => { void inventory.refetch(); void allHoldings.refetch(); }}>{t("common.retryAction")}</Button></div>}
       {needsOrdinaryEligibility && !inventory.isLoading && !inventory.isError && !ordinarySelection && <p role="status" className="text-sm text-muted-foreground">{t("history.selectInstrument")}</p>}
       <fieldset className="flex min-w-0 flex-col gap-4" disabled={confirmPending || recoveryLocked}>

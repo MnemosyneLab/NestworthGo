@@ -1857,6 +1857,7 @@
     }
   },
   "reconciliation": {
+    "holdingContextUnavailable": "此持倉在目前帳戶中已無法使用。請關閉表單、重新整理核對工作階段，檢查最新狀態後重新預覽。",
     "cardBalanceCorrection": "修正目前欠款",
     "cardOutstandingInput": "目前應還欠款（填正數）",
     "previewItems": "本次確認項目（{{count}}）",

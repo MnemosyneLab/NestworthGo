@@ -3,6 +3,8 @@ import { activitySentence } from "./activitySentence";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 const catalog: Record<string, string> = {
+  "history.sentence.cardPurchase": "Card purchase {{amount}} on {{account}}",
+  "history.sentence.cardRefund": "Card refund {{amount}} on {{account}}",
   "history.sentence.added": "Added {{amount}} to {{account}}",
   "history.sentence.transferred": "Transferred {{amount}} from {{from}} to {{to}}",
   "history.sentence.bought": "Bought {{quantity}} {{instrument}} in {{account}} for {{amount}}",
@@ -169,8 +171,8 @@ describe("activitySentence", () => {
 });
 
 it("names card purchases and refunds as consumption rather than cash income", () => {
-  const translate = (key: string) => key;
   const names = new Map([["card", "Synthetic card"]]);
-  expect(activitySentence(translate, { kind: "cash_in", reason: "card_purchase", effects: [] } as ActivityDTO, names, new Map())).toContain("history.sentence.cardPurchase");
-  expect(activitySentence(translate, { kind: "cash_out", reason: "card_refund", effects: [] } as ActivityDTO, names, new Map())).toContain("history.sentence.cardRefund");
+  const common = { effects: [{ accountId: "card", money: { amount: "100", currency: "USD" } }] };
+  expect(activitySentence(t, { ...common, kind: "cash_in", reason: "card_purchase" } as unknown as ActivityDTO, names, new Map())).toBe("Card purchase US$100.00 on Synthetic card");
+  expect(activitySentence(t, { ...common, kind: "cash_out", reason: "card_refund" } as unknown as ActivityDTO, names, new Map())).toBe("Card refund US$100.00 on Synthetic card");
 });

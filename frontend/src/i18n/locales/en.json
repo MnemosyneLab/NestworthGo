@@ -1857,6 +1857,7 @@
     }
   },
   "reconciliation": {
+    "holdingContextUnavailable": "This exact holding is no longer available in this account. Close the form, refresh the session and review its current state before previewing again.",
     "cardBalanceCorrection": "Outstanding balance correction",
     "cardOutstandingInput": "Current debt owed (positive amount)",
     "previewItems": "Items in this confirmation ({{count}})",

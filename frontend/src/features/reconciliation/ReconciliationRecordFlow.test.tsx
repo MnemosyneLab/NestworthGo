@@ -141,8 +141,12 @@ vi.mock("@/queries/marketdata", () => ({
   useRefreshInstrument: () => ({}),
 }));
 
+const originalFixtures = structuredClone({ accounts: q.accounts, holdings: q.holdings, session: q.session });
 beforeEach(async () => {
   vi.clearAllMocks();
+  q.accounts.splice(0, q.accounts.length, ...structuredClone(originalFixtures.accounts));
+  q.holdings.splice(0, q.holdings.length, ...structuredClone(originalFixtures.holdings));
+  q.session = structuredClone(originalFixtures.session);
   await i18n.changeLanguage("en");
 });
 
@@ -160,7 +164,7 @@ for (const locale of ["en"]) {
       }),
     );
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText(/Synthetic ETF/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Synthetic ETF/, { selector: "p" })).toBeInTheDocument();
     expect(within(dialog).queryByLabelText(i18n.t("history.instrument"))).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(i18n.t("history.side"))).toHaveValue(
       "buy",
@@ -197,3 +201,28 @@ for (const locale of ["en"]) {
     );
   });
 }
+
+it("retains the exact holding across dividend, quantity and incoming/outgoing transfer drafts", async () => {
+  q.accounts.push({ account: { ...q.accounts[0].account, id: "two", name: "Synthetic other brokerage" } });
+  q.holdings.push({ ...q.holdings[0], id: "held-two", accountId: "two", accountName: "Synthetic other brokerage" });
+  render(<QueryClientProvider client={createTestQueryClient()}><ReconciliationPage sessionId="session-one" /></QueryClientProvider>);
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.recordMissing") }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("radio", { name: i18n.t("history.kind.cash_dividend") }));
+  expect(within(dialog).queryByLabelText(i18n.t("history.holding"))).not.toBeInTheDocument();
+  fireEvent.change(within(dialog).getByLabelText(i18n.t("history.amount")), { target: { value: "5" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("common.preview") }));
+  expect(q.previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "cash_dividend", holdingId: "held-one", accountId: "one" }), expect.anything());
+  fireEvent.click(within(dialog).getByRole("radio", { name: i18n.t("history.kind.position_transfer") }));
+  expect(within(dialog).queryByLabelText(i18n.t("history.fromHolding"))).not.toBeInTheDocument();
+  fireEvent.change(within(dialog).getByLabelText(i18n.t("history.toAccount")), { target: { value: "two" } });
+  fireEvent.change(within(dialog).getByLabelText(i18n.t("history.quantity")), { target: { value: "1" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("common.preview") }));
+  expect(q.previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ fromHoldingId: "held-one", toAccountId: "two", accountId: "one" }), expect.anything());
+  fireEvent.click(within(dialog).getByLabelText(i18n.t("reconciliation.transferIncoming")));
+  expect(within(dialog).queryByLabelText(i18n.t("history.toAccount"))).not.toBeInTheDocument();
+  fireEvent.change(within(dialog).getByLabelText(i18n.t("history.fromHolding")), { target: { value: "held-two" } });
+  fireEvent.change(within(dialog).getByLabelText(i18n.t("history.quantity")), { target: { value: "1" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("common.preview") }));
+  expect(q.previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ fromHoldingId: "held-two", toHoldingId: "held-one", toAccountId: "", accountId: "one" }), expect.anything());
+});
