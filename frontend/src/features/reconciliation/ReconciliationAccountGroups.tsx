@@ -138,3 +138,11 @@ export function ReconciliationAccountGroups({ accounts, locked, trigger, registe
     {rows}
   </div>;
 }
+
+export function accountCanBatchConfirm(account: ReconciliationAccount): boolean {
+ const items = account.items ?? [];
+ return items.some(item => item.kind === "scope") && items.some(item => item.outcome !== "confirmed" || item.recheckRequired) && items.every(item =>
+  item.outcome === "confirmed" && !item.recheckRequired || item.outcome === "pending" && item.kind !== "removed" && !item.checkedAt && !item.note && !item.source.reference && !item.source.asOfDate && !item.source.asOfTime && !item.referenceValue && !item.referenceComparable &&
+  (!["cash", "balance", "holding"].includes(item.kind) || Boolean(item.value)) && (item.kind !== "holding" || Boolean(item.cost))
+ );
+}

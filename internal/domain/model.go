@@ -747,8 +747,9 @@ type BreakdownItem struct {
 // OverviewNamedRef is a label the Overview screen needs without a second
 // directory round-trip. IDs stay opaque strings at this boundary.
 type OverviewNamedRef struct {
-	ID   string
-	Name string
+	BalanceSheetRole BalanceSheetRole
+	ID               string
+	Name             string
 }
 
 // OverviewInstrumentRef includes quote source so Overview can distinguish

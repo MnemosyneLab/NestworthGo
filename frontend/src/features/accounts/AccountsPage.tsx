@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useAccounts, useAccountValuations, useCreateAccount } from "@/queries/accounts";
 import { AccountCreateWizard } from "@/features/accounts/AccountCreateWizard";
 import { AccountDetail } from "@/features/accounts/AccountDetail";
-import { addCanonical, formatAmount } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { MoneyText } from "@/components/ui/money-text";
 import { accountTypeStyle, TONE_CLASSES } from "@/lib/tone";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
@@ -21,7 +21,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { toast } from "sonner";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
-import { groupAccounts } from "@/features/accounts/accountGroups";
+import { accountGroupNet, groupAccounts } from "@/features/accounts/accountGroups";
 import { AccountIcon } from "@/components/icons/AccountIcon";
 
 /**
@@ -113,18 +113,8 @@ export function AccountsPage({
   // Subtotal only when every account in the group has a base-currency value; a partial sum would look complete.
   const groupSubtotal = (records: typeof grouped[number]["records"]): string | undefined => {
     if (records.length < 2) return undefined;
-    let sum = "0";
-    let currency = "";
-    for (const record of records) {
-      const base = valuationByAccountId.get(record.account.id)?.baseValue;
-      if (!base) return undefined;
-      currency = currency || base.currency;
-      if (base.currency !== currency) return undefined;
-      const next = addCanonical(sum, base.amount);
-      if (!next) return undefined;
-      sum = next;
-    }
-    return currency ? formatAmount(sum, currency) : undefined;
+    const net = accountGroupNet(records, valuationByAccountId);
+    return net ? `${t("accounts.netAmount")}: ${formatAmount(net.amount, net.currency)}` : undefined;
   };
 
   return (

@@ -167,3 +167,10 @@ describe("activitySentence", () => {
     expect(activitySentence(t, activity, accounts, instruments)).toBe("Reversed a previous change");
   });
 });
+
+it("names card purchases and refunds as consumption rather than cash income", () => {
+  const translate = (key: string) => key;
+  const names = new Map([["card", "Synthetic card"]]);
+  expect(activitySentence(translate, { kind: "cash_in", reason: "card_purchase", effects: [] } as ActivityDTO, names, new Map())).toContain("history.sentence.cardPurchase");
+  expect(activitySentence(translate, { kind: "cash_out", reason: "card_refund", effects: [] } as ActivityDTO, names, new Map())).toContain("history.sentence.cardRefund");
+});

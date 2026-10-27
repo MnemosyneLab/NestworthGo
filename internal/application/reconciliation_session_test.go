@@ -1077,3 +1077,68 @@ func TestReconciliationAccountConfirmationPreservesExistingChecksAndExceptions(t
 		}
 	}
 }
+
+func TestReconciliationAccountConfirmationRejectsStaleCommit(t *testing.T) {
+	s, _, aid := reconciliationFixture(t)
+	ctx := t.Context()
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid}})
+	input := ReconciliationAction{Action: "check_account", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, FinancialRevision: v.Accounts[0].FinancialRevision, ScopeReviewed: true, Outcome: "confirmed", Source: domain.ReconciliationSource{AsOfDate: "2026-09-01"}}
+	plan, err := s.PreviewReconciliationSession(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recAction(t, s, ReconciliationAction{Action: "check", SessionID: v.ID, ExpectedRevision: v.Revision, AccountID: aid, ItemID: "balance", FinancialRevision: v.Accounts[0].FinancialRevision, Outcome: "unresolved", Note: "Synthetic mismatch"})
+	if _, err = s.CommitReconciliationSession(ctx, plan); err == nil {
+		t.Fatal("stale account batch committed")
+	}
+	saved, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Counts.Unresolved != 1 || saved.Counts.Confirmed != 0 {
+		t.Fatalf("partial/stale overwrite: %+v", saved)
+	}
+}
+
+func TestReconciliationHoldingContextIncludesExactDividendAssociation(t *testing.T) {
+	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	aid := seedHoldingsCash(t, s, ctx, "1000")
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
+	link := &domain.ReconciliationLink{SessionID: v.ID, AccountID: aid.String(), ItemID: "holding:" + holding.ID.String(), ExpectedRevision: v.Revision, FinancialRevision: v.Accounts[0].FinancialRevision}
+	household, _ := s.requireHousehold(ctx)
+	money := mustMoney(t, "1", "USD")
+	command := domain.CashDividendInput{HouseholdID: household.ID, HoldingID: holding.ID, Amount: money, EffectiveAt: s.clock()}
+	preview, err := s.PreviewChange(ctx, command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ValidateReconciliationCommandLink(ctx, link, command, preview); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.RecordChangeWithMutation(domain.WithReconciliationLink(ctx, link), command, domain.NewMutationID().String(), strings.Repeat("c", 64)); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.GetReconciliationSession(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Counts.Confirmed != 0 {
+		t.Fatal("dividend automatically confirmed holding")
+	}
+	links, err := s.ReconciliationLinkedChanges(ctx, v.ID)
+	if err != nil || len(links) != 1 {
+		t.Fatalf("missing exact audit: %+v %v", links, err)
+	}
+	wrong := domain.NewAccountID()
+	if err = s.validateReconciliationCommandAccount(ctx, link, domain.MoneyAddedInput{AccountID: wrong}); err == nil {
+		t.Fatal("crafted wrong account accepted")
+	}
+}

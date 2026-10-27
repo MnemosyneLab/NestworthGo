@@ -254,3 +254,40 @@ does not label zero quantities as nonzero. Ordinary archived positions retain ev
 partial-finish controls, but adjustment and missing-trade actions are hidden
 until the holding or instrument is restored. Backend refusals remain authoritative.
 Paused sessions may still finish directly.
+
+## Account review presentation and liability conventions
+
+The account shortcut is an explicit `check_account` action with `scopeReviewed`.
+It uses the existing immutable preview, session CAS, financial revision fence,
+transaction and receipt replay. The backend validates all eligible items before a
+single session save. Valid previous confirmations keep their attempts; skipped,
+unresolved, removed or previously recorded pending evidence needs individual review.
+No financial events or source figures are inferred from account inactivity.
+Desktop previews show every changed item. MCP rejects this action until its
+bounded protocol supports reviewing every batch item.
+
+Reconciliation supplement commands keep the linked account as their owning or
+transfer endpoint, checked at preview and commit. A holding item retains its exact
+holding/instrument identity. A cash dividend may link to that holding by its
+explicit dividend detail even though only cash changes. Corrections still do not
+confirm reconciliation items.
+
+Liability balances remain nonnegative debt magnitudes in storage and APIs. Signed
+presentation is applied once from authoritative balance-sheet role metadata, not
+names or symbols. Entry amounts, principal, fees and source-comparison inputs stay
+positive magnitudes. Net totals use normalized base-currency values; a group with
+missing or incomplete valuations has no complete-looking net subtotal.
+
+New `card_purchase` / `card_refund` reasons distinguish one-sided liability
+consumption from income and principal. Purchase increases debt with external-outflow
+classification and a negative Spending attribution; refund reduces debt with
+external-inflow classification and offsets Spending. Repayment remains paired debt
+and cash reduction; no second expense is recorded for principal. Value correction
+uses reconciliation remeasurement. Refunds/repayments beyond debt owed are rejected;
+credit balances and matching a refund to a historical original purchase are not
+implemented by these shortcuts. Existing reason-coded records are not rewritten.
+
+Simple account analysis uses the canonical account taxonomy. Property and other
+non-investment values do not become cash merely because they have no instrument.
+Ordinary undo reporting derives kind/reason from a known immutable parent while
+retaining the undo's time and inverted effects; persisted activities are unchanged.

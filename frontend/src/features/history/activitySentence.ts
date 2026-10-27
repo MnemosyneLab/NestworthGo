@@ -1,3 +1,4 @@
+import { signedAccountAmount } from "@/lib/liabilityDisplay";
 import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
 import { formatAmount, formatAuditMoney } from "@/lib/money";
@@ -5,12 +6,12 @@ import type { ActivityDTO, ActivityEffectDTO, EndpointViewDTO } from "../../../b
 
 type ActivityWithResulting = ActivityDTO & { resulting?: EndpointViewDTO[] | null };
 
-function activityResultingAmount(activity: ActivityWithResulting): string {
+function activityResultingAmount(activity: ActivityWithResulting, liabilities: ReadonlySet<string>): string {
   const endpoint = activity.resulting?.[0];
   if (!endpoint?.amount) {
     return "";
   }
-  return endpoint.currency ? formatAuditMoney(endpoint.amount, endpoint.currency) : formatAmount(endpoint.amount);
+  return endpoint.currency ? formatAuditMoney(signedAccountAmount(endpoint.amount, liabilities.has(endpoint.accountId ?? "")), endpoint.currency) : formatAmount(endpoint.amount);
 }
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
@@ -38,6 +39,7 @@ export function activitySentence(
   accounts: Map<string, string>,
   instruments: Map<string, string>,
   holdings: Map<string, string> = new Map(),
+  liabilities: ReadonlySet<string> = new Set(),
 ): string {
   const effects = activity.effects ?? [];
   const accountName = (effect: ActivityEffectDTO | undefined) =>
@@ -48,7 +50,7 @@ export function activitySentence(
     (effect?.holdingId ? holdings.get(effect.holdingId) : undefined) || instrumentName(effect?.instrumentId);
 
   const product = productActivityText(t, activity, accounts, instruments);
-  const core = product?.sentence ?? coreSentence(t, activity, effects, accountName, instrumentName, holdingName);
+  const core = product?.sentence ?? coreSentence(t, activity, effects, accountName, instrumentName, holdingName, liabilities);
   const fee = feeLabel(activity, effects);
   const sentence = fee && !activity.reversesActivityId ? t("history.sentence.withFee", { sentence: core, fee }) : core;
   const skipReason = Boolean(product) || activity.kind === "buy" || activity.kind === "sell" || activity.kind === "cash_dividend";
@@ -76,12 +78,16 @@ function coreSentence(
   accountName: (effect: ActivityEffectDTO | undefined) => string,
   instrumentName: (id: string | null | undefined) => string,
   holdingName: (effect: ActivityEffectDTO | undefined) => string,
+  liabilities: ReadonlySet<string>,
 ): string {
   if (activity.reversesActivityId) {
     return t("history.sentence.reversal");
   }
 
   const firstMoney = effects.find((effect) => effect.money) ?? effects[0];
+  if (activity.reason === "card_purchase" || activity.reason === "card_refund") {
+    return t(activity.reason === "card_purchase" ? "history.sentence.cardPurchase" : "history.sentence.cardRefund", { amount: moneyLabel(firstMoney), account: accountName(firstMoney) });
+  }
 
   switch (activity.kind) {
     case "cash_in": {
@@ -137,7 +143,7 @@ function coreSentence(
       });
     }
     case "value_update": {
-      const resulting = activityResultingAmount(activity);
+      const resulting = activityResultingAmount(activity, liabilities);
       if (resulting) {
         return t("history.sentence.updatedValue", { amount: resulting, account: accountName(firstMoney) });
       }

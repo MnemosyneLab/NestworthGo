@@ -1,3 +1,4 @@
+import { signedAccountAmount } from "@/lib/liabilityDisplay";
 import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -34,7 +35,7 @@ import { activityStyle } from "@/lib/activityStyle";
 import { FieldError } from "@/components/ui/field-error";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
-import { formatQuotePrice, formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
+import { formatQuotePrice, formatQuantity, formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
 import type { WireError } from "@/lib/wails";
 import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
@@ -436,6 +437,7 @@ function RecordChangeFormReady({
       accountId: lock?.accountId ?? base.accountId,
       settlementAccountId: lock?.settlementAccountId ?? lock?.accountId ?? base.settlementAccountId,
       holdingId: lock?.holdingId ?? base.holdingId,
+      instrumentId: lock?.holdingId ? holdings.data.find(holding => holding.id === lock.holdingId)?.instrumentId ?? base.instrumentId : base.instrumentId,
       fromAccountId:
         lock?.accountId && (lock.kind === ChangeCommandKind.ChangeCashTransfer || base.kind === ChangeCommandKind.ChangeCashTransfer)
           ? lock.accountId
@@ -541,7 +543,9 @@ function RecordChangeFormReady({
   const contextId = lock?.accountId;
   const contextLiability = contextAccount?.balanceSheetRole === "liability";
   const [incoming, setIncoming] = useState(false);
+  const lockedHolding = holdings.data.find(holding => holding.id === lock?.holdingId);
   const contextKinds = KINDS.filter(candidate => {
+    if (lock?.holdingId && ![ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionAdjustment, ChangeCommandKind.ChangePositionTransfer].includes(candidate)) return false;
     if (!contextId || !contextAccount) return true;
     if ([ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment, ChangeCommandKind.ChangePositionImport].includes(candidate)) return contextAccount.trackingMode === "holdings" && contextAccount.accountType !== "cash_on_hand";
     if (candidate === ChangeCommandKind.ChangeFXConversion) return contextAccount.trackingMode === "holdings";
@@ -566,7 +570,7 @@ function RecordChangeFormReady({
     })),
   ], t("portfolio.unknownInstrument"));
   const holdingName = (holding: typeof holdings.data[number]) =>
-    `${selectionLabels.get(holding.instrumentId)} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
+    `${selectionLabels.get(holding.instrumentId)} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatQuantity(holding.quantity)}`;
   const holdingOptions = holdings.data.filter(holding => !contextId || holding.accountId === contextId).map((holding) => ({ id: holding.id, name: holdingName(holding) }));
   const transferSource = holdings.data.find((holding) => holding.id === request.fromHoldingId);
   // Existing Fix requests identify the old destination holding; new commands use
@@ -616,11 +620,14 @@ function RecordChangeFormReady({
 
   const kind = request.kind;
   const showReason = kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved || kind === ChangeCommandKind.ChangeValueUpdate;
+  const liabilityMoney = accountById.get(request.accountId ?? "")?.account.balanceSheetRole === "liability";
   const reasonOptions =
-    kind === ChangeCommandKind.ChangeMoneyRemoved
+    liabilityMoney && kind === ChangeCommandKind.ChangeMoneyAdded ? (catalog.data?.liabilityIncreaseReasons ?? [])
+    : liabilityMoney && kind === ChangeCommandKind.ChangeMoneyRemoved ? (catalog.data?.liabilityDecreaseReasons ?? [])
+    : kind === ChangeCommandKind.ChangeMoneyRemoved
       ? (catalog.data?.moneyOutReasons ?? [])
       : kind === ChangeCommandKind.ChangeValueUpdate
-        ? (catalog.data?.valueUpdateReasons ?? [])
+        ? (liabilityMoney ? (catalog.data?.valueUpdateReasons ?? []).filter(reason => reason === "reconciliation") : catalog.data?.valueUpdateReasons ?? [])
         : (catalog.data?.moneyInReasons ?? []);
   const tradeSides = catalog.data?.tradeSides ?? [];
   const displayedCurrentValueFor = (accountId: string) => {
@@ -791,12 +798,13 @@ function RecordChangeFormReady({
   const repeatConfirmResult = repeat ? repeatRecovery : null;
   const ordinarySelection = (!request.instrumentId || eligibleIds.has(request.instrumentId)) && [request.holdingId, request.fromHoldingId, request.toHoldingId].every(id => !id || holdings.data.some(item => item.id === id));
   const needsOrdinaryEligibility = [ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment].includes(kind) || Boolean(request.instrumentId || request.holdingId || request.fromHoldingId || request.toHoldingId);
-  const canPreview = (!contextId || (Boolean(contextAccount) && contextKinds.includes(kind))) && (!needsOrdinaryEligibility || (ordinarySelection && !instruments.isError && !holdings.isError)) && (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
+  const canPreview = (!lock?.holdingId || Boolean(lockedHolding && lockedHolding.accountId === contextId && !lockedHolding.archivedAt)) && (!contextId || (Boolean(contextAccount) && contextKinds.includes(kind))) && (!needsOrdinaryEligibility || (ordinarySelection && !instruments.isError && !holdings.isError)) && (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const normalizeTransfer = kind === ChangeCommandKind.ChangeCashTransfer && sameCurrencyTransfer;
     return {
       ...request,
+      ...(lock?.holdingId ? { holdingId: lock.holdingId, instrumentId: lockedHolding?.instrumentId } : {}),
       ...(contextId ? {
         accountId: contextId,
         settlementAccountId: contextId,
@@ -805,7 +813,9 @@ function RecordChangeFormReady({
         ...([ChangeCommandKind.ChangeDebtDraw, ChangeCommandKind.ChangeDebtPayment].includes(kind) ? contextLiability ? { debtAccountId: contextId } : { cashAccountId: contextId } : {}),
       } : {}),
       ...(kind === ChangeCommandKind.ChangePositionTransfer
-        ? fixActivityId
+        ? contextId && incoming && lock?.holdingId
+          ? { toAccountId: "", toHoldingId: lock.holdingId }
+          : fixActivityId
           ? { toAccountId: "", toHoldingId: transferTargetHoldingId }
           : { toAccountId: contextId && incoming ? contextId : transferTargetAccountId, toHoldingId: "" }
         : {}),
@@ -934,7 +944,8 @@ function RecordChangeFormReady({
 
   const handleAccountWithCurrency = (accountId: string, fields: Partial<ChangeCommandRequest>, automaticFields: string[] = []) => {
     const accountCurrency = accountById.get(accountId)?.account.defaultCurrency || defaultCurrency;
-    patch({ ...fields, accountId, currency: accountCurrency, newValueCurrency: accountCurrency }, automaticFields);
+    const liability = accountById.get(accountId)?.account.balanceSheetRole === "liability";
+    patch({ ...fields, accountId, currency: accountCurrency, newValueCurrency: accountCurrency, reason: liability && kind === ChangeCommandKind.ChangeMoneyAdded ? "card_purchase" : liability && kind === ChangeCommandKind.ChangeMoneyRemoved ? "card_refund" : "other" }, automaticFields);
   };
 
   const handleFXAccount = (accountId: string) => {
@@ -1064,6 +1075,7 @@ function RecordChangeFormReady({
       {needsOrdinaryEligibility && !inventory.isLoading && !inventory.isError && !ordinarySelection && <p role="status" className="text-sm text-muted-foreground">{t("history.selectInstrument")}</p>}
       <fieldset className="flex min-w-0 flex-col gap-4" disabled={confirmPending || recoveryLocked}>
       {contextId && <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm"><p className="font-semibold">{t("reconciliation.contextAccount")}: {contextAccount?.name ?? t("reconciliation.unavailable")}</p><p className="text-muted-foreground">{t("reconciliation.contextAccountHelp")}</p></div>}
+      {lock?.holdingId && <p className="text-sm font-medium">{t("history.holding")}: {lockedHolding ? holdingName(lockedHolding) : t("reconciliation.unavailable")}</p>}
       {contextLiability && <p role="note" className="text-sm text-muted-foreground">{t("reconciliation.liabilityDirectionHelp")}</p>}
       {!lock?.hideKind && (
         <ChoiceGrid
@@ -1071,7 +1083,7 @@ function RecordChangeFormReady({
           value={kind}
           options={contextKinds.map((value) => {
             const style = activityStyle(KIND_ACTIVITY_STYLE[value]);
-            return { value, label: t(`history.kind.${value}`), icon: style.icon, tone: style.tone };
+            return { value, label: t((contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeMoneyAdded ? "reconciliation.cardPurchase" : (contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeMoneyRemoved ? "reconciliation.cardRefund" : (contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeValueUpdate ? "reconciliation.cardBalanceCorrection" : `history.kind.${value}`), icon: style.icon, tone: style.tone };
           })}
           onChange={(value) => {
             if (sheetConfirmation?.read() || confirmBusy.current) return;
@@ -1089,11 +1101,14 @@ function RecordChangeFormReady({
               effectiveLocalDate: request.effectiveLocalDate,
               effectiveLocalTime: request.effectiveLocalTime,
               accountId: lock?.accountId ?? eligibleAccountId ?? next.accountId,
+              reason: contextLiability && nextKind === ChangeCommandKind.ChangeMoneyAdded ? "card_purchase" : contextLiability && nextKind === ChangeCommandKind.ChangeMoneyRemoved ? "card_refund" : contextLiability && nextKind === ChangeCommandKind.ChangeValueUpdate ? "reconciliation" : next.reason,
               settlementAccountId: (lock?.settlementAccountId ?? lock?.accountId) ?? (nextKind === ChangeCommandKind.ChangeTrade ? suggested.investment : next.settlementAccountId),
               fromAccountId: nextKind === ChangeCommandKind.ChangeCashTransfer ? (lock?.accountId ?? suggested.cash ?? next.fromAccountId) : next.fromAccountId,
               debtAccountId: nextKind === ChangeCommandKind.ChangeDebtDraw || nextKind === ChangeCommandKind.ChangeDebtPayment ? (contextLiability ? contextId : suggested.debt) : next.debtAccountId,
               cashAccountId: nextKind === ChangeCommandKind.ChangeDebtDraw || nextKind === ChangeCommandKind.ChangeDebtPayment ? (contextId && !contextLiability ? contextId : suggested.cash) : next.cashAccountId,
-              instrumentId: nextKind === ChangeCommandKind.ChangeTrade || nextKind === ChangeCommandKind.ChangePositionImport ? prefill?.instrumentId : next.instrumentId,
+              holdingId: lock?.holdingId ?? next.holdingId,
+              fromHoldingId: nextKind === ChangeCommandKind.ChangePositionTransfer ? lock?.holdingId : next.fromHoldingId,
+              instrumentId: lock?.holdingId ? lockedHolding?.instrumentId : nextKind === ChangeCommandKind.ChangeTrade || nextKind === ChangeCommandKind.ChangePositionImport ? prefill?.instrumentId : next.instrumentId,
               grossCurrency: nextKind === ChangeCommandKind.ChangeTrade ? prefill?.instrumentCurrency ?? next.grossCurrency : next.grossCurrency,
             };
             resetAutomaticTracking(locked);
@@ -1147,8 +1162,8 @@ function RecordChangeFormReady({
               accounts={valueAccountOptions}
             />
           )}
-          <MoneyFields prefix="change" label={t("history.newValue")} amount={request.newValue ?? ""} currency={request.newValueCurrency ?? selectedValueCurrency} currencies={currencyOptions} disabledCurrency onAmount={(newValue) => patch({ newValue })} />
-          {displayedCurrentValue && <p className="text-xs text-muted-foreground">{t("history.currentValue", { value: formatAmount(displayedCurrentValue.amount, displayedCurrentValue.currency) })}</p>}
+          <MoneyFields prefix="change" label={t(liabilityMoney ? "reconciliation.cardOutstandingInput" : "history.newValue")} amount={request.newValue ?? ""} currency={request.newValueCurrency ?? selectedValueCurrency} currencies={currencyOptions} disabledCurrency onAmount={(newValue) => patch({ newValue })} />
+          {displayedCurrentValue && <p className="text-xs text-muted-foreground">{t("history.currentValue", { value: formatAmount(signedAccountAmount(displayedCurrentValue.amount, liabilityMoney), displayedCurrentValue.currency) })}</p>}
           {(valueUnchanged || fixValueUnchanged) && <p className="text-xs text-muted-foreground">{t("history.differentValueRequired")}</p>}
         </>
       )}
@@ -1241,8 +1256,8 @@ function RecordChangeFormReady({
 
       {kind === ChangeCommandKind.ChangePositionTransfer && (
         <>
-          {contextId && <DirectionChoice incoming={incoming} onChange={value => { setIncoming(value); patch({ fromHoldingId: "", toHoldingId: "", toAccountId: value ? contextId : "", quantity: "" }); }} />}
-          <OptionSelect id="change-from-holding" label={t("history.fromHolding")} value={request.fromHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdings.data.filter(holding => !contextId || (incoming ? holding.accountId !== contextId : holding.accountId === contextId)).map(holding => ({ id: holding.id, name: holdingName(holding) }))} onChange={(fromHoldingId) => patch({ fromHoldingId })} />
+          {contextId && <DirectionChoice incoming={incoming} onChange={value => { setIncoming(value); patch({ fromHoldingId: value ? "" : lock?.holdingId ?? "", toHoldingId: value ? lock?.holdingId ?? "" : "", toAccountId: value ? contextId : "", quantity: "" }); }} />}
+          {(!lock?.holdingId || incoming) && <OptionSelect id="change-from-holding" label={t("history.fromHolding")} value={request.fromHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdings.data.filter(holding => !contextId || (incoming ? holding.accountId !== contextId : holding.accountId === contextId)).filter(holding => !lock?.holdingId || (incoming ? holding.instrumentId === lockedHolding?.instrumentId : holding.id === lock.holdingId)).map(holding => ({ id: holding.id, name: holdingName(holding) }))} onChange={(fromHoldingId) => patch({ fromHoldingId })} />}
           {(!contextId || !incoming) && <AccountSelect id="change-to-account" label={t("history.toAccount")} value={transferTargetAccountId} accounts={transferTargetOptions.filter(account => account.id !== contextId)} onChange={(toAccountId) => patch({ toAccountId, toHoldingId: "" })} />}
           <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
         </>
@@ -1265,7 +1280,7 @@ function RecordChangeFormReady({
       </>}
       {kind === ChangeCommandKind.ChangePositionAdjustment && (
         <>
-          <OptionSelect id="change-holding" label={t("history.holding")} value={request.holdingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(holdingId) => patch({ holdingId })} />
+          {!lock?.holdingId && <OptionSelect id="change-holding" label={t("history.holding")} value={request.holdingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(holdingId) => patch({ holdingId })} />}
           <div className="flex flex-col gap-2" role="radiogroup" aria-label={t("history.addedRemovedHint")}>
             <label className="flex items-center gap-2 text-sm"><input type="radio" name="position-direction" checked={request.added === true} onChange={() => patch({ added: true })} /> {t("history.added")}</label>
             <label className="flex items-center gap-2 text-sm"><input type="radio" name="position-direction" checked={request.added === false} onChange={() => patch({ added: false, unitCost: "" })} /> {t("history.removed")}</label>
@@ -1293,13 +1308,13 @@ function RecordChangeFormReady({
               value={request.side ?? "buy"}
               onChange={(event) => {
                 setCreatingInstrument(false);
-                patch({ side: event.target.value, holdingId: "", instrumentId: "", gross: "", grossCurrency: defaultCurrency, fee: "", feeCurrency: defaultCurrency }, ["gross"]);
+                patch({ side: event.target.value, holdingId: lock?.holdingId ?? "", instrumentId: lockedHolding?.instrumentId ?? "", gross: "", grossCurrency: defaultCurrency, fee: "", feeCurrency: defaultCurrency }, ["gross"]);
               }}
             >
               {tradeSides.map((side) => <option key={side} value={side}>{t(`history.${side}`)}</option>)}
             </NativeSelect>
           </div>
-          <OptionSelect
+          {!lock?.holdingId && <OptionSelect
             id="change-instrument"
             label={t("history.instrument")}
             value={tradeSelection}
@@ -1317,7 +1332,7 @@ function RecordChangeFormReady({
               const currency = instrument?.quoteCurrency ?? defaultCurrency;
               selectTradeInstrument(selection, matchingHoldingId(request.settlementAccountId ?? "", selection), currency);
             }}
-          />
+          />}
           {selectedInstrument && (
             <CalculateAmounts
               onCalculate={runTradeCalculate}
@@ -1326,7 +1341,7 @@ function RecordChangeFormReady({
               }
             />
           )}
-          {request.side !== "sell" && (creatingInstrument ? (
+          {!lock?.holdingId && request.side !== "sell" && (creatingInstrument ? (
             <InstrumentForm
               isSubmitting={createInstrument.isPending}
               submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
@@ -1396,7 +1411,7 @@ function RecordChangeFormReady({
       {repeat && repeatConfirmResult && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : repeatConfirmResult === "plan_unavailable" ? "history.repeatPlanUnavailableHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
       {submitted?.phase === "unknown" && <p role="status" className="text-sm text-muted-foreground">{t(scopeMatches && intentMatches ? "history.submissionRetryHelp" : "history.submissionOwnerChangedHelp")}</p>}
 
-      {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
+      {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(signedAccountAmount(endpoint.amount, accountById.get(endpoint.accountId ?? "")?.account.balanceSheetRole === "liability"), endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 
       </fieldset>
       <div className="flex gap-2">

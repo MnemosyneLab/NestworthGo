@@ -154,6 +154,8 @@ const (
 	ReasonGift           ActivityReason = "gift"
 	ReasonOther          ActivityReason = "other"
 	ReasonExpense        ActivityReason = "expense"
+	ReasonCardPurchase   ActivityReason = "card_purchase"
+	ReasonCardRefund     ActivityReason = "card_refund"
 	ReasonFee            ActivityReason = "fee"
 	ReasonTax            ActivityReason = "tax"
 	ReasonReconciliation ActivityReason = "reconciliation"
@@ -168,7 +170,7 @@ func ParseActivityReason(value string) (ActivityReason, error) {
 	}
 	switch reason {
 	case ReasonIncome, ReasonContribution, ReasonGift, ReasonOther, ReasonExpense,
-		ReasonFee, ReasonTax, ReasonReconciliation, ReasonPrincipal, ReasonInterest:
+		ReasonFee, ReasonTax, ReasonReconciliation, ReasonPrincipal, ReasonInterest, ReasonCardPurchase, ReasonCardRefund:
 		return reason, nil
 	default:
 		return "", validation("reason", "is not supported")
@@ -177,6 +179,15 @@ func ParseActivityReason(value string) (ActivityReason, error) {
 
 func MoneyInReasons() []ActivityReason {
 	return []ActivityReason{ReasonIncome, ReasonInterest, ReasonContribution, ReasonGift, ReasonOther, ReasonReconciliation}
+}
+
+// Liability-specific reasons supplement, rather than reinterpret, existing
+// cash records. Purchase/refund are one-sided changes to positive debt owed.
+func LiabilityIncreaseReasons() []ActivityReason {
+	return []ActivityReason{ReasonCardPurchase, ReasonInterest, ReasonFee, ReasonOther, ReasonReconciliation}
+}
+func LiabilityDecreaseReasons() []ActivityReason {
+	return []ActivityReason{ReasonCardRefund, ReasonOther, ReasonReconciliation}
 }
 
 func MoneyOutReasons() []ActivityReason {
@@ -819,19 +830,25 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 	if reason == "" {
 		reason = ReasonOther
 	}
-	if added {
-		if reason != ReasonIncome && reason != ReasonInterest && reason != ReasonContribution && reason != ReasonGift && reason != ReasonOther && reason != ReasonReconciliation {
-			return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for Money added")
-		}
-	} else if reason != ReasonExpense && reason != ReasonFee && reason != ReasonTax && reason != ReasonInterest && reason != ReasonOther && reason != ReasonReconciliation {
-		return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for Money removed")
-	}
-	if holdingID != nil && (added || (reason != ReasonTax && reason != ReasonFee)) {
-		return ChangePreview{}, changeError(ErrInvalidChange, "holdingId", "holding association is only allowed for Money removed tax or fee")
-	}
 	account, err := state.account(accountID, household)
 	if err != nil {
 		return ChangePreview{}, err
+	}
+	cardReason := reason == ReasonCardPurchase || reason == ReasonCardRefund
+	if cardReason && (!account.Liability || account.Mode != TrackingBalance || (reason == ReasonCardPurchase) != added) {
+		return ChangePreview{}, changeError(ErrInvalidChange, "reason", "purchase increases liability and refund reduces liability; both require a Balance liability Account")
+	}
+	if !cardReason {
+		if added {
+			if reason != ReasonIncome && reason != ReasonInterest && reason != ReasonContribution && reason != ReasonGift && reason != ReasonOther && reason != ReasonReconciliation && !(account.Liability && reason == ReasonFee) {
+				return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for Money added")
+			}
+		} else if reason != ReasonExpense && reason != ReasonFee && reason != ReasonTax && reason != ReasonInterest && reason != ReasonOther && reason != ReasonReconciliation {
+			return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for Money removed")
+		}
+	}
+	if holdingID != nil && (added || (reason != ReasonTax && reason != ReasonFee)) {
+		return ChangePreview{}, changeError(ErrInvalidChange, "holdingId", "holding association is only allowed for Money removed tax or fee")
 	}
 	var holding ChangeHoldingState
 	if holdingID != nil {
@@ -857,6 +874,15 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 		return ChangePreview{}, err
 	}
 	classification := classifyMoney(reason, added)
+	if reason == ReasonCardPurchase {
+		classification = ClassificationExternalOutflow
+	}
+	if reason == ReasonCardRefund {
+		classification = ClassificationExternalInflow
+	}
+	if account.Liability && added && (reason == ReasonInterest || reason == ReasonFee) {
+		classification = ClassificationFee
+	}
 	direction := EffectRemoved
 	if added {
 		direction = EffectAdded

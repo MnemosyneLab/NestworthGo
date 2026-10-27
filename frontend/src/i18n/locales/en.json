@@ -14,6 +14,7 @@
     "version": "Version %s · Build %s"
   },
   "accounts": {
+    "netAmount": "Net",
     "displaySubtotal": "Valued subtotal",
     "currencyUnavailable": "{{currency}} total unavailable",
     "compositionHouseholdCurrency": "Composition and shares use household currency ({{currency}})",
@@ -435,6 +436,9 @@
     },
     "quantity": "Quantity",
     "reason": {
+      "card_purchase": "Card purchase",
+      "card_refund": "Card refund",
+
       "contribution": "Contribution",
       "expense": "Expense",
       "fee": "Fee",
@@ -1341,7 +1345,7 @@
     "reverseComparison": "Reverse comparison: the change is still B − A.",
     "deltaBA": "Change B − A",
     "knownSubtotal": "Known subtotal",
-    "debtBalanceNote": "Debt balance change, not a net-worth effect or return.",
+    "debtBalanceNote": "Negative balances represent debt owed. Repayment also changes cash; this balance change alone is not an investment return.",
     "coverageComplete": "Complete",
     "coveragePartial": "Partial or unknown totals",
     "missingAssetLeaves": "{{count}} included asset item(s) missing valuation",
@@ -1853,9 +1857,28 @@
     }
   },
   "reconciliation": {
+    "cardBalanceCorrection": "Outstanding balance correction",
+    "cardOutstandingInput": "Current debt owed (positive amount)",
+    "previewItems": "Items in this confirmation ({{count}})",
+    "previewItems_one": "Items in this confirmation ({{count}})",
+    "previewItems_other": "Items in this confirmation ({{count}})",
+
+    "pendingItems": "Items to review ({{count}})",
+    "pendingItems_one": "Items to review ({{count}})",
+    "pendingItems_other": "Items to review ({{count}})",
+    "skippedItems": "Skipped items ({{count}})",
+    "skippedItems_one": "Skipped items ({{count}})",
+    "skippedItems_other": "Skipped items ({{count}})",
+    "confirmedItems": "Confirmed items ({{count}})",
+    "confirmedItems_one": "Confirmed items ({{count}})",
+    "confirmedItems_other": "Confirmed items ({{count}})",
+
+    "cardPurchase": "Card purchase / increase debt",
+    "cardRefund": "Card refund / reduce debt",
+
     "contextAccount": "Account being reconciled",
     "contextAccountHelp": "This account stays fixed. For a transfer, choose the direction and the other account.",
-    "liabilityDirectionHelp": "Liabilities are positive amounts owed: adding increases debt; removing reduces debt and cannot go below zero. A card purchase can use Add money / Other (classified as Other). Use Repayment for a payment from a bank account. Borrowing also adds cash and is not an ordinary card purchase.",
+    "liabilityDirectionHelp": "Debt balances display as negative; entry amounts stay positive. Card purchase increases debt and counts as spending; refund reduces debt and offsets spending. Repayment reduces debt and paying cash together. Use balance correction to reconcile outstanding debt. Refunds or repayments above outstanding debt are unsupported: they cannot create a credit balance.",
     "transferDirection": "Direction relative to this account",
     "transferIncoming": "Into this account",
     "transferOutgoing": "Out of this account",

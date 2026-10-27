@@ -1,3 +1,4 @@
+import { signedAccountAmount } from "@/lib/liabilityDisplay";
 import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import { formatQuotePrice } from "@/lib/money";
 import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
@@ -427,7 +428,7 @@ function SimpleValueForm({
         <Input id="simple-amount" inputMode="decimal" value={amount} onChange={(event) => { amountRef.current = event.target.value; setAmount(event.target.value); }} autoFocus />
         <p className="text-xs text-muted-foreground">{record.account.defaultCurrency}</p>
       </div>
-      {currentAmount !== undefined && <p className="text-xs text-muted-foreground">{t("accounts.currentBalance", { amount: formatAmount(currentAmount, currentCurrency) })}</p>}
+      {currentAmount !== undefined && <p className="text-xs text-muted-foreground">{t("accounts.currentBalance", { amount: formatAmount(signedAccountAmount(currentAmount, record.account.balanceSheetRole === "liability"), currentCurrency) })}</p>}
       {unchanged && <p className="text-xs text-muted-foreground">{t("history.differentValueRequired")}</p>}
       {error && (
         <p role="alert" className="text-sm text-destructive">

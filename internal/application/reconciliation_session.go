@@ -787,6 +787,7 @@ func (s *Service) ValidateReconciliationLink(ctx context.Context, link *domain.R
 	}
 	matched := len(previews) == 0
 	for _, p := range previews {
+		matched = matched || domain.ReconciliationDividendMatches(*selected, p.Activity)
 		for _, e := range p.Effects {
 			account := ""
 			if e.AccountID != nil {

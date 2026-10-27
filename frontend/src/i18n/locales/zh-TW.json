@@ -14,6 +14,7 @@
     "version": "版本 %s · 建置 %s"
   },
   "accounts": {
+    "netAmount": "淨額",
     "displaySubtotal": "已估值小計",
     "currencyUnavailable": "{{currency}} 合計暫不可用",
     "compositionHouseholdCurrency": "資產結構與占比按家庭本位幣（{{currency}}）計算",
@@ -435,6 +436,9 @@
     },
     "quantity": "數量",
     "reason": {
+      "card_purchase": "刷卡消費",
+      "card_refund": "消費退款",
+
       "contribution": "投入",
       "expense": "支出",
       "fee": "費用",
@@ -1341,7 +1345,7 @@
     "reverseComparison": "目前為反向比較，變化仍按 B − A 計算。",
     "deltaBA": "變化 B − A",
     "knownSubtotal": "已知小計",
-    "debtBalanceNote": "負債餘額變化，不代表淨資產影響或收益。",
+    "debtBalanceNote": "負數表示應還欠款；還款也會改變現金。此處的餘額變化本身不代表投資收益。",
     "coverageComplete": "完整",
     "coveragePartial": "部分或未知總額",
     "missingAssetLeaves": "{{count}} 項已納入資產缺少估值",
@@ -1853,9 +1857,28 @@
     }
   },
   "reconciliation": {
+    "cardBalanceCorrection": "修正目前欠款",
+    "cardOutstandingInput": "目前應還欠款（填正數）",
+    "previewItems": "本次確認項目（{{count}}）",
+    "previewItems_one": "本次確認項目（{{count}}）",
+    "previewItems_other": "本次確認項目（{{count}}）",
+
+    "pendingItems": "待核對項目（{{count}}）",
+    "pendingItems_one": "待核對項目（{{count}}）",
+    "pendingItems_other": "待核對項目（{{count}}）",
+    "skippedItems": "已略過項目（{{count}}）",
+    "skippedItems_one": "已略過項目（{{count}}）",
+    "skippedItems_other": "已略過項目（{{count}}）",
+    "confirmedItems": "已確認項目（{{count}}）",
+    "confirmedItems_one": "已確認項目（{{count}}）",
+    "confirmedItems_other": "已確認項目（{{count}}）",
+
+    "cardPurchase": "刷卡消費／增加欠款",
+    "cardRefund": "消費退款／減少欠款",
+
     "contextAccount": "目前核對帳戶",
     "contextAccountHelp": "此帳戶固定；轉移時請選擇方向及對方帳戶。",
-    "liabilityDirectionHelp": "負債以正數記錄欠款：增加金額會增加欠款，減少金額會減少欠款且不能減至零以下。刷卡消費目前可用「增加金額／其他」（分類為其他）；銀行卡還款請用「還款」。「借款」還會增加現金，不適合普通刷卡消費。",
+    "liabilityDirectionHelp": "欠款餘額顯示為負數，記帳金額仍填正數。刷卡消費增加欠款並計為消費；退款減少欠款並沖減消費。還款同時減少欠款及付款帳戶餘額。核準目前欠款請用餘額修正。退款或還款超過欠款的溢繳款暫不支援，不能形成負債貸方餘額。",
     "transferDirection": "相對此帳戶的方向",
     "transferIncoming": "轉入此帳戶",
     "transferOutgoing": "從此帳戶轉出",

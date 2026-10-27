@@ -1,3 +1,4 @@
+import { signedAccountAmount } from "@/lib/liabilityDisplay";
 import i18n from "@/i18n";
 import { addCanonical, compareCanonical, sortByCanonicalDesc } from "@/lib/money";
 import type { AccountRecordDTO, AccountValuationDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -10,12 +11,25 @@ export type AccountInstitutionGroup = {
   records: AccountRecordDTO[];
 };
 
-function valuationAmount(valuation: AccountValuationDTO | undefined): string {
-  return valuation?.baseValue?.amount ?? "0";
+function valuationAmount(record: AccountRecordDTO, valuation: AccountValuationDTO | undefined): string {
+  return signedAccountAmount(valuation?.baseValue?.amount ?? "0", record.account.balanceSheetRole === "liability");
+}
+
+/** No complete-looking subtotal when any price, FX or currency is unavailable. */
+export function accountGroupNet(records: AccountRecordDTO[], valuations: Map<string, AccountValuationDTO>): { amount: string; currency: string } | undefined {
+  if (!records.length) return undefined;
+  let amount = "0", currency = "";
+  for (const record of records) {
+    const valuation = valuations.get(record.account.id), base = valuation?.baseValue;
+    if (!valuation?.complete || !base || (currency && currency !== base.currency)) return undefined;
+    currency = base.currency;
+    amount = addCanonical(amount, signedAccountAmount(base.amount, record.account.balanceSheetRole === "liability"));
+  }
+  return { amount, currency };
 }
 
 function groupTotal(records: AccountRecordDTO[], valuationByAccountId: Map<string, AccountValuationDTO>): string {
-  return records.reduce((sum, record) => addCanonical(sum, valuationAmount(valuationByAccountId.get(record.account.id))) || sum, "0");
+  return records.reduce((sum, record) => addCanonical(sum, valuationAmount(record, valuationByAccountId.get(record.account.id))) || sum, "0");
 }
 
 /**
@@ -41,7 +55,7 @@ export function groupAccounts(records: AccountRecordDTO[], valuations: AccountVa
       label: value.label,
       records: sortByCanonicalDesc(
         value.records,
-        (record) => valuationAmount(valuationByAccountId.get(record.account.id)),
+        (record) => valuationAmount(record, valuationByAccountId.get(record.account.id)),
         (left, right) => left.account.name.localeCompare(right.account.name, i18n.language || undefined),
       ),
     }))

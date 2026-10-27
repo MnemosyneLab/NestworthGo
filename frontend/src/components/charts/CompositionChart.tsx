@@ -1,3 +1,4 @@
+import { signedAccountAmount } from "@/lib/liabilityDisplay";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
@@ -11,15 +12,16 @@ function distinctNative(slice: ChartCategory, householdCurrency: string): boolea
   return Boolean(slice.nativeAmount && slice.nativeCurrency && slice.nativeCurrency !== householdCurrency);
 }
 
-function sliceTooltipAmount(slice: ChartCategory, householdCurrency: string): string {
-  const household = `${formatAmount(slice.amount, householdCurrency)} (${formatPercent(slice.shareBps)})`;
+function sliceTooltipAmount(slice: ChartCategory, householdCurrency: string, liability = false): string {
+  const household = `${formatAmount(signedAccountAmount(slice.amount, liability), householdCurrency)} (${formatPercent(slice.shareBps)})`;
   if (!distinctNative(slice, householdCurrency)) {
     return household;
   }
-  return `${formatAmount(slice.nativeAmount as string, slice.nativeCurrency as string)} · ${household}`;
+  return `${formatAmount(signedAccountAmount(slice.nativeAmount as string, liability), slice.nativeCurrency as string)} · ${household}`;
 }
 
 export interface CompositionChartProps {
+  liability?: boolean;
   title: string;
   description?: string;
   items: ChartCategory[];
@@ -57,6 +59,7 @@ export function CompositionChart({
   dataTableItems,
   legendSliceKeys,
   interactionResetKey,
+  liability = false,
 }: CompositionChartProps) {
   const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -80,7 +83,7 @@ export function CompositionChart({
   )), [items, precomputedCategories, t]);
   const rows = legendItems ?? slices;
   const sourceRows = dataTableItems ?? slices;
-  const amountLabel = (slice: ChartCategory) => slice.available === false ? t("accounts.noValue") : formatAmount(slice.amount, currency);
+  const amountLabel = (slice: ChartCategory) => slice.available === false ? t("accounts.noValue") : formatAmount(signedAccountAmount(slice.amount, liability), currency);
   const shareLabel = (slice: ChartCategory) => slice.available === false ? "—" : formatPercent(slice.shareBps);
   const showNative = sourceRows.some((slice) => distinctNative(slice, currency));
   const activeKey = hoveredKey ?? focusedKey ?? selectedKey;
@@ -102,7 +105,7 @@ export function CompositionChart({
           if (!slice) {
             return "";
           }
-          return joinTooltipLines([slice.label, slice.available === false ? t("accounts.noValue") : sliceTooltipAmount(slice, currency), ...(slice.missingCount ? [t("charts.partialValued", { count: slice.missingCount })] : [])]);
+          return joinTooltipLines([slice.label, slice.available === false ? t("accounts.noValue") : sliceTooltipAmount(slice, currency, liability), ...(slice.missingCount ? [t("charts.partialValued", { count: slice.missingCount })] : [])]);
         },
       },
       series: [
@@ -125,7 +128,7 @@ export function CompositionChart({
         },
       ],
     };
-  }, [currency, slices, themePaletteKey, sliceGap, title, t, selectedSliceKey]);
+  }, [currency, liability, slices, themePaletteKey, sliceGap, title, t, selectedSliceKey]);
 
   if (slices.length === 0) {
     return null;
@@ -150,7 +153,7 @@ export function CompositionChart({
             ? [
               item.identityLabel || item.label,
               distinctNative(item, currency) && item.nativeAmount && item.nativeCurrency
-                ? formatAmount(item.nativeAmount, item.nativeCurrency)
+                ? formatAmount(signedAccountAmount(item.nativeAmount, liability), item.nativeCurrency)
                 : amountLabel(item),
               amountLabel(item),
               shareLabel(item),
@@ -163,7 +166,7 @@ export function CompositionChart({
           onHoverName={(name) => setHoveredKey(keyFromChartName(name))}
           center={(
             <>
-              <p className="text-lg font-semibold tracking-tight">{formatAmount(centerValue, currency)}</p>
+              <p className="text-lg font-semibold tracking-tight">{formatAmount(signedAccountAmount(centerValue, liability), currency)}</p>
               <p className="text-xs text-muted-foreground">{centerCaption}</p>
             </>
           )}
@@ -195,7 +198,7 @@ export function CompositionChart({
             <span className={cn("num flex items-center gap-2 text-muted-foreground", precomputedCategories && "ml-2 min-w-0 flex-wrap justify-end [overflow-wrap:anywhere]")}>
               <span className="flex flex-col items-end">
                 {distinctNative(slice, currency) && slice.nativeAmount && slice.nativeCurrency && (
-                  <span data-testid={`composition-native-${slice.key}`}>{formatAmount(slice.nativeAmount, slice.nativeCurrency)}</span>
+                  <span data-testid={`composition-native-${slice.key}`}>{formatAmount(signedAccountAmount(slice.nativeAmount, liability), slice.nativeCurrency)}</span>
                 )}
                 <span>{amountLabel(slice)}</span>
               </span>

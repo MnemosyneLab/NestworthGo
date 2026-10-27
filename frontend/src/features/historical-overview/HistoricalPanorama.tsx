@@ -1,3 +1,4 @@
+import { signedAccountAmount, signedAccountValuation, negateDisplayAmount } from "@/lib/liabilityDisplay";
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
 import { displayQualityEstimated, fullDisplayAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { useRef, useState } from "react";
@@ -45,8 +46,9 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
       };
       const headline = side(right ? "right" : "left");
       const baseline = right ? side("left") : null;
-      const changeValue = change?.[key];
-      const displayAmount = (state: HistoricalOverviewState) => historicalDisplayAmount(t, state.displayValuation?.[key], state[key] == null ? null : { amount: state[key], currency: state.currency }, key === "netWorth", false);
+      const rawChange = change?.[key];
+      const changeValue = key === "liabilities" && rawChange != null ? negateDisplayAmount(rawChange) : rawChange;
+      const displayAmount = (state: HistoricalOverviewState) => historicalDisplayAmount(t, signedAccountValuation(state.displayValuation?.[key], key === "liabilities"), state[key] == null ? null : { amount: signedAccountAmount(state[key], key === "liabilities"), currency: state.currency }, key === "netWorth", false);
       const showKnown = (which: { state: HistoricalOverviewState; known: string | null }) => fullDisplayAmount(which.state.displayValuation?.[key], which.state[key]) == null && !which.state.displayValuation && key !== "netWorth";
       return <Card key={key} className="min-w-0">
         <CardHeader className="flex-row items-center justify-between gap-2 p-4 pb-1">
@@ -61,7 +63,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
                 <span className="num whitespace-nowrap" title={displayAmount(headline.state)}>{displayAmount(headline.state)}</span>
               </dd>
               <ValuationQualitySummary value={headline.state.displayValuation?.[key]} current={headline.state.current} net={key === "netWorth"} compact />
-              {showKnown(headline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(headline.known, headline.state.currency) ?? t("historicalOverview.unknown")}</p>}
+              {showKnown(headline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(headline.known == null ? null : signedAccountAmount(headline.known, key === "liabilities"), headline.state.currency) ?? t("historicalOverview.unknown")}</p>}
             </div>
             {right && !mismatch && <div className="min-w-0">
               <dt className="sr-only">{estimated(key) ? t("valuation.estimatedMetricChange") : t("historicalOverview.deltaBA")}</dt>
@@ -77,7 +79,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
                 <span className="num whitespace-nowrap" title={displayAmount(baseline.state)}>{displayAmount(baseline.state)}</span>
               </dd>
               <ValuationQualitySummary value={baseline.state.displayValuation?.[key]} current={baseline.state.current} net={key === "netWorth"} compact />
-              {showKnown(baseline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(baseline.known, baseline.state.currency) ?? t("historicalOverview.unknown")}</p>}
+              {showKnown(baseline) && <p className="text-xs text-muted-foreground">{t("historicalOverview.knownSubtotal")}: {amount(baseline.known == null ? null : signedAccountAmount(baseline.known, key === "liabilities"), baseline.state.currency) ?? t("historicalOverview.unknown")}</p>}
             </div>}
           </dl>
           {key === "liabilities" && right && <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">{t("historicalOverview.debtShort")}<InfoPopover label={t("historicalOverview.aboutChange")}>{t("historicalOverview.debtBalanceNote")}</InfoPopover></p>}
@@ -203,17 +205,21 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
   const [role, setRole] = useState<"asset" | "liability">("asset");
   const [all, setAll] = useState(false);
   const mismatch = data.left.currency !== data.right?.currency;
+  const signedRowChange = (row: HistoricalOverviewRow) => {
+    const value = historicalRowChange(row);
+    return value == null ? null : row.role === "liability" ? negateDisplayAmount(value) : value;
+  };
   const classified = accountChanges(data.rows ?? [], role);
   const comparable = mismatch ? [] : classified.comparable;
   const separate = mismatch ? [...classified.comparable, ...classified.separate] : classified.separate;
   const visible = all ? comparable : comparable.slice(0, 10);
-  const safe = !mismatch && visible.every(row => geometry(historicalRowChange(row)) !== null);
+  const safe = !mismatch && visible.every(row => geometry(signedRowChange(row)) !== null);
   const option: EChartsOption = {
     grid: { left: 12, right: 24, top: 15, bottom: 28, containLabel: true },
     xAxis: { type: "value", scale: false, axisLine: { onZero: true, lineStyle: { color: theme.border } }, axisLabel: { color: theme.muted }, splitLine: { lineStyle: { color: theme.border } } },
     yAxis: { type: "category", data: visible.map(row => row.name), inverse: true, axisLabel: { color: theme.foreground, width: 110, overflow: "truncate" } },
     series: [{ id: "historical-account-delta", type: "bar", barMaxWidth: 23, itemStyle: { color: theme.primary }, data: visible.map(row => {
-      const value = geometry(historicalRowChange(row))!;
+      const value = geometry(signedRowChange(row))!;
       // Debt balance changes are not returns, so only asset bars carry gain/loss color.
       return { name: row.key, value, ...(role === "asset" ? { itemStyle: { color: value < 0 ? theme.gainNegative : theme.gainPositive } } : {}) };
     }) }],
@@ -222,9 +228,9 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     {row.estimatedBaseChange != null && (valuationEstimated(row.left?.displayValuation) || valuationEstimated(row.right?.displayValuation)) && <p className="text-xs">{t("valuation.estimatedChange")}</p>}
  <Button ref={button => { if (button) rowButtons.current.set(row.key, button); else rowButtons.current.delete(row.key); }} variant="link" className="h-auto min-w-0 whitespace-normal p-0 text-left" onClick={event => onOpen(row.key, event.currentTarget)}>{row.name}</Button>
     <dl className="mt-1 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-1 text-sm">
-      <div><dt className="text-xs text-muted-foreground">A</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.left ? historicalDisplayAmount(t,row.left.displayValuation,row.left.baseAmount==null ? null : {amount:row.left.baseAmount,currency:data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
-      <div><dt className="text-xs text-muted-foreground">B</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.right ? historicalDisplayAmount(t,row.right.displayValuation,row.right.baseAmount==null ? null : {amount:row.right.baseAmount,currency:data.right?.currency ?? data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
-      <div><dt className="text-xs text-muted-foreground">{t("historicalOverview.deltaBA")}</dt><dd className="num overflow-x-auto whitespace-nowrap font-semibold">{mismatch || historicalRowChange(row) == null ? t("historicalOverview.notComparable") : <SignedChange value={historicalRowChange(row)} currency={data.left.currency} neutral={row.role === "liability"} />}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">A</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.left ? historicalDisplayAmount(t,signedAccountValuation(row.left.displayValuation,row.role === "liability"),row.left.baseAmount==null ? null : {amount:signedAccountAmount(row.left.baseAmount,row.role === "liability"),currency:data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">B</dt><dd className="num overflow-x-auto whitespace-nowrap">{row.right ? historicalDisplayAmount(t,signedAccountValuation(row.right.displayValuation,row.role === "liability"),row.right.baseAmount==null ? null : {amount:signedAccountAmount(row.right.baseAmount,row.role === "liability"),currency:data.right?.currency ?? data.left.currency}) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t("historicalOverview.deltaBA")}</dt><dd className="num overflow-x-auto whitespace-nowrap font-semibold">{mismatch || signedRowChange(row) == null ? t("historicalOverview.notComparable") : <SignedChange value={signedRowChange(row)} currency={data.left.currency} neutral={row.role === "liability"} />}</dd></div>
     </dl>
     {!row.left || !row.right ? <p className="text-xs text-muted-foreground">{t("historicalOverview.notPresent")}</p> : null}
     {row.left && row.right && row.left.included !== row.right.included && <Badge variant="warning">{t("historicalOverview.scopeChanged")}</Badge>}
@@ -241,6 +247,6 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
     {comparable.length > 10 && <Button variant="outline" size="sm" onClick={() => setAll(!all)}>{t(all ? "historicalOverview.topTen" : "historicalOverview.expandAll")}</Button>}
     <ul className="mt-3 grid gap-2 sm:grid-cols-2">{visible.map(rowView)}</ul>
     {separate.length > 0 && <div className="mt-4"><h3 className="mb-2 text-sm font-semibold">{t("historicalOverview.separateReview")}</h3><ul className="grid gap-2 sm:grid-cols-2">{separate.map(rowView)}</ul></div>}
-    <details className="mt-3"><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t("historicalOverview.account")}</th><th scope="col">A · {data.left.currency}</th><th scope="col">B · {data.right?.currency}</th><th scope="col">{t("historicalOverview.deltaBA")}</th></tr></thead><tbody>{[...comparable, ...separate].map(row => <tr key={row.key}><th scope="row">{row.name}</th><td>{row.left ? amount(row.left.baseAmount, data.left.currency) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{row.right ? amount(row.right.baseAmount, data.right!.currency) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{mismatch ? t("historicalOverview.notComparable") : amount(historicalRowChange(row), data.left.currency, true) ?? t("historicalOverview.notComparable")}</td></tr>)}</tbody></table></div></details>
+    <details className="mt-3"><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">{t("historicalOverview.account")}</th><th scope="col">A · {data.left.currency}</th><th scope="col">B · {data.right?.currency}</th><th scope="col">{t("historicalOverview.deltaBA")}</th></tr></thead><tbody>{[...comparable, ...separate].map(row => <tr key={row.key}><th scope="row">{row.name}</th><td>{row.left ? amount(row.left.baseAmount == null ? null : signedAccountAmount(row.left.baseAmount,row.role === "liability"), data.left.currency) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{row.right ? amount(row.right.baseAmount == null ? null : signedAccountAmount(row.right.baseAmount,row.role === "liability"), data.right!.currency) ?? t("historicalOverview.unknown") : t("historicalOverview.notPresent")}</td><td>{mismatch ? t("historicalOverview.notComparable") : amount(signedRowChange(row), data.left.currency, true) ?? t("historicalOverview.notComparable")}</td></tr>)}</tbody></table></div></details>
   </section>;
 }

@@ -1,6 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import i18n from "@/i18n";
@@ -155,25 +154,19 @@ for (const locale of ["en"]) {
         <ReconciliationPage sessionId="session-one" />
       </QueryClientProvider>,
     );
-    await userEvent.click(
+    fireEvent.click(
       screen.getByRole("button", {
         name: i18n.t("reconciliation.recordMissing"),
       }),
     );
     const dialog = screen.getByRole("dialog");
-    const instrument = within(dialog).getByLabelText(
-      i18n.t("history.instrument"),
-    );
-    expect(instrument).toHaveValue("asset-one");
-    expect(
-      within(instrument).getByRole("option", { name: "Synthetic ETF" }),
-    ).toHaveProperty("selected", true);
+    expect(within(dialog).getByText(/Synthetic ETF/)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(i18n.t("history.instrument"))).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(i18n.t("history.side"))).toHaveValue(
       "buy",
     );
-    expect(
-      within(dialog).getByLabelText(i18n.t("history.settlementAccount")),
-    ).toHaveValue("one");
+    expect(within(dialog).queryByLabelText(i18n.t("history.settlementAccount"))).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/Account being reconciled: Synthetic brokerage/)).toBeInTheDocument();
     fireEvent.change(
       within(dialog).getByLabelText(i18n.t("history.quantity")),
       { target: { value: "1" } },
@@ -182,7 +175,7 @@ for (const locale of ["en"]) {
       within(dialog).getByLabelText(i18n.t("history.grossTotal")),
       { target: { value: "10" } },
     );
-    await userEvent.click(
+    fireEvent.click(
       within(dialog).getByRole("button", { name: i18n.t("common.preview") }),
     );
     expect(q.previewChange).toHaveBeenCalledWith(

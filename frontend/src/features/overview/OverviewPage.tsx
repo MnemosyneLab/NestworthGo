@@ -1,3 +1,4 @@
+import { signedAccountAmount, signedAccountValuation } from "@/lib/liabilityDisplay";
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
 import { valuationTableAmount, type DisplayValuation } from "@/components/valuation/valuationQuality";
 import type * as React from "react";
@@ -35,7 +36,7 @@ import { healthIssueLabel } from "@/features/data-health/healthIssueLabel";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
-type OverviewLabel = { id: string; name: string };
+type OverviewLabel = { id: string; name: string; balanceSheetRole?: string };
 type OverviewInstrumentLabel = OverviewLabel & { quoteSource?: string; symbol?: string; shortName?: string };
 type OverviewHoldingLabel = OverviewLabel & { accountId: string; instrumentId: string };
 
@@ -238,6 +239,7 @@ export function OverviewPage({
   const missingPrices = countMissing(missing, "instrument_price");
   const missingValues = countMissing(missing, "account_value");
   const missingFx = countMissing(missing, "fx_rate");
+  const liabilities = new Set((data.accountLabels ?? []).filter(label => label.balanceSheetRole === "liability").map(label => label.id));
   const accountNames = new Map((data.accountLabels ?? []).map((label) => [label.id, label.name]));
   const instrumentNames = new Map((data.instrumentLabels ?? []).map((label) => [label.id, instrumentDisplayLabel(label, label.name)]));
   const quoteSourceByInstrument = new Map((data.instrumentLabels ?? []).map((label) => [label.id, label.quoteSource]));
@@ -354,7 +356,7 @@ export function OverviewPage({
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">{t("overview.liabilities")}</p>
                   <p className={cn("num truncate text-lg font-bold", hasLiabilities ? "text-destructive" : "text-foreground")} data-testid="overview-liabilities">
-                    {valuationTableAmount(t,data.displayValuation?.liabilities,{amount:data.liabilities,currency})}
+                    {valuationTableAmount(t,signedAccountValuation(data.displayValuation?.liabilities,true),{amount:signedAccountAmount(data.liabilities,true),currency})}
                   </p>
                 </div>
               </div>
@@ -449,6 +451,7 @@ export function OverviewPage({
                 <CardContent>
                   <CompositionChart
                     title={t("overview.liabilitiesComposition")}
+                    liability
                     items={(data.liabilitiesByType ?? []).map((item) => ({
                       key: item.key,
                       label: displayEnum(t, "enum", item.key),
@@ -515,7 +518,7 @@ export function OverviewPage({
                       return (
                         <li key={activity.id} className="flex items-center gap-3 text-sm">
                           <IconTile icon={style.icon} tone={style.tone} size="sm" />
-                          <p className="text-foreground">{activitySentence(t, activity, accountNames, instrumentNames, holdingNames)}</p>
+                          <p className="text-foreground">{activitySentence(t, activity, accountNames, instrumentNames, holdingNames, liabilities)}</p>
                         </li>
                       );
                     })}

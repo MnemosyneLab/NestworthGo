@@ -878,14 +878,16 @@ it("keeps free-text scope source evidence visible in preview and saved completed
     outcome: "confirmed",
   });
   const page = mount("session-one");
+  fireEvent.click(screen.getByRole("button", { name: "Confirmed items (1)" }));
   const article = screen.getByText(/Anything missing\? · Completeness/).closest("article")!;
   expect(article).toHaveTextContent("Value shown by your source (optional): 3 holdings");
   await userEvent.click(within(article).getByRole("button", { name: "Check item" }));
   expect(screen.getByLabelText("Value shown by your source (optional)")).toHaveValue("3 holdings");
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   const review = await screen.findByRole("dialog");
-  expect(within(review).getByText("3 holdings", { selector: "p" })).toBeInTheDocument();
-  expect(review).toHaveTextContent("Synthetic inventory · 2026-09-01");
+  expect(within(review).getByText(/Value shown by your source.*3 holdings/, { selector: "p" })).toBeVisible();
+  expect(review).toHaveTextContent("Synthetic inventory");
+  expect(review).toHaveTextContent("2026-09-01");
   expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({
     referenceValue: "3 holdings",
   }));
@@ -893,6 +895,7 @@ it("keeps free-text scope source evidence visible in preview and saved completed
   q.session!.status = "completed";
   q.session!.completedAt = "2026-09-01T13:00:00Z";
   mount("session-one");
+  fireEvent.click(screen.getByRole("button", { name: "Confirmed items (1)" }));
   const saved = screen.getByText(/Anything missing\? · Completeness/).closest("article")!;
   expect(saved).toHaveTextContent("Value shown by your source (optional): 3 holdings");
   expect(saved).toHaveTextContent("Synthetic inventory · 2026-09-01");
@@ -906,6 +909,7 @@ it("preserves the canonical cash amount in the reviewed checkpoint", async () =>
     outcome: "confirmed",
   });
   mount("session-one");
+  fireEvent.click(screen.getByRole("button", { name: "Confirmed items (1)" }));
   await userEvent.click(
     within(
       screen.getByText(/Synthetic bank · Account balance/).closest("article")!,
@@ -913,7 +917,7 @@ it("preserves the canonical cash amount in the reviewed checkpoint", async () =>
   );
   await userEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(
-    await screen.findByText("US$100.00 (100.001 USD)", { selector: "p" }),
+    await screen.findByText(/Ledger balance:.*100.001 USD/, { selector: "p" }),
   ).toBeInTheDocument();
 });
 
@@ -1683,4 +1687,45 @@ it("does not guess UTC from a cached absence after a timezone refetch failure", 
   fireEvent.focus(window);
   expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-26");
   expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+});
+
+it("requires explicit completeness review for one atomic account confirmation and focuses only changed checkpoints", async () => {
+  const account = q.session!.accounts![0];
+  account.items!.forEach(item => { item.source = { reference: "", asOfDate: "" }; });
+  const result = structuredClone(q.session!);
+  Object.assign(result.accounts![0], { outcome: "confirmed", counts: { pending: 0, confirmed: 2, skipped: 0, unresolved: 0 } });
+  result.accounts![0].items!.forEach(item => { item.outcome = "confirmed"; item.checkedAt = "2026-09-02T12:00:00Z"; });
+  q.preview.mockResolvedValue({ planId: "account-plan", result });
+  mount("session-one");
+  await userEvent.click(screen.getByRole("button", { name: "Confirm account" }));
+  const preview = screen.getByRole("button", { name: "Preview" });
+  expect(preview).toBeDisabled();
+  expect(screen.queryByLabelText("Value shown by your source (optional)")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText(/I reviewed the whole account/));
+  await userEvent.click(preview);
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ action: "check_account", accountId: "one", itemId: undefined, scopeReviewed: true, outcome: "confirmed", referenceValue: "", referenceComparable: false }));
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByRole("heading", { name: "Changes in this confirmation" })).toBeVisible();
+  expect(q.commit).not.toHaveBeenCalled();
+  expect(within(dialog).getByText("Other accounts and session context").closest("details")).not.toHaveAttribute("open");
+});
+
+it("keeps unrelated confirmed items collapsed in a large preview while surfacing comparison warnings", async () => {
+  const result = structuredClone(q.session!);
+  for (let index = 0; index < 12; index++) {
+    const account = structuredClone(result.accounts![0]);
+    account.accountId = `other-${index}`; account.name = `Synthetic other ${index}`;
+    account.items!.forEach(item => { item.accountId = account.accountId; item.accountName = account.name; item.outcome = "confirmed"; item.checkedAt = "2026-09-01T12:00:00Z"; item.source.reference = `Unrelated synthetic source ${index}`; });
+    if (index === 0) Object.assign(account.items![0], { referenceComparable: true, referenceValue: "99" });
+    result.accounts!.push(account);
+  }
+  q.preview.mockResolvedValue({ planId: "focus-plan", result });
+  mount("session-one");
+  await userEvent.click(within(screen.getByText(/Synthetic bank · Account balance/).closest("article")!).getByRole("button", { name: "Check item" }));
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByRole("heading", { name: "Changes in this confirmation" })).toBeVisible();
+  expect(within(dialog).getByText(/Unrelated synthetic source 11/)).not.toBeVisible();
+  expect(within(dialog).getByRole("alert")).toBeVisible();
+  expect(within(dialog).getByRole("alert")).toHaveTextContent("Synthetic other 0");
 });
