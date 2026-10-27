@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChangeText } from "@/components/ui/change-text";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { EmptyState } from "@/components/layout/PageState";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { displayEnum } from "@/lib/display";
 import { compareCanonical, formatAmount, formatSignedMoney } from "@/lib/money";
@@ -127,10 +128,12 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
     /><MoneyRoundingHelp /></div>}
     {!portfolio && accountPositions === "all" && <p className="text-xs text-muted-foreground">{t("investmentAssets.positions.allSubtotalHelp")}</p>}
     {portfolio && <div className="flex flex-wrap items-center justify-between gap-3">
-      <div role="group" aria-label={t("holdingsSummary.view")} className="flex gap-2">
-        <Button size="sm" variant={view === "instrument" ? "default" : "outline"} aria-pressed={view === "instrument"} onClick={() => setView("instrument")}>{t("holdingsSummary.byInstrument")}</Button>
-        <Button size="sm" variant={view === "account" ? "default" : "outline"} aria-pressed={view === "account"} onClick={() => setView("account")}>{t("holdingsSummary.byAccount")}</Button>
-      </div>
+      <SegmentedControl
+        label={t("holdingsSummary.view")}
+        value={view}
+        onChange={value => setView(value as HoldingView)}
+        options={[{ value: "instrument", label: t("holdingsSummary.byInstrument") }, { value: "account", label: t("holdingsSummary.byAccount") }]}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <MoneyRoundingHelp />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 rounded accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" checked={showZero} onChange={(event) => setShowZero(event.target.checked)} />{t("holdingsSummary.showZero")}</label>
@@ -140,7 +143,7 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
         </Button>}
       </div>
     </div>}
-    {visible.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{t("holdingsSummary.noVisibleHoldings")}</p> : <div role="list" aria-label={t("holdingGroups.label")} className="flex flex-col gap-3">
+    {visible.length === 0 ? <EmptyState title={t("holdingsSummary.noVisibleHoldings")} /> : <div role="list" aria-label={t("holdingGroups.label")} className="flex flex-col gap-3">
       {visible.map((group) => {
         const open = !collapsed.includes(group.key);
         const bodyId = `${idPrefix}-group-${group.key}`;

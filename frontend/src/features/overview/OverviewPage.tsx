@@ -398,7 +398,7 @@ export function OverviewPage({
               <ul className="flex flex-col gap-3">{todoRows}</ul>
             ) : null}
             {listedIssues.length > 0 && onOpenDataHealth && (
-              <Button type="button" size="sm" variant="ghost" className="self-start text-primary" onClick={onOpenDataHealth}>
+              <Button type="button" size="sm" variant="link" className="h-auto self-start p-0" onClick={onOpenDataHealth}>
                 {t("dataHealth.fixInDataHealth")}
                 {healthIssueCount > listedIssues.length && <span className="num text-muted-foreground">({healthIssueCount})</span>}
               </Button>

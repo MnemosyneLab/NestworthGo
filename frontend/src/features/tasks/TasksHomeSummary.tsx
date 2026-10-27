@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import type { TasksTab } from "@/app/navigation";
 import { useTasksCounts } from "./useTasksCounts";
@@ -26,7 +27,7 @@ function SummaryLink({
   return (
     <div className="flex min-w-0 flex-col items-start gap-1">
       <Button
-        className="h-auto max-w-full whitespace-normal p-0 text-left"
+        className={cn("h-auto max-w-full whitespace-normal p-0 text-left", (pending || failed) && "font-medium text-muted-foreground")}
         variant="link"
         onClick={() => navigation?.open({ page: "tasks", tab })}
       >

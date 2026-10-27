@@ -242,7 +242,7 @@ export function AccountsPage({
                           <span className="text-xs text-muted-foreground">{completeness}</span>
                         </span>
                         <span className="flex shrink-0 flex-col items-end">
-                          <MoneyText size="md">{value}</MoneyText>
+                          <MoneyText size={displayMoney.primary ? "md" : "sm"} tone={displayMoney.primary ? "neutral" : "muted"}>{value}</MoneyText>
                           {secondary && <MoneyText tone="muted" className="text-xs font-normal">{secondary}</MoneyText>}
                         </span>
                       </button>
