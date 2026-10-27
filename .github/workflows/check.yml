@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
-      container: ${{ steps.image.outputs.container }}
+      image: ${{ steps.image.outputs.image }}
     steps:
       - uses: actions/checkout@v7
       - name: Resolve reviewed image or hosted-runner bootstrap
@@ -44,9 +44,17 @@ jobs:
     name: meta
     runs-on: ubuntu-26.04
     needs: runtime
-    # A runtime output avoids GitHub's rejection of a constant empty image.
-    # Activate only a verified public digest in .github/ci-native-image.txt.
-    container: &native-ci ${{ fromJSON(needs.runtime.outputs.container) }}
+    permissions:
+      contents: read
+      packages: read
+    # Resolve the image at runtime to preserve the blank-pin host bootstrap.
+    # Credentials are supplied before container startup, never via outputs.
+    container: &native-ci
+      image: ${{ needs.runtime.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user 1001:1001
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -104,6 +112,9 @@ jobs:
     name: frontend (${{ matrix.label }})
     runs-on: ubuntu-26.04
     needs: runtime
+    permissions:
+      contents: read
+      packages: read
     container: *native-ci
     timeout-minutes: 30
     strategy:
@@ -205,6 +216,9 @@ jobs:
     name: go (${{ matrix.label }})
     runs-on: ubuntu-26.04
     needs: runtime
+    permissions:
+      contents: read
+      packages: read
     container: *native-ci
     timeout-minutes: 30
     strategy:

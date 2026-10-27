@@ -1,7 +1,7 @@
 # Linux native CI image
 
 The six `check.yml` work jobs (meta, two frontend shards, three Go shards)
-share one runtime container definition, including one immutable GHCR digest after
+share one runtime container definition, including one immutable private GHCR digest after
 activation. All native tests, CGO builds, vet, Wails bindings generation and
 comparison, frontend lint/typecheck/build/tests, and the required `test`
 aggregate remain in place. Go and pnpm dependencies still use `setup-go`,
@@ -32,7 +32,7 @@ require a deliberate dispatch or a reviewed input change.
 
 Always build with the **`build/ci` context**, never `.`. Its deny-by-default
 `.dockerignore` permits only the Dockerfile, manifest and native verification
-script. The Dockerfile copies those two public tooling files only. No source,
+script. The Dockerfile copies those two public tooling files only. No application source,
 ledger, home directory, runner filesystem, build output, token or credential
 is copied. Docker's predefined proxy build arguments may be forwarded from a
 builder environment; they are not declared as Dockerfile ARG/ENV or saved in
@@ -105,6 +105,47 @@ Blank-pin bootstrap therefore has cold native compilation and an extra cache
 fallback on misses. Image activation and warm digest runs have different cache
 costs; whole-workflow cold/warm timing still requires measurement.
 
+## Private registry access and data boundary
+
+Each of the six consumers has `contents: read` and `packages: read`; runtime
+selection and the aggregate retain the workflow's `contents: read` default.
+The image is pulled using `container.credentials` with `github.actor` and the
+job's ephemeral `secrets.GITHUB_TOKEN`, before any checkout or run step.
+A step-level `docker login` would happen too late for a job container.
+Repository Actions access to the package is a prerequisite; no PAT or new
+persistent ACL grant is created by these workflows.
+
+The runtime resolver emits only `image=<validated pin>`. Credentials are
+referenced directly in job YAML, never in JSON, job outputs, cache keys,
+artifacts or image layers. The image field is resolved from the runtime job's
+output; a blank pin keeps the hosted-runner apt/bootstrap path. A constant
+empty image is rejected by GitHub's workflow validator, and the secrets context
+is only available under the nested credentials field, so keep these fields
+separate. See [context availability](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability)
+and [container registry credentials](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/run-jobs-in-a-container#defining-credentials-for-a-container-registry).
+Runtime failure skips the workers and the existing `test` aggregate fails
+closed. A configured image that cannot be pulled also fails visibly; it never
+silently skips native tests or changes environments for a subset of events.
+
+For fork and Dependabot PRs, custom repository secrets are unavailable but
+`GITHUB_TOKEN` remains available with read-only permissions. The consumers
+request only package read, without changing the `pull_request` event or using
+`pull_request_target`. GitHub documents that forks of a public repository may
+access private packages granted to that repository. Treat this image as
+readable by untrusted PR workloads: **public build tools and public native
+dependencies only**. No application source, ledger, settings, credentials,
+private dependency content or runner filesystem belongs in it. Private package
+visibility is not a confidentiality guarantee for this tooling image.
+See [fork PR token restrictions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflows-in-forked-repositories)
+and [package workflow access](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility#ensuring-workflow-access-to-your-package).
+
+An actual digest must be tested on main/manual, same-repository PR, fork PR
+and Dependabot runs before claiming those paths work. A blank-pin run validates
+bootstrap and syntax, not private pull authorization. If an event cannot pull,
+keep the failure visible and review the access/fallback design; do not add a
+PAT, raise persistent access or weaken a gate. Rolling every worker back to a
+blank pin remains available and keeps the documented host-cache cleanup.
+
 ## Trusted publishing and first-use bootstrap
 
 `ci-native-image.yml` builds and smoke-tests relevant PR changes with
@@ -115,47 +156,41 @@ Checkout credentials are not persisted. There is no PAT, repository write,
 release publication, automatic CI activation, package visibility edit, or
 persistent permission configuration. New tags include source SHA, run ID
 and attempt; they are candidate identifiers, never CI's runtime reference.
-The image's OCI source label links the public tooling to this repository.
+The image's OCI source label links the tooling package to this repository.
 
-The initial `.github/ci-native-image.txt` is blank. A lightweight `runtime`
-job reads this reviewed pin and emits JSON for the entire container value:
-empty string for hosted-runner bootstrap, or an image/options mapping for a
-validated immutable digest. GitHub rejects a constant empty `container.image`
-before scheduling jobs, so workers resolve the whole container from this
-runtime output. No nonexistent image is referenced. The original bounded apt
-helper runs only on the host path; every test gate remains required. Failure
-of the runtime job skips its workers and the existing `test` aggregate fails
-closed. See the runner's
-[container conversion](https://github.com/actions/runner/blob/main/src/Sdk/DTPipelines/Pipelines/ObjectTemplating/PipelineTemplateConverter.cs)
-and GitHub's [container shell documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/run-jobs-in-a-container).
+After push succeeds, the publisher retains the real digest and separately
+requires an authenticated `linux/amd64` pull and native smoke with the same
+job's ephemeral token. Its Docker authentication directories are outside all
+Go/pnpm cache paths and are removed by EXIT traps. The package remains private;
+anonymous access is not the acceptance test. Layer uploads or an untagged
+attestation do not establish a published runnable image. Preserve provenance
+and check the normal platform manifest/index and actual execution.
 
-Activation is a separate reviewed edit after these prerequisites:
+The initial `.github/ci-native-image.txt` stays blank until a real runnable
+candidate has been verified. Activation is a separate reviewed edit:
 
-1. Merge the bootstrap workflow through normal review. This task does not
-   merge it. The first relevant main push builds/publishes a candidate using
-   only that workflow's token, or an owner dispatches it explicitly on main.
-2. Obtain its exact `ghcr.io/mnemosynelab/nestworth-ci@sha256:<64 hex>` from
-   the workflow artifact/summary. A first GHCR package normally defaults to
-   private. An owner must separately authorize and perform any package
-   visibility/access change; the workflow never does so. The publish job's
-   anonymous pull gate will fail if public access is not ready. See GitHub's
-   [GHCR authentication and visibility guidance](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
-3. With a fresh, unauthenticated Docker configuration, pull that digest and
-   smoke-test it as UID 1001. If the first publication failed only at public
-   access, repeat this verification after owner action. Never replace the
-   blank pin file with a guessed digest, tag or private-only image. Public
-   anonymous access is required for fork PRs without registry secrets.
-4. Put the real full digest in `.github/ci-native-image.txt`.
-   All six jobs inherit it. Run the whole `check` workflow on that activation
-   commit, including cold and restored Go/pnpm caches, verify no apt step ran,
-   all bindings CLI tests executed, and all setup/post-cache steps succeeded.
-   Merge activation only after these gates pass. A missing/private/broken
-   configured image must fail visibly, not silently change test environments.
+1. Merge the credential/bootstrap workflow through normal review. This task
+   does not merge it. A relevant main push or an explicit main dispatch builds
+   and publishes using only that workflow's token. Registry denial must be
+   diagnosed; it does not authorize credential or permission escalation.
+2. Obtain `ghcr.io/mnemosynelab/nestworth-ci@sha256:<64 hex>` from a successful
+   push, with authenticated platform pull and native smoke evidence. Never
+   substitute an attestation digest, image ID, tag, guessed digest or uploaded
+   layer hash. The retained candidate artifact alone is insufficient if the
+   pull/smoke step failed.
+3. Put that real digest in `.github/ci-native-image.txt`. All six workers use
+   the same image and credentials definition. Run the complete `check` workflow
+   with cold and restored Go/pnpm caches; verify apt is skipped, bindings CLI
+   tests execute, and setup/post-cache steps succeed. Exercise the event types
+   described above and keep any unverified case explicit.
+4. Merge activation only after the applicable gates pass. Keep package ACLs,
+   organization package policy and visibility unchanged. No public-package
+   permission is required for authenticated private consumption.
 
 Ordinary application PRs neither build nor publish the dependency image.
 When dependencies/base inputs change, keep CI on the prior working digest
-while a candidate builds, verify the candidate with the same activation
-procedure, then update that one digest. Do not automatically follow tags.
+while a candidate builds, validate the candidate, then update that one digest.
+Do not automatically follow tags or switch credentials after a denial.
 
 ## Rollback and elapsed-time evidence
 
