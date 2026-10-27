@@ -1,7 +1,7 @@
 # Linux native CI image
 
 The six `check.yml` work jobs (meta, two frontend shards, three Go shards)
-share one container definition, including one immutable GHCR digest after
+share one runtime container definition, including one immutable GHCR digest after
 activation. All native tests, CGO builds, vet, Wails bindings generation and
 comparison, frontend lint/typecheck/build/tests, and the required `test`
 aggregate remain in place. Go and pnpm dependencies still use `setup-go`,
@@ -73,12 +73,15 @@ persistent permission configuration. New tags include source SHA, run ID
 and attempt; they are candidate identifiers, never CI's runtime reference.
 The image's OCI source label links the public tooling to this repository.
 
-The initial container anchor intentionally has `image: ${{ '' }}`. GitHub's
-runner treats an empty evaluated container image as no job container; the
-existing bounded apt helper then runs on the hosted runner. Consequently,
-merging bootstrap does not introduce a nonexistent image dependency or skip
-any gate. The shared image must stay empty until a real candidate exists.
-See the runner's
+The initial `.github/ci-native-image.txt` is blank. A lightweight `runtime`
+job reads this reviewed pin and emits JSON for the entire container value:
+empty string for hosted-runner bootstrap, or an image/options mapping for a
+validated immutable digest. GitHub rejects a constant empty `container.image`
+before scheduling jobs, so workers resolve the whole container from this
+runtime output. No nonexistent image is referenced. The original bounded apt
+helper runs only on the host path; every test gate remains required. Failure
+of the runtime job skips its workers and the existing `test` aggregate fails
+closed. See the runner's
 [container conversion](https://github.com/actions/runner/blob/main/src/Sdk/DTPipelines/Pipelines/ObjectTemplating/PipelineTemplateConverter.cs)
 and GitHub's [container shell documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/run-jobs-in-a-container).
 
@@ -96,9 +99,9 @@ Activation is a separate reviewed edit after these prerequisites:
 3. With a fresh, unauthenticated Docker configuration, pull that digest and
    smoke-test it as UID 1001. If the first publication failed only at public
    access, repeat this verification after owner action. Never replace the
-   empty anchor with a guessed digest, tag or private-only image. Public
+   blank pin file with a guessed digest, tag or private-only image. Public
    anonymous access is required for fork PRs without registry secrets.
-4. Set only `jobs.meta.container`'s anchored `image` to the real full digest.
+4. Put the real full digest in `.github/ci-native-image.txt`.
    All six jobs inherit it. Run the whole `check` workflow on that activation
    commit, including cold and restored Go/pnpm caches, verify no apt step ran,
    all bindings CLI tests executed, and all setup/post-cache steps succeeded.
@@ -113,7 +116,7 @@ procedure, then update that one digest. Do not automatically follow tags.
 ## Rollback and elapsed-time evidence
 
 Restore the last known-good digest to roll back an image update. Set the
-shared image back to `${{ '' }}` to return all six jobs to the original apt
+pin file back to blank to return all six jobs to the original apt
 helper. That path is slower and remains subject to mirror availability, but
 retains its existing bounded retry/diagnostic behavior. The apt helper is
 preserved for `perf.yml` and bootstrap; check containers never run it.

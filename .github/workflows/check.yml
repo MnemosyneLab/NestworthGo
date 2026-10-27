@@ -23,14 +23,25 @@ concurrency:
 # Non-race Go tests are checksum shards so one package cannot hold the run.
 # The aggregate check name stays `test`.
 jobs:
+  runtime:
+    name: native CI runtime
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    outputs:
+      container: ${{ steps.image.outputs.container }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Resolve reviewed image or hosted-runner bootstrap
+        id: image
+        run: python3 tools/ci-native-container.py >> "$GITHUB_OUTPUT"
+
   meta:
     name: meta
     runs-on: ubuntu-26.04
-    # Empty image keeps the hosted-runner bootstrap path. Replace only after
-    # public digest + full container gates are verified (docs/development/ci-native-image.md).
-    container: &native-ci
-      image: ${{ '' }}
-      options: --user 1001:1001
+    needs: runtime
+    # A runtime output avoids GitHub's rejection of a constant empty image.
+    # Activate only a verified public digest in .github/ci-native-image.txt.
+    container: &native-ci ${{ fromJSON(needs.runtime.outputs.container) }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -72,6 +83,7 @@ jobs:
   frontend:
     name: frontend (${{ matrix.label }})
     runs-on: ubuntu-26.04
+    needs: runtime
     container: *native-ci
     timeout-minutes: 30
     strategy:
@@ -157,6 +169,7 @@ jobs:
   go-shard:
     name: go (${{ matrix.label }})
     runs-on: ubuntu-26.04
+    needs: runtime
     container: *native-ci
     timeout-minutes: 30
     strategy:
