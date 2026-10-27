@@ -43,6 +43,11 @@ New GUI checks default to the current ledger civil day (UTC before History Origi
 refreshed across midnight and at preview. Explicit selections, cleared fields and
 saved dates stay unchanged. Source text is never synthesized. The MCP request
 accepts omitted or empty reference text without changing persisted JSON encoding.
+Timezone reads show loading/error and retry. A cached History Origin retains its
+fixed ledger timezone after a failed background refresh. Without a known timezone,
+new automatic confirmation dates wait for retry instead of guessing UTC; explicit
+source dates and non-confirmed outcomes can still be previewed unchanged, with
+backend date/time/comparison validation remaining authoritative.
 Prior attempts remain on each point,
 with a maximum of 100 attempts per session item. At that bound, finish partially
 and start another session rather than drop evidence. Notes are at most 2,000

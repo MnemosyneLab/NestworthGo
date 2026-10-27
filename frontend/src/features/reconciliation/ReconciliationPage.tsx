@@ -1099,7 +1099,11 @@ function CheckForm({
 }) {
   const { t } = useTranslation();
   const history = useHistoryOrigin();
+  // History Origin fixes the ledger timezone. A cached origin remains usable
+  // after a failed refetch; a cached absence cannot prove it was not started.
+  const timezoneKnown = Boolean(history.data) || (history.data === null && !history.isError && !history.isFetching);
   const timezone = history.data?.timezone ?? "UTC";
+  const defaultDate = () => timezoneKnown ? localDateTimeInTimeZone(timezone)?.date ?? "" : "";
   // Refresh untouched defaults and calendar bounds across midnight/backgrounding.
   // Resolve again at preview so a timer delay cannot submit yesterday's default.
   const [, tick] = useState(0);
@@ -1114,7 +1118,7 @@ function CheckForm({
       document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
-  const today = localDateTimeInTimeZone(timezone)?.date;
+  const today = defaultDate() || undefined;
   const [outcome, setOutcome] = useState("confirmed");
   const [reference, setReference] = useState(item.source.reference);
   // undefined follows today; saved dates, user selections and explicit clearing stay fixed.
@@ -1145,6 +1149,13 @@ function CheckForm({
   );
   return (
     <div className="flex flex-col gap-4">
+      {(history.isLoading || (!timezoneKnown && history.isFetching)) && <p role="status" className="text-sm text-muted-foreground">{t("reconciliation.sourceTimezoneLoading")}</p>}
+      {history.isError && (
+        <Notice tone="danger" role="alert">
+          <p>{t(timezoneKnown ? "reconciliation.sourceTimezoneRefreshError" : "reconciliation.sourceTimezoneError")}</p>
+          <Button variant="outline" disabled={history.isFetching} onClick={() => void history.refetch()}>{t("reconciliation.retry")}</Button>
+        </Notice>
+      )}
       <FormField>
         <Label htmlFor="check-outcome">{t("reconciliation.outcome")}</Label>
         <NativeSelect
@@ -1186,6 +1197,7 @@ function CheckForm({
           <Label htmlFor="check-date">{t("reconciliation.sourceDate")}</Label>
           <DatePicker
             id="check-date"
+            disabled={!timezoneKnown}
             value={date}
             max={today}
             onChange={(value) => {
@@ -1201,6 +1213,7 @@ function CheckForm({
           <Label htmlFor="check-time">{t("reconciliation.sourceTime")}</Label>
           <TimePicker
             id="check-time"
+            disabled={!timezoneKnown}
             value={time}
             onChange={(value) => {
               setTime(value);
@@ -1271,8 +1284,7 @@ function CheckForm({
         className="self-end"
         disabled={
           disabled ||
-          history.isLoading ||
-          history.isError ||
+          (outcome === "confirmed" && selectedDate === undefined && !timezoneKnown) ||
           utf8ByteLength(reference) > 512 ||
           utf8ByteLength(value) > 256 ||
           utf8ByteLength(note) > 2000
@@ -1280,7 +1292,7 @@ function CheckForm({
         onClick={() =>
           void onPreview({
             outcome,
-            source: { reference, asOfDate: selectedDate ?? localDateTimeInTimeZone(timezone)?.date ?? "", asOfTime: time },
+            source: { reference, asOfDate: selectedDate ?? defaultDate(), asOfTime: time },
             referenceValue: value,
             referenceComparable: comparable,
             note,

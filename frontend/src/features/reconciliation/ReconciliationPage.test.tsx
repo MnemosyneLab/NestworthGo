@@ -25,6 +25,9 @@ const q = vi.hoisted(() => ({
   error: false,
   timezone: "UTC",
   historyLoading: false,
+  historyError: false,
+  historyCached: false,
+  historyAbsent: false,
   sessions: [] as ReconciliationSession[],
   auditError: false,
   archivedAccountId: "",
@@ -89,7 +92,7 @@ vi.mock("@/queries/accounts", () => ({
   useAccountValuations: () => ({ data: [{ account: { id: "one", name: "Synthetic bank" }, components: [{ nativeCurrency: "USD", nativeAmount: "5000" }] }] }),
 }));
 vi.mock("@/queries/history", () => ({
-  useHistoryOrigin: () => ({ data: q.historyLoading ? undefined : { timezone: q.timezone }, isLoading: q.historyLoading }),
+  useHistoryOrigin: () => ({ data: q.historyLoading || (q.historyError && !q.historyCached) ? undefined : q.historyAbsent ? null : { timezone: q.timezone }, isLoading: q.historyLoading, isError: q.historyError, refetch: q.refetch }),
 }));
 vi.mock("@/queries/settings", () => ({
   useSettings: () => ({
@@ -197,6 +200,9 @@ beforeEach(async () => {
   q.error = false;
   q.timezone = "UTC";
   q.historyLoading = false;
+  q.historyError = false;
+  q.historyCached = false;
+  q.historyAbsent = false;
   q.sessions = [];
   q.auditError = false;
   q.archivedAccountId = "";
@@ -517,13 +523,13 @@ it("keeps a late new-product preview closed after Escape and a session switch", 
   let resolveProduct!: (value: unknown) => void;
   q.newProductPreview.mockImplementationOnce(() => new Promise((resolve) => { resolveProduct = resolve; }));
   mount("session-one");
-  await userEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.addProduct") }));
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("reconciliation.addProduct") }));
   fireEvent.change(screen.getByLabelText("Principal"), { target: { value: "1000" } });
-  await userEvent.click(screen.getByLabelText("Start date"));
-  await userEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
-  await userEvent.click(screen.getByLabelText("Maturity date"));
-  await userEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
-  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  fireEvent.click(screen.getByLabelText("Start date"));
+  fireEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
+  fireEvent.click(screen.getByLabelText("Maturity date"));
+  fireEvent.click(within(screen.getByRole("grid")).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
+  fireEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(q.newProductPreview).toHaveBeenCalledOnce();
   await userEvent.keyboard("{Escape}");
@@ -1589,6 +1595,7 @@ it("waits for the ledger timezone and follows it when the history read completes
   mount("session-one");
   await openScopeCheck();
   expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent(i18n.t("common.selectDate"));
   q.historyLoading = false;
   fireEvent.focus(window);
   expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
@@ -1599,3 +1606,81 @@ it("waits for the ledger timezone and follows it when the history read completes
 async function openBalanceCheck() {
   await userEvent.click(within(screen.getByText(/Synthetic bank · Account balance/).closest("article")!).getByRole("button", { name: "Check item" }));
 }
+
+
+it("explains a failed ledger-timezone read and allows retry before preview", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.historyError = true;
+  q.timezone = "Asia/Shanghai";
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("reconciliation.sourceTimezoneError"));
+  expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+  expect(screen.getByLabelText("Source as-of date")).toBeDisabled();
+  expect(screen.getByLabelText("Source time (optional, ledger timezone)")).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(q.refetch).toHaveBeenCalledOnce();
+  q.historyError = false;
+  fireEvent.focus(window);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-27");
+});
+
+
+it("uses a cached ledger timezone after a refetch failure without replacing explicit dates", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.historyError = true;
+  q.historyCached = true;
+  q.timezone = "Asia/Shanghai";
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("reconciliation.sourceTimezoneRefreshError"));
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-27");
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await userEvent.keyboard("{Escape}");
+  await openBalanceCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-09-01");
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ source: { reference: "", asOfDate: "2026-09-01", asOfTime: "" } }));
+});
+
+it("previews an explicit saved date even when the initial timezone read fails", async () => {
+  q.historyError = true;
+  q.session!.accounts![0].items![0].source.asOfTime = "09:15";
+  mount("session-one");
+  await openBalanceCheck();
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ source: { reference: "", asOfDate: "2026-09-01", asOfTime: "09:15" } }));
+});
+
+it.each(["pending", "skipped", "unresolved"])("previews %s without guessing a date after the initial timezone read fails", async (outcome) => {
+  q.historyError = true;
+  mount("session-one");
+  await openScopeCheck();
+  fireEvent.change(screen.getByLabelText("Check outcome"), { target: { value: outcome } });
+  fireEvent.change(screen.getByLabelText("Explanation or note"), { target: { value: "Synthetic outstanding evidence" } });
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  expect(q.preview).toHaveBeenCalledWith(expect.objectContaining({ outcome, source: { reference: "", asOfDate: "", asOfTime: "" } }));
+});
+
+
+it("does not guess UTC from a cached absence after a timezone refetch failure", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-26T18:00:00Z"));
+  q.historyError = true;
+  q.historyCached = true;
+  q.historyAbsent = true;
+  mount("session-one");
+  await openScopeCheck();
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent(i18n.t("common.selectDate"));
+  expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+  q.historyError = false;
+  fireEvent.focus(window);
+  expect(screen.getByLabelText("Source as-of date")).toHaveTextContent("2026-10-26");
+  expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+});
