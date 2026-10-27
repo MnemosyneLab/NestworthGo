@@ -6,6 +6,20 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Container run steps otherwise default to sh; Go shards require Bash arrays,
+# mapfile and process substitution on both the host and image paths.
+defaults:
+  run:
+    shell: bash
+
+# Stable in host and container jobs, so the module-only fallback archive can
+# be reused across native images. Compiled artifacts stay in GOCACHE.
+env:
+  GOMODCACHE: /tmp/nestworth-ci-go-modules
+
 concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -14,29 +28,70 @@ concurrency:
 # Non-race Go tests are checksum shards so one package cannot hold the run.
 # The aggregate check name stays `test`.
 jobs:
+  runtime:
+    name: native CI runtime
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    outputs:
+      container: ${{ steps.image.outputs.container }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Resolve reviewed image or hosted-runner bootstrap
+        id: image
+        run: python3 tools/ci-native-container.py >> "$GITHUB_OUTPUT"
+
   meta:
     name: meta
     runs-on: ubuntu-26.04
+    needs: runtime
+    # A runtime output avoids GitHub's rejection of a constant empty image.
+    # Activate only a verified public digest in .github/ci-native-image.txt.
+    container: &native-ci ${{ fromJSON(needs.runtime.outputs.container) }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: go.mod
           cache: true
-          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
-          cache-dependency-path: go.sum
-      - name: Install native Go build dependencies
+          # setup-go hashes both files into its exact cache key. Never restore
+          # CGO build artifacts from another native image or the old key.
+          cache-dependency-path: |
+            go.sum
+            .github/ci-native-image.txt
+      - name: Reuse module downloads across native images
+        if: steps.go.outputs.cache-hit != 'true'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.GOMODCACHE }}
+          key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      - name: Install native Go build dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
         timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
+      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
+      # can install different C headers, so discard only compiled artifacts.
+      - name: Reset unpinned native build cache
+        if: ${{ !job.container.id }}
+        run: go clean -cache
+      - name: Verify native tools, user and cache permissions
+        run: bash build/ci/verify-native.sh --with-toolchains
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal)"
       - name: Go vet
         run: go vet ./...
       - name: Go build
         run: go build ./cmd/nestworth
+      # Minimal CI images have no Node until setup-node runs. The Python
+      # BindingsCLITests suite would silently skip without it.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
       - name: Validate user skill and installer
         run: |
+          node --version
           python3 tools/check-nestworth-skill.py
           python3 -m unittest discover -s tools/tests -v
       - name: Trailing whitespace
@@ -48,6 +103,8 @@ jobs:
   frontend:
     name: frontend (${{ matrix.label }})
     runs-on: ubuntu-26.04
+    needs: runtime
+    container: *native-ci
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -68,11 +125,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: go.mod
           cache: true
-          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
-          cache-dependency-path: go.sum
+          # setup-go hashes both files into its exact cache key. Never restore
+          # CGO build artifacts from another native image or the old key.
+          cache-dependency-path: |
+            go.sum
+            .github/ci-native-image.txt
+      - name: Reuse module downloads across native images
+        if: steps.go.outputs.cache-hit != 'true'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.GOMODCACHE }}
+          key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      # pnpm/action-setup invokes npm, which is absent in the native image.
+      # Bootstrap Node first; the second setup-node restores the existing pnpm
+      # cache after pnpm is available and reuses this installed Node toolchain.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
       - uses: pnpm/action-setup@v6
         with:
           version: 12.14.0
@@ -81,16 +155,24 @@ jobs:
           node-version: 24.22.0
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-      - name: Install native Go build dependencies
+      - name: Install native Go build dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
         timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
+      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
+      # can install different C headers, so discard only compiled artifacts.
+      - name: Reset unpinned native build cache
+        if: ${{ !job.container.id }}
+        run: go clean -cache
+      - name: Verify native tools, user and cache permissions
+        run: bash build/ci/verify-native.sh --with-toolchains
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
       # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
       # setup-go cache never reused the Wails compile (~70s median).
       - name: Reuse Go build cache for Wails bindings
-        run: echo "NESTWORTH_WAILS_GOCACHE=$GOCACHE" >> "$GITHUB_ENV"
+        run: echo "NESTWORTH_WAILS_GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
       - name: Generate Wails bindings
         working-directory: frontend
         run: pnpm run generate:bindings
@@ -122,6 +204,8 @@ jobs:
   go-shard:
     name: go (${{ matrix.label }})
     runs-on: ubuntu-26.04
+    needs: runtime
+    container: *native-ci
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -145,14 +229,32 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: go.mod
           cache: true
-          # v6+ hashes go.mod unless this is set. Keep the v5 go.sum key.
-          cache-dependency-path: go.sum
-      - name: Install native Go build dependencies
+          # setup-go hashes both files into its exact cache key. Never restore
+          # CGO build artifacts from another native image or the old key.
+          cache-dependency-path: |
+            go.sum
+            .github/ci-native-image.txt
+      - name: Reuse module downloads across native images
+        if: steps.go.outputs.cache-hit != 'true'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.GOMODCACHE }}
+          key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      - name: Install native Go build dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
         timeout-minutes: 17
         run: bash tools/ci-install-native-deps.sh
+      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
+      # can install different C headers, so discard only compiled artifacts.
+      - name: Reset unpinned native build cache
+        if: ${{ !job.container.id }}
+        run: go clean -cache
+      - name: Verify native tools, user and cache permissions
+        run: bash build/ci/verify-native.sh --with-toolchains
       - name: Go tests
         run: |
           set -euo pipefail

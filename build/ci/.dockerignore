@@ -1,0 +1,4 @@
+*
+!Dockerfile
+!packages.txt
+!verify-native.sh

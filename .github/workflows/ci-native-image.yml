@@ -1,0 +1,95 @@
+name: ci-native-image
+
+on:
+  pull_request:
+    paths:
+      - build/ci/**
+      - tools/ci-build-native-image.sh
+      - .github/workflows/ci-native-image.yml
+  push:
+    branches: [main]
+    paths:
+      - build/ci/**
+      - tools/ci-build-native-image.sh
+      - .github/workflows/ci-native-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ci-native-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    # Untrusted PRs build and smoke-test only, with no registry credentials.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build and smoke-test native CI image
+        run: bash tools/ci-build-native-image.sh nestworth-ci:validation
+
+  publish:
+    # Only reviewed main or an explicit main dispatch can publish. No PR event,
+    # branch dispatch, PAT, repository write, visibility edit or release action.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY_IMAGE: ghcr.io/mnemosynelab/nestworth-ci
+      IMAGE_TAG: ubuntu26-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build and smoke-test native CI image
+        run: bash tools/ci-build-native-image.sh "$REGISTRY_IMAGE:$IMAGE_TAG"
+      - name: Publish with ephemeral workflow credentials
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/nestworth-ghcr-auth"
+          mkdir -p "$DOCKER_CONFIG"
+          trap 'docker logout ghcr.io || true; rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          docker push "$REGISTRY_IMAGE:$IMAGE_TAG"
+          digest=$(docker image inspect "$REGISTRY_IMAGE:$IMAGE_TAG" --format '{{index .RepoDigests 0}}')
+          [[ "$digest" =~ ^ghcr.io/mnemosynelab/nestworth-ci@sha256:[0-9a-f]{64}$ ]]
+          printf '%s\n' "$digest" > "$RUNNER_TEMP/nestworth-ci-image.txt"
+      - name: Require anonymous digest pull before activation
+        run: |
+          # A new GHCR package defaults to private. Fail visibly until an owner
+          # has separately approved and made it public; never edit visibility.
+          export DOCKER_CONFIG="$RUNNER_TEMP/nestworth-ghcr-anonymous"
+          mkdir -p "$DOCKER_CONFIG"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          digest=$(cat "$RUNNER_TEMP/nestworth-ci-image.txt")
+          docker pull "$digest"
+          docker run --rm --user 1001:1001 "$digest" nestworth-ci-verify-native
+          {
+            echo '### Native CI image candidate'
+            printf '\n    %s\n\n' "$digest"
+            echo 'Anonymous pull and native smoke passed. check.yml is unchanged.'
+            echo 'Run all six check gates with this digest before merging activation.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain published digest even if visibility blocks anonymous pull
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-ci-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/nestworth-ci-image.txt
+          if-no-files-found: ignore
+          retention-days: 30

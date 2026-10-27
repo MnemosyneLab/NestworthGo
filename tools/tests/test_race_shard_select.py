@@ -230,7 +230,7 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("shard: 2", workflow)
         self.assertIn("lint: true", workflow)
         self.assertIn("build: true", workflow)
-        self.assertIn("NESTWORTH_WAILS_GOCACHE=$GOCACHE", workflow)
+        self.assertIn("NESTWORTH_WAILS_GOCACHE=$(go env GOCACHE)", workflow)
         self.assertIn("go test -count=1 -json -timeout 20m", workflow)
         self.assertNotIn("go test ./...", workflow)
         self.assertIn("go vet ./...", workflow)
