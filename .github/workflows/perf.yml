@@ -154,8 +154,11 @@ jobs:
   # Application 2/2 repeatedly exhausted Go's cumulative 10m test budget
   # (PR #60, main, PR #61); no assertion or race detector failure preceded it.
   # Name-hash parts spread one package across runners without increasing
-  # in-process concurrency or skipping tests. Eight application parts and four
-  # MCP parts are the smallest hash splits whose buckets stay under 10m.
+  # in-process concurrency or skipping tests. Scheduled run 40607291839
+  # exhausted application 3/8 twice after 527s/538s of serial tests. Twelve
+  # application parts separate its three longest serial fixtures and reduce
+  # the largest recorded serial load from 538s to 281s; this is a timing
+  # projection, not a guarantee about runner throughput. MCP stays at four.
   # sqlite is two parts. -p stays 1 on those shards. Remainder uses -p 2.
   # -parallel stays 4 and only for application and MCP.
   race-shard:
@@ -170,36 +173,52 @@ jobs:
         include:
           - shard: application
             part: 0
-            parts: 8
-            label: application 1/8
+            parts: 12
+            label: application 1/12
           - shard: application
             part: 1
-            parts: 8
-            label: application 2/8
+            parts: 12
+            label: application 2/12
           - shard: application
             part: 2
-            parts: 8
-            label: application 3/8
+            parts: 12
+            label: application 3/12
           - shard: application
             part: 3
-            parts: 8
-            label: application 4/8
+            parts: 12
+            label: application 4/12
           - shard: application
             part: 4
-            parts: 8
-            label: application 5/8
+            parts: 12
+            label: application 5/12
           - shard: application
             part: 5
-            parts: 8
-            label: application 6/8
+            parts: 12
+            label: application 6/12
           - shard: application
             part: 6
-            parts: 8
-            label: application 7/8
+            parts: 12
+            label: application 7/12
           - shard: application
             part: 7
-            parts: 8
-            label: application 8/8
+            parts: 12
+            label: application 8/12
+          - shard: application
+            part: 8
+            parts: 12
+            label: application 9/12
+          - shard: application
+            part: 9
+            parts: 12
+            label: application 10/12
+          - shard: application
+            part: 10
+            parts: 12
+            label: application 11/12
+          - shard: application
+            part: 11
+            parts: 12
+            label: application 12/12
           - shard: mcpserver
             part: 0
             parts: 4
