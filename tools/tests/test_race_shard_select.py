@@ -121,7 +121,26 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertEqual(self.matrix_parts(check, "continuousbackup"), [(0, 1, "continuousbackup 1/1")])
         self.assertEqual(self.matrix_parts(check, "remainder"), [(0, 1, "remainder 1/1")])
         self.assertEqual(check.count("selections: |"), 3)
-        self.assert_split_covers_names(PERF.read_text(), (("application", 8), ("mcpserver", 4), ("sqlite", 2)))
+        self.assert_split_covers_names(PERF.read_text(), (("application", 12), ("mcpserver", 4), ("sqlite", 2)))
+
+    def test_application_slow_serial_fixtures_use_distinct_workflow_parts(self):
+        # These all collided in application 3/8 of run 40607291839. Keep the
+        # measured serial bottlenecks separate when changing the matrix again.
+        fixtures = [
+            "TestReviewDependencyFXProductionImportFullOracle",
+            "TestReviewPrefixMemoGuards",
+            "TestReconciliationRefreshOnlyChangedEndpoints",
+        ]
+        parts = self.matrix_parts(PERF.read_text(), "application")
+        assignments = []
+        listing = "\n".join(fixtures + [f"TestGenerated{i}" for i in range(80)])
+        for part, count, _ in parts:
+            result = self.run_select("--names", part, count, stdin=listing)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            selected = self.names_from_regex(result.stdout.strip())
+            assignments.extend(part for name in fixtures if name in selected)
+        self.assertEqual(len(assignments), len(fixtures))
+        self.assertEqual(len(set(assignments)), len(fixtures))
 
     def test_workflow_keeps_bounded_race_execution_and_fail_closed_aggregate(self):
         workflow = PERF.read_text()

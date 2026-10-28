@@ -199,7 +199,7 @@ with both backends. These timings do not change production apt budgets.
 ## CI race budgets and SDK test lifetime
 
 The daily `race` aggregate fails unless every matrix part succeeds.
-Application tests use eight checksum partitions; MCP uses four; sqlite uses
+Application tests use twelve checksum partitions; MCP uses four; sqlite uses
 two. Infrastructure and all remaining packages also run with the detector.
 Enumeration uses the race build and includes Test, Example, and Fuzz names.
 Each process has an explicit 10-minute test budget, `-parallel 4` for
@@ -217,7 +217,7 @@ There are no automatic test retries. Seven-day
 (including elapsed times and failures) for diagnosis, with distinct names
 so a manual rerun cannot collide with an earlier attempt.
 
-The four application parts address repeated cumulative timeouts, not reported
+The application partitions address repeated cumulative timeouts, not reported
 data races. Reviewed runs:
 
 | Run | Frontend | Application race 1/2 | Application race 2/2 |
@@ -234,6 +234,40 @@ counts were 261/305; costs are unequal as well as counts. The same 305-test
 part succeeded in 383.947s on one runner, so runner throughput affects whether
 the cumulative budget expires. Review the retained timings when adding costly
 fixtures instead of raising concurrency or removing coverage.
+
+[Scheduled run 40607291839](https://github.com/MnemosyneLab/NestworthGo/actions/runs/40607291839)
+on `74558ee` exhausted application 3/8 twice at 600 seconds. The first
+attempt passed 93 of 100 top-level tests; serial work consumed 527.4 seconds.
+The rerun consumed 538.2 seconds before queued parallel tests resumed, and
+passed 87 of 100 before timeout. Neither log reported a data race or an
+assertion failure before the timeout. The last active test is not established
+as the cause. The other seven application parts completed in 177.702–511.595
+seconds; all other race parts and four perf groups passed.
+
+Twelve application checksum parts replace eight without changing the selector,
+concurrency, test bodies, assertions or either timeout. Re-bucketing completed
+top-level test timings from those eight logs puts the largest recorded serial
+load at 280.7 seconds, versus 538.0 seconds summed in the old bucket. The FX
+production-import oracle (135.20s), prefix memo guards (107.80s) and reconciliation
+refresh (87.81s) now occupy parts 3/12, 7/12 and 11/12 respectively. These are
+projections from available timings: the failed bucket has incomplete parallel
+results, and a different runner or changed test population can alter costs.
+This adds four race jobs (20 total), each with its own setup/build overhead;
+confirm actual wall clock and cache/setup costs on the next heavy run. Retained
+JSON timings remain the source for future rebalancing. A separately reported
+native Mac run passed the exact original 100 tests with race and no skips in
+330.939s under a 20-minute diagnostic ceiling; that is cross-platform diagnostic
+evidence, not a hosted-Linux timing guarantee or a CI budget change.
+
+`perf.yml` race and perf jobs currently use hosted Ubuntu plus the bounded apt
+helper, not the published native CI image. `check.yml` alone consumes the pin
+in `.github/ci-native-image.txt` (currently `aa7b294d67a3a360d9736c66561b53481972af685a844e1679e22b80ac6fd753`).
+Reusing that public Ubuntu/native dependency image is appropriate in principle,
+but needs the same unprivileged runtime guard and image-keyed CGO cache boundary
+as `check.yml`; adding only a container would risk reusing host-built native
+artifacts. Image activation is separate from this shard-budget change. It can
+reduce repeated native setup, but is not evidence that the cumulative race test
+budget is sufficient. See [Linux native CI image](ci-native-image.md).
 
 The separate frontend failure was beta.28's 50ms startup interval in
 `drag.js:69` accessing `window` after jsdom teardown on Node 22.23.3. The SDK
