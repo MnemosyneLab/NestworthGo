@@ -15,7 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
 
-func TestHoldingGainAvailableAfterQuote(t *testing.T) {
+func TestPrehistoryUnknownCostKeepsQuotedValue(t *testing.T) {
 	app := wailstest.NewService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
@@ -41,13 +41,8 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	// UnitCost is deliberately not passed here: without history started,
-	// application.Service.CreateHolding never records a cost-basis event
-	// for it (that path only exists once a Starting Point origin exists),
-	// so the average cost for this holding is 0 and the entire current
-	// value is treated as unrealized gain. This matches
-	// domain.ReplayCostBasis's behavior for a Holding with no cost-basis
-	// events at all.
+	// Prehistory APIs allow quantities before Starting Point cost capture.
+	// A missing cost is unavailable, while a quoted market value remains valid.
 	holdingDTO, err := holding.NewService(app).CreateHolding(ctx, holding.CreateHoldingRequest{
 		AccountID: accountRecord.Account.ID, InstrumentID: instrumentDTO.ID, Quantity: "10",
 	})
@@ -62,14 +57,14 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HoldingGain: %v", err)
 	}
-	if !gain.Available {
-		t.Fatalf("Available = false, want true: %+v", gain)
+	if gain.Available || gain.TotalCost != nil || gain.AverageCost != nil || gain.CostMissingReason == "" {
+		t.Fatalf("unknown cost availability: %+v", gain)
 	}
 	if gain.CurrentValue == nil || gain.CurrentValue.Amount != "1500" {
 		t.Fatalf("CurrentValue = %+v, want 1500", gain.CurrentValue)
 	}
-	if gain.UnrealizedGain == nil || gain.UnrealizedGain.Amount != "1500" {
-		t.Fatalf("UnrealizedGain = %+v, want 1500 (zero cost basis pre-history)", gain.UnrealizedGain)
+	if gain.UnrealizedGain != nil {
+		t.Fatalf("unknown cost exposed as profit: %+v", gain.UnrealizedGain)
 	}
 
 	groups, err := analytics.NewService(app).InstrumentHoldings(ctx)
@@ -78,6 +73,18 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 	}
 	if len(groups) != 1 || groups[0].InstrumentID != instrumentDTO.ID || len(groups[0].Holdings) != 1 || groups[0].Holdings[0].AccountID != accountRecord.Account.ID || groups[0].Amounts.CurrentValue == nil || groups[0].Amounts.CurrentValue.Amount != "1500" {
 		t.Fatalf("InstrumentHoldings: %+v", groups)
+	}
+
+	if amounts := groups[0].Amounts; amounts.TotalCost != nil || amounts.UnrealizedGain != nil || amounts.CostMissingReason == "" || amounts.GainMissingReason == "" {
+		t.Fatalf("wire availability: %+v", amounts)
+	}
+	grouped, err := analytics.NewService(app).InstrumentHoldingGroups(ctx)
+	if err != nil || len(grouped) != 1 || len(grouped[0].Subtotals) != 1 {
+		t.Fatalf("grouped=%+v err=%v", grouped, err)
+	}
+	subtotal := grouped[0].Subtotals[0]
+	if subtotal.TotalCost != nil || subtotal.UnrealizedGain != nil || subtotal.CurrentValue == nil || subtotal.CurrentValue.Amount != "1500" || subtotal.CostMissingReason == "" || subtotal.GainMissingReason == "" {
+		t.Fatalf("subtotal wire availability: %+v", subtotal)
 	}
 
 	accountGain, err := app.AccountGain(ctx, domain.AccountID(accountRecord.Account.ID))

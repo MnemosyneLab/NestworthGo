@@ -28,10 +28,11 @@ Final draft-PR head and exact-head CI are recorded in the PR.
   New isolated SQLite tests compare both reads and exercise Undo, acquisition
   correction at a later FX rate, a valid later acquisition, sale, and realized
   gain parity across household/account/instrument/intersection scopes. USD/CNY
-  and EUR/CNY cases assert independent arithmetic. Quantity-weighted acquisition
-  FX is `(2*7+2*8)/4 = 7.5`; native cost `24+40 = 64`, base cost `480`, current
-  value `4*10*9 = 360`, unrealized base gain `-120`. Selling one unit leaves
-  cost `48` native / `360` base, and realizes `(30-16)*9 = 126` CNY.
+  and EUR/CNY cases originally asserted quantity-weighted acquisition FX.
+  The 2026-10-29 F03 correction supersedes that arithmetic: native cost
+  `24+40 = 64`, base cost `24*7+40*8 = 488`, current value `4*10*9 = 360`,
+  unrealized base gain `-128`. Selling one unit leaves cost `48` native /
+  `366` base, and still realizes `(30-16)*9 = 126` CNY.
 
 ## Automated checks
 

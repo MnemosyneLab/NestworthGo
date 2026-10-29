@@ -87,7 +87,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 	}
 	for _, g := range groups {
 		if g.InstrumentID == id {
-			if len(g.Holdings) != 2 || g.Amounts.Quantity != "0.3" || g.Amounts.CurrentValue == nil || g.Amounts.CurrentValue.Amount != "30" || g.Amounts.UnrealizedGain == nil {
+			if len(g.Holdings) != 2 || g.Amounts.Quantity != "0.3" || g.Amounts.CurrentValue == nil || g.Amounts.CurrentValue.Amount != "30" || g.Amounts.UnrealizedGain != nil || g.Amounts.TotalCost != nil || g.Amounts.CostMissingReason == "" {
 				t.Fatalf("native summary: %+v", g)
 			}
 			if g.Holdings[0].AccountID != a || g.Holdings[0].Amounts.CurrentValue.Amount != "10" {
@@ -105,7 +105,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, g := range groups {
-		if g.InstrumentID == missing && (g.Amounts.TotalCost == nil || g.Amounts.CurrentValue != nil || g.Amounts.ValueMissingReason == "") {
+		if g.InstrumentID == missing && (g.Amounts.TotalCost != nil || g.Amounts.CostMissingReason == "" || g.Amounts.CurrentValue != nil || g.Amounts.ValueMissingReason == "") {
 			t.Fatalf("missing field: %+v", g)
 		}
 	}

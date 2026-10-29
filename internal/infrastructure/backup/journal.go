@@ -21,25 +21,30 @@ const (
 	StateOriginalRenamed      = "original-renamed"
 	StateReplacementInstalled = "replacement-installed"
 	StateVerified             = "verified"
+	StateQuarantining         = "quarantining"
+	StateRollingBack          = "rolling-back"
 )
 
 type Journal struct {
-	FormatVersion  int    `json:"format_version"`
-	Operation      string `json:"operation"`
-	State          string `json:"state"`
-	StartedAt      string `json:"started_at"`
-	LiveName       string `json:"live_name"`
-	SafetyName     string `json:"safety_name"`
-	StagingName    string `json:"staging_name"`
-	BackupSHA256   string `json:"backup_database_sha256"`
-	AppVersion     string `json:"app_version"`
-	AppBuild       string `json:"app_build"`
-	SchemaVersion  int    `json:"schema_version"`
-	BackupFormat   int    `json:"backup_format_version"`
-	RestoreChrome  bool   `json:"restore_chrome"`
-	RestoreFormat  bool   `json:"restore_format"`
-	RestoreRouting bool   `json:"restore_routing"`
-	SettingsJSON   string `json:"settings_json,omitempty"`
+	FormatVersion int    `json:"format_version"`
+	Operation     string `json:"operation"`
+	State         string `json:"state"`
+	StartedAt     string `json:"started_at"`
+	LiveName      string `json:"live_name"`
+	SafetyName    string `json:"safety_name"`
+	StagingName   string `json:"staging_name"`
+	// Nil preserves the ambiguity of journals written before this field existed.
+	OriginalPresent *bool  `json:"original_present,omitempty"`
+	FailedName      string `json:"failed_name,omitempty"`
+	BackupSHA256    string `json:"backup_database_sha256"`
+	AppVersion      string `json:"app_version"`
+	AppBuild        string `json:"app_build"`
+	SchemaVersion   int    `json:"schema_version"`
+	BackupFormat    int    `json:"backup_format_version"`
+	RestoreChrome   bool   `json:"restore_chrome"`
+	RestoreFormat   bool   `json:"restore_format"`
+	RestoreRouting  bool   `json:"restore_routing"`
+	SettingsJSON    string `json:"settings_json,omitempty"`
 }
 
 type Status struct {
@@ -134,79 +139,130 @@ func ReconcileOnStartup(liveDBPath string, store *settings.Store) error {
 	if err != nil {
 		return err
 	}
+	dir := filepath.Dir(liveDBPath)
+	safety := filepath.Join(dir, journal.SafetyName)
 	liveExists := GroupExists(liveDBPath)
-	safetyExists := journal.SafetyName != "" && GroupExists(filepath.Join(filepath.Dir(liveDBPath), journal.SafetyName))
+	safetyExists := journal.SafetyName != "" && GroupExists(safety)
 	liveMainExists := fileExists(liveDBPath)
-	safetyMainExists := journal.SafetyName != "" && fileExists(filepath.Join(filepath.Dir(liveDBPath), journal.SafetyName))
-	state := journal.State
-	if state == StateOriginalRenamed && liveExists && safetyExists {
-		state = StateReplacementInstalled
-	}
-	switch state {
+	safetyMainExists := journal.SafetyName != "" && fileExists(safety)
+	firstRestore := journal.OriginalPresent != nil && !*journal.OriginalPresent
+	switch journal.State {
 	case StatePrepared:
-		if liveMainExists {
-			_ = os.Remove(filepath.Join(filepath.Dir(liveDBPath), journal.StagingName))
-			return RemoveJournal(liveDBPath)
-		}
-		if !liveExists && safetyMainExists {
-			if err := restoreSafetyGroup(liveDBPath, journal); err != nil {
-				return err
+		if safetyMainExists && !liveMainExists {
+			// The original main file moved first; its sidecars may still be
+			// split across live and safety at either subsequent rename.
+			if liveExists {
+				if err := moveOrphanSidecars(liveDBPath, safety, os.Rename); err != nil {
+					return recoveryBlocked("orphan database sidecars could not be reconciled")
+				}
 			}
-			return RemoveJournal(liveDBPath)
+			return beginSafetyRollback(liveDBPath, journal)
 		}
-		if liveExists && safetyMainExists {
-			if err := moveOrphanSidecars(liveDBPath, filepath.Join(filepath.Dir(liveDBPath), journal.SafetyName), os.Rename); err != nil {
-				return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "orphan database sidecars could not be reconciled"}
+		if liveMainExists && !safetyMainExists {
+			if firstRestore {
+				return verifyOrRollbackReplacement(liveDBPath, journal, store)
 			}
-			if err := restoreSafetyGroup(liveDBPath, journal); err != nil {
-				return err
+			// Also finish a rollback interrupted under an older journal.
+			if safetyExists {
+				if err := moveOrphanSidecars(safety, liveDBPath, os.Rename); err != nil {
+					return recoveryBlocked("original database sidecars could not be reconciled")
+				}
 			}
-			return RemoveJournal(liveDBPath)
+			return finishRecovery(liveDBPath, journal)
 		}
-		return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "restore could not be completed and no safety copy is available"}
+		if firstRestore && !liveExists && !safetyExists {
+			return installStagedOnStartup(liveDBPath, journal, store)
+		}
+		return recoveryBlocked("restore could not be completed and no complete original copy is available")
 	case StateOriginalRenamed:
-		if !liveExists && safetyExists {
-			if err := restoreSafetyGroup(liveDBPath, journal); err != nil {
-				return err
+		if liveMainExists {
+			staging := filepath.Join(dir, journal.StagingName)
+			if journal.StagingName != "" && GroupExists(staging) {
+				if err := moveOrphanSidecars(staging, liveDBPath, os.Rename); err != nil {
+					return recoveryBlocked("restored database sidecars could not be reconciled")
+				}
 			}
-			return RemoveJournal(liveDBPath)
-		}
-		if liveExists && safetyExists {
+			// The staging rename may have completed before its journal write,
+			// including a first restore with no original/safety database.
 			return verifyOrRollbackReplacement(liveDBPath, journal, store)
 		}
-		return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "restore could not be completed and no safety copy is available"}
-	case StateReplacementInstalled:
+		if safetyMainExists {
+			if liveExists {
+				if err := moveOrphanSidecars(liveDBPath, safety, os.Rename); err != nil {
+					return recoveryBlocked("orphan database sidecars could not be reconciled")
+				}
+			}
+			return beginSafetyRollback(liveDBPath, journal)
+		}
+		if firstRestore && !liveExists && !safetyExists {
+			return installStagedOnStartup(liveDBPath, journal, store)
+		}
+		return recoveryBlocked("restore could not be completed and no complete original copy is available")
+	case StateReplacementInstalled, StateVerified:
 		return verifyOrRollbackReplacement(liveDBPath, journal, store)
-	case StateVerified:
-		return finalizeVerified(liveDBPath, journal, store)
+	case StateQuarantining:
+		return quarantineAndRollback(liveDBPath, journal)
+	case StateRollingBack:
+		return resumeSafetyRollback(liveDBPath, journal)
 	default:
 		return &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "restore journal state is not supported"}
 	}
 }
 
-func verifyOrRollbackReplacement(liveDBPath string, journal Journal, store *settings.Store) error {
-	if !GroupExists(liveDBPath) {
-		if err := restoreSafetyGroup(liveDBPath, journal); err != nil {
-			return err
-		}
-		return RemoveJournal(liveDBPath)
+func recoveryBlocked(message string) error {
+	return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: message}
+}
+
+func installStagedOnStartup(liveDBPath string, journal Journal, store *settings.Store) error {
+	if journal.StagingName == "" {
+		return recoveryBlocked("the staged database is missing")
 	}
+	staging := filepath.Join(filepath.Dir(liveDBPath), journal.StagingName)
+	if err := VerifyExtractedDatabase(context.Background(), staging); err != nil {
+		return err
+	}
+	journal.State = StateOriginalRenamed
+	if err := WriteJournal(liveDBPath, journal); err != nil {
+		return err
+	}
+	if err := MoveFileGroup(staging, liveDBPath); err != nil {
+		return err
+	}
+	journal.State = StateReplacementInstalled
+	if err := WriteJournal(liveDBPath, journal); err != nil {
+		return err
+	}
+	return verifyOrRollbackReplacement(liveDBPath, journal, store)
+}
+
+func verifyOrRollbackReplacement(liveDBPath string, journal Journal, store *settings.Store) error {
 	verified, err := sqlite.OpenReadOnlyForVerify(liveDBPath)
 	if err != nil {
+		// Without an original main file, retain both the invalid/missing live
+		// group and journal. A later startup must not bootstrap an empty ledger.
+		if journal.SafetyName == "" || !fileExists(filepath.Join(filepath.Dir(liveDBPath), journal.SafetyName)) {
+			return recoveryBlocked("restored database failed verification and no complete safety copy is available")
+		}
+		if !GroupExists(liveDBPath) {
+			return beginSafetyRollback(liveDBPath, journal)
+		}
 		failedName, nameErr := UniqueFailedRestoreName(liveDBPath, time.Now().UTC())
 		if nameErr != nil {
-			return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "restored database failed verification and could not be quarantined"}
+			return recoveryBlocked("restored database failed verification and could not be quarantined")
 		}
-		failed := filepath.Join(filepath.Dir(liveDBPath), failedName)
-		if moveErr := MoveFileGroup(liveDBPath, failed); moveErr != nil {
-			return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "restored database failed verification and could not be quarantined"}
+		journal.State = StateQuarantining
+		journal.FailedName = failedName
+		if err := WriteJournal(liveDBPath, journal); err != nil {
+			return err
 		}
-		if moveErr := restoreSafetyGroup(liveDBPath, journal); moveErr != nil {
-			return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "restored database failed verification and the safety copy could not be restored"}
-		}
-		return RemoveJournal(liveDBPath)
+		return quarantineAndRollback(liveDBPath, journal)
 	}
-	_ = verified.Close()
+	if err := verified.Close(); err != nil {
+		return err
+	}
+	if journal.State == StateVerified {
+		return finalizeVerified(liveDBPath, journal, store)
+	}
 	// Rotate only the installed live copy. An interrupted reset is safely
 	// repeatable; the verified backup/safety artifacts retain their old epoch.
 	restored, err := sqlite.Open(liveDBPath)
@@ -225,11 +281,67 @@ func verifyOrRollbackReplacement(liveDBPath string, journal Journal, store *sett
 	return finalizeVerified(liveDBPath, journal, store)
 }
 
-func finalizeVerified(liveDBPath string, journal Journal, store *settings.Store) error {
-	dir := filepath.Dir(liveDBPath)
-	if journal.StagingName != "" {
-		_ = os.Remove(filepath.Join(dir, journal.StagingName))
+func quarantineAndRollback(liveDBPath string, journal Journal) error {
+	if journal.FailedName == "" {
+		return recoveryBlocked("failed restore quarantine is missing")
 	}
+	failed := filepath.Join(filepath.Dir(liveDBPath), journal.FailedName)
+	if err := resumeFileGroupMove(liveDBPath, failed); err != nil {
+		return recoveryBlocked("restored database failed verification and could not be quarantined")
+	}
+	return beginSafetyRollback(liveDBPath, journal)
+}
+
+func beginSafetyRollback(liveDBPath string, journal Journal) error {
+	journal.State = StateRollingBack
+	if err := WriteJournal(liveDBPath, journal); err != nil {
+		return err
+	}
+	return resumeSafetyRollback(liveDBPath, journal)
+}
+
+func resumeSafetyRollback(liveDBPath string, journal Journal) error {
+	if journal.SafetyName == "" {
+		return recoveryBlocked("safety copy is missing")
+	}
+	safety := filepath.Join(filepath.Dir(liveDBPath), journal.SafetyName)
+	if !fileExists(safety) && !fileExists(liveDBPath) {
+		return recoveryBlocked("safety copy is missing or incomplete")
+	}
+	if err := resumeFileGroupMove(safety, liveDBPath); err != nil {
+		return recoveryBlocked("safety copy could not be restored")
+	}
+	return finishRecovery(liveDBPath, journal)
+}
+
+// A crash may split the main-first group move across its source/destination.
+// Only disjoint sidecars can be reunited; occupied files are never overwritten.
+func resumeFileGroupMove(src, dest string) error {
+	if fileExists(src) {
+		return MoveFileGroup(src, dest)
+	}
+	if GroupExists(src) {
+		return moveOrphanSidecars(src, dest, os.Rename)
+	}
+	if !GroupExists(dest) {
+		return recoveryBlocked("database file group is missing")
+	}
+	return nil
+}
+
+func finishRecovery(liveDBPath string, journal Journal) error {
+	if journal.StagingName != "" {
+		staging := filepath.Join(filepath.Dir(liveDBPath), journal.StagingName)
+		for _, suffix := range []string{"", "-wal", "-shm"} {
+			if err := os.Remove(staging + suffix); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return &domain.Error{Code: domain.ErrUnavailable, Message: "restore staging files could not be removed"}
+			}
+		}
+	}
+	return RemoveJournal(liveDBPath)
+}
+
+func finalizeVerified(liveDBPath string, journal Journal, store *settings.Store) error {
 	if store != nil {
 		db, err := sqlite.Open(liveDBPath)
 		if err != nil {
@@ -264,7 +376,7 @@ func finalizeVerified(liveDBPath string, journal Journal, store *settings.Store)
 			}
 		}
 	}
-	return RemoveJournal(liveDBPath)
+	return finishRecovery(liveDBPath, journal)
 }
 
 func MergeSettings(current, backup settings.Settings, chrome, format, routing bool) settings.Settings {
@@ -291,22 +403,6 @@ func MergeSettings(current, backup settings.Settings, chrome, format, routing bo
 		merged.QuoteCacheTTL = backup.QuoteCacheTTL
 	}
 	return merged
-}
-
-func restoreSafetyGroup(liveDBPath string, journal Journal) error {
-	if journal.SafetyName == "" {
-		return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "safety copy is missing"}
-	}
-	dir := filepath.Dir(liveDBPath)
-	safety := filepath.Join(dir, journal.SafetyName)
-	if !fileExists(safety) {
-		return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "safety copy is missing or incomplete"}
-	}
-	if err := MoveFileGroup(safety, liveDBPath); err != nil {
-		return &domain.Error{Code: domain.ErrBackupRestoreRollbackFailed, Message: "safety copy could not be restored"}
-	}
-	_ = syncDir(dir)
-	return nil
 }
 
 func fileExists(path string) bool {

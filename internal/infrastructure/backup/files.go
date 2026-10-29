@@ -97,7 +97,7 @@ func moveFailure(rollback func() error) error {
 func moveOrphanSidecars(src, dest string, rename renameFile) error {
 	srcWAL, srcSHM := sidecarPaths(src)
 	destWAL, destSHM := sidecarPaths(dest)
-	if fileExists(src) || fileExists(destWAL) || fileExists(destSHM) {
+	if fileExists(src) || (fileExists(srcWAL) && fileExists(destWAL)) || (fileExists(srcSHM) && fileExists(destSHM)) {
 		return &domain.Error{Code: domain.ErrConflict, Message: "orphan sidecars cannot be moved to an occupied database group"}
 	}
 	steps := []moveStep{}
@@ -125,7 +125,7 @@ func moveOrphanSidecars(src, dest string, rename renameFile) error {
 		}
 		done = append(done, step)
 	}
-	return nil
+	return syncDir(filepath.Dir(dest))
 }
 
 func uniqueGroupName(liveDBPath string, now time.Time, marker string) (string, error) {

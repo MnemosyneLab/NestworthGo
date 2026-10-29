@@ -193,7 +193,7 @@ func listZeroAccountBaselines(ctx context.Context, query queryer, householdID do
  WHERE a.household_id = ? AND a.created_at >= ?
  AND av.projection_kind = 'baseline' AND av.activity_effect_id IS NULL AND av.amount = '0'
  AND NOT EXISTS (SELECT 1 FROM account_values earlier WHERE earlier.account_id = av.account_id
- AND (earlier.created_at < av.created_at OR (earlier.created_at = av.created_at AND earlier.id < av.id)))`, householdID.String(), origin.UTC().Format(time.RFC3339Nano))
+ AND (earlier.created_at < av.created_at OR (earlier.created_at = av.created_at AND earlier.id < av.id)))`, householdID.String(), formatTimestamp(origin))
 	if err != nil {
 		return nil, err
 	}

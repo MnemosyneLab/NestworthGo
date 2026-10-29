@@ -117,6 +117,15 @@ are owned by [Database support and storage recovery](#database-support-and-stora
   invalidates older replay results. Today remains a live valuation.
 - Later absolute balance observations retain their recorded amount; their
   adjustment delta is recalculated from the corrected preceding balance.
+  Undo resolves that economic delta through the same replay before preview and
+  commit, including direction changes and now-zero adjustments. The original
+  audit effects remain immutable; the new reversal, current projection and
+  durable mutation key commit together. Account-cash reconciliations retain
+  their recorded relative-delta semantics.
+  An explicitly earlier reversal instant cannot precede its original change.
+  Like a historical Record, its preview and retry receipt describe the endpoint
+  at that instant; current endpoints and later event projections come from the
+  validated suffix replay and publish in the same transaction.
 - Record, Commit, and Fix Activity commands accept an optional client-generated
   `mutationId`. The same ID with the same payload returns the original result;
   the same ID with a different payload returns `conflict`. Empty IDs remain

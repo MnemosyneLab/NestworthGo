@@ -127,6 +127,23 @@ describe("HoldingGroupsList", () => {
     expect(screen.getByText("US$300.00")).toBeInTheDocument();
   });
 
+  it("shows unavailable acquisition cost and gain while keeping market value", async () => {
+    const instrument = apple();
+    const unknown: HoldingAmountsDTO = { quantity: "3", currentValue: { amount: "1000", currency: "USD" }, costMissingReason: "holding acquisition cost is unavailable", gainMissingReason: "holding acquisition cost is unavailable" };
+    instrument.amounts = unknown;
+    instrument.holdings = [{ holdingId: "h1", accountId: "a1", accountName: "Broker A", amounts: unknown }];
+    render(<HoldingGroupsList scope="portfolio" groups={[{ key: "stock", instruments: [instrument], subtotals: [{ currency: "USD", instrumentCount: 1, ...unknown }] }]} />);
+    const row = screen.getByRole("row", { name: /Apple/ });
+    expect(within(row).getByText("US$1,000.00")).toBeInTheDocument();
+    expect(within(row).getAllByText("Acquisition cost unavailable")).toHaveLength(2);
+    expect(within(row).queryByText(/\+US\$/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/· Acquisition cost unavailable/)).toHaveLength(2);
+    await userEvent.click(screen.getByRole("button", { name: "Account details" }));
+    const account = screen.getByRole("row", { name: /Broker A/ });
+    expect(within(account).getByText("US$1,000.00")).toBeInTheDocument();
+    expect(within(account).getAllByText("Acquisition cost unavailable")).toHaveLength(2);
+  });
+
   it("sorts amounts within currencies, keeps missing last, and does not merge identical names", async () => {
     const usd = { ...apple(), name: "Z USD" };
     const cny = { ...apple(), name: "A CNY", instrumentId: "cny", quoteCurrency: "CNY", amounts: amounts("3", "9999", "CNY") };
