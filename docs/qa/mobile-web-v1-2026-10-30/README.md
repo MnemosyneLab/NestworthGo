@@ -40,7 +40,7 @@ Native Linux compilation used the existing isolated GTK4/WebKitGTK6 container.
 | Mobile/application/SQLite affected tests | Passed, including all daily operations, concurrent same-ID replay, stale CAS, atomic receipt rollback, manual health repair and verified SQLite reopen. |
 | Mobile/application targeted `-race` | Passed, including HTTP authorization, revocation ordering and provider job coordination. |
 | Frontend full suite | Passed: 157 files, 1,604 tests. |
-| Frontend lint/typecheck/build | Passed; final holding-detail and session-ownership additions also received focused type/lint/test/build checks (34 affected tests; a final four-file, 12-test subset also passed). |
+| Frontend lint/typecheck/build | Passed; final holding-detail and session-ownership additions also received focused type/lint/test/build checks (34 affected tests; a final four-file, 13-test subset also passed). |
 | Wails bindings regeneration and consistency | Passed; generated bindings and production bundles are not committed. |
 | gofmt and `git diff --check` | Passed. |
 
@@ -53,7 +53,7 @@ warnings remain distinct from application/runtime errors.
 
 The browser checks found and fixed an explicit-time transport mismatch and a
 healthy-report null-array crash. Regressions cover second-level/DST handling,
-empty reports, lost-response lookup/retry, locale-specific repair entry and stale responses arriving after a new login.
+empty reports, lost-response lookup/retry, locale-specific repair entry, known holding cost rendering and stale responses arriving after a new login.
 
 ## Actual browser evidence
 
@@ -65,11 +65,11 @@ isolated browser fixture. This does not establish phone certificate trust.
 
 The browser completed token login, expense preview/confirm, same-plan replay,
 manual FX and NAV appends, health rescan to zero findings, language switching,
-holding-price inspection, narrow layouts, root-font enlargement and dark mode.
+holding-price and known-cost inspection, narrow layouts, root-font enlargement and dark mode.
 The exact replayed amount stayed `1.2345`; pending recovery storage cleared after
 success. There were no page runtime errors. See [machine-readable results](browser-results.json).
 
-The measured English cold JS response bodies totaled 211,509 bytes (approximately 207KiB) over
+The measured English cold JS response bodies totaled 211,500 bytes (approximately 207KiB) over
 gzip. This is local transfer evidence, not a real-phone latency, p95, large-ledger
 or desktop-contention claim. The 200% check changes root font size in Chromium;
 it is not native mobile accessibility zoom or screen-reader acceptance.

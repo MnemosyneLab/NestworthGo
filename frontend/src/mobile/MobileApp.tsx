@@ -89,7 +89,7 @@ type HoldingDetailResponse = {
     InstrumentName: string;
     Quantity: string;
     InstrumentID: string;
-    TotalCost: { Amount: string; Currency: string } | null;
+    TotalCost: Money | null;
     UnrealizedGain: { Amount: string; Currency: string } | null;
     RealizedGain: { Amount: string; Currency: string } | null;
   };
@@ -986,17 +986,7 @@ function Detail({
               : t("mobile.unavailable")}
           </p>
           <p>
-            {t("mobile.cost")}{" "}
-            <MoneyText
-              value={
-                data.holding.TotalCost
-                  ? {
-                      amount: data.holding.TotalCost.Amount,
-                      currency: data.holding.TotalCost.Currency,
-                    }
-                  : null
-              }
-            />
+            {t("mobile.cost")} <MoneyText value={data.holding.TotalCost} />
           </p>
           <p>
             {t("mobile.gain")}{" "}

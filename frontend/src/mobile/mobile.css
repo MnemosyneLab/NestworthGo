@@ -14,6 +14,7 @@
   font-size: 16px;
 }
 .mobile-shell nav {
+  flex-wrap: wrap;
   position: fixed;
   bottom: 0;
   left: 50%;
@@ -38,11 +39,16 @@
 }
 
 .mobile-shell nav button {
-  flex: 1;
+  flex: 1 1 max-content;
   min-width: 0;
   padding-inline: 0.25rem;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  font-size: 0.75rem;
+}
+
+.mobile-shell nav button:nth-child(3) {
+  flex: 0 0 44px;
 }
 
 .mobile-shell button {

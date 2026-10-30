@@ -99,6 +99,41 @@ beforeEach(async () => {
             next: "",
           }),
         );
+      if (route === "/accounts/synthetic-bank")
+        return json(
+          envelope({ account: { name: "Synthetic bank" }, components: [] }),
+        );
+      if (route.startsWith("/holdings?"))
+        return json(
+          envelope({
+            items: [
+              {
+                id: "synthetic-holding",
+                name: "Synthetic fund",
+                quantity: "2",
+                cost: { amount: "37.25", currency: "CNY" },
+                value: null,
+                gain: null,
+              },
+            ],
+            next: "",
+          }),
+        );
+      if (route === "/holdings/synthetic-holding")
+        return json(
+          envelope({
+            holding: {
+              InstrumentName: "Synthetic fund",
+              InstrumentID: "synthetic-instrument",
+              Quantity: "2",
+              TotalCost: { amount: "37.25", currency: "CNY" },
+              UnrealizedGain: null,
+              RealizedGain: null,
+            },
+            valuation: { components: [] },
+            quote: { unitPrice: "1.25", currency: "CNY" },
+          }),
+        );
       if (route === "/record-previews")
         return json({
           planId: "immutable-plan",
@@ -177,6 +212,22 @@ async function fillRecord(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("mobile financial interruption flow", () => {
+  it("shows a known holding cost from the tagged money DTO instead of a blank amount", async () => {
+    const user = userEvent.setup();
+    mount();
+    await screen.findByText("SYNTHETIC MOBILE TEST");
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    await user.click(
+      await screen.findByRole("button", { name: /Synthetic bank/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /Synthetic fund/ }),
+    );
+    expect((await screen.findByText("Cost")).parentElement).toHaveTextContent(
+      "CN¥37.25",
+    );
+  });
+
   it("renders a healthy empty report without losing the application", async () => {
     healthy = true;
     const user = userEvent.setup();
