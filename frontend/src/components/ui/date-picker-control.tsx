@@ -1,0 +1,190 @@
+import { forwardRef, useMemo, useState } from "react";
+import { format, isValid } from "date-fns";
+import { enUS, zhCN, zhTW, type Locale } from "date-fns/locale";
+import { CalendarIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Button, buttonVariants } from "@/components/ui/button";
+import type { AriaAttributes } from "react";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+
+function pickerLocale(language: string): Locale {
+  if (language === "zh-TW") {
+    return zhTW;
+  }
+  if (language.startsWith("zh")) {
+    return zhCN;
+  }
+  return enUS;
+}
+
+function parseYmd(value: string | undefined): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) {
+    return undefined;
+  }
+  const date = new Date(0);
+  date.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  date.setHours(0, 0, 0, 0);
+  return isValid(date) && formatYmd(date) === value.trim() ? date : undefined;
+}
+
+function formatYmd(date: Date): string {
+  return format(date, "yyyy-MM-dd");
+}
+
+function displayDate(
+  date: Date,
+  dateFormat: string | undefined,
+  language: string,
+): string {
+  switch (dateFormat) {
+    case "day-first":
+      return format(date, "dd/MM/yyyy");
+    case "month-first":
+      return format(date, "MM/dd/yyyy");
+    case "localized":
+      return new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
+        date,
+      );
+    default:
+      return format(date, "yyyy-MM-dd");
+  }
+}
+
+export const DatePickerControl = forwardRef<
+  HTMLButtonElement,
+  {
+    dateFormat?: string;
+    weekStart?: string;
+    id?: string;
+    value: string;
+    onChange: (value: string) => void;
+    min?: string;
+    max?: string;
+    disabled?: boolean;
+    placeholder?: string;
+    allowFuture?: boolean;
+    clearable?: boolean;
+    autoFocus?: boolean;
+  } & Pick<
+    AriaAttributes,
+    "aria-invalid" | "aria-describedby" | "aria-label" | "aria-labelledby"
+  >
+>(function DatePicker(
+  {
+    dateFormat,
+    weekStart,
+    id,
+    value,
+    onChange,
+    min,
+    max,
+    disabled = false,
+    placeholder,
+    allowFuture = false,
+    clearable = false,
+    ...aria
+  },
+  ref,
+) {
+  const { t, i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const selected = parseYmd(value);
+  const weekStartsOn = weekStart === "sunday" ? (0 as const) : (1 as const);
+  const maxDate = useMemo(
+    () =>
+      parseYmd(max) ??
+      (allowFuture ? undefined : parseYmd(formatYmd(new Date()))),
+    [allowFuture, max],
+  );
+  const startMonth = useMemo(
+    () => parseYmd(min) ?? new Date(new Date().getFullYear() - 50, 0),
+    [min],
+  );
+  const endMonth = useMemo(
+    () => maxDate ?? new Date(new Date().getFullYear() + 50, 11),
+    [maxDate],
+  );
+  const disabledMatcher = useMemo(() => {
+    const before = min ? parseYmd(min) : undefined;
+    const after = maxDate;
+    if (before && after) {
+      return [{ before }, { after }];
+    }
+    if (before) {
+      return { before };
+    }
+    if (after) {
+      return { after };
+    }
+    return undefined;
+  }, [maxDate, min]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        ref={ref}
+        id={id}
+        type="button"
+        disabled={disabled}
+        {...aria}
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "w-full shrink-0 justify-start font-normal",
+          !selected && "text-muted-foreground",
+        )}
+      >
+        <CalendarIcon className="size-4" aria-hidden="true" />
+        {selected
+          ? displayDate(selected, dateFormat, i18n.language)
+          : (placeholder ?? t("common.selectDate"))}
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          captionLayout="dropdown"
+          locale={pickerLocale(i18n.language)}
+          formatters={{
+            formatMonthDropdown: (date) =>
+              date.toLocaleString(i18n.language, { month: "short" }),
+          }}
+          weekStartsOn={weekStartsOn}
+          selected={selected}
+          defaultMonth={selected}
+          onSelect={(date) => {
+            if (!date) {
+              return;
+            }
+            onChange(formatYmd(date));
+            setOpen(false);
+          }}
+          disabled={disabledMatcher}
+          startMonth={startMonth}
+          endMonth={endMonth}
+        />
+        {clearable && value && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="m-2"
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+          >
+            {t("common.clearSelection")}
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+});

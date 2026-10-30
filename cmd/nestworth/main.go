@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/mcpserver"
+	"github.com/waltwang/nestworth-go/internal/mobileapi"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
 	wailsaccount "github.com/waltwang/nestworth-go/internal/wailsapi/account"
@@ -42,6 +44,7 @@ import (
 	wailsinstrument "github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
 	wailsliquidity "github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 	wailsmarketdata "github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
+	wailsmobile "github.com/waltwang/nestworth-go/internal/wailsapi/mobile"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 	wailsportfolio "github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	wailsquote "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
@@ -241,13 +244,27 @@ func run() error {
 		dataService = wailsdata.NewService(service, store, platform, marketdataService)
 	}
 	var agentServer *mcpserver.Service
+	var mobileServer *mobileapi.Server
 	registered := services(service, store, recoveryService, dataService, marketdataService, appService)
 	registered = append(registered, application.NewService(wailsbackup.NewService(cloudBackup, service, recoveryUseCase, recoveryService)))
 	if service != nil {
+		mobileAssets, err := fs.Sub(webassets.Dist, "frontend/dist")
+		if err != nil {
+			return err
+		}
+		mobileServer = mobileapi.New(service, filepath.Join(filepath.Dir(store.Path), "mobile-access.json"), mobileAssets)
+		defer mobileServer.Close()
+		registered = append(registered, application.NewService(wailsmobile.NewService(mobileServer)))
 		agentServer = mcpserver.New(service, mcpserver.Directory(store.Path, databasePath), func() { emitter.Emit(mcpserver.ChangedEvent, true) }, sqlite.NewConfigurationRepository(database))
 		agentServer.SetReconciliationChanged(func() { emitter.Emit(mcpserver.ReconciliationChangedEvent, true) })
 		defer agentServer.Close()
 		recoveryUseCase.SetBeforeRestore(func(ctx context.Context) error {
+			if mobileServer != nil {
+				if err := mobileServer.Close(); err != nil {
+					return err
+				}
+				service.CancelMobileMarketAndWait()
+			}
 			// Keep replication shutdown and fence MCP without draining operations
 			// while Restore owns application write locks.
 			if cloudBackup != nil {
@@ -263,8 +280,12 @@ func run() error {
 	// drain business writers, then cancel/join provider workers before final
 	// remote backup confirmation and any database descriptor close.
 	defer func() {
+		if mobileServer != nil {
+			_ = mobileServer.Close()
+		}
 		if service != nil {
 			service.QuiesceWritesForShutdown()
+			service.CancelMobileMarketAndWait()
 		}
 		if marketdataService != nil {
 			marketdataService.CancelAllAndWait()
@@ -283,6 +304,11 @@ func run() error {
 	})
 	emitter.manager = app.Event
 	platform.setApp(app)
+	if mobileServer != nil {
+		if err := mobileServer.Resume(); err != nil {
+			slog.Warn("mobile server did not start; review mobile access settings")
+		}
+	}
 	if agentServer != nil {
 		if err := agentServer.Resume(); err != nil {
 			slog.Warn("agent server did not start; review AI / MCP settings")

@@ -1,0 +1,125 @@
+{
+  "browser": "154.0.8037.57",
+  "errors": [],
+  "widths": {
+    "viewport": 320,
+    "document": 320
+  },
+  "zoomWidth": {
+    "viewport": 320,
+    "document": 320
+  },
+  "formZoomWidth": {
+    "viewport": 320,
+    "document": 320
+  },
+  "recordReplay": 200,
+  "manualFXAndNAVSaved": true,
+  "holdingUnitPriceVisible": true,
+  "exactReplayedAmount": "1.2345",
+  "remainingHealthKinds": [],
+  "jsEncodedBytes": 211509,
+  "resources": [
+    {
+      "path": "/assets/mobile-D4iHz5uP.js",
+      "encoded": 10017,
+      "decoded": 36025
+    },
+    {
+      "path": "/assets/rolldown-runtime-hePW80VL.js",
+      "encoded": 429,
+      "decoded": 716
+    },
+    {
+      "path": "/assets/time-E-vDHsVl.js",
+      "encoded": 1660,
+      "decoded": 4527
+    },
+    {
+      "path": "/assets/src-5AOYNrmC.js",
+      "encoded": 2490,
+      "decoded": 7395
+    },
+    {
+      "path": "/assets/PageState-dlLFs1RV.js",
+      "encoded": 113688,
+      "decoded": 345243
+    },
+    {
+      "path": "/assets/change-text-TXLRFYiP.js",
+      "encoded": 490,
+      "decoded": 833
+    },
+    {
+      "path": "/assets/popover-DVnFRcHY.js",
+      "encoded": 17297,
+      "decoded": 46959
+    },
+    {
+      "path": "/assets/label-BANNZ4Sy.js",
+      "encoded": 474,
+      "decoded": 866
+    },
+    {
+      "path": "/assets/time-picker-D2SBylII.js",
+      "encoded": 905,
+      "decoded": 1867
+    },
+    {
+      "path": "/assets/input-d0WliGSo.js",
+      "encoded": 783,
+      "decoded": 1454
+    },
+    {
+      "path": "/assets/DialogTrigger-BHeJ2uMN.js",
+      "encoded": 2950,
+      "decoded": 7608
+    },
+    {
+      "path": "/assets/alert-dialog-P1w84xm0.js",
+      "encoded": 651,
+      "decoded": 1547
+    },
+    {
+      "path": "/assets/calendar-CP6p3Ff6.js",
+      "encoded": 203,
+      "decoded": 249
+    },
+    {
+      "path": "/assets/chevron-down-CTovaeYA.js",
+      "encoded": 147,
+      "decoded": 122
+    },
+    {
+      "path": "/assets/differenceInCalendarDays-DCsupTba.js",
+      "encoded": 676,
+      "decoded": 1295
+    },
+    {
+      "path": "/assets/date-picker-control-CPk5e7Fu.js",
+      "encoded": 23465,
+      "decoded": 81674
+    },
+    {
+      "path": "/assets/card-DZ_us0da.js",
+      "encoded": 328,
+      "decoded": 719
+    },
+    {
+      "path": "/assets/preload-helper-Czpn1I53.js",
+      "encoded": 676,
+      "decoded": 1196
+    },
+    {
+      "path": "/assets/money-Cv9mdgJF.js",
+      "encoded": 2807,
+      "decoded": 6982
+    },
+    {
+      "path": "/assets/en-BgV1H3y3.js",
+      "encoded": 31373,
+      "decoded": 92930
+    }
+  ],
+  "pending": null
+}

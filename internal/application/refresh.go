@@ -155,6 +155,24 @@ func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResult, error) 
 }
 
 func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) RefreshResult {
+	if inSync, _ := ctx.Value(syncLatestKey{}).(bool); !inSync {
+		run, owner, refused := s.admitLatestRefresh(targets)
+		if refused {
+			return refreshConflict(targets)
+		}
+		if !owner {
+			select {
+			case <-run.done:
+				return run.result
+			case <-ctx.Done():
+				return refreshConflict(targets)
+			}
+		}
+		defer func() { s.syncMu.Lock(); s.latestRun = nil; close(run.done); s.syncMu.Unlock() }()
+		result := s.refreshTargets(context.WithValue(ctx, syncLatestKey{}, true), targets)
+		run.result = result
+		return result
+	}
 	ctx = withMetalFetchCache(ctx)
 	ctx = s.withLatestBatches(ctx, targets)
 	result := RefreshResult{Items: make([]RefreshTargetResult, 0, len(targets))}

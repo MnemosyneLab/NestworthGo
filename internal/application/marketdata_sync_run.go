@@ -599,7 +599,7 @@ func (s *Service) runSyncLatest(ctx context.Context, job *syncJobState, request 
 	if aborted(ctx) {
 		return
 	}
-	result := s.refreshTargets(ctx, selected)
+	result := s.refreshTargets(context.WithValue(ctx, syncLatestKey{}, true), selected)
 	attempted := map[string]bool{}
 	for _, item := range result.Items {
 		if item.Status != RefreshSkipped {

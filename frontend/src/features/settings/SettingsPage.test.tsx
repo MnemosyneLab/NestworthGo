@@ -434,11 +434,11 @@ it("prevents duplicate preference requests and disables draft edits while saving
   await act(async () => result.resolve());
 });
 
-it.each(["en"])("has six accessible tabs and hidden panels cannot receive keyboard focus in %s", async (locale) => {
+it.each(["en"])("has seven accessible tabs and hidden panels cannot receive keyboard focus in %s", async (locale) => {
   await i18n.changeLanguage(locale);
   renderPage();
   await screen.findByRole("form");
-  expect(screen.getAllByRole("tab")).toHaveLength(6);
+  expect(screen.getAllByRole("tab")).toHaveLength(7);
   expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
   const panels = screen.getAllByRole("tabpanel", { hidden: true });
   for (const panel of panels) {

@@ -615,6 +615,10 @@ func (s *Service) StartMarketDataSync(ctx context.Context, request SyncRequest) 
 		return SyncStartResult{}, err
 	}
 	s.syncMu.Lock()
+	if s.latestRun != nil {
+		s.syncMu.Unlock()
+		return SyncStartResult{Conflict: true, Reason: "latest_refresh_in_progress"}, nil
+	}
 	if current, ok := s.syncJobs[s.currentSyncID]; ok && current != nil && current.snapshot.Outcome == SyncOutcomeRunning {
 		if current.snapshot.Scope.Equivalent(request) {
 			snap := current.snapshot.Clone()
