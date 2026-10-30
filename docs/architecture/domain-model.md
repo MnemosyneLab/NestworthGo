@@ -175,11 +175,37 @@ activities at the same effective time participate; the transfer itself and
 later same-time activities do not. Correction replacements retain the original
 position, including correction chains. `GainService` derives
 native and base-currency cost/value/gain views plus the exact two-part
-Instrument/currency decomposition. These results are recomputed on reads and
-are never stored as financial facts. FIFO lots, unknown-basis declarations,
+Instrument/currency decomposition. Base acquisition amounts are accumulated
+at each acquisition's FX rate; transfers carry the source amount in proportion
+to transferred quantity at the same exclusive boundary. Sales and other
+reductions release that proportion of base cost. The acquisition FX ratio is
+derived from base cost divided by the replayed native cost, rather than from
+quantity-weighted rates. Native cost corrections retain that ratio, including
+the FX provenance of a genuine zero-cost lot. This does not change the native
+eight-decimal average-cost precision contract. These results are recomputed on
+reads and are never stored as financial facts. FIFO lots, unknown-basis declarations,
 and return calculations remain deferred.
 
 ### Gain, Return, and Attribution
+
+Positive current quantities without matching cost-replay quantities have
+unavailable acquisition cost and unrealized gain. `HoldingGainView` exposes
+nullable average/total cost plus a cost missing reason; instrument, account and
+currency aggregates preserve that absence while retaining independently known
+market values. Explicit zero-cost acquisition evidence remains valid. This
+includes the supported prehistory API state: `CreateHolding` saves quantity
+before history starts, while its cost is captured by `StartHistoryWithCosts`
+(or the selected quote at ordinary `StartHistory`). Normal history start rejects
+positive holdings without cost evidence; a supplied prehistory `UnitCost` alone
+does not create a persisted cost event. No native onboarding reachability is
+implied by the API regression.
+
+For a materialized legacy snapshot whose positive quantity lacks acquisition
+cost, a `cost_basis_required` replay error leaves quoted market values available
+while cost, unrealized gain and realized gain remain unavailable. A successful
+empty prehistory replay still has a known zero realized result. This read fallback
+does not change write validation or strict realized-period replay, and integrity,
+arithmetic and repository failures still propagate.
 
 Native/base gain, realized-gain periods, and the two-part currency
 decomposition are implemented output-only analytics: they never become

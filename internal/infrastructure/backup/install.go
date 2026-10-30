@@ -53,22 +53,24 @@ func InstallRestore(ctx context.Context, liveDBPath string, pkg Package, hooks *
 		_ = os.Remove(stagingPath)
 		return err
 	}
+	originalPresent := GroupExists(liveDBPath)
 	journal := Journal{
-		Operation:      "restore",
-		State:          StatePrepared,
-		StartedAt:      now.UTC().Format(time.RFC3339),
-		LiveName:       filepath.Base(liveDBPath),
-		SafetyName:     safetyName,
-		StagingName:    stagingName,
-		BackupSHA256:   pkg.Manifest.Members[MemberDatabase].SHA256,
-		AppVersion:     pkg.Manifest.AppVersion,
-		AppBuild:       pkg.Manifest.AppBuild,
-		SchemaVersion:  pkg.Manifest.SchemaVersion,
-		BackupFormat:   pkg.Manifest.FormatVersion,
-		RestoreChrome:  classes.Chrome,
-		RestoreFormat:  classes.Format,
-		RestoreRouting: classes.Routing,
-		SettingsJSON:   string(pkg.Settings),
+		Operation:       "restore",
+		State:           StatePrepared,
+		StartedAt:       now.UTC().Format(time.RFC3339),
+		LiveName:        filepath.Base(liveDBPath),
+		SafetyName:      safetyName,
+		StagingName:     stagingName,
+		OriginalPresent: &originalPresent,
+		BackupSHA256:    pkg.Manifest.Members[MemberDatabase].SHA256,
+		AppVersion:      pkg.Manifest.AppVersion,
+		AppBuild:        pkg.Manifest.AppBuild,
+		SchemaVersion:   pkg.Manifest.SchemaVersion,
+		BackupFormat:    pkg.Manifest.FormatVersion,
+		RestoreChrome:   classes.Chrome,
+		RestoreFormat:   classes.Format,
+		RestoreRouting:  classes.Routing,
+		SettingsJSON:    string(pkg.Settings),
 	}
 	if err := WriteJournal(liveDBPath, journal); err != nil {
 		_ = os.Remove(stagingPath)
@@ -92,8 +94,10 @@ func InstallRestore(ctx context.Context, liveDBPath string, pkg Package, hooks *
 		return err
 	}
 	if err := MoveFileGroup(stagingPath, liveDBPath); err != nil {
-		if rollbackErr := restoreSafetyGroup(liveDBPath, journal); rollbackErr != nil {
-			return rollbackErr
+		if originalPresent {
+			if rollbackErr := beginSafetyRollback(liveDBPath, journal); rollbackErr != nil {
+				return rollbackErr
+			}
 		}
 		return &domain.Error{Code: domain.ErrBackupRestoreSwapFailed, Message: "the restored database could not be installed"}
 	}

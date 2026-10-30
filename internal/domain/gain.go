@@ -8,8 +8,9 @@ type SignedMoneyView struct {
 }
 
 // HoldingGainView is a read model for one active Holding. Cost values are in
-// the Instrument's quote currency. CurrentValue and UnrealizedGain are nil
-// when the current quote or required FX input is unavailable; they are never
+// the Instrument's quote currency. Cost is nil when acquisition evidence does
+// not cover the current quantity; an explicit zero cost remains available.
+// CurrentValue and UnrealizedGain are nil when their inputs are unavailable; they are never
 // replaced with a misleading zero. RealizedGain remains in the Instrument's
 // quote currency and is derived from historical replay.
 type HoldingGainView struct {
@@ -20,12 +21,13 @@ type HoldingGainView struct {
 	InstrumentShortName string
 	InstrumentSymbol    string
 	Quantity            string
-	AverageCost         MoneyView
-	TotalCost           MoneyView
+	AverageCost         *MoneyView
+	TotalCost           *MoneyView
+	CostMissingReason   string
 	TotalCostBase       *MoneyView
 	CurrentValue        *MoneyView
 	CurrentValueBase    *MoneyView
-	RealizedGain        SignedMoneyView
+	RealizedGain        *SignedMoneyView
 	UnrealizedGain      *SignedMoneyView
 	UnrealizedGainBase  *SignedMoneyView
 	InstrumentMovement  *SignedMoneyView

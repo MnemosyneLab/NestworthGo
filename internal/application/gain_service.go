@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sort"
 	"strings"
@@ -18,6 +19,13 @@ type GainService struct {
 	repository Repository
 	valuation  *ValuationService
 	now        func() time.Time
+}
+
+const holdingCostMissingReason = "holding acquisition cost is unavailable"
+
+func missingCostBasis(err error) bool {
+	var problem *domain.Error
+	return errors.As(err, &problem) && problem.Code == domain.ErrCostBasisRequired
 }
 
 func NewGainService(repository Repository, clocks ...func() time.Time) *GainService {
@@ -117,15 +125,19 @@ func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot doma
 		}
 		amounts := &exactHoldingGain{}
 		replayed, replayErr := replay.replay(ctx, holding.ID, nil)
-		if replayErr != nil {
+		if replayErr != nil && !missingCostBasis(replayErr) {
 			return domain.AccountGainView{}, replayErr
 		}
-		realizedBase, realizedAvailable, realizedErr := g.realizedGainInBaseAtEventFX(snapshot, fxQuotes, replayed.Realized)
-		if realizedErr != nil {
-			return domain.AccountGainView{}, realizedErr
+		if replayErr != nil {
+			amounts.RealizedBaseMissingReason = holdingCostMissingReason
+		} else {
+			realizedBase, realizedAvailable, realizedErr := g.realizedGainInBaseAtEventFX(snapshot, fxQuotes, replayed.Realized)
+			if realizedErr != nil {
+				return domain.AccountGainView{}, realizedErr
+			}
+			amounts.RealizedBase = realizedBase
+			amounts.RealizedBaseAvailable = realizedAvailable
 		}
-		amounts.RealizedBase = realizedBase
-		amounts.RealizedBaseAvailable = realizedAvailable
 		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin, amounts)
 		exact[holding.ID] = amounts
 		if viewErr != nil {
@@ -591,6 +603,7 @@ type exactHoldingGain struct {
 	Realized                            decimal.Decimal
 	RealizedBase                        *big.Rat
 	RealizedBaseAvailable               bool
+	RealizedBaseMissingReason           string
 }
 
 // realizedGainInBaseAtEventFX preserves AccountGainView's historical meaning:
@@ -617,8 +630,17 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 		exact = &exactHoldingGain{}
 	}
 	result, err := replay.replay(ctx, holding.ID, nil)
-	if err != nil {
+	if err != nil && !missingCostBasis(err) {
 		return domain.HoldingGainView{}, err
+	}
+	replayKnown := err == nil
+	if !replayKnown {
+		// Only absent cost evidence is an unavailable calculation. Integrity,
+		// arithmetic and repository failures still abort the read.
+		result, err = domain.ReplayCostBasis(nil, nil)
+		if err != nil {
+			return domain.HoldingGainView{}, err
+		}
 	}
 	average, err := moneyView(result.Current.AverageUnitCost.Decimal(), instrument.QuoteCurrency)
 	if err != nil {
@@ -641,10 +663,22 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 		return domain.HoldingGainView{}, err
 	}
 	name, symbol := instrumentIdentity(instrument)
+	costKnown := holding.Quantity.IsZero() || (replayKnown && result.Current.Quantity.Decimal().Equal(holding.Quantity.Decimal()))
 	view := domain.HoldingGainView{
 		HoldingID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID,
 		InstrumentName: name, InstrumentShortName: instrument.ShortName, InstrumentSymbol: symbol, Quantity: holding.Quantity.Canonical(),
-		AverageCost: average, TotalCost: totalView, RealizedGain: realized, Available: true,
+		Available: costKnown && replayKnown,
+	}
+	if replayKnown {
+		view.RealizedGain = &realized
+	} else {
+		view.MissingReason = holdingCostMissingReason
+	}
+	if costKnown {
+		view.AverageCost, view.TotalCost = &average, &totalView
+	} else {
+		view.CostMissingReason = holdingCostMissingReason
+		view.MissingReason = view.CostMissingReason
 	}
 	if holding.Quantity.IsZero() {
 		zero, zeroErr := moneyView(decimal.Zero, instrument.QuoteCurrency)
@@ -678,18 +712,19 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 		return domain.HoldingGainView{}, err
 	}
 	exact.Value = current
-	exact.Unrealized = current.Sub(total)
 	currentView, err := moneyView(current, instrument.QuoteCurrency)
 	if err != nil {
 		return domain.HoldingGainView{}, err
 	}
 	view.CurrentValue = &currentView
-	unrealizedValue := current.Sub(total)
-	unrealized, err := signedMoneyView(unrealizedValue, instrument.QuoteCurrency)
-	if err != nil {
-		return domain.HoldingGainView{}, err
+	if costKnown {
+		exact.Unrealized = current.Sub(total)
+		unrealized, err := signedMoneyView(exact.Unrealized, instrument.QuoteCurrency)
+		if err != nil {
+			return domain.HoldingGainView{}, err
+		}
+		view.UnrealizedGain = &unrealized
 	}
-	view.UnrealizedGain = &unrealized
 	currentBase, _, missing, convertErr := g.valuation.convert(snapshot, holding.AccountID, current, instrument.QuoteCurrency)
 	if convertErr != nil {
 		return domain.HoldingGainView{}, convertErr
@@ -705,6 +740,9 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 	}
 	exact.ValueBase = rationalFromDecimal(currentBase)
 	view.CurrentValueBase = &currentBaseView
+	if !costKnown {
+		return view, nil
+	}
 	decomposition, decompositionErr := g.decomposeHolding(ctx, snapshot, holding, instrument, result, replay, fxQuotes, origin)
 	if decompositionErr != nil {
 		return domain.HoldingGainView{}, decompositionErr
@@ -797,8 +835,13 @@ func (g *GainService) acquisitionFXRatio(ctx context.Context, snapshot domain.Po
 	if native == base {
 		return new(big.Rat).SetInt64(1), true, nil
 	}
-	weightedRate := new(big.Rat)
-	currentQuantity := new(big.Rat)
+	// Keep the base acquisition amount authoritative. A quantity-weighted FX
+	// rate loses cost when holdings with different native unit costs merge.
+	baseCost := new(big.Rat)
+	var current domain.CostLot
+	// A real zero-cost lot still has acquisition FX provenance, needed if its
+	// native cost is subsequently corrected to a positive amount.
+	zeroCostRate := new(big.Rat)
 	for _, event := range events {
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
@@ -808,19 +851,13 @@ func (g *GainService) acquisitionFXRatio(ctx context.Context, snapshot domain.Po
 			effectiveAt = origin.StartedAt
 		}
 		switch event.Kind {
-		case domain.CostBasisCostAdjustment:
-			// A corrected native cost does not represent a new acquisition or
-			// currency exchange. Keep the existing acquisition FX provenance.
-		case domain.CostBasisStartingPoint, domain.CostBasisBuy, domain.CostBasisAdjustmentIn:
-			rate, ok := g.acquisitionQuoteRatio(snapshot, fxQuotes, native, effectiveAt)
-			if !ok {
-				return nil, false, nil
+		case domain.CostBasisStartingPoint, domain.CostBasisBuy, domain.CostBasisAdjustmentIn, domain.CostBasisTransferIn:
+			if event.Kind == domain.CostBasisStartingPoint && event.Quantity.IsZero() {
+				continue
 			}
-			weightedRate, currentQuantity = blendExactFXRatio(weightedRate, currentQuantity, rate, event.Quantity.Decimal())
-		case domain.CostBasisTransferIn:
 			var rate *big.Rat
 			var ok bool
-			if event.SourceHoldingID != nil {
+			if event.Kind == domain.CostBasisTransferIn && event.SourceHoldingID != nil {
 				cutoff := event.Boundary()
 				starting, sourceEvents, err := replay.preparedEvents(ctx, *event.SourceHoldingID, &cutoff)
 				if err != nil {
@@ -836,30 +873,66 @@ func (g *GainService) acquisitionFXRatio(ctx context.Context, snapshot domain.Po
 			if !ok {
 				return nil, false, nil
 			}
-			weightedRate, currentQuantity = blendExactFXRatio(weightedRate, currentQuantity, rate, event.Quantity.Decimal())
+			incoming, err := replayAcquisitionCostEvent(domain.CostLot{}, startingCost, event)
+			if err != nil {
+				return nil, false, err
+			}
+			incomingCost := rationalFromDecimal(incoming.Quantity.Decimal().Mul(incoming.AverageUnitCost.Decimal()))
+			baseCost.Add(baseCost, new(big.Rat).Mul(incomingCost, rate))
+			weighted, quantity := blendExactFXRatio(new(big.Rat).Mul(zeroCostRate, rationalFromDecimal(current.Quantity.Decimal())), rationalFromDecimal(current.Quantity.Decimal()), rate, event.Quantity.Decimal())
+			zeroCostRate.Quo(weighted, quantity)
+		}
+		next, err := replayAcquisitionCostEvent(current, startingCost, event)
+		if err != nil {
+			return nil, false, err
+		}
+		nativeCost := rationalFromDecimal(current.Quantity.Decimal().Mul(current.AverageUnitCost.Decimal()))
+		nextNativeCost := rationalFromDecimal(next.Quantity.Decimal().Mul(next.AverageUnitCost.Decimal()))
+		switch event.Kind {
+		case domain.CostBasisCostAdjustment:
+			// Correcting native cost does not create a new acquisition or FX
+			// exchange. Scale its base amount at the existing acquisition ratio.
+			if nativeCost.Sign() > 0 {
+				baseCost.Mul(baseCost, new(big.Rat).Quo(nextNativeCost, nativeCost))
+			} else {
+				baseCost.Mul(nextNativeCost, zeroCostRate)
+			}
 		case domain.CostBasisSell, domain.CostBasisTransferOut, domain.CostBasisAdjustmentOut:
-			outQuantity := rationalFromDecimal(event.Quantity.Decimal())
-			remaining := new(big.Rat).Sub(currentQuantity, outQuantity)
-			if remaining.Sign() < 0 {
-				return nil, false, &domain.Error{Code: domain.ErrIntegrity, Field: "quantity", Message: "acquisition FX replay quantity is negative"}
-			}
-			if remaining.Sign() == 0 {
-				weightedRate = new(big.Rat)
-				currentQuantity = new(big.Rat)
-			} else if currentQuantity.Sign() > 0 {
-				average := new(big.Rat).Quo(weightedRate, currentQuantity)
-				weightedRate = new(big.Rat).Mul(average, remaining)
-				currentQuantity = remaining
-			}
+			baseCost.Mul(baseCost, new(big.Rat).Quo(rationalFromDecimal(next.Quantity.Decimal()), rationalFromDecimal(current.Quantity.Decimal())))
+		}
+		current = next
+		if current.Quantity.IsZero() {
+			baseCost.SetInt64(0)
+			zeroCostRate.SetInt64(0)
+		} else if nextNativeCost.Sign() > 0 {
+			zeroCostRate.Quo(baseCost, nextNativeCost)
 		}
 	}
-	if startingCost != nil && currentQuantity.Sign() == 0 && len(events) == 0 {
+	if current.Quantity.IsZero() {
 		return nil, false, nil
 	}
-	if currentQuantity.Sign() <= 0 {
-		return nil, false, nil
+	nativeCost := rationalFromDecimal(current.Quantity.Decimal().Mul(current.AverageUnitCost.Decimal()))
+	if nativeCost.Sign() == 0 {
+		return zeroCostRate, true, nil
 	}
-	return new(big.Rat).Quo(weightedRate, currentQuantity), true, nil
+	return new(big.Rat).Quo(baseCost, nativeCost), true, nil
+}
+
+// Reuse the native replay's eight-place averaging and validation, without
+// replaying every prefix or changing its established precision contract.
+func replayAcquisitionCostEvent(current domain.CostLot, startingCost *domain.UnitPrice, event domain.CostBasisEvent) (domain.CostLot, error) {
+	if event.Kind == domain.CostBasisSell {
+		// Acquisition cost replay only releases basis; proceeds and realized
+		// gain remain the responsibility of the complete native replay.
+		event.Kind = domain.CostBasisTransferOut
+	}
+	events := []domain.CostBasisEvent{event}
+	if event.Kind != domain.CostBasisStartingPoint {
+		startingCost = &current.AverageUnitCost
+		events = []domain.CostBasisEvent{{Kind: domain.CostBasisStartingPoint, Quantity: current.Quantity}, event}
+	}
+	result, err := domain.ReplayCostBasis(startingCost, events)
+	return result.Current, err
 }
 
 func (g *GainService) acquisitionQuoteRatio(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (*big.Rat, bool) {
@@ -963,6 +1036,7 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 	hasTotalCost := true
 	hasRealized := true
 	hasCurrent := true
+	hasUnrealized := true
 	for _, holding := range result.Holdings {
 		amounts := exact[holding.HoldingID]
 		if holding.TotalCostBase == nil {
@@ -973,20 +1047,28 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 		if !amounts.RealizedBaseAvailable {
 			hasRealized = false
 			result.Available = false
+			reason := amounts.RealizedBaseMissingReason
+			if reason == "" {
+				reason = historicalRealizedGainMissingFX
+			}
 			if result.MissingReason == "" {
-				result.MissingReason = historicalRealizedGainMissingFX
-			} else if !strings.Contains(result.MissingReason, historicalRealizedGainMissingFX) {
-				result.MissingReason += "; " + historicalRealizedGainMissingFX
+				result.MissingReason = reason
+			} else if !strings.Contains(result.MissingReason, reason) {
+				result.MissingReason += "; " + reason
 			}
 		} else {
 			realized.Add(realized, amounts.RealizedBase)
 		}
-		if holding.CurrentValueBase == nil || holding.UnrealizedGainBase == nil {
+		if holding.CurrentValueBase == nil {
 			hasCurrent = false
-			continue
+		} else {
+			currentValue.Add(currentValue, amounts.ValueBase)
 		}
-		currentValue.Add(currentValue, amounts.ValueBase)
-		unrealized.Add(unrealized, amounts.UnrealizedBase)
+		if holding.UnrealizedGainBase == nil {
+			hasUnrealized = false
+		} else {
+			unrealized.Add(unrealized, amounts.UnrealizedBase)
+		}
 	}
 	base := snapshot.Household.BaseCurrency
 	if hasTotalCost {
@@ -1009,6 +1091,10 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 			return domain.AccountGainView{}, valueErr
 		}
 		result.CurrentValue = &valueView
+	} else {
+		result.Available = false
+	}
+	if hasUnrealized {
 		unrealView, unrealErr := rationalSignedMoneyView(unrealized, base)
 		if unrealErr != nil {
 			return domain.AccountGainView{}, unrealErr

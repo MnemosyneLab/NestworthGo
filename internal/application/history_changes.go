@@ -60,11 +60,11 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 		return domain.ChangePreview{}, err
 	}
 	defer unlock()
-	preview, err := s.undoChangePlan(ctx, activityID)
+	preview, commit, err := s.prepareUndoChangeAt(ctx, activityID, time.Time{})
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.clock()); err != nil {
+	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{commit}, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	s.invalidateAnalysis()
@@ -72,66 +72,152 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 }
 
 // undoChangePlan validates the target and computes a reversal against today's
-// state. Unlike a historical fix, it does not replay later activities.
+// state. Earlier explicit reversal instants replay any subsequent activities.
 func (s *Service) undoChangePlan(ctx context.Context, activityID domain.ActivityID) (domain.ChangePreview, error) {
 	return s.undoChangePlanAt(ctx, activityID, time.Time{})
 }
 
 func (s *Service) undoChangePlanAt(ctx context.Context, activityID domain.ActivityID, effectiveAt time.Time) (domain.ChangePreview, error) {
+	preview, _, err := s.prepareUndoChangeAt(ctx, activityID, effectiveAt)
+	return preview, err
+}
+
+func (s *Service) prepareUndoChangeAt(ctx context.Context, activityID domain.ActivityID, effectiveAt time.Time) (domain.ChangePreview, domain.ActivityCommit, error) {
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
 	}
 	if bootstrap.Household == nil {
-		return domain.ChangePreview{}, onboardingRequired()
+		return domain.ChangePreview{}, domain.ActivityCommit{}, onboardingRequired()
 	}
 	if err := s.rejectManagedActivity(ctx, activityID); err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
 	}
 	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
 	}
 	if activity.ReversesActivityID != nil {
-		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrAlreadyUndone, Message: "a reversal cannot be undone again"}
+		return domain.ChangePreview{}, domain.ActivityCommit{}, &domain.Error{Code: domain.ErrAlreadyUndone, Message: "a reversal cannot be undone again"}
 	}
 	hasReversal, err := s.repository.ActivityHasReversal(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
 	}
 	if hasReversal {
-		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrAlreadyUndone, Message: "the change has already been undone"}
+		return domain.ChangePreview{}, domain.ActivityCommit{}, &domain.Error{Code: domain.ErrAlreadyUndone, Message: "the change has already been undone"}
 	}
-	effects, err := s.repository.ActivityEffects(ctx, activityID)
+	// Absolute observations retain their original audit delta. Backfills can
+	// change its economic magnitude (and direction), so undo must use the same
+	// normalized effects as historical replay rather than the immutable row.
+	timeline, err := s.repository.ListActivitiesUntil(ctx, bootstrap.Household.ID, s.clock())
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
+	}
+	var effects []domain.ActivityEffect
+	found := false
+	for _, effective := range timeline {
+		if effective.ID == activityID {
+			effects = effective.Effects
+			found = true
+			break
+		}
+	}
+	if !found {
+		return domain.ChangePreview{}, domain.ActivityCommit{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId", Message: "the change is no longer active in history"}
+	}
+	if len(effects) == 0 && activity.Kind == domain.ActivityValueUpdate {
+		// A now-redundant observation still needs a linked reversal and a
+		// current endpoint projection. Keep a zero remeasurement effect; replay
+		// drops its economic no-op while the original audit evidence stays intact.
+		for _, effect := range activity.Effects {
+			zero, err := domain.ParseMoney("0", effect.Money.Currency())
+			if err != nil {
+				return domain.ChangePreview{}, domain.ActivityCommit{}, err
+			}
+			effect.Money = &zero
+			effects = append(effects, effect)
+		}
 	}
 	state, err := s.changeState(ctx)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
 	}
 	if !effectiveAt.IsZero() {
 		effectiveAt = effectiveAt.UTC()
 		if effectiveAt.Before(state.OriginAt.UTC()) || effectiveAt.After(state.Now.UTC()) {
-			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveAt", Message: "reversal time must be within the history interval"}
+			return domain.ChangePreview{}, domain.ActivityCommit{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveAt", Message: "reversal time must be within the history interval"}
 		}
 	}
-	preview, err := domain.InverseChange(state, activity, effects)
-	if err != nil {
-		return domain.ChangePreview{}, err
+	if effectiveAt.IsZero() {
+		effectiveAt = state.Now
+	}
+	if effectiveAt.Before(activity.EffectiveAt) {
+		return domain.ChangePreview{}, domain.ActivityCommit{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveAt", Message: "reversal time cannot precede the original change"}
 	}
 	if err := s.rejectDependentHoldingUndo(ctx, activity, effects, state.Now); err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
 	}
-	if !effectiveAt.IsZero() {
-		location, err := time.LoadLocation(state.Timezone)
-		if err != nil {
-			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "history timezone is invalid"}
+	// A frozen preview instant normally follows the complete timeline. Explicit
+	// earlier instants must preserve later absolute observations just like an
+	// ordinary historical insertion, rather than subtracting from today's value.
+	index := len(timeline)
+	for i, event := range timeline {
+		if event.EffectiveAt.After(effectiveAt) {
+			index = i
+			break
 		}
-		preview.Activity.EffectiveAt = effectiveAt
-		preview.Activity.EffectiveLocalDate = effectiveAt.In(location).Format("2006-01-02")
 	}
-	return preview, nil
+	var components []domain.HistoryOriginComponent
+	if index < len(timeline) {
+		origin, err := s.HistoryOrigin(ctx)
+		if err != nil {
+			return domain.ChangePreview{}, domain.ActivityCommit{}, err
+		}
+		components, err = s.repository.ListHistoryOriginComponents(ctx, origin.ID)
+		if err != nil {
+			return domain.ChangePreview{}, domain.ActivityCommit{}, err
+		}
+		state = correctionOriginState(state, components)
+		for _, event := range timeline[:index] {
+			state, _, err = domain.ApplyEffects(state, event.Effects)
+			if err != nil {
+				return domain.ChangePreview{}, domain.ActivityCommit{}, err
+			}
+		}
+	}
+	preview, err := domain.InverseChangeAt(state, activity, effects, effectiveAt)
+	if err != nil {
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
+	}
+	commit := domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}
+	if index == len(timeline) {
+		return preview, commit, nil
+	}
+	inserted := append([]domain.Activity{}, timeline[:index]...)
+	inserted = append(inserted, preview.Activity)
+	inserted = append(inserted, timeline[index:]...)
+	inserted, err = domain.ReplayMoneyEffects(inserted, components)
+	if err != nil {
+		return domain.ChangePreview{}, domain.ActivityCommit{}, err
+	}
+	for _, event := range inserted[index:] {
+		var views []domain.EndpointView
+		state, views, err = domain.ApplyEffects(state, event.Effects)
+		if err != nil {
+			return domain.ChangePreview{}, domain.ActivityCommit{}, &domain.Error{Code: domain.ErrInvalidChange, Message: "the reversal would invalidate a later balance or holding quantity"}
+		}
+		if len(views) == 0 {
+			if event.Kind == domain.ActivityValueUpdate {
+				views = event.Resulting
+			} else {
+				views = correctionEndpointViews(state, event.RecordedEffects)
+			}
+		}
+		commit.Replay = append(commit.Replay, domain.ActivityProjection{Activity: event, Resulting: views})
+	}
+	commit.Resulting = correctionEndpointViews(state, preview.Effects)
+	return preview, commit, nil
 }
 
 // fixChangePlan validates the original and reconstructs the corrected timeline.

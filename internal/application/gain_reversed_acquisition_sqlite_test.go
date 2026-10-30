@@ -82,11 +82,11 @@ func TestGainReversedAndCorrectedAcquisitionsKeepValidLaterFX(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// Exact native cost = 24+40=64. Quantity-weighted acquisition FX
-			// = (2*7+2*8)/4=7.5, so base cost=64*7.5=480.
-			// Current value=4*10*9=360; instrument effect=(40-64)*7.5=-180;
-			// FX effect=40*(9-7.5)=60; unrealized base gain=360-480=-120.
-			if !gain.Available || gain.Quantity != "4" || gain.TotalCost.Amount != "64" || gain.TotalCostBase == nil || gain.TotalCostBase.Amount != "480" || gain.UnrealizedGainBase == nil || gain.UnrealizedGainBase.Amount != "-120" || gain.InstrumentMovement == nil || gain.InstrumentMovement.Amount != "-180" || gain.CurrencyMovement == nil || gain.CurrencyMovement.Amount != "60" {
+			// Native cost=24+40=64; base cost=24*7+40*8=488. Acquisition FX
+			// is cost-weighted: 488/64=7.625, preserving both cost amounts.
+			// Current value=4*10*9=360; instrument effect=(40-64)*7.625=-183;
+			// FX effect=40*(9-7.625)=55; unrealized base gain=360-488=-128.
+			if !gain.Available || gain.Quantity != "4" || gain.TotalCost.Amount != "64" || gain.TotalCostBase == nil || gain.TotalCostBase.Amount != "488" || gain.UnrealizedGainBase == nil || gain.UnrealizedGainBase.Amount != "-128" || gain.InstrumentMovement == nil || gain.InstrumentMovement.Amount != "-183" || gain.CurrencyMovement == nil || gain.CurrencyMovement.Amount != "55" {
 				t.Fatalf("acquisition gain=%+v", gain)
 			}
 			sale := buy("1", "30")
@@ -100,9 +100,9 @@ func TestGainReversedAndCorrectedAcquisitionsKeepValidLaterFX(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// Selling 1/4 leaves native cost 48 and acquisition base cost 360.
+			// Selling 1/4 leaves native cost 48 and acquisition base cost 366.
 			// Realized native gain=30-16=14; sale-time conversion=14*9=126 CNY.
-			if !gain.Available || gain.Quantity != "3" || gain.TotalCost.Amount != "48" || gain.TotalCostBase == nil || gain.TotalCostBase.Amount != "360" || gain.RealizedGain.Amount != "14" {
+			if !gain.Available || gain.Quantity != "3" || gain.TotalCost.Amount != "48" || gain.TotalCostBase == nil || gain.TotalCostBase.Amount != "366" || gain.RealizedGain.Amount != "14" {
 				t.Fatalf("post-sale gain=%+v", gain)
 			}
 			account, err := f.service.AccountGain(ctx, f.accounts[0].Account.ID)

@@ -62,12 +62,15 @@ func (g *GainService) instrumentHoldings(ctx context.Context, accountIDs ...doma
 		}
 		// Available also includes base-currency decomposition. Native values remain
 		// valid when FX is missing; only their individual pointers determine availability.
-		amounts := domain.HoldingAmounts{Quantity: gain.Quantity, TotalCost: &gain.TotalCost, CurrentValue: gain.CurrentValue, UnrealizedGain: gain.UnrealizedGain}
+		amounts := domain.HoldingAmounts{Quantity: gain.Quantity, TotalCost: gain.TotalCost, CurrentValue: gain.CurrentValue, UnrealizedGain: gain.UnrealizedGain, CostMissingReason: gain.CostMissingReason}
 		if amounts.CurrentValue == nil {
 			amounts.ValueMissingReason = gain.MissingReason
 		}
 		if amounts.UnrealizedGain == nil {
 			amounts.GainMissingReason = gain.MissingReason
+			if gain.TotalCost == nil {
+				amounts.GainMissingReason = gain.CostMissingReason
+			}
 		}
 		index, found := indices[instrument.ID]
 		if !found {

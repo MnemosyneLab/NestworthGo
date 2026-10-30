@@ -237,7 +237,10 @@ The implementation requirements are:
 - The journal is `.nestworth-restore-journal.json` beside the database, with
   `0600` permissions. It contains operation, state, filenames, timestamps,
   backup member hashes, app/schema/format versions, and selected settings
-  categories. It contains no absolute paths or financial values.
+  categories. New journals also record whether an original database file group
+  was present, and record a failed replacement's quarantine filename before
+  moving it. Older journals without the original-presence field remain readable.
+  It contains no absolute paths or financial values.
 - Startup processes the journal before ordinary `Open`. A journal is not marked
   successful merely because a replacement was installed; schema, integrity, and
   bootstrap must pass after restart.
@@ -248,12 +251,23 @@ The implementation requirements are:
 
 | Journal state | Live path | Safety group | Startup action |
 | --- | --- | --- | --- |
-| `prepared` | Exists | Any | Keep live, delete staging, and do not create a new database |
-| `prepared` | Missing | Exists | Restore safety; do not create an empty database |
-| `original-renamed` | Missing | Exists | Restore safety |
-| `original-renamed` | Exists | Exists | Treat as `replacement-installed`; read-only verify live, otherwise preserve a failed copy and restore safety |
-| `replacement-installed` | Exists | Exists | Read-only verify live, otherwise preserve a failed copy and restore safety |
-| `verified` | Exists | Exists | Remove staging/journal, retain safety for later manual cleanup, then merge selected settings |
+| `prepared` | Original main exists | No safety main | Keep original; finish any interrupted sidecar return, remove staging/journal |
+| `prepared` | Missing main or only original sidecars | Safety main exists | Reunite disjoint original sidecars; journal rollback and restore safety |
+| `prepared` or `original-renamed` | Missing | Missing | If the journal explicitly records no original, read-only verify staging and install it; otherwise remain blocked |
+| `original-renamed` | Replacement main exists | Any | Finish disjoint staged sidecar renames; read-only verify live, including legacy first restores without safety |
+| `original-renamed` | Missing main | Safety main exists | Journal rollback and restore safety |
+| `replacement-installed` | Any | Any | Read-only verify live; preserve failed replacement and restore a complete safety group when available |
+| `verified` | Any | Any | Read-only verify again before merging selected settings and removing staging/journal; retain safety |
+| `quarantining` | Partial or complete failed group | Safety group retained | Resume the recorded failed-group move without overwriting files, then journal rollback |
+| `rolling-back` | Partial or complete original group | Remaining safety files | Resume disjoint original sidecar moves, then remove staging/journal |
+
+Every recovery file-group move is resumable after the main, WAL, or SHM rename.
+Sidecar-only groups never count as a valid replacement, and conflicting files
+remain blocked rather than being overwritten. A missing or invalid replacement
+without a complete original main file retains its journal and remaining artifacts;
+startup does not discard that fence and bootstrap an empty ledger. For legacy
+journals, a valid installed first-restore database can be completed, while an
+absent live/safety group remains ambiguous and blocked.
 
 A failure in schema verification, integrity, bootstrap, or settings handling
 leaves the application in a safe blocked state and does not claim restore success.

@@ -180,6 +180,11 @@ func BenchmarkAcquisitionFXRatioManyInverseQuotes(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	for index := range events {
+		if events[index].Kind == domain.CostBasisBuy {
+			events[index].UnitCost = &startingCost
+		}
+	}
 	replay := &costBasisReplayContext{events: make(map[domain.HoldingID][]domain.CostBasisEvent), starting: make(map[domain.HoldingID]*domain.UnitPrice)}
 	service := NewGainService(nil)
 	ctx := context.Background()

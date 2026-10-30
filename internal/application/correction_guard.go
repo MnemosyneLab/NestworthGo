@@ -83,7 +83,7 @@ func (s *Service) RecordFixChangeGuarded(ctx context.Context, activityID domain.
 }
 
 // RecordUndoChangeGuarded records a current-time reversal and its durable
-// mutation key atomically. It deliberately leaves historical replay to Fix.
+// mutation key atomically, replaying later projections for an earlier instant.
 func (s *Service) RecordUndoChangeGuarded(ctx context.Context, activityID domain.ActivityID, mutationID, payloadHash, expectedToken string) (domain.ChangePreview, error) {
 	return s.RecordUndoChangeGuardedAt(ctx, activityID, s.clock(), mutationID, payloadHash, expectedToken)
 }
@@ -108,11 +108,12 @@ func (s *Service) RecordUndoChangeGuardedAt(ctx context.Context, activityID doma
 	if err := s.validateCorrectionToken(key, expectedToken); err != nil {
 		return domain.ChangePreview{}, err
 	}
-	preview, err := s.undoChangePlanAt(ctx, activityID, effectiveAt)
+	preview, commit, err := s.prepareUndoChangeAt(ctx, activityID, effectiveAt)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting, Mutation: key}}, s.clock()); err != nil {
+	commit.Mutation = key
+	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{commit}, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	s.invalidateAnalysis()
