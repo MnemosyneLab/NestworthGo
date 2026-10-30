@@ -69,9 +69,9 @@ it("labels the editable ledger timeline and dated asset view distinctly", () => 
   expect(i18n.t("nav.historicalOverview", { lng: "zh-CN" })).toBe("资产回溯");
   expect(i18n.t("historicalOverview.title", { lng: "zh-CN" })).toBe("资产回溯");
   expect(i18n.t("insights.viewInHistory", { lng: "zh-CN" })).toBe("在账务记录中查看");
-  expect(i18n.t("nav.history", { lng: "zh-TW" })).toBe("账务记录");
-  expect(i18n.t("nav.historicalOverview", { lng: "zh-TW" })).toBe("资产回溯");
-  expect(i18n.t("historicalOverview.title", { lng: "zh-TW" })).toBe("资产回溯");
+  expect(i18n.t("nav.history", { lng: "zh-TW" })).toBe("帳務紀錄");
+  expect(i18n.t("nav.historicalOverview", { lng: "zh-TW" })).toBe("資產回溯");
+  expect(i18n.t("historicalOverview.title", { lng: "zh-TW" })).toBe("資產回溯");
 });
 
 it("keeps old destinations while routing plain instrument links to the shared data record", () => {

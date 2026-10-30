@@ -9,6 +9,15 @@ function t(key: string, options?: Record<string, unknown>) {
 }
 
 describe("ActivityDetailSheet", () => {
+  it.each([
+    ["en", "Unit cost"], ["zh-CN", "单位成本"], ["zh-TW", "單位成本"],
+  ])("localizes cost-adjustment effects in %s using real resources", (language, label) => {
+    const translate = i18n.getFixedT(language);
+    const activity = { id: "cost", kind: "cost_adjustment", effectiveAt: "2026-01-15T12:00:00Z", effects: [{ target: "holding_cost", holdingId: "holding", costUnitPrice: "12.5" }] } as unknown as ActivityDTO;
+    render(<ActivityDetailSheet activity={activity} accounts={new Map()} instruments={new Map()} holdings={new Map([["holding", "Synthetic holding"]])} onClose={() => undefined} t={(key, options) => translate(key, options)} />);
+    expect(screen.getByText(`Synthetic holding · ${label}: 12.5`)).toBeInTheDocument();
+    expect(screen.queryByText(/history\.unitCost/)).not.toBeInTheDocument();
+  });
   it("explains an ineligible Repeat source and shows exact cash audit precision", async () => {
     await i18n.changeLanguage("en");
     const activity = { id: "old", kind: "cash_out", reason: "tax", repeatEligible: false, repeatIneligibleReason: "reversed", effectiveAt: "2026-01-15T12:00:00Z", effects: [{ accountId: "acc-1", money: { amount: "0.0001", currency: "KRW" } }] } as unknown as ActivityDTO;

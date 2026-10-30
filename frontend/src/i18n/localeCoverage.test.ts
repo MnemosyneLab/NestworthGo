@@ -1,3 +1,4 @@
+import i18n, { SUPPORTED_LANGUAGES } from "./index";
 import { tasksEn, tasksZhCN, tasksZhTW } from "./tasks";
 import { homepageEn, homepageZhCN, homepageZhTW } from "./homepage";
 import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./upcomingActions";
@@ -9,7 +10,6 @@ import fieldLabelKeysEn from "./locales/fieldLabelKeys.json";
 import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
-import { deepMerge } from "./deepMerge";
 
 /**
  * Every i18next key that exists in one locale bundle must exist in every
@@ -187,11 +187,7 @@ describe("i18next locale coverage", () => {
   });
 
   it("no locale has an empty string for a key present in another locale (a common silent-drop mistake)", () => {
-    const merged = {
-      en: deepMerge(en, additionsEn),
-      "zh-CN": deepMerge(zhCN, additionsZhCN),
-      "zh-TW": deepMerge(zhTW, additionsZhTW),
-    };
+    const merged = mergedLocaleTrees();
     for (const [locale, tree] of Object.entries(merged)) {
       const emptyKeys = flattenKeys(tree).filter((key) => {
         const value = key.split(".").reduce<unknown>((node, segment) => (node as Tree)?.[segment], tree);
@@ -203,7 +199,8 @@ describe("i18next locale coverage", () => {
 
   it("fieldLabelKeys (error field -> i18next key map) covers a key for every field used across the ported error.field.* namespace", () => {
     const fieldLabelValues = Object.values(fieldLabelKeysEn as Record<string, string>);
-    for (const tree of [deepMerge(en, additionsEn), deepMerge(zhCN, additionsZhCN), deepMerge(zhTW, additionsZhTW)]) {
+    for (const locale of SUPPORTED_LANGUAGES) {
+      const tree = i18n.getResourceBundle(locale, "translation");
       const translationKeys = new Set(flattenKeys(tree));
       const missingTargets = fieldLabelValues.filter((targetKey) => !translationKeys.has(targetKey));
       expect(missingTargets).toEqual([]);
@@ -216,11 +213,11 @@ it("covers Upcoming Actions in every supported locale", () => { assertSameKeySet
 it("covers homepage summaries in every supported locale", () => { assertSameKeySet("homepage", homepageEn, { "zh-CN": homepageZhCN, "zh-TW": homepageZhTW }); });
 
 function mergedLocaleTrees(): Record<string, Tree> {
-  return {
-    en: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, additionsEn), homepageEn), upcomingActionsEn), errorCodesEn), rebuildDataEn), tasksEn),
-    "zh-CN": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, additionsZhCN), homepageZhCN), upcomingActionsZhCN), errorCodesZhCN), rebuildDataZhCN), tasksZhCN),
-    "zh-TW": deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, additionsZhTW), homepageZhTW), upcomingActionsZhTW), errorCodesZhTW), rebuildDataZhTW), tasksZhTW),
-  };
+  // Exercise the production merge order and keep errorCode in its own namespace.
+  return Object.fromEntries(SUPPORTED_LANGUAGES.map((locale) => [locale, {
+    translation: i18n.getResourceBundle(locale, "translation"),
+    errorCode: i18n.getResourceBundle(locale, "errorCode"),
+  }]));
 }
 
 function leafStrings(tree: Tree, prefix = ""): Map<string, string> {
@@ -237,7 +234,9 @@ function leafStrings(tree: Tree, prefix = ""): Map<string, string> {
 }
 
 function placeholders(value: string): string[] {
-  return [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)].map((match) => match[1]).sort();
+  const named = [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)].map((match) => match[1]).sort();
+  const printf = [...value.matchAll(/%(?:\d+\$)?[dsfg]/g)].map((match) => match[0]);
+  return [...named, ...printf];
 }
 
 describe("i18n regression guards", () => {
@@ -276,3 +275,13 @@ describe("i18n regression guards", () => {
   });
 });
 it("covers Tasks & checks in every supported locale", () => { assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW }); });
+
+it("keeps reviewed Traditional Chinese destination names throughout effective resources", () => {
+  const leaves = leafStrings(i18n.getResourceBundle("zh-TW", "translation"));
+  expect([...leaves].filter(([, value]) => /账务记录|资产回溯/.test(value))).toEqual([]);
+  expect(i18n.t("nav.history", { lng: "zh-TW" })).toBe("帳務紀錄");
+  expect(i18n.t("nav.historicalOverview", { lng: "zh-TW" })).toBe("資產回溯");
+  // Later resource layers override these names; JSON-only checks miss them.
+  expect(i18n.t("nav.portfolio", { lng: "zh-TW" })).toBe("投資資產");
+  expect(i18n.t("nav.marketData", { lng: "zh-TW" })).toBe("資料維護");
+});
