@@ -640,6 +640,8 @@ export const additionsEn = {
       productReversed: "Reverse product activity",
     },
     sentence: {
+      cardPurchase: "Card purchase {{amount}} on {{account}}",
+      cardRefund: "Card refund {{amount}} on {{account}}",
       depositOpened: "Opened term deposit “{{instrument}}” in {{account}} · Principal {{amount}}",
       productSubscribed: "Subscribed to “{{instrument}}” in {{account}} · Amount {{amount}}",
       productRecorded: "Recorded existing product “{{instrument}}” in {{account}}",
@@ -1823,6 +1825,8 @@ export const additionsZhCN = {
       productReversed: "冲销产品活动",
     },
     sentence: {
+      cardPurchase: "在 {{account}} 刷卡消费 {{amount}}",
+      cardRefund: "{{account}} 收到消费退款 {{amount}}",
       depositOpened: "在{{account}}开立定期存款「{{instrument}}」· 本金 {{amount}}",
       productSubscribed: "在{{account}}申购产品「{{instrument}}」· 金额 {{amount}}",
       productRecorded: "在{{account}}记录已有产品「{{instrument}}」",
@@ -2995,6 +2999,8 @@ export const additionsZhTW = {
       productReversed: "沖銷產品活動",
     },
     sentence: {
+      cardPurchase: "在 {{account}} 刷卡消費 {{amount}}",
+      cardRefund: "{{account}} 收到消費退款 {{amount}}",
       depositOpened: "在{{account}}開立定期存款「{{instrument}}」· 本金 {{amount}}",
       productSubscribed: "在{{account}}申購產品「{{instrument}}」· 金額 {{amount}}",
       productRecorded: "在{{account}}記錄既有產品「{{instrument}}」",

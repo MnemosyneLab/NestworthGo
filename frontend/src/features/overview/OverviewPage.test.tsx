@@ -358,3 +358,17 @@ it("pairs attention and upcoming cards below the financial row, preserving healt
   action.focus(); await userEvent.keyboard("{Enter}");
   expect(navigation.openHealth).toHaveBeenCalledWith(issues[0]);
 });
+
+
+it("renders recent card purchase and refund sentences using real translations", async () => {
+  await renderWithMockedOverview({
+    ...completeOverview,
+    accountLabels: [{ id: "card", name: "Synthetic card", type: "credit_card" }],
+    recentActivities: [
+      { id: "purchase", kind: "cash_in", reason: "card_purchase", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "card", money: { amount: "100", currency: "USD" } }] },
+      { id: "refund", kind: "cash_out", reason: "card_refund", effectiveLocalDate: "2026-01-02", effects: [{ accountId: "card", money: { amount: "30", currency: "USD" } }] },
+    ],
+  });
+  expect(await screen.findByText("Card purchase US$100.00 on Synthetic card")).toBeInTheDocument();
+  expect(await screen.findByText("Card refund US$30.00 on Synthetic card")).toBeInTheDocument();
+});

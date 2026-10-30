@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { createInstance } from "i18next";
+import i18n from "@/i18n";
 import { activitySentence } from "./activitySentence";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 const catalog: Record<string, string> = {
-  "history.sentence.cardPurchase": "Card purchase {{amount}} on {{account}}",
-  "history.sentence.cardRefund": "Card refund {{amount}} on {{account}}",
   "history.sentence.added": "Added {{amount}} to {{account}}",
   "history.sentence.transferred": "Transferred {{amount}} from {{from}} to {{to}}",
   "history.sentence.bought": "Bought {{quantity}} {{instrument}} in {{account}} for {{amount}}",
@@ -172,11 +172,21 @@ describe("activitySentence", () => {
   });
 });
 
-it("names card purchases and refunds as consumption rather than cash income", () => {
-  const names = new Map([["card", "Synthetic card"]]);
-  const common = { effects: [{ accountId: "card", money: { amount: "100", currency: "USD" } }] };
-  expect(activitySentence(t, { ...common, kind: "cash_in", reason: "card_purchase" } as unknown as ActivityDTO, names, new Map())).toBe("Card purchase US$100.00 on Synthetic card");
-  expect(activitySentence(t, { ...common, kind: "cash_out", reason: "card_refund" } as unknown as ActivityDTO, names, new Map())).toBe("Card refund US$100.00 on Synthetic card");
+describe.each([
+  ["en", "Card purchase US$100.00 on Synthetic card", "Card refund US$100.00 on Synthetic card"],
+  ["zh-CN", "在 Synthetic card 刷卡消费 US$100.00", "Synthetic card 收到消费退款 US$100.00"],
+  ["zh-TW", "在 Synthetic card 刷卡消費 US$100.00", "Synthetic card 收到消費退款 US$100.00"],
+] as const)("card activity with real %s resources", (locale, purchase, refund) => {
+  it.each([
+    ["cash_in", "card_purchase", purchase],
+    ["cash_out", "card_refund", refund],
+  ])("interpolates %s / %s without fallback or synthetic translations", async (kind, reason, expected) => {
+    const instance = createInstance();
+    await instance.init({ lng: locale, fallbackLng: false, resources: { [locale]: { translation: i18n.getResourceBundle(locale, "translation") } }, interpolation: { escapeValue: false } });
+    const names = new Map([["card", "Synthetic card"]]);
+    const common = { effects: [{ accountId: "card", money: { amount: "100", currency: "USD" } }] };
+    expect(activitySentence(instance.t.bind(instance), { ...common, kind, reason } as unknown as ActivityDTO, names, new Map())).toBe(expected);
+  });
 });
 
 it.each([false, true])("uses removed magnitude direction for value-update fallback (liability=%s)", liability => {
