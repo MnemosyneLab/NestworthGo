@@ -976,6 +976,7 @@
       "general": "外观",
       "market": "行情",
       "agent": "AI·MCP",
+      "mobile": "手机访问",
       "data": "数据",
       "diagnostics": "诊断",
       "about": "关于"
@@ -2116,8 +2117,8 @@
     "login": "登录",
     "token": "手机 token",
     "loginHelp": "在桌面设置生成 token，再粘贴到这里。",
-    "connectionHelp": "请保持 Mac 唤醒、Nestworth 运行，并连接可信私网。关闭最后一个窗口会退出 App。",
-    "connectionUnavailable": "连接不可用，数据可能过时。请检查 Mac、App 和网络。",
+    "connectionHelp": "请让运行 Nestworth 的电脑保持唤醒，并连接可信私网。关闭最后一个窗口会退出应用。",
+    "connectionUnavailable": "连接不可用，数据可能过时。请检查运行 Nestworth 的电脑、应用和网络。",
     "requestFailed": "请求未能完成。",
     "ledgerTimezone": "账本时区：{{timezone}}",
     "unavailable": "暂无数据",

@@ -10,8 +10,9 @@ opened by the HTTP adapter, browser, proxy or second process.
 Desktop **Settings → Mobile access** configures the listener and authorizes
 individual browsers. Connection settings are nonsecret and stored in
 `mobile-access.json` beside the presentation settings file. Tokens, session
-secrets and CSRF values are memory-only. The app must remain awake and running;
-closing its last window retains the existing application exit behavior.
+secrets and CSRF values are memory-only. The computer hosting Nestworth must
+remain awake, with Nestworth running; closing its last window retains the
+existing application exit behavior on every supported desktop platform.
 
 Supported boundaries:
 

@@ -976,6 +976,7 @@
       "general": "Appearance",
       "market": "Market data",
       "agent": "AI · MCP",
+      "mobile": "Mobile access",
       "data": "Data",
       "diagnostics": "Diagnostics",
       "about": "About"
@@ -2116,8 +2117,8 @@
     "login": "Sign in",
     "token": "Mobile token",
     "loginHelp": "Generate a token in desktop Settings, then paste it here.",
-    "connectionHelp": "Keep your Mac awake and Nestworth running on the trusted private network. Closing the last window exits the app.",
-    "connectionUnavailable": "Connection unavailable. Data may be old. Check the Mac, app and network.",
+    "connectionHelp": "Keep the computer hosting Nestworth awake, with the app running on the trusted private network. Closing the last window exits the app.",
+    "connectionUnavailable": "Connection unavailable. Data may be old. Check the computer hosting Nestworth, the app and the network.",
     "requestFailed": "The request could not be completed.",
     "ledgerTimezone": "Ledger timezone: {{timezone}}",
     "unavailable": "Unavailable",

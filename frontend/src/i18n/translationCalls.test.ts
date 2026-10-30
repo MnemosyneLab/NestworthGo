@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import ts from "typescript";
 import i18n, { SUPPORTED_LANGUAGES } from "./index";
 import { NAV_GROUPS } from "../app/navigation";
+import { SECTION_IDS } from "../features/settings/sections";
 
 const sources = import.meta.glob(["../**/*.ts", "../**/*.tsx", "!../**/*.test.*", "!../test/**", "!../i18n/**"], {
   eager: true, import: "default", query: "?raw",
@@ -51,4 +52,17 @@ it("resolves the actual navigation model in every language without fallback", ()
   for (const language of SUPPORTED_LANGUAGES) {
     for (const key of keys) expect(i18n.getResource(language, "translation", key), `${language} ${key}`).toBeTypeOf("string");
   }
+});
+
+it.each(SUPPORTED_LANGUAGES)("resolves every dynamic settings tab in %s without fallback", (language) => {
+  for (const id of SECTION_IDS) {
+    const key = `settings.tabs.${id}`;
+    const label = i18n.getResource(language, "translation", key);
+    expect(label, `${language} ${key}`).toBeTypeOf("string");
+    expect(label.trim(), `${language} ${key}`).not.toBe("");
+    expect(label, `${language} ${key}`).not.toBe(key);
+  }
+  const mobileLabel = i18n.getResource(language, "translation", "settings.tabs.mobile");
+  expect(mobileLabel).toBe(i18n.getResource(language, "translation", "mobile.access"));
+  expect(mobileLabel).toBe(i18n.getResource(language, "translation", "menu.mobile"));
 });

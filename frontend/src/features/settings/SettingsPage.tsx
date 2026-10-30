@@ -30,6 +30,7 @@ import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
 import { AgentSection } from "@/features/settings/AgentSection";
 import { MobileAccessSection } from "./MobileAccessSection";
+import { SECTION_IDS } from "./sections";
 import { DataManagementSection } from "@/features/settings/DataManagementSection";
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage, languageOptionKey } from "@/i18n";
@@ -42,7 +43,6 @@ import { resolvedTimeZone, timeZoneOptions } from "@/lib/time";
  * only returns to the last loaded/saved snapshot; Restore defaults is the
  * separate destructive operation and always asks for confirmation.
  */
-const SECTION_IDS = ["general", "market", "agent", "mobile", "data", "diagnostics", "about"] as const;
 const DATE_FORMATS = ["iso", "day-first", "month-first", "localized"] as const;
 const TIME_FORMATS = ["24h", "12h"] as const;
 const DECIMAL_SEPARATORS = [".", ","] as const;

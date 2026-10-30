@@ -93,3 +93,41 @@ it("revokes one named phone and all phones without exposing token history", asyn
   expect(mobile.Revoke).toHaveBeenLastCalledWith("");
   expect(screen.queryByLabelText("Mobile token")).not.toBeInTheDocument();
 });
+
+it.each([
+  [
+    "en",
+    /computer hosting Nestworth/,
+    /Closing the last window exits the app\./,
+  ],
+  ["zh-CN", /运行 Nestworth 的电脑/, /关闭最后一个窗口会退出应用。/],
+  ["zh-TW", /執行 Nestworth 的電腦/, /關閉最後一個視窗會結束應用程式。/],
+] as const)(
+  "renders platform-neutral hosting and exit guidance from real %s resources",
+  async (language, host, exit) => {
+    await i18n.changeLanguage(language);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MobileAccessSection />
+      </QueryClientProvider>,
+    );
+    const help = i18n.getResource(
+      language,
+      "translation",
+      "mobile.connectionHelp",
+    );
+    expect(await screen.findByText(help)).toHaveTextContent(host);
+    expect(screen.getByText(help)).toHaveTextContent(exit);
+    const unavailable = i18n.getResource(
+      language,
+      "translation",
+      "mobile.connectionUnavailable",
+    );
+    expect(unavailable).toMatch(host);
+    for (const copy of [help, unavailable])
+      expect(copy).not.toMatch(/Mac(?:Book|OS)?|Windows|Linux/i);
+  },
+);

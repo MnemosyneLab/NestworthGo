@@ -26,7 +26,7 @@ the branch base.
 | URL-only QR convenience | Not done | The address is displayed as a usable link; manual token login is implemented. |
 | en / zh-CN / zh-TW; narrow, zoom and dark UI | Done for automated/browser checks | Real locale resources, shared controls, 320px and 200% root-font checks, dark screenshot; native screen-reader/soft-keyboard checks remain below. |
 | Performance budgets | Partial | Measured cold English JS transfer below 250KiB in local Chromium. The proposed 100-account/1,000-holding/50,000-activity latency and contention benchmarks were not run. |
-| Native/real-phone launch acceptance | Not done | No native Mac, iOS Safari or Android Chrome device was available. No packaging, signing, deployment or public exposure. |
+| Native/real-phone launch acceptance | Partial | Subsequent native macOS/Linux observations found the copy defects recorded below. Full native lifecycle and trusted mobile browser/device gates remain open. No packaging, signing, deployment or public exposure. |
 
 ## Automated checks
 
@@ -92,3 +92,42 @@ iOS Safari and Android Chrome, soft-keyboard, screen-reader, sleep/reconnect and
 real-device trust checks. Use `com.nestworth.dev` and explicit synthetic paths
 according to the repository workflow. No result here represents those checks or
 authorizes merge, release, public networking or use of a real household ledger.
+
+## Acceptance copy fixes (PR182 follow-up)
+
+Follow-up base: `da6ae611b5bbc1d5e3e944f9790d132db26089c6`. Its exact-head
+[check run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/41041676737)
+passed all Go, frontend, native build and aggregate gates. Subsequent native
+macOS/Linux acceptance nevertheless exposed two copy defects that these checks
+had missed:
+
+- The dynamic `settings.tabs.mobile` key was missing in all three languages.
+  It now reads **Mobile access / 手机访问 / 手機存取**, consistent with the
+  section heading and related mobile label. The rendered Settings page and
+  translation regression now share the actual section inventory. Every dynamic
+  tab key must resolve directly from each real locale resource without fallback.
+- Mobile hosting help and connection-failure guidance referred to a Mac on
+  every desktop platform. Both now refer to the computer hosting Nestworth.
+  The help retains the requirement to keep that computer awake and Nestworth
+  running, and explains that closing the last window exits the app. No window
+  or server lifecycle behavior changed.
+
+The new regressions failed on the old resources (six failures: both defects in
+three languages). After correction, four affected test files passed 41 tests,
+including the actual Settings page, real locale inventory and rendered hosting
+help. The complete frontend suite then passed **158 files / 1,613 tests** in
+194.64s. Full frontend lint (including locale coverage), typecheck, production
+build and generated-bindings consistency also passed in the Linux native build
+container. Existing Wails browser-preview, ECharts jsdom sizing and desktop
+bundle-size warnings remain; no thresholds, test timeouts or assertions were
+relaxed. These are build/unit/jsdom checks, not native or trusted-browser
+acceptance. The follow-up's exact pushed head and CI run are reported on PR182.
+
+Trusted-browser mobile end-to-end acceptance remains **blocked** because no
+already trusted test endpoint is available. The earlier self-signed fixture
+evidence above does not close this gate. This follow-up did not bypass
+certificate validation, install trust certificates, enable real mobile access
+or change network/security settings. Linux controlled-input and last-window-close
+observations remain inconclusive harness results; they are not confirmed product
+defects, and this copy correction does not claim to resolve them. Native Mac,
+real-phone, soft-keyboard, screen-reader and performance gates remain as recorded.
