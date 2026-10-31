@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import { LoadingState } from "@/components/layout/PageState";
+import { EmptyState, LoadingState } from "@/components/layout/PageState";
 import { useUpcomingActions } from "@/queries/liquidity";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { UpcomingActionList } from "./UpcomingActionList";
@@ -30,7 +30,7 @@ export function OverviewUpcomingActionsCard({ isActive = true, context = "overvi
         </>}
         {(!homepage || data.counts.total > 0) && <p className="num text-sm font-semibold" aria-live="polite">{t("upcomingActions.overviewCounts", upcomingCountLabels(t, data.counts))}</p>}
         <UpcomingActionList context={context} items={(data.items ?? []).filter(item => item.group === "attention" || (homepage && item.group === "scheduled")).slice(0, 3)} />
-        {data.counts.total === 0 && <p className="rounded-xl border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">{t(homepage ? "homepage.noScheduledActions" : "upcomingActions.empty")}</p>}
+        {data.counts.total === 0 && <EmptyState size="compact" variant="success" title={t(homepage ? "homepage.noScheduledActions" : "upcomingActions.empty")} />}
         {(data.counts.eligible > 0 || data.counts.dataChecks > 0 || data.counts.scopeNotes > 0) && <p className="text-sm text-muted-foreground">{t("upcomingActions.supplement", upcomingCountLabels(t, data.counts))}</p>}
         {data.completeness === "partial" && <Notice tone="warning">{t("upcomingActions.partial")}</Notice>}
       </>}

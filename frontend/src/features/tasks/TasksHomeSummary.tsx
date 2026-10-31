@@ -27,7 +27,7 @@ function SummaryLink({
   return (
     <div className="flex min-w-0 flex-col items-start gap-1">
       <Button
-        className={cn("h-auto max-w-full whitespace-normal p-0 text-left", (pending || failed) && "font-medium text-muted-foreground")}
+        className={cn("h-auto max-w-full whitespace-normal p-0 text-left text-sm", (pending || failed) && "font-medium text-muted-foreground")}
         variant="link"
         onClick={() => navigation?.open({ page: "tasks", tab })}
       >
@@ -51,7 +51,7 @@ export function TasksHomeSummary({ isActive = true }: { isActive?: boolean }) {
   const counts = useTasksCounts(isActive);
   return (
     <section aria-label={t("tasks.title")} className="flex min-w-0 flex-col gap-2 border-t border-border pt-4" data-testid="tasks-home-summary">
-      <h3 className="font-medium">{t("tasks.title")}</h3>
+      <h3 className="text-sm font-semibold">{t("tasks.title")}</h3>
       <div className="flex flex-col items-start gap-1">
         <SummaryLink
           tab="upcoming"
