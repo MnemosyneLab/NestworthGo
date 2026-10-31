@@ -330,12 +330,12 @@ export function OverviewPage({
       <PageIntro description={t("overview.description")} status={headerStatus} />
 
       <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row">
-        <Card className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card">
+        <Card className="relative overflow-hidden">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")} <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net /></CardTitle>
           </CardHeader>
           <CardContent className="@container">
-            <p className="num text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl" data-testid="overview-net-worth">
+            <p className="num font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" data-testid="overview-net-worth">
               {valuationTableAmount(t,data.displayValuation?.netWorth,{amount:data.netWorth,currency},true,false)}
             </p>
  {!data.complete && (
