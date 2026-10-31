@@ -1311,6 +1311,7 @@
     "allocationBasis": "占已估值且計入統計的資產比例，負債單獨列示。資料不完整時不能代表完整家庭配置。",
     "byClass": "資產類別（目前分類）",
     "byCurrency": "原幣幣別",
+    "dimension": "分組方式",
     "source": "來源",
     "effectiveAt": "紀錄生效時間",
     "marketDate": "市場日期",

@@ -8,6 +8,7 @@ import { chartTheme, joinTooltipLines, useThemeVersion } from "@/components/char
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
@@ -21,8 +22,9 @@ import { historicalDisplayAmount, formatHistoricalAmount as amount } from "./his
 type Dimension = "byClass" | "byCurrency";
 type Side = "left" | "right";
 
-function stateLabel(state: HistoricalOverviewState, side: Side, current: string) {
-  return `${side === "left" ? "A" : "B"} · ${state.current ? current : formatCivilDate(state.date)}`;
+function stateLabel(state: HistoricalOverviewState, side: Side, current: string, compare = true) {
+  const when = state.current ? current : formatCivilDate(state.date);
+  return compare ? `${side === "left" ? "A" : "B"} · ${when}` : when;
 }
 
 function valuationEstimated(value?: Parameters<typeof hasDisplay>[0]) {
@@ -58,7 +60,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
         <CardContent className="p-4 pt-0">
           <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-1">
             <div className="min-w-0">
-              <dt className="text-xs text-muted-foreground">{stateLabel(headline.state, right ? "right" : "left", t("historicalOverview.current"))}</dt>
+              <dt className="text-xs text-muted-foreground">{stateLabel(headline.state, right ? "right" : "left", t("historicalOverview.current"), Boolean(right))}</dt>
               <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-0.5 overflow-x-auto text-2xl font-bold tracking-tight focus-visible:outline-primary">
                 <span className="num whitespace-nowrap" title={displayAmount(headline.state)}>{displayAmount(headline.state)}</span>
               </dd>
@@ -104,7 +106,7 @@ export function HistoricalCoverage({ data, onDetails }: { data: HistoricalOvervi
       {sides.map(side => {
         const state = data[side]!;
         const count = missingAssetLeaves(data, side);
-        return <span key={side}>{stateLabel(state, side, t("historicalOverview.current"))}: {t(!full(state) ? "historicalOverview.coveragePartial" : estimated(state) ? "historicalOverview.coverageEstimated" : "historicalOverview.coverageComplete")}
+        return <span key={side}>{stateLabel(state, side, t("historicalOverview.current"), Boolean(data.right))}: {t(!full(state) ? "historicalOverview.coveragePartial" : estimated(state) ? "historicalOverview.coverageEstimated" : "historicalOverview.coverageComplete")}
           {count > 0 && !full(state) && ` · ${t("historicalOverview.missingAssetLeaves", { count })}`}
         </span>;
       })}
@@ -147,7 +149,7 @@ export function HistoricalAllocationView({ data, onFilter, selectedDimension, on
         const item = left.find(entry => entry.key === point?.name);
         return item ? joinTooltipLines([`${label(item.key)}: ${amount(item.amount, currency)} · ${item.share}%`]) : "";
       } },
-      series: [{ id: "historical-allocation", type: "pie", radius: ["45%", "72%"], label: { show: false }, data: left.filter(item => !isZero(item.amount)).map(item => ({ name: item.key, value: geometry(item.amount)! })) }],
+      series: [{ id: "historical-allocation", type: "pie", radius: ["62%", "84%"], padAngle: 1, itemStyle: { borderRadius: 3 }, label: { show: false }, data: left.filter(item => !isZero(item.amount)).map(item => ({ name: item.key, value: geometry(item.amount)! })) }],
     };
   } else if (items.length && geometrySafe && !allAmountsZero && !mismatch) {
     option = {
@@ -175,7 +177,7 @@ export function HistoricalAllocationView({ data, onFilter, selectedDimension, on
   return <section aria-label={t(data.right ? "historicalOverview.allocationCompare" : "historicalOverview.allocation")} className="min-w-0 rounded-xl border border-border bg-card p-4">
     <h2 className="font-semibold">{t(data.right ? "historicalOverview.allocationCompare" : "historicalOverview.allocation")}</h2>
     <p className="mt-1 text-xs text-muted-foreground">{t("historicalOverview.allocationBasis")} · {t("historicalOverview.assetOnly")} · {currency}</p>
-    <div className="my-3 flex flex-wrap gap-2">{(["byClass", "byCurrency"] as const).map(value => <Button key={value} size="sm" variant={dimension === value ? "default" : "outline"} aria-pressed={dimension === value} onClick={() => setDimension(value)}>{t(`historicalOverview.${value}`)}</Button>)}</div>
+    <SegmentedControl className="my-3" label={t("historicalOverview.dimension")} value={dimension} onChange={value => setDimension(value as Dimension)} options={(["byClass", "byCurrency"] as const).map(value => ({ value, label: t(`historicalOverview.${value}`) }))} />
     {data.right && <div className="mb-3 flex flex-wrap gap-4 text-sm" aria-label={t("historicalOverview.comparisonLegend")}>
       <span className="flex items-center gap-2"><span aria-hidden="true" className="inline-block size-4 rounded border" style={{ backgroundColor: theme.border, borderColor: theme.primary }} />{stateLabel(data.left, "left", t("historicalOverview.current"))}</span>
       <span className="flex items-center gap-2"><span aria-hidden="true" className="inline-block size-4 rounded" style={{ backgroundColor: theme.primary }} />{stateLabel(data.right, "right", t("historicalOverview.current"))}{data.right.current && <> · <time dateTime={data.capturedAt}>{formatTimestamp(data.capturedAt, data.timezone)}</time></>}</span>
@@ -187,8 +189,8 @@ export function HistoricalAllocationView({ data, onFilter, selectedDimension, on
     {!data.right && mode === "zero" && <p className="text-sm">{t("historicalOverview.zeroKnownAssets")}</p>}
     {data.right && allAmountsZero && <p className="text-sm">{t("historicalOverview.zeroBothAssets")}</p>}
     {!option && items.length > 0 && !mismatch && !allAmountsZero && <p className="text-sm text-muted-foreground">{t("historicalOverview.geometryUnavailable")}</p>}
-    {option && <EChart key={`${dimension}-${data.right ? "paired" : mode}`} option={option} height={Math.max(220, items.length * (data.right ? 55 : 38) + 60)} ariaLabel={t(data.right ? "historicalOverview.allocationCompare" : "historicalOverview.allocation")} summary={t("historicalOverview.chartSummary", { currency })}
-      center={mode === "donut" && !data.right ? <><span className="text-xs text-muted-foreground">{t("historicalOverview.valuedAssets")}</span><strong className="num text-sm">{amount(data.left.knownAssets, currency)}</strong></> : undefined}
+    {option && <EChart key={`${dimension}-${data.right ? "paired" : mode}`} option={option} height={mode === "donut" && !data.right ? 280 : Math.max(220, items.length * (data.right ? 55 : 38) + 60)} ariaLabel={t(data.right ? "historicalOverview.allocationCompare" : "historicalOverview.allocation")} summary={t("historicalOverview.chartSummary", { currency })}
+      center={mode === "donut" && !data.right ? <><span className="text-xs text-muted-foreground">{t("historicalOverview.valuedAssets")}</span><strong className="num max-w-40 text-sm font-semibold [overflow-wrap:anywhere]">{amount(data.left.knownAssets, currency)}</strong></> : undefined}
       onSelectName={name => { const item = items.find(key => label(key) === name || key === name); if (item) onFilter(dimension, item, categoryButtons.current.get(item)); }} />}
     <div className="mt-3 flex flex-wrap gap-2">{items.map(key => <Button key={key} id={`historical-category-asset-${dimension}-${encodeURIComponent(key)}`} ref={node => { if (node) categoryButtons.current.set(key, node); else categoryButtons.current.delete(key); }} size="sm" variant="outline" onClick={event => onFilter(dimension, key, event.currentTarget)}>{label(key)}</Button>)}</div>
     <details className="mt-3" open={!option}><summary className="cursor-pointer text-sm text-primary">{t("historicalOverview.fullChartData")}</summary>
