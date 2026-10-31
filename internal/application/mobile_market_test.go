@@ -182,3 +182,77 @@ func TestMobileCurrentSelectsSharedHistoryAndPreservesDesktopOnlyRetryScope(t *t
 		t.Fatal("restore exposed an old job")
 	}
 }
+
+func TestMobileHistoryAttachmentPreservesCancellationOwnership(t *testing.T) {
+	for _, creator := range []string{"desktop_or_mcp", "mobile"} {
+		t.Run(creator, func(t *testing.T) {
+			entered, release := make(chan struct{}), make(chan struct{})
+			var enteredOnce, releaseOnce sync.Once
+			provider := &syncFakeProvider{key: TiingoProviderKey, history: func(ctx context.Context, _ InstrumentMarketIdentity, _ DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+				enteredOnce.Do(func() { close(entered) })
+				select {
+				case <-release:
+					return mappedTiingoClose("2026-09-04", "185.25"), nil
+				case <-ctx.Done():
+					return MappingOutcome[InstrumentDailyObservation]{}, ctx.Err()
+				}
+			}}
+			service, _, instrument, _ := newSyncFixture(t, provider)
+			t.Cleanup(service.CancelMarketDataSyncAndWait)
+			defer releaseOnce.Do(func() { close(release) })
+			request := MobileMarketRequest{Mode: "history", Scope: "instrument", InstrumentID: instrument.ID.String()}
+			var id string
+			if creator == "mobile" {
+				job, _, conflict, err := service.StartMobileMarket(t.Context(), request)
+				if err != nil || conflict {
+					t.Fatalf("mobile start: %v %v", conflict, err)
+				}
+				id = job.ID
+			} else {
+				start, err := service.StartMarketDataSync(t.Context(), request.sync())
+				if err != nil || start.Conflict {
+					t.Fatalf("desktop/MCP start: %v %v", start.Conflict, err)
+				}
+				id = start.Job.JobID
+			}
+			select {
+			case <-entered:
+			case <-time.After(3 * time.Second):
+				t.Fatal("history provider not entered")
+			}
+			attached, joined, conflict, err := service.StartMobileMarket(t.Context(), request)
+			if err != nil || !joined || conflict || attached.ID != id {
+				t.Fatalf("attach: %+v %v %v %v", attached, joined, conflict, err)
+			}
+			if creator != "mobile" {
+				again, joined, conflict, err := service.StartMobileMarket(t.Context(), request)
+				if err != nil || !joined || conflict || again.Cancellable || again.Source != "shared" {
+					t.Errorf("repeat attachment transferred ownership: %+v %v %v %v", again, joined, conflict, err)
+				}
+			}
+			requested := service.RequestCancelMobileMarket(id)
+			if creator == "mobile" {
+				if !attached.Cancellable || attached.Source != "mobile" || !requested {
+					t.Errorf("mobile ownership lost: %+v cancellation=%v", attached, requested)
+				}
+				terminal := waitSyncTerminal(t, service)
+				if terminal.Outcome != SyncOutcomeCancelled {
+					t.Fatalf("mobile cancel: %+v", terminal)
+				}
+			} else {
+				if attached.Cancellable || attached.Source != "shared" || requested {
+					t.Errorf("attachment transferred external ownership: %+v cancellation=%v", attached, requested)
+				}
+				releaseOnce.Do(func() { close(release) })
+				terminal := waitSyncTerminal(t, service)
+				if terminal.Outcome == SyncOutcomeCancelled {
+					t.Fatal("phone cancelled the desktop/MCP history task")
+				}
+				// The retained shared snapshot must also keep its original ownership.
+				if linked, ok := service.MobileMarketJob(id); !ok || linked.Cancellable || linked.Source != "shared" {
+					t.Fatalf("shared ownership not retained: %+v", linked)
+				}
+			}
+		})
+	}
+}

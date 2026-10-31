@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { MobileApp } from "./MobileApp";
 import { setMobileSession, type Job } from "./api";
-import { saveBackend } from "./connection";
+import { backendBase, saveBackend } from "./connection";
 
 const permissions = {
   read: true,
@@ -562,4 +562,172 @@ it("cancels pairing and ignores a delayed response without storing its token", a
   expect(JSON.stringify(localStorage)).not.toMatch(
     /synthetic-one-use|synthetic-session-token/,
   );
+});
+
+async function prepareServerSwitch(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByText("SYNTHETIC MOBILE TEST");
+  await user.click(screen.getByRole("button", { name: "Connection settings" }));
+  await user.type(
+    screen.getByLabelText("Backend HTTPS address"),
+    "https://other.synthetic.example",
+  );
+}
+
+it.each(["record", "quote", "market"])(
+  "locks an already-open connection panel while a %s draft is active",
+  async (kind) => {
+    if (kind === "market")
+      marketJob = {
+        jobId: "existing",
+        request: { mode: "latest", scope: "stale" },
+        outcome: "succeeded",
+        phase: "complete",
+        completed: 0,
+        total: 0,
+        result: { Items: [] },
+      };
+    const user = userEvent.setup();
+    mount();
+    await prepareServerSwitch(user);
+    if (kind === "record") await fillRecord(user);
+    else if (kind === "quote") {
+      await user.click(screen.getByRole("button", { name: "Data health" }));
+      await user.click(
+        await screen.findByRole("button", {
+          name: i18n.t("mobile.manualQuote"),
+        }),
+      );
+    } else
+      await user.click(
+        screen.getByRole("button", { name: i18n.t("mobile.updateMarket") }),
+      );
+    await user.click(screen.getByRole("button", { name: "Use this server" }));
+    expect(backendBase()).toBe("");
+    expect(
+      screen.getByRole("button", { name: "Use this server" }),
+    ).toBeDisabled();
+    expect(screen.getByLabelText("Backend HTTPS address")).toBeDisabled();
+    if (kind === "record")
+      expect(screen.getByRole("textbox", { name: "Amount" })).toHaveValue(
+        "1.2345",
+      );
+    if (kind === "quote")
+      expect(
+        screen.getByRole("textbox", { name: i18n.t("mobile.quoteValue") }),
+      ).toBeInTheDocument();
+    if (kind === "market")
+      await screen.findByRole("button", { name: "Confirm" });
+    expect(confirms).toHaveLength(0);
+    expect(marketConfirms).toHaveLength(0);
+  },
+);
+
+it.each(["pending", "unknown"])(
+  "preserves the original receipt and plan when switching is attempted during %s confirmation",
+  async (stage) => {
+    mode = "lost";
+    const user = userEvent.setup();
+    mount();
+    await prepareServerSwitch(user);
+    await fillRecord(user);
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    const reference = sessionStorage.getItem("nestworth.mobile.pending.v1");
+    try {
+      if (stage === "unknown") {
+        await act(async () => resolveFirst?.());
+        await screen.findByRole("button", { name: "Retry same submission" });
+      }
+      await user.click(screen.getByRole("button", { name: "Use this server" }));
+      expect(backendBase()).toBe("");
+      expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(
+        reference,
+      );
+      expect(
+        sessionStorage.getItem(
+          "nestworth.mobile.pending.v1:https://other.synthetic.example",
+        ),
+      ).toBeNull();
+      if (stage === "pending") await act(async () => resolveFirst?.());
+      await user.click(
+        await screen.findByRole("button", { name: "Retry same submission" }),
+      );
+      await screen.findByText("Saved successfully");
+      expect(confirms).toHaveLength(2);
+      expect(confirms[0].body).toBe(confirms[1].body);
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.some(([url]) =>
+            String(url).startsWith("https://other.synthetic.example"),
+          ),
+      ).toBe(false);
+    } finally {
+      await act(async () => resolveFirst?.());
+    }
+  },
+);
+
+it("preserves unknown market acceptance when a previously opened connection panel is used", async () => {
+  marketLost = true;
+  marketJob = {
+    jobId: "accepted",
+    request: { mode: "latest", scope: "stale" },
+    outcome: "succeeded",
+    phase: "complete",
+    completed: 0,
+    total: 0,
+    result: { Items: [] },
+  };
+  const user = userEvent.setup();
+  mount();
+  await prepareServerSwitch(user);
+  await user.click(
+    screen.getByRole("button", { name: i18n.t("mobile.updateMarket") }),
+  );
+  await user.click(await screen.findByRole("button", { name: "Confirm" }));
+  await screen.findByText(i18n.t("mobile.jobAcceptanceUnknown"));
+  await user.click(screen.getByRole("button", { name: "Use this server" }));
+  expect(backendBase()).toBe("");
+  await user.click(
+    screen.getByRole("button", { name: "Retry same submission" }),
+  );
+  await screen.findByRole("button", { name: "Quick record" });
+  expect(marketConfirms).toHaveLength(2);
+  expect(marketConfirms[0]).toBe(marketConfirms[1]);
+});
+
+it("allows a server change when no draft or recovery reference is active", async () => {
+  const user = userEvent.setup();
+  mount();
+  await prepareServerSwitch(user);
+  await user.click(screen.getByRole("button", { name: "Use this server" }));
+  await screen.findByRole("button", { name: "Sign in" });
+  expect(backendBase()).toBe("https://other.synthetic.example");
+  expect(confirms).toHaveLength(0);
+});
+
+it("keeps server switching locked during re-pairing while an original receipt remains unresolved", async () => {
+  mode = "revoked";
+  const user = userEvent.setup();
+  mount();
+  await prepareServerSwitch(user);
+  await fillRecord(user);
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await screen.findByRole("button", { name: "Sign in" });
+  expect(screen.getByLabelText("Backend HTTPS address")).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "Use this server" }),
+  ).toBeDisabled();
+  const reference = sessionStorage.getItem("nestworth.mobile.pending.v1");
+  await user.click(screen.getByRole("button", { name: "Use this server" }));
+  expect(backendBase()).toBe("");
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(reference);
+  await user.type(screen.getByLabelText("Mobile token"), "synthetic-new-pair");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Check original result" }),
+  );
+  await screen.findByText("Saved successfully");
+  expect(confirms).toHaveLength(1);
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
 });

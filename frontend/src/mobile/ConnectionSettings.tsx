@@ -7,10 +7,8 @@ import {
   backendBase,
   ConnectionError,
   normalizeBackend,
-  saveBackend,
   takeConnectionHint,
 } from "./connection";
-import { setMobileSession } from "./api";
 
 export function ConnectionFailure({ error }: { error: unknown }) {
   const { t } = useTranslation();
@@ -19,7 +17,13 @@ export function ConnectionFailure({ error }: { error: unknown }) {
   ) : null;
 }
 
-export function ConnectionSettings({ onChanged }: { onChanged: () => void }) {
+export function ConnectionSettings({
+  onChange,
+  disabled = false,
+}: {
+  onChange: (backend: string) => boolean;
+  disabled?: boolean;
+}) {
   const { t } = useTranslation();
   const [address, setAddress] = useState(
     () => takeConnectionHint() ?? backendBase(),
@@ -35,7 +39,7 @@ export function ConnectionSettings({ onChanged }: { onChanged: () => void }) {
     setBusy(false);
   };
   async function test() {
-    if (active.current) return;
+    if (disabled || active.current) return;
     setTested(false);
     setError(null);
     const controller = new AbortController();
@@ -104,7 +108,7 @@ export function ConnectionSettings({ onChanged }: { onChanged: () => void }) {
         spellCheck={false}
         aria-describedby="backend-help"
         aria-invalid={!!error}
-        disabled={busy}
+        disabled={disabled || busy}
         placeholder="https://nestworth.private.example"
         onChange={(e) => {
           setAddress(e.target.value);
@@ -125,7 +129,7 @@ export function ConnectionSettings({ onChanged }: { onChanged: () => void }) {
         <Button
           type="button"
           variant="outline"
-          disabled={busy}
+          disabled={disabled || busy}
           onClick={() => void test()}
         >
           {t("mobile.testConnection")}
@@ -137,15 +141,12 @@ export function ConnectionSettings({ onChanged }: { onChanged: () => void }) {
         )}
         <Button
           type="button"
-          disabled={busy}
+          disabled={disabled || busy}
           onClick={() => {
+            if (disabled || busy) return;
             try {
               const next = normalizeBackend(address);
-              if (next !== backendBase()) {
-                setMobileSession(null);
-                saveBackend(next);
-                onChanged();
-              }
+              if (next !== backendBase() && !onChange(next)) return;
               setAddress(next);
               setError(null);
             } catch (e) {

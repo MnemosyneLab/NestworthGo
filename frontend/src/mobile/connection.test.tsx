@@ -80,8 +80,8 @@ it("tests without auth, preserves the active endpoint until save, and ignores a 
       }),
   );
   vi.stubGlobal("fetch", fetch);
-  const changed = vi.fn();
-  render(<ConnectionSettings onChanged={changed} />);
+  const changed = vi.fn(() => true);
+  render(<ConnectionSettings onChange={changed} />);
   await user.type(
     screen.getByLabelText("Backend HTTPS address"),
     "https://new.example/",
@@ -114,7 +114,8 @@ it("tests without auth, preserves the active endpoint until save, and ignores a 
   expect(backendBase()).toBe("");
   await user.click(screen.getByRole("button", { name: "Use this server" }));
   expect(changed).toHaveBeenCalledOnce();
-  expect(backendBase()).toBe("https://new.example");
+  expect(changed).toHaveBeenCalledWith("https://new.example");
+  expect(backendBase()).toBe("");
 });
 
 it("does not deliver delayed pairing results after a server switch", async () => {
@@ -176,7 +177,7 @@ it("reports an unsupported response as a protocol error and never saves it impli
     vi.fn(async () => new Response("<html>unrelated host</html>")),
   );
   const user = userEvent.setup();
-  render(<ConnectionSettings onChanged={vi.fn()} />);
+  render(<ConnectionSettings onChange={vi.fn(() => true)} />);
   await user.type(
     screen.getByLabelText("Backend HTTPS address"),
     "https://unrelated.example",
@@ -184,4 +185,30 @@ it("reports an unsupported response as a protocol error and never saves it impli
   await user.click(screen.getByRole("button", { name: "Test connection" }));
   await screen.findByText(i18n.t("mobile.transport.invalid_response"));
   expect(backendBase()).toBe("");
+});
+
+it("leaves the active server and in-flight receipt lookup intact when the owner declines a switch", async () => {
+  let resolve!: (value: Response) => void;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        }),
+    ),
+  );
+  const pending = api<{ operationState: string }>("/operations/original");
+  const changed = vi.fn(() => false);
+  const user = userEvent.setup();
+  render(<ConnectionSettings onChange={changed} />);
+  await user.type(
+    screen.getByLabelText("Backend HTTPS address"),
+    "https://other.synthetic.example",
+  );
+  await user.click(screen.getByRole("button", { name: "Use this server" }));
+  expect(changed).toHaveBeenCalledWith("https://other.synthetic.example");
+  expect(backendBase()).toBe("");
+  resolve(new Response(JSON.stringify({ operationState: "committed" })));
+  await expect(pending).resolves.toEqual({ operationState: "committed" });
 });

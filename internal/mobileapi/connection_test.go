@@ -2,6 +2,7 @@ package mobileapi
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -173,5 +174,47 @@ func TestJobCursorFromCurrentPinsResolvedJobAcrossNavigation(t *testing.T) {
 	response, _ = f.request(t, "GET", "/market-jobs/current?limit=1&cursor="+url.QueryEscape(page.Next), nil, nil)
 	if response.StatusCode != 409 {
 		t.Fatal("old cursor attached to another current task")
+	}
+}
+
+func TestJobDetailsPageEachCollectionFromTheOriginalOffset(t *testing.T) {
+	for _, counts := range [][3]int{{0, 0, 65}, {0, 65, 65}, {5, 65, 40}, {65, 5, 0}} {
+		t.Run(fmt.Sprint(counts), func(t *testing.T) {
+			var job application.MobileMarketJob
+			for i := range counts[0] {
+				job.Items = append(job.Items, application.SyncItemProgress{Label: fmt.Sprintf("item-%02d", i)})
+			}
+			for i := range counts[1] {
+				job.Result.Items = append(job.Result.Items, application.RefreshTargetResult{TargetKey: fmt.Sprintf("result-%02d", i)})
+			}
+			for i := range counts[2] {
+				code := "provider_authentication"
+				if i >= 30 {
+					code = "provider_rate_limit"
+				}
+				if i >= 60 {
+					code = "unavailable"
+				}
+				job.Blockers = append(job.Blockers, application.SyncBlocker{Code: code})
+			}
+			for _, offset := range []int{0, 30, 60, 90} {
+				page := mobileJobDTO(job, offset, 30)
+				items := page["items"].([]map[string]string)
+				results := page["result"].(application.RefreshResult).Items
+				blockers := page["blockers"].([]string)
+				if len(items) != min(30, max(0, counts[0]-offset)) || len(results) != min(30, max(0, counts[1]-offset)) || len(blockers) != min(30, max(0, counts[2]-offset)) {
+					t.Fatalf("offset %d repeated or lost rows: items=%d results=%d blockers=%d", offset, len(items), len(results), len(blockers))
+				}
+				if len(items) > 0 && items[0]["label"] != fmt.Sprintf("item-%02d", offset) {
+					t.Fatalf("wrong item page %d", offset)
+				}
+				if len(results) > 0 && results[0].TargetKey != fmt.Sprintf("result-%02d", offset) {
+					t.Fatalf("wrong result page %d: %+v", offset, results)
+				}
+				if len(blockers) > 0 && blockers[0] != job.Blockers[offset].Code {
+					t.Fatalf("wrong blocker page %d: %v", offset, blockers)
+				}
+			}
+		})
 	}
 }

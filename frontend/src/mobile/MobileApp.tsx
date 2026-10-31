@@ -54,6 +54,7 @@ import {
   ConnectionError,
   mobilePreferences,
   saveMobilePreferences,
+  saveBackend,
 } from "./connection";
 
 type Bootstrap = {
@@ -221,6 +222,8 @@ export function MobileApp() {
   const [recoveryPersistent, setRecoveryPersistent] = useState(true);
   const [receipt, setReceipt] = useState<Activity | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
+  const connectionLocked =
+    !!pending || record !== null || quote !== null || market !== null;
   const acceptSession = useCallback(
     (value: Session | null) => {
       const changed = activeDevice.current !== (value?.device.id ?? null);
@@ -300,12 +303,17 @@ export function MobileApp() {
     void client.invalidateQueries({ queryKey: ["mobile"] });
     return true;
   };
-  const changeConnection = () => {
+  const changeConnection = (backend: string) => {
+    // The page owns endpoint and session changes; a previously opened panel
+    // cannot discard a draft, immutable plan or unresolved receipt reference.
+    if (connectionLocked || reconnectLock.current) return false;
+    saveBackend(backend);
     acceptSession(null);
     setPending(pendingOperation());
     setSessionError(null);
     setShowConnection(false);
     setConnectionVersion((v) => v + 1);
+    return true;
   };
   const reconnect = async () => {
     if (reconnectLock.current) return;
@@ -350,6 +358,7 @@ export function MobileApp() {
         error={sessionError}
         onLogin={acceptSession}
         onConnectionChanged={changeConnection}
+        connectionDisabled={connectionLocked}
       />
     );
   const b = bootstrap.data?.data;
@@ -388,9 +397,7 @@ export function MobileApp() {
           </NativeSelect>
           <Button
             variant="ghost"
-            disabled={
-              !!pending || record !== null || quote !== null || market !== null
-            }
+            disabled={connectionLocked || reconnecting}
             onClick={() => setShowConnection((v) => !v)}
           >
             {t("mobile.connectionSettings")}
@@ -427,7 +434,10 @@ export function MobileApp() {
         </div>
       </header>
       {showConnection && !reconnecting && (
-        <ConnectionSettings onChanged={changeConnection} />
+        <ConnectionSettings
+          disabled={connectionLocked}
+          onChange={changeConnection}
+        />
       )}
       <p className="text-xs break-all">
         {t("mobile.connectedTo", {
@@ -642,8 +652,10 @@ function Login({
   onLogin,
   error: initialError,
   onConnectionChanged,
+  connectionDisabled,
 }: {
-  onConnectionChanged: () => void;
+  onConnectionChanged: (backend: string) => boolean;
+  connectionDisabled: boolean;
   onLogin: (s: Session) => void;
   error?: unknown;
 }) {
@@ -657,7 +669,10 @@ function Login({
   return (
     <main className="mobile-shell flex flex-col justify-center gap-5">
       <h1 className="text-3xl font-bold">Nestworth</h1>
-      <ConnectionSettings onChanged={onConnectionChanged} />
+      <ConnectionSettings
+        disabled={connectionDisabled}
+        onChange={onConnectionChanged}
+      />
       <p>{t("mobile.loginHelp")}</p>
       <form
         className="space-y-4"

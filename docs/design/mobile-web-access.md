@@ -129,9 +129,11 @@ synthetic fixtures do not constitute production HTTPS or phone acceptance.
 Only server, language and theme preferences enter localStorage. Financial drafts
 and query results stay in memory; page reload or session revocation discards
 unsubmitted drafts. Active drafts guard page exit, disable server switching and
-sign-out, and require explicit discard. Unknown confirmations retain their
-original recovery identity. A timeout/cancel of an HTTP request does not prove
-that an accepted write failed.
+sign-out, and require explicit discard. The page owns the endpoint/session
+change; an already-open settings panel is also locked while a draft or recovery
+reference is active, including re-pairing after session expiry. Unknown
+confirmations retain their original recovery identity. A timeout/cancel of an
+HTTP request does not prove that an accepted write failed.
 
 ## Closed HTTP surface
 
@@ -230,8 +232,10 @@ returns its original acceptance rather than launching another completed job.
 
 The phone reads desktop/MCP latest-refresh and history-sync snapshots through the
 same task read model. Mobile-owned work adds cancellation requests; external work
-is observed without taking ownership of cancellation. Global desktop history
-repair can be viewed but remains desktop-only for retry. The panel reports real
+is observed without taking ownership of cancellation. Attaching to an equivalent
+history task preserves its original creator; attachment cannot grant mobile
+cancellation rights. Global desktop history repair can be viewed but remains
+desktop-only for retry. The panel reports real
 preparing/running/partial/failed/succeeded/cancelled states, phase, counts, readable
 targets, bounded domain error codes, history ranges and next-eligibility time.
 Provider messages and paths are never returned as task detail. Page errors offer

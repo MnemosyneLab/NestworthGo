@@ -157,6 +157,14 @@ func (s *Service) StartMobileMarket(ctx context.Context, r MobileMarketRequest) 
 		job.ID = started.Job.JobID
 		job.SyncID = started.Job.JobID
 		job.Phase = started.Job.Phase
+		if started.Attached {
+			// Admission's creator retains cancellation ownership. Merely observing
+			// an equivalent desktop/MCP sync must not turn it into mobile work.
+			job.Source, job.Cancellable = "shared", false
+			if original := s.mobileJobs[job.ID]; original != nil {
+				job.Source, job.Cancellable = original.Source, original.Cancellable
+			}
+		}
 		s.mobileJobs[job.ID] = job
 		s.mobileJobCurrent = job.ID
 		return *job, started.Attached, false, nil

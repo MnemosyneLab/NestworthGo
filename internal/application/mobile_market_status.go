@@ -75,7 +75,7 @@ func (s *Service) sharedMarketJob(id string) (MobileMarketJob, bool) {
 func (s *Service) RequestCancelMobileMarket(id string) bool {
 	s.mobileJobsMu.Lock()
 	job := s.mobileJobs[id]
-	if job == nil {
+	if job == nil || job.Source != "mobile" || !job.Cancellable {
 		s.mobileJobsMu.Unlock()
 		return false
 	}

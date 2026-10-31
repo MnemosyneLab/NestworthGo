@@ -712,15 +712,13 @@ func (s *Server) read(ctx context.Context, r *http.Request, d *session, p string
 // never cross the mobile boundary. Persisted acceptance is not completion.
 func mobileJobDTO(job application.MobileMarketJob, start, limit int) map[string]any {
 	items := []map[string]string{}
+	begin := min(start, len(job.Items))
 	end := min(start+limit, len(job.Items))
-	if start > end {
-		start = end
-	}
-	for _, item := range job.Items[start:end] {
+	for _, item := range job.Items[begin:end] {
 		items = append(items, map[string]string{"label": item.Label, "status": item.Status, "kind": item.Kind, "startDate": item.StartDate, "endDate": item.EndDate, "errorCode": safeJobCode(item.Detail)})
 	}
 	result := job.Result
-	begin := min(start, len(result.Items))
+	begin = min(start, len(result.Items))
 	result.Items = append([]application.RefreshTargetResult{}, result.Items[begin:min(begin+limit, len(result.Items))]...)
 	current := ""
 	if job.Current != nil {
