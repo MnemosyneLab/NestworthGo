@@ -31,6 +31,8 @@ export async function loadMobileTranslation(language: string) {
   });
 }
 
+import { mobilePreferences } from "./connection";
+
 const backend: BackendModule = {
   type: "backend",
   init() {},
@@ -62,7 +64,7 @@ export function initializeMobileI18n() {
     .use(backend)
     .use(initReactI18next)
     .init({
-      lng: language,
+      lng: mobilePreferences().language ?? language,
       fallbackLng: "en",
       supportedLngs: ["en", "zh-CN", "zh-TW"],
       load: "currentOnly",

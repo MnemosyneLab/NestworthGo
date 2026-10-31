@@ -41,6 +41,7 @@ type Service struct {
 
 	syncMu                sync.Mutex
 	latestRun             *latestRefreshRun
+	latestSnapshot        *MobileMarketJob // Shared desktop/MCP/mobile latest work, guarded by syncMu.
 	mobileJobsMu          sync.Mutex
 	mobileJobs            map[string]*MobileMarketJob
 	mobileJobCurrent      string

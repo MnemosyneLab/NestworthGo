@@ -2227,6 +2227,46 @@
       "partial": "部分完成",
       "failed": "失败",
       "cancelled": "已取消"
-    }
+    },
+    "connectionSettings": "连接设置",
+    "backendAddress": "后端 HTTPS 地址",
+    "backendHelp": "留空使用当前网站的服务器。独立后端必须使用受信任的 HTTPS，并在桌面端“手机访问”中授权下方前端来源。保存地址后再配对。切换服务器会清除本机登录；旧服务器会话可在桌面设备管理中撤销。",
+    "frontendOrigin": "前端来源：{{origin}}",
+    "connectionTestPassed": "已连接到 Nestworth，仍需配对登录。",
+    "testConnection": "测试连接",
+    "useConnection": "使用此服务器",
+    "connectedTo": "服务器：{{address}}",
+    "reconnect": "重新连接",
+    "theme": "主题",
+    "themeChoice": {
+      "system": "跟随系统",
+      "light": "浅色",
+      "dark": "深色"
+    },
+    "trustedFrontend": "受信任的前端来源（可选）",
+    "trustedFrontendHelp": "独立部署前端时，填写其准确的 HTTPS 来源，不含路径和末尾斜杠。留空仅允许同源访问。授权后该前端可交换配对令牌并访问已授权数据，请只填写受信任的前端。保存设置会撤销现有会话。",
+    "connectionQR": "打开手机连接",
+    "connectionQRHelp": "扫码打开手机页面并填入后端地址。二维码不含令牌；请另行输入一次性令牌。使用独立部署的前端前，请先构建并发布当前开源手机入口。",
+    "confirmAnother": "确认并再记一笔",
+    "marketJob": "行情数据任务",
+    "jobQueued": "准备运行",
+    "sharedJob": "来自桌面、MCP 或其他手机会话的共享任务。",
+    "currentTarget": "当前目标：{{target}}",
+    "marketProgress": "行情更新进度",
+    "nextEligibility": "下次可尝试时间：{{time}}",
+    "reloadJob": "重新加载任务状态",
+    "cancelJob": "取消任务",
+    "cancelRequested": "已请求取消，已保存的行情会保留，请等待最终状态。",
+    "retryJobHelp": "按当前服务限制和已保存行情预览新一次尝试。成功或仍新鲜的数据可能被复用，不会重放已接收的任务。",
+    "jobAcceptanceUnknown": "尚未确认任务是否被接收。请重试同一次提交以恢复原任务，不要另建任务。",
+    "transport": {
+      "invalid_url": "请输入 HTTPS 来源，例如 https://nestworth.private.example:9443，不含凭据、路径、查询参数或片段。",
+      "insecure_backend": "请使用受信任的 HTTPS 后端。公开 HTTPS 页面无法可靠连接私有 HTTP 服务器。可打开后端自带的 HTTPS 页面，或在已有私网中配置受信任的 HTTPS。",
+      "transport": "浏览器无法连接服务器。请确认 Nestworth 正在运行、手机可访问私网、证书受信任，以及桌面设置已授权此准确前端来源。同时检查前端 connect-src 策略和浏览器本地网络权限。浏览器不会提供确切的网络、TLS 或跨域失败原因；请求结果尚未确认。",
+      "timeout": "请求超时，请检查连接。若正在确认保存，请保留原提交并查询结果，或重试同一次提交。",
+      "cancelled": "请求已取消。已提交的确认仍可能完成，请查询原提交结果。",
+      "invalid_response": "该地址未返回受支持的 Nestworth 手机接口响应。请检查后端地址、接口版本、前端来源授权和代理路由。"
+    },
+    "recoveryMemoryOnly": "此浏览器无法保留重新加载后的恢复引用。请保持页面打开，直到确认原提交结果；若离开，请在桌面流水中核实。"
   }
 }

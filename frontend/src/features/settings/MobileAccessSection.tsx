@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -33,10 +34,20 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const visible = useRef(active);
+  useEffect(() => {
+    visible.current = active;
+    return () => {
+      visible.current = false;
+    };
+  }, [active]);
+  const [expiresAt, setExpiresAt] = useState("");
   if (!active && token !== null) setToken(null);
   const config = draft ?? status.data?.config;
   async function run(action: () => Promise<unknown>) {
-    if (busy) return;
+    if (lock.current) return;
+    lock.current = true;
     setBusy(true);
     setToken(null);
     setError(null);
@@ -47,6 +58,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
       setError(displayError(e, t("settings.saveError")));
     } finally {
       await client.invalidateQueries({ queryKey: ["mobile-access"] });
+      lock.current = false;
       setBusy(false);
     }
   }
@@ -93,6 +105,22 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
               placeholder="https://nestworth.private.example"
               onChange={(e) => set("origin", e.target.value)}
             />
+            <Label htmlFor="mobile-frontend-origin">
+              {t("mobile.trustedFrontend")}
+            </Label>
+            <Input
+              id="mobile-frontend-origin"
+              value={config.frontendOrigin ?? ""}
+              aria-describedby="mobile-frontend-help"
+              placeholder="https://your-frontend.example"
+              onChange={(e) => set("frontendOrigin", e.target.value.trim())}
+            />
+            <p
+              id="mobile-frontend-help"
+              className="text-sm text-muted-foreground"
+            >
+              {t("mobile.trustedFrontendHelp")}
+            </p>
             <Label htmlFor="mobile-listen">{t("mobile.listen")}</Label>
             <Input
               id="mobile-listen"
@@ -150,6 +178,20 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
           >
             {status.data.config.origin}
           </a>
+          <div className="space-y-2">
+            <QRCodeSVG
+              value={
+                status.data.config.frontendOrigin
+                  ? `${status.data.config.frontendOrigin}/#backend=${encodeURIComponent(status.data.config.origin)}`
+                  : status.data.config.origin
+              }
+              size={192}
+              marginSize={4}
+              role="img"
+              title={t("mobile.connectionQR")}
+            />
+            <p className="text-sm">{t("mobile.connectionQRHelp")}</p>
+          </div>
           <form
             className="space-y-3"
             onSubmit={(event) => {
@@ -158,7 +200,10 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
                 const p = await callService(() =>
                   MobileService.Pair(name, permissions),
                 );
-                setToken(p.token);
+                if (visible.current) {
+                  setToken(p.token);
+                  setExpiresAt(String(p.expiresAt));
+                }
               });
             }}
           >
@@ -189,13 +234,18 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
           </form>
           <p className="text-sm">{t("mobile.pairHelp")}</p>
           {token && (
-            <Input
-              aria-label={t("mobile.token")}
-              readOnly
-              autoComplete="off"
-              value={token}
-              onFocus={(e) => e.target.select()}
-            />
+            <div className="space-y-2">
+              <p>
+                {t("mobile.expiresAt")} {formatTimestamp(expiresAt)}
+              </p>
+              <Input
+                aria-label={t("mobile.token")}
+                readOnly
+                autoComplete="off"
+                value={token}
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
           )}
           <Button
             variant="outline"
