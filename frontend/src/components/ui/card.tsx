@@ -27,8 +27,9 @@ function InteractiveCard({ className, ...props }: React.HTMLAttributes<HTMLDivEl
   );
 }
 
+// Fixed (non-responsive) padding: tailwind-merge cannot drop sm:* defaults when callers pass p-*.
 function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col gap-1.5 p-5 sm:p-6", className)} {...props} />;
+  return <div className={cn("flex flex-col gap-1.5 p-5", className)} {...props} />;
 }
 
 function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -40,8 +41,8 @@ function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParag
 }
 
 function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  // No responsive pt-* so callers can restore top padding for header-less cards.
-  return <div className={cn("px-5 pb-5 sm:px-6 sm:pb-6", className)} {...props} />;
+  // No top padding (header-less cards add pt-*) and no responsive variants, so caller padding always wins.
+  return <div className={cn("px-5 pb-5", className)} {...props} />;
 }
 
 export { Card, InteractiveCard, CardHeader, CardTitle, CardDescription, CardContent };
