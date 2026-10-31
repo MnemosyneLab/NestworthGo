@@ -23,6 +23,7 @@ import {
   Inbox,
   Landmark,
   LayoutGrid,
+  Monitor,
   Plus,
   ReceiptText,
   RefreshCw,
@@ -35,6 +36,7 @@ import {
   ShieldCheck,
   Wallet,
   WalletCards,
+  WifiOff,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -224,14 +226,6 @@ function ErrorMessage({ error }: { error: unknown }) {
           : ""}
       </span>
     </p>
-  );
-}
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {children}
-    </section>
   );
 }
 function Field({ name, children }: { name: string; children: ReactNode }) {
@@ -576,10 +570,22 @@ export function MobileApp() {
         />
       )}
       {pending && !recoveryPersistent && (
-        <p role="alert">{t("mobile.recoveryMemoryOnly")}</p>
+        <p role="alert" className="mobile-notice" data-tone="warning">
+          <AlertCircle aria-hidden className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t("mobile.recoveryMemoryOnly")}
+          </span>
+        </p>
       )}
       <ErrorMessage error={sessionError} />
-      {offline && <p role="status">{t("mobile.connectionUnavailable")}</p>}
+      {offline && (
+        <p role="status" className="mobile-notice" data-tone="warning">
+          <WifiOff aria-hidden className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t("mobile.connectionUnavailable")}
+          </span>
+        </p>
+      )}
       <ErrorMessage error={bootstrap.error} />
       {!b ? (
         <LoadingState label={t("common.loading")} />
@@ -1936,103 +1942,129 @@ function Health({
   const [collapsed, setCollapsed] = useState(false);
   const [scan, setScan] = useState(0);
   const query = usePage<Issue>("/health", `scan=${scan}`);
+  const items = (query.data?.data.items ?? []).filter(
+    (i) => collapsed || !i.Collapsed,
+  );
   return (
-    <Section title={t("mobile.health")}>
-      <Button variant="outline" onClick={() => setScan((p) => p + 1)}>
-        {t("mobile.rescan")}
-      </Button>
-      <Button
-        variant="ghost"
-        aria-pressed={collapsed}
-        onClick={() => setCollapsed(!collapsed)}
-      >
-        {t("mobile.showRelated")}
-      </Button>
+    <section className="mobile-stack" aria-labelledby="mobile-health-title">
+      <header className="mobile-page-head">
+        <h2 id="mobile-health-title" className="mobile-page-title">
+          {t("mobile.health")}
+        </h2>
+      </header>
+      <div className="mobile-toolbar">
+        <Button variant="outline" onClick={() => setScan((p) => p + 1)}>
+          <RefreshCw aria-hidden />
+          {t("mobile.rescan")}
+        </Button>
+        <Button
+          variant="ghost"
+          aria-pressed={collapsed}
+          className="mobile-toggle"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {t("mobile.showRelated")}
+        </Button>
+      </div>
       <ErrorMessage error={query.error} />
-      {query.isPending && <LoadingState label={t("common.loading")} />}
-      {(query.data?.data.items ?? [])
-        .filter((i) => collapsed || !i.Collapsed)
-        .map((i) => {
-          const manual = ["missing_manual_price", "missing_manual_fx"].includes(
-            i.Kind,
-          );
-          const balance = [
-            "stale_account_value",
-            "missing_account_value",
-          ].includes(i.Kind);
-          const sync =
-            i.Executable &&
-            i.Action === "repair" &&
-            (i.InstrumentID || (i.CurrencyA && i.CurrencyB));
-          return (
-            <Card className="p-4 space-y-3" key={i.ID}>
-              <h3 className="font-semibold">{i.Label}</h3>
-              <p className="text-xs">
+      {query.isPending && <RowsSkeleton rows={2} />}
+      {items.map((i) => {
+        const manual = ["missing_manual_price", "missing_manual_fx"].includes(
+          i.Kind,
+        );
+        const balance = [
+          "stale_account_value",
+          "missing_account_value",
+        ].includes(i.Kind);
+        const sync =
+          i.Executable &&
+          i.Action === "repair" &&
+          (i.InstrumentID || (i.CurrencyA && i.CurrencyB));
+        const tone =
+          i.Severity === "blocking"
+            ? "danger"
+            : i.Severity === "warning"
+              ? "warning"
+              : undefined;
+        return (
+          <article
+            className="mobile-card mobile-issue"
+            data-tone={tone}
+            key={i.ID}
+          >
+            <div className="mobile-issue-head">
+              <span className="mobile-badge" data-tone={tone}>
                 {t(`mobile.severity.${i.Severity}`, {
                   defaultValue: t("mobile.partial"),
                 })}
-              </p>
-              <p>
-                {t(`dataHealth.kind.${i.Kind}`, {
-                  defaultValue: t("mobile.desktopRequired"),
-                })}
-              </p>
-              <p className="text-sm">
-                {t(`dataHealth.reason.${i.Reason}`, {
-                  defaultValue: t("mobile.partial"),
-                })}
-              </p>
+              </span>
               {i.RangeStart && (
-                <p>
+                <span className="mobile-issue-range">
                   {i.RangeEnd && i.RangeEnd < i.RangeStart
                     ? t("mobile.initialAnchor", {
                         date: formatCivilDate(i.RangeStart),
                       })
                     : `${formatCivilDate(i.RangeStart)} — ${formatCivilDate(i.RangeEnd || i.RangeStart)}`}
-                </p>
+                </span>
               )}
-              {manual && capabilities.manual_quote ? (
-                <Button disabled={disabled} onClick={() => onQuote(i)}>
-                  {t("mobile.manualQuote")}
-                </Button>
-              ) : balance && capabilities.record && i.AccountID ? (
-                <Button
-                  disabled={disabled}
-                  onClick={() => onRecord(i.AccountID)}
-                >
-                  {t("mobile.balance")}
-                </Button>
-              ) : sync && capabilities.market_refresh ? (
-                <Button
-                  disabled={disabled}
-                  onClick={() =>
-                    onMarket({
-                      mode: "history",
-                      scope: i.InstrumentID ? "instrument" : "fx",
-                      instrumentId: i.InstrumentID || undefined,
-                      currencyA: i.CurrencyA || undefined,
-                      currencyB: i.CurrencyB || undefined,
-                    })
-                  }
-                >
-                  {t("mobile.syncHistory")}
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("mobile.desktopRequired")}
-                </p>
-              )}
-            </Card>
-          );
-        })}
-      {query.data?.data.healthy && <p>{t("mobile.healthy")}</p>}
+            </div>
+            <h3>{i.Label}</h3>
+            <p>
+              {t(`dataHealth.kind.${i.Kind}`, {
+                defaultValue: t("mobile.desktopRequired"),
+              })}
+            </p>
+            <p className="mobile-hint">
+              {t(`dataHealth.reason.${i.Reason}`, {
+                defaultValue: t("mobile.partial"),
+              })}
+            </p>
+            {manual && capabilities.manual_quote ? (
+              <Button disabled={disabled} onClick={() => onQuote(i)}>
+                {t("mobile.manualQuote")}
+              </Button>
+            ) : balance && capabilities.record && i.AccountID ? (
+              <Button disabled={disabled} onClick={() => onRecord(i.AccountID)}>
+                {t("mobile.balance")}
+              </Button>
+            ) : sync && capabilities.market_refresh ? (
+              <Button
+                disabled={disabled}
+                onClick={() =>
+                  onMarket({
+                    mode: "history",
+                    scope: i.InstrumentID ? "instrument" : "fx",
+                    instrumentId: i.InstrumentID || undefined,
+                    currencyA: i.CurrencyA || undefined,
+                    currencyB: i.CurrencyB || undefined,
+                  })
+                }
+              >
+                {t("mobile.syncHistory")}
+              </Button>
+            ) : (
+              <p className="mobile-desktop-note">
+                <Monitor aria-hidden />
+                <span>{t("mobile.desktopRequired")}</span>
+              </p>
+            )}
+          </article>
+        );
+      })}
+      {query.data?.data.healthy && (
+        <div className="mobile-card">
+          <EmptyState icon={<ShieldCheck aria-hidden />}>
+            {t("mobile.healthy")}
+          </EmptyState>
+        </div>
+      )}
       <Pager
         next={query.data?.data.next}
         onNext={query.next}
         onFirst={query.first}
         paged={query.paged}
       />
-    </Section>
+    </section>
   );
 }
 
@@ -2084,7 +2116,7 @@ function JobPanel({
   };
   if (!job)
     return query.error ? (
-      <div>
+      <div className="mobile-stack">
         <ErrorMessage error={query.error} />
         <Button variant="outline" onClick={reload}>
           {t("mobile.reloadJob")}
@@ -2094,77 +2126,115 @@ function JobPanel({
   const codes = [
     ...new Set([job.errorCode, ...(job.blockers ?? [])].filter(Boolean)),
   ];
+  const tone =
+    job.outcome === "succeeded"
+      ? "success"
+      : job.outcome === "failed"
+        ? "danger"
+        : job.outcome === "partial" || job.outcome === "cancelled"
+          ? "warning"
+          : undefined;
   return (
-    <Card className="p-4 space-y-3" aria-label={t("mobile.marketJob")}>
-      <h2 className="font-semibold">{t("mobile.marketJob")}</h2>
-      <p role="status">
-        {job.phase === "queued"
-          ? t("mobile.jobQueued")
-          : t(`marketData.outcome.${job.outcome}`, {
-              defaultValue: t("mobile.requestFailed"),
-            })}{" "}
-        · {job.completed}/{job.total}
+    <section
+      className="mobile-card mobile-job mobile-enter"
+      aria-label={t("mobile.marketJob")}
+    >
+      <div className="mobile-job-head">
+        <span className="mobile-job-icon" aria-hidden>
+          <CandlestickChart />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2>{t("mobile.marketJob")}</h2>
+          <p>
+            {t(`marketData.phase.${job.phase}`, {
+              defaultValue: t(
+                job.request.mode === "history"
+                  ? "mobile.syncHistory"
+                  : "mobile.updateMarket",
+              ),
+            })}
+          </p>
+        </div>
+      </div>
+      <p role="status" className="mobile-job-status">
+        <span className="mobile-badge" data-tone={tone}>
+          {job.phase === "queued"
+            ? t("mobile.jobQueued")
+            : t(`marketData.outcome.${job.outcome}`, {
+                defaultValue: t("mobile.requestFailed"),
+              })}
+        </span>
+        <span className="mobile-job-count">
+          {job.completed}/{job.total}
+        </span>
       </p>
-      <p>
-        {t(`marketData.phase.${job.phase}`, {
-          defaultValue: t(
-            job.request.mode === "history"
-              ? "mobile.syncHistory"
-              : "mobile.updateMarket",
-          ),
-        })}
-      </p>
-      {job.source === "shared" && (
-        <p className="text-sm">{t("mobile.sharedJob")}</p>
-      )}
-      {job.current && (
-        <p>{t("mobile.currentTarget", { target: job.current })}</p>
-      )}
       {job.outcome === "running" && (
         <progress
-          className="w-full"
+          className="mobile-progress"
           aria-label={t("mobile.marketProgress")}
           max={Math.max(job.total, 1)}
           value={job.completed}
         />
       )}
+      {job.source === "shared" && (
+        <p className="mobile-hint">{t("mobile.sharedJob")}</p>
+      )}
+      {job.current && (
+        <p className="mobile-hint">
+          {t("mobile.currentTarget", { target: job.current })}
+        </p>
+      )}
       {job.nextEligibilityAt && (
-        <p>
+        <p className="mobile-hint">
           {t("mobile.nextEligibility", {
             time: formatTimestamp(job.nextEligibilityAt),
           })}
         </p>
       )}
-      <ul className="space-y-2">
-        {job.items?.map((item, index) => (
-          <li key={index} className="text-sm break-words">
-            {item.label || t("mobile.unavailable")} ·{" "}
-            {t(`marketData.status.${item.status}`, {
-              defaultValue: t(
-                item.status === "failed"
-                  ? "mobile.requestFailed"
-                  : "mobile.complete",
-              ),
-            })}
-            {item.startDate && item.endDate && (
-              <>
-                {" "}
-                · {formatCivilDate(item.startDate)} —{" "}
-                {formatCivilDate(item.endDate)}
-              </>
-            )}
-            {item.errorCode && (
-              <p>
-                {t(`errorCode:${item.errorCode}`, {
-                  defaultValue: t("mobile.requestFailed"),
-                })}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
+      {!!job.items?.length && (
+        <ul className="mobile-list mobile-job-items">
+          {job.items.map((item, index) => (
+            <li key={index}>
+              <div className="mobile-job-item">
+                <span className="mobile-row-title">
+                  {item.label || t("mobile.unavailable")}
+                </span>
+                <span
+                  className="mobile-job-item-status"
+                  data-tone={
+                    item.status === "failed" || item.status === "rate_limited"
+                      ? "warning"
+                      : undefined
+                  }
+                >
+                  {t(`marketData.status.${item.status}`, {
+                    defaultValue: t(
+                      item.status === "failed"
+                        ? "mobile.requestFailed"
+                        : "mobile.complete",
+                    ),
+                  })}
+                </span>
+              </div>
+              {item.startDate && item.endDate && (
+                <p className="mobile-hint">
+                  {formatCivilDate(item.startDate)} —{" "}
+                  {formatCivilDate(item.endDate)}
+                </p>
+              )}
+              {item.errorCode && (
+                <p className="mobile-hint" data-tone="warning">
+                  {t(`errorCode:${item.errorCode}`, {
+                    defaultValue: t("mobile.requestFailed"),
+                  })}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {codes.map((code) => (
-        <p key={code}>
+        <p key={code} className="mobile-hint" data-tone="warning">
           {t(`errorCode:${code}`, { defaultValue: t("mobile.requestFailed") })}
         </p>
       ))}
@@ -2172,54 +2242,66 @@ function JobPanel({
         job.result?.Items?.filter(
           (i) => i.Status === "failed" || i.Status === "rate_limited",
         ).map((item, index) => (
-          <p key={index}>
+          <p key={index} className="mobile-hint" data-tone="warning">
             {t(`errorCode:${item.ErrorCode}`, {
               defaultValue: t("mobile.requestFailed"),
             })}
           </p>
         ))}
       <ErrorMessage error={query.error || error} />
-      {query.error && (
-        <Button variant="outline" onClick={reload}>
-          {t("mobile.reloadJob")}
-        </Button>
-      )}
-      {job.cancellable && (
-        <Button
-          variant="outline"
-          disabled={disabled || cancelling || cancelRequested === job.jobId}
-          onClick={() => {
-            if (lock.current) return;
-            lock.current = true;
-            setCancelling(true);
-            setError(null);
-            void api<{ requested: boolean }>(
-              `/market-jobs/${job.jobId}/cancel`,
-              "POST",
-              {},
-            )
-              .then((result) => {
-                if (result.requested) setCancelRequested(job.jobId);
-                else throw new MobileError(409, "unavailable");
-                void client.invalidateQueries({ queryKey: ["mobile", "job"] });
-              })
-              .catch(setError)
-              .finally(() => {
-                lock.current = false;
-                setCancelling(false);
-              });
-          }}
-        >
-          {t("mobile.cancelJob")}
-        </Button>
-      )}
       {job.outcome === "running" && cancelRequested === job.jobId && (
-        <p role="status">{t("mobile.cancelRequested")}</p>
+        <p role="status" className="mobile-hint">
+          {t("mobile.cancelRequested")}
+        </p>
       )}
       {["partial", "failed", "cancelled"].includes(job.outcome) &&
         (job.retryable ? (
-          <>
-            <p className="text-sm">{t("mobile.retryJobHelp")}</p>
+          <p className="mobile-hint">{t("mobile.retryJobHelp")}</p>
+        ) : (
+          <p className="mobile-desktop-note">
+            <Monitor aria-hidden />
+            <span>{t("mobile.desktopRequired")}</span>
+          </p>
+        ))}
+      <div className="mobile-form-actions">
+        {query.error && (
+          <Button variant="outline" onClick={reload}>
+            {t("mobile.reloadJob")}
+          </Button>
+        )}
+        {job.cancellable && (
+          <Button
+            variant="outline"
+            disabled={disabled || cancelling || cancelRequested === job.jobId}
+            onClick={() => {
+              if (lock.current) return;
+              lock.current = true;
+              setCancelling(true);
+              setError(null);
+              void api<{ requested: boolean }>(
+                `/market-jobs/${job.jobId}/cancel`,
+                "POST",
+                {},
+              )
+                .then((result) => {
+                  if (result.requested) setCancelRequested(job.jobId);
+                  else throw new MobileError(409, "unavailable");
+                  void client.invalidateQueries({
+                    queryKey: ["mobile", "job"],
+                  });
+                })
+                .catch(setError)
+                .finally(() => {
+                  lock.current = false;
+                  setCancelling(false);
+                });
+            }}
+          >
+            {t("mobile.cancelJob")}
+          </Button>
+        )}
+        {["partial", "failed", "cancelled"].includes(job.outcome) &&
+          job.retryable && (
             <Button
               disabled={disabled}
               onClick={() =>
@@ -2232,10 +2314,8 @@ function JobPanel({
             >
               {t("mobile.retryFailed")}
             </Button>
-          </>
-        ) : (
-          <p>{t("mobile.desktopRequired")}</p>
-        ))}
+          )}
+      </div>
       {(cursor || query.data?.next) && (
         <Pager
           next={query.data?.next}
@@ -2247,7 +2327,7 @@ function JobPanel({
           }}
         />
       )}
-    </Card>
+    </section>
   );
 }
 
@@ -2870,43 +2950,59 @@ function QuoteForm({
     }
   }
   return (
-    <Section title={t("mobile.manualQuote")}>
-      <p>{issue.Label}</p>
-      <p>{t("mobile.manualHelp")}</p>
+    <section className="mobile-stack mobile-record" aria-labelledby="mobile-quote-title">
+      <header>
+        <p className="mobile-eyebrow">{issue.Label}</p>
+        <h2 id="mobile-quote-title" className="mobile-page-title">
+          {t("mobile.manualQuote")}
+        </h2>
+      </header>
+      <p className="mobile-hint">{t("mobile.manualHelp")}</p>
       <form
-        className="space-y-4"
+        className="mobile-stack"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        <fieldset className="space-y-4" disabled={busy || unknown || !!review}>
+        <fieldset
+          className="mobile-card mobile-form-card"
+          disabled={busy || unknown || !!review}
+        >
           <Field name={t("mobile.quoteValue")}>
             <Input
               aria-label={t("mobile.quoteValue")}
+              className="mobile-amount-input"
               value={value}
               inputMode="decimal"
+              autoComplete="off"
+              placeholder="0.00"
               required
               onChange={(e) => setValue(e.target.value)}
             />
           </Field>
-          <DatePickerControl
-            aria-label={t("mobile.effectiveDate")}
-            value={date}
-            onChange={setDate}
-            max={b.today}
-          />
+          <Field name={t("mobile.effectiveDate")}>
+            <DatePickerControl
+              aria-label={t("mobile.effectiveDate")}
+              value={date}
+              onChange={setDate}
+              max={b.today}
+            />
+          </Field>
         </fieldset>
         <ErrorMessage error={error} />
         {review?.receipt && (
-          <Card className="p-4">
-            <p>
+          <section
+            className="mobile-card mobile-review mobile-enter"
+            aria-label={t("mobile.confirm")}
+          >
+            <p className="mobile-hero-figure mobile-money">
               {review.receipt.value} {review.receipt.currency}
               {review.receipt.quoteCurrency
                 ? `/${review.receipt.quoteCurrency}`
                 : ""}
             </p>
-            <p>
+            <p className="mobile-hint">
               {formatQuoteAsOf(
                 {
                   quotedAt: review.receipt.quotedAt,
@@ -2918,17 +3014,15 @@ function QuoteForm({
                 "UTC",
               )}
             </p>
-          </Card>
+          </section>
         )}
-        {unknown && <p role="status">{t("mobile.confirming")}</p>}
-        <div className="flex gap-2">
-          <Button disabled={busy || offline}>
-            {unknown
-              ? t("mobile.retrySame")
-              : review
-                ? t("mobile.confirm")
-                : t("mobile.preview")}
-          </Button>
+        {unknown && (
+          <p role="status" className="mobile-notice" data-tone="warning">
+            <RefreshCw aria-hidden className="size-5 shrink-0" />
+            <span className="min-w-0 flex-1">{t("mobile.confirming")}</span>
+          </p>
+        )}
+        <div className="mobile-form-actions">
           {unknown && (
             <Button
               type="button"
@@ -2957,8 +3051,17 @@ function QuoteForm({
           )}
           <CancelDraft disabled={busy || unknown} onCancel={onCancel} />
         </div>
+        <div className="mobile-actionbar">
+          <Button disabled={busy || offline}>
+            {unknown
+              ? t("mobile.retrySame")
+              : review
+                ? t("mobile.confirm")
+                : t("mobile.preview")}
+          </Button>
+        </div>
       </form>
-    </Section>
+    </section>
   );
 }
 
@@ -2978,6 +3081,9 @@ function MarketReview({
   const lock = useRef(false);
   const [uncertain, setUncertain] = useState(false);
   useLeaveGuard(busy || uncertain);
+  const target =
+    review?.targetLabel ||
+    t(`mobile.scope.${request.scope}`, { defaultValue: "" });
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -2996,47 +3102,72 @@ function MarketReview({
     };
   }, [request]);
   return (
-    <Section
-      title={
-        request.mode === "history"
-          ? t("mobile.syncHistory")
-          : t("mobile.updateMarket")
-      }
-    >
-      <p>
+    <section className="mobile-stack mobile-record" aria-labelledby="mobile-market-title">
+      <header>
+        <h2 id="mobile-market-title" className="mobile-page-title">
+          {request.mode === "history"
+            ? t("mobile.syncHistory")
+            : t("mobile.updateMarket")}
+        </h2>
+      </header>
+      <p className="mobile-hint">
         {request.mode === "history"
           ? t("mobile.historyScope")
           : t("mobile.latestScope")}
       </p>
-      <p>
-        {review?.targetLabel ||
-          t(`mobile.scope.${request.scope}`, { defaultValue: "" })}
-      </p>
-      {review?.historicalPlan && (
-        <>
-          <p>
-            {t("mobile.plannedRequests", {
-              count: review.historicalPlan.EstimatedRequestCount,
-            })}
-          </p>
-          {(review.historicalPlan.Items ?? []).slice(0, 100).map((i, index) => (
-            <p key={index}>
-              {i.Label} · {formatCivilDate(i.StartDate)} —{" "}
-              {formatCivilDate(i.EndDate)}
-            </p>
-          ))}
-          {review.historicalPlan.Unresolved?.map((item, index) => (
-            <p key={index}>
-              {t(`errorCode:${item.Code}`, {
-                defaultValue: t("mobile.desktopRequired"),
+      <div className="mobile-card mobile-review">
+        {!review && !error ? (
+          <RowsSkeleton rows={1} />
+        ) : (
+          target && <h3>{target}</h3>
+        )}
+        {review?.historicalPlan && (
+          <>
+            <p className="mobile-hint">
+              {t("mobile.plannedRequests", {
+                count: review.historicalPlan.EstimatedRequestCount,
               })}
             </p>
-          ))}
-        </>
+            <ul className="mobile-list">
+              {(review.historicalPlan.Items ?? [])
+                .slice(0, 100)
+                .map((i, index) => (
+                  <li key={index} className="mobile-review-row">
+                    <span className="mobile-row-title">{i.Label}</span>
+                    <span className="mobile-review-change">
+                      {formatCivilDate(i.StartDate)} —{" "}
+                      {formatCivilDate(i.EndDate)}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+            {review.historicalPlan.Unresolved?.map((item, index) => (
+              <p key={index} className="mobile-hint" data-tone="warning">
+                {t(`errorCode:${item.Code}`, {
+                  defaultValue: t("mobile.desktopRequired"),
+                })}
+              </p>
+            ))}
+          </>
+        )}
+      </div>
+      {uncertain && (
+        <p role="status" className="mobile-notice" data-tone="warning">
+          <RefreshCw aria-hidden className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t("mobile.jobAcceptanceUnknown")}
+          </span>
+        </p>
       )}
-      {uncertain && <p role="status">{t("mobile.jobAcceptanceUnknown")}</p>}
       <ErrorMessage error={error} />
-      <div className="flex gap-2">
+      <div className="mobile-actionbar">
+        <Button
+          disabled={busy || uncertain}
+          variant="outline"
+          onClick={onCancel}
+        >
+          {t("common.cancel")}
+        </Button>
         <Button
           disabled={busy || !review}
           onClick={() => {
@@ -3069,15 +3200,8 @@ function MarketReview({
         >
           {uncertain ? t("mobile.retrySame") : t("mobile.confirm")}
         </Button>
-        <Button
-          disabled={busy || uncertain}
-          variant="outline"
-          onClick={onCancel}
-        >
-          {t("common.cancel")}
-        </Button>
       </div>
-    </Section>
+    </section>
   );
 }
 
@@ -3097,32 +3221,37 @@ function Recovery({
   const [busy, setBusy] = useState(false);
   const [forget, setForget] = useState(false);
   return (
-    <Card className="p-4 space-y-3">
-      <p role="status">{t("mobile.confirming")}</p>
-      <p>{t("mobile.recoveryHelp")}</p>
+    <section className="mobile-card mobile-recovery mobile-enter">
+      <p role="status" className="mobile-recovery-title">
+        <RefreshCw aria-hidden />
+        <span>{t("mobile.confirming")}</span>
+      </p>
+      <p className="mobile-hint">{t("mobile.recoveryHelp")}</p>
       <ErrorMessage error={error} />
-      <Button
-        disabled={busy || pending.householdId !== householdId}
-        onClick={() => {
-          setBusy(true);
-          void api<{
-            operationState: string;
-            receipt?: { activity?: Activity };
-          }>(`/operations/${pending.operationId}`)
-            .then((r) => {
-              if (r.operationState === "committed")
-                onResolved(r.receipt?.activity);
-              else setError(new MobileError(503, "unavailable"));
-            })
-            .catch(setError)
-            .finally(() => setBusy(false));
-        }}
-      >
-        {t("mobile.queryResult")}
-      </Button>
-      <Button variant="outline" disabled={busy} onClick={() => setForget(true)}>
-        {t("mobile.forgetRecovery")}
-      </Button>
+      <div className="mobile-form-actions">
+        <Button
+          disabled={busy || pending.householdId !== householdId}
+          onClick={() => {
+            setBusy(true);
+            void api<{
+              operationState: string;
+              receipt?: { activity?: Activity };
+            }>(`/operations/${pending.operationId}`)
+              .then((r) => {
+                if (r.operationState === "committed")
+                  onResolved(r.receipt?.activity);
+                else setError(new MobileError(503, "unavailable"));
+              })
+              .catch(setError)
+              .finally(() => setBusy(false));
+          }}
+        >
+          {t("mobile.queryResult")}
+        </Button>
+        <Button variant="outline" disabled={busy} onClick={() => setForget(true)}>
+          {t("mobile.forgetRecovery")}
+        </Button>
+      </div>
       <AlertDialog open={forget} onOpenChange={setForget}>
         <AlertDialogContent>
           <AlertDialogTitle>{t("mobile.forgetRecovery")}</AlertDialogTitle>
@@ -3135,6 +3264,6 @@ function Recovery({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </section>
   );
 }

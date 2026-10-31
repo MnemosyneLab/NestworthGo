@@ -902,6 +902,14 @@ div[aria-busy="true"] > .mobile-groups {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
+/* Keep flow actions in the thumb zone even when the content is short. */
+.mobile-record,
+.mobile-record > form {
+  flex: 1 0 auto;
+}
+.mobile-record .mobile-actionbar {
+  margin-top: auto;
+}
 .mobile-shell .mobile-actionbar button {
   flex: 1 1 0;
   min-height: 48px;
@@ -910,6 +918,176 @@ div[aria-busy="true"] > .mobile-groups {
 .mobile-review h3:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* Health, market tasks and recovery */
+.mobile-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.mobile-toolbar svg {
+  width: 1rem;
+  height: 1rem;
+}
+.mobile-shell .mobile-toggle {
+  border: 1px dashed var(--color-border);
+  color: var(--color-muted-foreground);
+}
+.mobile-toggle[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--color-foreground);
+  color: var(--color-foreground);
+}
+.mobile-issue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-left-width: 3px;
+}
+.mobile-issue[data-tone="danger"] {
+  border-left-color: var(--color-destructive);
+}
+.mobile-issue[data-tone="warning"] {
+  border-left-color: var(--color-warning);
+}
+.mobile-issue-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem 0.75rem;
+}
+.mobile-issue-range {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-foreground);
+}
+.mobile-issue h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mobile-issue > button {
+  margin-top: 0.25rem;
+}
+.mobile-desktop-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-muted);
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-desktop-note svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.125rem;
+}
+.mobile-hint[data-tone="warning"] {
+  color: color-mix(in oklab, var(--color-warning) 70%, var(--color-foreground));
+}
+.mobile-job {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.mobile-job-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.mobile-job-head h2 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.mobile-job-head p {
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-job-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-muted);
+}
+.mobile-job-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.mobile-job-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.mobile-job-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.mobile-progress {
+  width: 100%;
+  height: 0.375rem;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  appearance: none;
+  background: var(--color-muted);
+}
+.mobile-progress::-webkit-progress-bar {
+  background: var(--color-muted);
+}
+.mobile-progress::-webkit-progress-value {
+  background: var(--color-primary);
+  border-radius: 999px;
+  transition: width 300ms ease;
+}
+.mobile-progress::-moz-progress-bar {
+  background: var(--color-primary);
+  border-radius: 999px;
+}
+.mobile-job-items > li {
+  padding-block: 0.625rem;
+}
+.mobile-job-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.mobile-job-item-status {
+  flex: none;
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-job-item-status[data-tone="warning"] {
+  color: color-mix(in oklab, var(--color-warning) 70%, var(--color-foreground));
+  font-weight: 500;
+}
+.mobile-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-color: color-mix(in oklab, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in oklab, var(--color-warning) 7%, var(--color-card));
+}
+.mobile-recovery-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.mobile-recovery-title svg {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 /* Filters */
