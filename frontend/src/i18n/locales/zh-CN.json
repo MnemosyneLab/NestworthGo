@@ -2073,6 +2073,12 @@
     "holdingsScopeNote": "展示未归档账户中的当前持仓（包括零数量）。金额使用标的币种，缺失数值保持不可用。"
   },
   "mobile": {
+    "showValues": "查看数值",
+    "filters": "筛选",
+    "clearFilters": "清除筛选",
+    "allTypes": "全部类型",
+    "noAccounts": "没有符合筛选条件的账户。",
+    "liability": "负债",
     "timezone": "账本时区",
     "server": "服务器",
     "settings": "设置",

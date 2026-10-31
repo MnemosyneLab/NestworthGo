@@ -7,16 +7,30 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
+  CandlestickChart,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  HandCoins,
+  Inbox,
+  Landmark,
   LayoutGrid,
   Plus,
   ReceiptText,
   RefreshCw,
   RotateCw,
+  Scale,
+  Search,
   Settings2,
+  SlidersHorizontal,
   ShieldCheck,
+  Wallet,
   WalletCards,
   X,
 } from "lucide-react";
@@ -841,24 +855,118 @@ function Login({
   );
 }
 
-function MetricView({ label, metric }: { label: string; metric: Metric }) {
+function MetricItem({
+  label,
+  metric,
+  className,
+}: {
+  label: string;
+  metric: Metric;
+  className?: string;
+}) {
   const { t } = useTranslation();
   return (
-    <Card className="p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold">
+    <div className={className}>
+      <dt>{label}</dt>
+      <dd>
         {metric.total ? (
           <MoneyText value={metric.total} />
         ) : (
           <span aria-label={t("mobile.unavailable")}>—</span>
         )}
+        {!metric.total && metric.knownSubtotal && (
+          <small className="mobile-subtotal">
+            {t("mobile.knownSubtotal")}{" "}
+            <MoneyText value={metric.knownSubtotal} />
+          </small>
+        )}
+      </dd>
+    </div>
+  );
+}
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="mobile-segmented" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={o.value === value}
+          onClick={() => onChange(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+// Geometry only: plotted from server totals; displayed figures stay exact strings.
+function Sparkline({ points }: { points: { date: string; valuation: Metric }[] }) {
+  const values = points.map((p) =>
+    p.valuation.total ? Number(p.valuation.total.amount) : NaN,
+  );
+  const known = values.filter(Number.isFinite);
+  if (known.length < 2) return null;
+  const min = Math.min(...known);
+  const span = Math.max(...known) - min;
+  const w = 320;
+  const h = 72;
+  const step = w / Math.max(values.length - 1, 1);
+  let d = "";
+  let pen = false;
+  values.forEach((v, i) => {
+    if (!Number.isFinite(v)) {
+      pen = false;
+      return;
+    }
+    const y = span ? 4 + (h - 8) * (1 - (v - min) / span) : h / 2;
+    d += `${pen ? "L" : "M"}${(i * step).toFixed(1)},${y.toFixed(1)}`;
+    pen = true;
+  });
+  return (
+    <div className="mobile-sparkline" aria-hidden="true">
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" focusable="false">
+        <path d={d} vectorEffect="non-scaling-stroke" />
+      </svg>
+      <p className="num">
+        <span>{formatCivilDate(points[0].date)}</span>
+        <span>{formatCivilDate(points[points.length - 1].date)}</span>
       </p>
-      {!metric.total && metric.knownSubtotal && (
-        <p>
-          {t("mobile.knownSubtotal")} <MoneyText value={metric.knownSubtotal} />
-        </p>
-      )}
-    </Card>
+    </div>
+  );
+}
+function EmptyState({
+  icon,
+  children,
+}: {
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mobile-empty">
+      {icon ?? <Inbox aria-hidden="true" />}
+      <p>{children}</p>
+    </div>
+  );
+}
+function RowsSkeleton({ rows = 3 }: { rows?: number }) {
+  const { t } = useTranslation();
+  return (
+    <div className="mobile-skeleton" role="status" aria-label={t("common.loading")}>
+      {Array.from({ length: rows }, (_, i) => (
+        <span key={i} />
+      ))}
+    </div>
   );
 }
 function Overview({
@@ -870,10 +978,11 @@ function Overview({
   canRefresh: boolean;
   onActivity: (id: string) => void;
 }) {
-  const { t } = useTranslation();
-  const [range, setRange] = useState("30d");
+  const { t, i18n } = useTranslation();
+  const [range, setRange] = useState<"30d" | "1y">("30d");
   const query = useQuery({
     queryKey: ["mobile", "overview", range],
+    placeholderData: (previous) => previous,
     queryFn: () =>
       api<
         Envelope<{
@@ -882,7 +991,12 @@ function Overview({
           trend: { date: string; valuation: Metric }[];
           recent: Activity[];
           currency: string;
-          distribution: { key: string; label: string; amount: string }[];
+          distribution: {
+            key: string;
+            label: string;
+            amount: string;
+            shareBps?: number;
+          }[];
         }>
       >(`/overview?range=${range}`),
   });
@@ -890,63 +1004,129 @@ function Overview({
     return (
       <>
         <ErrorMessage error={query.error} />
-        <LoadingState label={t("common.loading")} />
+        {!query.error && <LoadingState label={t("common.loading")} />}
       </>
     );
   const o = query.data.data;
   return (
-    <div className="space-y-5">
-      <Button className="w-full" disabled={!canRefresh} onClick={onMarket}>
+    <div className="mobile-stack">
+      <ErrorMessage error={query.error} />
+      <section className="mobile-hero" aria-label={t("mobile.netWorth")}>
+        <dl>
+          <MetricItem
+            className="mobile-hero-total"
+            label={t("mobile.netWorth")}
+            metric={o.valuation.netWorth}
+          />
+        </dl>
+        <p className="mobile-meta">
+          <span
+            className="mobile-badge"
+            data-tone={o.complete ? "success" : "warning"}
+          >
+            {o.complete ? t("mobile.complete") : t("mobile.partial")}
+          </span>
+          <span className="num">
+            {formatTimestamp(query.data.asOf, query.data.ledgerTimezone)}
+          </span>
+        </p>
+        <dl className="mobile-split">
+          <MetricItem label={t("mobile.assets")} metric={o.valuation.assets} />
+          <MetricItem
+            label={t("mobile.liabilities")}
+            metric={o.valuation.liabilities}
+          />
+        </dl>
+      </section>
+      <section className="mobile-card" aria-labelledby="mobile-trend">
+        <div className="mobile-card-head">
+          <h2 id="mobile-trend">{t("mobile.trend")}</h2>
+          <Segmented
+            label={t("mobile.trend")}
+            value={range}
+            onChange={setRange}
+            options={[
+              { value: "30d", label: t("mobile.month") },
+              { value: "1y", label: t("mobile.year") },
+            ]}
+          />
+        </div>
+        <div aria-busy={query.isFetching}>
+          <Sparkline points={o.trend} />
+          {o.trend.length ? (
+            <details className="mobile-disclosure">
+              <summary>{t("mobile.showValues")}</summary>
+              <dl className="mobile-values">
+                {o.trend.map((p) => (
+                  <div key={p.date}>
+                    <dt>{formatCivilDate(p.date)}</dt>
+                    <dd>
+                      <MoneyText value={p.valuation.total} />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          ) : (
+            <EmptyState>{t("mobile.empty")}</EmptyState>
+          )}
+        </div>
+      </section>
+      <Button
+        variant="outline"
+        className="mobile-wide"
+        disabled={!canRefresh}
+        onClick={onMarket}
+      >
+        <RefreshCw aria-hidden="true" />
         {t("mobile.updateMarket")}
       </Button>
-      <ErrorMessage error={query.error} />
-      <MetricView label={t("mobile.netWorth")} metric={o.valuation.netWorth} />
-      <div className="grid grid-cols-2 gap-3">
-        <MetricView label={t("mobile.assets")} metric={o.valuation.assets} />
-        <MetricView
-          label={t("mobile.liabilities")}
-          metric={o.valuation.liabilities}
-        />
-      </div>
-      <p className="text-xs">
-        {o.complete ? t("mobile.complete") : t("mobile.partial")} ·{" "}
-        {formatTimestamp(query.data.asOf, query.data.ledgerTimezone)}
-      </p>
-      <Section title={t("mobile.trend")}>
-        <NativeSelect
-          aria-label={t("mobile.trend")}
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-        >
-          <option value="30d">{t("mobile.month")}</option>
-          <option value="1y">{t("mobile.year")}</option>
-        </NativeSelect>
-        <div className="max-h-64 overflow-auto rounded-xl border border-border">
-          <dl className="divide-y divide-border">
-            {o.trend.map((p) => (
-              <div key={p.date} className="flex justify-between gap-2 p-3">
-                <dt>{formatCivilDate(p.date)}</dt>
-                <dd>
-                  <MoneyText value={p.valuation.total} />
-                </dd>
-              </div>
+      {o.distribution.length > 0 && (
+        <section className="mobile-card" aria-labelledby="mobile-distribution">
+          <h2 id="mobile-distribution">{t("mobile.distribution")}</h2>
+          {o.distribution.some((d) => d.shareBps !== undefined) && (
+            <div className="mobile-meter" aria-hidden="true">
+              {o.distribution.map((d, i) => (
+                <span
+                  key={d.key}
+                  data-series={i % 6}
+                  style={{ flexGrow: Math.max(d.shareBps ?? 0, 0) }}
+                />
+              ))}
+            </div>
+          )}
+          <ul className="mobile-legend">
+            {o.distribution.map((d, i) => (
+              <li key={d.key}>
+                <span className="mobile-swatch" data-series={i % 6} />
+                <span className="mobile-legend-label">
+                  {t(`enum.${d.key}`, { defaultValue: d.label })}
+                </span>
+                {d.shareBps !== undefined && (
+                  <span className="mobile-legend-share num">
+                    {formatShare(d.shareBps, i18n.language)}
+                  </span>
+                )}
+                <MoneyText
+                  value={{ amount: d.amount, currency: o.currency }}
+                />
+              </li>
             ))}
-          </dl>
-        </div>
-      </Section>
-      <Section title={t("mobile.distribution")}>
-        {o.distribution.map((d) => (
-          <div className="flex justify-between gap-3" key={d.key}>
-            <span>{t(`enum.${d.key}`, { defaultValue: d.label })}</span>
-            <MoneyText value={{ amount: d.amount, currency: o.currency }} />
-          </div>
-        ))}
-      </Section>
-      <Section title={t("mobile.recent")}>
+          </ul>
+        </section>
+      )}
+      <section className="mobile-card" aria-labelledby="mobile-recent">
+        <h2 id="mobile-recent">{t("mobile.recent")}</h2>
         <ActivityList items={o.recent} onOpen={onActivity} />
-      </Section>
+      </section>
     </div>
   );
+}
+function formatShare(bps: number, language: string) {
+  return `${(bps / 100).toLocaleString(language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })}%`;
 }
 
 function usePage<T>(endpoint: string, filters = "") {
@@ -962,6 +1142,7 @@ function usePage<T>(endpoint: string, filters = "") {
   });
   return {
     ...query,
+    paged: cursor !== "",
     next: () => setPage({ key, cursor: query.data?.data.next ?? "" }),
     first: () => setPage({ key, cursor: "" }),
   };
@@ -970,21 +1151,58 @@ function Pager({
   next,
   onNext,
   onFirst,
+  paged,
 }: {
   next?: string;
   onNext: () => void;
   onFirst: () => void;
+  paged: boolean;
 }) {
   const { t } = useTranslation();
+  if (!next && !paged) return null;
   return (
-    <div className="flex gap-2">
-      <Button variant="outline" onClick={onFirst}>
+    <div className="mobile-pager">
+      <Button variant="ghost" size="sm" disabled={!paged} onClick={onFirst}>
         {t("mobile.firstPage")}
       </Button>
-      <Button variant="outline" disabled={!next} onClick={onNext}>
+      <Button variant="outline" size="sm" disabled={!next} onClick={onNext}>
         {t("mobile.nextPage")}
+        <ChevronRight aria-hidden="true" />
       </Button>
     </div>
+  );
+}
+const accountTypes = [
+  "bank_account",
+  "cash_on_hand",
+  "brokerage",
+  "investment_account",
+  "credit_card",
+  "loan",
+  "digital_wallet",
+  "crypto_exchange",
+  "receivable",
+  "other",
+];
+function AccountIcon({ type }: { type: string }) {
+  const Icon =
+    type === "bank_account"
+      ? Landmark
+      : type === "cash_on_hand" || type === "digital_wallet"
+        ? Wallet
+        : type === "brokerage" ||
+            type === "investment_account" ||
+            type === "crypto_exchange"
+          ? CandlestickChart
+          : type === "credit_card"
+            ? CreditCard
+            : type === "loan"
+              ? HandCoins
+              : WalletCards;
+  return (
+    <span className="mobile-row-icon" data-kind={type}>
+      <Icon aria-hidden="true" />
+    </span>
   );
 }
 function Accounts({ onOpen }: { onOpen: (id: string) => void }) {
@@ -996,132 +1214,249 @@ function Accounts({ onOpen }: { onOpen: (id: string) => void }) {
     "/accounts",
     `q=${encodeURIComponent(search)}&role=${role}&type=${type}`,
   );
+  const items = query.data?.data.items;
   return (
-    <Section title={t("mobile.accounts")}>
-      <Input
-        aria-label={t("mobile.search")}
-        placeholder={t("mobile.search")}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      <NativeSelect
-        aria-label={t("mobile.role")}
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        <option value="asset">{t("mobile.assets")}</option>
-        <option value="liability">{t("mobile.liabilities")}</option>
-      </NativeSelect>
-      <NativeSelect
-        aria-label={t("mobile.accountType")}
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        {[
-          "bank_account",
-          "cash_on_hand",
-          "brokerage",
-          "investment_account",
-          "credit_card",
-          "loan",
-          "digital_wallet",
-          "crypto_exchange",
-          "receivable",
-          "other",
-        ].map((k) => (
-          <option key={k} value={k}>
-            {t(`enum.${k}`)}
-          </option>
-        ))}
-      </NativeSelect>
+    <section className="mobile-stack" aria-labelledby="mobile-accounts">
+      <h2 id="mobile-accounts" className="mobile-page-title">
+        {t("mobile.accounts")}
+      </h2>
+      <div className="mobile-search">
+        <Search aria-hidden="true" />
+        <Input
+          type="search"
+          aria-label={t("mobile.search")}
+          placeholder={t("mobile.search")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="mobile-filter-row">
+        <Segmented
+          label={t("mobile.role")}
+          value={role}
+          onChange={setRole}
+          options={[
+            { value: "", label: t("mobile.all") },
+            { value: "asset", label: t("mobile.assets") },
+            { value: "liability", label: t("mobile.liabilities") },
+          ]}
+        />
+        <NativeSelect
+          aria-label={t("mobile.accountType")}
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        >
+          <option value="">{t("mobile.allTypes")}</option>
+          {accountTypes.map((k) => (
+            <option key={k} value={k}>
+              {t(`enum.${k}`)}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
       <ErrorMessage error={query.error} />
-      {query.isPending && <LoadingState label={t("common.loading")} />}
-      {query.data?.data.items.map((a) => (
-        <Card className="p-4" key={a.id}>
-          <Button
-            className="h-auto w-full justify-between gap-3 whitespace-normal text-left"
-            variant="ghost"
-            onClick={() => onOpen(a.id)}
-          >
-            <span>
-              {a.name}
-              <small className="block text-muted-foreground">
-                {a.institution} · {a.currency}
-              </small>
-            </span>
-            <span>
-              <MoneyText value={a.value} />
-              {!a.complete && (
-                <small className="block">{t("mobile.partial")}</small>
-              )}
-            </span>
-          </Button>
-        </Card>
-      ))}
+      {query.isPending && <RowsSkeleton />}
+      {items &&
+        (items.length ? (
+          <ul className="mobile-list mobile-card" aria-busy={query.isFetching}>
+            {items.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  className="mobile-row"
+                  onClick={() => onOpen(a.id)}
+                >
+                  <AccountIcon type={a.type} />
+                  <span className="mobile-row-main">
+                    <span className="mobile-row-title">{a.name}</span>
+                    <span className="mobile-row-sub">
+                      {[
+                        a.institution,
+                        t(`enum.${a.type}`, { defaultValue: "" }),
+                        a.currency,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </span>
+                  <span className="mobile-row-end">
+                    <MoneyText value={a.value} />
+                    {a.role === "liability" && (
+                      <small>{t("mobile.liability")}</small>
+                    )}
+                    {!a.complete && (
+                      <small data-tone="warning">{t("mobile.partial")}</small>
+                    )}
+                  </span>
+                  <ChevronRight
+                    className="mobile-row-chevron"
+                    aria-hidden="true"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState>{t("mobile.noAccounts")}</EmptyState>
+        ))}
       <Pager
         next={query.data?.data.next}
         onNext={query.next}
         onFirst={query.first}
+        paged={query.paged}
       />
-    </Section>
+    </section>
+  );
+}
+function activityLabel(t: TFunction, a: Activity) {
+  return t(`history.reason.${a.reason || a.kind}`, {
+    defaultValue: t(`history.kind.${a.kind}`, {
+      defaultValue: t("mobile.ledger"),
+    }),
+  });
+}
+function ActivityIcon({ kind }: { kind: string }) {
+  const Icon =
+    kind === "cash_in" || kind === "cash_dividend"
+      ? ArrowDownLeft
+      : kind === "cash_out"
+        ? ArrowUpRight
+        : kind === "cash_transfer"
+          ? ArrowLeftRight
+          : kind === "debt_payment"
+            ? CreditCard
+            : kind === "value_update"
+              ? Scale
+              : ReceiptText;
+  return (
+    <span className="mobile-row-icon" data-kind={kind}>
+      <Icon aria-hidden="true" />
+    </span>
   );
 }
 function ActivityView({ activity }: { activity: Activity }) {
   const { t } = useTranslation();
-  const label = activity.reason || activity.kind;
   return (
-    <div className="space-y-2">
-      <h3 className="font-semibold">
-        {t(`history.reason.${label}`, {
-          defaultValue: t(`history.kind.${activity.kind}`, {
-            defaultValue: t("mobile.ledger"),
-          }),
-        })}
-      </h3>
-      <p className="text-xs">
-        {activity.effectiveLocalDate
-          ? formatCivilDate(activity.effectiveLocalDate)
-          : activity.effectiveAt}
-      </p>
-      {activity.resulting?.map((r, i) => (
-        <p key={i}>
-          {r.name} ·{" "}
-          {r.amount ? (
-            <MoneyText value={{ amount: r.amount, currency: r.currency }} />
-          ) : r.quantity ? (
-            formatAmount(r.quantity)
-          ) : (
-            t("mobile.unavailable")
-          )}
-        </p>
-      ))}
-      {activity.note && <p className="break-words">{activity.note}</p>}
+    <div className="mobile-activity">
+      <div className="mobile-activity-head">
+        <ActivityIcon kind={activity.kind} />
+        <div>
+          <h3>{activityLabel(t, activity)}</h3>
+          <p className="num">
+            {activity.effectiveLocalDate
+              ? formatCivilDate(activity.effectiveLocalDate)
+              : activity.effectiveAt}
+          </p>
+        </div>
+      </div>
+      {activity.resulting?.length > 0 && (
+        <dl className="mobile-values">
+          {activity.resulting.map((r, i) => (
+            <div key={i}>
+              <dt>{r.name}</dt>
+              <dd>
+                {r.amount ? (
+                  <MoneyText
+                    value={{ amount: r.amount, currency: r.currency }}
+                  />
+                ) : r.quantity ? (
+                  <span className="mobile-money">
+                    {formatAmount(r.quantity)}
+                  </span>
+                ) : (
+                  t("mobile.unavailable")
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {activity.note && <p className="mobile-note">{activity.note}</p>}
     </div>
+  );
+}
+function ActivityRow({
+  activity,
+  onOpen,
+  showDate,
+}: {
+  activity: Activity;
+  onOpen: (id: string) => void;
+  showDate?: boolean;
+}) {
+  const { t } = useTranslation();
+  const date = activity.effectiveLocalDate
+    ? formatCivilDate(activity.effectiveLocalDate)
+    : activity.effectiveAt;
+  const money = activity.effects?.find((e) => e.money)?.money;
+  const accounts = [...new Set(activity.resulting?.map((r) => r.name))];
+  return (
+    <button
+      type="button"
+      className="mobile-row"
+      onClick={() => onOpen(activity.id)}
+    >
+      <ActivityIcon kind={activity.kind} />
+      <span className="mobile-row-main">
+        <span className="mobile-row-title">{activityLabel(t, activity)}</span>
+        <span className="mobile-row-sub">
+          {[showDate && date, accounts.join(" → "), activity.note]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </span>
+      {money && (
+        <span className="mobile-row-end">
+          <MoneyText value={money} />
+        </span>
+      )}
+      <ChevronRight className="mobile-row-chevron" aria-hidden="true" />
+    </button>
   );
 }
 function ActivityList({
   items,
   onOpen,
+  grouped = false,
 }: {
   items: Activity[];
   onOpen: (id: string) => void;
+  grouped?: boolean;
 }) {
   const { t } = useTranslation();
-  return items.length ? (
-    <div className="space-y-3">
-      {items.map((a) => (
-        <Card className="p-4" key={a.id}>
-          <ActivityView activity={a} />
-          <Button variant="link" onClick={() => onOpen(a.id)}>
-            {t("mobile.details")}
-          </Button>
-        </Card>
+  if (!items.length) return <EmptyState>{t("mobile.empty")}</EmptyState>;
+  const groups: { date: string; items: Activity[] }[] = [];
+  for (const a of items) {
+    const date = a.effectiveLocalDate || a.effectiveAt.slice(0, 10);
+    const last = groups[groups.length - 1];
+    if (last?.date === date) last.items.push(a);
+    else groups.push({ date, items: [a] });
+  }
+  if (!grouped)
+    return (
+      <ul className="mobile-list">
+        {items.map((a) => (
+          <li key={a.id}>
+            <ActivityRow activity={a} onOpen={onOpen} showDate />
+          </li>
+        ))}
+      </ul>
+    );
+  return (
+    <div className="mobile-groups">
+      {groups.map((g) => (
+        <section key={g.date} aria-label={formatCivilDate(g.date)}>
+          <h3 className="mobile-group-head num">{formatCivilDate(g.date)}</h3>
+          <ul className="mobile-list">
+            {g.items.map((a) => (
+              <li key={a.id}>
+                <ActivityRow activity={a} onOpen={onOpen} />
+              </li>
+            ))}
+          </ul>
+        </section>
       ))}
     </div>
-  ) : (
-    <p>{t("mobile.empty")}</p>
   );
 }
 function Activities({
@@ -1136,69 +1471,117 @@ function Activities({
   const [to, setTo] = useState("");
   const [account, setAccount] = useState("");
   const [kind, setKind] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const accounts = usePage<Account>("/accounts");
   const query = usePage<Activity>(
     "/activities",
     `from=${from}&to=${to}&accountId=${account}&kind=${kind}`,
   );
+  const active = [from, to, account, kind].filter(Boolean).length;
   return (
-    <Section title={t("mobile.ledger")}>
-      <div className="grid grid-cols-2 gap-3">
-        <DatePickerControl
-          aria-label={t("mobile.from")}
-          value={from}
-          onChange={setFrom}
-          max={today}
-          clearable
-        />
-        <DatePickerControl
-          aria-label={t("mobile.to")}
-          value={to}
-          onChange={setTo}
-          max={today}
-          clearable
-        />
+    <section className="mobile-stack" aria-labelledby="mobile-ledger">
+      <div className="mobile-page-head">
+        <h2 id="mobile-ledger" className="mobile-page-title">
+          {t("mobile.ledger")}
+        </h2>
+        <Button
+          variant={active ? "soft" : "outline"}
+          size="sm"
+          aria-expanded={showFilters}
+          aria-controls="mobile-ledger-filters"
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          {t("mobile.filters")}
+          {active > 0 && <span className="mobile-count num">{active}</span>}
+        </Button>
       </div>
-      <NativeSelect
-        aria-label={t("mobile.account")}
-        value={account}
-        onChange={(e) => setAccount(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        {accounts.data?.data.items.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      </NativeSelect>
-      <NativeSelect
-        aria-label={t("mobile.kind")}
-        value={kind}
-        onChange={(e) => setKind(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        {[
-          "cash_in",
-          "cash_out",
-          "cash_transfer",
-          "debt_payment",
-          "value_update",
-        ].map((k) => (
-          <option key={k} value={k}>
-            {t(`history.kind.${k}`)}
-          </option>
-        ))}
-      </NativeSelect>
+      {showFilters && (
+        <div id="mobile-ledger-filters" className="mobile-panel mobile-enter">
+          <div className="grid grid-cols-2 gap-3">
+            <Field name={t("mobile.from")}>
+              <DatePickerControl
+                aria-label={t("mobile.from")}
+                value={from}
+                onChange={setFrom}
+                max={today}
+                clearable
+              />
+            </Field>
+            <Field name={t("mobile.to")}>
+              <DatePickerControl
+                aria-label={t("mobile.to")}
+                value={to}
+                onChange={setTo}
+                max={today}
+                clearable
+              />
+            </Field>
+          </div>
+          <Field name={t("mobile.account")}>
+            <NativeSelect
+              aria-label={t("mobile.account")}
+              value={account}
+              onChange={(e) => setAccount(e.target.value)}
+            >
+              <option value="">{t("mobile.all")}</option>
+              {accounts.data?.data.items.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field name={t("mobile.kind")}>
+            <NativeSelect
+              aria-label={t("mobile.kind")}
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+            >
+              <option value="">{t("mobile.all")}</option>
+              {[
+                "cash_in",
+                "cash_out",
+                "cash_transfer",
+                "debt_payment",
+                "value_update",
+              ].map((k) => (
+                <option key={k} value={k}>
+                  {t(`history.kind.${k}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          {active > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFrom("");
+                setTo("");
+                setAccount("");
+                setKind("");
+              }}
+            >
+              {t("mobile.clearFilters")}
+            </Button>
+          )}
+        </div>
+      )}
       <ErrorMessage error={query.error} />
+      {query.isPending && <RowsSkeleton rows={5} />}
       {query.data && (
-        <ActivityList items={query.data.data.items} onOpen={onOpen} />
+        <div className="mobile-card" aria-busy={query.isFetching}>
+          <ActivityList items={query.data.data.items} onOpen={onOpen} grouped />
+        </div>
       )}
       <Pager
         next={query.data?.data.next}
         onNext={query.next}
         onFirst={query.first}
+        paged={query.paged}
       />
-    </Section>
+    </section>
   );
 }
 
@@ -1389,6 +1772,7 @@ function Detail({
             next={holdings.data?.data.next}
             onNext={holdings.next}
             onFirst={holdings.first}
+            paged={holdings.paged}
           />
         </Section>
       )}
@@ -1507,6 +1891,7 @@ function Health({
         next={query.data?.data.next}
         onNext={query.next}
         onFirst={query.first}
+        paged={query.paged}
       />
     </Section>
   );
@@ -1715,6 +2100,7 @@ function JobPanel({
       {(cursor || query.data?.next) && (
         <Pager
           next={query.data?.next}
+          paged={!!cursor}
           onFirst={reload}
           onNext={() => {
             setPinned(job.jobId);

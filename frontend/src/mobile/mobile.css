@@ -278,6 +278,485 @@
 }
 
 /* Motion */
+/* Screen primitives */
+.mobile-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.mobile-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.mobile-page-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.mobile-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  background: var(--color-card);
+  padding: 0.875rem 1rem;
+  box-shadow: var(--shadow-xs);
+}
+.mobile-card > h2,
+.mobile-card-head h2 {
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+.mobile-card > h2 {
+  margin-bottom: 0.5rem;
+}
+.mobile-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+ul.mobile-card {
+  padding-block: 0.25rem;
+}
+.mobile-shell .mobile-wide {
+  width: 100%;
+}
+
+/* Hero */
+.mobile-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.25rem 0 0.5rem;
+}
+.mobile-hero-total dt {
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-hero-total dd {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 9vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.mobile-subtotal {
+  display: block;
+  margin-top: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--color-muted-foreground);
+}
+.mobile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: var(--color-muted);
+  color: var(--color-foreground);
+}
+.mobile-badge[data-tone="success"] {
+  background: color-mix(in oklch, var(--color-success) 14%, transparent);
+  color: color-mix(in oklch, var(--color-success) 70%, var(--color-foreground));
+}
+.mobile-badge[data-tone="warning"] {
+  background: color-mix(in oklch, var(--color-warning) 26%, transparent);
+  color: color-mix(in oklch, var(--color-warning) 35%, var(--color-foreground));
+}
+.mobile-badge[data-tone="danger"] {
+  background: color-mix(in oklch, var(--color-destructive) 14%, transparent);
+  color: var(--color-destructive);
+}
+.mobile-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.625rem;
+}
+.mobile-split > div + div {
+  border-left: 1px solid var(--color-border);
+  padding-left: 0.875rem;
+}
+.mobile-split dt {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-split dd {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* Segmented control */
+.mobile-segmented {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--color-muted);
+  padding: 2px;
+}
+.mobile-shell .mobile-segmented button {
+  min-height: 36px;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-muted-foreground);
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+.mobile-segmented button[aria-pressed="true"] {
+  background: var(--color-card);
+  color: var(--color-foreground);
+  box-shadow: var(--shadow-xs);
+}
+.mobile-segmented button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Trend */
+.mobile-sparkline {
+  margin-block: 0.25rem 0.25rem;
+}
+.mobile-sparkline svg {
+  display: block;
+  width: 100%;
+  height: 4.5rem;
+  overflow: visible;
+}
+.mobile-sparkline p {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-sparkline path {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+[aria-busy="true"] > .mobile-sparkline,
+ul[aria-busy="true"],
+div[aria-busy="true"] > .mobile-groups {
+  opacity: 0.55;
+  transition: opacity 150ms ease;
+}
+.mobile-disclosure summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+.mobile-disclosure summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.mobile-values > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+.mobile-values dt {
+  color: var(--color-muted-foreground);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mobile-values dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-disclosure .mobile-values {
+  max-height: 16rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Distribution */
+.mobile-meter {
+  display: flex;
+  gap: 2px;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+.mobile-meter span {
+  min-width: 2px;
+}
+[data-series="0"] {
+  background: var(--color-primary);
+}
+[data-series="1"] {
+  background: var(--color-data-remote);
+}
+[data-series="2"] {
+  background: var(--color-data-current);
+}
+[data-series="3"] {
+  background: var(--color-data-manual);
+}
+[data-series="4"] {
+  background: var(--color-data-stale);
+}
+[data-series="5"] {
+  background: var(--color-data-unavailable);
+}
+.mobile-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.5rem;
+  font-size: 0.875rem;
+}
+.mobile-legend li + li {
+  border-top: 1px solid var(--color-border);
+}
+.mobile-swatch {
+  width: 0.625rem;
+  height: 0.625rem;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.mobile-legend-label {
+  flex: 1;
+  min-width: 0;
+}
+.mobile-legend-share {
+  color: var(--color-muted-foreground);
+  font-size: 0.8125rem;
+}
+
+/* Rows */
+.mobile-list > li + li {
+  border-top: 1px solid var(--color-border);
+}
+.mobile-shell .mobile-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.625rem 0;
+  text-align: left;
+  border-radius: var(--radius-md);
+  transition: background-color 120ms ease;
+}
+.mobile-row:active {
+  background: var(--color-muted);
+}
+.mobile-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.mobile-row-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+.mobile-row-icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.mobile-row-icon[data-kind="cash_in"],
+.mobile-row-icon[data-kind="cash_dividend"] {
+  color: var(--color-success);
+}
+.mobile-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.mobile-row-title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.mobile-row-sub {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.mobile-row-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 50%;
+  text-align: right;
+  font-weight: 500;
+}
+.mobile-row-end small {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--color-muted-foreground);
+}
+.mobile-row-end small[data-tone="warning"] {
+  color: color-mix(in oklch, var(--color-warning) 40%, var(--color-foreground));
+}
+.mobile-row-chevron {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--color-muted-foreground);
+  opacity: 0.6;
+}
+.mobile-groups > section + section {
+  margin-top: 0.25rem;
+}
+.mobile-group-head {
+  padding-top: 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+}
+.mobile-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.mobile-activity-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.mobile-activity-head h3 {
+  font-weight: 600;
+}
+.mobile-activity-head p {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-note {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+
+/* Filters */
+.mobile-search {
+  position: relative;
+}
+.mobile-search svg {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  color: var(--color-muted-foreground);
+  pointer-events: none;
+}
+.mobile-shell .mobile-search input {
+  padding-left: 2.25rem;
+  border-radius: 999px;
+}
+.mobile-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.mobile-filter-row > :last-child {
+  flex: 1;
+  min-width: 8rem;
+}
+.mobile-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 0.6875rem;
+}
+.mobile-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* States */
+.mobile-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-empty svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  opacity: 0.6;
+}
+.mobile-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.mobile-skeleton span {
+  height: 3rem;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 25%,
+    color-mix(in oklch, var(--color-muted) 50%, var(--color-card)) 50%,
+    var(--color-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: mobile-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes mobile-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 .mobile-enter {
   animation: mobile-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -302,6 +781,12 @@
 }
 
 @media (max-width: 359px) {
+  .mobile-card {
+    padding-inline: 0.75rem;
+  }
+  .mobile-row-icon {
+    display: none;
+  }
   .mobile-shell {
     --mobile-gutter: 0.75rem;
   }

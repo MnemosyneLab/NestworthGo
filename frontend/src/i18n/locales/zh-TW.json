@@ -2073,6 +2073,12 @@
     "holdingsScopeNote": "顯示未封存帳戶的目前持倉（包括零數量）。金額使用標的幣別，缺失數值維持不可用。"
   },
   "mobile": {
+    "showValues": "查看數值",
+    "filters": "篩選",
+    "clearFilters": "清除篩選",
+    "allTypes": "全部類型",
+    "noAccounts": "沒有符合篩選條件的帳戶。",
+    "liability": "負債",
     "timezone": "帳本時區",
     "server": "伺服器",
     "settings": "設定",

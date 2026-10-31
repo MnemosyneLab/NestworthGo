@@ -2073,6 +2073,12 @@
     "holdingsScopeNote": "Current holdings in active accounts, including zero quantities. Amounts use the instrument currency; missing values remain unavailable."
   },
   "mobile": {
+    "showValues": "Show values",
+    "filters": "Filters",
+    "clearFilters": "Clear filters",
+    "allTypes": "All types",
+    "noAccounts": "No accounts match these filters.",
+    "liability": "Liability",
     "timezone": "Ledger timezone",
     "server": "Server",
     "settings": "Settings",

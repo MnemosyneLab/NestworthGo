@@ -94,9 +94,21 @@ beforeEach(async () => {
               liabilities: { total: { amount: "0", currency: "CNY" } },
             },
             complete: true,
-            trend: [],
+            currency: "CNY",
+            trend: [
+              {
+                date: "2026-10-29",
+                valuation: { total: { amount: "90", currency: "CNY" } },
+              },
+              {
+                date: "2026-10-30",
+                valuation: { total: { amount: "100", currency: "CNY" } },
+              },
+            ],
             recent: [],
-            distribution: [],
+            distribution: [
+              { key: "cash", label: "cash", amount: "100", shareBps: 10000 },
+            ],
           }),
         );
       if (route.startsWith("/accounts?"))
@@ -273,6 +285,26 @@ describe("mobile financial interruption flow", () => {
     );
     expect((await screen.findByText("Cost")).parentElement).toHaveTextContent(
       "CN¥37.25",
+    );
+  });
+
+  it("shows server shares and keeps exact trend values accessible behind the sparkline", async () => {
+    const user = userEvent.setup();
+    mount();
+    expect(await screen.findByText("100.0%")).toBeInTheDocument();
+    await user.click(screen.getByText("Show values"));
+    expect(screen.getByText("CN¥90.00")).toBeVisible();
+    const range = screen.getByRole("group", { name: "Net worth history" });
+    await user.click(within(range).getByRole("button", { name: "One year" }));
+    expect(
+      within(range).getByRole("button", { name: "One year" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() =>
+      expect(
+        vi.mocked(fetch).mock.calls.some(([url]) =>
+          String(url).includes("/overview?range=1y"),
+        ),
+      ).toBe(true),
     );
   });
 
