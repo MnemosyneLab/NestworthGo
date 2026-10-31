@@ -69,6 +69,8 @@ Layout and display conventions from the "Ledger" visual direction:
   `[data-slot=card]`.
 - Toggle rows of view filters (role, metric, dimension, status) use
   `SegmentedControl`, not rows of default/outline `Button`s.
+- Tabs nested inside another tab panel use `<TabsList variant="line">` so the
+  inner level reads as an underline row beneath the page-level pill tabs.
 - Page chrome: `PageChrome` takes a `leading` slot (for example a back link);
   `PageIntro` places the description and status side by side on `lg` screens.
 - Avoid repeating the same fact on one screen: `DateRangeControl
