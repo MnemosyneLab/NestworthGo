@@ -99,3 +99,86 @@ func TestMobileMarketJobsDedupeAcrossEntrypointsAndKeepPartialResults(t *testing
 		t.Fatal("restart fabricated job status")
 	}
 }
+
+func TestMobileReadsSharedDesktopLatestAndRequestsCancellationWithoutDuplicateWork(t *testing.T) {
+	s, ctx, _, setClock := newOnboardedService(t, "mobile-shared-market", []string{"Synthetic owner"})
+	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+	setClock(now)
+	fake := newRefreshFakeProvider()
+	provider := &mobileBlockingProvider{refreshFakeProvider: fake, entered: make(chan struct{}), release: make(chan struct{})}
+	s.SetMarketDataRegistry(NewMarketDataRegistryWithDefault("fake", provider))
+	for _, symbol := range []string{"AAA", "BBB"} {
+		_, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic " + symbol, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: symbol})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	done := make(chan struct{})
+	go func() { defer close(done); _, _ = s.RefreshAll(ctx) }()
+	select {
+	case <-provider.entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("provider not entered")
+	}
+	shared, ok := s.MobileMarketJob("current")
+	if !ok || shared.Source != "shared" || shared.Outcome != SyncOutcomeRunning || shared.Current == nil || shared.Current.Label != "Synthetic AAA" || shared.Cancellable {
+		t.Fatalf("missing shared progress: %+v", shared)
+	}
+	_, _, conflict, err := s.StartMobileMarket(ctx, MobileMarketRequest{Mode: "latest", Scope: "stale"})
+	if err != nil || !conflict {
+		t.Fatalf("queued duplicate: %v %v", conflict, err)
+	}
+	if s.RequestCancelMobileMarket(shared.ID) {
+		t.Fatal("cancelled a task outside mobile ownership")
+	}
+	close(provider.release)
+	<-done
+	finished, ok := s.MobileMarketJob(shared.ID)
+	if !ok || finished.Outcome != SyncOutcomeFailed || len(finished.Items) != 2 || finished.Items[0].Detail == "" {
+		t.Fatalf("missing shared failure: %+v", finished)
+	}
+	// A new mobile task is cancellable, and repeated cancellation is harmless.
+	provider.entered, provider.release, provider.once = make(chan struct{}), make(chan struct{}), sync.Once{}
+	job, _, conflict, err := s.StartMobileMarket(ctx, MobileMarketRequest{Mode: "latest", Scope: "all"})
+	if err != nil || conflict {
+		t.Fatal(err)
+	}
+	select {
+	case <-provider.entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("mobile provider not entered")
+	}
+	if !s.RequestCancelMobileMarket(job.ID) || !s.RequestCancelMobileMarket(job.ID) {
+		t.Fatal("cancel request missing")
+	}
+	s.mobileJobsWG.Wait()
+	final, ok := s.MobileMarketJob(job.ID)
+	if !ok || final.Outcome != SyncOutcomeCancelled {
+		t.Fatalf("cancel: %+v", final)
+	}
+}
+
+func TestMobileCurrentSelectsSharedHistoryAndPreservesDesktopOnlyRetryScope(t *testing.T) {
+	s, _, _, setClock := newOnboardedService(t, "mobile-shared-history", []string{"Synthetic owner"})
+	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+	setClock(now)
+	workspace := s.MobileWorkspace()
+	s.mobileJobs = map[string]*MobileMarketJob{"old-mobile": {ID: "old-mobile", Instance: workspace, StartedAt: now.Add(-time.Hour), Outcome: SyncOutcomeSucceeded}}
+	s.mobileJobCurrent = "old-mobile"
+	s.currentSyncID = "desktop-sync"
+	s.syncJobs = map[string]*syncJobState{"desktop-sync": {startedAt: now, workspace: s.workspaceIdentity(), snapshot: SyncJobSnapshot{JobID: "desktop-sync", WorkspaceID: s.workspaceIdentity(), Scope: SyncRequest{Scope: SyncScopeRepairAll}, Outcome: SyncOutcomeRunning, Phase: SyncPhaseHistoricalInstruments, Blockers: []SyncBlocker{{Code: "provider_authentication"}}}}}
+	job, ok := s.MobileMarketJob("current")
+	if !ok || job.ID != "desktop-sync" || job.Instance != workspace || job.Retryable || job.Request.Scope != "repair_all" || len(job.Blockers) != 1 {
+		t.Fatalf("shared history: %+v", job)
+	}
+	s.syncJobs["desktop-sync"].snapshot.Outcome = SyncOutcomePartial
+	job, _ = s.MobileMarketJob("current")
+	if job.ID != "desktop-sync" || job.Outcome != SyncOutcomePartial {
+		t.Fatalf("finished shared history lost: %+v", job)
+	}
+	s.syncJobs["desktop-sync"].workspace = "replaced-workspace"
+	job, _ = s.MobileMarketJob("current")
+	if job.ID == "desktop-sync" {
+		t.Fatal("restore exposed an old job")
+	}
+}

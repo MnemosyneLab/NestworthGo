@@ -156,7 +156,7 @@ func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResult, error) 
 
 func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) RefreshResult {
 	if inSync, _ := ctx.Value(syncLatestKey{}).(bool); !inSync {
-		run, owner, refused := s.admitLatestRefresh(targets)
+		run, owner, refused := s.admitLatestRefresh(ctx, targets)
 		if refused {
 			return refreshConflict(targets)
 		}
@@ -169,8 +169,24 @@ func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) R
 			}
 		}
 		defer func() { s.syncMu.Lock(); s.latestRun = nil; close(run.done); s.syncMu.Unlock() }()
-		result := s.refreshTargets(context.WithValue(ctx, syncLatestKey{}, true), targets)
+		progress := WithRefreshProgress(ctx, func(item SyncItemProgress) {
+			s.syncMu.Lock()
+			if item.Status == "running" {
+				copy := item
+				run.snapshot.Current = &copy
+			} else {
+				run.snapshot.Completed++
+				run.snapshot.Items = append(run.snapshot.Items, item)
+				run.snapshot.Current = nil
+			}
+			s.syncMu.Unlock()
+			emitRefreshProgress(ctx, item)
+		})
+		result := s.refreshTargets(context.WithValue(progress, syncLatestKey{}, true), targets)
 		run.result = result
+		s.syncMu.Lock()
+		finishMobileLatest(run.snapshot, result, ctx.Err(), s.clock())
+		s.syncMu.Unlock()
 		return result
 	}
 	ctx = withMetalFetchCache(ctx)

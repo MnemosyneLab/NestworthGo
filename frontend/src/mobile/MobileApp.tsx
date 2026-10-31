@@ -48,6 +48,14 @@ import {
   type Session,
 } from "./api";
 
+import { ConnectionSettings } from "./ConnectionSettings";
+import {
+  backendBase,
+  ConnectionError,
+  mobilePreferences,
+  saveMobilePreferences,
+} from "./connection";
+
 type Bootstrap = {
   householdId: string;
   name: string;
@@ -150,11 +158,13 @@ function ErrorMessage({ error }: { error: unknown }) {
   const { t } = useTranslation();
   if (!error) return null;
   const message =
-    error instanceof MobileError
-      ? t(`errorCode:${error.code}`, {
-          defaultValue: t("mobile.requestFailed"),
-        })
-      : t("mobile.connectionUnavailable");
+    error instanceof ConnectionError
+      ? t(`mobile.transport.${error.code}`)
+      : error instanceof MobileError
+        ? t(`errorCode:${error.code}`, {
+            defaultValue: t("mobile.requestFailed"),
+          })
+        : t("mobile.connectionUnavailable");
   return (
     <p
       role="alert"
@@ -189,6 +199,11 @@ export function MobileApp() {
   const client = useQueryClient();
   const activeDevice = useRef<string | null>(null);
   const [session, setSession] = useState<Session | null | undefined>();
+  const [connectionVersion, setConnectionVersion] = useState(0);
+  const [showConnection, setShowConnection] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const reconnectLock = useRef(false);
+  const [theme, setTheme] = useState(() => mobilePreferences().theme);
   const [sessionError, setSessionError] = useState<unknown>();
   const [tab, setTab] = useState("overview");
   const [detail, setDetail] = useState<{
@@ -203,14 +218,17 @@ export function MobileApp() {
   const [pending, setPending] = useState<Pending | null>(() =>
     pendingOperation(),
   );
+  const [recoveryPersistent, setRecoveryPersistent] = useState(true);
   const [receipt, setReceipt] = useState<Activity | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const acceptSession = useCallback(
     (value: Session | null) => {
+      const changed = activeDevice.current !== (value?.device.id ?? null);
       activeDevice.current = value?.device.id ?? null;
       setMobileSession(value);
       setSession(value);
-      if (!value) {
+      if (value) setSessionError(null);
+      if (!value || changed) {
         client.clear();
         setDetail(null);
         setRecord(null);
@@ -223,7 +241,10 @@ export function MobileApp() {
   );
   useEffect(() => {
     let mounted = true;
-    void api<Session>("/session")
+    const controller = new AbortController();
+    void api<Session>("/session", "GET", undefined, {
+      signal: controller.signal,
+    })
       .then((value) => {
         if (mounted) {
           setMobileSession(value);
@@ -240,6 +261,7 @@ export function MobileApp() {
       });
     return () => {
       mounted = false;
+      controller.abort();
     };
   }, []);
   useEffect(() => onSessionExpired(() => acceptSession(null)), [acceptSession]);
@@ -264,27 +286,72 @@ export function MobileApp() {
   const updatePending = (value: Pending | null) => {
     if (!session?.device.id || activeDevice.current !== session.device.id)
       return;
-    savePending(value);
+    setRecoveryPersistent(savePending(value));
     setPending(value);
   };
-  const success = (activity?: Activity) => {
+  const success = (activity?: Activity, keepOpen = false) => {
     if (!session?.device.id || activeDevice.current !== session.device.id)
       return false;
     updatePending(null);
-    setRecord(null);
+    if (!keepOpen) setRecord(null);
     setQuote(null);
     setReceipt(activity ?? null);
     setNotice("saved");
     void client.invalidateQueries({ queryKey: ["mobile"] });
     return true;
   };
+  const changeConnection = () => {
+    acceptSession(null);
+    setPending(pendingOperation());
+    setSessionError(null);
+    setShowConnection(false);
+    setConnectionVersion((v) => v + 1);
+  };
+  const reconnect = async () => {
+    if (reconnectLock.current) return;
+    reconnectLock.current = true;
+    setReconnecting(true);
+    setSessionError(null);
+    try {
+      const current = await api<Session>("/session");
+      // Retain mounted drafts and immutable reviews across transient reconnects.
+      if (current.device.id !== activeDevice.current) acceptSession(current);
+      await client.invalidateQueries({ queryKey: ["mobile"] });
+    } catch (error) {
+      setSessionError(error);
+      if (error instanceof MobileError && error.status === 401)
+        acceptSession(null);
+    } finally {
+      reconnectLock.current = false;
+      setReconnecting(false);
+    }
+  };
+  useEffect(() => {
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () =>
+      document.documentElement.classList.toggle(
+        "dark",
+        theme === "dark" || (theme === "system" && scheme.matches),
+      );
+    apply();
+    scheme.addEventListener("change", apply);
+    return () => scheme.removeEventListener("change", apply);
+  }, [theme]);
   if (session === undefined)
     return (
       <main className="mobile-shell">
         <LoadingState label={t("common.loading")} />
       </main>
     );
-  if (!session) return <Login error={sessionError} onLogin={acceptSession} />;
+  if (!session)
+    return (
+      <Login
+        key={connectionVersion}
+        error={sessionError}
+        onLogin={acceptSession}
+        onConnectionChanged={changeConnection}
+      />
+    );
   const b = bootstrap.data?.data;
   const hiddenNav = record !== null || quote !== null || market !== null;
   return (
@@ -295,26 +362,89 @@ export function MobileApp() {
           <NativeSelect
             aria-label={t("mobile.language")}
             value={i18n.language}
-            onChange={(e) => void i18n.changeLanguage(e.target.value)}
+            onChange={(e) => {
+              saveMobilePreferences({ language: e.target.value, theme });
+              void i18n.changeLanguage(e.target.value);
+            }}
           >
             <option value="en">English</option>
             <option value="zh-CN">简体中文</option>
             <option value="zh-TW">繁體中文</option>
           </NativeSelect>
+          <NativeSelect
+            aria-label={t("mobile.theme")}
+            value={theme}
+            onChange={(e) => {
+              const value = e.target.value as typeof theme;
+              setTheme(value);
+              saveMobilePreferences({ language: i18n.language, theme: value });
+            }}
+          >
+            {["system", "light", "dark"].map((value) => (
+              <option key={value} value={value}>
+                {t(`mobile.themeChoice.${value}`)}
+              </option>
+            ))}
+          </NativeSelect>
           <Button
             variant="ghost"
-            disabled={!!pending}
+            disabled={
+              !!pending || record !== null || quote !== null || market !== null
+            }
+            onClick={() => setShowConnection((v) => !v)}
+          >
+            {t("mobile.connectionSettings")}
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={
+              !!pending ||
+              record !== null ||
+              quote !== null ||
+              market !== null ||
+              reconnecting
+            }
             onClick={() => {
-              void api("/session", "DELETE").then(() => {
-                updatePending(null);
-                acceptSession(null);
-              });
+              if (reconnectLock.current) return;
+              reconnectLock.current = true;
+              setReconnecting(true);
+              setSessionError(null);
+              void api("/session", "DELETE")
+                .then(() => acceptSession(null))
+                .catch((error) => {
+                  setSessionError(error);
+                  if (error instanceof MobileError && error.status === 401)
+                    acceptSession(null);
+                })
+                .finally(() => {
+                  reconnectLock.current = false;
+                  setReconnecting(false);
+                });
             }}
           >
             {t("mobile.logout")}
           </Button>
         </div>
       </header>
+      {showConnection && !reconnecting && (
+        <ConnectionSettings onChanged={changeConnection} />
+      )}
+      <p className="text-xs break-all">
+        {t("mobile.connectedTo", {
+          address: backendBase() || window.location.origin,
+        })}
+      </p>
+      <Button
+        variant="outline"
+        disabled={reconnecting || !!pending}
+        onClick={() => void reconnect()}
+      >
+        {t("mobile.reconnect")}
+      </Button>
+      {pending && !recoveryPersistent && (
+        <p role="alert">{t("mobile.recoveryMemoryOnly")}</p>
+      )}
+      <ErrorMessage error={sessionError} />
       {offline && <p role="status">{t("mobile.connectionUnavailable")}</p>}
       <ErrorMessage error={bootstrap.error} />
       {!b ? (
@@ -365,6 +495,7 @@ export function MobileApp() {
             />
           ) : market ? (
             <MarketReview
+              key={JSON.stringify(market)}
               request={market}
               onCancel={() => setMarket(null)}
               onStarted={() => {
@@ -398,7 +529,7 @@ export function MobileApp() {
           ) : (
             <>
               {b.capabilities.market_refresh && (
-                <JobPanel onRetry={setMarket} />
+                <JobPanel onRetry={setMarket} disabled={offline || !!pending} />
               )}
               {tab === "overview" && (
                 <Overview
@@ -510,7 +641,9 @@ export function MobileApp() {
 function Login({
   onLogin,
   error: initialError,
+  onConnectionChanged,
 }: {
+  onConnectionChanged: () => void;
   onLogin: (s: Session) => void;
   error?: unknown;
 }) {
@@ -519,9 +652,12 @@ function Login({
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => () => controller.current?.abort(), []);
   return (
     <main className="mobile-shell flex flex-col justify-center gap-5">
       <h1 className="text-3xl font-bold">Nestworth</h1>
+      <ConnectionSettings onChanged={onConnectionChanged} />
       <p>{t("mobile.loginHelp")}</p>
       <form
         className="space-y-4"
@@ -531,9 +667,16 @@ function Login({
           lock.current = true;
           setBusy(true);
           setError(null);
+          const request = new AbortController();
+          controller.current = request;
           const secret = token;
           setToken("");
-          void api<Session>("/session", "POST", { token: secret })
+          void api<Session>(
+            "/session",
+            "POST",
+            { token: secret },
+            { signal: request.signal },
+          )
             .then(onLogin)
             .catch(setError)
             .finally(() => {
@@ -557,6 +700,15 @@ function Login({
         <Button className="w-full" disabled={busy}>
           {busy ? t("common.pending") : t("mobile.login")}
         </Button>
+        {busy && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => controller.current?.abort()}
+          >
+            {t("common.cancel")}
+          </Button>
+        )}
       </form>
       <p className="text-sm text-muted-foreground">
         {t("mobile.connectionHelp")}
@@ -1236,15 +1388,29 @@ function Health({
   );
 }
 
-function JobPanel({ onRetry }: { onRetry: (r: MarketRequest) => void }) {
+function JobPanel({
+  onRetry,
+  disabled,
+}: {
+  onRetry: (r: MarketRequest) => void;
+  disabled: boolean;
+}) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const [cursor, setCursor] = useState("");
+  const [pinned, setPinned] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelRequested, setCancelRequested] = useState("");
+  const [error, setError] = useState<unknown>();
+  const lock = useRef(false);
   const query = useQuery({
-    queryKey: ["mobile", "job", cursor],
-    queryFn: () =>
+    queryKey: ["mobile", "job", pinned, cursor],
+    queryFn: ({ signal }) =>
       api<{ job: Job | null; next?: string }>(
-        `/market-jobs/current?cursor=${encodeURIComponent(cursor)}`,
+        `/market-jobs/${pinned || "current"}?cursor=${encodeURIComponent(cursor)}`,
+        "GET",
+        undefined,
+        { signal },
       ),
     refetchOnWindowFocus: "always",
     refetchInterval: (query) =>
@@ -1263,57 +1429,173 @@ function JobPanel({ onRetry }: { onRetry: (r: MarketRequest) => void }) {
       void client.invalidateQueries({ queryKey: ["mobile", "overview"] });
     }
   }, [jobId, outcome, client]);
-  if (!job) return <ErrorMessage error={query.error} />;
+  const reload = () => {
+    setCursor("");
+    setPinned("");
+    void client.invalidateQueries({ queryKey: ["mobile", "job"] });
+  };
+  if (!job)
+    return query.error ? (
+      <div>
+        <ErrorMessage error={query.error} />
+        <Button variant="outline" onClick={reload}>
+          {t("mobile.reloadJob")}
+        </Button>
+      </div>
+    ) : null;
+  const codes = [
+    ...new Set([job.errorCode, ...(job.blockers ?? [])].filter(Boolean)),
+  ];
   return (
-    <Card className="p-4 space-y-2">
+    <Card className="p-4 space-y-3" aria-label={t("mobile.marketJob")}>
+      <h2 className="font-semibold">{t("mobile.marketJob")}</h2>
       <p role="status">
-        {t(`marketData.outcome.${job.outcome}`, {
-          defaultValue: t(`mobile.job.${job.outcome}`, {
-            defaultValue: t("mobile.requestFailed"),
-          }),
-        })}{" "}
+        {job.phase === "queued"
+          ? t("mobile.jobQueued")
+          : t(`marketData.outcome.${job.outcome}`, {
+              defaultValue: t("mobile.requestFailed"),
+            })}{" "}
         · {job.completed}/{job.total}
       </p>
-      <p>{job.current}</p>
-      {job.items?.map((item, index) => (
-        <p key={index}>
-          {item.label} ·{" "}
-          {t(`marketData.status.${item.status}`, {
-            defaultValue:
-              item.status === "failed"
-                ? t("mobile.requestFailed")
-                : t("mobile.complete"),
+      <p>
+        {t(`marketData.phase.${job.phase}`, {
+          defaultValue: t(
+            job.request.mode === "history"
+              ? "mobile.syncHistory"
+              : "mobile.updateMarket",
+          ),
+        })}
+      </p>
+      {job.source === "shared" && (
+        <p className="text-sm">{t("mobile.sharedJob")}</p>
+      )}
+      {job.current && (
+        <p>{t("mobile.currentTarget", { target: job.current })}</p>
+      )}
+      {job.outcome === "running" && (
+        <progress
+          className="w-full"
+          aria-label={t("mobile.marketProgress")}
+          max={Math.max(job.total, 1)}
+          value={job.completed}
+        />
+      )}
+      {job.nextEligibilityAt && (
+        <p>
+          {t("mobile.nextEligibility", {
+            time: formatTimestamp(job.nextEligibilityAt),
           })}
         </p>
+      )}
+      <ul className="space-y-2">
+        {job.items?.map((item, index) => (
+          <li key={index} className="text-sm break-words">
+            {item.label || t("mobile.unavailable")} ·{" "}
+            {t(`marketData.status.${item.status}`, {
+              defaultValue: t(
+                item.status === "failed"
+                  ? "mobile.requestFailed"
+                  : "mobile.complete",
+              ),
+            })}
+            {item.startDate && item.endDate && (
+              <>
+                {" "}
+                · {formatCivilDate(item.startDate)} —{" "}
+                {formatCivilDate(item.endDate)}
+              </>
+            )}
+            {item.errorCode && (
+              <p>
+                {t(`errorCode:${item.errorCode}`, {
+                  defaultValue: t("mobile.requestFailed"),
+                })}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+      {codes.map((code) => (
+        <p key={code}>
+          {t(`errorCode:${code}`, { defaultValue: t("mobile.requestFailed") })}
+        </p>
       ))}
-      {job.result.Items?.filter(
-        (i) => i.Status === "failed" || i.Status === "rate_limited",
-      )
-        .slice(0, 30)
-        .map((i, index) => (
+      {!job.items?.length &&
+        job.result?.Items?.filter(
+          (i) => i.Status === "failed" || i.Status === "rate_limited",
+        ).map((item, index) => (
           <p key={index}>
-            {t(`errorCode:${i.ErrorCode}`, {
+            {t(`errorCode:${item.ErrorCode}`, {
               defaultValue: t("mobile.requestFailed"),
             })}
           </p>
         ))}
-      {["partial", "failed"].includes(job.outcome) && (
-        <Button
-          onClick={() =>
-            onRetry({
-              ...job.request,
-              scope: job.request.scope === "all" ? "stale" : job.request.scope,
-            })
-          }
-        >
-          {t("mobile.retryFailed")}
+      <ErrorMessage error={query.error || error} />
+      {query.error && (
+        <Button variant="outline" onClick={reload}>
+          {t("mobile.reloadJob")}
         </Button>
       )}
+      {job.cancellable && (
+        <Button
+          variant="outline"
+          disabled={disabled || cancelling || cancelRequested === job.jobId}
+          onClick={() => {
+            if (lock.current) return;
+            lock.current = true;
+            setCancelling(true);
+            setError(null);
+            void api<{ requested: boolean }>(
+              `/market-jobs/${job.jobId}/cancel`,
+              "POST",
+              {},
+            )
+              .then((result) => {
+                if (result.requested) setCancelRequested(job.jobId);
+                else throw new MobileError(409, "unavailable");
+                void client.invalidateQueries({ queryKey: ["mobile", "job"] });
+              })
+              .catch(setError)
+              .finally(() => {
+                lock.current = false;
+                setCancelling(false);
+              });
+          }}
+        >
+          {t("mobile.cancelJob")}
+        </Button>
+      )}
+      {job.outcome === "running" && cancelRequested === job.jobId && (
+        <p role="status">{t("mobile.cancelRequested")}</p>
+      )}
+      {["partial", "failed", "cancelled"].includes(job.outcome) &&
+        (job.retryable ? (
+          <>
+            <p className="text-sm">{t("mobile.retryJobHelp")}</p>
+            <Button
+              disabled={disabled}
+              onClick={() =>
+                onRetry({
+                  ...job.request,
+                  scope:
+                    job.request.scope === "all" ? "stale" : job.request.scope,
+                })
+              }
+            >
+              {t("mobile.retryFailed")}
+            </Button>
+          </>
+        ) : (
+          <p>{t("mobile.desktopRequired")}</p>
+        ))}
       {(cursor || query.data?.next) && (
         <Pager
           next={query.data?.next}
-          onFirst={() => setCursor("")}
-          onNext={() => setCursor(query.data?.next ?? "")}
+          onFirst={reload}
+          onNext={() => {
+            setPinned(job.jobId);
+            setCursor(query.data?.next ?? "");
+          }}
         />
       )}
     </Card>
@@ -1383,7 +1665,7 @@ function RecordForm({
   offline: boolean;
   onCancel: () => void;
   onDispatch: (p: Pending | null) => void;
-  onSuccess: (activity?: Activity) => void;
+  onSuccess: (activity?: Activity, keepOpen?: boolean) => boolean;
 }) {
   const { t } = useTranslation();
   const accounts = usePage<Account>("/accounts", "limit=100");
@@ -1403,6 +1685,32 @@ function RecordForm({
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<unknown>();
   const lock = useRef(false);
+  const continueEntry = useRef(false);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const [focusAmount, setFocusAmount] = useState(0);
+  useEffect(() => {
+    if (focusAmount > 0) amountRef.current?.focus();
+  }, [focusAmount]);
+  function saved(activity?: Activity) {
+    if (!onSuccess(activity, continueEntry.current)) return;
+    if (continueEntry.current) {
+      setReview(null);
+      setUncertain(false);
+      setError(null);
+      setCustomTime(false);
+      setInput((previous) => ({
+        ...previous,
+        operationId: crypto.randomUUID(),
+        amount: "",
+        received: "",
+        fee: "",
+        note: "",
+        effectiveLocalDate: b.today,
+        effectiveLocalTime: b.time.slice(0, 5),
+      }));
+      setFocusAmount((value) => value + 1);
+    }
+  }
   useLeaveGuard(true);
   const frozen = busy || uncertain;
   const update = (field: keyof RecordInput, value: string) => {
@@ -1451,10 +1759,11 @@ function RecordForm({
       setBusy(false);
     }
   }
-  async function confirm() {
+  async function confirm(another = false) {
     if (lock.current || !review) return;
     lock.current = true;
     setBusy(true);
+    if (!uncertain) continueEntry.current = another;
     setUncertain(true);
     onDispatch({ operationId: input.operationId, householdId: b.householdId });
     setError(null);
@@ -1464,7 +1773,7 @@ function RecordForm({
         "POST",
         { planId: review.planId, operationId: input.operationId },
       );
-      onSuccess(r.receipt.activity);
+      saved(r.receipt.activity);
     } catch (e) {
       setError(e);
       if (e instanceof MobileError && e.operationState === "rejected") {
@@ -1534,6 +1843,7 @@ function RecordForm({
           </Field>
           <Field name={t("mobile.amount")}>
             <Input
+              ref={amountRef}
               aria-label={t("mobile.amount")}
               inputMode="decimal"
               value={input.amount}
@@ -1702,6 +2012,15 @@ function RecordForm({
                   ? t("mobile.confirm")
                   : t("mobile.preview")}
           </Button>
+          {review && !uncertain && input.kind !== "balance" && (
+            <Button
+              type="button"
+              disabled={busy || offline}
+              onClick={() => void confirm(true)}
+            >
+              {t("mobile.confirmAnother")}
+            </Button>
+          )}
           {uncertain && (
             <Button
               type="button"
@@ -1717,7 +2036,7 @@ function RecordForm({
                     receipt?: { activity: Activity };
                   }>(`/operations/${input.operationId}`);
                   if (result.operationState === "committed")
-                    onSuccess(result.receipt?.activity);
+                    saved(result.receipt?.activity);
                   else setError(new MobileError(503, "unavailable"));
                 } catch (e) {
                   setError(e);
@@ -1918,9 +2237,14 @@ function MarketReview({
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
+  const [uncertain, setUncertain] = useState(false);
+  useLeaveGuard(busy || uncertain);
   useEffect(() => {
     let active = true;
-    void api<Review>("/market-previews", "POST", request)
+    const controller = new AbortController();
+    void api<Review>("/market-previews", "POST", request, {
+      signal: controller.signal,
+    })
       .then((r) => {
         if (active) setReview(r);
       })
@@ -1929,6 +2253,7 @@ function MarketReview({
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [request]);
   return (
@@ -1970,6 +2295,7 @@ function MarketReview({
           ))}
         </>
       )}
+      {uncertain && <p role="status">{t("mobile.jobAcceptanceUnknown")}</p>}
       <ErrorMessage error={error} />
       <div className="flex gap-2">
         <Button
@@ -1978,23 +2304,37 @@ function MarketReview({
             if (lock.current || !review) return;
             lock.current = true;
             setBusy(true);
+            setUncertain(true);
+            setError(null);
             void api<{ conflict: boolean }>("/market-jobs", "POST", {
               planId: review.planId,
             })
               .then((r) => {
-                if (r.conflict) throw new MobileError(409, "conflict");
+                if (r.conflict)
+                  throw new MobileError(409, "conflict", "", "rejected");
                 onStarted();
               })
-              .catch(setError)
+              .catch((error) => {
+                setError(error);
+                if (
+                  error instanceof MobileError &&
+                  error.operationState === "rejected"
+                )
+                  setUncertain(false);
+              })
               .finally(() => {
                 lock.current = false;
                 setBusy(false);
               });
           }}
         >
-          {t("mobile.confirm")}
+          {uncertain ? t("mobile.retrySame") : t("mobile.confirm")}
         </Button>
-        <Button disabled={busy} variant="outline" onClick={onCancel}>
+        <Button
+          disabled={busy || uncertain}
+          variant="outline"
+          onClick={onCancel}
+        >
           {t("common.cancel")}
         </Button>
       </div>

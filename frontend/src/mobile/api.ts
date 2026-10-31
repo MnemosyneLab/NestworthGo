@@ -1,3 +1,4 @@
+import { backendBase, ConnectionError } from "./connection";
 export type Permissions = {
   read: boolean;
   record: boolean;
@@ -8,6 +9,7 @@ export type Session = {
   device: { id: string; name: string; permissions: Permissions };
   csrfToken: string;
   instance: string;
+  accessToken?: string;
 };
 export type Envelope<T> = {
   data: T;
@@ -72,7 +74,22 @@ export type MarketRequest = {
 };
 export type Job = {
   current?: string;
-  items?: { label: string; status: string }[];
+  items?: {
+    label: string;
+    status: string;
+    kind?: string;
+    errorCode?: string;
+    startDate?: string;
+    endDate?: string;
+  }[];
+  source?: string;
+  retryable?: boolean;
+  cancellable?: boolean;
+  blockers?: string[];
+  errorCode?: string;
+  nextEligibilityAt?: string;
+  startedAt?: string;
+  finishedAt?: string;
   jobId: string;
   outcome: string;
   phase: string;
@@ -137,11 +154,15 @@ export class MobileError extends Error {
   }
 }
 let csrf = "";
+let accessToken = "";
+const requests = new Set<AbortController>();
 let sessionGeneration = 0;
 let expired: (() => void) | undefined;
 export function setMobileSession(session: Session | null) {
   sessionGeneration++;
   csrf = session?.csrfToken ?? "";
+  accessToken = session ? (session.accessToken ?? accessToken) : "";
+  for (const request of requests) request.abort();
 }
 export function onSessionExpired(callback: () => void) {
   expired = callback;
@@ -153,39 +174,82 @@ export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
+  options: { signal?: AbortSignal; timeout?: number; anonymous?: boolean } = {},
 ): Promise<T> {
   const requestGeneration = sessionGeneration;
-  const response = await fetch(`/mobile-api/v1${path}`, {
-    method,
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Nestworth-Mobile": "1",
-      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+  const controller = new AbortController();
+  requests.add(controller);
+  const abort = () => controller.abort();
+  options.signal?.addEventListener("abort", abort, { once: true });
+  if (options.signal?.aborted) controller.abort();
+  let timedOut = false;
+  const timer = setTimeout(
+    () => {
+      timedOut = true;
+      controller.abort();
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const payload = await response.json();
-  if (requestGeneration !== sessionGeneration && path !== "/session")
-    throw new MobileError(409, "session_changed");
-  if (!response.ok) {
-    if (response.status === 401 && requestGeneration === sessionGeneration)
-      expired?.();
-    throw new MobileError(
-      response.status,
-      payload.error?.code ?? "unavailable",
-      payload.error?.field,
-      payload.error?.operationState,
-    );
+    options.timeout ?? (method === "GET" ? 15000 : 35000),
+  );
+  try {
+    const response = await fetch(`${backendBase()}/mobile-api/v1${path}`, {
+      method,
+      credentials: backendBase() ? "omit" : "same-origin",
+      cache: "no-store",
+      redirect: "error",
+      referrerPolicy: "no-referrer",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Nestworth-Mobile": "1",
+        ...(!options.anonymous && csrf ? { "X-CSRF-Token": csrf } : {}),
+        ...(!options.anonymous && accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new ConnectionError("invalid_response");
+    }
+    if (controller.signal.aborted)
+      throw new ConnectionError(timedOut ? "timeout" : "cancelled");
+    if (requestGeneration !== sessionGeneration)
+      throw new MobileError(409, "session_changed");
+    if (!response.ok) {
+      if (response.status === 401 && !options.anonymous && path !== "/session")
+        expired?.();
+      throw new MobileError(
+        response.status,
+        payload.error?.code ?? "unavailable",
+        payload.error?.field,
+        payload.error?.operationState,
+      );
+    }
+    return payload as T;
+  } catch (error) {
+    if (requestGeneration !== sessionGeneration)
+      throw new MobileError(409, "session_changed");
+    if (controller.signal.aborted)
+      throw new ConnectionError(timedOut ? "timeout" : "cancelled");
+    if (error instanceof MobileError || error instanceof ConnectionError)
+      throw error;
+    throw new ConnectionError("transport");
+  } finally {
+    clearTimeout(timer);
+    requests.delete(controller);
+    options.signal?.removeEventListener("abort", abort);
   }
-  return payload as T;
 }
 const pendingKey = "nestworth.mobile.pending.v1";
+const recoveryKey = () =>
+  backendBase() ? `${pendingKey}:${backendBase()}` : pendingKey;
 export type Pending = { operationId: string; householdId: string };
 export function pendingOperation(): Pending | null {
   try {
-    const p = JSON.parse(sessionStorage.getItem(pendingKey) ?? "null");
+    const p = JSON.parse(sessionStorage.getItem(recoveryKey()) ?? "null");
     return p &&
       typeof p.operationId === "string" &&
       typeof p.householdId === "string"
@@ -196,6 +260,11 @@ export function pendingOperation(): Pending | null {
   }
 }
 export function savePending(p: Pending | null) {
-  if (p) sessionStorage.setItem(pendingKey, JSON.stringify(p));
-  else sessionStorage.removeItem(pendingKey);
+  try {
+    if (p) sessionStorage.setItem(recoveryKey(), JSON.stringify(p));
+    else sessionStorage.removeItem(recoveryKey());
+    return true;
+  } catch {
+    return false;
+  }
 }

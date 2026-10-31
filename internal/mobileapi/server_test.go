@@ -253,7 +253,7 @@ func TestRevocationOrdersAfterAdmittedCommit(t *testing.T) {
 }
 
 func TestConfigRejectsPublicPlaintextAndWildcardListeners(t *testing.T) {
-	for _, c := range []Config{{true, "http://private.example", "127.0.0.1:9443", "loopback_proxy", "", ""}, {true, "https://private.example", "0.0.0.0:9443", "loopback_proxy", "", ""}, {true, "https://private.example", "192.168.1.2:9443", "loopback_proxy", "", ""}, {true, "https://8.8.8.8", "127.0.0.1:9443", "loopback_proxy", "", ""}, {true, "https://private.example/path", "127.0.0.1:9443", "loopback_proxy", "", ""}} {
+	for _, c := range []Config{{true, "http://private.example", "127.0.0.1:9443", "loopback_proxy", "", "", ""}, {true, "https://private.example", "0.0.0.0:9443", "loopback_proxy", "", "", ""}, {true, "https://private.example", "192.168.1.2:9443", "loopback_proxy", "", "", ""}, {true, "https://8.8.8.8", "127.0.0.1:9443", "loopback_proxy", "", "", ""}, {true, "https://private.example/path", "127.0.0.1:9443", "loopback_proxy", "", "", ""}} {
 		if err := c.Validate(); err == nil {
 			t.Fatalf("unsafe config accepted %+v", c)
 		}

@@ -11,10 +11,12 @@ import (
 )
 
 type syncLatestKey struct{}
+type mobileMarketKey struct{}
 type latestRefreshRun struct {
-	key    string
-	done   chan struct{}
-	result RefreshResult
+	key      string
+	done     chan struct{}
+	result   RefreshResult
+	snapshot *MobileMarketJob
 }
 
 func refreshConflict(targets []refreshTarget) RefreshResult {
@@ -24,7 +26,7 @@ func refreshConflict(targets []refreshTarget) RefreshResult {
 	}
 	return r
 }
-func (s *Service) admitLatestRefresh(targets []refreshTarget) (*latestRefreshRun, bool, bool) {
+func (s *Service) admitLatestRefresh(ctx context.Context, targets []refreshTarget) (*latestRefreshRun, bool, bool) {
 	var keys []string
 	for _, t := range targets {
 		keys = append(keys, fmt.Sprintf("%s:%t:%t:%s:%s:%s", t.key, t.skip, t.cached, t.providerKey, t.baseCurrency, t.quoteCurrency))
@@ -38,8 +40,13 @@ func (s *Service) admitLatestRefresh(targets []refreshTarget) (*latestRefreshRun
 	if s.latestRun != nil {
 		return s.latestRun, false, s.latestRun.key != key
 	}
-	run := &latestRefreshRun{key: key, done: make(chan struct{})}
+	job := &MobileMarketJob{ID: uuid.NewString(), Instance: s.MobileWorkspace(), Request: MobileMarketRequest{Mode: "latest", Scope: "stale"}, Source: "shared", Retryable: true, Outcome: SyncOutcomeRunning, Phase: "latest", StartedAt: s.clock(), Total: len(targets)}
+	if mobile, ok := ctx.Value(mobileMarketKey{}).(MobileMarketJob); ok {
+		job.ID, job.Request, job.Source = mobile.ID, mobile.Request, "mobile"
+	}
+	run := &latestRefreshRun{key: key, done: make(chan struct{}), snapshot: job}
 	s.latestRun = run
+	s.latestSnapshot = job
 	return run, true, false
 }
 
@@ -101,6 +108,10 @@ type MobileMarketJob struct {
 	Items             []SyncItemProgress  `json:"items,omitempty"`
 	NextEligibilityAt *time.Time          `json:"nextEligibilityAt,omitempty"`
 	SyncID            string              `json:"-"`
+	Source            string              `json:"source"`
+	Retryable         bool                `json:"retryable"`
+	Cancellable       bool                `json:"cancellable"`
+	Blockers          []SyncBlocker       `json:"-"`
 	cancel            context.CancelFunc
 }
 
@@ -134,7 +145,7 @@ func (s *Service) StartMobileMarket(ctx context.Context, r MobileMarketRequest) 
 			return *current, current.Request == r, current.Request != r, nil
 		}
 	}
-	job := &MobileMarketJob{ID: uuid.NewString(), Instance: s.MobileWorkspace(), Request: r, Outcome: SyncOutcomeRunning, Phase: "latest", StartedAt: s.clock()}
+	job := &MobileMarketJob{ID: uuid.NewString(), Instance: s.MobileWorkspace(), Request: r, Source: "mobile", Retryable: true, Cancellable: true, Outcome: SyncOutcomeRunning, Phase: "queued", StartedAt: s.clock()}
 	if r.Mode == "history" {
 		started, err := s.StartMarketDataSync(ctx, r.sync())
 		if err != nil {
@@ -173,10 +184,12 @@ func (s *Service) StartMobileMarket(ctx context.Context, r MobileMarketRequest) 
 		job.Total = len(targets)
 	}
 	jobCtx, cancel := context.WithCancel(context.Background())
+	jobCtx = context.WithValue(jobCtx, mobileMarketKey{}, *job)
 	jobCtx = WithRefreshProgress(jobCtx, func(item SyncItemProgress) {
 		s.mobileJobsMu.Lock()
 		defer s.mobileJobsMu.Unlock()
 		if item.Status == "running" {
+			job.Phase = "latest"
 			copy := item
 			job.Current = &copy
 		} else {
@@ -215,32 +228,11 @@ func (s *Service) StartMobileMarket(ctx context.Context, r MobileMarketRequest) 
 		}
 		s.mobileJobsMu.Lock()
 		defer s.mobileJobsMu.Unlock()
-		job.Result = result
-		job.Total = len(result.Items)
-		job.Completed = job.Total
-		job.Phase = "complete"
-		job.Outcome = SyncOutcomeSucceeded
-		failed := 0
-		for _, item := range result.Items {
-			if item.Status == RefreshFailed || item.Status == RefreshRateLimited {
-				failed++
-			}
-		}
-		if failed > 0 {
-			job.Outcome = SyncOutcomePartial
-		}
-		if failed == len(result.Items) && failed > 0 {
-			job.Outcome = SyncOutcomeFailed
-		}
-		if err != nil {
+		finishMobileLatest(job, result, jobCtx.Err(), s.clock())
+		if err != nil && jobCtx.Err() == nil {
 			job.Outcome = SyncOutcomeFailed
 			job.ErrorCode = "unavailable"
 		}
-		if jobCtx.Err() != nil {
-			job.Outcome = SyncOutcomeCancelled
-		}
-		now := s.clock()
-		job.FinishedAt = &now
 	}()
 	return *job, false, false, nil
 }
@@ -248,12 +240,14 @@ func (s *Service) StartMobileMarket(ctx context.Context, r MobileMarketRequest) 
 func (s *Service) MobileMarketJob(id string) (MobileMarketJob, bool) {
 	s.mobileJobsMu.Lock()
 	defer s.mobileJobsMu.Unlock()
+	requested := id
 	if id == "current" {
 		id = s.mobileJobCurrent
 	}
 	p := s.mobileJobs[id]
-	if p == nil {
-		return MobileMarketJob{}, false
+	shared, sharedOK := s.sharedMarketJob(requested)
+	if p == nil || p.Instance != s.MobileWorkspace() {
+		return shared, sharedOK
 	}
 	out := *p
 	out.Result.Items = append([]RefreshTargetResult(nil), p.Result.Items...)
@@ -272,7 +266,11 @@ func (s *Service) MobileMarketJob(id string) (MobileMarketJob, bool) {
 			out.Items = sync.Items
 			out.Current = sync.Current
 			out.NextEligibilityAt = sync.NextEligibilityAt
+			out.Blockers = sync.Blockers
 		}
+	}
+	if requested == "current" && sharedOK && shared.ID != out.ID && (shared.Outcome == SyncOutcomeRunning && out.Outcome != SyncOutcomeRunning || out.Outcome != SyncOutcomeRunning && shared.StartedAt.After(out.StartedAt)) {
+		return shared, true
 	}
 	return out, true
 }

@@ -2226,6 +2226,46 @@
       "partial": "Partially completed",
       "failed": "Failed",
       "cancelled": "Cancelled"
-    }
+    },
+    "connectionSettings": "Connection settings",
+    "backendAddress": "Backend HTTPS address",
+    "backendHelp": "Leave blank to use this site’s server. A separate server must use trusted HTTPS and authorize the frontend origin shown below in desktop Mobile access. Save the address before pairing. Changing servers signs out this browser locally; use desktop device management to revoke its old session.",
+    "frontendOrigin": "Frontend origin: {{origin}}",
+    "connectionTestPassed": "Nestworth connection is available. Pairing is still required.",
+    "testConnection": "Test connection",
+    "useConnection": "Use this server",
+    "connectedTo": "Server: {{address}}",
+    "reconnect": "Reconnect",
+    "theme": "Theme",
+    "themeChoice": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "trustedFrontend": "Trusted frontend origin (optional)",
+    "trustedFrontendHelp": "For a separately hosted frontend, enter its exact HTTPS origin with no path or trailing slash. Leave blank for same-origin access only. This grants that frontend permission to exchange pairing tokens and access authorized data; only use a frontend you trust. Saving revokes existing sessions.",
+    "connectionQR": "Open mobile connection",
+    "connectionQRHelp": "Scan to open the mobile page with the backend address. This QR contains no token; enter the one-use token separately. For a separately hosted frontend, rebuild and publish the current open-source mobile entry first.",
+    "confirmAnother": "Confirm and add another",
+    "marketJob": "Market data task",
+    "jobQueued": "Preparing to run",
+    "sharedJob": "Shared task from desktop, MCP or another mobile session.",
+    "currentTarget": "Current target: {{target}}",
+    "marketProgress": "Market data progress",
+    "nextEligibility": "Next eligible attempt: {{time}}",
+    "reloadJob": "Reload task status",
+    "cancelJob": "Cancel task",
+    "cancelRequested": "Cancellation requested. Saved observations are retained; wait for the final status.",
+    "retryJobHelp": "Review a new attempt using current provider limits and saved observations. Successful or fresh work may be reused. This does not replay an accepted task.",
+    "jobAcceptanceUnknown": "Acceptance is not yet confirmed. Retry this same submission to recover the original task; do not start another.",
+    "transport": {
+      "invalid_url": "Enter an HTTPS origin such as https://nestworth.private.example:9443, without credentials, a path, query or fragment.",
+      "insecure_backend": "Use a backend with trusted HTTPS. Public HTTPS pages cannot reliably connect to private HTTP servers. Use the backend’s own HTTPS page or configure trusted HTTPS on your existing private network.",
+      "transport": "The browser could not reach the server. Check that Nestworth is running, the phone can reach the private network, the certificate is trusted, and desktop settings authorize this exact frontend origin. Also check this frontend’s connect-src policy and browser local-network permission. Browsers conceal the specific network, TLS or CORS cause; no request result is confirmed.",
+      "timeout": "The request timed out. Check the connection. For a confirmation, keep the original submission and check its result or retry that same submission.",
+      "cancelled": "The request was cancelled. A submitted confirmation may still complete; check its original result.",
+      "invalid_response": "This address did not return a supported Nestworth mobile response. Check the backend address, API version, frontend origin authorization and proxy routing."
+    },
+    "recoveryMemoryOnly": "This browser cannot retain the recovery reference for a reload. Keep this page open until the original result is confirmed; use desktop activity to verify if you leave."
   }
 }

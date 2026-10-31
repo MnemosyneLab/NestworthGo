@@ -193,6 +193,24 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request, d *session, p str
 			}
 		}
 	} else if r.Method == "POST" {
+		if strings.HasPrefix(p, "/market-jobs/") && strings.HasSuffix(p, "/cancel") {
+			var in struct{}
+			if err = decode(w, r, &in); err == nil {
+				var release func()
+				release, err = s.authorize(d, "market_refresh")
+				if err == nil {
+					id := strings.TrimSuffix(strings.TrimPrefix(p, "/market-jobs/"), "/cancel")
+					result = map[string]bool{"requested": s.app.RequestCancelMobileMarket(id)}
+					release()
+				}
+			}
+			if err != nil {
+				fail(w, err)
+			} else {
+				reply(w, result)
+			}
+			return
+		}
 		switch p {
 		case "/record-previews":
 			if !d.Permissions.Record {
@@ -670,12 +688,16 @@ func (s *Server) read(ctx context.Context, r *http.Request, d *session, p string
 		if !ok {
 			return map[string]any{"job": nil, "operationState": "unknown", "instance": s.app.MobileWorkspace()}, nil
 		}
-		page, limit, err := s.pagination(r, d)
+		// A cursor issued by /current must bind the resolved task, so the next
+		// page can use its stable ID even when another task becomes current.
+		pageRequest := r.Clone(r.Context())
+		pageRequest.URL.Path = prefix + "/market-jobs/" + job.ID
+		page, limit, err := s.pagination(pageRequest, d)
 		if err != nil {
 			return nil, err
 		}
 		next := ""
-		if page.index+limit < len(job.Items) {
+		if page.index+limit < max(len(job.Items), len(job.Result.Items), len(job.Blockers)) {
 			advance := page
 			advance.index += limit
 			next = s.nextPage(advance)
@@ -695,7 +717,7 @@ func mobileJobDTO(job application.MobileMarketJob, start, limit int) map[string]
 		start = end
 	}
 	for _, item := range job.Items[start:end] {
-		items = append(items, map[string]string{"label": item.Label, "status": item.Status, "kind": item.Kind})
+		items = append(items, map[string]string{"label": item.Label, "status": item.Status, "kind": item.Kind, "startDate": item.StartDate, "endDate": item.EndDate, "errorCode": safeJobCode(item.Detail)})
 	}
 	result := job.Result
 	begin := min(start, len(result.Items))
@@ -704,7 +726,25 @@ func mobileJobDTO(job application.MobileMarketJob, start, limit int) map[string]
 	if job.Current != nil {
 		current = job.Current.Label
 	}
-	return map[string]any{"jobId": job.ID, "instance": job.Instance, "request": job.Request, "outcome": job.Outcome, "phase": job.Phase, "startedAt": job.StartedAt, "finishedAt": job.FinishedAt, "completed": job.Completed, "total": job.Total, "result": result, "items": items, "current": current, "nextEligibilityAt": job.NextEligibilityAt, "errorCode": job.ErrorCode}
+	blockers := []string{}
+	begin = min(start, len(job.Blockers))
+	for _, blocker := range job.Blockers[begin:min(begin+limit, len(job.Blockers))] {
+		code := safeJobCode(blocker.Code)
+		if code == "" {
+			code = "unavailable"
+		}
+		blockers = append(blockers, code)
+	}
+	return map[string]any{"jobId": job.ID, "instance": job.Instance, "request": job.Request, "outcome": job.Outcome, "phase": job.Phase, "startedAt": job.StartedAt, "finishedAt": job.FinishedAt, "completed": job.Completed, "total": job.Total, "result": result, "items": items, "current": current, "nextEligibilityAt": job.NextEligibilityAt, "errorCode": safeJobCode(job.ErrorCode), "blockers": blockers, "source": job.Source, "retryable": job.Retryable, "cancellable": job.Cancellable && job.Outcome == application.SyncOutcomeRunning}
+}
+
+// Never send provider message text, paths or arbitrary Detail strings.
+func safeJobCode(code string) string {
+	switch domain.ErrorCode(code) {
+	case domain.ErrProviderUnavailable, domain.ErrProviderAuthentication, domain.ErrProviderRateLimit, domain.ErrUnavailable, domain.ErrConflict, domain.ErrValidation, domain.ErrNotFound, domain.ErrStalePreview, domain.ErrUnsupportedProviderSymbol, domain.ErrMalformedProviderResponse, domain.ErrMarketDataResponseTooLarge, domain.ErrHistoryNotStarted, domain.ErrHistoryUpdateFailed, domain.ErrBackupRestoreBusy:
+		return code
+	}
+	return ""
 }
 
 // Activities contain authoritative effects; readable labels come from current

@@ -1,4 +1,4 @@
-// Package mobileapi is the closed, same-origin mobile boundary of the existing
+// Package mobileapi is the closed mobile boundary of the existing
 // desktop process. It never opens a database or registers Wails/MCP methods.
 package mobileapi
 
@@ -34,12 +34,13 @@ const prefix = "/mobile-api/v1"
 const cookieName = "__Host-nw_mobile"
 
 type Config struct {
-	Enabled     bool   `json:"enabled"`
-	Origin      string `json:"origin"`
-	Listen      string `json:"listen"`
-	Mode        string `json:"mode"` // tls or loopback_proxy
-	Certificate string `json:"certificate"`
-	Key         string `json:"key"`
+	Enabled        bool   `json:"enabled"`
+	Origin         string `json:"origin"`
+	Listen         string `json:"listen"`
+	Mode           string `json:"mode"` // tls or loopback_proxy
+	Certificate    string `json:"certificate"`
+	Key            string `json:"key"`
+	FrontendOrigin string `json:"frontendOrigin"` // Optional, exact trusted HTTPS frontend origin.
 }
 
 func (c Config) Validate() error {
@@ -52,6 +53,12 @@ func (c Config) Validate() error {
 	}
 	if ip, err := netip.ParseAddr(u.Hostname()); err == nil && !ip.IsPrivate() && !ip.IsLoopback() {
 		return invalid("origin")
+	}
+	if c.FrontendOrigin != "" {
+		frontend, err := url.Parse(c.FrontendOrigin)
+		if err != nil || frontend.Scheme != "https" || frontend.Host == "" || frontend.User != nil || frontend.RawQuery != "" || frontend.Fragment != "" || frontend.Path != "" || frontend.Opaque != "" || c.FrontendOrigin != "https://"+frontend.Host || strings.ContainsAny(c.FrontendOrigin, "*\\\r\n") || frontend.Hostname() == "" {
+			return invalid("frontendOrigin")
+		}
 	}
 	host, port, err := net.SplitHostPort(c.Listen)
 	if err != nil || port == "0" || port == "" {
@@ -92,6 +99,8 @@ type Device struct {
 }
 type session struct {
 	Device
+	origin        string
+	bearer        bool
 	digest        [32]byte
 	csrf          string
 	idle          time.Time
@@ -354,17 +363,35 @@ func (s *Server) Pair(name string, p Permissions) (Pairing, error) {
 }
 
 func (s *Server) sessionFor(r *http.Request) (*session, error) {
-	c, err := r.Cookie(cookieName)
-	if err != nil {
-		return nil, unauthorized()
+	origin := r.Header.Get("Origin")
+	s.mu.RLock()
+	c := s.config
+	s.mu.RUnlock()
+	cross := origin != "" && origin != c.Origin
+	value := ""
+	if cross {
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			return nil, unauthorized()
+		}
+		value = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	} else {
+		cookie, err := r.Cookie(cookieName)
+		if err != nil || r.Header.Get("Authorization") != "" {
+			return nil, unauthorized()
+		}
+		value = cookie.Value
+		origin = c.Origin
 	}
-	digest := sha256.Sum256([]byte(c.Value))
+	digest := sha256.Sum256([]byte(value))
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	d := s.sessions[digest]
 	now := s.now()
 	if d == nil || !now.Before(d.ExpiresAt) || !now.Before(d.idle) {
 		delete(s.sessions, digest)
+		return nil, unauthorized()
+	}
+	if d.bearer != cross || d.origin != origin {
 		return nil, unauthorized()
 	}
 	d.LastUsed = now
@@ -449,9 +476,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	origin := r.Header.Get("Origin")
-	if origin != "" && origin != c.Origin {
+	cross := origin != "" && origin != c.Origin
+	if cross && (c.FrontendOrigin == "" || origin != c.FrontendOrigin || !strings.HasPrefix(r.URL.Path, prefix+"/")) {
 		fail(w, forbidden())
 		return
+	}
+	if cross {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Add("Vary", "Origin")
+		// Bearer mode deliberately does not enable credentialed CORS.
+		if r.Method == "OPTIONS" {
+			s.preflight(w, r)
+			return
+		}
 	}
 	select {
 	case s.requests <- struct{}{}:
@@ -465,7 +502,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != "GET" {
-		if origin != c.Origin || r.Header.Get("X-Nestworth-Mobile") != "1" {
+		if origin == "" || r.Header.Get("X-Nestworth-Mobile") != "1" {
 			fail(w, forbidden())
 			return
 		}
@@ -476,6 +513,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	path := strings.TrimPrefix(r.URL.Path, prefix)
+	if path == "/connection" && r.Method == "GET" {
+		auth := "cookie"
+		if cross {
+			auth = "bearer"
+		}
+		reply(w, map[string]any{"service": "nestworth-mobile", "version": 1, "authentication": auth})
+		return
+	}
 	if path == "/session" && r.Method == "POST" {
 		s.loginSession(w, r)
 		return
@@ -502,7 +547,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "DELETE" && path == "/session" {
 		s.Revoke(d.ID)
-		http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+		if !d.bearer {
+			http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+		}
 		reply(w, map[string]bool{"ok": true})
 		return
 	}
@@ -582,7 +629,14 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 	device.ExpiresAt = now.Add(7 * 24 * time.Hour)
 	device.LastUsed = now
 	sessionDigest := sha256.Sum256([]byte(value))
-	s.sessions[sessionDigest] = &session{Device: device, digest: sessionDigest, csrf: csrf, idle: now.Add(24 * time.Hour), window: now}
-	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 7 * 24 * 3600})
-	reply(w, map[string]any{"device": device, "csrfToken": csrf, "instance": s.app.MobileWorkspace()})
+	origin := r.Header.Get("Origin")
+	cross := origin != s.config.Origin
+	s.sessions[sessionDigest] = &session{Device: device, origin: origin, bearer: cross, digest: sessionDigest, csrf: csrf, idle: now.Add(24 * time.Hour), window: now}
+	result := map[string]any{"device": device, "csrfToken": csrf, "instance": s.app.MobileWorkspace()}
+	if cross {
+		result["accessToken"] = value
+	} else {
+		http.SetCookie(w, &http.Cookie{Name: cookieName, Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 7 * 24 * 3600})
+	}
+	reply(w, result)
 }

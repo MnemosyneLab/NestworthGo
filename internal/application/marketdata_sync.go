@@ -162,6 +162,7 @@ type SyncStartResult struct {
 }
 
 type syncJobState struct {
+	startedAt   time.Time
 	cancel      context.CancelFunc
 	epoch       uint64
 	workspace   string
@@ -633,6 +634,7 @@ func (s *Service) StartMarketDataSync(ctx context.Context, request SyncRequest) 
 	jobID := uuid.NewString()
 	workspace := s.workspaceIdentity()
 	job := &syncJobState{
+		startedAt: s.clock(),
 		cancel:    cancel,
 		epoch:     s.refreshEpoch.Load(),
 		workspace: workspace,
