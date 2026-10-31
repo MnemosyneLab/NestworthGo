@@ -157,8 +157,8 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
-        <div className="grid gap-3 sm:grid-cols-3">
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="history-filter-kind">{t("history.filterKind")}</Label>
             <NativeSelect id="history-filter-kind" value={kindFilter} onChange={(event) => setKindFilter(event.target.value)}>
@@ -180,8 +180,6 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
               {(instruments.data ?? []).map((instrument) => <option key={instrument.id} value={instrument.id}>{selectionLabels.get(instrument.id) ?? instrument.name}{instrument.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
             </NativeSelect>
           </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="history-filter-from">{t("history.filterFrom")}</Label>
             <DatePicker id="history-filter-from" value={fromLocalDate} clearable min={originDate} max={toLocalDate || today} onChange={setFromLocalDate} />
@@ -191,7 +189,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
             <DatePicker id="history-filter-to" value={toLocalDate} clearable min={fromLocalDate || originDate} max={today} onChange={setToLocalDate} />
           </div>
         </div>
-        <div className="border-t border-border pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
           <DateRangeControl
             value={{ from: fromLocalDate || originDate || "", to: toLocalDate || today }}
             min={originDate}
@@ -199,14 +197,14 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
             disabled={!originDate}
             onChange={({ from, to }) => { setFromLocalDate(from); setToLocalDate(to); }}
           />
+          {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
         </div>
-        {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="self-end" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
       </section>
       {navigationActivityId && (focusedActivity.isError || (focusedActivity.isSuccess && !focusedActivity.data)) && (
         <ErrorState title={t("history.loadError")} description={t("ui.state.errorDescription")} onRetry={() => focusedActivity.refetch()} retryLabel={t("common.retryAction")} />
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{t("history.activityKind")}</p>
+        <h2 className="text-sm font-semibold text-foreground">{t("history.activityKind")}</h2>
         <PageChrome
           pageId="history"
           actions={
@@ -236,13 +234,13 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
       {activityList.length === 0 ? (
         <EmptyState title={t("history.noActivityYet")} description={t("history.noActivityDescription")} />
       ) : (
-        <div className="flex flex-col gap-6" data-testid="activity-list" aria-label={t("history.activityKind")}>
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs" data-testid="activity-list" aria-label={t("history.activityKind")}>
           {activityGroups.map((group) => (
-            <section key={group.date} className="flex flex-col gap-2">
-              <h3 className="num px-1 text-xs font-semibold text-muted-foreground">
+            <section key={group.date} className="border-b border-border last:border-b-0">
+              <h3 className="num border-b border-border bg-muted/40 px-4 py-1.5 text-xs font-semibold text-muted-foreground">
                 <time dateTime={group.items[0].effectiveAt}>{formatCivilDate(group.date)}</time>
               </h3>
-              <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+              <ul>
                 {group.items.map((activity) => {
                   const canModify = activity.kind !== "cost_adjustment" && !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
                   const summary = activitySentence(t, activity, accountNames, instrumentNames, holdingNames, liabilities);
@@ -255,10 +253,10 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
                     : [];
                   if (activity.repeatEligible && activityToRepeatDraft(activity)) menuItems.unshift({ id: "repeat", label: t("history.repeatAction"), onSelect: () => openRepeatFromMenu(activity) });
                   return (
-                    <li key={activity.id} className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary/5">
-                      <IconTile icon={style.icon} tone={style.tone} />
+                    <li key={activity.id} className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5 text-sm transition-colors last:border-0 hover:bg-muted/50">
+                      <IconTile icon={style.icon} tone={style.tone} size="sm" />
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <p className="font-semibold text-foreground">{summary}</p>
+                        <p className="font-medium text-foreground">{summary}</p>
                         {(activity.reversesActivityId || activity.correctionGroupId) && (
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             {activity.reversesActivityId && <Badge variant="secondary">{t("history.reversal")}</Badge>}
@@ -396,7 +394,21 @@ export function HistoryPage({ navigationFilters, navigationActivityId, navigatio
   return (
     <div className="flex flex-col gap-6">
       <PageChrome pageId="history" title={t("nav.history")} />
-      <PageIntro description={t("history.description")} />
+      <PageIntro
+        description={t("history.description")}
+        status={origin.data ? (
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xs text-muted-foreground" data-testid="history-origin-timezone">
+              {t("history.originTimezone", { timezone: origin.data.timezone })}
+            </p>
+            {settings.data && resolvedTimeZone(settings.data.timezone) !== origin.data.timezone && (
+              <p className="text-xs text-muted-foreground">
+                {t("history.settingsTimezoneDiff", { origin: origin.data.timezone, presentation: resolvedTimeZone(settings.data.timezone) })}
+              </p>
+            )}
+          </div>
+        ) : undefined}
+      />
       {origin.isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {origin.isError && (
         <ErrorState
@@ -409,16 +421,8 @@ export function HistoryPage({ navigationFilters, navigationActivityId, navigatio
       {!origin.isLoading && !origin.isError && !origin.data && <StartHistoryForm />}
       {origin.data && (!origin.isError || hasUnresolvedSheetConfirmation()) && (
         <>
-          <p className="text-sm text-muted-foreground" data-testid="history-origin-timezone">
-            {t("history.originTimezone", { timezone: origin.data.timezone })}
-          </p>
-          {settings.data && resolvedTimeZone(settings.data.timezone) !== origin.data.timezone && (
-            <p className="text-xs text-muted-foreground">
-              {t("history.settingsTimezoneDiff", { origin: origin.data.timezone, presentation: resolvedTimeZone(settings.data.timezone) })}
-            </p>
-          )}
           <Timeline key={navigationRequestId || JSON.stringify(navigationFilters ?? {})} navigationFilters={navigationFilters} navigationActivityId={navigationActivityId} navigationRequestId={navigationRequestId} onFiltersChange={onFiltersChange} onNavigationActivityClose={onNavigationActivityClose} />
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3" aria-label={t("history.snapshotHealth")}>
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3" aria-label={t("history.snapshotHealth")}>
             <div className="flex flex-col gap-1 text-sm">
               <p className="font-medium">{t("history.snapshotHealth")}</p>
               <p className="text-muted-foreground">
