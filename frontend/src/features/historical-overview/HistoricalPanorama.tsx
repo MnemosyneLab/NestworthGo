@@ -241,7 +241,7 @@ export function HistoricalAccountDeltaView({ data, onOpen }: { data: HistoricalO
   </li>;
   return <section aria-label={t("historicalOverview.accountDeltaTitle")} className="min-w-0 rounded-xl border border-border bg-card p-4">
     <h2 className="font-semibold">{t("historicalOverview.accountDeltaTitle")}</h2><p className="text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>
-    <div className="my-3 flex gap-2">{(["asset", "liability"] as const).map(value => <Button key={value} size="sm" variant={role === value ? "default" : "outline"} aria-pressed={role === value} onClick={() => { setRole(value); setAll(false); }}>{t(value === "asset" ? "overview.assets" : "overview.liabilities")}</Button>)}</div>
+    <SegmentedControl className="my-3" label={t("historicalOverview.categoryRole")} value={role} onChange={value => { setRole(value as typeof role); setAll(false); }} options={(["asset", "liability"] as const).map(value => ({ value, label: t(value === "asset" ? "overview.assets" : "overview.liabilities") }))} />
     {safe && visible.length > 0 && <EChart key={role} option={option} height={Math.max(220, visible.length * 38 + 50)} ariaLabel={t("historicalOverview.accountDeltaTitle")} summary={t("historicalOverview.accountDeltaSummary", { currency: data.left.currency })}
       onSelectName={key => { if (!key) return; const button = rowButtons.current.get(key); if (button?.isConnected) onOpen(key, button); }} />}
     {!safe && <p className="text-xs text-muted-foreground">{t(mismatch ? "historicalOverview.currencyMismatch" : "historicalOverview.geometryUnavailable")}</p>}

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartTheme, joinTooltipLines, useThemeVersion } from "@/components/charts/chartTheme";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { geometry } from "./historicalChartModel";
 import type { HistoricalOverviewSeriesResult, HistoricalSeriesPoint } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
@@ -70,7 +71,7 @@ export function HistoricalTrend({ capture, metric, selectedDate, onMetric, onSel
     <h2 className="font-semibold">{t("historicalOverview.trend.title")}</h2>
     <p className="mt-1 text-xs text-muted-foreground">A · {formatCivilDate(capture.from)}{capture.from === capture.to ? "" : ` → B · ${formatCivilDate(capture.to)}`} · {currency} · {overview.timezone}</p>
     <p className="mt-1 text-xs text-muted-foreground">{t("historicalOverview.trend.basis")}</p>
-    <div role="group" aria-label={t("historicalOverview.trend.metric")} className="my-3 flex flex-wrap gap-2">{(["netWorth", "assets", "liabilities"] as const).map(value => <Button key={value} size="sm" aria-pressed={metric === value} variant={metric === value ? "default" : "outline"} onClick={() => onMetric(value)}>{metricLabel(value)}</Button>)}</div>
+    <SegmentedControl className="my-3" label={t("historicalOverview.trend.metric")} value={metric} onChange={value => onMetric(value as typeof metric)} options={(["netWorth", "assets", "liabilities"] as const).map(value => ({ value, label: metricLabel(value) }))} />
     {points.length === 1 && <p className="text-sm">{t("historicalOverview.trend.onePoint")}</p>}
     {!safe && <p className="text-sm">{t("historicalOverview.geometryUnavailable")}</p>}
     {segments.length === 0 && <p className="text-sm">{t("historicalOverview.trend.noCompleteTotals")}</p>}
