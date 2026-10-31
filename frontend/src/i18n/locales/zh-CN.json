@@ -2073,6 +2073,17 @@
     "holdingsScopeNote": "展示未归档账户中的当前持仓（包括零数量）。金额使用标的币种，缺失数值保持不可用。"
   },
   "mobile": {
+    "timezone": "账本时区",
+    "server": "服务器",
+    "settings": "设置",
+    "mainNavigation": "主导航",
+    "connectionState": {
+      "connected": "已连接",
+      "offline": "离线",
+      "reconnecting": "正在重新连接…",
+      "attention": "请检查连接"
+    },
+    "dismiss": "关闭",
     "realizedGain": "已实现收益",
     "forgetRecovery": "舍弃恢复信息",
     "forgetHelp": "请先在桌面核实原操作。这只移除当前浏览器的恢复标识，不会保存、撤销或重放任何操作。",

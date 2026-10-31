@@ -1,81 +1,314 @@
+/*
+ * Mobile web shell — "Ledger Pocket".
+ * Shares the desktop Ledger tokens from index.css (paper/ink surfaces, serif
+ * display figures, tabular numerals) and adds touch-specific layout: a compact
+ * app bar, a thumb-reach tab bar with a central quick-record action, sticky
+ * form actions and safe-area aware spacing. Presentation only — no financial
+ * values are derived here.
+ */
 .mobile-shell {
-  max-width: 48rem;
+  --mobile-gutter: 1rem;
+  --mobile-tabbar-height: 4.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 40rem;
   margin: auto;
   min-height: 100dvh;
-  padding: max(1rem, env(safe-area-inset-top)) 1rem
-    calc(7rem + env(safe-area-inset-bottom));
+  padding: 0 max(var(--mobile-gutter), env(safe-area-inset-right))
+    calc(var(--mobile-tabbar-height) + 2.5rem + env(safe-area-inset-bottom))
+    max(var(--mobile-gutter), env(safe-area-inset-left));
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-shell[data-nav="hidden"] {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
 }
 .mobile-shell button,
 .mobile-shell input,
 .mobile-shell select {
   min-height: 44px;
 }
-.mobile-shell input {
+.mobile-shell input,
+.mobile-shell select,
+.mobile-shell textarea {
   font-size: 16px;
 }
-.mobile-shell nav {
-  flex-wrap: wrap;
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 48rem;
-  padding: 0.65rem 0.5rem calc(0.65rem + env(safe-area-inset-bottom));
-  z-index: 20;
-}
-.mobile-shell section {
-  min-width: 0;
-}
-.mobile-shell .mobile-money {
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
-}
-@media (prefers-reduced-motion: reduce) {
-  .mobile-shell * {
-    animation: none !important;
-    transition: none !important;
-  }
-}
-
-.mobile-shell nav button {
-  flex: 1 1 max-content;
-  min-width: 0;
-  padding-inline: 0.25rem;
-  white-space: normal;
-  overflow-wrap: normal;
-  font-size: 0.75rem;
-}
-
-.mobile-shell nav button:nth-child(3) {
-  flex: 0 0 44px;
-}
-
 .mobile-shell button {
   max-width: 100%;
   height: auto;
   white-space: normal;
   overflow-wrap: anywhere;
   padding-block: 0.6rem;
+  touch-action: manipulation;
 }
 .mobile-shell select {
   max-width: 100%;
 }
-.mobile-shell h1 {
+.mobile-shell section,
+.mobile-shell fieldset {
+  min-width: 0;
+  min-inline-size: 0;
+}
+.mobile-shell h1,
+.mobile-shell h2 {
   overflow-wrap: anywhere;
 }
+.mobile-shell .mobile-money {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+:where(.mobile-shell) [id] {
+  scroll-margin-top: 5rem;
+}
 
-.mobile-shell fieldset {
-  min-inline-size: 0;
+/* App bar */
+.mobile-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline: calc(-1 * var(--mobile-gutter));
+  padding: calc(0.6rem + env(safe-area-inset-top)) var(--mobile-gutter) 0.6rem;
+  background: color-mix(in oklab, var(--color-background) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--color-border) 70%, transparent);
+}
+.mobile-household {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-foreground);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mobile-status {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
   min-width: 0;
 }
-.mobile-shell header > div {
-  min-width: 0;
-  max-width: 100%;
-  flex-wrap: wrap;
+.mobile-status-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-success) 18%, transparent);
 }
-@media (max-width: 430px) {
+.mobile-status[data-state="offline"] .mobile-status-dot,
+.mobile-status[data-state="attention"] .mobile-status-dot {
+  background: var(--color-destructive);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklab, var(--color-destructive) 18%, transparent);
+}
+.mobile-status[data-state="reconnecting"] .mobile-status-dot {
+  background: var(--color-warning);
+  animation: mobile-pulse 1.2s ease-in-out infinite;
+}
+.mobile-shell .mobile-icon-button {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 0.875rem;
+}
+.mobile-shell .mobile-icon-button svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* Surfaces */
+.mobile-panel {
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  border-radius: 1.125rem;
+  padding: 1rem;
+  box-shadow: var(--shadow-xs);
+}
+.mobile-facts {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+.mobile-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.mobile-facts dt {
+  color: var(--color-muted-foreground);
+  flex: none;
+}
+.mobile-facts dd {
+  text-align: right;
+  min-width: 0;
+}
+.mobile-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 1rem;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+}
+.mobile-notice[data-tone="success"] {
+  border-color: color-mix(in oklab, var(--color-success) 35%, var(--color-border));
+  background: color-mix(in oklab, var(--color-success) 8%, var(--color-card));
+}
+.mobile-notice[data-tone="success"] > svg {
+  color: var(--color-success);
+}
+.mobile-notice[data-tone="warning"] {
+  border-color: color-mix(in oklab, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in oklab, var(--color-warning) 12%, var(--color-card));
+}
+.mobile-notice[data-tone="danger"] {
+  border-color: color-mix(in oklab, var(--color-destructive) 45%, var(--color-border));
+  background: color-mix(in oklab, var(--color-destructive) 7%, var(--color-card));
+}
+.mobile-receipt {
+  margin-top: -0.5rem;
+}
+.mobile-shell .mobile-back {
+  align-self: flex-start;
+  margin-left: -0.75rem;
+  margin-bottom: -0.75rem;
+  padding-inline: 0.5rem 0.875rem;
+  color: var(--color-primary);
+}
+.mobile-shell .mobile-reload {
+  align-self: center;
+  color: var(--color-muted-foreground);
+  font-size: 0.8125rem;
+}
+
+/* Tab bar */
+.mobile-tabbar {
+  position: fixed;
+  z-index: 20;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 40rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) 4.5rem repeat(2, minmax(0, 1fr));
+  align-items: end;
+  padding: 0.375rem max(0.5rem, env(safe-area-inset-right))
+    calc(0.375rem + env(safe-area-inset-bottom))
+    max(0.5rem, env(safe-area-inset-left));
+  background: color-mix(in oklab, var(--color-card) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(16px);
+  -webkit-backdrop-filter: saturate(1.4) blur(16px);
+  border-top: 1px solid var(--color-border);
+}
+.mobile-shell .mobile-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 3.25rem;
+  padding: 0.25rem 0.125rem;
+  border-radius: 0.875rem;
+  font-size: 0.6875rem;
+  font-weight: 550;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--color-muted-foreground);
+  overflow-wrap: normal;
+  transition: color 150ms ease;
+}
+.mobile-tab svg {
+  width: 1.375rem;
+  height: 1.375rem;
+  stroke-width: 1.75;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.mobile-tab[data-active] {
+  color: var(--color-primary);
+}
+.mobile-tab[data-active] svg {
+  stroke-width: 2.1;
+  transform: translateY(-1px);
+}
+.mobile-tab:focus-visible,
+.mobile-fab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.mobile-shell .mobile-fab {
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-top: -1.5rem;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  border-radius: 1.25rem;
+  background: var(--color-foreground);
+  color: var(--color-background);
+  box-shadow: var(--shadow-md);
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+.mobile-fab svg {
+  width: 1.625rem;
+  height: 1.625rem;
+  stroke-width: 2.25;
+}
+.mobile-fab:active {
+  transform: scale(0.94);
+}
+.mobile-fab:disabled {
+  opacity: 0.35;
+  box-shadow: none;
+}
+
+/* Motion */
+.mobile-enter {
+  animation: mobile-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes mobile-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes mobile-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-shell *,
+  .mobile-shell *::before,
+  .mobile-shell *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 359px) {
+  .mobile-shell {
+    --mobile-gutter: 0.75rem;
+  }
   .mobile-shell .grid-cols-2 {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .mobile-tabbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) 4rem repeat(2, minmax(0, 1fr));
   }
 }

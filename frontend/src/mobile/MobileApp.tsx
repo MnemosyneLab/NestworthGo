@@ -7,6 +7,19 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  LayoutGrid,
+  Plus,
+  ReceiptText,
+  RefreshCw,
+  RotateCw,
+  Settings2,
+  ShieldCheck,
+  WalletCards,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -202,6 +215,7 @@ export function MobileApp() {
   const [session, setSession] = useState<Session | null | undefined>();
   const [connectionVersion, setConnectionVersion] = useState(0);
   const [showConnection, setShowConnection] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const reconnectLock = useRef(false);
   const [theme, setTheme] = useState(() => mobilePreferences().theme);
@@ -363,94 +377,169 @@ export function MobileApp() {
     );
   const b = bootstrap.data?.data;
   const hiddenNav = record !== null || quote !== null || market !== null;
+  const connectionState = offline
+    ? "offline"
+    : reconnecting
+      ? "reconnecting"
+      : sessionError || bootstrap.error
+        ? "attention"
+        : "connected";
+  const address = backendBase() || window.location.origin;
+  const goTab = (value: string) => {
+    setDetail(null);
+    setTab(value);
+    document.scrollingElement?.scrollTo?.({ top: 0 });
+  };
   return (
-    <main className="mobile-shell space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">{b?.name || "Nestworth"}</h1>
-        <div className="flex gap-2">
-          <NativeSelect
-            aria-label={t("mobile.language")}
-            value={i18n.language}
-            onChange={(e) => {
-              saveMobilePreferences({ language: e.target.value, theme });
-              void i18n.changeLanguage(e.target.value);
-            }}
+    <main className="mobile-shell" data-nav={hiddenNav ? "hidden" : "shown"}>
+      <header className="mobile-appbar">
+        <div className="min-w-0 flex-1">
+          <h1 className="mobile-household">{b?.name || "Nestworth"}</h1>
+          <p
+            className="mobile-status"
+            data-state={connectionState}
+            title={t("mobile.connectedTo", { address })}
           >
-            <option value="en">English</option>
-            <option value="zh-CN">简体中文</option>
-            <option value="zh-TW">繁體中文</option>
-          </NativeSelect>
-          <NativeSelect
-            aria-label={t("mobile.theme")}
-            value={theme}
-            onChange={(e) => {
-              const value = e.target.value as typeof theme;
-              setTheme(value);
-              saveMobilePreferences({ language: i18n.language, theme: value });
-            }}
-          >
-            {["system", "light", "dark"].map((value) => (
-              <option key={value} value={value}>
-                {t(`mobile.themeChoice.${value}`)}
-              </option>
-            ))}
-          </NativeSelect>
-          <Button
-            variant="ghost"
-            disabled={connectionLocked || reconnecting}
-            onClick={() => setShowConnection((v) => !v)}
-          >
-            {t("mobile.connectionSettings")}
-          </Button>
-          <Button
-            variant="ghost"
-            disabled={
-              !!pending ||
-              record !== null ||
-              quote !== null ||
-              market !== null ||
-              reconnecting
-            }
-            onClick={() => {
-              if (reconnectLock.current) return;
-              reconnectLock.current = true;
-              setReconnecting(true);
-              setSessionError(null);
-              void api("/session", "DELETE")
-                .then(() => acceptSession(null))
-                .catch((error) => {
-                  setSessionError(error);
-                  if (error instanceof MobileError && error.status === 401)
-                    acceptSession(null);
-                })
-                .finally(() => {
-                  reconnectLock.current = false;
-                  setReconnecting(false);
-                });
-            }}
-          >
-            {t("mobile.logout")}
-          </Button>
+            <span className="mobile-status-dot" aria-hidden />
+            <span className="truncate">
+              {t(`mobile.connectionState.${connectionState}`)}
+              <span className="text-muted-foreground">
+                {" · "}
+                {address.replace(/^https:\/\//, "")}
+              </span>
+            </span>
+          </p>
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="mobile-icon-button"
+          aria-label={t("mobile.reconnect")}
+          title={t("mobile.reconnect")}
+          disabled={reconnecting || !!pending}
+          onClick={() => void reconnect()}
+        >
+          <RefreshCw
+            aria-hidden
+            className={reconnecting ? "motion-safe:animate-spin" : undefined}
+          />
+        </Button>
+        <Button
+          variant={showSettings ? "soft" : "outline"}
+          size="icon"
+          className="mobile-icon-button"
+          aria-label={t("mobile.settings")}
+          title={t("mobile.settings")}
+          aria-expanded={showSettings}
+          aria-controls="mobile-settings"
+          onClick={() => setShowSettings((v) => !v)}
+        >
+          <Settings2 aria-hidden />
+        </Button>
       </header>
+      {showSettings && (
+        <section
+          id="mobile-settings"
+          aria-label={t("mobile.settings")}
+          className="mobile-panel mobile-enter space-y-3"
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <Field name={t("mobile.language")}>
+              <NativeSelect
+                aria-label={t("mobile.language")}
+                value={i18n.language}
+                onChange={(e) => {
+                  saveMobilePreferences({ language: e.target.value, theme });
+                  void i18n.changeLanguage(e.target.value);
+                }}
+              >
+                <option value="en">English</option>
+                <option value="zh-CN">简体中文</option>
+                <option value="zh-TW">繁體中文</option>
+              </NativeSelect>
+            </Field>
+            <Field name={t("mobile.theme")}>
+              <NativeSelect
+                aria-label={t("mobile.theme")}
+                value={theme}
+                onChange={(e) => {
+                  const value = e.target.value as typeof theme;
+                  setTheme(value);
+                  saveMobilePreferences({
+                    language: i18n.language,
+                    theme: value,
+                  });
+                }}
+              >
+                {["system", "light", "dark"].map((value) => (
+                  <option key={value} value={value}>
+                    {t(`mobile.themeChoice.${value}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          </div>
+          <dl className="mobile-facts">
+            <div>
+              <dt>{t("mobile.server")}</dt>
+              <dd className="break-all">{address}</dd>
+            </div>
+            {bootstrap.data && (
+              <div>
+                <dt>{t("mobile.timezone")}</dt>
+                <dd>{bootstrap.data.ledgerTimezone}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              disabled={connectionLocked || reconnecting}
+              aria-expanded={showConnection}
+              onClick={() => setShowConnection((v) => !v)}
+            >
+              {t("mobile.connectionSettings")}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 text-destructive"
+              disabled={
+                !!pending ||
+                record !== null ||
+                quote !== null ||
+                market !== null ||
+                reconnecting
+              }
+              onClick={() => {
+                if (reconnectLock.current) return;
+                reconnectLock.current = true;
+                setReconnecting(true);
+                setSessionError(null);
+                void api("/session", "DELETE")
+                  .then(() => acceptSession(null))
+                  .catch((error) => {
+                    setSessionError(error);
+                    if (error instanceof MobileError && error.status === 401)
+                      acceptSession(null);
+                  })
+                  .finally(() => {
+                    reconnectLock.current = false;
+                    setReconnecting(false);
+                  });
+              }}
+            >
+              {t("mobile.logout")}
+            </Button>
+          </div>
+        </section>
+      )}
       {showConnection && !reconnecting && (
         <ConnectionSettings
           disabled={connectionLocked}
           onChange={changeConnection}
         />
       )}
-      <p className="text-xs break-all">
-        {t("mobile.connectedTo", {
-          address: backendBase() || window.location.origin,
-        })}
-      </p>
-      <Button
-        variant="outline"
-        disabled={reconnecting || !!pending}
-        onClick={() => void reconnect()}
-      >
-        {t("mobile.reconnect")}
-      </Button>
       {pending && !recoveryPersistent && (
         <p role="alert">{t("mobile.recoveryMemoryOnly")}</p>
       )}
@@ -461,11 +550,6 @@ export function MobileApp() {
         <LoadingState label={t("common.loading")} />
       ) : (
         <>
-          <p className="text-xs text-muted-foreground">
-            {t("mobile.ledgerTimezone", {
-              timezone: bootstrap.data!.ledgerTimezone,
-            })}
-          </p>
           {pending && record === null && quote === null && (
             <Recovery
               pending={pending}
@@ -474,9 +558,28 @@ export function MobileApp() {
               onForget={() => updatePending(null)}
             />
           )}
-          {notice && <p role="status">{t(`mobile.${notice}`)}</p>}
+          {notice && (
+            <div className="mobile-notice mobile-enter" data-tone="success">
+              <CheckCircle2 aria-hidden className="size-5 shrink-0" />
+              <p role="status" className="min-w-0 flex-1">
+                {t(`mobile.${notice}`)}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mobile-icon-button -my-2 -mr-2"
+                aria-label={t("mobile.dismiss")}
+                onClick={() => {
+                  setNotice("");
+                  setReceipt(null);
+                }}
+              >
+                <X aria-hidden />
+              </Button>
+            </div>
+          )}
           {receipt && (
-            <Card className="p-4">
+            <Card className="mobile-receipt p-4">
               <ActivityView activity={receipt} />
             </Card>
           )}
@@ -515,7 +618,12 @@ export function MobileApp() {
             />
           ) : detail ? (
             <>
-              <Button variant="outline" onClick={() => setDetail(null)}>
+              <Button
+                variant="ghost"
+                className="mobile-back"
+                onClick={() => setDetail(null)}
+              >
+                <ChevronLeft aria-hidden />
                 {t("mobile.back")}
               </Button>
               <Detail
@@ -572,76 +680,77 @@ export function MobileApp() {
                 />
               )}
               <Button
-                className="w-full"
-                variant="outline"
+                className="mobile-reload"
+                variant="ghost"
                 onClick={() =>
                   void client.invalidateQueries({ queryKey: ["mobile"] })
                 }
               >
+                <RotateCw aria-hidden />
                 {t("mobile.reloadLocal")}
               </Button>
             </>
           )}
           {!hiddenNav && (
-            <nav className="flex items-center justify-around gap-1 border-t border-border bg-card/95 backdrop-blur">
-              <Button
-                size="sm"
-                variant={tab === "overview" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("overview");
-                }}
-              >
-                {t("mobile.overview")}
-              </Button>
-              <Button
-                size="sm"
-                variant={tab === "accounts" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("accounts");
-                }}
-              >
-                {t("mobile.accounts")}
-              </Button>
-              <Button
-                aria-label={t("mobile.quickRecord")}
-                disabled={
-                  !b.capabilities.record ||
-                  !b.historyStarted ||
-                  !!pending ||
-                  offline
-                }
-                onClick={() => {
-                  setInitialKind("expense");
-                  setRecord("");
-                }}
-              >
-                ＋
-              </Button>
-              <Button
-                size="sm"
-                variant={tab === "activities" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("activities");
-                }}
-              >
-                {t("mobile.ledger")}
-              </Button>
-              <Button
-                size="sm"
-                variant={tab === "health" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("health");
-                }}
-              >
-                {t("mobile.health")}
-              </Button>
+            <nav
+              aria-label={t("mobile.mainNavigation")}
+              className="mobile-tabbar"
+            >
+              {(
+                [
+                  ["overview", t("mobile.overview"), LayoutGrid],
+                  ["accounts", t("mobile.accounts"), WalletCards],
+                  null,
+                  ["activities", t("mobile.ledger"), ReceiptText],
+                  ["health", t("mobile.health"), ShieldCheck],
+                ] as const
+              ).map((item) =>
+                item === null ? (
+                  <button
+                    key="record"
+                    type="button"
+                    className="mobile-fab"
+                    aria-label={t("mobile.quickRecord")}
+                    title={t("mobile.quickRecord")}
+                    disabled={
+                      !b.capabilities.record ||
+                      !b.historyStarted ||
+                      !!pending ||
+                      offline
+                    }
+                    onClick={() => {
+                      setInitialKind("expense");
+                      setRecord("");
+                    }}
+                  >
+                    <Plus aria-hidden />
+                  </button>
+                ) : (
+                  <button
+                    key={item[0]}
+                    type="button"
+                    className="mobile-tab"
+                    aria-current={
+                      tab === item[0] && !detail ? "page" : undefined
+                    }
+                    data-active={tab === item[0] || undefined}
+                    onClick={() => goTab(item[0])}
+                  >
+                    {(() => {
+                      const Icon = item[2];
+                      return <Icon aria-hidden />;
+                    })()}
+                    <span>{item[1]}</span>
+                  </button>
+                ),
+              )}
             </nav>
           )}
-          {!b.historyStarted && <p>{t("mobile.historyRequired")}</p>}
+          {!b.historyStarted && (
+            <p className="mobile-notice" data-tone="warning">
+              {t("mobile.historyRequired")}
+            </p>
+          )}
         </>
       )}
     </main>
