@@ -267,9 +267,22 @@ All three supported languages retain locale coverage checks.
 Mobile uses bounded holding cards rather than the desktop grouped table. This
 is an explicit mobile presentation exception: the backend remains the authority
 for amounts and no client grouping sums or financial calculations are added.
-The initial trend is an accessible bounded date/value list to avoid shipping the
-desktop chart engine. The desktop address-only QR uses a local SVG encoder with
-no remote image or credential service. Richer charts remain a separate presentation improvement.
+The net-worth trend is a decorative inline SVG line drawn from the backend's
+points, paired with an accessible date/value list ("Show values"), so the
+desktop chart engine is not shipped. The desktop address-only QR uses a local
+SVG encoder with no remote image or credential service.
+
+The mobile visual language ("Ledger Pocket") lives in `src/mobile/mobile.css`
+and reuses the desktop Ledger tokens (`--font-display`, `--color-*`,
+`--radius-*`) so light, dark and system themes follow the shared palette. It is
+touch-first: a bottom tab bar with a central quick-record action, 44–48 px
+targets, safe-area padding, `interactive-widget=resizes-content` for virtual
+keyboards, and a sticky bottom action bar for record, quote and market reviews.
+The tab bar is hidden while a flow is open so draft protection and the leave
+guard stay in control. Below 360 px two-column grids collapse and row icons are
+hidden. Motion is limited to short entrance and progress transitions and is
+disabled under `prefers-reduced-motion`. Presentation changes must not add
+client-side amount math or weaken preview, operation-id or recovery guarantees.
 
 Linux builds, unit/jsdom tests and Chromium evidence do not establish native
 macOS, iOS Safari, Android Chrome, screen-reader or real soft-keyboard acceptance.
