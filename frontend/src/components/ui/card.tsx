@@ -40,7 +40,8 @@ function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParag
 }
 
 function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-5 pt-0 sm:p-6 sm:pt-0", className)} {...props} />;
+  // No responsive pt-* so callers can restore top padding for header-less cards.
+  return <div className={cn("px-5 pb-5 sm:px-6 sm:pb-6", className)} {...props} />;
 }
 
 export { Card, InteractiveCard, CardHeader, CardTitle, CardDescription, CardContent };
