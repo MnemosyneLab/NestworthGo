@@ -2073,6 +2073,27 @@
     "holdingsScopeNote": "顯示未封存帳戶的目前持倉（包括零數量）。金額使用標的幣別，缺失數值維持不可用。"
   },
   "mobile": {
+    "tagline": "隨身的家庭帳本。",
+    "stepPair": "配對此裝置",
+    "noHoldings": "此帳戶暫無持倉。",
+    "valuationEvidence": "估值來源",
+    "showValues": "查看數值",
+    "filters": "篩選",
+    "clearFilters": "清除篩選",
+    "allTypes": "全部類型",
+    "noAccounts": "沒有符合篩選條件的帳戶。",
+    "liability": "負債",
+    "timezone": "帳本時區",
+    "server": "伺服器",
+    "settings": "設定",
+    "mainNavigation": "主導覽",
+    "connectionState": {
+      "connected": "已連線",
+      "offline": "離線",
+      "reconnecting": "正在重新連線…",
+      "attention": "請檢查連線"
+    },
+    "dismiss": "關閉",
     "realizedGain": "已實現收益",
     "forgetRecovery": "捨棄復原資訊",
     "forgetHelp": "請先在桌面核實原操作。這只移除目前瀏覽器的復原識別，不會儲存、撤銷或重播任何操作。",

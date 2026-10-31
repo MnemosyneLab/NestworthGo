@@ -7,6 +7,40 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import {
+  AlertCircle,
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowUpRight,
+  CandlestickChart,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  HandCoins,
+  Inbox,
+  Landmark,
+  LayoutGrid,
+  LogOut,
+  Monitor,
+  Plus,
+  ReceiptText,
+  RefreshCw,
+  RotateCcw,
+  RotateCw,
+  Scale,
+  Search,
+  Server,
+  Settings2,
+  SlidersHorizontal,
+  ShieldCheck,
+  Wallet,
+  WalletCards,
+  WifiOff,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +83,7 @@ import {
 } from "./api";
 
 import { ConnectionSettings } from "./ConnectionSettings";
+import logoMark from "@/assets/brand/logo-mark.png";
 import {
   backendBase,
   ConnectionError,
@@ -81,6 +116,8 @@ type Holding = {
 };
 type Component = {
   instrumentName: string;
+  instrumentSymbol?: string;
+  holdingId?: string;
   nativeAmount: string;
   nativeCurrency: string;
   available: boolean;
@@ -92,10 +129,26 @@ type Component = {
     freshness: string;
   };
 };
-type AccountDetail = { account: { name: string }; components: Component[] };
+type AccountDetail = {
+  account: {
+    name: string;
+    accountType?: string;
+    balanceSheetRole?: string;
+    trackingMode?: string;
+    defaultCurrency?: string;
+  };
+  components: Component[];
+  displayValue?: { value: Money | null } | null;
+  baseValue?: Money | null;
+  complete?: boolean;
+};
 type HoldingDetailResponse = {
   holding: {
+    HoldingID?: string;
     InstrumentName: string;
+    InstrumentSymbol?: string;
+    CurrentValue?: Money | null;
+    CurrentValueBase?: Money | null;
     Quantity: string;
     InstrumentID: string;
     TotalCost: Money | null;
@@ -167,28 +220,20 @@ function ErrorMessage({ error }: { error: unknown }) {
           })
         : t("mobile.connectionUnavailable");
   return (
-    <p
-      role="alert"
-      className="rounded-xl border border-destructive p-3 text-sm"
-    >
-      {message}
-      {error instanceof MobileError && error.field
-        ? ` · ${t(`error.field.${error.field}`, { defaultValue: "" })}`
-        : ""}
+    <p role="alert" className="mobile-notice" data-tone="danger">
+      <AlertCircle aria-hidden className="size-5 shrink-0" />
+      <span className="min-w-0 flex-1">
+        {message}
+        {error instanceof MobileError && error.field
+          ? ` · ${t(`error.field.${error.field}`, { defaultValue: "" })}`
+          : ""}
+      </span>
     </p>
-  );
-}
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {children}
-    </section>
   );
 }
 function Field({ name, children }: { name: string; children: ReactNode }) {
   return (
-    <div className="space-y-1">
+    <div className="mobile-field">
       <Label>{name}</Label>
       {children}
     </div>
@@ -202,6 +247,7 @@ export function MobileApp() {
   const [session, setSession] = useState<Session | null | undefined>();
   const [connectionVersion, setConnectionVersion] = useState(0);
   const [showConnection, setShowConnection] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const reconnectLock = useRef(false);
   const [theme, setTheme] = useState(() => mobilePreferences().theme);
@@ -363,109 +409,193 @@ export function MobileApp() {
     );
   const b = bootstrap.data?.data;
   const hiddenNav = record !== null || quote !== null || market !== null;
+  const connectionState = offline
+    ? "offline"
+    : reconnecting
+      ? "reconnecting"
+      : sessionError || bootstrap.error
+        ? "attention"
+        : "connected";
+  const address = backendBase() || window.location.origin;
+  const goTab = (value: string) => {
+    setDetail(null);
+    setTab(value);
+    document.scrollingElement?.scrollTo?.({ top: 0 });
+  };
   return (
-    <main className="mobile-shell space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">{b?.name || "Nestworth"}</h1>
-        <div className="flex gap-2">
-          <NativeSelect
-            aria-label={t("mobile.language")}
-            value={i18n.language}
-            onChange={(e) => {
-              saveMobilePreferences({ language: e.target.value, theme });
-              void i18n.changeLanguage(e.target.value);
-            }}
+    <main className="mobile-shell" data-nav={hiddenNav ? "hidden" : "shown"}>
+      <header className="mobile-appbar">
+        <div className="min-w-0 flex-1">
+          <h1 className="mobile-household">{b?.name || "Nestworth"}</h1>
+          <p
+            className="mobile-status"
+            data-state={connectionState}
+            title={t("mobile.connectedTo", { address })}
           >
-            <option value="en">English</option>
-            <option value="zh-CN">简体中文</option>
-            <option value="zh-TW">繁體中文</option>
-          </NativeSelect>
-          <NativeSelect
-            aria-label={t("mobile.theme")}
-            value={theme}
-            onChange={(e) => {
-              const value = e.target.value as typeof theme;
-              setTheme(value);
-              saveMobilePreferences({ language: i18n.language, theme: value });
-            }}
-          >
-            {["system", "light", "dark"].map((value) => (
-              <option key={value} value={value}>
-                {t(`mobile.themeChoice.${value}`)}
-              </option>
-            ))}
-          </NativeSelect>
-          <Button
-            variant="ghost"
-            disabled={connectionLocked || reconnecting}
-            onClick={() => setShowConnection((v) => !v)}
-          >
-            {t("mobile.connectionSettings")}
-          </Button>
-          <Button
-            variant="ghost"
-            disabled={
-              !!pending ||
-              record !== null ||
-              quote !== null ||
-              market !== null ||
-              reconnecting
-            }
-            onClick={() => {
-              if (reconnectLock.current) return;
-              reconnectLock.current = true;
-              setReconnecting(true);
-              setSessionError(null);
-              void api("/session", "DELETE")
-                .then(() => acceptSession(null))
-                .catch((error) => {
-                  setSessionError(error);
-                  if (error instanceof MobileError && error.status === 401)
-                    acceptSession(null);
-                })
-                .finally(() => {
-                  reconnectLock.current = false;
-                  setReconnecting(false);
-                });
-            }}
-          >
-            {t("mobile.logout")}
-          </Button>
+            <span className="mobile-status-dot" aria-hidden />
+            <span className="truncate">
+              {t(`mobile.connectionState.${connectionState}`)}
+              <span className="text-muted-foreground">
+                {" · "}
+                {address.replace(/^https:\/\//, "")}
+              </span>
+            </span>
+          </p>
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="mobile-icon-button"
+          aria-label={t("mobile.reconnect")}
+          title={t("mobile.reconnect")}
+          disabled={reconnecting || !!pending}
+          onClick={() => void reconnect()}
+        >
+          <RefreshCw
+            aria-hidden
+            className={reconnecting ? "motion-safe:animate-spin" : undefined}
+          />
+        </Button>
+        <Button
+          variant={showSettings ? "soft" : "outline"}
+          size="icon"
+          className="mobile-icon-button"
+          aria-label={t("mobile.settings")}
+          title={t("mobile.settings")}
+          aria-expanded={showSettings}
+          aria-controls="mobile-settings"
+          onClick={() => setShowSettings((v) => !v)}
+        >
+          <Settings2 aria-hidden />
+        </Button>
       </header>
+      {showSettings && (
+        <section
+          id="mobile-settings"
+          aria-label={t("mobile.settings")}
+          className="mobile-panel mobile-enter space-y-3"
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <Field name={t("mobile.language")}>
+              <NativeSelect
+                aria-label={t("mobile.language")}
+                value={i18n.language}
+                onChange={(e) => {
+                  saveMobilePreferences({ language: e.target.value, theme });
+                  void i18n.changeLanguage(e.target.value);
+                }}
+              >
+                <option value="en">English</option>
+                <option value="zh-CN">简体中文</option>
+                <option value="zh-TW">繁體中文</option>
+              </NativeSelect>
+            </Field>
+            <Field name={t("mobile.theme")}>
+              <NativeSelect
+                aria-label={t("mobile.theme")}
+                value={theme}
+                onChange={(e) => {
+                  const value = e.target.value as typeof theme;
+                  setTheme(value);
+                  saveMobilePreferences({
+                    language: i18n.language,
+                    theme: value,
+                  });
+                }}
+              >
+                {["system", "light", "dark"].map((value) => (
+                  <option key={value} value={value}>
+                    {t(`mobile.themeChoice.${value}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          </div>
+          <dl className="mobile-facts">
+            <div>
+              <dt>{t("mobile.server")}</dt>
+              <dd className="break-all">{address}</dd>
+            </div>
+            {bootstrap.data && (
+              <div>
+                <dt>{t("mobile.timezone")}</dt>
+                <dd>{bootstrap.data.ledgerTimezone}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="mobile-settings-actions">
+            <Button
+              variant="ghost"
+              disabled={connectionLocked || reconnecting}
+              aria-expanded={showConnection}
+              onClick={() => setShowConnection((v) => !v)}
+            >
+              <Server aria-hidden />
+              <span>{t("mobile.connectionSettings")}</span>
+              <ChevronRight aria-hidden data-open={showConnection} />
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-destructive"
+              disabled={
+                !!pending ||
+                record !== null ||
+                quote !== null ||
+                market !== null ||
+                reconnecting
+              }
+              onClick={() => {
+                if (reconnectLock.current) return;
+                reconnectLock.current = true;
+                setReconnecting(true);
+                setSessionError(null);
+                void api("/session", "DELETE")
+                  .then(() => acceptSession(null))
+                  .catch((error) => {
+                    setSessionError(error);
+                    if (error instanceof MobileError && error.status === 401)
+                      acceptSession(null);
+                  })
+                  .finally(() => {
+                    reconnectLock.current = false;
+                    setReconnecting(false);
+                  });
+              }}
+            >
+              <LogOut aria-hidden />
+              <span>{t("mobile.logout")}</span>
+            </Button>
+          </div>
+        </section>
+      )}
       {showConnection && !reconnecting && (
         <ConnectionSettings
           disabled={connectionLocked}
           onChange={changeConnection}
         />
       )}
-      <p className="text-xs break-all">
-        {t("mobile.connectedTo", {
-          address: backendBase() || window.location.origin,
-        })}
-      </p>
-      <Button
-        variant="outline"
-        disabled={reconnecting || !!pending}
-        onClick={() => void reconnect()}
-      >
-        {t("mobile.reconnect")}
-      </Button>
       {pending && !recoveryPersistent && (
-        <p role="alert">{t("mobile.recoveryMemoryOnly")}</p>
+        <p role="alert" className="mobile-notice" data-tone="warning">
+          <AlertCircle aria-hidden className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t("mobile.recoveryMemoryOnly")}
+          </span>
+        </p>
       )}
       <ErrorMessage error={sessionError} />
-      {offline && <p role="status">{t("mobile.connectionUnavailable")}</p>}
+      {offline && (
+        <p role="status" className="mobile-notice" data-tone="warning">
+          <WifiOff aria-hidden className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t("mobile.connectionUnavailable")}
+          </span>
+        </p>
+      )}
       <ErrorMessage error={bootstrap.error} />
       {!b ? (
         <LoadingState label={t("common.loading")} />
       ) : (
         <>
-          <p className="text-xs text-muted-foreground">
-            {t("mobile.ledgerTimezone", {
-              timezone: bootstrap.data!.ledgerTimezone,
-            })}
-          </p>
           {pending && record === null && quote === null && (
             <Recovery
               pending={pending}
@@ -474,9 +604,28 @@ export function MobileApp() {
               onForget={() => updatePending(null)}
             />
           )}
-          {notice && <p role="status">{t(`mobile.${notice}`)}</p>}
+          {notice && (
+            <div className="mobile-notice mobile-enter" data-tone="success">
+              <CheckCircle2 aria-hidden className="size-5 shrink-0" />
+              <p role="status" className="min-w-0 flex-1">
+                {t(`mobile.${notice}`)}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mobile-icon-button -my-2 -mr-2"
+                aria-label={t("mobile.dismiss")}
+                onClick={() => {
+                  setNotice("");
+                  setReceipt(null);
+                }}
+              >
+                <X aria-hidden />
+              </Button>
+            </div>
+          )}
           {receipt && (
-            <Card className="p-4">
+            <Card className="mobile-receipt p-4">
               <ActivityView activity={receipt} />
             </Card>
           )}
@@ -515,7 +664,12 @@ export function MobileApp() {
             />
           ) : detail ? (
             <>
-              <Button variant="outline" onClick={() => setDetail(null)}>
+              <Button
+                variant="ghost"
+                className="mobile-back"
+                onClick={() => setDetail(null)}
+              >
+                <ChevronLeft aria-hidden />
                 {t("mobile.back")}
               </Button>
               <Detail
@@ -572,76 +726,77 @@ export function MobileApp() {
                 />
               )}
               <Button
-                className="w-full"
-                variant="outline"
+                className="mobile-reload"
+                variant="ghost"
                 onClick={() =>
                   void client.invalidateQueries({ queryKey: ["mobile"] })
                 }
               >
+                <RotateCw aria-hidden />
                 {t("mobile.reloadLocal")}
               </Button>
             </>
           )}
           {!hiddenNav && (
-            <nav className="flex items-center justify-around gap-1 border-t border-border bg-card/95 backdrop-blur">
-              <Button
-                size="sm"
-                variant={tab === "overview" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("overview");
-                }}
-              >
-                {t("mobile.overview")}
-              </Button>
-              <Button
-                size="sm"
-                variant={tab === "accounts" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("accounts");
-                }}
-              >
-                {t("mobile.accounts")}
-              </Button>
-              <Button
-                aria-label={t("mobile.quickRecord")}
-                disabled={
-                  !b.capabilities.record ||
-                  !b.historyStarted ||
-                  !!pending ||
-                  offline
-                }
-                onClick={() => {
-                  setInitialKind("expense");
-                  setRecord("");
-                }}
-              >
-                ＋
-              </Button>
-              <Button
-                size="sm"
-                variant={tab === "activities" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("activities");
-                }}
-              >
-                {t("mobile.ledger")}
-              </Button>
-              <Button
-                size="sm"
-                variant={tab === "health" ? "soft" : "ghost"}
-                onClick={() => {
-                  setDetail(null);
-                  setTab("health");
-                }}
-              >
-                {t("mobile.health")}
-              </Button>
+            <nav
+              aria-label={t("mobile.mainNavigation")}
+              className="mobile-tabbar"
+            >
+              {(
+                [
+                  ["overview", t("mobile.overview"), LayoutGrid],
+                  ["accounts", t("mobile.accounts"), WalletCards],
+                  null,
+                  ["activities", t("mobile.ledger"), ReceiptText],
+                  ["health", t("mobile.health"), ShieldCheck],
+                ] as const
+              ).map((item) =>
+                item === null ? (
+                  <button
+                    key="record"
+                    type="button"
+                    className="mobile-fab"
+                    aria-label={t("mobile.quickRecord")}
+                    title={t("mobile.quickRecord")}
+                    disabled={
+                      !b.capabilities.record ||
+                      !b.historyStarted ||
+                      !!pending ||
+                      offline
+                    }
+                    onClick={() => {
+                      setInitialKind("expense");
+                      setRecord("");
+                    }}
+                  >
+                    <Plus aria-hidden />
+                  </button>
+                ) : (
+                  <button
+                    key={item[0]}
+                    type="button"
+                    className="mobile-tab"
+                    aria-current={
+                      tab === item[0] && !detail ? "page" : undefined
+                    }
+                    data-active={tab === item[0] || undefined}
+                    onClick={() => goTab(item[0])}
+                  >
+                    {(() => {
+                      const Icon = item[2];
+                      return <Icon aria-hidden />;
+                    })()}
+                    <span>{item[1]}</span>
+                  </button>
+                ),
+              )}
             </nav>
           )}
-          {!b.historyStarted && <p>{t("mobile.historyRequired")}</p>}
+          {!b.historyStarted && (
+            <p className="mobile-notice" data-tone="warning">
+              {t("mobile.historyRequired")}
+            </p>
+          )}
         </>
       )}
     </main>
@@ -667,15 +822,19 @@ function Login({
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
   return (
-    <main className="mobile-shell flex flex-col justify-center gap-5">
-      <h1 className="text-3xl font-bold">Nestworth</h1>
+    <main className="mobile-shell mobile-login">
+      <header className="mobile-login-brand">
+        <img src={logoMark} alt="" width={56} height={56} />
+        <h1 translate="no">Nestworth</h1>
+        <p>{t("mobile.tagline")}</p>
+      </header>
       <ConnectionSettings
         disabled={connectionDisabled}
         onChange={onConnectionChanged}
       />
-      <p>{t("mobile.loginHelp")}</p>
       <form
-        className="space-y-4"
+        className="mobile-card mobile-login-form"
+        aria-labelledby="mobile-pair-title"
         onSubmit={(event) => {
           event.preventDefault();
           if (lock.current) return;
@@ -700,56 +859,162 @@ function Login({
             });
         }}
       >
-        <Label htmlFor="mobile-token">{t("mobile.token")}</Label>
-        <Input
-          id="mobile-token"
-          type="password"
-          autoComplete="off"
-          autoCapitalize="none"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          disabled={busy}
-          required
-        />
+        <h2 id="mobile-pair-title" className="mobile-step-title">
+          {t("mobile.stepPair")}
+        </h2>
+        <p className="mobile-hint">{t("mobile.loginHelp")}</p>
+        <div className="mobile-field">
+          <Label htmlFor="mobile-token">{t("mobile.token")}</Label>
+          <Input
+            id="mobile-token"
+            type="password"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="go"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            disabled={busy}
+            required
+          />
+        </div>
         <ErrorMessage error={error} />
-        <Button className="w-full" disabled={busy}>
-          {busy ? t("common.pending") : t("mobile.login")}
-        </Button>
-        {busy && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => controller.current?.abort()}
-          >
-            {t("common.cancel")}
+        <div className="mobile-form-actions">
+          <Button size="lg" disabled={busy}>
+            {busy ? t("common.pending") : t("mobile.login")}
           </Button>
-        )}
+          {busy && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => controller.current?.abort()}
+            >
+              {t("common.cancel")}
+            </Button>
+          )}
+        </div>
       </form>
-      <p className="text-sm text-muted-foreground">
-        {t("mobile.connectionHelp")}
+      <p className="mobile-desktop-note">
+        <Monitor aria-hidden />
+        <span>{t("mobile.connectionHelp")}</span>
       </p>
     </main>
   );
 }
 
-function MetricView({ label, metric }: { label: string; metric: Metric }) {
+function MetricItem({
+  label,
+  metric,
+  className,
+}: {
+  label: string;
+  metric: Metric;
+  className?: string;
+}) {
   const { t } = useTranslation();
   return (
-    <Card className="p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold">
+    <div className={className}>
+      <dt>{label}</dt>
+      <dd>
         {metric.total ? (
           <MoneyText value={metric.total} />
         ) : (
           <span aria-label={t("mobile.unavailable")}>—</span>
         )}
+        {!metric.total && metric.knownSubtotal && (
+          <small className="mobile-subtotal">
+            {t("mobile.knownSubtotal")}{" "}
+            <MoneyText value={metric.knownSubtotal} />
+          </small>
+        )}
+      </dd>
+    </div>
+  );
+}
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="mobile-segmented" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={o.value === value}
+          onClick={() => onChange(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+// Geometry only: plotted from server totals; displayed figures stay exact strings.
+function Sparkline({ points }: { points: { date: string; valuation: Metric }[] }) {
+  const values = points.map((p) =>
+    p.valuation.total ? Number(p.valuation.total.amount) : NaN,
+  );
+  const known = values.filter(Number.isFinite);
+  if (known.length < 2) return null;
+  const min = Math.min(...known);
+  const span = Math.max(...known) - min;
+  const w = 320;
+  const h = 72;
+  const step = w / Math.max(values.length - 1, 1);
+  let d = "";
+  let pen = false;
+  values.forEach((v, i) => {
+    if (!Number.isFinite(v)) {
+      pen = false;
+      return;
+    }
+    const y = span ? 4 + (h - 8) * (1 - (v - min) / span) : h / 2;
+    d += `${pen ? "L" : "M"}${(i * step).toFixed(1)},${y.toFixed(1)}`;
+    pen = true;
+  });
+  return (
+    <div className="mobile-sparkline" aria-hidden="true">
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" focusable="false">
+        <path d={d} vectorEffect="non-scaling-stroke" />
+      </svg>
+      <p className="num">
+        <span>{formatCivilDate(points[0].date)}</span>
+        <span>{formatCivilDate(points[points.length - 1].date)}</span>
       </p>
-      {!metric.total && metric.knownSubtotal && (
-        <p>
-          {t("mobile.knownSubtotal")} <MoneyText value={metric.knownSubtotal} />
-        </p>
-      )}
-    </Card>
+    </div>
+  );
+}
+function EmptyState({
+  icon,
+  children,
+}: {
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mobile-empty">
+      {icon ?? <Inbox aria-hidden="true" />}
+      <p>{children}</p>
+    </div>
+  );
+}
+function RowsSkeleton({ rows = 3 }: { rows?: number }) {
+  const { t } = useTranslation();
+  return (
+    <div className="mobile-skeleton" role="status" aria-label={t("common.loading")}>
+      {Array.from({ length: rows }, (_, i) => (
+        <span key={i} />
+      ))}
+    </div>
   );
 }
 function Overview({
@@ -761,10 +1026,11 @@ function Overview({
   canRefresh: boolean;
   onActivity: (id: string) => void;
 }) {
-  const { t } = useTranslation();
-  const [range, setRange] = useState("30d");
+  const { t, i18n } = useTranslation();
+  const [range, setRange] = useState<"30d" | "1y">("30d");
   const query = useQuery({
     queryKey: ["mobile", "overview", range],
+    placeholderData: (previous) => previous,
     queryFn: () =>
       api<
         Envelope<{
@@ -773,7 +1039,12 @@ function Overview({
           trend: { date: string; valuation: Metric }[];
           recent: Activity[];
           currency: string;
-          distribution: { key: string; label: string; amount: string }[];
+          distribution: {
+            key: string;
+            label: string;
+            amount: string;
+            shareBps?: number;
+          }[];
         }>
       >(`/overview?range=${range}`),
   });
@@ -781,63 +1052,129 @@ function Overview({
     return (
       <>
         <ErrorMessage error={query.error} />
-        <LoadingState label={t("common.loading")} />
+        {!query.error && <LoadingState label={t("common.loading")} />}
       </>
     );
   const o = query.data.data;
   return (
-    <div className="space-y-5">
-      <Button className="w-full" disabled={!canRefresh} onClick={onMarket}>
+    <div className="mobile-stack">
+      <ErrorMessage error={query.error} />
+      <section className="mobile-hero" aria-label={t("mobile.netWorth")}>
+        <dl>
+          <MetricItem
+            className="mobile-hero-total"
+            label={t("mobile.netWorth")}
+            metric={o.valuation.netWorth}
+          />
+        </dl>
+        <p className="mobile-meta">
+          <span
+            className="mobile-badge"
+            data-tone={o.complete ? "success" : "warning"}
+          >
+            {o.complete ? t("mobile.complete") : t("mobile.partial")}
+          </span>
+          <span className="num">
+            {formatTimestamp(query.data.asOf, query.data.ledgerTimezone)}
+          </span>
+        </p>
+        <dl className="mobile-split">
+          <MetricItem label={t("mobile.assets")} metric={o.valuation.assets} />
+          <MetricItem
+            label={t("mobile.liabilities")}
+            metric={o.valuation.liabilities}
+          />
+        </dl>
+      </section>
+      <section className="mobile-card" aria-labelledby="mobile-trend">
+        <div className="mobile-card-head">
+          <h2 id="mobile-trend">{t("mobile.trend")}</h2>
+          <Segmented
+            label={t("mobile.trend")}
+            value={range}
+            onChange={setRange}
+            options={[
+              { value: "30d", label: t("mobile.month") },
+              { value: "1y", label: t("mobile.year") },
+            ]}
+          />
+        </div>
+        <div aria-busy={query.isFetching}>
+          <Sparkline points={o.trend} />
+          {o.trend.length ? (
+            <details className="mobile-disclosure">
+              <summary>{t("mobile.showValues")}</summary>
+              <dl className="mobile-values">
+                {o.trend.map((p) => (
+                  <div key={p.date}>
+                    <dt>{formatCivilDate(p.date)}</dt>
+                    <dd>
+                      <MoneyText value={p.valuation.total} />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          ) : (
+            <EmptyState>{t("mobile.empty")}</EmptyState>
+          )}
+        </div>
+      </section>
+      <Button
+        variant="outline"
+        className="mobile-wide"
+        disabled={!canRefresh}
+        onClick={onMarket}
+      >
+        <RefreshCw aria-hidden="true" />
         {t("mobile.updateMarket")}
       </Button>
-      <ErrorMessage error={query.error} />
-      <MetricView label={t("mobile.netWorth")} metric={o.valuation.netWorth} />
-      <div className="grid grid-cols-2 gap-3">
-        <MetricView label={t("mobile.assets")} metric={o.valuation.assets} />
-        <MetricView
-          label={t("mobile.liabilities")}
-          metric={o.valuation.liabilities}
-        />
-      </div>
-      <p className="text-xs">
-        {o.complete ? t("mobile.complete") : t("mobile.partial")} ·{" "}
-        {formatTimestamp(query.data.asOf, query.data.ledgerTimezone)}
-      </p>
-      <Section title={t("mobile.trend")}>
-        <NativeSelect
-          aria-label={t("mobile.trend")}
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-        >
-          <option value="30d">{t("mobile.month")}</option>
-          <option value="1y">{t("mobile.year")}</option>
-        </NativeSelect>
-        <div className="max-h-64 overflow-auto rounded-xl border border-border">
-          <dl className="divide-y divide-border">
-            {o.trend.map((p) => (
-              <div key={p.date} className="flex justify-between gap-2 p-3">
-                <dt>{formatCivilDate(p.date)}</dt>
-                <dd>
-                  <MoneyText value={p.valuation.total} />
-                </dd>
-              </div>
+      {o.distribution.length > 0 && (
+        <section className="mobile-card" aria-labelledby="mobile-distribution">
+          <h2 id="mobile-distribution">{t("mobile.distribution")}</h2>
+          {o.distribution.some((d) => d.shareBps !== undefined) && (
+            <div className="mobile-meter" aria-hidden="true">
+              {o.distribution.map((d, i) => (
+                <span
+                  key={d.key}
+                  data-series={i % 6}
+                  style={{ flexGrow: Math.max(d.shareBps ?? 0, 0) }}
+                />
+              ))}
+            </div>
+          )}
+          <ul className="mobile-legend">
+            {o.distribution.map((d, i) => (
+              <li key={d.key}>
+                <span className="mobile-swatch" data-series={i % 6} />
+                <span className="mobile-legend-label">
+                  {t(`enum.${d.key}`, { defaultValue: d.label })}
+                </span>
+                {d.shareBps !== undefined && (
+                  <span className="mobile-legend-share num">
+                    {formatShare(d.shareBps, i18n.language)}
+                  </span>
+                )}
+                <MoneyText
+                  value={{ amount: d.amount, currency: o.currency }}
+                />
+              </li>
             ))}
-          </dl>
-        </div>
-      </Section>
-      <Section title={t("mobile.distribution")}>
-        {o.distribution.map((d) => (
-          <div className="flex justify-between gap-3" key={d.key}>
-            <span>{t(`enum.${d.key}`, { defaultValue: d.label })}</span>
-            <MoneyText value={{ amount: d.amount, currency: o.currency }} />
-          </div>
-        ))}
-      </Section>
-      <Section title={t("mobile.recent")}>
+          </ul>
+        </section>
+      )}
+      <section className="mobile-card" aria-labelledby="mobile-recent">
+        <h2 id="mobile-recent">{t("mobile.recent")}</h2>
         <ActivityList items={o.recent} onOpen={onActivity} />
-      </Section>
+      </section>
     </div>
   );
+}
+function formatShare(bps: number, language: string) {
+  return `${(bps / 100).toLocaleString(language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })}%`;
 }
 
 function usePage<T>(endpoint: string, filters = "") {
@@ -853,6 +1190,7 @@ function usePage<T>(endpoint: string, filters = "") {
   });
   return {
     ...query,
+    paged: cursor !== "",
     next: () => setPage({ key, cursor: query.data?.data.next ?? "" }),
     first: () => setPage({ key, cursor: "" }),
   };
@@ -861,21 +1199,58 @@ function Pager({
   next,
   onNext,
   onFirst,
+  paged,
 }: {
   next?: string;
   onNext: () => void;
   onFirst: () => void;
+  paged: boolean;
 }) {
   const { t } = useTranslation();
+  if (!next && !paged) return null;
   return (
-    <div className="flex gap-2">
-      <Button variant="outline" onClick={onFirst}>
+    <div className="mobile-pager">
+      <Button variant="ghost" size="sm" disabled={!paged} onClick={onFirst}>
         {t("mobile.firstPage")}
       </Button>
-      <Button variant="outline" disabled={!next} onClick={onNext}>
+      <Button variant="outline" size="sm" disabled={!next} onClick={onNext}>
         {t("mobile.nextPage")}
+        <ChevronRight aria-hidden="true" />
       </Button>
     </div>
+  );
+}
+const accountTypes = [
+  "bank_account",
+  "cash_on_hand",
+  "brokerage",
+  "investment_account",
+  "credit_card",
+  "loan",
+  "digital_wallet",
+  "crypto_exchange",
+  "receivable",
+  "other",
+];
+function AccountIcon({ type }: { type: string }) {
+  const Icon =
+    type === "bank_account"
+      ? Landmark
+      : type === "cash_on_hand" || type === "digital_wallet"
+        ? Wallet
+        : type === "brokerage" ||
+            type === "investment_account" ||
+            type === "crypto_exchange"
+          ? CandlestickChart
+          : type === "credit_card"
+            ? CreditCard
+            : type === "loan"
+              ? HandCoins
+              : WalletCards;
+  return (
+    <span className="mobile-row-icon" data-kind={type}>
+      <Icon aria-hidden="true" />
+    </span>
   );
 }
 function Accounts({ onOpen }: { onOpen: (id: string) => void }) {
@@ -887,132 +1262,249 @@ function Accounts({ onOpen }: { onOpen: (id: string) => void }) {
     "/accounts",
     `q=${encodeURIComponent(search)}&role=${role}&type=${type}`,
   );
+  const items = query.data?.data.items;
   return (
-    <Section title={t("mobile.accounts")}>
-      <Input
-        aria-label={t("mobile.search")}
-        placeholder={t("mobile.search")}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      <NativeSelect
-        aria-label={t("mobile.role")}
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        <option value="asset">{t("mobile.assets")}</option>
-        <option value="liability">{t("mobile.liabilities")}</option>
-      </NativeSelect>
-      <NativeSelect
-        aria-label={t("mobile.accountType")}
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        {[
-          "bank_account",
-          "cash_on_hand",
-          "brokerage",
-          "investment_account",
-          "credit_card",
-          "loan",
-          "digital_wallet",
-          "crypto_exchange",
-          "receivable",
-          "other",
-        ].map((k) => (
-          <option key={k} value={k}>
-            {t(`enum.${k}`)}
-          </option>
-        ))}
-      </NativeSelect>
+    <section className="mobile-stack" aria-labelledby="mobile-accounts">
+      <h2 id="mobile-accounts" className="mobile-page-title">
+        {t("mobile.accounts")}
+      </h2>
+      <div className="mobile-search">
+        <Search aria-hidden="true" />
+        <Input
+          type="search"
+          aria-label={t("mobile.search")}
+          placeholder={t("mobile.search")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="mobile-filter-row">
+        <Segmented
+          label={t("mobile.role")}
+          value={role}
+          onChange={setRole}
+          options={[
+            { value: "", label: t("mobile.all") },
+            { value: "asset", label: t("mobile.assets") },
+            { value: "liability", label: t("mobile.liabilities") },
+          ]}
+        />
+        <NativeSelect
+          aria-label={t("mobile.accountType")}
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        >
+          <option value="">{t("mobile.allTypes")}</option>
+          {accountTypes.map((k) => (
+            <option key={k} value={k}>
+              {t(`enum.${k}`)}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
       <ErrorMessage error={query.error} />
-      {query.isPending && <LoadingState label={t("common.loading")} />}
-      {query.data?.data.items.map((a) => (
-        <Card className="p-4" key={a.id}>
-          <Button
-            className="h-auto w-full justify-between gap-3 whitespace-normal text-left"
-            variant="ghost"
-            onClick={() => onOpen(a.id)}
-          >
-            <span>
-              {a.name}
-              <small className="block text-muted-foreground">
-                {a.institution} · {a.currency}
-              </small>
-            </span>
-            <span>
-              <MoneyText value={a.value} />
-              {!a.complete && (
-                <small className="block">{t("mobile.partial")}</small>
-              )}
-            </span>
-          </Button>
-        </Card>
-      ))}
+      {query.isPending && <RowsSkeleton />}
+      {items &&
+        (items.length ? (
+          <ul className="mobile-list mobile-card" aria-busy={query.isFetching}>
+            {items.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  className="mobile-row"
+                  onClick={() => onOpen(a.id)}
+                >
+                  <AccountIcon type={a.type} />
+                  <span className="mobile-row-main">
+                    <span className="mobile-row-title">{a.name}</span>
+                    <span className="mobile-row-sub">
+                      {[
+                        a.institution,
+                        t(`enum.${a.type}`, { defaultValue: "" }),
+                        a.currency,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </span>
+                  <span className="mobile-row-end">
+                    <MoneyText value={a.value} />
+                    {a.role === "liability" && (
+                      <small>{t("mobile.liability")}</small>
+                    )}
+                    {!a.complete && (
+                      <small data-tone="warning">{t("mobile.partial")}</small>
+                    )}
+                  </span>
+                  <ChevronRight
+                    className="mobile-row-chevron"
+                    aria-hidden="true"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState>{t("mobile.noAccounts")}</EmptyState>
+        ))}
       <Pager
         next={query.data?.data.next}
         onNext={query.next}
         onFirst={query.first}
+        paged={query.paged}
       />
-    </Section>
+    </section>
+  );
+}
+function activityLabel(t: TFunction, a: Activity) {
+  return t(`history.reason.${a.reason || a.kind}`, {
+    defaultValue: t(`history.kind.${a.kind}`, {
+      defaultValue: t("mobile.ledger"),
+    }),
+  });
+}
+function ActivityIcon({ kind }: { kind: string }) {
+  const Icon =
+    kind === "cash_in" || kind === "cash_dividend"
+      ? ArrowDownLeft
+      : kind === "cash_out"
+        ? ArrowUpRight
+        : kind === "cash_transfer"
+          ? ArrowLeftRight
+          : kind === "debt_payment"
+            ? CreditCard
+            : kind === "value_update"
+              ? Scale
+              : ReceiptText;
+  return (
+    <span className="mobile-row-icon" data-kind={kind}>
+      <Icon aria-hidden="true" />
+    </span>
   );
 }
 function ActivityView({ activity }: { activity: Activity }) {
   const { t } = useTranslation();
-  const label = activity.reason || activity.kind;
   return (
-    <div className="space-y-2">
-      <h3 className="font-semibold">
-        {t(`history.reason.${label}`, {
-          defaultValue: t(`history.kind.${activity.kind}`, {
-            defaultValue: t("mobile.ledger"),
-          }),
-        })}
-      </h3>
-      <p className="text-xs">
-        {activity.effectiveLocalDate
-          ? formatCivilDate(activity.effectiveLocalDate)
-          : activity.effectiveAt}
-      </p>
-      {activity.resulting?.map((r, i) => (
-        <p key={i}>
-          {r.name} ·{" "}
-          {r.amount ? (
-            <MoneyText value={{ amount: r.amount, currency: r.currency }} />
-          ) : r.quantity ? (
-            formatAmount(r.quantity)
-          ) : (
-            t("mobile.unavailable")
-          )}
-        </p>
-      ))}
-      {activity.note && <p className="break-words">{activity.note}</p>}
+    <div className="mobile-activity">
+      <div className="mobile-activity-head">
+        <ActivityIcon kind={activity.kind} />
+        <div>
+          <h3>{activityLabel(t, activity)}</h3>
+          <p className="num">
+            {activity.effectiveLocalDate
+              ? formatCivilDate(activity.effectiveLocalDate)
+              : activity.effectiveAt}
+          </p>
+        </div>
+      </div>
+      {activity.resulting?.length > 0 && (
+        <dl className="mobile-values">
+          {activity.resulting.map((r, i) => (
+            <div key={i}>
+              <dt>{r.name}</dt>
+              <dd>
+                {r.amount ? (
+                  <MoneyText
+                    value={{ amount: r.amount, currency: r.currency }}
+                  />
+                ) : r.quantity ? (
+                  <span className="mobile-money">
+                    {formatAmount(r.quantity)}
+                  </span>
+                ) : (
+                  t("mobile.unavailable")
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {activity.note && <p className="mobile-note">{activity.note}</p>}
     </div>
+  );
+}
+function ActivityRow({
+  activity,
+  onOpen,
+  showDate,
+}: {
+  activity: Activity;
+  onOpen: (id: string) => void;
+  showDate?: boolean;
+}) {
+  const { t } = useTranslation();
+  const date = activity.effectiveLocalDate
+    ? formatCivilDate(activity.effectiveLocalDate)
+    : activity.effectiveAt;
+  const money = activity.effects?.find((e) => e.money)?.money;
+  const accounts = [...new Set(activity.resulting?.map((r) => r.name))];
+  return (
+    <button
+      type="button"
+      className="mobile-row"
+      onClick={() => onOpen(activity.id)}
+    >
+      <ActivityIcon kind={activity.kind} />
+      <span className="mobile-row-main">
+        <span className="mobile-row-title">{activityLabel(t, activity)}</span>
+        <span className="mobile-row-sub">
+          {[showDate && date, accounts.join(" → "), activity.note]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </span>
+      {money && (
+        <span className="mobile-row-end">
+          <MoneyText value={money} />
+        </span>
+      )}
+      <ChevronRight className="mobile-row-chevron" aria-hidden="true" />
+    </button>
   );
 }
 function ActivityList({
   items,
   onOpen,
+  grouped = false,
 }: {
   items: Activity[];
   onOpen: (id: string) => void;
+  grouped?: boolean;
 }) {
   const { t } = useTranslation();
-  return items.length ? (
-    <div className="space-y-3">
-      {items.map((a) => (
-        <Card className="p-4" key={a.id}>
-          <ActivityView activity={a} />
-          <Button variant="link" onClick={() => onOpen(a.id)}>
-            {t("mobile.details")}
-          </Button>
-        </Card>
+  if (!items.length) return <EmptyState>{t("mobile.empty")}</EmptyState>;
+  const groups: { date: string; items: Activity[] }[] = [];
+  for (const a of items) {
+    const date = a.effectiveLocalDate || a.effectiveAt.slice(0, 10);
+    const last = groups[groups.length - 1];
+    if (last?.date === date) last.items.push(a);
+    else groups.push({ date, items: [a] });
+  }
+  if (!grouped)
+    return (
+      <ul className="mobile-list">
+        {items.map((a) => (
+          <li key={a.id}>
+            <ActivityRow activity={a} onOpen={onOpen} showDate />
+          </li>
+        ))}
+      </ul>
+    );
+  return (
+    <div className="mobile-groups">
+      {groups.map((g) => (
+        <section key={g.date} aria-label={formatCivilDate(g.date)}>
+          <h3 className="mobile-group-head num">{formatCivilDate(g.date)}</h3>
+          <ul className="mobile-list">
+            {g.items.map((a) => (
+              <li key={a.id}>
+                <ActivityRow activity={a} onOpen={onOpen} />
+              </li>
+            ))}
+          </ul>
+        </section>
       ))}
     </div>
-  ) : (
-    <p>{t("mobile.empty")}</p>
   );
 }
 function Activities({
@@ -1027,72 +1519,188 @@ function Activities({
   const [to, setTo] = useState("");
   const [account, setAccount] = useState("");
   const [kind, setKind] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const accounts = usePage<Account>("/accounts");
   const query = usePage<Activity>(
     "/activities",
     `from=${from}&to=${to}&accountId=${account}&kind=${kind}`,
   );
+  const active = [from, to, account, kind].filter(Boolean).length;
   return (
-    <Section title={t("mobile.ledger")}>
-      <div className="grid grid-cols-2 gap-3">
-        <DatePickerControl
-          aria-label={t("mobile.from")}
-          value={from}
-          onChange={setFrom}
-          max={today}
-          clearable
-        />
-        <DatePickerControl
-          aria-label={t("mobile.to")}
-          value={to}
-          onChange={setTo}
-          max={today}
-          clearable
-        />
+    <section className="mobile-stack" aria-labelledby="mobile-ledger">
+      <div className="mobile-page-head">
+        <h2 id="mobile-ledger" className="mobile-page-title">
+          {t("mobile.ledger")}
+        </h2>
+        <Button
+          variant={active ? "soft" : "outline"}
+          size="sm"
+          aria-expanded={showFilters}
+          aria-controls="mobile-ledger-filters"
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          {t("mobile.filters")}
+          {active > 0 && <span className="mobile-count num">{active}</span>}
+        </Button>
       </div>
-      <NativeSelect
-        aria-label={t("mobile.account")}
-        value={account}
-        onChange={(e) => setAccount(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        {accounts.data?.data.items.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      </NativeSelect>
-      <NativeSelect
-        aria-label={t("mobile.kind")}
-        value={kind}
-        onChange={(e) => setKind(e.target.value)}
-      >
-        <option value="">{t("mobile.all")}</option>
-        {[
-          "cash_in",
-          "cash_out",
-          "cash_transfer",
-          "debt_payment",
-          "value_update",
-        ].map((k) => (
-          <option key={k} value={k}>
-            {t(`history.kind.${k}`)}
-          </option>
-        ))}
-      </NativeSelect>
+      {showFilters && (
+        <div id="mobile-ledger-filters" className="mobile-panel mobile-enter">
+          <div className="grid grid-cols-2 gap-3">
+            <Field name={t("mobile.from")}>
+              <DatePickerControl
+                aria-label={t("mobile.from")}
+                value={from}
+                onChange={setFrom}
+                max={today}
+                clearable
+              />
+            </Field>
+            <Field name={t("mobile.to")}>
+              <DatePickerControl
+                aria-label={t("mobile.to")}
+                value={to}
+                onChange={setTo}
+                max={today}
+                clearable
+              />
+            </Field>
+          </div>
+          <Field name={t("mobile.account")}>
+            <NativeSelect
+              aria-label={t("mobile.account")}
+              value={account}
+              onChange={(e) => setAccount(e.target.value)}
+            >
+              <option value="">{t("mobile.all")}</option>
+              {accounts.data?.data.items.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field name={t("mobile.kind")}>
+            <NativeSelect
+              aria-label={t("mobile.kind")}
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+            >
+              <option value="">{t("mobile.all")}</option>
+              {[
+                "cash_in",
+                "cash_out",
+                "cash_transfer",
+                "debt_payment",
+                "value_update",
+              ].map((k) => (
+                <option key={k} value={k}>
+                  {t(`history.kind.${k}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          {active > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFrom("");
+                setTo("");
+                setAccount("");
+                setKind("");
+              }}
+            >
+              {t("mobile.clearFilters")}
+            </Button>
+          )}
+        </div>
+      )}
       <ErrorMessage error={query.error} />
+      {query.isPending && <RowsSkeleton rows={5} />}
       {query.data && (
-        <ActivityList items={query.data.data.items} onOpen={onOpen} />
+        <div className="mobile-card" aria-busy={query.isFetching}>
+          <ActivityList items={query.data.data.items} onOpen={onOpen} grouped />
+        </div>
       )}
       <Pager
         next={query.data?.data.next}
         onNext={query.next}
         onFirst={query.first}
+        paged={query.paged}
       />
-    </Section>
+    </section>
   );
 }
 
+function gainOf(value: { Amount: string; Currency: string } | null) {
+  return value ? { amount: value.Amount, currency: value.Currency } : null;
+}
+function EvidenceRows({
+  components,
+  timezone,
+}: {
+  components: Component[];
+  timezone: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <ul className="mobile-list">
+      {components.map((c, i) => (
+        <li key={i} className="mobile-evidence">
+          <div className="mobile-evidence-head">
+            <span className="mobile-row-title">
+              {c.instrumentName || t("mobile.value")}
+              <small className="mobile-symbol">
+                {c.instrumentSymbol || c.nativeCurrency}
+              </small>
+            </span>
+            <MoneyText
+              value={
+                c.available
+                  ? { amount: c.nativeAmount, currency: c.nativeCurrency }
+                  : null
+              }
+            />
+          </div>
+          {c.priceEvidence && (
+            <dl className="mobile-evidence-facts">
+              <div>
+                <dt>{t("mobile.effectiveDate")}</dt>
+                <dd>
+                  {formatQuoteAsOf(
+                    {
+                      quotedAt: c.priceEvidence.quotedAt,
+                      effectiveDate: c.priceEvidence.effectiveDate ?? undefined,
+                      timestampBasis: c.priceEvidence.effectiveDate
+                        ? "date_label"
+                        : undefined,
+                    },
+                    timezone,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("mobile.source")}</dt>
+                <dd>
+                  {t(`portfolio.source.${c.priceEvidence.source}`, {
+                    defaultValue: t("mobile.unavailable"),
+                  })}
+                </dd>
+              </div>
+              {c.priceEvidence.fetchedAt && (
+                <div>
+                  <dt>{t("mobile.fetchedAt")}</dt>
+                  <dd>{formatTimestamp(c.priceEvidence.fetchedAt, timezone)}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
 function Detail({
   kind,
   id,
@@ -1123,170 +1731,221 @@ function Detail({
     return (
       <>
         <ErrorMessage error={query.error} />
-        <LoadingState label={t("common.loading")} />
+        {!query.error && <LoadingState label={t("common.loading")} />}
       </>
     );
-  const data = query.data.data as HoldingDetailResponse & AccountDetail;
+  const timezone = query.data.ledgerTimezone;
   if (kind === "activities")
-    return <ActivityView activity={query.data.data as Activity} />;
+    return (
+      <div className="mobile-card">
+        <ActivityView activity={query.data.data as Activity} />
+      </div>
+    );
+  const data = query.data.data as HoldingDetailResponse & AccountDetail;
   const valuation = kind === "accounts" ? data : data.valuation;
+  const components = valuation.components ?? [];
+  if (kind === "holdings") {
+    const h = data.holding;
+    const own = components.filter(
+      (c) => !h.HoldingID || c.holdingId === h.HoldingID,
+    );
+    return (
+      <div className="mobile-stack">
+        <ErrorMessage error={query.error} />
+        <section className="mobile-hero" aria-labelledby="mobile-detail-title">
+          {h.InstrumentSymbol && (
+            <p className="mobile-eyebrow">{h.InstrumentSymbol}</p>
+          )}
+          <h2 id="mobile-detail-title" className="mobile-page-title">
+            {h.InstrumentName}
+          </h2>
+          {h.CurrentValue !== undefined && (
+            <p className="mobile-hero-figure">
+              <MoneyText value={h.CurrentValue} />
+            </p>
+          )}
+          {h.CurrentValueBase &&
+            h.CurrentValue &&
+            h.CurrentValueBase.currency !== h.CurrentValue.currency && (
+              <p className="mobile-meta">
+                <MoneyText value={h.CurrentValueBase} />
+              </p>
+            )}
+        </section>
+        <dl className="mobile-stats mobile-card">
+          <div>
+            <dt>{t("mobile.quantity")}</dt>
+            <dd className="mobile-money">{formatAmount(h.Quantity)}</dd>
+          </div>
+          <div>
+            <dt>{t("mobile.quoteValue")}</dt>
+            <dd className="mobile-money">
+              {data.quote
+                ? formatQuotePrice(data.quote.unitPrice, data.quote.currency)
+                : t("mobile.unavailable")}
+            </dd>
+          </div>
+          <div>
+            <dt>{t("mobile.cost")}</dt>
+            <dd>
+              <MoneyText value={h.TotalCost} />
+            </dd>
+          </div>
+          <div>
+            <dt>{t("mobile.gain")}</dt>
+            <dd>
+              <GainMoneyText value={gainOf(h.UnrealizedGain)} />
+            </dd>
+          </div>
+          <div>
+            <dt>{t("mobile.realizedGain")}</dt>
+            <dd>
+              <GainMoneyText value={gainOf(h.RealizedGain)} />
+            </dd>
+          </div>
+        </dl>
+        <Button
+          variant="outline"
+          className="mobile-wide"
+          disabled={!canRefresh}
+          onClick={() =>
+            onMarket({
+              mode: "latest",
+              scope: "instrument",
+              instrumentId: h.InstrumentID,
+            })
+          }
+        >
+          <RefreshCw aria-hidden="true" />
+          {t("mobile.updateMarket")}
+        </Button>
+        {own.length > 0 && (
+          <section className="mobile-card" aria-labelledby="mobile-evidence">
+            <h2 id="mobile-evidence">{t("mobile.valuationEvidence")}</h2>
+            <EvidenceRows components={own} timezone={timezone} />
+          </section>
+        )}
+      </div>
+    );
+  }
+  const account = data.account;
+  const holdingItems = holdings.data?.data.items;
+  const showHoldings =
+    account.trackingMode !== "balance" || !!holdingItems?.length;
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold">
-        {kind === "accounts" ? data.account.name : data.holding.InstrumentName}
-      </h2>
+    <div className="mobile-stack">
       <ErrorMessage error={query.error} />
-      {kind === "accounts" && (
-        <Button disabled={!canWrite} onClick={onRecord}>
+      <section className="mobile-hero" aria-labelledby="mobile-detail-title">
+        {(account.accountType || account.defaultCurrency) && (
+          <p className="mobile-eyebrow">
+            {[
+              account.accountType &&
+                t(`enum.${account.accountType}`, { defaultValue: "" }),
+              account.defaultCurrency,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
+        <h2 id="mobile-detail-title" className="mobile-page-title">
+          {account.name}
+        </h2>
+        {data.displayValue !== undefined && (
+          <p className="mobile-hero-figure">
+            <MoneyText value={data.displayValue?.value} />
+          </p>
+        )}
+        <p className="mobile-meta">
+          {data.complete !== undefined && (
+            <span
+              className="mobile-badge"
+              data-tone={data.complete ? "success" : "warning"}
+            >
+              {data.complete ? t("mobile.complete") : t("mobile.partial")}
+            </span>
+          )}
+          {account.balanceSheetRole === "liability" && (
+            <span className="mobile-badge">{t("mobile.liability")}</span>
+          )}
+          {data.baseValue &&
+            data.displayValue?.value &&
+            data.baseValue.currency !== data.displayValue.value.currency && (
+              <MoneyText value={data.baseValue} />
+            )}
+        </p>
+        <Button
+          className="mobile-wide"
+          disabled={!canWrite}
+          onClick={onRecord}
+        >
+          <Plus aria-hidden="true" />
           {t("mobile.quickRecord")}
         </Button>
-      )}
-      {kind === "holdings" && (
-        <>
-          <p>
-            {t("mobile.quantity")} {formatAmount(data.holding.Quantity)}
-          </p>
-          <p>
-            {t("mobile.quoteValue")}{" "}
-            {data.quote
-              ? formatQuotePrice(data.quote.unitPrice, data.quote.currency)
-              : t("mobile.unavailable")}
-          </p>
-          <p>
-            {t("mobile.cost")} <MoneyText value={data.holding.TotalCost} />
-          </p>
-          <p>
-            {t("mobile.gain")}{" "}
-            <GainMoneyText
-              value={
-                data.holding.UnrealizedGain
-                  ? {
-                      amount: data.holding.UnrealizedGain.Amount,
-                      currency: data.holding.UnrealizedGain.Currency,
-                    }
-                  : null
-              }
-            />
-          </p>
-          <p>
-            {t("mobile.realizedGain")}{" "}
-            <GainMoneyText
-              value={
-                data.holding.RealizedGain
-                  ? {
-                      amount: data.holding.RealizedGain.Amount,
-                      currency: data.holding.RealizedGain.Currency,
-                    }
-                  : null
-              }
-            />
-          </p>
-          <Button
-            disabled={!canRefresh}
-            onClick={() =>
-              onMarket({
-                mode: "latest",
-                scope: "instrument",
-                instrumentId: data.holding.InstrumentID,
-              })
-            }
-          >
-            {t("mobile.updateMarket")}
-          </Button>
-        </>
-      )}
-      {(valuation.components ?? []).map((c: Component, i: number) => (
-        <Card className="p-4 space-y-2" key={i}>
-          <h3>{c.instrumentName || t("mobile.value")}</h3>
-          <MoneyText
-            value={
-              c.available
-                ? { amount: c.nativeAmount, currency: c.nativeCurrency }
-                : null
-            }
-          />
-          {c.priceEvidence && (
-            <>
-              <p>
-                {t("mobile.effectiveDate")}{" "}
-                {formatQuoteAsOf(
-                  {
-                    quotedAt: c.priceEvidence.quotedAt,
-                    effectiveDate: c.priceEvidence.effectiveDate ?? undefined,
-                    timestampBasis: c.priceEvidence.effectiveDate
-                      ? "date_label"
-                      : undefined,
-                  },
-                  query.data.ledgerTimezone,
-                )}
-              </p>
-              <p>
-                {t("mobile.source")}{" "}
-                {t(`portfolio.source.${c.priceEvidence.source}`, {
-                  defaultValue: t("mobile.unavailable"),
-                })}
-              </p>
-              {c.priceEvidence.fetchedAt && (
-                <p>
-                  {t("mobile.fetchedAt")}{" "}
-                  {formatTimestamp(
-                    c.priceEvidence.fetchedAt,
-                    query.data.ledgerTimezone,
-                  )}
-                </p>
-              )}
-            </>
-          )}
-        </Card>
-      ))}
-      {kind === "accounts" && (
-        <Section title={t("mobile.holdings")}>
+      </section>
+      {showHoldings && (
+        <section className="mobile-card" aria-labelledby="mobile-holdings">
+          <h2 id="mobile-holdings">{t("mobile.holdings")}</h2>
           <ErrorMessage error={holdings.error} />
-          {holdings.data?.data.items.map((h) => (
-            <Card className="p-4 space-y-2" key={h.id}>
-              <Button variant="link" onClick={() => onHolding(h.id)}>
-                {h.name} {h.symbol}
-              </Button>
-              <p>
-                {t("mobile.quantity")} {formatAmount(h.quantity)}
-              </p>
-              <p>
-                {t("mobile.value")} <MoneyText value={h.value} />
-              </p>
-              <p>
-                {t("mobile.cost")} <MoneyText value={h.cost} />
-              </p>
-              <p>
-                {t("mobile.gain")}{" "}
-                {h.gain ? (
-                  <ChangeText
-                    direction={
-                      h.gain.amount.startsWith("-")
-                        ? "down"
-                        : /^0(?:\.0*)?$/.test(h.gain.amount)
-                          ? "flat"
-                          : "up"
-                    }
-                  >
-                    {formatSignedMoney(h.gain.amount, h.gain.currency)}
-                  </ChangeText>
-                ) : (
-                  t("mobile.unavailable")
-                )}
-              </p>
-            </Card>
-          ))}
+          {holdings.isPending && <RowsSkeleton rows={2} />}
+          {holdingItems &&
+            (holdingItems.length ? (
+              <ul className="mobile-list" aria-busy={holdings.isFetching}>
+                {holdingItems.map((h) => (
+                  <li key={h.id}>
+                    <button
+                      type="button"
+                      className="mobile-row"
+                      onClick={() => onHolding(h.id)}
+                    >
+                      <span className="mobile-row-main">
+                        <span className="mobile-row-title">
+                          {h.name}
+                          {h.symbol && (
+                            <small className="mobile-symbol">{h.symbol}</small>
+                          )}
+                        </span>
+                        <span className="mobile-row-sub num">
+                          {t("mobile.quantity")} {formatAmount(h.quantity)}
+                        </span>
+                      </span>
+                      <span className="mobile-row-end">
+                        <MoneyText value={h.value} />
+                        <small>
+                          {h.gain ? (
+                            <GainMoneyText value={h.gain} />
+                          ) : (
+                            h.missingReason && t("mobile.unavailable")
+                          )}
+                        </small>
+                      </span>
+                      <ChevronRight
+                        className="mobile-row-chevron"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState>{t("mobile.noHoldings")}</EmptyState>
+            ))}
           <Pager
             next={holdings.data?.data.next}
             onNext={holdings.next}
             onFirst={holdings.first}
+            paged={holdings.paged}
           />
-        </Section>
+        </section>
+      )}
+      {components.length > 0 && (
+        <section className="mobile-card" aria-labelledby="mobile-evidence">
+          <h2 id="mobile-evidence">{t("mobile.valuationEvidence")}</h2>
+          <EvidenceRows components={components} timezone={timezone} />
+        </section>
       )}
     </div>
   );
 }
-
 function Health({
   onQuote,
   onRecord,
@@ -1304,102 +1963,129 @@ function Health({
   const [collapsed, setCollapsed] = useState(false);
   const [scan, setScan] = useState(0);
   const query = usePage<Issue>("/health", `scan=${scan}`);
+  const items = (query.data?.data.items ?? []).filter(
+    (i) => collapsed || !i.Collapsed,
+  );
   return (
-    <Section title={t("mobile.health")}>
-      <Button variant="outline" onClick={() => setScan((p) => p + 1)}>
-        {t("mobile.rescan")}
-      </Button>
-      <Button
-        variant="ghost"
-        aria-pressed={collapsed}
-        onClick={() => setCollapsed(!collapsed)}
-      >
-        {t("mobile.showRelated")}
-      </Button>
+    <section className="mobile-stack" aria-labelledby="mobile-health-title">
+      <header className="mobile-page-head">
+        <h2 id="mobile-health-title" className="mobile-page-title">
+          {t("mobile.health")}
+        </h2>
+      </header>
+      <div className="mobile-toolbar">
+        <Button variant="outline" onClick={() => setScan((p) => p + 1)}>
+          <RefreshCw aria-hidden />
+          {t("mobile.rescan")}
+        </Button>
+        <Button
+          variant="ghost"
+          aria-pressed={collapsed}
+          className="mobile-toggle"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {t("mobile.showRelated")}
+        </Button>
+      </div>
       <ErrorMessage error={query.error} />
-      {query.isPending && <LoadingState label={t("common.loading")} />}
-      {(query.data?.data.items ?? [])
-        .filter((i) => collapsed || !i.Collapsed)
-        .map((i) => {
-          const manual = ["missing_manual_price", "missing_manual_fx"].includes(
-            i.Kind,
-          );
-          const balance = [
-            "stale_account_value",
-            "missing_account_value",
-          ].includes(i.Kind);
-          const sync =
-            i.Executable &&
-            i.Action === "repair" &&
-            (i.InstrumentID || (i.CurrencyA && i.CurrencyB));
-          return (
-            <Card className="p-4 space-y-3" key={i.ID}>
-              <h3 className="font-semibold">{i.Label}</h3>
-              <p className="text-xs">
+      {query.isPending && <RowsSkeleton rows={2} />}
+      {items.map((i) => {
+        const manual = ["missing_manual_price", "missing_manual_fx"].includes(
+          i.Kind,
+        );
+        const balance = [
+          "stale_account_value",
+          "missing_account_value",
+        ].includes(i.Kind);
+        const sync =
+          i.Executable &&
+          i.Action === "repair" &&
+          (i.InstrumentID || (i.CurrencyA && i.CurrencyB));
+        const tone =
+          i.Severity === "blocking"
+            ? "danger"
+            : i.Severity === "warning"
+              ? "warning"
+              : undefined;
+        return (
+          <article
+            className="mobile-card mobile-issue"
+            data-tone={tone}
+            key={i.ID}
+          >
+            <div className="mobile-issue-head">
+              <span className="mobile-badge" data-tone={tone}>
                 {t(`mobile.severity.${i.Severity}`, {
                   defaultValue: t("mobile.partial"),
                 })}
-              </p>
-              <p>
-                {t(`dataHealth.kind.${i.Kind}`, {
-                  defaultValue: t("mobile.desktopRequired"),
-                })}
-              </p>
-              <p className="text-sm">
-                {t(`dataHealth.reason.${i.Reason}`, {
-                  defaultValue: t("mobile.partial"),
-                })}
-              </p>
+              </span>
               {i.RangeStart && (
-                <p>
+                <span className="mobile-issue-range">
                   {i.RangeEnd && i.RangeEnd < i.RangeStart
                     ? t("mobile.initialAnchor", {
                         date: formatCivilDate(i.RangeStart),
                       })
                     : `${formatCivilDate(i.RangeStart)} — ${formatCivilDate(i.RangeEnd || i.RangeStart)}`}
-                </p>
+                </span>
               )}
-              {manual && capabilities.manual_quote ? (
-                <Button disabled={disabled} onClick={() => onQuote(i)}>
-                  {t("mobile.manualQuote")}
-                </Button>
-              ) : balance && capabilities.record && i.AccountID ? (
-                <Button
-                  disabled={disabled}
-                  onClick={() => onRecord(i.AccountID)}
-                >
-                  {t("mobile.balance")}
-                </Button>
-              ) : sync && capabilities.market_refresh ? (
-                <Button
-                  disabled={disabled}
-                  onClick={() =>
-                    onMarket({
-                      mode: "history",
-                      scope: i.InstrumentID ? "instrument" : "fx",
-                      instrumentId: i.InstrumentID || undefined,
-                      currencyA: i.CurrencyA || undefined,
-                      currencyB: i.CurrencyB || undefined,
-                    })
-                  }
-                >
-                  {t("mobile.syncHistory")}
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("mobile.desktopRequired")}
-                </p>
-              )}
-            </Card>
-          );
-        })}
-      {query.data?.data.healthy && <p>{t("mobile.healthy")}</p>}
+            </div>
+            <h3>{i.Label}</h3>
+            <p>
+              {t(`dataHealth.kind.${i.Kind}`, {
+                defaultValue: t("mobile.desktopRequired"),
+              })}
+            </p>
+            <p className="mobile-hint">
+              {t(`dataHealth.reason.${i.Reason}`, {
+                defaultValue: t("mobile.partial"),
+              })}
+            </p>
+            {manual && capabilities.manual_quote ? (
+              <Button disabled={disabled} onClick={() => onQuote(i)}>
+                {t("mobile.manualQuote")}
+              </Button>
+            ) : balance && capabilities.record && i.AccountID ? (
+              <Button disabled={disabled} onClick={() => onRecord(i.AccountID)}>
+                {t("mobile.balance")}
+              </Button>
+            ) : sync && capabilities.market_refresh ? (
+              <Button
+                disabled={disabled}
+                onClick={() =>
+                  onMarket({
+                    mode: "history",
+                    scope: i.InstrumentID ? "instrument" : "fx",
+                    instrumentId: i.InstrumentID || undefined,
+                    currencyA: i.CurrencyA || undefined,
+                    currencyB: i.CurrencyB || undefined,
+                  })
+                }
+              >
+                {t("mobile.syncHistory")}
+              </Button>
+            ) : (
+              <p className="mobile-desktop-note">
+                <Monitor aria-hidden />
+                <span>{t("mobile.desktopRequired")}</span>
+              </p>
+            )}
+          </article>
+        );
+      })}
+      {query.data?.data.healthy && (
+        <div className="mobile-card">
+          <EmptyState icon={<ShieldCheck aria-hidden />}>
+            {t("mobile.healthy")}
+          </EmptyState>
+        </div>
+      )}
       <Pager
         next={query.data?.data.next}
         onNext={query.next}
         onFirst={query.first}
+        paged={query.paged}
       />
-    </Section>
+    </section>
   );
 }
 
@@ -1451,7 +2137,7 @@ function JobPanel({
   };
   if (!job)
     return query.error ? (
-      <div>
+      <div className="mobile-stack">
         <ErrorMessage error={query.error} />
         <Button variant="outline" onClick={reload}>
           {t("mobile.reloadJob")}
@@ -1461,77 +2147,115 @@ function JobPanel({
   const codes = [
     ...new Set([job.errorCode, ...(job.blockers ?? [])].filter(Boolean)),
   ];
+  const tone =
+    job.outcome === "succeeded"
+      ? "success"
+      : job.outcome === "failed"
+        ? "danger"
+        : job.outcome === "partial" || job.outcome === "cancelled"
+          ? "warning"
+          : undefined;
   return (
-    <Card className="p-4 space-y-3" aria-label={t("mobile.marketJob")}>
-      <h2 className="font-semibold">{t("mobile.marketJob")}</h2>
-      <p role="status">
-        {job.phase === "queued"
-          ? t("mobile.jobQueued")
-          : t(`marketData.outcome.${job.outcome}`, {
-              defaultValue: t("mobile.requestFailed"),
-            })}{" "}
-        · {job.completed}/{job.total}
+    <section
+      className="mobile-card mobile-job mobile-enter"
+      aria-label={t("mobile.marketJob")}
+    >
+      <div className="mobile-job-head">
+        <span className="mobile-job-icon" aria-hidden>
+          <CandlestickChart />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2>{t("mobile.marketJob")}</h2>
+          <p>
+            {t(`marketData.phase.${job.phase}`, {
+              defaultValue: t(
+                job.request.mode === "history"
+                  ? "mobile.syncHistory"
+                  : "mobile.updateMarket",
+              ),
+            })}
+          </p>
+        </div>
+      </div>
+      <p role="status" className="mobile-job-status">
+        <span className="mobile-badge" data-tone={tone}>
+          {job.phase === "queued"
+            ? t("mobile.jobQueued")
+            : t(`marketData.outcome.${job.outcome}`, {
+                defaultValue: t("mobile.requestFailed"),
+              })}
+        </span>
+        <span className="mobile-job-count">
+          {job.completed}/{job.total}
+        </span>
       </p>
-      <p>
-        {t(`marketData.phase.${job.phase}`, {
-          defaultValue: t(
-            job.request.mode === "history"
-              ? "mobile.syncHistory"
-              : "mobile.updateMarket",
-          ),
-        })}
-      </p>
-      {job.source === "shared" && (
-        <p className="text-sm">{t("mobile.sharedJob")}</p>
-      )}
-      {job.current && (
-        <p>{t("mobile.currentTarget", { target: job.current })}</p>
-      )}
       {job.outcome === "running" && (
         <progress
-          className="w-full"
+          className="mobile-progress"
           aria-label={t("mobile.marketProgress")}
           max={Math.max(job.total, 1)}
           value={job.completed}
         />
       )}
+      {job.source === "shared" && (
+        <p className="mobile-hint">{t("mobile.sharedJob")}</p>
+      )}
+      {job.current && (
+        <p className="mobile-hint">
+          {t("mobile.currentTarget", { target: job.current })}
+        </p>
+      )}
       {job.nextEligibilityAt && (
-        <p>
+        <p className="mobile-hint">
           {t("mobile.nextEligibility", {
             time: formatTimestamp(job.nextEligibilityAt),
           })}
         </p>
       )}
-      <ul className="space-y-2">
-        {job.items?.map((item, index) => (
-          <li key={index} className="text-sm break-words">
-            {item.label || t("mobile.unavailable")} ·{" "}
-            {t(`marketData.status.${item.status}`, {
-              defaultValue: t(
-                item.status === "failed"
-                  ? "mobile.requestFailed"
-                  : "mobile.complete",
-              ),
-            })}
-            {item.startDate && item.endDate && (
-              <>
-                {" "}
-                · {formatCivilDate(item.startDate)} —{" "}
-                {formatCivilDate(item.endDate)}
-              </>
-            )}
-            {item.errorCode && (
-              <p>
-                {t(`errorCode:${item.errorCode}`, {
-                  defaultValue: t("mobile.requestFailed"),
-                })}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
+      {!!job.items?.length && (
+        <ul className="mobile-list mobile-job-items">
+          {job.items.map((item, index) => (
+            <li key={index}>
+              <div className="mobile-job-item">
+                <span className="mobile-row-title">
+                  {item.label || t("mobile.unavailable")}
+                </span>
+                <span
+                  className="mobile-job-item-status"
+                  data-tone={
+                    item.status === "failed" || item.status === "rate_limited"
+                      ? "warning"
+                      : undefined
+                  }
+                >
+                  {t(`marketData.status.${item.status}`, {
+                    defaultValue: t(
+                      item.status === "failed"
+                        ? "mobile.requestFailed"
+                        : "mobile.complete",
+                    ),
+                  })}
+                </span>
+              </div>
+              {item.startDate && item.endDate && (
+                <p className="mobile-hint">
+                  {formatCivilDate(item.startDate)} —{" "}
+                  {formatCivilDate(item.endDate)}
+                </p>
+              )}
+              {item.errorCode && (
+                <p className="mobile-hint" data-tone="warning">
+                  {t(`errorCode:${item.errorCode}`, {
+                    defaultValue: t("mobile.requestFailed"),
+                  })}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {codes.map((code) => (
-        <p key={code}>
+        <p key={code} className="mobile-hint" data-tone="warning">
           {t(`errorCode:${code}`, { defaultValue: t("mobile.requestFailed") })}
         </p>
       ))}
@@ -1539,54 +2263,66 @@ function JobPanel({
         job.result?.Items?.filter(
           (i) => i.Status === "failed" || i.Status === "rate_limited",
         ).map((item, index) => (
-          <p key={index}>
+          <p key={index} className="mobile-hint" data-tone="warning">
             {t(`errorCode:${item.ErrorCode}`, {
               defaultValue: t("mobile.requestFailed"),
             })}
           </p>
         ))}
       <ErrorMessage error={query.error || error} />
-      {query.error && (
-        <Button variant="outline" onClick={reload}>
-          {t("mobile.reloadJob")}
-        </Button>
-      )}
-      {job.cancellable && (
-        <Button
-          variant="outline"
-          disabled={disabled || cancelling || cancelRequested === job.jobId}
-          onClick={() => {
-            if (lock.current) return;
-            lock.current = true;
-            setCancelling(true);
-            setError(null);
-            void api<{ requested: boolean }>(
-              `/market-jobs/${job.jobId}/cancel`,
-              "POST",
-              {},
-            )
-              .then((result) => {
-                if (result.requested) setCancelRequested(job.jobId);
-                else throw new MobileError(409, "unavailable");
-                void client.invalidateQueries({ queryKey: ["mobile", "job"] });
-              })
-              .catch(setError)
-              .finally(() => {
-                lock.current = false;
-                setCancelling(false);
-              });
-          }}
-        >
-          {t("mobile.cancelJob")}
-        </Button>
-      )}
       {job.outcome === "running" && cancelRequested === job.jobId && (
-        <p role="status">{t("mobile.cancelRequested")}</p>
+        <p role="status" className="mobile-hint">
+          {t("mobile.cancelRequested")}
+        </p>
       )}
       {["partial", "failed", "cancelled"].includes(job.outcome) &&
         (job.retryable ? (
-          <>
-            <p className="text-sm">{t("mobile.retryJobHelp")}</p>
+          <p className="mobile-hint">{t("mobile.retryJobHelp")}</p>
+        ) : (
+          <p className="mobile-desktop-note">
+            <Monitor aria-hidden />
+            <span>{t("mobile.desktopRequired")}</span>
+          </p>
+        ))}
+      <div className="mobile-form-actions">
+        {query.error && (
+          <Button variant="outline" onClick={reload}>
+            {t("mobile.reloadJob")}
+          </Button>
+        )}
+        {job.cancellable && (
+          <Button
+            variant="outline"
+            disabled={disabled || cancelling || cancelRequested === job.jobId}
+            onClick={() => {
+              if (lock.current) return;
+              lock.current = true;
+              setCancelling(true);
+              setError(null);
+              void api<{ requested: boolean }>(
+                `/market-jobs/${job.jobId}/cancel`,
+                "POST",
+                {},
+              )
+                .then((result) => {
+                  if (result.requested) setCancelRequested(job.jobId);
+                  else throw new MobileError(409, "unavailable");
+                  void client.invalidateQueries({
+                    queryKey: ["mobile", "job"],
+                  });
+                })
+                .catch(setError)
+                .finally(() => {
+                  lock.current = false;
+                  setCancelling(false);
+                });
+            }}
+          >
+            {t("mobile.cancelJob")}
+          </Button>
+        )}
+        {["partial", "failed", "cancelled"].includes(job.outcome) &&
+          job.retryable && (
             <Button
               disabled={disabled}
               onClick={() =>
@@ -1599,13 +2335,12 @@ function JobPanel({
             >
               {t("mobile.retryFailed")}
             </Button>
-          </>
-        ) : (
-          <p>{t("mobile.desktopRequired")}</p>
-        ))}
+          )}
+      </div>
       {(cursor || query.data?.next) && (
         <Pager
           next={query.data?.next}
+          paged={!!cursor}
           onFirst={reload}
           onNext={() => {
             setPinned(job.jobId);
@@ -1613,7 +2348,7 @@ function JobPanel({
           }}
         />
       )}
-    </Card>
+    </section>
   );
 }
 
@@ -1663,6 +2398,50 @@ function CancelDraft({
   );
 }
 
+const recordKinds = [
+  ["income", ArrowDownLeft],
+  ["expense", ArrowUpRight],
+  ["transfer", ArrowLeftRight],
+  ["card_purchase", CreditCard],
+  ["card_refund", RotateCcw],
+  ["repayment", HandCoins],
+  ["balance", Scale],
+] as const;
+function KindPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (kind: string) => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLFieldSetElement>(null);
+  useEffect(() => {
+    ref.current
+      ?.querySelector("input:checked")
+      ?.closest("label")
+      ?.scrollIntoView?.({ block: "nearest", inline: "center" });
+  }, [value]);
+  return (
+    <fieldset ref={ref} className="mobile-kinds">
+      <legend className="sr-only">{t("mobile.kind")}</legend>
+      {recordKinds.map(([k, Icon]) => (
+        <label key={k} className="mobile-chip">
+          <input
+            type="radio"
+            name="mobile-record-kind"
+            value={k}
+            checked={value === k}
+            onChange={() => onChange(k)}
+          />
+          <Icon aria-hidden />
+          <span>{t(`mobile.${k}`)}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 function RecordForm({
   bootstrap: b,
   timezone,
@@ -1703,6 +2482,17 @@ function RecordForm({
   const continueEntry = useRef(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const [focusAmount, setFocusAmount] = useState(0);
+  const reviewRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!review) return;
+    reviewRef.current?.focus({ preventScroll: true });
+    reviewRef.current?.closest("section")?.scrollIntoView?.({
+      block: "start",
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }, [review]);
   useEffect(() => {
     if (focusAmount > 0) amountRef.current?.focus();
   }, [focusAmount]);
@@ -1802,240 +2592,254 @@ function RecordForm({
     }
   }
   return (
-    <Section title={t("mobile.quickRecord")}>
+    <section className="mobile-stack mobile-record" aria-labelledby="mobile-record-title">
+      <header className="mobile-page-head">
+        <h2 id="mobile-record-title" className="mobile-page-title">
+          {t("mobile.quickRecord")}
+        </h2>
+      </header>
       <form
-        className="space-y-4"
+        className="mobile-stack"
         onSubmit={(e) => {
           e.preventDefault();
           void (review ? confirm() : preview());
         }}
       >
-        <fieldset disabled={frozen || !!review} className="space-y-4">
-          <Field name={t("mobile.kind")}>
-            <NativeSelect
-              aria-label={t("mobile.kind")}
-              value={input.kind}
-              onChange={(e) => {
-                update("kind", e.target.value);
-                update("accountId", "");
-              }}
-            >
-              {[
-                "income",
-                "expense",
-                "transfer",
-                "card_purchase",
-                "card_refund",
-                "repayment",
-                "balance",
-              ].map((k) => (
-                <option key={k} value={k}>
-                  {t(`mobile.${k}`)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field name={t("mobile.account")}>
-            <NativeSelect
-              aria-label={t("mobile.account")}
-              value={input.accountId}
-              required
-              onChange={(e) => {
-                update("accountId", e.target.value);
-                const a = accounts.data?.data.items.find(
-                  (a) => a.id === e.target.value,
-                );
-                if (a) update("currency", a.currency);
-              }}
-            >
-              <option value="">{t("mobile.choose")}</option>
-              {accounts.data?.data.items.filter(eligible).map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field name={t("mobile.amount")}>
-            <Input
-              ref={amountRef}
-              aria-label={t("mobile.amount")}
-              inputMode="decimal"
-              value={input.amount}
-              onChange={(e) => update("amount", e.target.value)}
-              required
-            />
-          </Field>
-          <Field name={t("mobile.currency")}>
-            <NativeSelect
-              aria-label={t("mobile.currency")}
-              disabled={selected?.mode !== "holdings"}
-              value={input.currency}
-              onChange={(e) => update("currency", e.target.value)}
-            >
-              {currencies.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </NativeSelect>
-          </Field>
-          {["transfer", "repayment"].includes(input.kind) && (
-            <Field name={t("mobile.otherAccount")}>
+        <fieldset disabled={frozen || !!review} className="mobile-stack">
+          <KindPicker
+            value={input.kind}
+            onChange={(kind) => {
+              update("kind", kind);
+              update("accountId", "");
+            }}
+          />
+          <div className="mobile-card mobile-form-card">
+            <Field name={t("mobile.account")}>
               <NativeSelect
-                aria-label={t("mobile.otherAccount")}
-                value={input.otherAccountId ?? ""}
+                aria-label={t("mobile.account")}
+                value={input.accountId}
                 required
                 onChange={(e) => {
-                  update("otherAccountId", e.target.value);
+                  update("accountId", e.target.value);
                   const a = accounts.data?.data.items.find(
                     (a) => a.id === e.target.value,
                   );
-                  if (a) update("receivedCurrency", a.currency);
+                  if (a) update("currency", a.currency);
                 }}
               >
                 <option value="">{t("mobile.choose")}</option>
-                {accounts.data?.data.items
-                  .filter(
-                    (a) =>
-                      a.role !== "liability" &&
-                      a.mode !== "manual_value" &&
-                      a.id !== input.accountId,
-                  )
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
+                {accounts.data?.data.items.filter(eligible).map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
               </NativeSelect>
             </Field>
-          )}
-          {input.kind === "transfer" && (
-            <>
-              <Field name={t("mobile.received")}>
+            <div className="mobile-amount">
+              <Field name={t("mobile.amount")}>
                 <Input
-                  aria-label={t("mobile.received")}
+                  ref={amountRef}
+                  aria-label={t("mobile.amount")}
+                  className="mobile-amount-input"
                   inputMode="decimal"
-                  value={input.received ?? ""}
-                  onChange={(e) => update("received", e.target.value)}
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  placeholder="0.00"
+                  value={input.amount}
+                  onChange={(e) => update("amount", e.target.value)}
                   required
                 />
               </Field>
-              <Field name={t("mobile.receivedCurrency")}>
+              <Field name={t("mobile.currency")}>
                 <NativeSelect
-                  aria-label={t("mobile.receivedCurrency")}
-                  value={input.receivedCurrency ?? ""}
-                  onChange={(e) => update("receivedCurrency", e.target.value)}
-                  required
+                  aria-label={t("mobile.currency")}
+                  disabled={selected?.mode !== "holdings"}
+                  value={input.currency}
+                  onChange={(e) => update("currency", e.target.value)}
                 >
-                  <option value="">{t("mobile.choose")}</option>
                   {currencies.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </NativeSelect>
               </Field>
-            </>
-          )}
-          {["transfer", "repayment"].includes(input.kind) && (
-            <Field name={t("mobile.fee")}>
+            </div>
+            {["transfer", "repayment"].includes(input.kind) && (
+              <Field name={t("mobile.otherAccount")}>
+                <NativeSelect
+                  aria-label={t("mobile.otherAccount")}
+                  value={input.otherAccountId ?? ""}
+                  required
+                  onChange={(e) => {
+                    update("otherAccountId", e.target.value);
+                    const a = accounts.data?.data.items.find(
+                      (a) => a.id === e.target.value,
+                    );
+                    if (a) update("receivedCurrency", a.currency);
+                  }}
+                >
+                  <option value="">{t("mobile.choose")}</option>
+                  {accounts.data?.data.items
+                    .filter(
+                      (a) =>
+                        a.role !== "liability" &&
+                        a.mode !== "manual_value" &&
+                        a.id !== input.accountId,
+                    )
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                </NativeSelect>
+              </Field>
+            )}
+            {input.kind === "transfer" && (
+              <div className="mobile-amount">
+                <Field name={t("mobile.received")}>
+                  <Input
+                    aria-label={t("mobile.received")}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={input.received ?? ""}
+                    onChange={(e) => update("received", e.target.value)}
+                    required
+                  />
+                </Field>
+                <Field name={t("mobile.receivedCurrency")}>
+                  <NativeSelect
+                    aria-label={t("mobile.receivedCurrency")}
+                    value={input.receivedCurrency ?? ""}
+                    onChange={(e) => update("receivedCurrency", e.target.value)}
+                    required
+                  >
+                    <option value="">{t("mobile.choose")}</option>
+                    {currencies.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+              </div>
+            )}
+            {["transfer", "repayment"].includes(input.kind) && (
+              <Field name={t("mobile.fee")}>
+                <Input
+                  aria-label={t("mobile.fee")}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={input.fee ?? ""}
+                  onChange={(e) => update("fee", e.target.value)}
+                />
+              </Field>
+            )}
+          </div>
+          <div className="mobile-card mobile-form-card">
+            {input.kind !== "balance" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Field name={t("mobile.date")}>
+                  <DatePickerControl
+                    aria-label={t("mobile.date")}
+                    value={input.effectiveLocalDate!}
+                    onChange={(v) => {
+                      setCustomTime(true);
+                      update("effectiveLocalDate", v);
+                    }}
+                    max={b.today}
+                  />
+                </Field>
+                <Field name={t("mobile.time")}>
+                  <TimePicker
+                    aria-label={t("mobile.time")}
+                    value={input.effectiveLocalTime!.slice(0, 5)}
+                    onChange={(v) => {
+                      setCustomTime(true);
+                      update("effectiveLocalTime", v);
+                    }}
+                  />
+                </Field>
+              </div>
+            ) : (
+              <p className="mobile-hint">{t("mobile.balanceHelp")}</p>
+            )}
+            <p className="mobile-hint">
+              {t("mobile.ledgerTimezone", { timezone })}
+            </p>
+            <Field name={t("mobile.note")}>
               <Input
-                aria-label={t("mobile.fee")}
-                inputMode="decimal"
-                value={input.fee ?? ""}
-                onChange={(e) => update("fee", e.target.value)}
+                aria-label={t("mobile.note")}
+                value={input.note}
+                maxLength={500}
+                enterKeyHint="done"
+                onChange={(e) => update("note", e.target.value)}
               />
             </Field>
-          )}
-          {input.kind !== "balance" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <DatePickerControl
-                aria-label={t("mobile.date")}
-                value={input.effectiveLocalDate!}
-                onChange={(v) => {
-                  setCustomTime(true);
-                  update("effectiveLocalDate", v);
-                }}
-                max={b.today}
-              />
-              <TimePicker
-                aria-label={t("mobile.time")}
-                value={input.effectiveLocalTime!.slice(0, 5)}
-                onChange={(v) => {
-                  setCustomTime(true);
-                  update("effectiveLocalTime", v);
-                }}
-              />
-            </div>
-          ) : (
-            <p>{t("mobile.balanceHelp")}</p>
-          )}
-          <p className="text-xs">{t("mobile.ledgerTimezone", { timezone })}</p>
-          <Field name={t("mobile.note")}>
-            <Input
-              aria-label={t("mobile.note")}
-              value={input.note}
-              maxLength={500}
-              onChange={(e) => update("note", e.target.value)}
-            />
-          </Field>
+          </div>
         </fieldset>
         <ErrorMessage error={error || accounts.error} />
         {review && (
-          <Card className="p-4 space-y-2">
-            <p>{t("mobile.reviewEffects")}</p>
-            {review.before?.map((r, i) => (
-              <p key={i}>
-                {r.name} ·{" "}
-                <ExactMoney
-                  value={{ amount: r.amount, currency: r.currency }}
-                />{" "}
-                →{" "}
-                <ExactMoney
-                  value={
-                    review.preview!.resulting[i]
-                      ? {
-                          amount: review.preview!.resulting[i].amount,
-                          currency: r.currency,
-                        }
-                      : null
-                  }
-                />
-              </p>
-            ))}
+          <section
+            className="mobile-card mobile-review mobile-enter"
+            aria-labelledby="mobile-review-title"
+          >
+            <h3 id="mobile-review-title" ref={reviewRef} tabIndex={-1}>{t("mobile.reviewEffects")}</h3>
+            {!!review.before?.length && (
+              <ul className="mobile-list">
+                {review.before.map((r, i) => (
+                  <li key={i} className="mobile-review-row">
+                    <span className="mobile-row-title">{r.name}</span>
+                    <span className="mobile-review-change">
+                      <ExactMoney
+                        value={{ amount: r.amount, currency: r.currency }}
+                      />
+                      <ArrowRight aria-hidden />
+                      <span className="sr-only">→</span>
+                      <strong>
+                        <ExactMoney
+                          value={
+                            review.preview!.resulting[i]
+                              ? {
+                                  amount: review.preview!.resulting[i].amount,
+                                  currency: r.currency,
+                                }
+                              : null
+                          }
+                        />
+                      </strong>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <ActivityView
               activity={{
                 ...review.preview!.activity,
                 resulting: review.preview!.resulting,
               }}
             />
-            {review.preview!.effects.map((e, i) => (
-              <p key={i}>
-                {t(`mobile.classification.${e.classification}`, {
-                  defaultValue: t("mobile.value"),
-                })}{" "}
-                · <MoneyText value={e.money} />
-              </p>
-            ))}
-          </Card>
+            {review.preview!.effects.length > 0 && (
+              <dl className="mobile-facts">
+                {review.preview!.effects.map((e, i) => (
+                  <div key={i}>
+                    <dt>
+                      {t(`mobile.classification.${e.classification}`, {
+                        defaultValue: t("mobile.value"),
+                      })}
+                    </dt>
+                    <dd>
+                      <MoneyText value={e.money} />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
         )}
-        {uncertain && <p role="status">{t("mobile.confirming")}</p>}
-        <div className="flex flex-wrap gap-2">
-          <Button disabled={busy || offline || !input.accountId}>
-            {busy
-              ? t("common.pending")
-              : uncertain
-                ? t("mobile.retrySame")
-                : review
-                  ? t("mobile.confirm")
-                  : t("mobile.preview")}
-          </Button>
-          {review && !uncertain && input.kind !== "balance" && (
-            <Button
-              type="button"
-              disabled={busy || offline}
-              onClick={() => void confirm(true)}
-            >
-              {t("mobile.confirmAnother")}
-            </Button>
-          )}
+        {uncertain && (
+          <p role="status" className="mobile-notice" data-tone="warning">
+            <RefreshCw aria-hidden className="size-5 shrink-0" />
+            <span className="min-w-0 flex-1">{t("mobile.confirming")}</span>
+          </p>
+        )}
+        <div className="mobile-form-actions">
           {uncertain && (
             <Button
               type="button"
@@ -2076,8 +2880,29 @@ function RecordForm({
           )}
           <CancelDraft disabled={frozen} onCancel={onCancel} />
         </div>
+        <div className="mobile-actionbar">
+          {review && !uncertain && input.kind !== "balance" && (
+            <Button
+              type="button"
+              variant="soft"
+              disabled={busy || offline}
+              onClick={() => void confirm(true)}
+            >
+              {t("mobile.confirmAnother")}
+            </Button>
+          )}
+          <Button disabled={busy || offline || !input.accountId}>
+            {busy
+              ? t("common.pending")
+              : uncertain
+                ? t("mobile.retrySame")
+                : review
+                  ? t("mobile.confirm")
+                  : t("mobile.preview")}
+          </Button>
+        </div>
       </form>
-    </Section>
+    </section>
   );
 }
 
@@ -2146,43 +2971,59 @@ function QuoteForm({
     }
   }
   return (
-    <Section title={t("mobile.manualQuote")}>
-      <p>{issue.Label}</p>
-      <p>{t("mobile.manualHelp")}</p>
+    <section className="mobile-stack mobile-record" aria-labelledby="mobile-quote-title">
+      <header>
+        <p className="mobile-eyebrow">{issue.Label}</p>
+        <h2 id="mobile-quote-title" className="mobile-page-title">
+          {t("mobile.manualQuote")}
+        </h2>
+      </header>
+      <p className="mobile-hint">{t("mobile.manualHelp")}</p>
       <form
-        className="space-y-4"
+        className="mobile-stack"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        <fieldset className="space-y-4" disabled={busy || unknown || !!review}>
+        <fieldset
+          className="mobile-card mobile-form-card"
+          disabled={busy || unknown || !!review}
+        >
           <Field name={t("mobile.quoteValue")}>
             <Input
               aria-label={t("mobile.quoteValue")}
+              className="mobile-amount-input"
               value={value}
               inputMode="decimal"
+              autoComplete="off"
+              placeholder="0.00"
               required
               onChange={(e) => setValue(e.target.value)}
             />
           </Field>
-          <DatePickerControl
-            aria-label={t("mobile.effectiveDate")}
-            value={date}
-            onChange={setDate}
-            max={b.today}
-          />
+          <Field name={t("mobile.effectiveDate")}>
+            <DatePickerControl
+              aria-label={t("mobile.effectiveDate")}
+              value={date}
+              onChange={setDate}
+              max={b.today}
+            />
+          </Field>
         </fieldset>
         <ErrorMessage error={error} />
         {review?.receipt && (
-          <Card className="p-4">
-            <p>
+          <section
+            className="mobile-card mobile-review mobile-enter"
+            aria-label={t("mobile.confirm")}
+          >
+            <p className="mobile-hero-figure mobile-money">
               {review.receipt.value} {review.receipt.currency}
               {review.receipt.quoteCurrency
                 ? `/${review.receipt.quoteCurrency}`
                 : ""}
             </p>
-            <p>
+            <p className="mobile-hint">
               {formatQuoteAsOf(
                 {
                   quotedAt: review.receipt.quotedAt,
@@ -2194,17 +3035,15 @@ function QuoteForm({
                 "UTC",
               )}
             </p>
-          </Card>
+          </section>
         )}
-        {unknown && <p role="status">{t("mobile.confirming")}</p>}
-        <div className="flex gap-2">
-          <Button disabled={busy || offline}>
-            {unknown
-              ? t("mobile.retrySame")
-              : review
-                ? t("mobile.confirm")
-                : t("mobile.preview")}
-          </Button>
+        {unknown && (
+          <p role="status" className="mobile-notice" data-tone="warning">
+            <RefreshCw aria-hidden className="size-5 shrink-0" />
+            <span className="min-w-0 flex-1">{t("mobile.confirming")}</span>
+          </p>
+        )}
+        <div className="mobile-form-actions">
           {unknown && (
             <Button
               type="button"
@@ -2233,8 +3072,17 @@ function QuoteForm({
           )}
           <CancelDraft disabled={busy || unknown} onCancel={onCancel} />
         </div>
+        <div className="mobile-actionbar">
+          <Button disabled={busy || offline}>
+            {unknown
+              ? t("mobile.retrySame")
+              : review
+                ? t("mobile.confirm")
+                : t("mobile.preview")}
+          </Button>
+        </div>
       </form>
-    </Section>
+    </section>
   );
 }
 
@@ -2254,6 +3102,9 @@ function MarketReview({
   const lock = useRef(false);
   const [uncertain, setUncertain] = useState(false);
   useLeaveGuard(busy || uncertain);
+  const target =
+    review?.targetLabel ||
+    t(`mobile.scope.${request.scope}`, { defaultValue: "" });
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -2272,47 +3123,72 @@ function MarketReview({
     };
   }, [request]);
   return (
-    <Section
-      title={
-        request.mode === "history"
-          ? t("mobile.syncHistory")
-          : t("mobile.updateMarket")
-      }
-    >
-      <p>
+    <section className="mobile-stack mobile-record" aria-labelledby="mobile-market-title">
+      <header>
+        <h2 id="mobile-market-title" className="mobile-page-title">
+          {request.mode === "history"
+            ? t("mobile.syncHistory")
+            : t("mobile.updateMarket")}
+        </h2>
+      </header>
+      <p className="mobile-hint">
         {request.mode === "history"
           ? t("mobile.historyScope")
           : t("mobile.latestScope")}
       </p>
-      <p>
-        {review?.targetLabel ||
-          t(`mobile.scope.${request.scope}`, { defaultValue: "" })}
-      </p>
-      {review?.historicalPlan && (
-        <>
-          <p>
-            {t("mobile.plannedRequests", {
-              count: review.historicalPlan.EstimatedRequestCount,
-            })}
-          </p>
-          {(review.historicalPlan.Items ?? []).slice(0, 100).map((i, index) => (
-            <p key={index}>
-              {i.Label} · {formatCivilDate(i.StartDate)} —{" "}
-              {formatCivilDate(i.EndDate)}
-            </p>
-          ))}
-          {review.historicalPlan.Unresolved?.map((item, index) => (
-            <p key={index}>
-              {t(`errorCode:${item.Code}`, {
-                defaultValue: t("mobile.desktopRequired"),
+      <div className="mobile-card mobile-review">
+        {!review && !error ? (
+          <RowsSkeleton rows={1} />
+        ) : (
+          target && <h3>{target}</h3>
+        )}
+        {review?.historicalPlan && (
+          <>
+            <p className="mobile-hint">
+              {t("mobile.plannedRequests", {
+                count: review.historicalPlan.EstimatedRequestCount,
               })}
             </p>
-          ))}
-        </>
+            <ul className="mobile-list">
+              {(review.historicalPlan.Items ?? [])
+                .slice(0, 100)
+                .map((i, index) => (
+                  <li key={index} className="mobile-review-row">
+                    <span className="mobile-row-title">{i.Label}</span>
+                    <span className="mobile-review-change">
+                      {formatCivilDate(i.StartDate)} —{" "}
+                      {formatCivilDate(i.EndDate)}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+            {review.historicalPlan.Unresolved?.map((item, index) => (
+              <p key={index} className="mobile-hint" data-tone="warning">
+                {t(`errorCode:${item.Code}`, {
+                  defaultValue: t("mobile.desktopRequired"),
+                })}
+              </p>
+            ))}
+          </>
+        )}
+      </div>
+      {uncertain && (
+        <p role="status" className="mobile-notice" data-tone="warning">
+          <RefreshCw aria-hidden className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t("mobile.jobAcceptanceUnknown")}
+          </span>
+        </p>
       )}
-      {uncertain && <p role="status">{t("mobile.jobAcceptanceUnknown")}</p>}
       <ErrorMessage error={error} />
-      <div className="flex gap-2">
+      <div className="mobile-actionbar">
+        <Button
+          disabled={busy || uncertain}
+          variant="outline"
+          onClick={onCancel}
+        >
+          {t("common.cancel")}
+        </Button>
         <Button
           disabled={busy || !review}
           onClick={() => {
@@ -2345,15 +3221,8 @@ function MarketReview({
         >
           {uncertain ? t("mobile.retrySame") : t("mobile.confirm")}
         </Button>
-        <Button
-          disabled={busy || uncertain}
-          variant="outline"
-          onClick={onCancel}
-        >
-          {t("common.cancel")}
-        </Button>
       </div>
-    </Section>
+    </section>
   );
 }
 
@@ -2373,32 +3242,37 @@ function Recovery({
   const [busy, setBusy] = useState(false);
   const [forget, setForget] = useState(false);
   return (
-    <Card className="p-4 space-y-3">
-      <p role="status">{t("mobile.confirming")}</p>
-      <p>{t("mobile.recoveryHelp")}</p>
+    <section className="mobile-card mobile-recovery mobile-enter">
+      <p role="status" className="mobile-recovery-title">
+        <RefreshCw aria-hidden />
+        <span>{t("mobile.confirming")}</span>
+      </p>
+      <p className="mobile-hint">{t("mobile.recoveryHelp")}</p>
       <ErrorMessage error={error} />
-      <Button
-        disabled={busy || pending.householdId !== householdId}
-        onClick={() => {
-          setBusy(true);
-          void api<{
-            operationState: string;
-            receipt?: { activity?: Activity };
-          }>(`/operations/${pending.operationId}`)
-            .then((r) => {
-              if (r.operationState === "committed")
-                onResolved(r.receipt?.activity);
-              else setError(new MobileError(503, "unavailable"));
-            })
-            .catch(setError)
-            .finally(() => setBusy(false));
-        }}
-      >
-        {t("mobile.queryResult")}
-      </Button>
-      <Button variant="outline" disabled={busy} onClick={() => setForget(true)}>
-        {t("mobile.forgetRecovery")}
-      </Button>
+      <div className="mobile-form-actions">
+        <Button
+          disabled={busy || pending.householdId !== householdId}
+          onClick={() => {
+            setBusy(true);
+            void api<{
+              operationState: string;
+              receipt?: { activity?: Activity };
+            }>(`/operations/${pending.operationId}`)
+              .then((r) => {
+                if (r.operationState === "committed")
+                  onResolved(r.receipt?.activity);
+                else setError(new MobileError(503, "unavailable"));
+              })
+              .catch(setError)
+              .finally(() => setBusy(false));
+          }}
+        >
+          {t("mobile.queryResult")}
+        </Button>
+        <Button variant="outline" disabled={busy} onClick={() => setForget(true)}>
+          {t("mobile.forgetRecovery")}
+        </Button>
+      </div>
       <AlertDialog open={forget} onOpenChange={setForget}>
         <AlertDialogContent>
           <AlertDialogTitle>{t("mobile.forgetRecovery")}</AlertDialogTitle>
@@ -2411,6 +3285,6 @@ function Recovery({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </section>
   );
 }

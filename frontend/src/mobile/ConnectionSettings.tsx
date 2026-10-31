@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,10 @@ import {
 export function ConnectionFailure({ error }: { error: unknown }) {
   const { t } = useTranslation();
   return error instanceof ConnectionError ? (
-    <p role="alert">{t(`mobile.transport.${error.code}`)}</p>
+    <p role="alert" className="mobile-notice" data-tone="danger">
+      <AlertCircle aria-hidden />
+      <span>{t(`mobile.transport.${error.code}`)}</span>
+    </p>
   ) : null;
 }
 
@@ -94,38 +98,50 @@ export function ConnectionSettings({
   }
   return (
     <section
-      className="space-y-3 rounded-xl border border-border p-4"
+      className="mobile-card mobile-connection"
       aria-label={t("mobile.connectionSettings")}
     >
-      <h2 className="font-semibold">{t("mobile.connectionSettings")}</h2>
-      <Label htmlFor="backend-address">{t("mobile.backendAddress")}</Label>
-      <Input
-        id="backend-address"
-        value={address}
-        inputMode="url"
-        autoCapitalize="none"
-        autoComplete="off"
-        spellCheck={false}
-        aria-describedby="backend-help"
-        aria-invalid={!!error}
-        disabled={disabled || busy}
-        placeholder="https://nestworth.private.example"
-        onChange={(e) => {
-          setAddress(e.target.value);
-          setError(null);
-          setTested(false);
-        }}
-      />
-      <p id="backend-help" className="text-sm text-muted-foreground">
+      <h2 className="mobile-step-title">{t("mobile.connectionSettings")}</h2>
+      <div className="mobile-field">
+        <Label htmlFor="backend-address">{t("mobile.backendAddress")}</Label>
+        <Input
+          id="backend-address"
+          value={address}
+          inputMode="url"
+          autoCapitalize="none"
+          autoComplete="off"
+          spellCheck={false}
+          aria-describedby="backend-help"
+          aria-invalid={!!error}
+          disabled={disabled || busy}
+          placeholder="https://nestworth.private.example"
+          onChange={(e) => {
+            setAddress(e.target.value);
+            setError(null);
+            setTested(false);
+          }}
+        />
+      </div>
+      <p id="backend-help" className="mobile-hint">
         {t("mobile.backendHelp")}
       </p>
-      <p className="text-sm break-all">
+      <p className="mobile-connection-origin">
         {t("mobile.frontendOrigin", { origin: window.location.origin })}
       </p>
       <ConnectionFailure error={error} />
-      {tested && <p role="status">{t("mobile.connectionTestPassed")}</p>}
-      {busy && <p role="status">{t("common.pending")}</p>}
-      <div className="flex flex-wrap gap-2">
+      {tested && (
+        <p role="status" className="mobile-notice" data-tone="success">
+          <CheckCircle2 aria-hidden />
+          <span>{t("mobile.connectionTestPassed")}</span>
+        </p>
+      )}
+      {busy && (
+        <p role="status" className="mobile-connection-pending">
+          <Loader2 aria-hidden className="animate-spin" />
+          <span>{t("common.pending")}</span>
+        </p>
+      )}
+      <div className="mobile-form-actions">
         <Button
           type="button"
           variant="outline"
