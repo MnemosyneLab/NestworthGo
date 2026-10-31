@@ -58,6 +58,28 @@ Use theme tokens (bg-card, text-muted-foreground, border-border, ring-ring),
 shared button variants and nearby gap/padding conventions. Check narrow layouts,
 long translated labels, light/dark themes and financial-value readability.
 
+Layout and display conventions from the "Ledger" visual direction:
+
+- Typography: the serif `font-display` is for page titles, calendar headings
+  and the `MoneyText size="xl"` hero figure only; tables, labels and other
+  amounts stay in the sans with tabular figures (`num`). Use sentence case.
+- Card: `CardHeader` is `p-5` and `CardContent` is `px-5 pb-5` with no top
+  padding and no responsive variants, so caller `p-*`/`pt-*` overrides always
+  apply. Header-less cards add their own `pt-5`. Select cards in tests with
+  `[data-slot=card]`.
+- Toggle rows of view filters (role, metric, dimension, status) use
+  `SegmentedControl`, not rows of default/outline `Button`s.
+- Page chrome: `PageChrome` takes a `leading` slot (for example a back link);
+  `PageIntro` places the description and status side by side on `lg` screens.
+- Avoid repeating the same fact on one screen: `DateRangeControl
+  rangeLabel="hidden"` keeps the range sr-only when From/To pickers show it,
+  `TrendChart` hides a single-series legend that only repeats the series name,
+  and labels that repeat the page-level selection become `sr-only` rather
+  than being removed from the accessible structure.
+- `EmptyState size="compact"` is for empty sections inside a card or panel.
+- Language and appearance preferences live in the sidebar footer; when the
+  sidebar is collapsed, Settings remains the route to them.
+
 ## Enforced boundaries and exceptions
 
 ESLint rejects native temporal inputs, raw select/dialog elements, raw dialog
