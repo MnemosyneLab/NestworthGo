@@ -146,9 +146,9 @@ describe("ReturnAnalysisPage", () => {
     const user = userEvent.setup();
     await screen.findByText("September 2026");
     await user.click(screen.getByRole("button", { name: "Previous" }));
-    await user.click(screen.getByRole("tab", { name: tab === "trend" ? "Return Trend" : "Contribution" }));
+    await user.click(screen.getByRole("tab", { name: tab === "trend" ? "Return trend" : "Contribution" }));
     await waitFor(() => expect(tab === "trend" ? returnTrend : contribution).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-01", to: "2026-08-31", scopeKind: "instrument", scopeId: "i1", accountId: "a1", currency: "USD", valuation: "native", includeCash: false }), ... (tab === "trend" ? ["cumulative_amount"] : ["total_return", "instrument", "amount_desc"])));
-    await user.click(screen.getByRole("tab", { name: "Return Calendar" }));
+    await user.click(screen.getByRole("tab", { name: "Return calendar" }));
     expect(await screen.findByText("August 2026")).toBeInTheDocument();
     expect(useAnalysisStore.getState()).toMatchObject({ from: "2026-08-01", to: "2026-08-31" });
   });
@@ -188,7 +188,7 @@ describe("ReturnAnalysisPage", () => {
     await screen.findByText("September 2026");
     await user.click(screen.getByRole("button", { name: "Year" }));
     await user.click(screen.getByRole("button", { name: "Previous" }));
-    await user.click(screen.getByRole("tab", { name: "Return Trend" }));
+    await user.click(screen.getByRole("tab", { name: "Return trend" }));
     await waitFor(() => expect(returnTrend).toHaveBeenCalledWith(expect.objectContaining({ from: "2025-04-10", to: "2025-12-31" }), "cumulative_amount"));
   });
 
@@ -198,7 +198,7 @@ describe("ReturnAnalysisPage", () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText("September 2026");
-    await user.click(screen.getByRole("tab", { name: "Return Trend" }));
+    await user.click(screen.getByRole("tab", { name: "Return trend" }));
     await waitFor(() => expect(returnTrend).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-06-15", to: "2026-08-12", scopeKind: "account", scopeId: "a1" }), "cumulative_amount"));
   });
 
@@ -207,7 +207,7 @@ describe("ReturnAnalysisPage", () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText("No closed dates in the current month yet.");
-    await user.click(screen.getByRole("tab", { name: "Return Trend" }));
+    await user.click(screen.getByRole("tab", { name: "Return trend" }));
     expect(useAnalysisStore.getState()).toMatchObject({ from: "", to: "" });
     expect(returnTrend).not.toHaveBeenCalled();
   });
@@ -274,8 +274,8 @@ describe("ReturnAnalysisPage", () => {
 
     await screen.findByText("Partial coverage");
     await user.click(within(screen.getByTestId("return-day-2026-09-01")).getByRole("button"));
-    expect(await screen.findByRole("button", { name: "View Asset Changes for This Day" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "View Asset Changes for This Day" }));
+    expect(await screen.findByRole("button", { name: "View asset changes for this day" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View asset changes for this day" }));
 
     expect(onOpenAssetChanges).toHaveBeenCalledWith(expect.objectContaining({ scope: "portfolio", includeCash: true, from: "2026-09-01", to: "2026-09-01" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

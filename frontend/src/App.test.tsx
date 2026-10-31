@@ -669,7 +669,7 @@ it("returns from account analysis with the source archive filter and scroll posi
   await screen.findByTestId("account-detail");
   const main = document.getElementById("main-content")!;
   main.scrollTop = 170;
-  await userEvent.click(screen.getByRole("button", { name: "Return analysis" }));
+  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
   expect(await screen.findByRole("button", { name: "← Back to Accounts" })).toBeVisible();
   expect(screen.getByTestId("account-detail")).not.toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
@@ -862,7 +862,7 @@ it("blocks top-level and object navigation while a sheet confirmation is unresol
   await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
   await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
   await screen.findByTestId("account-detail");
-  await userEvent.click(screen.getByRole("button", { name: "Return analysis" }));
+  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
   const back = await screen.findByRole("button", { name: "← Back to Accounts" });
   registerSheetConfirmation(owner);
   try {
@@ -912,7 +912,7 @@ it("blocks App and object navigation during an actual ordinary submission and it
   const overviewNav = within(nav).getByRole("button", { name: "Overview" });
   await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
   const detail = await screen.findByTestId("account-detail");
-  const analysis = screen.getByRole("button", { name: "Return analysis" });
+  const analysis = within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" });
   await userEvent.click(screen.getByRole("button", { name: "Update balance" }));
   const form = await screen.findByRole("form", { name: "Record change" });
   const value = within(form).getByLabelText("New value");
