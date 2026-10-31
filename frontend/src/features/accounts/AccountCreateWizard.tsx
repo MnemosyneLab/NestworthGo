@@ -25,6 +25,7 @@ import {
   rolesFor,
   splitAccountTypes,
   trackingMethodKey,
+  trackingMethodShortKey,
   trackingHelpKey,
   trackingModesFor,
   trackingPrompt,
@@ -264,7 +265,7 @@ export function AccountCreateWizard({
     const selected = (accountType || resolvedType) === type;
     const typeRole = selected ? resolvedRole : defaultRole(combinations, type);
     const methods = trackingModesFor(combinations, type, typeRole)
-      .map((mode) => t(trackingMethodKey(mode, type)))
+      .map((mode) => t(trackingMethodShortKey(mode, type)))
       .join(t("accounts.trackingMethodSeparator"));
     return (
       <button
