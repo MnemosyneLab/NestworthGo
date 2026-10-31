@@ -49,13 +49,19 @@ function AppearanceToggle({ appearance, disabled, onChange }: { appearance: Appe
   );
 }
 
-function LanguageSwitcher({ language, disabled, onChange }: { language: string; disabled: boolean; onChange: (language: string) => void }) {
+function LanguageSwitcher({ language, disabled, compact, onChange }: { language: string; disabled: boolean; compact: boolean; onChange: (language: string) => void }) {
   const { t, i18n: i18nInstance } = useTranslation();
-  return (
+  const currentLanguage = language === "system" ? i18nInstance.language : language;
+  const select = (
     <NativeSelect
       aria-label={t("settings.language.language")}
-      className="h-8 min-w-0 flex-1 rounded-lg border-transparent bg-transparent pl-2 pr-7 text-xs font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
-      value={language === "system" ? i18nInstance.language : language}
+      title={compact ? t(`option.language.${languageOptionKey(currentLanguage)}`) : undefined}
+      className={cn(
+        "h-8 min-w-0 rounded-lg border-transparent bg-transparent text-xs font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground",
+        // The icon rail keeps the same native select (keyboard, typeahead, current value) but draws only the icon.
+        compact ? "absolute inset-0 size-full cursor-pointer appearance-none p-0 text-transparent opacity-0" : "flex-1 pl-2 pr-7",
+      )}
+      value={currentLanguage}
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
     >
@@ -65,6 +71,20 @@ function LanguageSwitcher({ language, disabled, onChange }: { language: string; 
         </option>
       ))}
     </NativeSelect>
+  );
+  if (compact) {
+    return (
+      <div className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors focus-within:ring-2 focus-within:ring-primary/50 hover:bg-muted hover:text-foreground">
+        <Languages aria-hidden="true" className="size-4" />
+        {select}
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <Languages aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      {select}
+    </div>
   );
 }
 
@@ -186,17 +206,13 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
             </div>
           ))}
         </nav>
-        <div className={cn("flex shrink-0 items-center gap-1 border-t border-border px-3 py-2", collapsed && "justify-center px-0")}>
-          {!collapsed && (
-            <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <Languages aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-              <LanguageSwitcher
-                language={settings.language}
-                disabled={saveSettings.isPending}
-                onChange={(language) => persistHeaderSetting({ language: language as Settings["language"] })}
-              />
-            </div>
-          )}
+        <div className={cn("flex shrink-0 items-center gap-1 border-t border-border px-3 py-2", collapsed && "flex-col justify-center px-0")}>
+          <LanguageSwitcher
+            language={settings.language}
+            compact={collapsed}
+            disabled={saveSettings.isPending}
+            onChange={(language) => persistHeaderSetting({ language: language as Settings["language"] })}
+          />
           <AppearanceToggle
             appearance={settings.appearance as Appearance}
             disabled={saveSettings.isPending}
