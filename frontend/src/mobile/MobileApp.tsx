@@ -9,8 +9,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
+  AlertCircle,
   ArrowDownLeft,
   ArrowLeftRight,
+  ArrowRight,
   ArrowUpRight,
   CandlestickChart,
   CheckCircle2,
@@ -24,6 +26,7 @@ import {
   Plus,
   ReceiptText,
   RefreshCw,
+  RotateCcw,
   RotateCw,
   Scale,
   Search,
@@ -212,14 +215,14 @@ function ErrorMessage({ error }: { error: unknown }) {
           })
         : t("mobile.connectionUnavailable");
   return (
-    <p
-      role="alert"
-      className="rounded-xl border border-destructive p-3 text-sm"
-    >
-      {message}
-      {error instanceof MobileError && error.field
-        ? ` · ${t(`error.field.${error.field}`, { defaultValue: "" })}`
-        : ""}
+    <p role="alert" className="mobile-notice" data-tone="danger">
+      <AlertCircle aria-hidden className="size-5 shrink-0" />
+      <span className="min-w-0 flex-1">
+        {message}
+        {error instanceof MobileError && error.field
+          ? ` · ${t(`error.field.${error.field}`, { defaultValue: "" })}`
+          : ""}
+      </span>
     </p>
   );
 }
@@ -233,7 +236,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 function Field({ name, children }: { name: string; children: ReactNode }) {
   return (
-    <div className="space-y-1">
+    <div className="mobile-field">
       <Label>{name}</Label>
       {children}
     </div>
@@ -2294,6 +2297,50 @@ function CancelDraft({
   );
 }
 
+const recordKinds = [
+  ["income", ArrowDownLeft],
+  ["expense", ArrowUpRight],
+  ["transfer", ArrowLeftRight],
+  ["card_purchase", CreditCard],
+  ["card_refund", RotateCcw],
+  ["repayment", HandCoins],
+  ["balance", Scale],
+] as const;
+function KindPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (kind: string) => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLFieldSetElement>(null);
+  useEffect(() => {
+    ref.current
+      ?.querySelector("input:checked")
+      ?.closest("label")
+      ?.scrollIntoView?.({ block: "nearest", inline: "center" });
+  }, [value]);
+  return (
+    <fieldset ref={ref} className="mobile-kinds">
+      <legend className="sr-only">{t("mobile.kind")}</legend>
+      {recordKinds.map(([k, Icon]) => (
+        <label key={k} className="mobile-chip">
+          <input
+            type="radio"
+            name="mobile-record-kind"
+            value={k}
+            checked={value === k}
+            onChange={() => onChange(k)}
+          />
+          <Icon aria-hidden />
+          <span>{t(`mobile.${k}`)}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 function RecordForm({
   bootstrap: b,
   timezone,
@@ -2334,6 +2381,17 @@ function RecordForm({
   const continueEntry = useRef(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const [focusAmount, setFocusAmount] = useState(0);
+  const reviewRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!review) return;
+    reviewRef.current?.focus({ preventScroll: true });
+    reviewRef.current?.closest("section")?.scrollIntoView?.({
+      block: "start",
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }, [review]);
   useEffect(() => {
     if (focusAmount > 0) amountRef.current?.focus();
   }, [focusAmount]);
@@ -2433,240 +2491,254 @@ function RecordForm({
     }
   }
   return (
-    <Section title={t("mobile.quickRecord")}>
+    <section className="mobile-stack mobile-record" aria-labelledby="mobile-record-title">
+      <header className="mobile-page-head">
+        <h2 id="mobile-record-title" className="mobile-page-title">
+          {t("mobile.quickRecord")}
+        </h2>
+      </header>
       <form
-        className="space-y-4"
+        className="mobile-stack"
         onSubmit={(e) => {
           e.preventDefault();
           void (review ? confirm() : preview());
         }}
       >
-        <fieldset disabled={frozen || !!review} className="space-y-4">
-          <Field name={t("mobile.kind")}>
-            <NativeSelect
-              aria-label={t("mobile.kind")}
-              value={input.kind}
-              onChange={(e) => {
-                update("kind", e.target.value);
-                update("accountId", "");
-              }}
-            >
-              {[
-                "income",
-                "expense",
-                "transfer",
-                "card_purchase",
-                "card_refund",
-                "repayment",
-                "balance",
-              ].map((k) => (
-                <option key={k} value={k}>
-                  {t(`mobile.${k}`)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field name={t("mobile.account")}>
-            <NativeSelect
-              aria-label={t("mobile.account")}
-              value={input.accountId}
-              required
-              onChange={(e) => {
-                update("accountId", e.target.value);
-                const a = accounts.data?.data.items.find(
-                  (a) => a.id === e.target.value,
-                );
-                if (a) update("currency", a.currency);
-              }}
-            >
-              <option value="">{t("mobile.choose")}</option>
-              {accounts.data?.data.items.filter(eligible).map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field name={t("mobile.amount")}>
-            <Input
-              ref={amountRef}
-              aria-label={t("mobile.amount")}
-              inputMode="decimal"
-              value={input.amount}
-              onChange={(e) => update("amount", e.target.value)}
-              required
-            />
-          </Field>
-          <Field name={t("mobile.currency")}>
-            <NativeSelect
-              aria-label={t("mobile.currency")}
-              disabled={selected?.mode !== "holdings"}
-              value={input.currency}
-              onChange={(e) => update("currency", e.target.value)}
-            >
-              {currencies.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </NativeSelect>
-          </Field>
-          {["transfer", "repayment"].includes(input.kind) && (
-            <Field name={t("mobile.otherAccount")}>
+        <fieldset disabled={frozen || !!review} className="mobile-stack">
+          <KindPicker
+            value={input.kind}
+            onChange={(kind) => {
+              update("kind", kind);
+              update("accountId", "");
+            }}
+          />
+          <div className="mobile-card mobile-form-card">
+            <Field name={t("mobile.account")}>
               <NativeSelect
-                aria-label={t("mobile.otherAccount")}
-                value={input.otherAccountId ?? ""}
+                aria-label={t("mobile.account")}
+                value={input.accountId}
                 required
                 onChange={(e) => {
-                  update("otherAccountId", e.target.value);
+                  update("accountId", e.target.value);
                   const a = accounts.data?.data.items.find(
                     (a) => a.id === e.target.value,
                   );
-                  if (a) update("receivedCurrency", a.currency);
+                  if (a) update("currency", a.currency);
                 }}
               >
                 <option value="">{t("mobile.choose")}</option>
-                {accounts.data?.data.items
-                  .filter(
-                    (a) =>
-                      a.role !== "liability" &&
-                      a.mode !== "manual_value" &&
-                      a.id !== input.accountId,
-                  )
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
+                {accounts.data?.data.items.filter(eligible).map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
               </NativeSelect>
             </Field>
-          )}
-          {input.kind === "transfer" && (
-            <>
-              <Field name={t("mobile.received")}>
+            <div className="mobile-amount">
+              <Field name={t("mobile.amount")}>
                 <Input
-                  aria-label={t("mobile.received")}
+                  ref={amountRef}
+                  aria-label={t("mobile.amount")}
+                  className="mobile-amount-input"
                   inputMode="decimal"
-                  value={input.received ?? ""}
-                  onChange={(e) => update("received", e.target.value)}
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  placeholder="0.00"
+                  value={input.amount}
+                  onChange={(e) => update("amount", e.target.value)}
                   required
                 />
               </Field>
-              <Field name={t("mobile.receivedCurrency")}>
+              <Field name={t("mobile.currency")}>
                 <NativeSelect
-                  aria-label={t("mobile.receivedCurrency")}
-                  value={input.receivedCurrency ?? ""}
-                  onChange={(e) => update("receivedCurrency", e.target.value)}
-                  required
+                  aria-label={t("mobile.currency")}
+                  disabled={selected?.mode !== "holdings"}
+                  value={input.currency}
+                  onChange={(e) => update("currency", e.target.value)}
                 >
-                  <option value="">{t("mobile.choose")}</option>
                   {currencies.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </NativeSelect>
               </Field>
-            </>
-          )}
-          {["transfer", "repayment"].includes(input.kind) && (
-            <Field name={t("mobile.fee")}>
+            </div>
+            {["transfer", "repayment"].includes(input.kind) && (
+              <Field name={t("mobile.otherAccount")}>
+                <NativeSelect
+                  aria-label={t("mobile.otherAccount")}
+                  value={input.otherAccountId ?? ""}
+                  required
+                  onChange={(e) => {
+                    update("otherAccountId", e.target.value);
+                    const a = accounts.data?.data.items.find(
+                      (a) => a.id === e.target.value,
+                    );
+                    if (a) update("receivedCurrency", a.currency);
+                  }}
+                >
+                  <option value="">{t("mobile.choose")}</option>
+                  {accounts.data?.data.items
+                    .filter(
+                      (a) =>
+                        a.role !== "liability" &&
+                        a.mode !== "manual_value" &&
+                        a.id !== input.accountId,
+                    )
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                </NativeSelect>
+              </Field>
+            )}
+            {input.kind === "transfer" && (
+              <div className="mobile-amount">
+                <Field name={t("mobile.received")}>
+                  <Input
+                    aria-label={t("mobile.received")}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={input.received ?? ""}
+                    onChange={(e) => update("received", e.target.value)}
+                    required
+                  />
+                </Field>
+                <Field name={t("mobile.receivedCurrency")}>
+                  <NativeSelect
+                    aria-label={t("mobile.receivedCurrency")}
+                    value={input.receivedCurrency ?? ""}
+                    onChange={(e) => update("receivedCurrency", e.target.value)}
+                    required
+                  >
+                    <option value="">{t("mobile.choose")}</option>
+                    {currencies.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+              </div>
+            )}
+            {["transfer", "repayment"].includes(input.kind) && (
+              <Field name={t("mobile.fee")}>
+                <Input
+                  aria-label={t("mobile.fee")}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={input.fee ?? ""}
+                  onChange={(e) => update("fee", e.target.value)}
+                />
+              </Field>
+            )}
+          </div>
+          <div className="mobile-card mobile-form-card">
+            {input.kind !== "balance" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Field name={t("mobile.date")}>
+                  <DatePickerControl
+                    aria-label={t("mobile.date")}
+                    value={input.effectiveLocalDate!}
+                    onChange={(v) => {
+                      setCustomTime(true);
+                      update("effectiveLocalDate", v);
+                    }}
+                    max={b.today}
+                  />
+                </Field>
+                <Field name={t("mobile.time")}>
+                  <TimePicker
+                    aria-label={t("mobile.time")}
+                    value={input.effectiveLocalTime!.slice(0, 5)}
+                    onChange={(v) => {
+                      setCustomTime(true);
+                      update("effectiveLocalTime", v);
+                    }}
+                  />
+                </Field>
+              </div>
+            ) : (
+              <p className="mobile-hint">{t("mobile.balanceHelp")}</p>
+            )}
+            <p className="mobile-hint">
+              {t("mobile.ledgerTimezone", { timezone })}
+            </p>
+            <Field name={t("mobile.note")}>
               <Input
-                aria-label={t("mobile.fee")}
-                inputMode="decimal"
-                value={input.fee ?? ""}
-                onChange={(e) => update("fee", e.target.value)}
+                aria-label={t("mobile.note")}
+                value={input.note}
+                maxLength={500}
+                enterKeyHint="done"
+                onChange={(e) => update("note", e.target.value)}
               />
             </Field>
-          )}
-          {input.kind !== "balance" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <DatePickerControl
-                aria-label={t("mobile.date")}
-                value={input.effectiveLocalDate!}
-                onChange={(v) => {
-                  setCustomTime(true);
-                  update("effectiveLocalDate", v);
-                }}
-                max={b.today}
-              />
-              <TimePicker
-                aria-label={t("mobile.time")}
-                value={input.effectiveLocalTime!.slice(0, 5)}
-                onChange={(v) => {
-                  setCustomTime(true);
-                  update("effectiveLocalTime", v);
-                }}
-              />
-            </div>
-          ) : (
-            <p>{t("mobile.balanceHelp")}</p>
-          )}
-          <p className="text-xs">{t("mobile.ledgerTimezone", { timezone })}</p>
-          <Field name={t("mobile.note")}>
-            <Input
-              aria-label={t("mobile.note")}
-              value={input.note}
-              maxLength={500}
-              onChange={(e) => update("note", e.target.value)}
-            />
-          </Field>
+          </div>
         </fieldset>
         <ErrorMessage error={error || accounts.error} />
         {review && (
-          <Card className="p-4 space-y-2">
-            <p>{t("mobile.reviewEffects")}</p>
-            {review.before?.map((r, i) => (
-              <p key={i}>
-                {r.name} ·{" "}
-                <ExactMoney
-                  value={{ amount: r.amount, currency: r.currency }}
-                />{" "}
-                →{" "}
-                <ExactMoney
-                  value={
-                    review.preview!.resulting[i]
-                      ? {
-                          amount: review.preview!.resulting[i].amount,
-                          currency: r.currency,
-                        }
-                      : null
-                  }
-                />
-              </p>
-            ))}
+          <section
+            className="mobile-card mobile-review mobile-enter"
+            aria-labelledby="mobile-review-title"
+          >
+            <h3 id="mobile-review-title" ref={reviewRef} tabIndex={-1}>{t("mobile.reviewEffects")}</h3>
+            {!!review.before?.length && (
+              <ul className="mobile-list">
+                {review.before.map((r, i) => (
+                  <li key={i} className="mobile-review-row">
+                    <span className="mobile-row-title">{r.name}</span>
+                    <span className="mobile-review-change">
+                      <ExactMoney
+                        value={{ amount: r.amount, currency: r.currency }}
+                      />
+                      <ArrowRight aria-hidden />
+                      <span className="sr-only">→</span>
+                      <strong>
+                        <ExactMoney
+                          value={
+                            review.preview!.resulting[i]
+                              ? {
+                                  amount: review.preview!.resulting[i].amount,
+                                  currency: r.currency,
+                                }
+                              : null
+                          }
+                        />
+                      </strong>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <ActivityView
               activity={{
                 ...review.preview!.activity,
                 resulting: review.preview!.resulting,
               }}
             />
-            {review.preview!.effects.map((e, i) => (
-              <p key={i}>
-                {t(`mobile.classification.${e.classification}`, {
-                  defaultValue: t("mobile.value"),
-                })}{" "}
-                · <MoneyText value={e.money} />
-              </p>
-            ))}
-          </Card>
+            {review.preview!.effects.length > 0 && (
+              <dl className="mobile-facts">
+                {review.preview!.effects.map((e, i) => (
+                  <div key={i}>
+                    <dt>
+                      {t(`mobile.classification.${e.classification}`, {
+                        defaultValue: t("mobile.value"),
+                      })}
+                    </dt>
+                    <dd>
+                      <MoneyText value={e.money} />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
         )}
-        {uncertain && <p role="status">{t("mobile.confirming")}</p>}
-        <div className="flex flex-wrap gap-2">
-          <Button disabled={busy || offline || !input.accountId}>
-            {busy
-              ? t("common.pending")
-              : uncertain
-                ? t("mobile.retrySame")
-                : review
-                  ? t("mobile.confirm")
-                  : t("mobile.preview")}
-          </Button>
-          {review && !uncertain && input.kind !== "balance" && (
-            <Button
-              type="button"
-              disabled={busy || offline}
-              onClick={() => void confirm(true)}
-            >
-              {t("mobile.confirmAnother")}
-            </Button>
-          )}
+        {uncertain && (
+          <p role="status" className="mobile-notice" data-tone="warning">
+            <RefreshCw aria-hidden className="size-5 shrink-0" />
+            <span className="min-w-0 flex-1">{t("mobile.confirming")}</span>
+          </p>
+        )}
+        <div className="mobile-form-actions">
           {uncertain && (
             <Button
               type="button"
@@ -2707,8 +2779,29 @@ function RecordForm({
           )}
           <CancelDraft disabled={frozen} onCancel={onCancel} />
         </div>
+        <div className="mobile-actionbar">
+          {review && !uncertain && input.kind !== "balance" && (
+            <Button
+              type="button"
+              variant="soft"
+              disabled={busy || offline}
+              onClick={() => void confirm(true)}
+            >
+              {t("mobile.confirmAnother")}
+            </Button>
+          )}
+          <Button disabled={busy || offline || !input.accountId}>
+            {busy
+              ? t("common.pending")
+              : uncertain
+                ? t("mobile.retrySame")
+                : review
+                  ? t("mobile.confirm")
+                  : t("mobile.preview")}
+          </Button>
+        </div>
       </form>
-    </Section>
+    </section>
   );
 }
 
