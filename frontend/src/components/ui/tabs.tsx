@@ -7,7 +7,7 @@ const Tabs = BaseTabs.Root;
 function TabsList({ className, ...props }: React.ComponentProps<typeof BaseTabs.List>) {
   return (
     <BaseTabs.List
-      className={cn("inline-flex h-10 items-center gap-1 rounded-xl bg-muted p-1 text-muted-foreground", className)}
+      className={cn("inline-flex h-9 items-center gap-0.5 rounded-lg bg-muted p-0.5 text-muted-foreground", className)}
       {...props}
     />
   );
@@ -18,7 +18,7 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, React.ComponentProps<typ
     <BaseTabs.Tab
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center rounded-lg px-3.5 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground transition-[color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 aria-selected:bg-card aria-selected:text-primary aria-selected:shadow-sm",
+        "inline-flex items-center justify-center rounded-md px-3 py-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-[color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-xs",
         className,
       )}
       {...props}

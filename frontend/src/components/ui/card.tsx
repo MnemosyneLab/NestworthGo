@@ -4,8 +4,9 @@ import { cn } from "@/lib/utils";
 function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      data-slot="card"
       className={cn(
-        "rounded-2xl border border-border bg-card text-card-foreground shadow-sm",
+        "rounded-xl border border-border bg-card text-card-foreground shadow-xs",
         className,
       )}
       {...props}
@@ -13,12 +14,12 @@ function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   );
 }
 
-/** Card with hover lift, for cards that are entirely clickable. */
+/** Card with a hover border and shadow, for cards that are entirely clickable. */
 function InteractiveCard({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <Card
       className={cn(
-        "cursor-pointer transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md",
+        "cursor-pointer transition-[box-shadow,border-color] duration-200 hover:border-foreground/20 hover:shadow-sm",
         className,
       )}
       {...props}
@@ -27,7 +28,7 @@ function InteractiveCard({ className, ...props }: React.HTMLAttributes<HTMLDivEl
 }
 
 function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col gap-1.5 p-6", className)} {...props} />;
+  return <div className={cn("flex flex-col gap-1.5 p-5 sm:p-6", className)} {...props} />;
 }
 
 function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -39,7 +40,7 @@ function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParag
 }
 
 function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-6 pt-0", className)} {...props} />;
+  return <div className={cn("p-5 pt-0 sm:p-6 sm:pt-0", className)} {...props} />;
 }
 
 export { Card, InteractiveCard, CardHeader, CardTitle, CardDescription, CardContent };

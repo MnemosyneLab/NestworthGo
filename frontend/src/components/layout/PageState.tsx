@@ -10,7 +10,7 @@ function Bar({ className }: { className: string }) {
 /** Skeleton loaders match the final layout: card (hero number), list (icon rows) or table (header + rows). */
 export function LoadingState({ label, variant = "card" }: { label: string; variant?: "card" | "list" | "table" }) {
   return (
-    <div className="flex min-h-40 flex-col gap-4 rounded-2xl border border-border bg-card/60 p-6" role="status" aria-live="polite">
+    <div className="flex min-h-40 flex-col gap-4 rounded-xl border border-border bg-card/60 p-6" role="status" aria-live="polite">
       <div className="flex w-full flex-col gap-3" aria-hidden="true">
         {variant === "card" && (
           <>
@@ -56,7 +56,7 @@ export function ErrorState({
   retryLabel?: string;
 }) {
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center" role="alert">
+    <div className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center" role="alert">
       <AlertCircle className="size-5 text-destructive" aria-hidden="true" />
       <div className="flex flex-col gap-1">
         <h2 className="font-medium text-foreground">{title}</h2>
@@ -77,27 +77,34 @@ export function EmptyState({
   description,
   action,
   variant = "empty",
+  size = "default",
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
   variant?: "empty" | "success";
+  /** `compact` sits inline inside an existing card instead of drawing its own box. */
+  size?: "default" | "compact";
 }) {
   const success = variant === "success";
+  const icon = success
+    ? <CheckCircle2 className={cn("shrink-0 text-success", size === "compact" ? "size-4" : "size-5")} aria-hidden="true" />
+    : <Inbox className={cn("shrink-0 text-muted-foreground", size === "compact" ? "size-4" : "size-5")} aria-hidden="true" />;
+  if (size === "compact") {
+    return (
+      <div className="flex items-start gap-2.5 py-1 text-sm">
+        <span className="mt-0.5">{icon}</span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <p className="text-foreground">{title}</p>
+          {description ? <p className="text-muted-foreground">{description}</p> : null}
+          {action && <div className="mt-1.5">{action}</div>}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div
-      className={cn(
-        "flex min-h-40 flex-col items-center justify-center gap-2 rounded-2xl border p-8 text-center",
-        success ? "border-success/25 bg-success/8" : "border-dashed border-border bg-card/50",
-      )}
-    >
-      {success ? (
-        <span className="mb-1 flex size-11 items-center justify-center rounded-full bg-success/15 text-success">
-          <CheckCircle2 className="size-6" aria-hidden="true" />
-        </span>
-      ) : (
-        <Inbox className="size-5 text-muted-foreground" aria-hidden="true" />
-      )}
+    <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card/40 px-6 py-8 text-center">
+      <span className={cn("mb-1 flex size-10 items-center justify-center rounded-full", success ? "bg-success/12" : "bg-muted")}>{icon}</span>
       <h2 className="font-medium text-foreground">{title}</h2>
       {description ? <p className="max-w-md text-sm leading-6 text-muted-foreground">{description}</p> : null}
       {action && <div className="mt-2">{action}</div>}
