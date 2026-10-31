@@ -2226,6 +2226,46 @@
       "partial": "部分完成",
       "failed": "失敗",
       "cancelled": "已取消"
-    }
+    },
+    "connectionSettings": "連線設定",
+    "backendAddress": "後端 HTTPS 位址",
+    "backendHelp": "留空使用目前網站的伺服器。獨立後端必須使用受信任的 HTTPS，並在桌面端「手機存取」中授權下方前端來源。儲存位址後再配對。切換伺服器會清除本機登入；舊伺服器工作階段可在桌面裝置管理中撤銷。",
+    "frontendOrigin": "前端來源：{{origin}}",
+    "connectionTestPassed": "已連線至 Nestworth，仍需配對登入。",
+    "testConnection": "測試連線",
+    "useConnection": "使用此伺服器",
+    "connectedTo": "伺服器：{{address}}",
+    "reconnect": "重新連線",
+    "theme": "主題",
+    "themeChoice": {
+      "system": "跟隨系統",
+      "light": "淺色",
+      "dark": "深色"
+    },
+    "trustedFrontend": "受信任的前端來源（選填）",
+    "trustedFrontendHelp": "獨立部署前端時，填寫其確切的 HTTPS 來源，不含路徑和結尾斜線。留空僅允許同源存取。授權後該前端可交換配對權杖並存取已授權資料，請只填寫受信任的前端。儲存設定會撤銷現有工作階段。",
+    "connectionQR": "開啟手機連線",
+    "connectionQRHelp": "掃碼開啟手機頁面並填入後端位址。QR 碼不含權杖；請另外輸入一次性權杖。使用獨立部署的前端前，請先建置並發布目前開源手機入口。",
+    "confirmAnother": "確認並再記一筆",
+    "marketJob": "行情資料工作",
+    "jobQueued": "準備執行",
+    "sharedJob": "來自桌面、MCP 或其他手機工作階段的共用工作。",
+    "currentTarget": "目前目標：{{target}}",
+    "marketProgress": "行情更新進度",
+    "nextEligibility": "下次可嘗試時間：{{time}}",
+    "reloadJob": "重新載入工作狀態",
+    "cancelJob": "取消工作",
+    "cancelRequested": "已請求取消，已儲存的行情會保留，請等待最終狀態。",
+    "retryJobHelp": "依目前服務限制和已儲存行情預覽新一次嘗試。成功或仍新鮮的資料可能被重用，不會重播已接受的工作。",
+    "jobAcceptanceUnknown": "尚未確認工作是否被接受。請重試同一次提交以復原原工作，勿另建工作。",
+    "transport": {
+      "invalid_url": "請輸入 HTTPS 來源，例如 https://nestworth.private.example:9443，不含憑證、路徑、查詢參數或片段。",
+      "insecure_backend": "請使用受信任的 HTTPS 後端。公開 HTTPS 頁面無法可靠連線至私有 HTTP 伺服器。可開啟後端內建的 HTTPS 頁面，或在既有私網中設定受信任的 HTTPS。",
+      "transport": "瀏覽器無法連線至伺服器。請確認 Nestworth 正在執行、手機可存取私網、憑證受信任，以及桌面設定已授權此確切前端來源。同時檢查前端 connect-src 政策和瀏覽器本機網路權限。瀏覽器不會提供確切的網路、TLS 或跨來源失敗原因；請求結果尚未確認。",
+      "timeout": "請求逾時，請檢查連線。若正在確認儲存，請保留原提交並查詢結果，或重試同一次提交。",
+      "cancelled": "請求已取消。已提交的確認仍可能完成，請查詢原提交結果。",
+      "invalid_response": "此位址未傳回支援的 Nestworth 手機介面回應。請檢查後端位址、介面版本、前端來源授權和代理路由。"
+    },
+    "recoveryMemoryOnly": "此瀏覽器無法保留重新載入後的復原參照。請保持頁面開啟，直到確認原提交結果；若離開，請在桌面流水中核實。"
   }
 }

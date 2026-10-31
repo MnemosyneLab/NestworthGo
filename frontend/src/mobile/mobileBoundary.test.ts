@@ -7,8 +7,9 @@ const sources = import.meta.glob<string>(
 it("keeps mobile source independent of desktop runtime and never persists financial request bodies", () => {
   for (const [file, source] of Object.entries(sources)) {
     if (file.includes(".test.")) continue;
+    if (!file.endsWith("/connection.ts")) expect(source, file).not.toMatch(/localStorage/);
     expect(source, file).not.toMatch(
-      /@wailsio|bindings\/|@\/queries\/|localStorage|dangerouslySetInnerHTML|serviceWorker/,
+      /@wailsio|bindings\/|@\/queries\/|dangerouslySetInnerHTML|serviceWorker/,
     );
   }
 });

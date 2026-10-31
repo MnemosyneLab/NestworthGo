@@ -6,12 +6,6 @@ import "@/index.css";
 import "./mobile.css";
 import { MobileApp } from "./MobileApp";
 
-const scheme = window.matchMedia("(prefers-color-scheme: dark)");
-const applyScheme = () =>
-  document.documentElement.classList.toggle("dark", scheme.matches);
-applyScheme();
-scheme.addEventListener("change", applyScheme);
-
 const client = new QueryClient({
   defaultOptions: {
     queries: { retry: false, staleTime: 15000, refetchOnWindowFocus: false },

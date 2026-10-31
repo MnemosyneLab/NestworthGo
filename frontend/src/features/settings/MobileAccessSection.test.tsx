@@ -26,6 +26,7 @@ const status = {
     mode: "loopback_proxy",
     certificate: "",
     key: "",
+    frontendOrigin: "",
   },
   running: true,
   devices: [{ id: "synthetic-device", name: "Synthetic phone" }],
@@ -53,6 +54,9 @@ it("requires explicit manual permission and clears the once-only token when leav
     </QueryClientProvider>,
   );
   await screen.findByText("Running");
+  const qrBeforePairing = screen.getByRole("img", {
+    name: "Open mobile connection",
+  }).outerHTML;
   expect(screen.getByLabelText("Add manual observations")).not.toBeChecked();
   await user.type(screen.getByLabelText("Device name"), "QA phone");
   await user.click(screen.getByLabelText("Add manual observations"));
@@ -62,6 +66,9 @@ it("requires explicit manual permission and clears the once-only token when leav
   expect(
     await screen.findByDisplayValue("synthetic-one-use-token"),
   ).toHaveAttribute("readonly");
+  expect(
+    screen.getByRole("img", { name: "Open mobile connection" }).outerHTML,
+  ).toBe(qrBeforePairing);
   expect(mobile.Pair).toHaveBeenCalledWith("QA phone", {
     read: true,
     record: true,
@@ -131,3 +138,31 @@ it.each([
       expect(copy).not.toMatch(/Mac(?:Book|OS)?|Windows|Linux/i);
   },
 );
+
+it("saves an explicit trusted frontend while retaining the private listener", async () => {
+  const user = userEvent.setup();
+  mobile.Configure.mockResolvedValue(status);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <MobileAccessSection />
+    </QueryClientProvider>,
+  );
+  await screen.findByText("Running");
+  await user.type(
+    screen.getByLabelText("Trusted frontend origin (optional)"),
+    "https://synthetic-frontend.example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: i18n.t("mobile.saveAccess") }),
+  );
+  expect(mobile.Configure).toHaveBeenCalledWith(
+    expect.objectContaining({
+      frontendOrigin: "https://synthetic-frontend.example",
+      origin: status.config.origin,
+      listen: status.config.listen,
+    }),
+  );
+});
