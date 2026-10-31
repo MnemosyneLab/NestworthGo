@@ -3,7 +3,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "@/i18n";
 import { resetDisplayPreferences, setDisplayPreferences } from "@/lib/displayPreferences";
-import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import { NavigationContext } from "@/app/NavigationContext";
 import type { ReviewAlertPage, ReviewCoveragePage } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { InvestmentReviewPage } from "./InvestmentReviewPage";
@@ -53,7 +52,30 @@ const defaultEvidence = structuredClone(state.evidence.data);
 const open = vi.fn();
 function tree() { return <NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><InvestmentReviewPage /></NavigationContext.Provider>; }
 function mount() { return render(tree()); }
+const resumeDateCases = [
+  { scenario: "household date ahead of UTC", now: "2026-10-16T16:30:00Z", yesterday: "2026-10-16", today: "2026-10-17", tomorrow: "2026-10-18" },
+  { scenario: "month end", now: "2026-10-31T07:17:00Z", yesterday: "2026-10-30", today: "2026-10-31", tomorrow: "2026-11-01" },
+  { scenario: "year end", now: "2026-12-31T07:17:00Z", yesterday: "2026-12-30", today: "2026-12-31", tomorrow: "2027-01-01" },
+] as const;
+
+function calendarDay(date: string) {
+  return screen.getByRole("grid").querySelector<HTMLButtonElement>(`[data-day="${date}"] button`);
+}
+
+function expectUnavailableDay(date: string) {
+  const day = calendarDay(date);
+  if (day) {
+    expect(day).toBeDisabled();
+  } else {
+    // startMonth can hide the preceding month entirely at a month/year edge.
+    expect(screen.getByRole("button", { name: "Go to the Previous Month" })).toHaveAttribute("aria-disabled", "true");
+  }
+}
+
 beforeEach(async () => {
+  // Keep civil dates deterministic while UI timers continue to run normally.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-17T12:00:00Z"));
   vi.clearAllMocks();
   state.evidence.data = structuredClone(defaultEvidence);
   state.instruments.data = []; state.instruments.isPending = false;
@@ -68,7 +90,10 @@ beforeEach(async () => {
   state.coverage.data = { items: [{ instrumentId: "synthetic-gap", displayName: "Synthetic gap", instrumentType: "stock" as never, status: "unknown", rules: [{ ruleId: "rule-gap", name: "Missing price", state: "unknown", latestClosedOn: "2026-10-15", window: { truth: "" as never, windowStart: "2026-10-06", windowEnd: "2026-10-15", hitCount: 0, falseCount: 0, unknownCount: 10, consecutiveCount: 0 }, missing: ["quote_missing"] }] }], reportRevision: "coverage-1", projectionStatus: "complete", publishedOn: "2026-10-15" };
 });
 
-afterEach(() => resetDisplayPreferences());
+afterEach(() => {
+  vi.useRealTimers();
+  resetDisplayPreferences();
+});
 
 describe("daily investment review page", () => {
   it.each([
@@ -153,36 +178,26 @@ describe("daily investment review page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Ignore permanently" }));
     await waitFor(() => expect(state.commands.suppress.mutateAsync).toHaveBeenCalledWith({ instrumentId: "synthetic-investment", mode: "permanent" }));
   });
-  it("uses the household civil date to block today and earlier resume dates", async () => {
-    const today = localDateInTimeZone("Asia/Singapore")!;
-    const yesterdayValue = new Date(`${today}T00:00:00Z`);
-    yesterdayValue.setUTCDate(yesterdayValue.getUTCDate() - 1);
-    const yesterday = yesterdayValue.toISOString().slice(0, 10);
-    const tomorrowValue = new Date(`${today}T00:00:00Z`);
-    tomorrowValue.setUTCDate(tomorrowValue.getUTCDate() + 1);
-    const tomorrow = tomorrowValue.toISOString().slice(0, 10);
-    const dateLabel = (value: string) => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
+  it.each(resumeDateCases)("uses the household civil date to block today and earlier resume dates ($scenario)", async ({ now, yesterday, today, tomorrow }) => {
+    vi.setSystemTime(new Date(now));
     const user = userEvent.setup();
     mount();
     await user.click(screen.getByRole("button", { name: "More actions for Synthetic fund" }));
     await user.click(await screen.findByRole("menuitem", { name: "Ignore until date" }));
     expect(screen.getByText("Choose a resume date after today in Asia/Singapore.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Resume on" }));
-    expect(screen.getByRole("button", { name: new RegExp(dateLabel(yesterday)) })).toBeDisabled();
-    expect(screen.getByRole("button", { name: new RegExp(dateLabel(today)) })).toBeDisabled();
-    expect(screen.getByRole("button", { name: new RegExp(dateLabel(tomorrow)) })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: new RegExp(dateLabel(tomorrow)) }));
+    expectUnavailableDay(yesterday);
+    expectUnavailableDay(today);
+    const nextDay = calendarDay(tomorrow);
+    expect(nextDay).toBeEnabled();
+    await user.click(nextDay!);
     expect(screen.getByRole("button", { name: "Ignore until this date" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Ignore until this date" }));
     await waitFor(() => expect(state.commands.suppress.mutateAsync).toHaveBeenCalledWith({ instrumentId: "synthetic-investment", mode: "until_date", untilOn: tomorrow }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
-  it("keeps the resume date sheet open after structured validation and allows retry or cancel", async () => {
-    const today = localDateInTimeZone("Asia/Singapore")!;
-    const tomorrowValue = new Date(`${today}T00:00:00Z`);
-    tomorrowValue.setUTCDate(tomorrowValue.getUTCDate() + 1);
-    const tomorrow = tomorrowValue.toISOString().slice(0, 10);
-    const dateLabel = (value: string) => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
+  it.each(resumeDateCases)("keeps the resume date sheet open after structured validation and allows retry or cancel ($scenario)", async ({ now, tomorrow }) => {
+    vi.setSystemTime(new Date(now));
     const wireError = { code: "validation", field: "untilOn", message: "secret raw backend message" };
     state.commands.suppress.mutateAsync.mockRejectedValueOnce(Object.assign(new Error(JSON.stringify(wireError)), { wireError }));
     const user = userEvent.setup();
@@ -190,7 +205,9 @@ describe("daily investment review page", () => {
     await user.click(screen.getByRole("button", { name: "More actions for Synthetic fund" }));
     await user.click(await screen.findByRole("menuitem", { name: "Ignore until date" }));
     await user.click(screen.getByRole("button", { name: "Resume on" }));
-    await user.click(screen.getByRole("button", { name: new RegExp(dateLabel(tomorrow)) }));
+    const nextDay = calendarDay(tomorrow);
+    expect(nextDay).toBeEnabled();
+    await user.click(nextDay!);
     await user.click(screen.getByRole("button", { name: "Ignore until this date" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Choose a resume date after today in Asia/Singapore.");
     expect(screen.getByRole("alert")).not.toHaveTextContent("secret raw backend message");
