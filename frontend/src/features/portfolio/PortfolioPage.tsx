@@ -1,5 +1,5 @@
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
-import { fullDisplayAmount, valuationDetails, valuationTableAmount, valuationLabel, hasDisplay } from "@/components/valuation/valuationQuality";
+import { fullDisplayAmount, valuationDetails, valuationTableAmount, hasDisplay } from "@/components/valuation/valuationQuality";
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { HoldingsTab } from "@/features/investments/HoldingsTab";
@@ -209,10 +209,9 @@ export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true
           <p className="num text-xl font-semibold" data-testid="portfolio-total">{valuationTableAmount(t, summary.displayValuation, summary.valuedSubtotal)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={hasDisplay(summary.displayValuation) ? "secondary" : summary.complete ? "success" : "warning"}>
-            {hasDisplay(summary.displayValuation) ? valuationLabel(t, summary.displayValuation, true) : summary.complete ? t("overview.healthy") : t("overview.needsAttention")}
-          </Badge>
-          <ValuationQualitySummary value={summary.displayValuation} current />
+          {hasDisplay(summary.displayValuation)
+            ? <ValuationQualitySummary value={summary.displayValuation} current />
+            : <Badge variant={summary.complete ? "success" : "warning"}>{summary.complete ? t("overview.healthy") : t("overview.needsAttention")}</Badge>}
         </div>
         {!summary.complete && <p className="basis-full text-xs text-warning-foreground">{t("overview.totalsExcludeMissing")} {t("portfolio.missingQuotes", { count: (summary.missingInputs ?? []).length })}</p>}
       </section>}
