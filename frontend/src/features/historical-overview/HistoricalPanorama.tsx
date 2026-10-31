@@ -60,7 +60,7 @@ export function HistoricalMetricCards({ data, seriesPoints }: { data: Historical
         <CardContent className="p-4 pt-0">
           <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-1">
             <div className="min-w-0">
-              <dt className="text-xs text-muted-foreground">{stateLabel(headline.state, right ? "right" : "left", t("historicalOverview.current"), Boolean(right))}</dt>
+              <dt className={right ? "text-xs text-muted-foreground" : "sr-only"}>{stateLabel(headline.state, right ? "right" : "left", t("historicalOverview.current"), Boolean(right))}</dt>
               <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-0.5 overflow-x-auto text-2xl font-bold tracking-tight focus-visible:outline-primary">
                 <span className="num whitespace-nowrap" title={displayAmount(headline.state)}>{displayAmount(headline.state)}</span>
               </dd>
