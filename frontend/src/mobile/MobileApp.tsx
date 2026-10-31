@@ -108,6 +108,8 @@ type Holding = {
 };
 type Component = {
   instrumentName: string;
+  instrumentSymbol?: string;
+  holdingId?: string;
   nativeAmount: string;
   nativeCurrency: string;
   available: boolean;
@@ -119,10 +121,26 @@ type Component = {
     freshness: string;
   };
 };
-type AccountDetail = { account: { name: string }; components: Component[] };
+type AccountDetail = {
+  account: {
+    name: string;
+    accountType?: string;
+    balanceSheetRole?: string;
+    trackingMode?: string;
+    defaultCurrency?: string;
+  };
+  components: Component[];
+  displayValue?: { value: Money | null } | null;
+  baseValue?: Money | null;
+  complete?: boolean;
+};
 type HoldingDetailResponse = {
   holding: {
+    HoldingID?: string;
     InstrumentName: string;
+    InstrumentSymbol?: string;
+    CurrentValue?: Money | null;
+    CurrentValueBase?: Money | null;
     Quantity: string;
     InstrumentID: string;
     TotalCost: Money | null;
@@ -1585,6 +1603,74 @@ function Activities({
   );
 }
 
+function gainOf(value: { Amount: string; Currency: string } | null) {
+  return value ? { amount: value.Amount, currency: value.Currency } : null;
+}
+function EvidenceRows({
+  components,
+  timezone,
+}: {
+  components: Component[];
+  timezone: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <ul className="mobile-list">
+      {components.map((c, i) => (
+        <li key={i} className="mobile-evidence">
+          <div className="mobile-evidence-head">
+            <span className="mobile-row-title">
+              {c.instrumentName || t("mobile.value")}
+              <small className="mobile-symbol">
+                {c.instrumentSymbol || c.nativeCurrency}
+              </small>
+            </span>
+            <MoneyText
+              value={
+                c.available
+                  ? { amount: c.nativeAmount, currency: c.nativeCurrency }
+                  : null
+              }
+            />
+          </div>
+          {c.priceEvidence && (
+            <dl className="mobile-evidence-facts">
+              <div>
+                <dt>{t("mobile.effectiveDate")}</dt>
+                <dd>
+                  {formatQuoteAsOf(
+                    {
+                      quotedAt: c.priceEvidence.quotedAt,
+                      effectiveDate: c.priceEvidence.effectiveDate ?? undefined,
+                      timestampBasis: c.priceEvidence.effectiveDate
+                        ? "date_label"
+                        : undefined,
+                    },
+                    timezone,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("mobile.source")}</dt>
+                <dd>
+                  {t(`portfolio.source.${c.priceEvidence.source}`, {
+                    defaultValue: t("mobile.unavailable"),
+                  })}
+                </dd>
+              </div>
+              {c.priceEvidence.fetchedAt && (
+                <div>
+                  <dt>{t("mobile.fetchedAt")}</dt>
+                  <dd>{formatTimestamp(c.priceEvidence.fetchedAt, timezone)}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
 function Detail({
   kind,
   id,
@@ -1615,171 +1701,221 @@ function Detail({
     return (
       <>
         <ErrorMessage error={query.error} />
-        <LoadingState label={t("common.loading")} />
+        {!query.error && <LoadingState label={t("common.loading")} />}
       </>
     );
-  const data = query.data.data as HoldingDetailResponse & AccountDetail;
+  const timezone = query.data.ledgerTimezone;
   if (kind === "activities")
-    return <ActivityView activity={query.data.data as Activity} />;
+    return (
+      <div className="mobile-card">
+        <ActivityView activity={query.data.data as Activity} />
+      </div>
+    );
+  const data = query.data.data as HoldingDetailResponse & AccountDetail;
   const valuation = kind === "accounts" ? data : data.valuation;
+  const components = valuation.components ?? [];
+  if (kind === "holdings") {
+    const h = data.holding;
+    const own = components.filter(
+      (c) => !h.HoldingID || c.holdingId === h.HoldingID,
+    );
+    return (
+      <div className="mobile-stack">
+        <ErrorMessage error={query.error} />
+        <section className="mobile-hero" aria-labelledby="mobile-detail-title">
+          {h.InstrumentSymbol && (
+            <p className="mobile-eyebrow">{h.InstrumentSymbol}</p>
+          )}
+          <h2 id="mobile-detail-title" className="mobile-page-title">
+            {h.InstrumentName}
+          </h2>
+          {h.CurrentValue !== undefined && (
+            <p className="mobile-hero-figure">
+              <MoneyText value={h.CurrentValue} />
+            </p>
+          )}
+          {h.CurrentValueBase &&
+            h.CurrentValue &&
+            h.CurrentValueBase.currency !== h.CurrentValue.currency && (
+              <p className="mobile-meta">
+                <MoneyText value={h.CurrentValueBase} />
+              </p>
+            )}
+        </section>
+        <dl className="mobile-stats mobile-card">
+          <div>
+            <dt>{t("mobile.quantity")}</dt>
+            <dd className="mobile-money">{formatAmount(h.Quantity)}</dd>
+          </div>
+          <div>
+            <dt>{t("mobile.quoteValue")}</dt>
+            <dd className="mobile-money">
+              {data.quote
+                ? formatQuotePrice(data.quote.unitPrice, data.quote.currency)
+                : t("mobile.unavailable")}
+            </dd>
+          </div>
+          <div>
+            <dt>{t("mobile.cost")}</dt>
+            <dd>
+              <MoneyText value={h.TotalCost} />
+            </dd>
+          </div>
+          <div>
+            <dt>{t("mobile.gain")}</dt>
+            <dd>
+              <GainMoneyText value={gainOf(h.UnrealizedGain)} />
+            </dd>
+          </div>
+          <div>
+            <dt>{t("mobile.realizedGain")}</dt>
+            <dd>
+              <GainMoneyText value={gainOf(h.RealizedGain)} />
+            </dd>
+          </div>
+        </dl>
+        <Button
+          variant="outline"
+          className="mobile-wide"
+          disabled={!canRefresh}
+          onClick={() =>
+            onMarket({
+              mode: "latest",
+              scope: "instrument",
+              instrumentId: h.InstrumentID,
+            })
+          }
+        >
+          <RefreshCw aria-hidden="true" />
+          {t("mobile.updateMarket")}
+        </Button>
+        {own.length > 0 && (
+          <section className="mobile-card" aria-labelledby="mobile-evidence">
+            <h2 id="mobile-evidence">{t("mobile.valuationEvidence")}</h2>
+            <EvidenceRows components={own} timezone={timezone} />
+          </section>
+        )}
+      </div>
+    );
+  }
+  const account = data.account;
+  const holdingItems = holdings.data?.data.items;
+  const showHoldings =
+    account.trackingMode !== "balance" || !!holdingItems?.length;
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold">
-        {kind === "accounts" ? data.account.name : data.holding.InstrumentName}
-      </h2>
+    <div className="mobile-stack">
       <ErrorMessage error={query.error} />
-      {kind === "accounts" && (
-        <Button disabled={!canWrite} onClick={onRecord}>
+      <section className="mobile-hero" aria-labelledby="mobile-detail-title">
+        {(account.accountType || account.defaultCurrency) && (
+          <p className="mobile-eyebrow">
+            {[
+              account.accountType &&
+                t(`enum.${account.accountType}`, { defaultValue: "" }),
+              account.defaultCurrency,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
+        <h2 id="mobile-detail-title" className="mobile-page-title">
+          {account.name}
+        </h2>
+        {data.displayValue !== undefined && (
+          <p className="mobile-hero-figure">
+            <MoneyText value={data.displayValue?.value} />
+          </p>
+        )}
+        <p className="mobile-meta">
+          {data.complete !== undefined && (
+            <span
+              className="mobile-badge"
+              data-tone={data.complete ? "success" : "warning"}
+            >
+              {data.complete ? t("mobile.complete") : t("mobile.partial")}
+            </span>
+          )}
+          {account.balanceSheetRole === "liability" && (
+            <span className="mobile-badge">{t("mobile.liability")}</span>
+          )}
+          {data.baseValue &&
+            data.displayValue?.value &&
+            data.baseValue.currency !== data.displayValue.value.currency && (
+              <MoneyText value={data.baseValue} />
+            )}
+        </p>
+        <Button
+          className="mobile-wide"
+          disabled={!canWrite}
+          onClick={onRecord}
+        >
+          <Plus aria-hidden="true" />
           {t("mobile.quickRecord")}
         </Button>
-      )}
-      {kind === "holdings" && (
-        <>
-          <p>
-            {t("mobile.quantity")} {formatAmount(data.holding.Quantity)}
-          </p>
-          <p>
-            {t("mobile.quoteValue")}{" "}
-            {data.quote
-              ? formatQuotePrice(data.quote.unitPrice, data.quote.currency)
-              : t("mobile.unavailable")}
-          </p>
-          <p>
-            {t("mobile.cost")} <MoneyText value={data.holding.TotalCost} />
-          </p>
-          <p>
-            {t("mobile.gain")}{" "}
-            <GainMoneyText
-              value={
-                data.holding.UnrealizedGain
-                  ? {
-                      amount: data.holding.UnrealizedGain.Amount,
-                      currency: data.holding.UnrealizedGain.Currency,
-                    }
-                  : null
-              }
-            />
-          </p>
-          <p>
-            {t("mobile.realizedGain")}{" "}
-            <GainMoneyText
-              value={
-                data.holding.RealizedGain
-                  ? {
-                      amount: data.holding.RealizedGain.Amount,
-                      currency: data.holding.RealizedGain.Currency,
-                    }
-                  : null
-              }
-            />
-          </p>
-          <Button
-            disabled={!canRefresh}
-            onClick={() =>
-              onMarket({
-                mode: "latest",
-                scope: "instrument",
-                instrumentId: data.holding.InstrumentID,
-              })
-            }
-          >
-            {t("mobile.updateMarket")}
-          </Button>
-        </>
-      )}
-      {(valuation.components ?? []).map((c: Component, i: number) => (
-        <Card className="p-4 space-y-2" key={i}>
-          <h3>{c.instrumentName || t("mobile.value")}</h3>
-          <MoneyText
-            value={
-              c.available
-                ? { amount: c.nativeAmount, currency: c.nativeCurrency }
-                : null
-            }
-          />
-          {c.priceEvidence && (
-            <>
-              <p>
-                {t("mobile.effectiveDate")}{" "}
-                {formatQuoteAsOf(
-                  {
-                    quotedAt: c.priceEvidence.quotedAt,
-                    effectiveDate: c.priceEvidence.effectiveDate ?? undefined,
-                    timestampBasis: c.priceEvidence.effectiveDate
-                      ? "date_label"
-                      : undefined,
-                  },
-                  query.data.ledgerTimezone,
-                )}
-              </p>
-              <p>
-                {t("mobile.source")}{" "}
-                {t(`portfolio.source.${c.priceEvidence.source}`, {
-                  defaultValue: t("mobile.unavailable"),
-                })}
-              </p>
-              {c.priceEvidence.fetchedAt && (
-                <p>
-                  {t("mobile.fetchedAt")}{" "}
-                  {formatTimestamp(
-                    c.priceEvidence.fetchedAt,
-                    query.data.ledgerTimezone,
-                  )}
-                </p>
-              )}
-            </>
-          )}
-        </Card>
-      ))}
-      {kind === "accounts" && (
-        <Section title={t("mobile.holdings")}>
+      </section>
+      {showHoldings && (
+        <section className="mobile-card" aria-labelledby="mobile-holdings">
+          <h2 id="mobile-holdings">{t("mobile.holdings")}</h2>
           <ErrorMessage error={holdings.error} />
-          {holdings.data?.data.items.map((h) => (
-            <Card className="p-4 space-y-2" key={h.id}>
-              <Button variant="link" onClick={() => onHolding(h.id)}>
-                {h.name} {h.symbol}
-              </Button>
-              <p>
-                {t("mobile.quantity")} {formatAmount(h.quantity)}
-              </p>
-              <p>
-                {t("mobile.value")} <MoneyText value={h.value} />
-              </p>
-              <p>
-                {t("mobile.cost")} <MoneyText value={h.cost} />
-              </p>
-              <p>
-                {t("mobile.gain")}{" "}
-                {h.gain ? (
-                  <ChangeText
-                    direction={
-                      h.gain.amount.startsWith("-")
-                        ? "down"
-                        : /^0(?:\.0*)?$/.test(h.gain.amount)
-                          ? "flat"
-                          : "up"
-                    }
-                  >
-                    {formatSignedMoney(h.gain.amount, h.gain.currency)}
-                  </ChangeText>
-                ) : (
-                  t("mobile.unavailable")
-                )}
-              </p>
-            </Card>
-          ))}
+          {holdings.isPending && <RowsSkeleton rows={2} />}
+          {holdingItems &&
+            (holdingItems.length ? (
+              <ul className="mobile-list" aria-busy={holdings.isFetching}>
+                {holdingItems.map((h) => (
+                  <li key={h.id}>
+                    <button
+                      type="button"
+                      className="mobile-row"
+                      onClick={() => onHolding(h.id)}
+                    >
+                      <span className="mobile-row-main">
+                        <span className="mobile-row-title">
+                          {h.name}
+                          {h.symbol && (
+                            <small className="mobile-symbol">{h.symbol}</small>
+                          )}
+                        </span>
+                        <span className="mobile-row-sub num">
+                          {t("mobile.quantity")} {formatAmount(h.quantity)}
+                        </span>
+                      </span>
+                      <span className="mobile-row-end">
+                        <MoneyText value={h.value} />
+                        <small>
+                          {h.gain ? (
+                            <GainMoneyText value={h.gain} />
+                          ) : (
+                            h.missingReason && t("mobile.unavailable")
+                          )}
+                        </small>
+                      </span>
+                      <ChevronRight
+                        className="mobile-row-chevron"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState>{t("mobile.noHoldings")}</EmptyState>
+            ))}
           <Pager
             next={holdings.data?.data.next}
             onNext={holdings.next}
             onFirst={holdings.first}
             paged={holdings.paged}
           />
-        </Section>
+        </section>
+      )}
+      {components.length > 0 && (
+        <section className="mobile-card" aria-labelledby="mobile-evidence">
+          <h2 id="mobile-evidence">{t("mobile.valuationEvidence")}</h2>
+          <EvidenceRows components={components} timezone={timezone} />
+        </section>
       )}
     </div>
   );
 }
-
 function Health({
   onQuote,
   onRecord,
