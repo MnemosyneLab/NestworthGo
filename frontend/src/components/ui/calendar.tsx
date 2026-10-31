@@ -1,7 +1,7 @@
 import * as React from "react";
 import { DayPicker } from "react-day-picker";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import i18n from "@/i18n";
+import i18n from "@/i18n/runtime";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 

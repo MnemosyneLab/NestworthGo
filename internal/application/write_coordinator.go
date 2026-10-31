@@ -110,6 +110,20 @@ func (c *WriteCoordinator) releasePreviewRead() {
 	c.mu.Unlock()
 }
 
+// Capture the version while releasing a mobile read, including any derived
+// maintenance. A cursor must neither certify a later write nor stale itself.
+func (c *WriteCoordinator) releaseSnapshotVersion(written bool) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if written {
+		c.revision++
+	}
+	c.writers--
+	version := c.nonce + ":" + strconv.FormatUint(c.revision, 10)
+	c.cond.Broadcast()
+	return version
+}
+
 func (c *WriteCoordinator) previewToken() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()

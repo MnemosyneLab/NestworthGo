@@ -35,6 +35,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), wails("./bindings"), preserveDistGitkeep()],
   build: {
     rollupOptions: {
+      input: {
+        desktop: path.resolve(import.meta.dirname, "index.html"),
+        mobile: path.resolve(import.meta.dirname, "mobile.html"),
+      },
       output: {
         manualChunks(id) {
           // echarts stays a dedicated vendor chunk so the main index file

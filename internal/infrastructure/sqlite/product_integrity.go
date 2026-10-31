@@ -7,6 +7,9 @@ import (
 
 // Shared by live open and read-only backup verification.
 func verifyProductIntegrity(ctx context.Context, query schemaQuery) error {
+	if err := verifyMobileQuoteReceipts(ctx, query); err != nil {
+		return err
+	}
 	if err := verifyProductTermsMutations(ctx, query); err != nil {
 		return err
 	}

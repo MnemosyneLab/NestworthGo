@@ -242,6 +242,11 @@ func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCom
 		if _, err := tx.ExecContext(ctx, `INSERT INTO activity_mutation_keys(household_id, mutation_id, payload_sha256, activity_id, created_at) VALUES(?, ?, ?, ?, ?)`, activity.HouseholdID.String(), commit.Mutation.ID.String(), commit.Mutation.PayloadSHA256, activity.ID.String(), formatTimestamp(asOf)); err != nil {
 			return err
 		}
+		if audit, ok := domain.MobileAuditFrom(ctx); ok {
+			if err := saveMobileAuditTx(ctx, tx, activity.HouseholdID, commit.Mutation.ID, audit); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

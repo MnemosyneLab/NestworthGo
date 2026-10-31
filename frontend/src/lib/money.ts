@@ -1,4 +1,4 @@
-import i18n from "@/i18n";
+import i18n from "@/i18n/runtime";
 import { displayPreferences, groupingSeparatorChar } from "@/lib/displayPreferences";
 
 const CANONICAL_DECIMAL = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;

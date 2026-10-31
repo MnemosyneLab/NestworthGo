@@ -40,6 +40,11 @@ type Service struct {
 	lastSuccessfulCheck map[string]time.Time
 
 	syncMu                sync.Mutex
+	latestRun             *latestRefreshRun
+	mobileJobsMu          sync.Mutex
+	mobileJobs            map[string]*MobileMarketJob
+	mobileJobCurrent      string
+	mobileJobsWG          sync.WaitGroup
 	syncJobs              map[string]*syncJobState
 	currentSyncID         string
 	syncWG                sync.WaitGroup

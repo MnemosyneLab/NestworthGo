@@ -1,0 +1,81 @@
+.mobile-shell {
+  max-width: 48rem;
+  margin: auto;
+  min-height: 100dvh;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem
+    calc(7rem + env(safe-area-inset-bottom));
+}
+.mobile-shell button,
+.mobile-shell input,
+.mobile-shell select {
+  min-height: 44px;
+}
+.mobile-shell input {
+  font-size: 16px;
+}
+.mobile-shell nav {
+  flex-wrap: wrap;
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 48rem;
+  padding: 0.65rem 0.5rem calc(0.65rem + env(safe-area-inset-bottom));
+  z-index: 20;
+}
+.mobile-shell section {
+  min-width: 0;
+}
+.mobile-shell .mobile-money {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-shell * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.mobile-shell nav button {
+  flex: 1 1 max-content;
+  min-width: 0;
+  padding-inline: 0.25rem;
+  white-space: normal;
+  overflow-wrap: normal;
+  font-size: 0.75rem;
+}
+
+.mobile-shell nav button:nth-child(3) {
+  flex: 0 0 44px;
+}
+
+.mobile-shell button {
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  padding-block: 0.6rem;
+}
+.mobile-shell select {
+  max-width: 100%;
+}
+.mobile-shell h1 {
+  overflow-wrap: anywhere;
+}
+
+.mobile-shell fieldset {
+  min-inline-size: 0;
+  min-width: 0;
+}
+.mobile-shell header > div {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+@media (max-width: 430px) {
+  .mobile-shell .grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
