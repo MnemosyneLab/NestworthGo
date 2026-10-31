@@ -660,17 +660,17 @@ describe("AccountsPage", () => {
     const form = await screen.findByRole("form", { name: "Create account" });
     await continueWizard(form, 1);
     expect(within(form).getByRole("button", { name: "Bank account" })).toHaveTextContent(
-      "Recording: Keep one account balance or Record cash and holdings separately",
+      "Recording: Balance · Cash + holdings",
     );
     expect(within(form).getByRole("button", { name: "Brokerage" })).toHaveTextContent(
-      "Recording: Record cash and holdings separately or Keep one account value",
+      "Recording: Cash + holdings · Total value",
     );
-    expect(within(form).getByRole("button", { name: "Credit card" })).toHaveTextContent("Recording: Keep one account balance");
+    expect(within(form).getByRole("button", { name: "Credit card" })).toHaveTextContent("Recording: Balance");
     expect(within(form).getByRole("button", { name: "Other" })).toBeInTheDocument();
     expect(within(form).queryByRole("button", { name: "Cash on hand" })).not.toBeInTheDocument();
     await userEvent.click(within(form).getByRole("button", { name: "More account types" }));
     expect(within(form).getByRole("button", { name: "Cash on hand" })).toHaveTextContent(
-      "Recording: Keep one account balance or Record cash by currency",
+      "Recording: Balance · Cash by currency",
     );
   });
 

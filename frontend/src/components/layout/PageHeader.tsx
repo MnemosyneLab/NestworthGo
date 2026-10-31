@@ -6,9 +6,9 @@ export function PageIntro({ description, status }: { description?: ReactNode; st
   }
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
       {description && <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>}
-      {status && <div className="flex min-w-0 flex-wrap items-center gap-2">{status}</div>}
+      {status && <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">{status}</div>}
     </div>
   );
 }

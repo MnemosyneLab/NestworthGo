@@ -120,10 +120,13 @@ function BreakdownList({
 /** One actionable line in the merged to-do card. */
 function TodoRow({ icon, tone, text, severity, actionLabel, onAction }: { icon: LucideIcon; tone: Tone; text: React.ReactNode; severity?: { kind: string; label: string }; actionLabel?: string; onAction?: () => void }) {
   return (
-    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <span className="flex min-w-0 items-center gap-3">
+    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <span className="flex min-w-0 items-start gap-3">
         <IconTile icon={icon} tone={tone} size="sm" />
-        <span className="min-w-0 break-words text-sm text-foreground">{text}{severity && <Badge className="ml-2 max-w-full whitespace-normal" variant={severity.kind === "blocking" ? "destructive" : severity.kind === "warning" ? "warning" : "outline"}>{severity.label}</Badge>}</span>
+        <span className="flex min-w-0 flex-col items-start gap-1 text-sm text-foreground">
+          <span className="break-words leading-5">{text}</span>
+          {severity && <Badge className="max-w-full whitespace-normal" variant={severity.kind === "blocking" ? "destructive" : severity.kind === "warning" ? "warning" : "outline"}>{severity.label}</Badge>}
+        </span>
       </span>
       {actionLabel && onAction && (
         <Button type="button" size="sm" variant="soft" className="h-auto min-h-8 max-w-full shrink-0 whitespace-normal self-start sm:self-auto" onClick={onAction}>
@@ -330,37 +333,37 @@ export function OverviewPage({
       <PageIntro description={t("overview.description")} status={headerStatus} />
 
       <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row">
-        <Card className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card">
+        <Card className="relative overflow-hidden">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")} <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net /></CardTitle>
           </CardHeader>
           <CardContent className="@container">
-            <p className="num text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl" data-testid="overview-net-worth">
+            <p className="num font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" data-testid="overview-net-worth">
               {valuationTableAmount(t,data.displayValuation?.netWorth,{amount:data.netWorth,currency},true,false)}
             </p>
  {!data.complete && (
               <p className="mt-2 text-sm text-warning-foreground">{t("overview.totalsExcludeMissing")}</p>
             )}
-            <div className="mt-6 grid grid-cols-1 gap-3 @md:grid-cols-2">
-              <div className="flex items-center gap-3 rounded-2xl bg-success/10 p-3">
-                <IconTile icon={TrendingUp} tone={2} />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground">{t("overview.assets")}</p>
-                  <p className="num truncate text-lg font-bold text-success" data-testid="overview-assets">
-                    {valuationTableAmount(t,data.displayValuation?.assets,{amount:data.assets,currency})}
-                  </p>
-                </div>
+            <dl className="mt-6 grid grid-cols-1 border-t border-border @md:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-1 py-4 @md:pr-6">
+                <dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <TrendingUp aria-hidden="true" className="size-3.5 text-success" strokeWidth={2} />
+                  {t("overview.assets")}
+                </dt>
+                <dd className="num truncate text-xl font-semibold text-foreground" data-testid="overview-assets">
+                  {valuationTableAmount(t,data.displayValuation?.assets,{amount:data.assets,currency})}
+                </dd>
               </div>
-              <div className={cn("flex items-center gap-3 rounded-2xl p-3", hasLiabilities ? "bg-destructive/10" : "bg-muted/70")}>
-                <IconTile icon={TrendingDown} tone={hasLiabilities ? 3 : 8} />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground">{t("overview.liabilities")}</p>
-                  <p className={cn("num truncate text-lg font-bold", hasLiabilities ? "text-destructive" : "text-foreground")} data-testid="overview-liabilities">
-                    {valuationTableAmount(t,signedAccountValuation(data.displayValuation?.liabilities,true),{amount:signedAccountAmount(data.liabilities,true),currency})}
-                  </p>
-                </div>
+              <div className="flex min-w-0 flex-col gap-1 border-t border-border py-4 @md:border-l @md:border-t-0 @md:pl-6">
+                <dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <TrendingDown aria-hidden="true" className={cn("size-3.5", hasLiabilities ? "text-destructive" : "text-muted-foreground")} strokeWidth={2} />
+                  {t("overview.liabilities")}
+                </dt>
+                <dd className={cn("num truncate text-xl font-semibold", hasLiabilities ? "text-destructive" : "text-foreground")} data-testid="overview-liabilities">
+                  {valuationTableAmount(t,signedAccountValuation(data.displayValuation?.liabilities,true),{amount:signedAccountAmount(data.liabilities,true),currency})}
+                </dd>
               </div>
-            </div>
+            </dl>
           </CardContent>
         </Card>
 
@@ -397,7 +400,7 @@ export function OverviewPage({
             {noNextSteps ? (
               <p className="text-sm text-muted-foreground">{t("homepage.noDataActions")}</p>
             ) : todoRows.length > 0 ? (
-              <ul className="flex flex-col gap-3">{todoRows}</ul>
+              <ul className="flex flex-col divide-y divide-border">{todoRows}</ul>
             ) : null}
             {listedIssues.length > 0 && onOpenDataHealth && (
               <Button type="button" size="sm" variant="link" className="h-auto self-start p-0" onClick={onOpenDataHealth}>

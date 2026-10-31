@@ -23,19 +23,23 @@ export function PageChromeProvider({
 export function PageChrome({
   pageId,
   title,
+  leading,
   actions,
   enabled = true,
 }: {
   pageId: string;
   title?: ReactNode;
+  /** Compact control rendered before the title, such as a back button. */
+  leading?: ReactNode;
   actions?: ReactNode;
   enabled?: boolean;
 }) {
   const context = useContext(PageChromeContext);
   const content = (
     <>
-      {title !== undefined && <h1 className="min-w-0 max-w-full truncate text-base font-semibold tracking-tight text-foreground">{title}</h1>}
-      {actions && <div className="flex max-w-full flex-wrap items-center gap-2 [&_button]:h-9 [&_button]:rounded-xl [&_button]:px-4 [&_button]:py-2 [&_button]:text-sm">{actions}</div>}
+      {leading}
+      {title !== undefined && <h1 className="min-w-0 max-w-full truncate font-display text-lg font-semibold tracking-tight text-foreground">{title}</h1>}
+      {actions && <div className="flex max-w-full flex-wrap items-center gap-2 [&_button]:h-9 [&_button]:rounded-lg [&_button]:px-3.5 [&_button]:py-2 [&_button]:text-sm">{actions}</div>}
     </>
   );
 

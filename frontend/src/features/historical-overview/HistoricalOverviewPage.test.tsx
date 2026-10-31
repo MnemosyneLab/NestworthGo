@@ -1272,7 +1272,7 @@ it("flags only the carried metric when coverage stays verified, and not a verifi
   await screen.findByRole("region", { name: "Asset allocation" });
   await chooseMode("date", userEvent);
   const carried = await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
-  const metric = (name: string) => within(carried).getByRole("heading", { name }).closest(".rounded-2xl") as HTMLElement;
+  const metric = (name: string) => within(carried).getByRole("heading", { name }).closest("[data-slot=card]") as HTMLElement;
   expect(within(metric(i18n.t("overview.netWorth"))).queryByText(i18n.t("historicalOverview.estimatedShort"))).not.toBeInTheDocument();
   expect(within(metric(i18n.t("overview.assets"))).getByText(i18n.t("historicalOverview.estimatedShort"))).toBeInTheDocument();
   expect(within(metric(i18n.t("overview.liabilities"))).queryByText(i18n.t("historicalOverview.estimatedShort"))).not.toBeInTheDocument();
@@ -1336,7 +1336,7 @@ it.each(["en"].flatMap(locale => ["full", "partial"].map(availability => ({ loca
   expect(banner).toHaveClass("border-warning/40");
   const heading = screen.getByRole("heading", { name: i18n.t("overview.netWorth") });
   expect(heading).not.toHaveClass("truncate");
-  const card = heading.closest(".rounded-2xl")!;
+  const card = heading.closest("[data-slot=card]")!;
   const values = card.querySelectorAll("dd[aria-label]");
   expect(values.length).toBe(2);
   for (const value of values) expect(value).not.toHaveTextContent(i18n.t("valuation.knownNetContribution"));

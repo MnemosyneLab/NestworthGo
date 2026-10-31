@@ -4,28 +4,35 @@
    vocabulary business components should reference; never hard-code a raw
    color in a feature component.
 
-   Design language: fresh, bright and friendly. The default "Indigo" accent
-   keeps surfaces neutral and lets an 8-color "category palette" (cat-1..cat-8)
-   give accounts, chart series and icon tiles their own hues. Other accents
-   are selected via `data-accent` on <html>. */
+   Design language "Ledger": warm paper surfaces, ink-colored text, one
+   restrained ink-indigo action color and hairline structure. Color is
+   reserved for meaning (gain/loss, provenance, categories in charts) rather
+   than decoration. Display figures and page titles use an editorial serif
+   (`font-display`); body text and tables stay in the sans with tabular
+   figures. Other accents are selected via `data-accent` on <html>. */
 @theme {
   --font-sans: "Plus Jakarta Sans Variable", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  /* System serif (New York on macOS) with CJK falling back to the sans
+     families so Chinese titles never render in a mismatched Song face. */
+  --font-display: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, "PingFang SC", "Microsoft YaHei", serif;
 
-  /* Base surface + text tokens (light). */
-  --color-background: oklch(98.2% 0.002 265);
-  --color-foreground: oklch(22% 0.015 265);
-  --color-card: oklch(100% 0 0);
-  --color-card-foreground: oklch(22% 0.015 265);
-  --color-border: oklch(92% 0.005 265);
-  --color-muted: oklch(96% 0.004 265);
-  --color-muted-foreground: oklch(48% 0.015 265);
-  --color-surface-tint: oklch(98.2% 0.002 265);
+  /* Base surface + text tokens (light): warm paper and ink. */
+  --color-background: oklch(97.6% 0.005 85);
+  --color-foreground: oklch(22% 0.012 65);
+  --color-card: oklch(99.5% 0.002 85);
+  --color-card-foreground: oklch(22% 0.012 65);
+  --color-border: oklch(90.5% 0.008 80);
+  --color-muted: oklch(95.2% 0.007 80);
+  --color-muted-foreground: oklch(48% 0.012 70);
+  --color-surface-tint: oklch(96.4% 0.008 85);
+  /* Derived so every accent and the dark theme get a matching rail. */
+  --color-sidebar: color-mix(in oklab, var(--color-muted) 55%, var(--color-background));
 
   /* Brand / action tokens. */
-  --color-primary: oklch(52% 0.2 268);
-  --color-primary-foreground: oklch(99% 0.005 268);
-  --color-brand-from: oklch(58% 0.19 268);
-  --color-brand-to: oklch(66% 0.16 290);
+  --color-primary: oklch(45% 0.15 268);
+  --color-primary-foreground: oklch(98.5% 0.005 268);
+  --color-brand-from: oklch(50% 0.15 268);
+  --color-brand-to: oklch(60% 0.12 290);
   --color-accent: oklch(72% 0.15 60);
   --color-accent-foreground: oklch(22% 0.04 60);
   --color-success: oklch(58% 0.15 155);
@@ -64,36 +71,38 @@
   --color-cat-7-soft: color-mix(in oklab, var(--color-cat-7) 16%, var(--color-card));
   --color-cat-8-soft: color-mix(in oklab, var(--color-cat-8) 16%, var(--color-card));
 
-  /* Corner radius scale: controls use xl, cards use 2xl, pills use full. */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.375rem;
+  /* Corner radius scale: tighter, document-like corners. Controls use xl,
+     cards use 2xl, pills use full. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 
-  /* Soft, slightly cool elevation rather than flat black. */
-  --shadow-xs: 0 1px 2px 0 oklch(30% 0.02 265 / 0.05);
-  --shadow-sm: 0 1px 3px 0 oklch(30% 0.02 265 / 0.07), 0 1px 2px -1px oklch(30% 0.02 265 / 0.05);
-  --shadow-md: 0 8px 20px -6px oklch(30% 0.03 265 / 0.13), 0 2px 6px -2px oklch(30% 0.02 265 / 0.07);
-  --shadow-lg: 0 20px 40px -14px oklch(30% 0.03 265 / 0.2), 0 4px 10px -4px oklch(30% 0.02 265 / 0.1);
+  /* Near-flat, warm elevation: structure comes from hairlines, shadows only
+     separate floating layers (menus, sheets, hover lifts). */
+  --shadow-xs: 0 1px 1px 0 oklch(30% 0.02 70 / 0.04);
+  --shadow-sm: 0 1px 2px 0 oklch(30% 0.02 70 / 0.05);
+  --shadow-md: 0 10px 24px -12px oklch(30% 0.03 70 / 0.18), 0 2px 6px -3px oklch(30% 0.02 70 / 0.08);
+  --shadow-lg: 0 24px 48px -18px oklch(30% 0.03 70 / 0.24), 0 6px 14px -6px oklch(30% 0.02 70 / 0.1);
 }
 
 /* Dark theme overrides, toggled by the `dark` class on <html> and driven by
    the persisted appearance preference plus the system color-scheme listener. */
 .dark {
-  --color-background: oklch(17% 0.008 265);
-  --color-foreground: oklch(95% 0.005 265);
-  --color-card: oklch(21.5% 0.01 265);
-  --color-card-foreground: oklch(95% 0.005 265);
-  --color-border: oklch(30% 0.012 265);
-  --color-muted: oklch(25.5% 0.01 265);
-  --color-muted-foreground: oklch(69% 0.012 265);
-  --color-surface-tint: oklch(17% 0.008 265);
+  --color-background: oklch(16.5% 0.006 70);
+  --color-foreground: oklch(94% 0.006 85);
+  --color-card: oklch(20.5% 0.007 70);
+  --color-card-foreground: oklch(94% 0.006 85);
+  --color-border: oklch(29.5% 0.009 70);
+  --color-muted: oklch(24.5% 0.008 70);
+  --color-muted-foreground: oklch(71% 0.01 75);
+  --color-surface-tint: oklch(19% 0.007 70);
 
-  --color-primary: oklch(74% 0.14 270);
+  --color-primary: oklch(77% 0.11 270);
   --color-primary-foreground: oklch(17% 0.03 270);
-  --color-brand-from: oklch(72% 0.15 270);
-  --color-brand-to: oklch(76% 0.13 295);
+  --color-brand-from: oklch(74% 0.12 270);
+  --color-brand-to: oklch(78% 0.1 295);
   --color-accent: oklch(78% 0.14 60);
   --color-accent-foreground: oklch(18% 0.03 60);
   --color-success: oklch(76% 0.15 155);

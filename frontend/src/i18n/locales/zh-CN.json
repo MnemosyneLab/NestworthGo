@@ -1311,6 +1311,7 @@
     "allocationBasis": "占已估值且计入统计的资产比例，负债单独列示。资料不完整时不能代表完整家庭配置。",
     "byClass": "资产类别（当前分类）",
     "byCurrency": "原币币种",
+    "dimension": "分组方式",
     "source": "来源",
     "effectiveAt": "记录生效时间",
     "marketDate": "市场日期",

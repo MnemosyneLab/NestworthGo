@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -70,7 +71,7 @@ function CalendarEmptyState({ data }: { data?: ReturnCalendarDTO }) {
   return <EmptyState title={t(insufficientHistory ? "insights.historyInsufficient" : "insights.noInvestmentAssets")} description={t(insufficientHistory ? "insights.historyInsufficientHint" : "insights.noInvestmentAssetsHint")} />;
 }
 
-function Summary({ data }: { data: ReturnCalendarDTO }) {
+function Summary({ data, range }: { data: ReturnCalendarDTO; range: string }) {
   const { t } = useTranslation();
   const summary = data.summary;
   const partial = summary.ratedDays < summary.totalDays;
@@ -80,7 +81,10 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
     <Card>
       <CardHeader className="px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>{t("insights.summary")}</CardTitle>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <CardTitle>{t("insights.summary")}</CardTitle>
+            <p className="num text-xs text-muted-foreground">{range}</p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
             {partial && <Badge variant={data.status === "partial" ? "warning" : "secondary"} title={t("insights.rateCoverageHint")}>{t("insights.rateCoverage")} {coverageLabel(summary.ratedDays, summary.totalDays)}</Badge>}
@@ -166,10 +170,10 @@ function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false, colum
   const amountPartial = day?.amountStatus === "partial";
   const amountUnavailable = day?.amountStatus === "unavailable";
   return (
-    <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-28 rounded-xl border border-border p-2 transition-colors hover:border-primary/40", !inMonth && "border-transparent bg-muted/20 opacity-45", inMonth && hasData && !today && amount >= 0.005 && "bg-gain-positive/14", inMonth && hasData && !today && amount <= -0.005 && "bg-gain-negative/14", (future || today) && "opacity-60")}>
-      <button type="button" disabled={!inMonth || future || today || !day} onClick={() => onOpen(date)} className="flex min-h-24 w-full flex-col items-start gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+    <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-20 rounded-lg border border-border bg-card p-2 transition-colors hover:border-primary/40", !inMonth && "border-transparent bg-transparent opacity-40", inMonth && hasData && !today && amount >= 0.005 && "bg-gain-positive/14", inMonth && hasData && !today && amount <= -0.005 && "bg-gain-negative/14", (future || today) && "opacity-60")}>
+      <button type="button" disabled={!inMonth || future || today || !day} onClick={() => onOpen(date)} className="flex min-h-16 w-full flex-col items-start gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
         <span className="flex w-full items-center justify-between text-xs font-medium"><span>{Number(date.slice(-2))}</span>{today && <span className="text-[0.65rem] text-muted-foreground">{t("insights.today")}</span>}</span>
-        {day && showData ? <><span className={cn("num mt-2 text-sm font-semibold", (day.returnRate ?? "").startsWith("-") ? "text-gain-negative" : amount > 0 && "text-gain-positive")} title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : <span className="mt-2 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
+        {day && showData ? <><span className={cn("num mt-1 text-sm font-semibold", (day.returnRate ?? "").startsWith("-") ? "text-gain-negative" : amount > 0 ? "text-gain-positive" : "font-medium text-muted-foreground")} title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : inMonth ? <span className="mt-1 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span> : null}
       </button>
       {day && showData && day.composition && day.composition.length > 0 && (
         <div className={cn("pointer-events-none invisible absolute z-20 w-64 max-w-[calc(100vw-3rem)] rounded-xl border border-border bg-card p-3 text-xs shadow-lg group-hover:visible group-focus-within:visible", column >= 4 ? "right-2" : "left-2", row >= 3 ? "bottom-full mb-1" : "top-full mt-1")}>
@@ -241,14 +245,13 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
   const selectedQuery = useReturnCalendar(analysisRequest(session, selectedRange.from, selectedRange.to), "", originReady && scopeReady && hasSelection && selectedRange.from <= selectedRange.to);
   const summaryData = hasSelection ? selectedQuery.data : data;
   const summary = hasSelection && selectedQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : hasSelection && selectedQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => selectedQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData ? <>
-    <p className="text-xs text-muted-foreground">{formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)}</p>
     <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
-    <Summary data={summaryData} />
+    <Summary data={summaryData} range={formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)} />
   </> : null;
   const yearData = useMemo(() => aggregateYearMonths(data, year), [data, year]);
 
   const move = (amount: number) => onCursorChange(view === "year" ? `${year + amount}-01` : addMonths(visibleMonth, amount));
-  const header = <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label={t("insights.previous")} onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /></Button><h2 className="min-w-44 text-center text-lg font-semibold">{view === "year" ? yearLabel(year, i18n.language) : monthLabel(visibleMonth, i18n.language)}</h2><Button type="button" variant="outline" size="icon" aria-label={t("insights.next")} onClick={() => move(1)}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="ghost" onClick={() => onCursorChange(currentMonth(timeZone))}>{t("insights.today")}</Button></div><div className="flex items-center gap-1 rounded-full bg-muted p-1"><Button type="button" size="sm" variant={view === "month" ? "default" : "ghost"} aria-pressed={view === "month"} onClick={() => setView("month")}>{t("insights.month")}</Button><Button type="button" size="sm" variant={view === "year" ? "default" : "ghost"} aria-pressed={view === "year"} onClick={() => setView("year")}>{t("insights.year")}</Button></div></div>;
+  const header = <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label={t("insights.previous")} onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /></Button><h2 className="min-w-44 text-center font-display text-xl font-semibold tracking-tight">{view === "year" ? yearLabel(year, i18n.language) : monthLabel(visibleMonth, i18n.language)}</h2><Button type="button" variant="outline" size="icon" aria-label={t("insights.next")} onClick={() => move(1)}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="ghost" onClick={() => onCursorChange(currentMonth(timeZone))}>{t("insights.today")}</Button></div><SegmentedControl size="md" label={t("insights.calendarView")} value={view} onChange={value => setView(value as typeof view)} options={[{ value: "month", label: t("insights.month") }, { value: "year", label: t("insights.year") }]} /></div>;
   let content: ReactNode;
   if (loading) {
     content = <LoadingState label={t("insights.loading")} />;

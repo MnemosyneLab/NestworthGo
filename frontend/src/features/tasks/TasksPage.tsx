@@ -1,6 +1,8 @@
+import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageChrome } from "@/components/layout/PageChrome";
+import { PageIntro } from "@/components/layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { cn } from "@/lib/utils";
@@ -70,11 +72,12 @@ export function TasksPage({
         title={t("tasks.title")}
         actions={<div ref={setActionsHost} className="contents" />}
       />
-      <div className="flex flex-col gap-1.5">
-        <h2 id="tasks-heading" tabIndex={-1} className="text-xl font-semibold tracking-tight">{t("tasks.title")}</h2>
-        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{t("tasks.description")}</p>
-        {allClear && <p role="status">{t("tasks.allClear")}</p>}
-      </div>
+      {/* The page bar already shows the title; this heading stays as the focus target for in-app navigation. */}
+      <h2 id="tasks-heading" tabIndex={-1} className="sr-only">{t("tasks.title")}</h2>
+      <PageIntro
+        description={t("tasks.description")}
+        status={allClear ? <p role="status" className="flex items-center gap-1.5 text-sm text-success"><CheckCircle2 aria-hidden="true" className="size-4" />{t("tasks.allClear")}</p> : undefined}
+      />
       <Tabs value={tab} onValueChange={selectTab}>
         <TabsList aria-label={t("tasks.title")} activateOnFocus>
           <TabsTrigger value="upcoming">

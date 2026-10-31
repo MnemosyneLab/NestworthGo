@@ -76,7 +76,8 @@ it("labels the editable ledger timeline and dated asset view distinctly", () => 
 
 it("keeps old destinations while routing plain instrument links to the shared data record", () => {
   expect(targetForPage("portfolio")).toEqual({ page: "portfolio", view: "holdings" });
-  expect(NAV_GROUPS.find((group) => group.id === "settings")?.items.map((item) => item.id)).toEqual(["market-data", "settings"]);
+  expect(NAV_GROUPS.find((group) => group.id === "manage")?.items.map((item) => item.id)).toEqual(["directory", "market-data", "settings"]);
+  expect(NAV_GROUPS.some((group) => group.id === "settings")).toBe(false);
   expect(resolveLegacyTarget({ page: "market-data", focus: { instrumentId: "fund-1", accountId: "broker-1", rangeStart: "2026-01-01", rangeEnd: "2026-09-30" } })).toEqual({
     page: "instrument-detail", instrumentId: "fund-1", accountId: "broker-1", section: "data", from: "2026-01-01", to: "2026-09-30",
     healthFocus: { instrumentId: "fund-1", accountId: "broker-1", rangeStart: "2026-01-01", rangeEnd: "2026-09-30" },
