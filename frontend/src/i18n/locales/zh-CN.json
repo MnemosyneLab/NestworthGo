@@ -2073,6 +2073,8 @@
     "holdingsScopeNote": "展示未归档账户中的当前持仓（包括零数量）。金额使用标的币种，缺失数值保持不可用。"
   },
   "mobile": {
+    "tagline": "随身的家庭账本。",
+    "stepPair": "配对此设备",
     "noHoldings": "此账户暂无持仓。",
     "valuationEvidence": "估值来源",
     "showValues": "查看数值",

@@ -2073,6 +2073,8 @@
     "holdingsScopeNote": "顯示未封存帳戶的目前持倉（包括零數量）。金額使用標的幣別，缺失數值維持不可用。"
   },
   "mobile": {
+    "tagline": "隨身的家庭帳本。",
+    "stepPair": "配對此裝置",
     "noHoldings": "此帳戶暫無持倉。",
     "valuationEvidence": "估值來源",
     "showValues": "查看數值",

@@ -1090,6 +1090,128 @@ div[aria-busy="true"] > .mobile-groups {
   height: 1.125rem;
 }
 
+/* Pairing and settings */
+.mobile-login {
+  justify-content: center;
+  gap: 1rem;
+  padding-top: calc(2rem + env(safe-area-inset-top));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+  counter-reset: mobile-step;
+}
+.mobile-login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+.mobile-login-brand img {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 1rem;
+}
+.mobile-login-brand h1 {
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.mobile-login-brand p {
+  color: var(--color-muted-foreground);
+}
+.mobile-connection,
+.mobile-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.mobile-step-title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.mobile-card > h2.mobile-step-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-foreground);
+}
+.mobile-connection .mobile-form-actions > * {
+  flex-basis: 10rem;
+}
+.mobile-login .mobile-step-title::before {
+  counter-increment: mobile-step;
+  content: counter(mobile-step);
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 999px;
+  background: var(--color-foreground);
+  color: var(--color-background);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-connection-origin {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.mobile-connection-pending {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+.mobile-connection-pending svg {
+  width: 1rem;
+  height: 1rem;
+}
+.mobile-login-form button[type="submit"],
+.mobile-login-form .mobile-form-actions > :first-child {
+  min-height: 48px;
+  font-size: 1rem;
+}
+.mobile-settings-actions {
+  display: flex;
+  flex-direction: column;
+  margin-inline: -0.5rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.25rem;
+}
+.mobile-shell .mobile-settings-actions button {
+  justify-content: flex-start;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding-inline: 0.5rem;
+  font-size: 0.9375rem;
+}
+.mobile-settings-actions button > span {
+  flex: 1;
+  text-align: start;
+}
+.mobile-settings-actions button svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.mobile-settings-actions svg[data-open="true"] {
+  transform: rotate(90deg);
+}
+.mobile-settings-actions svg[data-open] {
+  color: var(--color-muted-foreground);
+  transition: transform 160ms ease;
+}
+
 /* Filters */
 .mobile-search {
   position: relative;

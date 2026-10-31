@@ -23,6 +23,7 @@ import {
   Inbox,
   Landmark,
   LayoutGrid,
+  LogOut,
   Monitor,
   Plus,
   ReceiptText,
@@ -31,6 +32,7 @@ import {
   RotateCw,
   Scale,
   Search,
+  Server,
   Settings2,
   SlidersHorizontal,
   ShieldCheck,
@@ -81,6 +83,7 @@ import {
 } from "./api";
 
 import { ConnectionSettings } from "./ConnectionSettings";
+import logoMark from "@/assets/brand/logo-mark.png";
 import {
   backendBase,
   ConnectionError,
@@ -520,19 +523,20 @@ export function MobileApp() {
               </div>
             )}
           </dl>
-          <div className="flex flex-wrap gap-2">
+          <div className="mobile-settings-actions">
             <Button
-              variant="outline"
-              className="flex-1"
+              variant="ghost"
               disabled={connectionLocked || reconnecting}
               aria-expanded={showConnection}
               onClick={() => setShowConnection((v) => !v)}
             >
-              {t("mobile.connectionSettings")}
+              <Server aria-hidden />
+              <span>{t("mobile.connectionSettings")}</span>
+              <ChevronRight aria-hidden data-open={showConnection} />
             </Button>
             <Button
-              variant="outline"
-              className="flex-1 text-destructive"
+              variant="ghost"
+              className="text-destructive"
               disabled={
                 !!pending ||
                 record !== null ||
@@ -558,7 +562,8 @@ export function MobileApp() {
                   });
               }}
             >
-              {t("mobile.logout")}
+              <LogOut aria-hidden />
+              <span>{t("mobile.logout")}</span>
             </Button>
           </div>
         </section>
@@ -817,15 +822,19 @@ function Login({
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
   return (
-    <main className="mobile-shell flex flex-col justify-center gap-5">
-      <h1 className="text-3xl font-bold">Nestworth</h1>
+    <main className="mobile-shell mobile-login">
+      <header className="mobile-login-brand">
+        <img src={logoMark} alt="" width={56} height={56} />
+        <h1 translate="no">Nestworth</h1>
+        <p>{t("mobile.tagline")}</p>
+      </header>
       <ConnectionSettings
         disabled={connectionDisabled}
         onChange={onConnectionChanged}
       />
-      <p>{t("mobile.loginHelp")}</p>
       <form
-        className="space-y-4"
+        className="mobile-card mobile-login-form"
+        aria-labelledby="mobile-pair-title"
         onSubmit={(event) => {
           event.preventDefault();
           if (lock.current) return;
@@ -850,33 +859,45 @@ function Login({
             });
         }}
       >
-        <Label htmlFor="mobile-token">{t("mobile.token")}</Label>
-        <Input
-          id="mobile-token"
-          type="password"
-          autoComplete="off"
-          autoCapitalize="none"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          disabled={busy}
-          required
-        />
+        <h2 id="mobile-pair-title" className="mobile-step-title">
+          {t("mobile.stepPair")}
+        </h2>
+        <p className="mobile-hint">{t("mobile.loginHelp")}</p>
+        <div className="mobile-field">
+          <Label htmlFor="mobile-token">{t("mobile.token")}</Label>
+          <Input
+            id="mobile-token"
+            type="password"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="go"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            disabled={busy}
+            required
+          />
+        </div>
         <ErrorMessage error={error} />
-        <Button className="w-full" disabled={busy}>
-          {busy ? t("common.pending") : t("mobile.login")}
-        </Button>
-        {busy && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => controller.current?.abort()}
-          >
-            {t("common.cancel")}
+        <div className="mobile-form-actions">
+          <Button size="lg" disabled={busy}>
+            {busy ? t("common.pending") : t("mobile.login")}
           </Button>
-        )}
+          {busy && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => controller.current?.abort()}
+            >
+              {t("common.cancel")}
+            </Button>
+          )}
+        </div>
       </form>
-      <p className="text-sm text-muted-foreground">
-        {t("mobile.connectionHelp")}
+      <p className="mobile-desktop-note">
+        <Monitor aria-hidden />
+        <span>{t("mobile.connectionHelp")}</span>
       </p>
     </main>
   );

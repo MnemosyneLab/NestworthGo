@@ -2073,6 +2073,8 @@
     "holdingsScopeNote": "Current holdings in active accounts, including zero quantities. Amounts use the instrument currency; missing values remain unavailable."
   },
   "mobile": {
+    "tagline": "Your household ledger, in your pocket.",
+    "stepPair": "Pair this device",
     "noHoldings": "No holdings in this account.",
     "valuationEvidence": "Valuation sources",
     "showValues": "Show values",
