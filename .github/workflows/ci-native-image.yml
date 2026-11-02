@@ -3,12 +3,18 @@ name: ci-native-image
 on:
   pull_request:
     paths:
+      - go.mod
+      - tools/ci-toolchain-versions.py
+      - tools/ci-use-toolchain.sh
       - build/ci/**
       - tools/ci-build-native-image.sh
       - .github/workflows/ci-native-image.yml
   push:
     branches: [main]
     paths:
+      - go.mod
+      - tools/ci-toolchain-versions.py
+      - tools/ci-use-toolchain.sh
       - build/ci/**
       - tools/ci-build-native-image.sh
       - .github/workflows/ci-native-image.yml
@@ -35,8 +41,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Build and smoke-test native CI image
-        run: bash tools/ci-build-native-image.sh nestworth-ci:validation
+      - name: Build and smoke-test native CI images
+        run: |
+          # Same builder/cache: the toolchain image shares the native layers.
+          for target in native toolchain; do
+            bash tools/ci-build-native-image.sh "nestworth-ci:validation-$target" "$target"
+          done
 
   publish:
     # Only reviewed main or an explicit main dispatch can publish. No PR event,
@@ -54,8 +64,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Build and smoke-test native CI image
-        run: bash tools/ci-build-native-image.sh "$REGISTRY_IMAGE:$IMAGE_TAG"
+      - name: Build and smoke-test native CI images
+        run: |
+          for target in native toolchain; do
+            bash tools/ci-build-native-image.sh "$REGISTRY_IMAGE:$IMAGE_TAG-$target" "$target"
+          done
       - name: Publish with ephemeral workflow credentials
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,10 +78,12 @@ jobs:
           mkdir -p "$DOCKER_CONFIG"
           trap 'docker logout ghcr.io || true; rm -rf "$DOCKER_CONFIG"' EXIT
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-          docker push "$REGISTRY_IMAGE:$IMAGE_TAG"
-          digest=$(docker image inspect "$REGISTRY_IMAGE:$IMAGE_TAG" --format '{{index .RepoDigests 0}}')
-          [[ "$digest" =~ ^ghcr.io/mnemosynelab/nestworth-ci@sha256:[0-9a-f]{64}$ ]]
-          printf '%s\n' "$digest" > "$RUNNER_TEMP/nestworth-ci-image.txt"
+          for target in native toolchain; do
+            docker push "$REGISTRY_IMAGE:$IMAGE_TAG-$target"
+            digest=$(docker image inspect "$REGISTRY_IMAGE:$IMAGE_TAG-$target" --format '{{index .RepoDigests 0}}')
+            [[ "$digest" =~ ^ghcr.io/mnemosynelab/nestworth-ci@sha256:[0-9a-f]{64}$ ]]
+            printf '%s\n' "$digest" > "$RUNNER_TEMP/nestworth-ci-$target-image.txt"
+          done
       - name: Require anonymous digest pull before activation
         run: |
           # A new GHCR package defaults to private. Fail visibly until an owner
@@ -76,20 +91,30 @@ jobs:
           export DOCKER_CONFIG="$RUNNER_TEMP/nestworth-ghcr-anonymous"
           mkdir -p "$DOCKER_CONFIG"
           trap 'rm -rf "$DOCKER_CONFIG"' EXIT
-          digest=$(cat "$RUNNER_TEMP/nestworth-ci-image.txt")
-          docker pull "$digest"
-          docker run --rm --user 1001:1001 "$digest" nestworth-ci-verify-native
-          {
-            echo '### Native CI image candidate'
-            printf '\n    %s\n\n' "$digest"
-            echo 'Anonymous pull and native smoke passed. check.yml is unchanged.'
-            echo 'Run all six check gates with this digest before merging activation.'
-          } >> "$GITHUB_STEP_SUMMARY"
+          for target in native toolchain; do
+            digest=$(cat "$RUNNER_TEMP/nestworth-ci-$target-image.txt")
+            docker pull "$digest"
+            docker run --rm --user 1001:1001 "$digest" nestworth-ci-verify-native
+            if [[ "$target" == toolchain ]]; then
+              versions=$(python3 tools/ci-toolchain-versions.py)
+              read -r go_version wails_version <<< "$versions"
+              test "$(docker run --rm "$digest" /opt/nestworth-toolchain/go/bin/go env GOVERSION)" = "go$go_version"
+              test "$(docker run --rm "$digest" /opt/nestworth-toolchain/bin/wails3 version 2>&1)" = "$wails_version"
+            fi
+            {
+              echo "### $target CI image candidate"
+              printf '\n    %s\n\n' "$digest"
+              echo 'Anonymous pull and native smoke passed. check.yml is unchanged.'
+              echo 'Run every check gate with this digest before merging activation.'
+              echo 'Activate native via .github/ci-native-image.txt or toolchain via .github/ci-toolchain-image.txt.'
+              python3 tools/ci-toolchain-versions.py --json
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
       - name: Retain published digest even if visibility blocks anonymous pull
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: native-ci-image-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/nestworth-ci-image.txt
+          path: ${{ runner.temp }}/nestworth-ci-*-image.txt
           if-no-files-found: ignore
           retention-days: 30

@@ -1,5 +1,6 @@
+# syntax=docker/dockerfile:1
 # CI tooling only. Never use the repository root as the build context.
-FROM ubuntu:26.04@sha256:19fcd1bf268f02b60aca3bd30bd8a6d9a11759a430e32921833e65f16d87348a
+FROM ubuntu:26.04@sha256:19fcd1bf268f02b60aca3bd30bd8a6d9a11759a430e32921833e65f16d87348a AS native
 
 LABEL org.opencontainers.image.source="https://github.com/MnemosyneLab/NestworthGo" \
       org.opencontainers.image.description="Nestworth Linux native CI dependencies; no application or ledger data"
@@ -32,3 +33,44 @@ USER 1001:1001
 ENV LANG=C.UTF-8
 WORKDIR /home/runner
 RUN nestworth-ci-verify-native
+
+# No application context enters either variant. Go/Wails versions are supplied
+# by ci-toolchain-versions.py from go.mod, not maintained a second time here.
+FROM native AS toolchain-build
+USER 0:0
+ARG GO_VERSION
+ARG GO_SHA256
+ARG WAILS_VERSION
+RUN --mount=type=secret,id=proxy_ca \
+    test -n "$GO_VERSION" && test -n "$WAILS_VERSION" \
+    && [[ "$GO_SHA256" =~ ^[0-9a-f]{64}$ ]] \
+    && ca_args=() \
+    && if [[ -f /run/secrets/proxy_ca ]]; then \
+         ca_args=(--cacert /run/secrets/proxy_ca); export SSL_CERT_FILE=/run/secrets/proxy_ca; \
+       fi \
+    && curl --fail --location --retry 3 "${ca_args[@]}" \
+         "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz \
+    && echo "$GO_SHA256  /tmp/go.tar.gz" | sha256sum --check --strict \
+    && mkdir -p /opt/nestworth-toolchain/bin \
+    && tar -xzf /tmp/go.tar.gz -C /opt/nestworth-toolchain \
+    && export PATH="/opt/nestworth-toolchain/go/bin:$PATH" GOTOOLCHAIN=local \
+    && test "$(go version)" = "go version go${GO_VERSION} linux/amd64" \
+    && GOBIN=/opt/nestworth-toolchain/bin GOCACHE=/tmp/go-build GOMODCACHE=/tmp/go-mod \
+         go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}" \
+    && test "$(/opt/nestworth-toolchain/bin/wails3 version 2>&1)" = "$WAILS_VERSION" \
+    && printf 'Go=%s\nWails=%s\nGoArchiveSHA256=%s\n' "$GO_VERSION" "$WAILS_VERSION" "$GO_SHA256" \
+         > /opt/nestworth-toolchain/versions.txt \
+    && chmod -R a+rX /opt/nestworth-toolchain
+
+FROM native AS toolchain
+ARG GO_VERSION
+ARG WAILS_VERSION
+LABEL io.nestworth.ci.go="$GO_VERSION" io.nestworth.ci.wails="$WAILS_VERSION"
+COPY --from=toolchain-build /opt/nestworth-toolchain /opt/nestworth-toolchain
+ENV PATH="/opt/nestworth-toolchain/go/bin:/opt/nestworth-toolchain/bin:${PATH}" \
+    GOTOOLCHAIN=local
+# /__t is mounted over by Actions; tools must remain outside its tool cache.
+USER 1001:1001
+RUN test "$(/opt/nestworth-toolchain/go/bin/go version)" = "go version go${GO_VERSION} linux/amd64" \
+    && test "$(/opt/nestworth-toolchain/bin/wails3 version 2>&1)" = "$WAILS_VERSION" \
+    && nestworth-ci-verify-native

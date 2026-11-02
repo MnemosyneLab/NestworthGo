@@ -1,174 +1,226 @@
-# Linux native CI image
+# Linux native CI images
 
-The six `check.yml` work jobs (meta, two frontend shards, three Go shards)
-share one runtime container definition, including one immutable GHCR digest after
-activation. All native tests, CGO builds, vet, Wails bindings generation and
-comparison, frontend lint/typecheck/build/tests, and the required `test`
-aggregate remain in place. Go and pnpm dependencies still use `setup-go`,
-`setup-node` and their existing caches. This image is independent of the
-server/distroless image in `build/docker/Dockerfile.server`.
+`check.yml` uses a reviewed public image for meta, the bindings producer and
+four Go shards. Frontend quality and six frontend test shards stay on hosted
+Node; they consume the verified, exact-run bindings artifact and do not pull a
+native image. All existing gates, coverage, timeouts and perf tiers remain.
+This is independent of the application/server image in `build/docker`.
 
-## Inputs and provenance
+## Two variants and one version source
 
-`build/ci/Dockerfile` pins the official `ubuntu:26.04` base by digest, matching
-the current `ubuntu-26.04` runner generation. It installs only public packages
-from the base's signed official Ubuntu `resolute`, updates, backports and
-security archives; it does not inherit the runner's Azure mirror settings.
-`build/ci/packages.txt` is the explicit top-level package manifest. It includes
-GTK4, WebKitGTK 6, libsoup 3, GCC/G++/make/libc headers via build-essential,
-pkg-config, GNU coreutils, Bash, git, CA certificates, Python 3, archive,
-process and text utilities. Transitive packages and exact installed versions
-are recorded in `/usr/local/share/nestworth-ci/installed-packages.tsv`, beside
-`requested-packages.txt` and `ubuntu.sources`.
+`build/ci/Dockerfile` has two runtime targets in the same GHCR package:
 
-Ubuntu 26.04's build-essential depends on the uutils provider. The image keeps
-that distro dependency intact, installs `gnu-coreutils`, and shadows only
-`timeout` with `/usr/local/bin/timeout -> /usr/bin/gnutimeout`. The native
-runtime guard requires GNU timeout and exercises directory permissions.
-Rebuilds refresh public package versions; an activated image never changes
-under its digest. There is no automatic rebuild schedule: dependency changes
-or an explicit main dispatch produce candidates. Security/package refreshes
-require a deliberate dispatch or a reviewed input change.
+| Target | Contents | Intended use |
+| --- | --- | --- |
+| `native` | Ubuntu 26.04, GTK4/WebKitGTK6/libsoup3, C tooling and CI utilities | Existing dependency-only runtime and rollback |
+| `toolchain` | The same native layers plus fixed Go and Wails CLI | Native Go jobs without cold Go download/CLI compilation |
 
-Always build with the **`build/ci` context**, never `.`. Its deny-by-default
-`.dockerignore` permits only the Dockerfile, manifest and native verification
-script. The Dockerfile copies those two public tooling files only. No source,
-ledger, home directory, runner filesystem, build output, token or credential
-is copied. Docker's predefined proxy build arguments may be forwarded from a
-builder environment; they are not declared as Dockerfile ARG/ENV or saved in
-the image. No local proxy CA certificate is copied.
+The toolchain variant contains neither application source nor generated bindings,
+Node, pnpm, module downloads or build caches. Its last layer contains only
+`/opt/nestworth-toolchain`: Go, `bin/wails3`, and a version/checksum manifest.
+Do not install tools under `/__t`: Actions mounts its writable tool cache there,
+hiding image contents. `/opt` remains root-owned and readable/executable by UID
+1001. Caches, home, workspace and runner temporary paths remain writable.
+
+`tools/ci-toolchain-versions.py` reads Go's patch version and the Wails v3
+requirement from **`go.mod`**, currently Go 1.27.3 and Wails v3.1.0. The image
+Dockerfile, labels, CLI fallback and workflow cache identity derive from those
+values. No separate editable image version pins exist. The parser rejects
+ambiguous versions, toolchain directives and Wails replacements until explicit
+support is added. The builder obtains the Go archive SHA256 from official Go
+release metadata over TLS and checks the downloaded archive; Go's normal module
+checksum verification applies to the public Wails module. The final image checks
+both executables as UID 1001 and records their versions plus Go archive checksum.
+
+Go/Wails version edits automatically trigger candidate build/smoke on PRs and
+candidate publication after a reviewed main push, because `ci-native-image.yml`
+watches `go.mod` as well as build inputs and the version parser. Other go.mod
+changes conservatively rebuild too. Node is not preinstalled, so its existing
+`.nvmrc`/workflow setup does not need a native-image rebuild.
+
+Build both targets on the same builder in order to share **identical native
+layers**, rather than independently rebuilding apt in parallel jobs:
 
 ```bash
-bash tools/ci-build-native-image.sh nestworth-ci:local
+bash tools/ci-build-native-image.sh nestworth-ci:local-native native
+bash tools/ci-build-native-image.sh nestworth-ci:local-toolchain toolchain
 ```
 
-The helper builds without layer reuse, verifies native pkg-config entries and
-GNU timeout, then smoke-tests Actions-like bind mounts. Image `USER` and the
-workflow `--user` both select `1001:1001`, matching hosted Ubuntu's runner UID.
-The image grants no passwordless sudo. The verification script rejects root,
-proves that a mode-0500 directory cannot be written, and, in check jobs,
-requires writable home, checkout, runner temp/tool cache, Go build/module
-cache and enabled CGO. This protects existing permission assertions such as
-`TestMetadataDeletionFailureDoesNotBreakDisable`; no assertion is weakened.
-All run steps explicitly use Bash, including arrays/mapfile/process
-substitution. Meta explicitly sets up Node 24.22.0 and runs `node --version`
-before Python discovery, preventing `BindingsCLITests` from silently skipping
-in a minimal image. Frontend bootstraps Node/npm before `pnpm/action-setup`
-(which invokes npm), then restores its existing setup-node pnpm cache once
-pnpm is available; both setup-node steps reuse the same tool installation.
-Bindings query `go env GOCACHE` explicitly, since a minimal container need
-not export the hosted runner's `GOCACHE` environment variable.
-Frontend retains Node 24.22.0 and pnpm 12.14.0; Go comes
-from `go.mod` (currently 1.27.3), never from a separate image toolchain pin.
+The helper never logs in or pushes. Fresh hosted builders resolve current signed
+Ubuntu packages; rebuilding locally may reuse apt layers. Use Docker's explicit
+cache invalidation when deliberately refreshing packages on a reused local
+builder. A fixed activated digest never changes underneath CI.
 
-## CGO build-cache boundaries
+## Public build inputs and unprivileged execution
 
-`setup-go@v7` does not derive a container identity from `/etc/os-release`.
-Its Linux key includes the runner's `ImageOS`, Go version and the hash of
-`cache-dependency-path`; see its
-[restore implementation](https://github.com/actions/setup-go/blob/v7/src/cache-restore.ts).
-All six workers list **both `go.sum` and `.github/ci-native-image.txt`** in
-that input. Setup-go restores only its exact key, without a broad restore
-prefix. Consequently a first digest, a different digest, or a changed Go
-version/dependency lock cannot restore another image's compiled CGO artifacts.
-This also invalidates the previous go.sum-only archive. Each immutable digest
-has its own build-cache boundary. Returning to an earlier identical pin can
-restore that digest's earlier cache, if it is still retained.
+The base pins official `ubuntu:26.04` by digest. `packages.txt` selects public
+packages from signed official Ubuntu archives. Requested and installed package
+versions and apt sources are retained under `/usr/local/share/nestworth-ci`.
+The distro's uutils dependency remains intact; `/usr/local/bin/timeout` selects
+GNU `gnutimeout`. The runtime guard requires GNU timeout and proves a mode-0500
+directory cannot be written. Both image USER and job options select `1001:1001`,
+without passwordless sudo, preserving permission-sensitive tests.
 
-Module downloads remain reusable across these boundaries. `GOMODCACHE` is
-explicitly `/tmp/nestworth-ci-go-modules` on both host and container jobs.
-When setup-go misses, a separate `actions/cache` restores **only that directory**
-under an OS/architecture/go.sum key that excludes the image pin. Its fixed
-path also avoids a cache-version/path mismatch between host and container
-homes. Successful cold runs save this shared module archive and setup-go's
-image-specific combined archive; warm setup-go hits skip the extra module
-cache action. No compiled build-cache directory enters the shared archive.
+Build **only with `build/ci` as context**, never the repository root. Its
+deny-by-default `.dockerignore` admits only the Dockerfile, package manifest and
+native verification script. Go/Wails versions and the public checksum are build
+arguments; application files, generated output, ledgers, runner snapshots,
+credentials and user profiles never enter the context or final image. Docker's
+predefined proxy arguments may be forwarded but are not declared or persisted
+in image configuration. If `CODEX_PROXY_CERT` is configured, the helper mounts
+it as the optional BuildKit secret `proxy_ca` for networked toolchain steps;
+no session CA is copied into an image layer.
 
-A blank pin runs the original apt helper and then `go clean -cache` in each
-worker, before any native build/test/bindings command. Apt can change C headers
-without changing the blank pin, so the host path intentionally discards restored
-compiled artifacts on every run. It never calls `go clean -modcache`; downloaded
-modules survive. Switching to an immutable digest can reuse the module archive
-but compiles against that image on its first run. Digest A -> B starts a distinct
-build cache, B -> A can reuse A, and either digest -> blank cleans the host build
-cache again. Frontend bindings use the resulting `go env GOCACHE` as before.
+The helper tests Actions-like mounted home, workspace, temp and tool-cache
+permissions. `verify-native.sh --with-toolchains` additionally checks CGO and
+writable module/build caches. Meta still sets up and explicitly checks Node
+before tooling-test discovery, preventing silent skips of bindings CLI tests.
 
-The optional `bash tools/check-ci-native-cache.sh` probe requires Go with
-CGO and a C compiler. It creates only synthetic files and cache directories,
-changes an external C header, and asserts fresh-image compilation, rollback
-and unpinned cleanup while retaining a module marker. With Go 1.27.3 the
-shared-cache run still returned header value 1 after the header changed to 2;
-the distinct cache returned 2, rollback returned 1, and cleanup returned 3.
-It remains opt-in because it cold-compiles standard-library cache entries.
+## Runtime selection and cache boundaries
 
-Blank-pin bootstrap therefore has cold native compilation and an extra cache
-fallback on misses. Image activation and warm digest runs have different cache
-costs; whole-workflow cold/warm timing still requires measurement.
+Two reviewed pins control runtime selection:
 
-## Trusted publishing and first-use bootstrap
+- `.github/ci-native-image.txt` retains the existing working native digest.
+- `.github/ci-toolchain-image.txt` starts blank. When nonblank, it takes
+  precedence for native jobs and explicitly requires preinstalled tools.
 
-`ci-native-image.yml` builds and smoke-tests relevant PR changes with
-`contents: read`, without registry credentials or publication. Publication
-runs only for relevant pushes to `main` or an explicit dispatch on `main`.
-That job alone has `packages: write` and uses its short-lived `GITHUB_TOKEN`.
-Checkout credentials are not persisted. There is no PAT, repository write,
-release publication, automatic CI activation, package visibility edit, or
-persistent permission configuration. New tags include source SHA, run ID
-and attempt; they are candidate identifiers, never CI's runtime reference.
-The image's OCI source label links the public tooling to this repository.
+`tools/ci-native-container.py` validates both as immutable digests in the approved
+GHCR package, emits the whole container JSON and the `preinstalled` flag, and
+fails on invalid pins. A blank toolchain pin selects the native pin; both blank
+select hosted-runner apt bootstrap. Missing/private/broken configured images fail
+visibly, rather than silently changing test environments.
 
-The initial `.github/ci-native-image.txt` is blank. A lightweight `runtime`
-job reads this reviewed pin and emits JSON for the entire container value:
-empty string for hosted-runner bootstrap, or an image/options mapping for a
-validated immutable digest. GitHub rejects a constant empty `container.image`
-before scheduling jobs, so workers resolve the whole container from this
-runtime output. No nonexistent image is referenced. The original bounded apt
-helper runs only on the host path; every test gate remains required. Failure
-of the runtime job skips its workers and the existing `test` aggregate fails
-closed. See the runner's
-[container conversion](https://github.com/actions/runner/blob/main/src/Sdk/DTPipelines/Pipelines/ObjectTemplating/PipelineTemplateConverter.cs)
-and GitHub's [container shell documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/run-jobs-in-a-container).
+`ci-use-toolchain.sh` validates `/opt/nestworth-toolchain/go/bin/go` against
+go.mod before adding that explicit directory to PATH. It verifies the selected
+Go again before cache restoration. `GOTOOLCHAIN=local` prevents an unnoticed Go
+upgrade. On the toolchain path, `setup-go` and CLI binary cache/install are
+skipped; the producer validates and selects the explicit image Wails executable.
+An incorrect or missing image executable **fails closed** and requires an image
+rebuild/digest review. The legacy native/host paths retain setup-go and a
+version-verified Wails installation; only immutable legacy images may cache that
+CLI, keyed by Go, architecture, go.mod and both reviewed pins.
 
-Activation is a separate reviewed edit after these prerequisites:
+Go preparation now separates the caches even when setup-go is skipped:
 
-1. Merge the bootstrap workflow through normal review. This task does not
-   merge it. The first relevant main push builds/publishes a candidate using
-   only that workflow's token, or an owner dispatches it explicitly on main.
-2. Obtain its exact `ghcr.io/mnemosynelab/nestworth-ci@sha256:<64 hex>` from
-   the workflow artifact/summary. A first GHCR package normally defaults to
-   private. An owner must separately authorize and perform any package
-   visibility/access change; the workflow never does so. The publish job's
-   anonymous pull gate will fail if public access is not ready. See GitHub's
-   [GHCR authentication and visibility guidance](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
-3. With a fresh, unauthenticated Docker configuration, pull that digest and
-   smoke-test it as UID 1001. If the first publication failed only at public
-   access, repeat this verification after owner action. Never replace the
-   blank pin file with a guessed digest, tag or private-only image. Public
-   anonymous access is required for fork PRs without registry secrets.
-4. Put the real full digest in `.github/ci-native-image.txt`.
-   All six jobs inherit it. Run the whole `check` workflow on that activation
-   commit, including cold and restored Go/pnpm caches, verify no apt step ran,
-   all bindings CLI tests executed, and all setup/post-cache steps succeeded.
-   Merge activation only after these gates pass. A missing/private/broken
-   configured image must fail visibly, not silently change test environments.
+- Modules: `/tmp/nestworth-ci-go-modules`, OS/architecture/go.sum exact key,
+  reusable across native and toolchain variants. The existing module-only key
+  remains compatible. No compiled artifacts enter this archive.
+- Build: `/tmp/nestworth-ci-go-build`, OS/architecture/actual Go version plus
+  both digest files and go.sum, with a fresh `go-build-v2` namespace and no
+  restore prefixes. Another image or Go/lock version cannot restore it.
+  Existing setup-go combined archives are intentionally not reused.
 
-Ordinary application PRs neither build nor publish the dependency image.
-When dependencies/base inputs change, keep CI on the prior working digest
-while a candidate builds, verify the candidate with the same activation
-procedure, then update that one digest. Do not automatically follow tags.
+The host rollback never restores/saves the image build archive. It still runs
+the bounded apt helper followed by `go clean -cache` **before** native compilation
+and verification; unpinned C headers cannot reactivate stale compiled artifacts.
+It retains modules and never calls `go clean -modcache`. The opt-in
+`tools/check-ci-native-cache.sh` synthetic header probe exercises these boundaries.
 
-## Rollback and elapsed-time evidence
+Bindings remain generated outside the image. Their conservative exact-input
+fingerprint, CLI binary hash, manifest/content validation and regenerate-on-miss
+fallback are unchanged. There is one generation when required; CI does not add
+an automatic second generation or comparison. Pure frontend jobs receive that
+same-run artifact and retain existing pnpm caches.
 
-Restore the last known-good digest to roll back an image update. Set the
-pin file back to blank to return all six jobs to the original apt
-helper. That path is slower and remains subject to mirror availability, but
-retains its existing bounded retry/diagnostic behavior. The apt helper is
-preserved for `perf.yml` and bootstrap; check containers never run it.
+## Trusted publication and reviewed adoption
 
-Before claiming a speedup, compare complete `check` runs on equivalent source
-and runner versions, with cold and warm Go/pnpm cache states recorded. Include
-queue, image pull/container setup, native setup, build, test and cache/post-job
-time; report run wall clock and the slowest job. Six concurrent apt durations
-must not be added together as a wall-clock saving. Image size, registry pull
-speed and native compilation can change the result. Local image smoke/build
-measurements alone do not establish whole-workflow gains or macOS behavior.
+PRs build/smoke both variants with `contents: read` and no registry credentials.
+Only relevant main pushes or an explicit main dispatch publish candidates,
+using the existing job's ephemeral `GITHUB_TOKEN` and `packages: write`.
+Both tags include source SHA/run/attempt and the target suffix. No PAT,
+repository write, PR write, package visibility change, release or auto-merge is
+added. Publication anonymously pulls/verifies each digest and retains both in
+an artifact even if the public-access check fails.
+
+Automatic rebuild/publication is deliberately separate from adoption:
+
+1. Review and merge the image/workflow implementation normally. This task does
+   not merge. Its main push publishes `native` and `toolchain` candidates.
+2. Read each exact digest from the image workflow summary/artifact. Confirm
+   anonymous pull, tool versions, architecture and UID/cache permissions. The
+   existing public package needs no visibility change; a private candidate must
+   fail instead of introducing registry credentials into PRs.
+3. Put the verified toolchain digest in `.github/ci-toolchain-image.txt` through
+   a separate reviewable activation PR, leaving the native fallback pin intact.
+   Do not guess the digest, use `latest`, or pin a private-only image.
+4. Run every `check` gate on that exact activation commit. Verify setup-go/CLI
+   installation are skipped, and compare cold/warm cache and end-to-end timings.
+   Merge activation only after the coordinator reviews evidence.
+
+Future Go/Wails upgrades use the same candidate-publication/pin-update sequence.
+To keep a version-upgrade PR green while the old toolchain digest is incompatible,
+blank the toolchain pin in that PR and temporarily use the lean native fallback;
+its updated main then publishes the replacement toolchain for separate adoption.
+An automatic pin-update PR would require repository/PR write permission not
+currently granted to this workflow. This change does not expand those permissions
+or create credentials; the supported update mechanism is a normal reviewed pin PR.
+
+Rollback by clearing the toolchain pin, restoring a known-good toolchain digest,
+or clearing both pins for apt bootstrap. A nonblank toolchain pin takes precedence,
+so changing only the native pin does not deactivate it. `perf.yml` retains its
+hosted apt path and existing heavy-validation boundaries.
+
+## Performance evaluation
+
+Compare complete workflows on equivalent source/runner versions. Record queue,
+image pull/container init, tool setup, module/build/bindings cache restore/save,
+compilation/test and post-job time. Concurrent jobs' savings cannot be summed
+into wall-clock savings. A warm CLI cache already avoids compilation; the
+preinstalled image primarily stabilizes the cold path and removes Go setup.
+
+The supplied baseline run `41400162960`, producer job `125130122871`, recorded
+24s container init, 24s setup-go (about 10.3s tool installation plus 13s restoring
+a 314MB combined cache), 6s setup-node, 66s cold CLI installation and 38s bindings
+generation. A PR with a warm CLI cache used 2s restore and 0s preparation. Equal
+keys do not let main read a PR-ref cache. These are baseline observations, not
+measured savings from this change.
+
+Node remains on setup-node. Only meta and the bindings producer need it among
+native jobs; adding it to the common toolchain makes all four Go shards pull it.
+The official Node 24.22.0 linux-x64 archive measured 32,015,600 bytes compressed
+and about 204 MiB extracted in this cloud environment; even the bare executable
+is about 121 MiB. A local minimum Node-only image added exactly 126,816,376
+uncompressed bytes to the existing native image; gzip-6 compression of that
+executable measured 44,722,946 bytes (an estimate of an incremental registry
+layer, not a published digest measurement). Download/extract measured 0.38s/1.73s on this environment's
+network, which does not predict hosted GHCR pull speed. Against a 6s baseline
+setup-node step, there is insufficient demonstrated end-to-end gain to justify
+its cost on every Go shard or a third runtime image. Pure frontend jobs should
+continue using the host Node tool cache.
+
+An expanded single image makes every native job pay all tool costs and removes
+the lean rollback/consumer choice. Two layered variants keep that choice without
+independent base maintenance; consumers fetch only their selected variant, and
+Docker reuses identical layers when both variants are pulled on the same host.
+Hosted jobs usually have isolated daemons, so cross-job layer reuse is not assumed.
+Local image/build/pull evidence is supplementary; hosted CI and native macOS
+results must be reported separately.
+
+Local validation on Linux amd64 (2026-11-02, Go 1.27.3 / Wails v3.1.0):
+
+- Both final targets built and passed UID/cache-mount smoke, including empty
+  `/__t` and deliberate Go/Wails mismatches. The native image was 1,235,996,874
+  bytes and toolchain 1,540,694,266 bytes, a 304,697,392-byte increment. All seven
+  native layers were the exact prefix of the toolchain image's nine layers.
+- Compressing a tar stream of the installed tool directory with gzip-6 measured
+  104,858,345 bytes. This estimates the additional registry transfer; no new
+  image was published from this environment, so it is not a GHCR layer/pull
+  measurement. The old published native digest has 421,398,591 compressed
+  layer bytes; its local cold/warm pull measured 76.91s/0.53s.
+- Two paired local `docker run --rm ... /bin/true` samples were native/toolchain
+  8.06s/12.39s and 9.21s/7.71s. This daemon uses **vfs**, and the tiny, variable
+  sample establishes neither a startup improvement nor hosted-runner latency.
+- With isolated synthetic caches, module download took 114.96s, native build
+  58.47s cold and 0.22s warm, and the existing metadata-deletion permission
+  regression passed. On the final image and source snapshot `9a2b7b5`, native
+  build took 0.37s warm, the **first** bindings generation passed in 16.43s,
+  manifest save (including unchanged-input validation) took 0.37s, and validated
+  restore took 0.06s. Go compilation was already warm for that generation, so
+  comparing 16.43s directly with the supplied 38s baseline would be misleading.
+  Node 24.22.0 was mounted for this smoke, matching its separate CI setup role.
+
+The first run after this cache migration has a cold `go-build-v2` namespace;
+the legacy CLI's version-derived `wails-cli-v2` key may also need one seed before
+toolchain adoption. Module-only archives remain compatible. Candidate publishing,
+anonymous toolchain digest pull, activation PR checks, hosted cold/warm whole-run
+timing, and macOS execution remain separate, unverified rollout steps.

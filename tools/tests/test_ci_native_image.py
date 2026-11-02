@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 import re
+import subprocess
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,7 +24,9 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertEqual(workflow.count('bash tools/ci-install-native-deps.sh'), 3)
         self.assertEqual(workflow.count('bash build/ci/verify-native.sh --with-toolchains'), 3)
         # Keep action-managed caches, all test shards and native checks intact.
-        self.assertEqual(workflow.count('cache-dependency-path: |\n            go.sum\n            .github/ci-native-image.txt'), 3)
+        self.assertEqual(workflow.count('run: bash tools/ci-use-toolchain.sh activate-go'), 3)
+        self.assertEqual(workflow.count("if: needs.runtime.outputs.preinstalled != 'true'"), 3)
+        self.assertEqual(workflow.count('          cache: false\n'), 3)
         self.assertIn('cache: pnpm', workflow)
         self.assertIn('NESTWORTH_WAILS_GOCACHE=%s', workflow)
         for gate in ('go vet ./...', 'go build ./cmd/nestworth', 'go test -count=1 -json',
@@ -63,22 +67,26 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn("if-no-files-found: error", frontend)
         self.assertIn("overwrite: true", frontend)
         cli = frontend.split("- name: Cache pinned Wails CLI binary", 1)[1].split("- name: Generate Wails bindings", 1)[0]
-        self.assertIn("if: ${{ job.container.id }}", frontend.split("- name: Cache pinned Wails CLI binary", 1)[1].split("- name: Prepare pinned Wails CLI", 1)[0])
+        self.assertIn("if: ${{ job.container.id && needs.runtime.outputs.preinstalled != 'true' }}", frontend.split("- name: Cache pinned Wails CLI binary", 1)[1].split("- name: Prepare pinned Wails CLI", 1)[0])
         self.assertIn("path: /tmp/nestworth-ci-wails", cli)
         self.assertNotIn("GOMODCACHE", cli)
         self.assertIn("${{ steps.go.outputs.go-version }}", cli)
-        self.assertIn("hashFiles('.github/ci-native-image.txt')", cli)
-        self.assertIn("go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0", cli)
-        self.assertIn('wails3 version 2>&1', cli)
+        self.assertIn("hashFiles('go.mod', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt')", cli)
+        self.assertIn('run: bash tools/ci-use-toolchain.sh wails', cli)
+        self.assertNotIn('go install', cli)
+        self.assertIn('PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}', cli)
         self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache pinned Wails CLI binary"))
         self.assertLess(frontend.index("- name: Prepare pinned Wails CLI"), frontend.index("node scripts/ensure-bindings.mjs"))
 
     def test_cgo_cache_is_pinned_and_modules_are_shared(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()
-        # setup-go v7 hashes every listed dependency file into an exact key.
+        # Independent module/build caches replace setup-go's combined cache.
         # No restore prefix may cross the native-image boundary.
         self.assertEqual(workflow.count('id: go'), 3)
-        self.assertEqual(workflow.count("if: steps.go.outputs.cache-hit != 'true'"), 3)
+        self.assertEqual(workflow.count('path: ${{ env.GOCACHE }}'), 3)
+        build_key = "key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}"
+        self.assertEqual(workflow.count(build_key), 3)
+        self.assertEqual(workflow.count("if: needs.runtime.outputs.preinstalled == 'true'"), 3)
         self.assertEqual(workflow.count('path: ${{ env.GOMODCACHE }}'), 3)
         module_key = "key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}"
         self.assertEqual(workflow.count(module_key), 3)
@@ -105,6 +113,28 @@ class NativeImageWorkflowTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 runtime.container_for(invalid)
 
+    def test_toolchain_pin_precedence_and_blank_pin_rollback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            native = Path(directory) / 'ci-native-image.txt'
+            toolchain = native.with_name('ci-toolchain-image.txt')
+            image = 'ghcr.io/mnemosynelab/nestworth-ci@sha256:'
+            for native_digest, toolchain_digest, expected, installed in (
+                ('a' * 64, 'b' * 64, 'b' * 64, True),
+                ('a' * 64, '', 'a' * 64, False),
+                ('', '', '', False),
+            ):
+                native.write_text(image + native_digest if native_digest else '')
+                toolchain.write_text(image + toolchain_digest if toolchain_digest else '')
+                result = subprocess.run(['python3', str(ROOT / 'tools/ci-native-container.py'), str(native)],
+                                        capture_output=True, text=True, check=True)
+                self.assertIn('preinstalled=' + str(installed).lower(), result.stdout)
+                self.assertIn(image + expected if expected else 'container=""', result.stdout)
+            toolchain.write_text('ghcr.io/mnemosynelab/nestworth-ci:latest')
+            result = subprocess.run(['python3', str(ROOT / 'tools/ci-native-container.py'), str(native)],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+
     def test_context_contains_only_explicit_public_build_inputs(self):
         context = ROOT / 'build/ci'
         self.assertEqual((context / '.dockerignore').read_text().splitlines(),
@@ -112,7 +142,8 @@ class NativeImageWorkflowTests(unittest.TestCase):
         dockerfile = (context / 'Dockerfile').read_text()
         self.assertRegex(dockerfile, r'FROM ubuntu:26\.04@sha256:[0-9a-f]{64}')
         copies = [line for line in dockerfile.splitlines() if line.startswith('COPY ')]
-        self.assertEqual(len(copies), 2)
+        self.assertEqual(len(copies), 3)
+        self.assertEqual(copies[2], 'COPY --from=toolchain-build /opt/nestworth-toolchain /opt/nestworth-toolchain')
         self.assertIn('COPY packages.txt ', copies[0])
         self.assertIn('COPY --chmod=755 verify-native.sh ', copies[1])
         self.assertIn('USER 1001:1001', dockerfile)
