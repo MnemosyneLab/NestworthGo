@@ -1,1 +1,1 @@
-
+ghcr.io/mnemosynelab/nestworth-ci@sha256:98505b32ed861c4643be5dba828c7336cf224d6c60dc2ad5262c7a07074d08b1
