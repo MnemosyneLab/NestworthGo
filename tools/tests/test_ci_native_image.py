@@ -26,13 +26,17 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('cache: pnpm', workflow)
         self.assertIn('NESTWORTH_WAILS_GOCACHE=%s', workflow)
         for gate in ('go vet ./...', 'go build ./cmd/nestworth', 'go test -count=1 -json',
-                     'pnpm run generate:bindings', 'pnpm run check:bindings',
+                     'node scripts/ensure-bindings.mjs', 'node scripts/ensure-bindings.mjs --check',
                      'pnpm exec eslint .', 'pnpm exec tsc --noEmit', 'pnpm exec vite build --mode production',
                      'pnpm exec vitest run --shard=', 'needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]'):
             self.assertIn(gate, workflow)
         frontend = workflow.split('  frontend-bindings:', 1)[1].split('  frontend-quality:', 1)[0]
-        self.assertLess(frontend.index('actions/setup-node@v7'), frontend.index('pnpm/action-setup@v6'))
-        self.assertLess(frontend.index('pnpm/action-setup@v6'), frontend.index('cache: pnpm'))
+        self.assertIn('actions/setup-node@v7', frontend)
+        self.assertNotIn('pnpm/action-setup', frontend)
+        self.assertNotIn('pnpm install', frontend)
+        self.assertIn('node scripts/ensure-bindings.mjs --check', frontend)
+        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("run: node scripts/ensure-bindings.mjs --check"))
+        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs --check"), frontend.index("- name: Share verified bindings"))
         meta = workflow.split('  frontend-bindings:', 1)[0]
         self.assertIn('actions/setup-node@v7', meta)
         self.assertIn('node-version: 24.22.0', meta)
@@ -44,16 +48,18 @@ class NativeImageWorkflowTests(unittest.TestCase):
             self.assertIn("actions/download-artifact@v8", consumer)
             self.assertIn("name: frontend-bindings-${{ github.sha }}", consumer)
             self.assertIn("path: frontend/bindings", consumer)
+            self.assertLess(consumer.index("actions/setup-node@v7"), consumer.index("pnpm/action-setup@v6"))
+            self.assertLess(consumer.index("pnpm/action-setup@v6"), consumer.index("cache: pnpm"))
             self.assertNotIn("actions/setup-go", consumer)
             self.assertNotIn("container:", consumer)
-            self.assertNotIn("generate:bindings", consumer)
+            self.assertNotIn("ensure-bindings.mjs", consumer)
         self.assertIn("frontend/scripts/ensure-bindings.mjs", frontend)
         self.assertIn("if-no-files-found: error", frontend)
         self.assertIn("overwrite: true", frontend)
         overlay = frontend.split("- name: Cache Wails CLI inputs", 1)[1].split("- name: Generate Wails bindings", 1)[0]
         self.assertIn("if: ${{ job.container.id }}", overlay)
         self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache Wails CLI inputs"))
-        self.assertLess(frontend.index("- name: Cache Wails CLI inputs"), frontend.index("pnpm run generate:bindings"))
+        self.assertLess(frontend.index("- name: Cache Wails CLI inputs"), frontend.index("node scripts/ensure-bindings.mjs"))
 
     def test_cgo_cache_is_pinned_and_modules_are_shared(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()

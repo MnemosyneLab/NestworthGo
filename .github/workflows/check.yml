@@ -124,21 +124,12 @@ jobs:
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
-      # pnpm/action-setup invokes npm, which is absent in the native image.
-      # Bootstrap Node first; the second setup-node restores the existing pnpm
-      # cache after pnpm is available and reuses this installed Node toolchain.
+      # The guard uses Node built-ins only. It does not need pnpm or frontend
+      # dependencies; those are installed in the Node consumer jobs.
       - uses: actions/setup-node@v7
         with:
           node-version: 24.22.0
           package-manager-cache: false
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 12.14.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install native Go build dependencies (bootstrap fallback)
         if: ${{ !job.container.id }}
         timeout-minutes: 17
@@ -150,9 +141,6 @@ jobs:
         run: go clean -cache
       - name: Verify native tools, user and cache permissions
         run: bash build/ci/verify-native.sh --with-toolchains
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
       # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
       # setup-go cache never reused the Wails compile (~70s median).
       - name: Reuse Go build cache for Wails bindings
@@ -176,10 +164,10 @@ jobs:
           key: wails-bindings-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', 'frontend/scripts/ensure-bindings.mjs') }}
       - name: Generate Wails bindings
         working-directory: frontend
-        run: pnpm run generate:bindings
+        run: node scripts/ensure-bindings.mjs
       - name: Verify generated Wails bindings
         working-directory: frontend
-        run: pnpm run check:bindings
+        run: node scripts/ensure-bindings.mjs --check
       - name: Share verified bindings with frontend gates
         uses: actions/upload-artifact@v7
         with:
@@ -240,15 +228,17 @@ jobs:
       matrix:
         include:
           - shard: 1
-            shards: 5
+            shards: 6
           - shard: 2
-            shards: 5
+            shards: 6
           - shard: 3
-            shards: 5
+            shards: 6
           - shard: 4
-            shards: 5
+            shards: 6
           - shard: 5
-            shards: 5
+            shards: 6
+          - shard: 6
+            shards: 6
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

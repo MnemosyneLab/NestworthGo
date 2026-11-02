@@ -1,7 +1,7 @@
 # CI correctness and five-minute budget (2026-11-02)
 
 The five-minute end-to-end target remains an acceptance criterion. The observed
-hosted runs have **not** met it (517s initially, 402s after the first redesign). This record separates measured evidence
+hosted runs have **not** met it (517s initially, then 402s and 307s after the successive fixes). This record separates measured evidence
 from the new layout; local timings do not establish the hosted result.
 
 ## Hosted baseline
@@ -77,6 +77,38 @@ validation. In particular, the populated CLI cache must actually hit and the
 independent Go remainder must reduce the critical path. No result is inferred
 from local timings or from cache-save evidence alone.
 
+## Warm-cache result and final bounded headroom adjustment
+
+[Run 41387631566](https://github.com/MnemosyneLab/NestworthGo/actions/runs/41387631566)
+on `a17eea1d29281acc3cf47d026a3039e98efa4420` passed every gate. Its observed
+creation-to-final-update interval, 04:17:33–04:22:40 UTC, was **307s**: still
+**7s above** the original 300s clock. Go completed by 04:21:10, so the split
+removed the former Go critical path. Bindings ended at 04:19:55 after 128s;
+frontend shard 3 then took 155s through 04:22:33, followed by aggregate/finalization.
+Correctness passed, but this run did not satisfy the latency target.
+
+Two bounded changes add headroom without deleting coverage or loosening deadlines:
+
+1. The bindings producer calls the existing Node scripts directly. Both package
+   scripts are exact wrappers around `node scripts/ensure-bindings.mjs` and its
+   `--check` variant, whose imports are Node built-ins. The producer no longer
+   installs pnpm, restores its store or installs frontend dependencies. The last
+   hosted run spent 4s/3s/4s on those steps plus 1s post-setup. Real generation
+   and fresh comparison also passed in a clean detached worktree containing no
+   `node_modules`, proving the removed installation is unnecessary. Node consumers
+   keep their locked dependency installation and package-manager cache.
+2. Six frontend shards replace five, still with two workers each and the same
+   complete assignment algorithm. One History shard remains isolated; five
+   weighted workersets share the remaining files instead of four. This reduces
+   per-file environment/import load on the observed 155s tail. A discovered-file
+   union guard and actual shard execution must preserve all 161 files/1657 tests.
+
+The producer's generation/comparison gates, image-pinned cache condition and
+unpinned fallback clean remain unchanged. This uses one additional ordinary
+Node runner, with no new paid runner service or security configuration. The
+intended margin is a projection; only the next hosted end-to-end measurement
+can establish success, and a single borderline pass is not a throughput guarantee.
+
 ## Remaining reconciliation regression
 
 Hosted CI passed 883/884 tests in shard 2. The one failure was a 20-click App
@@ -105,7 +137,7 @@ all three scenarios: 3905/2276/2789ms and 3912/2371/2706ms respectively.
   build on the same verified artifact. Local developer scripts keep their normal
   binding guards. Aggregate checks fail unless preparation and quality succeed.
 - Four Go jobs retain every correctness package while removing the serial
-  application-2/remainder dependency. Five Node-only test shards keep two workers per runner. HistoryPage, an
+  application-2/remainder dependency. Six Node-only test shards keep two workers per runner. HistoryPage, an
   indivisible long hosted test file, gets its own shard. The others use deterministic
   longest-first assignment from the hosted file timings plus 1.25s/file setup.
   New/unmeasured files receive a conservative default and are always assigned.
@@ -127,7 +159,7 @@ five-minute claim is made until the coordinator measures the new hosted head.
 | Coverage/work | Normal PR/main check | Existing daily/manual `perf` workflow |
 | --- | --- | --- |
 | All Go correctness, financial precision, security and commit/recovery tests | Unchanged, all current Go shards | Existing race/perf coverage unchanged |
-| All frontend tests, including money, navigation, focus and interrupted submissions | All five shards; no exclusions | Nothing moved |
+| All frontend tests, including money, navigation, focus and interrupted submissions | All six shards; no exclusions | Nothing moved |
 | Binding generation + freshness comparison | Once in producer, exact-run artifact to consumers | Not moved |
 | ESLint / TypeScript / Vite production build | All preserved in quality job; duplicate TypeScript compilation and consumer regeneration removed | Not moved |
 | Locale coverage tests | Once with the full frontend suite; the CI ESLint step no longer runs the same test a second time | Not moved |
@@ -153,6 +185,6 @@ remain fast. All former signal/permanent-error assertions remain in either tier.
 
 Focused cold reconciliation tests and the workflow/shard partition guards passed
 before the layout's full validation. The PR validation record names the exact
-follow-up head, all five executed frontend shards, fast and extended tooling
+follow-up head, all six executed frontend shards, fast and extended tooling
 results, lint/typecheck/build and unverified native/browser gates. Hosted
 correctness and the 300s end-to-end target remain coordinator acceptance gates.

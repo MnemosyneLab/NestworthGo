@@ -7,7 +7,7 @@ function testFiles(): string[] {
 
 it("partitions every discovered test exactly once, including unmeasured additions", () => {
   const files = [...testFiles(), "src/new-unmeasured.test.ts"];
-  for (const count of [1, 2, 5]) {
+  for (const count of [1, 2, 6]) {
     const shards = assignTestShards(files, count);
     expect(shards).toHaveLength(count);
     expect(shards.flat().sort()).toEqual([...files].sort());
@@ -19,7 +19,7 @@ it("partitions every discovered test exactly once, including unmeasured addition
 
 it("isolates the indivisible History workflow while keeping all other contracts", () => {
   const files = testFiles();
-  const shards = assignTestShards(files, 5);
+  const shards = assignTestShards(files, 6);
   expect(shards[0]).toEqual(["src/features/history/HistoryPage.test.tsx"]);
   expect(shards.slice(1).flat()).toContain("src/App.test.tsx");
   expect(shards.slice(1).flat()).toContain("src/test/keyboardOnly.test.tsx");
