@@ -35,6 +35,14 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertNotIn('pnpm/action-setup', frontend)
         self.assertNotIn('pnpm install', frontend)
         self.assertIn('node scripts/ensure-bindings.mjs --check', frontend)
+        self.assertIn("if: steps.bindings-compare.outputs.compare == 'true'", frontend)
+        self.assertIn("if: steps.bindings-restore.outputs.valid != 'true'", frontend)
+        self.assertIn('python3 tools/bindings-cache.py restore', frontend)
+        self.assertIn('python3 tools/bindings-cache.py save', frontend)
+        self.assertIn('key=disabled', frontend)
+        self.assertIn('^[0-9a-f]{64}$', frontend)
+        self.assertIn('continue-on-error: true', frontend)
+        self.assertNotIn('restore-keys:', frontend)
         self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("run: node scripts/ensure-bindings.mjs --check"))
         self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs --check"), frontend.index("- name: Share verified bindings"))
         meta = workflow.split('  frontend-bindings:', 1)[0]
@@ -62,6 +70,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn("${{ steps.go.outputs.go-version }}", cli)
         self.assertIn("hashFiles('.github/ci-native-image.txt')", cli)
         self.assertIn("go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0", cli)
+        self.assertIn('wails3 version 2>&1', cli)
         self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache pinned Wails CLI binary"))
         self.assertLess(frontend.index("- name: Prepare pinned Wails CLI"), frontend.index("node scripts/ensure-bindings.mjs"))
 

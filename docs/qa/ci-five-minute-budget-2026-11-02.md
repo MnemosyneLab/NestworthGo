@@ -196,10 +196,9 @@ The bindings job caches the pinned v3.0.0 CLI executable separately from the
 setup-go module and build caches. The key fences the Go version, OS, architecture
 and reviewed native image digest. The unpinned apt fallback builds the executable
 again after clearing compiled Go artifacts. No module tree is overlaid. A cache
-miss still installs the pinned CLI and both generation and byte-for-byte
-comparison remain in the fast gate. This change does not cache generated output;
-hosted cold and warm timings and the five-minute acceptance target remain to be
-measured.
+miss still installs the pinned CLI. Generated output now has its own conservative
+exact-input cache, described below; hosted cold and warm timings and the
+five-minute acceptance target remain to be measured.
 
 A single sequential paired comparison on native macOS arm64 (Go 1.27.3,
 Node 24.22.0, Vitest 4.1.11, two workers, generated bindings and copied
@@ -212,3 +211,37 @@ order, with no runner setup or artifact transfer. The longest shard is only a
 local parallel-wall proxy; these numbers do not establish hosted wall time,
 runner cost, stability, or a five-minute workflow. Keep six shards until a
 same-head hosted comparison captures queue, setup and aggregate job time.
+
+
+### Generated bindings cache and independent comparison
+
+The reviewed native-image path fingerprints every tracked and nonignored
+untracked checkout file (names, modes and SHA-256), the pinned CLI bytes, Go
+and Node versions, and Go/build environment. This intentionally invalidates on
+presentation and documentation changes too: it does not assume the contract is
+confined to `internal/wailsapi` (the inventory includes implementation DTOs,
+registration, events, module files, generator scripts and configuration).
+Local module replacements, a workspace file, GOFLAGS, missing or symlinked
+inputs, unavailable tools, and the unpinned apt fallback disable reuse. CI uses
+a clean checkout; ignored files outside generated outputs must not be introduced
+as generation inputs. There are no prefix cache restores. A matching archive is
+accepted only if the manifest has the exact input key, generated file set,
+digests and required service marker. Missing, extra or changed files regenerate;
+an immutable corrupt cache entry may cause repeat misses until eviction. Cache
+errors also fall back. This is corruption detection, not authentication: like
+other Actions caches it trusts writers in the applicable GitHub cache scope.
+
+A fresh generator result or validated exact-input hit feeds the same-run frontend
+artifact. A second independent generation and byte comparison remains required
+when Go sources, generator/runtime inputs or other non-presentation inputs
+change; missing Git history fails closed to comparison. The daily/manual perf
+workflow independently generates and compares even when the source is unchanged,
+and macOS release packaging compares after its frontend build. Routine
+presentation-only changes avoid the duplicate comparison; direct local
+`check:bindings` remains available. Cache reuse is not evidence of deployed
+behavior. On native Mac, one real input fingerprint took 0.31s, restored output took 0.06s, and an
+independent warm comparison took 1.89s; a deliberately corrupted entry was
+rejected and fresh warm generation took 1.64s. These measurements exclude
+archive transport, and do not predict hosted performance. The output cache is
+currently enabled only with the pinned native image. Its safety depends on
+retaining the complete input inventory and a trusted CI cache scope.

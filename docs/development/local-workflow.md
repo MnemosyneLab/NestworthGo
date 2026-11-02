@@ -209,7 +209,10 @@ tests into four jobs from measured whole-job times: application in two
 checksum parts (the first paired with continuous backup), one independent
 remainder job, and one job for MCP and sqlite. Vitest runs as six shards using hosted timing weights,
 with HistoryPage isolated and every new test included. One native producer
-generates/checks bindings; Node consumers share that exact-run artifact. A
+reuses validated exact-input bindings or regenerates them;
+contract/tool changes receive an independent byte comparison. Node consumers
+share that exact-run artifact. The daily/manual workflow and macOS release
+packaging also run the independent comparison. A
 separate quality job preserves ESLint, one TypeScript check and the production
 Vite build without regenerating bindings. Locale coverage runs once in the full
 test suite. Fast tooling keeps GNU signals and failure boundaries; the complete
