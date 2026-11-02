@@ -19,10 +19,16 @@ def container_for(image):
 def main():
     pin = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[1] / '.github/ci-native-image.txt'
     try:
-        container = container_for(pin.read_text().strip())
+        toolchain_pin = pin.with_name('ci-toolchain-image.txt')
+        toolchain = toolchain_pin.read_text().strip()
+        preinstalled = bool(toolchain)
+        # Validate both pins even when the toolchain variant takes precedence.
+        container_for(pin.read_text().strip())
+        container = container_for(toolchain or pin.read_text().strip())
     except (OSError, ValueError) as error:
         raise SystemExit(str(error)) from error
     print('container=' + json.dumps(container, separators=(',', ':')))
+    print('preinstalled=' + str(preinstalled).lower())
 
 
 if __name__ == '__main__':

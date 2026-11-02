@@ -19,6 +19,8 @@ defaults:
 # be reused across native images. Compiled artifacts stay in GOCACHE.
 env:
   GOMODCACHE: /tmp/nestworth-ci-go-modules
+  GOCACHE: /tmp/nestworth-ci-go-build
+  GOTOOLCHAIN: local
 
 concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -34,6 +36,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       container: ${{ steps.image.outputs.container }}
+      preinstalled: ${{ steps.image.outputs.preinstalled }}
     steps:
       - uses: actions/checkout@v7
       - name: Resolve reviewed image or hosted-runner bootstrap
@@ -50,22 +53,34 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+      - name: Select preinstalled Go
+        if: needs.runtime.outputs.preinstalled == 'true'
+        env:
+          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
+        run: bash tools/ci-use-toolchain.sh activate-go
       - uses: actions/setup-go@v7
-        id: go
+        if: needs.runtime.outputs.preinstalled != 'true'
         with:
           go-version-file: go.mod
-          cache: true
-          # setup-go hashes both files into its exact cache key. Never restore
-          # CGO build artifacts from another native image or the old key.
-          cache-dependency-path: |
-            go.sum
-            .github/ci-native-image.txt
-      - name: Reuse module downloads across native images
-        if: steps.go.outputs.cache-hit != 'true'
+          cache: false
+      - name: Verify selected Go version
+        id: go
+        env:
+          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
+        run: bash tools/ci-use-toolchain.sh verify-go
+      # Only module downloads cross image boundaries. Compiled CGO artifacts
+      # require the exact selected toolchain, reviewed pins and dependency lock.
+      - name: Cache Go modules
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      - name: Cache image-specific Go build artifacts
+        if: ${{ job.container.id }}
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.GOCACHE }}
+          key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}
       - name: Install native Go build dependencies (bootstrap fallback)
         if: ${{ !job.container.id }}
         timeout-minutes: 17
@@ -108,23 +123,35 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+      - name: Select preinstalled Go
+        if: needs.runtime.outputs.preinstalled == 'true'
+        env:
+          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
+        run: bash tools/ci-use-toolchain.sh activate-go
       - uses: actions/setup-go@v7
-        id: go
+        if: needs.runtime.outputs.preinstalled != 'true'
         with:
           go-version-file: go.mod
-          cache: true
-          # Compiled Go artifacts are fenced by the reviewed native image.
-          cache-dependency-path: |
-            go.sum
-            .github/ci-native-image.txt
-      - name: Reuse module downloads across native images
-        if: steps.go.outputs.cache-hit != 'true'
+          cache: false
+      - name: Verify selected Go version
+        id: go
+        env:
+          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
+        run: bash tools/ci-use-toolchain.sh verify-go
+      # Only module downloads cross image boundaries. Compiled CGO artifacts
+      # require the exact selected toolchain, reviewed pins and dependency lock.
+      - name: Cache Go modules
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
-      # The guard uses Node built-ins only. It does not need pnpm or frontend
-      # dependencies; those are installed in the Node consumer jobs.
+      - name: Cache image-specific Go build artifacts
+        if: ${{ job.container.id }}
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.GOCACHE }}
+          key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}
+      # The bindings guard needs Node built-ins, not pnpm dependencies.
       - uses: actions/setup-node@v7
         with:
           node-version: 24.22.0
@@ -142,23 +169,21 @@ jobs:
         run: bash build/ci/verify-native.sh --with-toolchains
       - name: Reuse Go build cache for Wails bindings
         run: printf 'NESTWORTH_WAILS_GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
+      # Legacy native images may cache a CLI; toolchain images use /opt directly.
       # Only the pinned image can safely reuse a compiled executable. The host
       # fallback installs unpinned native packages and always builds its CLI.
       - name: Cache pinned Wails CLI binary
         id: wails-cli
         continue-on-error: true
-        if: ${{ job.container.id }}
+        if: ${{ job.container.id && needs.runtime.outputs.preinstalled != 'true' }}
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: /tmp/nestworth-ci-wails
-          key: wails-cli-v1-v3.1.0-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt') }}
+          key: wails-cli-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}
       - name: Prepare pinned Wails CLI
-        run: |
-          if [ "${{ steps.wails-cli.outputs.cache-hit }}" != 'true' ] || [ ! -x /tmp/nestworth-ci-wails/wails3 ] || [ "$(/tmp/nestworth-ci-wails/wails3 version 2>&1)" != v3.1.0 ]; then
-            GOBIN=/tmp/nestworth-ci-wails go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
-          fi
-          test "$(/tmp/nestworth-ci-wails/wails3 version 2>&1)" = v3.1.0
-          printf '/tmp/nestworth-ci-wails\n' >> "$GITHUB_PATH"
+        env:
+          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
+        run: bash tools/ci-use-toolchain.sh wails
       # Exact input key only. Output content is independently validated after
       # restore; a miss, unsupported input or damaged archive regenerates.
       - name: Fingerprint bindings inputs
@@ -342,22 +367,34 @@ jobs:
               sqlite 0 1
     steps:
       - uses: actions/checkout@v7
+      - name: Select preinstalled Go
+        if: needs.runtime.outputs.preinstalled == 'true'
+        env:
+          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
+        run: bash tools/ci-use-toolchain.sh activate-go
       - uses: actions/setup-go@v7
-        id: go
+        if: needs.runtime.outputs.preinstalled != 'true'
         with:
           go-version-file: go.mod
-          cache: true
-          # setup-go hashes both files into its exact cache key. Never restore
-          # CGO build artifacts from another native image or the old key.
-          cache-dependency-path: |
-            go.sum
-            .github/ci-native-image.txt
-      - name: Reuse module downloads across native images
-        if: steps.go.outputs.cache-hit != 'true'
+          cache: false
+      - name: Verify selected Go version
+        id: go
+        env:
+          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
+        run: bash tools/ci-use-toolchain.sh verify-go
+      # Only module downloads cross image boundaries. Compiled CGO artifacts
+      # require the exact selected toolchain, reviewed pins and dependency lock.
+      - name: Cache Go modules
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      - name: Cache image-specific Go build artifacts
+        if: ${{ job.container.id }}
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.GOCACHE }}
+          key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}
       - name: Install native Go build dependencies (bootstrap fallback)
         if: ${{ !job.container.id }}
         timeout-minutes: 17
