@@ -195,3 +195,32 @@ Docker reuses identical layers when both variants are pulled on the same host.
 Hosted jobs usually have isolated daemons, so cross-job layer reuse is not assumed.
 Local image/build/pull evidence is supplementary; hosted CI and native macOS
 results must be reported separately.
+
+Local validation on Linux amd64 (2026-11-02, Go 1.27.3 / Wails v3.1.0):
+
+- Both final targets built and passed UID/cache-mount smoke, including empty
+  `/__t` and deliberate Go/Wails mismatches. The native image was 1,235,996,874
+  bytes and toolchain 1,540,694,266 bytes, a 304,697,392-byte increment. All seven
+  native layers were the exact prefix of the toolchain image's nine layers.
+- Compressing a tar stream of the installed tool directory with gzip-6 measured
+  104,858,345 bytes. This estimates the additional registry transfer; no new
+  image was published from this environment, so it is not a GHCR layer/pull
+  measurement. The old published native digest has 421,398,591 compressed
+  layer bytes; its local cold/warm pull measured 76.91s/0.53s.
+- Two paired local `docker run --rm ... /bin/true` samples were native/toolchain
+  8.06s/12.39s and 9.21s/7.71s. This daemon uses **vfs**, and the tiny, variable
+  sample establishes neither a startup improvement nor hosted-runner latency.
+- With isolated synthetic caches, module download took 114.96s, native build
+  58.47s cold and 0.22s warm, and the existing metadata-deletion permission
+  regression passed. On the final image and source snapshot `9a2b7b5`, native
+  build took 0.37s warm, the **first** bindings generation passed in 16.43s,
+  manifest save (including unchanged-input validation) took 0.37s, and validated
+  restore took 0.06s. Go compilation was already warm for that generation, so
+  comparing 16.43s directly with the supplied 38s baseline would be misleading.
+  Node 24.22.0 was mounted for this smoke, matching its separate CI setup role.
+
+The first run after this cache migration has a cold `go-build-v2` namespace;
+the legacy CLI's version-derived `wails-cli-v2` key may also need one seed before
+toolchain adoption. Module-only archives remain compatible. Candidate publishing,
+anonymous toolchain digest pull, activation PR checks, hosted cold/warm whole-run
+timing, and macOS execution remain separate, unverified rollout steps.
