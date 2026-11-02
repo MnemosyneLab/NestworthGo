@@ -172,6 +172,11 @@ presentation preferences.
 
 ## Validation strategy
 
+The full regular check set runs on the self-hosted native Mac. See
+[Native Mac CI trial](ci-macos-trial.md) for trusted internal branch triggers,
+external contribution handling, isolation and the nonrunning Linux rollback archive.
+
+
 | Layer | Required evidence |
 | --- | --- |
 | Domain | Decimal edges, invariants, and deterministic calculations |
@@ -184,22 +189,19 @@ presentation preferences.
 Use sanitized deterministic fixtures. Provider tests use fakes and must not
 depend on live network responses.
 
-GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to
-`main`, on pull requests, and on manual dispatch. Its gates are gofmt, binned
-non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
-build/lint/typecheck/test, and `git diff --check`. Go tests are four parallel
-jobs and Vitest is six shards with one shared bindings producer and a separate
-Node quality job. The producer validates an exact-input generated-output cache
-or regenerates on a miss. Automated checks do not independently regenerate
-bindings to compare the results; cache validation checks recorded inputs and
-file integrity, not generator determinism. All frontend contracts stay in the
-fast gate; the timed
-partition and five-minute end-to-end acceptance status are recorded in
-[the CI budget investigation](../qa/ci-five-minute-budget-2026-11-02.md).
-The required aggregate check name is `test`. Fast tooling retains GNU
-signal/error/retry boundaries; the portable replay and
-repeated signal/exhaustion matrix run in the daily/manual workflow as extended
-functional tooling checks. Race detection is not part of the fast workflow.
+GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to every
+branch in the origin repository and on manual dispatch. Thus main and each
+internal PR head receive the full regular check set on macOS ARM64. External
+fork events do not execute on the personal runner; the reviewed import procedure
+and branch-head versus merge-ref distinction are documented in
+[Native Mac CI trial](ci-macos-trial.md). The required check name remains `test`.
+All non-race Go packages, gofmt, vet, native build, frontend build/lint/typecheck/
+full Vitest suite, fast tooling and whitespace checks remain. Bindings generate
+once before the frontend build; bounded Go/tooling/frontend lanes then run with
+independent logs, timings and fail-closed aggregation. The Linux regular workflow
+is a nonrunning rollback archive, not an automatic PR fallback. Native GUI,
+packaging and signing acceptance remain separate from these checks.
+Race detection and extended functional tooling are not part of regular CI.
 `.github/workflows/perf.yml` runs daily at 21:00 UTC and on
 manual dispatch. A scheduled run skips the perf and race jobs when the
 default branch is still at the last successful scheduled run; the first

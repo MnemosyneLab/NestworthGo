@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class NativeImageWorkflowTests(unittest.TestCase):
     def test_native_jobs_share_the_reviewed_image_and_node_consumers_use_verified_bindings(self):
-        workflow = (ROOT / '.github/workflows/check.yml').read_text()
+        workflow = (ROOT / '.github/workflow-archive/check-linux.yml.disabled').read_text()
         image = (ROOT / '.github/ci-native-image.txt').read_text().strip()
         self.assertTrue(image == '' or re.fullmatch(
             r'ghcr.io/mnemosynelab/nestworth-ci@sha256:[0-9a-f]{64}', image))
@@ -81,7 +81,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertLess(frontend.index("- name: Prepare pinned Wails CLI"), frontend.index("node scripts/ensure-bindings.mjs"))
 
     def test_cgo_cache_is_pinned_and_modules_are_shared(self):
-        workflow = (ROOT / '.github/workflows/check.yml').read_text()
+        workflow = (ROOT / '.github/workflow-archive/check-linux.yml.disabled').read_text()
         # Independent module/build caches replace setup-go's combined cache.
         # No restore prefix may cross the native-image boundary.
         self.assertEqual(workflow.count('        id: go\n'), 3)

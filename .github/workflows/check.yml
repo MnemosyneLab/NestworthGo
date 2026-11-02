@@ -1,564 +1,95 @@
 name: check
 
+# Every origin branch push covers its internal PR head; fork pushes cannot
+# trigger this repository workflow. Do not add a PR event that executes fork code.
+# Manual dispatch also requires repository write access.
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: ['**']
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Container run steps otherwise default to sh; Go shards require Bash arrays,
-# mapfile and process substitution on both the host and image paths.
 defaults:
   run:
     shell: bash
 
-# Stable in host and container jobs, so the module-only archive can
-# be reused across native images. Compiled artifacts stay in GOCACHE.
-env:
-  GOMODCACHE: /tmp/nestworth-ci-go-modules
-  GOCACHE: /tmp/nestworth-ci-go-build
-  GOTOOLCHAIN: local
-
 concurrency:
-  group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: check-macos-${{ github.ref }}
+  # Preserve an active trial when a follow-up commit queues another measurement.
+  cancel-in-progress: false
 
-# Wall clock is the slowest job. Race detection is daily in perf.yml.
-# Non-race Go tests are checksum shards so one package cannot hold the run.
-# The aggregate check name stays `test`.
+env:
+  GOTOOLCHAIN: local
+  MACOSX_DEPLOYMENT_TARGET: '27.0'
+  CGO_CFLAGS: '-O2 -g -mmacosx-version-min=27.0'
+  CGO_CXXFLAGS: '-O2 -g -mmacosx-version-min=27.0'
+  CGO_LDFLAGS: '-O2 -g -mmacosx-version-min=27.0'
+
 jobs:
-  runtime:
-    name: native CI runtime
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    outputs:
-      container: ${{ steps.image.outputs.container }}
-      preinstalled: ${{ steps.image.outputs.preinstalled }}
-      cache-day: ${{ steps.image.outputs.cache-day }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Resolve reviewed image or hosted-runner bootstrap
-        id: image
-        run: python3 tools/ci-native-container.py >> "$GITHUB_OUTPUT"
-
-  meta:
-    name: meta
-    runs-on: ubuntu-26.04
-    needs: runtime
-    # A runtime output avoids GitHub's rejection of a constant empty image.
-    # Activate only verified public native/toolchain digests in the pin files.
-    container: &native-ci ${{ fromJSON(needs.runtime.outputs.container) }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - name: Select preinstalled Go
-        if: needs.runtime.outputs.preinstalled == 'true'
-        env:
-          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
-        run: bash tools/ci-use-toolchain.sh activate-go
-      - uses: actions/setup-go@v7
-        if: needs.runtime.outputs.preinstalled != 'true'
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Verify selected Go version
-        id: go
-        env:
-          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
-        run: bash tools/ci-use-toolchain.sh verify-go
-      # Only module downloads cross image boundaries. Compiled CGO artifacts
-      # require the exact selected toolchain, reviewed pins and dependency lock.
-      - name: Cache Go modules
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ env.GOMODCACHE }}
-          key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
-      # Each owner saves its own complete build workload. On a new UTC day,
-      # restore only a fully compatible owner snapshot and refresh after success.
-      # No per-run/SHA keys: at most one snapshot per owner/ref/boundary/day.
-      - name: Cache image-specific Go build artifacts
-        id: go-build-cache
-        if: ${{ job.container.id }}
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ env.GOCACHE }}
-          key: go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-meta-${{ needs.runtime.outputs.cache-day }}
-          restore-keys: |
-            go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-meta-
-      - name: Install native Go build dependencies (bootstrap fallback)
-        if: ${{ !job.container.id }}
-        timeout-minutes: 17
-        run: bash tools/ci-install-native-deps.sh
-      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
-      # can install different C headers, so discard only compiled artifacts.
-      - name: Reset unpinned native build cache
-        if: ${{ !job.container.id }}
-        run: go clean -cache
-      - name: Verify native tools, user and cache permissions
-        run: bash build/ci/verify-native.sh --with-toolchains
-      - name: gofmt
-        run: test -z "$(gofmt -l cmd internal)"
-      - name: Go vet
-        run: go vet ./...
-      - name: Go build
-        run: go build ./cmd/nestworth
-      # Minimal CI images have no Node until setup-node runs. The Python
-      # BindingsCLITests suite would silently skip without it.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          package-manager-cache: false
-      - name: Validate user skill and installer
-        run: |
-          node --version
-          python3 tools/check-nestworth-skill.py
-          python3 tools/run-tooling-tests.py --tier fast
-      - name: Trailing whitespace
-        run: git diff --check
-
-  # Generate or restore bindings once. Pure Node consumers share this exact-run
-  # artifact; they need neither Go nor a native container. CLI cache misses are
-  # recorded separately from warm runtime so the five-minute target is auditable.
-  frontend-bindings:
-    name: frontend bindings
-    runs-on: ubuntu-26.04
-    needs: runtime
-    container: *native-ci
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - name: Select preinstalled Go
-        if: needs.runtime.outputs.preinstalled == 'true'
-        env:
-          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
-        run: bash tools/ci-use-toolchain.sh activate-go
-      - uses: actions/setup-go@v7
-        if: needs.runtime.outputs.preinstalled != 'true'
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Verify selected Go version
-        id: go
-        env:
-          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
-        run: bash tools/ci-use-toolchain.sh verify-go
-      # Only module downloads cross image boundaries. Compiled CGO artifacts
-      # require the exact selected toolchain, reviewed pins and dependency lock.
-      - name: Cache Go modules
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ env.GOMODCACHE }}
-          key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
-      # Each owner saves its own complete build workload. On a new UTC day,
-      # restore only a fully compatible owner snapshot and refresh after success.
-      # No per-run/SHA keys: at most one snapshot per owner/ref/boundary/day.
-      - name: Cache image-specific Go build artifacts
-        id: go-build-cache
-        if: ${{ job.container.id }}
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ env.GOCACHE }}
-          key: go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-bindings-${{ needs.runtime.outputs.cache-day }}
-          restore-keys: |
-            go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-bindings-
-      # The bindings guard needs Node built-ins, not pnpm dependencies.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          package-manager-cache: false
-      - name: Install native Go build dependencies (bootstrap fallback)
-        if: ${{ !job.container.id }}
-        timeout-minutes: 17
-        run: bash tools/ci-install-native-deps.sh
-      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
-      # can install different C headers, so discard only compiled artifacts.
-      - name: Reset unpinned native build cache
-        if: ${{ !job.container.id }}
-        run: go clean -cache
-      - name: Verify native tools, user and cache permissions
-        run: bash build/ci/verify-native.sh --with-toolchains
-      - name: Reuse Go build cache for Wails bindings
-        run: printf 'NESTWORTH_WAILS_GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
-      # Legacy native images may cache a CLI; toolchain images use /opt directly.
-      # Only the pinned image can safely reuse a compiled executable. The host
-      # fallback installs unpinned native packages and always builds its CLI.
-      - name: Cache pinned Wails CLI binary
-        id: wails-cli
-        continue-on-error: true
-        if: ${{ job.container.id && needs.runtime.outputs.preinstalled != 'true' }}
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: /tmp/nestworth-ci-wails
-          key: wails-cli-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}
-      - name: Prepare pinned Wails CLI
-        env:
-          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
-        run: bash tools/ci-use-toolchain.sh wails
-      # Exact input key only. Output content is independently validated after
-      # restore; a miss, unsupported input or damaged archive regenerates.
-      - name: Fingerprint bindings inputs
-        id: bindings-key
-        env:
-          NATIVE_IMAGE: ${{ job.container.id }}
-        run: |
-          key=disabled
-          if [ -n "$NATIVE_IMAGE" ]; then
-            key=$(python3 tools/bindings-cache.py key) || key=disabled
-          fi
-          if [[ ! "$key" =~ ^[0-9a-f]{64}$ ]]; then key=disabled; fi
-          echo "key=$key" >> "$GITHUB_OUTPUT"
-      - name: Cache generated bindings
-        if: steps.bindings-key.outputs.key != 'disabled'
-        id: bindings-cache
-        continue-on-error: true
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: /tmp/nestworth-ci-bindings
-          key: bindings-v1-${{ steps.bindings-key.outputs.key }}
-      - name: Validate cached bindings
-        id: bindings-restore
-        env:
-          INPUT_KEY: ${{ steps.bindings-key.outputs.key }}
-        run: |
-          if [ "$INPUT_KEY" != disabled ] && python3 tools/bindings-cache.py restore /tmp/nestworth-ci-bindings "$INPUT_KEY"; then
-            echo 'valid=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'valid=false' >> "$GITHUB_OUTPUT"
-          fi
-      - name: Generate Wails bindings
-        if: steps.bindings-restore.outputs.valid != 'true'
-        working-directory: frontend
-        run: node scripts/ensure-bindings.mjs
-      - name: Save generated bindings manifest
-        if: steps.bindings-restore.outputs.valid != 'true' && steps.bindings-key.outputs.key != 'disabled'
-        env:
-          INPUT_KEY: ${{ steps.bindings-key.outputs.key }}
-        run: python3 tools/bindings-cache.py save /tmp/nestworth-ci-bindings "$INPUT_KEY"
-      - name: Share verified bindings with frontend gates
-        uses: actions/upload-artifact@v7
-        with:
-          name: frontend-bindings-${{ github.sha }}
-          path: frontend/bindings/
-          overwrite: true
-          if-no-files-found: error
-          retention-days: 1
-
-  frontend-quality:
-    name: frontend quality
-    runs-on: ubuntu-26.04
-    needs: frontend-bindings
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          package-manager-cache: false
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 12.14.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
-      - name: Download verified Wails bindings
-        uses: actions/download-artifact@v8
-        with:
-          name: frontend-bindings-${{ github.sha }}
-          path: frontend/bindings
-      # The producer generated or validated an exact-input cached artifact.
-      # Consumers do not independently regenerate it.
-      - name: Frontend lint
-        working-directory: frontend
-        run: pnpm exec eslint .
-      - name: Frontend typecheck
-        working-directory: frontend
-        run: pnpm exec tsc --noEmit
-      - name: Frontend build
-        working-directory: frontend
-        run: pnpm exec vite build --mode production
-      - name: Trailing whitespace
-        run: git diff --check
-
-  frontend:
-    name: frontend (tests ${{ matrix.shard }}/${{ matrix.shards }})
-    runs-on: ubuntu-26.04
-    needs: frontend-bindings
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - shard: 1
-            shards: 4
-          - shard: 2
-            shards: 4
-          - shard: 3
-            shards: 4
-          - shard: 4
-            shards: 4
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          package-manager-cache: false
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 12.14.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
-      - name: Download verified Wails bindings
-        uses: actions/download-artifact@v8
-        with:
-          name: frontend-bindings-${{ github.sha }}
-          path: frontend/bindings
-      # The timing sequencer keeps HistoryPage isolated and balances the
-      # remaining files; unknown tests are assigned too, never filtered out.
-      - name: Frontend tests
-        working-directory: frontend
-        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }} --reporter=default --reporter=json --outputFile.json="$RUNNER_TEMP/frontend-results.json"
-      - name: Retain frontend test timings and failures
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: frontend-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/frontend-results.json
-          if-no-files-found: warn
-          retention-days: 7
-      - name: Trailing whitespace
-        run: git diff --check
-
-  # Run 41386006359 put application 2/2 + remainder on a 381s critical path.
-  # Keep the same application checksum halves and package coverage, but let
-  # remainder enumerate/compile/run independently instead of after application.
-  # MCP + sqlite and application 1/2 + continuousbackup retain their pairing.
-  go-shard:
-    name: go (${{ matrix.label }})
-    runs-on: ubuntu-26.04
-    needs: runtime
-    container: *native-ci
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: application 1/2 + continuousbackup
-            artifact: application-1-continuousbackup
-            selections: |
-              application 0 2
-              continuousbackup 0 1
-          - label: application 2/2
-            artifact: application-2
-            selections: |
-              application 1 2
-          - label: remaining packages
-            artifact: remainder
-            selections: |
-              remainder 0 1
-          - label: mcpserver + sqlite
-            artifact: mcpserver-sqlite
-            selections: |
-              mcpserver 0 1
-              sqlite 0 1
-    steps:
-      - uses: actions/checkout@v7
-      - name: Select preinstalled Go
-        if: needs.runtime.outputs.preinstalled == 'true'
-        env:
-          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
-        run: bash tools/ci-use-toolchain.sh activate-go
-      - uses: actions/setup-go@v7
-        if: needs.runtime.outputs.preinstalled != 'true'
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Verify selected Go version
-        id: go
-        env:
-          PREINSTALLED: ${{ needs.runtime.outputs.preinstalled }}
-        run: bash tools/ci-use-toolchain.sh verify-go
-      # Only module downloads cross image boundaries. Compiled CGO artifacts
-      # require the exact selected toolchain, reviewed pins and dependency lock.
-      - name: Cache Go modules
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ env.GOMODCACHE }}
-          key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
-      # Each owner saves its own complete build workload. On a new UTC day,
-      # restore only a fully compatible owner snapshot and refresh after success.
-      # No per-run/SHA keys: at most one snapshot per owner/ref/boundary/day.
-      - name: Cache image-specific Go build artifacts
-        id: go-build-cache
-        if: ${{ job.container.id }}
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: ${{ env.GOCACHE }}
-          key: go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-${{ matrix.artifact }}-${{ needs.runtime.outputs.cache-day }}
-          restore-keys: |
-            go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-${{ matrix.artifact }}-
-      - name: Install native Go build dependencies (bootstrap fallback)
-        if: ${{ !job.container.id }}
-        timeout-minutes: 17
-        run: bash tools/ci-install-native-deps.sh
-      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
-      # can install different C headers, so discard only compiled artifacts.
-      - name: Reset unpinned native build cache
-        if: ${{ !job.container.id }}
-        run: go clean -cache
-      - name: Verify native tools, user and cache permissions
-        run: bash build/ci/verify-native.sh --with-toolchains
-      - name: Go tests
-        run: |
-          set -euo pipefail
-          run_one() {
-          local shard="$1" part="$2" parts="$3"
-          local pkg_parallel=(-p 1)
-          local run_args=()
-          case "$shard" in
-            application)
-              pkgs=(./internal/application)
-              ;;
-            mcpserver)
-              pkgs=(./internal/mcpserver)
-              ;;
-            sqlite)
-              pkgs=(./internal/infrastructure/sqlite)
-              ;;
-            continuousbackup)
-              pkgs=(./internal/infrastructure/continuousbackup)
-              ;;
-            remainder)
-              pkg_parallel=(-p 2)
-              # Check enumeration before filtering; process substitution hides
-              # a failed go list and can silently drop packages.
-              go list ./... > "$RUNNER_TEMP/go-packages.txt"
-              mapfile -t pkgs < <(grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure/sqlite($|/)|infrastructure/continuousbackup($|/))' "$RUNNER_TEMP/go-packages.txt")
-              go list ./internal/infrastructure/... > "$RUNNER_TEMP/infrastructure-packages.txt"
-              covered=0
-              while IFS= read -r pkg || [ -n "$pkg" ]; do
-                case "$pkg" in
-                  */infrastructure/sqlite|*/infrastructure/sqlite/*|*/infrastructure/continuousbackup|*/infrastructure/continuousbackup/*)
-                    covered=$((covered + 1))
-                    ;;
-                  *)
-                    found=0
-                    for selected in "${pkgs[@]}"; do
-                      if [ "$selected" = "$pkg" ]; then
-                        found=1
-                        break
-                      fi
-                    done
-                    if [ "$found" -ne 1 ]; then
-                      echo "infrastructure package missing from remainder: $pkg" >&2
-                      exit 1
-                    fi
-                    ;;
-                esac
-              done < "$RUNNER_TEMP/infrastructure-packages.txt"
-              if [ "$covered" -lt 2 ]; then
-                echo "infrastructure partition does not cover go list" >&2
-                exit 1
-              fi
-              dedicated=0
-              while IFS= read -r pkg || [ -n "$pkg" ]; do
-                case "$pkg" in
-                  */internal/application|*/internal/mcpserver|*/infrastructure/sqlite|*/infrastructure/continuousbackup)
-                    dedicated=$((dedicated + 1))
-                    ;;
-                esac
-              done < "$RUNNER_TEMP/go-packages.txt"
-              if [ "$dedicated" -ne 4 ]; then
-                echo "go list does not contain exactly the four dedicated packages" >&2
-                exit 1
-              fi
-              ;;
-            *)
-              echo "unknown go shard: $shard" >&2
-              exit 1
-              ;;
-          esac
-          if [ "${#pkgs[@]}" -eq 0 ]; then
-            echo "go shard selected no packages" >&2
-            exit 1
-          fi
-          if [ "$parts" != "1" ]; then
-            if [ "${#pkgs[@]}" -ne 1 ]; then
-              echo "split go shard must list exactly one package" >&2
-              exit 1
-            fi
-            # Non-race list. A non-zero selector status fails the shard,
-            # including an empty part.
-            if ! regex=$(bash tools/race-shard-select.sh --enumerate "$part" "$parts" -- go test -count=1 -list . "${pkgs[0]}"); then
-              echo "go shard $shard part $part selector failed" >&2
-              exit 1
-            fi
-            if [ -z "$regex" ]; then
-              echo "go shard $shard part $part selector returned an empty regex" >&2
-              exit 1
-            fi
-            run_args=(-run "$regex")
-          fi
-          printf 'shard %s part %s/%s packages:\n' "$shard" "$((part + 1))" "$parts"
-          printf '  %s\n' "${pkgs[@]}"
-          go test -count=1 -json -timeout 20m "${pkg_parallel[@]}" "${run_args[@]}" "${pkgs[@]}" | tee -a "$RUNNER_TEMP/go-results.jsonl"
-          }
-          ran=0
-          while read -r shard part parts; do
-            if [ -z "${shard:-}" ]; then
-              continue
-            fi
-            ran=1
-            run_one "$shard" "$part" "$parts"
-          done <<< "${{ matrix.selections }}"
-          if [ "$ran" -ne 1 ]; then
-            echo "go shard ran no selections" >&2
-            exit 1
-          fi
-      - name: Retain Go test timings and failures
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: go-${{ matrix.artifact }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/go-results.jsonl
-          if-no-files-found: error
-          retention-days: 7
-
-  # Required check name. Fails closed unless every gate job succeeded.
   test:
     name: test
-    needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]
-    if: always()
-    runs-on: ubuntu-26.04
+    if: github.repository == 'MnemosyneLab/NestworthGo' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
     steps:
-      - name: Require every test gate
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
+      - name: Reuse pinned pnpm executable
+        run: bash tools/ci-macos-pnpm.sh
+      - name: Verify native environment and select persistent caches
+        run: python3 tools/ci-macos-environment.py
+      - name: Prepare pinned Wails CLI
         run: |
-          set -euo pipefail
-          results=(
-            "meta=${{ needs.meta.result }}"
-            "frontend-bindings=${{ needs.frontend-bindings.result }}"
-            "frontend-quality=${{ needs.frontend-quality.result }}"
-            "frontend=${{ needs.frontend.result }}"
-            "go-shard=${{ needs.go-shard.result }}"
-          )
-          printf '%s\n' "${results[@]}"
-          for item in "${results[@]}"; do
-            if [ "${item#*=}" != "success" ]; then
-              echo "test gate failed: $item" >&2
-              exit 1
-            fi
-          done
-          echo "all test gates passed"
+          read -r go_version wails_version <<< "$(python3 tools/ci-toolchain-versions.py)"
+          if [ ! -x "$GOBIN/wails3" ]; then
+            go install "github.com/wailsapp/wails/v3/cmd/wails3@$wails_version"
+          fi
+          test "$("$GOBIN/wails3" version 2>&1)" = "$wails_version"
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile --store-dir "$NESTWORTH_PNPM_STORE"
+      - name: Generate Wails bindings once
+        id: bindings
+        working-directory: frontend
+        run: node scripts/ensure-bindings.mjs
+      # Vite writes embedded files. Finish it before any Go reader starts.
+      - name: Frontend build
+        id: frontend-build
+        continue-on-error: true
+        working-directory: frontend
+        run: pnpm exec vite build --mode production
+      - name: Run independent correctness lanes
+        id: lanes
+        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
+        continue-on-error: true
+        run: python3 tools/ci-macos-gates.py
+      - name: Require every correctness gate
+        if: always()
+        env:
+          GATE_RESULTS: ${{ toJSON(steps) }}
+        run: python3 tools/ci-macos-results.py
+      - name: Retain environment, full test results and timings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/macos-environment.json
+            ${{ runner.temp }}/macos-gates.json
+            ${{ runner.temp }}/macos-gate-logs/
+            ${{ runner.temp }}/go-packages.txt
+            ${{ runner.temp }}/go-results.jsonl
+            ${{ runner.temp }}/frontend-results.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -32,7 +32,8 @@ class ToolingTierTests(unittest.TestCase):
     def test_extended_checks_keep_daily_manual_trigger_and_reviewed_image(self):
         perf = (ROOT / ".github/workflows/perf.yml").read_text()
         check = (ROOT / ".github/workflows/check.yml").read_text()
-        self.assertIn("python3 tools/run-tooling-tests.py --tier fast", check)
+        self.assertIn("python3 tools/ci-macos-gates.py", check)
+        self.assertIn("python3 tools/run-tooling-tests.py --tier fast", (ROOT / "tools/ci-macos-gates.py").read_text())
         self.assertIn("python3 tools/run-tooling-tests.py --tier extended", perf)
         self.assertIn("cron:", perf)
         self.assertIn("workflow_dispatch:", perf)
