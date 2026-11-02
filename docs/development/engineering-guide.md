@@ -187,10 +187,16 @@ depend on live network responses.
 GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to
 `main`, on pull requests, and on manual dispatch. Its gates are gofmt, binned
 non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
-build/lint/typecheck/test, and `git diff --check`. Go tests are three parallel
-jobs and Vitest is two shards, sized from measured whole-job times so each
-lands near 4–5 minutes. The required aggregate check name is `test`. Race detection is not part
-of that workflow. `.github/workflows/perf.yml` runs daily at 21:00 UTC and on
+build/lint/typecheck/test, and `git diff --check`. Go tests are four parallel
+jobs and Vitest is six shards with one shared bindings producer and a separate
+Node quality job. All frontend contracts stay in the fast gate; the timed
+partition and five-minute end-to-end acceptance status are recorded in
+[the CI budget investigation](../qa/ci-five-minute-budget-2026-11-02.md).
+The required aggregate check name is `test`. Fast tooling retains GNU
+signal/error/retry boundaries; the portable replay and
+repeated signal/exhaustion matrix run in the daily/manual workflow as extended
+functional tooling checks. Race detection is not part of the fast workflow.
+`.github/workflows/perf.yml` runs daily at 21:00 UTC and on
 manual dispatch. A scheduled run skips the perf and race jobs when the
 default branch is still at the last successful scheduled run; the first
 scheduled run and every manual dispatch execute them. Perf-tagged evidence

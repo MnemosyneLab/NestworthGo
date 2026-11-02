@@ -93,35 +93,19 @@ jobs:
         run: |
           node --version
           python3 tools/check-nestworth-skill.py
-          python3 -m unittest discover -s tools/tests -v
+          python3 tools/run-tooling-tests.py --tier fast
       - name: Trailing whitespace
         run: git diff --check
 
-  # Two copies of the bindings setup (~117s on run 39229083742) plus half
-  # of the 236s Vitest run. Lint and typecheck ride on shard 1; the
-  # production build rides on shard 2, so neither job repeats those steps.
-  frontend:
-    name: frontend (${{ matrix.label }})
+  # Generate/check bindings once. Pure Node consumers share this exact-run
+  # artifact; they need neither Go nor a native container. CLI cache misses are
+  # recorded separately from warm runtime so the five-minute target is auditable.
+  frontend-bindings:
+    name: frontend bindings
     runs-on: ubuntu-26.04
     needs: runtime
     container: *native-ci
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: tests 1/2
-            shard: 1
-            shards: 2
-            lint: true
-            typecheck: true
-            build: false
-          - label: tests 2/2
-            shard: 2
-            shards: 2
-            lint: false
-            typecheck: false
-            build: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -129,8 +113,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-          # setup-go hashes both files into its exact cache key. Never restore
-          # CGO build artifacts from another native image or the old key.
+          # Keep the shared native-image-fenced Go baseline. The Wails cache
+          # below overlays CLI inputs without discarding this warm baseline.
           cache-dependency-path: |
             go.sum
             .github/ci-native-image.txt
@@ -140,9 +124,66 @@ jobs:
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
-      # pnpm/action-setup invokes npm, which is absent in the native image.
-      # Bootstrap Node first; the second setup-node restores the existing pnpm
-      # cache after pnpm is available and reuses this installed Node toolchain.
+      # The guard uses Node built-ins only. It does not need pnpm or frontend
+      # dependencies; those are installed in the Node consumer jobs.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
+      - name: Install native Go build dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
+        timeout-minutes: 17
+        run: bash tools/ci-install-native-deps.sh
+      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
+      # can install different C headers, so discard only compiled artifacts.
+      - name: Reset unpinned native build cache
+        if: ${{ !job.container.id }}
+        run: go clean -cache
+      - name: Verify native tools, user and cache permissions
+        run: bash build/ci/verify-native.sh --with-toolchains
+      # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
+      # setup-go cache never reused the Wails compile (~70s median).
+      - name: Reuse Go build cache for Wails bindings
+        id: bindings-cache-paths
+        run: |
+          build_cache=$(go env GOCACHE)
+          printf 'NESTWORTH_WAILS_GOCACHE=%s\n' "$build_cache" >> "$GITHUB_ENV"
+          printf 'build=%s\n' "$build_cache" >> "$GITHUB_OUTPUT"
+      # Shared Go caches can hit while still lacking `go run wails3@v3.0.0`
+      # dependencies. Overlay a separately saved CLI cache; on its first miss
+      # keep the shared baseline rather than forcing a full native rebuild.
+      - name: Cache Wails CLI inputs
+        # An unpinned apt bootstrap must retain its post-install cache clean.
+        # Only the reviewed native image may restore compiled CGO artifacts.
+        if: ${{ job.container.id }}
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ${{ steps.bindings-cache-paths.outputs.build }}
+            ${{ env.GOMODCACHE }}
+          key: wails-bindings-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', 'frontend/scripts/ensure-bindings.mjs') }}
+      - name: Generate Wails bindings
+        working-directory: frontend
+        run: node scripts/ensure-bindings.mjs
+      - name: Verify generated Wails bindings
+        working-directory: frontend
+        run: node scripts/ensure-bindings.mjs --check
+      - name: Share verified bindings with frontend gates
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-bindings-${{ github.sha }}
+          path: frontend/bindings/
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 1
+
+  frontend-quality:
+    name: frontend quality
+    runs-on: ubuntu-26.04
+    needs: frontend-bindings
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24.22.0
@@ -155,52 +196,91 @@ jobs:
           node-version: 24.22.0
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-      - name: Install native Go build dependencies (bootstrap fallback)
-        if: ${{ !job.container.id }}
-        timeout-minutes: 17
-        run: bash tools/ci-install-native-deps.sh
-      # Apt is unpinned during bootstrap/host rollback. Even the same blank pin
-      # can install different C headers, so discard only compiled artifacts.
-      - name: Reset unpinned native build cache
-        if: ${{ !job.container.id }}
-        run: go clean -cache
-      - name: Verify native tools, user and cache permissions
-        run: bash build/ci/verify-native.sh --with-toolchains
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
-      # setup-go cache never reused the Wails compile (~70s median).
-      - name: Reuse Go build cache for Wails bindings
-        run: echo "NESTWORTH_WAILS_GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
-      - name: Generate Wails bindings
-        working-directory: frontend
-        run: pnpm run generate:bindings
-      - name: Verify generated Wails bindings
-        working-directory: frontend
-        run: pnpm run check:bindings
+      - name: Download verified Wails bindings
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-bindings-${{ github.sha }}
+          path: frontend/bindings
+      # The exact-run artifact was freshly generated and compared in the
+      # producer. Keep direct CI gates from regenerating it a third/fourth time.
       - name: Frontend lint
-        if: matrix.lint
         working-directory: frontend
-        run: pnpm run lint
+        run: pnpm exec eslint .
       - name: Frontend typecheck
-        if: matrix.typecheck
         working-directory: frontend
-        run: pnpm run typecheck
+        run: pnpm exec tsc --noEmit
       - name: Frontend build
-        if: matrix.build
         working-directory: frontend
-        run: pnpm run build
-      - name: Frontend tests
-        working-directory: frontend
-        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}
+        run: pnpm exec vite build --mode production
       - name: Trailing whitespace
         run: git diff --check
 
-  # Run 39229083742 Go test steps were 42–89s inside 85–164s jobs.
-  # Setup is ~45–75s, so three bins of ~200–220s of tests land near 4–5m.
-  # Application stays two checksum parts (the old 1+3 and 2+4 quarters).
-  # MCP and sqlite are whole packages. Each part is still selected once.
+  frontend:
+    name: frontend (tests ${{ matrix.shard }}/${{ matrix.shards }})
+    runs-on: ubuntu-26.04
+    needs: frontend-bindings
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            shards: 6
+          - shard: 2
+            shards: 6
+          - shard: 3
+            shards: 6
+          - shard: 4
+            shards: 6
+          - shard: 5
+            shards: 6
+          - shard: 6
+            shards: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Download verified Wails bindings
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-bindings-${{ github.sha }}
+          path: frontend/bindings
+      # The timing sequencer keeps HistoryPage isolated and balances the
+      # remaining files; unknown tests are assigned too, never filtered out.
+      - name: Frontend tests
+        working-directory: frontend
+        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }} --reporter=default --reporter=json --outputFile.json="$RUNNER_TEMP/frontend-results.json"
+      - name: Retain frontend test timings and failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/frontend-results.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Trailing whitespace
+        run: git diff --check
+
+  # Run 41386006359 put application 2/2 + remainder on a 381s critical path.
+  # Keep the same application checksum halves and package coverage, but let
+  # remainder enumerate/compile/run independently instead of after application.
+  # MCP + sqlite and application 1/2 + continuousbackup retain their pairing.
   go-shard:
     name: go (${{ matrix.label }})
     runs-on: ubuntu-26.04
@@ -216,10 +296,13 @@ jobs:
             selections: |
               application 0 2
               continuousbackup 0 1
-          - label: application 2/2 + remainder
-            artifact: application-2-remainder
+          - label: application 2/2
+            artifact: application-2
             selections: |
               application 1 2
+          - label: remaining packages
+            artifact: remainder
+            selections: |
               remainder 0 1
           - label: mcpserver + sqlite
             artifact: mcpserver-sqlite
@@ -374,7 +457,7 @@ jobs:
   # Required check name. Fails closed unless every gate job succeeded.
   test:
     name: test
-    needs: [meta, frontend, go-shard]
+    needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]
     if: always()
     runs-on: ubuntu-26.04
     steps:
@@ -383,6 +466,8 @@ jobs:
           set -euo pipefail
           results=(
             "meta=${{ needs.meta.result }}"
+            "frontend-bindings=${{ needs.frontend-bindings.result }}"
+            "frontend-quality=${{ needs.frontend-quality.result }}"
             "frontend=${{ needs.frontend.result }}"
             "go-shard=${{ needs.go-shard.result }}"
           )

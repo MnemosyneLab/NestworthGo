@@ -149,8 +149,17 @@ else:
                     self.assertEqual(sum(c['phase'] == phase for c in calls), 2)
                     self.assertIn('exit=' + ('124' if status == 'hang' else '137'), result.stdout)
 
+    def test_transient_exhaustion_preserves_last_exit_and_stops(self):
+        result, calls = self.run_install({'download': [[100, 'E: Failed to fetch https://example.invalid 503 Service Unavailable']]})
+        self.assertEqual(result.returncode, 100)
+        self.assertEqual([c['phase'] for c in calls], ['update', 'download', 'download'])
+        self.assertIn('synthetic-dpkg-audit', result.stdout)
+        self.assertIn('::error::', result.stdout)
+
     def test_exhaustion_preserves_last_exit_and_stops(self):
-        for status, output in ((100, 'E: Failed to fetch https://example.invalid 503 Service Unavailable'), ('hang', 'stall'), ('kill', 'stall')):
+        # Repeated real signal/exhaustion coverage belongs to the extended tier;
+        # fast checks retain transient exhaustion plus delayed TERM/KILL startup.
+        for status, output in (('hang', 'stall'), ('kill', 'stall')):
             with self.subTest(status=status):
                 result, calls = self.run_install({'download': [[status, output]]})
                 self.assertEqual(result.returncode, {'hang': 124, 'kill': 137}.get(status, status))
