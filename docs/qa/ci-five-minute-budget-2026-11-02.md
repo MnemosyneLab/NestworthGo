@@ -215,21 +215,28 @@ same-head hosted comparison captures queue, setup and aggregate job time.
 
 ### Generated bindings cache and independent comparison
 
-The reviewed native-image path fingerprints every tracked and nonignored
-untracked checkout file (names, modes and SHA-256), the pinned CLI bytes, Go
-and Node versions, and Go/build environment. This intentionally invalidates on
-presentation and documentation changes too: it does not assume the contract is
-confined to `internal/wailsapi` (the inventory includes implementation DTOs,
-registration, events, module files, generator scripts and configuration).
-Local module replacements, a workspace file, GOFLAGS, missing or symlinked
-inputs, unavailable tools, and the unpinned apt fallback disable reuse. CI uses
-a clean checkout; ignored files outside generated outputs must not be introduced
-as generation inputs. There are no prefix cache restores. A matching archive is
-accepted only if the manifest has the exact input key, generated file set,
-digests and required service marker. Missing, extra or changed files regenerate;
-an immutable corrupt cache entry may cause repeat misses until eviction. Cache
-errors also fall back. This is corruption detection, not authentication: like
-other Actions caches it trusts writers in the applicable GitHub cache scope.
+The reviewed native-image path fingerprints all tracked and nonignored Go
+files, Go module files, native source and headers, and conservative non-presentation
+project files, including generator scripts, frontend runtime package/lock files,
+CI configuration, registration and event code. It also asks `go list -deps` for
+actual Go embedded files and native sources, including matches inside otherwise
+excluded documentation and frontend trees. Source names, modes and SHA-256
+contents, the pinned CLI bytes, Go and Node versions, and the build environment
+form the exact key. Ordinary README, documentation and frontend presentation
+changes do not invalidate it unless Go embeds or compiles the file. All Go files
+remain included even in excluded directories. Changes to future embed directives
+are captured by both the Go source and the Go tool's resolved file list.
+
+Local module replacements, a workspace file, GOFLAGS, ignored Go/native inputs,
+missing or symlinked inputs, a failed Go package inventory, unavailable tools,
+and the unpinned apt fallback disable reuse. CI uses a clean checkout and does
+not install frontend dependencies in the bindings producer. There are no prefix
+cache restores. A matching archive is accepted only if the manifest has the exact
+input key, generated file set, digests and required service marker. Missing,
+extra or changed files regenerate; an immutable corrupt cache entry may cause
+repeat misses until eviction. Cache errors also fall back. This is corruption
+detection, not authentication: like other Actions caches it trusts writers in
+the applicable GitHub cache scope.
 
 A fresh generator result or validated exact-input hit feeds the same-run frontend
 artifact. A second independent generation and byte comparison remains required
@@ -239,8 +246,9 @@ workflow independently generates and compares even when the source is unchanged,
 and macOS release packaging compares after its frontend build. Routine
 presentation-only changes avoid the duplicate comparison; direct local
 `check:bindings` remains available. Cache reuse is not evidence of deployed
-behavior. On native Mac, one real input fingerprint took 0.31s, restored output took 0.06s, and an
-independent warm comparison took 1.89s; a deliberately corrupted entry was
+behavior. On native Mac, the earlier full-checkout fingerprint took 0.31s, restored output took 0.06s,
+and an independent warm comparison took 1.89s; a warm narrowed fingerprint
+including Go package/embed discovery took 0.71s in one separate sample; a deliberately corrupted entry was
 rejected and fresh warm generation took 1.64s. These measurements exclude
 archive transport, and do not predict hosted performance. The output cache is
 currently enabled only with the pinned native image. Its safety depends on

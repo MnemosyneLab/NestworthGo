@@ -2,6 +2,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -31,6 +32,7 @@ class BindingsCacheTests(unittest.TestCase):
         self.env = {'GOOS': 'linux', 'GOARCH': 'amd64', 'GOWORK': '', 'GOFLAGS': ''}
         self.module = {'Replace': []}
         self.go_version = 'go version go1.27.3 linux/amd64'
+        self.package_files = {}
         original = cache.command
         def command(*args, cwd=cache.ROOT):
             if args[:3] == ('go', 'env', '-json'):
@@ -39,6 +41,8 @@ class BindingsCacheTests(unittest.TestCase):
                 return json.dumps(self.module).encode()
             if args[:2] == ('go', 'version'):
                 return self.go_version.encode()
+            if args[:2] == ('go', 'list'):
+                return json.dumps({'Dir': str(self.root.resolve()), **self.package_files}).encode()
             if args[:2] == ('node', '--version'):
                 return b'v24.22.0'
             return original(*args, cwd=cwd)
@@ -77,6 +81,41 @@ class BindingsCacheTests(unittest.TestCase):
         source.unlink()
         with self.assertRaises(ValueError): cache.input_key(self.root)
 
+    def test_presentation_changes_reuse_but_embeds_and_inputs_invalidate(self):
+        ui = self.root / 'frontend/src/App.tsx'; ui.parent.mkdir(parents=True)
+        ui.write_text('before')
+        docs = self.root / 'docs/readme.md'; docs.parent.mkdir(parents=True)
+        docs.write_text('before')
+        readme = self.root / 'README.md'; readme.write_text('before')
+        initial = cache.input_key(self.root)
+        ui.write_text('after'); docs.write_text('after'); readme.write_text('after')
+        (self.root / 'frontend/src/New.tsx').write_text('new')
+        self.assertEqual(initial, cache.input_key(self.root))
+        ui.unlink(); docs.unlink(); readme.unlink()
+        self.assertEqual(initial, cache.input_key(self.root))
+        ui.write_text('embedded')
+        self.package_files['EmbedFiles'] = ['frontend/src/App.tsx']
+        embedded = cache.input_key(self.root)
+        self.assertNotEqual(initial, embedded)
+        ui.write_text('changed embedded bytes')
+        self.assertNotEqual(embedded, cache.input_key(self.root))
+        added = self.root / 'frontend/src/new.go'; added.write_text('package test')
+        self.assertNotEqual(embedded, cache.input_key(self.root))
+        added.unlink()
+        header = self.root / 'docs/nested/header.h'; header.parent.mkdir(parents=True)
+        header.write_text('header')
+        before_header = cache.input_key(self.root)
+        header.write_text('changed header')
+        self.assertNotEqual(before_header, cache.input_key(self.root))
+        config = self.root / 'frontend/package.json'; config.write_text('{}')
+        before_config = cache.input_key(self.root)
+        config.write_text('{"changed":true}')
+        self.assertNotEqual(before_config, cache.input_key(self.root))
+
+    def test_list_failure_disables_input_key(self):
+        with patch.object(cache, 'package_source_files', side_effect=subprocess.CalledProcessError(1, 'go')):
+            with self.assertRaises(subprocess.CalledProcessError): cache.input_key(self.root)
+
     def test_unsupported_inputs_disable_reuse(self):
         for field, value in [('GOWORK', '/outside/go.work'), ('GOFLAGS', '-tags=custom')]:
             self.env[field] = value
@@ -114,6 +153,26 @@ class BindingsCacheTests(unittest.TestCase):
         for path in ['internal/wailsapi/app.go', 'frontend/src/new.go', 'go.mod',
                      'frontend/scripts/ensure-bindings.mjs', 'frontend/package.json', '.github/workflows/check.yml', 'docs/new.go']:
             with self.subTest(path=path): self.assertTrue(gate.requires_comparison([path]))
+
+
+@unittest.skipUnless(shutil.which('go'), 'Go is required for the embed inventory test')
+class GoEmbedInventoryTests(unittest.TestCase):
+    def test_real_go_tool_resolves_embed_glob_and_changes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'go.mod').write_text('module example.com/cachefixture\ngo 1.23\n')
+            (root / 'fixture.go').write_text(
+                'package fixture\nimport "embed"\n//go:embed frontend/src/assets/*.txt\nvar Assets embed.FS\n')
+            assets = root / 'frontend/src/assets'; assets.mkdir(parents=True)
+            one = assets / 'one.txt'; one.write_text('one')
+            two = assets / 'two.txt'; two.write_text('two')
+            with patch.dict('os.environ', {'GOWORK': 'off', 'GOFLAGS': ''}):
+                self.assertEqual(cache.package_source_files(root),
+                                 {'frontend/src/assets/one.txt', 'frontend/src/assets/two.txt'})
+                two.unlink()
+                self.assertEqual(cache.package_source_files(root), {'frontend/src/assets/one.txt'})
+                one.unlink()
+                with self.assertRaises(subprocess.CalledProcessError): cache.package_source_files(root)
 
 
 class BindingsTierTests(unittest.TestCase):
