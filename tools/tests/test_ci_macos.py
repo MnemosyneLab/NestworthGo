@@ -73,12 +73,12 @@ class MacCI(unittest.TestCase):
         self.assertNotIn('pull_request_target:', mac)
         self.assertIn("branches: ['**']", mac)
 
-    def test_three_worker_experiment_is_bounded_and_low_memory_serializes(self):
+    def test_increased_frontend_and_go_parallelism_preserves_smaller_host_limits(self):
         budget = load('ci-macos-environment').lane_budget
         high = budget(8, 16 * 1024**3)
         self.assertEqual(high['lanes'], 3)
-        self.assertEqual(high, dict(lanes=3, go_parallel=2, gomaxprocs=2, frontend_workers=3))
-        self.assertLessEqual(high['go_parallel'] * high['gomaxprocs'] + high['frontend_workers'] + 1, 8)
+        self.assertEqual(high, dict(lanes=3, go_parallel=3, gomaxprocs=2, frontend_workers=4))
+        self.assertEqual(high['go_parallel'] * high['gomaxprocs'] + high['frontend_workers'] + 1, 11)
         self.assertEqual(budget(8, 8 * 1024**3)['frontend_workers'], 2)
         self.assertEqual(budget(4, 32 * 1024**3)['frontend_workers'], 2)
         self.assertEqual(budget(8, 8 * 1024**3)['lanes'], 1)

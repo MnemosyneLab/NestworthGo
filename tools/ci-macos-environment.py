@@ -20,11 +20,11 @@ def limits(cpus, memory):
 
 def lane_budget(cpus, memory):
     if cpus >= 8 and memory >= 16 * 1024**3:
-        # Bounded experiment: 2 Go package processes * 2 Go threads, 3 jsdom
-        # workers and one tooling lane: eight worker CPU slots. No reserved
-        # CPU slot on the measured eight-CPU host; observe contention/RAM.
+        # Bounded experiment: 3 Go package processes * 2 Go threads, 4 jsdom
+        # workers and one tooling lane: eleven worker CPU slots on the
+        # measured eight-CPU host; observe oversubscription and RAM pressure.
         # These are concurrency bounds, not OS quotas or measured peak RSS.
-        return dict(lanes=3, go_parallel=2, gomaxprocs=2, frontend_workers=3)
+        return dict(lanes=3, go_parallel=3, gomaxprocs=2, frontend_workers=4)
     slots, workers = limits(cpus, memory)
     return dict(lanes=1, go_parallel=slots, gomaxprocs=slots, frontend_workers=workers)
 

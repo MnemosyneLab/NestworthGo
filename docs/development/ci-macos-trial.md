@@ -76,15 +76,15 @@ Bindings and the Vite production build complete before parallel checks, so Go
 embed readers never race frontend output writes. On hosts with at least eight
 logical CPUs and 16 GiB RAM, three sequential lanes overlap:
 
-- Go: formatting, full tests, vet, native build; package parallelism two and
-  GOMAXPROCS two (up to four Go worker threads across package processes).
+- Go: formatting, full tests, vet, native build; package parallelism three and
+  GOMAXPROCS two (up to six Go worker threads across package processes).
 - Tooling: unchanged fast tier and skill validation, then whitespace checking.
-- Frontend: lint, typecheck, then the full suite with three jsdom workers
+- Frontend: lint, typecheck, then the full suite with four jsdom workers
   in the bounded experiment on this resource-eligible tier.
 
-The experimental worker budget is eight CPU slots (four Go, three frontend, one
-tooling), with no reserved CPU slot on the measured eight-CPU host. The previous
-two-worker frontend memory allowance does not establish three-worker peak RSS;
+The experimental worker budget is eleven CPU slots (six Go, four frontend, one
+tooling), oversubscribing the measured eight-CPU host. Prior memory allowances
+do not establish this configuration's peak RSS;
 watch for contention and memory pressure. These are concurrency limits, not
 OS-enforced quotas or measured peak RSS claims. Smaller
 hosts serialize lanes and retain the previous resource-based individual limits.
@@ -142,3 +142,14 @@ Mac-only triggers stay unchanged; smaller hosts retain their previous limits.
 Compare full coverage, gate timings and job elapsed time against this baseline.
 Three workers are not assumed faster; failures or resource pressure call for
 reverting this parameter, not relaxing test timeouts.
+
+### Four frontend workers / three Go packages experiment
+
+The same-head three-worker rerun `41459520056`, attempt 2, completed in 210 s
+with background service and action archive caches active (setup 4 s). Frontend
+tests 119.021 s, Go tests 123.05 s, tooling 115.089 s, frontend lint 16.982 s and
+typecheck 9.91 s form the next comparison baseline at `0e73e46`.
+The requested next trial changes only eligible-tier frontend workers 3 to 4 and
+Go package parallelism 2 to 3. GOMAXPROCS remains 2; smaller-host limits, coverage,
+assertions, timeouts, runner service and caches remain unchanged. Compare actual
+full-run correctness and timing before deciding whether to retain these settings.
