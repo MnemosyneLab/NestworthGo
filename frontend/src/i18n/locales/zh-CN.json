@@ -2073,6 +2073,27 @@
     "holdingsScopeNote": "展示未归档账户中的当前持仓（包括零数量）。金额使用标的币种，缺失数值保持不可用。"
   },
   "mobile": {
+    "tagline": "随身的家庭账本。",
+    "stepPair": "配对此设备",
+    "noHoldings": "此账户暂无持仓。",
+    "valuationEvidence": "估值来源",
+    "showValues": "查看数值",
+    "filters": "筛选",
+    "clearFilters": "清除筛选",
+    "allTypes": "全部类型",
+    "noAccounts": "没有符合筛选条件的账户。",
+    "liability": "负债",
+    "timezone": "账本时区",
+    "server": "服务器",
+    "settings": "设置",
+    "mainNavigation": "主导航",
+    "connectionState": {
+      "connected": "已连接",
+      "offline": "离线",
+      "reconnecting": "正在重新连接…",
+      "attention": "请检查连接"
+    },
+    "dismiss": "关闭",
     "realizedGain": "已实现收益",
     "forgetRecovery": "舍弃恢复信息",
     "forgetHelp": "请先在桌面核实原操作。这只移除当前浏览器的恢复标识，不会保存、撤销或重放任何操作。",

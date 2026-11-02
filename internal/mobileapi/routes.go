@@ -87,7 +87,7 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request) {
 	name := "mobile.html"
 	if r.URL.Path != "/" && r.URL.Path != "/mobile.html" {
 		name = strings.TrimPrefix(r.URL.Path, "/")
-		if !strings.HasPrefix(name, "assets/") || !fs.ValidPath(name) || (path.Ext(name) != ".js" && path.Ext(name) != ".css" && path.Ext(name) != ".woff2") {
+		if !strings.HasPrefix(name, "assets/") || !fs.ValidPath(name) || (path.Ext(name) != ".js" && path.Ext(name) != ".css" && path.Ext(name) != ".woff2" && path.Ext(name) != ".png") {
 			http.NotFound(w, r)
 			return
 		}

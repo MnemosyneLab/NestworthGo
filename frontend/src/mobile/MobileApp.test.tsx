@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -94,9 +94,21 @@ beforeEach(async () => {
               liabilities: { total: { amount: "0", currency: "CNY" } },
             },
             complete: true,
-            trend: [],
+            currency: "CNY",
+            trend: [
+              {
+                date: "2026-10-29",
+                valuation: { total: { amount: "90", currency: "CNY" } },
+              },
+              {
+                date: "2026-10-30",
+                valuation: { total: { amount: "100", currency: "CNY" } },
+              },
+            ],
             recent: [],
-            distribution: [],
+            distribution: [
+              { key: "cash", label: "cash", amount: "100", shareBps: 10000 },
+            ],
           }),
         );
       if (route.startsWith("/accounts?"))
@@ -276,6 +288,48 @@ describe("mobile financial interruption flow", () => {
     );
   });
 
+  it("shows server shares and keeps exact trend values accessible behind the sparkline", async () => {
+    const user = userEvent.setup();
+    mount();
+    expect(await screen.findByText("100.0%")).toBeInTheDocument();
+    await user.click(screen.getByText("Show values"));
+    expect(screen.getByText("CN¥90.00")).toBeVisible();
+    const range = screen.getByRole("group", { name: "Net worth history" });
+    await user.click(within(range).getByRole("button", { name: "One year" }));
+    expect(
+      within(range).getByRole("button", { name: "One year" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() =>
+      expect(
+        vi.mocked(fetch).mock.calls.some(([url]) =>
+          String(url).includes("/overview?range=1y"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("keeps preferences and connection controls in the settings panel and marks the current tab", async () => {
+    const user = userEvent.setup();
+    mount();
+    await screen.findByText("SYNTHETIC MOBILE TEST");
+    expect(
+      screen.queryByRole("button", { name: "Sign out" }),
+    ).not.toBeInTheDocument();
+    const settings = screen.getByRole("button", { name: "Settings" });
+    expect(settings).toHaveAttribute("aria-expanded", "false");
+    await user.click(settings);
+    expect(settings).toHaveAttribute("aria-expanded", "true");
+    const panel = screen.getByRole("region", { name: "Settings" });
+    expect(within(panel).getByRole("combobox", { name: "Language" })).toBeInTheDocument();
+    expect(within(panel).getByRole("combobox", { name: "Theme" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Sign out" })).toBeEnabled();
+    const nav = screen.getByRole("navigation", { name: "Main navigation" });
+    expect(within(nav).getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+    await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+    expect(within(nav).getByRole("button", { name: "Accounts" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("button", { name: "Overview" })).not.toHaveAttribute("aria-current");
+  });
+
   it("renders a healthy empty report without losing the application", async () => {
     healthy = true;
     const user = userEvent.setup();
@@ -407,6 +461,7 @@ it("releases a proven stale review without losing the draft and guards navigatio
   const user = userEvent.setup();
   mount();
   await fillRecord(user);
+  await user.click(screen.getByRole("button", { name: "Settings" }));
   expect(
     screen.getByRole("button", { name: "Connection settings" }),
   ).toBeDisabled();
@@ -566,6 +621,7 @@ it("cancels pairing and ignores a delayed response without storing its token", a
 
 async function prepareServerSwitch(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText("SYNTHETIC MOBILE TEST");
+  await user.click(screen.getByRole("button", { name: "Settings" }));
   await user.click(screen.getByRole("button", { name: "Connection settings" }));
   await user.type(
     screen.getByLabelText("Backend HTTPS address"),
