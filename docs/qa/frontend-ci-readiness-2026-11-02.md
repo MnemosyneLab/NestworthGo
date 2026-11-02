@@ -1,5 +1,8 @@
 # Frontend CI readiness investigation (2026-11-02)
 
+The subsequent hosted result and revised five-minute CI layout are recorded in
+[the CI budget follow-up](ci-five-minute-budget-2026-11-02.md).
+
 ## Scope and evidence
 
 Baseline: `5046e32c456160e7b33d8dea3086cb2203860d51` on main. The

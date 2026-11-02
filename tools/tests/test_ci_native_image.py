@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class NativeImageWorkflowTests(unittest.TestCase):
-    def test_bootstrap_or_immutable_digest_is_shared_by_all_six_jobs(self):
+    def test_native_jobs_share_the_reviewed_image_and_node_consumers_use_verified_bindings(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()
         image = (ROOT / '.github/ci-native-image.txt').read_text().strip()
         self.assertTrue(image == '' or re.fullmatch(
@@ -24,20 +24,32 @@ class NativeImageWorkflowTests(unittest.TestCase):
         # Keep action-managed caches, all test shards and native checks intact.
         self.assertEqual(workflow.count('cache-dependency-path: |\n            go.sum\n            .github/ci-native-image.txt'), 3)
         self.assertIn('cache: pnpm', workflow)
-        self.assertIn('NESTWORTH_WAILS_GOCACHE=$(go env GOCACHE)', workflow)
+        self.assertIn('NESTWORTH_WAILS_GOCACHE=%s', workflow)
         for gate in ('go vet ./...', 'go build ./cmd/nestworth', 'go test -count=1 -json',
                      'pnpm run generate:bindings', 'pnpm run check:bindings',
-                     'pnpm run lint', 'pnpm run typecheck', 'pnpm run build',
-                     'pnpm exec vitest run --shard=', 'needs: [meta, frontend, go-shard]'):
+                     'pnpm exec eslint .', 'pnpm exec tsc --noEmit', 'pnpm exec vite build --mode production',
+                     'pnpm exec vitest run --shard=', 'needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]'):
             self.assertIn(gate, workflow)
-        frontend = workflow.split('  frontend:', 1)[1].split('  go-shard:', 1)[0]
+        frontend = workflow.split('  frontend-bindings:', 1)[1].split('  frontend-quality:', 1)[0]
         self.assertLess(frontend.index('actions/setup-node@v7'), frontend.index('pnpm/action-setup@v6'))
         self.assertLess(frontend.index('pnpm/action-setup@v6'), frontend.index('cache: pnpm'))
-        meta = workflow.split('  frontend:', 1)[0]
+        meta = workflow.split('  frontend-bindings:', 1)[0]
         self.assertIn('actions/setup-node@v7', meta)
         self.assertIn('node-version: 24.22.0', meta)
         self.assertIn('node --version\n', meta)
-        self.assertLess(meta.index('node --version'), meta.index('python3 -m unittest'))
+        self.assertLess(meta.index('node --version'), meta.index('python3 tools/run-tooling-tests.py'))
+        for job, end in (("frontend-quality", "frontend"), ("frontend", "go-shard")):
+            consumer = workflow.split("\n  " + job + ":", 1)[1].split("\n  " + end + ":", 1)[0]
+            self.assertIn("needs: frontend-bindings", consumer)
+            self.assertIn("actions/download-artifact@v8", consumer)
+            self.assertIn("name: frontend-bindings-${{ github.sha }}", consumer)
+            self.assertIn("path: frontend/bindings", consumer)
+            self.assertNotIn("actions/setup-go", consumer)
+            self.assertNotIn("container:", consumer)
+            self.assertNotIn("generate:bindings", consumer)
+        self.assertIn("frontend/scripts/ensure-bindings.mjs", frontend)
+        self.assertIn("if-no-files-found: error", frontend)
+        self.assertIn("overwrite: true", frontend)
 
     def test_cgo_cache_is_pinned_and_modules_are_shared(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()
@@ -54,7 +66,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertEqual(workflow.count('name: Reset unpinned native build cache\n        if: ${{ !job.container.id }}\n        run: go clean -cache'), 3)
         # Cleanup must follow apt and precede any native compilation, bindings,
         # or verification, in every job definition (including both matrices).
-        for job, end in (('meta', 'frontend'), ('frontend', 'go-shard'), ('go-shard', 'test')):
+        for job, end in (('meta', 'frontend-bindings'), ('frontend-bindings', 'frontend-quality'), ('go-shard', 'test')):
             section = workflow.split('\n  ' + job + ':', 1)[1].split('\n  ' + end + ':', 1)[0]
             self.assertLess(section.index('bash tools/ci-install-native-deps.sh'), section.index('go clean -cache'))
             self.assertLess(section.index('go clean -cache'), section.index('bash build/ci/verify-native.sh'))

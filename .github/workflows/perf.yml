@@ -42,6 +42,7 @@ jobs:
       contents: read
     outputs:
       should_run: ${{ steps.decide.outputs.should_run }}
+      container: ${{ steps.image.outputs.container }}
     steps:
       - uses: actions/checkout@v7
       - name: Compare the default branch with the last successful scheduled run
@@ -89,6 +90,30 @@ jobs:
               ;;
           esac
           printf '%s\n' "$decision" >> "$GITHUB_OUTPUT"
+      - name: Resolve reviewed image or hosted-runner bootstrap
+        id: image
+        run: python3 tools/ci-native-container.py >> "$GITHUB_OUTPUT"
+
+  # Functional tooling coverage, not a performance benchmark: the portable
+  # timeout replay and repeated TERM/KILL/exhaustion matrix complement fast
+  # per-PR GNU signal/classification checks. No application tests move here.
+  tooling-extended:
+    name: tooling extended
+    permissions:
+      contents: read
+    needs: changes
+    if: needs.changes.result == 'success' && needs.changes.outputs.should_run == 'true'
+    runs-on: ubuntu-26.04
+    container: ${{ fromJSON(needs.changes.outputs.container) }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install native dependencies (bootstrap fallback)
+        if: ${{ !job.container.id }}
+        timeout-minutes: 17
+        run: bash tools/ci-install-native-deps.sh
+      - name: Extended tooling regression matrix
+        run: python3 tools/run-tooling-tests.py --tier extended
 
   perf:
     name: perf (${{ matrix.label }})

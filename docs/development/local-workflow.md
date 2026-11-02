@@ -207,9 +207,16 @@ application and MCP, and `-p 1` on the heavy shards; each race job has a
 30-minute outer bound including setup. Pull-request `check` bins non-race
 tests into three jobs from measured whole-job times: application in two
 checksum parts, paired with continuous backup and the remainder, plus one
-job for MCP and sqlite. Vitest runs as `--shard=1/2` and `--shard=2/2`,
-with lint/typecheck on the first shard and the production build on the
-second. Sequential
+job for MCP and sqlite. Vitest runs as five shards using hosted timing weights,
+with HistoryPage isolated and every new test included. One native producer
+generates/checks bindings; Node consumers share that exact-run artifact. A
+separate quality job preserves ESLint, one TypeScript check and the production
+Vite build without regenerating bindings. Locale coverage runs once in the full
+test suite. Fast tooling keeps GNU signals and failure boundaries; the complete
+portable replay and repeated signal/exhaustion matrix use `--tier extended` in
+the existing daily/manual perf workflow. Full local/release unittest discovery
+still runs both tiers. See the [inventory and hosted timing evidence](../qa/ci-five-minute-budget-2026-11-02.md).
+Sequential
 fault-injection and performance tests remain sequential. Matrix regression
 checks require every part exactly once and a complete, disjoint name union.
 There are no automatic test retries. Seven-day
