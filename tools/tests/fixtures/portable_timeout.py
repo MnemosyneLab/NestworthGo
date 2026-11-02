@@ -22,7 +22,35 @@ def main():
     parser.add_argument('budget', type=seconds)
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    process = subprocess.Popen(args.command, start_new_session=True)
+    def cancelled(signum, frame):
+        # The command is in a separate session; killing only this fixture's
+        # group would orphan it. Forward TERM and reap before the outer CI
+        # scheduler's longer grace expires. Ignore repeat cancellation here.
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, signal.SIG_IGN)
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        grace = min(1.0, float(os.environ.get('NESTWORTH_CI_CANCEL_GRACE', '2')) / 2)
+        try:
+            process.wait(timeout=grace)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
+        raise SystemExit(128 + signum)
+
+    # Do not leave a spawn-to-handler window with an unowned detached child.
+    signals = {signal.SIGTERM, signal.SIGINT}
+    old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, signals)
+    process = subprocess.Popen(args.command, start_new_session=True,
+                               preexec_fn=lambda: signal.pthread_sigmask(signal.SIG_SETMASK, old_mask))
+    for sig in signals:
+        signal.signal(sig, cancelled)
+    signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
     try:
         status = process.wait(timeout=args.budget)
         return status if status >= 0 else 128 - status

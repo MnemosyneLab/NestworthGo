@@ -76,7 +76,11 @@ Tooling's bindings fixtures use temporary copies, never the shared generated tre
 Each gate records its exit code, outcome, seconds and separate complete log under
 `macos-gate-logs/`. Console START/END messages expose progress; completed logs print
 in separate GitHub groups. Failure does not suppress later independent checks.
-Cancellation kills each active process group and prevents later gates starting.
+Cancellation forwards TERM to each owned gate group before bounded KILL escalation
+and prevents later gates starting. Nested schedulers inherit a shorter grace
+budget; the portable timeout fixture forwards cancellation to its separately
+created session and reaps it before the enclosing owner escalates. No unrelated
+host processes are enumerated or signalled.
 The final aggregate rejects missing, failed or cancelled gates and rechecks the
 complete Go package population. No test timeout or assertion is changed.
 
@@ -101,3 +105,10 @@ still spent 87 s preparing its temporary executable. This motivates persistent
 pnpm bootstrap plus independent lanes; improved-run results remain to be measured.
 The two heads differ in trigger/docs/tooling checks, so these are diagnostic
 observations, not a controlled identical-head speedup claim.
+
+The bounded-lane/persistent-pnpm revision at `2e34cd4` passed native run
+`41454190925` in 269 seconds (job `125306594368`, 13:34:53–13:39:22 UTC),
+with hosted Linux PR run `41454199555` also passing. This is one observed full
+run, not a percentile or guaranteed budget. The subsequent cancellation-only
+correction requires its own exact-head CI result; it does not change gate commands,
+worker budgets, assertions or test timeouts.

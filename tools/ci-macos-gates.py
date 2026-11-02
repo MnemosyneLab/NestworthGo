@@ -34,21 +34,46 @@ LANES = (
 )
 
 
+def terminate_group(process, grace):
+    """Forward cancellation before escalation so nested owners can reap sessions."""
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        process.wait()
+        return
+    deadline = time.monotonic() + grace
+    remaining = True
+    while time.monotonic() < deadline:
+        process.poll()
+        try:
+            os.killpg(process.pid, 0)
+        except ProcessLookupError:
+            remaining = False
+            break
+        time.sleep(.02)
+    if remaining:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    process.wait()
+
+
 def run_lanes(lanes, root, output, workers):
     output.mkdir(parents=True, exist_ok=True)
     stopped = threading.Event()
     lock = threading.Lock()
-    active = set()
+    # Nested schedulers inherit a strictly shorter cleanup budget. Fixtures
+    # forward TERM to their separately created sessions and finish before their
+    # enclosing owner escalates. No host process discovery or broad pkill.
+    grace = min(4.0, float(os.environ.get('NESTWORTH_CI_CANCEL_GRACE', '4')))
+    child_env = dict(os.environ, NESTWORTH_CI_CANCEL_GRACE=str(grace / 2))
     results = {}
 
     def stop(signum, frame):
+        # Only mark cancellation in the signal handler. Each owning worker
+        # performs bounded cleanup; repeated signals cannot interrupt cleanup.
         stopped.set()
-        with lock:
-            for pid in active:
-                try:
-                    os.killpg(pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
 
     previous = {sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGINT)}
 
@@ -64,12 +89,13 @@ def run_lanes(lanes, root, output, workers):
                         break
                     process = subprocess.Popen(['bash', '-e', '-o', 'pipefail', '-c', command],
                                                cwd=root / cwd, stdout=log, stderr=subprocess.STDOUT,
-                                               start_new_session=True)
-                    active.add(process.pid)
+                                               start_new_session=True, env=child_env)
+                while process.poll() is None and not stopped.wait(.05):
+                    pass
+                if stopped.is_set():
+                    terminate_group(process, grace)
                 code = process.wait()
-                with lock:
-                    active.discard(process.pid)
-            result = dict(outcome='success' if code == 0 else 'failure',
+            result = dict(outcome='cancelled' if stopped.is_set() else ('success' if code == 0 else 'failure'),
                           exit_code=code, seconds=round(time.monotonic() - start, 3))
             with lock:
                 results[name] = result
@@ -79,8 +105,12 @@ def run_lanes(lanes, root, output, workers):
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(lane, gates) for gates in lanes]
-            for future in futures:
-                future.result()
+            try:
+                for future in futures:
+                    future.result()
+            except BaseException:
+                stopped.set()
+                raise
     finally:
         stop(None, None)
         for sig, handler in previous.items():

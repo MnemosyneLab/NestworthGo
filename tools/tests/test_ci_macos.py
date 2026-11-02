@@ -9,6 +9,7 @@ import subprocess
 import os
 import sys
 import signal
+import shlex
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -157,3 +158,53 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
                 (root / 'macos-gate-logs/results.json').write_text(json.dumps(results))
                 result = subprocess.run([sys.executable, str(ROOT / 'tools/ci-macos-results.py')], env=env, capture_output=True)
                 self.assertEqual(result.returncode, 0 if variant == 'success' else 1)
+
+    def test_cancellation_reaps_nested_scheduler_and_portable_timeout_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            child = root / 'detached.py'
+            child.write_text("import os, signal, time\nfrom pathlib import Path\n"
+                             "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+                             "Path('detached.pid').write_text(str(os.getpid()))\ntime.sleep(60)\n")
+            leaf = ' '.join(map(shlex.quote, [sys.executable,
+                str(ROOT / 'tools/tests/fixtures/portable_timeout.py'), '-k', '1s', '60s',
+                sys.executable, str(child)]))
+            def scheduler(gates, logs):
+                return ("import importlib.util\nfrom pathlib import Path\n"
+                        f"s=importlib.util.spec_from_file_location('gates', {str(ROOT / 'tools/ci-macos-gates.py')!r})\n"
+                        "m=importlib.util.module_from_spec(s); s.loader.exec_module(m)\n"
+                        f"m.run_lanes({gates!r}, Path({directory!r}), Path({str(root / logs)!r}), 1)\n")
+            inner = root / 'inner.py'
+            inner.write_text(scheduler(((('leaf', leaf, '.'),),), 'inner-logs'))
+            outer = root / 'outer.py'
+            command = shlex.quote(sys.executable) + ' ' + shlex.quote(str(inner))
+            outer.write_text(scheduler(((('nested', command, '.'), ('after', 'touch after', '.')),), 'outer-logs'))
+            unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+            process = subprocess.Popen([sys.executable, str(outer)], stdout=subprocess.DEVNULL, start_new_session=True)
+            detached = None
+            try:
+                deadline = time.monotonic() + 5
+                while not (root / 'detached.pid').exists() and time.monotonic() < deadline:
+                    time.sleep(.02)
+                self.assertTrue((root / 'detached.pid').exists())
+                detached = int((root / 'detached.pid').read_text())
+                self.assertNotEqual(os.getsid(detached), os.getsid(process.pid))
+                process.send_signal(signal.SIGTERM)
+                process.wait(timeout=8)
+                self.assertFalse((root / 'after').exists())
+                with self.assertRaises(ProcessLookupError):
+                    os.kill(detached, 0)
+                self.assertIsNone(unrelated.poll(), 'unrelated process must remain alive')
+                outcomes = json.loads((root / 'outer-logs/results.json').read_text())
+                self.assertEqual(outcomes['nested']['outcome'], 'cancelled')
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+                if detached is not None:
+                    try:
+                        os.kill(detached, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                unrelated.terminate()
+                unrelated.wait(timeout=5)
