@@ -245,11 +245,11 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("name: test", workflow)
         self.assertIn("pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}", workflow)
         self.assertIn("shard: 1", workflow)
-        self.assertIn("shards: 6", workflow)
+        self.assertIn("shards: 4", workflow)
         self.assertIn("shard: 2", workflow)
         frontend = workflow.split("\n  frontend:", 1)[1].split("\n  go-shard:", 1)[0]
         parts = re.findall(r"- shard: (\d+)\s+shards: (\d+)", frontend)
-        self.assertEqual(parts, [(str(index), "6") for index in range(1, 7)])
+        self.assertEqual(parts, [(str(index), "4") for index in range(1, 5)])
         self.assertIn('"frontend-bindings=${{ needs.frontend-bindings.result }}"', workflow)
         self.assertIn('"frontend-quality=${{ needs.frontend-quality.result }}"', workflow)
         self.assertIn("NESTWORTH_WAILS_GOCACHE=%s", workflow)

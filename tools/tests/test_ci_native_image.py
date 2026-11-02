@@ -5,6 +5,7 @@ import re
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -46,7 +47,8 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('key=disabled', frontend)
         self.assertIn('^[0-9a-f]{64}$', frontend)
         self.assertIn('continue-on-error: true', frontend)
-        self.assertNotIn('restore-keys:', frontend)
+        # Only compiled Go artifacts may use the fully fenced snapshot prefix.
+        self.assertEqual(frontend.count('restore-keys:'), 1)
         self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("- name: Share verified bindings"))
         meta = workflow.split('  frontend-bindings:', 1)[0]
         self.assertIn('actions/setup-node@v7', meta)
@@ -82,16 +84,44 @@ class NativeImageWorkflowTests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()
         # Independent module/build caches replace setup-go's combined cache.
         # No restore prefix may cross the native-image boundary.
-        self.assertEqual(workflow.count('id: go'), 3)
+        self.assertEqual(workflow.count('        id: go\n'), 3)
         self.assertEqual(workflow.count('path: ${{ env.GOCACHE }}'), 3)
-        build_key = "key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}"
-        self.assertEqual(workflow.count(build_key), 3)
+        self.assertEqual(workflow.count('id: go-build-cache'), 3)
+        self.assertEqual(workflow.count('restore-keys:'), 3)
+        self.assertIn('cache-day: ${{ steps.image.outputs.cache-day }}', workflow)
+        self.assertNotIn('go-build-v2-', workflow)
         self.assertEqual(workflow.count("if: needs.runtime.outputs.preinstalled == 'true'"), 3)
         self.assertEqual(workflow.count('path: ${{ env.GOMODCACHE }}'), 3)
         module_key = "key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}"
         self.assertEqual(workflow.count(module_key), 3)
         self.assertIn('GOMODCACHE: /tmp/nestworth-ci-go-modules', workflow)
-        self.assertNotIn('restore-keys:', workflow)
+        # Prefix fallback is limited to the exact Go, native/dependency fence
+        # and owner. Neither another shard nor the old shared archive can match.
+        for job, end, owner in (('meta', 'frontend-bindings', 'meta'),
+                                ('frontend-bindings', 'frontend-quality', 'bindings'),
+                                ('go-shard', 'test', '${{ matrix.artifact }}')):
+            section = workflow.split('\n  ' + job + ':', 1)[1].split('\n  ' + end + ':', 1)[0]
+            cache = section.split('- name: Cache image-specific Go build artifacts', 1)[1].split('- name: Install native', 1)[0]
+            prefix = "go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-" + owner + '-'
+            self.assertIn('key: ' + prefix + '${{ needs.runtime.outputs.cache-day }}', cache)
+            self.assertIn('restore-keys: |\n            ' + prefix + '\n', cache)
+            restore_lines = []
+            for line in cache.split('restore-keys: |', 1)[1].splitlines()[1:]:
+                if not line.strip():
+                    continue
+                if not line.startswith('            '):
+                    break
+                restore_lines.append(line.strip())
+            self.assertEqual(restore_lines, [prefix])
+            self.assertEqual(cache.count('go-build-v3-'), 2)
+            self.assertNotIn('github.sha', cache)
+            self.assertNotIn('github.run_id', cache)
+            self.assertIn('if: ${{ job.container.id }}', cache)
+        self.assertNotIn('actions: write', workflow)
+        matrix = workflow.split('\n  go-shard:', 1)[1].split('    steps:', 1)[0]
+        owners = ['meta', 'bindings'] + re.findall(r'^            artifact: (.+)$', matrix, re.M)
+        self.assertEqual(len(owners), 6)
+        self.assertEqual(len(owners), len(set(owners)))
         self.assertNotIn('go clean -modcache', workflow)
         self.assertEqual(workflow.count('name: Reset unpinned native build cache\n        if: ${{ !job.container.id }}\n        run: go clean -cache'), 3)
         # Cleanup must follow apt and precede any native compilation, bindings,
@@ -100,6 +130,18 @@ class NativeImageWorkflowTests(unittest.TestCase):
             section = workflow.split('\n  ' + job + ':', 1)[1].split('\n  ' + end + ':', 1)[0]
             self.assertLess(section.index('bash tools/ci-install-native-deps.sh'), section.index('go clean -cache'))
             self.assertLess(section.index('go clean -cache'), section.index('bash build/ci/verify-native.sh'))
+
+    def test_snapshot_day_is_shared_utc_and_refreshes_after_midnight(self):
+        spec = importlib.util.spec_from_file_location('ci_native_snapshot', ROOT / 'tools/ci-native-container.py')
+        runtime = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runtime)
+        morning = datetime(2026, 11, 2, 1, tzinfo=timezone.utc)
+        late = morning.replace(hour=23, minute=59)
+        self.assertEqual(runtime.snapshot_day(morning), runtime.snapshot_day(late))
+        self.assertNotEqual(runtime.snapshot_day(late), runtime.snapshot_day(late + timedelta(minutes=1)))
+        self.assertEqual(runtime.snapshot_day(datetime(2026, 11, 3, 1, tzinfo=timezone(timedelta(hours=8)))), '20261102')
+        with self.assertRaises(ValueError):
+            runtime.snapshot_day(datetime(2026, 11, 2))
 
     def test_runtime_bootstrap_and_digest_validation(self):
         spec = importlib.util.spec_from_file_location('ci_native_container', ROOT / 'tools/ci-native-container.py')

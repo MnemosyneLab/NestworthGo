@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Emit a GitHub job-container value after validating the reviewed image pin."""
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 import sys
@@ -16,6 +17,14 @@ def container_for(image):
     return {'image': image, 'options': '--user 1001:1001'}
 
 
+def snapshot_day(now=None):
+    """One compiled-cache snapshot per owner/compatibility/ref/UTC day."""
+    instant = now if now is not None else datetime.now(timezone.utc)
+    if instant.tzinfo is None:
+        raise ValueError('snapshot time must include a timezone')
+    return instant.astimezone(timezone.utc).strftime('%Y%m%d')
+
+
 def main():
     pin = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[1] / '.github/ci-native-image.txt'
     try:
@@ -29,6 +38,7 @@ def main():
         raise SystemExit(str(error)) from error
     print('container=' + json.dumps(container, separators=(',', ':')))
     print('preinstalled=' + str(preinstalled).lower())
+    print('cache-day=' + snapshot_day())
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 # Linux native CI images
 
 `check.yml` uses a reviewed public image for meta, the bindings producer and
-four Go shards. Frontend quality and six frontend test shards stay on hosted
+four Go shards. Frontend quality and four frontend test shards stay on hosted
 Node; they consume the verified, exact-run bindings artifact and do not pull a
 native image. All existing gates, coverage, timeouts and perf tiers remain.
 This is independent of the application/server image in `build/docker`.
@@ -81,8 +81,9 @@ before tooling-test discovery, preventing silent skips of bindings CLI tests.
 Two reviewed pins control runtime selection:
 
 - `.github/ci-native-image.txt` retains the existing working native digest.
-- `.github/ci-toolchain-image.txt` starts blank. When nonblank, it takes
-  precedence for native jobs and explicitly requires preinstalled tools.
+- `.github/ci-toolchain-image.txt` selects the reviewed toolchain digest. When
+  nonblank, it takes precedence and explicitly requires preinstalled tools;
+  clearing it returns native jobs to the native fallback.
 
 `tools/ci-native-container.py` validates both as immutable digests in the approved
 GHCR package, emits the whole container JSON and the `preinstalled` flag, and
@@ -105,10 +106,29 @@ Go preparation now separates the caches even when setup-go is skipped:
 - Modules: `/tmp/nestworth-ci-go-modules`, OS/architecture/go.sum exact key,
   reusable across native and toolchain variants. The existing module-only key
   remains compatible. No compiled artifacts enter this archive.
-- Build: `/tmp/nestworth-ci-go-build`, OS/architecture/actual Go version plus
-  both digest files and go.sum, with a fresh `go-build-v2` namespace and no
-  restore prefixes. Another image or Go/lock version cannot restore it.
-  Existing setup-go combined archives are intentionally not reused.
+- Build: `/tmp/nestworth-ci-go-build`, in the `go-build-v3` namespace, fenced by
+  OS/architecture/actual Go version and a hash of go.mod, go.sum and both reviewed
+  digest files. Each owner (`meta`, `bindings`, or one of the four distinct Go
+  matrix artifact names) writes its own archive after its successful workload.
+  The runtime job emits one UTC snapshot date shared by all workers. Today's
+  exact key is preferred; a miss may restore only that same compatibility fence
+  **and owner** prefix before saving today's updated snapshot. There is no
+  shorter cross-image, cross-lock, cross-Go or cross-job restore prefix. Neither
+  the old shared v2 archive nor setup-go combined archives are reused.
+
+Snapshot creation is limited to one per owner/ref/compatibility fence per UTC
+day, rather than one per run or commit. This is six possible snapshots per day
+for the current native job set. Day rollover allows a compatible prior snapshot
+to evolve with successful compilation; a same-day exact archive remains immutable.
+Consequently, newly changed sources still compile correctly via Go's own input
+invalidation, but their new cache entries may not persist until the next daily
+snapshot. This is an explicit storage/freshness tradeoff, not a claim of a fully
+warm compiler on every source edit. GitHub's existing unused-cache eviction and
+repository quota bound retained storage; no paid capacity setting, deletion API,
+new write permission or maintenance job is added. See the official
+[cache immutability and eviction rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).
+The Actions post step saves only after success. A producer's small bindings cache
+can no longer win the key used by the test or vet jobs.
 
 The host rollback never restores/saves the image build archive. It still runs
 the bounded apt helper followed by `go clean -cache` **before** native compilation
@@ -219,8 +239,57 @@ Local validation on Linux amd64 (2026-11-02, Go 1.27.3 / Wails v3.1.0):
   comparing 16.43s directly with the supplied 38s baseline would be misleading.
   Node 24.22.0 was mounted for this smoke, matching its separate CI setup role.
 
-The first run after this cache migration has a cold `go-build-v2` namespace;
-the legacy CLI's version-derived `wails-cli-v2` key may also need one seed before
+The original split-cache migration introduced `go-build-v2`; ownership repair
+starts a cold `go-build-v3` namespace for each owner. Its first successful run
+seeds the complete workload, and rerunning the same head/day tests the exact hit.
+The legacy CLI's version-derived `wails-cli-v2` key may also need one seed before
 toolchain adoption. Module-only archives remain compatible. Candidate publishing,
 anonymous toolchain digest pull, activation PR checks, hosted cold/warm whole-run
 timing, and macOS execution remain separate, unverified rollout steps.
+
+
+## Matched frontend archive-hit comparison
+
+PR190 kept the same branch, pull-request cache ref, application/dependency source,
+image digest, two Vitest workers, assertions and timeouts. The scheduler weights
+were refreshed from three complete hosted reports, with deterministic LPT
+assignment and a rounded per-file loading cost. HistoryPage remains isolated;
+the other four-shard bins contain 53/53/54 files. Its indivisible long workflow
+was not split or allowed to lose the established isolation. Three shards were
+not pursued.
+
+| Measurement | Six shards | Four shards |
+| --- | ---: | ---: |
+| Successful run/attempt | [41412429440/2](https://github.com/MnemosyneLab/NestworthGo/actions/runs/41412429440/attempts/2) | [41416138902/2](https://github.com/MnemosyneLab/NestworthGo/actions/runs/41416138902/attempts/2) |
+| Full workflow start to updated-at | 330s | 300s |
+| Sum of all job durations | 1,957s | 1,901s |
+| Sum of frontend test-job durations | 650s | 540s |
+| Sum of frontend test steps | 459s | 401s |
+| Frontend job time outside test step | 191s | 139s |
+| Longest frontend test job | 137s | 166s |
+| Longest Go test job | 309s | 270s |
+
+Both attempts restored the same module, v2 Go-build and pnpm keys. Bindings used
+separate exact source fingerprints (the workflow/scheduler changed), but both
+hit and validated their own manifest and skipped generation. The first four-shard
+attempt was a bindings miss and was explicitly excluded from this warm comparison.
+Artifact comparison confirmed the same 161 files and 1,659 frontend test cases,
+all passing without pending cases, and the same 1,893 distinct Go top-level
+runnable names across packages. Duplicate frontend display labels were compared
+as multisets rather than incorrectly dropping their multiplicity.
+
+Four shards saved 110 frontend job-seconds (about 17%), including 52 seconds of
+non-test job overhead. The complete run saved 56 job-seconds (about 3%). Its 30s
+wall-clock difference also contains backend/runner variation: the slow Go role
+changed between runs, and other Go jobs became slower. This paired observation
+supports retaining four for lower setup cost while frontend remains off the
+critical path; it is not a p95 or guaranteed five-minute result.
+
+The v2 build archive was only 1,294,409 bytes: producer job 125168366165 saved it
+first, and later application job 125168366189 could not reserve the same key.
+Even an exact archive hit in attempt 2 left roughly 65s in application build/list
+enumeration. Wails and Go both used `/tmp/nestworth-ci-go-build`; this was an
+ownership/coverage issue, not a separate Wails cache directory. The v3 owner
+snapshots above target that preparation cost without changing the Go partitions.
+Their first seed and subsequent warm run must be reported separately from this
+frontend comparison. No additional serial compile/union job is required.
