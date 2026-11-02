@@ -144,10 +144,9 @@ and jsdom evidence. Keep synthetic isolation and the safety rules in root
 
 ## Frontend-only checks
 
-This draft branch trials the full regular check set on a self-hosted native Mac.
-See [Native Mac CI trial](ci-macos-trial.md) for triggers, isolation, retained
-Linux coverage and rollback. The hosted topology described below is retained
-in the automatic PR/manual `check-linux.yml` workflow during this trial.
+The full regular check set runs on the self-hosted native Mac. See
+[Native Mac CI trial](ci-macos-trial.md) for trusted internal branch triggers,
+external contribution handling, isolation and the nonrunning Linux rollback archive.
 
 
 The following commands are safe to run after entering `frontend/`, including
@@ -174,8 +173,10 @@ It regenerates the frontend bundle, then runs `gofmt` validation, Go tests,
 `go vet`, the canonical Go build, frontend lint, frontend type checking,
 frontend tests, and `git diff --check`.
 
-The same automated gates run in GitHub Actions on `main` and pull requests
-(`.github/workflows/check.yml`). Non-race Go tests are checksum shards. Race
+The same automated gates run on native macOS for every origin branch push,
+covering `main` and each internal PR head (`.github/workflows/check.yml`). The
+check name is `test`; fork PRs require reviewed import onto an internal branch.
+Non-race Go tests enumerate all packages with bounded local parallelism. Race
 detection and `//go:build perf` evidence run daily at 21:00 UTC, and on
 manual dispatch, in `.github/workflows/perf.yml`, not on every pull request.
 The daily run skips those jobs when the default branch is unchanged since the

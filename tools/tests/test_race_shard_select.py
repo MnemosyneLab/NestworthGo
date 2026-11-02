@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools/race-shard-select.sh"
-CHECK = ROOT / ".github/workflows/check-linux.yml"
+CHECK = ROOT / ".github/workflow-archive/check-linux.yml.disabled"
 PERF = ROOT / ".github/workflows/perf.yml"
 
 # Representative -list lines. Benchmarks and noise must stay out of -run.

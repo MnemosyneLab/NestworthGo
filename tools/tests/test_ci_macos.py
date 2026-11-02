@@ -37,11 +37,12 @@ class MacCI(unittest.TestCase):
         self.assertFalse(check('a\nb\n', events + events[:1]))
         self.assertFalse(check('', []))
 
-    def test_trial_does_not_accept_pr_events_or_drop_correctness_gates(self):
+    def test_origin_pushes_cover_internal_pr_heads_without_accepting_fork_events(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertNotIn('pull_request:', workflow)
         self.assertNotIn('pull_request_target:', workflow)
-        self.assertIn('branches: [main, ci/macos-arm64-trial]', workflow)
+        self.assertIn("branches: ['**']", workflow)
+        self.assertIn('    name: test\n', workflow)
         self.assertIn("github.repository == 'MnemosyneLab/NestworthGo'", workflow)
         self.assertIn('runs-on: [self-hosted, macOS, ARM64]', workflow)
         self.assertNotIn('container:', workflow)
@@ -58,18 +59,19 @@ class MacCI(unittest.TestCase):
         self.assertLess(workflow.index('id: frontend-build'), workflow.index('id: lanes'))
         self.assertIn('if: always()\n        env:\n          GATE_RESULTS:', workflow)
 
-    def test_ordinary_prs_keep_the_required_hosted_gate(self):
-        workflow = (ROOT / '.github/workflows/check-linux.yml').read_text()
-        self.assertIn('on:\n  pull_request:\n  workflow_dispatch:', workflow)
-        self.assertNotIn('pull_request_target:', workflow)
-        self.assertNotIn('self-hosted', workflow)
-        aggregate = workflow.split('\n  test:', 1)[1]
-        self.assertIn('    name: test\n', aggregate)
-        self.assertIn('    if: always()', aggregate)
-        self.assertIn('needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]', aggregate)
+    def test_linux_rollback_is_nonrunning_source_only(self):
+        self.assertFalse((ROOT / '.github/workflows/check-linux.yml').exists())
+        archive = ROOT / '.github/workflow-archive/check-linux.yml.disabled'
+        self.assertTrue(archive.is_file())
+        self.assertNotEqual(archive.parent, ROOT / '.github/workflows')
+        self.assertIn('name: test', archive.read_text())
+        active = {p.name for p in (ROOT / '.github/workflows').glob('*.yml')}
+        self.assertEqual(active, {'check.yml', 'perf.yml', 'ci-native-image.yml'})
         mac = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn('    name: test (macOS trial)\n', mac)
-        self.assertNotIn('    name: test\n', mac)
+        self.assertIn('    name: test\n', mac)
+        self.assertNotIn('pull_request:', mac)
+        self.assertNotIn('pull_request_target:', mac)
+        self.assertIn("branches: ['**']", mac)
 
     def test_parallel_budget_leaves_host_capacity_and_low_memory_serializes(self):
         budget = load('ci-macos-environment').lane_budget

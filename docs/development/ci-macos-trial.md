@@ -1,7 +1,7 @@
 # Native Mac CI trial
 
 The draft migration replaces regular `check.yml` with one native ARM64 macOS
-job named `test (macOS trial)`. It runs the full non-race `go test ./...` population (including
+job named `test`. It runs the full non-race `go test ./...` population (including
 examples and newly added packages), gofmt, vet, native desktop compilation,
 skill validation, the unchanged fast tooling tier, and frontend lint, typecheck,
 production build and the entire unfiltered Vitest suite. Bindings generate once
@@ -10,33 +10,48 @@ No correctness assertions or timeouts change. Go package completion is checked
 against `go list ./...`; missing and duplicate package results fail the gate.
 Each gate retains its own outcome and failures do not suppress later gates.
 
-## Trial trust and rollback
+## Automatic checks, trust and rollback
 
-Only pushes to `main` or `ci/macos-arm64-trial`, and authenticated manual dispatch,
-trigger this experimental workflow. It has no pull-request event, never checks
-out a fork head, and only runs in `MnemosyneLab/NestworthGo`. Thus outside PRs
-cannot automatically schedule code through this workflow. Repository writers
-and dispatchers remain trusted to execute code on the persistent runner.
-Every PR, including same-repository and fork PRs, retains automatic hosted Linux
-checks through `check-linux.yml`. Its aggregate remains the required `test` check.
-The Mac check has a distinct name, `test (macOS trial)`, so a successful Mac push
-run cannot substitute for the required PR merge-ref Linux result. This deliberately
-keeps Linux coverage during the experiment; it is not yet an exclusive Mac rollout.
-PRs from other branches do not automatically execute on the personal Mac.
-Promoting that behavior requires a separately agreed trust design; this draft
-should remain unmerged until native results and rollout scope are reviewed.
+Regular CI runs only on the native Mac: every push to any branch in
+`MnemosyneLab/NestworthGo`, plus authenticated manual dispatch. The stable required
+check name is `test`. Internal PRs get automatic full checks on each pushed head,
+including branches created before opening the PR; main pushes also run. This
+checks the branch head, not GitHub's synthetic PR merge commit. Base-only updates,
+opening or reopening a PR without a new push do not rerun a previously checked
+head. Update the internal branch from main and push when integration needs
+revalidation; manual dispatch on that internal branch is also available.
+
+GitHub repository metadata was checked on 2026-11-02: visibility `private`,
+`allow_forking=false`. This change does not alter those settings. Repository
+writers and authenticated dispatchers are trusted to execute code on the
+persistent personal runner. There is deliberately no `pull_request` or
+`pull_request_target` trigger: a push to a fork cannot schedule this repository's
+Mac even if the fork edits its copy of the workflow. The repository identity
+check also prevents this workflow copy from running in another repository.
+
+If external fork contributions become possible later, their PRs do not receive a
+successful or skipped `test` from this workflow. The required check remains
+missing/pending until a maintainer has reviewed the entire proposed code,
+workflow, dependency and install-script changes and imported the approved commit
+onto an internal branch. That internal push runs the full Mac suite; use the
+reviewed internal PR for integration. Do not dispatch a fork ref or bypass the
+required check. If a protected rule requires a specific workflow identity/event
+rather than the existing `test` check context, the repository owner must review
+that rule separately; this PR changes no branch protection or required checks.
+
+The former Linux regular workflow is archived verbatim from main commit
+`a02fb6635aad48e3f8a8f302bb82a99ff1098ae5` at
+`.github/workflow-archive/check-linux.yml.disabled`, outside the workflows
+folder. It cannot run automatically or by dispatch. To roll back, replace
+`.github/workflows/check.yml` with that archive. Existing Linux workflow regression
+tests now validate the archive, not an active fallback. `perf.yml`, race, release
+and image publication remain unchanged. Normal Mac CI does not validate Linux
+GTK/WebKit compilation or Linux-specific build-tagged paths; existing daily/manual
+Linux perf/race validation remains, but is not a per-PR substitute.
+
 No organization access, runner security/service settings or credentials change.
 Checkout does not persist its token. The foreground runner must remain online.
-
-The prior complete Linux workflow is retained as `check-linux.yml`, with only
-its name and triggers changed to PR events plus manual dispatch. To roll back, restore
-`check.yml` from `a02fb6635aad48e3f8a8f302bb82a99ff1098ae5` and remove the duplicate
-rollback workflow. Its existing container/cache/sharding regression tests now
-validate that preserved workflow. `perf.yml`, race, release and image publication
-are unchanged. Mac runs do not validate Linux GTK/WebKit compilation
-or Linux-specific build-tagged code. Automatic Linux PR checks and existing
-daily/manual perf retain that platform coverage; macOS timeout tooling can use its existing
-portable fixture, while Linux still requires GNU timeout.
+No runner archive-cache environment variables are changed by this PR.
 
 ## Tools, isolation and capacity
 

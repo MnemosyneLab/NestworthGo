@@ -1,10 +1,11 @@
 name: check
 
-# Trial only: no PR event can schedule fork code on a persistent personal Mac.
-# Push events come from repository writers; dispatch requires repository access.
+# Every origin branch push covers its internal PR head; fork pushes cannot
+# trigger this repository workflow. Do not add a PR event that executes fork code.
+# Manual dispatch also requires repository write access.
 on:
   push:
-    branches: [main, ci/macos-arm64-trial]
+    branches: ['**']
   workflow_dispatch:
 
 permissions:
@@ -28,7 +29,7 @@ env:
 
 jobs:
   test:
-    name: test (macOS trial)
+    name: test
     if: github.repository == 'MnemosyneLab/NestworthGo' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
