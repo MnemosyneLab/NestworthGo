@@ -188,3 +188,15 @@ before the layout's full validation. The PR validation record names the exact
 follow-up head, all six executed frontend shards, fast and extended tooling
 results, lint/typecheck/build and unverified native/browser gates. Hosted
 correctness and the 300s end-to-end target remain coordinator acceptance gates.
+
+
+### Wails CLI cache follow-up
+
+The bindings job caches the pinned v3.0.0 CLI executable separately from the
+setup-go module and build caches. The key fences the Go version, OS, architecture
+and reviewed native image digest. The unpinned apt fallback builds the executable
+again after clearing compiled Go artifacts. No module tree is overlaid. A cache
+miss still installs the pinned CLI and both generation and byte-for-byte
+comparison remain in the fast gate. This change does not cache generated output;
+hosted cold and warm timings and the five-minute acceptance target remain to be
+measured.

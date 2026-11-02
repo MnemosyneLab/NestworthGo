@@ -16,7 +16,7 @@ const pinnedWailsVersion = "v3.0.0";
 
 const env = {
 	...process.env,
-	PATH: `${join(homedir(), "go/bin")}:${process.env.PATH ?? ""}`,
+	PATH: `${process.env.PATH ?? ""}:${join(homedir(), "go/bin")}`,
 	GOCACHE: process.env.NESTWORTH_WAILS_GOCACHE ?? "/tmp/nestworth-wails-gocache",
 };
 

@@ -44,6 +44,13 @@ marker.write_text("// synthetic binding")
                     command = binaries / name
                     command.write_text(stub)
                     command.chmod(0o755)
+                # A stale CLI in the default GOPATH must not shadow the
+                # deliberately selected PATH binary (including the CI cache).
+                home_bin = root / "go/bin"
+                home_bin.mkdir(parents=True)
+                shadow = home_bin / "wails3"
+                shadow.write_text(f"#!{sys.executable}\nraise SystemExit(99)\n")
+                shadow.chmod(0o755)
                 log = root / "invocation.json"
                 env = {**os.environ, "HOME": str(root), "PATH": str(binaries),
                        "TEST_CLI_VERSION": version, "TEST_CLI_LOG": str(log)}

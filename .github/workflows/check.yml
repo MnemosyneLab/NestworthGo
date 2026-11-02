@@ -113,8 +113,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-          # Keep the shared native-image-fenced Go baseline. The Wails cache
-          # below overlays CLI inputs without discarding this warm baseline.
+          # Compiled Go artifacts are fenced by the reviewed native image.
           cache-dependency-path: |
             go.sum
             .github/ci-native-image.txt
@@ -141,27 +140,24 @@ jobs:
         run: go clean -cache
       - name: Verify native tools, user and cache permissions
         run: bash build/ci/verify-native.sh --with-toolchains
-      # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
-      # setup-go cache never reused the Wails compile (~70s median).
       - name: Reuse Go build cache for Wails bindings
-        id: bindings-cache-paths
-        run: |
-          build_cache=$(go env GOCACHE)
-          printf 'NESTWORTH_WAILS_GOCACHE=%s\n' "$build_cache" >> "$GITHUB_ENV"
-          printf 'build=%s\n' "$build_cache" >> "$GITHUB_OUTPUT"
-      # Shared Go caches can hit while still lacking `go run wails3@v3.0.0`
-      # dependencies. Overlay a separately saved CLI cache; on its first miss
-      # keep the shared baseline rather than forcing a full native rebuild.
-      - name: Cache Wails CLI inputs
-        # An unpinned apt bootstrap must retain its post-install cache clean.
-        # Only the reviewed native image may restore compiled CGO artifacts.
+        run: printf 'NESTWORTH_WAILS_GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
+      # Only the pinned image can safely reuse a compiled executable. The host
+      # fallback installs unpinned native packages and always builds its CLI.
+      - name: Cache pinned Wails CLI binary
+        id: wails-cli
         if: ${{ job.container.id }}
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
-          path: |
-            ${{ steps.bindings-cache-paths.outputs.build }}
-            ${{ env.GOMODCACHE }}
-          key: wails-bindings-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', 'frontend/scripts/ensure-bindings.mjs') }}
+          path: /tmp/nestworth-ci-wails
+          key: wails-cli-v1-v3.0.0-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt') }}
+      - name: Prepare pinned Wails CLI
+        run: |
+          if [ "${{ steps.wails-cli.outputs.cache-hit }}" != 'true' ]; then
+            GOBIN=/tmp/nestworth-ci-wails go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+          fi
+          test "$(/tmp/nestworth-ci-wails/wails3 version)" = v3.0.0
+          printf '/tmp/nestworth-ci-wails\n' >> "$GITHUB_PATH"
       - name: Generate Wails bindings
         working-directory: frontend
         run: node scripts/ensure-bindings.mjs

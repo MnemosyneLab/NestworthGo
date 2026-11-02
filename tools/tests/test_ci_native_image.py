@@ -53,13 +53,17 @@ class NativeImageWorkflowTests(unittest.TestCase):
             self.assertNotIn("actions/setup-go", consumer)
             self.assertNotIn("container:", consumer)
             self.assertNotIn("ensure-bindings.mjs", consumer)
-        self.assertIn("frontend/scripts/ensure-bindings.mjs", frontend)
         self.assertIn("if-no-files-found: error", frontend)
         self.assertIn("overwrite: true", frontend)
-        overlay = frontend.split("- name: Cache Wails CLI inputs", 1)[1].split("- name: Generate Wails bindings", 1)[0]
-        self.assertIn("if: ${{ job.container.id }}", overlay)
-        self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache Wails CLI inputs"))
-        self.assertLess(frontend.index("- name: Cache Wails CLI inputs"), frontend.index("node scripts/ensure-bindings.mjs"))
+        cli = frontend.split("- name: Cache pinned Wails CLI binary", 1)[1].split("- name: Generate Wails bindings", 1)[0]
+        self.assertIn("if: ${{ job.container.id }}", frontend.split("- name: Cache pinned Wails CLI binary", 1)[1].split("- name: Prepare pinned Wails CLI", 1)[0])
+        self.assertIn("path: /tmp/nestworth-ci-wails", cli)
+        self.assertNotIn("GOMODCACHE", cli)
+        self.assertIn("${{ steps.go.outputs.go-version }}", cli)
+        self.assertIn("hashFiles('.github/ci-native-image.txt')", cli)
+        self.assertIn("go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0", cli)
+        self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache pinned Wails CLI binary"))
+        self.assertLess(frontend.index("- name: Prepare pinned Wails CLI"), frontend.index("node scripts/ensure-bindings.mjs"))
 
     def test_cgo_cache_is_pinned_and_modules_are_shared(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()
