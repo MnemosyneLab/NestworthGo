@@ -200,3 +200,15 @@ miss still installs the pinned CLI and both generation and byte-for-byte
 comparison remain in the fast gate. This change does not cache generated output;
 hosted cold and warm timings and the five-minute acceptance target remain to be
 measured.
+
+A single sequential paired comparison on native macOS arm64 (Go 1.27.3,
+Node 24.22.0, Vitest 4.1.11, two workers, generated bindings and copied
+installed frontend dependencies) used source `6de444fd` and the existing
+HistoryPage isolation. Both configurations passed all 161 files and 1,659
+tests. Four shards took 36.82, 37.07, 41.69 and 41.46 seconds (157.04 seconds
+sum); six took 36.65, 20.89, 25.87, 23.53, 24.02 and 23.71 seconds (154.69
+seconds sum). These are one sequential sample per configuration, in that
+order, with no runner setup or artifact transfer. The longest shard is only a
+local parallel-wall proxy; these numbers do not establish hosted wall time,
+runner cost, stability, or a five-minute workflow. Keep six shards until a
+same-head hosted comparison captures queue, setup and aggregate job time.
