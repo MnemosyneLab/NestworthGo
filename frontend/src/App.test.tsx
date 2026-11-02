@@ -707,6 +707,8 @@ it("opens Wealth history from Overview, removes current queries and exits back",
 it("retains the upcoming filter and restores its trigger after Back", async () => {
   render(<AppProviders><App /></AppProviders>);
   await userEvent.click(await screen.findByRole("button", { name: "View all 1 action" }));
+  // Tasks is lazy-loaded: finish that boundary before querying its controls.
+  await vi.dynamicImportSettled();
   const filter = await screen.findByRole("button", { name: "Reservation issues" });
   await userEvent.click(filter);
   const health = await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) });
@@ -1028,77 +1030,112 @@ it("preserves filtered page two through the real instrument route and focuses bo
   expect(overviewReviewTrigger.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
 });
 
-it("resets reconciliation to the global list unless the target names an account or session", async () => {
-  await i18n.changeLanguage("en");
-  const savingsAccount = {
-    ...checkingAccount,
-    account: { ...checkingAccount.account, id: "acc-2", name: "Savings" },
-    latestValue: { ...checkingAccount.latestValue, id: "v2", accountId: "acc-2" },
-  };
-  const savingsValuation = { ...checkingValuation, account: savingsAccount.account };
-  const counts = { pending: 1, confirmed: 0, skipped: 0, unresolved: 0 };
-  listAccounts.mockResolvedValue([checkingAccount, savingsAccount]);
-  accountValuations.mockResolvedValue([checkingValuation, savingsValuation]);
-  reconciliationList.mockResolvedValue([
-    { id: "open-checking", status: "in_progress", accountIds: ["acc-1"], accountNames: ["Checking"], counts },
-    { id: "open-savings", status: "in_progress", accountIds: ["acc-2"], accountNames: ["Savings"], counts },
-  ]);
-  reconciliationLast.mockResolvedValue({ id: "session-last", completedAt: "2026-10-20T10:20:00Z" });
-  render(<AppProviders><App /></AppProviders>);
-  await screen.findByTestId("overview-net-worth");
-  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
-  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
-  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
-  await userEvent.click(await screen.findByRole("button", { name: "View last successful record" }));
-  expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
-
-  await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
-  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
-  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
-  await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
-  expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
-
-  const owner = {};
-  registerSheetConfirmation(owner);
-  try {
-    await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
-    expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
-  } finally {
-    resolveSheetConfirmation(owner);
+describe("reconciliation navigation boundaries", () => {
+  // Each case seeds its own relevant navigation state and preserves a complete
+  // Back/reset journey. Keeping independent contracts separate avoids making
+  // their combined interaction cost compete for one unchanged 5s test budget.
+  async function openCheckingAccount(rememberReconciliation = false) {
+    const user = userEvent.setup();
+    await i18n.changeLanguage("en");
+    const savingsAccount = {
+      ...checkingAccount,
+      account: { ...checkingAccount.account, id: "acc-2", name: "Savings" },
+      latestValue: { ...checkingAccount.latestValue, id: "v2", accountId: "acc-2" },
+    };
+    const savingsValuation = { ...checkingValuation, account: savingsAccount.account };
+    const counts = { pending: 1, confirmed: 0, skipped: 0, unresolved: 0 };
+    listAccounts.mockResolvedValue([checkingAccount, savingsAccount]);
+    accountValuations.mockResolvedValue([checkingValuation, savingsValuation]);
+    reconciliationList.mockResolvedValue([
+      { id: "open-checking", status: "in_progress", accountIds: ["acc-1"], accountNames: ["Checking"], counts },
+      { id: "open-savings", status: "in_progress", accountIds: ["acc-2"], accountNames: ["Savings"], counts },
+    ]);
+    reconciliationLast.mockResolvedValue({ id: "session-last", completedAt: "2026-10-20T10:20:00Z" });
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    if (rememberReconciliation) {
+      // Back restores the prior Tasks tab. Seed the global reconciliation entry
+      // that preceded the account-local journey in the original scenario.
+      await user.click(await screen.findByRole("button", { name: "Reconciliation, 2 unfinished" }));
+      await vi.dynamicImportSettled();
+      expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+    }
+    await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+    await user.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+    return { user, nav };
   }
 
-  await userEvent.click(within(nav).getByRole("button", { name: "Overview" }));
-  await screen.findByTestId("overview-net-worth");
-  await userEvent.click(await screen.findByRole("button", { name: "Reconciliation, 2 unfinished" }));
-  expect(await screen.findByText(/Checking · In progress/)).toBeVisible();
-  expect(screen.getByText(/Savings · In progress/)).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
-  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
-  expect(screen.getByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+  it("retains an explicit session through Back and blocks navigation during confirmation", async () => {
+    const { user, nav } = await openCheckingAccount();
+    await user.click(await screen.findByRole("button", { name: "View last successful record" }));
+    // Wait for the cold Tasks route before querying its controls.
+    await vi.dynamicImportSettled();
+    expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
 
-  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
-  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
-  await userEvent.click(screen.getByRole("button", { name: "Open account reconciliation" }));
-  expect(await screen.findByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
-  expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
-  expect(screen.queryByText(/Savings · In progress/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+    await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+    await vi.dynamicImportSettled();
+    await user.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+    await user.click(screen.getByRole("tab", { name: /Reconciliation/ }));
+    expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
 
-  // Continue locally: the navigation target contains only the account, not this session.
-  await userEvent.click(screen.getByRole("button", { name: "Continue session" }));
-  expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
-  await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
-  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
-  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
-  await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
-  expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
-  expect(reconciliationGet).toHaveBeenCalledWith("open-checking");
+    const owner = {};
+    registerSheetConfirmation(owner);
+    try {
+      await user.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+      expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+    } finally {
+      resolveSheetConfirmation(owner);
+    }
+  });
 
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
-  expect(await screen.findByTestId("account-detail")).toBeVisible();
-  await userEvent.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
-  expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
-  expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
-  expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+  it("resets reconciliation to the global list unless the target names an account or session", async () => {
+    const { user, nav } = await openCheckingAccount();
+    await user.click(await screen.findByRole("button", { name: "View last successful record" }));
+    await vi.dynamicImportSettled();
+    expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
+    await user.click(within(nav).getByRole("button", { name: "Overview" }));
+    await screen.findByTestId("overview-net-worth");
+    await user.click(await screen.findByRole("button", { name: "Reconciliation, 2 unfinished" }));
+    expect(await screen.findByText(/Checking · In progress/)).toBeVisible();
+    expect(screen.getByText(/Savings · In progress/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+
+    await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+    await user.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+    await user.click(screen.getByRole("button", { name: "Open account reconciliation" }));
+    expect(await screen.findByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
+    expect(screen.queryByText(/Savings · In progress/)).not.toBeInTheDocument();
+  });
+
+  it("restores a local account session through Back and resets top-level Tasks to all accounts", async () => {
+    const { user, nav } = await openCheckingAccount(true);
+    await user.click(await screen.findByRole("button", { name: "Open account reconciliation" }));
+    await vi.dynamicImportSettled();
+    expect(await screen.findByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Savings · USD" })).not.toBeChecked();
+    // Continue locally: the navigation target contains only the account, not this session.
+    await user.click(screen.getByRole("button", { name: "Continue session" }));
+    expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
+    await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+    await vi.dynamicImportSettled();
+    await user.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+    await user.click(screen.getByRole("tab", { name: /Reconciliation/ }));
+    expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
+    expect(reconciliationGet).toHaveBeenCalledWith("open-checking");
+
+    await user.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+    expect(await screen.findByTestId("account-detail")).toBeVisible();
+    await user.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
+    expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Checking · USD" })).toBeChecked();
+    expect(screen.queryByRole("button", { name: "Back to session list" })).not.toBeInTheDocument();
+  });
 });
 
 it("opens the global reconciliation list with completed history when Tasks is reselected on Tasks", async () => {

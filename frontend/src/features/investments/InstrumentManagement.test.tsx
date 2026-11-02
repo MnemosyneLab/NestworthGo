@@ -482,6 +482,9 @@ describe("InstrumentManagement", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.type(within(form).getByLabelText("Search Yahoo"), "NVDA");
+    // Wait for the debounced request before spending the option lookup's
+    // deadline on its response and accessible rendering.
+    await waitFor(() => expect(searchInstruments).toHaveBeenLastCalledWith("NVDA", "stock"));
     await userEvent.click(await within(form).findByRole("option", { name: "NVDA · NVIDIA Corporation · NASDAQ" }));
     expect(within(form).getByLabelText("Currency")).toHaveValue("USD");
     expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
@@ -496,6 +499,7 @@ describe("InstrumentManagement", () => {
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.selectOptions(within(form).getByLabelText("Type"), "crypto");
     await userEvent.type(within(form).getByLabelText("Search cryptocurrency"), "BTC");
+    await waitFor(() => expect(searchInstruments).toHaveBeenLastCalledWith("BTC", "crypto"));
     await userEvent.click(await within(form).findByRole("option", { name: "BTC · Bitcoin · bitcoin" }));
     expect(searchInstruments).toHaveBeenCalledWith("BTC", "crypto");
     expect(within(form).getByLabelText("Provider key")).toHaveValue("coingecko");
@@ -523,6 +527,7 @@ describe("InstrumentManagement", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.type(within(form).getByLabelText("Search Yahoo"), "NVDA");
+    await waitFor(() => expect(searchInstruments).toHaveBeenLastCalledWith("NVDA", "stock"));
     const option = await within(form).findByRole("option", { name: "NVDA · NVIDIA Corporation · NASDAQ" });
     await userEvent.click(option);
     expect(within(form).getByLabelText("Name")).toHaveValue("NVIDIA Corporation");
@@ -563,6 +568,7 @@ describe("InstrumentManagement", () => {
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.selectOptions(within(form).getByLabelText("Type"), "etf");
     await userEvent.type(within(form).getByLabelText("Search Yahoo"), "SPY");
+    await waitFor(() => expect(searchInstruments).toHaveBeenLastCalledWith("SPY", "etf"));
     await userEvent.click(await within(form).findByRole("option", { name: "SPY · SPDR S&P 500 ETF Trust · NYSEArca" }));
     expect(within(form).getByLabelText("Trading market")).toHaveValue("ARCA");
     expect(within(form).getByLabelText("Country / region")).toHaveValue("US");
@@ -598,6 +604,7 @@ describe("InstrumentManagement", () => {
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.selectOptions(within(form).getByLabelText("Type"), "etf");
     await userEvent.type(within(form).getByLabelText("Search Yahoo"), "ARKK");
+    await waitFor(() => expect(searchInstruments).toHaveBeenLastCalledWith("ARKK", "etf"));
     await userEvent.click(await within(form).findByRole("option", { name: "ARKK · ARK Innovation ETF · Cboe BZX" }));
     expect(within(form).getByLabelText("Trading market")).toHaveValue("BZX");
     expect(within(form).getByLabelText("Country / region")).toHaveValue("US");
