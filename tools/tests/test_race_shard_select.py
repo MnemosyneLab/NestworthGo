@@ -120,7 +120,7 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assert_split_covers_names(check, (("application", 2), ("mcpserver", 1), ("sqlite", 1)))
         self.assertEqual(self.matrix_parts(check, "continuousbackup"), [(0, 1, "continuousbackup 1/1")])
         self.assertEqual(self.matrix_parts(check, "remainder"), [(0, 1, "remainder 1/1")])
-        self.assertEqual(check.count("selections: |"), 3)
+        self.assertEqual(check.count("selections: |"), 4)
         self.assert_split_covers_names(PERF.read_text(), (("application", 12), ("mcpserver", 4), ("sqlite", 2)))
 
     def test_application_slow_serial_fixtures_use_distinct_workflow_parts(self):
@@ -253,6 +253,11 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn('"frontend-bindings=${{ needs.frontend-bindings.result }}"', workflow)
         self.assertIn('"frontend-quality=${{ needs.frontend-quality.result }}"', workflow)
         self.assertIn("NESTWORTH_WAILS_GOCACHE=%s", workflow)
+        app2 = workflow.split("- label: application 2/2", 1)[1].split("- label:", 1)[0]
+        remaining = workflow.split("- label: remaining packages", 1)[1].split("- label:", 1)[0]
+        self.assertIn("application 1 2", app2)
+        self.assertNotIn("remainder 0 1", app2)
+        self.assertIn("remainder 0 1", remaining)
         self.assertIn("go test -count=1 -json -timeout 20m", workflow)
         self.assertNotIn("go test ./...", workflow)
         self.assertIn("go vet ./...", workflow)

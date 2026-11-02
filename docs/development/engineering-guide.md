@@ -187,7 +187,7 @@ depend on live network responses.
 GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to
 `main`, on pull requests, and on manual dispatch. Its gates are gofmt, binned
 non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
-build/lint/typecheck/test, and `git diff --check`. Go tests are three parallel
+build/lint/typecheck/test, and `git diff --check`. Go tests are four parallel
 jobs and Vitest is five shards with one shared bindings producer and a separate
 Node quality job. All frontend contracts stay in the fast gate; the timed
 partition and five-minute end-to-end acceptance status are recorded in

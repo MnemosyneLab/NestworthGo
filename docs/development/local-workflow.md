@@ -205,9 +205,9 @@ Enumeration uses the race build and includes Test, Example, and Fuzz names.
 Each process has an explicit 10-minute test budget, `-parallel 4` for
 application and MCP, and `-p 1` on the heavy shards; each race job has a
 30-minute outer bound including setup. Pull-request `check` bins non-race
-tests into three jobs from measured whole-job times: application in two
-checksum parts, paired with continuous backup and the remainder, plus one
-job for MCP and sqlite. Vitest runs as five shards using hosted timing weights,
+tests into four jobs from measured whole-job times: application in two
+checksum parts (the first paired with continuous backup), one independent
+remainder job, and one job for MCP and sqlite. Vitest runs as five shards using hosted timing weights,
 with HistoryPage isolated and every new test included. One native producer
 generates/checks bindings; Node consumers share that exact-run artifact. A
 separate quality job preserves ESLint, one TypeScript check and the production

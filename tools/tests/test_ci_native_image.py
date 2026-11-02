@@ -50,6 +50,10 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn("frontend/scripts/ensure-bindings.mjs", frontend)
         self.assertIn("if-no-files-found: error", frontend)
         self.assertIn("overwrite: true", frontend)
+        overlay = frontend.split("- name: Cache Wails CLI inputs", 1)[1].split("- name: Generate Wails bindings", 1)[0]
+        self.assertIn("if: ${{ job.container.id }}", overlay)
+        self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache Wails CLI inputs"))
+        self.assertLess(frontend.index("- name: Cache Wails CLI inputs"), frontend.index("pnpm run generate:bindings"))
 
     def test_cgo_cache_is_pinned_and_modules_are_shared(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()

@@ -1,7 +1,7 @@
 # CI correctness and five-minute budget (2026-11-02)
 
-The five-minute end-to-end target remains an acceptance criterion. The last
-observed hosted run did **not** meet it. This record separates measured evidence
+The five-minute end-to-end target remains an acceptance criterion. The observed
+hosted runs have **not** met it (517s initially, 402s after the first redesign). This record separates measured evidence
 from the new layout; local timings do not establish the hosted result.
 
 ## Hosted baseline
@@ -34,6 +34,49 @@ and compiled extra CLI dependencies. The first generation spent 99–102s; a war
 generation/verification in the same job took about 10–12s. Existing immutable
 meta/Go cache entries cannot learn those missing CLI inputs on an exact hit.
 
+## First redesign hosted result and bounded follow-up
+
+[Run 41386006359](https://github.com/MnemosyneLab/NestworthGo/actions/runs/41386006359)
+on `6405263874628bd821111c8a4ce5c7f08c1a4623` passed every gate. Both GitHub
+run duration and 03:59:58–04:06:40 UTC wall time were **402s (6m42s)**: 115s
+below the initial 517s but **102s above** the 300s target. Queueing remained only
+seconds. This is correctness evidence, not five-minute acceptance.
+
+- Bindings preparation ran 212s: native container 24s, setup-go 18s, Node/pnpm
+  setup 16s, CLI overlay lookup 1s, first generation 105s, fresh comparison 12s,
+  artifact upload 2s and first cache save 13s (plus normal job overhead).
+  Logs explicitly show the overlay miss and successful save under
+  `wails-bindings-v1-Linux-X64-8fee68af0385289a9c631b21d0f8c1d5a2ec96d2c6323e825096d75ff3d4cce3`.
+  The bounded follow-up changes none of the cache-key inputs. Its next run can
+  therefore measure the populated cache, rather than blindly retrying a miss.
+- The five frontend jobs took 93/157/112/143/135s, including approximately 32s
+  per job of setup. Actual test phases were 60/125/81/110/104s. Quality took 92s
+  (ESLint 40s, TypeScript 21s, Vite 3s). All 1657 tests across 161 files passed.
+  Timing weights are refreshed from these exact successful shard artifacts;
+  assignment and complete/disjoint coverage guards remain unchanged.
+- The critical Go application-2/remainder job grew to 381s; its Go step consumed
+  321s. Application enumeration/compilation preceded a 120.448s application test
+  process, followed by module download/list/compile work and the remainder.
+  Other Go jobs were 199s/147s. The follow-up splits remainder into a fourth Go
+  job, retaining the existing application checksum halves, package enumeration,
+  `-p` bounds and complete coverage. No Go test is removed or moved to perf.
+- A review found that restoring the compiled Wails overlay after the fallback's
+  post-apt clean could defeat the unpinned native-cache fence. The overlay now
+  runs **only** inside the reviewed pinned container. On unpinned bootstrap it
+  is neither restored nor saved; module downloads remain reusable and compiled
+  artifacts stay cleared. A guard checks this condition and exact step ordering.
+
+The first redesign's local five-shard validation also passed 1657 tests with
+complete/disjoint file union; local shard durations were 55.96/61.30/58.50/57.68/
+54.20s. Fast tooling passed 67 tests in 30.43s and extended tooling passed 13 in
+86.84s. Binding freshness, ESLint, typecheck and production build passed. Those
+measurements describe that head; final follow-up evidence belongs to the PR.
+
+The next hosted candidate still needs both correctness and end-to-end timing
+validation. In particular, the populated CLI cache must actually hit and the
+independent Go remainder must reduce the critical path. No result is inferred
+from local timings or from cache-save evidence alone.
+
 ## Remaining reconciliation regression
 
 Hosted CI passed 883/884 tests in shard 2. The one failure was a 20-click App
@@ -61,8 +104,9 @@ all three scenarios: 3905/2276/2789ms and 3912/2371/2706ms respectively.
 - `frontend-quality` runs ESLint, one TypeScript check and the production Vite
   build on the same verified artifact. Local developer scripts keep their normal
   binding guards. Aggregate checks fail unless preparation and quality succeed.
-- Five Node-only test shards keep two workers per runner. HistoryPage, an
-  indivisible 91.3s hosted test file, gets its own shard. The others use deterministic
+- Four Go jobs retain every correctness package while removing the serial
+  application-2/remainder dependency. Five Node-only test shards keep two workers per runner. HistoryPage, an
+  indivisible long hosted test file, gets its own shard. The others use deterministic
   longest-first assignment from the hosted file timings plus 1.25s/file setup.
   New/unmeasured files receive a conservative default and are always assigned.
   A regression checks the complete discovered-file union, uniqueness, nonempty
@@ -74,7 +118,7 @@ all three scenarios: 3905/2276/2789ms and 3912/2371/2706ms respectively.
 This uses the existing GitHub-hosted Ubuntu runner type and reviewed native image;
 it introduces no paid runner service or infrastructure/security configuration.
 The additional short Node jobs replace duplicate native preparation. Cache-miss
-preparation and the remaining ~279s Go job may still constrain hosted wall time.
+preparation and native Go compilation may still constrain hosted wall time.
 The first cache-populating run must be reported separately from a warm run; no
 five-minute claim is made until the coordinator measures the new hosted head.
 
