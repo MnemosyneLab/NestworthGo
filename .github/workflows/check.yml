@@ -15,7 +15,7 @@ defaults:
   run:
     shell: bash
 
-# Stable in host and container jobs, so the module-only fallback archive can
+# Stable in host and container jobs, so the module-only archive can
 # be reused across native images. Compiled artifacts stay in GOCACHE.
 env:
   GOMODCACHE: /tmp/nestworth-ci-go-modules
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-26.04
     needs: runtime
     # A runtime output avoids GitHub's rejection of a constant empty image.
-    # Activate only a verified public digest in .github/ci-native-image.txt.
+    # Activate only verified public native/toolchain digests in the pin files.
     container: &native-ci ${{ fromJSON(needs.runtime.outputs.container) }}
     timeout-minutes: 30
     steps:

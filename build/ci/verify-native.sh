@@ -27,8 +27,8 @@ chmod 700 "$probe"
 if [[ ${1:-} == --with-toolchains ]]; then
   go version
   [[ $(go env CGO_ENABLED) == 1 ]]
-  # setup-go hashes the reviewed image pin; a separate module-only fallback
-  # survives image changes. Never tar the runner filesystem.
+  # Module/build caches are restored separately; only modules cross images.
+  # Verify every action-mounted and Go-writable path. Never tar a runner home.
   for directory in "$HOME" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" \
     "$RUNNER_TOOL_CACHE" "$(go env GOCACHE)" "$(go env GOMODCACHE)"; do
     mkdir -p "$directory"
