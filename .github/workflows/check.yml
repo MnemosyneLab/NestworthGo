@@ -37,6 +37,7 @@ jobs:
     outputs:
       container: ${{ steps.image.outputs.container }}
       preinstalled: ${{ steps.image.outputs.preinstalled }}
+      cache-day: ${{ steps.image.outputs.cache-day }}
     steps:
       - uses: actions/checkout@v7
       - name: Resolve reviewed image or hosted-runner bootstrap
@@ -75,12 +76,18 @@ jobs:
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      # Each owner saves its own complete build workload. On a new UTC day,
+      # restore only a fully compatible owner snapshot and refresh after success.
+      # No per-run/SHA keys: at most one snapshot per owner/ref/boundary/day.
       - name: Cache image-specific Go build artifacts
+        id: go-build-cache
         if: ${{ job.container.id }}
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ env.GOCACHE }}
-          key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}
+          key: go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-meta-${{ needs.runtime.outputs.cache-day }}
+          restore-keys: |
+            go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-meta-
       - name: Install native Go build dependencies (bootstrap fallback)
         if: ${{ !job.container.id }}
         timeout-minutes: 17
@@ -145,12 +152,18 @@ jobs:
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      # Each owner saves its own complete build workload. On a new UTC day,
+      # restore only a fully compatible owner snapshot and refresh after success.
+      # No per-run/SHA keys: at most one snapshot per owner/ref/boundary/day.
       - name: Cache image-specific Go build artifacts
+        id: go-build-cache
         if: ${{ job.container.id }}
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ env.GOCACHE }}
-          key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}
+          key: go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-bindings-${{ needs.runtime.outputs.cache-day }}
+          restore-keys: |
+            go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-bindings-
       # The bindings guard needs Node built-ins, not pnpm dependencies.
       - uses: actions/setup-node@v7
         with:
@@ -385,12 +398,18 @@ jobs:
         with:
           path: ${{ env.GOMODCACHE }}
           key: go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+      # Each owner saves its own complete build workload. On a new UTC day,
+      # restore only a fully compatible owner snapshot and refresh after success.
+      # No per-run/SHA keys: at most one snapshot per owner/ref/boundary/day.
       - name: Cache image-specific Go build artifacts
+        id: go-build-cache
         if: ${{ job.container.id }}
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ env.GOCACHE }}
-          key: go-build-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt', '.github/ci-toolchain-image.txt', 'go.sum') }}
+          key: go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-${{ matrix.artifact }}-${{ needs.runtime.outputs.cache-day }}
+          restore-keys: |
+            go-build-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', '.github/ci-toolchain-image.txt') }}-${{ matrix.artifact }}-
       - name: Install native Go build dependencies (bootstrap fallback)
         if: ${{ !job.container.id }}
         timeout-minutes: 17
