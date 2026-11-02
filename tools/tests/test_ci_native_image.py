@@ -26,7 +26,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('cache: pnpm', workflow)
         self.assertIn('NESTWORTH_WAILS_GOCACHE=%s', workflow)
         for gate in ('go vet ./...', 'go build ./cmd/nestworth', 'go test -count=1 -json',
-                     'node scripts/ensure-bindings.mjs', 'node scripts/ensure-bindings.mjs --check',
+                     'node scripts/ensure-bindings.mjs',
                      'pnpm exec eslint .', 'pnpm exec tsc --noEmit', 'pnpm exec vite build --mode production',
                      'pnpm exec vitest run --shard=', 'needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]'):
             self.assertIn(gate, workflow)
@@ -34,9 +34,16 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('actions/setup-node@v7', frontend)
         self.assertNotIn('pnpm/action-setup', frontend)
         self.assertNotIn('pnpm install', frontend)
-        self.assertIn('node scripts/ensure-bindings.mjs --check', frontend)
-        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("run: node scripts/ensure-bindings.mjs --check"))
-        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs --check"), frontend.index("- name: Share verified bindings"))
+        self.assertNotIn('node scripts/ensure-bindings.mjs --check', frontend)
+        self.assertNotIn('bindings-compare', frontend)
+        self.assertIn("if: steps.bindings-restore.outputs.valid != 'true'", frontend)
+        self.assertIn('python3 tools/bindings-cache.py restore', frontend)
+        self.assertIn('python3 tools/bindings-cache.py save', frontend)
+        self.assertIn('key=disabled', frontend)
+        self.assertIn('^[0-9a-f]{64}$', frontend)
+        self.assertIn('continue-on-error: true', frontend)
+        self.assertNotIn('restore-keys:', frontend)
+        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("- name: Share verified bindings"))
         meta = workflow.split('  frontend-bindings:', 1)[0]
         self.assertIn('actions/setup-node@v7', meta)
         self.assertIn('node-version: 24.22.0', meta)
@@ -53,13 +60,18 @@ class NativeImageWorkflowTests(unittest.TestCase):
             self.assertNotIn("actions/setup-go", consumer)
             self.assertNotIn("container:", consumer)
             self.assertNotIn("ensure-bindings.mjs", consumer)
-        self.assertIn("frontend/scripts/ensure-bindings.mjs", frontend)
         self.assertIn("if-no-files-found: error", frontend)
         self.assertIn("overwrite: true", frontend)
-        overlay = frontend.split("- name: Cache Wails CLI inputs", 1)[1].split("- name: Generate Wails bindings", 1)[0]
-        self.assertIn("if: ${{ job.container.id }}", overlay)
-        self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache Wails CLI inputs"))
-        self.assertLess(frontend.index("- name: Cache Wails CLI inputs"), frontend.index("node scripts/ensure-bindings.mjs"))
+        cli = frontend.split("- name: Cache pinned Wails CLI binary", 1)[1].split("- name: Generate Wails bindings", 1)[0]
+        self.assertIn("if: ${{ job.container.id }}", frontend.split("- name: Cache pinned Wails CLI binary", 1)[1].split("- name: Prepare pinned Wails CLI", 1)[0])
+        self.assertIn("path: /tmp/nestworth-ci-wails", cli)
+        self.assertNotIn("GOMODCACHE", cli)
+        self.assertIn("${{ steps.go.outputs.go-version }}", cli)
+        self.assertIn("hashFiles('.github/ci-native-image.txt')", cli)
+        self.assertIn("go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0", cli)
+        self.assertIn('wails3 version 2>&1', cli)
+        self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache pinned Wails CLI binary"))
+        self.assertLess(frontend.index("- name: Prepare pinned Wails CLI"), frontend.index("node scripts/ensure-bindings.mjs"))
 
     def test_cgo_cache_is_pinned_and_modules_are_shared(self):
         workflow = (ROOT / '.github/workflows/check.yml').read_text()

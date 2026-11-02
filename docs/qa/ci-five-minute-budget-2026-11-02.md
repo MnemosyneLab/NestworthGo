@@ -188,3 +188,76 @@ before the layout's full validation. The PR validation record names the exact
 follow-up head, all six executed frontend shards, fast and extended tooling
 results, lint/typecheck/build and unverified native/browser gates. Hosted
 correctness and the 300s end-to-end target remain coordinator acceptance gates.
+
+
+### Wails CLI cache follow-up
+
+The bindings job caches the pinned v3.0.0 CLI executable separately from the
+setup-go module and build caches. The key fences the Go version, OS, architecture
+and reviewed native image digest. The unpinned apt fallback builds the executable
+again after clearing compiled Go artifacts. No module tree is overlaid. A cache
+miss still installs the pinned CLI. Generated output now has its own conservative
+exact-input cache, described below; hosted cold and warm timings and the
+five-minute acceptance target remain to be measured.
+
+A single sequential paired comparison on native macOS arm64 (Go 1.27.3,
+Node 24.22.0, Vitest 4.1.11, two workers, generated bindings and copied
+installed frontend dependencies) used source `6de444fd` and the existing
+HistoryPage isolation. Both configurations passed all 161 files and 1,659
+tests. Four shards took 36.82, 37.07, 41.69 and 41.46 seconds (157.04 seconds
+sum); six took 36.65, 20.89, 25.87, 23.53, 24.02 and 23.71 seconds (154.69
+seconds sum). These are one sequential sample per configuration, in that
+order, with no runner setup or artifact transfer. The longest shard is only a
+local parallel-wall proxy; these numbers do not establish hosted wall time,
+runner cost, stability, or a five-minute workflow. Keep six shards until a
+same-head hosted comparison captures queue, setup and aggregate job time.
+
+
+### Generated bindings cache
+
+The reviewed native-image path fingerprints all tracked and nonignored Go
+files, Go module files, native source and headers, and conservative non-presentation
+project files, including generator scripts, frontend runtime package/lock files,
+CI configuration, registration and event code. It also asks `go list -deps` for
+actual Go embedded files and native sources, including matches inside otherwise
+excluded documentation and frontend trees. Source names, modes and SHA-256
+contents, the pinned CLI bytes, Go and Node versions, and the build environment
+form the exact key. Ordinary README, documentation and frontend presentation
+changes do not invalidate it unless Go embeds or compiles the file. All Go files
+remain included even in excluded directories. Changes to future embed directives
+are captured by both the Go source and the Go tool's resolved file list.
+
+Local module replacements, a workspace file, GOFLAGS, ignored Go/native inputs,
+missing or symlinked inputs, a failed Go package inventory, unavailable tools,
+and the unpinned apt fallback disable reuse. CI uses a clean checkout and does
+not install frontend dependencies in the bindings producer. There are no prefix
+cache restores. A matching archive is accepted only if the manifest has the exact
+input key, generated file set, digests and required service marker. Missing,
+extra or changed files regenerate; an immutable corrupt cache entry may cause
+repeat misses until eviction. Cache errors also fall back. This is corruption
+detection, not authentication: like other Actions caches it trusts writers in
+the applicable GitHub cache scope.
+
+For Wails v3.0.0, `GenerateBindingsOptions.BuildFlags` parses only the CLI's
+`-f` value, and `LoadPackages` passes the result to `packages.Load` without
+adding tags. The project's binding command supplies no `-f`; the cache's
+`go list -deps ./...` therefore uses the same default build selection and
+inherited Go environment. A CLI-argument regression guard and a real tagged
+embed fixture protect this boundary. Nonempty GOFLAGS disables reuse. Changes
+to generator flags or Wails versions require reviewing this assumption.
+
+A fresh generator result or validated exact-input hit feeds the same-run frontend
+artifact. CI, daily/manual perf, local task checks and macOS release packaging
+no longer perform a second generation for comparison. `check:bindings` remains
+an optional explicit developer diagnostic. Consequently automated checks no
+longer detect generator nondeterminism or independently cross-check cached
+output against a fresh run. Input fingerprinting, file digests, TypeScript and
+build checks do not prove that a coherent cached result matches the current Go
+contract if a relevant input is omitted. Cache reuse is not evidence of deployed
+behavior. On native Mac, the earlier full-checkout fingerprint took 0.31s, restored output took 0.06s,
+and an independent warm comparison took 1.89s; a warm narrowed fingerprint
+including Go package/embed discovery took 0.71s in one separate sample; a deliberately corrupted entry was
+rejected and fresh warm generation took 1.64s. These measurements exclude
+archive transport, and do not predict hosted performance. The output cache is
+currently enabled only with the pinned native image. Its safety depends on
+retaining the complete input inventory and a trusted CI cache scope.

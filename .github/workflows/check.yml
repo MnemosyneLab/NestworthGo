@@ -97,7 +97,7 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
-  # Generate/check bindings once. Pure Node consumers share this exact-run
+  # Generate or restore bindings once. Pure Node consumers share this exact-run
   # artifact; they need neither Go nor a native container. CLI cache misses are
   # recorded separately from warm runtime so the five-minute target is auditable.
   frontend-bindings:
@@ -113,8 +113,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-          # Keep the shared native-image-fenced Go baseline. The Wails cache
-          # below overlays CLI inputs without discarding this warm baseline.
+          # Compiled Go artifacts are fenced by the reviewed native image.
           cache-dependency-path: |
             go.sum
             .github/ci-native-image.txt
@@ -141,33 +140,65 @@ jobs:
         run: go clean -cache
       - name: Verify native tools, user and cache permissions
         run: bash build/ci/verify-native.sh --with-toolchains
-      # ensure-bindings defaults to an ephemeral GOCACHE, so a restored
-      # setup-go cache never reused the Wails compile (~70s median).
       - name: Reuse Go build cache for Wails bindings
-        id: bindings-cache-paths
-        run: |
-          build_cache=$(go env GOCACHE)
-          printf 'NESTWORTH_WAILS_GOCACHE=%s\n' "$build_cache" >> "$GITHUB_ENV"
-          printf 'build=%s\n' "$build_cache" >> "$GITHUB_OUTPUT"
-      # Shared Go caches can hit while still lacking `go run wails3@v3.0.0`
-      # dependencies. Overlay a separately saved CLI cache; on its first miss
-      # keep the shared baseline rather than forcing a full native rebuild.
-      - name: Cache Wails CLI inputs
-        # An unpinned apt bootstrap must retain its post-install cache clean.
-        # Only the reviewed native image may restore compiled CGO artifacts.
+        run: printf 'NESTWORTH_WAILS_GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
+      # Only the pinned image can safely reuse a compiled executable. The host
+      # fallback installs unpinned native packages and always builds its CLI.
+      - name: Cache pinned Wails CLI binary
+        id: wails-cli
+        continue-on-error: true
         if: ${{ job.container.id }}
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
-          path: |
-            ${{ steps.bindings-cache-paths.outputs.build }}
-            ${{ env.GOMODCACHE }}
-          key: wails-bindings-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/ci-native-image.txt', 'frontend/scripts/ensure-bindings.mjs') }}
+          path: /tmp/nestworth-ci-wails
+          key: wails-cli-v1-v3.0.0-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/ci-native-image.txt') }}
+      - name: Prepare pinned Wails CLI
+        run: |
+          if [ "${{ steps.wails-cli.outputs.cache-hit }}" != 'true' ] || [ ! -x /tmp/nestworth-ci-wails/wails3 ] || [ "$(/tmp/nestworth-ci-wails/wails3 version 2>&1)" != v3.0.0 ]; then
+            GOBIN=/tmp/nestworth-ci-wails go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+          fi
+          test "$(/tmp/nestworth-ci-wails/wails3 version 2>&1)" = v3.0.0
+          printf '/tmp/nestworth-ci-wails\n' >> "$GITHUB_PATH"
+      # Exact input key only. Output content is independently validated after
+      # restore; a miss, unsupported input or damaged archive regenerates.
+      - name: Fingerprint bindings inputs
+        id: bindings-key
+        env:
+          NATIVE_IMAGE: ${{ job.container.id }}
+        run: |
+          key=disabled
+          if [ -n "$NATIVE_IMAGE" ]; then
+            key=$(python3 tools/bindings-cache.py key) || key=disabled
+          fi
+          if [[ ! "$key" =~ ^[0-9a-f]{64}$ ]]; then key=disabled; fi
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      - name: Cache generated bindings
+        if: steps.bindings-key.outputs.key != 'disabled'
+        id: bindings-cache
+        continue-on-error: true
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: /tmp/nestworth-ci-bindings
+          key: bindings-v1-${{ steps.bindings-key.outputs.key }}
+      - name: Validate cached bindings
+        id: bindings-restore
+        env:
+          INPUT_KEY: ${{ steps.bindings-key.outputs.key }}
+        run: |
+          if [ "$INPUT_KEY" != disabled ] && python3 tools/bindings-cache.py restore /tmp/nestworth-ci-bindings "$INPUT_KEY"; then
+            echo 'valid=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'valid=false' >> "$GITHUB_OUTPUT"
+          fi
       - name: Generate Wails bindings
+        if: steps.bindings-restore.outputs.valid != 'true'
         working-directory: frontend
         run: node scripts/ensure-bindings.mjs
-      - name: Verify generated Wails bindings
-        working-directory: frontend
-        run: node scripts/ensure-bindings.mjs --check
+      - name: Save generated bindings manifest
+        if: steps.bindings-restore.outputs.valid != 'true' && steps.bindings-key.outputs.key != 'disabled'
+        env:
+          INPUT_KEY: ${{ steps.bindings-key.outputs.key }}
+        run: python3 tools/bindings-cache.py save /tmp/nestworth-ci-bindings "$INPUT_KEY"
       - name: Share verified bindings with frontend gates
         uses: actions/upload-artifact@v7
         with:
@@ -204,8 +235,8 @@ jobs:
         with:
           name: frontend-bindings-${{ github.sha }}
           path: frontend/bindings
-      # The exact-run artifact was freshly generated and compared in the
-      # producer. Keep direct CI gates from regenerating it a third/fourth time.
+      # The producer generated or validated an exact-input cached artifact.
+      # Consumers do not independently regenerate it.
       - name: Frontend lint
         working-directory: frontend
         run: pnpm exec eslint .

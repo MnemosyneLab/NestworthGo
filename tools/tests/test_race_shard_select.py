@@ -266,7 +266,7 @@ class RaceShardSelectTests(unittest.TestCase):
         self.assertIn("pnpm exec tsc --noEmit", workflow)
         self.assertIn("pnpm exec vite build --mode production", workflow)
         self.assertIn("node scripts/ensure-bindings.mjs", workflow)
-        self.assertIn("node scripts/ensure-bindings.mjs --check", workflow)
+        self.assertNotIn("node scripts/ensure-bindings.mjs --check", workflow)
         self.assertIn("python3 tools/run-tooling-tests.py --tier fast", workflow)
         self.assertNotIn("-tags perf", workflow)
         self.assertNotIn("NESTWORTH_PERF", workflow)

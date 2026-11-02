@@ -38,10 +38,10 @@ wails3 task dev
 `frontend/bindings/` contains only generated, gitignored files. After a clean
 checkout, generate it with `wails3 task setup` or `wails3 task
 generate:bindings`. The direct frontend `dev`, `build`, `typecheck`, and `test`
-scripts regenerate it before importing bindings. Run `generate:bindings`
-before `check:bindings`: the check requires existing output and compares it
-with fresh generator output. The Wails build tasks generate bindings before
-building the frontend.
+scripts regenerate it before importing bindings. The optional diagnostic
+`check:bindings` compares existing output with a fresh generation; run
+`generate:bindings` first. It is not an automatic validation or release gate.
+The Wails build tasks generate bindings before building the frontend.
 
 Run affected checks first during development; the normal automated check set
 uses a writable cache:
@@ -189,7 +189,11 @@ GitHub Actions workflow `.github/workflows/check.yml` runs on pushes to
 non-race `go test`, vet, `go build ./cmd/nestworth`, frontend
 build/lint/typecheck/test, and `git diff --check`. Go tests are four parallel
 jobs and Vitest is six shards with one shared bindings producer and a separate
-Node quality job. All frontend contracts stay in the fast gate; the timed
+Node quality job. The producer validates an exact-input generated-output cache
+or regenerates on a miss. Automated checks do not independently regenerate
+bindings to compare the results; cache validation checks recorded inputs and
+file integrity, not generator determinism. All frontend contracts stay in the
+fast gate; the timed
 partition and five-minute end-to-end acceptance status are recorded in
 [the CI budget investigation](../qa/ci-five-minute-budget-2026-11-02.md).
 The required aggregate check name is `test`. Fast tooling retains GNU

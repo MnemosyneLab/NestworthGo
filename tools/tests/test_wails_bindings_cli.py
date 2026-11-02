@@ -44,6 +44,13 @@ marker.write_text("// synthetic binding")
                     command = binaries / name
                     command.write_text(stub)
                     command.chmod(0o755)
+                # A stale CLI in the default GOPATH must not shadow the
+                # deliberately selected PATH binary (including the CI cache).
+                home_bin = root / "go/bin"
+                home_bin.mkdir(parents=True)
+                shadow = home_bin / "wails3"
+                shadow.write_text(f"#!{sys.executable}\nraise SystemExit(99)\n")
+                shadow.chmod(0o755)
                 log = root / "invocation.json"
                 env = {**os.environ, "HOME": str(root), "PATH": str(binaries),
                        "TEST_CLI_VERSION": version, "TEST_CLI_LOG": str(log)}
@@ -52,9 +59,13 @@ marker.write_text("// synthetic binding")
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 invocation = json.loads(log.read_text())
                 self.assertEqual(Path(invocation[0]).name, selected)
-                if selected == "go":
-                    self.assertEqual(invocation[1:3], ["run", "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0"])
-                self.assertIn("./...", invocation)
+                prefix = ["run", "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0"] if selected == "go" else []
+                # The cache inventory uses go list ./... with no -tags/-f.
+                # Any change to generator flags requires reviewing that parity.
+                self.assertEqual(invocation[1:], prefix + [
+                    "generate", "bindings", "-clean=true", "-ts", "-i", "-d",
+                    str((root / "frontend/bindings").resolve()), "./...",
+                ])
 
 
 if __name__ == "__main__":
