@@ -144,14 +144,18 @@ function QuoteQuality({
   sourceKind,
   sourceKey,
   delayed,
+  configuredSource,
 }: {
   sourceKind?: string;
   sourceKey?: string;
   delayed?: boolean;
+  configuredSource?: string;
 }) {
   const { t } = useTranslation();
   const source = sourceKind ? displayEnum(t, "portfolio", sourceKind) : "";
-  const label = sourceKey && sourceKey !== sourceKind ? `${source} · ${sourceKey}` : source;
+  const distinctKey = Boolean(sourceKey && sourceKey !== sourceKind);
+  // The row badge already names the configured source; repeat provenance only when it adds detail.
+  const label = distinctKey ? `${source} · ${sourceKey}` : sourceKind === configuredSource ? "" : source;
   return (
     <span className="flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
       {delayed ? <Badge variant="warning">{t("charts.delayed")}</Badge> : null}
@@ -180,7 +184,7 @@ function InstrumentRow({
 
   return (
     <li
-      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md border border-border px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(15rem,auto)_auto]"
+      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3 text-sm last:border-0 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,auto)_auto]"
       data-testid={rowTestId}
     >
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -209,7 +213,7 @@ function InstrumentRow({
                 </span>
               )}
             </span>
-            <QuoteQuality sourceKind={quote.data.sourceKind} sourceKey={quote.data.sourceKey} delayed={quote.data.delayed} />
+            <QuoteQuality sourceKind={quote.data.sourceKind} sourceKey={quote.data.sourceKey} delayed={quote.data.delayed} configuredSource={instrument.quoteSource} />
             <MetalConversionDetails evidence={quote.data.conversionJSON} />
           </>
         ) : (
@@ -381,8 +385,8 @@ export function InstrumentManagement({
         <div className="flex flex-col gap-4">
           {groupByInstrumentType(filtered).map((group) => (
             <section key={group.key} className="flex flex-col gap-2" data-testid={`${groupTestIdPrefix}-${group.key}`}>
-              <h2 className="text-sm font-medium text-muted-foreground">{displayEnum(t, "enum", group.key)}</h2>
-              <ul className="flex flex-col gap-2">
+              <h2 className="px-1 text-sm font-semibold text-foreground">{displayEnum(t, "enum", group.key)}</h2>
+              <ul className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
                 {group.items.map((instrument) => (
                   <InstrumentRow
                     key={instrument.id}

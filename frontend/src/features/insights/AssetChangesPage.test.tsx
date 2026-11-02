@@ -127,7 +127,7 @@ describe("AssetChangesPage", () => {
     expect(within(sheet).getByText("Cash · USD")).toBeInTheDocument();
     expect(within(sheet).getByText("Cash · SGD")).toBeInTheDocument();
     expect(await within(sheet).findByText("Brokerage")).toBeInTheDocument();
-    expect(within(sheet).getByRole("button", { name: "Open Return Analysis" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Open return analysis" })).toBeInTheDocument();
     expect(assetDriverDetail).toHaveBeenCalledWith(expect.anything(), bucket);
   });
 
@@ -176,7 +176,7 @@ describe("AssetChangesPage", () => {
     await user.click(await screen.findByRole("button", { name: "View in ledger activity" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open return analysis" })).not.toBeInTheDocument();
   });
 
   it("passes a category record ID separately from its ledger activity list filters", async () => {
@@ -207,7 +207,7 @@ describe("AssetChangesPage", () => {
     });
     renderPage({ onOpenReturnAnalysis });
     await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Price Change/ }));
-    await user.click(await screen.findByRole("button", { name: "Open Return Analysis" }));
+    await user.click(await screen.findByRole("button", { name: "Open return analysis" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(onOpenReturnAnalysis).toHaveBeenCalledWith(expect.objectContaining({
       scope: "portfolio",
@@ -234,7 +234,7 @@ describe("AssetChangesPage", () => {
     renderPage({ onOpenReturnAnalysis });
     await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Income/ }));
     await waitFor(() => expect(assetDriverDetail).toHaveBeenCalledWith(expect.anything(), "income"));
-    expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open return analysis" })).not.toBeInTheDocument();
     expect(onOpenReturnAnalysis).not.toHaveBeenCalled();
   });
 

@@ -106,9 +106,9 @@ describe("insight tabs", () => {
   afterEach(() => { cleanup(); vi.useRealTimers(); });
 
   it.each([
-    ["Return Trend", ReturnTrendTab, returnTrend],
+    ["Return trend", ReturnTrendTab, returnTrend],
     ["Contribution", ContributionTab, contribution],
-    ["Asset Trend", AssetTrendTab, assetTrend],
+    ["Asset trend", AssetTrendTab, assetTrend],
     ["Categories", CategoriesTab, categories],
   ])("explains the unclosed current month in %s without querying", async (_name, Tab, query) => {
     vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));

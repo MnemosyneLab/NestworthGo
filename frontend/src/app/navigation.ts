@@ -159,14 +159,12 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Administrative destinations share one group that AppShell pins to the
+    // bottom of the sidebar, keeping everyday workflows at the top.
     id: "manage",
     translationKey: "navGroups.manage",
-    items: [{ id: "directory", translationKey: "nav.directory", icon: Users }],
-  },
-  {
-    id: "settings",
-    translationKey: "navGroups.settings",
     items: [
+      { id: "directory", translationKey: "nav.directory", icon: Users },
       { id: "market-data", translationKey: "nav.marketData", icon: RefreshCw },
       { id: "settings", translationKey: "nav.settings", icon: Settings },
     ],

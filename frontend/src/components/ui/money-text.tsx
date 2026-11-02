@@ -8,7 +8,7 @@ const moneyVariants = cva("num whitespace-nowrap tracking-tight", {
       sm: "text-sm font-medium",
       md: "text-lg font-semibold",
       lg: "text-2xl font-bold",
-      xl: "text-4xl font-extrabold",
+      xl: "font-display text-4xl font-semibold",
     },
     tone: {
       neutral: "text-foreground",

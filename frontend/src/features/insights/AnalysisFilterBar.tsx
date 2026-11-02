@@ -122,7 +122,7 @@ export function AnalysisFilterBar({
         <MoneyRoundingHelp />
       </div>
 
-      <DateRangeControl value={{ from: session.from || resolvedRange?.from || "", to: session.to || resolvedRange?.to || closedDate }} min={originDate} max={closedDate} disabled={!origin.data} onChange={update} />
+      <DateRangeControl value={{ from: session.from || resolvedRange?.from || "", to: session.to || resolvedRange?.to || closedDate }} min={originDate} max={closedDate} disabled={!origin.data} onChange={update} rangeLabel="hidden" />
       <details className="group border-t border-border/70 pt-3">
         <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-lg px-1 text-sm font-semibold text-foreground marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 [&::-webkit-details-marker]:hidden">{t("insights.moreFilters")}<span className="ml-2 font-normal text-muted-foreground">{[
           session.valuation === "native" ? t("insights.valuationNative") : t("insights.valuationBase", { currency: bootstrap.data?.household?.baseCurrency ?? "—" }),

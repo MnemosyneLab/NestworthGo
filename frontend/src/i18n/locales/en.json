@@ -1311,6 +1311,7 @@
     "allocationBasis": "Shares of valued, included assets only. Debt is separate. Incomplete estimates can understate the full allocation.",
     "byClass": "Asset class (current classification)",
     "byCurrency": "Original currency",
+    "dimension": "Group by",
     "source": "Source",
     "effectiveAt": "Observation effective time",
     "marketDate": "Market date",

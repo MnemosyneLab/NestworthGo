@@ -148,8 +148,8 @@ export function AccountsPage({
       <PageIntro
         description={t("accounts.description")}
         status={
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <input type="checkbox" className="size-4 accent-primary" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
             {t("accounts.showArchived")}
           </label>
         }

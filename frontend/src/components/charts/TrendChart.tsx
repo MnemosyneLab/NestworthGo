@@ -167,10 +167,13 @@ export function TrendChart({
   const owner = (seriesIndex: number | undefined, seriesName?: string) => segments[seriesIndex ?? -1]?.item ?? series.find((entry) => entry.name === seriesName) ?? series[0];
   const stamps = dates.map(trendChartTimestamp).filter(Number.isFinite);
   const longSpan = stamps.length > 1 && Math.max(...stamps) - Math.min(...stamps) > 330 * 86_400_000;
+  const legendLabel = (item: TrendSeries) => trendLegendLabel(item.name, item, t("charts.mixedSources"), t("charts.mixedDelay"), t("charts.delayed"));
+  // A lone series whose legend would only repeat its name adds no information; the card title already names it.
+  const hideLegend = minimal || (series.length === 1 && legendLabel(series[0]) === series[0].name);
   const option: EChartsOption = {
     color: series.map((item) => resolveSeriesColor(item.color)),
     // ECharts 6 moved the default legend to the bottom, where it collides with the time axis.
-    legend: minimal ? { show: false } : {
+    legend: hideLegend ? { show: false } : {
       type: "scroll",
       top: 0,
       left: 0,
@@ -179,7 +182,7 @@ export function TrendChart({
       textStyle: { color: theme.foreground },
       formatter: (name) => {
         const item = series.find((seriesItem) => seriesItem.name === name);
-        return item ? trendLegendLabel(name, item, t("charts.mixedSources"), t("charts.mixedDelay"), t("charts.delayed")) : name;
+        return item ? legendLabel(item) : name;
       },
     },
     tooltip: {
@@ -215,7 +218,7 @@ export function TrendChart({
         return joinTooltipLines([date, ...lines]);
       },
     },
-    grid: { left: 8, right: minimal ? 12 : 16, top: minimal ? 12 : 44, bottom: 8, containLabel: true },
+    grid: { left: 8, right: minimal ? 12 : 16, top: hideLegend ? 12 : 44, bottom: 8, containLabel: true },
     xAxis: {
       type: "time",
       ...(minimal ? { splitNumber: 4, axisTick: { show: false }, axisLine: { lineStyle: { color: theme.border } } } : {}),

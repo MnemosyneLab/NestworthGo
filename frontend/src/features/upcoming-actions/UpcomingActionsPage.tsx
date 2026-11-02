@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Card } from "@/components/ui/card";
 import { Notice } from "@/components/ui/notice";
 import { LoadingState, ErrorState, EmptyState } from "@/components/layout/PageState";
@@ -50,9 +51,7 @@ export function UpcomingActionsPage({ isActive = true, actionsHost }: { isActive
         </div>
         {data.completeness === "partial" && <Notice tone="warning">{t("upcomingActions.partial")}</Notice>}
       </Card>
-      <div role="group" aria-label={t("upcomingActions.filter")} className="flex flex-wrap gap-2">
-        {["all", "receipt", "reservations", "scheduled"].map(value => <Button key={value} size="sm" variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => { setFilter(value); setLimit(50); }}>{t(`upcomingActions.filters.${value}`)}</Button>)}
-      </div>
+      <SegmentedControl className="self-start" label={t("upcomingActions.filter")} value={filter} onChange={value => { setFilter(value); setLimit(50); }} options={["all", "receipt", "reservations", "scheduled"].map(value => ({ value, label: t(`upcomingActions.filters.${value}`) }))} />
       {filter === "all" ? <>
         {attentionItems.length > 0 && <section aria-label={t("upcomingActions.attentionTitle")} className={sectionClass}><h3 className={sectionHeadingClass}>{t("upcomingActions.attentionTitle")} · {data.counts.attention}</h3><div className="px-5"><UpcomingActionList context="upcoming-attention" items={attentionItems.slice(0, limit)} /></div></section>}
         {scheduledItems.length > 0 && <section aria-label={t("upcomingActions.scheduledTitle")} className={sectionClass}><h3 className={sectionHeadingClass}>{t("upcomingActions.scheduledTitle")} · {data.counts.scheduled}</h3><div className="px-5"><UpcomingActionList context="upcoming-scheduled" items={scheduledItems.slice(0, limit)} /></div></section>}

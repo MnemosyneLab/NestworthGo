@@ -2,6 +2,7 @@ import { formatAuditMoney } from "@/lib/money";
 import { formatCivilDate } from "@/lib/time";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ import {
   rolesFor,
   splitAccountTypes,
   trackingMethodKey,
+  trackingMethodShortKey,
   trackingHelpKey,
   trackingModesFor,
   trackingPrompt,
@@ -263,7 +265,7 @@ export function AccountCreateWizard({
     const selected = (accountType || resolvedType) === type;
     const typeRole = selected ? resolvedRole : defaultRole(combinations, type);
     const methods = trackingModesFor(combinations, type, typeRole)
-      .map((mode) => t(trackingMethodKey(mode, type)))
+      .map((mode) => t(trackingMethodShortKey(mode, type)))
       .join(t("accounts.trackingMethodSeparator"));
     return (
       <button
@@ -331,13 +333,14 @@ export function AccountCreateWizard({
             ))}
             <button
               type="button"
-              className={`rounded-md border px-3 py-2 text-left text-sm ${showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${showNewInstitution ? "border-primary bg-primary/8 ring-1 ring-primary/30" : "border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
               aria-pressed={showNewInstitution}
               onClick={() => {
                 setInstitutionTouched(true);
                 setShowNewInstitution(true);
               }}
             >
+              <Plus className="size-4" aria-hidden="true" />
               {t("accounts.createInstitution")}
             </button>
           </div>
@@ -397,11 +400,11 @@ export function AccountCreateWizard({
             </>
           )}
           {!typeLocked && typeRoles.length > 1 && (
-            <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-medium">{t("accounts.roleQuestion")}</legend>
+            <fieldset className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <legend className="mb-2 text-sm font-medium">{t("accounts.roleQuestion")}</legend>
               {typeRoles.map((option) => (
-                <label key={option} className="flex items-center gap-2 text-sm">
-                  <input type="radio" name="account-role" checked={role === option} onChange={() => applyRole(option)} />
+                <label key={option} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2.5 text-sm transition-colors hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                  <input type="radio" name="account-role" className="size-4 accent-primary" checked={role === option} onChange={() => applyRole(option)} />
                   {option === "liability" ? t("accounts.liability") : t("accounts.asset")}
                 </label>
               ))}
@@ -418,9 +421,9 @@ export function AccountCreateWizard({
           </div>
           <div className="flex flex-col gap-3" role="radiogroup" aria-label={t("accounts.trackingQuestion")}>
             {prompt.options.map((mode) => (
-              <label key={mode} className="flex cursor-pointer flex-col gap-1 rounded-md border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+              <label key={mode} className="flex cursor-pointer flex-col gap-1 rounded-md border border-border p-3 transition-colors hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <input type="radio" name="account-tracking" checked={trackingMode === mode} onChange={() => applyTracking(mode)} />
+                  <input type="radio" name="account-tracking" className="size-4 accent-primary" checked={trackingMode === mode} onChange={() => applyTracking(mode)} />
                   {t(trackingMethodKey(mode, accountType))}
                   {mode === prompt.defaultMode && (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
@@ -507,7 +510,7 @@ export function AccountCreateWizard({
           {showMoreSettings && (
             <div className="flex flex-col gap-3 rounded-md border border-border p-3">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={includeInNetWorth} onChange={(event) => setIncludeInNetWorth(event.target.checked)} /> {t("accounts.includeInNetWorth")}
+                <input type="checkbox" className="size-4 accent-primary" checked={includeInNetWorth} onChange={(event) => setIncludeInNetWorth(event.target.checked)} /> {t("accounts.includeInNetWorth")}
               </label>
               <EntitySelect id="wizard-group" label={t("nav.groups")} value={selectedGroupId} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => { setGroupTouched(true); setGroupId(value); }} />
             </div>

@@ -25,6 +25,7 @@ import { SettingsPage } from "@/features/settings/SettingsPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
 import { AppShell } from "@/app/AppShell";
 import { DirectoryPage } from "@/features/directory/DirectoryPage";
+import { useUiStore } from "@/stores/ui";
 import { Accent, Appearance, Language } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
 const completeOnboarding = vi.fn().mockResolvedValue({});
@@ -193,6 +194,26 @@ describe("keyboard-only completion", () => {
     expect(last).toHaveFocus();
     await user.tab({ shift: true });
     expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it("keeps the language preference reachable from the collapsed sidebar rail", async () => {
+    useUiStore.setState({ sidebarCollapsed: true });
+    try {
+      const user = userEvent.setup();
+      renderWithQueryClient(<AppShell activePageId="overview" settings={{ ...defaultSettings, schemaVersion: 1, quoteCacheTTL: "12h" }} onNavigate={() => {}}>
+        <p>Page</p>
+      </AppShell>);
+      const language = screen.getByRole("combobox", { name: "Language" });
+      const appearance = screen.getByRole("button", { name: "Change appearance" });
+      language.focus();
+      expect(language).toHaveFocus();
+      await user.selectOptions(language, "zh-CN");
+      expect(settingsSave).toHaveBeenCalledWith(expect.objectContaining({ language: "zh-CN" }));
+      await user.tab();
+      expect(appearance).toHaveFocus();
+    } finally {
+      useUiStore.setState({ sidebarCollapsed: false });
+    }
   });
 
   it("completes Onboarding using only Tab, typed characters, and Enter", async () => {

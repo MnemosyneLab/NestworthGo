@@ -1,10 +1,9 @@
 import { useValuationDayBoundary } from "@/queries/useValuationDayBoundary";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor, RefreshCw } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor, RefreshCw, Languages } from "lucide-react";
 import { NAV_GROUPS, DEFAULT_PAGE_ID, targetForPage, type NavigationTarget, type PageId } from "@/app/navigation";
 import { formatTasksBadge, useTasksCounts } from "@/features/tasks/useTasksCounts";
-import { TONE_CLASSES, type Tone } from "@/lib/tone";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -19,24 +18,6 @@ import { toast } from "sonner";
 import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { PageChromeProvider } from "@/components/layout/PageChrome";
 import { AppFocusBoundary } from "./AppFocusBoundary";
-
-/** Each destination keeps its own hue so the sidebar reads as colorful landmarks, not a gray list. */
-const PAGE_TONE: Record<PageId, Tone> = {
-  overview: 8,
-  "historical-overview": 6,
-  accounts: 1,
-  "available-funds": 2,
-  tasks: 3,
-  portfolio: 5,
-  "instrument-detail": 5,
-  history: 6,
-  "return-analysis": 7,
-  "asset-changes": 3,
-  directory: 4,
-  "market-data": 1,
-  "data-health": 3,
-  settings: 5,
-};
 
 const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: string }>> = {
   system: Monitor,
@@ -68,13 +49,19 @@ function AppearanceToggle({ appearance, disabled, onChange }: { appearance: Appe
   );
 }
 
-function LanguageSwitcher({ language, disabled, onChange }: { language: string; disabled: boolean; onChange: (language: string) => void }) {
+function LanguageSwitcher({ language, disabled, compact, onChange }: { language: string; disabled: boolean; compact: boolean; onChange: (language: string) => void }) {
   const { t, i18n: i18nInstance } = useTranslation();
-  return (
+  const currentLanguage = language === "system" ? i18nInstance.language : language;
+  const select = (
     <NativeSelect
       aria-label={t("settings.language.language")}
-      className="h-9 rounded-full border-transparent bg-muted px-3 text-xs font-medium shadow-none hover:bg-primary/10"
-      value={language === "system" ? i18nInstance.language : language}
+      title={compact ? t(`option.language.${languageOptionKey(currentLanguage)}`) : undefined}
+      className={cn(
+        "h-8 min-w-0 rounded-lg border-transparent bg-transparent text-xs font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground",
+        // The icon rail keeps the same native select (keyboard, typeahead, current value) but draws only the icon.
+        compact ? "absolute inset-0 size-full cursor-pointer appearance-none p-0 text-transparent opacity-0" : "flex-1 pl-2 pr-7",
+      )}
+      value={currentLanguage}
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
     >
@@ -84,6 +71,20 @@ function LanguageSwitcher({ language, disabled, onChange }: { language: string; 
         </option>
       ))}
     </NativeSelect>
+  );
+  if (compact) {
+    return (
+      <div className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors focus-within:ring-2 focus-within:ring-primary/50 hover:bg-muted hover:text-foreground">
+        <Languages aria-hidden="true" className="size-4" />
+        {select}
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <Languages aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      {select}
+    </div>
   );
 }
 
@@ -137,8 +138,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
       <AppFocusBoundary className="fixed inset-0 flex min-h-0 min-w-0 overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
-          "flex shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200 ease-out",
-          collapsed ? "w-16" : "w-60",
+          "flex shrink-0 flex-col border-r border-border bg-sidebar transition-[width] duration-200 ease-out",
+          collapsed ? "w-16" : "w-56",
         )}
       >
         <div className={cn("flex px-3", collapsed ? "flex-col items-center gap-2 py-3" : "h-14 items-center justify-between")}>
@@ -147,11 +148,11 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </Button>
         </div>
-        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 pb-3" aria-label={t("ui.navigation.main")}>
+        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-3 pt-1" aria-label={t("ui.navigation.main")}>
           {NAV_GROUPS.map((group) => (
-            <div key={group.id} className="flex flex-col gap-1">
+            <div key={group.id} className={cn("flex flex-col gap-0.5", group.id === "manage" && "mt-auto border-t border-border pt-4")}>
               {!collapsed && group.translationKey && (
-                <p className="px-3 pb-1 text-xs font-semibold text-muted-foreground">
+                <p className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
                   {t(group.translationKey)}
                 </p>
               )}
@@ -171,27 +172,24 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                     aria-label={ariaLabel}
                     title={collapsed ? label : undefined}
                     aria-current={active ? "page" : undefined}
+                    data-nav-id={item.id}
                     className={cn(
-                      "group flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                      active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                      collapsed && "justify-center px-1",
+                      "group relative flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                      active
+                        ? "bg-card text-foreground shadow-xs ring-1 ring-border before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
+                        : "text-muted-foreground hover:bg-card/70 hover:text-foreground",
+                      collapsed && "justify-center px-0",
                     )}
                   >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "relative flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
-                        active ? cn(TONE_CLASSES[PAGE_TONE[item.id]].solid, "text-background") : cn(TONE_CLASSES[PAGE_TONE[item.id]].soft, TONE_CLASSES[PAGE_TONE[item.id]].text),
-                      )}
-                    >
-                      <Icon className="size-4" />
+                    <span aria-hidden="true" className="relative flex size-5 shrink-0 items-center justify-center">
+                      <Icon className={cn("size-[18px] transition-colors", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={1.75} />
                       {item.id === "tasks" && collapsed && taskCount > 0 && (
-                        <span data-testid="tasks-sidebar-dot" className="absolute right-0.5 top-0.5 size-2 rounded-full bg-warning" />
+                        <span data-testid="tasks-sidebar-dot" className="absolute -right-1 -top-1 size-2 rounded-full bg-warning ring-2 ring-sidebar" />
                       )}
                     </span>
                     {!collapsed && <span className="truncate">{label}</span>}
                     {item.id === "tasks" && !collapsed && taskCount > 0 && (
-                      <span data-testid="tasks-sidebar-count" aria-hidden="true" className="ml-auto rounded-full bg-warning/18 px-1.5 text-xs font-semibold text-warning-foreground">{formatTasksBadge(taskCount)}</span>
+                      <span data-testid="tasks-sidebar-count" aria-hidden="true" className="num ml-auto rounded-full bg-warning/18 px-1.5 text-[11px] font-semibold text-warning-foreground">{formatTasksBadge(taskCount)}</span>
                     )}
                   </button>
                   {item.id === "tasks" && tasksStale && (
@@ -208,24 +206,25 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
             </div>
           ))}
         </nav>
+        <div className={cn("flex shrink-0 items-center gap-1 border-t border-border px-3 py-2", collapsed && "flex-col justify-center px-0")}>
+          <LanguageSwitcher
+            language={settings.language}
+            compact={collapsed}
+            disabled={saveSettings.isPending}
+            onChange={(language) => persistHeaderSetting({ language: language as Settings["language"] })}
+          />
+          <AppearanceToggle
+            appearance={settings.appearance as Appearance}
+            disabled={saveSettings.isPending}
+            onChange={(appearance) => persistHeaderSetting({ appearance: appearance as Settings["appearance"] })}
+          />
+        </div>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card/80 px-4 py-2 backdrop-blur-md sm:flex-nowrap sm:gap-3">
-          <div ref={setPageBarTarget} className="order-1 flex min-w-0 basis-full flex-wrap items-center gap-x-3 gap-y-2 sm:flex-1 sm:basis-auto" />
-          <div className="order-2 ml-auto flex shrink-0 items-center gap-2">
-            <LanguageSwitcher
-              language={settings.language}
-              disabled={saveSettings.isPending}
-              onChange={(language) => persistHeaderSetting({ language: language as Settings["language"] })}
-            />
-            <AppearanceToggle
-              appearance={settings.appearance as Appearance}
-              disabled={saveSettings.isPending}
-              onChange={(appearance) => persistHeaderSetting({ appearance: appearance as Settings["appearance"] })}
-            />
-          </div>
+        <header className="flex min-h-14 shrink-0 items-center gap-3 border-b border-border bg-background/85 px-6 py-2 backdrop-blur-md sm:px-8">
+          <div ref={setPageBarTarget} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2" />
         </header>
-        <main id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto bg-[radial-gradient(48rem_20rem_at_100%_0%,var(--color-surface-tint),transparent)] p-6 sm:p-8">
+        <main id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
           <div className="page-stage mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </main>
       </div>

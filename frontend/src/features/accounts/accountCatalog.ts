@@ -159,6 +159,11 @@ export function trackingMethodKey(mode: string, accountType?: string): string {
   return "accounts.tracking.balance";
 }
 
+/** Compact label for listing several supported methods on one account-type card. */
+export function trackingMethodShortKey(mode: string, accountType?: string): string {
+  return trackingMethodKey(mode, accountType).replace("accounts.tracking.", "accounts.trackingShort.");
+}
+
 export function trackingHelpKey(mode: string, accountType?: string): string {
   if (mode === "holdings") {
     return accountType === "cash_on_hand" ? "accounts.tracking.multiCurrencyCashHelp" : "accounts.tracking.holdingsHelp";

@@ -622,7 +622,7 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
       )}
       {!activeRefresh.isError && !instruments.isError && !fxPreferences.isError && (
         <Tabs value={tab} onValueChange={(value) => { setUserTab(value); setAcknowledgedFocusRequestId(focusRequestId); }}>
-          <TabsList>
+          <TabsList variant="line">
             <TabsTrigger value="instruments">{t("marketData.instruments")}</TabsTrigger>
             <TabsTrigger value="fx">{t("marketData.fx")}</TabsTrigger>
           </TabsList>

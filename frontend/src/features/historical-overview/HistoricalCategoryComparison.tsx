@@ -2,6 +2,7 @@ import { signedAccountAmount, negateDisplayAmount } from "@/lib/liabilityDisplay
 import { Fragment, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartTheme, joinTooltipLines, useThemeVersion } from "@/components/charts/chartTheme";
@@ -69,8 +70,7 @@ export function HistoricalCategoryComparisonView({ data, role, dimension, onRole
   return <section aria-label={t("historicalOverview.categoryCompare")} className="min-w-0 rounded-xl border border-border bg-card p-4">
     <h2 className="font-semibold">{t("historicalOverview.categoryCompare")}</h2>
     <p className="mt-1 text-xs text-muted-foreground">{t("historicalOverview.categoryComparisonBasis")} · {currency} · {t("historicalOverview.deltaNote")}</p>
-    <div className="my-3 flex flex-wrap gap-2" role="group" aria-label={t("historicalOverview.categoryRole")}>{(["asset", "liability"] as const).map(value => <Button key={value} size="sm" variant={role === value ? "default" : "outline"} aria-pressed={role === value} onClick={() => onRole(value)}>{t(value === "asset" ? "overview.assets" : "overview.liabilities")}</Button>)}</div>
-    <div className="my-3 flex flex-wrap gap-2">{(["byClass", "byCurrency"] as const).map(value => <Button key={value} size="sm" variant={dimension === value ? "default" : "outline"} aria-pressed={dimension === value} onClick={() => onDimension(value)}>{t(`historicalOverview.${value}`)}</Button>)}</div>
+    <div className="my-3 flex flex-wrap gap-2"><SegmentedControl label={t("historicalOverview.categoryRole")} value={role} onChange={value => onRole(value as typeof role)} options={(["asset", "liability"] as const).map(value => ({ value, label: t(value === "asset" ? "overview.assets" : "overview.liabilities") }))} /><SegmentedControl label={t("historicalOverview.dimension")} value={dimension} onChange={value => onDimension(value as typeof dimension)} options={(["byClass", "byCurrency"] as const).map(value => ({ value, label: t(`historicalOverview.${value}`) }))} /></div>
     {role === "liability" && <p className="text-xs text-muted-foreground">{t("historicalOverview.debtCategoryNote")}</p>}
     <div className="my-3 flex flex-wrap gap-4 text-sm" aria-label={t("historicalOverview.comparisonLegend")}>
       <span className="flex items-center gap-2"><span aria-hidden className="inline-block size-4 rounded border" style={{ backgroundColor: theme.border, borderColor: theme.primary }} />{sideLabel("left")}</span>

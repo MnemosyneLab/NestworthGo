@@ -29,6 +29,7 @@ export function AccountProductsSection({
   const eligible = canHoldProducts(record.account);
 
   if (!canViewProducts(record.account)) {
+    if (record.account.balanceSheetRole === "liability") return null;
     return (
       <Card data-testid="account-products">
         <CardHeader>

@@ -160,7 +160,7 @@ export function AccountDetail({
       : t("accounts.partialValuation")
     : t("accounts.noValue");
   const asOf = valuationUpdatedAt && valuationUpdatedAt > 0 ? t("accounts.asOf", { time: formatTimestamp(valuationUpdatedAt, settings.data?.timezone, i18n.language) }) : undefined;
-  const institutionLabel = record.account.institutionId ? record.institutionName || t("accounts.unassignedInstitution") : t("accounts.unassignedInstitution");
+  const institutionLabel = record.account.institutionId ? record.institutionName || null : null;
 
   const settingsSavePending = useRef(false);
   const saveSettings = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
@@ -187,13 +187,16 @@ export function AccountDetail({
     <div className="flex min-w-0 flex-col gap-6" data-testid="account-detail">
       <PageChrome
         pageId="accounts"
-        title={<span className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-8 shrink-0 text-primary" />{record.account.name}</span>}
+        leading={
+          <Button ref={backTrigger} type="button" variant="ghost" size="icon" className="-ml-2 shrink-0" aria-label={t("accounts.backToList")} title={t("accounts.backToList")} onClick={() => { if (!hasUnresolvedSheetConfirmation()) onBack(); }}>
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+        }
+        title={<span className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-6 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
             <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />
-            <Button ref={backTrigger} type="button" variant="outline" size="sm" onClick={() => { if (!hasUnresolvedSheetConfirmation()) onBack(); }}>
-              <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
-            </Button>
+            <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-border sm:block" />
             <Button type="button" variant="outline" size="sm" onClick={() => { setSettingsError(undefined); setAction("settings"); }}>
               {t("accounts.settings")}
             </Button>
@@ -201,7 +204,7 @@ export function AccountDetail({
         }
       />
       <PageIntro
-        description={`${institutionLabel} · ${displayEnum(t, "enum", record.account.accountType)}`}
+        description={[institutionLabel, displayEnum(t, "enum", record.account.accountType)].filter(Boolean).join(" · ")}
         status={
           <>
             <div className="flex flex-col items-end gap-1">

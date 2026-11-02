@@ -27,7 +27,7 @@ export function Notice({
   return (
     <div
       role={role}
-      className={cn("flex items-start gap-2 rounded-xl border px-3 py-2 text-sm leading-6", noticeStyle[tone], className)}
+      className={cn("flex items-start gap-2 rounded-lg border px-3 py-2 text-sm leading-6", noticeStyle[tone], className)}
     >
       <Icon className="mt-1 size-4 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1 break-words">{children}</div>
