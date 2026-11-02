@@ -2,7 +2,8 @@
 """Run independent lanes with fixed budgets, distinct logs and fail-closed results.
 
 Bindings and Vite finish before this scheduler: Go embed reads never race a
-frontend writer. Each lane is sequential. Tooling fixtures use temporary copies.
+frontend writer. Only lint/typecheck overlap within the frontend lane on eligible
+hosts; both finish before Vitest. Tooling fixtures use temporary copies.
 """
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -77,30 +78,51 @@ def run_lanes(lanes, root, output, workers):
 
     previous = {sig: signal.signal(sig, stop) for sig in (signal.SIGTERM, signal.SIGINT)}
 
-    def lane(gates):
-        for name, command, cwd in gates:
-            if stopped.is_set():
-                break
-            start = time.monotonic()
-            print(f'START {name}', flush=True)
-            with (output / (name + '.log')).open('w') as log:
-                with lock:
-                    if stopped.is_set():
-                        break
-                    process = subprocess.Popen(['bash', '-e', '-o', 'pipefail', '-c', command],
-                                               cwd=root / cwd, stdout=log, stderr=subprocess.STDOUT,
-                                               start_new_session=True, env=child_env)
-                while process.poll() is None and not stopped.wait(.05):
-                    pass
-                if stopped.is_set():
-                    terminate_group(process, grace)
-                code = process.wait()
-            result = dict(outcome='cancelled' if stopped.is_set() else ('success' if code == 0 else 'failure'),
-                          exit_code=code, seconds=round(time.monotonic() - start, 3))
+    def run_gate(gate):
+        name, command, cwd = gate
+        if stopped.is_set():
+            return
+        start = time.monotonic()
+        print(f'START {name}', flush=True)
+        with (output / (name + '.log')).open('w') as log:
             with lock:
-                results[name] = result
-                (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
-            print(f'END {name}: {result}', flush=True)
+                if stopped.is_set():
+                    return
+                process = subprocess.Popen(['bash', '-e', '-o', 'pipefail', '-c', command],
+                                           cwd=root / cwd, stdout=log, stderr=subprocess.STDOUT,
+                                           start_new_session=True, env=child_env)
+            while process.poll() is None and not stopped.wait(.05):
+                pass
+            if stopped.is_set():
+                terminate_group(process, grace)
+            code = process.wait()
+        result = dict(outcome='cancelled' if stopped.is_set() else ('success' if code == 0 else 'failure'),
+                      exit_code=code, seconds=round(time.monotonic() - start, 3))
+        with lock:
+            results[name] = result
+            (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
+        print(f'END {name}: {result}', flush=True)
+
+    def lane(gates):
+        index = 0
+        while index < len(gates) and not stopped.is_set():
+            pair = gates[index:index + 2]
+            if workers > 1 and tuple(gate[0] for gate in pair) == ('lint', 'typecheck'):
+                # Reuse the same process ownership/cancellation/results logic.
+                # Do not nest run_lanes: signal handlers belong to the main thread.
+                with ThreadPoolExecutor(max_workers=2) as checks:
+                    pending = [checks.submit(run_gate, gate) for gate in pair]
+                    try:
+                        for future in pending:
+                            future.result()
+                    except BaseException:
+                        stopped.set()
+                        raise
+                # Failure outcomes are retained; still run the complete tests.
+                index += 2
+            else:
+                run_gate(gates[index])
+                index += 1
 
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:

@@ -213,3 +213,73 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
                         pass
                 unrelated.terminate()
                 unrelated.wait(timeout=5)
+
+    def test_lint_and_typecheck_overlap_and_join_before_tests_even_on_failure(self):
+        runner = load('ci-macos-gates')
+        for lint_status in (0, 9):
+            with self.subTest(lint_status=lint_status), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                def command(name, other, status):
+                    code = ("from pathlib import Path; import time\n"
+                            f"Path('{name}.ready').touch()\n"
+                            "deadline = time.monotonic() + 5\n"
+                            f"while not Path('{other}.ready').exists():\n"
+                            " if time.monotonic() >= deadline: raise SystemExit(77)\n"
+                            " time.sleep(.01)\n"
+                            f"Path('{name}.done').touch()\nraise SystemExit({status})\n")
+                    return shlex.quote(sys.executable) + ' -c ' + shlex.quote(code)
+                lanes = ((('lint', command('lint', 'typecheck', lint_status), '.'),
+                          ('typecheck', command('typecheck', 'lint', 0), '.'),
+                          ('frontend-tests', 'test -f lint.done && test -f typecheck.done && echo complete', '.')),)
+                results = runner.run_lanes(lanes, root, root / 'logs', 3)
+                self.assertEqual(results['lint']['exit_code'], lint_status)
+                self.assertEqual(results['typecheck']['outcome'], 'success')
+                self.assertEqual(results['frontend-tests']['outcome'], 'success')
+                self.assertEqual(set(results), {'lint', 'typecheck', 'frontend-tests'})
+
+    def test_smaller_host_keeps_frontend_checks_serial(self):
+        runner = load('ci-macos-gates')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lanes = ((('lint', 'touch lint.done', '.'),
+                      ('typecheck', 'test -f lint.done && touch typecheck.done', '.'),
+                      ('frontend-tests', 'test -f typecheck.done', '.')),)
+            results = runner.run_lanes(lanes, root, root / 'logs', 1)
+            self.assertTrue(all(result['outcome'] == 'success' for result in results.values()))
+
+    def test_cancellation_owns_both_parallel_frontend_checks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lanes = ((('lint', 'echo $$ > lint.pid; sleep 60', '.'),
+                      ('typecheck', 'echo $$ > typecheck.pid; sleep 60', '.'),
+                      ('frontend-tests', 'touch tests-started', '.')),)
+            script = ("import importlib.util\nfrom pathlib import Path\n"
+                      f"s=importlib.util.spec_from_file_location('gates', {str(ROOT / 'tools/ci-macos-gates.py')!r})\n"
+                      "m=importlib.util.module_from_spec(s); s.loader.exec_module(m)\n"
+                      f"m.run_lanes({lanes!r}, Path({directory!r}), Path({str(root / 'logs')!r}), 3)\n")
+            process = subprocess.Popen([sys.executable, '-c', script], stdout=subprocess.DEVNULL)
+            children = []
+            try:
+                deadline = time.monotonic() + 5
+                while not all((root / f'{name}.pid').exists() for name in ('lint', 'typecheck')):
+                    self.assertLess(time.monotonic(), deadline)
+                    time.sleep(.02)
+                children = [int((root / f'{name}.pid').read_text()) for name in ('lint', 'typecheck')]
+                process.send_signal(signal.SIGTERM)
+                process.wait(timeout=8)
+                self.assertFalse((root / 'tests-started').exists())
+                for child in children:
+                    with self.assertRaises(ProcessLookupError):
+                        os.kill(child, 0)
+                outcomes = json.loads((root / 'logs/results.json').read_text())
+                self.assertEqual({name: row['outcome'] for name, row in outcomes.items()},
+                                 {'lint': 'cancelled', 'typecheck': 'cancelled'})
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+                for child in children:
+                    try:
+                        os.killpg(child, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass

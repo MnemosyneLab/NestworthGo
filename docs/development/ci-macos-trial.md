@@ -79,15 +79,17 @@ logical CPUs and 16 GiB RAM, three sequential lanes overlap:
 - Go: formatting, full tests, vet, native build; package parallelism three and
   GOMAXPROCS two (up to six Go worker threads across package processes).
 - Tooling: unchanged fast tier and skill validation, then whitespace checking.
-- Frontend: lint, typecheck, then the full suite with four jsdom workers
-  in the bounded experiment on this resource-eligible tier.
+- Frontend: direct `eslint .` and `tsc --noEmit` overlap, then both finish
+  before the full suite starts with four jsdom workers. Each check retains its
+  own log, exit status and timing; a failed check does not suppress the tests.
 
 The experimental worker budget is eleven CPU slots (six Go, four frontend, one
 tooling), oversubscribing the measured eight-CPU host. Prior memory allowances
 do not establish this configuration's peak RSS;
 watch for contention and memory pressure. These are concurrency limits, not
 OS-enforced quotas or measured peak RSS claims. Smaller
-hosts serialize lanes and retain the previous resource-based individual limits.
+hosts serialize lanes and the lint/typecheck pair, retaining the previous
+resource-based individual limits.
 Tooling's bindings fixtures use temporary copies, never the shared generated tree.
 
 Each gate records its exit code, outcome, seconds and separate complete log under
@@ -153,3 +155,17 @@ The requested next trial changes only eligible-tier frontend workers 3 to 4 and
 Go package parallelism 2 to 3. GOMAXPROCS remains 2; smaller-host limits, coverage,
 assertions, timeouts, runner service and caches remain unchanged. Compare actual
 full-run correctness and timing before deciding whether to retain these settings.
+
+### Parallel lint/typecheck experiment
+
+The preceding worker-count run `41481440253` passed every gate: parallel stage
+142 s, Vitest internal duration 101.05 s, all 161 files and 1659 tests passed.
+The next isolated change overlaps lint with typecheck, waits for both, then runs
+frontend tests. Direct commands avoid package-script binding regeneration and
+extra tests; ESLint has no fix/cache flag, and TypeScript has no incremental or
+composite mode or output generation. Go package concurrency 3, GOMAXPROCS 2,
+frontend workers 4, tooling and all timeouts remain unchanged. During the quality
+pair, planned slots are six Go + two quality + one tooling (nine); Vitest does
+not overlap the pair. Measure actual contention before claiming improvement.
+The shared root cancellation controller still owns both subprocess groups;
+missing, failed or cancelled individual outcomes fail the aggregate.
