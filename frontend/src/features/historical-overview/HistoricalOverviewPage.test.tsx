@@ -109,10 +109,10 @@ it.each(["en"].flatMap(locale => ["light", "dark"].map(theme => ({ locale, theme
 function show(primaryView = false) {
   const client = createTestQueryClient();
   const exit = vi.fn();
-  const view = render(<QueryClientProvider client={client}><HistoricalOverviewPage onExit={exit} /></QueryClientProvider>);
-  if (!primaryView) void screen.findByRole("tab", { name: i18n.t("historicalOverview.view.accounts") }, { timeout: 5000 }).then(button => {
-    if (button.isConnected) fireEvent.click(button);
-  }).catch(() => {});
+  // Account scenarios start in their intended navigation context. A detached
+  // find/click races the caller's assertions and can target a later mount.
+  // Primary-view tests below exercise real tab and category navigation.
+  const view = render(<QueryClientProvider client={client}><HistoricalOverviewPage initialContext={primaryView ? undefined : { view: "accounts" }} onExit={exit} /></QueryClientProvider>);
   return { ...view, client, exit };
 }
 
@@ -518,7 +518,7 @@ it("ignores a late read after exit and reopening with the same query client", as
   const fresh = result();
   fresh.rows![0].name = "Fresh capture";
   read.mockResolvedValue(fresh);
-  render(<QueryClientProvider client={first.client}><HistoricalOverviewPage onExit={vi.fn()} /></QueryClientProvider>);
+  render(<QueryClientProvider client={first.client}><HistoricalOverviewPage initialContext={{ view: "accounts" }} onExit={vi.fn()} /></QueryClientProvider>);
   await screen.findByRole("button", { name: "Fresh capture" });
   await act(async () => resolveOld(result()));
   expect(screen.queryByRole("button", { name: "Bank" })).not.toBeInTheDocument();

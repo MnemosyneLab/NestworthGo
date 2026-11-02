@@ -193,7 +193,15 @@ jobs:
         run: pnpm run build
       - name: Frontend tests
         working-directory: frontend
-        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }}
+        run: pnpm exec vitest run --shard=${{ matrix.shard }}/${{ matrix.shards }} --reporter=default --reporter=json --outputFile.json="$RUNNER_TEMP/frontend-results.json"
+      - name: Retain frontend test timings and failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/frontend-results.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Trailing whitespace
         run: git diff --check
 

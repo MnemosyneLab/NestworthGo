@@ -707,6 +707,8 @@ it("opens Wealth history from Overview, removes current queries and exits back",
 it("retains the upcoming filter and restores its trigger after Back", async () => {
   render(<AppProviders><App /></AppProviders>);
   await userEvent.click(await screen.findByRole("button", { name: "View all 1 action" }));
+  // Tasks is lazy-loaded: finish that boundary before querying its controls.
+  await vi.dynamicImportSettled();
   const filter = await screen.findByRole("button", { name: "Reservation issues" });
   await userEvent.click(filter);
   const health = await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) });
