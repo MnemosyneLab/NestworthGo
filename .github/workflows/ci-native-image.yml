@@ -5,6 +5,7 @@ on:
     paths:
       - go.mod
       - tools/ci-toolchain-versions.py
+      - tools/ci-use-toolchain.sh
       - build/ci/**
       - tools/ci-build-native-image.sh
       - .github/workflows/ci-native-image.yml
@@ -13,6 +14,7 @@ on:
     paths:
       - go.mod
       - tools/ci-toolchain-versions.py
+      - tools/ci-use-toolchain.sh
       - build/ci/**
       - tools/ci-build-native-image.sh
       - .github/workflows/ci-native-image.yml
@@ -39,7 +41,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Build and smoke-test native CI image
+      - name: Build and smoke-test native CI images
         run: |
           # Same builder/cache: the toolchain image shares the native layers.
           for target in native toolchain; do
@@ -62,7 +64,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Build and smoke-test native CI image
+      - name: Build and smoke-test native CI images
         run: |
           for target in native toolchain; do
             bash tools/ci-build-native-image.sh "$REGISTRY_IMAGE:$IMAGE_TAG-$target" "$target"

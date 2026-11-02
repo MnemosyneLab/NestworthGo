@@ -29,6 +29,7 @@ class ToolchainTests(unittest.TestCase):
             section = re.split(r'\n  \w+:', workflow.split('\n  ' + event + ':', 1)[1], maxsplit=1)[0]
             self.assertIn('      - go.mod', section)
             self.assertIn('      - tools/ci-toolchain-versions.py', section)
+            self.assertIn('      - tools/ci-use-toolchain.sh', section)
         self.assertEqual(workflow.count('for target in native toolchain; do'), 4)
         self.assertNotIn('contents: write', workflow)
         self.assertNotIn('pull-requests: write', workflow)

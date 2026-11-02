@@ -179,7 +179,10 @@ Node remains on setup-node. Only meta and the bindings producer need it among
 native jobs; adding it to the common toolchain makes all four Go shards pull it.
 The official Node 24.22.0 linux-x64 archive measured 32,015,600 bytes compressed
 and about 204 MiB extracted in this cloud environment; even the bare executable
-is about 121 MiB. Download/extract measured 0.38s/1.73s on this environment's
+is about 121 MiB. A local minimum Node-only image added exactly 126,816,376
+uncompressed bytes to the existing native image; gzip-6 compression of that
+executable measured 44,722,946 bytes (an estimate of an incremental registry
+layer, not a published digest measurement). Download/extract measured 0.38s/1.73s on this environment's
 network, which does not predict hosted GHCR pull speed. Against a 6s baseline
 setup-node step, there is insufficient demonstrated end-to-end gain to justify
 its cost on every Go shard or a third runtime image. Pure frontend jobs should
