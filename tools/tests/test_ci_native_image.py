@@ -68,7 +68,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertNotIn("GOMODCACHE", cli)
         self.assertIn("${{ steps.go.outputs.go-version }}", cli)
         self.assertIn("hashFiles('.github/ci-native-image.txt')", cli)
-        self.assertIn("go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0", cli)
+        self.assertIn("go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0", cli)
         self.assertIn('wails3 version 2>&1', cli)
         self.assertLess(frontend.index("go clean -cache"), frontend.index("- name: Cache pinned Wails CLI binary"))
         self.assertLess(frontend.index("- name: Prepare pinned Wails CLI"), frontend.index("node scripts/ensure-bindings.mjs"))

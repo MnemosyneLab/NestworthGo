@@ -116,7 +116,7 @@ def input_key(root=ROOT):
     cli = shutil.which('wails3')
     if not cli:
         raise ValueError('pinned CLI unavailable')
-    if subprocess.check_output([cli, 'version'], cwd=root, stderr=subprocess.STDOUT).decode().strip() != 'v3.0.0':
+    if subprocess.check_output([cli, 'version'], cwd=root, stderr=subprocess.STDOUT).decode().strip() != 'v3.1.0':
         raise ValueError('unexpected CLI version')
     payload = {'version': VERSION, 'files': inventory, 'go_env': goenv,
                'go_version': command('go', 'version', cwd=root).decode().strip(),

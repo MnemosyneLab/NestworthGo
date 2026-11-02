@@ -51,7 +51,7 @@ class BindingsCacheTests(unittest.TestCase):
         for item in self.patches[:2]:
             item.start(); self.addCleanup(item.stop)
         # Version is emitted on stderr by the real CLI.
-        self.cli.write_text('#!/bin/sh\necho v3.0.0 >&2\n')
+        self.cli.write_text('#!/bin/sh\necho v3.1.0 >&2\n')
         self.cli.chmod(0o755)
 
     def test_source_added_deleted_type_tag_and_toolchain_change_key(self):
@@ -74,7 +74,7 @@ class BindingsCacheTests(unittest.TestCase):
         self.env['GOARCH'] = 'arm64'
         self.assertNotEqual(toolchain, cache.input_key(self.root))
         arch = cache.input_key(self.root)
-        self.cli.write_text('#!/bin/sh\necho v3.0.0 >&2\n# changed binary\n')
+        self.cli.write_text('#!/bin/sh\necho v3.1.0 >&2\n# changed binary\n')
         self.assertNotEqual(arch, cache.input_key(self.root))
         subprocess.run(['git', 'add', 'type.go'], cwd=self.root, check=True)
         source.unlink()

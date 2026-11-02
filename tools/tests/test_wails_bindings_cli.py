@@ -16,7 +16,10 @@ NODE = shutil.which("node")
 @unittest.skipUnless(NODE, "Node.js is required for the bindings guard")
 class BindingsCLITests(unittest.TestCase):
     def test_only_exact_stable_cli_is_used(self):
-        for version, selected in (("v3.0.0", "wails3"),
+        for version, selected in (("v3.1.0", "wails3"),
+                                  ("v3.0.0", "go"),
+                                  ("v3.1.0-beta.1", "go"),
+                                  ("v3.1.0-nightly.20261102", "go"),
                                   ("v3.0.0-beta.34", "go"),
                                   ("v3.0.0-nightly.20261027", "go"),
                                   ("v3.0.1", "go"), ("missing", "go")):
@@ -59,7 +62,7 @@ marker.write_text("// synthetic binding")
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 invocation = json.loads(log.read_text())
                 self.assertEqual(Path(invocation[0]).name, selected)
-                prefix = ["run", "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0"] if selected == "go" else []
+                prefix = ["run", "github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0"] if selected == "go" else []
                 # The cache inventory uses go list ./... with no -tags/-f.
                 # Any change to generator flags requires reviewing that parity.
                 self.assertEqual(invocation[1:], prefix + [

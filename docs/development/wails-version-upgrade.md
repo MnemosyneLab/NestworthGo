@@ -8,9 +8,9 @@ remain synchronized.
 The current repository baseline is:
 
 ```text
-Go module:      github.com/wailsapp/wails/v3 v3.0.0
-Frontend:       @wailsio/runtime 3.0.0
-CLI/fallback:   v3.0.0
+Go module:      github.com/wailsapp/wails/v3 v3.1.0
+Frontend:       @wailsio/runtime 3.1.0
+CLI/fallback:   v3.1.0
 ```
 
 For another target, replace the version variables below. Go and CLI versions use
@@ -21,6 +21,16 @@ Official references:
 - [Wails releases](https://github.com/wailsapp/wails/releases)
 - [Wails v3 documentation](https://wails.io/)
 - [Wails bindings documentation](https://wails.io/features/bindings/methods/)
+
+## v3.1.0 compatibility notes
+
+The [official v3.1.0 release notes](https://wails.io/blog/wails-v3-1-released/)
+introduce experimental purego backends and Wake YAML builds. Nestworth keeps
+its existing CGo backend and customized Taskfile packaging; neither experimental
+path is enabled by this upgrade. The Go module, runtime, CLI, binding fallback,
+and CI CLI/cache guards are pinned to v3.1.0 together. Regenerate the ignored
+bindings and run the installed-runtime integration checks after upgrading.
+Native window, menu, lifecycle and package acceptance remain separate gates.
 
 ## v3.0.0 compatibility notes
 
@@ -109,6 +119,9 @@ Check all of these locations for every upgrade:
 - `frontend/scripts/ensure-bindings.mjs`: the exact version fallback used when
   no global `wails3` is installed;
 - `frontend/bindings/`: generated, gitignored TypeScript files;
+- `.github/workflows/check.yml` and `tools/bindings-cache.py`: pinned CI CLI
+  installation, binary cache key, and binding-cache version guard, together
+  with their synthetic tests under `tools/tests/`;
 - README and active development documentation;
 - the local `wails3` CLI, installed with `go install` and not stored in the
   repository.
@@ -141,8 +154,8 @@ Set the target versions and writable caches. Restricted environments should not
 rely on the default Go cache directories:
 
 ```bash
-WAILS_GO_VERSION=v3.0.0
-WAILS_RUNTIME_VERSION=3.0.0
+WAILS_GO_VERSION=v3.1.0
+WAILS_RUNTIME_VERSION=3.1.0
 GOCACHE=/tmp/nestworth-wails-gocache
 GOMODCACHE=/tmp/nestworth-wails-gomodcache
 export WAILS_GO_VERSION WAILS_RUNTIME_VERSION GOCACHE GOMODCACHE
@@ -157,7 +170,7 @@ pnpm --version
 type -a wails3 2>/dev/null || true
 wails3 version 2>/dev/null || true
 go list -m github.com/wailsapp/wails/v3
-rg -n 'v3\.0\.0|@wailsio/runtime' \
+rg -n 'v3\.1\.0|@wailsio/runtime' \
   go.mod frontend/package.json frontend/pnpm-lock.yaml \
   frontend/scripts/ensure-bindings.mjs README.md docs .github
 ```
@@ -178,7 +191,7 @@ PATH="$(go env GOPATH)/bin:$PATH" wails3 version
 The output must be the target version:
 
 ```text
-v3.0.0
+v3.1.0
 ```
 
 If an old version is still reported, inspect `type -a wails3` and retry with the
@@ -245,7 +258,7 @@ Update current-version statements in README, Engineering Guide, Local Workflow,
 and this guide:
 
 ```bash
-rg -n 'v3\.0\.0|@wailsio/runtime' \
+rg -n 'v3\.1\.0|@wailsio/runtime' \
   README.md docs/development frontend/scripts/ensure-bindings.mjs
 ```
 
@@ -442,5 +455,5 @@ needs migration, record it as a separate compatibility change with tests.
 For a dependency-only change, a suitable Conventional Commit is:
 
 ```text
-chore(deps): upgrade Wails to v3.0.0
+chore(deps): upgrade Wails to v3.1.0
 ```
