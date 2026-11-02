@@ -41,7 +41,16 @@ docker build --pull --platform linux/amd64 "${build_args[@]}" "${proxy_args[@]}"
 # Exercise the image's default USER and an Actions-like mounted home/tool cache
 # as UID 1001. The host directories are disposable, never a runner snapshot.
 probe=$(mktemp -d)
-trap 'rm -rf "$probe"' EXIT
+probe_owner="$(id -u):$(id -g)"
+cleanup() {
+  if [[ "$probe_owner" != 1001:1001 ]]; then
+    # Only this mktemp fixture is mounted; restore its host ownership so a
+    # non-1001 local builder can remove files created by the smoke container.
+    docker run --rm --user 0:0 -v "$probe:/probe" "$image" chown -R "$probe_owner" /probe
+  fi
+  rm -rf "$probe"
+}
+trap cleanup EXIT
 mkdir -p "$probe/home" "$probe/work/tools" "$probe/temp" "$probe/toolcache"
 if [[ "$target" == toolchain ]]; then
   cp go.mod "$probe/work/go.mod"
