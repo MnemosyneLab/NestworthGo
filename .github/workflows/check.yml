@@ -284,17 +284,13 @@ jobs:
       matrix:
         include:
           - shard: 1
-            shards: 6
+            shards: 4
           - shard: 2
-            shards: 6
+            shards: 4
           - shard: 3
-            shards: 6
+            shards: 4
           - shard: 4
-            shards: 6
-          - shard: 5
-            shards: 6
-          - shard: 6
-            shards: 6
+            shards: 4
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
