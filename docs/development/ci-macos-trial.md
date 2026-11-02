@@ -79,12 +79,14 @@ logical CPUs and 16 GiB RAM, three sequential lanes overlap:
 - Go: formatting, full tests, vet, native build; package parallelism two and
   GOMAXPROCS two (up to four Go worker threads across package processes).
 - Tooling: unchanged fast tier and skill validation, then whitespace checking.
-- Frontend: lint, typecheck, then the full suite with two jsdom workers.
+- Frontend: lint, typecheck, then the full suite with three jsdom workers
+  in the bounded experiment on this resource-eligible tier.
 
-The planned worker budget is seven CPU slots (four Go, two frontend, one tooling),
-leaving one logical CPU for the host. Planning memory allowances are 4 GiB Go,
-6 GiB frontend and 2 GiB tooling, leaving 4 GiB for macOS. These are conservative
-concurrency limits, not OS-enforced quotas or measured peak RSS claims. Smaller
+The experimental worker budget is eight CPU slots (four Go, three frontend, one
+tooling), with no reserved CPU slot on the measured eight-CPU host. The previous
+two-worker frontend memory allowance does not establish three-worker peak RSS;
+watch for contention and memory pressure. These are concurrency limits, not
+OS-enforced quotas or measured peak RSS claims. Smaller
 hosts serialize lanes and retain the previous resource-based individual limits.
 Tooling's bindings fixtures use temporary copies, never the shared generated tree.
 
@@ -127,3 +129,16 @@ with hosted Linux PR run `41454199555` also passing. This is one observed full
 run, not a percentile or guaranteed budget. The subsequent cancellation-only
 correction requires its own exact-head CI result; it does not change gate commands,
 worker budgets, assertions or test timeouts.
+
+### Three-worker frontend experiment
+
+The two-worker baseline at `359d0f559206beb7e06ce6b511d766cb583fb9e8` passed
+run `41457637547` (job `125318303247`) in 259 seconds. Gate timings: Go tests
+105.415 s, vet 1.862 s, build 5.113 s, tooling 127.783 s, frontend lint 16.838 s,
+typecheck 10.049 s and tests 154.105 s (frontend lane about 181 s).
+The next bounded trial changes only the eligible tier's frontend worker count
+from two to three. Go package/thread limits, tooling, assertions, timeouts and
+Mac-only triggers stay unchanged; smaller hosts retain their previous limits.
+Compare full coverage, gate timings and job elapsed time against this baseline.
+Three workers are not assumed faster; failures or resource pressure call for
+reverting this parameter, not relaxing test timeouts.
