@@ -46,3 +46,16 @@ class MacCI(unittest.TestCase):
         for gate in load('ci-macos-results').GATES:
             self.assertIn('id: ' + gate + '\n', workflow)
         self.assertIn('if: always()\n        env:\n          GATE_RESULTS:', workflow)
+
+    def test_ordinary_prs_keep_the_required_hosted_gate(self):
+        workflow = (ROOT / '.github/workflows/check-linux.yml').read_text()
+        self.assertIn('on:\n  pull_request:\n  workflow_dispatch:', workflow)
+        self.assertNotIn('pull_request_target:', workflow)
+        self.assertNotIn('self-hosted', workflow)
+        aggregate = workflow.split('\n  test:', 1)[1]
+        self.assertIn('    name: test\n', aggregate)
+        self.assertIn('    if: always()', aggregate)
+        self.assertIn('needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]', aggregate)
+        mac = (ROOT / '.github/workflows/check.yml').read_text()
+        self.assertIn('    name: test (macOS trial)\n', mac)
+        self.assertNotIn('    name: test\n', mac)

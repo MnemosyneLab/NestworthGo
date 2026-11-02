@@ -175,7 +175,7 @@ presentation preferences.
 This draft branch trials the full regular check set on a self-hosted native Mac.
 See [Native Mac CI trial](ci-macos-trial.md) for triggers, isolation, retained
 Linux coverage and rollback. The hosted topology described below is retained
-in the manual `check-linux.yml` workflow during this trial.
+in the automatic PR/manual `check-linux.yml` workflow during this trial.
 
 
 | Layer | Required evidence |

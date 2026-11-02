@@ -1,7 +1,7 @@
 # Native Mac CI trial
 
 The draft migration replaces regular `check.yml` with one native ARM64 macOS
-job named `test`. It runs the full non-race `go test ./...` population (including
+job named `test (macOS trial)`. It runs the full non-race `go test ./...` population (including
 examples and newly added packages), gofmt, vet, native desktop compilation,
 skill validation, the unchanged fast tooling tier, and frontend lint, typecheck,
 production build and the entire unfiltered Vitest suite. Bindings generate once
@@ -17,19 +17,25 @@ trigger this experimental workflow. It has no pull-request event, never checks
 out a fork head, and only runs in `MnemosyneLab/NestworthGo`. Thus outside PRs
 cannot automatically schedule code through this workflow. Repository writers
 and dispatchers remain trusted to execute code on the persistent runner.
-This draft must not be merged as a general PR-check rollout: automatic checking
-of other PR branches needs a separate agreed trusted dispatch design first.
+Every PR, including same-repository and fork PRs, retains automatic hosted Linux
+checks through `check-linux.yml`. Its aggregate remains the required `test` check.
+The Mac check has a distinct name, `test (macOS trial)`, so a successful Mac push
+run cannot substitute for the required PR merge-ref Linux result. This deliberately
+keeps Linux coverage during the experiment; it is not yet an exclusive Mac rollout.
+PRs from other branches do not automatically execute on the personal Mac.
+Promoting that behavior requires a separately agreed trust design; this draft
+should remain unmerged until native results and rollout scope are reviewed.
 No organization access, runner security/service settings or credentials change.
 Checkout does not persist its token. The foreground runner must remain online.
 
 The prior complete Linux workflow is retained as `check-linux.yml`, with only
-its name and triggers changed to manual dispatch. To roll back, restore
+its name and triggers changed to PR events plus manual dispatch. To roll back, restore
 `check.yml` from `a02fb6635aad48e3f8a8f302bb82a99ff1098ae5` and remove the duplicate
 rollback workflow. Its existing container/cache/sharding regression tests now
 validate that preserved workflow. `perf.yml`, race, release and image publication
-are unchanged. Regular trial runs no longer validate Linux GTK/WebKit compilation
-or Linux-specific build-tagged code. The Linux rollback and existing daily/manual
-perf workflow retain Linux validation; macOS timeout tooling can use its existing
+are unchanged. Mac runs do not validate Linux GTK/WebKit compilation
+or Linux-specific build-tagged code. Automatic Linux PR checks and existing
+daily/manual perf retain that platform coverage; macOS timeout tooling can use its existing
 portable fixture, while Linux still requires GNU timeout.
 
 ## Tools, isolation and capacity

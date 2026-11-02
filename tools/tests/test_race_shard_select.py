@@ -237,7 +237,7 @@ class RaceShardSelectTests(unittest.TestCase):
 
     def test_workflow_keeps_every_gate_and_partitions_infrastructure(self):
         workflow = CHECK.read_text()
-        self.assertNotIn("pull_request:", workflow)
+        self.assertIn("pull_request:", workflow)
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]", workflow)
         self.assertIn("name: test", workflow)

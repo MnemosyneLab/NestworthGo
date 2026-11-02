@@ -16,7 +16,8 @@ defaults:
 
 concurrency:
   group: check-macos-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve an active trial when a follow-up commit queues another measurement.
+  cancel-in-progress: false
 
 env:
   GOTOOLCHAIN: local
@@ -27,7 +28,7 @@ env:
 
 jobs:
   test:
-    name: test
+    name: test (macOS trial)
     if: github.repository == 'MnemosyneLab/NestworthGo' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30

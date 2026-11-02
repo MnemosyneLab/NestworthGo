@@ -1,6 +1,7 @@
-name: check Linux rollback
+name: check Linux PR fallback
 
 on:
+  pull_request:
   workflow_dispatch:
 
 permissions:
