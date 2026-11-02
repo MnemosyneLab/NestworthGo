@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools/race-shard-select.sh"
-CHECK = ROOT / ".github/workflows/check.yml"
+CHECK = ROOT / ".github/workflows/check-linux.yml"
 PERF = ROOT / ".github/workflows/perf.yml"
 
 # Representative -list lines. Benchmarks and noise must stay out of -run.
@@ -237,9 +237,7 @@ class RaceShardSelectTests(unittest.TestCase):
 
     def test_workflow_keeps_every_gate_and_partitions_infrastructure(self):
         workflow = CHECK.read_text()
-        self.assertIn("push:", workflow)
-        self.assertIn("branches: [main]", workflow)
-        self.assertIn("pull_request:", workflow)
+        self.assertNotIn("pull_request:", workflow)
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]", workflow)
         self.assertIn("name: test", workflow)

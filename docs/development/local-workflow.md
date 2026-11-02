@@ -144,6 +144,12 @@ and jsdom evidence. Keep synthetic isolation and the safety rules in root
 
 ## Frontend-only checks
 
+This draft branch trials the full regular check set on a self-hosted native Mac.
+See [Native Mac CI trial](ci-macos-trial.md) for triggers, isolation, retained
+Linux coverage and rollback. The hosted topology described below is retained
+in the manual `check-linux.yml` workflow during this trial.
+
+
 The following commands are safe to run after entering `frontend/`, including
 after a clean checkout:
 
