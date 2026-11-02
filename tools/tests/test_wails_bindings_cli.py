@@ -59,9 +59,13 @@ marker.write_text("// synthetic binding")
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 invocation = json.loads(log.read_text())
                 self.assertEqual(Path(invocation[0]).name, selected)
-                if selected == "go":
-                    self.assertEqual(invocation[1:3], ["run", "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0"])
-                self.assertIn("./...", invocation)
+                prefix = ["run", "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0"] if selected == "go" else []
+                # The cache inventory uses go list ./... with no -tags/-f.
+                # Any change to generator flags requires reviewing that parity.
+                self.assertEqual(invocation[1:], prefix + [
+                    "generate", "bindings", "-clean=true", "-ts", "-i", "-d",
+                    str((root / "frontend/bindings").resolve()), "./...",
+                ])
 
 
 if __name__ == "__main__":

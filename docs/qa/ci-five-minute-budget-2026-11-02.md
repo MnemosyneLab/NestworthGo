@@ -238,6 +238,14 @@ repeat misses until eviction. Cache errors also fall back. This is corruption
 detection, not authentication: like other Actions caches it trusts writers in
 the applicable GitHub cache scope.
 
+For Wails v3.0.0, `GenerateBindingsOptions.BuildFlags` parses only the CLI's
+`-f` value, and `LoadPackages` passes the result to `packages.Load` without
+adding tags. The project's binding command supplies no `-f`; the cache's
+`go list -deps ./...` therefore uses the same default build selection and
+inherited Go environment. A CLI-argument regression guard and a real tagged
+embed fixture protect this boundary. Nonempty GOFLAGS disables reuse. Changes
+to generator flags or Wails versions require reviewing this assumption.
+
 A fresh generator result or validated exact-input hit feeds the same-run frontend
 artifact. A second independent generation and byte comparison remains required
 when Go sources, generator/runtime inputs or other non-presentation inputs

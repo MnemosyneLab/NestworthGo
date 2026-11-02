@@ -166,6 +166,10 @@ class GoEmbedInventoryTests(unittest.TestCase):
             assets = root / 'frontend/src/assets'; assets.mkdir(parents=True)
             one = assets / 'one.txt'; one.write_text('one')
             two = assets / 'two.txt'; two.write_text('two')
+            (root / 'tagged.go').write_text(
+                '//go:build custom_fixture\n\npackage fixture\nimport "embed"\n'
+                '//go:embed frontend/src/assets/tagged.bin\nvar Tagged embed.FS\n')
+            (assets / 'tagged.bin').write_text('only in the custom-tag build')
             with patch.dict('os.environ', {'GOWORK': 'off', 'GOFLAGS': ''}):
                 self.assertEqual(cache.package_source_files(root),
                                  {'frontend/src/assets/one.txt', 'frontend/src/assets/two.txt'})
