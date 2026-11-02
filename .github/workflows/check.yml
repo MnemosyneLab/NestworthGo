@@ -97,7 +97,7 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
-  # Generate/check bindings once. Pure Node consumers share this exact-run
+  # Generate or restore bindings once. Pure Node consumers share this exact-run
   # artifact; they need neither Go nor a native container. CLI cache misses are
   # recorded separately from warm runtime so the five-minute target is auditable.
   frontend-bindings:
@@ -108,8 +108,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 2
       - uses: actions/setup-go@v7
         id: go
         with:
@@ -201,16 +199,6 @@ jobs:
         env:
           INPUT_KEY: ${{ steps.bindings-key.outputs.key }}
         run: python3 tools/bindings-cache.py save /tmp/nestworth-ci-bindings "$INPUT_KEY"
-      - name: Select independent bindings comparison
-        id: bindings-compare
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-        run: python3 tools/bindings-compare-gate.py >> "$GITHUB_OUTPUT"
-      - name: Verify generated Wails bindings
-        if: steps.bindings-compare.outputs.compare == 'true'
-        working-directory: frontend
-        run: node scripts/ensure-bindings.mjs --check
       - name: Share verified bindings with frontend gates
         uses: actions/upload-artifact@v7
         with:

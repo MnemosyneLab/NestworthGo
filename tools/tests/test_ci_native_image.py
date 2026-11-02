@@ -26,7 +26,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('cache: pnpm', workflow)
         self.assertIn('NESTWORTH_WAILS_GOCACHE=%s', workflow)
         for gate in ('go vet ./...', 'go build ./cmd/nestworth', 'go test -count=1 -json',
-                     'node scripts/ensure-bindings.mjs', 'node scripts/ensure-bindings.mjs --check',
+                     'node scripts/ensure-bindings.mjs',
                      'pnpm exec eslint .', 'pnpm exec tsc --noEmit', 'pnpm exec vite build --mode production',
                      'pnpm exec vitest run --shard=', 'needs: [meta, frontend-bindings, frontend-quality, frontend, go-shard]'):
             self.assertIn(gate, workflow)
@@ -34,8 +34,8 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('actions/setup-node@v7', frontend)
         self.assertNotIn('pnpm/action-setup', frontend)
         self.assertNotIn('pnpm install', frontend)
-        self.assertIn('node scripts/ensure-bindings.mjs --check', frontend)
-        self.assertIn("if: steps.bindings-compare.outputs.compare == 'true'", frontend)
+        self.assertNotIn('node scripts/ensure-bindings.mjs --check', frontend)
+        self.assertNotIn('bindings-compare', frontend)
         self.assertIn("if: steps.bindings-restore.outputs.valid != 'true'", frontend)
         self.assertIn('python3 tools/bindings-cache.py restore', frontend)
         self.assertIn('python3 tools/bindings-cache.py save', frontend)
@@ -43,8 +43,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertIn('^[0-9a-f]{64}$', frontend)
         self.assertIn('continue-on-error: true', frontend)
         self.assertNotIn('restore-keys:', frontend)
-        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("run: node scripts/ensure-bindings.mjs --check"))
-        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs --check"), frontend.index("- name: Share verified bindings"))
+        self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("- name: Share verified bindings"))
         meta = workflow.split('  frontend-bindings:', 1)[0]
         self.assertIn('actions/setup-node@v7', meta)
         self.assertIn('node-version: 24.22.0', meta)

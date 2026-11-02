@@ -78,10 +78,10 @@ generated, except for a committed `.gitkeep` so `//go:embed all:frontend/dist`
 succeeds on a clean checkout before Vite has produced the production bundle.
 Do not hand-edit or commit files generated in these directories. The direct
 frontend `dev`, `build`, `typecheck`, `test`, and `test:watch` scripts
-automatically regenerate bindings before importing them. Run
-`generate:bindings` before `check:bindings`; the freshness check requires
-existing output and compares it with fresh generator output. The Wails build
-tasks regenerate bindings before building the frontend.
+automatically regenerate bindings before importing them. The optional
+`check:bindings` diagnostic compares existing output with fresh generator
+output; run `generate:bindings` first. It is not an automatic CI or release
+check. The Wails build tasks regenerate bindings before building the frontend.
 
 If a bound Go service or DTO changes, regenerate explicitly:
 
@@ -209,11 +209,9 @@ tests into four jobs from measured whole-job times: application in two
 checksum parts (the first paired with continuous backup), one independent
 remainder job, and one job for MCP and sqlite. Vitest runs as six shards using hosted timing weights,
 with HistoryPage isolated and every new test included. One native producer
-reuses validated exact-input bindings or regenerates them;
-contract/tool changes receive an independent byte comparison. Node consumers
-share that exact-run artifact. The daily/manual workflow and macOS release
-packaging also run the independent comparison. A
-separate quality job preserves ESLint, one TypeScript check and the production
+reuses validated exact-input bindings or regenerates them; Node consumers share
+that exact-run artifact. Automated checks no longer independently regenerate
+and compare bindings. A separate quality job preserves ESLint, one TypeScript check and the production
 Vite build without regenerating bindings. Locale coverage runs once in the full
 test suite. Fast tooling keeps GNU signals and failure boundaries; the complete
 portable replay and repeated signal/exhaustion matrix use `--tier extended` in

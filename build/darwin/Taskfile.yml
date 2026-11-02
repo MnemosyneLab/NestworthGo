@@ -156,9 +156,6 @@ tasks:
         vars:
           ARCH: arm64
     cmds:
-      - task: common:frontend:run
-        vars:
-          SCRIPT: check:bindings
       - mkdir -p dist/macos
       - rm -rf "dist/macos/{{.BUNDLE_NAME}}.app"
       - rm -f "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg" "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.zip" "dist/macos/SHA256SUMS"

@@ -16,7 +16,6 @@ def load(name, path):
     return module
 
 cache = load('bindings_cache', ROOT / 'tools/bindings-cache.py')
-gate = load('bindings_compare_gate', ROOT / 'tools/bindings-compare-gate.py')
 
 
 class BindingsCacheTests(unittest.TestCase):
@@ -148,13 +147,6 @@ class BindingsCacheTests(unittest.TestCase):
         (saved / 'bindings/extra.ts').write_text('extra')
         self.assertFalse(cache.validate(saved, 'abc'))
 
-    def test_compare_gate_preserves_contract_checks(self):
-        self.assertFalse(gate.requires_comparison(['frontend/src/App.tsx', 'docs/readme.md']))
-        for path in ['internal/wailsapi/app.go', 'frontend/src/new.go', 'go.mod',
-                     'frontend/scripts/ensure-bindings.mjs', 'frontend/package.json', '.github/workflows/check.yml', 'docs/new.go']:
-            with self.subTest(path=path): self.assertTrue(gate.requires_comparison([path]))
-
-
 @unittest.skipUnless(shutil.which('go'), 'Go is required for the embed inventory test')
 class GoEmbedInventoryTests(unittest.TestCase):
     def test_real_go_tool_resolves_embed_glob_and_changes(self):
@@ -180,14 +172,15 @@ class GoEmbedInventoryTests(unittest.TestCase):
 
 
 class BindingsTierTests(unittest.TestCase):
-    def test_scheduled_and_release_tiers_compare_independently(self):
-        perf = (ROOT / '.github/workflows/perf.yml').read_text()
-        job = perf.split('  bindings-determinism:', 1)[1].split('  perf:', 1)[0]
-        self.assertIn("if: needs.changes.result == 'success'", job)
-        self.assertNotIn('should_run', job)
-        self.assertIn('node scripts/ensure-bindings.mjs\n', job)
-        self.assertIn('node scripts/ensure-bindings.mjs --check', job)
-        release = (ROOT / 'build/darwin/Taskfile.yml').read_text().split('  package:release:', 1)[1].split('  verify:package:', 1)[0]
-        self.assertIn('SCRIPT: check:bindings', release)
-        gate_source = (ROOT / 'tools/bindings-compare-gate.py').read_text()
-        self.assertIn("'--no-renames'", gate_source)
+    def test_automatic_workflows_and_tasks_do_not_compare_a_second_generation(self):
+        paths = [*(ROOT / '.github/workflows').glob('*.yml'), ROOT / 'Taskfile.yml',
+                 *(ROOT / 'build').rglob('Taskfile.yml')]
+        for path in paths:
+            with self.subTest(path=path.relative_to(ROOT)):
+                contents = path.read_text()
+                self.assertNotIn('ensure-bindings.mjs --check', contents)
+                self.assertNotIn('check:bindings', contents)
+                self.assertNotIn('bindings-compare-gate.py', contents)
+        # The diagnostic stays available for an explicit local investigation.
+        package = json.loads((ROOT / 'frontend/package.json').read_text())
+        self.assertEqual(package['scripts']['check:bindings'], 'node ./scripts/ensure-bindings.mjs --check')

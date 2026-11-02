@@ -213,7 +213,7 @@ runner cost, stability, or a five-minute workflow. Keep six shards until a
 same-head hosted comparison captures queue, setup and aggregate job time.
 
 
-### Generated bindings cache and independent comparison
+### Generated bindings cache
 
 The reviewed native-image path fingerprints all tracked and nonignored Go
 files, Go module files, native source and headers, and conservative non-presentation
@@ -247,13 +247,13 @@ embed fixture protect this boundary. Nonempty GOFLAGS disables reuse. Changes
 to generator flags or Wails versions require reviewing this assumption.
 
 A fresh generator result or validated exact-input hit feeds the same-run frontend
-artifact. A second independent generation and byte comparison remains required
-when Go sources, generator/runtime inputs or other non-presentation inputs
-change; missing Git history fails closed to comparison. The daily/manual perf
-workflow independently generates and compares even when the source is unchanged,
-and macOS release packaging compares after its frontend build. Routine
-presentation-only changes avoid the duplicate comparison; direct local
-`check:bindings` remains available. Cache reuse is not evidence of deployed
+artifact. CI, daily/manual perf, local task checks and macOS release packaging
+no longer perform a second generation for comparison. `check:bindings` remains
+an optional explicit developer diagnostic. Consequently automated checks no
+longer detect generator nondeterminism or independently cross-check cached
+output against a fresh run. Input fingerprinting, file digests, TypeScript and
+build checks do not prove that a coherent cached result matches the current Go
+contract if a relevant input is omitted. Cache reuse is not evidence of deployed
 behavior. On native Mac, the earlier full-checkout fingerprint took 0.31s, restored output took 0.06s,
 and an independent warm comparison took 1.89s; a warm narrowed fingerprint
 including Go package/embed discovery took 0.71s in one separate sample; a deliberately corrupted entry was

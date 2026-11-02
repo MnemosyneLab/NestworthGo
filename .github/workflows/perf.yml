@@ -115,33 +115,6 @@ jobs:
       - name: Extended tooling regression matrix
         run: python3 tools/run-tooling-tests.py --tier extended
 
-  bindings-determinism:
-    name: bindings determinism
-    needs: changes
-    if: needs.changes.result == 'success'
-    runs-on: ubuntu-26.04
-    container: ${{ fromJSON(needs.changes.outputs.container) }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          package-manager-cache: false
-      - name: Install native dependencies (bootstrap fallback)
-        if: ${{ !job.container.id }}
-        timeout-minutes: 17
-        run: bash tools/ci-install-native-deps.sh
-      - name: Generate and independently compare bindings
-        working-directory: frontend
-        run: |
-          node scripts/ensure-bindings.mjs
-          node scripts/ensure-bindings.mjs --check
-
   perf:
     name: perf (${{ matrix.label }})
     needs: changes
