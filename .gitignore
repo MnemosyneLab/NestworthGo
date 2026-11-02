@@ -34,6 +34,7 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+.openidea/
 
 # Local data and secrets
 /.local-private/
