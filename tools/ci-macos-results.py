@@ -17,8 +17,14 @@ def check_packages(packages, events):
 
 def main():
     steps = json.loads(os.environ['GATE_RESULTS'])
-    results = {gate: steps.get(gate, {}).get('outcome', 'missing') for gate in GATES}
     root = Path(os.environ['RUNNER_TEMP'])
+    try:
+        lanes = json.loads((root / 'macos-gate-logs/results.json').read_text())
+    except (OSError, ValueError):
+        lanes = {}
+    results = {gate: (steps if gate in ('bindings', 'frontend-build') else lanes)
+               .get(gate, {}).get('outcome', 'missing') for gate in GATES}
+    results['lanes'] = steps.get('lanes', {}).get('outcome', 'missing')
     try:
         events = [json.loads(line) for line in (root / 'go-results.jsonl').read_text().splitlines()]
         accounted = check_packages((root / 'go-packages.txt').read_text(), events)
@@ -29,9 +35,9 @@ def main():
     (root / 'macos-gates.json').write_text(report + '\n')
     print(report)
     with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
-        stream.write('### Native macOS correctness gates\n\n| Gate | Outcome |\n| --- | --- |\n')
+        stream.write('### Native macOS correctness gates\n\n| Gate | Outcome | Seconds |\n| --- | --- | --- |\n')
         for gate, outcome in results.items():
-            stream.write(f'| {gate} | {outcome} |\n')
+            stream.write(f"| {gate} | {outcome} | {lanes.get(gate, {}).get('seconds', 'Actions step')} |\n")
     return 0 if all(value == 'success' for value in results.values()) else 1
 
 

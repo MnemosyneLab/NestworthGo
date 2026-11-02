@@ -44,10 +44,8 @@ jobs:
         with:
           node-version: 24.22.0
           package-manager-cache: false
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 12.14.0
-          dest: ${{ runner.temp }}/nestworth-pnpm
+      - name: Reuse pinned pnpm executable
+        run: bash tools/ci-macos-pnpm.sh
       - name: Verify native environment and select persistent caches
         run: python3 tools/ci-macos-environment.py
       - name: Prepare pinned Wails CLI
@@ -64,64 +62,17 @@ jobs:
         id: bindings
         working-directory: frontend
         run: node scripts/ensure-bindings.mjs
-      - name: gofmt
-        id: format
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        run: test -z "$(gofmt -l cmd internal)"
-      - name: Go tests (all packages, bounded local parallelism)
-        id: go-tests
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        run: |
-          go list ./... | tee "$RUNNER_TEMP/go-packages.txt"
-          go test -count=1 -json -timeout 20m -p "$NESTWORTH_GO_PARALLEL" ./... | tee "$RUNNER_TEMP/go-results.jsonl"
-      - name: Go vet
-        id: vet
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        run: go vet -p "$NESTWORTH_GO_PARALLEL" ./...
-      - name: Go build
-        id: build
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        run: go build -p "$NESTWORTH_GO_PARALLEL" -o "$RUNNER_TEMP/nestworth-ci" ./cmd/nestworth
-      - name: Validate user skill and installer
-        id: tooling
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        run: |
-          python3 tools/check-nestworth-skill.py
-          python3 tools/run-tooling-tests.py --tier fast
-      - name: Frontend lint
-        id: lint
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        working-directory: frontend
-        run: pnpm exec eslint .
-      - name: Frontend typecheck
-        id: typecheck
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        working-directory: frontend
-        run: pnpm exec tsc --noEmit
+      # Vite writes embedded files. Finish it before any Go reader starts.
       - name: Frontend build
         id: frontend-build
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
         continue-on-error: true
         working-directory: frontend
         run: pnpm exec vite build --mode production
-      - name: Frontend tests (entire suite, bounded workers)
-        id: frontend-tests
+      - name: Run independent correctness lanes
+        id: lanes
         if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
         continue-on-error: true
-        working-directory: frontend
-        run: pnpm exec vitest run --maxWorkers="$NESTWORTH_FRONTEND_WORKERS" --reporter=default --reporter=json --outputFile.json="$RUNNER_TEMP/frontend-results.json"
-      - name: Trailing whitespace
-        id: whitespace
-        if: ${{ !cancelled() && steps.bindings.outcome == 'success' }}
-        continue-on-error: true
-        run: git diff --check
+        run: python3 tools/ci-macos-gates.py
       - name: Require every correctness gate
         if: always()
         env:
@@ -135,6 +86,7 @@ jobs:
           path: |
             ${{ runner.temp }}/macos-environment.json
             ${{ runner.temp }}/macos-gates.json
+            ${{ runner.temp }}/macos-gate-logs/
             ${{ runner.temp }}/go-packages.txt
             ${{ runner.temp }}/go-results.jsonl
             ${{ runner.temp }}/frontend-results.json

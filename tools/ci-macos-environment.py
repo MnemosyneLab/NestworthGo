@@ -18,6 +18,17 @@ def limits(cpus, memory):
     return slots, min(2, slots)
 
 
+def lane_budget(cpus, memory):
+    if cpus >= 8 and memory >= 16 * 1024**3:
+        # Up to 2 Go package processes * 2 Go threads, 2 jsdom workers and
+        # one tooling lane: seven worker CPU slots, leaving one for the host.
+        # Planning RAM allowance: Go 4 GiB + frontend 6 GiB + tooling 2 GiB;
+        # leave 4 GiB for the desktop. These are bounds, not OS quotas.
+        return dict(lanes=3, go_parallel=2, gomaxprocs=2, frontend_workers=2)
+    slots, workers = limits(cpus, memory)
+    return dict(lanes=1, go_parallel=slots, gomaxprocs=slots, frontend_workers=workers)
+
+
 def main():
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         raise SystemExit('This job requires native macOS ARM64')
@@ -36,16 +47,17 @@ def main():
         raise SystemExit('Selected Go/Node/pnpm versions do not match repository pins')
     cpus = int(output('sysctl', '-n', 'hw.logicalcpu'))
     memory = int(output('sysctl', '-n', 'hw.memsize'))
-    slots, workers = limits(cpus, memory)
+    budget = lane_budget(cpus, memory)
+    slots, workers = budget['go_parallel'], budget['frontend_workers']
     evidence = dict(os=os_version, arch=platform.machine(), sdk=sdk,
                     sdk_version=sdk_version, clang=output('xcrun', 'clang', '--version'),
                     go=go, node=node, pnpm=pnpm, python=platform.python_version(),
                     wails=versions['wails'], cpus=cpus, memory_bytes=memory,
-                    go_parallel=slots, frontend_workers=workers,
+                    go_parallel=slots, frontend_workers=workers, lane_budget=budget,
                     deployment_target=os.environ['MACOSX_DEPLOYMENT_TARGET'])
     # SDK/compiler/OS/Go/flags/locks fence all native compiled cache content.
     fence = dict(evidence)
-    for key in ('cpus', 'memory_bytes', 'go_parallel', 'frontend_workers'):
+    for key in ('cpus', 'memory_bytes', 'go_parallel', 'frontend_workers', 'lane_budget'):
         fence.pop(key)
     fence['flags'] = {key: os.environ.get(key, '') for key in ('CGO_CFLAGS', 'CGO_CXXFLAGS', 'CGO_LDFLAGS')}
     fence['locks'] = [Path(p).read_text() for p in ('go.mod', 'go.sum')]
@@ -57,7 +69,8 @@ def main():
                GOCACHE=str(native / 'go-build'), GOBIN=str(native / 'bin'),
                NESTWORTH_WAILS_GOCACHE=str(native / 'go-build'),
                NESTWORTH_PNPM_STORE=str(cache / 'pnpm-darwin-arm64-node24-pnpm12'),
-               NESTWORTH_GO_PARALLEL=str(slots), GOMAXPROCS=str(slots),
+               NESTWORTH_GO_PARALLEL=str(slots), GOMAXPROCS=str(budget['gomaxprocs']),
+               NESTWORTH_GATE_LANES=str(budget['lanes']),
                GOFLAGS='-p=' + str(slots), NESTWORTH_FRONTEND_WORKERS=str(workers))
     for key in ('GOMODCACHE', 'GOCACHE', 'GOBIN', 'NESTWORTH_PNPM_STORE'):
         Path(env[key]).mkdir(parents=True, exist_ok=True)

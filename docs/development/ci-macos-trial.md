@@ -40,8 +40,11 @@ portable fixture, while Linux still requires GNU timeout.
 
 ## Tools, isolation and capacity
 
-Official setup-go/setup-node and pnpm setup actions select Go from `go.mod`,
-Node 24.22.0 and pnpm 12.14.0. Wails installs via `go install` at the exact module
+Official setup-go/setup-node actions select Go from `go.mod` and Node 24.22.0.
+Pinned pnpm 12.14.0 is installed once with npm into the dedicated runner cache
+(`pnpm-cli-darwin-arm64-v24.22.0-12.14.0`), then version-checked and reused without
+invoking npm on warm runs. Bootstrap disables lifecycle scripts, audit and funding
+requests and never installs globally. Wails installs via `go install` at the exact module
 pin into a dedicated user-writable cache. Native preflight verifies all selected
 versions, macOS ARM64, macOS/SDK 27+, clang and Python availability; missing native
 prerequisites fail with no system installation. It records CPU, memory and cache
@@ -54,12 +57,28 @@ persist independently. No personal cache directories or real ledger are used.
 Fallback database/settings paths are inside the disposable runner temporary
 folder; tests continue to create their own synthetic fixtures.
 
-Go package concurrency and GOMAXPROCS are bounded to the minimum of four, half
-logical CPUs and one slot per 3 GiB RAM (at least one). Frontend uses at most two
-workers, preserving its existing interaction-test pressure limit. Phases run
-sequentially to avoid competing compiler/jsdom peaks on the user's desktop.
-This avoids queueing nine separate shards on one runner, but does not promise
-faster execution: the application package now runs as one complete invocation.
+Bindings and the Vite production build complete before parallel checks, so Go
+embed readers never race frontend output writes. On hosts with at least eight
+logical CPUs and 16 GiB RAM, three sequential lanes overlap:
+
+- Go: formatting, full tests, vet, native build; package parallelism two and
+  GOMAXPROCS two (up to four Go worker threads across package processes).
+- Tooling: unchanged fast tier and skill validation, then whitespace checking.
+- Frontend: lint, typecheck, then the full suite with two jsdom workers.
+
+The planned worker budget is seven CPU slots (four Go, two frontend, one tooling),
+leaving one logical CPU for the host. Planning memory allowances are 4 GiB Go,
+6 GiB frontend and 2 GiB tooling, leaving 4 GiB for macOS. These are conservative
+concurrency limits, not OS-enforced quotas or measured peak RSS claims. Smaller
+hosts serialize lanes and retain the previous resource-based individual limits.
+Tooling's bindings fixtures use temporary copies, never the shared generated tree.
+
+Each gate records its exit code, outcome, seconds and separate complete log under
+`macos-gate-logs/`. Console START/END messages expose progress; completed logs print
+in separate GitHub groups. Failure does not suppress later independent checks.
+Cancellation kills each active process group and prevents later gates starting.
+The final aggregate rejects missing, failed or cancelled gates and rechecks the
+complete Go package population. No test timeout or assertion is changed.
 
 ## Evidence
 
@@ -70,3 +89,15 @@ Wails; only a subsequent identical-head run with reported warm caches supports
 a warm comparison. Historical Linux times (296 s warm PR, 328 s first main) are
 context, not a controlled cross-platform benchmark. Trial results and exact head
 must be attached to the draft PR before drawing conclusions.
+
+### Measured baseline before parallel lanes
+
+Cold run `41448601991` at `ba4c0c4` passed in 1309 seconds (job time): Wails
+bootstrap 538 s, bindings 90 s, Go tests 143 s, tooling 110 s and frontend tests
+144 s. Runner: macOS/SDK 27.2, Apple clang 21, eight logical CPUs and 16 GiB RAM.
+Warm run `41449223580` at `6feb16b` passed in 534 seconds: Wails 1 s, bindings
+14 s, Go tests 91 s, tooling 108 s and frontend tests 143 s; pnpm/action-setup
+still spent 87 s preparing its temporary executable. This motivates persistent
+pnpm bootstrap plus independent lanes; improved-run results remain to be measured.
+The two heads differ in trigger/docs/tooling checks, so these are diagnostic
+observations, not a controlled identical-head speedup claim.
