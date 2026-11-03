@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -37,7 +38,7 @@ type Config struct {
 	Enabled        bool   `json:"enabled"`
 	Origin         string `json:"origin"`
 	Listen         string `json:"listen"`
-	Mode           string `json:"mode"` // tls or loopback_proxy
+	Mode           string `json:"mode"` // tls, loopback_proxy or http_lan (explicit opt-in)
 	Certificate    string `json:"certificate"`
 	Key            string `json:"key"`
 	FrontendOrigin string `json:"frontendOrigin"` // Optional, exact trusted HTTPS frontend origin.
@@ -48,7 +49,7 @@ func (c Config) Validate() error {
 		return nil
 	}
 	u, err := url.Parse(c.Origin)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
+	if err != nil || (u.Scheme != "https" && !(c.Mode == "http_lan" && u.Scheme == "http")) || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
 		return invalid("origin")
 	}
 	if ip, err := netip.ParseAddr(u.Hostname()); err == nil && !ip.IsPrivate() && !ip.IsLoopback() {
@@ -61,7 +62,8 @@ func (c Config) Validate() error {
 		}
 	}
 	host, port, err := net.SplitHostPort(c.Listen)
-	if err != nil || port == "0" || port == "" {
+	portNumber, portErr := strconv.Atoi(port)
+	if err != nil || portErr != nil || portNumber < 1 || portNumber > 65535 {
 		return invalid("listen")
 	}
 	ip, err := netip.ParseAddr(host)
@@ -73,6 +75,12 @@ func (c Config) Validate() error {
 		if !ip.IsLoopback() {
 			return invalid("listen")
 		}
+	case "http_lan":
+		// No wildcard listener, DNS indirection, separate frontend or proxy.
+		originIP, originErr := netip.ParseAddr(u.Hostname())
+		if originErr != nil || originIP.Zone() != "" || ip.Zone() != "" || originIP != ip || (!ip.IsPrivate() && !ip.IsLoopback()) || u.Port() != port || c.Origin != "http://"+c.Listen || c.FrontendOrigin != "" {
+			return invalid("origin")
+		}
 	case "tls":
 		if !filepath.IsAbs(c.Certificate) || !filepath.IsAbs(c.Key) {
 			return invalid("certificate")
@@ -81,6 +89,14 @@ func (c Config) Validate() error {
 		return invalid("mode")
 	}
 	return nil
+}
+
+// Browsers omit HTTP's default port in Host and Origin headers.
+func (c Config) browserOrigin() string {
+	if c.Mode == "http_lan" {
+		return strings.TrimSuffix(c.Origin, ":80")
+	}
+	return c.Origin
 }
 
 type Permissions struct {
@@ -367,9 +383,13 @@ func (s *Server) sessionFor(r *http.Request) (*session, error) {
 	s.mu.RLock()
 	c := s.config
 	s.mu.RUnlock()
-	cross := origin != "" && origin != c.Origin
+	cross := origin != "" && origin != c.browserOrigin()
+	bearer := cross || c.Mode == "http_lan"
+	if origin == "" {
+		origin = c.browserOrigin()
+	}
 	value := ""
-	if cross {
+	if bearer {
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
 			return nil, unauthorized()
 		}
@@ -380,7 +400,7 @@ func (s *Server) sessionFor(r *http.Request) (*session, error) {
 			return nil, unauthorized()
 		}
 		value = cookie.Value
-		origin = c.Origin
+		origin = c.browserOrigin()
 	}
 	digest := sha256.Sum256([]byte(value))
 	s.mu.Lock()
@@ -391,7 +411,7 @@ func (s *Server) sessionFor(r *http.Request) (*session, error) {
 		delete(s.sessions, digest)
 		return nil, unauthorized()
 	}
-	if d.bearer != cross || d.origin != origin {
+	if d.bearer != bearer || d.origin != origin {
 		return nil, unauthorized()
 	}
 	d.LastUsed = now
@@ -458,7 +478,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	c := s.config
 	s.mu.RUnlock()
-	u, err := url.Parse(c.Origin)
+	u, err := url.Parse(c.browserOrigin())
 	if err != nil || u.Host == "" || r.Host != u.Host {
 		fail(w, forbidden())
 		return
@@ -476,8 +496,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	origin := r.Header.Get("Origin")
-	cross := origin != "" && origin != c.Origin
-	if cross && (c.FrontendOrigin == "" || origin != c.FrontendOrigin || !strings.HasPrefix(r.URL.Path, prefix+"/")) {
+	cross := origin != "" && origin != c.browserOrigin()
+	if cross && (c.Mode == "http_lan" || c.FrontendOrigin == "" || origin != c.FrontendOrigin || !strings.HasPrefix(r.URL.Path, prefix+"/")) {
 		fail(w, forbidden())
 		return
 	}
@@ -515,7 +535,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, prefix)
 	if path == "/connection" && r.Method == "GET" {
 		auth := "cookie"
-		if cross {
+		if cross || c.Mode == "http_lan" {
 			auth = "bearer"
 		}
 		reply(w, map[string]any{"service": "nestworth-mobile", "version": 1, "authentication": auth})
@@ -630,7 +650,7 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 	device.LastUsed = now
 	sessionDigest := sha256.Sum256([]byte(value))
 	origin := r.Header.Get("Origin")
-	cross := origin != s.config.Origin
+	cross := origin != s.config.browserOrigin() || s.config.Mode == "http_lan"
 	s.sessions[sessionDigest] = &session{Device: device, origin: origin, bearer: cross, digest: sessionDigest, csrf: csrf, idle: now.Add(24 * time.Hour), window: now}
 	result := map[string]any{"device": device, "csrfToken": csrf, "instance": s.app.MobileWorkspace()}
 	if cross {

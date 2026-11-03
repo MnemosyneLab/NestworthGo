@@ -107,3 +107,13 @@ it("keeps separate-frontend bearer credentials in memory and omits ambient cooki
     /synthetic-bearer|synthetic-csrf|1\.0009/,
   );
 });
+
+it("never sends session credentials to an external HTTP endpoint", async () => {
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  saveBackend("http://192.168.1.20:9443");
+  await expect(api("/bootstrap")).rejects.toMatchObject({
+    code: "insecure_backend",
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});

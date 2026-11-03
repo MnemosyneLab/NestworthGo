@@ -18,10 +18,11 @@ Supported boundaries:
 
 | Mode | Listener | External address and prerequisites |
 | --- | --- | --- |
+| `http_lan` | One explicit private/loopback numeric IP and port | Unencrypted HTTP, explicitly selected on desktop. Origin and listen address must match. Same-origin built-in phone page only; no separate frontend/CORS. |
 | `tls` | An explicit private or loopback IP and port | HTTPS origin; absolute PEM certificate/key paths. The leaf must be current and match the origin hostname. The phone must trust its chain. |
 | `loopback_proxy` | Explicit loopback IP and port | A trusted same-machine HTTPS proxy, reachable only through the owner's private network. It preserves the configured Host and browser Origin and supplies `X-Forwarded-Proto: https`. |
 
-The external origin is an exact `https://host[:port]`, without a path, query,
+For TLS/proxy modes, the external origin is an exact `https://host[:port]`, without a path, query,
 fragment or credentials. Wildcard, unspecified and public listener addresses
 are rejected. Public IP origins are rejected. A DNS name and a loopback proxy
 do not themselves prove private reachability: network access restrictions and
@@ -33,11 +34,48 @@ grants, plans and cursors. Restore also cancels and joins mobile provider work
 before replacing data. Shutdown closes access, quiesces application writes,
 cancels provider workers, and then follows the existing database shutdown path.
 
+## Direct HTTP on a trusted LAN
+
+HTTP is an explicit desktop opt-in, off by default. It sends pairing tokens,
+session bearer credentials and financial data unencrypted; use only a trusted
+private network. The implementation does not change firewall, router, VPN or
+OS/browser security settings and does not publish a backend on the internet.
+
+1. In desktop **Settings → Mobile access**, select **HTTP on trusted LAN**.
+   Set the external origin to `http://192.168.1.20:9443` and listen address to
+   `192.168.1.20:9443` (substitute the computer's actual LAN IP and free port).
+   Leave trusted frontend origin empty, enable access, and apply. Only a
+   concrete private/loopback IP is accepted; wildcard/public addresses and DNS
+   names are refused. IPv6 ULA addresses use brackets, e.g. `[fd12::1]:9443`.
+2. Keep desktop Nestworth running and both devices on a reachable private
+   network. On the phone, open `http://192.168.1.20:9443/mobile.html`, or enter
+   `192.168.1.20:9443` in connection settings and choose **Open LAN phone page**.
+   A full `http://` address also works. This explicitly navigates to the built-in
+   page; it does not fetch HTTP from the existing HTTPS page or change that
+   page's saved HTTPS endpoint. Unsaved draft/recovery guards disable this action.
+3. Generate a one-use token on desktop and pair on the HTTP phone page. The
+   same pairing expiry, CSRF, permission, rate-limit and revocation rules apply.
+   HTTP uses the existing memory-only bearer session, never an insecure cookie.
+   Page reload requires pairing again; in-page Reconnect retains the session.
+   Operation UUIDs use cryptographic `getRandomValues`, available on HTTP pages.
+4. Leave the address blank on the built-in page and test the current server.
+   If unreachable, check the desktop running status, exact IP/port, Wi-Fi route,
+   access point client isolation and local-network browser permission. Timeout
+   or a failed fetch cannot prove a write failed. Do not disable browser/OS
+   protections to connect. HTTPS frontends must open this HTTP page; they cannot
+   bypass mixed-content, CSP or private-network restrictions with CORS headers.
+
+HTTP does not accept a separate frontend origin or cross-origin API requests.
+HTTPS modes retain their Secure HttpOnly cookie and exact-origin bearer/CORS
+contracts. No existing installation is reconfigured or LAN listener enabled by
+this code change. Actual LAN activation requires the owner's explicit desktop
+configuration and trusted-network decision.
+
 ## Browser authorization
 
 Each desktop pairing action generates a 32-byte random token, displayed once.
 It expires after ten minutes and is consumed atomically on successful exchange.
-It is separate from MCP credentials and must be pasted into the HTTPS login
+It is separate from MCP credentials and must be pasted into the server login
 form, never a URL. Sessions have a seven-day absolute and 24-hour idle lifetime;
 app restart requires pairing again. Up to five sessions are active at once.
 The desktop QR contains only an address: the backend origin for the built-in
@@ -46,7 +84,7 @@ contains a pairing token, session credential or durable credential. The browser
 removes the hint when displaying connection settings and requires an explicit
 save before it changes an existing endpoint.
 
-The session cookie is `__Host-nw_mobile`, with Secure, HttpOnly, SameSite=Strict,
+For HTTPS same-origin access, the session cookie is `__Host-nw_mobile`, with Secure, HttpOnly, SameSite=Strict,
 Path=/ and no Domain. Only digests of authentication secrets are retained by the
 server. Permissions are `read`, `record`, `market_refresh`, and `manual_quote`;
 read is mandatory, and manual observations require an explicit desktop choice.
@@ -91,7 +129,7 @@ exception, browser flag or system networking change is created by this feature.
 4. Scan the address-only QR or enter the backend origin in phone **Connection
    settings**, test it, then choose **Use this server**. Blank uses the current
    site's backend. Paths, credentials, queries, fragments, wildcard hosts and
-   plaintext backend addresses are refused. The test is anonymous and exposes
+   plaintext addresses open the built-in LAN page using the HTTP flow above. The test is anonymous and exposes
    only a service/version/authentication marker, with no household data.
 5. Generate the one-use token on desktop and enter it separately in the phone's
    password field. Cross-origin exchange returns an origin-bound bearer session

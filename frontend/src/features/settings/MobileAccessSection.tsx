@@ -136,8 +136,14 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
             >
               <option value="">{t("history.selectEmpty")}</option>
               <option value="tls">{t("mobile.tls")}</option>
+              <option value="http_lan">{t("mobile.httpLan")}</option>
               <option value="loopback_proxy">{t("mobile.proxy")}</option>
             </NativeSelect>
+            {config.mode === "http_lan" && (
+              <p role="note" className="text-sm text-muted-foreground">
+                {t("mobile.httpLanHelp")}
+              </p>
+            )}
             {config.mode === "tls" && (
               <>
                 <Label htmlFor="mobile-cert">{t("mobile.certificate")}</Label>

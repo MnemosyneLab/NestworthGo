@@ -15,7 +15,12 @@ export class ConnectionError extends Error {
 }
 const settingsKey = "nestworth.mobile.connection.v1";
 export function normalizeBackend(value: string): string {
-  const input = value.trim();
+  let input = value.trim();
+  if (
+    /^(?:\d+\.){3}\d+:\d+$/.test(input) ||
+    /^\[[0-9a-f:]+\]:\d+$/i.test(input)
+  )
+    input = `http://${input}`;
   if (!input) return "";
   let url: URL;
   try {
@@ -23,9 +28,32 @@ export function normalizeBackend(value: string): string {
   } catch {
     throw new ConnectionError("invalid_url");
   }
-  if (url.protocol !== "https:") throw new ConnectionError("insecure_backend");
+  if (url.protocol !== "https:" && url.protocol !== "http:")
+    throw new ConnectionError("insecure_backend");
+  if (url.protocol === "http:") {
+    const host = url.hostname;
+    const octets = host.split(".").map(Number);
+    const privateV4 =
+      octets.length === 4 &&
+      (octets[0] === 10 ||
+        octets[0] === 127 ||
+        (octets[0] === 192 && octets[1] === 168) ||
+        (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31));
+    const privateV6 = /^\[(?:f[cd][0-9a-f]{2}:|::1\])/i.test(host);
+    // Require an explicit valid port and canonical numeric IP, including IPv6 brackets.
+    const authority = input.slice(7).replace(/\/$/, "");
+    const port = authority.slice(authority.lastIndexOf(":") + 1);
+    if (
+      (!privateV4 && !privateV6) ||
+      !/^\d+$/.test(port) ||
+      +port < 1 ||
+      +port > 65535 ||
+      authority !== `${host}:${port}`
+    )
+      throw new ConnectionError("invalid_url");
+  }
   if (
-    !/^https:\/\/[^/?#]+\/?$/i.test(input) ||
+    !/^https?:\/\/[^/?#]+\/?$/i.test(input) ||
     [...input].some(
       (char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127,
     ) ||
@@ -104,4 +132,14 @@ export function saveMobilePreferences(value: MobilePreferences) {
   } catch {
     /* Optional preferences only. */
   }
+}
+
+// HTTP LAN pages use the existing memory-only bearer transport because Secure
+// cookies cannot be sent over HTTP. External HTTP targets are opened as pages.
+export function usesBearerTransport(base = backendBase()) {
+  return !!base || window.location.protocol === "http:";
+}
+export function httpPageTarget(value: string): string | null {
+  const base = normalizeBackend(value);
+  return base.startsWith("http://") ? `${base}/mobile.html` : null;
 }

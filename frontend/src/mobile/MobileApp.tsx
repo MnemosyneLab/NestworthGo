@@ -1,3 +1,4 @@
+import { mobileOperationId } from "./operationId";
 import {
   useCallback,
   useEffect,
@@ -437,7 +438,7 @@ export function MobileApp() {
               {t(`mobile.connectionState.${connectionState}`)}
               <span className="text-muted-foreground">
                 {" · "}
-                {address.replace(/^https:\/\//, "")}
+                {address.replace(/^https?:\/\//, "")}
               </span>
             </span>
           </p>
@@ -2464,7 +2465,7 @@ function RecordForm({
   const { t } = useTranslation();
   const accounts = usePage<Account>("/accounts", "limit=100");
   const [input, setInput] = useState<RecordInput>({
-    operationId: crypto.randomUUID(),
+    operationId: mobileOperationId(),
     kind: initialKind,
     accountId,
     amount: "",
@@ -2505,7 +2506,7 @@ function RecordForm({
       setCustomTime(false);
       setInput((previous) => ({
         ...previous,
-        operationId: crypto.randomUUID(),
+        operationId: mobileOperationId(),
         amount: "",
         received: "",
         fee: "",
@@ -2922,7 +2923,7 @@ function QuoteForm({
   onSuccess: (pending: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const [operationId] = useState(() => crypto.randomUUID());
+  const [operationId] = useState(() => mobileOperationId());
   const [value, setValue] = useState("");
   const [date, setDate] = useState(issue.RangeEnd || b.today);
   const [review, setReview] = useState<Review | null>(null);
