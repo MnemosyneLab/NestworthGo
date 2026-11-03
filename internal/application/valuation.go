@@ -1076,11 +1076,12 @@ func historicalInstrumentQualityMatches(quote domain.InstrumentQuote) bool {
 	if priceBasis == "" || policy == "" || timestampBasis == "" || priceBasis == string(PriceBasisUnsupported) || priceBasis == string(PriceBasisYahooCloseUnverified) {
 		return false
 	}
+	if archived, valid := domain.ArchivedInstrumentQuality(strings.ToLower(strings.TrimSpace(quote.SourceKey)), priceBasis, policy, timestampBasis); archived {
+		return valid
+	}
 	switch strings.ToLower(strings.TrimSpace(quote.SourceKey)) {
 	case domain.CoinGeckoProviderKey:
 		return timestampBasis == string(TimestampBasisObservedPublication) && priceBasis == domain.CoinGeckoDailyPriceBasis && policy == domain.CoinGeckoDailyPriceBasis
-	case domain.TiingoProviderKey:
-		return timestampBasis == string(TimestampBasisSessionClose) && priceBasis == string(PriceBasisTiingoRawClose) && policy == string(PriceBasisTiingoRawClose)
 	case domain.YahooFinanceProviderKey:
 		if priceBasis != string(PriceBasisYahooClose) || policy != string(PriceBasisYahooClose) {
 			return false

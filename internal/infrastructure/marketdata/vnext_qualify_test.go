@@ -8,9 +8,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func TestTiingoCompleteFixtureMapsSessionCloseNotUTCMidnight(t *testing.T) {
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+func TestEquityCompleteFixtureMapsSessionCloseIndependentlyOfProviderTimestamp(t *testing.T) {
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,17 +21,17 @@ func TestTiingoCompleteFixtureMapsSessionCloseNotUTCMidnight(t *testing.T) {
 		t.Fatalf("observations = %d", len(outcome.Batch.Observations))
 	}
 	first := outcome.Batch.Observations[0]
-	if first.MarketDate != "2026-09-04" || first.Value != "185.25" || first.PriceBasis != application.PriceBasisTiingoRawClose {
+	if first.MarketDate != "2026-09-04" || first.Value != "185.25" || first.PriceBasis != application.PriceBasisYahooClose {
 		t.Fatalf("first observation = %+v", first)
 	}
 	if first.ValueEffectiveAt.UTC().Format(time.RFC3339) != "2026-09-04T20:00:00Z" {
 		t.Fatalf("value_effective_at = %s", first.ValueEffectiveAt.UTC())
 	}
-	if first.ProviderTimestamp.UTC().Format(time.RFC3339) != "2026-09-04T00:00:00Z" {
+	if first.ProviderTimestamp.UTC().Format(time.RFC3339) != "2026-09-04T12:00:00Z" {
 		t.Fatalf("provider timestamp = %s", first.ProviderTimestamp.UTC())
 	}
 	if first.ValueEffectiveAt.Equal(first.ProviderTimestamp) {
-		t.Fatal("UTC midnight date label was used as the economic close")
+		t.Fatal("provider timestamp was used as the economic close")
 	}
 	if len(outcome.Batch.VerifiedRanges) != 1 || outcome.Batch.VerifiedRanges[0] != (application.DateRange{Start: "2026-09-04", End: "2026-09-08"}) {
 		t.Fatalf("verified = %+v", outcome.Batch.VerifiedRanges)
@@ -41,9 +41,9 @@ func TestTiingoCompleteFixtureMapsSessionCloseNotUTCMidnight(t *testing.T) {
 	}
 }
 
-func TestTiingoCorrectionPreservesRawCloseLexeme(t *testing.T) {
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-correction.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+func TestEquityCorrectionPreservesRawCloseLexeme(t *testing.T) {
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-correction.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,23 +55,23 @@ func TestTiingoCorrectionPreservesRawCloseLexeme(t *testing.T) {
 	}
 }
 
-func TestTiingoUnsupportedAndUncertainInputsAreExplicit(t *testing.T) {
+func TestEquityUnsupportedAndUncertainInputsAreExplicit(t *testing.T) {
 	cases := []struct {
 		path   string
 		status application.MappingStatus
 		reason string
 	}{
-		{path: "providers/tiingo/cn-equity-unsupported.json", status: application.MappingUnsupported, reason: "tiingo_us_listed_only"},
-		{path: "providers/tiingo/aapl-eod-adjclose-only.json", status: application.MappingUnsupported, reason: "unsupported_price_basis"},
-		{path: "providers/tiingo/aapl-eod-malformed.json", status: application.MappingInvalid, reason: "malformed_response"},
-		{path: "providers/tiingo/aapl-eod-empty-pending.json", status: application.MappingPending, reason: "publication_not_ready"},
-		{path: "providers/tiingo/aapl-eod-truncated.json", status: application.MappingUncertain, reason: "truncated_response"},
-		{path: "providers/tiingo/aapl-eod-early-close-unknown.json", status: application.MappingUncertain, reason: "session_timing_unknown"},
+		{path: "providers/yahoo/unknown-market-unsupported.json", status: application.MappingUnsupported, reason: "session_policy_unverified"},
+		{path: "providers/yahoo/aapl-verified-adjclose-only.json", status: application.MappingUnsupported, reason: "unsupported_price_basis"},
+		{path: "providers/yahoo/aapl-verified-malformed.json", status: application.MappingInvalid, reason: "malformed_response"},
+		{path: "providers/yahoo/aapl-verified-empty-pending.json", status: application.MappingUnsupported, reason: "unsupported_price_basis"},
+		{path: "providers/yahoo/aapl-verified-truncated.json", status: application.MappingUncertain, reason: "truncated_response"},
+		{path: "providers/yahoo/aapl-verified-early-close-unknown.json", status: application.MappingUnsupported, reason: "session_policy_unverified"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.path, func(t *testing.T) {
 			meta, body := mustLoadVNext(t, testCase.path)
-			outcome, err := QualifyTiingoHistory(meta, body)
+			outcome, err := QualifyYahooHistory(meta, body)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -90,28 +90,9 @@ func TestTiingoUnsupportedAndUncertainInputsAreExplicit(t *testing.T) {
 	}
 }
 
-func TestTiingoSplitAndDividendKeepRawClose(t *testing.T) {
-	splitMeta, splitBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-split.json")
-	split, err := QualifyTiingoHistory(splitMeta, splitBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if split.Status != application.MappingMapped || split.Batch.Observations[0].Value != "50" || split.Batch.Observations[0].SplitFactor != "4.0" {
-		t.Fatalf("split = %+v", split.Batch.Observations)
-	}
-	divMeta, divBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-dividend.json")
-	div, err := QualifyTiingoHistory(divMeta, divBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if div.Batch.Observations[0].Value != "185.25" || div.Batch.Observations[0].DividendCash != "0.25" {
-		t.Fatalf("dividend used adjClose: %+v", div.Batch.Observations)
-	}
-}
-
-func TestTiingoDSTFixtureKeepsDistinctCloseInstants(t *testing.T) {
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-ny-dst.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+func TestEquityDSTFixtureKeepsDistinctCloseInstants(t *testing.T) {
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-ny-dst.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +291,7 @@ func TestFrankfurterV2MappingAndUnsupportedPairs(t *testing.T) {
 	}
 }
 
-func TestMappedTiingoClosesMatchIndependentOracleFacts(t *testing.T) {
+func TestMappedEquityClosesMatchIndependentOracleFacts(t *testing.T) {
 	scenario, err := domain.FirstVerticalSliceScenario()
 	if err != nil {
 		t.Fatal(err)
@@ -319,8 +300,8 @@ func TestMappedTiingoClosesMatchIndependentOracleFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -103,7 +103,7 @@ func TestQuotePerformanceAllSourcesIgnorePreferenceAndExcludeIntraday(t *testing
 				on := []string{"2026-10-05", "2026-10-10", "2026-10-14"}[n]
 				at, _ := time.Parse(time.DateOnly, on)
 				price, _ := domain.ParseUnitPrice("100")
-				q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: i.ID, UnitPrice: price, Currency: i.QuoteCurrency, SourceKind: source, SourceKey: "synthetic", QuotedAt: at, CreatedAt: at, EffectiveDate: on, ObservationKind: "close", PriceBasis: domain.TiingoRawClosePriceBasis, TimestampBasis: "session_close", Revision: 1, BindingRevision: i.ProviderBindingRevision}
+				q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: i.ID, UnitPrice: price, Currency: i.QuoteCurrency, SourceKind: source, SourceKey: "synthetic", QuotedAt: at, CreatedAt: at, EffectiveDate: on, ObservationKind: "close", PriceBasis: domain.YahooRawClosePriceBasis, TimestampBasis: "session_close", Revision: 1, BindingRevision: i.ProviderBindingRevision}
 				if err := database.WithTx(t.Context(), func(tx *sql.Tx) error { return insertAgentInstrumentQuoteTx(t.Context(), tx, i.HouseholdID, q, "") }); err != nil {
 					t.Fatal(err)
 				}

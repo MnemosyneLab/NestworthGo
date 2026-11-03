@@ -126,12 +126,12 @@ func TestHistoryPlanReusesCoverageAndQuotes(t *testing.T) {
 
 func TestHistoryPlanReuseRetainsOverridesAndFreshReads(t *testing.T) {
 	t.Parallel()
-	s, repo, first, second := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
+	s, repo, first, second := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, &syncFakeProvider{key: CoinGeckoProviderKey})
 	ctx := context.Background()
 	// Include observed and negative coverage, then an Agent override on the
 	// provider instrument. Ordinary and forced plans must retain their policies.
 	fetched := s.clock().Add(-48 * time.Hour)
-	commit := sqlite.InstrumentHistoryCommit{HouseholdID: first.HouseholdID, InstrumentID: first.ID, ProviderKey: TiingoProviderKey, ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US", Status: "mapped", FetchedAt: fetched, SourcePolicy: domain.TiingoRawClosePriceBasis,
+	commit := sqlite.InstrumentHistoryCommit{HouseholdID: first.HouseholdID, InstrumentID: first.ID, ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US", Status: "mapped", FetchedAt: fetched, SourcePolicy: domain.YahooRawClosePriceBasis,
 		Observations:   []sqlite.InstrumentHistoryObservation{{MarketDate: "2026-09-04", Value: "100.12345678", Currency: "USD", ValueEffectiveAt: fetched}},
 		VerifiedRanges: []sqlite.DateSpan{{Start: "2026-09-04", End: "2026-09-06"}},
 	}

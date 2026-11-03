@@ -25,7 +25,6 @@ type DateRange struct {
 type PriceBasis string
 
 const (
-	PriceBasisTiingoRawClose       PriceBasis = "tiingo_raw_close_v1"
 	PriceBasisYahooClose           PriceBasis = domain.YahooRawClosePriceBasis
 	PriceBasisYahooCloseUnverified PriceBasis = "yahoo_close_unverified"
 	PriceBasisUnsupported          PriceBasis = "unsupported"
@@ -207,8 +206,7 @@ func InclusiveMarketDates(r DateRange) ([]MarketDate, error) {
 }
 
 // RefuseFailClosedInstrumentHistory returns a validation error when a mapped
-// batch must not be persisted. Invalid, unsupported, and Tiingo adjClose-only
-// or unknown-session outcomes commit nothing.
+// batch must not be persisted. Invalid or unsupported outcomes commit nothing.
 func RefuseFailClosedInstrumentHistory(outcome MappingOutcome[InstrumentDailyObservation]) error {
 	if err := refuseFailClosedStatus(outcome.Status, outcome.Reason); err != nil {
 		return err
@@ -218,9 +216,6 @@ func RefuseFailClosedInstrumentHistory(outcome MappingOutcome[InstrumentDailyObs
 			return failClosedPersistError(outcome.Reason, "empty_observation_value")
 		}
 		if observation.PriceBasis == PriceBasisUnsupported {
-			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
-		}
-		if isTiingoAdapter(outcome.Batch.Evidence.Adapter) && observation.PriceBasis != PriceBasisTiingoRawClose {
 			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
 		}
 		if observation.PriceBasis == PriceBasisYahooCloseUnverified {
@@ -251,10 +246,6 @@ func refuseFailClosedStatus(status MappingStatus, reason string) error {
 		return failClosedPersistError(reason, reason)
 	}
 	return nil
-}
-
-func isTiingoAdapter(adapter string) bool {
-	return strings.Contains(strings.ToLower(adapter), "tiingo")
 }
 
 func failClosedPersistError(reason, fallback string) error {

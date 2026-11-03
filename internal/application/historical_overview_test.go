@@ -461,7 +461,7 @@ func TestHistoricalOverviewMarketDateCloseAndCoverage(t *testing.T) {
 	ctx := context.Background()
 	s, _, _, _ := overviewFixture(t)
 	accountID, instrumentID, holdingID := domain.NewAccountID(), domain.NewInstrumentID(), domain.NewHoldingID()
-	provider := domain.TiingoProviderKey
+	provider := domain.YahooFinanceProviderKey
 	originAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	cutoff := time.Date(2026, 9, 9, 15, 59, 59, 999000000, time.UTC)
 	quantity := mustQuantity(t, "10")
@@ -472,14 +472,14 @@ func TestHistoricalOverviewMarketDateCloseAndCoverage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: unitPrice, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: date, ValueEffectiveAt: at, QuotedAt: at.Add(48 * time.Hour), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
+		return domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: unitPrice, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: date, ValueEffectiveAt: at, QuotedAt: at.Add(48 * time.Hour), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
 	}
 	batch := domain.HistoricalSnapshotBatch{
 		Origin:                    domain.HistoryOrigin{StartedAt: originAt, Timezone: "Asia/Singapore"},
 		OriginData:                domain.HistoryOriginData{Components: []domain.HistoryOriginComponent{{Kind: domain.HistoryOriginHoldingQuantity, AccountID: &accountID, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}}},
 		Portfolio:                 domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity, CreatedAt: originAt}}},
 		InstrumentQuoteFacts:      []domain.InstrumentQuote{quote("180", "2026-09-08", cutoff.Add(-20*time.Hour))},
-		InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisTiingoRawClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}},
+		InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}},
 	}
 	state, rows, err := s.historicalOverviewSide(ctx, &batch, "2026-09-09", cutoff, false, "", 12*time.Hour)
 	if err != nil {

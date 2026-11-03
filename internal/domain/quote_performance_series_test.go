@@ -143,7 +143,7 @@ func TestPerformanceSeriesPreservesPriceBasisDiscontinuities(t *testing.T) {
 		q.PriceBasis = basis
 		return q
 	}
-	quotes := []InstrumentQuote{mk("2026-10-01", "99", "agent_raw_close_v1"), mk("2026-10-08", "100", "agent_raw_close_v1"), mk("2026-10-09", "101", TiingoRawClosePriceBasis), mk("2026-10-12", "50", "adjusted_close"), mk("2026-10-13", "51", "adjusted_close"), mk("2026-10-14", "52", "agent_raw_close_v1")}
+	quotes := []InstrumentQuote{mk("2026-10-01", "99", "agent_raw_close_v1"), mk("2026-10-08", "100", "agent_raw_close_v1"), mk("2026-10-09", "101", "tiingo_raw_close_v1"), mk("2026-10-12", "50", "adjusted_close"), mk("2026-10-13", "51", "adjusted_close"), mk("2026-10-14", "52", "agent_raw_close_v1")}
 	got := ProjectQuotePerformanceSeries(i, quotes, 7)
 	breaks := []bool{}
 	for _, point := range got.Points {

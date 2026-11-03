@@ -178,8 +178,6 @@ func instrumentHistorySourcePolicy(providerKey, observedPolicy string) string {
 	switch strings.ToLower(strings.TrimSpace(providerKey)) {
 	case domain.CoinGeckoProviderKey:
 		return domain.CoinGeckoDailyPriceBasis
-	case domain.TiingoProviderKey:
-		return domain.TiingoRawClosePriceBasis
 	case domain.YahooFinanceProviderKey:
 		return domain.YahooRawClosePriceBasis
 	default:

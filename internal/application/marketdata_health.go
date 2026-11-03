@@ -80,7 +80,7 @@ type MarketDataHealthReport struct {
 	Issues                  []HealthIssue
 }
 
-// ScanMarketDataHealth inspects local coverage, routing, Tiingo key settings, valuation
+// ScanMarketDataHealth inspects local coverage, routing, provider configuration, valuation
 // missing inputs, dirty snapshots, and the last in-process sync job. It never
 // calls LatestInstrument, LatestFX, InstrumentDailyHistory, or FXDailyHistory.
 func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthReport, error) {

@@ -74,23 +74,23 @@ func (p *statusProvider) LocalConfigStatus(context.Context) (string, string) {
 
 func TestScanMarketDataHealthPerformsNoProviderNetwork(t *testing.T) {
 	t.Parallel()
-	tiingoInner := &syncFakeProvider{key: TiingoProviderKey}
-	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey}
-	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigOK, reason: ""}
-	yahoo := &countingProvider{inner: yahooInner}
-	service, _, first, second := newSyncFixture(t, tiingo, yahoo)
+	equityInner := &syncFakeProvider{key: YahooFinanceProviderKey}
+	cryptoInner := &syncFakeProvider{key: CoinGeckoProviderKey}
+	equity := &statusProvider{countingProvider: &countingProvider{inner: equityInner}, code: ProviderConfigOK, reason: ""}
+	cryptoProvider := &countingProvider{inner: cryptoInner}
+	service, _, first, second := newSyncFixture(t, equity, cryptoProvider)
 	report, err := service.ScanMarketDataHealth(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tiingo.networkCalls() != 0 || yahoo.networkCalls() != 0 {
-		t.Fatalf("scan contacted providers tiingo=%d yahoo=%d", tiingo.networkCalls(), yahoo.networkCalls())
+	if equity.networkCalls() != 0 || cryptoProvider.networkCalls() != 0 {
+		t.Fatalf("scan contacted providers equity=%d crypto=%d", equity.networkCalls(), cryptoProvider.networkCalls())
 	}
 	if report.LastFinalizedMarketDate == "" {
 		t.Fatalf("report = %+v", report)
 	}
 	if kindCount(report, HealthKindMissingInstrumentHistory) < 2 {
-		t.Fatalf("expected executable Tiingo and Yahoo history gaps, issues=%+v", report.Issues)
+		t.Fatalf("expected executable Equity and Yahoo history gaps, issues=%+v", report.Issues)
 	}
 	if !hasIssueForInstrument(report, first.ID.String(), HealthKindMissingInstrumentHistory, true) {
 		t.Fatalf("AAPL should be an executable history gap: %+v", report.Issues)
@@ -105,11 +105,11 @@ func TestScanMarketDataHealthPerformsNoProviderNetwork(t *testing.T) {
 
 func TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs(t *testing.T) {
 	t.Parallel()
-	tiingoInner := &syncFakeProvider{key: TiingoProviderKey}
-	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey}
-	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigMissingKey, reason: "missing"}
-	yahoo := &countingProvider{inner: yahooInner}
-	service, _, first, second := newSyncFixture(t, tiingo, yahoo)
+	equityInner := &syncFakeProvider{key: YahooFinanceProviderKey}
+	cryptoInner := &syncFakeProvider{key: CoinGeckoProviderKey}
+	equity := &statusProvider{countingProvider: &countingProvider{inner: equityInner}, code: ProviderConfigMissingKey, reason: "missing"}
+	cryptoProvider := &countingProvider{inner: cryptoInner}
+	service, _, first, second := newSyncFixture(t, equity, cryptoProvider)
 	ctx := context.Background()
 	accounts, err := service.ListAccounts(ctx, domain.AccountFilter{})
 	if err != nil || len(accounts) == 0 {
@@ -127,23 +127,23 @@ func TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tiingo.networkCalls() != 0 {
-		t.Fatal("missing-key scan contacted Tiingo")
+	if equity.networkCalls() != 0 {
+		t.Fatal("missing-key scan contacted Equity")
 	}
 	if report.PrerequisiteCount < 1 {
 		t.Fatalf("expected prerequisites, report=%+v", report)
 	}
 	if !hasKind(report, HealthKindMissingProviderKey) {
-		t.Fatalf("missing Tiingo key not reported: %+v", report.Issues)
+		t.Fatalf("missing Equity key not reported: %+v", report.Issues)
 	}
 	if hasIssueForInstrument(report, first.ID.String(), HealthKindMissingInstrumentHistory, true) {
-		t.Fatal("Tiingo gaps must not be executable while the key is missing")
+		t.Fatal("Equity gaps must not be executable while the key is missing")
 	}
 	if !hasIssueForInstrument(report, first.ID.String(), HealthKindMissingInstrumentHistory, false) {
-		t.Fatalf("collapsed Tiingo gap missing: %+v", report.Issues)
+		t.Fatalf("collapsed Equity gap missing: %+v", report.Issues)
 	}
 	if !hasIssueForInstrument(report, second.ID.String(), HealthKindMissingInstrumentHistory, true) {
-		t.Fatalf("Yahoo gaps must stay executable without a Tiingo key: %+v", report.Issues)
+		t.Fatalf("Yahoo gaps must stay executable without a Equity key: %+v", report.Issues)
 	}
 	if !hasIssueForInstrument(report, manual.ID.String(), HealthKindMissingManualPrice, false) {
 		t.Fatalf("missing manual price not reported: %+v", report.Issues)
@@ -209,19 +209,19 @@ func TestManualPriceRepairKeepsOutdatedSnapshotIssueUntilRebuild(t *testing.T) {
 
 func TestScanMarketDataHealthVerifiesRepairClearsExecutableGaps(t *testing.T) {
 	t.Parallel()
-	tiingoInner := &syncFakeProvider{key: TiingoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
-		out := mappedTiingoClose("2026-09-04", "185.25")
+	equityInner := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+		out := mappedYahooClose("2026-09-04", "185.25")
 		out.Batch.VerifiedRanges = []DateRange{rng}
 		return out, nil
 	}}
-	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
-		out := mappedYahooClose("2026-09-04", "415.20")
+	cryptoInner := &syncFakeProvider{key: CoinGeckoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+		out := mappedCoinGeckoClose("2026-09-04", "415.20")
 		out.Batch.VerifiedRanges = []DateRange{rng}
 		return out, nil
 	}}
-	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigOK, reason: ""}
-	yahoo := &countingProvider{inner: yahooInner}
-	service, _, first, second := newSyncFixture(t, tiingo, yahoo)
+	equity := &statusProvider{countingProvider: &countingProvider{inner: equityInner}, code: ProviderConfigOK, reason: ""}
+	cryptoProvider := &countingProvider{inner: cryptoInner}
+	service, _, first, second := newSyncFixture(t, equity, cryptoProvider)
 	before, err := service.ScanMarketDataHealth(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -296,7 +296,7 @@ func TestClassifyInstrumentHealthYahooIsAutoRepairable(t *testing.T) {
 	need := InstrumentRepairNeed{
 		InstrumentID:   domain.InstrumentID("00000000-0000-0000-0000-000000000001"),
 		InstrumentType: "stock",
-		ProviderKey:    YahooFinanceProviderKey,
+		ProviderKey:    CoinGeckoProviderKey,
 		ProviderSymbol: "MSFT",
 		Market:         "US",
 		RouteStatus:    domain.InstrumentRouteOK,
@@ -304,7 +304,7 @@ func TestClassifyInstrumentHealthYahooIsAutoRepairable(t *testing.T) {
 	}
 	issue, _ := classifyInstrumentHealth(need, "Microsoft", nil)
 	if issue.Kind != HealthKindMissingInstrumentHistory || !issue.Executable || issue.Action != HealthActionRepair {
-		t.Fatalf("yahoo issue = %+v", issue)
+		t.Fatalf("crypto issue = %+v", issue)
 	}
 	if issue.Code == "unsupported_price_basis" || issue.Reason == "unsupported_price_basis" {
 		t.Fatalf("Yahoo gap was labelled unsupported_price_basis: %+v", issue)
@@ -316,7 +316,7 @@ func TestClassifyInstrumentHealthReportsUnsupportedTypePrecisely(t *testing.T) {
 	need := InstrumentRepairNeed{
 		InstrumentID:   domain.InstrumentID("00000000-0000-0000-0000-000000000004"),
 		InstrumentType: "precious_metal",
-		ProviderKey:    YahooFinanceProviderKey,
+		ProviderKey:    CoinGeckoProviderKey,
 		ProviderSymbol: "XAUUSD",
 		Market:         "US",
 		RouteStatus:    domain.InstrumentRouteUnsupported,
@@ -336,7 +336,7 @@ func TestClassifyInstrumentHealthBindingOpensEditor(t *testing.T) {
 	t.Parallel()
 	need := InstrumentRepairNeed{
 		InstrumentID: domain.InstrumentID("00000000-0000-0000-0000-000000000002"),
-		ProviderKey:  TiingoProviderKey,
+		ProviderKey:  YahooFinanceProviderKey,
 		RouteStatus:  domain.InstrumentRouteBindingMissing,
 		SkipReason:   "binding_missing",
 	}
@@ -350,7 +350,7 @@ func TestClassifyInstrumentHealthReportsExhaustedOpeningAnchorForManualEntry(t *
 	t.Parallel()
 	need := InstrumentRepairNeed{
 		InstrumentID:           domain.InstrumentID("00000000-0000-0000-0000-000000000003"),
-		ProviderKey:            TiingoProviderKey,
+		ProviderKey:            YahooFinanceProviderKey,
 		ProviderSymbol:         "AAPL",
 		RouteStatus:            domain.InstrumentRouteOK,
 		OpeningAnchorMissing:   true,
@@ -364,17 +364,17 @@ func TestClassifyInstrumentHealthReportsExhaustedOpeningAnchorForManualEntry(t *
 
 func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T) {
 	t.Parallel()
-	tiingoInner := &syncFakeProvider{key: TiingoProviderKey}
-	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey}
-	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigOK, reason: ""}
-	yahoo := &countingProvider{inner: yahooInner}
-	service, _, _, _ := newSyncFixture(t, tiingo, yahoo)
+	equityInner := &syncFakeProvider{key: YahooFinanceProviderKey}
+	cryptoInner := &syncFakeProvider{key: CoinGeckoProviderKey}
+	equity := &statusProvider{countingProvider: &countingProvider{inner: equityInner}, code: ProviderConfigOK, reason: ""}
+	cryptoProvider := &countingProvider{inner: cryptoInner}
+	service, _, _, _ := newSyncFixture(t, equity, cryptoProvider)
 	ctx := context.Background()
 	etf, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "QQQ", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
+	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,8 +392,8 @@ func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tiingo.networkCalls() != 0 || yahoo.networkCalls() != 0 {
-		t.Fatalf("type/market scan contacted providers tiingo=%d yahoo=%d", tiingo.networkCalls(), yahoo.networkCalls())
+	if equity.networkCalls() != 0 || cryptoProvider.networkCalls() != 0 {
+		t.Fatalf("type/market scan contacted providers equity=%d crypto=%d", equity.networkCalls(), cryptoProvider.networkCalls())
 	}
 	if !hasIssueForInstrument(report, etf.ID.String(), HealthKindMissingInstrumentHistory, true) {
 		t.Fatalf("Yahoo ETF should be repairable: %+v", report.Issues)
@@ -417,12 +417,12 @@ func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T)
 
 func TestScanMarketDataHealthVerifiesYahooCryptoRepairClearsGap(t *testing.T) {
 	t.Parallel()
-	tiingoInner := &syncFakeProvider{key: TiingoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
-		out := mappedTiingoClose("2026-09-04", "185.25")
+	equityInner := &syncFakeProvider{key: CoinGeckoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+		out := mappedYahooClose("2026-09-04", "185.25")
 		out.Batch.VerifiedRanges = []DateRange{rng}
 		return out, nil
 	}}
-	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+	cryptoInner := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		out := mappedYahooClose("2026-09-04", "415.20")
 		if identity.InstrumentType == string(domain.InstrumentCrypto) || identity.ProviderSymbol == "BTC-USD" {
 			out = mappedYahooCryptoBar("2026-09-04", "64000")
@@ -430,9 +430,9 @@ func TestScanMarketDataHealthVerifiesYahooCryptoRepairClearsGap(t *testing.T) {
 		out.Batch.VerifiedRanges = []DateRange{rng}
 		return out, nil
 	}}
-	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigOK, reason: ""}
-	yahoo := &countingProvider{inner: yahooInner}
-	service, _, _, _ := newSyncFixture(t, tiingo, yahoo)
+	equity := &statusProvider{countingProvider: &countingProvider{inner: equityInner}, code: ProviderConfigOK, reason: ""}
+	cryptoProvider := &countingProvider{inner: cryptoInner}
+	service, _, _, _ := newSyncFixture(t, equity, cryptoProvider)
 	ctx := context.Background()
 	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
 	if err != nil {

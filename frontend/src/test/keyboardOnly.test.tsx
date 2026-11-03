@@ -98,7 +98,6 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/setti
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]),
     FXProviders: () => Promise.resolve(["frankfurter"]),
     CoinGeckoKeyStatus: () => Promise.resolve({ configured: false }),
-    TiingoKeyStatus: () => Promise.resolve({ configured: false }),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {

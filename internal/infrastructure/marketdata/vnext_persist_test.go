@@ -13,11 +13,11 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func TestTiingoCompleteFixturePersistsClosesCoverageAndDirtyGeneration(t *testing.T) {
+func TestEquityCompleteFixturePersistsClosesCoverageAndDirtyGeneration(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestTiingoCompleteFixturePersistsClosesCoverageAndDirtyGeneration(t *testin
 	}
 	var bindingSymbol string
 	var bindingRevision int
-	if err := database.SQL.QueryRow(`SELECT provider_symbol, binding_revision FROM instrument_provider_bindings WHERE instrument_id = ? AND provider_key = ?`, instrument.ID.String(), application.TiingoProviderKey).Scan(&bindingSymbol, &bindingRevision); err != nil {
+	if err := database.SQL.QueryRow(`SELECT provider_symbol, binding_revision FROM instrument_provider_bindings WHERE instrument_id = ? AND provider_key = ?`, instrument.ID.String(), application.YahooFinanceProviderKey).Scan(&bindingSymbol, &bindingRevision); err != nil {
 		t.Fatal(err)
 	}
 	if bindingSymbol != "AAPL" || bindingRevision != 1 {
@@ -94,11 +94,11 @@ func TestTiingoCompleteFixturePersistsClosesCoverageAndDirtyGeneration(t *testin
 	}
 }
 
-func TestTiingoCorrectionCreatesImmutableRevisionAndUpdatesSlot(t *testing.T) {
+func TestEquityCorrectionCreatesImmutableRevisionAndUpdatesSlot(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
-	completeMeta, completeBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	complete, err := QualifyTiingoHistory(completeMeta, completeBody)
+	completeMeta, completeBody := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	complete, err := QualifyYahooHistory(completeMeta, completeBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,8 +106,8 @@ func TestTiingoCorrectionCreatesImmutableRevisionAndUpdatesSlot(t *testing.T) {
 	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, complete, fetchedAt)); err != nil {
 		t.Fatal(err)
 	}
-	correctionMeta, correctionBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-correction.json")
-	correction, err := QualifyTiingoHistory(correctionMeta, correctionBody)
+	correctionMeta, correctionBody := mustLoadVNext(t, "providers/yahoo/aapl-verified-correction.json")
+	correction, err := QualifyYahooHistory(correctionMeta, correctionBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,18 +135,18 @@ func TestTiingoCorrectionCreatesImmutableRevisionAndUpdatesSlot(t *testing.T) {
 	}
 }
 
-func TestTiingoFailClosedBatchesCommitNothing(t *testing.T) {
+func TestEquityFailClosedBatchesCommitNothing(t *testing.T) {
 	ctx := context.Background()
 	cases := []string{
-		"providers/tiingo/aapl-eod-adjclose-only.json",
-		"providers/tiingo/cn-equity-unsupported.json",
-		"providers/tiingo/aapl-eod-malformed.json",
+		"providers/yahoo/aapl-verified-adjclose-only.json",
+		"providers/yahoo/unknown-market-unsupported.json",
+		"providers/yahoo/aapl-verified-malformed.json",
 	}
 	for _, path := range cases {
 		t.Run(path, func(t *testing.T) {
 			database, repo, household, instrument := seedHistoryWorkspace(t)
 			meta, body := mustLoadVNext(t, path)
-			outcome, err := QualifyTiingoHistory(meta, body)
+			outcome, err := QualifyYahooHistory(meta, body)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -188,8 +188,8 @@ func TestTiingoFailClosedBatchesCommitNothing(t *testing.T) {
 func TestUncertainTruncatedBatchPersistsNoNegativeCache(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-truncated.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-truncated.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,13 +215,13 @@ func TestPersistDirtyFromUsesMarketDateWhenUTCCalendarDiffers(t *testing.T) {
 	commit := sqlite.InstrumentHistoryCommit{
 		HouseholdID:    household.ID,
 		InstrumentID:   instrument.ID,
-		ProviderKey:    application.TiingoProviderKey,
+		ProviderKey:    application.YahooFinanceProviderKey,
 		ProviderSymbol: "AAPL",
 		QuoteCurrency:  "USD",
 		Market:         "US",
 		Status:         string(application.MappingMapped),
-		Adapter:        "tiingo_eod",
-		SourcePolicy:   string(application.PriceBasisTiingoRawClose),
+		Adapter:        "yahoo_chart",
+		SourcePolicy:   string(application.PriceBasisYahooClose),
 		FetchedAt:      fetchedAt,
 		Observations: []sqlite.InstrumentHistoryObservation{{
 			MarketDate:       "2026-09-08",
@@ -229,7 +229,7 @@ func TestPersistDirtyFromUsesMarketDateWhenUTCCalendarDiffers(t *testing.T) {
 			Currency:         "USD",
 			ValueEffectiveAt: time.Date(2026, 9, 9, 4, 0, 0, 0, time.UTC),
 			Kind:             string(application.InstrumentObservationClose),
-			PriceBasis:       string(application.PriceBasisTiingoRawClose),
+			PriceBasis:       string(application.PriceBasisYahooClose),
 		}},
 	}
 	if _, err := repo.CommitInstrumentHistory(ctx, commit); err != nil {
@@ -336,9 +336,9 @@ func TestCanonicalInstrumentCloseReconcilesPendingCoverageIncludingIdempotentWri
 	_, repo, household, instrument := seedHistoryWorkspace(t)
 	fetchedAt := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
 	pending := sqlite.InstrumentHistoryCommit{
-		HouseholdID: household.ID, InstrumentID: instrument.ID, ProviderKey: application.TiingoProviderKey,
+		HouseholdID: household.ID, InstrumentID: instrument.ID, ProviderKey: application.YahooFinanceProviderKey,
 		ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US", Status: string(application.MappingMapped),
-		Reason: "pending_publication", Adapter: "tiingo_eod", SourcePolicy: string(application.PriceBasisTiingoRawClose),
+		Reason: "pending_publication", Adapter: "yahoo_chart", SourcePolicy: string(application.PriceBasisYahooClose),
 		FetchedAt: fetchedAt, PendingRanges: []sqlite.DateSpan{{Start: "2026-09-08", End: "2026-09-08"}},
 	}
 	if _, err := repo.CommitInstrumentHistory(ctx, pending); err != nil {
@@ -363,7 +363,7 @@ func TestCanonicalInstrumentCloseReconcilesPendingCoverageIncludingIdempotentWri
 	canonical.Observations = []sqlite.InstrumentHistoryObservation{{
 		MarketDate: "2026-09-08", Value: "185.25", Currency: "USD",
 		ValueEffectiveAt: time.Date(2026, 9, 9, 20, 0, 0, 0, time.UTC),
-		Kind:             string(application.InstrumentObservationClose), PriceBasis: string(application.PriceBasisTiingoRawClose),
+		Kind:             string(application.InstrumentObservationClose), PriceBasis: string(application.PriceBasisYahooClose),
 		TimestampBasis: string(application.TimestampBasisSessionClose),
 	}}
 	if _, err := repo.CommitInstrumentHistory(ctx, canonical); err != nil {
@@ -474,8 +474,8 @@ func TestCanonicalFXReferenceReconcilesPendingCoverageIncludingIdempotentWrite(t
 func TestHistoricalCoverageRetainsTheEffectiveOlderBindingRevision(t *testing.T) {
 	ctx := context.Background()
 	_, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -500,7 +500,7 @@ func TestHistoricalCoverageRetainsTheEffectiveOlderBindingRevision(t *testing.T)
 	}
 	var foundOlder bool
 	for _, item := range historical {
-		if item.ProviderKey == application.TiingoProviderKey && item.ProviderSymbol == "AAPL" && item.BindingRevision == 1 && containsDate(item.CloseMarketDates, "2026-09-04") {
+		if item.ProviderKey == application.YahooFinanceProviderKey && item.ProviderSymbol == "AAPL" && item.BindingRevision == 1 && containsDate(item.CloseMarketDates, "2026-09-04") {
 			foundOlder = true
 		}
 	}
@@ -512,8 +512,8 @@ func TestHistoricalCoverageRetainsTheEffectiveOlderBindingRevision(t *testing.T)
 func TestHistoricalCoverageSurvivesSwitchToManual(t *testing.T) {
 	ctx := context.Background()
 	_, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +538,7 @@ func TestHistoricalCoverageSurvivesSwitchToManual(t *testing.T) {
 	}
 	var foundProvider bool
 	for _, item := range historical {
-		if item.InstrumentID == instrument.ID && item.ProviderKey == application.TiingoProviderKey && containsDate(item.CloseMarketDates, "2026-09-04") {
+		if item.InstrumentID == instrument.ID && item.ProviderKey == application.YahooFinanceProviderKey && containsDate(item.CloseMarketDates, "2026-09-04") {
 			foundProvider = true
 		}
 	}
@@ -559,8 +559,8 @@ func containsDate(values []string, wanted string) bool {
 func TestHistoryCommitIsAtomicOnInvalidObservation(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -570,7 +570,7 @@ func TestHistoryCommitIsAtomicOnInvalidObservation(t *testing.T) {
 		Value:      "not-a-decimal",
 		Currency:   "USD",
 		Kind:       string(application.InstrumentObservationClose),
-		PriceBasis: string(application.PriceBasisTiingoRawClose),
+		PriceBasis: string(application.PriceBasisYahooClose),
 	})
 	if _, err := repo.CommitInstrumentHistory(ctx, commit); err == nil {
 		t.Fatal("poisoned batch committed")
@@ -626,7 +626,7 @@ func seedHistoryWorkspace(t *testing.T) (*sqlite.DB, *sqlite.Repository, domain.
 	if _, err := repo.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: application.TiingoProviderKey, ProviderSymbol: "AAPL"})
+	instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -637,7 +637,7 @@ func instrumentCommit(household domain.Household, instrument domain.Instrument, 
 	commit := sqlite.InstrumentHistoryCommit{
 		HouseholdID:    household.ID,
 		InstrumentID:   instrument.ID,
-		ProviderKey:    application.TiingoProviderKey,
+		ProviderKey:    application.YahooFinanceProviderKey,
 		ProviderSymbol: "AAPL",
 		QuoteCurrency:  "USD",
 		Market:         "US",
@@ -707,8 +707,8 @@ func fxCommit(household domain.Household, outcome application.MappingOutcome[app
 func TestNoObservationExpiryIsPersisted(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -761,8 +761,8 @@ func TestYahooHistoryIsNotPersisted(t *testing.T) {
 func TestFailedRecheckPreservesExistingClose(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -770,8 +770,8 @@ func TestFailedRecheckPreservesExistingClose(t *testing.T) {
 	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, fetchedAt)); err != nil {
 		t.Fatal(err)
 	}
-	badMeta, badBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-malformed.json")
-	bad, err := QualifyTiingoHistory(badMeta, badBody)
+	badMeta, badBody := mustLoadVNext(t, "providers/yahoo/aapl-verified-malformed.json")
+	bad, err := QualifyYahooHistory(badMeta, badBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -787,14 +787,15 @@ func TestFailedRecheckPreservesExistingClose(t *testing.T) {
 	}
 }
 
-func TestProviderModeChangeKeepsPriorProviderSlots(t *testing.T) {
+func TestManualModeChangeKeepsPriorProviderSlots(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-split.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-split.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
+	outcome.Batch.Observations[0].SplitFactor = "4.0"
 	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC))); err != nil {
 		t.Fatal(err)
 	}
@@ -807,31 +808,30 @@ func TestProviderModeChangeKeepsPriorProviderSlots(t *testing.T) {
 	}
 	service := application.NewService(repo)
 	if _, err := service.UpdateInstrument(ctx, instrument.ID, application.InstrumentInput{
-		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
-		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
+		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
+		ProviderKey: "", ProviderSymbol: "", MarketCode: "US",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	var tiingoSlots, yahooSlots int
-	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots WHERE instrument_id = ? AND provider_key = ?`, instrument.ID.String(), application.TiingoProviderKey).Scan(&tiingoSlots); err != nil {
+
+	var providerSlots, totalSlots int
+	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots WHERE instrument_id = ? AND provider_key = ?`, instrument.ID.String(), application.YahooFinanceProviderKey).Scan(&providerSlots); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots WHERE instrument_id = ? AND provider_key = ?`, instrument.ID.String(), application.YahooFinanceProviderKey).Scan(&yahooSlots); err != nil {
+	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots WHERE instrument_id = ?`, instrument.ID.String()).Scan(&totalSlots); err != nil {
 		t.Fatal(err)
 	}
-	if tiingoSlots == 0 {
-		t.Fatal("switching to Yahoo deleted Tiingo historical slots")
+	if providerSlots != 1 || totalSlots != 1 {
+		t.Fatalf("manual selection changed canonical slots: provider=%d total=%d", providerSlots, totalSlots)
 	}
-	if yahooSlots != 0 {
-		t.Fatal("Yahoo unverified closes were synthesized after a mode change")
-	}
+
 }
 
 func TestUnchangedHistoryRecheckAdvancesFreshnessWithoutRevision(t *testing.T) {
 	ctx := context.Background()
 	db, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}

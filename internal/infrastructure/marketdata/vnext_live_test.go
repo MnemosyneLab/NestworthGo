@@ -41,16 +41,4 @@ func TestControlledLiveProviderChecks(t *testing.T) {
 		t.Fatalf("Yahoo live history = %+v", yahooHistory)
 	}
 
-	if os.Getenv("TIINGO_API_KEY") == "" {
-		t.Log("Tiingo latest live NOT RUN: TIINGO_API_KEY unset")
-		return
-	}
-	tiingo := NewTiingoProvider(func() (string, error) { return os.Getenv("TIINGO_API_KEY"), nil }, nil)
-	quote, err := tiingo.LatestInstrument(ctx, application.InstrumentMarketIdentity{ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US"})
-	if err != nil {
-		t.Fatalf("Tiingo latest live: %v", err)
-	}
-	if quote.Price.Canonical() == "" || !quote.Delayed {
-		t.Fatalf("Tiingo latest live = %#v", quote)
-	}
 }

@@ -1,8 +1,10 @@
 package settings
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
+	"os"
 
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
@@ -24,11 +26,10 @@ type durableSettings struct {
 	FXProvider      string `json:"fx_provider"`
 	QuoteCacheTTL   string `json:"quote_cache_ttl"`
 	CoinGeckoAPIKey string `json:"coingecko_api_key"`
-	TiingoAPIKey    string `json:"tiingo_api_key"`
 }
 
 func durable(value Settings) durableSettings {
-	return durableSettings{value.Currency, value.Timezone, value.FXProvider, value.QuoteCacheTTL, value.CoinGeckoAPIKey, value.TiingoAPIKey}
+	return durableSettings{value.Currency, value.Timezone, value.FXProvider, value.QuoteCacheTTL, value.CoinGeckoAPIKey}
 }
 func (d durableSettings) apply(value *Settings) {
 	value.Currency = d.Currency
@@ -36,7 +37,6 @@ func (d durableSettings) apply(value *Settings) {
 	value.FXProvider = d.FXProvider
 	value.QuoteCacheTTL = d.QuoteCacheTTL
 	value.CoinGeckoAPIKey = d.CoinGeckoAPIKey
-	value.TiingoAPIKey = d.TiingoAPIKey
 }
 
 // PresentationJSON is deliberately an allowlist. Adding a new secret to Settings
@@ -97,7 +97,11 @@ func (s *Store) Attach(repository ConfigurationRepository) error {
 		if err = value.Validate(); err != nil {
 			return errors.New("application settings are invalid")
 		}
-		raw, err = jsoncodec.Marshal(durable(value))
+		legacyRaw, readErr := os.ReadFile(s.Path)
+		if readErr != nil && !os.IsNotExist(readErr) {
+			return readErr
+		}
+		raw, err = mergeDurable(value, legacyRaw)
 		if err != nil {
 			return err
 		}
@@ -114,4 +118,42 @@ func (s *Store) Attach(repository ConfigurationRepository) error {
 		slog.Warn("could not rebuild presentation preferences")
 	}
 	return nil
+}
+
+// mergeDurable preserves opaque fields written by older releases, including
+// retired credentials. They are never exposed as settings or read by providers.
+// Known presentation fields from legacy JSON remain disposable.
+func mergeDurable(value Settings, prior []byte) ([]byte, error) {
+	fields := map[string]json.RawMessage{}
+	if len(prior) > 0 {
+		if err := jsoncodec.Unmarshal(prior, &fields); err != nil {
+			return nil, errors.New("stored application settings are invalid")
+		}
+		if fields == nil {
+			return nil, errors.New("stored application settings are invalid")
+		}
+	}
+	knownJSON, err := jsoncodec.Marshal(Default())
+	if err != nil {
+		return nil, err
+	}
+	var known map[string]json.RawMessage
+	if err := jsoncodec.Unmarshal(knownJSON, &known); err != nil {
+		return nil, err
+	}
+	for key := range known {
+		delete(fields, key)
+	}
+	data, err := jsoncodec.Marshal(durable(value))
+	if err != nil {
+		return nil, err
+	}
+	var current map[string]json.RawMessage
+	if err := jsoncodec.Unmarshal(data, &current); err != nil {
+		return nil, err
+	}
+	for key, field := range current {
+		fields[key] = field
+	}
+	return jsoncodec.Marshal(fields)
 }

@@ -10,15 +10,15 @@ func TestResolveInstrumentRouteUSSelectableAndNoFallback(t *testing.T) {
 	if usYahoo.Status != InstrumentRouteOK || usYahoo.ProviderKey != YahooFinanceProviderKey {
 		t.Fatalf("US Yahoo = %+v", usYahoo)
 	}
-	usTiingo := ResolveInstrumentRoute("XNAS", TiingoProviderKey, "AAPL")
-	if usTiingo.Status != InstrumentRouteOK || usTiingo.ProviderKey != TiingoProviderKey {
-		t.Fatalf("US Tiingo = %+v", usTiingo)
+	usEquity := ResolveInstrumentRoute("XNAS", YahooFinanceProviderKey, "AAPL")
+	if usEquity.Status != InstrumentRouteOK || usEquity.ProviderKey != YahooFinanceProviderKey {
+		t.Fatalf("US Equity = %+v", usEquity)
 	}
 	usDefault := ResolveInstrumentRoute("US", "", "AAPL")
 	if usDefault.Status != InstrumentRouteOK || usDefault.ProviderKey != YahooFinanceProviderKey {
 		t.Fatalf("US default = %+v, want Yahoo upgrade default", usDefault)
 	}
-	missing := ResolveInstrumentRoute("US", TiingoProviderKey, "")
+	missing := ResolveInstrumentRoute("US", YahooFinanceProviderKey, "")
 	if missing.Status != InstrumentRouteBindingMissing {
 		t.Fatalf("missing US binding = %+v", missing)
 	}
@@ -26,9 +26,9 @@ func TestResolveInstrumentRouteUSSelectableAndNoFallback(t *testing.T) {
 	if cn.Status != InstrumentRouteOK || cn.ProviderKey != YahooFinanceProviderKey {
 		t.Fatalf("CN Yahoo = %+v", cn)
 	}
-	cnTiingo := ResolveInstrumentRoute("CN", TiingoProviderKey, "000001.SS")
-	if cnTiingo.Status != InstrumentRouteUnsupported || cnTiingo.Reason != "tiingo_us_listed_only" || cnTiingo.ProviderKey != "" {
-		t.Fatalf("CN Tiingo silently fell back: %+v", cnTiingo)
+	cnEquity := ResolveInstrumentRoute("CN", "retired_provider", "000001.SS")
+	if cnEquity.Status != InstrumentRouteUnsupported || cnEquity.Reason != "provider_not_selectable" || cnEquity.ProviderKey != "" {
+		t.Fatalf("CN Equity silently fell back: %+v", cnEquity)
 	}
 	other := ResolveInstrumentRoute("SG", "unknown", "ES3")
 	if other.Status != InstrumentRouteUnsupported {

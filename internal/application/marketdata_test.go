@@ -80,8 +80,8 @@ func TestMarketDataRegistrySupportsExplicitDefault(t *testing.T) {
 func TestInstrumentProviderKeysExcludesFXOnlyProviders(t *testing.T) {
 	t.Parallel()
 	keys := InstrumentProviderKeys()
-	if len(keys) != 3 || keys[2] != CoinGeckoProviderKey || keys[0] != YahooFinanceProviderKey || keys[1] != TiingoProviderKey {
-		t.Fatalf("InstrumentProviderKeys() = %v, want [%s %s %s]", keys, YahooFinanceProviderKey, TiingoProviderKey, CoinGeckoProviderKey)
+	if len(keys) != 2 || keys[0] != YahooFinanceProviderKey || keys[1] != CoinGeckoProviderKey {
+		t.Fatalf("InstrumentProviderKeys() = %v, want [%s %s]", keys, YahooFinanceProviderKey, CoinGeckoProviderKey)
 	}
 	for _, key := range keys {
 		if key == FrankfurterProviderKey {
@@ -119,7 +119,7 @@ func TestSearchInstrumentsUsesYahooProvider(t *testing.T) {
 			Symbol: "NVDA", Type: "stock", MarketCode: "NASDAQ", CountryCode: "US", QuoteCurrency: "USD",
 		}},
 	}
-	service := NewService(nil, NewMarketDataRegistry(yahoo, deterministicProvider{key: TiingoProviderKey}))
+	service := NewService(nil, NewMarketDataRegistry(yahoo, deterministicProvider{key: CoinGeckoProviderKey}))
 	hits, err := service.SearchInstruments(context.Background(), "  NVDA  ", "stock")
 	if err != nil {
 		t.Fatalf("SearchInstruments: %v", err)

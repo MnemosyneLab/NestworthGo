@@ -118,15 +118,15 @@ func TestBackdatedHistoryRouteRequiresEquivalentMappingAndVerifiedClose(t *testi
 	provider, symbol, market := domain.YahooFinanceProviderKey, "QQQM", "NASDAQ"
 	instrument := domain.Instrument{ID: id, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderSymbol: &symbol, MarketCode: &market, ProviderBindingRevision: 1}
 	cutoff := time.Date(2026, 9, 14, 15, 59, 59, 0, time.UTC)
-	binding := domain.InstrumentProviderBindingRevision{InstrumentID: id, ProviderKey: domain.TiingoProviderKey, ProviderSymbol: symbol, Market: market, Currency: "USD", BindingRevision: 1, Enabled: true, EffectiveFrom: cutoff.Add(24 * time.Hour)}
-	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, UnitPrice: mustUnitPrice(t, "100"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: domain.TiingoProviderKey, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-14", ValueEffectiveAt: cutoff.Add(6 * time.Hour), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
-	coverage := []domain.InstrumentHistoryCoverage{{InstrumentID: id, ProviderKey: domain.TiingoProviderKey, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisTiingoRawClose), CloseMarketDates: []string{"2026-09-14"}}}
+	binding := domain.InstrumentProviderBindingRevision{InstrumentID: id, ProviderKey: domain.YahooFinanceProviderKey, ProviderSymbol: symbol, Market: market, Currency: "USD", BindingRevision: 1, Enabled: true, EffectiveFrom: cutoff.Add(24 * time.Hour)}
+	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, UnitPrice: mustUnitPrice(t, "100"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: domain.YahooFinanceProviderKey, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-14", ValueEffectiveAt: cutoff.Add(6 * time.Hour), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
+	coverage := []domain.InstrumentHistoryCoverage{{InstrumentID: id, ProviderKey: domain.YahooFinanceProviderKey, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-14"}}}
 	for _, tc := range []struct {
 		name   string
 		change func(*domain.InstrumentProviderBindingRevision, *domain.InstrumentQuote)
 		want   string
 	}{
-		{"equivalent", func(_ *domain.InstrumentProviderBindingRevision, _ *domain.InstrumentQuote) {}, domain.TiingoProviderKey},
+		{"equivalent", func(_ *domain.InstrumentProviderBindingRevision, _ *domain.InstrumentQuote) {}, domain.YahooFinanceProviderKey},
 		{"different symbol", func(b *domain.InstrumentProviderBindingRevision, _ *domain.InstrumentQuote) {
 			b.ProviderSymbol = "OTHER"
 		}, provider},

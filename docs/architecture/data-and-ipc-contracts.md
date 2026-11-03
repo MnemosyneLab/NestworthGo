@@ -136,7 +136,7 @@ Schema `10` adds market-data observation revisions, canonical observation
 slots, provider-binding revisions, coverage (`market_data_day_status`), and
 dirty `input_generation` / `resolver_policy_version` columns. Historical
 instrument and FX batches persist in one transaction with invalidation; fail-
-closed Tiingo mappings (invalid, unsupported, adjClose-only, malformed) write
+closed provider mappings (invalid, unsupported, adjClose-only, malformed) write
 nothing. Existing latest and manual quotes remain `realtime`/`latest` and
 `manual`; unverifiable provider observations do not fill
 close slots.
@@ -187,14 +187,6 @@ cannot write into its replacement.
 | Negative-cache policy and recent-correction recheck | [`marketdata_sync_test.go`](../../internal/domain/marketdata_sync_test.go), [`vnext_persist_test.go`](../../internal/infrastructure/marketdata/vnext_persist_test.go) |
 | Opening-anchor lookback and exhaustion | [`markethistory_plan_test.go`](../../internal/application/markethistory_plan_test.go), [`marketdata_health_test.go`](../../internal/application/marketdata_health_test.go) |
 | Cancellation retains committed batches and isolates later writes | [`marketdata_sync_test.go`](../../internal/application/marketdata_sync_test.go) |
-
-## Tiingo API key configuration
-
-Tiingo API keys are persisted in the local settings JSON file, which is
-created with private permissions and written atomically. The key is not part
-of SQLite business data and never crosses the Wails boundary. The settings
-service returns only a derived `configured` boolean and the provider reads
-the current key from the settings store when it makes a request.
 
 ## Current valuation and provider refresh
 
@@ -324,9 +316,8 @@ Recovery and portability are file workflows rather than business tables. A
 backup has the fixed members `manifest.json`, `database.sqlite`, and
 `settings.json`; verification is read-only and checks format, limits,
 checksums, schema, foreign keys, and integrity before replacement. Restore uses
-a journaled file-group swap and rolls back an incomplete replacement. The
-Tiingo key follows the local settings JSON backup/restore policy and is not
-stored in SQLite. JSON export reads the complete dataset and summary inputs from
+a journaled file-group swap and rolls back an incomplete replacement. Durable settings and credentials are stored privately in SQLite.
+JSON export reads the complete dataset and summary inputs from
 one read transaction, excludes settings and credentials, and writes a versioned
 file atomically. See [Backup, restore, and JSON export](../design/backup-restore-and-json-export.md).
 
@@ -694,3 +685,20 @@ cached snapshots or prevent later writes. The service continues to preserve
 separately managed provider credentials. This ordering covers the desktop's
 shared query client, not independent external processes writing the settings
 file.
+
+## Retired provider data compatibility
+
+Selectable instrument providers are Yahoo Finance and CoinGecko. Unknown or
+retired provider bindings are rejected for refresh and repair without network
+requests or automatic substitution. Users can explicitly choose a supported
+source; this creates the normal binding revision and leaves earlier facts intact.
+
+Provider removal does not rewrite financial history: immutable quotes, slots,
+binding revisions, coverage and original provenance remain available to replay
+and valuation. The narrow archived raw-close quality contract is read-only; it
+cannot register a provider or create a fallback. Existing supported-schema backups
+remain restorable without a schema rewrite. Unknown durable settings fields,
+including retired credentials, are retained opaquely through settings saves and
+resets and legacy JSON import; no current API or provider consumes them. Public
+DTOs and rebuilt presentation JSON exclude them. No user records or credentials
+are deleted by startup.

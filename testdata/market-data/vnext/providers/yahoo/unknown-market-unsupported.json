@@ -1,0 +1,26 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "symbol": "600519",
+          "currency": "CNY",
+          "exchangeTimezoneName": "Asia/Shanghai"
+        },
+        "timestamp": [
+          1788523200
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "close": [
+                1852.0
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

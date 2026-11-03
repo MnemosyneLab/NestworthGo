@@ -21,7 +21,7 @@ func TestCurrentBackupRestoresDurableSettingsAndDatabaseAuthority(t *testing.T) 
 	expected := settings.Default()
 	expected.Currency = "SGD"
 	expected.Timezone = "Asia/Singapore"
-	expected.TiingoAPIKey = "backup-key"
+	expected.CoinGeckoAPIKey = "backup-key"
 	expected.Appearance = settings.AppearanceDark
 	config, err := jsoncodec.Marshal(expected)
 	if err != nil {
@@ -32,6 +32,24 @@ func TestCurrentBackupRestoresDurableSettingsAndDatabaseAuthority(t *testing.T) 
 		t.Fatal(err)
 	}
 	if err := sourceStore.Save(expected); err != nil {
+		t.Fatal(err)
+	}
+
+	private := sqlite.NewConfigurationRepository(db)
+	legacy, _, err := private.LoadConfiguration("settings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var opaque map[string]any
+	if err := jsoncodec.Unmarshal(legacy, &opaque); err != nil {
+		t.Fatal(err)
+	}
+	opaque["tiingo_api_key"] = "synthetic-archived-backup-key"
+	legacy, err = jsoncodec.Marshal(opaque)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := private.SaveConfiguration("settings", legacy); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
@@ -57,7 +75,7 @@ func TestCurrentBackupRestoresDurableSettingsAndDatabaseAuthority(t *testing.T) 
 	// The local JSON must not override the restored DB, even when restoring format.
 	store := settings.NewStore(filepath.Join(dir, "settings.json"))
 	local := settings.Default()
-	local.TiingoAPIKey = "local-key"
+	local.CoinGeckoAPIKey = "local-key"
 	if err := store.Save(local); err != nil {
 		t.Fatal(err)
 	}
@@ -73,18 +91,31 @@ func TestCurrentBackupRestoresDurableSettingsAndDatabaseAuthority(t *testing.T) 
 	if err := store.Attach(sqlite.NewConfigurationRepository(restored)); err != nil {
 		t.Fatal(err)
 	}
+
+	persisted := sqlite.NewConfigurationRepository(restored)
+	loaded, _, err := persisted.LoadConfiguration("settings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restoredOpaque map[string]any
+	if err := jsoncodec.Unmarshal(loaded, &restoredOpaque); err != nil {
+		t.Fatal(err)
+	}
+	if restoredOpaque["tiingo_api_key"] != "synthetic-archived-backup-key" {
+		t.Fatal("restore lost archived credential")
+	}
 	got, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Currency != expected.Currency || got.Timezone != expected.Timezone || got.TiingoAPIKey != expected.TiingoAPIKey || got.Appearance != expected.Appearance {
+	if got.Currency != expected.Currency || got.Timezone != expected.Timezone || got.CoinGeckoAPIKey != expected.CoinGeckoAPIKey || got.Appearance != expected.Appearance {
 		t.Fatal("backup settings not restored")
 	}
 	if err := os.Remove(store.Path); err != nil {
 		t.Fatal(err)
 	}
 	got, err = store.Load()
-	if err != nil || got.TiingoAPIKey != expected.TiingoAPIKey {
+	if err != nil || got.CoinGeckoAPIKey != expected.CoinGeckoAPIKey {
 		t.Fatal("restored key depended on JSON", err)
 	}
 }

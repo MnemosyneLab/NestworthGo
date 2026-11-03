@@ -188,11 +188,11 @@ func TestMobileHistoryAttachmentPreservesCancellationOwnership(t *testing.T) {
 		t.Run(creator, func(t *testing.T) {
 			entered, release := make(chan struct{}), make(chan struct{})
 			var enteredOnce, releaseOnce sync.Once
-			provider := &syncFakeProvider{key: TiingoProviderKey, history: func(ctx context.Context, _ InstrumentMarketIdentity, _ DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+			provider := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(ctx context.Context, _ InstrumentMarketIdentity, _ DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 				enteredOnce.Do(func() { close(entered) })
 				select {
 				case <-release:
-					return mappedTiingoClose("2026-09-04", "185.25"), nil
+					return mappedYahooClose("2026-09-04", "185.25"), nil
 				case <-ctx.Done():
 					return MappingOutcome[InstrumentDailyObservation]{}, ctx.Err()
 				}

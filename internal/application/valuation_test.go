@@ -310,7 +310,7 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
 	t.Parallel()
 	instrumentID := domain.NewInstrumentID()
-	provider := domain.TiingoProviderKey
+	provider := domain.YahooFinanceProviderKey
 	instrument := domain.Instrument{
 		ID: instrumentID, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider,
 		ProviderKey: &provider, ProviderBindingRevision: 2,
@@ -325,10 +325,10 @@ func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testin
 		return parsed
 	}
 	quotes := []domain.InstrumentQuote{
-		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("999"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationRealtime), ValueEffectiveAt: cutoff.Add(-time.Minute), BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
-		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("998"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
-		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("997"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: "old-policy", TimestampBasis: string(TimestampBasisSessionClose)},
-		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("999"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationRealtime), ValueEffectiveAt: cutoff.Add(-time.Minute), BindingRevision: 2, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("998"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("997"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: "old-policy", TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose)},
 		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("10000"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationLegacy), QuotedAt: cutoff.Add(-time.Hour)},
 	}
 	selected := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, quotes, nil, cutoff.UTC().Format("2006-01-02"), cutoff).quote
@@ -364,7 +364,7 @@ func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
 	accountID := domain.NewAccountID()
 	instrumentID := domain.NewInstrumentID()
 	holdingID := domain.NewHoldingID()
-	provider := domain.TiingoProviderKey
+	provider := domain.YahooFinanceProviderKey
 	market := "US"
 	quantity, err := domain.ParseQuantity("10")
 	if err != nil {
@@ -378,7 +378,7 @@ func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Historical asset", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderBindingRevision: 1, MarketCode: &market}
 	account := domain.Account{ID: accountID, HouseholdID: householdID, Name: "Brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}
 	holding := domain.Holding{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity}
-	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 9, 4, 20, 1, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)}
+	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 9, 4, 20, 1, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose)}
 	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{quote}}
 	cutoff := time.Date(2026, 9, 7, 23, 59, 59, 999000000, time.UTC)
 	valuation := NewValuationService(nil, func() time.Time { return cutoff })
@@ -395,7 +395,7 @@ func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
 	}
 
 	snapshot.InstrumentHistoryCoverage = []domain.InstrumentHistoryCoverage{{
-		InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisTiingoRawClose),
+		InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose),
 		CloseMarketDates: []string{"2026-09-04"}, NoObservationDates: []string{"2026-09-05", "2026-09-06", "2026-09-07"},
 	}}
 	accounts, _, err = valuation.ValueAccounts(snapshot)
@@ -422,7 +422,7 @@ func TestHistoricalMarketDateUsesLateCloseAndRebuildQuality(t *testing.T) {
 	accountID := domain.NewAccountID()
 	instrumentID := domain.NewInstrumentID()
 	holdingID := domain.NewHoldingID()
-	provider := domain.TiingoProviderKey
+	provider := domain.YahooFinanceProviderKey
 	quantity, err := domain.ParseQuantity("10")
 	if err != nil {
 		t.Fatal(err)
@@ -435,8 +435,8 @@ func TestHistoricalMarketDateUsesLateCloseAndRebuildQuality(t *testing.T) {
 		return parsed
 	}
 	lateClose := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
-	previous := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: priceForTest("180"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-08", ValueEffectiveAt: lateClose.Add(-24 * time.Hour), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
-	current := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: priceForTest("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-09", ValueEffectiveAt: lateClose, BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
+	previous := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: priceForTest("180"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-08", ValueEffectiveAt: lateClose.Add(-24 * time.Hour), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
+	current := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: priceForTest("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-09", ValueEffectiveAt: lateClose, BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
 	household := &domain.Household{ID: householdID, BaseCurrency: "USD"}
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Late close", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderBindingRevision: 1}
 	account := domain.Account{ID: accountID, HouseholdID: householdID, Name: "Brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}
@@ -444,7 +444,7 @@ func TestHistoricalMarketDateUsesLateCloseAndRebuildQuality(t *testing.T) {
 	valuation := NewValuationService(nil, func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) })
 	valuation.SetHistorical(true)
 	valuation.SetHistoricalMarketDate("2026-09-09")
-	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{previous}, InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisTiingoRawClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
+	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{previous}, InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
 	accounts, _, err := valuation.ValueAccounts(snapshot)
 	if err != nil {
 		t.Fatal(err)

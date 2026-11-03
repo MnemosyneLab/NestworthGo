@@ -1,18 +1,23 @@
 {
-  "fixtureId": "tiingo-aapl-eod-truncated",
-  "provider": "tiingo",
+  "fixtureId": "yahoo-aapl-verified-correction",
+  "provider": "yahoo_finance",
   "capability": "InstrumentDailyHistory",
   "providerSymbol": "AAPL",
   "quoteCurrency": "USD",
   "market": "US",
-  "requestedRange": { "start": "2026-09-04", "end": "2026-09-09" },
+  "requestedRange": {
+    "start": "2026-09-08",
+    "end": "2026-09-08"
+  },
   "sessionPolicy": "us_equity_regular_close_v1",
   "sessionKind": "regular",
   "sessionTimezone": "America/New_York",
   "closeClock": "16:00",
-  "priceBasis": "tiingo_raw_close_v1",
+  "priceBasis": "yahoo_close_v1",
   "clock": "2026-09-10T00:05:00+08:00",
   "lastFinalizedMarketDate": "2026-09-08",
-  "pendingMarketDates": ["2026-09-09"],
-  "truncated": true
+  "pendingMarketDates": [],
+  "truncated": false,
+  "fixtureRole": "later_correction_revision",
+  "priceBasisVerified": true
 }

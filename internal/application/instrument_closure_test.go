@@ -225,10 +225,10 @@ func TestAgentClosureRoundTripCorrectionWithdrawalAndNoPriceFabrication(t *testi
 func TestClosedCarryRequiresAnEligibleAnchorAndNoInterveningGap(t *testing.T) {
 	t.Parallel()
 	id := domain.NewInstrumentID()
-	provider := domain.TiingoProviderKey
+	provider := domain.YahooFinanceProviderKey
 	i := domain.Instrument{ID: id, Type: domain.InstrumentStock, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderBindingRevision: 1}
 	price, _ := domain.ParseUnitPrice("10")
-	q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: "close", EffectiveDate: "2026-10-16", ValueEffectiveAt: time.Date(2026, 10, 16, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 10, 16, 20, 0, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)}
+	q := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: "close", EffectiveDate: "2026-10-16", ValueEffectiveAt: time.Date(2026, 10, 16, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 10, 16, 20, 0, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose)}
 	coverage := []domain.InstrumentHistoryCoverage{{InstrumentID: id, ClosedDates: []string{"2026-10-19"}}}
 	cutoff := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
 	for _, tc := range []struct {

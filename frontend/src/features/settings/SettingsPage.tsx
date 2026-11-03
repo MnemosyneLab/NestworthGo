@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useCoinGeckoKeyStatus, useSaveCoinGeckoAPIKey, useDeleteCoinGeckoAPIKey, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, quoteCacheTtlOf, type QuoteCacheTTL } from "@/queries/settings";
+import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useCoinGeckoKeyStatus, useSaveCoinGeckoAPIKey, useDeleteCoinGeckoAPIKey, quoteCacheTtlOf, type QuoteCacheTTL } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
@@ -90,9 +90,6 @@ export function SettingsPage() {
   const coinGeckoKeyStatus = useCoinGeckoKeyStatus();
   const saveCoinGeckoKey = useSaveCoinGeckoAPIKey();
   const deleteCoinGeckoKey = useDeleteCoinGeckoAPIKey();
-  const tiingoKeyStatus = useTiingoKeyStatus();
-  const saveTiingoKey = useSaveTiingoAPIKey();
-  const deleteTiingoKey = useDeleteTiingoAPIKey();
   const catalog = useCatalog();
   const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
@@ -104,12 +101,10 @@ export function SettingsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const preferenceRequest = useRef(false);
   const coinGeckoRequest = useRef(false);
-  const tiingoRequest = useRef(false);
   const tabsLocked = localRestoreBusy || cloudInteractionBusy || agentBusy || resetOpen;
   const preferencesBusy = saveSettings.isPending || resetSettings.isPending;
   const [draftOverride, setDraftOverride] = useState<Partial<Settings> | null>(null);
   const [coinGeckoKey, setCoinGeckoKey] = useState("");
-  const [tiingoKey, setTiingoKey] = useState("");
   const pageChrome = <PageChrome pageId="settings" title={t("settings.title")} />;
 
   if (settings.isLoading) {
@@ -185,18 +180,6 @@ export function SettingsPage() {
     });
   };
 
-  const submitTiingoKey = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!tiingoKey.trim() || tiingoRequest.current || deleteTiingoKey.isPending) return;
-    tiingoRequest.current = true;
-    saveTiingoKey.mutate(tiingoKey, {
-      onSettled: () => { tiingoRequest.current = false; },
-      onSuccess: () => {
-        setTiingoKey("");
-        toast.success(t("settings.tiingoKeySaved"));
-      },
-    });
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -421,23 +404,6 @@ export function SettingsPage() {
           {(saveCoinGeckoKey.isError || deleteCoinGeckoKey.isError || coinGeckoKeyStatus.isError) && (
             <p role="alert" className="text-sm text-destructive">
               {t("settings.coinGeckoKeyError")}
-            </p>
-          )}
-        </form>
-          </div>
-          <div className="p-5"><h3 className="font-medium">{t("settings.sections.tiingo")}</h3>
-        <form onSubmit={submitTiingoKey} className="mt-4 flex max-w-xl flex-col gap-2">
-          <SecretField key={`tiingo-${saveTiingoKey.submittedAt}-${activeSection === "market"}`} id="settings-tiingo-key" label={t("settings.tiingoKey")} hasValue={Boolean(tiingoKeyStatus.data?.configured)} value={tiingoKey} onChange={setTiingoKey} disabled={saveTiingoKey.isPending || deleteTiingoKey.isPending} onRemove={() => deleteTiingoKey.mutate()} removeLabel={t("settings.removeTiingoKey")} />
-          <Button type="submit" disabled={!tiingoKey.trim() || saveTiingoKey.isPending}>{saveTiingoKey.isPending ? t("common.pending") : t("settings.saveTiingoKey")}</Button>
-          {tiingoKeyStatus.data?.configured ? (
-            <p className="text-sm text-success-foreground">{t("settings.tiingoKeyConfigured")}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("settings.tiingoKeyMissing")}</p>
-          )}
-
-          {(saveTiingoKey.isError || deleteTiingoKey.isError || tiingoKeyStatus.isError) && (
-            <p role="alert" className="text-sm text-destructive">
-              {t("settings.tiingoKeyError")}
             </p>
           )}
         </form>

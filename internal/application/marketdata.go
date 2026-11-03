@@ -18,15 +18,11 @@ const CoinGeckoProviderKey = domain.CoinGeckoProviderKey
 
 const FrankfurterProviderKey = "frankfurter"
 
-// TiingoProviderKey identifies the US-listed equity provider. It is part of
-// InstrumentProviderKeys so bindings can select Tiingo or Yahoo.
-const TiingoProviderKey = "tiingo"
-
 // InstrumentProviderKeys is the closed catalog of provider keys that can
 // bind an Instrument's quote source. Frankfurter is FX-only and is not
 // included.
 func InstrumentProviderKeys() []string {
-	return []string{YahooFinanceProviderKey, TiingoProviderKey, CoinGeckoProviderKey}
+	return []string{YahooFinanceProviderKey, CoinGeckoProviderKey}
 }
 
 // MarketDataCapabilities describes the deliberately small provider surface.

@@ -158,7 +158,7 @@ func TestReviewDailyCloseCarriesOnlyValidClosedDays(t *testing.T) {
 	_, instrument := reviewFixture(t)
 	instrument.Type = InstrumentStock
 	quote := reviewQuote(t, instrument, "2026-10-10", "0")
-	quote.PriceBasis = TiingoRawClosePriceBasis
+	quote.PriceBasis = YahooRawClosePriceBasis
 	got, reason := ResolveReviewDailyClose(instrument, []InstrumentQuote{quote}, "2026-10-10")
 	if reason != "" || got == nil || !got.UnitPrice.IsZero() {
 		t.Fatalf("a valid zero price is still a positive holding's daily fact: %+v %s", got, reason)

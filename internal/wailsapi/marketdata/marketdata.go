@@ -403,7 +403,7 @@ func HealthReportDTO(report application.MarketDataHealthReport) MarketDataHealth
 
 // ScanMarketDataHealth runs the local Data Health scan. Opening Data Health
 // must not cause provider HTTP; this method only reads the database, local
-// Tiingo key status, and in-process job snapshot.
+// provider configuration, and in-process job snapshot.
 func (s *Service) ScanMarketDataHealth() (MarketDataHealthReportDTO, error) {
 	if s.app == nil {
 		return MarketDataHealthReportDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
