@@ -1,0 +1,32 @@
+=== RUN   TestRawStreamFailureCharacterization
+=== RUN   TestRawStreamFailureCharacterization/partial-args
+    runtime_test.go:444: RAW adapter: mode=partial-args ledger mutations=0 errors=[[NodeRunError] failed to stream tool call call_0: failed to call official mcp tool: calling "tools/call": marshaling call parameters: json: error calling MarshalJSON for type *jsontext.Value: unexpected end of JSON input
+        ------------------------
+        node path: [node_1, ToolNode]] model requests=1
+=== RUN   TestRawStreamFailureCharacterization/malformed-json
+    runtime_test.go:444: RAW adapter: mode=malformed-json ledger mutations=0 errors=[failed to read stream: invalid character 'i' looking for beginning of object key string [NodeRunError] failed to read stream: invalid character 'i' looking for beginning of object key string
+        ------------------------
+        node path: [node_1, ChatModel]] model requests=1
+=== RUN   TestRawStreamFailureCharacterization/eof-before-done
+    runtime_test.go:444: RAW adapter: mode=eof-before-done ledger mutations=1 errors=[] model requests=2
+    runtime_test.go:453: behavior changed: mutations=1 want=0; review characterization
+=== RUN   TestRawStreamFailureCharacterization/eof-before-completed
+    runtime_test.go:444: RAW adapter: mode=eof-before-completed ledger mutations=1 errors=[] model requests=2
+    runtime_test.go:453: behavior changed: mutations=1 want=0; review characterization
+=== RUN   TestRawStreamFailureCharacterization/failed
+    runtime_test.go:444: RAW adapter: mode=failed ledger mutations=1 errors=[] model requests=2
+    runtime_test.go:453: behavior changed: mutations=1 want=0; review characterization
+--- FAIL: TestRawStreamFailureCharacterization (0.73s)
+    --- PASS: TestRawStreamFailureCharacterization/partial-args (0.15s)
+    --- PASS: TestRawStreamFailureCharacterization/malformed-json (0.13s)
+    --- FAIL: TestRawStreamFailureCharacterization/eof-before-done (0.15s)
+    --- FAIL: TestRawStreamFailureCharacterization/eof-before-completed (0.13s)
+    --- FAIL: TestRawStreamFailureCharacterization/failed (0.16s)
+=== RUN   TestReasoningArrivingOnlyAtItemDone
+    runtime_test.go:916: acceptance failed: done-only encrypted reasoning was dropped
+    runtime_test.go:916: acceptance failed: done-only encrypted reasoning was dropped
+    runtime_test.go:922: LIMITATION: done-only encrypted_content is dropped; reasoning ID retained; fake endpoint cannot prove real provider accepts this history
+--- FAIL: TestReasoningArrivingOnlyAtItemDone (0.16s)
+FAIL
+FAIL	github.com/waltwang/nestworth-go/experiments/eino-v0922	0.901s
+FAIL
