@@ -79,6 +79,8 @@ func (s *Service) ContributionItem(ctx context.Context, request AnalysisQueryReq
 
 func fromReturnCalendar(value application.ReturnCalendarResult) wire.ReturnCalendarDTO {
 	result := wire.ReturnCalendarDTO{
+		Valuation:       string(value.Valuation),
+		Currency:        string(value.Currency),
 		Summary:         fromReturnCalendarSummary(value.Summary),
 		Months:          make([]wire.ReturnCalendarMonthDTO, 0, len(value.Months)),
 		Cells:           make([]wire.ReturnDayDTO, 0, len(value.Days)),
@@ -120,6 +122,8 @@ func fromReturnCalendarSummary(value application.ReturnCalendarSummary) wire.Ret
 
 func fromReturnDay(value application.ReturnDayResult) wire.ReturnDayDTO {
 	result := wire.ReturnDayDTO{
+		Valuation:              string(value.Valuation),
+		Currency:               string(value.Currency),
 		Date:                   string(value.Date),
 		BeginningInvestedValue: wire.FromSignedMoneyPtr(value.BeginningInvestedValue),
 		EndingInvestedValue:    wire.FromSignedMoneyPtr(value.EndingInvestedValue),
@@ -164,6 +168,7 @@ func fromReturnTrend(value application.ReturnTrendResult) wire.ReturnTrendDTO {
 
 func fromContribution(value application.ContributionResult) wire.ContributionDTO {
 	result := wire.ContributionDTO{
+		Summary:    wire.ContributionSummaryDTO{Total: wire.FromSignedMoneyPtr(value.Summary.Total), Positive: wire.FromSignedMoneyPtr(value.Summary.Positive), Negative: wire.FromSignedMoneyPtr(value.Summary.Negative), AmountStatus: value.Summary.AmountStatus},
 		ReturnType: string(value.ReturnType),
 		GroupBy:    string(value.GroupBy),
 		Rows:       make([]wire.ContributionRowDTO, 0, len(value.Rows)),

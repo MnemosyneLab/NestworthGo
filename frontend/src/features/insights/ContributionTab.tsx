@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Input } from "@/components/ui/input";
+import { ChangeText } from "@/components/ui/change-text";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ContributionRanking, rankedContributions } from "./ContributionRanking";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +17,7 @@ import type { HistoryNavigationFilters } from "@/app/navigation";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
 import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
 import { analysisCashLabel, analysisReason } from "@/features/insights/analysisText";
-import { compareCanonical, divideCanonical, formatAmount, formatDecimalRatioPercent, multiplyCanonical } from "@/lib/money";
+import { compareCanonical, formatSignedMoney, formatDecimalRatioPercent } from "@/lib/money";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
 import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
@@ -30,8 +34,7 @@ const returnComponentKeys: Record<string, string> = {
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
-  const formatted = formatAmount(value.amount, value.currency);
-  return compareCanonical(value.amount, "0.005") <= 0 ? formatted : `+${formatted}`;
+  return formatSignedMoney(value.amount, value.currency);
 }
 
 function rateText(value: string | null | undefined): string {
@@ -40,11 +43,6 @@ function rateText(value: string | null | undefined): string {
 
 function coverageMark(ratedDays: number, totalDays: number) {
   return ratedDays < totalDays ? <sup className="ml-0.5 text-warning-foreground">◇</sup> : null;
-}
-
-function returnTypeLabel(t: (key: string) => string, value: string): string {
-  const key = value === "total_return" ? "totalReturn" : value === "realized" ? "realizedGain" : value === "unrealized" ? "unrealizedGain" : "dividendInterestView";
-  return t(`insights.${key}`);
 }
 
 function componentLabel(t: (key: string) => string, key: string): string {
@@ -63,27 +61,14 @@ function contributionEmpty(data: ContributionDTO | undefined, returnType: string
   return <EmptyState title={t("insights.noContributionData")} description={analysisReason(t, data?.missingReason) ?? t("insights.noContributionDataHint")} />;
 }
 
-function absoluteAmount(value: string): string {
-  return value.startsWith("-") ? value.slice(1) : value;
-}
-
-function contributionBarWidth(row: ContributionRowDTO, rows: ContributionRowDTO[]): string {
-  const amount = row.amount?.amount;
-  if (!amount) return "0";
-  const maximum = rows.reduce((current, candidate) => {
-    const candidateAmount = candidate.amount?.amount;
-    if (!candidateAmount) return current;
-    return compareCanonical(absoluteAmount(candidateAmount), current) > 0 ? absoluteAmount(candidateAmount) : current;
-  }, "0");
-  if (maximum === "0") return "0";
-  return multiplyCanonical(divideCanonical(absoluteAmount(amount), maximum, 6), "100", 2);
-}
-
-function ContributionRow({ row, rows, label, showRate, onSelect }: { row: ContributionRowDTO; rows: ContributionRowDTO[]; label: string; showRate: boolean; onSelect: () => void }) {
+function ContributionRow({ row, label, showRate, onSelect }: { row: ContributionRowDTO; label: string; showRate: boolean; onSelect: () => void }) {
   const { t } = useTranslation();
-  const incomplete = row.status === "partial" || row.status === "unavailable" || row.amount == null;
-  const reason = incomplete ? analysisReason(t, row.missingReason) : undefined;
-  return <li><Button type="button" variant="ghost" className="h-auto w-full justify-between gap-4 rounded-md px-3 py-2 text-left" onClick={onSelect}><span className="flex min-w-0 flex-1 items-center gap-2"><span className="h-1.5 min-w-8 max-w-40 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true"><span className="block h-full rounded-full bg-primary/60" style={{ width: `${contributionBarWidth(row, rows)}%` }} /></span><span className="min-w-0"><span className="block truncate">{label}</span>{reason && <span className="block truncate text-xs text-warning-foreground">{reason}</span>}</span>{row.status === "partial" && <Badge variant="warning">{t("insights.partial")}</Badge>}{row.status === "unavailable" && <Badge variant="warning">{t("insights.status.unavailable")}</Badge>}</span><span className="flex shrink-0 items-center gap-4"><span>{row.amount ? amountText(row.amount) : t("insights.unavailableAmount")}</span>{showRate && <span className="w-20 text-right text-muted-foreground">{rateText(row.rate)}{coverageMark(row.ratedDays, row.totalDays)}</span>}</span></Button></li>;
+  const reason = row.status !== "ok" ? analysisReason(t, row.missingReason) : undefined;
+  const direction = row.amount ? compareCanonical(row.amount.amount, "0") : 0;
+  return <li><Button type="button" variant="ghost" className="h-auto w-full justify-between gap-4 rounded-md px-2 py-2 text-left" onClick={onSelect}>
+    <span className="min-w-0 flex-1"><span className="block truncate">{label}</span>{reason && <span className="block text-xs text-warning-foreground">{reason}</span>}{row.status === "partial" && <Badge variant="warning">{t("insights.partial")}</Badge>}{row.status === "unavailable" && <Badge variant="warning">{t("insights.status.unavailable")}</Badge>}</span>
+    <span className="flex shrink-0 items-center gap-4 num">{row.amount ? <ChangeText direction={direction > 0 ? "up" : direction < 0 ? "down" : "flat"}>{amountText(row.amount)}</ChangeText> : <span className="text-muted-foreground">{t("insights.unavailableAmount")}</span>}{showRate && <span className="w-20 text-right text-muted-foreground">{rateText(row.rate)}{coverageMark(row.ratedDays, row.totalDays)}</span>}</span>
+  </Button></li>;
 }
 
 function compositionLabel(t: (key: string) => string, item: NonNullable<ContributionItemDTO["components"]>[number], accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
@@ -115,6 +100,9 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   const returnType = session.contributionReturnType;
   const [groupBy, setGroupBy] = useState("instrument");
   const [ordering, setOrdering] = useState("amount_desc");
+  const [direction, setDirection] = useState("all");
+  const [limit, setLimit] = useState("10");
+  const [search, setSearch] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const effectiveGroupBy = returnType === "realized" && (groupBy === "currency" || groupBy === "asset_class") ? "instrument" : groupBy;
   const effectiveOrdering = returnType !== "total_return" && (ordering === "rate_desc" || ordering === "rate_asc") ? "amount_desc" : ordering;
@@ -129,6 +117,8 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   const showHistoryFilterWarning = [session.moreFilters.currency, session.moreFilters.assetClass].some((value) => typeof value === "string" && value.trim().length > 0);
   const showRate = returnType === "total_return";
   const labelFor = (row: { key: string; label: string }) => contributionRowLabel(t, effectiveGroupBy, row.key, row.label, accountNames, instrumentNames);
+  const ranked = rankedContributions(data?.rows ?? [], direction, limit);
+  const details = (data?.rows ?? []).filter((row) => labelFor(row).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const selected = (data?.rows ?? []).find((row) => row.key === selectedKey) ?? null;
   if (selectedKey && data && !selected) setSelectedKey(null);
 
@@ -138,8 +128,21 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   if (!context.scopeReady) return <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
   if (!context.rangeAvailable) return <EmptyState title={t(context.awaitingClose ? "insights.currentMonthUnclosed" : "insights.historyInsufficient")} description={t(context.awaitingClose ? "insights.currentMonthUnclosedHint" : "insights.historyInsufficientHint")} />;
 
+  const sortControl = (
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="contribution-sort" className="sr-only">{t("insights.sort")}</label>
+        <NativeSelect id="contribution-sort" value={effectiveOrdering} onChange={(event) => setOrdering(event.target.value)}>
+          <option value="amount_desc">{t("insights.sortAmountDesc")}</option>
+          <option value="amount_asc">{t("insights.sortAmountAsc")}</option>
+          {showRate && <option value="rate_desc">{t("insights.sortRateDesc")}</option>}
+          {showRate && <option value="rate_asc">{t("insights.sortRateAsc")}</option>}
+          <option value="name_asc">{t("insights.sortNameAsc")}</option>
+        </NativeSelect>
+      </div>
+  );
+
   const toolbar = (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card/60 p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card/60 px-4 py-2">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="contribution-return-type" className="text-sm font-medium">{t("insights.returnType")}</label>
         <NativeSelect id="contribution-return-type" value={returnType} onChange={(event) => {
@@ -163,17 +166,8 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
           {returnType !== "realized" && <option value="asset_class">{t("insights.byAssetClass")}</option>}
         </NativeSelect>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="contribution-sort" className="text-sm font-medium">{t("insights.sort")}</label>
-        <NativeSelect id="contribution-sort" value={effectiveOrdering} onChange={(event) => setOrdering(event.target.value)}>
-          <option value="amount_desc">{t("insights.sortAmountDesc")}</option>
-          <option value="amount_asc">{t("insights.sortAmountAsc")}</option>
-          {showRate && <option value="rate_desc">{t("insights.sortRateDesc")}</option>}
-          {showRate && <option value="rate_asc">{t("insights.sortRateAsc")}</option>}
-          <option value="name_asc">{t("insights.sortNameAsc")}</option>
-        </NativeSelect>
-      </div>
-      <p className="max-w-md text-sm text-muted-foreground">{t("insights.contributionIndependent")}</p>
+      {!data?.available && sortControl}
+      <p className="ml-auto max-w-md text-xs text-muted-foreground">{t("insights.contributionIndependent")}</p>
     </div>
   );
 
@@ -183,17 +177,30 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   else if (!data?.available) results = contributionEmpty(data, returnType, t);
   else results = (
     <>
+      <div className="grid gap-3 sm:grid-cols-3" aria-label={t("insights.contributionSummary")}>
+        {([["total", "selectedContributionTotal"], ["positive", "positiveContributionTotal"], ["negative", "negativeContributionTotal"]] as const).map(([key, title]) => {
+          const amount = data.summary?.[key];
+          const sign = amount ? compareCanonical(amount.amount, "0") : 0;
+          return <Card key={key}><CardContent className="pt-4 pb-4"><p className="text-sm text-muted-foreground">{t(`insights.${title}`)}</p>{amount ? <ChangeText direction={sign > 0 ? "up" : sign < 0 ? "down" : "flat"} className="mt-1 text-xl font-semibold num">{amountText(amount)}</ChangeText> : <p className="mt-1 text-xl font-semibold text-muted-foreground">{t("insights.unavailableAmount")}</p>}{data.summary?.amountStatus === "partial" && <p className="mt-1 text-xs text-warning-foreground">{t("insights.knownContributionSubtotal")}</p>}</CardContent></Card>;
+        })}
+      </div>
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-3">
-          <CardTitle>{returnTypeLabel(t, returnType)}</CardTitle>
-          <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
+          <div><CardTitle>{t("insights.mainContributions")}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{t("insights.absoluteContributionOrder")}</p></div>
+          <div className="flex flex-wrap items-center gap-3"><SegmentedControl label={t("insights.contributionDirection")} value={direction} onChange={setDirection} options={[{ value: "all", label: t("insights.largestImpact") }, { value: "positive", label: t("insights.positiveContributions") }, { value: "negative", label: t("insights.negativeContributions") }]} /><NativeSelect aria-label={t("insights.contributionLimit")} value={limit} onChange={(event) => setLimit(event.target.value)}><option value="10">{t("insights.showContributionCount", { count: 10 })}</option><option value="20">{t("insights.showContributionCount", { count: 20 })}</option><option value="all">{t("common.all")}</option></NativeSelect></div>
         </CardHeader>
         <CardContent>
-          <ul className="divide-y divide-border" aria-label={t("insights.contribution")}>
-            {(data.rows ?? []).map((row) => <ContributionRow key={row.key} row={row} rows={data.rows ?? []} label={labelFor(row)} showRate={showRate} onSelect={() => setSelectedKey(row.key)} />)}
-          </ul>
-          {(data.rows ?? []).length === 0 && <EmptyState title={t("insights.noContributionData")} description={t("insights.noContributionDataHint")} />}
+          <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
+          <ContributionRanking rows={ranked} labelFor={labelFor} label={t("insights.mainContributions")} onSelect={setSelectedKey} />
+          {ranked.length === 0 && <EmptyState size="compact" title={t("insights.noContributionData")} />}
+          <p className="mt-3 text-xs text-muted-foreground" role="status">{t("insights.contributionDisplayScope", { shown: ranked.length, total: (data.rows ?? []).length, hidden: (data.rows ?? []).length - ranked.length })}</p>
         </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex-row flex-wrap items-end justify-between gap-3"><CardTitle>{t("insights.allContributionDetails")}</CardTitle><div className="flex flex-wrap items-end gap-3"><Input aria-label={t("insights.searchContributions")} placeholder={t("insights.searchContributions")} value={search} onChange={(event) => setSearch(event.target.value)} className="w-52" />
+          {sortControl}
+        </div></CardHeader>
+        <CardContent><div className="flex justify-between gap-4 border-b border-border pb-2 text-xs text-muted-foreground"><span>{t(`insights.${effectiveGroupBy === "instrument" ? "instrument" : effectiveGroupBy === "account" ? "byAccount" : effectiveGroupBy === "currency" ? "currency" : "assetClass"}`)}</span><span>{t("insights.contribution")}{showRate && ` / ${t("insights.returnRate")}`}</span></div><ul className="divide-y divide-border" aria-label={t("insights.contribution")}>{details.map((row) => <ContributionRow key={row.key} row={row} label={labelFor(row)} showRate={showRate} onSelect={() => setSelectedKey(row.key)} />)}</ul>{details.length === 0 && <EmptyState size="compact" title={t("insights.noContributionData")} />}</CardContent>
       </Card>
       <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelectedKey(null); }}>
         <SheetContent side="right">
@@ -204,5 +211,5 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
     </>
   );
 
-  return <div className="flex flex-col gap-4" data-testid="contribution">{toolbar}{results}</div>;
+  return <div className="flex flex-col gap-4" data-testid="contribution" aria-busy={contribution.isFetching}>{toolbar}{results}{contribution.isPlaceholderData && <span className="sr-only" role="status">{t("insights.loading")}</span>}</div>;
 }

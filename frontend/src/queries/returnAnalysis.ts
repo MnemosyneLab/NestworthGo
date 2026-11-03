@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { hashKey, useQuery } from "@tanstack/react-query";
 import { Service as AnalysisService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis";
 import type {
   AnalysisQueryRequest,
@@ -63,6 +63,9 @@ export function useReturnTrend(request: AnalysisQueryRequest, display: string, e
 export function useContribution(request: AnalysisQueryRequest, returnType: string, groupBy: string, ordering: string, enabled = true) {
   return useQuery<ContributionDTO>({
     queryKey: queryKeys.analysis.contribution(request, returnType, groupBy, ordering),
+    // Retain rows only across sorting; never carry amounts across dates, scopes,
+    // valuation modes, metrics or grouping changes. Keep the backend comparator.
+    placeholderData: (previous, query) => hashKey(query?.queryKey.slice(0, -1) ?? []) === hashKey(queryKeys.analysis.contribution(request, returnType, groupBy, ordering).slice(0, -1)) ? previous : undefined,
     queryFn: () => callService(() => AnalysisService.Contribution(request, returnType, groupBy, ordering)),
     enabled,
   });

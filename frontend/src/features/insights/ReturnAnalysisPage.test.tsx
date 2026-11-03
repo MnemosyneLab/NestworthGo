@@ -38,8 +38,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
   Service: { HistoryOrigin: (...args: unknown[]) => historyOrigin(...args) },
 }));
 
-function renderPage(onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void) {
-  const queryClient = createTestQueryClient();
+function renderPage(onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void, options?: Parameters<typeof createTestQueryClient>[0]) {
+  const queryClient = createTestQueryClient(options);
   return render(<QueryClientProvider client={queryClient}><ReturnAnalysisPage onOpenAssetChanges={onOpenAssetChanges} /></QueryClientProvider>);
 }
 
@@ -217,7 +217,7 @@ describe("ReturnAnalysisPage", () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
     renderPage();
     expect(await screen.findByText("No closed dates in the current month yet.")).toBeInTheDocument();
-    expect(returnCalendar).not.toHaveBeenCalled();
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-28", to: "2026-09-30" }), "", "day");
     expect(returnDay).not.toHaveBeenCalled();
     const today = screen.getByTestId("return-day-2026-10-01");
     expect(today).toHaveTextContent("Today is not closed yet");
@@ -254,6 +254,108 @@ describe("ReturnAnalysisPage", () => {
     expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-01", to: "2026-08-31" }), "2026-08", "day");
   });
 
+  it.each(["grid", "summary"])("retains available data when the %s request fails and retries only that section", async failed => {
+    const base = await returnCalendar();
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
+    returnCalendar.mockImplementation((_request, cursor) => Boolean(cursor) === (failed === "summary") ? Promise.reject(new Error("synthetic read failure")) : Promise.resolve(base));
+    renderPage();
+    const region = await screen.findByRole("region", { name: failed === "grid" ? "Calendar view" : "Return summary" });
+    await within(region).findByRole("alert");
+    if (failed === "grid") expect(within(screen.getByRole("region", { name: "Return summary" })).getByText("+US$1.00")).toBeInTheDocument();
+    else expect(screen.getByTestId("return-day-2026-09-01")).toHaveTextContent("+US$1.00");
+    returnCalendar.mockClear().mockResolvedValue(base);
+    await userEvent.click(within(region).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(within(region).queryByRole("alert")).not.toBeInTheDocument());
+    expect(returnCalendar).toHaveBeenCalledTimes(1);
+    expect(returnCalendar.mock.calls[0][1]).toBe(failed === "grid" ? "" : "2026-09");
+  });
+
+  it.each(["pending", "failed", "empty"])("keeps a selected-range summary while the independent year grid is %s", async state => {
+    const base = await returnCalendar();
+    useAnalysisStore.getState().setFilters({ valuation: "native", from: "2026-09-02", to: "2026-09-03" });
+    const selected = { ...base, valuation: "native", currency: "CNY", summary: { ...base.summary, returnAmount: { amount: "7", currency: "CNY" } } };
+    const annual = { ...base, valuation: "base", currency: "USD", valuationForced: "base" };
+    let finish!: (value: typeof annual) => void;
+    returnCalendar.mockImplementation((request, cursor) => {
+      if (request.from !== "2026-01-01" || cursor) return Promise.resolve(selected);
+      if (state === "failed") return Promise.reject(new Error("synthetic annual failure"));
+      if (state === "empty") return Promise.resolve({ ...annual, available: false, cells: [] });
+      return new Promise(resolve => { finish = resolve; });
+    });
+    renderPage(undefined, { retry: false });
+    await screen.findByText("Summary valuation: Native (CNY)");
+    await userEvent.click(screen.getByRole("button", { name: "Year" }));
+    const summary = screen.getByRole("region", { name: "Return summary" });
+    const calendar = await screen.findByRole("region", { name: "Calendar view" });
+    expect(within(summary).getByText("+CN¥7.00")).toBeInTheDocument();
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-02", to: "2026-09-03" }), "", "day");
+    await waitFor(() => expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-01-01", to: "2026-09-06" }), "", "day"));
+    if (state === "pending") {
+      expect(within(calendar).getByRole("status")).toBeInTheDocument();
+      finish(annual);
+    } else if (state === "failed") {
+      await within(calendar).findByRole("alert");
+      returnCalendar.mockClear().mockResolvedValue(annual);
+      await userEvent.click(within(calendar).getByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(within(calendar).queryByRole("alert")).not.toBeInTheDocument());
+      expect(returnCalendar).toHaveBeenCalledTimes(1);
+      expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-01-01", to: "2026-09-06" }), "", "day");
+    } else {
+      expect(await within(calendar).findByText("No investment assets are available for this scope.")).toBeInTheDocument();
+      expect(within(summary).getByText("+CN¥7.00")).toBeInTheDocument();
+      return;
+    }
+    expect(await within(calendar).findByText(/Calendar valuation: Base \(USD\)/)).toBeInTheDocument();
+    expect(within(calendar).getByText("Native valuation is unavailable; showing base currency.")).toBeInTheDocument();
+    expect(within(calendar).getByRole("button", { name: /September/ })).toHaveTextContent("+US$100.00");
+    expect(within(summary).getByText("Summary valuation: Native (CNY)")).toBeInTheDocument();
+    expect(within(summary).getByText("+CN¥7.00")).toBeInTheDocument();
+  });
+
+  it.each(["native", "base", "unavailable"])("shows the day response's actual %s valuation independently of the summary", async mode => {
+    const base = await returnDay();
+    const calendar = await returnCalendar();
+    useAnalysisStore.getState().setFilters({ valuation: "native" });
+    const currency = mode === "native" ? "CNY" : mode === "base" ? "USD" : "";
+    const selected = { ...calendar, valuation: "native", currency: "CNY", summary: { ...calendar.summary, returnAmount: { amount: "7", currency: "CNY" } } };
+    const grid = { ...calendar, valuation: mode === "native" ? "native" : "base", currency, valuationForced: mode === "native" ? null : "base", cells: calendar.cells.map((cell: object) => ({ ...cell, returnAmount: currency ? { amount: "7", currency } : null, amountStatus: currency ? "complete" : "unavailable", available: Boolean(currency) })) };
+    returnCalendar.mockImplementation((_request, cursor) => Promise.resolve(cursor ? selected : grid));
+    returnDay.mockResolvedValue({ ...base, available: Boolean(currency), status: currency ? "ok" : "unavailable", valuation: mode === "native" ? "native" : "base", currency, valuationForced: mode === "native" ? null : "base", returnAmount: currency ? { amount: "7", currency } : null, amountStatus: currency ? "complete" : "unavailable" });
+    renderPage();
+    const date = await screen.findByTestId("return-day-2026-09-01");
+    await userEvent.click(within(date).getByRole("button"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(mode === "native" ? "Day valuation: Native (CNY)" : mode === "base" ? /Day valuation: Base \(USD\)/ : /Day valuation: Base \(Unavailable\)/)).toBeInTheDocument();
+    if (mode === "native") expect(within(dialog).queryByText("Native valuation is unavailable; showing base currency.")).not.toBeInTheDocument();
+    else expect(within(dialog).getByText("Native valuation is unavailable; showing base currency.")).toBeInTheDocument();
+    expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-31", to: "2026-09-06", valuation: "native" }), "2026-09-01");
+  });
+
+  it("shows the selected summary while the cross-month grid is pending", async () => {
+    const base = await returnCalendar();
+    returnCalendar.mockImplementation((_request, cursor) => cursor ? Promise.resolve(base) : new Promise(() => {}));
+    renderPage();
+    expect(await within(await screen.findByRole("region", { name: "Return summary" })).findByText("+US$1.00")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Calendar view" })).getByRole("status")).toBeInTheDocument();
+  });
+
+  it.each([false, true])("labels independent native and forced-base periods, including missing FX: %s", async missingFX => {
+    const base = await returnCalendar();
+    vi.setSystemTime(new Date("2026-12-10T12:00:00Z"));
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-11" });
+    useAnalysisStore.getState().setFilters({ valuation: "native", from: "2026-11-02", to: "2026-11-03" });
+    const native = { ...base, valuation: "native", currency: "CNY", summary: { ...base.summary, returnAmount: { amount: "7", currency: "CNY" } } };
+    const grid = { ...base, valuation: "base", currency: missingFX ? "" : "USD", valuationForced: "base", cells: [{ ...base.cells[0], date: "2026-10-26", returnAmount: missingFX ? null : { amount: "1", currency: "USD" }, amountStatus: missingFX ? "unavailable" : "complete", status: missingFX ? "partial" : "ok" }] };
+    returnCalendar.mockImplementation((request, cursor) => Promise.resolve(cursor || request.from === "2026-11-02" ? native : grid));
+    renderPage();
+    expect(await screen.findByText("Summary valuation: Native (CNY)")).toBeInTheDocument();
+    expect(screen.getByText(missingFX ? /Calendar valuation: Base \(Unavailable\)/ : /Calendar valuation: Base \(USD\)/)).toBeInTheDocument();
+    expect(screen.getByTestId("return-day-2026-10-26")).toHaveTextContent(missingFX ? "—" : "+US$1.00");
+    await userEvent.click(within(screen.getByTestId("return-day-2026-10-26")).getByRole("button"));
+    await screen.findByRole("dialog");
+    expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-10-26", to: "2026-12-06", valuation: "native" }), "2026-10-26");
+  });
+
   it("loads the whole visible month while keeping a separate selected-range summary", async () => {
     useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
     useAnalysisStore.getState().setFilters({ from: "2026-09-02", to: "2026-09-03" });
@@ -264,6 +366,82 @@ describe("ReturnAnalysisPage", () => {
     expect(screen.getByTestId("return-day-2026-09-01")).toHaveTextContent("+US$1.00");
     expect(screen.getByTestId("return-day-2026-09-01")).not.toHaveAttribute("data-selected");
     expect(screen.getByTestId("return-day-2026-09-02")).toHaveAttribute("data-selected", "true");
+  });
+
+  it("keeps usable adjacent dates visible when the selected month has no investment data", async () => {
+    vi.setSystemTime(new Date("2026-12-10T12:00:00Z"));
+    const base = await returnCalendar();
+    returnCalendar.mockImplementation((_request, cursor) => Promise.resolve(cursor ? {
+      ...base, available: false, cells: [], topContributors: [],
+      summary: { ...base.summary, returnAmount: null, returnRate: null },
+    } : { ...base, cells: [
+      { ...base.cells[0], date: "2026-10-26", returnAmount: { amount: "12.34", currency: "USD" } },
+      { ...base.cells[0], date: "2026-12-01", returnAmount: { amount: "-7", currency: "USD" } },
+    ] }));
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-11" });
+    renderPage();
+    expect(await screen.findByText("No investment assets are available for this scope.")).toBeInTheDocument();
+    expect(screen.getByTestId("return-day-2026-10-26")).toHaveTextContent("+US$12.34");
+    expect(screen.getByTestId("return-day-2026-12-01")).toHaveTextContent("-US$7.00");
+    expect(screen.queryByText("Return amount")).not.toBeInTheDocument();
+    await userEvent.setup().click(within(screen.getByTestId("return-day-2026-10-26")).getByRole("button"));
+    await screen.findByRole("dialog");
+    expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-10-26", to: "2026-12-06" }), "2026-10-26");
+    expect(useAnalysisStore.getState().returnCursor).toBe("2026-11");
+  });
+
+  it("loads adjacent-month gains without changing the selected summary or navigating on day click", async () => {
+    vi.setSystemTime(new Date("2026-12-10T12:00:00Z"));
+    const base = await returnCalendar();
+    const daily = base.cells[0];
+    returnCalendar.mockImplementation((request) => Promise.resolve(request.from === "2026-10-26" ? {
+      ...base,
+      summary: { ...base.summary, returnAmount: { amount: "999", currency: "USD" } },
+      topContributors: [{ key: "grid-only", label: "Grid-only contributor", amount: { amount: "999", currency: "USD" } }],
+      cells: [
+        { ...daily, date: "2026-10-26", returnAmount: { amount: "12.34", currency: "USD" }, returnRate: "0.02", amountStatus: "partial", status: "partial" },
+        { ...daily, date: "2026-10-27", returnAmount: null, returnRate: null, available: false, amountStatus: "unavailable", status: "unavailable" },
+        { ...daily, date: "2026-12-01", returnAmount: { amount: "-7", currency: "USD" }, returnRate: "-0.03" },
+      ],
+    } : base));
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-11" });
+    useAnalysisStore.getState().setFilters({ from: "2026-11-05", to: "2026-11-20" });
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId("return-day-2026-10-26")).toHaveTextContent("+US$12.34"));
+    expect(screen.getByTestId("return-day-2026-10-26")).toHaveTextContent("Oct 26");
+    expect(screen.getByTestId("return-day-2026-10-26")).toHaveTextContent("+2%");
+    expect(screen.getByTestId("return-day-2026-10-26")).toHaveTextContent("Known in part");
+    expect(screen.getByTestId("return-day-2026-10-27")).toHaveTextContent("No data");
+    expect(screen.getByTestId("return-day-2026-10-27")).not.toHaveTextContent("US$0.00");
+    expect(screen.getByTestId("return-day-2026-12-01")).toHaveTextContent("-US$7.00");
+    expect(screen.getByTestId("return-day-2026-12-01")).toHaveTextContent("Dec 1");
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-10-26", to: "2026-12-06" }), "", "day");
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-11-05", to: "2026-11-20" }), "", "day");
+    expect(screen.queryByText("Grid-only contributor")).not.toBeInTheDocument();
+    expect(screen.getByText("Return amount").parentElement).toHaveTextContent("+US$1.00");
+    await userEvent.setup().click(within(screen.getByTestId("return-day-2026-10-26")).getByRole("button"));
+    await screen.findByRole("dialog");
+    expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-10-26", to: "2026-12-06" }), "2026-10-26");
+    expect(useAnalysisStore.getState()).toMatchObject({ returnCursor: "2026-11", from: "2026-11-05", to: "2026-11-20" });
+    expect(screen.getByText("November 2026")).toBeInTheDocument();
+    await userEvent.setup().keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    within(screen.getByTestId("return-day-2026-12-01")).getByRole("button").focus();
+    await userEvent.setup().keyboard("{Enter}");
+    await waitFor(() => expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-10-26", to: "2026-12-06" }), "2026-12-01"));
+    expect(useAnalysisStore.getState().returnCursor).toBe("2026-11");
+  });
+
+  it("requests cross-year grid bounds while keeping adjacent today and future dates muted", async () => {
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+    useAnalysisStore.getState().setReturnView({ cursor: "2025-12" });
+    renderPage();
+    await screen.findByText("December 2025");
+    await waitFor(() => expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2025-12-01", to: "2025-12-31" }), "", "day"));
+    expect(screen.getByTestId("return-day-2026-01-01")).toHaveTextContent("Today is not closed yet");
+    expect(within(screen.getByTestId("return-day-2026-01-01")).getByRole("button")).toBeDisabled();
+    expect(within(screen.getByTestId("return-day-2026-01-02")).getByRole("button")).toBeDisabled();
+    expect(screen.getByTestId("return-day-2026-01-02")).toHaveTextContent("—");
   });
 
   it("opens the day sheet and carries the day and session into Asset Changes", async () => {
@@ -347,13 +525,14 @@ describe("ReturnAnalysisPage", () => {
     cleanup();
 
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-    returnCalendar.mockResolvedValueOnce({ available: false, status: "unavailable", cells: [], issues: [], topContributors: [], summary: { ratedDays: 0, totalDays: 0, beginningInvestedValue: null, endingInvestedValue: null, returnAmount: null, returnRate: null } });
+    returnCalendar.mockResolvedValue({ available: false, status: "unavailable", cells: [], issues: [], topContributors: [], summary: { ratedDays: 0, totalDays: 0, beginningInvestedValue: null, endingInvestedValue: null, returnAmount: null, returnRate: null } });
     useAnalysisStore.getState().reset();
     renderPage();
     expect(await screen.findByText("No investment assets are available for this scope.")).toBeInTheDocument();
+    expect(screen.queryByTestId("return-day-2026-09-01")).not.toBeInTheDocument();
     cleanup();
 
-    returnCalendar.mockResolvedValueOnce({ available: false, status: "unavailable", cells: [{ date: "2026-09-01", available: false, status: "unavailable", ratedDays: 0, totalDays: 1, returnAmount: null, returnRate: null, composition: [], contributors: [], issues: [], valuationForced: null }], issues: [], topContributors: [], summary: { ratedDays: 0, totalDays: 1, beginningInvestedValue: null, endingInvestedValue: null, returnAmount: null, returnRate: null } });
+    returnCalendar.mockResolvedValue({ available: false, status: "unavailable", cells: [{ date: "2026-09-01", available: false, status: "unavailable", ratedDays: 0, totalDays: 1, returnAmount: null, returnRate: null, composition: [], contributors: [], issues: [], valuationForced: null }], issues: [], topContributors: [], summary: { ratedDays: 0, totalDays: 1, beginningInvestedValue: null, endingInvestedValue: null, returnAmount: null, returnRate: null } });
     useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
     renderPage();
     expect(await screen.findByText("Not enough historical data to calculate returns.")).toBeInTheDocument();

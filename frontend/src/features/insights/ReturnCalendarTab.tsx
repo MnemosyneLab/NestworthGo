@@ -71,6 +71,14 @@ function CalendarEmptyState({ data }: { data?: ReturnCalendarDTO }) {
   return <EmptyState title={t(insufficientHistory ? "insights.historyInsufficient" : "insights.noInvestmentAssets")} description={t(insufficientHistory ? "insights.historyInsufficientHint" : "insights.noInvestmentAssetsHint")} />;
 }
 
+// The backend reports the effective basis after its investment-universe fallback.
+// A missing currency stays explicitly unavailable, including missing-FX results.
+function ValuationLabel({ data, section }: { data: Pick<ReturnCalendarDTO, "valuation" | "currency" | "valuationForced">; section: "summaryValuation" | "calendarValuation" | "dayValuation" }) {
+  const { t } = useTranslation();
+  const currency = data.currency || t("insights.unavailableAmount");
+  return <p className="text-xs text-muted-foreground">{t(`insights.${section}`)}: {t(data.valuation === "base" ? "insights.valuationBase" : "insights.valuationNative", { currency })}{data.valuation !== "base" && ` (${currency})`}{data.valuationForced && <span className="ml-2 text-warning-foreground">{t("insights.valuationForced")}</span>}</p>;
+}
+
 function Summary({ data, range }: { data: ReturnCalendarDTO; range: string }) {
   const { t } = useTranslation();
   const summary = data.summary;
@@ -160,20 +168,26 @@ function ContributorList({ values, title, instrumentNames = new Map() }: { value
 }
 
 function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false, column = 0, row = 0 }: { column?: number; row?: number; selected?: boolean; day?: ReturnDayDTO; date: string; inMonth: boolean; timeZone?: string; onOpen: (date: string) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const future = isFuture(date, timeZone);
   const today = isToday(date, timeZone);
   const partial = Boolean(day && (day.status === "partial"));
   const amount = amountNumber(day?.returnAmount);
   const hasData = Boolean(day?.available);
-  const showData = hasData && !today;
+  const showData = hasData && !today && !future;
   const amountPartial = day?.amountStatus === "partial";
   const amountUnavailable = day?.amountStatus === "unavailable";
+  const accessibleLabel = [
+    formatCivilDateRange(date, date),
+    showData ? `${rateText(day?.returnRate)}, ${amountText(day?.returnAmount)}` : today ? t("insights.todayMuted") : future ? "—" : t("insights.noData"),
+    showData && partial ? t("insights.partial") : "",
+    showData && amountPartial ? t("insights.amountPartial") : showData && amountUnavailable ? t("insights.amountUnavailable") : "",
+  ].filter(Boolean).join(", ");
   return (
-    <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-20 rounded-lg border border-border bg-card p-2 transition-colors hover:border-primary/40", !inMonth && "border-transparent bg-transparent opacity-40", inMonth && hasData && !today && amount >= 0.005 && "bg-gain-positive/14", inMonth && hasData && !today && amount <= -0.005 && "bg-gain-negative/14", (future || today) && "opacity-60")}>
-      <button type="button" disabled={!inMonth || future || today || !day} onClick={() => onOpen(date)} className="flex min-h-16 w-full flex-col items-start gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-        <span className="flex w-full items-center justify-between text-xs font-medium"><span>{Number(date.slice(-2))}</span>{today && <span className="text-[0.65rem] text-muted-foreground">{t("insights.today")}</span>}</span>
-        {day && showData ? <><span className={cn("num mt-1 text-sm font-semibold", (day.returnRate ?? "").startsWith("-") ? "text-gain-negative" : amount > 0 ? "text-gain-positive" : "font-medium text-muted-foreground")} title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : inMonth ? <span className="mt-1 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span> : null}
+    <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-20 rounded-lg border border-border bg-card p-2 transition-colors hover:border-primary/40", !inMonth && "border-dashed", showData && amount >= 0.005 && "bg-gain-positive/14", showData && amount <= -0.005 && "bg-gain-negative/14", (future || today) && "opacity-60")}>
+      <button type="button" aria-label={accessibleLabel} disabled={future || today || !day} onClick={() => onOpen(date)} className="flex min-h-16 w-full flex-col items-start gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+        <span className="flex w-full items-center justify-between text-xs font-medium"><span className={cn(!inMonth && "text-muted-foreground")}>{!inMonth || date.endsWith("-01") ? new Intl.DateTimeFormat(i18n.language, { month: "short", day: "numeric" }).format(new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(-2)))) : Number(date.slice(-2))}</span>{today && <span className="text-[0.65rem] text-muted-foreground">{t("insights.today")}</span>}</span>
+        {day && showData ? <><span className={cn("num mt-1 text-sm font-semibold", (day.returnRate ?? "").startsWith("-") ? "text-gain-negative" : amount > 0 ? "text-gain-positive" : "font-medium text-muted-foreground")} title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : <span className="mt-1 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
       </button>
       {day && showData && day.composition && day.composition.length > 0 && (
         <div className={cn("pointer-events-none invisible absolute z-20 w-64 max-w-[calc(100vw-3rem)] rounded-xl border border-border bg-card p-3 text-xs shadow-lg group-hover:visible group-focus-within:visible", column >= 4 ? "right-2" : "left-2", row >= 3 ? "bottom-full mb-1" : "top-full mt-1")}>
@@ -213,7 +227,7 @@ function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDT
   const amountPartial = data.amountStatus === "partial";
   const amountUnavailable = data.amountStatus === "unavailable";
   const openAssetChanges = () => onAssetChanges?.({ scope: session.scope, scopeId: session.scopeId, valuation: session.valuation, includeCash: session.includeCash, from: date, to: date, moreFilters: session.moreFilters });
-  return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
+  return <div className="flex flex-col gap-4 overflow-y-auto"><ValuationLabel data={data} section="dayValuation" /><div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
 }
 
 export { aggregateYearMonths };
@@ -235,25 +249,48 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
   const originReady = !origin.isLoading && !origin.isError && Boolean(origin.data?.timezone);
   const scopeReady = session.scope === "portfolio" || Boolean(session.scopeId);
   const monthRangeAvailable = range.from <= range.to;
+  // Grid cells have their own bounded period. Its aggregates never feed the
+  // selected-period summary or contributor list.
+  const visibleDays = monthDays(visibleMonth, weekStartsOn);
+  const gridRange = periodRange({ from: "", to: "" }, visibleDays[0].date, visibleDays[visibleDays.length - 1].date, timeZone, origin.data?.startedAt);
+  const gridRequest = analysisRequest(session, gridRange.from, gridRange.to);
   const monthQuery = useReturnCalendar(request, visibleMonth, originReady && scopeReady && monthRangeAvailable && view === "month" && (!visibleMonthIsFuture || Boolean(session.from && session.from <= lastClosedDate(timeZone))));
+  const gridQuery = useReturnCalendar(gridRequest, "", originReady && scopeReady && gridRange.from <= gridRange.to && view === "month");
   const yearSummaryQuery = useReturnCalendar(request, "", originReady && scopeReady && monthRangeAvailable && view === "year" && !isFuture(`${year}-01`, timeZone));
-  const loading = origin.isLoading || (view === "year" ? yearSummaryQuery.isLoading : monthQuery.isLoading);
-  const error = view === "year" ? yearSummaryQuery.isError : monthQuery.isError;
   const data = view === "year" ? yearSummaryQuery.data : monthQuery.data;
   const selectedRange = effectiveRange(session, visibleMonth, timeZone, origin.data?.startedAt);
   const hasSelection = Boolean(session.from && session.to);
   const selectedQuery = useReturnCalendar(analysisRequest(session, selectedRange.from, selectedRange.to), "", originReady && scopeReady && hasSelection && selectedRange.from <= selectedRange.to);
   const summaryData = hasSelection ? selectedQuery.data : data;
-  const summary = hasSelection && selectedQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : hasSelection && selectedQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => selectedQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData ? <>
-    <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
-    <Summary data={summaryData} range={formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)} />
-  </> : null;
+  const summaryQuery = hasSelection ? selectedQuery : view === "year" ? yearSummaryQuery : monthQuery;
+  const summary = <section aria-label={t("insights.summary")} className="flex flex-col gap-3">
+    {summaryQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : summaryQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => summaryQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData?.available ? <>
+      <ValuationLabel data={summaryData} section="summaryValuation" />
+      <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
+      <Summary data={summaryData} range={formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)} />
+    </> : monthRangeAvailable && !visibleMonthIsFuture ? <CalendarEmptyState data={summaryData} /> : null}
+  </section>;
+  const grid = <section aria-label={t("insights.calendarView")} className="flex flex-col gap-3">
+    {gridQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : gridQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => gridQuery.refetch()} retryLabel={t("common.retryAction")} /> : <>
+      {gridQuery.data && <ValuationLabel data={gridQuery.data} section="calendarValuation" />}
+      {(data?.available || monthQuery.isError || !monthRangeAvailable || visibleMonthIsFuture || gridQuery.data?.cells?.some(day => day.available)) && <MonthGrid selection={hasSelection ? selectedRange : undefined} data={gridQuery.data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />}
+    </>}
+  </section>;
   const yearData = useMemo(() => aggregateYearMonths(data, year), [data, year]);
+  // Without a distinct selected range the summary already presents this query's
+  // state. A separate yearly request needs its own loading, error and retry UI.
+  const independentYearQuery = hasSelection && (selectedRange.from !== range.from || selectedRange.to !== range.to);
+  const yearGrid = <section aria-label={t("insights.calendarView")} className="flex flex-col gap-3">
+    {yearSummaryQuery.isLoading ? independentYearQuery && <LoadingState label={t("insights.loading")} /> : yearSummaryQuery.isError ? independentYearQuery && <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => yearSummaryQuery.refetch()} retryLabel={t("common.retryAction")} /> : data?.available ? <>
+      <ValuationLabel data={data} section="calendarValuation" />
+      <YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} />
+    </> : independentYearQuery && monthRangeAvailable && <CalendarEmptyState data={data} />}
+  </section>;
 
   const move = (amount: number) => onCursorChange(view === "year" ? `${year + amount}-01` : addMonths(visibleMonth, amount));
   const header = <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label={t("insights.previous")} onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /></Button><h2 className="min-w-44 text-center font-display text-xl font-semibold tracking-tight">{view === "year" ? yearLabel(year, i18n.language) : monthLabel(visibleMonth, i18n.language)}</h2><Button type="button" variant="outline" size="icon" aria-label={t("insights.next")} onClick={() => move(1)}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="ghost" onClick={() => onCursorChange(currentMonth(timeZone))}>{t("insights.today")}</Button></div><SegmentedControl size="md" label={t("insights.calendarView")} value={view} onChange={value => setView(value as typeof view)} options={[{ value: "month", label: t("insights.month") }, { value: "year", label: t("insights.year") }]} /></div>;
   let content: ReactNode;
-  if (loading) {
+  if (origin.isLoading) {
     content = <LoadingState label={t("insights.loading")} />;
   } else if (origin.isError) {
     content = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => origin.refetch()} retryLabel={t("common.retryAction")} />;
@@ -261,19 +298,15 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
     content = <EmptyState title={t("insights.noOrigin")} description={t("insights.noOriginHint")} />;
   } else if (!scopeReady) {
     content = <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
-  } else if (error) {
-    content = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => { void (view === "year" ? yearSummaryQuery.refetch() : monthQuery.refetch()); }} retryLabel={t("common.retryAction")} />;
   } else if (view === "year") {
-    content = data?.available ? <>{summary}<YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} /></> : <CalendarEmptyState data={data} />;
-  } else if (!monthRangeAvailable || visibleMonthIsFuture) {
-    content = <>
-      {currentMonthAwaitingClose(session, visibleMonth, timeZone, origin.data?.startedAt) && <EmptyState title={t("insights.currentMonthUnclosed")} description={t("insights.currentMonthUnclosedHint")} />}
-      <MonthGrid selection={hasSelection ? selectedRange : undefined} data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />
-    </>;
-  } else if (data?.available) {
-    content = <>{summary}<MonthGrid selection={hasSelection ? selectedRange : undefined} data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /><ContributorList values={summaryData?.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} /></>;
+    content = <>{summary}{yearGrid}</>;
   } else {
-    content = <CalendarEmptyState data={data} />;
+    content = <>
+      {summary}
+      {currentMonthAwaitingClose(session, visibleMonth, timeZone, origin.data?.startedAt) && <EmptyState title={t("insights.currentMonthUnclosed")} description={t("insights.currentMonthUnclosedHint")} />}
+      {grid}
+      {summaryData?.available && <ContributorList values={summaryData.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />}
+    </>;
   }
-  return <div className="flex flex-col gap-4">{header}{content}{view === "month" && <DaySheet request={request} date={selectedDate} session={session} onClose={() => setSelectedDate(null)} onAssetChanges={onOpenAssetChanges ? analysis => { setSelectedDate(null); onOpenAssetChanges(analysis); } : undefined} />}</div>;
+  return <div className="flex flex-col gap-4">{header}{content}{view === "month" && <DaySheet request={gridRequest} date={selectedDate} session={session} onClose={() => setSelectedDate(null)} onAssetChanges={onOpenAssetChanges ? analysis => { setSelectedDate(null); onOpenAssetChanges(analysis); } : undefined} />}</div>;
 }

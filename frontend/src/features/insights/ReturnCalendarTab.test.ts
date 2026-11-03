@@ -9,6 +9,7 @@ vi.mock("@wailsio/runtime", () => ({
 }));
 
 import type { ReturnCalendarDTO, ReturnCalendarMonthDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import { monthDays } from "./calendar";
 import { aggregateYearMonths } from "./ReturnCalendarTab";
 
 function month(overrides: Partial<ReturnCalendarMonthDTO>): ReturnCalendarMonthDTO {
@@ -64,5 +65,20 @@ describe("aggregateYearMonths", () => {
       ratedDays: 0,
       totalDays: 0,
     });
+  });
+});
+
+
+describe("calendar visible bounds", () => {
+  it.each([
+    ["2026-11", 1, "2026-10-26", "2026-12-06"],
+    ["2026-01", 1, "2025-12-29", "2026-02-01"],
+    ["2026-12", 1, "2026-11-30", "2027-01-03"],
+    ["2026-01", 0, "2025-12-28", "2026-01-31"],
+  ])("covers complete weeks for %s with week start %s", (month, weekStart, from, to) => {
+    const days = monthDays(String(month), Number(weekStart));
+    expect(days[0].date).toBe(from);
+    expect(days[days.length - 1].date).toBe(to);
+    expect(days.length % 7).toBe(0);
   });
 });

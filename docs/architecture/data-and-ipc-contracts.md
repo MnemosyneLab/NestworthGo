@@ -388,6 +388,37 @@ ledger-local day. Switching views preserves object, valuation, cash and
 additional filters. An empty period on the first local day remains empty and
 does not store a reversed date range. Calendar month/year mode stays local to
 the mounted Return Analysis page.
+The month grid includes leading and trailing civil dates with the same daily
+amount, rate and completeness states. A separate history/closed-day-bounded
+visible-grid query supplies those cells and their details; it does not replace
+the selected-period summary or contributors. Adjacent-date selection opens
+details without moving the browsing cursor.
+
+Contribution presents a signed, zero-centered linear amount chart, initially
+the ten largest absolute contributions. Direction and display-count controls
+only limit that chart. Searchable, sortable details retain all groups, including
+missing amounts. The backend supplies the selected view's contribution total
+and positive/negative sums using exact decimal row amounts. Known subtotals
+are explicitly partial; fully unknown or unrepresentable summaries remain
+unavailable. These summaries do not redefine the independent metrics or derive
+financial totals in the frontend.
+
+Calendar and day-detail responses carry their effective `valuation` and `currency` after
+investment-universe fallback. Selected-period summaries and cross-month grids
+show their own basis and currency explicitly; one period's metadata must never
+label another period's amounts. Missing currency evidence remains unavailable.
+Monthly and yearly grids show their own basis and forced-base fallback; the day
+drawer uses its own response metadata. Their loading, error and retry states are
+independent, so a failed grid cannot hide a usable selected-period summary (and a
+failed summary cannot hide usable cells). When a yearly grid and its summary
+share one query, its loading/error state is displayed once.
+Contribution sorting retains rows only when ordering changes within the same
+request, metric and grouping. It preserves the mounted control and list while
+waiting for the authoritative backend order; changing financial filters drops
+prior amounts. Each partial ranking row identifies its subtotal and reason.
+Known zero-return groups remain in the service projection and exact summary;
+missing amounts remain unavailable.
+
 The contribution metric is part of the shared analysis state, so a retained
 page receiving a new navigation context updates both its selector and query.
 Realized contribution filters sale events by native event denomination and

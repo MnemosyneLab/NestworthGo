@@ -17,6 +17,8 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	rate := decimal.NewFromInt(1).Div(decimal.NewFromInt(8))
 	forced := "base"
 	value := application.ReturnCalendarResult{
+		Valuation:            domain.ValuationBase,
+		Currency:             "USD",
 		AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessPartial, MissingReason: "missing quote", ValuationForced: &forced},
 		Summary:              application.ReturnCalendarSummary{ReturnAmount: &amount, ReturnRate: &rate, Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 3}},
 		Months: []application.ReturnCalendarMonthResult{{
@@ -24,11 +26,14 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 			ReturnRate: &rate, Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 3},
 		}},
 		Days: []application.ReturnDayResult{{
-			Date:         "2026-08-01",
-			ReturnAmount: &amount,
-			ReturnRate:   &rate,
-			Coverage:     domain.RateCoverage{RatedDays: 2, TotalDays: 3},
-			Issues:       []application.ReturnIssue{{Date: "2026-08-02", Status: domain.CompletenessPartial, MissingReason: "missing quote"}},
+			Valuation:            domain.ValuationBase,
+			Currency:             "USD",
+			AnalysisAvailability: application.AnalysisAvailability{ValuationForced: &forced},
+			Date:                 "2026-08-01",
+			ReturnAmount:         &amount,
+			ReturnRate:           &rate,
+			Coverage:             domain.RateCoverage{RatedDays: 2, TotalDays: 3},
+			Issues:               []application.ReturnIssue{{Date: "2026-08-02", Status: domain.CompletenessPartial, MissingReason: "missing quote"}},
 		}},
 	}
 	dto := fromReturnCalendar(value)
@@ -40,7 +45,7 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 		t.Fatal(err)
 	}
-	if shape["valuationForced"] != "base" || shape["status"] != "partial" || shape["missingReason"] != "missing quote" {
+	if shape["valuation"] != "base" || shape["currency"] != "USD" || shape["valuationForced"] != "base" || shape["status"] != "partial" || shape["missingReason"] != "missing quote" {
 		t.Fatalf("calendar metadata = %s", encoded)
 	}
 	summary := shape["summary"].(map[string]any)
@@ -54,6 +59,10 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	}
 	cells := shape["cells"].([]any)
 	cell := cells[0].(map[string]any)
+	if cell["valuation"] != "base" || cell["currency"] != "USD" || cell["valuationForced"] != "base" {
+		t.Fatalf("day basis metadata = %s", encoded)
+	}
+
 	issues := cell["issues"].([]any)
 	if len(issues) != 1 || issues[0].(map[string]any)["date"] != "2026-08-02" {
 		t.Fatalf("cell issues = %s", encoded)
