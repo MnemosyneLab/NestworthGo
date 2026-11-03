@@ -10,6 +10,7 @@ import os
 import sys
 import signal
 import shlex
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -22,6 +23,123 @@ def load(name):
 
 
 class MacCI(unittest.TestCase):
+    def test_darwin_eperm_requires_verified_zombie_only_owned_group(self):
+        runner = load('ci-macos-gates')
+        pgid = 43210
+        for signum in (signal.SIGTERM, 0, signal.SIGKILL):
+            for output, code, error, exited in (
+                ('43210 43210 Z\n43211 43210 Z+\n', 0, '', True),
+                ('', 1, '', True),
+                ('43210 43210 S\n', 0, '', False),
+                ('43210 43210 Z\n43211 43210 R\n', 0, '', False),
+                ('43210 99 Z\n', 0, '', False),
+                ('malformed\n', 0, '', False),
+                ('', 1, 'permission denied', False),
+                ('43210 43210 Z\n', 1, '', False),
+                ('', 2, '', False),
+            ):
+                with self.subTest(signal=signum, output=output, code=code, error=error):
+                    denied = PermissionError(1, 'Operation not permitted')
+                    snapshot = subprocess.CompletedProcess([], code, output, error)
+                    with patch.object(runner.sys, 'platform', 'darwin'), \
+                            patch.object(runner.os, 'killpg', side_effect=denied) as send, \
+                            patch.object(runner.subprocess, 'run', return_value=snapshot) as inspect:
+                        if exited:
+                            self.assertFalse(runner.signal_owned_group(pgid, signum))
+                        else:
+                            with self.assertRaises(PermissionError) as raised:
+                                runner.signal_owned_group(pgid, signum)
+                            self.assertIs(raised.exception, denied)
+                        send.assert_called_once_with(pgid, signum)
+                        self.assertEqual(inspect.call_args.args[0],
+                                         ['/bin/ps', '-g', str(pgid), '-o', 'pid=,pgid=,stat='])
+                        self.assertEqual(inspect.call_args.kwargs['timeout'], 1)
+                        self.assertEqual(inspect.call_args.kwargs['env']['COMMAND_MODE'], 'unix2003')
+
+    def test_unverifiable_or_non_darwin_permission_errors_remain_failures(self):
+        runner = load('ci-macos-gates')
+        for platform, inspection_error in (
+                ('linux', None), ('darwin', OSError('ps unavailable')),
+                ('darwin', subprocess.TimeoutExpired('ps', 1))):
+            with self.subTest(platform=platform, error=inspection_error):
+                process = Mock(pid=43210)
+                with patch.object(runner.sys, 'platform', platform), \
+                        patch.object(runner.os, 'killpg', side_effect=PermissionError(1, 'denied')), \
+                        patch.object(runner.subprocess, 'run', side_effect=inspection_error) as inspect:
+                    with self.assertRaises(PermissionError):
+                        runner.terminate_group(process, .1)
+                    process.wait.assert_not_called()
+                    if platform != 'darwin':
+                        inspect.assert_not_called()
+
+    def test_real_zombie_group_probe_and_cleanup(self):
+        runner = load('ci-macos-gates')
+        process = subprocess.Popen([sys.executable, '-c', 'pass'], start_new_session=True)
+        try:
+            # Observe exit without wait/poll, deliberately retaining our own
+            # unreaped child. XNU skips SZOMB in killpg1; Linux counts it.
+            deadline = time.monotonic() + 5
+            while True:
+                state = subprocess.run(['/bin/ps', '-p', str(process.pid), '-o', 'stat='],
+                                       capture_output=True, text=True, check=True).stdout.strip()
+                if state.startswith('Z'):
+                    break
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(.01)
+            probe_errno = 0
+            try:
+                os.killpg(process.pid, 0)
+            except PermissionError as error:
+                probe_errno = error.errno
+            self.assertEqual(probe_errno, 1 if sys.platform == 'darwin' else 0)
+            print(f'zombie-group platform={sys.platform} state={state} probe_errno={probe_errno}', flush=True)
+            runner.terminate_group(process, .1)
+            self.assertEqual(process.returncode, 0)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(process.pid, 0)
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+
+    def test_live_descendant_is_killed_after_group_leader_exits(self):
+        runner = load('ci-macos-gates')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            child = root / 'child.py'
+            child.write_text("import os, signal, time\nfrom pathlib import Path\n"
+                             "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+                             "Path('child.pid').write_text(str(os.getpid()))\ntime.sleep(60)\n")
+            leader = ("import subprocess, sys, time\n"
+                      f"subprocess.Popen([sys.executable, {str(child)!r}])\ntime.sleep(60)\n")
+            process = subprocess.Popen([sys.executable, '-c', leader], cwd=root, start_new_session=True)
+            unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'],
+                                         start_new_session=True)
+            try:
+                deadline = time.monotonic() + 5
+                while not (root / 'child.pid').exists():
+                    self.assertLess(time.monotonic(), deadline)
+                    time.sleep(.01)
+                pid = int((root / 'child.pid').read_text())
+                runner.terminate_group(process, .15)
+                self.assertIsNotNone(process.returncode)
+                # The orphan may remain a zombie until init reaps it. It must
+                # have stopped executing even though its leader already exited.
+                deadline = time.monotonic() + 2
+                while True:
+                    state = subprocess.run(['/bin/ps', '-p', str(pid), '-o', 'stat='],
+                                           capture_output=True, text=True).stdout.strip()
+                    if not state or state.startswith('Z'):
+                        break
+                    self.assertLess(time.monotonic(), deadline, state)
+                    time.sleep(.01)
+                self.assertIsNone(unrelated.poll())
+            finally:
+                runner.signal_owned_group(process.pid, signal.SIGKILL)
+                process.wait()
+                unrelated.terminate()
+                unrelated.wait(timeout=5)
+
     def test_memory_and_cpu_bound_workers(self):
         limits = load('ci-macos-environment').limits
         self.assertEqual(limits(1, 2 * 1024**3), (1, 1))
@@ -118,6 +236,7 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
                 child = int((root / 'child').read_text())
                 process.send_signal(signal.SIGTERM)
                 process.wait(timeout=5)
+                self.assertEqual(process.returncode, 0)
                 self.assertFalse((root / 'after').exists())
                 with self.assertRaises(ProcessLookupError):
                     os.kill(child, 0)
@@ -196,6 +315,7 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
                 self.assertNotEqual(os.getsid(detached), os.getsid(process.pid))
                 process.send_signal(signal.SIGTERM)
                 process.wait(timeout=8)
+                self.assertEqual(process.returncode, 0)
                 self.assertFalse((root / 'after').exists())
                 with self.assertRaises(ProcessLookupError):
                     os.kill(detached, 0)
@@ -267,6 +387,7 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
                 children = [int((root / f'{name}.pid').read_text()) for name in ('lint', 'typecheck')]
                 process.send_signal(signal.SIGTERM)
                 process.wait(timeout=8)
+                self.assertEqual(process.returncode, 0)
                 self.assertFalse((root / 'tests-started').exists())
                 for child in children:
                     with self.assertRaises(ProcessLookupError):
@@ -280,6 +401,6 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
                     process.wait()
                 for child in children:
                     try:
-                        os.killpg(child, signal.SIGKILL)
+                        load('ci-macos-gates').signal_owned_group(child, signal.SIGKILL)
                     except ProcessLookupError:
                         pass

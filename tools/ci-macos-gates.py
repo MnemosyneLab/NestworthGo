@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import threading
 import time
 
@@ -35,28 +36,64 @@ LANES = (
 )
 
 
+def darwin_group_exited(pgid):
+    """Confirm an EPERM group has no live members; never infer this from EPERM.
+
+    XNU killpg1 filters SZOMB before counting signalable members, so a group
+    containing only zombies returns EPERM. Query only the owned process group,
+    without command lines or a host-wide process inventory. Inspection failures
+    and any live/unrecognized member leave the original permission error intact.
+    """
+    try:
+        snapshot = subprocess.run(
+            ['/bin/ps', '-g', str(pgid), '-o', 'pid=,pgid=,stat='],
+            capture_output=True, text=True, timeout=1,
+            env=dict(os.environ, COMMAND_MODE='unix2003'))
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if snapshot.returncode not in (0, 1) or snapshot.stderr.strip():
+        return False
+    rows = snapshot.stdout.splitlines()
+    if not rows:
+        # The group can disappear between killpg and ps (ps exits 1 if empty).
+        return True
+    if snapshot.returncode != 0:
+        return False
+    for row in rows:
+        fields = row.split()
+        if (len(fields) != 3 or not fields[0].isdigit() or int(fields[0]) <= 0
+                or fields[1] != str(pgid) or not fields[2].startswith('Z')):
+            return False
+    return True
+
+
+def signal_owned_group(pgid, signum):
+    try:
+        os.killpg(pgid, signum)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        if sys.platform == 'darwin' and darwin_group_exited(pgid):
+            return False
+        raise
+
+
 def terminate_group(process, grace):
     """Forward cancellation before escalation so nested owners can reap sessions."""
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
+    if not signal_owned_group(process.pid, signal.SIGTERM):
         process.wait()
         return
     deadline = time.monotonic() + grace
     remaining = True
     while time.monotonic() < deadline:
         process.poll()
-        try:
-            os.killpg(process.pid, 0)
-        except ProcessLookupError:
+        if not signal_owned_group(process.pid, 0):
             remaining = False
             break
         time.sleep(.02)
     if remaining:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        signal_owned_group(process.pid, signal.SIGKILL)
     process.wait()
 
 
