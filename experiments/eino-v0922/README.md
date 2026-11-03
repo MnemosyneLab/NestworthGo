@@ -9,7 +9,7 @@ Do not interpret the green characterization suite as provider safety acceptance.
 
 - Date: 2026-11-03, Linux amd64, Go 1.27.3.
 - Fetched `origin/main`: `f81d3cd3bc975ded45be7d1014e12f9af89c171a`.
-- Harness source commit: `0dc2203` (subsequent commits retain evidence/docs).
+- Harness source commit: `99b5bb7` (subsequent commits retain evidence/docs).
 - Dedicated branch: `experiment/eino-v0922`.
 - This nested module replaces Nestworth with `../..` so tests can import its
   internal application, MCP and JSON packages. It changes no normal application
@@ -70,7 +70,10 @@ EINO_REQUIRE_PROVIDER_SAFETY=1 go test -count=1 -timeout=60s -v \
 See [provider-acceptance.txt](evidence/provider-acceptance.txt). Three broken-stream
 subcases mutate the synthetic ledger, and done-only encrypted reasoning is lost.
 The default tests instead assert and label those observed limitations so future
-changes cannot silently erase the evidence.
+changes cannot silently erase the evidence. The reasoning-mode regression checks
+all four combinations of mode and preservation: strict mode rejects the current
+defect and accepts preserved content; default characterization detects a future
+fix. It does not alter the pinned adapter.
 
 ## Actual integration versus stubs
 
@@ -86,7 +89,10 @@ a deliberately false summarizer, synthetic approval decisions and a transport
 that loses a successful commit response. The fake model does not validate real
 OpenAI protocol acceptance or reasoning signatures. It is deterministic, not a
 model quality assessment. The local completion gate and approval tool are
-experiment prototypes, not installed product features.
+experiment prototypes, not installed product features. Raw commit tests deliberately
+expose `commit_change` without the approval wrapper to isolate model-stream
+completion handling. Their writes demonstrate dispatch after failed/incomplete
+streams; they do not demonstrate bypass of an application approval gate.
 
 Every model request is checked for `store:false`, explicit
 `include:["reasoning.encrypted_content"]` and no `previous_response_id`.
@@ -100,7 +106,7 @@ SDK retries are explicitly configured.
 | Two tool rounds and streaming | 3 Responses requests, 3 streaming events, 5 total Runner events; actual `get_context` and `get_catalog` results fed back | Eino runner + provider + MCP adapter work together |
 | Reasoning continuity | IDs and encrypted contents round-trip when present in `output_item.added`; encrypted contents arriving only at `output_item.done` are dropped | **Provider adapter acceptance fails**; Eino state cannot preserve fields it never receives |
 | Discovery/schema/content/errors/auth | 103 tools; required schemas present; structuredContent retained; isError becomes typed `server_tool_error`; wrong bearer rejected | Existing MCP server + officialmcp; set `IncludeStructuredContent:true` explicitly |
-| Malformed/truncated stream | Malformed event JSON and incomplete argument JSON produce no ledger mutation; clean EOF after complete arguments, EOF after item.done, and response.failed each still produce one raw write | **Provider adapter acceptance fails**; raw completion status is not an execution gate |
+| Malformed/truncated stream | Malformed event JSON and incomplete argument JSON produce no ledger mutation; clean EOF after complete arguments, EOF after item.done, and response.failed each still produce one raw write | **Provider adapter acceptance fails**; raw completion status is not an execution gate; this isolated test has no approval wrapper and proves no approval bypass |
 | Completion gate prototype | All five broken cases yield zero writes and an error; a valid case commits once | Experiment wrapper buffers entire stream and requires completed status before releasing chunks |
 | Cancellation | During SSE and before approval resume: zero writes/no later model round. Cancellation immediately after successful commit: one durable write/no later round | Eino/context scheduling + server transaction semantics; cancellation is not rollback |
 | Pending approval and process restart | Eino file checkpoint and real preview persist; prepare child abruptly exits with `os.Exit(0)`; a new child opens the same SQLite and restores the pending tool | Eino checkpoint works; **old preview cannot be committed after full app restart** |
@@ -158,9 +164,9 @@ SDK retries are explicitly configured.
 
 ## Validation and remaining work
 
-Recorded source `0dc2203`: 12 top-level tests passed, one subprocess helper skipped
-in the parent run, 31 passing leaf cases (35 pass events including parents), and
-both child process phases exercised. The final targeted run took 4.974 seconds;
+Recorded source `99b5bb7`: 13 top-level tests passed, one subprocess helper skipped
+in the parent run, 35 passing leaf cases (40 pass events including parents), and
+both child process phases exercised. The final targeted run took 4.920 seconds;
 that is suite execution evidence, not an app latency or memory measurement.
 Compilation, `go vet`, formatting and whitespace checks passed. Raw provider
 acceptance deliberately fails for the four limitations described above. Evidence

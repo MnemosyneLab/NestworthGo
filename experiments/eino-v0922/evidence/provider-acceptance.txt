@@ -16,17 +16,26 @@
 === RUN   TestRawStreamFailureCharacterization/failed
     runtime_test.go:444: RAW adapter: mode=failed ledger mutations=1 errors=[] model requests=2
     runtime_test.go:453: behavior changed: mutations=1 want=0; review characterization
---- FAIL: TestRawStreamFailureCharacterization (0.73s)
-    --- PASS: TestRawStreamFailureCharacterization/partial-args (0.15s)
-    --- PASS: TestRawStreamFailureCharacterization/malformed-json (0.13s)
+--- FAIL: TestRawStreamFailureCharacterization (0.70s)
+    --- PASS: TestRawStreamFailureCharacterization/partial-args (0.14s)
+    --- PASS: TestRawStreamFailureCharacterization/malformed-json (0.12s)
     --- FAIL: TestRawStreamFailureCharacterization/eof-before-done (0.15s)
-    --- FAIL: TestRawStreamFailureCharacterization/eof-before-completed (0.13s)
-    --- FAIL: TestRawStreamFailureCharacterization/failed (0.16s)
+    --- FAIL: TestRawStreamFailureCharacterization/eof-before-completed (0.14s)
+    --- FAIL: TestRawStreamFailureCharacterization/failed (0.15s)
+=== RUN   TestReasoningAcceptanceModes
+=== RUN   TestReasoningAcceptanceModes/characterize-current-defect
+=== RUN   TestReasoningAcceptanceModes/characterize-detects-fix
+=== RUN   TestReasoningAcceptanceModes/strict-rejects-defect
+=== RUN   TestReasoningAcceptanceModes/strict-accepts-fix
+--- PASS: TestReasoningAcceptanceModes (0.00s)
+    --- PASS: TestReasoningAcceptanceModes/characterize-current-defect (0.00s)
+    --- PASS: TestReasoningAcceptanceModes/characterize-detects-fix (0.00s)
+    --- PASS: TestReasoningAcceptanceModes/strict-rejects-defect (0.00s)
+    --- PASS: TestReasoningAcceptanceModes/strict-accepts-fix (0.00s)
 === RUN   TestReasoningArrivingOnlyAtItemDone
-    runtime_test.go:916: acceptance failed: done-only encrypted reasoning was dropped
-    runtime_test.go:916: acceptance failed: done-only encrypted reasoning was dropped
-    runtime_test.go:922: LIMITATION: done-only encrypted_content is dropped; reasoning ID retained; fake endpoint cannot prove real provider accepts this history
---- FAIL: TestReasoningArrivingOnlyAtItemDone (0.16s)
+    runtime_test.go:946: acceptance failed: done-only encrypted reasoning was dropped
+    runtime_test.go:946: acceptance failed: done-only encrypted reasoning was dropped
+--- FAIL: TestReasoningArrivingOnlyAtItemDone (0.12s)
 FAIL
-FAIL	github.com/waltwang/nestworth-go/experiments/eino-v0922	0.901s
+FAIL	github.com/waltwang/nestworth-go/experiments/eino-v0922	0.833s
 FAIL
