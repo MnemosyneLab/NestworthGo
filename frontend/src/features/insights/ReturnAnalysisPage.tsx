@@ -50,7 +50,7 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
           <TabsTrigger value="trend">{t("insights.trend")}</TabsTrigger>
           <TabsTrigger value="contribution">{t("insights.contribution")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} resolvedRange={resolvedRange} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} onClearAdditionalFilters={clearAdditionalFilters} />
+        <AnalysisFilterBar compact={session.returnTab === "contribution"} session={session} resolvedRange={resolvedRange} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} onClearAdditionalFilters={clearAdditionalFilters} />
         <TabsContent value="calendar">
           <ReturnCalendarTab session={session} view={calendarView} onViewChange={setCalendarView} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
         </TabsContent>

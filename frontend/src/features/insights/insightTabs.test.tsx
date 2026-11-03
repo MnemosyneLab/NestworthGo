@@ -1,7 +1,7 @@
 import { NavigationContext } from "@/app/NavigationContext";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps, ReactNode } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { useAnalysisStore } from "@/stores/analysis";
@@ -168,12 +168,45 @@ describe("insight tabs", () => {
 
   it("opens a Contribution item for the active independent view", async () => {
     renderWithClient(<ConnectedContributionTab />);
-    await screen.findByText("QQQ");
+    await screen.findAllByText("QQQ");
     expect(screen.getByText("◇")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /QQQ/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /QQQ/ })[0]);
     expect(await screen.findByText("Price Change")).toBeInTheDocument();
     expect(await screen.findByText("Brokerage")).toBeInTheDocument();
     expect(contributionItem).toHaveBeenCalledWith(expect.anything(), "total_return", "instrument", "instrument-1");
+  });
+
+  it("keeps entirely unknown contribution summaries unavailable without implying flat returns", async () => {
+    contribution.mockResolvedValue({ returnType: "total_return", groupBy: "instrument", rows: [{ key: "instrument-1", label: "instrument-1", amount: null, rate: null, ratedDays: 0, totalDays: 1, available: false, status: "unavailable" }], summary: { amountStatus: "unavailable" }, ratedDays: 0, totalDays: 1, ...available, status: "partial" });
+    renderWithClient(<ConnectedContributionTab />);
+    const summary = await screen.findByLabelText("Contribution summary");
+    expect(within(summary).getAllByText("Unavailable")).toHaveLength(3);
+    expect(summary).not.toHaveTextContent("Flat");
+  });
+
+  it("uses backend summaries while ranking amounts independently of complete searchable details", async () => {
+    contribution.mockResolvedValue({ returnType: "total_return", groupBy: "instrument", rows: [
+      ...Array.from({ length: 12 }, (_, index) => ({ key: `group-${index}`, label: `Group ${index}`, amount: { amount: String(index % 2 ? -index : index), currency: "USD" }, rate: "0.01", ratedDays: 1, totalDays: 1, ...available })),
+      { key: "missing", label: "Unknown amount", amount: null, status: "unavailable", available: false, ratedDays: 0, totalDays: 1 },
+    ], summary: { total: { amount: "999.004", currency: "USD" }, positive: { amount: "1000", currency: "USD" }, negative: { amount: "-0.996", currency: "USD" }, amountStatus: "partial" }, ratedDays: 1, totalDays: 1, ...available });
+    renderWithClient(<ConnectedContributionTab />);
+    const chart = await screen.findByTestId("contribution-ranking");
+    expect(within(chart).getAllByTestId("contribution-bar")).toHaveLength(10);
+    expect(within(chart).getAllByTestId("contribution-bar")[0]).toHaveAttribute("data-amount", "-11");
+    const summary = screen.getByLabelText("Contribution summary");
+    expect(summary).toHaveTextContent("+US$999.00");
+    expect(within(summary).getAllByText("Known subtotal · incomplete data")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: "Positive" }));
+    expect(within(chart).getAllByTestId("contribution-bar")).toHaveLength(5);
+    fireEvent.change(screen.getByLabelText("Search contributions"), { target: { value: "Unknown" } });
+    const missingRow = within(screen.getByRole("list", { name: "Contribution" })).getByRole("button", { name: /Unknown amount/ });
+    expect(missingRow).toBeInTheDocument();
+    expect(missingRow).not.toHaveTextContent("Flat");
+    expect(within(chart).getAllByTestId("contribution-bar")).toHaveLength(5);
+    fireEvent.change(screen.getByLabelText("Display count"), { target: { value: "all" } });
+    fireEvent.click(screen.getByRole("button", { name: "Largest impact" }));
+    expect(within(chart).getAllByTestId("contribution-bar")).toHaveLength(12);
+    expect(summary).toHaveTextContent("+US$999.00");
   });
 
   it("shows separate cash currencies and opens only the selected cash contribution", async () => {
@@ -184,8 +217,8 @@ describe("insight tabs", () => {
     contributionItem.mockResolvedValue({ key: "cash:SGD", label: "cash:SGD", amount: { amount: "0.84", currency: "CNY" }, ratedDays: 1, totalDays: 1,
       components: [], byAccount: [], historyHint: { from: "2026-09-01", to: "2026-09-01" }, ...available });
     renderWithClient(<ConnectedContributionTab />);
-    expect(await screen.findByRole("button", { name: /Cash · USD/ })).toHaveTextContent("3.94");
-    fireEvent.click(await screen.findByRole("button", { name: /Cash · SGD/ }));
+    expect((await screen.findAllByRole("button", { name: /Cash · USD/ }))[0]).toHaveTextContent("3.94");
+    fireEvent.click((await screen.findAllByRole("button", { name: /Cash · SGD/ }))[0]);
     expect(await screen.findByRole("heading", { name: "Cash · SGD" })).toBeInTheDocument();
     await waitFor(() => expect(contributionItem).toHaveBeenCalledWith(expect.anything(), "total_return", "instrument", "cash:SGD"));
   });
@@ -193,7 +226,7 @@ describe("insight tabs", () => {
   it("opens ledger activity from a contribution item with date and scope filters", async () => {
     const onOpenHistory = vi.fn();
     renderWithClient(<ConnectedContributionTab onOpenHistory={onOpenHistory} />);
-    fireEvent.click(await screen.findByRole("button", { name: /QQQ/ }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /QQQ/ }))[0]);
     fireEvent.click(await screen.findByRole("button", { name: "View in ledger activity" }));
     expect(onOpenHistory).toHaveBeenCalledWith({
       from: "2026-09-01",
@@ -214,7 +247,7 @@ describe("insight tabs", () => {
     const onOpenHistory = vi.fn();
 
     renderWithClient(<ConnectedContributionTab onOpenHistory={onOpenHistory} />);
-    fireEvent.click(await screen.findByRole("button", { name: /QQQ/ }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /QQQ/ }))[0]);
     const historyButton = await screen.findByRole("button", { name: "View in ledger activity" });
     const historyFilterWarning = "Ledger activity keeps the date, account, and instrument filters, but not the currency or asset-class filter used for this contribution.";
     if (warns) {
@@ -244,7 +277,7 @@ describe("insight tabs", () => {
 
   it("hides Realized rate sort and currency grouping", async () => {
     renderWithClient(<ConnectedContributionTab />);
-    await screen.findByText("QQQ");
+    await screen.findAllByText("QQQ");
     fireEvent.change(screen.getByLabelText("Return type"), { target: { value: "realized" } });
     await screen.findByTestId("contribution");
     expect(screen.queryByRole("option", { name: "By currency" })).not.toBeInTheDocument();
@@ -290,12 +323,12 @@ describe("insight tabs", () => {
       return Promise.resolve({ returnType: "total_return", groupBy: "instrument", rows: [{ key: "instrument-1", label: "instrument-1", amount: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, ...available }], ratedDays: 1, totalDays: 3, ...available });
     });
     renderWithClient(<ConnectedContributionTab />);
-    await screen.findByText("QQQ");
+    await screen.findAllByText("QQQ");
     fireEvent.change(screen.getByLabelText("Return type"), { target: { value: "realized" } });
     expect(await screen.findByText("realized gain is unavailable for this filter")).toBeInTheDocument();
     expect(screen.getByLabelText("Return type")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Return type"), { target: { value: "total_return" } });
-    expect(await screen.findByText("QQQ")).toBeInTheDocument();
+    expect((await screen.findAllByText("QQQ"))[0]).toBeInTheDocument();
   });
 
   it("shows Categories completeness and forced-base on the main list", async () => {

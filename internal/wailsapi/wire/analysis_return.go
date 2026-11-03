@@ -138,16 +138,24 @@ type ContributionRowDTO struct {
 	ValuationForced *string          `json:"valuationForced"`
 }
 
+type ContributionSummaryDTO struct {
+	Total        *SignedMoneyView `json:"total,omitempty"`
+	Positive     *SignedMoneyView `json:"positive,omitempty"`
+	Negative     *SignedMoneyView `json:"negative,omitempty"`
+	AmountStatus string           `json:"amountStatus"`
+}
+
 type ContributionDTO struct {
-	ReturnType      string               `json:"returnType"`
-	GroupBy         string               `json:"groupBy"`
-	Rows            []ContributionRowDTO `json:"rows"`
-	RatedDays       int                  `json:"ratedDays"`
-	TotalDays       int                  `json:"totalDays"`
-	Available       bool                 `json:"available"`
-	Status          string               `json:"status"`
-	MissingReason   string               `json:"missingReason,omitempty"`
-	ValuationForced *string              `json:"valuationForced"`
+	Summary         ContributionSummaryDTO `json:"summary"`
+	ReturnType      string                 `json:"returnType"`
+	GroupBy         string                 `json:"groupBy"`
+	Rows            []ContributionRowDTO   `json:"rows"`
+	RatedDays       int                    `json:"ratedDays"`
+	TotalDays       int                    `json:"totalDays"`
+	Available       bool                   `json:"available"`
+	Status          string                 `json:"status"`
+	MissingReason   string                 `json:"missingReason,omitempty"`
+	ValuationForced *string                `json:"valuationForced"`
 }
 
 type ContributionItemDTO struct {

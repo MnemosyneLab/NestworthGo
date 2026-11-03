@@ -388,6 +388,21 @@ ledger-local day. Switching views preserves object, valuation, cash and
 additional filters. An empty period on the first local day remains empty and
 does not store a reversed date range. Calendar month/year mode stays local to
 the mounted Return Analysis page.
+The month grid includes leading and trailing civil dates with the same daily
+amount, rate and completeness states. A separate history/closed-day-bounded
+visible-grid query supplies those cells and their details; it does not replace
+the selected-period summary or contributors. Adjacent-date selection opens
+details without moving the browsing cursor.
+
+Contribution presents a signed, zero-centered linear amount chart, initially
+the ten largest absolute contributions. Direction and display-count controls
+only limit that chart. Searchable, sortable details retain all groups, including
+missing amounts. The backend supplies the selected view's contribution total
+and positive/negative sums using exact decimal row amounts. Known subtotals
+are explicitly partial; fully unknown or unrepresentable summaries remain
+unavailable. These summaries do not redefine the independent metrics or derive
+financial totals in the frontend.
+
 The contribution metric is part of the shared analysis state, so a retained
 page receiving a new navigation context updates both its selector and query.
 Realized contribution filters sale events by native event denomination and

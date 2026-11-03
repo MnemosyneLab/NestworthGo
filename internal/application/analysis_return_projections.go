@@ -197,6 +197,7 @@ type ContributionResult struct {
 	GroupBy    ContributionGroupBy
 	Rows       []ContributionRow
 	Coverage   domain.RateCoverage
+	Summary    ContributionSummary
 }
 
 func (s *Service) ReturnCalendar(ctx context.Context, query domain.AnalysisQuery, cursor, granularity string) (ReturnCalendarResult, error) {
@@ -240,7 +241,80 @@ func (s *Service) ReturnTrend(ctx context.Context, query domain.AnalysisQuery, d
 	return projectReturnTrend(result, forced, display)
 }
 
+// ContributionSummary folds the selected metric's known rows exactly. Partial
+// summaries are known subtotals; unknown rows are never treated as zero.
+type ContributionSummary struct {
+	Total, Positive, Negative *domain.SignedMoney
+	AmountStatus              string
+}
+
 func (s *Service) Contribution(ctx context.Context, query domain.AnalysisQuery, returnType ContributionReturnType, groupBy ContributionGroupBy, ordering ContributionSort) (ContributionResult, error) {
+	result, err := s.contribution(ctx, query, returnType, groupBy, ordering)
+	if err != nil {
+		return ContributionResult{}, err
+	}
+	return withContributionSummary(result), nil
+}
+
+func withContributionSummary(result ContributionResult) ContributionResult {
+	summary, err := summarizeContribution(result.Rows, result.AnalysisAvailability)
+	// A display-only aggregate must not discard otherwise valid contribution rows.
+	if err != nil {
+		summary = ContributionSummary{AmountStatus: ReturnAmountUnavailable}
+	}
+	result.Summary = summary
+	return result
+}
+
+func summarizeContribution(rows []ContributionRow, availability AnalysisAvailability) (ContributionSummary, error) {
+	summary := ContributionSummary{AmountStatus: ReturnAmountUnavailable}
+	if !availability.Available {
+		return summary, nil
+	}
+	total, positive, negative := decimal.Zero, decimal.Zero, decimal.Zero
+	currency := domain.CurrencyCode("")
+	partial := availability.Status != domain.CompletenessOK
+	for _, row := range rows {
+		if row.Amount == nil {
+			partial = true
+			continue
+		}
+		if currency == "" {
+			currency = row.Amount.Currency()
+		} else if currency != row.Amount.Currency() {
+			return ContributionSummary{}, &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "contribution summary amounts must use one valuation currency"}
+		}
+		amount := row.Amount.Amount()
+		total = total.Add(amount)
+		if amount.IsPositive() {
+			positive = positive.Add(amount)
+		} else if amount.IsNegative() {
+			negative = negative.Add(amount)
+		}
+		if row.Status != domain.CompletenessOK {
+			partial = true
+		}
+	}
+	if currency == "" {
+		return summary, nil
+	}
+	values := []decimal.Decimal{total, positive, negative}
+	targets := []**domain.SignedMoney{&summary.Total, &summary.Positive, &summary.Negative}
+	for i, value := range values {
+		money, moneyErr := domain.NewSignedMoney(value, currency)
+		if moneyErr != nil {
+			return ContributionSummary{}, moneyErr
+		}
+		*targets[i] = &money
+	}
+	summary.AmountStatus = ReturnAmountComplete
+	if partial {
+		summary.AmountStatus = ReturnAmountPartial
+	}
+	return summary, nil
+}
+
+func (s *Service) contribution(ctx context.Context, query domain.AnalysisQuery, returnType ContributionReturnType, groupBy ContributionGroupBy, ordering ContributionSort) (ContributionResult, error) {
 	if err := validateContribution(returnType, groupBy, ordering); err != nil {
 		return ContributionResult{}, err
 	}

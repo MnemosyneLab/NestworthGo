@@ -164,6 +164,7 @@ func fromReturnTrend(value application.ReturnTrendResult) wire.ReturnTrendDTO {
 
 func fromContribution(value application.ContributionResult) wire.ContributionDTO {
 	result := wire.ContributionDTO{
+		Summary:    wire.ContributionSummaryDTO{Total: wire.FromSignedMoneyPtr(value.Summary.Total), Positive: wire.FromSignedMoneyPtr(value.Summary.Positive), Negative: wire.FromSignedMoneyPtr(value.Summary.Negative), AmountStatus: value.Summary.AmountStatus},
 		ReturnType: string(value.ReturnType),
 		GroupBy:    string(value.GroupBy),
 		Rows:       make([]wire.ContributionRowDTO, 0, len(value.Rows)),
