@@ -1,4 +1,9 @@
-import { backendBase, ConnectionError } from "./connection";
+import {
+  backendBase,
+  ConnectionError,
+  usesBearerTransport,
+  httpPageTarget,
+} from "./connection";
 export type Permissions = {
   read: boolean;
   record: boolean;
@@ -191,9 +196,11 @@ export async function api<T>(
     options.timeout ?? (method === "GET" ? 15000 : 35000),
   );
   try {
+    if (httpPageTarget(backendBase()))
+      throw new ConnectionError("insecure_backend");
     const response = await fetch(`${backendBase()}/mobile-api/v1${path}`, {
       method,
-      credentials: backendBase() ? "omit" : "same-origin",
+      credentials: usesBearerTransport() ? "omit" : "same-origin",
       cache: "no-store",
       redirect: "error",
       referrerPolicy: "no-referrer",

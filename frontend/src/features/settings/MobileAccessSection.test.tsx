@@ -166,3 +166,39 @@ it("saves an explicit trusted frontend while retaining the private listener", as
     }),
   );
 });
+
+it("requires selecting HTTP LAN mode and applying an explicit private endpoint", async () => {
+  const user = userEvent.setup();
+  mobile.Configure.mockResolvedValue(status);
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MobileAccessSection />
+    </QueryClientProvider>,
+  );
+  await screen.findByText("Running");
+  await user.selectOptions(
+    screen.getByLabelText("Connection mode"),
+    "http_lan",
+  );
+  expect(screen.getByRole("note")).toHaveTextContent("unencrypted");
+  const origin = screen.getByLabelText(
+    "External origin (scheme, IP/host and port)",
+  );
+  await user.clear(origin);
+  await user.type(origin, "http://192.168.1.20:9443");
+  const listen = screen.getByLabelText("Private listen address");
+  await user.clear(listen);
+  await user.type(listen, "192.168.1.20:9443");
+  expect(mobile.Configure).not.toHaveBeenCalled();
+  await user.click(
+    screen.getByRole("button", { name: "Apply connection settings" }),
+  );
+  expect(mobile.Configure).toHaveBeenCalledWith(
+    expect.objectContaining({
+      mode: "http_lan",
+      origin: "http://192.168.1.20:9443",
+      listen: "192.168.1.20:9443",
+      frontendOrigin: "",
+    }),
+  );
+});

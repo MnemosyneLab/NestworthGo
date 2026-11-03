@@ -624,7 +624,7 @@ async function prepareServerSwitch(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "Settings" }));
   await user.click(screen.getByRole("button", { name: "Connection settings" }));
   await user.type(
-    screen.getByLabelText("Backend HTTPS address"),
+    screen.getByLabelText("Backend address or LAN IP:port"),
     "https://other.synthetic.example",
   );
 }
@@ -662,7 +662,7 @@ it.each(["record", "quote", "market"])(
     expect(
       screen.getByRole("button", { name: "Use this server" }),
     ).toBeDisabled();
-    expect(screen.getByLabelText("Backend HTTPS address")).toBeDisabled();
+    expect(screen.getByLabelText("Backend address or LAN IP:port")).toBeDisabled();
     if (kind === "record")
       expect(screen.getByRole("textbox", { name: "Amount" })).toHaveValue(
         "1.2345",
@@ -770,7 +770,7 @@ it("keeps server switching locked during re-pairing while an original receipt re
   await fillRecord(user);
   await user.click(screen.getByRole("button", { name: "Confirm" }));
   await screen.findByRole("button", { name: "Sign in" });
-  expect(screen.getByLabelText("Backend HTTPS address")).toBeDisabled();
+  expect(screen.getByLabelText("Backend address or LAN IP:port")).toBeDisabled();
   expect(
     screen.getByRole("button", { name: "Use this server" }),
   ).toBeDisabled();

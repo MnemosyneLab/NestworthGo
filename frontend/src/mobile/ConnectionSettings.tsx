@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   backendBase,
+  httpPageTarget,
+  usesBearerTransport,
   ConnectionError,
   normalizeBackend,
   takeConnectionHint,
@@ -35,6 +37,12 @@ export function ConnectionSettings({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const [tested, setTested] = useState(false);
+  let pageTarget: string | null = null;
+  try {
+    pageTarget = httpPageTarget(address);
+  } catch {
+    /* Show errors on action. */
+  }
   const active = useRef<AbortController | null>(null);
   useEffect(() => () => active.current?.abort(), []);
   const cancel = () => {
@@ -75,7 +83,8 @@ export function ConnectionSettings({
         !response.ok ||
         result.service !== "nestworth-mobile" ||
         result.version !== 1 ||
-        result.authentication !== (base ? "bearer" : "cookie")
+        result.authentication !==
+          (usesBearerTransport(base) ? "bearer" : "cookie")
       )
         throw new ConnectionError("invalid_response");
       if (active.current === controller) setTested(true);
@@ -114,7 +123,7 @@ export function ConnectionSettings({
           aria-describedby="backend-help"
           aria-invalid={!!error}
           disabled={disabled || busy}
-          placeholder="https://nestworth.private.example"
+          placeholder="192.168.1.20:9443"
           onChange={(e) => {
             setAddress(e.target.value);
             setError(null);
@@ -128,6 +137,7 @@ export function ConnectionSettings({
       <p className="mobile-connection-origin">
         {t("mobile.frontendOrigin", { origin: window.location.origin })}
       </p>
+      {pageTarget && <p className="mobile-hint">{t("mobile.httpOpenHelp")}</p>}
       <ConnectionFailure error={error} />
       {tested && (
         <p role="status" className="mobile-notice" data-tone="success">
@@ -145,7 +155,7 @@ export function ConnectionSettings({
         <Button
           type="button"
           variant="outline"
-          disabled={disabled || busy}
+          disabled={disabled || busy || !!pageTarget}
           onClick={() => void test()}
         >
           {t("mobile.testConnection")}
@@ -155,23 +165,35 @@ export function ConnectionSettings({
             {t("common.cancel")}
           </Button>
         )}
-        <Button
-          type="button"
-          disabled={disabled || busy}
-          onClick={() => {
-            if (disabled || busy) return;
-            try {
-              const next = normalizeBackend(address);
-              if (next !== backendBase() && !onChange(next)) return;
-              setAddress(next);
-              setError(null);
-            } catch (e) {
-              setError(e);
-            }
-          }}
-        >
-          {t("mobile.useConnection")}
-        </Button>
+        {pageTarget ? (
+          <Button
+            type="button"
+            disabled={disabled || busy}
+            onClick={() => {
+              if (!disabled && !busy) window.location.assign(pageTarget);
+            }}
+          >
+            {t("mobile.openHttpPage")}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            disabled={disabled || busy}
+            onClick={() => {
+              if (disabled || busy) return;
+              try {
+                const next = normalizeBackend(address);
+                if (next !== backendBase() && !onChange(next)) return;
+                setAddress(next);
+                setError(null);
+              } catch (e) {
+                setError(e);
+              }
+            }}
+          >
+            {t("mobile.useConnection")}
+          </Button>
+        )}
       </div>
     </section>
   );

@@ -1,10 +1,12 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { ConnectionSettings } from "./ConnectionSettings";
 import {
   backendBase,
+  httpPageTarget,
+  usesBearerTransport,
   ConnectionError,
   normalizeBackend,
   saveBackend,
@@ -41,7 +43,13 @@ it.each([
   "https://*.example.com",
   "https://example.com\\path",
   "javascript:alert(1)",
-  "http://192.168.1.2:9443",
+  "http://8.8.8.8:9443",
+  "http://192.168.1.2:0",
+  "http://192.168.1.2:65536",
+  "http://192.168.1.2",
+  "http://192.168.001.2:9443",
+  "http://private.example:9443",
+  "http://[fe80::1%25en0]:9443",
 ])("rejects unsafe backend input %s", (value) => {
   expect(() => normalizeBackend(value)).toThrow(ConnectionError);
 });
@@ -83,7 +91,7 @@ it("tests without auth, preserves the active endpoint until save, and ignores a 
   const changed = vi.fn(() => true);
   render(<ConnectionSettings onChange={changed} />);
   await user.type(
-    screen.getByLabelText("Backend HTTPS address"),
+    screen.getByLabelText("Backend address or LAN IP:port"),
     "https://new.example/",
   );
   await user.dblClick(screen.getByRole("button", { name: "Test connection" }));
@@ -179,7 +187,7 @@ it("reports an unsupported response as a protocol error and never saves it impli
   const user = userEvent.setup();
   render(<ConnectionSettings onChange={vi.fn(() => true)} />);
   await user.type(
-    screen.getByLabelText("Backend HTTPS address"),
+    screen.getByLabelText("Backend address or LAN IP:port"),
     "https://unrelated.example",
   );
   await user.click(screen.getByRole("button", { name: "Test connection" }));
@@ -203,7 +211,7 @@ it("leaves the active server and in-flight receipt lookup intact when the owner 
   const user = userEvent.setup();
   render(<ConnectionSettings onChange={changed} />);
   await user.type(
-    screen.getByLabelText("Backend HTTPS address"),
+    screen.getByLabelText("Backend address or LAN IP:port"),
     "https://other.synthetic.example",
   );
   await user.click(screen.getByRole("button", { name: "Use this server" }));
@@ -211,4 +219,80 @@ it("leaves the active server and in-flight receipt lookup intact when the owner 
   expect(backendBase()).toBe("");
   resolve(new Response(JSON.stringify({ operationState: "committed" })));
   await expect(pending).resolves.toEqual({ operationState: "committed" });
+});
+
+it.each(["192.168.1.20:9443", "http://192.168.1.20:9443", "[fd12::1]:9443"])(
+  "opens HTTP LAN endpoints as pages without probing or sending auth: %s",
+  async (address) => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const changed = vi.fn(() => true);
+    const user = userEvent.setup();
+    render(<ConnectionSettings onChange={changed} />);
+    await user.type(
+      screen.getByLabelText("Backend address or LAN IP:port"),
+      address.replace(/\[/g, "[["),
+    );
+    expect(
+      screen.getByRole("button", { name: "Test connection" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Open LAN phone page" }),
+    ).toBeEnabled();
+    expect(httpPageTarget(address)).toBe(
+      `http://${address.replace("http://", "")}/mobile.html`,
+    );
+    expect(fetch).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+    expect(backendBase()).toBe("");
+  },
+);
+it("selects memory-only bearer transport for HTTP pages", () => {
+  expect(usesBearerTransport("")).toBe(window.location.protocol === "http:");
+  expect(usesBearerTransport("https://separate.example")).toBe(true);
+});
+
+it("times out the anonymous connection probe with actionable feedback", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      (_url, options: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          options.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    ),
+  );
+  render(<ConnectionSettings onChange={vi.fn(() => true)} />);
+  fireEvent.change(screen.getByLabelText("Backend address or LAN IP:port"), {
+    target: { value: "https://synthetic.example" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(10001);
+  });
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    i18n.t("mobile.transport.timeout"),
+  );
+  expect(backendBase()).toBe("");
+});
+
+it("blocks leaving for an HTTP page while the owner guards a draft or recovery", () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/mobile.html#backend=http%3A%2F%2F192.168.1.20%3A9443",
+  );
+  const view = render(
+    <ConnectionSettings disabled onChange={vi.fn(() => true)} />,
+  );
+  expect(
+    screen.getByRole("button", { name: "Open LAN phone page" }),
+  ).toBeDisabled();
+  view.rerender(<ConnectionSettings onChange={vi.fn(() => true)} />);
+  expect(
+    screen.getByRole("button", { name: "Open LAN phone page" }),
+  ).toBeEnabled();
 });
