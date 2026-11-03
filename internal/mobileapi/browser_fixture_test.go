@@ -1,6 +1,8 @@
 package mobileapi
 
 import (
+	"net"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// Opt-in real-HTTPS browser fixture. All credentials and financial data are
+// Opt-in real-HTTP browser fixture. All credentials and financial data are
 // synthetic and ephemeral; no production listener or settings are enabled.
 func TestMobileBrowserFixture(t *testing.T) {
 	directory := os.Getenv("NESTWORTH_MOBILE_BROWSER_FIXTURE")
@@ -19,6 +21,22 @@ func TestMobileBrowserFixture(t *testing.T) {
 		t.Skip("opt-in isolated browser fixture")
 	}
 	f := fixture(t, Permissions{Read: true, Record: true, Market: true, Manual: true})
+	// Optional private cloud interface for genuine insecure-context HTTP QA.
+	// This changes only this isolated synthetic fixture's listening socket.
+	if address := os.Getenv("NESTWORTH_MOBILE_BROWSER_BIND"); address != "" {
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			t.Fatal(err)
+		}
+		server := httptest.NewUnstartedServer(f.s)
+		_ = server.Listener.Close()
+		server.Listener = listener
+		server.Start()
+		t.Cleanup(server.Close)
+		f.http = server
+		f.s.config.Listen = listener.Addr().String()
+		f.s.listener = listener
+	}
 	f.s.assets = os.DirFS("../../frontend/dist")
 	b, err := f.s.app.Bootstrap(t.Context())
 	if err != nil {
@@ -41,14 +59,10 @@ func TestMobileBrowserFixture(t *testing.T) {
 	if _, err := f.s.app.CreateAccount(t.Context(), application.AccountInput{Name: "Synthetic USD savings", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}}); err != nil {
 		t.Fatal(err)
 	}
-	pair, err := f.s.Pair("Synthetic browser QA", Permissions{Read: true, Record: true, Market: true, Manual: true})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := jsoncodec.Marshal(pair)
+	raw, err := jsoncodec.Marshal(map[string]string{"url": f.http.URL, "token": f.s.config.Token})
 	if err != nil {
 		t.Fatal(err)
 	}

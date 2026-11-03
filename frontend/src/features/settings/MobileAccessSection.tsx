@@ -1,19 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
 import { callService } from "@/lib/wails";
 import { displayError } from "@/lib/display";
-import { formatTimestamp } from "@/lib/time";
 import * as MobileService from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/mobile/service";
-import type {
-  Config,
-  Permissions,
-} from "../../../bindings/github.com/waltwang/nestworth-go/internal/mobileapi/models";
+import type { Config } from "../../../bindings/github.com/waltwang/nestworth-go/internal/mobileapi/models";
 
 export function MobileAccessSection({ active = true }: { active?: boolean }) {
   const { t } = useTranslation();
@@ -24,36 +19,18 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
     enabled: active,
   });
   const [draft, setDraft] = useState<Config | null>(null);
-  const [name, setName] = useState("");
-  const [permissions, setPermissions] = useState<Permissions>({
-    read: true,
-    record: true,
-    market_refresh: true,
-    manual_quote: false,
-  });
-  const [token, setToken] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  const visible = useRef(active);
-  useEffect(() => {
-    visible.current = active;
-    return () => {
-      visible.current = false;
-    };
-  }, [active]);
-  const [expiresAt, setExpiresAt] = useState("");
-  if (!active && token !== null) setToken(null);
   const config = draft ?? status.data?.config;
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<void>) {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
-    setToken(null);
     setError(null);
     try {
       await action();
-      await client.invalidateQueries({ queryKey: ["mobile-access"] });
     } catch (e) {
       setError(displayError(e, t("settings.saveError")));
     } finally {
@@ -74,7 +51,6 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
         {t("mobile.access")}
       </h2>
       <p className="text-sm text-muted-foreground">{t("mobile.setupHelp")}</p>
-      <p className="text-sm">{t("mobile.connectionHelp")}</p>
       {(error || status.error) && (
         <p role="alert">{error || t("mobile.requestFailed")}</p>
       )}
@@ -86,6 +62,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
             void run(async () => {
               await callService(() => MobileService.Configure(config));
               setDraft(null);
+              setShowToken(false);
             });
           }}
         >
@@ -98,68 +75,60 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
               />
               {t("mobile.enabled")}
             </Label>
-            <Label htmlFor="mobile-origin">{t("mobile.origin")}</Label>
-            <Input
-              id="mobile-origin"
-              value={config.origin}
-              placeholder="https://nestworth.private.example"
-              onChange={(e) => set("origin", e.target.value)}
-            />
-            <Label htmlFor="mobile-frontend-origin">
-              {t("mobile.trustedFrontend")}
-            </Label>
-            <Input
-              id="mobile-frontend-origin"
-              value={config.frontendOrigin ?? ""}
-              aria-describedby="mobile-frontend-help"
-              placeholder="https://your-frontend.example"
-              onChange={(e) => set("frontendOrigin", e.target.value.trim())}
-            />
-            <p
-              id="mobile-frontend-help"
-              className="text-sm text-muted-foreground"
-            >
-              {t("mobile.trustedFrontendHelp")}
-            </p>
-            <Label htmlFor="mobile-listen">{t("mobile.listen")}</Label>
-            <Input
-              id="mobile-listen"
-              value={config.listen}
-              placeholder="127.0.0.1:9443"
-              onChange={(e) => set("listen", e.target.value)}
-            />
-            <Label htmlFor="mobile-mode">{t("mobile.mode")}</Label>
-            <NativeSelect
-              id="mobile-mode"
-              value={config.mode}
-              onChange={(e) => set("mode", e.target.value)}
-            >
-              <option value="">{t("history.selectEmpty")}</option>
-              <option value="tls">{t("mobile.tls")}</option>
-              <option value="http_lan">{t("mobile.httpLan")}</option>
-              <option value="loopback_proxy">{t("mobile.proxy")}</option>
-            </NativeSelect>
-            {config.mode === "http_lan" && (
-              <p role="note" className="text-sm text-muted-foreground">
-                {t("mobile.httpLanHelp")}
+            <div className="space-y-2">
+              <Label htmlFor="mobile-listen">{t("mobile.listen")}</Label>
+              <Input
+                id="mobile-listen"
+                value={config.listen}
+                required={config.enabled}
+                aria-describedby="mobile-listen-help"
+                placeholder="192.168.1.20:9443"
+                onChange={(e) => set("listen", e.target.value.trim())}
+              />
+              <p id="mobile-listen-help" className="text-sm text-muted-foreground">
+                {t("mobile.listenHelp")}
               </p>
-            )}
-            {config.mode === "tls" && (
-              <>
-                <Label htmlFor="mobile-cert">{t("mobile.certificate")}</Label>
-                <Input
-                  id="mobile-cert"
-                  value={config.certificate}
-                  onChange={(e) => set("certificate", e.target.value)}
-                />
-                <Label htmlFor="mobile-key">{t("mobile.keyFile")}</Label>
-                <Input
-                  id="mobile-key"
-                  value={config.key}
-                  onChange={(e) => set("key", e.target.value)}
-                />
-              </>
-            )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mobile-access-token">{t("mobile.token")}</Label>
+              <Input
+                id="mobile-access-token"
+                type={showToken && active ? "text" : "password"}
+                value={config.token}
+                required={config.enabled}
+                minLength={config.enabled ? 8 : undefined}
+                maxLength={64}
+                pattern={config.enabled ? "[A-Za-z0-9]{8,64}" : undefined}
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-describedby="mobile-token-help"
+                onChange={(e) => set("token", e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowToken(!showToken)}
+                >
+                  {t(showToken && active ? "mobile.hideToken" : "mobile.showToken")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void run(async () => {
+                    set("token", await callService(() => MobileService.GenerateToken()));
+                    setShowToken(true);
+                  })}
+                >
+                  {t("mobile.generateToken")}
+                </Button>
+              </div>
+              <p id="mobile-token-help" className="text-sm text-muted-foreground">
+                {t("mobile.tokenHelp")}
+              </p>
+            </div>
             <Button>{t("mobile.saveAccess")}</Button>
           </fieldset>
         </form>
@@ -175,131 +144,26 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
         {status.data?.running ? t("mobile.running") : t("mobile.stopped")}
       </p>
       {status.data?.running && (
-        <>
+        <div className="space-y-2">
           <a
             className="break-all underline"
-            href={status.data.config.origin}
+            href={status.data.url}
             target="_blank"
             rel="noreferrer"
           >
-            {status.data.config.origin}
+            {status.data.url}
           </a>
-          <div className="space-y-2">
-            <QRCodeSVG
-              value={
-                status.data.config.frontendOrigin
-                  ? `${status.data.config.frontendOrigin}/#backend=${encodeURIComponent(status.data.config.origin)}`
-                  : status.data.config.origin
-              }
-              size={192}
-              marginSize={4}
-              role="img"
-              title={t("mobile.connectionQR")}
-            />
-            <p className="text-sm">{t("mobile.connectionQRHelp")}</p>
-          </div>
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void run(async () => {
-                const p = await callService(() =>
-                  MobileService.Pair(name, permissions),
-                );
-                if (visible.current) {
-                  setToken(p.token);
-                  setExpiresAt(String(p.expiresAt));
-                }
-              });
-            }}
-          >
-            <Label htmlFor="mobile-device">{t("mobile.deviceName")}</Label>
-            <Input
-              id="mobile-device"
-              value={name}
-              maxLength={100}
-              required
-              onChange={(e) => setName(e.target.value)}
-            />
-            {(
-              ["read", "record", "market_refresh", "manual_quote"] as const
-            ).map((p) => (
-              <Label key={p} className="flex gap-2">
-                <input
-                  type="checkbox"
-                  disabled={p === "read" || busy}
-                  checked={permissions[p]}
-                  onChange={(e) =>
-                    setPermissions({ ...permissions, [p]: e.target.checked })
-                  }
-                />
-                {t(`mobile.${p}`)}
-              </Label>
-            ))}
-            <Button disabled={busy}>{t("mobile.pair")}</Button>
-          </form>
-          <p className="text-sm">{t("mobile.pairHelp")}</p>
-          {token && (
-            <div className="space-y-2">
-              <p>
-                {t("mobile.expiresAt")} {formatTimestamp(expiresAt)}
-              </p>
-              <Input
-                aria-label={t("mobile.token")}
-                readOnly
-                autoComplete="off"
-                value={token}
-                onFocus={(e) => e.target.select()}
-              />
-            </div>
-          )}
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() =>
-              void run(() => callService(() => MobileService.Revoke("")))
-            }
-          >
-            {t("mobile.revokeAll")}
-          </Button>
-          {(status.data.devices ?? []).map((d) => (
-            <div
-              key={d.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3"
-            >
-              <div className="space-y-1">
-                <p>{d.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(
-                    [
-                      "read",
-                      "record",
-                      "market_refresh",
-                      "manual_quote",
-                    ] as const
-                  )
-                    .filter((p) => d.permissions?.[p])
-                    .map((p) => t(`mobile.${p}`))
-                    .join(" · ")}
-                </p>
-                <p className="text-xs">
-                  {t("mobile.lastUsed")} {formatTimestamp(d.lastUsed)} ·{" "}
-                  {t("mobile.expiresAt")} {formatTimestamp(d.expiresAt)}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  void run(() => callService(() => MobileService.Revoke(d.id)))
-                }
-              >
-                {t("mobile.revoke")}
-              </Button>
-            </div>
-          ))}
-        </>
+          <QRCodeSVG
+            value={status.data.url}
+            size={192}
+            marginSize={4}
+            role="img"
+            title={t("mobile.connectionQR")}
+          />
+          <p className="text-sm">{t("mobile.connectionQRHelp")}</p>
+        </div>
       )}
+      <p className="text-sm text-muted-foreground">{t("mobile.connectionHelp")}</p>
     </section>
   );
 }

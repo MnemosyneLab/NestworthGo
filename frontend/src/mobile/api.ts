@@ -1,9 +1,4 @@
-import {
-  backendBase,
-  ConnectionError,
-  usesBearerTransport,
-  httpPageTarget,
-} from "./connection";
+import { ConnectionError } from "./connection";
 export type Permissions = {
   read: boolean;
   record: boolean;
@@ -196,11 +191,9 @@ export async function api<T>(
     options.timeout ?? (method === "GET" ? 15000 : 35000),
   );
   try {
-    if (httpPageTarget(backendBase()))
-      throw new ConnectionError("insecure_backend");
-    const response = await fetch(`${backendBase()}/mobile-api/v1${path}`, {
+    const response = await fetch(`/mobile-api/v1${path}`, {
       method,
-      credentials: usesBearerTransport() ? "omit" : "same-origin",
+      credentials: "omit",
       cache: "no-store",
       redirect: "error",
       referrerPolicy: "no-referrer",
@@ -251,12 +244,11 @@ export async function api<T>(
   }
 }
 const pendingKey = "nestworth.mobile.pending.v1";
-const recoveryKey = () =>
-  backendBase() ? `${pendingKey}:${backendBase()}` : pendingKey;
+
 export type Pending = { operationId: string; householdId: string };
 export function pendingOperation(): Pending | null {
   try {
-    const p = JSON.parse(sessionStorage.getItem(recoveryKey()) ?? "null");
+    const p = JSON.parse(sessionStorage.getItem(pendingKey) ?? "null");
     return p &&
       typeof p.operationId === "string" &&
       typeof p.householdId === "string"
@@ -268,8 +260,8 @@ export function pendingOperation(): Pending | null {
 }
 export function savePending(p: Pending | null) {
   try {
-    if (p) sessionStorage.setItem(recoveryKey(), JSON.stringify(p));
-    else sessionStorage.removeItem(recoveryKey());
+    if (p) sessionStorage.setItem(pendingKey, JSON.stringify(p));
+    else sessionStorage.removeItem(pendingKey);
     return true;
   } catch {
     return false;

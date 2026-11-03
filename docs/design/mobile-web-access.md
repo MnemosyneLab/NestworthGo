@@ -5,173 +5,106 @@ process. It uses the same application service, write coordinator, providers and
 SQLite owner as Wails and MCP. The feature is off by default. No database is
 opened by the HTTP adapter, browser, proxy or second process.
 
-## Connection and lifecycle
+## Setup and lifecycle
 
-Desktop **Settings → Mobile access** configures the listener and authorizes
-individual browsers. Connection settings are nonsecret and stored in
-`mobile-access.json` beside the presentation settings file. Tokens, session
-secrets and CSRF values are memory-only. The computer hosting Nestworth must
-remain awake, with Nestworth running; closing its last window retains the
-existing application exit behavior on every supported desktop platform.
+Desktop **Settings → Mobile access** has one enable switch and two inputs:
 
-Supported boundaries:
+1. **LAN listen address**, e.g. `192.168.1.20:9443`. Use the computer's actual
+   private IP and a free port. IPv6 ULA uses brackets, e.g. `[fd12::1]:9443`.
+2. **Mobile token**. Set 8–64 ASCII letters/digits, or choose **Generate token**
+   for a ten-character random token. Apply saves the draft and signs out phones.
 
-| Mode | Listener | External address and prerequisites |
-| --- | --- | --- |
-| `http_lan` | One explicit private/loopback numeric IP and port | Unencrypted HTTP, explicitly selected on desktop. Origin and listen address must match. Same-origin built-in phone page only; no separate frontend/CORS. |
-| `tls` | An explicit private or loopback IP and port | HTTPS origin; absolute PEM certificate/key paths. The leaf must be current and match the origin hostname. The phone must trust its chain. |
-| `loopback_proxy` | Explicit loopback IP and port | A trusted same-machine HTTPS proxy, reachable only through the owner's private network. It preserves the configured Host and browser Origin and supplies `X-Forwarded-Proto: https`. |
+On a phone on the same LAN, open `http://192.168.1.20:9443` (or scan the
+address-only QR), enter the token, and use the mobile page. There is no phone
+backend-address input or second pairing step. The app must stay running and
+the computer awake; closing the last window exits Nestworth.
 
-For TLS/proxy modes, the external origin is an exact `https://host[:port]`, without a path, query,
-fragment or credentials. Wildcard, unspecified and public listener addresses
-are rejected. Public IP origins are rejected. A DNS name and a loopback proxy
-do not themselves prove private reachability: network access restrictions and
-trusted HTTPS termination remain external prerequisites. The app does not
-configure a VPN, firewall, public ingress, certificate authority or daemon.
+Access stays off by default. Listeners require a concrete private/loopback
+numeric IP and port 1–65535; public, wildcard, unspecified, DNS and scoped IPv6
+addresses are rejected. Loopback is useful for local testing but is unreachable
+from another device. No network, firewall, router or device security settings
+are changed. HTTP sends the token, session credential and financial data in
+plaintext. It is intended only for a trusted LAN, with no confidentiality claim.
 
-Changing connection settings closes the old listener and revokes its sessions,
-grants, plans and cursors. Restore also cancels and joins mobile provider work
-before replacing data. Shutdown closes access, quiesces application writes,
-cancels provider workers, and then follows the existing database shutdown path.
+Apply closes the old listener and revokes sessions, previews and cursors,
+including when the token or address changes or access is disabled. Restart
+retains the shared token but drops sessions; phones sign in again with the same
+token. Restore closes access and cancels/joins mobile provider work before data
+replacement. Shutdown uses the existing application/database shutdown path.
 
-## Direct HTTP on a trusted LAN
+## Token and browser session
 
-HTTP is an explicit desktop opt-in, off by default. It sends pairing tokens,
-session bearer credentials and financial data unencrypted; use only a trusted
-private network. The implementation does not change firewall, router, VPN or
-OS/browser security settings and does not publish a backend on the internet.
+The ten-character generator uses `crypto/rand` and base32 (50 random bits).
+Custom eight-character tokens are accepted for convenience; their strength
+is chosen by the user, and a short predictable value has no guaranteed entropy.
+The existing login limit is five attempts per source IP per minute. No additional
+configuration is required. This limit reduces online guessing, but cannot
+protect a token observed on the unencrypted network.
 
-1. In desktop **Settings → Mobile access**, select **HTTP on trusted LAN**.
-   Set the external origin to `http://192.168.1.20:9443` and listen address to
-   `192.168.1.20:9443` (substitute the computer's actual LAN IP and free port).
-   Leave trusted frontend origin empty, enable access, and apply. Only a
-   concrete private/loopback IP is accepted; wildcard/public addresses and DNS
-   names are refused. IPv6 ULA addresses use brackets, e.g. `[fd12::1]:9443`.
-2. Keep desktop Nestworth running and both devices on a reachable private
-   network. On the phone, open `http://192.168.1.20:9443/mobile.html`, or enter
-   `192.168.1.20:9443` in connection settings and choose **Open LAN phone page**.
-   A full `http://` address also works. This explicitly navigates to the built-in
-   page; it does not fetch HTTP from the existing HTTPS page or change that
-   page's saved HTTPS endpoint. Unsaved draft/recovery guards disable this action.
-3. Generate a one-use token on desktop and pair on the HTTP phone page. The
-   same pairing expiry, CSRF, permission, rate-limit and revocation rules apply.
-   HTTP uses the existing memory-only bearer session, never an insecure cookie.
-   Page reload requires pairing again; in-page Reconnect retains the session.
-   Operation UUIDs use cryptographic `getRandomValues`, available on HTTP pages.
-4. Leave the address blank on the built-in page and test the current server.
-   If unreachable, check the desktop running status, exact IP/port, Wi-Fi route,
-   access point client isolation and local-network browser permission. Timeout
-   or a failed fetch cannot prove a write failed. Do not disable browser/OS
-   protections to connect. HTTPS frontends must open this HTTP page; they cannot
-   bypass mixed-content, CSP or private-network restrictions with CORS headers.
+`mobile-access.json` beside presentation settings is now version 2 and contains
+`version`, `enabled`, `listen` and `token`. The token is persisted in plaintext
+so desktop settings can show/edit it, using an atomic replacement with mode
+0600. It is separate from MCP credentials and is not part of Nestworth backup
+archives (database plus presentation settings). OS-level copies of the app's
+settings directory may include it. Sessions and CSRF credentials remain memory
+only. No token is put in URLs, QR codes, logs or mobile persistent storage.
 
-HTTP does not accept a separate frontend origin or cross-origin API requests.
-HTTPS modes retain their Secure HttpOnly cookie and exact-origin bearer/CORS
-contracts. No existing installation is reconfigured or LAN listener enabled by
-this code change. Actual LAN activation requires the owner's explicit desktop
-configuration and trusted-network decision.
+A successful token login returns a fresh 32-byte random bearer credential and
+CSRF value. The shared token remains reusable; it is not an API bearer token.
+Sessions expire after seven days or 24 hours idle, with at most five active
+sessions. A new login replaces the least recently used inactive session when
+that limit is reached, so page reloads do not permanently exhaust the slots.
+All logins receive the closed mobile API's read, daily-record,
+market-refresh and supported manual-observation capabilities. Per-device names,
+permission choices and desktop device-management UI were removed. Phone sign-out
+revokes that session; applying settings signs out all phones.
 
-## Browser authorization
+The phone always calls relative same-origin routes with `credentials: omit`;
+there are no cookies or selectable transport modes. Page reload requires the
+shared token again. In-page **Reconnect** checks the existing session while
+preserving drafts and immutable financial confirmations. Supplied Host and
+Origin must match the address derived from the listener (port 80 is normalized
+for browser headers). Mutations require Origin, `X-Nestworth-Mobile: 1`, JSON
+content type and the session's CSRF value. Cross-origin requests and preflights
+are refused. There is no CORS, trusted-forwarded-header or anonymous connection
+probe implementation.
 
-Each desktop pairing action generates a 32-byte random token, displayed once.
-It expires after ten minutes and is consumed atomically on successful exchange.
-It is separate from MCP credentials and must be pasted into the server login
-form, never a URL. Sessions have a seven-day absolute and 24-hour idle lifetime;
-app restart requires pairing again. Up to five sessions are active at once.
-The desktop QR contains only an address: the backend origin for the built-in
-page, or the trusted frontend origin with a `#backend=` address hint. It never
-contains a pairing token, session credential or durable credential. The browser
-removes the hint when displaying connection settings and requires an explicit
-save before it changes an existing endpoint.
+API responses use no-store. Static assets retain the same-origin CSP, no frames,
+objects, remote scripts or financial service worker. Hash-named JS/CSS are cached
+and gzip is supported. Existing bounds remain: 32KiB request bodies,
+500-character notes, 100-item maximum pages, four concurrent requests per session
+and bounded login/read/write rates. Durable audit links use operation/session
+identifiers rather than tokens or full request bodies.
 
-For HTTPS same-origin access, the session cookie is `__Host-nw_mobile`, with Secure, HttpOnly, SameSite=Strict,
-Path=/ and no Domain. Only digests of authentication secrets are retained by the
-server. Permissions are `read`, `record`, `market_refresh`, and `manual_quote`;
-read is mandatory, and manual observations require an explicit desktop choice.
-Desktop device management includes individual/all revocation and last-use,
-expiry and permission information.
+Only language and appearance preferences enter localStorage. Financial drafts
+and query data remain in memory. Active drafts guard page exit and sign-out;
+unknown confirmations retain their original recovery identity. The browser uses
+`crypto.getRandomValues` for operation UUIDs, which works without a secure context;
+it does not depend on `crypto.randomUUID`, clipboard APIs or service workers.
+A request timeout/cancel cannot prove a submitted confirmation failed.
 
-The configured Host must match exactly. Without `frontendOrigin`, any supplied
-Origin must match the backend exactly. Mutations also require an allowed Origin, `X-Nestworth-Mobile: 1`, JSON content type, and a
-session-bound `X-CSRF-Token`. Login exchange requires the Origin and custom
-header before a session exists. The adapter has no credentialed CORS, debug,
-filesystem, provider-settings or generic RPC surface.
+## Removed capabilities and migration
 
-API responses use no-store. Static assets have a same-origin CSP, no frames,
-objects, remote scripts or financial service worker. Hash-named JS/CSS can be
-cached and are served with gzip when accepted. Limits include 32KiB request
-bodies, 500-character notes, 100-item maximum pages, four concurrent requests
-per session, and bounded login/read/write rates. Logs and durable audit links
-contain request/device/operation identifiers, not tokens, cookies or full bodies.
+Direct TLS serving, PEM certificate/key loading and validation, HTTPS proxy
+mode/forwarded-header trust, separate frontend authorization/CORS, saved backend
+selection and QR backend hints are removed. There is no supported HTTPS or
+separately hosted mobile frontend path. Existing hosted frontends are not changed
+or redeployed. Old tokens from the one-use pairing flow cannot be used here.
 
-## Separately hosted frontend
+Existing unversioned configurations, including old HTTP LAN configurations,
+load **disabled**, retain only their listen address as a draft, and show a
+localized migration message. The original file is left unchanged until the user
+applies settings; then it is replaced by version 2 without origin, mode,
+certificate, key or frontend-origin fields. Invalid saved JSON also stays off.
+No certificate files, ledger data, database schemas, provider settings or
+presentation preferences are modified by this migration. Future unknown versions
+also stay disabled. Version-2 enabled configurations resume with their saved
+token and a fresh empty session set.
 
-Build the repository's real `mobile.html` entry and its assets, and serve them
-from a frontend you trust. Hosting an older disconnected/demo adapter does not
-activate this protocol; this change does not publish or update any hosted site.
-The backend remains on the owner's existing private network. Both endpoints
-must use HTTPS trusted by the browser. No public backend, tunnel, certificate
-exception, browser flag or system networking change is created by this feature.
-
-1. Configure and verify the private backend HTTPS origin using one of the modes
-   above. Keep the desktop running and verify the phone's private-network route.
-2. In desktop **Mobile access**, optionally set **Trusted frontend origin** to
-   the exact HTTPS origin, such as `https://mobile.example`, with no path or
-   trailing slash. Empty preserves same-origin access only. Saving configuration
-   revokes sessions, grants, previews and cursors. Trusting a frontend gives its
-   JavaScript access to the authorized data and pairing exchange: do not authorize
-   arbitrary third-party pages. The single-origin setting has no wildcard mode.
-3. Configure the separate frontend host's CSP `connect-src` to permit the exact
-   backend HTTPS origin. The built-in backend page keeps `connect-src 'self'`;
-   use that page with its own backend, or use the separately hosted build for
-   server switching. A host that prevents external connections cannot be fixed
-   by entering another address in the app.
-4. Scan the address-only QR or enter the backend origin in phone **Connection
-   settings**, test it, then choose **Use this server**. Blank uses the current
-   site's backend. Paths, credentials, queries, fragments, wildcard hosts and
-   plaintext addresses open the built-in LAN page using the HTTP flow above. The test is anonymous and exposes
-   only a service/version/authentication marker, with no household data.
-5. Generate the one-use token on desktop and enter it separately in the phone's
-   password field. Cross-origin exchange returns an origin-bound bearer session
-   and CSRF token in the response body. They remain only in JavaScript memory:
-   no URL, cookie, persistent storage, log, referrer or backup contains them.
-   Reloading a separate frontend requires pairing again. In-page **Reconnect**
-   validates the current session and reloads reads without replacing a draft.
-6. Sign out to revoke the session. Switching servers cancels stale requests,
-   drops the local session and financial cache, and requires fresh pairing; it
-   does not send credentials to the new server. An old remote session may remain
-   until expiry, so sign out before switching or revoke it on desktop. Pending
-   recovery references are kept separately per normalized server in sessionStorage.
-
-Cross-origin requests use `credentials: omit`, an Authorization bearer header,
-`X-Nestworth-Mobile`, and the session's CSRF value for mutations. Cookie sessions
-cannot authorize cross-origin reads; bearer sessions cannot authorize same-origin
-cookie mode or another frontend origin. CORS allows only the configured exact
-origin, GET/POST/DELETE, and the four explicit headers. There is no
-`Access-Control-Allow-Credentials`. Preflights from that authorized origin can
-receive the legacy private-network opt-in header; this is not a guarantee of
-browser reachability. Secure HttpOnly Strict same-origin cookies remain unchanged.
-Redirects are refused, fetches use no-referrer, and no connection probe carries
-a session or pairing token.
-
-Browser local-network permission, TLS trust, network routing and host CSP remain
-independent prerequisites. See [Chrome's Local Network Access guidance](https://developer.chrome.com/blog/local-network-access),
-[MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) and
-[mixed content](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Mixed_content).
-Do not assume a public HTTPS page can universally reach private HTTP, or bypass
-a browser warning. A fetch rejection cannot reliably distinguish DNS, TLS,
-network, CSP and CORS failures. The UI explains those checks without claiming a
-domain rejection or confirmed write outcome. HTTP functional tests with isolated
-synthetic fixtures do not constitute production HTTPS or phone acceptance.
-
-Only server, language and theme preferences enter localStorage. Financial drafts
-and query results stay in memory; page reload or session revocation discards
-unsubmitted drafts. Active drafts guard page exit, disable server switching and
-sign-out, and require explicit discard. The page owns the endpoint/session
-change; an already-open settings panel is also locked while a draft or recovery
-reference is active, including re-pairing after session expiry. Unknown
-confirmations retain their original recovery identity. A timeout/cancel of an
-HTTP request does not prove that an accepted write failed.
+Retired phone server preferences are ignored. Requests always use the page's
+own server, and old per-server recovery references are not redirected to a new
+household. Same-origin recovery references keep their existing key and can be
+checked after signing in again.
 
 ## Closed HTTP surface
 
@@ -179,7 +112,6 @@ All routes use `/mobile-api/v1` and the current server-owned household.
 
 | Routes | Purpose |
 | --- | --- |
-| `GET /connection` | Anonymous service/version/authentication probe |
 | `POST/GET/DELETE /session` | Exchange token, read session/CSRF, sign out |
 | `GET /bootstrap`, `/overview` | Capabilities, ledger time, valuation, bounded trend and distribution |
 | `GET /accounts[/{id}]`, `/holdings[/{id}]` | Bounded account/holding views and independently nullable cost/gain |
@@ -235,7 +167,7 @@ invert the authorization/write lock order.
 
 The browser freezes an uncertain submission, retains its operation identity and
 offers receipt lookup or retry of that same plan. Only the household and
-operation IDs go into sessionStorage, in a namespace for the selected backend.
+operation IDs go into sessionStorage, in the page origin’s sessionStorage.
 If storage is unavailable, the page retains recovery in memory and asks the user
 to keep it open until the original result is confirmed. There is no offline
 write queue, token storage or persistent financial cache. Missing plans/receipts do not prove that

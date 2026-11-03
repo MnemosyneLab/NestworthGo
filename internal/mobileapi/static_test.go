@@ -14,7 +14,7 @@ import (
 )
 
 func staticRequest(s *Server, method, target string) *httptest.ResponseRecorder {
-	r := httptest.NewRequest(method, "https://mobile.example"+target, nil)
+	r := httptest.NewRequest(method, "http://127.0.0.1:9443"+target, nil)
 	r.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
@@ -29,7 +29,7 @@ func TestMobileStaticAssetAllowlist(t *testing.T) {
 		assets[name] = &fstest.MapFile{Data: []byte("synthetic asset")}
 	}
 	s := New(nil, "", assets)
-	s.config = Config{Origin: "https://mobile.example", Mode: "tls"}
+	s.config = Config{Listen: "127.0.0.1:9443"}
 	for _, tc := range []struct {
 		method, target string
 		status         int
@@ -73,7 +73,7 @@ func TestPackagedMobileLogo(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := New(nil, "", assets)
-	s.config = Config{Origin: "https://mobile.example", Mode: "tls"}
+	s.config = Config{Listen: "127.0.0.1:9443"}
 	shell := staticRequest(s, "GET", "/mobile.html")
 	if shell.Code != http.StatusOK {
 		t.Fatalf("mobile shell status = %d", shell.Code)

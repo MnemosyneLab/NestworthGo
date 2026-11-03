@@ -7,8 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"crypto/tls"
-	"crypto/x509"
+	"encoding/base32"
 	"encoding/base64"
 	"errors"
 	"io/fs"
@@ -16,7 +15,6 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -32,71 +30,56 @@ import (
 )
 
 const prefix = "/mobile-api/v1"
-const cookieName = "__Host-nw_mobile"
 
+// Config belongs to the desktop only. Token is never returned by a mobile route.
 type Config struct {
-	Enabled        bool   `json:"enabled"`
-	Origin         string `json:"origin"`
-	Listen         string `json:"listen"`
-	Mode           string `json:"mode"` // tls, loopback_proxy or http_lan (explicit opt-in)
-	Certificate    string `json:"certificate"`
-	Key            string `json:"key"`
-	FrontendOrigin string `json:"frontendOrigin"` // Optional, exact trusted HTTPS frontend origin.
+	Enabled bool   `json:"enabled"`
+	Listen  string `json:"listen"`
+	Token   string `json:"token"`
+}
+
+const configVersion = 2
+
+type storedConfig struct {
+	Version int `json:"version"`
+	Config
 }
 
 func (c Config) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	u, err := url.Parse(c.Origin)
-	if err != nil || (u.Scheme != "https" && !(c.Mode == "http_lan" && u.Scheme == "http")) || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
-		return invalid("origin")
-	}
-	if ip, err := netip.ParseAddr(u.Hostname()); err == nil && !ip.IsPrivate() && !ip.IsLoopback() {
-		return invalid("origin")
-	}
-	if c.FrontendOrigin != "" {
-		frontend, err := url.Parse(c.FrontendOrigin)
-		if err != nil || frontend.Scheme != "https" || frontend.Host == "" || frontend.User != nil || frontend.RawQuery != "" || frontend.Fragment != "" || frontend.Path != "" || frontend.Opaque != "" || c.FrontendOrigin != "https://"+frontend.Host || strings.ContainsAny(c.FrontendOrigin, "*\\\r\n") || frontend.Hostname() == "" {
-			return invalid("frontendOrigin")
-		}
-	}
 	host, port, err := net.SplitHostPort(c.Listen)
-	portNumber, portErr := strconv.Atoi(port)
-	if err != nil || portErr != nil || portNumber < 1 || portNumber > 65535 {
+	number, portErr := strconv.Atoi(port)
+	ip, ipErr := netip.ParseAddr(host)
+	if err != nil || portErr != nil || number < 1 || number > 65535 ||
+		ipErr != nil || ip.Zone() != "" || ip.IsUnspecified() ||
+		(!ip.IsPrivate() && !ip.IsLoopback()) ||
+		c.Listen != net.JoinHostPort(ip.String(), strconv.Itoa(number)) {
 		return invalid("listen")
 	}
-	ip, err := netip.ParseAddr(host)
-	if err != nil || ip.IsUnspecified() || (!ip.IsPrivate() && !ip.IsLoopback()) {
-		return invalid("listen")
+	if len(c.Token) < 8 || len(c.Token) > 64 {
+		return invalid("token")
 	}
-	switch c.Mode {
-	case "loopback_proxy":
-		if !ip.IsLoopback() {
-			return invalid("listen")
+	for _, ch := range c.Token {
+		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9') {
+			return invalid("token")
 		}
-	case "http_lan":
-		// No wildcard listener, DNS indirection, separate frontend or proxy.
-		originIP, originErr := netip.ParseAddr(u.Hostname())
-		if originErr != nil || originIP.Zone() != "" || ip.Zone() != "" || originIP != ip || (!ip.IsPrivate() && !ip.IsLoopback()) || u.Port() != port || c.Origin != "http://"+c.Listen || c.FrontendOrigin != "" {
-			return invalid("origin")
-		}
-	case "tls":
-		if !filepath.IsAbs(c.Certificate) || !filepath.IsAbs(c.Key) {
-			return invalid("certificate")
-		}
-	default:
-		return invalid("mode")
 	}
 	return nil
 }
 
-// Browsers omit HTTP's default port in Host and Origin headers.
-func (c Config) browserOrigin() string {
-	if c.Mode == "http_lan" {
-		return strings.TrimSuffix(c.Origin, ":80")
+// The browser omits HTTP's default port in Host and Origin headers.
+func (c Config) browserOrigin() string { return "http://" + strings.TrimSuffix(c.Listen, ":80") }
+
+// GenerateToken returns a desktop draft, never enabling access or changing a
+// saved credential. Ten random base32 characters provide 50 bits of entropy.
+func (s *Server) GenerateToken() (string, error) {
+	var raw [7]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
 	}
-	return c.Origin
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(raw[:])[:10], nil
 }
 
 type Permissions struct {
@@ -115,18 +98,12 @@ type Device struct {
 }
 type session struct {
 	Device
-	origin        string
-	bearer        bool
 	digest        [32]byte
 	csrf          string
 	idle          time.Time
 	reads, writes int
 	window        time.Time
 	active        int
-}
-type grant struct {
-	Device
-	digest [32]byte
 }
 type loginBucket struct {
 	at    time.Time
@@ -144,17 +121,11 @@ type plan struct {
 	state        string
 }
 type Status struct {
-	Config  Config   `json:"config"`
-	Running bool     `json:"running"`
-	Error   string   `json:"error,omitempty"`
-	Devices []Device `json:"devices"`
+	Config  Config `json:"config"`
+	URL     string `json:"url"`
+	Running bool   `json:"running"`
+	Error   string `json:"error,omitempty"`
 }
-type Pairing struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expiresAt"`
-	URL       string    `json:"url"`
-}
-
 type Server struct {
 	app           *application.Service
 	assets        fs.FS
@@ -166,7 +137,6 @@ type Server struct {
 	http          *http.Server
 	lastError     string
 	sessions      map[[32]byte]*session
-	grants        map[[32]byte]grant
 	plans         map[string]*plan
 	login         map[string]loginBucket
 	requests      chan struct{}
@@ -179,11 +149,18 @@ type Server struct {
 }
 
 func New(app *application.Service, configPath string, assets fs.FS) *Server {
-	s := &Server{app: app, path: configPath, assets: assets, sessions: map[[32]byte]*session{}, grants: map[[32]byte]grant{}, plans: map[string]*plan{}, login: map[string]loginBucket{}, requests: make(chan struct{}, 32), pages: map[string]pageState{}, now: time.Now}
+	s := &Server{app: app, path: configPath, assets: assets, sessions: map[[32]byte]*session{}, plans: map[string]*plan{}, login: map[string]loginBucket{}, requests: make(chan struct{}, 32), pages: map[string]pageState{}, now: time.Now}
 	if raw, err := os.ReadFile(configPath); err == nil {
-		if err = jsoncodec.Unmarshal(raw, &s.config); err != nil {
-			s.config = Config{}
+		var saved storedConfig
+		if err = jsoncodec.Unmarshal(raw, &saved); err != nil {
 			s.lastError = "invalid_configuration"
+		} else if saved.Version != configVersion {
+			// Never silently downgrade an existing TLS/proxy listener to HTTP
+			// or widen old per-device grants into shared-token access.
+			s.config.Listen = saved.Listen
+			s.lastError = "configuration_reset"
+		} else {
+			s.config = saved.Config
 		}
 	}
 	return s
@@ -201,18 +178,12 @@ func secret() (string, error) {
 func (s *Server) Status() Status {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := Status{Config: s.config, Running: s.listener != nil, Error: s.lastError, Devices: []Device{}}
-	now := s.now()
-	for _, d := range s.sessions {
-		if now.Before(d.ExpiresAt) && now.Before(d.idle) {
-			out.Devices = append(out.Devices, d.Device)
-		}
-	}
+	out := Status{URL: s.config.browserOrigin(), Config: s.config, Running: s.listener != nil, Error: s.lastError}
 	return out
 }
 
-// Configure is a desktop-only action. Save only nonsecret connection settings;
-// neither tokens nor sessions ever enter a file or a backup.
+// Configure is desktop-only. The shared token lives in a private settings file;
+// session credentials remain in memory. Every apply revokes existing sessions.
 func (s *Server) Configure(c Config) (Status, error) {
 	if err := c.Validate(); err != nil {
 		return s.Status(), err
@@ -230,12 +201,12 @@ func (s *Server) Configure(c Config) (Status, error) {
 			return s.Status(), invalid("connection")
 		}
 	}
-	raw, err := jsoncodec.Marshal(c)
+	raw, err := jsoncodec.Marshal(storedConfig{Version: configVersion, Config: c})
 	if err == nil {
 		err = os.MkdirAll(filepath.Dir(s.path), 0700)
 	}
 	if err == nil {
-		err = os.WriteFile(s.path, raw, 0600)
+		err = saveConfig(s.path, raw)
 	}
 	if err != nil {
 		_ = s.stop()
@@ -247,6 +218,28 @@ func (s *Server) Configure(c Config) (Status, error) {
 	s.mu.Unlock()
 	return s.Status(), nil
 }
+
+// Replace atomically with restrictive permissions, including existing legacy files.
+func saveConfig(path string, raw []byte) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".mobile-access-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	if _, err = file.Write(raw); err != nil {
+		file.Close()
+		return err
+	}
+	if err = file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	if err = file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), path)
+}
+
 func (s *Server) Resume() error {
 	s.lifecycle.Lock()
 	defer s.lifecycle.Unlock()
@@ -257,6 +250,9 @@ func (s *Server) Resume() error {
 		return nil
 	}
 	if err := c.Validate(); err != nil {
+		s.mu.Lock()
+		s.lastError = "invalid_configuration"
+		s.mu.Unlock()
 		return err
 	}
 	err := s.start(c)
@@ -272,30 +268,12 @@ func listenerErrorCode(err error) string {
 	if errors.Is(err, syscall.EADDRINUSE) {
 		return "port_in_use"
 	}
-	var de *domain.Error
-	if errors.As(err, &de) && de.Field == "certificate" {
-		return "certificate_unavailable"
-	}
 	return "listener_unavailable"
 }
 func (s *Server) start(c Config) error {
 	listener, err := net.Listen("tcp", c.Listen)
 	if err != nil {
 		return err
-	}
-	if c.Mode == "tls" {
-		cert, err := tls.LoadX509KeyPair(c.Certificate, c.Key)
-		if err != nil {
-			listener.Close()
-			return invalid("certificate")
-		}
-		leaf, err := x509.ParseCertificate(cert.Certificate[0])
-		origin, _ := url.Parse(c.Origin)
-		if err != nil || leaf.VerifyHostname(origin.Hostname()) != nil || s.now().Before(leaf.NotBefore) || s.now().After(leaf.NotAfter) {
-			listener.Close()
-			return invalid("certificate")
-		}
-		listener = tls.NewListener(listener, &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{cert}})
 	}
 	server := &http.Server{Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	s.mu.Lock()
@@ -307,7 +285,9 @@ func (s *Server) start(c Config) error {
 		err := server.Serve(listener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			s.mu.Lock()
-			s.lastError = "listener_unavailable"
+			if s.http == server {
+				s.lastError = "listener_unavailable"
+			}
 			s.mu.Unlock()
 		}
 	}()
@@ -321,11 +301,6 @@ func (s *Server) Revoke(id string) {
 			delete(s.sessions, k)
 		}
 	}
-	for k, g := range s.grants {
-		if id == "" || g.ID == id {
-			delete(s.grants, k)
-		}
-	}
 	for k, p := range s.plans {
 		if id == "" || p.owner == id {
 			delete(s.plans, k)
@@ -335,12 +310,18 @@ func (s *Server) Revoke(id string) {
 	s.health = nil
 }
 func (s *Server) stop() error {
-	s.Revoke("")
 	s.mu.Lock()
 	server := s.http
+	listener := s.listener
 	s.http = nil
 	s.listener = nil
 	s.mu.Unlock()
+	s.Revoke("")
+	// Shutdown can race Serve's listener registration on an immediate reapply.
+	// Close the owned listener even if Serve has not started yet.
+	if listener != nil {
+		_ = listener.Close()
+	}
 	if server == nil {
 		return nil
 	}
@@ -350,58 +331,13 @@ func (s *Server) stop() error {
 }
 func (s *Server) Close() error { s.lifecycle.Lock(); defer s.lifecycle.Unlock(); return s.stop() }
 
-func (s *Server) Pair(name string, p Permissions) (Pairing, error) {
-	if len(strings.TrimSpace(name)) == 0 || len(name) > 100 || !p.Read {
-		return Pairing{}, invalid("device")
-	}
-	value, err := secret()
-	if err != nil {
-		return Pairing{}, err
-	}
-	digest := sha256.Sum256([]byte(value))
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.listener == nil {
-		return Pairing{}, invalid("connection")
-	}
-	now := s.now()
-	for k, g := range s.grants {
-		if !now.Before(g.ExpiresAt) {
-			delete(s.grants, k)
-		}
-	}
-	if len(s.grants) >= 5 {
-		return Pairing{}, &domain.Error{Code: domain.ErrUnavailable}
-	}
-	expires := now.Add(10 * time.Minute)
-	s.grants[digest] = grant{Device: Device{ID: uuid.NewString(), Name: strings.TrimSpace(name), Permissions: p, CreatedAt: now, ExpiresAt: expires}, digest: digest}
-	return Pairing{Token: value, ExpiresAt: expires, URL: s.config.Origin}, nil
-}
-
 func (s *Server) sessionFor(r *http.Request) (*session, error) {
-	origin := r.Header.Get("Origin")
-	s.mu.RLock()
-	c := s.config
-	s.mu.RUnlock()
-	cross := origin != "" && origin != c.browserOrigin()
-	bearer := cross || c.Mode == "http_lan"
-	if origin == "" {
-		origin = c.browserOrigin()
+	// HTTP uses explicit, memory-only bearer credentials, never ambient cookies.
+	auth := r.Header.Get("Authorization")
+	if !strings.HasPrefix(auth, "Bearer ") {
+		return nil, unauthorized()
 	}
-	value := ""
-	if bearer {
-		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
-			return nil, unauthorized()
-		}
-		value = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	} else {
-		cookie, err := r.Cookie(cookieName)
-		if err != nil || r.Header.Get("Authorization") != "" {
-			return nil, unauthorized()
-		}
-		value = cookie.Value
-		origin = c.browserOrigin()
-	}
+	value := strings.TrimPrefix(auth, "Bearer ")
 	digest := sha256.Sum256([]byte(value))
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -409,9 +345,6 @@ func (s *Server) sessionFor(r *http.Request) (*session, error) {
 	now := s.now()
 	if d == nil || !now.Before(d.ExpiresAt) || !now.Before(d.idle) {
 		delete(s.sessions, digest)
-		return nil, unauthorized()
-	}
-	if d.bearer != bearer || d.origin != origin {
 		return nil, unauthorized()
 	}
 	d.LastUsed = now
@@ -478,37 +411,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	c := s.config
 	s.mu.RUnlock()
-	u, err := url.Parse(c.browserOrigin())
-	if err != nil || u.Host == "" || r.Host != u.Host {
+	expectedHost := strings.TrimPrefix(c.browserOrigin(), "http://")
+	if expectedHost == "" || r.Host != expectedHost {
 		fail(w, forbidden())
 		return
-	}
-	if c.Mode == "tls" && r.TLS == nil {
-		fail(w, forbidden())
-		return
-	}
-	if c.Mode == "loopback_proxy" {
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		ip := net.ParseIP(host)
-		if err != nil || ip == nil || !ip.IsLoopback() || r.Header.Get("X-Forwarded-Proto") != "https" {
-			fail(w, forbidden())
-			return
-		}
 	}
 	origin := r.Header.Get("Origin")
-	cross := origin != "" && origin != c.browserOrigin()
-	if cross && (c.Mode == "http_lan" || c.FrontendOrigin == "" || origin != c.FrontendOrigin || !strings.HasPrefix(r.URL.Path, prefix+"/")) {
+	if origin != "" && origin != c.browserOrigin() {
 		fail(w, forbidden())
 		return
 	}
-	if cross {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Add("Vary", "Origin")
-		// Bearer mode deliberately does not enable credentialed CORS.
-		if r.Method == "OPTIONS" {
-			s.preflight(w, r)
-			return
-		}
+	// No separate frontend, proxy trust, CORS or TLS transport remains.
+	if r.Method == "OPTIONS" {
+		fail(w, forbidden())
+		return
 	}
 	select {
 	case s.requests <- struct{}{}:
@@ -533,14 +449,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	path := strings.TrimPrefix(r.URL.Path, prefix)
-	if path == "/connection" && r.Method == "GET" {
-		auth := "cookie"
-		if cross || c.Mode == "http_lan" {
-			auth = "bearer"
-		}
-		reply(w, map[string]any{"service": "nestworth-mobile", "version": 1, "authentication": auth})
-		return
-	}
 	if path == "/session" && r.Method == "POST" {
 		s.loginSession(w, r)
 		return
@@ -567,9 +475,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "DELETE" && path == "/session" {
 		s.Revoke(d.ID)
-		if !d.bearer {
-			http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
-		}
 		reply(w, map[string]bool{"ok": true})
 		return
 	}
@@ -591,6 +496,10 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.listener == nil {
+		fail(w, unauthorized())
+		return
+	}
 	now := s.now()
 	bucket := s.login[host]
 	if now.Sub(bucket.at) >= time.Minute {
@@ -614,14 +523,8 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	digest := sha256.Sum256([]byte(in.Token))
-	var found *grant
-	for _, g := range s.grants {
-		if subtle.ConstantTimeCompare(digest[:], g.digest[:]) == 1 {
-			copy := g
-			found = &copy
-		}
-	}
-	if found == nil || !now.Before(found.ExpiresAt) {
+	expected := sha256.Sum256([]byte(s.config.Token))
+	if s.config.Token == "" || subtle.ConstantTimeCompare(digest[:], expected[:]) != 1 {
 		fail(w, unauthorized())
 		return
 	}
@@ -631,8 +534,30 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(s.sessions) >= 5 {
-		fail(w, limited())
-		return
+		// Reload loses the browser's memory credential. Admit a fresh login by
+		// replacing the least-recently-used idle session, rather than locking
+		// the owner out after five reloads. Never evict an in-flight request.
+		var oldest *session
+		for _, current := range s.sessions {
+			if current.active == 0 && (oldest == nil || current.LastUsed.Before(oldest.LastUsed)) {
+				oldest = current
+			}
+		}
+		if oldest == nil {
+			fail(w, limited())
+			return
+		}
+		delete(s.sessions, oldest.digest)
+		for key, plan := range s.plans {
+			if plan.owner == oldest.ID {
+				delete(s.plans, key)
+			}
+		}
+		for key, page := range s.pages {
+			if page.owner == oldest.ID {
+				delete(s.pages, key)
+			}
+		}
 	}
 	value, err := secret()
 	if err != nil {
@@ -644,19 +569,8 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	delete(s.grants, digest)
-	device := found.Device
-	device.ExpiresAt = now.Add(7 * 24 * time.Hour)
-	device.LastUsed = now
+	device := Device{ID: uuid.NewString(), Name: "Mobile browser", Permissions: Permissions{Read: true, Record: true, Market: true, Manual: true}, CreatedAt: now, LastUsed: now, ExpiresAt: now.Add(7 * 24 * time.Hour)}
 	sessionDigest := sha256.Sum256([]byte(value))
-	origin := r.Header.Get("Origin")
-	cross := origin != s.config.browserOrigin() || s.config.Mode == "http_lan"
-	s.sessions[sessionDigest] = &session{Device: device, origin: origin, bearer: cross, digest: sessionDigest, csrf: csrf, idle: now.Add(24 * time.Hour), window: now}
-	result := map[string]any{"device": device, "csrfToken": csrf, "instance": s.app.MobileWorkspace()}
-	if cross {
-		result["accessToken"] = value
-	} else {
-		http.SetCookie(w, &http.Cookie{Name: cookieName, Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 7 * 24 * 3600})
-	}
-	reply(w, result)
+	s.sessions[sessionDigest] = &session{Device: device, digest: sessionDigest, csrf: csrf, idle: now.Add(24 * time.Hour), window: now}
+	reply(w, map[string]any{"device": device, "csrfToken": csrf, "instance": s.app.MobileWorkspace(), "accessToken": value})
 }

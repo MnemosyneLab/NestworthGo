@@ -1,6 +1,6 @@
 # HTTP LAN mobile verification
 
-Implementation contract: [Private mobile access](../../design/mobile-web-access.md#direct-http-on-a-trusted-lan).
+Implementation contract: [Private mobile access](../../design/mobile-web-access.md#setup-and-lifecycle).
 
 The desktop now offers explicit `http_lan` mode with an exact private numeric
 listener, matching HTTP origin and no separate frontend origin. Existing settings

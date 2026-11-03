@@ -6,12 +6,10 @@ import {
   setMobileSession,
   type Session,
 } from "./api";
-import { saveBackend } from "./connection";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   setMobileSession(null);
-  saveBackend("");
 });
 it.each([200, 401])(
   "does not deliver an old %s response into a newly paired session",
@@ -69,8 +67,7 @@ it.each([200, 401])(
   },
 );
 
-it("keeps separate-frontend bearer credentials in memory and omits ambient cookies", async () => {
-  saveBackend("https://synthetic.private.example");
+it("keeps LAN bearer credentials in memory and omits ambient cookies", async () => {
   const session: Session = {
     device: {
       id: "synthetic",
@@ -91,7 +88,7 @@ it("keeps separate-frontend bearer credentials in memory and omits ambient cooki
   vi.stubGlobal("fetch", fetch);
   await api("/record-previews", "POST", { amount: "1.0009" });
   expect(fetch).toHaveBeenCalledWith(
-    "https://synthetic.private.example/mobile-api/v1/record-previews",
+    "/mobile-api/v1/record-previews",
     expect.objectContaining({
       credentials: "omit",
       redirect: "error",
@@ -108,12 +105,11 @@ it("keeps separate-frontend bearer credentials in memory and omits ambient cooki
   );
 });
 
-it("never sends session credentials to an external HTTP endpoint", async () => {
-  const fetch = vi.fn();
+it("ignores retired external-server preferences and always calls this page’s server", async () => {
+  localStorage.setItem("nestworth.mobile.connection.v1", "https://retired.example");
+  const fetch = vi.fn(async () => new Response(JSON.stringify({ok: true})));
   vi.stubGlobal("fetch", fetch);
-  saveBackend("http://192.168.1.20:9443");
-  await expect(api("/bootstrap")).rejects.toMatchObject({
-    code: "insecure_backend",
-  });
-  expect(fetch).not.toHaveBeenCalled();
+  await api("/bootstrap");
+  expect(fetch).toHaveBeenCalledWith("/mobile-api/v1/bootstrap", expect.objectContaining({credentials: "omit"}));
+  localStorage.removeItem("nestworth.mobile.connection.v1");
 });
