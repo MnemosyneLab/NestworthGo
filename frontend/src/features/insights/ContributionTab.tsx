@@ -130,7 +130,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
 
   const sortControl = (
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="contribution-sort" className="text-sm font-medium">{t("insights.sort")}</label>
+        <label htmlFor="contribution-sort" className="sr-only">{t("insights.sort")}</label>
         <NativeSelect id="contribution-sort" value={effectiveOrdering} onChange={(event) => setOrdering(event.target.value)}>
           <option value="amount_desc">{t("insights.sortAmountDesc")}</option>
           <option value="amount_asc">{t("insights.sortAmountAsc")}</option>
@@ -211,5 +211,5 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
     </>
   );
 
-  return <div className="flex flex-col gap-4" data-testid="contribution">{toolbar}{results}</div>;
+  return <div className="flex flex-col gap-4" data-testid="contribution" aria-busy={contribution.isFetching}>{toolbar}{results}{contribution.isPlaceholderData && <span className="sr-only" role="status">{t("insights.loading")}</span>}</div>;
 }

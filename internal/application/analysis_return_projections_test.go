@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -555,12 +556,140 @@ func TestReturnCalendarCase43UsesValuationFallback(t *testing.T) {
 	if firstDay.ReturnAmount == nil || firstDay.ReturnAmount.Currency() != "USD" || !firstDay.ReturnAmount.Amount().IsZero() {
 		t.Fatalf("return cell amount = %+v, want 0 USD", firstDay.ReturnAmount)
 	}
+	// Exercise the exported service path: flat returns previously short-circuited
+	// to an empty row list, so the new summary lost a fully known zero.
+	contribution, err := service.Contribution(t.Context(), query, ContributionTotalReturn, ContributionGroupInstrument, ContributionSortAmountDesc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(contribution.Rows) != 1 || contribution.Rows[0].Amount == nil || !contribution.Rows[0].Amount.Amount().IsZero() {
+		t.Fatalf("flat service contribution rows = %+v", contribution.Rows)
+	}
+	for _, amount := range []*domain.SignedMoney{contribution.Summary.Total, contribution.Summary.Positive, contribution.Summary.Negative} {
+		if amount == nil || !amount.Amount().IsZero() || amount.Currency() != "USD" {
+			t.Fatalf("flat service summary = %+v", contribution.Summary)
+		}
+	}
+	// This fixture lacks quote evidence; its known zero remains a partial subtotal.
+	if contribution.Summary.AmountStatus != ReturnAmountPartial {
+		t.Fatalf("flat summary status = %s", contribution.Summary.AmountStatus)
+	}
+	if calendar.Valuation != domain.ValuationNative || calendar.Currency != "USD" {
+		t.Fatalf("effective native valuation = %s %s", calendar.Valuation, calendar.Currency)
+	}
+	baseQuery := query
+	baseQuery.IncludeCash = true
+	baseCalendar, err := service.ReturnCalendar(t.Context(), baseQuery, "", "day")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if baseCalendar.Valuation != domain.ValuationBase || baseCalendar.Currency != "USD" || baseCalendar.ValuationForced == nil {
+		t.Fatalf("effective multi-currency fallback = %+v", baseCalendar)
+	}
+
 	assetChanges, err := service.AssetChange(context.Background(), query)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if assetChanges.ValuationForced == nil || *assetChanges.ValuationForced != string(domain.ValuationBase) {
 		t.Fatalf("asset changes valuationForced = %v, want base", assetChanges.ValuationForced)
+	}
+	missingService := &Service{analysis: NewAnalysisService(&projectionRepository{portfolio: portfolio}, func() time.Time { return time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC) })}
+	missing, err := missingService.Contribution(t.Context(), query, ContributionTotalReturn, ContributionGroupInstrument, ContributionSortAmountDesc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing.Summary.Total != nil || missing.Summary.AmountStatus != ReturnAmountUnavailable {
+		t.Fatalf("missing data fabricated a zero summary: %+v", missing.Summary)
+	}
+
+}
+
+func TestContributionServiceDistinguishesKnownFlatIntervalFromUnavailable(t *testing.T) {
+	t.Parallel()
+	householdID := domain.NewHouseholdID()
+	account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	origin := &domain.HistoryOrigin{HouseholdID: householdID, Timezone: "UTC", StartedAt: time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)}
+	item := analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", "")
+	for _, complete := range []bool{true, false} {
+		t.Run(fmt.Sprintf("complete=%t", complete), func(t *testing.T) {
+			current := item
+			current.Complete = complete
+			repository := &projectionRepository{
+				portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Origin: origin, Accounts: []domain.AccountRecord{{Account: account}}},
+				snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-07-31", item), analysisSnapshot("2026-08-01", current)},
+			}
+			service := &Service{analysis: NewAnalysisService(repository, func() time.Time { return time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC) })}
+			query := testReturnQuery("2026-08-01", "2026-08-01")
+			query.IncludeCash = true
+			got, err := service.Contribution(t.Context(), query, ContributionTotalReturn, ContributionGroupInstrument, ContributionSortAmountDesc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !complete {
+				if got.Summary.Total != nil || got.Summary.AmountStatus != ReturnAmountUnavailable {
+					t.Fatalf("unknown fabricated zero: %+v", got)
+				}
+				return
+			}
+			if !got.Available || got.Summary.AmountStatus != ReturnAmountComplete || len(got.Rows) != 1 {
+				t.Fatalf("known flat interval: %+v", got)
+			}
+			for _, money := range []*domain.SignedMoney{got.Summary.Total, got.Summary.Positive, got.Summary.Negative, got.Rows[0].Amount} {
+				if money == nil || !money.Amount().IsZero() || money.Currency() != "CNY" {
+					t.Fatalf("known zero = %v", money)
+				}
+			}
+		})
+	}
+}
+
+func TestReturnCalendarReportsEffectiveValuationAcrossMonthBounds(t *testing.T) {
+	t.Parallel()
+	for _, missingFX := range []bool{false, true} {
+		t.Run(fmt.Sprintf("missingFX=%t", missingFX), func(t *testing.T) {
+			householdID := domain.NewHouseholdID()
+			usd := analysisAccount(householdID, "USD", domain.TrackingBalance, domain.RoleAsset)
+			cny := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
+			origin := &domain.HistoryOrigin{HouseholdID: householdID, Timezone: "UTC", StartedAt: time.Date(2026, 10, 25, 0, 0, 0, 0, time.UTC)}
+			usdItem := analysisItem(t, usd.ID, "USD", "100", "700", nil, nil, "", "")
+			cnyItem := analysisItem(t, cny.ID, "CNY", "100", "100", nil, nil, "", "")
+			if missingFX {
+				usdItem.BaseAmount, usdItem.BaseAmountExact, usdItem.Complete = nil, "", false
+			}
+			repository := &projectionRepository{
+				portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Origin: origin, Accounts: []domain.AccountRecord{{Account: usd}, {Account: cny}}},
+				snapshots: []domain.DailyValuationSnapshot{
+					analysisSnapshot("2026-10-25", usdItem, cnyItem), analysisSnapshot("2026-10-26", usdItem, cnyItem),
+					analysisSnapshot("2026-11-01", usdItem), analysisSnapshot("2026-11-02", usdItem), analysisSnapshot("2026-11-03", usdItem),
+				},
+			}
+			service := &Service{analysis: NewAnalysisService(repository, func() time.Time { return time.Date(2026, 12, 10, 12, 0, 0, 0, time.UTC) })}
+			query := testReturnQuery("2026-11-02", "2026-11-03")
+			query.Valuation, query.IncludeCash = domain.ValuationNative, true
+			selected, err := service.ReturnCalendar(t.Context(), query, "", "day")
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedCurrency := domain.CurrencyCode("USD")
+			if missingFX {
+				expectedCurrency = ""
+			}
+			if selected.Valuation != domain.ValuationNative || selected.Currency != expectedCurrency || selected.ValuationForced != nil {
+				t.Fatalf("selected native basis = %+v", selected)
+			}
+			query.From, query.To = "2026-10-26", "2026-12-06"
+			grid, err := service.ReturnCalendar(t.Context(), query, "", "day")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if grid.Valuation != domain.ValuationBase || grid.ValuationForced == nil || grid.Currency != "CNY" {
+				t.Fatalf("cross-month fallback basis = %+v", grid)
+			}
+			if missingFX && grid.Summary.AmountStatus == ReturnAmountComplete {
+				t.Fatalf("missing FX fabricated complete total: %+v", grid.Summary)
+			}
+		})
 	}
 }
 

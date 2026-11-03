@@ -254,6 +254,47 @@ describe("ReturnAnalysisPage", () => {
     expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-01", to: "2026-08-31" }), "2026-08", "day");
   });
 
+  it.each(["grid", "summary"])("retains available data when the %s request fails and retries only that section", async failed => {
+    const base = await returnCalendar();
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
+    returnCalendar.mockImplementation((_request, cursor) => Boolean(cursor) === (failed === "summary") ? Promise.reject(new Error("synthetic read failure")) : Promise.resolve(base));
+    renderPage();
+    const region = await screen.findByRole("region", { name: failed === "grid" ? "Calendar view" : "Return summary" });
+    await within(region).findByRole("alert");
+    if (failed === "grid") expect(within(screen.getByRole("region", { name: "Return summary" })).getByText("+US$1.00")).toBeInTheDocument();
+    else expect(screen.getByTestId("return-day-2026-09-01")).toHaveTextContent("+US$1.00");
+    returnCalendar.mockClear().mockResolvedValue(base);
+    await userEvent.click(within(region).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(within(region).queryByRole("alert")).not.toBeInTheDocument());
+    expect(returnCalendar).toHaveBeenCalledTimes(1);
+    expect(returnCalendar.mock.calls[0][1]).toBe(failed === "grid" ? "" : "2026-09");
+  });
+
+  it("shows the selected summary while the cross-month grid is pending", async () => {
+    const base = await returnCalendar();
+    returnCalendar.mockImplementation((_request, cursor) => cursor ? Promise.resolve(base) : new Promise(() => {}));
+    renderPage();
+    expect(await within(await screen.findByRole("region", { name: "Return summary" })).findByText("+US$1.00")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Calendar view" })).getByRole("status")).toBeInTheDocument();
+  });
+
+  it.each([false, true])("labels independent native and forced-base periods, including missing FX: %s", async missingFX => {
+    const base = await returnCalendar();
+    vi.setSystemTime(new Date("2026-12-10T12:00:00Z"));
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-11" });
+    useAnalysisStore.getState().setFilters({ valuation: "native", from: "2026-11-02", to: "2026-11-03" });
+    const native = { ...base, valuation: "native", currency: "CNY", summary: { ...base.summary, returnAmount: { amount: "7", currency: "CNY" } } };
+    const grid = { ...base, valuation: "base", currency: missingFX ? "" : "USD", valuationForced: "base", cells: [{ ...base.cells[0], date: "2026-10-26", returnAmount: missingFX ? null : { amount: "1", currency: "USD" }, amountStatus: missingFX ? "unavailable" : "complete", status: missingFX ? "partial" : "ok" }] };
+    returnCalendar.mockImplementation((request, cursor) => Promise.resolve(cursor || request.from === "2026-11-02" ? native : grid));
+    renderPage();
+    expect(await screen.findByText("Summary valuation: Native (CNY)")).toBeInTheDocument();
+    expect(screen.getByText(missingFX ? /Calendar valuation: Base \(Unavailable\)/ : /Calendar valuation: Base \(USD\)/)).toBeInTheDocument();
+    expect(screen.getByTestId("return-day-2026-10-26")).toHaveTextContent(missingFX ? "—" : "+US$1.00");
+    await userEvent.click(within(screen.getByTestId("return-day-2026-10-26")).getByRole("button"));
+    await screen.findByRole("dialog");
+    expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-10-26", to: "2026-12-06", valuation: "native" }), "2026-10-26");
+  });
+
   it("loads the whole visible month while keeping a separate selected-range summary", async () => {
     useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
     useAnalysisStore.getState().setFilters({ from: "2026-09-02", to: "2026-09-03" });

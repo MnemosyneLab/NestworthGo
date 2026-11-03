@@ -17,6 +17,8 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	rate := decimal.NewFromInt(1).Div(decimal.NewFromInt(8))
 	forced := "base"
 	value := application.ReturnCalendarResult{
+		Valuation:            domain.ValuationBase,
+		Currency:             "USD",
 		AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessPartial, MissingReason: "missing quote", ValuationForced: &forced},
 		Summary:              application.ReturnCalendarSummary{ReturnAmount: &amount, ReturnRate: &rate, Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 3}},
 		Months: []application.ReturnCalendarMonthResult{{
@@ -40,7 +42,7 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	if err := jsoncodec.Unmarshal(encoded, &shape); err != nil {
 		t.Fatal(err)
 	}
-	if shape["valuationForced"] != "base" || shape["status"] != "partial" || shape["missingReason"] != "missing quote" {
+	if shape["valuation"] != "base" || shape["currency"] != "USD" || shape["valuationForced"] != "base" || shape["status"] != "partial" || shape["missingReason"] != "missing quote" {
 		t.Fatalf("calendar metadata = %s", encoded)
 	}
 	summary := shape["summary"].(map[string]any)

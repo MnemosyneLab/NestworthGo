@@ -69,6 +69,8 @@ type ReturnCalendarMonthResult struct {
 
 type ReturnCalendarResult struct {
 	AnalysisAvailability
+	Valuation       domain.Valuation
+	Currency        domain.CurrencyCode
 	Summary         ReturnCalendarSummary
 	Months          []ReturnCalendarMonthResult
 	Days            []ReturnDayResult
@@ -334,9 +336,6 @@ func (s *Service) contribution(ctx context.Context, query domain.AnalysisQuery, 
 	if returnType == ContributionDividendInterest {
 		return projectDividendContribution(result, forced, groupBy, ordering)
 	}
-	if !hasNonZeroReturnAmount(result) && !hasUnknownReturnAmount(result) {
-		return ContributionResult{AnalysisAvailability: returnAvailability(result, forced), ReturnType: returnType, GroupBy: groupBy, Coverage: result.Coverage, Rows: []ContributionRow{}}, nil
-	}
 	groups, err := FoldReturnGroups(result, analysisGroupBy(groupBy))
 	if err != nil {
 		return ContributionResult{}, err
@@ -525,7 +524,7 @@ func projectReturnCalendar(result domain.PeriodAnalysisResult, forced, cursor st
 	if err != nil {
 		return ReturnCalendarResult{}, err
 	}
-	calendar := ReturnCalendarResult{AnalysisAvailability: returnAvailability(result, forced), Months: months, Days: days, Issues: make([]ReturnIssue, 0), TopContributors: topContributors}
+	calendar := ReturnCalendarResult{Valuation: result.Query.Valuation, Currency: resultCurrency(result), AnalysisAvailability: returnAvailability(result, forced), Months: months, Days: days, Issues: make([]ReturnIssue, 0), TopContributors: topContributors}
 	for _, day := range allDays {
 		calendar.Issues = append(calendar.Issues, day.Issues...)
 	}
@@ -839,18 +838,6 @@ func returnSources(result domain.PeriodAnalysisResult) []ReturnSource {
 func hasNonZeroReturnAmount(result domain.PeriodAnalysisResult) bool {
 	for _, day := range result.Days {
 		if day.ReturnAmount != nil && !day.ReturnAmount.Amount().IsZero() {
-			return true
-		}
-	}
-	return false
-}
-
-func hasUnknownReturnAmount(result domain.PeriodAnalysisResult) bool {
-	for _, day := range result.Days {
-		if !returnEligibleComponent(day.Component, result.Query.IncludeCash) {
-			continue
-		}
-		if day.ReturnAmount == nil || day.Status == domain.CompletenessUnavailable {
 			return true
 		}
 	}

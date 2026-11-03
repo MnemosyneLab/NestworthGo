@@ -79,6 +79,8 @@ func (s *Service) ContributionItem(ctx context.Context, request AnalysisQueryReq
 
 func fromReturnCalendar(value application.ReturnCalendarResult) wire.ReturnCalendarDTO {
 	result := wire.ReturnCalendarDTO{
+		Valuation:       string(value.Valuation),
+		Currency:        string(value.Currency),
 		Summary:         fromReturnCalendarSummary(value.Summary),
 		Months:          make([]wire.ReturnCalendarMonthDTO, 0, len(value.Months)),
 		Cells:           make([]wire.ReturnDayDTO, 0, len(value.Days)),

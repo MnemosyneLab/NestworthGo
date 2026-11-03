@@ -403,6 +403,19 @@ are explicitly partial; fully unknown or unrepresentable summaries remain
 unavailable. These summaries do not redefine the independent metrics or derive
 financial totals in the frontend.
 
+Calendar responses also carry their effective `valuation` and `currency` after
+investment-universe fallback. Selected-period summaries and cross-month grids
+show their own basis and currency explicitly; one period's metadata must never
+label another period's amounts. Missing currency evidence remains unavailable.
+Their loading, error and retry states are independent, so a failed grid cannot
+hide a usable summary (and a failed summary cannot hide usable cells).
+Contribution sorting retains rows only when ordering changes within the same
+request, metric and grouping. It preserves the mounted control and list while
+waiting for the authoritative backend order; changing financial filters drops
+prior amounts. Each partial ranking row identifies its subtotal and reason.
+Known zero-return groups remain in the service projection and exact summary;
+missing amounts remain unavailable.
+
 The contribution metric is part of the shared analysis state, so a retained
 page receiving a new navigation context updates both its selector and query.
 Realized contribution filters sale events by native event denomination and

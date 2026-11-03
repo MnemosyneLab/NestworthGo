@@ -69,6 +69,8 @@ type ReturnCalendarMonthDTO struct {
 }
 
 type ReturnCalendarDTO struct {
+	Valuation       string                   `json:"valuation"`
+	Currency        string                   `json:"currency"`
 	Summary         ReturnCalendarSummaryDTO `json:"summary"`
 	Months          []ReturnCalendarMonthDTO `json:"months"`
 	Cells           []ReturnDayDTO           `json:"cells"`

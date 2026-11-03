@@ -105,6 +105,38 @@ describe("insight tabs", () => {
 
   afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+  it("keeps the list and sort focus mounted while the backend changes ordering", async () => {
+    const initial = await contribution();
+    let finish!: (value: typeof initial) => void;
+    contribution.mockImplementation((_request, _type, _group, order) => order === "amount_desc" ? Promise.resolve(initial) : new Promise(resolve => { finish = resolve; }));
+    const view = renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    await screen.findByTestId("contribution-ranking");
+    const sort = screen.getByRole("combobox", { name: "Sort" });
+    const list = screen.getByRole("list", { name: "Contribution" });
+    expect(screen.getByText("Sort")).toHaveClass("sr-only");
+    sort.focus();
+    fireEvent.change(sort, { target: { value: "amount_asc" } });
+    await waitFor(() => expect(contribution).toHaveBeenCalledWith(expect.anything(), "total_return", "instrument", "amount_asc"));
+    expect(screen.getByRole("list", { name: "Contribution" })).toBe(list);
+    expect(screen.getByRole("combobox", { name: "Sort" })).toBe(sort);
+    expect(sort).toHaveFocus();
+    finish(initial);
+    await waitFor(() => expect(view.queryClient.isFetching()).toBe(0));
+    expect(sort).toHaveFocus();
+    expect(screen.getByRole("list", { name: "Contribution" })).toBe(list);
+  });
+
+  it.each(["date", "account", "metric", "grouping"])("does not retain old contribution amounts when changing %s", async kind => {
+    const view = renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    await screen.findByTestId("contribution-ranking");
+    contribution.mockImplementation(() => new Promise(() => {}));
+    const state = useAnalysisStore.getState();
+    const next = kind === "date" ? { ...state, from: "2026-08-01", to: "2026-08-31" } : kind === "account" ? { ...state, scope: "account" as const, scopeId: "account-1" } : kind === "metric" ? { ...state, contributionReturnType: "dividend_interest" as const } : state;
+    if (kind === "grouping") fireEvent.change(screen.getByRole("combobox", { name: "Group by" }), { target: { value: "account" } });
+    else view.rerender(<QueryClientProvider client={view.queryClient}><ContributionTab session={next} /></QueryClientProvider>);
+    await waitFor(() => expect(screen.queryByTestId("contribution-ranking")).not.toBeInTheDocument());
+  });
+
   it.each([
     ["Return trend", ReturnTrendTab, returnTrend],
     ["Contribution", ContributionTab, contribution],

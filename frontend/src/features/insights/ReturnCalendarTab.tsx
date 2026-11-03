@@ -71,6 +71,14 @@ function CalendarEmptyState({ data }: { data?: ReturnCalendarDTO }) {
   return <EmptyState title={t(insufficientHistory ? "insights.historyInsufficient" : "insights.noInvestmentAssets")} description={t(insufficientHistory ? "insights.historyInsufficientHint" : "insights.noInvestmentAssetsHint")} />;
 }
 
+// The backend reports the effective basis after its investment-universe fallback.
+// A missing currency stays explicitly unavailable, including missing-FX results.
+function ValuationLabel({ data, section }: { data: ReturnCalendarDTO; section: "summaryValuation" | "calendarValuation" }) {
+  const { t } = useTranslation();
+  const currency = data.currency || t("insights.unavailableAmount");
+  return <p className="text-xs text-muted-foreground">{t(`insights.${section}`)}: {t(data.valuation === "base" ? "insights.valuationBase" : "insights.valuationNative", { currency })}{data.valuation !== "base" && ` (${currency})`}{data.valuationForced && <span className="ml-2 text-warning-foreground">{t("insights.valuationForced")}</span>}</p>;
+}
+
 function Summary({ data, range }: { data: ReturnCalendarDTO; range: string }) {
   const { t } = useTranslation();
   const summary = data.summary;
@@ -249,23 +257,31 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
   const monthQuery = useReturnCalendar(request, visibleMonth, originReady && scopeReady && monthRangeAvailable && view === "month" && (!visibleMonthIsFuture || Boolean(session.from && session.from <= lastClosedDate(timeZone))));
   const gridQuery = useReturnCalendar(gridRequest, "", originReady && scopeReady && gridRange.from <= gridRange.to && view === "month");
   const yearSummaryQuery = useReturnCalendar(request, "", originReady && scopeReady && monthRangeAvailable && view === "year" && !isFuture(`${year}-01`, timeZone));
-  const loading = origin.isLoading || (view === "year" ? yearSummaryQuery.isLoading : monthQuery.isLoading || gridQuery.isLoading);
-  const error = view === "year" ? yearSummaryQuery.isError : monthQuery.isError || gridQuery.isError;
   const data = view === "year" ? yearSummaryQuery.data : monthQuery.data;
   const selectedRange = effectiveRange(session, visibleMonth, timeZone, origin.data?.startedAt);
   const hasSelection = Boolean(session.from && session.to);
   const selectedQuery = useReturnCalendar(analysisRequest(session, selectedRange.from, selectedRange.to), "", originReady && scopeReady && hasSelection && selectedRange.from <= selectedRange.to);
   const summaryData = hasSelection ? selectedQuery.data : data;
-  const summary = hasSelection && selectedQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : hasSelection && selectedQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => selectedQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData ? <>
-    <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
-    <Summary data={summaryData} range={formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)} />
-  </> : null;
+  const summaryQuery = hasSelection ? selectedQuery : view === "year" ? yearSummaryQuery : monthQuery;
+  const summary = <section aria-label={t("insights.summary")} className="flex flex-col gap-3">
+    {summaryQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : summaryQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => summaryQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData?.available ? <>
+      <ValuationLabel data={summaryData} section="summaryValuation" />
+      <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
+      <Summary data={summaryData} range={formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)} />
+    </> : monthRangeAvailable && !visibleMonthIsFuture ? <CalendarEmptyState data={summaryData} /> : null}
+  </section>;
+  const grid = <section aria-label={t("insights.calendarView")} className="flex flex-col gap-3">
+    {gridQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : gridQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => gridQuery.refetch()} retryLabel={t("common.retryAction")} /> : <>
+      {gridQuery.data && <ValuationLabel data={gridQuery.data} section="calendarValuation" />}
+      {(data?.available || monthQuery.isError || !monthRangeAvailable || visibleMonthIsFuture || gridQuery.data?.cells?.some(day => day.available)) && <MonthGrid selection={hasSelection ? selectedRange : undefined} data={gridQuery.data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />}
+    </>}
+  </section>;
   const yearData = useMemo(() => aggregateYearMonths(data, year), [data, year]);
 
   const move = (amount: number) => onCursorChange(view === "year" ? `${year + amount}-01` : addMonths(visibleMonth, amount));
   const header = <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label={t("insights.previous")} onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /></Button><h2 className="min-w-44 text-center font-display text-xl font-semibold tracking-tight">{view === "year" ? yearLabel(year, i18n.language) : monthLabel(visibleMonth, i18n.language)}</h2><Button type="button" variant="outline" size="icon" aria-label={t("insights.next")} onClick={() => move(1)}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="ghost" onClick={() => onCursorChange(currentMonth(timeZone))}>{t("insights.today")}</Button></div><SegmentedControl size="md" label={t("insights.calendarView")} value={view} onChange={value => setView(value as typeof view)} options={[{ value: "month", label: t("insights.month") }, { value: "year", label: t("insights.year") }]} /></div>;
   let content: ReactNode;
-  if (loading) {
+  if (origin.isLoading) {
     content = <LoadingState label={t("insights.loading")} />;
   } else if (origin.isError) {
     content = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => origin.refetch()} retryLabel={t("common.retryAction")} />;
@@ -273,21 +289,15 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
     content = <EmptyState title={t("insights.noOrigin")} description={t("insights.noOriginHint")} />;
   } else if (!scopeReady) {
     content = <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
-  } else if (error) {
-    content = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => { if (view === "year") void yearSummaryQuery.refetch(); else { void monthQuery.refetch(); void gridQuery.refetch(); } }} retryLabel={t("common.retryAction")} />;
   } else if (view === "year") {
-    content = data?.available ? <>{summary}<YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} /></> : <CalendarEmptyState data={data} />;
-  } else if (!monthRangeAvailable || visibleMonthIsFuture) {
-    content = <>
-      {currentMonthAwaitingClose(session, visibleMonth, timeZone, origin.data?.startedAt) && <EmptyState title={t("insights.currentMonthUnclosed")} description={t("insights.currentMonthUnclosedHint")} />}
-      <MonthGrid selection={hasSelection ? selectedRange : undefined} data={gridQuery.data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />
-    </>;
-  } else if (data?.available) {
-    content = <>{summary}<MonthGrid selection={hasSelection ? selectedRange : undefined} data={gridQuery.data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /><ContributorList values={summaryData?.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} /></>;
-  } else if (gridQuery.data?.cells?.some(day => day.available)) {
-    content = <><CalendarEmptyState data={data} /><MonthGrid selection={hasSelection ? selectedRange : undefined} data={gridQuery.data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /></>;
+    content = <>{summary}{!yearSummaryQuery.isLoading && !yearSummaryQuery.isError && data?.available ? <YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} /> : null}</>;
   } else {
-    content = <CalendarEmptyState data={data} />;
+    content = <>
+      {summary}
+      {currentMonthAwaitingClose(session, visibleMonth, timeZone, origin.data?.startedAt) && <EmptyState title={t("insights.currentMonthUnclosed")} description={t("insights.currentMonthUnclosedHint")} />}
+      {grid}
+      {summaryData?.available && <ContributorList values={summaryData.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />}
+    </>;
   }
   return <div className="flex flex-col gap-4">{header}{content}{view === "month" && <DaySheet request={gridRequest} date={selectedDate} session={session} onClose={() => setSelectedDate(null)} onAssetChanges={onOpenAssetChanges ? analysis => { setSelectedDate(null); onOpenAssetChanges(analysis); } : undefined} />}</div>;
 }

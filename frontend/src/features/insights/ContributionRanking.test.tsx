@@ -20,6 +20,13 @@ describe("contribution ranking", () => {
     expect(rankedContributions(precise, "all", "10")[0].key).toBe("b");
   });
 
+  it("identifies each incomplete subtotal in the visible and accessible row", () => {
+    render(<ContributionRanking rows={[{ ...rows[0], status: "partial", missingReason: "quote missing" }, { ...rows[1], status: "ok" }]} labelFor={row => row.label} onSelect={vi.fn()} label="Main contributions" />);
+    const partial = screen.getByRole("button", { name: /Gain.*Partial coverage.*Quote missing/i });
+    expect(partial).toHaveTextContent("Partial coverage");
+    expect(screen.getByRole("button", { name: /Loss/ })).not.toHaveTextContent("Partial coverage");
+  });
+
   it("uses one linear zero axis for both signs and opens details with keyboard and pointer", async () => {
     const user = userEvent.setup();
     const select = vi.fn();
