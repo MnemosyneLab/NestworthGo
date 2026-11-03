@@ -678,6 +678,14 @@ func TestReturnCalendarReportsEffectiveValuationAcrossMonthBounds(t *testing.T) 
 			if selected.Valuation != domain.ValuationNative || selected.Currency != expectedCurrency || selected.ValuationForced != nil {
 				t.Fatalf("selected native basis = %+v", selected)
 			}
+			nativeDay, err := service.ReturnDay(t.Context(), query, "2026-11-02")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if nativeDay.Valuation != selected.Valuation || nativeDay.Currency != selected.Currency || nativeDay.ValuationForced != nil {
+				t.Fatalf("native day basis = %+v", nativeDay)
+			}
+
 			query.From, query.To = "2026-10-26", "2026-12-06"
 			grid, err := service.ReturnCalendar(t.Context(), query, "", "day")
 			if err != nil {
@@ -686,6 +694,14 @@ func TestReturnCalendarReportsEffectiveValuationAcrossMonthBounds(t *testing.T) 
 			if grid.Valuation != domain.ValuationBase || grid.ValuationForced == nil || grid.Currency != "CNY" {
 				t.Fatalf("cross-month fallback basis = %+v", grid)
 			}
+			gridDay, err := service.ReturnDay(t.Context(), query, "2026-10-26")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if gridDay.Valuation != grid.Valuation || gridDay.Currency != grid.Currency || gridDay.ValuationForced == nil {
+				t.Fatalf("grid day basis = %+v", gridDay)
+			}
+
 			if missingFX && grid.Summary.AmountStatus == ReturnAmountComplete {
 				t.Fatalf("missing FX fabricated complete total: %+v", grid.Summary)
 			}

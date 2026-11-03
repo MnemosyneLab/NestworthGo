@@ -73,7 +73,7 @@ function CalendarEmptyState({ data }: { data?: ReturnCalendarDTO }) {
 
 // The backend reports the effective basis after its investment-universe fallback.
 // A missing currency stays explicitly unavailable, including missing-FX results.
-function ValuationLabel({ data, section }: { data: ReturnCalendarDTO; section: "summaryValuation" | "calendarValuation" }) {
+function ValuationLabel({ data, section }: { data: Pick<ReturnCalendarDTO, "valuation" | "currency" | "valuationForced">; section: "summaryValuation" | "calendarValuation" | "dayValuation" }) {
   const { t } = useTranslation();
   const currency = data.currency || t("insights.unavailableAmount");
   return <p className="text-xs text-muted-foreground">{t(`insights.${section}`)}: {t(data.valuation === "base" ? "insights.valuationBase" : "insights.valuationNative", { currency })}{data.valuation !== "base" && ` (${currency})`}{data.valuationForced && <span className="ml-2 text-warning-foreground">{t("insights.valuationForced")}</span>}</p>;
@@ -227,7 +227,7 @@ function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDT
   const amountPartial = data.amountStatus === "partial";
   const amountUnavailable = data.amountStatus === "unavailable";
   const openAssetChanges = () => onAssetChanges?.({ scope: session.scope, scopeId: session.scopeId, valuation: session.valuation, includeCash: session.includeCash, from: date, to: date, moreFilters: session.moreFilters });
-  return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
+  return <div className="flex flex-col gap-4 overflow-y-auto"><ValuationLabel data={data} section="dayValuation" /><div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
 }
 
 export { aggregateYearMonths };
@@ -277,6 +277,15 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
     </>}
   </section>;
   const yearData = useMemo(() => aggregateYearMonths(data, year), [data, year]);
+  // Without a distinct selected range the summary already presents this query's
+  // state. A separate yearly request needs its own loading, error and retry UI.
+  const independentYearQuery = hasSelection && (selectedRange.from !== range.from || selectedRange.to !== range.to);
+  const yearGrid = <section aria-label={t("insights.calendarView")} className="flex flex-col gap-3">
+    {yearSummaryQuery.isLoading ? independentYearQuery && <LoadingState label={t("insights.loading")} /> : yearSummaryQuery.isError ? independentYearQuery && <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => yearSummaryQuery.refetch()} retryLabel={t("common.retryAction")} /> : data?.available ? <>
+      <ValuationLabel data={data} section="calendarValuation" />
+      <YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} />
+    </> : independentYearQuery && monthRangeAvailable && <CalendarEmptyState data={data} />}
+  </section>;
 
   const move = (amount: number) => onCursorChange(view === "year" ? `${year + amount}-01` : addMonths(visibleMonth, amount));
   const header = <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label={t("insights.previous")} onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /></Button><h2 className="min-w-44 text-center font-display text-xl font-semibold tracking-tight">{view === "year" ? yearLabel(year, i18n.language) : monthLabel(visibleMonth, i18n.language)}</h2><Button type="button" variant="outline" size="icon" aria-label={t("insights.next")} onClick={() => move(1)}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="ghost" onClick={() => onCursorChange(currentMonth(timeZone))}>{t("insights.today")}</Button></div><SegmentedControl size="md" label={t("insights.calendarView")} value={view} onChange={value => setView(value as typeof view)} options={[{ value: "month", label: t("insights.month") }, { value: "year", label: t("insights.year") }]} /></div>;
@@ -290,7 +299,7 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
   } else if (!scopeReady) {
     content = <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
   } else if (view === "year") {
-    content = <>{summary}{!yearSummaryQuery.isLoading && !yearSummaryQuery.isError && data?.available ? <YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} /> : null}</>;
+    content = <>{summary}{yearGrid}</>;
   } else {
     content = <>
       {summary}

@@ -32,6 +32,8 @@ type ReturnIssueDTO struct {
 }
 
 type ReturnDayDTO struct {
+	Valuation              string                     `json:"valuation"`
+	Currency               string                     `json:"currency"`
 	Date                   string                     `json:"date"`
 	BeginningInvestedValue *SignedMoneyView           `json:"beginningInvestedValue,omitempty"`
 	EndingInvestedValue    *SignedMoneyView           `json:"endingInvestedValue,omitempty"`

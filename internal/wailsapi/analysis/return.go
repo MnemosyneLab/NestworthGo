@@ -122,6 +122,8 @@ func fromReturnCalendarSummary(value application.ReturnCalendarSummary) wire.Ret
 
 func fromReturnDay(value application.ReturnDayResult) wire.ReturnDayDTO {
 	result := wire.ReturnDayDTO{
+		Valuation:              string(value.Valuation),
+		Currency:               string(value.Currency),
 		Date:                   string(value.Date),
 		BeginningInvestedValue: wire.FromSignedMoneyPtr(value.BeginningInvestedValue),
 		EndingInvestedValue:    wire.FromSignedMoneyPtr(value.EndingInvestedValue),

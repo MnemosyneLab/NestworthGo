@@ -33,11 +33,40 @@ Linux container. These are Linux checks, not native macOS acceptance.
 - `go build ./cmd/nestworth`: passed with the Linux native dependencies.
 - Targeted Go contribution/calendar/application-to-wire regressions: passed.
 - Frontend lint (including locale coverage) and typecheck: passed.
-- Full Vitest suite: 163 files, 1696 tests passed (354.39 seconds).
-- Frontend production build: passed (Vite build 1.51 seconds). The existing
+- Full Vitest suite: 163 files, 1702 tests passed (309.51 seconds).
+- Frontend production build: passed (Vite build 1.40 seconds). The existing
   documented ECharts vendor chunk remains above the 500 kB warning threshold.
 - `gofmt` on changed Go files and `git diff --check`: passed.
 - `node --check docs/qa/pr195-return-analysis/browser-regression.mjs`: passed.
+
+## Follow-up: yearly grid and day drawer
+
+Independent review identified that an explicit selected-range summary could
+succeed while a separate yearly request failed silently. The new regression
+cases failed on `047004f` before the fix. The yearly grid now owns its loading,
+error, retry and empty states when its range differs from the summary. Retry
+requests only January 1 through the last closed day; the narrower successful
+summary remains visible and keeps its values. Shared queries retain a single
+loading/error presentation.
+
+The yearly grid labels its own effective basis, currency and forced-base
+fallback independently of the selected-range summary. Tests keep a native CNY
+summary visible while delayed or retried annual data uses base USD.
+
+Day-detail responses now carry the same effective `valuation` and `currency`
+metadata as the grid. Application/service and wire tests cover native and
+forced-base day responses for the same grid query, including missing FX. The
+drawer displays its own metadata and fallback message. UI coverage includes
+native CNY, forced USD and unavailable currency/amount evidence; it never
+borrows the selected-period summary's basis.
+
+The focused frontend run passed 35 tests across ReturnAnalysisPage and
+ReturnCalendarTab; the focused Go calendar/day/application-to-wire run passed.
+The full Go test/vet/native-build and frontend checks were rerun after the
+follow-up. The focused UI tests and typecheck were rerun again after disabling
+transport retries in the annual manual-retry fixture.
+Only additive response metadata and UI state/presentation changed; no additional
+automatic queries, financial calculations or database writes were introduced.
 
 ## Browser evidence
 

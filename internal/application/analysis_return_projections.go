@@ -26,6 +26,8 @@ type ReturnIssue struct {
 
 type ReturnDayResult struct {
 	AnalysisAvailability
+	Valuation              domain.Valuation
+	Currency               domain.CurrencyCode
 	Date                   domain.LocalDate
 	BeginningInvestedValue *domain.SignedMoney
 	EndingInvestedValue    *domain.SignedMoney
@@ -702,7 +704,7 @@ func projectReturnDays(result domain.PeriodAnalysisResult, forced string) []Retu
 				amountStatus = ReturnAmountPartial
 			}
 		}
-		cell := ReturnDayResult{AnalysisAvailability: dailyAvailability(daily, forced), Date: daily.Date, ReturnAmount: daily.Amount, AmountStatus: amountStatus, ReturnRate: daily.Rate, Coverage: coverage, BeginningInvestedValue: beginningValue, EndingInvestedValue: endingValue, Contributors: returnContributorsFromAmounts(contributorsByDate[daily.Date], currency, coverage)}
+		cell := ReturnDayResult{Valuation: result.Query.Valuation, Currency: currency, AnalysisAvailability: dailyAvailability(daily, forced), Date: daily.Date, ReturnAmount: daily.Amount, AmountStatus: amountStatus, ReturnRate: daily.Rate, Coverage: coverage, BeginningInvestedValue: beginningValue, EndingInvestedValue: endingValue, Contributors: returnContributorsFromAmounts(contributorsByDate[daily.Date], currency, coverage)}
 		keys := make([]string, 0, len(components))
 		for component := range components {
 			keys = append(keys, string(component))

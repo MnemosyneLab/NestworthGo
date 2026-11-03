@@ -38,8 +38,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
   Service: { HistoryOrigin: (...args: unknown[]) => historyOrigin(...args) },
 }));
 
-function renderPage(onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void) {
-  const queryClient = createTestQueryClient();
+function renderPage(onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void, options?: Parameters<typeof createTestQueryClient>[0]) {
+  const queryClient = createTestQueryClient(options);
   return render(<QueryClientProvider client={queryClient}><ReturnAnalysisPage onOpenAssetChanges={onOpenAssetChanges} /></QueryClientProvider>);
 }
 
@@ -268,6 +268,67 @@ describe("ReturnAnalysisPage", () => {
     await waitFor(() => expect(within(region).queryByRole("alert")).not.toBeInTheDocument());
     expect(returnCalendar).toHaveBeenCalledTimes(1);
     expect(returnCalendar.mock.calls[0][1]).toBe(failed === "grid" ? "" : "2026-09");
+  });
+
+  it.each(["pending", "failed", "empty"])("keeps a selected-range summary while the independent year grid is %s", async state => {
+    const base = await returnCalendar();
+    useAnalysisStore.getState().setFilters({ valuation: "native", from: "2026-09-02", to: "2026-09-03" });
+    const selected = { ...base, valuation: "native", currency: "CNY", summary: { ...base.summary, returnAmount: { amount: "7", currency: "CNY" } } };
+    const annual = { ...base, valuation: "base", currency: "USD", valuationForced: "base" };
+    let finish!: (value: typeof annual) => void;
+    returnCalendar.mockImplementation((request, cursor) => {
+      if (request.from !== "2026-01-01" || cursor) return Promise.resolve(selected);
+      if (state === "failed") return Promise.reject(new Error("synthetic annual failure"));
+      if (state === "empty") return Promise.resolve({ ...annual, available: false, cells: [] });
+      return new Promise(resolve => { finish = resolve; });
+    });
+    renderPage(undefined, { retry: false });
+    await screen.findByText("Summary valuation: Native (CNY)");
+    await userEvent.click(screen.getByRole("button", { name: "Year" }));
+    const summary = screen.getByRole("region", { name: "Return summary" });
+    const calendar = await screen.findByRole("region", { name: "Calendar view" });
+    expect(within(summary).getByText("+CN¥7.00")).toBeInTheDocument();
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-02", to: "2026-09-03" }), "", "day");
+    await waitFor(() => expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-01-01", to: "2026-09-06" }), "", "day"));
+    if (state === "pending") {
+      expect(within(calendar).getByRole("status")).toBeInTheDocument();
+      finish(annual);
+    } else if (state === "failed") {
+      await within(calendar).findByRole("alert");
+      returnCalendar.mockClear().mockResolvedValue(annual);
+      await userEvent.click(within(calendar).getByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(within(calendar).queryByRole("alert")).not.toBeInTheDocument());
+      expect(returnCalendar).toHaveBeenCalledTimes(1);
+      expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-01-01", to: "2026-09-06" }), "", "day");
+    } else {
+      expect(await within(calendar).findByText("No investment assets are available for this scope.")).toBeInTheDocument();
+      expect(within(summary).getByText("+CN¥7.00")).toBeInTheDocument();
+      return;
+    }
+    expect(await within(calendar).findByText(/Calendar valuation: Base \(USD\)/)).toBeInTheDocument();
+    expect(within(calendar).getByText("Native valuation is unavailable; showing base currency.")).toBeInTheDocument();
+    expect(within(calendar).getByRole("button", { name: /September/ })).toHaveTextContent("+US$100.00");
+    expect(within(summary).getByText("Summary valuation: Native (CNY)")).toBeInTheDocument();
+    expect(within(summary).getByText("+CN¥7.00")).toBeInTheDocument();
+  });
+
+  it.each(["native", "base", "unavailable"])("shows the day response's actual %s valuation independently of the summary", async mode => {
+    const base = await returnDay();
+    const calendar = await returnCalendar();
+    useAnalysisStore.getState().setFilters({ valuation: "native" });
+    const currency = mode === "native" ? "CNY" : mode === "base" ? "USD" : "";
+    const selected = { ...calendar, valuation: "native", currency: "CNY", summary: { ...calendar.summary, returnAmount: { amount: "7", currency: "CNY" } } };
+    const grid = { ...calendar, valuation: mode === "native" ? "native" : "base", currency, valuationForced: mode === "native" ? null : "base", cells: calendar.cells.map((cell: object) => ({ ...cell, returnAmount: currency ? { amount: "7", currency } : null, amountStatus: currency ? "complete" : "unavailable", available: Boolean(currency) })) };
+    returnCalendar.mockImplementation((_request, cursor) => Promise.resolve(cursor ? selected : grid));
+    returnDay.mockResolvedValue({ ...base, available: Boolean(currency), status: currency ? "ok" : "unavailable", valuation: mode === "native" ? "native" : "base", currency, valuationForced: mode === "native" ? null : "base", returnAmount: currency ? { amount: "7", currency } : null, amountStatus: currency ? "complete" : "unavailable" });
+    renderPage();
+    const date = await screen.findByTestId("return-day-2026-09-01");
+    await userEvent.click(within(date).getByRole("button"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(mode === "native" ? "Day valuation: Native (CNY)" : mode === "base" ? /Day valuation: Base \(USD\)/ : /Day valuation: Base \(Unavailable\)/)).toBeInTheDocument();
+    if (mode === "native") expect(within(dialog).queryByText("Native valuation is unavailable; showing base currency.")).not.toBeInTheDocument();
+    else expect(within(dialog).getByText("Native valuation is unavailable; showing base currency.")).toBeInTheDocument();
+    expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-31", to: "2026-09-06", valuation: "native" }), "2026-09-01");
   });
 
   it("shows the selected summary while the cross-month grid is pending", async () => {
