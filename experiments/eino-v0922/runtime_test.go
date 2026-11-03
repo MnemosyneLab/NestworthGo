@@ -897,6 +897,35 @@ func (f *fixture) cash(t *testing.T) string {
 	t.Fatalf("missing synthetic cash rows=%s", encode(rows))
 	return ""
 }
+func reasoningPreservationError(strict, preserved bool) error {
+	if strict && !preserved {
+		return errors.New("acceptance failed: done-only encrypted reasoning was dropped")
+	}
+	if !strict && preserved {
+		return errors.New("behavior changed: done-only encrypted content preserved; review and update limitation")
+	}
+	return nil
+}
+
+func TestReasoningAcceptanceModes(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		strict, preserved bool
+		wantError         bool
+	}{
+		{"characterize-current-defect", false, false, false},
+		{"characterize-detects-fix", false, true, true},
+		{"strict-rejects-defect", true, false, true},
+		{"strict-accepts-fix", true, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := reasoningPreservationError(tc.strict, tc.preserved); (err != nil) != tc.wantError {
+				t.Fatalf("strict=%t preserved=%t error=%v wantError=%t", tc.strict, tc.preserved, err, tc.wantError)
+			}
+		})
+	}
+}
+
 func TestReasoningArrivingOnlyAtItemDone(t *testing.T) {
 	f := newFixture(t)
 	mock := newFake(t, turn{name: "get_context", args: map[string]any{}, reasoning: true, encryptedAtDone: true}, turn{name: "get_catalog", args: map[string]any{}, reasoning: true, encryptedAtDone: true}, turn{})
@@ -907,19 +936,19 @@ func TestReasoningArrivingOnlyAtItemDone(t *testing.T) {
 	if len(mock.requests) != 3 {
 		t.Fatalf("requests=%d", len(mock.requests))
 	}
+	strict := os.Getenv("EINO_REQUIRE_PROVIDER_SAFETY") == "1"
 	for n := 1; n < 3; n++ {
 		raw := encode(mock.requests[n]["input"])
 		if !strings.Contains(raw, "rs_0") {
 			t.Fatal("reasoning ID dropped")
 		}
-		if os.Getenv("EINO_REQUIRE_PROVIDER_SAFETY") == "1" && !strings.Contains(raw, "encrypted_0") {
-			t.Error("acceptance failed: done-only encrypted reasoning was dropped")
-		}
-		if strings.Contains(raw, "encrypted_0") {
-			t.Fatal("behavior changed: done-only encrypted content preserved; review and update limitation")
+		if err := reasoningPreservationError(strict, strings.Contains(raw, "encrypted_0")); err != nil {
+			t.Error(err)
 		}
 	}
-	t.Log("LIMITATION: done-only encrypted_content is dropped; reasoning ID retained; fake endpoint cannot prove real provider accepts this history")
+	if !strict {
+		t.Log("LIMITATION: done-only encrypted_content is dropped; reasoning ID retained; fake endpoint cannot prove real provider accepts this history")
+	}
 }
 
 func TestChangedOperationAndAuthoritativeAmount(t *testing.T) {
