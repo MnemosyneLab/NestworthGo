@@ -1,0 +1,3 @@
+github.com/cloudwego/eino v0.9.22/go.mod h1:OBD1mrkfkt/pJa4rkg1P0VnaMeOVl7l8IAdEqY//3IQ=
+github.com/cloudwego/eino-ext/components/model/agenticopenai v0.2.4/go.mod h1:AfLNKxrTFFkJbCWSvOtqKK1ZXEp0hpe26CBQ8GSf5zo=
+github.com/cloudwego/eino-ext/components/tool/mcp/officialmcp v0.1.1/go.mod h1:Uct3FqioW4tDTeSlN5rLDPwAxRkFknCgAgT1oVeB9Wo=
