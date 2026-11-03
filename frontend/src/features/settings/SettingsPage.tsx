@@ -435,7 +435,7 @@ export function SettingsPage() {
       </TabsContent>
       <TabsContent value="about" keepMounted><AboutPage /></TabsContent>
       </Tabs>
-      <footer aria-label={t("settings.preferenceActions")} className="flex max-w-4xl flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
+      {(activeSection !== "mobile" || isDirty) && <footer aria-label={t("settings.preferenceActions")} className="flex max-w-4xl flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <AlertDialog open={resetOpen} onOpenChange={(open) => { if (!preferencesBusy) setResetOpen(open); }}>
             <AlertDialogTrigger disabled={preferencesBusy || localRestoreBusy || cloudInteractionBusy || agentBusy}
@@ -496,7 +496,7 @@ export function SettingsPage() {
           )}
         </div>
       </div>
-      </footer>
+      </footer>}
     </div>
   );
 }

@@ -2072,7 +2072,7 @@
   },
   "mobile": {
     "tagline": "Your household ledger, in your pocket.",
-    "stepPair": "Pair this device",
+    "stepPair": "Sign in",
     "noHoldings": "No holdings in this account.",
     "valuationEvidence": "Valuation sources",
     "showValues": "Show values",
@@ -2097,8 +2097,6 @@
     "forgetHelp": "Verify the original operation on desktop first. This removes only this browser’s recovery reference; it does not save, reverse or replay an operation.",
     "verifiedOnDesktop": "I checked on desktop",
     "accountType": "Account type",
-    "lastUsed": "Last used",
-    "expiresAt": "Expires",
     "scope": {
       "all": "All latest prices",
       "stale": "Missing or stale prices"
@@ -2111,8 +2109,9 @@
     },
     "connectionError": {
       "port_in_use": "This port is already in use. Choose another private port.",
-      "certificate_unavailable": "Check that the certificate and private key are readable, valid, and match the HTTPS hostname.",
-      "listener_unavailable": "The private listener could not start. Check its address and permissions."
+      "listener_unavailable": "The private listener could not start. Check its address and permissions.",
+      "configuration_reset": "Previous connection settings were retired. Set a token and enable LAN access again.",
+      "invalid_configuration": "Saved mobile settings are invalid. Enter the LAN address and token again."
     },
     "classification": {
       "external_inflow": "External inflow / refund",
@@ -2136,7 +2135,7 @@
     "logout": "Sign out",
     "login": "Sign in",
     "token": "Mobile token",
-    "loginHelp": "Generate a token in desktop Settings, then paste it here.",
+    "loginHelp": "Enter the token from desktop Settings → Mobile access.",
     "connectionHelp": "Keep the computer hosting Nestworth awake, with the app running on the trusted private network. Closing the last window exits the app.",
     "connectionUnavailable": "Connection unavailable. Data may be old. Check the computer hosting Nestworth, the app and the network.",
     "requestFailed": "The request could not be completed.",
@@ -2219,25 +2218,10 @@
     "cost": "Cost",
     "gain": "Unrealized gain",
     "access": "Mobile access",
-    "setupHelp": "Off by default. Choose trusted private HTTPS, a same-machine HTTPS proxy, or explicitly opt into unencrypted HTTP on a trusted LAN. Network setup is external.",
-    "origin": "External origin (scheme, IP/host and port)",
-    "listen": "Private listen address",
-    "mode": "Connection mode",
-    "tls": "Direct HTTPS",
-    "proxy": "Same-machine HTTPS proxy",
-    "certificate": "Certificate file",
-    "keyFile": "Private key file",
+    "setupHelp": "Enable access, enter this computer’s LAN IP and port, and set a token. Open the address on your phone and enter the token. HTTP is unencrypted; use a trusted LAN.",
+    "listen": "LAN listen address",
     "enabled": "Enable mobile access",
     "saveAccess": "Apply connection settings",
-    "deviceName": "Device name",
-    "pair": "Generate one-use token",
-    "pairHelp": "Shown once; expires in 10 minutes. App restart requires pairing again. Paste into the server’s phone page, never into a URL.",
-    "revoke": "Revoke device",
-    "revokeAll": "Sign out all phones",
-    "read": "View data",
-    "record": "Record changes",
-    "market_refresh": "Update prices and FX",
-    "manual_quote": "Add manual observations",
     "running": "Running",
     "stopped": "Stopped",
     "job": {
@@ -2247,17 +2231,6 @@
       "failed": "Failed",
       "cancelled": "Cancelled"
     },
-    "connectionSettings": "Connection settings",
-    "httpLan": "HTTP on trusted LAN (unencrypted)",
-    "httpLanHelp": "Explicit opt-in: pairing tokens and financial data travel unencrypted. Use only a trusted private network. Set origin to http://LAN-IP:port and listen to the identical IP:port; leave trusted frontend empty. No firewall or router changes are made.",
-    "httpOpenHelp": "Open the built-in HTTP page, then pair there. The computer must have HTTP LAN mode enabled and both devices must be on the same reachable private network. HTTPS pages cannot fetch this HTTP server; opening its page avoids mixed-content requests. Opening another page leaves this page.",
-    "openHttpPage": "Open LAN phone page",
-    "backendAddress": "Backend address or LAN IP:port",
-    "backendHelp": "Leave blank to use this site’s server. Enter a trusted HTTPS origin or LAN IP and port (for example 192.168.1.20:9443). HTTP opens the server’s own phone page; pair there. Changing servers signs out locally; revoke old sessions on desktop.",
-    "frontendOrigin": "Frontend origin: {{origin}}",
-    "connectionTestPassed": "Nestworth connection is available. Pairing is still required.",
-    "testConnection": "Test connection",
-    "useConnection": "Use this server",
     "connectedTo": "Server: {{address}}",
     "reconnect": "Reconnect",
     "theme": "Theme",
@@ -2266,10 +2239,8 @@
       "light": "Light",
       "dark": "Dark"
     },
-    "trustedFrontend": "Trusted frontend origin (optional)",
-    "trustedFrontendHelp": "For a separately hosted frontend, enter its exact HTTPS origin with no path or trailing slash. Leave blank for same-origin access only. This grants that frontend permission to exchange pairing tokens and access authorized data; only use a frontend you trust. Saving revokes existing sessions.",
     "connectionQR": "Open mobile connection",
-    "connectionQRHelp": "Scan to open the mobile page with the backend address. This QR contains no token; enter the one-use token separately. For a separately hosted frontend, rebuild and publish the current open-source mobile entry first.",
+    "connectionQRHelp": "Scan to open the mobile page, then enter the token. The QR contains only the address.",
     "confirmAnother": "Confirm and add another",
     "marketJob": "Market data task",
     "jobQueued": "Preparing to run",
@@ -2283,13 +2254,16 @@
     "retryJobHelp": "Review a new attempt using current provider limits and saved observations. Successful or fresh work may be reused. This does not replay an accepted task.",
     "jobAcceptanceUnknown": "Acceptance is not yet confirmed. Retry this same submission to recover the original task; do not start another.",
     "transport": {
-      "invalid_url": "Enter a trusted HTTPS origin or private numeric IP with port 1–65535 (for example 192.168.1.20:9443 or [fd12::1]:9443). Do not include credentials, paths, queries or fragments.",
-      "insecure_backend": "Use HTTPS or open the built-in HTTP LAN phone page. An HTTPS frontend cannot bypass browser restrictions to fetch a private HTTP server.",
-      "transport": "The browser could not reach the server. Check that Nestworth is running, the phone can reach the private network, the certificate is trusted, and desktop settings authorize this exact frontend origin. Also check this frontend’s connect-src policy and browser local-network permission. Browsers conceal the specific network, TLS or CORS cause; no request result is confirmed.",
+      "transport": "Cannot reach Nestworth. Check that the computer and app are running and both devices are on the same LAN. A submitted confirmation may still complete; check its original result.",
       "timeout": "The request timed out. Check the connection. For a confirmation, keep the original submission and check its result or retry that same submission.",
       "cancelled": "The request was cancelled. A submitted confirmation may still complete; check its original result.",
-      "invalid_response": "This address did not return a supported Nestworth mobile response. Check the backend address, API version, frontend origin authorization and proxy routing."
+      "invalid_response": "The server returned an unsupported response. Check that Nestworth is running at this address."
     },
-    "recoveryMemoryOnly": "This browser cannot retain the recovery reference for a reload. Keep this page open until the original result is confirmed; use desktop activity to verify if you leave."
+    "recoveryMemoryOnly": "This browser cannot retain the recovery reference for a reload. Keep this page open until the original result is confirmed; use desktop activity to verify if you leave.",
+    "listenHelp": "Use this computer’s LAN IP and a port, for example 192.168.1.20:9443. Your phone must be on the same network.",
+    "tokenHelp": "Use 8–64 letters or digits, or generate a 10-character token. Apply to save; this signs out all phones.",
+    "showToken": "Show token",
+    "hideToken": "Hide token",
+    "generateToken": "Generate token"
   }
 }

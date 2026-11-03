@@ -2072,7 +2072,7 @@
   },
   "mobile": {
     "tagline": "随身的家庭账本。",
-    "stepPair": "配对此设备",
+    "stepPair": "登录",
     "noHoldings": "此账户暂无持仓。",
     "valuationEvidence": "估值来源",
     "showValues": "查看数值",
@@ -2097,8 +2097,6 @@
     "forgetHelp": "请先在桌面核实原操作。这只移除当前浏览器的恢复标识，不会保存、撤销或重放任何操作。",
     "verifiedOnDesktop": "我已在桌面核实",
     "accountType": "账户类型",
-    "lastUsed": "最近使用",
-    "expiresAt": "到期",
     "scope": {
       "all": "全部最新报价",
       "stale": "缺失或过旧报价"
@@ -2111,8 +2109,9 @@
     },
     "connectionError": {
       "port_in_use": "端口已被占用，请选择其他私网端口。",
-      "certificate_unavailable": "请检查证书和私钥是否可读、有效，并与 HTTPS 主机名匹配。",
-      "listener_unavailable": "私网服务未能启动，请检查地址和权限。"
+      "listener_unavailable": "私网服务未能启动，请检查地址和权限。",
+      "configuration_reset": "旧连接配置已停用，请设置 token 后重新启用局域网访问。",
+      "invalid_configuration": "已保存的手机访问设置无效，请重新填写局域网地址和 token。"
     },
     "classification": {
       "external_inflow": "外部流入／退款",
@@ -2136,7 +2135,7 @@
     "logout": "退出登录",
     "login": "登录",
     "token": "手机 token",
-    "loginHelp": "在桌面设置生成 token，再粘贴到这里。",
+    "loginHelp": "输入桌面「设置 → 手机访问」中的 token。",
     "connectionHelp": "请让运行 Nestworth 的电脑保持唤醒，并连接可信私网。关闭最后一个窗口会退出应用。",
     "connectionUnavailable": "连接不可用，数据可能过时。请检查运行 Nestworth 的电脑、应用和网络。",
     "requestFailed": "请求未能完成。",
@@ -2219,25 +2218,10 @@
     "cost": "成本",
     "gain": "未实现收益",
     "access": "手机访问",
-    "setupHelp": "默认关闭。可使用可信私网 HTTPS、同机 HTTPS 代理，或明确选择可信局域网中的明文 HTTP。网络配置需自行完成。",
-    "origin": "访问来源（协议、IP/主机和端口）",
-    "listen": "私网监听地址",
-    "mode": "连接模式",
-    "tls": "直接 HTTPS",
-    "proxy": "同机 HTTPS 代理",
-    "certificate": "证书文件",
-    "keyFile": "私钥文件",
+    "setupHelp": "启用后，填写电脑的局域网 IP 和端口，并设置 token。手机打开地址，输入 token 即可使用。HTTP 不加密，请在可信局域网中使用。",
+    "listen": "局域网监听地址",
     "enabled": "启用手机访问",
     "saveAccess": "应用连接设置",
-    "deviceName": "设备名称",
-    "pair": "生成一次性 token",
-    "pairHelp": "仅显示一次，10 分钟后过期。应用重启后须重新配对。粘贴到服务器手机页，切勿放入 URL。",
-    "revoke": "撤销设备",
-    "revokeAll": "退出全部手机",
-    "read": "查看数据",
-    "record": "记账",
-    "market_refresh": "更新报价与汇率",
-    "manual_quote": "人工补录",
     "running": "运行中",
     "stopped": "未运行",
     "job": {
@@ -2247,17 +2231,6 @@
       "failed": "失败",
       "cancelled": "已取消"
     },
-    "connectionSettings": "连接设置",
-    "httpLan": "可信局域网 HTTP（不加密）",
-    "httpLanHelp": "需明确启用：配对令牌和财务数据将明文传输，仅限可信私网。访问来源填写 http://局域网IP:端口，监听地址填写相同 IP:端口，受信任前端来源留空。不会修改防火墙或路由器。",
-    "httpOpenHelp": "打开内置 HTTP 手机页后再配对。电脑须已启用局域网 HTTP 模式，两台设备须在可互通的私网中。HTTPS 页面不能直接请求此 HTTP 后端；打开其页面可避免混合内容请求。打开后将离开当前页面。",
-    "openHttpPage": "打开局域网手机页",
-    "backendAddress": "后端地址或局域网 IP:端口",
-    "backendHelp": "留空使用当前网站的服务器。输入受信任的 HTTPS 地址或局域网 IP 和端口（例如 192.168.1.20:9443）。HTTP 将打开服务器自带的手机页，请在那里配对。切换服务器会清除本机登录；旧会话可在桌面撤销。",
-    "frontendOrigin": "前端来源：{{origin}}",
-    "connectionTestPassed": "已连接到 Nestworth，仍需配对登录。",
-    "testConnection": "测试连接",
-    "useConnection": "使用此服务器",
     "connectedTo": "服务器：{{address}}",
     "reconnect": "重新连接",
     "theme": "主题",
@@ -2266,10 +2239,8 @@
       "light": "浅色",
       "dark": "深色"
     },
-    "trustedFrontend": "受信任的前端来源（可选）",
-    "trustedFrontendHelp": "独立部署前端时，填写其准确的 HTTPS 来源，不含路径和末尾斜杠。留空仅允许同源访问。授权后该前端可交换配对令牌并访问已授权数据，请只填写受信任的前端。保存设置会撤销现有会话。",
     "connectionQR": "打开手机连接",
-    "connectionQRHelp": "扫码打开手机页面并填入后端地址。二维码不含令牌；请另行输入一次性令牌。使用独立部署的前端前，请先构建并发布当前开源手机入口。",
+    "connectionQRHelp": "扫码打开手机页面，再输入 token。二维码仅包含地址。",
     "confirmAnother": "确认并再记一笔",
     "marketJob": "行情数据任务",
     "jobQueued": "准备运行",
@@ -2283,13 +2254,16 @@
     "retryJobHelp": "按当前服务限制和已保存行情预览新一次尝试。成功或仍新鲜的数据可能被复用，不会重放已接收的任务。",
     "jobAcceptanceUnknown": "尚未确认任务是否被接收。请重试同一次提交以恢复原任务，不要另建任务。",
     "transport": {
-      "invalid_url": "请输入可信 HTTPS 地址，或私网 IP 和 1–65535 的端口（例如 192.168.1.20:9443 或 [fd12::1]:9443）。不得包含凭据、路径、查询或片段。",
-      "insecure_backend": "请使用 HTTPS，或打开内置的局域网 HTTP 手机页。HTTPS 前端无法绕过浏览器限制直接请求私网 HTTP 服务器。",
-      "transport": "浏览器无法连接服务器。请确认 Nestworth 正在运行、手机可访问私网、证书受信任，以及桌面设置已授权此准确前端来源。同时检查前端 connect-src 策略和浏览器本地网络权限。浏览器不会提供确切的网络、TLS 或跨域失败原因；请求结果尚未确认。",
+      "transport": "无法连接 Nestworth。请确认电脑和应用正在运行，且两台设备连接同一局域网。已提交的确认仍可能完成，请查询原提交结果。",
       "timeout": "请求超时，请检查连接。若正在确认保存，请保留原提交并查询结果，或重试同一次提交。",
       "cancelled": "请求已取消。已提交的确认仍可能完成，请查询原提交结果。",
-      "invalid_response": "该地址未返回受支持的 Nestworth 手机接口响应。请检查后端地址、接口版本、前端来源授权和代理路由。"
+      "invalid_response": "服务器返回了不支持的响应，请确认此地址运行的是 Nestworth。"
     },
-    "recoveryMemoryOnly": "此浏览器无法保留重新加载后的恢复引用。请保持页面打开，直到确认原提交结果；若离开，请在桌面流水中核实。"
+    "recoveryMemoryOnly": "此浏览器无法保留重新加载后的恢复引用。请保持页面打开，直到确认原提交结果；若离开，请在桌面流水中核实。",
+    "listenHelp": "填写这台电脑的局域网 IP 和端口，例如 192.168.1.20:9443。手机须连接同一网络。",
+    "tokenHelp": "使用 8–64 位字母或数字，也可随机生成 10 位 token。应用后保存，并退出所有手机的登录。",
+    "showToken": "显示 token",
+    "hideToken": "隐藏 token",
+    "generateToken": "随机生成"
   }
 }

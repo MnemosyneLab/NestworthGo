@@ -5,200 +5,80 @@ import { beforeEach, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { MobileAccessSection } from "./MobileAccessSection";
 
-const mobile = vi.hoisted(() => ({
-  Status: vi.fn(),
-  Configure: vi.fn(),
-  Pair: vi.fn(),
-  Revoke: vi.fn(),
-}));
-vi.mock(
-  "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/mobile/service",
-  () => mobile,
-);
-vi.mock("@/lib/wails", () => ({
-  callService: (run: () => Promise<unknown>) => run(),
-}));
-const status = {
-  config: {
-    enabled: true,
-    origin: "https://synthetic.private.example",
-    listen: "127.0.0.1:9443",
-    mode: "loopback_proxy",
-    certificate: "",
-    key: "",
-    frontendOrigin: "",
-  },
-  running: true,
-  devices: [{ id: "synthetic-device", name: "Synthetic phone" }],
-};
+const mobile = vi.hoisted(() => ({ Status: vi.fn(), Configure: vi.fn(), GenerateToken: vi.fn() }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/mobile/service", () => mobile);
+vi.mock("@/lib/wails", () => ({ callService: (run: () => Promise<unknown>) => run() }));
+const status = { config: { enabled: true, listen: "192.168.1.20:9443", token: "SYNTHETIC1" }, url: "http://192.168.1.20:9443", running: true };
 beforeEach(async () => {
   vi.clearAllMocks();
   await i18n.changeLanguage("en");
   mobile.Status.mockResolvedValue(status);
-  mobile.Pair.mockResolvedValue({
-    token: "synthetic-one-use-token",
-    expiresAt: "2026-10-30T12:10:00Z",
-    url: status.config.origin,
-  });
-  mobile.Revoke.mockResolvedValue(status);
-});
-
-it("requires explicit manual permission and clears the once-only token when leaving the section", async () => {
-  const user = userEvent.setup();
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  const view = render(
-    <QueryClientProvider client={client}>
-      <MobileAccessSection />
-    </QueryClientProvider>,
-  );
-  await screen.findByText("Running");
-  const qrBeforePairing = screen.getByRole("img", {
-    name: "Open mobile connection",
-  }).outerHTML;
-  expect(screen.getByLabelText("Add manual observations")).not.toBeChecked();
-  await user.type(screen.getByLabelText("Device name"), "QA phone");
-  await user.click(screen.getByLabelText("Add manual observations"));
-  await user.click(
-    screen.getByRole("button", { name: "Generate one-use token" }),
-  );
-  expect(
-    await screen.findByDisplayValue("synthetic-one-use-token"),
-  ).toHaveAttribute("readonly");
-  expect(
-    screen.getByRole("img", { name: "Open mobile connection" }).outerHTML,
-  ).toBe(qrBeforePairing);
-  expect(mobile.Pair).toHaveBeenCalledWith("QA phone", {
-    read: true,
-    record: true,
-    market_refresh: true,
-    manual_quote: true,
-  });
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <MobileAccessSection active={false} />
-    </QueryClientProvider>,
-  );
-  expect(
-    screen.queryByDisplayValue("synthetic-one-use-token"),
-  ).not.toBeInTheDocument();
-});
-
-it("revokes one named phone and all phones without exposing token history", async () => {
-  const user = userEvent.setup();
-  const client = new QueryClient();
-  render(
-    <QueryClientProvider client={client}>
-      <MobileAccessSection />
-    </QueryClientProvider>,
-  );
-  await screen.findByText("Synthetic phone");
-  await user.click(screen.getByRole("button", { name: "Revoke device" }));
-  expect(mobile.Revoke).toHaveBeenCalledWith("synthetic-device");
-  await user.click(screen.getByRole("button", { name: "Sign out all phones" }));
-  expect(mobile.Revoke).toHaveBeenLastCalledWith("");
-  expect(screen.queryByLabelText("Mobile token")).not.toBeInTheDocument();
-});
-
-it.each([
-  [
-    "en",
-    /computer hosting Nestworth/,
-    /Closing the last window exits the app\./,
-  ],
-  ["zh-CN", /运行 Nestworth 的电脑/, /关闭最后一个窗口会退出应用。/],
-  ["zh-TW", /執行 Nestworth 的電腦/, /關閉最後一個視窗會結束應用程式。/],
-] as const)(
-  "renders platform-neutral hosting and exit guidance from real %s resources",
-  async (language, host, exit) => {
-    await i18n.changeLanguage(language);
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <MobileAccessSection />
-      </QueryClientProvider>,
-    );
-    const help = i18n.getResource(
-      language,
-      "translation",
-      "mobile.connectionHelp",
-    );
-    expect(await screen.findByText(help)).toHaveTextContent(host);
-    expect(screen.getByText(help)).toHaveTextContent(exit);
-    const unavailable = i18n.getResource(
-      language,
-      "translation",
-      "mobile.connectionUnavailable",
-    );
-    expect(unavailable).toMatch(host);
-    for (const copy of [help, unavailable])
-      expect(copy).not.toMatch(/Mac(?:Book|OS)?|Windows|Linux/i);
-  },
-);
-
-it("saves an explicit trusted frontend while retaining the private listener", async () => {
-  const user = userEvent.setup();
   mobile.Configure.mockResolvedValue(status);
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={client}>
-      <MobileAccessSection />
-    </QueryClientProvider>,
-  );
-  await screen.findByText("Running");
-  await user.type(
-    screen.getByLabelText("Trusted frontend origin (optional)"),
-    "https://synthetic-frontend.example",
-  );
-  await user.click(
-    screen.getByRole("button", { name: i18n.t("mobile.saveAccess") }),
-  );
-  expect(mobile.Configure).toHaveBeenCalledWith(
-    expect.objectContaining({
-      frontendOrigin: "https://synthetic-frontend.example",
-      origin: status.config.origin,
-      listen: status.config.listen,
-    }),
-  );
+  mobile.GenerateToken.mockResolvedValue("ABCD234567");
 });
-
-it("requires selecting HTTP LAN mode and applying an explicit private endpoint", async () => {
+function mount() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}><MobileAccessSection /></QueryClientProvider>);
+}
+it("uses only a LAN address and editable token, applying changes explicitly", async () => {
   const user = userEvent.setup();
-  mobile.Configure.mockResolvedValue(status);
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MobileAccessSection />
-    </QueryClientProvider>,
-  );
+  mount();
   await screen.findByText("Running");
-  await user.selectOptions(
-    screen.getByLabelText("Connection mode"),
-    "http_lan",
-  );
-  expect(screen.getByRole("note")).toHaveTextContent("unencrypted");
-  const origin = screen.getByLabelText(
-    "External origin (scheme, IP/host and port)",
-  );
-  await user.clear(origin);
-  await user.type(origin, "http://192.168.1.20:9443");
-  const listen = screen.getByLabelText("Private listen address");
-  await user.clear(listen);
-  await user.type(listen, "192.168.1.20:9443");
+  expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  const address = screen.getByLabelText("LAN listen address");
+  const token = screen.getByLabelText("Mobile token");
+  expect(token).toHaveAttribute("type", "password");
+  await user.clear(address);
+  await user.type(address, "192.168.1.21:9000");
+  await user.clear(token);
+  await user.type(token, "MyOwn123");
   expect(mobile.Configure).not.toHaveBeenCalled();
-  await user.click(
-    screen.getByRole("button", { name: "Apply connection settings" }),
-  );
-  expect(mobile.Configure).toHaveBeenCalledWith(
-    expect.objectContaining({
-      mode: "http_lan",
-      origin: "http://192.168.1.20:9443",
-      listen: "192.168.1.20:9443",
-      frontendOrigin: "",
-    }),
-  );
+  await user.click(screen.getByRole("button", { name: "Apply connection settings" }));
+  expect(mobile.Configure).toHaveBeenCalledWith({ enabled: true, listen: "192.168.1.21:9000", token: "MyOwn123" });
+});
+it("generates a short draft token without changing the live token or QR until apply", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Running");
+  const qr = screen.getByRole("img", { name: "Open mobile connection" }).outerHTML;
+  await user.click(screen.getByRole("button", { name: "Generate token" }));
+  expect(await screen.findByDisplayValue("ABCD234567")).toHaveAttribute("type", "text");
+  expect(mobile.Configure).not.toHaveBeenCalled();
+  expect(screen.getByRole("img", { name: "Open mobile connection" }).outerHTML).toBe(qr);
+  await user.click(screen.getByRole("button", { name: "Hide token" }));
+  expect(screen.getByLabelText("Mobile token")).toHaveAttribute("type", "password");
+  await user.click(screen.getByRole("button", { name: "Apply connection settings" }));
+  expect(mobile.Configure).toHaveBeenCalledWith(expect.objectContaining({ token: "ABCD234567" }));
+});
+it("shows failed apply without losing the draft", async () => {
+  const user = userEvent.setup();
+  mobile.Configure.mockRejectedValue(new Error("synthetic failure"));
+  mount();
+  await screen.findByText("Running");
+  await user.clear(screen.getByLabelText("Mobile token"));
+  await user.type(screen.getByLabelText("Mobile token"), "NewToken1");
+  await user.click(screen.getByRole("button", { name: "Apply connection settings" }));
+  await screen.findByRole("alert");
+  expect(screen.getByLabelText("Mobile token")).toHaveValue("NewToken1");
+});
+it("can disable access with incomplete address and token", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Running");
+  await user.click(screen.getByLabelText("Enable mobile access"));
+  await user.clear(screen.getByLabelText("LAN listen address"));
+  await user.clear(screen.getByLabelText("Mobile token"));
+  await user.click(screen.getByRole("button", { name: "Apply connection settings" }));
+  expect(mobile.Configure).toHaveBeenCalledWith({ enabled: false, listen: "", token: "" });
+});
+it.each(["en", "zh-CN", "zh-TW"])("renders the simple setup and migration guidance in %s", async (language) => {
+  await i18n.changeLanguage(language);
+  mobile.Status.mockResolvedValue({ ...status, error: "configuration_reset" });
+  mount();
+  await screen.findByText(i18n.t("mobile.running"));
+  expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("mobile.connectionError.configuration_reset"));
+  expect(screen.getByText(i18n.t("mobile.setupHelp"))).not.toHaveTextContent(/HTTPS|TLS/);
+  expect(screen.getByLabelText(i18n.t("mobile.listen"))).toBeInTheDocument();
+  expect(screen.getByText(i18n.t("mobile.connectionHelp"))).toBeInTheDocument();
 });

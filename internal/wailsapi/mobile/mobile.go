@@ -14,11 +14,7 @@ func (s *Service) Configure(config mobileapi.Config) (mobileapi.Status, error) {
 	v, err := s.server.Configure(config)
 	return v, apierror.Wrap(err)
 }
-func (s *Service) Pair(name string, permissions mobileapi.Permissions) (mobileapi.Pairing, error) {
-	v, err := s.server.Pair(name, permissions)
+func (s *Service) GenerateToken() (string, error) {
+	v, err := s.server.GenerateToken()
 	return v, apierror.Wrap(err)
-}
-func (s *Service) Revoke(deviceID string) mobileapi.Status {
-	s.server.Revoke(deviceID)
-	return s.server.Status()
 }

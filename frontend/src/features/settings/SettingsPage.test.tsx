@@ -22,6 +22,10 @@ const agent = vi.hoisted(() => ({ Status: vi.fn(), RecentOperations: vi.fn(), Co
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup", () => ({ Service: cloud }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/agent", () => ({ Service: agent }));
 
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/mobile/service", () => ({
+  Status: () => Promise.resolve({ config: { enabled: false, listen: "", token: "" }, running: false, url: "" }),
+}));
+
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
     Load: () => load(),
@@ -553,4 +557,19 @@ it.each([false, true])("merges a topbar save with unsaved edits; explicit langua
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ appearance: "dark", language: editLanguage ? "zh-TW" : "zh-CN" }));
+});
+
+it("hides unrelated preference actions on Mobile access while preserving an existing preference draft", async () => {
+  const user = userEvent.setup();
+  renderPage();
+  await screen.findByRole("form", { name: "Settings" });
+  await user.click(screen.getByRole("tab", { name: "Mobile access" }));
+  expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+  expect(screen.queryByText(i18n.t("settings.resetAllPreferences"))).not.toBeInTheDocument();
+  await user.click(screen.getByRole("tab", { name: "Appearance" }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "Appearance" }), "dark");
+  await user.click(screen.getByRole("tab", { name: "Mobile access" }));
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ appearance: "dark" }));
 });

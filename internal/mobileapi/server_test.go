@@ -22,8 +22,8 @@ import (
 
 type httpFixture struct {
 	s       *Server
-	tls     *httptest.Server
-	cookie  *http.Cookie
+	http    *httptest.Server
+	token   string
 	csrf    string
 	account string
 }
@@ -47,39 +47,36 @@ func fixture(t *testing.T, p Permissions) *httpFixture {
 		t.Fatal(err)
 	}
 	s := New(app, filepath.Join(t.TempDir(), "mobile.json"), fstest.MapFS{"mobile.html": {Data: []byte("<html>Login shell</html>")}})
-	ts := httptest.NewTLSServer(s)
-	s.config = Config{Enabled: true, Origin: ts.URL, Mode: "tls"}
+	ts := httptest.NewServer(s)
+	s.config = Config{Enabled: true, Listen: strings.TrimPrefix(ts.URL, "http://"), Token: "SYNTHETIC1"}
 	s.listener = ts.Listener
 	t.Cleanup(ts.Close)
-	f := &httpFixture{s: s, tls: ts, account: a.Account.ID.String()}
-	pair, err := s.Pair("Synthetic phone", p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response, raw := f.request(t, "POST", "/session", map[string]string{"token": pair.Token}, nil)
+	f := &httpFixture{s: s, http: ts, account: a.Account.ID.String()}
+
+	response, raw := f.request(t, "POST", "/session", map[string]string{"token": s.config.Token}, nil)
 	if response.StatusCode != 200 {
 		t.Fatalf("login %d %s", response.StatusCode, raw)
 	}
-	for _, c := range response.Cookies() {
-		if c.Name == cookieName {
-			f.cookie = c
-		}
-	}
-	if f.cookie == nil || !f.cookie.Secure || !f.cookie.HttpOnly || f.cookie.SameSite != http.SameSiteStrictMode || f.cookie.Domain != "" {
-		t.Fatal("unsafe session cookie")
-	}
-	var body struct {
-		CSRF string `json:"csrfToken"`
-	}
-	if err = jsoncodec.Unmarshal(raw, &body); err != nil {
-		t.Fatal(err)
-	}
-	f.csrf = body.CSRF
-	response, _ = f.request(t, "POST", "/session", map[string]string{"token": pair.Token}, nil)
-	if response.StatusCode != 401 {
-		t.Fatal("token reused")
+	f.acceptLogin(t, response, raw)
+	// Exercise defensive capability gates as well as the default full mobile grant.
+	for _, session := range s.sessions {
+		session.Permissions = p
 	}
 	return f
+}
+func (f *httpFixture) acceptLogin(t *testing.T, response *http.Response, raw []byte) {
+	t.Helper()
+	var body struct {
+		CSRF        string `json:"csrfToken"`
+		AccessToken string `json:"accessToken"`
+	}
+	if err := jsoncodec.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Cookies()) != 0 || len(body.AccessToken) < 40 || body.CSRF == "" || bytes.Contains(raw, []byte(f.s.config.Token)) {
+		t.Fatal("unsafe session exchange")
+	}
+	f.token, f.csrf = body.AccessToken, body.CSRF
 }
 func (f *httpFixture) request(t *testing.T, method, path string, body any, headers map[string]string) (*http.Response, []byte) {
 	t.Helper()
@@ -91,21 +88,21 @@ func (f *httpFixture) request(t *testing.T, method, path string, body any, heade
 			t.Fatal(err)
 		}
 	}
-	r, err := http.NewRequest(method, f.tls.URL+prefix+path, bytes.NewReader(data))
+	r, err := http.NewRequest(method, f.http.URL+prefix+path, bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
-	r.Header.Set("Origin", f.tls.URL)
+	r.Header.Set("Origin", f.http.URL)
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("X-Nestworth-Mobile", "1")
-	if f.cookie != nil {
-		r.AddCookie(f.cookie)
+	if f.token != "" {
+		r.Header.Set("Authorization", "Bearer "+f.token)
 		r.Header.Set("X-CSRF-Token", f.csrf)
 	}
 	for k, v := range headers {
 		r.Header.Set(k, v)
 	}
-	response, err := f.tls.Client().Do(r)
+	response, err := f.http.Client().Do(r)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +114,7 @@ func (f *httpFixture) request(t *testing.T, method, path string, body any, heade
 	return response, raw
 }
 
-func TestHTTPSAuthAllowlistCSRFRevocationAndPermissions(t *testing.T) {
+func TestHTTPAuthAllowlistCSRFRevocationAndPermissions(t *testing.T) {
 	f := fixture(t, Permissions{Read: true, Record: true, Market: true})
 	for _, headers := range []map[string]string{{"Origin": "https://evil.example"}, {"Origin": "null"}, {"X-CSRF-Token": "wrong"}, {"X-Nestworth-Mobile": ""}} {
 		response, _ := f.request(t, "POST", "/record-previews", map[string]string{}, headers)
@@ -167,16 +164,13 @@ func TestHTTPRecordRepeatedConfirmationAndReceiptAfterNewSession(t *testing.T) {
 		}
 	}
 	f.s.Revoke("")
-	pair, err := f.s.Pair("Replacement phone", Permissions{Read: true, Record: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.cookie = nil
-	response, raw = f.request(t, "POST", "/session", map[string]string{"token": pair.Token}, nil)
+
+	f.token = ""
+	response, raw = f.request(t, "POST", "/session", map[string]string{"token": f.s.config.Token}, nil)
 	if response.StatusCode != 200 {
 		t.Fatalf("relogin %d %s", response.StatusCode, raw)
 	}
-	f.cookie = response.Cookies()[0]
+	f.acceptLogin(t, response, raw)
 	response, raw = f.request(t, "GET", "/operations/"+id, nil, nil)
 	if response.StatusCode != 200 || !bytes.Contains(raw, []byte("committed")) {
 		t.Fatalf("receipt %d %s", response.StatusCode, raw)
@@ -252,18 +246,6 @@ func TestRevocationOrdersAfterAdmittedCommit(t *testing.T) {
 	}
 }
 
-func TestConfigRejectsPublicPlaintextAndWildcardListeners(t *testing.T) {
-	for _, c := range []Config{{true, "http://private.example", "127.0.0.1:9443", "loopback_proxy", "", "", ""}, {true, "https://private.example", "0.0.0.0:9443", "loopback_proxy", "", "", ""}, {true, "https://private.example", "192.168.1.2:9443", "loopback_proxy", "", "", ""}, {true, "https://8.8.8.8", "127.0.0.1:9443", "loopback_proxy", "", "", ""}, {true, "https://private.example/path", "127.0.0.1:9443", "loopback_proxy", "", "", ""}} {
-		if err := c.Validate(); err == nil {
-			t.Fatalf("unsafe config accepted %+v", c)
-		}
-	}
-	s := New(nil, filepath.Join(t.TempDir(), "absent.json"), nil)
-	if s.Status().Running || s.Status().Config.Enabled {
-		t.Fatal("enabled by default")
-	}
-}
-
 func TestSessionExpirationBodyBoundsAndNoCredentialsInErrors(t *testing.T) {
 	f := fixture(t, Permissions{Read: true, Record: true})
 	response, raw := f.request(t, "POST", "/record-previews", map[string]string{"token": "sentinel-secret", "garbage": strings.Repeat("x", 33<<10)}, nil)
@@ -277,29 +259,18 @@ func TestSessionExpirationBodyBoundsAndNoCredentialsInErrors(t *testing.T) {
 	}
 }
 
-func TestMobileGrantExpiresAndRestartDropsSessions(t *testing.T) {
+func TestRestartDropsSessionsAndHostIsExact(t *testing.T) {
 	f := fixture(t, Permissions{Read: true})
-	pair, err := f.s.Pair("Synthetic pending grant", Permissions{Read: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.s.now = func() time.Time { return time.Now().Add(11 * time.Minute) }
-	response, _ := f.request(t, "POST", "/session", map[string]string{"token": pair.Token}, nil)
-	if response.StatusCode != 401 {
-		t.Fatal("expired token accepted")
-	}
 	fresh := New(f.s.app, filepath.Join(t.TempDir(), "absent.json"), nil)
 	fresh.config = f.s.config
-	r := httptest.NewRequest("GET", f.tls.URL+prefix+"/session", nil)
-	r.AddCookie(f.cookie)
+	r := httptest.NewRequest("GET", f.http.URL+prefix+"/session", nil)
+	r.Header.Set("Authorization", "Bearer "+f.token)
 	w := httptest.NewRecorder()
 	fresh.ServeHTTP(w, r)
 	if w.Code != 401 {
 		t.Fatal("session survived process replacement")
 	}
-	r = httptest.NewRequest("GET", f.tls.URL+prefix+"/bootstrap", nil)
 	r.Host = "evil.example"
-	r.AddCookie(f.cookie)
 	w = httptest.NewRecorder()
 	f.s.ServeHTTP(w, r)
 	if w.Code != 403 {

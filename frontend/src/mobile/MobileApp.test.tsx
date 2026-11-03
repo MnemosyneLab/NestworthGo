@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { MobileApp } from "./MobileApp";
 import { setMobileSession, type Job } from "./api";
-import { backendBase, saveBackend } from "./connection";
 
 const permissions = {
   read: true,
@@ -51,7 +50,6 @@ beforeEach(async () => {
   await i18n.changeLanguage("en");
   sessionStorage.clear();
   localStorage.clear();
-  saveBackend("");
   setMobileSession(null);
   confirms = [];
   previews = [];
@@ -462,9 +460,7 @@ it("releases a proven stale review without losing the draft and guards navigatio
   mount();
   await fillRecord(user);
   await user.click(screen.getByRole("button", { name: "Settings" }));
-  expect(
-    screen.getByRole("button", { name: "Connection settings" }),
-  ).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Connection settings" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeDisabled();
   expect(
     screen.queryByRole("button", { name: "Accounts" }),
@@ -619,18 +615,13 @@ it("cancels pairing and ignores a delayed response without storing its token", a
   );
 });
 
-async function prepareServerSwitch(user: ReturnType<typeof userEvent.setup>) {
+async function openSettings(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText("SYNTHETIC MOBILE TEST");
   await user.click(screen.getByRole("button", { name: "Settings" }));
-  await user.click(screen.getByRole("button", { name: "Connection settings" }));
-  await user.type(
-    screen.getByLabelText("Backend address or LAN IP:port"),
-    "https://other.synthetic.example",
-  );
 }
 
 it.each(["record", "quote", "market"])(
-  "locks an already-open connection panel while a %s draft is active",
+  "prevents signing out while a %s draft is active",
   async (kind) => {
     if (kind === "market")
       marketJob = {
@@ -644,7 +635,7 @@ it.each(["record", "quote", "market"])(
       };
     const user = userEvent.setup();
     mount();
-    await prepareServerSwitch(user);
+    await openSettings(user);
     if (kind === "record") await fillRecord(user);
     else if (kind === "quote") {
       await user.click(screen.getByRole("button", { name: "Data health" }));
@@ -657,12 +648,9 @@ it.each(["record", "quote", "market"])(
       await user.click(
         screen.getByRole("button", { name: i18n.t("mobile.updateMarket") }),
       );
-    await user.click(screen.getByRole("button", { name: "Use this server" }));
-    expect(backendBase()).toBe("");
-    expect(
-      screen.getByRole("button", { name: "Use this server" }),
-    ).toBeDisabled();
-    expect(screen.getByLabelText("Backend address or LAN IP:port")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(screen.getByRole("button", {name: "Sign out"})).toBeDisabled();
+    expect(screen.queryByLabelText("Backend address or LAN IP:port")).not.toBeInTheDocument();
     if (kind === "record")
       expect(screen.getByRole("textbox", { name: "Amount" })).toHaveValue(
         "1.2345",
@@ -679,12 +667,12 @@ it.each(["record", "quote", "market"])(
 );
 
 it.each(["pending", "unknown"])(
-  "preserves the original receipt and plan when switching is attempted during %s confirmation",
+  "preserves the original receipt and plan when signing out is attempted during %s confirmation",
   async (stage) => {
     mode = "lost";
     const user = userEvent.setup();
     mount();
-    await prepareServerSwitch(user);
+    await openSettings(user);
     await fillRecord(user);
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     const reference = sessionStorage.getItem("nestworth.mobile.pending.v1");
@@ -693,16 +681,10 @@ it.each(["pending", "unknown"])(
         await act(async () => resolveFirst?.());
         await screen.findByRole("button", { name: "Retry same submission" });
       }
-      await user.click(screen.getByRole("button", { name: "Use this server" }));
-      expect(backendBase()).toBe("");
+      await user.click(screen.getByRole("button", { name: "Sign out" }));
       expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(
         reference,
       );
-      expect(
-        sessionStorage.getItem(
-          "nestworth.mobile.pending.v1:https://other.synthetic.example",
-        ),
-      ).toBeNull();
       if (stage === "pending") await act(async () => resolveFirst?.());
       await user.click(
         await screen.findByRole("button", { name: "Retry same submission" }),
@@ -710,20 +692,14 @@ it.each(["pending", "unknown"])(
       await screen.findByText("Saved successfully");
       expect(confirms).toHaveLength(2);
       expect(confirms[0].body).toBe(confirms[1].body);
-      expect(
-        vi
-          .mocked(fetch)
-          .mock.calls.some(([url]) =>
-            String(url).startsWith("https://other.synthetic.example"),
-          ),
-      ).toBe(false);
+      expect(vi.mocked(fetch).mock.calls.every(([url]) => String(url).startsWith("/mobile-api/v1/"))).toBe(true);
     } finally {
       await act(async () => resolveFirst?.());
     }
   },
 );
 
-it("preserves unknown market acceptance when a previously opened connection panel is used", async () => {
+it("preserves unknown market acceptance when signing out is attempted", async () => {
   marketLost = true;
   marketJob = {
     jobId: "accepted",
@@ -736,14 +712,13 @@ it("preserves unknown market acceptance when a previously opened connection pane
   };
   const user = userEvent.setup();
   mount();
-  await prepareServerSwitch(user);
+  await openSettings(user);
   await user.click(
     screen.getByRole("button", { name: i18n.t("mobile.updateMarket") }),
   );
   await user.click(await screen.findByRole("button", { name: "Confirm" }));
   await screen.findByText(i18n.t("mobile.jobAcceptanceUnknown"));
-  await user.click(screen.getByRole("button", { name: "Use this server" }));
-  expect(backendBase()).toBe("");
+  await user.click(screen.getByRole("button", { name: "Sign out" }));
   await user.click(
     screen.getByRole("button", { name: "Retry same submission" }),
   );
@@ -752,31 +727,16 @@ it("preserves unknown market acceptance when a previously opened connection pane
   expect(marketConfirms[0]).toBe(marketConfirms[1]);
 });
 
-it("allows a server change when no draft or recovery reference is active", async () => {
-  const user = userEvent.setup();
-  mount();
-  await prepareServerSwitch(user);
-  await user.click(screen.getByRole("button", { name: "Use this server" }));
-  await screen.findByRole("button", { name: "Sign in" });
-  expect(backendBase()).toBe("https://other.synthetic.example");
-  expect(confirms).toHaveLength(0);
-});
-
-it("keeps server switching locked during re-pairing while an original receipt remains unresolved", async () => {
+it("recovers an original receipt after signing in again with the shared token", async () => {
   mode = "revoked";
   const user = userEvent.setup();
   mount();
-  await prepareServerSwitch(user);
+  await openSettings(user);
   await fillRecord(user);
   await user.click(screen.getByRole("button", { name: "Confirm" }));
   await screen.findByRole("button", { name: "Sign in" });
-  expect(screen.getByLabelText("Backend address or LAN IP:port")).toBeDisabled();
-  expect(
-    screen.getByRole("button", { name: "Use this server" }),
-  ).toBeDisabled();
+  expect(screen.queryByLabelText("Backend address or LAN IP:port")).not.toBeInTheDocument();
   const reference = sessionStorage.getItem("nestworth.mobile.pending.v1");
-  await user.click(screen.getByRole("button", { name: "Use this server" }));
-  expect(backendBase()).toBe("");
   expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(reference);
   await user.type(screen.getByLabelText("Mobile token"), "synthetic-new-pair");
   await user.click(screen.getByRole("button", { name: "Sign in" }));

@@ -33,7 +33,6 @@ import {
   RotateCw,
   Scale,
   Search,
-  Server,
   Settings2,
   SlidersHorizontal,
   ShieldCheck,
@@ -83,14 +82,11 @@ import {
   type Session,
 } from "./api";
 
-import { ConnectionSettings } from "./ConnectionSettings";
 import logoMark from "@/assets/brand/logo-mark.png";
 import {
-  backendBase,
   ConnectionError,
   mobilePreferences,
   saveMobilePreferences,
-  saveBackend,
 } from "./connection";
 
 type Bootstrap = {
@@ -246,8 +242,6 @@ export function MobileApp() {
   const client = useQueryClient();
   const activeDevice = useRef<string | null>(null);
   const [session, setSession] = useState<Session | null | undefined>();
-  const [connectionVersion, setConnectionVersion] = useState(0);
-  const [showConnection, setShowConnection] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const reconnectLock = useRef(false);
@@ -269,8 +263,6 @@ export function MobileApp() {
   const [recoveryPersistent, setRecoveryPersistent] = useState(true);
   const [receipt, setReceipt] = useState<Activity | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
-  const connectionLocked =
-    !!pending || record !== null || quote !== null || market !== null;
   const acceptSession = useCallback(
     (value: Session | null) => {
       const changed = activeDevice.current !== (value?.device.id ?? null);
@@ -350,18 +342,6 @@ export function MobileApp() {
     void client.invalidateQueries({ queryKey: ["mobile"] });
     return true;
   };
-  const changeConnection = (backend: string) => {
-    // The page owns endpoint and session changes; a previously opened panel
-    // cannot discard a draft, immutable plan or unresolved receipt reference.
-    if (connectionLocked || reconnectLock.current) return false;
-    saveBackend(backend);
-    acceptSession(null);
-    setPending(pendingOperation());
-    setSessionError(null);
-    setShowConnection(false);
-    setConnectionVersion((v) => v + 1);
-    return true;
-  };
   const reconnect = async () => {
     if (reconnectLock.current) return;
     reconnectLock.current = true;
@@ -401,11 +381,8 @@ export function MobileApp() {
   if (!session)
     return (
       <Login
-        key={connectionVersion}
         error={sessionError}
         onLogin={acceptSession}
-        onConnectionChanged={changeConnection}
-        connectionDisabled={connectionLocked}
       />
     );
   const b = bootstrap.data?.data;
@@ -417,7 +394,7 @@ export function MobileApp() {
       : sessionError || bootstrap.error
         ? "attention"
         : "connected";
-  const address = backendBase() || window.location.origin;
+  const address = window.location.origin;
   const goTab = (value: string) => {
     setDetail(null);
     setTab(value);
@@ -527,16 +504,6 @@ export function MobileApp() {
           <div className="mobile-settings-actions">
             <Button
               variant="ghost"
-              disabled={connectionLocked || reconnecting}
-              aria-expanded={showConnection}
-              onClick={() => setShowConnection((v) => !v)}
-            >
-              <Server aria-hidden />
-              <span>{t("mobile.connectionSettings")}</span>
-              <ChevronRight aria-hidden data-open={showConnection} />
-            </Button>
-            <Button
-              variant="ghost"
               className="text-destructive"
               disabled={
                 !!pending ||
@@ -568,12 +535,6 @@ export function MobileApp() {
             </Button>
           </div>
         </section>
-      )}
-      {showConnection && !reconnecting && (
-        <ConnectionSettings
-          disabled={connectionLocked}
-          onChange={changeConnection}
-        />
       )}
       {pending && !recoveryPersistent && (
         <p role="alert" className="mobile-notice" data-tone="warning">
@@ -807,11 +768,7 @@ export function MobileApp() {
 function Login({
   onLogin,
   error: initialError,
-  onConnectionChanged,
-  connectionDisabled,
 }: {
-  onConnectionChanged: (backend: string) => boolean;
-  connectionDisabled: boolean;
   onLogin: (s: Session) => void;
   error?: unknown;
 }) {
@@ -829,10 +786,6 @@ function Login({
         <h1 translate="no">Nestworth</h1>
         <p>{t("mobile.tagline")}</p>
       </header>
-      <ConnectionSettings
-        disabled={connectionDisabled}
-        onChange={onConnectionChanged}
-      />
       <form
         className="mobile-card mobile-login-form"
         aria-labelledby="mobile-pair-title"
