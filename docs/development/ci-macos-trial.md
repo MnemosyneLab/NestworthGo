@@ -100,6 +100,23 @@ and prevents later gates starting. Nested schedulers inherit a shorter grace
 budget; the portable timeout fixture forwards cancellation to its separately
 created session and reaps it before the enclosing owner escalates. No unrelated
 host processes are enumerated or signalled.
+On macOS, an owned group can contain only zombies after TERM and leader
+reaping. XNU's [killpg1 implementation](https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/kern_sig.c)
+filters zombie members and returns EPERM when it counts no signalable members.
+EPERM therefore does not by itself prove either a live process or permission
+misconfiguration. Only on Darwin and only after EPERM, the scheduler queries
+that one owned group with `ps -g PGID -o pid=,pgid=,stat=` in Unix2003 mode.
+No members or exclusively zombie members establish that nothing is executing.
+A live member, unexpected group/state, failed query or timeout preserves the
+permission failure; no blanket permission suppression is used. The direct child
+is still reaped, surviving descendants still receive bounded KILL escalation,
+and nested owners retain their shorter cleanup grace. Normal successful gates
+perform no extra process inspection. Native/Linux fixtures deliberately retain
+an owned zombie to record the platform's actual probe errno; live-descendant,
+permission-denial and parallel cancellation tests retain cleanup guarantees.
+Cancellation fixtures also require the scheduler to exit successfully, so an
+unhandled cleanup exception cannot hide behind a child-exit assertion.
+
 The final aggregate rejects missing, failed or cancelled gates and rechecks the
 complete Go package population. No test timeout or assertion is changed.
 

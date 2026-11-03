@@ -11,8 +11,8 @@ import (
 func TestRepairPreviewAndExecutionSkipRecentLatest(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	provider := &syncFakeProvider{key: YahooFinanceProviderKey, now: time.Date(2026, 9, 9, 16, 0, 0, 0, time.UTC)}
-	service, _, _, instrument := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, provider)
+	provider := &syncFakeProvider{key: CoinGeckoProviderKey, now: time.Date(2026, 9, 9, 16, 0, 0, 0, time.UTC)}
+	service, _, _, instrument := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, provider)
 	if _, err := service.RefreshInstrument(ctx, instrument.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestLatestRecheckPersistsAcrossRestartWithoutChangingObservation(t *testing
 
 func TestHistoryKeepsSevenDayLeadEvenWithOpeningAnchor(t *testing.T) {
 	t.Parallel()
-	need, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "QQQM", Market: "US", CloseMarketDates: []string{"2026-09-17"}}, "2026-09-18", "2026-09-17")
+	need, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "QQQM", Market: "US", CloseMarketDates: []string{"2026-09-17"}}, "2026-09-18", "2026-09-17")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestHistoryKeepsSevenDayLeadEvenWithOpeningAnchor(t *testing.T) {
 
 func TestOldSyncFailureIsNotCurrentHealthIssue(t *testing.T) {
 	t.Parallel()
-	service, _, _, instrument := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
+	service, _, _, instrument := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, &syncFakeProvider{key: CoinGeckoProviderKey})
 	service.currentSyncID = "old"
 	service.syncJobs["old"] = &syncJobState{snapshot: SyncJobSnapshot{Outcome: SyncOutcomePartial, Blockers: []SyncBlocker{{TargetKey: instrumentTargetKey(instrument.ID), Code: string(domain.ErrProviderAuthentication)}}}}
 	report, err := service.ScanMarketDataHealth(context.Background())

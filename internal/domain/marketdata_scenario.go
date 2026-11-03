@@ -2,10 +2,10 @@ package domain
 
 import "time"
 
-const FirstVerticalSliceScenarioID = "e2e-tiingo-us-manual-fx-v1"
+const FirstVerticalSliceScenarioID = "e2e-yahoo-us-manual-fx-v1"
 
 // FirstVerticalSliceScenario is the independent economic-fact oracle for
-// the first Tiingo US history + manual FX end-to-end slice. Provider JSON is
+// the first Yahoo US history + manual FX end-to-end slice. Provider JSON is
 // not an input.
 func FirstVerticalSliceScenario() (OracleScenario, error) {
 	location, err := time.LoadLocation("Asia/Singapore")

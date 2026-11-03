@@ -304,3 +304,13 @@ func dateInRanges(date string, ranges []domain.InclusiveDateRange) bool {
 	}
 	return false
 }
+
+func invalidInstrumentOutcome(completeness domain.HistoryCompleteness, reason string) application.MappingOutcome[application.InstrumentDailyObservation] {
+	return application.MappingOutcome[application.InstrumentDailyObservation]{
+		Status: application.MappingInvalid,
+		Reason: reason,
+		Batch: application.HistoryBatch[application.InstrumentDailyObservation]{
+			UncertainRanges: toAppRanges(completeness.UncertainRanges),
+		},
+	}
+}

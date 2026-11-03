@@ -85,28 +85,19 @@ const (
 	coverageStatusNoObservation   = "no_observation"
 	coverageStatusPending         = "pending"
 	mappingStatusMapped           = "mapped"
-	priceBasisTiingoRawClose      = "tiingo_raw_close_v1"
 	priceBasisYahooClose          = "yahoo_close_unverified"
 )
 
 // refuseFailClosedHistory is the persist-side fail-closed gate. Invalid and
-// unsupported batches, and any Tiingo observation that is not raw `close`
-// (`tiingo_raw_close_v1`), commit nothing: no quotes, slots, coverage, or
+// unsupported batches commit nothing: no quotes, slots, coverage, or
 // input-generation bump. adjClose-only, unsupported markets, and malformed
 // payloads are refused here even if a caller skipped the application check.
-func refuseFailClosedHistory(status, reason, adapter string, tiingoValues []string) error {
+func refuseFailClosedHistory(status, reason, adapter string, priceBases []string) error {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "invalid", "unsupported":
 		return failClosedPersistError(reason)
 	}
-	if strings.Contains(strings.ToLower(adapter), "tiingo") {
-		for _, value := range tiingoValues {
-			if value != "" && value != priceBasisTiingoRawClose {
-				return failClosedPersistError("unsupported_price_basis")
-			}
-		}
-	}
-	for _, value := range tiingoValues {
+	for _, value := range priceBases {
 		if value == priceBasisYahooClose {
 			return failClosedPersistError("unsupported_price_basis")
 		}

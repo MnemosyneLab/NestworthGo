@@ -174,13 +174,6 @@ func run() error {
 					current, err := store.Load()
 					return current.CoinGeckoAPIKey, err
 				}, nil),
-				marketdata.NewTiingoProvider(func() (string, error) {
-					current, err := store.Load()
-					if err != nil {
-						return "", err
-					}
-					return current.TiingoAPIKey, nil
-				}, nil),
 			)
 			repo := sqlite.NewRepository(database).WithDefaultReviewOptimizations()
 			service = nestworthapp.NewService(repo, registry)

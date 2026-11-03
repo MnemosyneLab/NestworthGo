@@ -98,7 +98,6 @@ type Settings struct {
 	FXProvider        string     `json:"fx_provider"`
 	QuoteCacheTTL     string     `json:"quote_cache_ttl"`
 	CoinGeckoAPIKey   string     `json:"coingecko_api_key"`
-	TiingoAPIKey      string     `json:"tiingo_api_key"`
 }
 
 // Minimum and maximum window dimensions accepted from a persisted settings
@@ -137,7 +136,6 @@ func Default() Settings {
 		WindowHeight:      DefaultWindowHeight,
 		FXProvider:        DefaultFXProvider,
 		QuoteCacheTTL:     QuoteCacheTTL12h,
-		TiingoAPIKey:      "",
 	}
 }
 
@@ -445,7 +443,6 @@ func salvage(loaded, defaults Settings) Settings {
 	// when loading a valid settings file; API-key mutations trim it before
 	// saving.
 	fixed.CoinGeckoAPIKey = strings.TrimSpace(fixed.CoinGeckoAPIKey)
-	fixed.TiingoAPIKey = strings.TrimSpace(fixed.TiingoAPIKey)
 	return fixed
 }
 
@@ -513,7 +510,11 @@ func (s *Store) Save(value Settings) (saveErr error) {
 		}()
 	}
 	if s.repository != nil {
-		data, err := jsoncodec.Marshal(durable(value))
+		prior, _, err := s.repository.LoadConfiguration(durableSettingsKey)
+		if err != nil {
+			return err
+		}
+		data, err := mergeDurable(value, prior)
 		if err != nil {
 			return err
 		}

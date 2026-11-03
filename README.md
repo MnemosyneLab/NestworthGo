@@ -138,7 +138,7 @@ it does not enable MCP, grant permissions or change financial records.
   is required for core use.
 - **Exact financial arithmetic.** Decimal amounts, explicit coverage and
   traceable corrections; missing values remain unknown.
-- **Refresh on your terms.** Yahoo, Tiingo, CoinGecko, Frankfurter FX and
+- **Refresh on your terms.** Yahoo, CoinGecko, Frankfurter FX and
   Agent-supplied observations support sourced market data. Refresh is
   user-triggered.
 - **Recovery you control.** Local backup/restore, versioned JSON export and

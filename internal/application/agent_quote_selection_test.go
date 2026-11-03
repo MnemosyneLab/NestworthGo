@@ -68,7 +68,7 @@ func TestAgentCurrentDailyCloseWinsSameDateButNewerRealtimeWins(t *testing.T) {
 func TestAgentDailyQuoteWinsExactDateAndCarriedNAVIsIncomplete(t *testing.T) {
 	t.Parallel()
 	id := domain.NewInstrumentID()
-	providerKey := domain.TiingoProviderKey
+	providerKey := domain.YahooFinanceProviderKey
 	instrument := domain.Instrument{ID: id, Type: domain.InstrumentMutualFund, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &providerKey, ProviderBindingRevision: 2}
 	price := func(value string) domain.UnitPrice {
 		parsed, err := domain.ParseUnitPrice(value)
@@ -79,7 +79,7 @@ func TestAgentDailyQuoteWinsExactDateAndCarriedNAVIsIncomplete(t *testing.T) {
 	}
 	day := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
 	agent := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, Currency: "USD", UnitPrice: price("10"), SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-20", ValueEffectiveAt: day, QuotedAt: day, PriceBasis: "agent_unit_nav_v1", SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: "date_label"}
-	provider := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, Currency: "USD", UnitPrice: price("11"), SourceKind: domain.QuoteSourceProvider, SourceKey: providerKey, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-20", ValueEffectiveAt: day, QuotedAt: day, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)}
+	provider := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, Currency: "USD", UnitPrice: price("11"), SourceKind: domain.QuoteSourceProvider, SourceKey: providerKey, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-20", ValueEffectiveAt: day, QuotedAt: day, BindingRevision: 2, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose)}
 	selection := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, []domain.InstrumentQuote{provider, agent}, nil, "2026-09-20", day.AddDate(0, 0, 1))
 	if selection.quote == nil || selection.quote.ID != agent.ID || !selection.coverageComplete {
 		t.Fatalf("exact Agent NAV should win and be complete: %+v", selection)

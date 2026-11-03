@@ -90,7 +90,7 @@ func (p *CoinGeckoProvider) fetch(ctx context.Context, path string, params url.V
 	body, err := p.conn.doFetch(ctx, u, func(r *http.Request) {
 		r.Header.Set("x-cg-demo-api-key", strings.TrimSpace(key))
 		r.Header.Set("Accept", "application/json")
-	}, classifyTiingoResponse)
+	}, classifyCoinGeckoResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -332,4 +332,24 @@ func (p *CoinGeckoProvider) SupportedQuoteCurrencies(ctx context.Context) ([]str
 		}
 	}
 	return result, nil
+}
+
+func classifyCoinGeckoResponse(response *http.Response) error {
+	switch response.StatusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return providerError(domain.ErrProviderAuthentication, "provider authentication failed")
+	case http.StatusTooManyRequests:
+		return providerError(domain.ErrProviderRateLimit, "provider rate limit reached")
+	case http.StatusNotFound:
+		return unsupportedProviderSymbol()
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+		return malformedProvider()
+	}
+	if response.StatusCode >= 500 {
+		return providerUnavailable("provider is unavailable")
+	}
+	if response.StatusCode != http.StatusOK {
+		return malformedProvider()
+	}
+	return nil
 }

@@ -94,7 +94,7 @@ func TestDescriptiveLatestEndpointAndZeroBaseline(t *testing.T) {
 	i.Type = InstrumentStock
 	points := []InstrumentQuote{reviewQuote(t, i, "2026-10-01", "100"), reviewQuote(t, i, "2026-10-09", "110"), reviewQuote(t, i, "2026-10-10", "0")}
 	for n := range points {
-		points[n].PriceBasis = TiingoRawClosePriceBasis
+		points[n].PriceBasis = "tiingo_raw_close_v1"
 	}
 	got := ProjectQuotePerformance(i, points)
 	if len(got) != 1 || got[0].PeriodPercent != "-100" || got[0].LatestOn != "2026-10-10" || got[0].BaselineOn != "2026-10-01" || got[0].ElapsedDays != 9 {
@@ -105,7 +105,7 @@ func TestDescriptiveLatestEndpointAndZeroBaseline(t *testing.T) {
 		t.Fatalf("zero divisor %+v", got)
 	}
 	points[0] = reviewQuote(t, i, "2026-10-01", "100")
-	points[0].PriceBasis = TiingoRawClosePriceBasis
+	points[0].PriceBasis = "tiingo_raw_close_v1"
 	points[2].PriceBasis = "unsupported"
 	if got := ProjectQuotePerformance(i, points); len(got) != 0 {
 		t.Fatalf("unsupported latest fell back %+v", got)
@@ -185,7 +185,7 @@ func TestDescriptiveDailySourcesAndEncodings(t *testing.T) {
 				points[n].SourceKey = "synthetic"
 			}
 			if kind == InstrumentStock || kind == InstrumentETF {
-				points[0].PriceBasis = TiingoRawClosePriceBasis
+				points[0].PriceBasis = "tiingo_raw_close_v1"
 				points[1].PriceBasis = YahooRawClosePriceBasis
 			}
 			points[1].TimestampBasis = "source_timestamp"
@@ -290,7 +290,7 @@ func TestDescriptivePerformanceSupportsEveryPricedInstrumentType(t *testing.T) {
 		basis     string
 		timestamp string
 	}{
-		{InstrumentStock, TiingoRawClosePriceBasis, "session_close"},
+		{InstrumentStock, "tiingo_raw_close_v1", "session_close"},
 		{InstrumentETF, YahooRawClosePriceBasis, "session_close"},
 		{InstrumentBankInvestmentProduct, "agent_unit_nav_v1", "date_label"},
 		{InstrumentPreciousMetal, YahooRawClosePriceBasis, "policy_derived"},
@@ -324,8 +324,8 @@ func TestDescriptivePerformanceRejectsIncomparableMetalAndCryptoBases(t *testing
 		{InstrumentStock, YahooRawClosePriceBasis, "policy_derived"},
 		{InstrumentPreciousMetal, YahooRawClosePriceBasis, "observed_publication"},
 		{InstrumentPreciousMetal, CoinGeckoDailyPriceBasis, "policy_derived"},
-		{InstrumentPreciousMetal, TiingoRawClosePriceBasis, "session_close"},
-		{InstrumentCrypto, TiingoRawClosePriceBasis, "session_close"},
+		{InstrumentPreciousMetal, "tiingo_raw_close_v1", "session_close"},
+		{InstrumentCrypto, "tiingo_raw_close_v1", "session_close"},
 		{InstrumentCrypto, "adjusted_close", "policy_derived"},
 		{InstrumentBond, YahooRawClosePriceBasis, "session_close"},
 		{InstrumentOther, "agent_unit_nav_v1", "date_label"},

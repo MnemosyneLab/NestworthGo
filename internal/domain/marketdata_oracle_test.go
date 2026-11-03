@@ -74,7 +74,7 @@ func TestFirstVerticalSliceFixtureMatchesOracleFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join("..", "..", "testdata", "market-data", "vnext", "scenarios", "e2e-tiingo-us-manual-fx-v1.json"))
+	body, err := os.ReadFile(filepath.Join("..", "..", "testdata", "market-data", "vnext", "scenarios", "e2e-yahoo-us-manual-fx-v1.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

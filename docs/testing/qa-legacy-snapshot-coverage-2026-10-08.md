@@ -120,7 +120,7 @@ A separate complete-valuation SQL-marker fixture retains the original Aug 2–5
 state shape and verifies 290 / +10, including repeat reads without extra saves.
 
 The fully asynchronous cancelled-sync path uses StartMarketDataSync, a synthetic
-Tiingo adapter and the real history persister. At Aug 6, CancelSyncJob runs after
+synthetic provider and the real history persister. At Aug 6, CancelSyncJob runs after
 the commit and before snapshot rebuilding: dirty Aug 1–5, generation 1, no
 watermark. At Aug 16, Aug 6–11 snapshots store subtotal 150 at generation 1 but
 are incomplete because later closes are missing. Ordinary income +50 effective

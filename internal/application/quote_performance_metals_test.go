@@ -30,7 +30,7 @@ func mappedMetalFuturesRange(rng DateRange, base int) MappingOutcome[InstrumentD
 // reference's policy-derived timestamp both made the report unavailable.
 func TestPreciousMetalSyncedHistoryHasPeriodPerformance(t *testing.T) {
 	t.Parallel()
-	tiingo := &syncFakeProvider{key: TiingoProviderKey}
+	equity := &syncFakeProvider{key: CoinGeckoProviderKey}
 	var requested []DateRange
 	yahoo := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		if identity.ProviderSymbol != "GC=F" {
@@ -39,7 +39,7 @@ func TestPreciousMetalSyncedHistoryHasPeriodPerformance(t *testing.T) {
 		requested = append(requested, rng)
 		return mappedMetalFuturesRange(rng, 2000), nil
 	}}
-	service, _, _, _ := newSyncFixture(t, tiingo, yahoo)
+	service, _, _, _ := newSyncFixture(t, equity, yahoo)
 	ctx := context.Background()
 	metal, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "troy_oz"})
 	if err != nil {
@@ -85,7 +85,7 @@ func TestPreciousMetalSyncedHistoryHasPeriodPerformance(t *testing.T) {
 // quotes, while the holding performance chart only reads eligible daily closes.
 func TestPerformanceSeriesLeavesMarketDataHistoryUnchanged(t *testing.T) {
 	t.Parallel()
-	service, _, _, _ := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
+	service, _, _, _ := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, &syncFakeProvider{key: CoinGeckoProviderKey})
 	ctx := context.Background()
 	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Manual stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {

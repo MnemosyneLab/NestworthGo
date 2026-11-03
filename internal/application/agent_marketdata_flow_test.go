@@ -12,8 +12,8 @@ import (
 
 func TestAgentLatestSuppressesRoutineProviderRefresh(t *testing.T) {
 	t.Parallel()
-	tiingo := &countingProvider{inner: &syncFakeProvider{key: TiingoProviderKey}}
-	service, _, instrument, _ := newSyncFixture(t, tiingo, &syncFakeProvider{key: YahooFinanceProviderKey})
+	equity := &countingProvider{inner: &syncFakeProvider{key: YahooFinanceProviderKey}}
+	service, _, instrument, _ := newSyncFixture(t, equity, &syncFakeProvider{key: CoinGeckoProviderKey})
 	ctx := context.Background()
 	_, err := service.ImportAgentMarketData(ctx, uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{{
 		InstrumentID: instrument.ID.String(), Currency: "USD", Value: "190", Kind: "latest",
@@ -32,18 +32,18 @@ func TestAgentLatestSuppressesRoutineProviderRefresh(t *testing.T) {
 			cached = item.Status == RefreshCached
 		}
 	}
-	tiingo.mu.Lock()
-	latestCalls := tiingo.latestInstrument
-	tiingo.mu.Unlock()
+	equity.mu.Lock()
+	latestCalls := equity.latestInstrument
+	equity.mu.Unlock()
 	if !cached || latestCalls != 0 {
 		t.Fatalf("fresh Agent observation did not suppress routine provider refresh: result=%+v calls=%d", result, latestCalls)
 	}
 	if _, err := service.RefreshInstrument(ctx, instrument.ID); err != nil {
 		t.Fatal(err)
 	}
-	tiingo.mu.Lock()
-	latestCalls = tiingo.latestInstrument
-	tiingo.mu.Unlock()
+	equity.mu.Lock()
+	latestCalls = equity.latestInstrument
+	equity.mu.Unlock()
 	if latestCalls != 1 {
 		t.Fatalf("explicit provider refresh calls=%d, want 1", latestCalls)
 	}
@@ -53,14 +53,14 @@ func TestAgentDailyDatesSkipProviderSyncAndWithdrawalsReopenDates(t *testing.T) 
 	t.Parallel()
 	var mu sync.Mutex
 	var requested []DateRange
-	tiingo := &syncFakeProvider{key: TiingoProviderKey}
-	tiingo.history = func(_ context.Context, _ InstrumentMarketIdentity, span DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey}
+	equity.history = func(_ context.Context, _ InstrumentMarketIdentity, span DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		mu.Lock()
 		requested = append(requested, span)
 		mu.Unlock()
 		return MappingOutcome[InstrumentDailyObservation]{Status: MappingUnsupported, Reason: "test_no_provider_history"}, nil
 	}
-	service, _, instrument, _ := newSyncFixture(t, tiingo, &syncFakeProvider{key: YahooFinanceProviderKey})
+	service, _, instrument, _ := newSyncFixture(t, equity, &syncFakeProvider{key: CoinGeckoProviderKey})
 	ctx := context.Background()
 	baseline, err := service.PlanHistorySync(ctx, HistorySyncOptions{})
 	if err != nil {
@@ -192,7 +192,7 @@ func TestCompleteAgentFXWithNoProviderKeyHasNoProviderBlocker(t *testing.T) {
 func TestAgentFXSuppliesMetalConversionWithoutFXProviderCall(t *testing.T) {
 	t.Parallel()
 	fxProvider := &countingProvider{inner: &syncFakeProvider{key: FrankfurterProviderKey}}
-	metalProvider := &syncFakeProvider{key: YahooFinanceProviderKey}
+	metalProvider := &syncFakeProvider{key: CoinGeckoProviderKey}
 	service, _, instrument, _ := newSyncFixture(t, metalProvider, fxProvider)
 	ctx := context.Background()
 	latest, err := service.ImportAgentMarketData(ctx, uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{{

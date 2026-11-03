@@ -179,7 +179,7 @@ func TestRestoreBackupOnNewComputer(t *testing.T) {
 			value := settings.Default()
 			value.Currency = "SGD"
 			value.Timezone = "Asia/Singapore"
-			value.TiingoAPIKey = "test-migrated-key"
+			value.CoinGeckoAPIKey = "test-migrated-key"
 			if err := saved.Save(value); err != nil {
 				t.Fatal(err)
 			}
@@ -238,7 +238,7 @@ func TestRestoreBackupOnNewComputer(t *testing.T) {
 				t.Fatal(err)
 			}
 			got, err := local.Load()
-			if err != nil || got.TiingoAPIKey != value.TiingoAPIKey || got.Timezone != value.Timezone {
+			if err != nil || got.CoinGeckoAPIKey != value.CoinGeckoAPIKey || got.Timezone != value.Timezone {
 				t.Fatal("important settings were not restored", err)
 			}
 		})

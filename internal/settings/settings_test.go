@@ -29,7 +29,7 @@ func TestStoreRoundTripUsesPrivateAtomicFile(t *testing.T) {
 	want.GroupingSeparator = GroupingDot
 	want.DecimalPlaces = 4
 	want.FXProvider = FXProviderFrankfurter
-	want.TiingoAPIKey = "test-key"
+	want.CoinGeckoAPIKey = "test-key"
 
 	if err := store.Save(want); err != nil {
 		t.Fatalf("Save() error = %v", err)

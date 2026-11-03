@@ -51,7 +51,7 @@ The current frontend already provides the following behavior:
 - Page loading, empty, incomplete, and provider-error states remain separate;
   missing values are not converted into zero points.
 
-Historical provider support is implemented: Tiingo and Yahoo provide
+Historical provider support is implemented: Yahoo provides
 instrument history, Frankfurter provides FX history, and CoinGecko provides
 daily crypto history. Provider capability is explicit, and history sync is
 user initiated. See the [v0.3.2](../releases/v0.3.2.md) and
@@ -171,7 +171,7 @@ silently broaden to every saved pair or every Instrument.
 
 ## 5. External historical providers
 
-Historical provider fetching is implemented for Tiingo and Yahoo instrument
+Historical provider fetching is implemented for Yahoo instrument
 series, Frankfurter FX series, and CoinGecko daily crypto series. The user
 starts a bounded fetch from Market Data; the rules below describe that shipped
 boundary. Provider support in code does not establish live HTTP or native UI

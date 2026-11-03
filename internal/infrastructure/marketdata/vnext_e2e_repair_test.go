@@ -13,7 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-func TestE2ETiingoUSManualFXRepairProbe(t *testing.T) {
+func TestE2EEquityUSManualFXRepairProbe(t *testing.T) {
 	sgt, err := time.LoadLocation("Asia/Singapore")
 	if err != nil {
 		t.Fatal(err)
@@ -51,8 +51,8 @@ func TestE2ETiingoUSManualFXRepairProbe(t *testing.T) {
 		t.Fatal("expected coverage gap before persist")
 	}
 
-	completeMeta, completeBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	complete, err := QualifyTiingoHistory(completeMeta, completeBody)
+	completeMeta, completeBody := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	complete, err := QualifyYahooHistory(completeMeta, completeBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,8 +134,8 @@ func TestE2ETiingoUSManualFXRepairProbe(t *testing.T) {
 	}
 	assertClosedSnapshotsMatchOracle(t, database, repo, household.ID, instrument.ID, completeOracle, 1)
 
-	correctionMeta, correctionBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-correction.json")
-	correction, err := QualifyTiingoHistory(correctionMeta, correctionBody)
+	correctionMeta, correctionBody := mustLoadVNext(t, "providers/yahoo/aapl-verified-correction.json")
+	correction, err := QualifyYahooHistory(correctionMeta, correctionBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,8 +182,8 @@ func TestE2ERepairInterruptionRecoversFromDirtyRange(t *testing.T) {
 	svc, database, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
 	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
 	svc.SetClock(func() time.Time { return repairClock })
-	completeMeta, completeBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	complete, err := QualifyTiingoHistory(completeMeta, completeBody)
+	completeMeta, completeBody := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	complete, err := QualifyYahooHistory(completeMeta, completeBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,8 +221,8 @@ func TestE2EHistoricalMarketDateCloseArrivesAfterHouseholdMidnight(t *testing.T)
 	svc, _, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
 	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
 	svc.SetClock(func() time.Time { return repairClock })
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	complete, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	complete, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,12 +253,12 @@ func TestE2EHistoricalMarketDateCloseArrivesAfterHouseholdMidnight(t *testing.T)
 		t.Fatalf("fixture does not exercise cross-midnight close: close=%s cutoff=%s", close.CloseInstant, householdCutoff)
 	}
 	lateClose := sqlite.InstrumentHistoryCommit{
-		HouseholdID: household.ID, InstrumentID: instrument.ID, ProviderKey: application.TiingoProviderKey,
+		HouseholdID: household.ID, InstrumentID: instrument.ID, ProviderKey: application.YahooFinanceProviderKey,
 		ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US", Status: string(application.MappingMapped),
-		Adapter: "tiingo_eod", SourcePolicy: string(application.PriceBasisTiingoRawClose), FetchedAt: repairClock.UTC().Add(time.Hour),
+		Adapter: "yahoo_chart", SourcePolicy: string(application.PriceBasisYahooClose), FetchedAt: repairClock.UTC().Add(time.Hour),
 		Observations: []sqlite.InstrumentHistoryObservation{{
 			MarketDate: "2026-09-09", Value: "187", Currency: "USD", ValueEffectiveAt: close.CloseInstant,
-			Kind: string(application.InstrumentObservationClose), PriceBasis: string(application.PriceBasisTiingoRawClose), TimestampBasis: string(application.TimestampBasisSessionClose),
+			Kind: string(application.InstrumentObservationClose), PriceBasis: string(application.PriceBasisYahooClose), TimestampBasis: string(application.TimestampBasisSessionClose),
 		}},
 	}
 	if _, err := repo.CommitInstrumentHistory(ctx, lateClose); err != nil {
@@ -301,8 +301,8 @@ func TestE2EHistoricalCoverageAndCompletenessSurviveSwitchToManual(t *testing.T)
 	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
 	svc.SetClock(func() time.Time { return repairClock })
 
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	complete, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	complete, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestE2EHistoricalCoverageAndCompletenessSurviveSwitchToManual(t *testing.T)
 	}
 	var foundProvider bool
 	for _, item := range historical {
-		if item.InstrumentID == instrument.ID && item.ProviderKey == application.TiingoProviderKey && containsDate(item.CloseMarketDates, "2026-09-04") && containsDate(item.CloseMarketDates, "2026-09-07") {
+		if item.InstrumentID == instrument.ID && item.ProviderKey == application.YahooFinanceProviderKey && containsDate(item.CloseMarketDates, "2026-09-04") && containsDate(item.CloseMarketDates, "2026-09-07") {
 			foundProvider = true
 		}
 	}
@@ -429,7 +429,7 @@ func seedRepairWorkspace(t *testing.T, originClock time.Time) (*application.Serv
 	}
 	instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{
 		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
-		ProviderKey: application.TiingoProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
+		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -456,7 +456,7 @@ func seedRepairPortfolio(t *testing.T, svc *application.Service, repo *sqlite.Re
 		t.Fatalf("opening-anchor session: %#v err=%v", session, err)
 	}
 	quote, err := domain.NewInstrumentQuote(instrument, domain.InstrumentQuoteInput{
-		UnitPrice: price, SourceKind: domain.QuoteSourceProvider, SourceKey: application.TiingoProviderKey,
+		UnitPrice: price, SourceKind: domain.QuoteSourceProvider, SourceKey: application.YahooFinanceProviderKey,
 		QuotedAt: session.CloseInstant, Delayed: true,
 	}, originClock)
 	if err != nil {

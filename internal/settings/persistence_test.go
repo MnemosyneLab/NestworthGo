@@ -24,7 +24,6 @@ func TestSQLiteSettingsSurviveMissingCorruptAndStaleJSON(t *testing.T) {
 	want.Currency = "SGD"
 	want.Timezone = "Asia/Singapore"
 	want.Appearance = settings.AppearanceDark
-	want.TiingoAPIKey = "tiingo-private"
 	want.CoinGeckoAPIKey = "gecko-private"
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -72,7 +71,7 @@ func TestSQLiteSettingsSurviveMissingCorruptAndStaleJSON(t *testing.T) {
 			t.Fatal("JSON not rebuilt", err)
 		}
 	}
-	got.TiingoAPIKey = ""
+	got.CoinGeckoAPIKey = ""
 	if err := store.Save(got); err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +83,7 @@ func TestSQLiteSettingsSurviveMissingCorruptAndStaleJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err = reopened.Load()
-	if err != nil || got.TiingoAPIKey != "" {
+	if err != nil || got.CoinGeckoAPIKey != "" {
 		t.Fatal("stale JSON resurrected revoked key", err)
 	}
 }
@@ -94,7 +93,7 @@ func TestMigrationFailureRetainsLegacySettings(t *testing.T) {
 	path := filepath.Join(dir, "settings.json")
 	store := settings.NewStore(path)
 	value := settings.Default()
-	value.TiingoAPIKey = "private-token"
+	value.CoinGeckoAPIKey = "private-token"
 	if err := store.Save(value); err != nil {
 		t.Fatal(err)
 	}

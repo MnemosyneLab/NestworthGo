@@ -10,7 +10,7 @@ import (
 func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 	t.Parallel()
 	before, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{
-		ProviderKey:    TiingoProviderKey,
+		ProviderKey:    YahooFinanceProviderKey,
 		ProviderSymbol: "AAPL",
 		Market:         "US",
 	}, "2026-09-06", "2026-09-08")
@@ -30,7 +30,7 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 		t.Fatalf("opening-anchor search state = %+v, want first 7d window", before)
 	}
 	firstSync, err := applyHistorySyncPolicy(before, domain.InstrumentHistoryCoverage{
-		ProviderKey:    TiingoProviderKey,
+		ProviderKey:    YahooFinanceProviderKey,
 		ProviderSymbol: "AAPL",
 		Market:         "US",
 	}, "2026-09-08", time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC), false)
@@ -45,7 +45,7 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 	}
 
 	after, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{
-		ProviderKey:        TiingoProviderKey,
+		ProviderKey:        YahooFinanceProviderKey,
 		ProviderSymbol:     "AAPL",
 		Market:             "US",
 		CloseMarketDates:   []string{"2026-09-04", "2026-09-07", "2026-09-08"},
@@ -100,7 +100,7 @@ func TestInstrumentHistoryTasksPreserveQuoteCurrencyAndMarket(t *testing.T) {
 func TestPlanInstrumentRepairNeedWidensOpeningAnchorSearchAndStops(t *testing.T) {
 	t.Parallel()
 	coverage := domain.InstrumentHistoryCoverage{
-		ProviderKey:    TiingoProviderKey,
+		ProviderKey:    YahooFinanceProviderKey,
 		ProviderSymbol: "AAPL",
 		Market:         "US",
 	}
@@ -131,7 +131,7 @@ func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
 	covered, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{
-		ProviderKey:        TiingoProviderKey,
+		ProviderKey:        YahooFinanceProviderKey,
 		ProviderSymbol:     "AAPL",
 		Market:             "US",
 		CloseMarketDates:   []string{"2026-09-04", "2026-09-07", "2026-09-08"},
@@ -154,7 +154,7 @@ func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
 		t.Fatal(err)
 	}
 	ordinary, err := applyHistorySyncPolicy(covered, domain.InstrumentHistoryCoverage{
-		ProviderKey:        TiingoProviderKey,
+		ProviderKey:        YahooFinanceProviderKey,
 		ProviderSymbol:     "AAPL",
 		Market:             "US",
 		CloseMarketDates:   []string{"2026-09-04", "2026-09-07", "2026-09-08"},
@@ -193,7 +193,7 @@ func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
 	}
 
 	forced, err := applyHistorySyncPolicy(covered, domain.InstrumentHistoryCoverage{
-		ProviderKey:        TiingoProviderKey,
+		ProviderKey:        YahooFinanceProviderKey,
 		ProviderSymbol:     "AAPL",
 		Market:             "US",
 		CloseMarketDates:   []string{"2026-09-04", "2026-09-07", "2026-09-08"},
@@ -214,9 +214,9 @@ func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
 		}
 	}
 
-	cnTiingo, err := applyHistorySyncPolicy(InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-04", End: "2026-09-08"}}, domain.InstrumentHistoryCoverage{
+	cnEquity, err := applyHistorySyncPolicy(InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-04", End: "2026-09-08"}}, domain.InstrumentHistoryCoverage{
 		InstrumentType:   "stock",
-		ProviderKey:      TiingoProviderKey,
+		ProviderKey:      "retired_provider",
 		ProviderSymbol:   "000001.SS",
 		Market:           "CN",
 		CloseMarketDates: []string{"2026-09-04"},
@@ -224,8 +224,8 @@ func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cnTiingo.RouteStatus != domain.InstrumentRouteUnsupported || len(cnTiingo.FetchRanges) != 0 {
-		t.Fatalf("CN Tiingo should not fetch or fall back: %+v", cnTiingo)
+	if cnEquity.RouteStatus != domain.InstrumentRouteUnsupported || len(cnEquity.FetchRanges) != 0 {
+		t.Fatalf("CN Equity should not fetch or fall back: %+v", cnEquity)
 	}
 
 	yahooCN, err := applyHistorySyncPolicy(InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-04", End: "2026-09-08"}}, domain.InstrumentHistoryCoverage{

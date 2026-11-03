@@ -63,46 +63,6 @@ func (p *syncFakeProvider) FXDailyHistory(ctx context.Context, identity FXMarket
 	return p.fx(ctx, identity, rng)
 }
 
-func mappedTiingoClose(date, value string) MappingOutcome[InstrumentDailyObservation] {
-	effective := time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC)
-	return MappingOutcome[InstrumentDailyObservation]{
-		Status: MappingMapped,
-		Batch: HistoryBatch[InstrumentDailyObservation]{
-			Observations: []InstrumentDailyObservation{{
-				MarketDate:       MarketDate(date),
-				Value:            value,
-				Currency:         "USD",
-				ValueEffectiveAt: effective,
-				Kind:             InstrumentObservationClose,
-				PriceBasis:       PriceBasisTiingoRawClose,
-				TimestampBasis:   TimestampBasisSessionClose,
-			}},
-			VerifiedRanges: []DateRange{{Start: MarketDate(date), End: MarketDate(date)}},
-			Evidence:       ResponseEvidence{Adapter: "tiingo", PriceBasis: PriceBasisTiingoRawClose, SourcePolicy: string(PriceBasisTiingoRawClose)},
-		},
-	}
-}
-
-func mappedYahooClose(date, value string) MappingOutcome[InstrumentDailyObservation] {
-	effective := time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC)
-	return MappingOutcome[InstrumentDailyObservation]{
-		Status: MappingMapped,
-		Batch: HistoryBatch[InstrumentDailyObservation]{
-			Observations: []InstrumentDailyObservation{{
-				MarketDate:       MarketDate(date),
-				Value:            value,
-				Currency:         "USD",
-				ValueEffectiveAt: effective,
-				Kind:             InstrumentObservationClose,
-				PriceBasis:       PriceBasisYahooClose,
-				TimestampBasis:   TimestampBasisSessionClose,
-			}},
-			VerifiedRanges: []DateRange{{Start: MarketDate(date), End: MarketDate(date)}},
-			Evidence:       ResponseEvidence{Adapter: "yahoo_chart", PriceBasis: PriceBasisYahooClose, SourcePolicy: string(PriceBasisYahooClose)},
-		},
-	}
-}
-
 func mappedYahooCryptoBar(date, value string) MappingOutcome[InstrumentDailyObservation] {
 	effective := time.Date(2026, 9, 4, 23, 59, 59, 999000000, time.UTC)
 	return MappingOutcome[InstrumentDailyObservation]{
@@ -189,14 +149,14 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 	}
 	first, err := service.CreateInstrument(ctx, InstrumentInput{
 		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
-		ProviderKey: TiingoProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
+		ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	second, err := service.CreateInstrument(ctx, InstrumentInput{
-		Name: "Microsoft", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
-		ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "MSFT", MarketCode: "US",
+		Name: "Ethereum", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider",
+		ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "ethereum", MarketCode: "CRYPTO",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -246,9 +206,9 @@ func TestCapHistoryRangesDoesNotExpandScope(t *testing.T) {
 
 func TestPreviewMarketDataSyncEstimatesRequestsAndPrerequisites(t *testing.T) {
 	t.Parallel()
-	tiingo := &syncFakeProvider{key: TiingoProviderKey}
-	yahoo := &syncFakeProvider{key: YahooFinanceProviderKey}
-	service, _, first, _ := newSyncFixture(t, tiingo, yahoo)
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey}
+	crypto := &syncFakeProvider{key: CoinGeckoProviderKey}
+	service, _, first, _ := newSyncFixture(t, equity, crypto)
 	preview, err := service.PreviewMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll})
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +233,7 @@ func TestStartMarketDataSyncAttachesEquivalentAndRejectsDifferentScope(t *testin
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var startOnce sync.Once
-	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(ctx context.Context, identity InstrumentMarketIdentity, rng DateRange, call int) (MappingOutcome[InstrumentDailyObservation], error) {
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(ctx context.Context, identity InstrumentMarketIdentity, rng DateRange, call int) (MappingOutcome[InstrumentDailyObservation], error) {
 		if identity.ProviderSymbol == "AAPL" {
 			startOnce.Do(func() { close(started) })
 			select {
@@ -282,10 +242,10 @@ func TestStartMarketDataSyncAttachesEquivalentAndRejectsDifferentScope(t *testin
 				return MappingOutcome[InstrumentDailyObservation]{}, ctx.Err()
 			}
 		}
-		return mappedTiingoClose("2026-09-04", "185.25"), nil
+		return mappedYahooClose("2026-09-04", "185.25"), nil
 	}}
-	yahoo := &syncFakeProvider{key: YahooFinanceProviderKey}
-	service, _, first, _ := newSyncFixture(t, tiingo, yahoo)
+	crypto := &syncFakeProvider{key: CoinGeckoProviderKey}
+	service, _, first, _ := newSyncFixture(t, equity, crypto)
 	firstStart, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll})
 	if err != nil || firstStart.Job.JobID == "" {
 		t.Fatalf("start = %+v err=%v", firstStart, err)
@@ -316,19 +276,19 @@ func TestCancelSyncJobRetainsCommittedBatches(t *testing.T) {
 	startedSecond := make(chan struct{})
 	release := make(chan struct{})
 	var secondOnce sync.Once
-	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(ctx context.Context, identity InstrumentMarketIdentity, rng DateRange, call int) (MappingOutcome[InstrumentDailyObservation], error) {
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(ctx context.Context, identity InstrumentMarketIdentity, rng DateRange, call int) (MappingOutcome[InstrumentDailyObservation], error) {
 		if identity.ProviderSymbol == "AAPL" && call == 1 {
-			return mappedTiingoClose("2026-09-04", "185.25"), nil
+			return mappedYahooClose("2026-09-04", "185.25"), nil
 		}
 		secondOnce.Do(func() { close(startedSecond) })
 		select {
 		case <-release:
-			return mappedTiingoClose("2026-09-08", "186.00"), nil
+			return mappedYahooClose("2026-09-08", "186.00"), nil
 		case <-ctx.Done():
 			return MappingOutcome[InstrumentDailyObservation]{}, ctx.Err()
 		}
 	}}
-	service, repo, first, _ := newSyncFixture(t, tiingo)
+	service, repo, first, _ := newSyncFixture(t, equity)
 	service.historyRequestMaxDays = 3
 	start, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll})
 	if err != nil {
@@ -372,13 +332,13 @@ func TestCancelSyncJobRetainsCommittedBatches(t *testing.T) {
 
 func TestSyncJobRateLimitStopsProviderAndRecordsEligibility(t *testing.T) {
 	t.Parallel()
-	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
 		return MappingOutcome[InstrumentDailyObservation]{}, &domain.Error{Code: domain.ErrProviderRateLimit, Message: "provider rate limit reached"}
 	}}
 	frankfurter := &syncFakeProvider{key: FrankfurterProviderKey, fx: func(context.Context, FXMarketIdentity, DateRange) (MappingOutcome[FXDailyObservation], error) {
 		return mappedFXRate("2026-09-08", "1.35"), nil
 	}}
-	service, _, _, _ := newSyncFixture(t, tiingo, frankfurter)
+	service, _, _, _ := newSyncFixture(t, equity, frankfurter)
 	if err := service.SetFXProvider(FrankfurterProviderKey); err != nil {
 		t.Fatal(err)
 	}
@@ -408,7 +368,7 @@ func TestSyncJobRateLimitStopsProviderAndRecordsEligibility(t *testing.T) {
 		t.Fatalf("rate limit not recorded: %+v", snap.Blockers)
 	}
 	if !foundFX {
-		t.Fatalf("frankfurter work did not continue after tiingo 429: %+v", snap.Items)
+		t.Fatalf("frankfurter work did not continue after equity 429: %+v", snap.Items)
 	}
 	if snap.Outcome != SyncOutcomePartial {
 		t.Fatalf("outcome = %s, want partial", snap.Outcome)
@@ -420,16 +380,16 @@ func TestSyncJobDoesNotPersistAfterWorkspaceFence(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var startOnce sync.Once
-	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(ctx context.Context, identity InstrumentMarketIdentity, rng DateRange, call int) (MappingOutcome[InstrumentDailyObservation], error) {
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(ctx context.Context, identity InstrumentMarketIdentity, rng DateRange, call int) (MappingOutcome[InstrumentDailyObservation], error) {
 		startOnce.Do(func() { close(started) })
 		select {
 		case <-release:
-			return mappedTiingoClose("2026-09-04", "185.25"), nil
+			return mappedYahooClose("2026-09-04", "185.25"), nil
 		case <-ctx.Done():
 			return MappingOutcome[InstrumentDailyObservation]{}, ctx.Err()
 		}
 	}}
-	service, repo, first, _ := newSyncFixture(t, tiingo)
+	service, repo, first, _ := newSyncFixture(t, equity)
 	if _, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll}); err != nil {
 		t.Fatal(err)
 	}
@@ -455,13 +415,13 @@ func TestSyncJobDoesNotPersistAfterWorkspaceFence(t *testing.T) {
 
 func TestYahooHistoryFailClosedIsPartialNotInvented(t *testing.T) {
 	t.Parallel()
-	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
-		return mappedTiingoClose("2026-09-04", "185.25"), nil
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
+		return mappedYahooClose("2026-09-04", "185.25"), nil
 	}}
-	yahoo := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
+	crypto := &syncFakeProvider{key: CoinGeckoProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
 		return MappingOutcome[InstrumentDailyObservation]{Status: MappingUnsupported, Reason: "unsupported_price_basis"}, nil
 	}}
-	service, repo, first, second := newSyncFixture(t, tiingo, yahoo)
+	service, repo, first, second := newSyncFixture(t, equity, crypto)
 	if _, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll}); err != nil {
 		t.Fatal(err)
 	}
@@ -484,10 +444,10 @@ func TestYahooHistoryFailClosedIsPartialNotInvented(t *testing.T) {
 		}
 	}
 	if appleCloses == 0 {
-		t.Fatal("tiingo closes were not committed")
+		t.Fatal("equity closes were not committed")
 	}
 	if msftCloses != 0 {
-		t.Fatalf("yahoo history invented %d closes", msftCloses)
+		t.Fatalf("crypto history invented %d closes", msftCloses)
 	}
 	foundYahooBlocker := false
 	for _, blocker := range snap.Blockers {
@@ -496,21 +456,21 @@ func TestYahooHistoryFailClosedIsPartialNotInvented(t *testing.T) {
 		}
 	}
 	if !foundYahooBlocker {
-		t.Fatalf("yahoo blocker missing: %+v", snap.Blockers)
+		t.Fatalf("crypto blocker missing: %+v", snap.Blockers)
 	}
 }
 
 func TestTransientHistoryRetriesThenSucceeds(t *testing.T) {
 	t.Parallel()
 	calls := 0
-	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
 		calls++
 		if calls < 3 {
 			return MappingOutcome[InstrumentDailyObservation]{}, &domain.Error{Code: domain.ErrProviderUnavailable, Message: "provider is unavailable"}
 		}
-		return mappedTiingoClose("2026-09-04", "185.25"), nil
+		return mappedYahooClose("2026-09-04", "185.25"), nil
 	}}
-	service, _, _, _ := newSyncFixture(t, tiingo)
+	service, _, _, _ := newSyncFixture(t, equity)
 	if _, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll}); err != nil {
 		t.Fatal(err)
 	}
@@ -584,7 +544,7 @@ func (p testHistoryPersist) PersistFXHistory(ctx context.Context, request Commit
 
 func TestSyncReportsIncompleteSnapshotsAfterRebuild(t *testing.T) {
 	t.Parallel()
-	service, repo, _, _ := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
+	service, repo, _, _ := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, &syncFakeProvider{key: CoinGeckoProviderKey})
 	if _, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll}); err != nil {
 		t.Fatal(err)
 	}
@@ -612,4 +572,32 @@ func TestSyncReportsIncompleteSnapshotsAfterRebuild(t *testing.T) {
 	if state.DirtyFrom != nil {
 		t.Fatal("fixture must complete the rebuild while retaining incomplete valuations")
 	}
+}
+
+func mappedYahooClose(date, value string) MappingOutcome[InstrumentDailyObservation] {
+	effective := time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC)
+	return MappingOutcome[InstrumentDailyObservation]{
+		Status: MappingMapped,
+		Batch: HistoryBatch[InstrumentDailyObservation]{
+			Observations: []InstrumentDailyObservation{{
+				MarketDate:       MarketDate(date),
+				Value:            value,
+				Currency:         "USD",
+				ValueEffectiveAt: effective,
+				Kind:             InstrumentObservationClose,
+				PriceBasis:       PriceBasisYahooClose,
+				TimestampBasis:   TimestampBasisSessionClose,
+			}},
+			VerifiedRanges: []DateRange{{Start: MarketDate(date), End: MarketDate(date)}},
+			Evidence:       ResponseEvidence{Adapter: "yahoo_chart", PriceBasis: PriceBasisYahooClose, SourcePolicy: string(PriceBasisYahooClose)},
+		},
+	}
+}
+
+func mappedCoinGeckoClose(date, value string) MappingOutcome[InstrumentDailyObservation] {
+	outcome := mappedYahooClose(date, value)
+	outcome.Batch.Observations[0].PriceBasis = PriceBasis(domain.CoinGeckoDailyPriceBasis)
+	outcome.Batch.Observations[0].TimestampBasis = TimestampBasisObservedPublication
+	outcome.Batch.Evidence = ResponseEvidence{Adapter: CoinGeckoProviderKey, SourcePolicy: domain.CoinGeckoDailyPriceBasis}
+	return outcome
 }

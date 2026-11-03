@@ -23,8 +23,7 @@ type InstrumentRoute struct {
 }
 
 // ResolveInstrumentRoute is the historical/latest instrument provider route
-// for a listing market. US equities may use Tiingo or Yahoo; China and other
-// markets are Yahoo-only. There is no silent cross-provider fallback.
+// for a listing market. Equities use Yahoo. There is no silent cross-provider fallback.
 func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) InstrumentRoute {
 	preferredProvider = strings.ToLower(strings.TrimSpace(preferredProvider))
 	providerSymbol = strings.TrimSpace(providerSymbol)
@@ -47,7 +46,7 @@ func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) In
 				return InstrumentRoute{Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
 			}
 			return InstrumentRoute{ProviderKey: YahooFinanceProviderKey, Status: InstrumentRouteOK}
-		case YahooFinanceProviderKey, TiingoProviderKey:
+		case YahooFinanceProviderKey:
 			if providerSymbol == "" {
 				return InstrumentRoute{ProviderKey: preferredProvider, Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
 			}
@@ -55,9 +54,6 @@ func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) In
 		default:
 			return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "provider_not_selectable"}
 		}
-	}
-	if preferredProvider == TiingoProviderKey {
-		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "tiingo_us_listed_only"}
 	}
 	if preferredProvider != "" && preferredProvider != YahooFinanceProviderKey {
 		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "provider_not_selectable"}

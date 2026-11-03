@@ -10,9 +10,9 @@ func TestResolveInstrumentHistorySupportUsesTypeAndMarketNotProviderName(t *test
 	if usYahooStock.Status != InstrumentRouteOK {
 		t.Fatalf("US Yahoo stock = %+v", usYahooStock)
 	}
-	usTiingo := ResolveInstrumentHistorySupport("stock", "US", TiingoProviderKey)
-	if usTiingo.Status != InstrumentRouteOK {
-		t.Fatalf("US Tiingo stock = %+v", usTiingo)
+	usEquity := ResolveInstrumentHistorySupport("stock", "US", YahooFinanceProviderKey)
+	if usEquity.Status != InstrumentRouteOK {
+		t.Fatalf("US Equity stock = %+v", usEquity)
 	}
 	cnYahoo := ResolveInstrumentHistorySupport("stock", "CN", YahooFinanceProviderKey)
 	if cnYahoo.Status != InstrumentRouteOK {
@@ -22,9 +22,9 @@ func TestResolveInstrumentHistorySupportUsesTypeAndMarketNotProviderName(t *test
 	if cryptoYahoo.Status != InstrumentRouteOK {
 		t.Fatalf("Yahoo crypto should use UTC daily bars even when market is US: %+v", cryptoYahoo)
 	}
-	cryptoTiingo := ResolveInstrumentHistorySupport("crypto", "US", TiingoProviderKey)
-	if cryptoTiingo.Status != InstrumentRouteUnsupported || cryptoTiingo.Reason != "tiingo_us_listed_only" {
-		t.Fatalf("Tiingo crypto = %+v", cryptoTiingo)
+	cryptoEquity := ResolveInstrumentHistorySupport("crypto", "US", "retired_provider")
+	if cryptoEquity.Status != InstrumentRouteUnsupported || cryptoEquity.Reason != "provider_not_selectable" {
+		t.Fatalf("Equity crypto = %+v", cryptoEquity)
 	}
 	goldMetal := ResolveInstrumentHistorySupport("precious_metal", "US", YahooFinanceProviderKey)
 	if goldMetal.Status != InstrumentRouteUnsupported || goldMetal.Reason != InstrumentTypeUnsupported {

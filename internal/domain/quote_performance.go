@@ -122,7 +122,7 @@ func performancePriceBasis(t InstrumentType, basis string) bool {
 	}
 	switch t {
 	case InstrumentStock, InstrumentETF:
-		return basis == TiingoRawClosePriceBasis || basis == YahooRawClosePriceBasis
+		return archivedRawCloseBasis(basis) || basis == YahooRawClosePriceBasis
 	case InstrumentPreciousMetal:
 		// Futures daily reference closes converted to the quote currency and unit.
 		return basis == YahooRawClosePriceBasis

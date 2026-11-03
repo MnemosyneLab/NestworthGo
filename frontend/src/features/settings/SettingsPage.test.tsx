@@ -15,9 +15,6 @@ const load = vi.fn();
 const save = vi.fn().mockResolvedValue(undefined);
 const reset = vi.fn();
 const historyOrigin = vi.fn();
-const tiingoKeyStatus = vi.fn();
-const saveTiingoAPIKey = vi.fn();
-const deleteTiingoAPIKey = vi.fn();
 const inspectBackup = vi.fn();
 const confirmRestore = vi.fn();
 const cloud = vi.hoisted(() => ({ Status: vi.fn(), RetentionStatus: vi.fn(), Configure: vi.fn(), RecoveryPointPage: vi.fn(), InspectRestore: vi.fn(), ConfirmRestore: vi.fn(), BackupNow: vi.fn() }));
@@ -35,9 +32,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
     CoinGeckoKeyStatus: () => Promise.resolve({ configured: false }),
     SaveCoinGeckoAPIKey: () => Promise.resolve({ configured: true }),
     DeleteCoinGeckoAPIKey: () => Promise.resolve({ configured: false }),
-    TiingoKeyStatus: () => tiingoKeyStatus(),
-    SaveTiingoAPIKey: (...args: unknown[]) => saveTiingoAPIKey(...args),
-    DeleteTiingoAPIKey: () => deleteTiingoAPIKey(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -103,9 +97,6 @@ beforeEach(() => {
   save.mockImplementation(async (value) => { load.mockResolvedValue(value); });
   reset.mockReset();
   historyOrigin.mockReset();
-  tiingoKeyStatus.mockReset();
-  saveTiingoAPIKey.mockReset();
-  deleteTiingoAPIKey.mockReset();
   load.mockResolvedValue(defaultSettings);
   inspectBackup.mockReset().mockResolvedValue({ cancelled: true });
   confirmRestore.mockReset().mockResolvedValue({ restartRequired: false });
@@ -116,9 +107,6 @@ beforeEach(() => {
   agent.RecentOperations.mockReset().mockResolvedValue([]);
   agent.Connection.mockReset().mockResolvedValue({ json: '{"token":"synthetic-secret"}' });
   historyOrigin.mockResolvedValue(null);
-  tiingoKeyStatus.mockResolvedValue({ configured: false });
-  saveTiingoAPIKey.mockResolvedValue({ configured: true });
-  deleteTiingoAPIKey.mockResolvedValue({ configured: false });
 });
 
 describe("SettingsPage", () => {
@@ -227,7 +215,6 @@ it("shows the actual household currency read-only and saves all general fields t
   const saveButton = screen.getByRole("button", { name: "Save changes" });
   await userEvent.click(saveButton);
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ appearance: "dark", currency: "USD" }));
-  expect(saveTiingoAPIKey).not.toHaveBeenCalled();
 });
 
 it("applies the default accent when restoring preferences", async () => {
@@ -287,11 +274,11 @@ it("discards and resets cross-tab preferences without saving first or clearing s
   await screen.findByRole("combobox", { name: "Appearance" });
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "Appearance" }), "dark");
   await selectTab("Market data");
-  await userEvent.type(screen.getByLabelText("Tiingo API key"), "synthetic-key");
+  await userEvent.type(screen.getByLabelText("CoinGecko API key"), "synthetic-key");
   await userEvent.selectOptions(screen.getByLabelText("Quote cache duration"), "1h");
   await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
   expect(screen.getByLabelText("Quote cache duration")).toHaveValue("12h");
-  expect(screen.getByLabelText("Tiingo API key")).toHaveValue("synthetic-key");
+  expect(screen.getByLabelText("CoinGecko API key")).toHaveValue("synthetic-key");
   await userEvent.selectOptions(screen.getByLabelText("Quote cache duration"), "3h");
   reset.mockResolvedValue(defaultSettings);
   await userEvent.click(screen.getByRole("button", { name: "Restore all preference defaults" }));
@@ -302,7 +289,7 @@ it("discards and resets cross-tab preferences without saving first or clearing s
   expect(reset).toHaveBeenCalledOnce();
   expect(save).not.toHaveBeenCalled();
   expect(screen.getByLabelText("Quote cache duration")).toHaveValue("12h");
-  expect(screen.getByLabelText("Tiingo API key")).toHaveValue("synthetic-key");
+  expect(screen.getByLabelText("CoinGecko API key")).toHaveValue("synthetic-key");
   await selectTab("Appearance");
   expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue("system");
 });
@@ -311,9 +298,9 @@ it("remasks new provider and R2 inputs on tab exit without discarding them", asy
   renderPage();
   await screen.findByRole("combobox", { name: "Appearance" });
   await selectTab("Market data");
-  const provider = screen.getByLabelText("Tiingo API key");
+  const provider = screen.getByLabelText("CoinGecko API key");
   await userEvent.type(provider, "synthetic-key");
-  await userEvent.click(screen.getAllByRole("button", { name: "Show new input" })[1]);
+  await userEvent.click(screen.getByRole("button", { name: "Show new input" }));
   expect(provider).toHaveAttribute("type", "text");
   await selectTab("Data");
   await userEvent.type(await screen.findByLabelText("Access Key ID"), "synthetic-access");
@@ -324,8 +311,8 @@ it("remasks new provider and R2 inputs on tab exit without discarding them", asy
   expect(screen.getByLabelText("Secret Access Key")).toHaveValue("synthetic-secret");
   expect(screen.getByLabelText("Secret Access Key")).toHaveAttribute("type", "password");
   await selectTab("Market data");
-  expect(screen.getByLabelText("Tiingo API key")).toHaveValue("synthetic-key");
-  expect(screen.getByLabelText("Tiingo API key")).toHaveAttribute("type", "password");
+  expect(screen.getByLabelText("CoinGecko API key")).toHaveValue("synthetic-key");
+  expect(screen.getByLabelText("CoinGecko API key")).toHaveAttribute("type", "password");
 });
 
 it("collapses MCP configuration while retaining the permission draft", async () => {

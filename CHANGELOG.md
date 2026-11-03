@@ -348,7 +348,7 @@ published historical release.
 - Added the unified Market Data workflow and Data Health center, including
   local gap detection, repair planning, progress, cancellation, and explicit
   incomplete-data states.
-- Added historical provider support for Tiingo, Yahoo instrument data, and
+- Added historical provider support for Yahoo instrument data, and
   Frankfurter FX data, with deterministic fixtures and fail-closed persistence
   for malformed or unsupported responses.
 

@@ -96,7 +96,7 @@ func reviewWarmReplayBenchmarkCapture(b *testing.B) (domain.ReviewProjectionCapt
 			InstrumentID: ids[instrumentIndex], UnitPrice: quotePrice, Currency: currency,
 			SourceKind: domain.QuoteSourceManual, SourceKey: "synthetic", QuotedAt: on.Add(16 * time.Hour),
 			CreatedAt: on.Add(17 * time.Hour), ObservationKind: "close", EffectiveDate: on.Format(time.DateOnly),
-			BindingRevision: 0, PriceBasis: domain.TiingoRawClosePriceBasis, TimestampBasis: "session_close",
+			BindingRevision: 0, PriceBasis: domain.YahooRawClosePriceBasis, TimestampBasis: "session_close",
 		}
 	}
 	history := domain.HistoricalSnapshotBatch{

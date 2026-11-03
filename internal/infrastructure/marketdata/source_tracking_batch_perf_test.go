@@ -15,8 +15,8 @@ import (
 // quote/slot/coverage UPSERTs, dirty generation and Commit. No live provider.
 func TestSourceTrackingProviderImportBatchEvidence(t *testing.T) {
 	db, repo, household, instrument := seedHistoryWorkspace(t)
-	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
-	outcome, err := QualifyTiingoHistory(meta, body)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
+	outcome, err := QualifyYahooHistory(meta, body)
 	if err != nil {
 		t.Fatal(err)
 	}

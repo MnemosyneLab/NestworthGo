@@ -37,8 +37,8 @@ func InstrumentUsesCryptoDailyBar(instrumentType, market string) bool {
 // ResolveInstrumentHistorySupport is the local, offline type/market overlay
 // on top of ResolveInstrumentRoute. It does not contact providers.
 //
-// Stocks and ETFs on a known equity session may use Yahoo, and US-listed
-// stocks/ETFs may also use Tiingo. Yahoo crypto uses a UTC daily-bar policy,
+// Stocks and ETFs on a known equity session may use Yahoo.
+// Yahoo crypto uses a UTC daily-bar policy,
 // not an equity exchange close. Other instrument types stay explicitly
 // unsupported rather than inheriting a provider whitelist.
 func ResolveInstrumentHistorySupport(instrumentType, market, providerKey string) InstrumentRoute {
@@ -68,14 +68,11 @@ func ResolveInstrumentHistorySupport(instrumentType, market, providerKey string)
 		if _, ok := EquitySessionScheduleForMarket(market); !ok {
 			return InstrumentRoute{ProviderKey: provider, Status: InstrumentRouteUnsupported, Reason: MarketSessionUnsupported}
 		}
-		if provider == TiingoProviderKey && !USListedEquityMarket(market) {
-			return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "tiingo_us_listed_only"}
+		if provider != "" && provider != YahooFinanceProviderKey {
+			return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "provider_not_selectable"}
 		}
 		return InstrumentRoute{ProviderKey: provider, Status: InstrumentRouteOK}
 	case InstrumentCrypto:
-		if provider == TiingoProviderKey {
-			return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "tiingo_us_listed_only"}
-		}
 		if provider == CoinGeckoProviderKey || provider == YahooFinanceProviderKey || provider == "" {
 			if provider == "" {
 				provider = YahooFinanceProviderKey

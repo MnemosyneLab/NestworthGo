@@ -405,7 +405,7 @@ empty scope; entering or leaving it breaks that role's connection too. A missing
 civil date resets preceding point availability without comparing across the gap.
 Selected quote provenance (provider/Agent/manual source and key), supported
 raw-close provider policy names and timestamp encodings do not change economic
-units. Supported Yahoo, Tiingo and Agent raw closes can therefore connect across
+units. Supported Yahoo and Agent raw closes can therefore connect across
 sources. FX rates compare their currency pair independently of source, saved
 source preference, timestamp encoding and stored pair direction; valuation still
 uses the authoritative oriented rate. Price types, unsupported/adjusted price

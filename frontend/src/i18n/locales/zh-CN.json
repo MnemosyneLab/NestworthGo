@@ -939,7 +939,6 @@
     },
     "provider": {
       "frankfurter": "Frankfurter",
-      "tiingo": "Tiingo",
       "yahoo": "Yahoo Finance",
       "yahoo_finance": "Yahoo Finance",
       "coingecko": "CoinGecko"
@@ -969,7 +968,6 @@
       "unsaved": "你有尚未保存的偏好设置。",
       "saveHelp": "保存适用于外观、语言、行情偏好和诊断设置。",
       "coinGecko": "CoinGecko",
-      "tiingo": "Tiingo",
       "agent": "AI / MCP"
     },
     "tabs": {

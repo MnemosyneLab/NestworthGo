@@ -32,8 +32,8 @@ func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqlite.NewRepository(db)
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	fake := &syncFakeProvider{key: TiingoProviderKey, history: func(_ context.Context, _ InstrumentMarketIdentity, _ DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
-		result := mappedTiingoClose("2026-08-04", "5")
+	fake := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, _ InstrumentMarketIdentity, _ DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+		result := mappedYahooClose("2026-08-04", "5")
 		result.Batch.Observations[0].ValueEffectiveAt = time.Date(2026, 8, 4, 20, 0, 0, 0, time.UTC)
 		result.Batch.VerifiedRanges = []DateRange{{Start: "2026-08-01", End: "2026-08-05"}}
 		return result, nil
@@ -58,12 +58,12 @@ func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: TiingoProviderKey, ProviderSymbol: "SYNTHETIC", MarketCode: "US"})
+	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "SYNTHETIC", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	price, _ := domain.ParseUnitPrice("5")
-	if err := repo.AppendInstrumentQuote(t.Context(), domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrument.ID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: TiingoProviderKey, QuotedAt: now, CreatedAt: now}); err != nil {
+	if err := repo.AppendInstrumentQuote(t.Context(), domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrument.ID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: YahooFinanceProviderKey, QuotedAt: now, CreatedAt: now}); err != nil {
 		t.Fatal(err)
 	}
 	holding, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "5"})
