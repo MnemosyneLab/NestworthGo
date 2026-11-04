@@ -200,14 +200,10 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 	if record.Operation != domain.AgentQuoteAppend && record.Operation != domain.AgentQuoteCorrect && record.Operation != domain.AgentQuoteRetract {
 		return record, agentDataValidation("operation", "must be append, correct or retract")
 	}
-	if record.SourceTitle == "" || len([]rune(record.SourceTitle)) > 256 {
-		return record, agentDataValidation("sourceTitle", "source title is required and must not exceed 256 characters")
-	}
-	if record.SourceURL != "" {
-		u, err := url.Parse(record.SourceURL)
-		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || len(record.SourceURL) > 2048 {
-			return record, agentDataValidation("sourceUrl", "must be an HTTP(S) URL without credentials, at most 2048 characters")
-		}
+	var err error
+	record.SourceTitle, record.SourceURL, err = parseAgentQuoteProvenance(item.SourceTitle, item.SourceURL, true)
+	if err != nil {
+		return record, err
 	}
 	if record.Operation != domain.AgentQuoteAppend {
 		if _, err := uuid.Parse(record.TargetQuoteID); err != nil {
@@ -276,6 +272,10 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 	if (item.SplitFactor != "" || item.DividendCash != "") && (instrument == nil || item.Kind == "latest") {
 		return record, agentDataValidation("items", "split/dividend metadata belongs to a daily instrument observation")
 	}
+	price, rate, err := parseAgentQuoteValue(item, instrument)
+	if err != nil {
+		return record, err
+	}
 	when, basis, err := s.agentMarketDataTime(ctx, item, instrument)
 	if err != nil {
 		return record, err
@@ -283,10 +283,6 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 	if instrument != nil {
 		if item.Currency != instrument.QuoteCurrency.String() {
 			return record, agentDataValidation("currency", "must explicitly match the instrument quote currency")
-		}
-		price, err := domain.ParseUnitPrice(item.Value)
-		if err != nil {
-			return record, err
 		}
 		q, err := domain.NewInstrumentQuote(*instrument, domain.InstrumentQuoteInput{UnitPrice: price, Currency: instrument.QuoteCurrency, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: when, Delayed: item.Delayed}, s.clock())
 		if err != nil {
@@ -329,10 +325,6 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 		if err != nil {
 			return record, err
 		}
-		rate, err := domain.ParseFxRate(item.Value)
-		if err != nil {
-			return record, err
-		}
 		q, err := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: householdID, BaseCurrency: base, QuoteCurrency: quote, Rate: rate, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: when, Delayed: item.Delayed}, s.clock())
 		if err != nil {
 			return record, err
@@ -346,7 +338,11 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 }
 
 func (s *Service) agentMarketDataTime(ctx context.Context, item AgentMarketDataItem, instrument *domain.Instrument) (time.Time, string, error) {
-	location := s.seriesLocation(ctx)
+	return parseAgentMarketDataTime(item, instrument, s.seriesLocation(ctx), s.clock())
+}
+
+// Shared pure time validation: no repository, provider, refresh or mutation.
+func parseAgentMarketDataTime(item AgentMarketDataItem, instrument *domain.Instrument, location *time.Location, now time.Time) (time.Time, string, error) {
 	if instrument != nil && instrument.MarketCode != nil {
 		if schedule, ok := domain.EquitySessionScheduleForMarket(*instrument.MarketCode); ok {
 			location, _ = time.LoadLocation(schedule.Timezone)
@@ -388,8 +384,59 @@ func (s *Service) agentMarketDataTime(ctx context.Context, item AgentMarketDataI
 			when, basis = parsed, "source_timestamp"
 		}
 	}
-	if when.After(s.clock()) {
+	if when.After(now) {
 		return when, basis, agentDataValidation("quotedAt", "future observations are not allowed")
 	}
 	return when.UTC(), basis, nil
+}
+
+// parseAgentQuoteValue is shared by append validation and read-only comparison.
+func parseAgentQuoteValue(item AgentMarketDataItem, instrument *domain.Instrument) (domain.UnitPrice, domain.FxRate, error) {
+	var price domain.UnitPrice
+	var rate domain.FxRate
+	var err error
+	if instrument != nil {
+		if item.Kind != "latest" && item.Kind != "close" && item.Kind != "nav" {
+			return price, rate, agentDataValidation("kind", "instrument kind must be latest, close or nav")
+		}
+		if item.Currency != instrument.QuoteCurrency.String() {
+			return price, rate, agentDataValidation("currency", "must explicitly match the instrument quote currency")
+		}
+		price, err = domain.ParseUnitPrice(item.Value)
+	} else {
+		if item.Kind != "latest" && item.Kind != "daily_reference" {
+			return price, rate, agentDataValidation("kind", "FX kind must be latest or daily_reference")
+		}
+		if item.Currency != "" {
+			return price, rate, agentDataValidation("currency", "FX does not accept currency")
+		}
+		base, e := domain.ParseSupportedCurrency(item.BaseCurrency)
+		if e != nil {
+			return price, rate, e
+		}
+		quote, e := domain.ParseSupportedCurrency(item.QuoteCurrency)
+		if e != nil {
+			return price, rate, e
+		}
+		if base == quote {
+			return price, rate, agentDataValidation("currencyPair", "base and quote currencies must differ")
+		}
+		rate, err = domain.ParseFxRate(item.Value)
+	}
+	return price, rate, err
+}
+
+// parseAgentQuoteProvenance validates source text without fetching the URL.
+func parseAgentQuoteProvenance(title, sourceURL string, required bool) (string, string, error) {
+	title, sourceURL = strings.TrimSpace(title), strings.TrimSpace(sourceURL)
+	if required && title == "" || len([]rune(title)) > 256 {
+		return title, sourceURL, agentDataValidation("sourceTitle", "source title is required for import and must not exceed 256 characters")
+	}
+	if sourceURL != "" {
+		u, err := url.Parse(sourceURL)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || len(sourceURL) > 2048 {
+			return title, sourceURL, agentDataValidation("sourceUrl", "must be an HTTP(S) URL without credentials, at most 2048 characters")
+		}
+	}
+	return title, sourceURL, nil
 }

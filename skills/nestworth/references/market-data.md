@@ -115,3 +115,35 @@ operation UUID rules. Corrections keep the same instrument and closed kind;
 audit reads return kind closed and no price, including its date and timezone.
 Re-read coverage and health after importing or withdrawing a closure. Never
 infer a holiday merely from a missing price or an empty provider response.
+
+## Read-only import comparison
+
+For a multi-target/multi-date CSV precheck, use `compare_market_data_import` when
+it appears in the actual tool schema. It accepts 1–500 ordered rows (maximum 100
+distinct targets and 128 KiB input) with unique `clientItemId`, target, kind,
+currency and exact decimal value; daily rows need the actual source date and
+latest requires the actual quotedAt, without date. Optional timezone/provenance
+follows the tool schema. `nav` means unit NAV; `close` means raw unadjusted close.
+Preserve input order and every repeated business key; reject duplicate client IDs.
+
+Follow all results, matches, evidence, audits and targets section cursors. Display
+unread evidence as unread. `same`, `conflict`, `missing`, `historical_only`,
+`unknown_target`, `invalid` and `unavailable` are distinct; failed reads, reverse
+FX, unknown bases and unconsumed pages never prove missing. Check batchConflict
+independently: inconsistent proposed values can both be locally missing. Numeric
+same does not prove the proposed source was imported. Agent provenance matching
+and selected current quote/policy are separate captured evidence.
+
+Use original exact decimals and FX direction. Format-only equality is distinct
+from a display precision tail; every nonzero exact difference remains a conflict.
+Do not infer a binary-float cause from a small decimal delta. Unsupported precision
+is invalid, never silently rounded. Corrections/withdrawals remain historical
+facts. Current single-append selection simulation is limited; unknown ties,
+converted dependencies and historical/batch impacts must remain explicit.
+
+This tool never imports, overwrites, refreshes, requests a provider, changes
+priority, forms a write plan or grants write authorization. Capture/input hashes
+identify frozen evidence, not a subsequent-write CAS. Recheck independently for
+any later authorized write. 35 targets/233 rows fit one bounded comparison;
+233 later imports would still need at least three 100-item writer batches. Separate
+comparison captures have separate snapshot times and are not one global snapshot.

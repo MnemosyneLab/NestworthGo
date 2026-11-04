@@ -11,7 +11,7 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		"scan_data_health": {}, "preview_data_repair": {}, "get_data_repair_job": {},
 		"list_members": {}, "list_institutions": {}, "list_groups": {}, "list_accounts": {}, "list_holdings": {},
 		"get_historical_overview": {}, "get_historical_overview_series": {}, "get_account_valuations": {},
-		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data_batch": {"targetKey", "displayName"}, "get_read_page": {}, "get_read_item": {}}
+		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data_batch": {"targetKey", "displayName"}, "compare_market_data_import": {}, "get_read_page": {}, "get_read_item": {}}
 	sortFields, ok := fields[name]
 	if !ok {
 		return nil
@@ -93,6 +93,17 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		if h := schema.Properties["historySort"]; h != nil {
 			setSchemaEnum(h.Properties["field"], []string{"quotedAt", "effectiveDate"})
 			setSchemaEnum(h.Properties["direction"], []string{"asc", "desc"})
+		}
+	}
+
+	if name == "compare_market_data_import" {
+		min, max := 1, 500
+		schema.Properties["items"].MinItems = &min
+		schema.Properties["items"].MaxItems = &max
+		if p := schema.Properties["displayScale"]; p != nil {
+			low, high := float64(0), float64(12)
+			p.Minimum = &low
+			p.Maximum = &high
 		}
 	}
 	return schema

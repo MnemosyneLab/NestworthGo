@@ -43,12 +43,23 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				t.Fatal(err)
 			}
 			sort.Slice(listed.Tools, func(i, j int) bool { return listed.Tools[i].Name < listed.Tools[j].Name })
-			raw, err := jsoncodec.MarshalIndent(listed.Tools, "", "  ")
+			// The new read tool has its own schema/permission contract tests.
+			// Keep every pre-existing discovery byte checked against main.
+			baseline := make([]*mcp.Tool, 0, len(listed.Tools))
+			for _, tool := range listed.Tools {
+				if tool.Name != "compare_market_data_import" {
+					baseline = append(baseline, tool)
+				}
+			}
+			if len(listed.Tools) != test.count+1 {
+				t.Fatalf("expected exactly one additive read tool: %d", len(listed.Tools))
+			}
+			raw, err := jsoncodec.MarshalIndent(baseline, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}
 			hash := sha256.Sum256(raw)
-			if len(listed.Tools) != test.count || hex.EncodeToString(hash[:]) != test.hash {
+			if len(baseline) != test.count || hex.EncodeToString(hash[:]) != test.hash {
 				t.Fatalf("external %s contract changed: tools=%d sha256=%x; expected tools=%d sha256=%s", test.mode, len(listed.Tools), hash, test.count, test.hash)
 			}
 			registry := s.toolRegistry(test.mode)

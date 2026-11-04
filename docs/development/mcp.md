@@ -131,6 +131,11 @@ overlay. Existing provider adapters are unchanged.
 - `list_agent_market_data`: page audit records, original source title/URL,
   exact values, effective dates, corrections and withdrawals. `active` means
   eligible, not necessarily selected. Available in every permission mode.
+- `compare_market_data_import`: read-only, 1–500 ordered proposed rows / 100 distinct
+  targets / 128 KiB. Returns exact same/conflict/missing/historical-only evidence,
+  preserved client IDs/order and batch duplicates/conflicts in one frozen local
+  snapshot. Follow results/matches/evidence/audits/targets cursors. It never imports,
+  refreshes or grants write permission. See the [comparison API contract](../design/mcp-import-comparison-api.md).
 - `import_market_data`: `ledger_write` only. Atomically import 1–100 items with
   one `operationId`. Operations are `append` (default), `correct`, or `retract`.
   A correction/withdrawal requires the existing Agent `targetQuoteId`; other
