@@ -37,6 +37,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # Version checks need complete branch history and main merge bases.
+          fetch-depth: 0
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
