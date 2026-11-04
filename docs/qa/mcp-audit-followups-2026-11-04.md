@@ -386,3 +386,26 @@ explicitly. This directly supports analysis.md's distinction between frozen
 preview captures and revision-bound live report cursors; no blanket publication
 invalidation is claimed for frozen captures. The final focused SDK regression passed in **2.056s**, including the explicit
 error-code/field assertion.
+
+
+### Exhaustive task discovery category combinations
+
+At runtime source `ed87ce4`, the opt-in perf regression
+`TestTaskDiscoveryAllCategoryCombinationsWireBudget` traversed all **1,023**
+nonempty subsets of the ten advertised categories in ledger_write mode through
+the real SDK Streamable HTTP client and authenticated synthetic server. It
+followed every cursor and checked each selected tool union for missing, unexpected
+or duplicate names, as well as successful responses, nonempty pages and the
+16-tool maximum. Each request repeats the selected category metadata.
+
+All **3,903** pages succeeded; total final JSON-RPC response bytes were
+**100,487,544**, and the largest individual response was **50,953 bytes**, below
+the unchanged 65,536-byte ceiling. The largest page was page 3 for
+`context, summary, analysis, ledger, market, products`. The test passed in
+50.74s (package 52.389s), with Go 1.27.3 / server,perf tags. The exact perf
+selector check and whitespace check passed. No pagination implementation change
+is necessary for the current registered schemas. This is exhaustive category
+coverage for the current ledger_write registry, not a promise about future
+schema growth, external clients, model consumption or other permission modes;
+the retained test detects later aggregation growth. Ordinary package tests do
+not run these thousands of requests.
