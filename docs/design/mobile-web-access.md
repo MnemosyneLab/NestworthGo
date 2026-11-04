@@ -96,8 +96,8 @@ revokes that session; applying settings signs out all phones.
 
 The phone always calls relative same-origin routes with `credentials: omit`;
 there are no cookies or selectable transport modes. The login form offers an unchecked **Remember this browser** choice. When
-selected, only the server-issued random bearer and absolute expiry enter
-same-origin localStorage; scheme/host/port isolation is the browser's standard
+selected, the server-issued random bearer and absolute expiry enter immutable
+localStorage records selected by an opaque random ID; scheme/host/port isolation is the browser's standard
 origin boundary. The shared token and CSRF never enter browser storage. The UI
 states "Up to 7 days; expires after 24 hours idle" and warns that HTTP is
 plaintext, this requires a trusted device/network, and XSS can read the local
@@ -105,8 +105,24 @@ credential. Local storage is not encrypted or protected by cookies/HttpOnly.
 Without opt-in, session credentials remain in memory. If browser storage is
 unavailable, login safely falls back to page memory and displays that limitation.
 Expired/malformed stored credentials and any explicit authenticated 401 (even a
-malformed error body) clear local credentials. Network errors, timeouts and 5xx
+malformed error body) clear only the matching request/session credential. Network errors, timeouts and 5xx
 retain them; the login screen offers **Reconnect** without another token exchange.
+Each save uses a new immutable record key, while the shared selector contains no
+bearer. Expiry, 401, logout and failed publication compare the captured session
+credential and remove only its matching record; invalidation never deletes the
+selector. This remains safe if another tab publishes between comparison and
+removal: its new record has a different key. A successful explicit remembered
+login selects its new record. A memory-only login never clears a different tab's
+remembered credential. Older unselected records can be cleaned after replacement;
+concurrent orphaned records are reaped only after expiry. A missing or revoked
+selected record never falls back to an older grant. Legacy v1 credentials remain
+readable only before a v2 selector exists; new saves use v2, so stale v1 pages
+cannot delete a new v2 credential.
+
+Storage events refresh the login screen's Reconnect availability by reading
+current storage, not delayed event values. They do not switch active in-memory
+sessions, replace CSRF, cancel drafts or issue requests. Explicitly restoring a
+different credential advances the request generation, fencing late responses.
 Refresh/reopen validates through `GET /session` before enabling ledger requests.
 Normal restart refreshes CSRF without replaying commands or restoring previews. In-page **Reconnect** checks the existing session while
 preserving drafts and immutable financial confirmations. Supplied Host and
@@ -120,10 +136,14 @@ API responses use no-store. Static assets retain the same-origin CSP, no frames,
 objects, remote scripts or financial service worker. Hash-named JS/CSS are cached
 and gzip is supported. Existing bounds remain: 32KiB request bodies,
 500-character notes, 100-item maximum pages, four concurrent requests per session
-and bounded login/read/write rates. Durable audit links use operation/session
+and bounded login/read/write rates. Session concurrency and rate admission run
+before last-use/idle renewal and registry I/O under the same authorization lock.
+A rejected 429 neither writes the registry nor extends idle validity; admitted
+remembered requests durably renew recent use before reserving their active slot.
+Durable audit links use operation/session
 identifiers rather than tokens or full request bodies.
 
-Apart from the opted-in random credential, only language and appearance
+Apart from opted-in random credentials and their opaque selection metadata, only language and appearance
 preferences enter localStorage. Financial drafts
 and query data remain in memory. Active drafts guard page exit and sign-out;
 unknown confirmations retain their original recovery identity. The browser uses

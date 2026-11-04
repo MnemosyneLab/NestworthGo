@@ -71,6 +71,7 @@ import {
   savePending,
   setMobileSession,
   restoreMobileCredential,
+  persistMobileLogin,
   type Account,
   type Activity,
   type Envelope,
@@ -90,8 +91,7 @@ import {
   ConnectionError,
   mobilePreferences,
   rememberedMobileCredential,
-  rememberMobileCredential,
-  forgetMobileCredential,
+  onMobileCredentialStorageChange,
   saveMobilePreferences,
 } from "./connection";
 
@@ -822,6 +822,14 @@ function Login({
   const lock = useRef(false);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
+  useEffect(
+    () => onMobileCredentialStorageChange(() => {
+      // Read current storage, not delayed event.newValue. Never adopt a session
+      // or replay a request in response to another tab's storage event.
+      setSaved(!!rememberedMobileCredential());
+    }),
+    [],
+  );
   return (
     <main className="mobile-shell mobile-login">
       <header className="mobile-login-brand">
@@ -849,15 +857,7 @@ function Login({
             { signal: request.signal, anonymous: true },
           )
             .then((value) => {
-              forgetMobileCredential();
-              const stored =
-                !remember ||
-                (!!value.accessToken &&
-                  !!value.device.expiresAt &&
-                  rememberMobileCredential({
-                    accessToken: value.accessToken,
-                    expiresAt: value.device.expiresAt,
-                  }));
+              const stored = persistMobileLogin(value, remember);
               onLogin(value, !stored);
             })
             .catch(setError)

@@ -368,7 +368,13 @@ func (s *Server) stop() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return server.Shutdown(ctx)
+	err := server.Shutdown(ctx)
+	// The owned listener was explicitly closed above; Serve and Shutdown may
+	// both observe that same close while draining. It is not a shutdown failure.
+	if errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+	return err
 }
 
 // Close drains transport and drops process-local plans, preserving durable login.
@@ -403,31 +409,32 @@ func (s *Server) sessionFor(r *http.Request) (*session, error) {
 		delete(s.sessions, digest)
 		return nil, unauthorized()
 	}
-	d.LastUsed = now
-	d.idle = now.Add(24 * time.Hour)
-	if d.remember {
-		if err := s.persistSessionsLocked(); err != nil {
-			return nil, err
-		}
+	// Reject before updating idle/recent use or touching durable storage. Keep
+	// admission, persistence and the active reservation under the same lock.
+	if d.active >= 4 {
+		return nil, limited()
 	}
 	if now.Sub(d.window) >= time.Minute {
 		d.window = now
 		d.reads = 0
 		d.writes = 0
 	}
-	if d.active >= 4 {
+	if r.Method == "GET" && d.reads >= 120 || r.Method != "GET" && d.writes >= 20 {
 		return nil, limited()
+	}
+	previousUse, previousIdle := d.LastUsed, d.idle
+	d.LastUsed = now
+	d.idle = now.Add(24 * time.Hour)
+	if d.remember {
+		if err := s.persistSessionsLocked(); err != nil {
+			d.LastUsed, d.idle = previousUse, previousIdle
+			return nil, err
+		}
 	}
 	if r.Method == "GET" {
 		d.reads++
-		if d.reads > 120 {
-			return nil, limited()
-		}
 	} else {
 		d.writes++
-		if d.writes > 20 {
-			return nil, limited()
-		}
 	}
 	d.active++
 	copy := *d

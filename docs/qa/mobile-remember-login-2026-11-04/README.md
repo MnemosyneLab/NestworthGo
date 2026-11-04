@@ -7,7 +7,8 @@ tokens and profiles used here were disposable synthetic fixtures.
 ## Implemented contract
 
 - Unchecked **Remember this browser** explicitly opts in. Only the server's
-  random bearer and its absolute expiry enter origin-scoped localStorage. The
+  random bearer, absolute expiry and opaque selection metadata enter
+  origin-scoped localStorage. The
   shared desktop token, CSRF, query data and financial drafts are never saved
   there. The native checkbox is the permitted shared-control exception; there
   is no canonical checkbox wrapper.
@@ -40,8 +41,8 @@ tokens and profiles used here were disposable synthetic fixtures.
 | Final Linux native-container `go test ./...`, `go vet ./...`, `go build ./cmd/nestworth` | Passed, including GTK/WebKit native compilation |
 | `go test -race ./internal/mobileapi` | Passed; affected lifecycle/crash/concurrency paths were rerun after the final registry binding change |
 | Frontend ESLint and `tsc --noEmit` | Passed |
-| Full Vitest | 164 files, 1730 tests passed |
-| Final mobile Vitest subset | 6 files, 53 tests passed |
+| Full Vitest | 165 files, 1739 tests passed |
+| Final mobile Vitest subset | 7 files, 62 tests passed |
 | Production Vite build | Passed; existing large-chunk advisory remains |
 | Wails v3.1.0 binding generation | Passed in the Linux native container; generated files are not committed |
 | Skill/tool-name consistency and fast tooling | Passed; 97 tooling tests |
@@ -95,3 +96,37 @@ copies and whole-machine rollback are outside that exclusion. This is not a
 claim of encrypted local storage or protection from a local settings writer.
 Remembering is unavailable on platforms without the implemented durable file
 identity; ordinary memory-only login remains available there.
+
+## Follow-up review regressions
+
+The exact initial head `fb5437200e053afe496b2a3581b403a96a68eef5` reproduced both
+old-tab 401 and old-tab successful-logout deletion of a newer remembered login
+(two failing shared-storage tests before the fix). Credential invalidation now
+captures the request/tab bearer and removes only matching immutable v2 entries.
+A separate random selector contains no bearer and is never cleared by expiry or
+logout, avoiding localStorage's non-atomic compare/remove race and preventing
+fallback to old credentials. This includes failed/concurrent publication,
+failed anonymous login, same-tab late responses after explicit restore, legacy
+selection, expiry cleanup interleaving and delayed storage-event regressions.
+Storage events never change the active tab's authorization or replay operations.
+
+[Two-tab Chromium evidence](tabs-results.json) records six checks with actual
+shared-origin pages and real server logout/401 responses. The newer login
+survived the old tab's successful logout and subsequent old-session 401, including
+refreshing the surviving tab; credentials were not logged. Physical mobile
+acceptance remains unverified.
+
+A separate Go regression reproduced registry replacement on read admission at
+120, write admission at 20 and four active requests despite HTTP 429. Admission
+now precedes recent-use renewal and persistence in the existing lock. Regression
+checks compare registry file identity/bytes and in-memory idle/last-use values;
+a real 120-request HTTP sequence accepts all 120, refuses request 121 and leaves
+last-use durably at request 120. The accepted request, concurrency, LRU,
+revocation and write-gate tests remain. A lifecycle test run also exposed the
+existing explicit-listener-close/Shutdown race; the already-owned `net.ErrClosed`
+is now treated as a successful close while all other shutdown errors propagate.
+
+Final local full native Go test/vet/build, frontend full test/lint/typecheck/build,
+mobile regressions and focused admission/revocation race checks passed after
+these changes. The original PR-head native Mac and Eino CI runs both passed;
+the follow-up head's exact CI results are reported in the delivery message.

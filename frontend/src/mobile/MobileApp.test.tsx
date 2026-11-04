@@ -1096,9 +1096,8 @@ it("remembers only an opted-in random credential and restores it without another
   await screen.findByText("SYNTHETIC MOBILE TEST");
   expect(exchanges).toEqual([{ token: "SYNTHETIC1", remember: true }]);
   expect(JSON.stringify(localStorage)).not.toMatch(/SYNTHETIC1|synthetic-csrf/);
-  expect(localStorage.getItem("nestworth.mobile.session.v1")).toContain(
-    credential,
-  );
+  const { rememberedMobileCredential } = await import("./connection");
+  expect(rememberedMobileCredential()?.accessToken === credential).toBe(true);
   // A newly mounted page restores only auth; no confirmation is dispatched.
   const { cleanup } = await import("@testing-library/react");
   cleanup();

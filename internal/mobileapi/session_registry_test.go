@@ -391,3 +391,113 @@ func TestSessionRegistryCrashWriter(t *testing.T) {
 		time.Sleep(time.Hour)
 	}
 }
+
+func TestRejectedRememberedRequestsDoNotPersistOrExtendIdle(t *testing.T) {
+	for _, kind := range []string{"read121", "write21", "active4"} {
+		t.Run(kind, func(t *testing.T) {
+			f := fixture(t, Permissions{Read: true})
+			rememberLogin(t, f)
+			old := time.Now().UTC()
+			now := old.Add(time.Second)
+			f.s.mu.Lock()
+			f.s.now = func() time.Time { return now }
+			for _, d := range f.s.sessions {
+				d.LastUsed = old
+				d.idle = old.Add(24 * time.Hour)
+				d.window = old
+				switch kind {
+				case "read121":
+					d.reads = 120
+				case "write21":
+					d.writes = 20
+				case "active4":
+					d.active = 4
+				}
+			}
+			if err := f.s.persistSessionsLocked(); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.Stat(f.s.registryPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			rawBefore, err := os.ReadFile(f.s.registryPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.s.mu.Unlock()
+			method := "GET"
+			if kind == "write21" {
+				method = "DELETE"
+			}
+			response, _ := f.request(t, method, "/session", nil, nil)
+			after, err := os.Stat(f.s.registryPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			rawAfter, err := os.ReadFile(f.s.registryPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.StatusCode != 429 {
+				t.Fatalf("expected 429, got %d", response.StatusCode)
+			}
+			if !os.SameFile(before, after) || !bytes.Equal(rawBefore, rawAfter) {
+				t.Fatal("rejected request replaced the registry")
+			}
+			f.s.mu.Lock()
+			defer f.s.mu.Unlock()
+			for _, d := range f.s.sessions {
+				if !d.LastUsed.Equal(old) || !d.idle.Equal(old.Add(24*time.Hour)) {
+					t.Fatal("rejected request extended recent use/idle")
+				}
+			}
+		})
+	}
+}
+
+func TestRememberedRead120AcceptedAnd121RejectedBeforePersistence(t *testing.T) {
+	f := fixture(t, Permissions{Read: true})
+	rememberLogin(t, f)
+	base := time.Now().UTC()
+	for i := 1; i <= 120; i++ {
+		now := base.Add(time.Duration(i) * time.Millisecond)
+		f.s.mu.Lock()
+		f.s.now = func() time.Time { return now }
+		f.s.mu.Unlock()
+		response, _ := f.request(t, "GET", "/session", nil, nil)
+		if response.StatusCode != 200 {
+			t.Fatalf("read %d rejected: %d", i, response.StatusCode)
+		}
+	}
+	before, err := os.Stat(f.s.registryPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawBefore, err := os.ReadFile(f.s.registryPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.s.mu.Lock()
+	f.s.now = func() time.Time { return base.Add(121 * time.Millisecond) }
+	f.s.mu.Unlock()
+	response, _ := f.request(t, "GET", "/session", nil, nil)
+	after, err := os.Stat(f.s.registryPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawAfter, err := os.ReadFile(f.s.registryPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 429 || !os.SameFile(before, after) || !bytes.Equal(rawBefore, rawAfter) {
+		t.Fatal("121st read was accepted or persisted")
+	}
+	var saved sessionRegistry
+	if err = jsoncodec.Unmarshal(rawAfter, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Sessions) != 1 || !saved.Sessions[0].LastUsed.Equal(base.Add(120*time.Millisecond)) {
+		t.Fatal("accepted last-use was not durable or rejection extended it")
+	}
+}

@@ -45,9 +45,10 @@ it("validates and expires only the random remembered credential", async () => {
   };
   expect(rememberMobileCredential(value)).toBe(true);
   expect(rememberedMobileCredential()).toEqual(value);
-  localStorage.setItem("nestworth.mobile.session.v1", "broken");
+  const entry = `nestworth.mobile.session.v2.${localStorage.getItem("nestworth.mobile.session.v2")}`;
+  localStorage.setItem(entry, "broken");
   expect(rememberedMobileCredential()).toBeNull();
-  expect(localStorage.getItem("nestworth.mobile.session.v1")).toBeNull();
+  expect(localStorage.getItem(entry)).toBeNull();
   rememberMobileCredential({
     ...value,
     expiresAt: new Date(Date.now() - 1).toISOString(),
