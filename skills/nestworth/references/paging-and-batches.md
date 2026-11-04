@@ -15,7 +15,8 @@ has items and page {total, returned, hasMore, nextCursor}. Empty arrays mean no
 matches only when hasMore=false and nextCursor=null. A deferred section may have
 returned=0 and a cursor. Follow every relevant cursor using `get_read_page` with
 captureId, section, cursor and optional limit; filter/sort cannot change mid-read.
-Default limit is 25, maximum 100; actual pages may be smaller to fit 65,536 final
+Default limit is 25 for ordinary captures and 100 for market-comparison captures;
+maximum 100. Actual pages may be smaller to fit 65,536 final
 HTTP bytes, including duplicated SDK text and structured content. Never claim
 “all” from one page. Preserve captureId/contentHash and check complete unions.
 
@@ -136,3 +137,23 @@ This opt-in layout returns `records` and `targets` sections. Read all relevant
 cursors; `chartSelected` marks selected chart membership without duplicating the
 raw observation. Dates and exact FX direction/basis rules are documented in
 [market data](market-data.md). Older `history` calls keep per-target entrances.
+
+## Compact comparison delivery
+
+`compare_market_data_import` defaults to compact batch results. Read its results
+cursor to finish classification delivery; detailed sections remain deferred, not
+empty. Server-computed counts are not evidence-delivery claims. Use
+`get_read_item` section=results id=clientItemId for focused details from the SAME
+capture, follow any child cursors, and retain its hash/expiry. Bulk detail readers
+can continue result_details/matches/evidence/audits/targets or choose view=full
+upfront. Do not create a second capture and mix its evidence into the first.
+
+<!-- example: compare-import-summary -->
+```json
+{"items":[{"clientItemId":"csv/001","instrumentId":"${instrumentId}","kind":"nav","currency":"USD","date":"2026-09-28","value":"1.00000001"}]}
+```
+
+<!-- example: compare-import-item -->
+```json
+{"captureId":"${captureId}","section":"results","id":"csv/001"}
+```

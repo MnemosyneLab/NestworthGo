@@ -77,6 +77,24 @@ func (s *Service) ContributionItem(ctx context.Context, request AnalysisQueryReq
 	return fromContributionItem(result), nil
 }
 
+// CaptureContributions adapts one application capture for MCP without adding a
+// separate desktop-bound service method or changing the GUI projection contract.
+func CaptureContributions(ctx context.Context, app *application.Service, request AnalysisQueryRequest, returnType, groupBy, ordering string) (ContributionDTO, []ContributionItemDTO, error) {
+	query, err := request.ToDomain()
+	if err != nil {
+		return ContributionDTO{}, nil, apierror.Wrap(err)
+	}
+	rows, items, err := app.ContributionCapture(ctx, query, application.ContributionReturnType(strings.TrimSpace(returnType)), application.ContributionGroupBy(strings.TrimSpace(groupBy)), application.ContributionSort(strings.TrimSpace(ordering)))
+	if err != nil {
+		return ContributionDTO{}, nil, apierror.Wrap(err)
+	}
+	out := make([]ContributionItemDTO, 0, len(items))
+	for _, item := range items {
+		out = append(out, fromContributionItem(item))
+	}
+	return fromContribution(rows), out, nil
+}
+
 func fromReturnCalendar(value application.ReturnCalendarResult) wire.ReturnCalendarDTO {
 	result := wire.ReturnCalendarDTO{
 		Valuation:       string(value.Valuation),

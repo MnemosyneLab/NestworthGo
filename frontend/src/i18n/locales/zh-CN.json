@@ -2141,6 +2141,7 @@
     "rememberUnavailable": "无法记住此次登录。请保持页面打开；浏览器存储可能不可用，或其他标签页已更改保存的登录。",
     "connectionHelp": "请让运行 Nestworth 的电脑保持唤醒，并连接可信私网。关闭最后一个窗口会退出应用。",
     "connectionUnavailable": "连接不可用，数据可能过时。请检查运行 Nestworth 的电脑、应用和网络。",
+    "reconnectBeforeRetry": "连接凭据需要刷新，或访问被拒绝。请先点击重新连接，再查询原结果或重试同一提交。重新连接不会确认记账。",
     "requestFailed": "请求未能完成。",
     "ledgerTimezone": "账本时区：{{timezone}}",
     "unavailable": "暂无数据",
@@ -2294,7 +2295,7 @@
   "aiCredentials": {
     "title": "内置 AI 凭据",
     "help": "OpenAI API 密钥。保存密钥不会开启模型调用或财务写入。",
-    "backup": "密钥未经字段加密存入家庭数据库。完整备份包含此密钥；删除密钥不会清除旧备份中的副本。",
+    "backup": "密钥未经字段加密存入家庭主数据库。完整备份包含此密钥；删除密钥不会清除旧备份中的副本。",
     "key": "OpenAI API 密钥",
     "save": "保存 AI 密钥",
     "missing": "尚未保存 AI 密钥",

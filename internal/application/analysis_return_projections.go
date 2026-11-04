@@ -260,6 +260,53 @@ func (s *Service) Contribution(ctx context.Context, query domain.AnalysisQuery, 
 	return withContributionSummary(result), nil
 }
 
+// ContributionCapture projects rows and drilldown from one source result. The
+// caller must hold the application operation fence across this capture.
+func (s *Service) ContributionCapture(ctx context.Context, query domain.AnalysisQuery, returnType ContributionReturnType, groupBy ContributionGroupBy, ordering ContributionSort) (ContributionResult, []ContributionItemResult, error) {
+	if err := validateContribution(returnType, groupBy, ordering); err != nil {
+		return ContributionResult{}, nil, err
+	}
+	if err := query.Validate(); err != nil {
+		return ContributionResult{}, nil, err
+	}
+	var rows ContributionResult
+	var detail func(string) (ContributionItemResult, error)
+	if returnType == ContributionRealized || returnType == ContributionUnrealized {
+		var err error
+		rows, err = s.contribution(ctx, query, returnType, groupBy, ordering)
+		if err != nil {
+			return ContributionResult{}, nil, err
+		}
+		detail = func(key string) (ContributionItemResult, error) {
+			return realizedContributionItem(rows, query, groupBy, key)
+		}
+	} else {
+		result, forced, err := s.analyzeReturnProjection(ctx, query)
+		if err != nil {
+			return ContributionResult{}, nil, err
+		}
+		rows, err = projectContribution(result, forced, query, returnType, groupBy, ordering)
+		if err != nil {
+			return ContributionResult{}, nil, err
+		}
+		detail = func(key string) (ContributionItemResult, error) {
+			return projectContributionItem(result, forced, query, returnType, groupBy, key)
+		}
+	}
+	items := make([]ContributionItemResult, 0, len(rows.Rows))
+	for _, row := range rows.Rows {
+		if err := ctx.Err(); err != nil {
+			return ContributionResult{}, nil, err
+		}
+		item, err := detail(row.Key)
+		if err != nil {
+			return ContributionResult{}, nil, err
+		}
+		items = append(items, item)
+	}
+	return withContributionSummary(rows), items, nil
+}
+
 func withContributionSummary(result ContributionResult) ContributionResult {
 	summary, err := summarizeContribution(result.Rows, result.AnalysisAvailability)
 	// A display-only aggregate must not discard otherwise valid contribution rows.
@@ -335,6 +382,10 @@ func (s *Service) contribution(ctx context.Context, query domain.AnalysisQuery, 
 	if err != nil {
 		return ContributionResult{}, err
 	}
+	return projectContribution(result, forced, query, returnType, groupBy, ordering)
+}
+
+func projectContribution(result domain.PeriodAnalysisResult, forced string, query domain.AnalysisQuery, returnType ContributionReturnType, groupBy ContributionGroupBy, ordering ContributionSort) (ContributionResult, error) {
 	if returnType == ContributionDividendInterest {
 		return projectDividendContribution(result, forced, groupBy, ordering)
 	}
@@ -370,43 +421,48 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 		if err != nil {
 			return ContributionItemResult{}, err
 		}
-		item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: contribution.AnalysisAvailability, HistoryHint: realizedContributionHistoryHint(query, groupBy, groupKey)}
-		// Member filters remain unsupported. A supported selector may still
-		// contain rows with missing FX evidence; retain those rows and their
-		// unavailable amounts for inspection.
-		if _, supported := realizedSelector(query); !supported {
-			return item, nil
-		}
-		var matched *ContributionRow
-		for _, row := range contribution.Rows {
-			if row.Key == groupKey {
-				rowCopy := row
-				matched = &rowCopy
-				break
-			}
-		}
-		if matched == nil {
-			return ContributionItemResult{}, contributionGroupNotFound(groupKey)
-		}
-		item.Label, item.Amount, item.Rate, item.Coverage = matched.Label, matched.Amount, matched.Rate, matched.Coverage
-		component := ContributionComponent{Key: groupKey, Amount: matched.Amount}
-		if matched.Amount != nil {
-			component.Currency = matched.Amount.Currency().String()
-		}
-		if groupBy == ContributionGroupInstrument {
-			component.InstrumentID = groupKey
-			item.Components = []ContributionComponent{component}
-		} else if groupBy == ContributionGroupAccount {
-			component.AccountID = groupKey
-			item.ByAccount = []ContributionComponent{component}
-		}
-		return item, nil
+		return realizedContributionItem(contribution, query, groupBy, groupKey)
 	}
+
 	result, forced, err := s.analyzeReturnProjection(ctx, query)
 	if err != nil {
 		return ContributionItemResult{}, err
 	}
 	return projectContributionItem(result, forced, query, returnType, groupBy, groupKey)
+}
+
+func realizedContributionItem(contribution ContributionResult, query domain.AnalysisQuery, groupBy ContributionGroupBy, groupKey string) (ContributionItemResult, error) {
+	item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: contribution.AnalysisAvailability, HistoryHint: realizedContributionHistoryHint(query, groupBy, groupKey)}
+	// Member filters remain unsupported. A supported selector may still
+	// contain rows with missing FX evidence; retain those rows and their
+	// unavailable amounts for inspection.
+	if _, supported := realizedSelector(query); !supported {
+		return item, nil
+	}
+	var matched *ContributionRow
+	for _, row := range contribution.Rows {
+		if row.Key == groupKey {
+			rowCopy := row
+			matched = &rowCopy
+			break
+		}
+	}
+	if matched == nil {
+		return ContributionItemResult{}, contributionGroupNotFound(groupKey)
+	}
+	item.Label, item.Amount, item.Rate, item.Coverage = matched.Label, matched.Amount, matched.Rate, matched.Coverage
+	component := ContributionComponent{Key: groupKey, Amount: matched.Amount}
+	if matched.Amount != nil {
+		component.Currency = matched.Amount.Currency().String()
+	}
+	if groupBy == ContributionGroupInstrument {
+		component.InstrumentID = groupKey
+		item.Components = []ContributionComponent{component}
+	} else if groupBy == ContributionGroupAccount {
+		component.AccountID = groupKey
+		item.ByAccount = []ContributionComponent{component}
+	}
+	return item, nil
 }
 
 func projectContributionItem(result domain.PeriodAnalysisResult, forced string, query domain.AnalysisQuery, returnType ContributionReturnType, groupBy ContributionGroupBy, groupKey string) (ContributionItemResult, error) {
@@ -951,6 +1007,8 @@ func sortContributionRows(rows []ContributionRow, ordering ContributionSort, has
 	if !hasRate && (ordering == ContributionSortRateAsc || ordering == ContributionSortRateDesc) {
 		ordering = ContributionSortAmountDesc
 	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Key < rows[j].Key })
+
 	sort.SliceStable(rows, func(i, j int) bool {
 		switch ordering {
 		case ContributionSortNameAsc:

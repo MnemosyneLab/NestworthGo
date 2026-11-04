@@ -120,19 +120,24 @@ func TestReconciliationPageBoundsAndWireBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := jsoncodec.Marshal(v)
-	if len(raw) > 96*1024 {
-		t.Fatal(len(raw))
+	wire, err := financialContextWireSize(v)
+	if err != nil || wire > contextWireLimit {
+		t.Fatalf("wire=%d err=%v", wire, err)
 	}
 	page := v.(reconciliationPage)
-	if len(page.Items) != 25 || page.NextCursor == "" {
-		t.Fatal(page)
+	if len(page.Items) == 0 || len(page.Items) >= 25 || page.NextCursor == "" {
+		t.Fatalf("expected byte-limited advancing page, rows=%d", len(page.Items))
 	}
 	in.Cursor = page.NextCursor
 	v, err = pageReconciliation(in, rows, 3)
-	if err != nil || len(v.(reconciliationPage).Items) != 25 {
+	if err != nil {
 		t.Fatal(err)
 	}
+	next := v.(reconciliationPage)
+	if len(next.Items) == 0 || next.Items[0].(map[string]any)["id"] != len(page.Items) {
+		t.Fatal("continuation skipped or repeated rows")
+	}
+
 	if _, err = pageReconciliation(in, rows, 4); err == nil {
 		t.Fatal("stale cursor accepted")
 	}

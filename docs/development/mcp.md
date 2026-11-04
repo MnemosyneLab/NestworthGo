@@ -131,6 +131,15 @@ overlay. Existing provider adapters are unchanged.
 - `list_agent_market_data`: page audit records, original source title/URL,
   exact values, effective dates, corrections and withdrawals. `active` means
   eligible, not necessarily selected. Available in every permission mode.
+- `compare_market_data_import`: read-only, 1–500 ordered proposed rows / 100 targets /
+  128 KiB. Default compact results preserve client IDs/order, exact classification
+  and batch conflicts; default comparison page size is 100, capped by final bytes.
+  Follow results pages for batch delivery. Source/selection/audit evidence remains
+  deferred in the same capture; get_read_item section=results id=clientItemId reads
+  focused details, or page result_details/matches/evidence/audits/targets for all
+  details. view=full supports upfront bulk review. Computation completeness is
+  distinct from evidence delivery; no import/refresh/write authorization occurs.
+  See the [comparison API contract](../design/mcp-import-comparison-api.md).
 - `import_market_data`: `ledger_write` only. Atomically import 1–100 items with
   one `operationId`. Operations are `append` (default), `correct`, or `retract`.
   A correction/withdrawal requires the existing Agent `targetQuoteId`; other
@@ -540,9 +549,15 @@ adapters and the same inclusive closed-day `query` shape as `analyze_period`:
 
 - `list_contributions`: group returns by `instrument`, `account`, `currency`, or
   `asset_class`. Supply `returnType` (`total_return`, `realized`, `unrealized`, or
-  `dividend_interest`), optional ordering and offset/limit (up to 100 rows).
-- `get_contribution_item`: use an exact row key with the same query, return type,
-  and grouping to inspect components, account breakdown and related-history hints.
+  `dividend_interest`) and optional ordering. Returns `mcp-read/1` with a frozen
+  `rows` section (default limit 25, maximum 100); continue with `get_read_page`
+  using its captureId, section and signed cursor. Offset pagination is removed.
+- `get_contribution_item`: supply the list capture's `captureId` and exact
+  `groupKey`; query/returnType/groupBy/limit arguments are removed. Components,
+  account breakdown and related-history hints come from the same frozen source,
+  with independent `rows/<key>/components` and `rows/<key>/byAccount` sections.
+  Follow their signed cursors with `get_read_page`. No recalculation or TTL renewal
+  occurs; expiry, eviction or permission revocation requires restarting the list.
 - `get_return_day`: inspect one date's amount, rate, composition, contributors,
   coverage and valuation issues; the date must be within the query range.
 - `get_asset_driver_detail`: inspect one `analyze_period.assetChange` bucket and
@@ -763,8 +778,8 @@ both relevant section cursors finish. A zero-item deferred page is not evidence
 of missing prices. `evidenceScope=active_observations_only` excludes withdrawn or
 superseded facts; use Agent audit history for those historical facts. This read
 cannot establish import absence or compute a safe write precondition. The
-[bounded import comparison design](../design/mcp-import-comparison.md) specifies
-the separate interface; that interface is not implemented by this change.
+[implemented import comparison API](../design/mcp-import-comparison-api.md) specifies
+the separate implemented tool, including inactive evidence and exact classifications.
 
 The unified layout uses the same permission generation, fixed read-only SQLite
 snapshot, content hash, HMAC-bound cursor, five-minute TTL, response byte budget,
@@ -945,7 +960,22 @@ on get_market_data_batch (view=current/coverage/history). No history is discarde
 analyze_period returns mcp-read/1 with four projection headers in summary and
 income/rows, expenses/rows, assetChange/waterfall, assetChange/groups,
 investmentReturns/points and investmentReturns/sources sections (initial default 5).
-get_contribution_item pages components/byAccount; get_return_day pages composition,
+list_contributions freezes rows and detail together; get_contribution_item exposes
+rows/<key>/components and rows/<key>/byAccount; get_return_day pages composition,
 contributors/issues; get_asset_driver_detail pages byInstrument/byAccount/residualDetails.
 These use the same capture/hash/cursor/TTL infrastructure. They retain analysis
 snapshot maintenance and non-read-only annotations; execute before write previews.
+
+
+### Reconciliation read wire budget
+
+`list_reconciliation_sessions`, `get_reconciliation_session`,
+`get_reconciliation_session_page` and `get_reconciliation_item` enforce the
+complete 64 KiB HTTP JSON-RPC budget, including the SDK text and structured
+representations. A requested page limit is an upper row bound: pages shrink
+before response construction to fit both representations and envelope allowance.
+Follow `nextCursor` even when fewer than the requested rows are returned.
+Cursors remain live, content/revision-bound; `stale_cursor` requires restarting
+that traversal. A single oversized evidence item returns `too_large` explicitly;
+no evidence is truncated. Preview/commit responses and operation recovery
+receipts retain their existing behavior and are not intercepted after execution.

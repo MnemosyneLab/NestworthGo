@@ -122,7 +122,10 @@ export function AssistantConversation({ surface, status, loading, disconnected, 
       <details className="rounded-lg border border-border bg-card text-sm">
         <summary className={cn(actionClass, "cursor-pointer rounded-lg px-3 py-2 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>{t("assistant.settings")}</summary>
         <div className="space-y-2 border-t border-border p-3 text-muted-foreground">
-          <p>{t("assistant.providerUnavailable")}</p><p>{t("assistant.secureStoreUnavailable")}</p><p>{t("assistant.memoryOnly")}</p>
+          <p>{t("assistant.credentialSettings")}</p>
+          <p>{t("aiCredentials.help")}</p>
+          <p>{t("aiCredentials.backup")}</p>
+          <p>{t("assistant.memoryOnly")}</p>
         </div>
       </details>
     </div>

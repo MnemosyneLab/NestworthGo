@@ -1,0 +1,282 @@
+{
+  "get_contribution_item": {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Read frozen mcp-read/1 sections with get_read_page continuation for components, account breakdown and related History activity hint for one contribution row. Use an exact key from list_contributions with the same query, returnType and groupBy; the hint may identify a broader set of related records when currency or asset-class filters are active, and is not an exact matching breakdown or a second calculation of the amount. May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "groupBy": {
+          "description": "Use the same groupBy as list_contributions",
+          "enum": [
+            "instrument",
+            "account",
+            "currency",
+            "asset_class"
+          ],
+          "type": "string"
+        },
+        "groupKey": {
+          "description": "Exact key from a list_contributions row",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Initial rows per section, default 25, maximum 100",
+          "type": "integer"
+        },
+        "query": {
+          "additionalProperties": false,
+          "description": "Use the same query as list_contributions, including all realized scope and filters",
+          "properties": {
+            "accountId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "assetClass": {
+              "description": "Asset-class filter. For realized contributions this matches the instrument's current Type metadata.",
+              "type": "string"
+            },
+            "basis": {
+              "enum": [
+                "investment"
+              ],
+              "type": "string"
+            },
+            "currency": {
+              "description": "Currency filter. For realized contributions this matches the sell event's native denomination, not account default or output currency.",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "from": {
+              "type": "string"
+            },
+            "includeCash": {
+              "type": "boolean"
+            },
+            "instrumentId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "memberId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "scopeId": {
+              "type": "string"
+            },
+            "scopeKind": {
+              "enum": [
+                "household",
+                "account",
+                "currency",
+                "instrument",
+                "asset_class"
+              ],
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            },
+            "valuation": {
+              "enum": [
+                "base",
+                "native"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "type": "object"
+        },
+        "returnType": {
+          "description": "Use the same returnType as list_contributions",
+          "enum": [
+            "total_return",
+            "realized",
+            "unrealized",
+            "dividend_interest"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query",
+        "returnType",
+        "groupBy",
+        "groupKey"
+      ],
+      "type": "object"
+    },
+    "name": "get_contribution_item",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": true
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  "list_contributions": {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Page investment return contributions by instrument, account, currency or asset class. Realized contributions can be filtered by scope and filters, which intersect: currency selects the native sell-event denomination, asset class selects the instrument's current Type, and account/instrument constraints also intersect. Member filtering remains unsupported. Realized rows group by instrument or account only; currency and asset-class filters do not add grouping modes. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Use a row key with get_contribution_item; repeat the same query, returnType and groupBy. Dates are inclusive closed days in the History Origin timezone. May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "groupBy": {
+          "description": "One of instrument, account, currency, asset_class",
+          "enum": [
+            "instrument",
+            "account",
+            "currency",
+            "asset_class"
+          ],
+          "type": "string"
+        },
+        "limit": {
+          "description": "Page size, 1 to 100; defaults to 100",
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Zero-based row offset; defaults to 0",
+          "type": "integer"
+        },
+        "ordering": {
+          "description": "One of amount_desc, amount_asc, rate_desc, rate_asc, name_asc; defaults to amount_desc",
+          "enum": [
+            "amount_desc",
+            "amount_asc",
+            "rate_desc",
+            "rate_asc",
+            "name_asc"
+          ],
+          "type": "string"
+        },
+        "query": {
+          "additionalProperties": false,
+          "description": "Inclusive closed-day YYYY-MM-DD range in the History Origin timezone. Scope and filters intersect. For realized, currency matches the sell event's native denomination and assetClass matches current Instrument.Type; member filtering is unsupported.",
+          "properties": {
+            "accountId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "assetClass": {
+              "description": "Asset-class filter. For realized contributions this matches the instrument's current Type metadata.",
+              "type": "string"
+            },
+            "basis": {
+              "enum": [
+                "investment"
+              ],
+              "type": "string"
+            },
+            "currency": {
+              "description": "Currency filter. For realized contributions this matches the sell event's native denomination, not account default or output currency.",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "from": {
+              "type": "string"
+            },
+            "includeCash": {
+              "type": "boolean"
+            },
+            "instrumentId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "memberId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "scopeId": {
+              "type": "string"
+            },
+            "scopeKind": {
+              "enum": [
+                "household",
+                "account",
+                "currency",
+                "instrument",
+                "asset_class"
+              ],
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            },
+            "valuation": {
+              "enum": [
+                "base",
+                "native"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "type": "object"
+        },
+        "returnType": {
+          "description": "One of total_return, realized, unrealized, dividend_interest; unrealized currently reports unavailable",
+          "enum": [
+            "total_return",
+            "realized",
+            "unrealized",
+            "dividend_interest"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query",
+        "returnType",
+        "groupBy"
+      ],
+      "type": "object"
+    },
+    "name": "list_contributions",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "data": true
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  }
+}

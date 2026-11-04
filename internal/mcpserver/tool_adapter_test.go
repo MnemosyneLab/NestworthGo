@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -46,8 +47,35 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 			// The batch-history extension intentionally adds three optional inputs
 			// and documents them. Project only that reviewed delta back to the
 			// immutable baseline; every other tool/field must still match.
-			baseline := append([]*mcp.Tool{}, listed.Tools...)
+			// The additive comparison tool has separate schema/permission tests.
+			baseline := make([]*mcp.Tool, 0, len(listed.Tools))
+			for _, tool := range listed.Tools {
+				if tool.Name != "compare_market_data_import" {
+					baseline = append(baseline, tool)
+				}
+			}
+			if len(listed.Tools) != test.count+1 {
+				t.Fatalf("expected exactly one additive comparison tool: %d", len(listed.Tools))
+			}
 			for i, tool := range baseline {
+				if tool.Name == "get_read_page" {
+					copy := *tool
+					if !strings.Contains(copy.Description, "market-comparison captures default to 100") {
+						t.Fatal("comparison page default missing")
+					}
+					copy.Description = "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25, maximum 100. Follow every cursor before claiming completeness; restart all sections after read_expired/read_revoked. No DB reads or TTL renewal."
+					baseline[i] = &copy
+					continue
+				}
+				if tool.Name == "get_read_item" {
+					copy := *tool
+					if !strings.Contains(copy.Description, "id=clientItemId") {
+						t.Fatal("comparison detail discovery missing")
+					}
+					copy.Description = "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL."
+					baseline[i] = &copy
+					continue
+				}
 				if tool.Name != "get_market_data_batch" {
 					continue
 				}
@@ -71,12 +99,29 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				copy.Description = "Capture 1 to 100 distinct instrument IDs or oriented FX pairs in one strictly local read-only transaction. current (default) omits history; coverage preserves counts and gapAssessment=not_evaluated; history separates selected points from raw observations per target. Follow every section cursor with get_read_page before claiming completeness. No provider refresh or writes."
 				baseline[i] = &copy
 			}
+			// The reviewed breaking contribution cutover changes exactly these two
+			// tools. Preserve the original immutable whole-registry hash by
+			// substituting independently captured main 34f048f HTTP metadata for
+			// those tools only. The new contract is asserted separately below.
+			priorRaw, err := os.ReadFile("testdata/contribution-discovery-main-34f048f.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var prior map[string]*mcp.Tool
+			if err := jsoncodec.Unmarshal(priorRaw, &prior); err != nil {
+				t.Fatal(err)
+			}
+			for i, tool := range baseline {
+				if old, ok := prior[tool.Name]; ok {
+					baseline[i] = old
+				}
+			}
 			raw, err := jsoncodec.MarshalIndent(baseline, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}
 			hash := sha256.Sum256(raw)
-			if len(listed.Tools) != test.count || hex.EncodeToString(hash[:]) != test.hash {
+			if len(baseline) != test.count || hex.EncodeToString(hash[:]) != test.hash {
 				t.Fatalf("external %s contract changed: tools=%d sha256=%x; expected tools=%d sha256=%s", test.mode, len(listed.Tools), hash, test.count, test.hash)
 			}
 			registry := s.toolRegistry(test.mode)
@@ -161,5 +206,46 @@ func TestTypedMCPValidationAndErrorsMatchPriorAdapter(t *testing.T) {
 		if !reflect.DeepEqual(oldResult, newResult) {
 			t.Errorf("%s %s result differs: %+v / %+v", test.name, test.raw, oldResult, newResult)
 		}
+	}
+}
+
+func TestFrozenContributionDiscoveryContract(t *testing.T) {
+	s, _, _ := fixture(t)
+	t.Cleanup(s.Close)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, s)
+	listed, err := c.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, tool := range listed.Tools {
+		if tool.Name != "list_contributions" && tool.Name != "get_contribution_item" {
+			continue
+		}
+		found++
+		raw, err := jsoncodec.Marshal(tool.InputSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var schema map[string]any
+		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
+			t.Fatal(err)
+		}
+		props := schema["properties"].(map[string]any)
+		if tool.Name == "list_contributions" {
+			if props["offset"] != nil || props["query"] == nil || props["limit"] == nil || tool.Annotations.ReadOnlyHint {
+				t.Fatal("capture schema/effect changed", schema)
+			}
+		} else {
+			if len(props) != 2 || props["captureId"] == nil || props["groupKey"] == nil || !tool.Annotations.ReadOnlyHint {
+				t.Fatal("detail schema/effect changed", schema)
+			}
+		}
+	}
+	if found != 2 {
+		t.Fatal(found)
 	}
 }

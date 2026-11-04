@@ -5,10 +5,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -499,5 +502,79 @@ func TestRememberedRead120AcceptedAnd121RejectedBeforePersistence(t *testing.T) 
 	}
 	if len(saved.Sessions) != 1 || !saved.Sessions[0].LastUsed.Equal(base.Add(120*time.Millisecond)) {
 		t.Fatal("accepted last-use was not durable or rejection extended it")
+	}
+}
+
+// Real loopback HTTP, a restarted listener/registry and synthetic SQLite ledger.
+// A CSRF refusal says nothing about an earlier attempt with this operation ID.
+func TestRestartConfirmationRecoveryNeverReplaysFinancialWrite(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		t.Run(fmt.Sprint("previousCommit=", committed), func(t *testing.T) {
+			f := fixture(t, Permissions{Read: true, Record: true})
+			rememberLogin(t, f)
+			id := uuid.NewString()
+			response, raw := f.request(t, "POST", "/record-previews", application.MobileRecordInput{OperationID: id, Kind: "expense", AccountID: f.account, Amount: "1.2345", Currency: "CNY"}, nil)
+			if response.StatusCode != 200 {
+				t.Fatalf("preview: %d %s", response.StatusCode, raw)
+			}
+			var plan struct {
+				PlanID string `json:"planId"`
+			}
+			if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
+				t.Fatal(err)
+			}
+			body := map[string]string{"planId": plan.PlanID, "operationId": id}
+			if committed {
+				response, raw = f.request(t, "POST", "/record-confirmations", body, nil)
+				if response.StatusCode != 200 {
+					t.Fatalf("initial commit: %d %s", response.StatusCode, raw)
+				}
+			}
+			_, before := f.request(t, "GET", "/accounts/"+f.account, nil, nil)
+			restartRemembered(t, f)
+			for range 2 {
+				response, raw = f.request(t, "POST", "/record-confirmations", body, nil)
+				if response.StatusCode != 403 || !bytes.Contains(raw, []byte(`"code":"csrf_expired"`)) || !bytes.Contains(raw, []byte(`"operationState":"unknown"`)) {
+					t.Fatalf("old CSRF: %d %s", response.StatusCode, raw)
+				}
+			}
+			response, raw = f.request(t, "GET", "/session", nil, nil)
+			var current struct {
+				CSRF string `json:"csrfToken"`
+			}
+			if response.StatusCode != 200 {
+				t.Fatalf("reconnect: %d %s", response.StatusCode, raw)
+			}
+			if err := jsoncodec.Unmarshal(raw, &current); err != nil {
+				t.Fatal(err)
+			}
+			f.csrf = current.CSRF
+			response, raw = f.request(t, "POST", "/record-confirmations", body, nil)
+			if response.StatusCode != 409 || !bytes.Contains(raw, []byte(`"field":"planId"`)) || !bytes.Contains(raw, []byte(`"operationState":"unknown"`)) {
+				t.Fatalf("lost plan must remain unknown: %d %s", response.StatusCode, raw)
+			}
+			response, raw = f.request(t, "GET", "/operations/"+id, nil, nil)
+			state := "unknown"
+			if committed {
+				state = "committed"
+			}
+			if response.StatusCode != 200 || !bytes.Contains(raw, []byte(`"operationState":"`+state+`"`)) {
+				t.Fatalf("receipt: %d %s", response.StatusCode, raw)
+			}
+			_, after := f.request(t, "GET", "/accounts/"+f.account, nil, nil)
+			// Envelopes contain wall clock metadata; compare authoritative account data.
+			var a, b struct {
+				Data any `json:"data"`
+			}
+			if err := jsoncodec.Unmarshal(before, &a); err != nil {
+				t.Fatal(err)
+			}
+			if err := jsoncodec.Unmarshal(after, &b); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(a.Data, b.Data) {
+				t.Fatalf("recovery changed account: %s => %s", before, after)
+			}
+		})
 	}
 }

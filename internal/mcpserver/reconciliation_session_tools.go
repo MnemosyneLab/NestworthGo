@@ -81,15 +81,32 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64)
 	if end > len(items) {
 		end = len(items)
 	}
-	result := reconciliationPage{Items: items[offset:end], Total: len(items), Revision: revision}
-	if end < len(items) {
-		raw, _ := jsoncodec.Marshal(reconciliationCursor{Hash: hash, Offset: end})
-		result.NextCursor = base64.RawURLEncoding.EncodeToString(raw)
+	// Count both SDK representations and transport overhead, not just the DTO.
+	// Shrink before dispatch; each emitted cursor advances past exactly the rows
+	// delivered. This applies to reads only, never executed mutation receipts.
+	var result reconciliationPage
+	for {
+		result = reconciliationPage{Items: items[offset:end], Total: len(items), Revision: revision}
+		if end < len(items) {
+			raw, err := jsoncodec.Marshal(reconciliationCursor{Hash: hash, Offset: end})
+			if err != nil {
+				return nil, err
+			}
+			result.NextCursor = base64.RawURLEncoding.EncodeToString(raw)
+		}
+		fits, err := readFits(result)
+		if err != nil {
+			return nil, err
+		}
+		if fits {
+			break
+		}
+		if end-offset <= 1 {
+			return nil, fail("too_large", "single reconciliation item exceeds the MCP wire budget; use a narrower evidence workflow")
+		}
+		end--
 	}
-	raw, _ = jsoncodec.Marshal(result)
-	if len(raw) > 96*1024 {
-		return nil, fail("response_too_large", "reduce limit; no evidence has been truncated")
-	}
+
 	return result, nil
 }
 func (s *Service) reconciliationSessionTools(server *toolSet, mode string) {

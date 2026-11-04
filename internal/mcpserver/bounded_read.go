@@ -190,7 +190,10 @@ func (c *boundedReadCache) base(id string, e readCapture) ReadEnvelope {
 	return ReadEnvelope{SchemaVersion: "mcp-read/1", CaptureID: id, CaptureKind: e.Kind, CapturedAt: e.CapturedAt.UTC().Format(time.RFC3339Nano), ExpiresAt: e.expires.UTC().Format(time.RFC3339Nano), ContentHash: e.hash, SummaryHash: e.summaryHash}
 }
 func (c *boundedReadCache) pageInfo(id, section string, e readCapture, start, n int) ReadPageInfo {
-	total := len(e.Sections[section])
+	rows, _, _ := readSectionRows(e, section)
+	return c.pageInfoSize(id, section, e, len(rows), start, n)
+}
+func (c *boundedReadCache) pageInfoSize(id, section string, e readCapture, total, start, n int) ReadPageInfo {
 	p := ReadPageInfo{Total: total, Returned: n, HasMore: start+n < total}
 	if p.HasMore {
 		v := c.cursor(id, section, e, start+n)
@@ -213,7 +216,17 @@ func (c *boundedReadCache) initial(id string, e readCapture, limit int) (ReadEnv
 			names = append(names, k)
 		}
 	}
-	sort.Strings(names)
+	if comparisonSummary(e) {
+		names = append(names, "result_details")
+	}
+	sort.Slice(names, func(i, j int) bool {
+		// Small shared target metadata can fit in the first comparison response.
+		// Reserving it first avoids a separate metadata-only continuation call.
+		if e.Kind == "market_import_comparison" && ((names[i] == "targets") != (names[j] == "targets")) {
+			return names[i] == "targets"
+		}
+		return names[i] < names[j]
+	})
 	for _, k := range names {
 		r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: c.pageInfo(id, k, e, 0, 0)}
 	}
@@ -223,9 +236,20 @@ func (c *boundedReadCache) initial(id string, e readCapture, limit int) (ReadEnv
 		return r, fail("too_large", "summary exceeds read wire budget; narrow query")
 	}
 	for _, k := range names {
-		for n := 0; n < min(limit, len(e.Sections[k])); n++ {
+		if comparisonSummary(e) && k != "results" {
+			continue
+		}
+		rows, _, err := readSectionRows(e, k)
+		if err != nil {
+			return r, err
+		}
+		for n := 0; n < min(limit, len(rows)); n++ {
 			old := r.Sections[k]
-			r.Sections[k] = ReadSection{Items: c.outputRows(id, e, k, 0, n+1), Page: c.pageInfo(id, k, e, 0, n+1)}
+			items, err := c.outputRows(id, e, k, rows, 0, n+1)
+			if err != nil {
+				return r, err
+			}
+			r.Sections[k] = ReadSection{Items: items, Page: c.pageInfoSize(id, k, e, len(rows), 0, n+1)}
 			ok, err := readFits(r)
 			if err != nil {
 				return r, err
@@ -304,19 +328,31 @@ func (c *boundedReadCache) page(g uint64, in ReadPageInput) (ReadEnvelope, error
 	if err != nil {
 		return ReadEnvelope{}, err
 	}
+	if in.Limit == 0 && e.Kind == "market_import_comparison" {
+		limit = 100
+	}
 	cur, err := c.decode(in.Cursor)
-	rows, ok := e.Sections[in.Section]
-	if err != nil || !ok || cur.CaptureID != in.CaptureID || cur.Section != in.Section || cur.Hash != e.hash || cur.Generation != g || cur.Offset < 0 || cur.Offset >= len(rows) {
+	if err != nil || cur.CaptureID != in.CaptureID || cur.Section != in.Section || cur.Hash != e.hash || cur.Generation != g || cur.Offset < 0 {
+		return ReadEnvelope{}, fail("validation", "cursor must match capture, section and query")
+	}
+	rows, ok, sectionErr := readSectionRows(e, in.Section)
+	if sectionErr != nil {
+		return ReadEnvelope{}, sectionErr
+	}
+	if !ok || cur.Offset >= len(rows) {
 		return ReadEnvelope{}, fail("validation", "cursor must match capture, section and query")
 	}
 	r := c.base(in.CaptureID, e)
 	r.Section = in.Section
 	r.Items = []json.RawMessage{}
-	p := c.pageInfo(in.CaptureID, in.Section, e, cur.Offset, 0)
+	p := c.pageInfoSize(in.CaptureID, in.Section, e, len(rows), cur.Offset, 0)
 	r.Page = &p
 	for n := 0; n < min(limit, len(rows)-cur.Offset); n++ {
-		r.Items = c.outputRows(in.CaptureID, e, in.Section, cur.Offset, n+1)
-		p = c.pageInfo(in.CaptureID, in.Section, e, cur.Offset, n+1)
+		r.Items, err = c.outputRows(in.CaptureID, e, in.Section, rows, cur.Offset, n+1)
+		if err != nil {
+			return r, err
+		}
+		p = c.pageInfoSize(in.CaptureID, in.Section, e, len(rows), cur.Offset, n+1)
 		ok, err := readFits(r)
 		if err != nil {
 			return r, err
@@ -325,8 +361,11 @@ func (c *boundedReadCache) page(g uint64, in ReadPageInput) (ReadEnvelope, error
 			if n == 0 {
 				return ReadEnvelope{}, fail("too_large", "single_item exceeds read wire budget in "+in.Section+"; use a narrower detail workflow")
 			}
-			r.Items = c.outputRows(in.CaptureID, e, in.Section, cur.Offset, n)
-			p = c.pageInfo(in.CaptureID, in.Section, e, cur.Offset, n)
+			r.Items, err = c.outputRows(in.CaptureID, e, in.Section, rows, cur.Offset, n)
+			if err != nil {
+				return r, err
+			}
+			p = c.pageInfoSize(in.CaptureID, in.Section, e, len(rows), cur.Offset, n)
 			break
 		}
 	}
@@ -361,61 +400,74 @@ func (s *Service) buildRead(ctx context.Context, g uint64, limit int, fn func(co
 	return s.reads.store(g, e, limit)
 }
 func (s *Service) boundedReadTools(server *toolSet, g uint64) {
-	readTool(server, "get_read_page", "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25, maximum 100. Follow every cursor before claiming completeness; restart all sections after read_expired/read_revoked. No DB reads or TTL renewal.", func(ctx context.Context, in ReadPageInput) (any, error) {
+	readTool(server, "get_read_page", "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25; market-comparison captures default to 100. Maximum 100, with the final byte cap always enforced. Follow requested section cursors before claiming those sections complete; unread evidence remains deferred. Restart all sections after read_expired/read_revoked. No DB reads or TTL renewal.", func(ctx context.Context, in ReadPageInput) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		return s.reads.page(g, in)
 	})
-	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
-		s.reads.mu.Lock()
-		defer s.reads.mu.Unlock()
-		e, err := s.reads.entry(g, in.CaptureID)
-		if err != nil {
-			return nil, err
-		}
-		if e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" {
-			key := in.Section + "/" + in.ID
-			v, ok := e.Details[key]
-			if !ok {
-				return nil, fail("not_found", "item not found in capture section")
-			}
-			r := s.reads.base(in.CaptureID, e)
-			r.Section, r.Summary = in.Section, v
-			r.Sections = map[string]ReadSection{}
-			for _, section := range e.DetailSections[key] {
-				r.Sections[section] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, section, e, 0, 0)}
-			}
-			if ok, err := readFits(r); err != nil {
-				return nil, err
-			} else if !ok {
-				return nil, fail("too_large", "single_item detail exceeds read wire budget; narrow the source query")
-			}
-			return r, nil
-		}
-		if in.Section != "products" || e.Kind != "products" {
-			return nil, fail("validation", "item section must be products")
-		}
-		v, ok := e.Details[in.ID]
+	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations, directory or market-comparison capture. Comparison uses section=results and id=clientItemId, with focused child evidence from that same capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
+		return s.readItem(g, in, "")
+	})
+}
+func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any, error) {
+	s.reads.mu.Lock()
+	defer s.reads.mu.Unlock()
+	e, err := s.reads.entry(g, in.CaptureID)
+	if err != nil {
+		return nil, err
+	}
+	if requiredKind == "" && e.Kind == "contributions" {
+		return nil, fail("validation", "use get_contribution_item for contribution captures")
+	}
+	if requiredKind != "" && e.Kind != requiredKind {
+		return nil, fail("validation", "capture kind does not match item tool")
+	}
+	if e.Kind == "market_import_comparison" {
+		return s.reads.comparisonItem(in.CaptureID, e, in)
+	}
+	if e.Kind == "contributions" || e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" {
+		key := in.Section + "/" + in.ID
+		v, ok := e.Details[key]
 		if !ok {
-			return nil, fail("not_found", "item not found in capture")
+			return nil, fail("not_found", "item not found in capture section")
 		}
 		r := s.reads.base(in.CaptureID, e)
-		r.Summary = v
+		r.Section, r.Summary = in.Section, v
 		r.Sections = map[string]ReadSection{}
-		k := "reservations/" + in.ID
-		r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, k, e, 0, 0)}
+		for _, section := range e.DetailSections[key] {
+			r.Sections[section] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, section, e, 0, 0)}
+		}
 		if ok, err := readFits(r); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, fail("too_large", "single_item product detail exceeds read wire budget")
+			return nil, fail("too_large", "single_item detail exceeds read wire budget; narrow the source query")
 		}
 		return r, nil
-	})
+	}
+	if in.Section != "products" || e.Kind != "products" {
+		return nil, fail("validation", "item section must be products")
+	}
+	v, ok := e.Details[in.ID]
+	if !ok {
+		return nil, fail("not_found", "item not found in capture")
+	}
+	r := s.reads.base(in.CaptureID, e)
+	r.Summary = v
+	r.Sections = map[string]ReadSection{}
+	k := "reservations/" + in.ID
+	r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, k, e, 0, 0)}
+	if ok, err := readFits(r); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, fail("too_large", "single_item product detail exceeds read wire budget")
+	}
+	return r, nil
 }
+
 func isReadScaleTool(name string) bool {
 	switch name {
-	case "get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch":
+	case "get_read_page", "get_read_item", "get_market_data_batch", "compare_market_data_import", "update_instruments_batch":
 		return true
 	}
 	return false
@@ -467,10 +519,13 @@ func normalizeFrozenValue(v any, key string) any {
 
 // Market target pages carry lazy history entrances. Advertising all 200 history
 // cursors in a 100-target initial header would itself exceed the wire budget.
-func (c *boundedReadCache) outputRows(id string, e readCapture, section string, start, count int) []json.RawMessage {
-	rows := e.Sections[section][start : start+count]
+func (c *boundedReadCache) outputRows(id string, e readCapture, section string, source []json.RawMessage, start, count int) ([]json.RawMessage, error) {
+	rows := source[start : start+count]
+	if comparisonSummary(e) && section == "results" {
+		return comparisonCompactRows(rows)
+	}
 	if e.Kind != "market_data" || section != "targets" {
-		return rows
+		return rows, nil
 	}
 	out := make([]json.RawMessage, 0, len(rows))
 	for _, raw := range rows {
@@ -491,7 +546,7 @@ func (c *boundedReadCache) outputRows(id string, e readCapture, section string, 
 		b, _ := jsoncodec.Marshal(v)
 		out = append(out, b)
 	}
-	return out
+	return out, nil
 }
 
 // Keep revision/CAS integers exact when freezing heterogeneous DTO envelopes.

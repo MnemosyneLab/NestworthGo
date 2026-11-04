@@ -17,25 +17,12 @@ type ListContributionsInput struct {
 	ReturnType string              `json:"returnType" jsonschema:"One of total_return, realized, unrealized, dividend_interest; unrealized currently reports unavailable"`
 	GroupBy    string              `json:"groupBy" jsonschema:"One of instrument, account, currency, asset_class"`
 	Ordering   string              `json:"ordering,omitempty" jsonschema:"One of amount_desc, amount_asc, rate_desc, rate_asc, name_asc; defaults to amount_desc"`
-	Offset     int                 `json:"offset,omitempty" jsonschema:"Zero-based row offset; defaults to 0"`
-	Limit      int                 `json:"limit,omitempty" jsonschema:"Page size, 1 to 100; defaults to 100"`
-}
-
-type ContributionPageDTO struct {
-	wire.ContributionDTO
-	Offset     int  `json:"offset"`
-	Limit      int  `json:"limit"`
-	TotalRows  int  `json:"totalRows"`
-	HasMore    bool `json:"hasMore"`
-	NextOffset *int `json:"nextOffset"`
+	Limit      int                 `json:"limit,omitempty" jsonschema:"Initial row count, 1 to 100; defaults to 25. Continue rows with get_read_page."`
 }
 
 type GetContributionItemInput struct {
-	Limit      int                 `json:"limit,omitempty" jsonschema:"Initial rows per section, default 25, maximum 100"`
-	Query      PeriodAnalysisQuery `json:"query" jsonschema:"Use the same query as list_contributions, including all realized scope and filters"`
-	ReturnType string              `json:"returnType" jsonschema:"Use the same returnType as list_contributions"`
-	GroupBy    string              `json:"groupBy" jsonschema:"Use the same groupBy as list_contributions"`
-	GroupKey   string              `json:"groupKey" jsonschema:"Exact key from a list_contributions row"`
+	CaptureID string `json:"captureId" jsonschema:"Exact captureId returned by list_contributions"`
+	GroupKey  string `json:"groupKey" jsonschema:"Exact row key from that frozen capture"`
 }
 
 type GetReturnDayInput struct {
@@ -87,61 +74,57 @@ func readAttributionTool[I any](server *toolSet, name, description string, enums
 
 func (s *Service) attributionTools(server *toolSet, adapter *analysis.Service) {
 	generation := s.contextGeneration
-	readAttributionTool(server, "list_contributions", "Page investment return contributions by instrument, account, currency or asset class. Realized contributions can be filtered by scope and filters, which intersect: currency selects the native sell-event denomination, asset class selects the instrument's current Type, and account/instrument constraints also intersect. Member filtering remains unsupported. Realized rows group by instrument or account only; currency and asset-class filters do not add grouping modes. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Use a row key with get_contribution_item; repeat the same query, returnType and groupBy. Dates are inclusive closed days in the History Origin timezone.", map[string][]any{
+	readAttributionTool(server, "list_contributions", "Page investment return contributions by instrument, account, currency or asset class. Realized contributions can be filtered by scope and filters, which intersect: currency selects the native sell-event denomination, asset class selects the instrument's current Type, and account/instrument constraints also intersect. Member filtering remains unsupported. Realized rows group by instrument or account only; currency and asset-class filters do not add grouping modes. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Returns frozen mcp-read/1 rows; continue with get_read_page and use captureId plus row key with get_contribution_item. Default limit 25, maximum 100. All rows and detail share one capture; expiry or revocation requires restarting it. Dates are inclusive closed days in the History Origin timezone.", map[string][]any{
 		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},
 		"groupBy":    {"instrument", "account", "currency", "asset_class"},
 		"ordering":   {"amount_desc", "amount_asc", "rate_desc", "rate_asc", "name_asc"},
 	}, func(ctx context.Context, in ListContributionsInput) (any, error) {
-		if in.Offset < 0 || in.Limit < 0 || in.Limit > 100 {
-			return nil, fail("validation", "offset must be non-negative and limit must be between 1 and 100, or omitted")
-		}
-		limit := in.Limit
-		if limit == 0 {
-			limit = 100
-		}
 		ordering := strings.TrimSpace(in.Ordering)
 		if ordering == "" {
 			ordering = "amount_desc"
 		}
-		var value wire.ContributionDTO
-		err := s.app.WithWrite(ctx, func(ctx context.Context) error {
-			var err error
-			value, err = adapter.Contribution(ctx, in.Query.request(), in.ReturnType, in.GroupBy, ordering)
-			return err
+		in.Ordering = ordering
+		return s.buildRead(ctx, generation, in.Limit, func(ctx context.Context) (readCapture, error) {
+			var value wire.ContributionDTO
+			var items []wire.ContributionItemDTO
+			err := s.app.WithWrite(ctx, func(ctx context.Context) error {
+				var err error
+				value, items, err = analysis.CaptureContributions(ctx, s.app, in.Query.request(), in.ReturnType, in.GroupBy, ordering)
+				return err
+			})
+			if err != nil {
+				return readCapture{}, err
+			}
+			capture, err := sectionedReadCapture("contributions", in, value, "rows")
+			if err != nil {
+				return readCapture{}, err
+			}
+			capture.InitialSections = []string{"rows"}
+			capture.Details = map[string]any{}
+			capture.DetailSections = map[string][]string{}
+			for _, item := range items {
+				detail, err := sectionedReadCapture("", nil, item, "components", "byAccount")
+				if err != nil {
+					return readCapture{}, err
+				}
+				key := "rows/" + item.Key
+				capture.Details[key] = detail.Summary
+				for _, field := range []string{"components", "byAccount"} {
+					section := key + "/" + field
+					capture.Sections[section] = detail.Sections[field]
+					capture.DetailSections[key] = append(capture.DetailSections[key], section)
+				}
+			}
+			return capture, nil
 		})
-		if err != nil {
-			return nil, err
-		}
-		page := ContributionPageDTO{ContributionDTO: value, Offset: in.Offset, Limit: limit, TotalRows: len(value.Rows)}
-		start := min(in.Offset, len(value.Rows))
-		end := start + min(limit, len(value.Rows)-start)
-		page.Rows = append([]wire.ContributionRowDTO{}, value.Rows[start:end]...)
-		page.HasMore = end < len(value.Rows)
-		if page.HasMore {
-			page.NextOffset = &end
-		}
-		return page, nil
 	})
-	readAttributionTool(server, "get_contribution_item", "Read frozen mcp-read/1 sections with get_read_page continuation for components, account breakdown and related History activity hint for one contribution row. Use an exact key from list_contributions with the same query, returnType and groupBy; the hint may identify a broader set of related records when currency or asset-class filters are active, and is not an exact matching breakdown or a second calculation of the amount.", map[string][]any{
-		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},
-		"groupBy":    {"instrument", "account", "currency", "asset_class"},
-	}, func(ctx context.Context, in GetContributionItemInput) (any, error) {
+	readTool(server, "get_contribution_item", "Read one contribution from its exact frozen list_contributions captureId and groupKey. No recalculation, database reads or TTL renewal. Components and byAccount are independent get_read_page sections. Related-history hints may cover broader records under currency/asset-class filters; they are not a second amount calculation.", func(ctx context.Context, in GetContributionItemInput) (any, error) {
 		if strings.TrimSpace(in.GroupKey) == "" {
 			return nil, fail("validation", "groupKey must be a non-empty list_contributions row key")
 		}
-		var value wire.ContributionItemDTO
-		err := s.app.WithWrite(ctx, func(ctx context.Context) error {
-			var err error
-			value, err = adapter.ContributionItem(ctx, in.Query.request(), in.ReturnType, in.GroupBy, in.GroupKey)
-			return err
-		})
-		if err != nil {
-			return nil, err
-		}
-		return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
-			return sectionedReadCapture("get_contribution_item", in, value, "components", "byAccount")
-		})
+		return s.readItem(generation, ReadItemInput{CaptureID: in.CaptureID, Section: "rows", ID: in.GroupKey}, "contributions")
 	})
+
 	readAttributionTool(server, "get_return_day", "Read frozen mcp-read/1 sections with get_read_page continuation for one day's return amount, rate, composition, contributors, coverage and valuation issues. The date must be within the query's inclusive closed-day range. Preserve nullable values and amountStatus; partial amounts are not complete totals.", nil, func(ctx context.Context, in GetReturnDayInput) (any, error) {
 		query, err := in.Query.request().ToDomain()
 		if err != nil {
