@@ -53,9 +53,7 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 			{"cash_transfer", []string{"fromAccountId", "toAccountId", "sent", "sentCurrency", "received", "receivedCurrency"}},
 			{"fx_conversion", []string{"accountId", "sold", "soldCurrency", "bought", "boughtCurrency"}},
 			{"position_transfer", []string{"fromHoldingId", "quantity"}},
-			{"position_adjustment", []string{"holdingId", "quantity"}},
 			{"trade", []string{"settlementAccountId", "instrumentId", "side", "quantity", "gross", "grossCurrency"}},
-			{"value_update", []string{"accountId", "newValue", "newValueCurrency", "reason"}},
 			{"debt_draw", []string{"debtAccountId", "cashAccountId", "principal", "principalCurrency"}},
 			{"debt_payment", []string{"debtAccountId", "cashAccountId", "principal", "principalCurrency"}},
 		}

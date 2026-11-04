@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"testing"
 )
@@ -40,5 +41,59 @@ func TestWorkflowStructuralDependencies(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Independently enumerate the MCP boundary's supported commands. DTO variants
+// used by the GUI must not become advertised MCP capabilities accidentally.
+func TestPreviewChangeSchemaMatchesHandlerAllowlist(t *testing.T) {
+	expected := map[string]bool{"position_import": true, "money_added": true, "money_removed": true, "cash_dividend": true, "cash_transfer": true, "fx_conversion": true, "position_transfer": true, "trade": true, "debt_draw": true, "debt_payment": true}
+	schema := workflowSchema[history.ChangeCommandRequest]("preview_change")
+	resolved, err := schema.Resolve(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, branch := range schema.OneOf {
+		kind := branch.Properties["kind"].Enum[0].(string)
+		if !expected[kind] || seen[kind] {
+			t.Fatal("unexpected/duplicate advertised kind", kind)
+		}
+		seen[kind] = true
+		input := map[string]any{"kind": kind}
+		for _, field := range branch.Required {
+			if field != "kind" {
+				input[field] = "synthetic"
+			}
+		}
+		if kind == "position_transfer" {
+			input["toAccountId"] = "synthetic"
+		}
+		if err := resolved.Validate(&input); err != nil {
+			t.Fatalf("%s: advertised shape invalid: %v", kind, err)
+		}
+		raw, _ := jsoncodec.Marshal(input)
+		var command history.ChangeCommandRequest
+		if err := jsoncodec.Unmarshal(raw, &command); err != nil {
+			t.Fatal(err)
+		}
+		if err := validateChangeRequest(command); err != nil {
+			t.Fatalf("%s: schema advertises a handler-rejected command: %v", kind, err)
+		}
+	}
+	if len(seen) != len(expected) {
+		t.Fatal("supported commands missing", seen)
+	}
+	for _, input := range []history.ChangeCommandRequest{
+		{Kind: history.ChangePositionAdjustment, HoldingID: "synthetic", Quantity: "1"},
+		{Kind: history.ChangeValueUpdate, AccountID: "synthetic", NewValue: "1", NewValueCurrency: "USD", Reason: "income"},
+	} {
+		values := jsonObject(t, input)
+		if err := resolved.Validate(&values); err == nil {
+			t.Fatal("unsupported kind accepted by schema", input.Kind)
+		}
+		if err := validateChangeRequest(input); err == nil {
+			t.Fatal("handler authority expanded", input.Kind)
+		}
 	}
 }

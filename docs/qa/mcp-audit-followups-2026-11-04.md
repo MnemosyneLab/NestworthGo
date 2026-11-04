@@ -178,3 +178,16 @@ Final implementation `0033eb62af9be6cec317db772319514bddcd5aba`:
 
 CI monitoring is separate from these local results. No CI completion, native UI
 acceptance, merge or deployment is inferred from a branch push.
+
+## Independent-review correction: preview kind discovery
+
+Independent review identified two GUI-only DTO variants accidentally advertised
+by the new preview_change schema: position_adjustment and value_update. They
+are now removed from its conditional branches. The MCP handler's existing
+allowlist is unchanged; target quantity/value adjustments still require their
+dedicated reconciliation workflow. No permission or business capability expands.
+
+A regression independently enumerates the ten supported MCP kinds, validates
+each advertised required-field shape against both the schema and boundary
+handler, and verifies that both layers reject fully populated unsupported
+variants. The immutable discovery test projects only the reviewed schema delta.
