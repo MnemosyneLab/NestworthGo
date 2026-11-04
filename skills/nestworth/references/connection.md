@@ -99,8 +99,9 @@ ledger recording requires started history; the MCP does not start/reset it or
 choose opening balances/costs. This is distinct from importing a position later
 in an already started history.
 
-Except the explicitly labeled Inspector client configuration, JSON examples in
-these references are **tool arguments**, not raw HTTP requests.
+Except explicitly labeled Inspector client configuration and tools/list protocol
+parameters, JSON examples in these references are **business-tool arguments**,
+not raw HTTP requests.
 `${...}` denotes a value obtained from the user or a previous response. Replace
 all placeholders; never send them as IDs. Values/dates are illustrative, not
 verified market information. Reads/previews usually take arguments directly;
@@ -132,7 +133,7 @@ before following [the session workflow](reconciliation-and-corrections.md#accoun
 ## Optional task-scoped tool discovery
 
 Clients that expose MCP tools/list metadata can request a smaller discovery
-set with `_meta.nestworth.toolGroups`. Valid groups are context, summary,
+set with `_meta["nestworth.toolGroups"]`. Valid groups are context, summary,
 analysis, directory, ledger, market, products, review, reconciliation and health.
 The same permission mode still governs every registered call. This is a discovery
 filter, not an authorization boundary or a financial data scope. Shared

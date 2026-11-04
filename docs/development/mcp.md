@@ -1067,7 +1067,7 @@ field. No write or get_operation receipt receives a new post-execution output
 gate. Discovery baseline tests isolate this intentional output-schema change.
 
 Safe external tool errors retain isError and original code/field/message text;
-structuredContent additionally carries mcp-error/1 with error and conservative
+result metadata `_meta["nestworth.errorRecovery"]` additionally carries mcp-error/1 with error and conservative
 recovery action/automaticRetry/preserveIntent/discardCapture fields. Hints never
 authorize replay or turn unknown execution into failure/success. AutomaticRetry
 is false. Protocol/auth errors may remain outside this tool-error shape. Success
@@ -1097,3 +1097,10 @@ string (engine.go FunctionToolResult), not an external MCP envelope. External
 client/model consumption is outside the server's observation; no real external
 model-token or token-savings claim is made. Removing text without client evidence
 could remove the representation a client actually consumes, so both are retained.
+
+
+Recovery hints live in result `_meta`, not structuredContent: the latter is the
+success outputSchema surface. See the [MCP tool output contract](https://modelcontextprotocol.io/specification/2026-07-28/server/tools).
+This avoids presenting an error object as a successful read envelope. A client
+can consume metadata programmatically; whether it forwards metadata to a model
+is not observed or assumed. Original isError/text code/field/message remain.

@@ -252,7 +252,7 @@ forms. Repair advertises progress or evidence shapes. Business summaries/rows
 retain their owning exact-money, nullability and provenance contracts; the
 common envelope schema does not claim to describe every nested GUI field.
 Write and get_operation recovery receipts gain no new post-execution schema
-restriction. Error recovery uses the separate mcp-error/1 shape described in
+restriction. Error recovery metadata uses the separate mcp-error/1 shape described in
 [recovery](recovery.md), not a successful data result.
 
 The SDK sends both JSON text and structuredContent. Both count toward measured

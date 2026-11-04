@@ -25,7 +25,10 @@ func TestStructuredRecoveryPreservesUnknownAndSuccessReceipt(t *testing.T) {
 	if err != nil || !result.IsError {
 		t.Fatal(err, result)
 	}
-	raw, _ := jsoncodec.Marshal(result.StructuredContent)
+	raw, _ := jsoncodec.Marshal(result.Meta[recoveryMeta])
+	if result.StructuredContent != nil {
+		t.Fatal("error polluted success output schema")
+	}
 	var structured ErrorRecoveryResult
 	if jsoncodec.Unmarshal(raw, &structured) != nil || structured.Error.Code != "operation_outcome_unknown" || structured.Recovery.AutomaticRetry || !structured.Recovery.PreserveIntent || structured.Recovery.Action != "inspect_operation_and_current_state" {
 		t.Fatal(string(raw))
@@ -46,7 +49,10 @@ func TestStructuredReadRecoveryThroughSDK(t *testing.T) {
 	if err != nil || !result.IsError {
 		t.Fatal(err, result)
 	}
-	raw, _ := jsoncodec.Marshal(result.StructuredContent)
+	raw, _ := jsoncodec.Marshal(result.Meta[recoveryMeta])
+	if result.StructuredContent != nil {
+		t.Fatal("error polluted success output schema")
+	}
 	var structured ErrorRecoveryResult
 	if jsoncodec.Unmarshal(raw, &structured) != nil || structured.Error.Code != "read_expired" || !structured.Recovery.DiscardCapture || structured.Recovery.AutomaticRetry {
 		t.Fatal("read expiry hint", string(raw))

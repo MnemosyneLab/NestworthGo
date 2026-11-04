@@ -355,3 +355,23 @@ other metadata. Both representative payload tiers subsequently passed:
 200 accounts / 25 instruments, 24.212s, 270 calls / 8,753,219 bytes / maximum
 64,634. Each tier still probes 60 business tools. These are synthetic transport
 measurements, not latency comparisons or loaded native CI timing claims.
+
+
+Final contract-completion validation: the full MCP package passed in
+**174.245s** at `fc65186` (after the reviewed discovery-budget separation).
+The subsequent small recovery-placement refinement moves machine hints to
+`_meta["nestworth.errorRecovery"]`, preserving error text/isError and leaving
+structuredContent for successful output-schema values. This follows the
+[MCP structured output contract](https://modelcontextprotocol.io/specification/2026-07-28/server/tools#output-schema).
+The focused SDK contract/error/receipt/profile/example group passed in **3.964s**
+after that refinement; no new financial write, permission or capture behavior
+changes. Clients can parse the metadata, but model visibility of it is not
+assumed. Native UI/macOS and actual external model consumption remain unverified.
+
+After recovery metadata placement, both final 20/200-account SDK payload tiers
+passed together in **22.955s**, each retaining 60-tool coverage and complete
+unions: small 119 calls / 1,555,871 bytes / maximum 64,165; large 270 calls /
+8,753,331 bytes / maximum **64,634**. Final affected-package vet, the 77-example
+static guard, skill 5.0.0 distribution guard, checksum and all 16 archive/source
+byte comparisons passed. The latest 39-test skill tooling run passed; no whole
+136-test tooling rerun or native/macOS/live-model acceptance is claimed here.

@@ -106,7 +106,8 @@ alone does not establish duplicate execution.
 ## Machine-readable MCP recovery hints
 
 Safe external MCP tool errors retain isError and the original code/field/message
-JSON text. structuredContent additionally uses schemaVersion mcp-error/1 with
+JSON text. the standard result metadata `_meta["nestworth.errorRecovery"]` additionally uses
+schemaVersion mcp-error/1 with
 error (the same fields) and recovery {action, automaticRetry, preserveIntent,
 discardCapture}. automaticRetry is always false: hints never authorize replay,
 new operation IDs, identity disclosure or permission changes.

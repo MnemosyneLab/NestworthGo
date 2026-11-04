@@ -8,6 +8,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 )
 
+const recoveryMeta = "nestworth.errorRecovery"
+
 type RecoveryHint struct {
 	Action         string `json:"action"`
 	AutomaticRetry bool   `json:"automaticRetry"`
@@ -53,7 +55,7 @@ func errorRecovery(err apierror.WireError) ErrorRecoveryResult {
 }
 
 func attachErrorRecovery(result *mcp.CallToolResult) {
-	if result == nil || !result.IsError || result.StructuredContent != nil || len(result.Content) != 1 {
+	if result == nil || !result.IsError || len(result.Content) != 1 {
 		return
 	}
 	content, ok := result.Content[0].(*mcp.TextContent)
@@ -64,7 +66,12 @@ func attachErrorRecovery(result *mcp.CallToolResult) {
 	if jsoncodec.Unmarshal([]byte(content.Text), &wire) != nil || wire.Code == "" || wire.Message == "" {
 		return
 	}
-	result.StructuredContent = errorRecovery(wire)
+	if result.Meta == nil {
+		result.Meta = mcp.Meta{}
+	}
+	if _, exists := result.Meta[recoveryMeta]; !exists {
+		result.Meta[recoveryMeta] = errorRecovery(wire)
+	}
 }
 func recoveryResult(err error) *mcp.CallToolResult {
 	result := &mcp.CallToolResult{}
