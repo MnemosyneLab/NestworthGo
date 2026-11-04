@@ -15,7 +15,6 @@ import { reconciliationFocusFromTarget, resolveLegacyTarget, targetForPage, type
 import { readCachedTasksAttention, resolveTasksTab } from "@/features/tasks/useTasksCounts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAnalysisStore } from "@/stores/analysis";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { NavigationContext } from "@/app/NavigationContext";
@@ -25,6 +24,7 @@ import type { HistoricalCaptureContext } from "@/queries/historicalCapture";
 import { toast } from "sonner";
 import { AgentWorkspaceObserver } from "@/queries/agent";
 import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
+import { AssistantPageProvider } from "@/features/assistant/PageContext";
 
 const HistoricalOverviewPage = lazy(() => import("@/features/historical-overview/HistoricalOverviewPage").then(module => ({ default: module.HistoricalOverviewPage })));
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
@@ -98,7 +98,7 @@ function Workspace() {
   const [liquidityRequestId, setLiquidityRequestId] = useState(0);
   const nextLiquidityRequestId = useRef(0);
   type Snapshot = { historicalCapture?: HistoricalCaptureContext; historicalDate?: string; historicalContext?: HistoricalNavigationContext; historicalRequest: number; page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; tasksTab: TasksTab | null; reconciliationRequestId: number; reconciliationFocus: ReconciliationNavigationFocus; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number };
-  type Entry = { id: number; contextualBack?: boolean; target: RevisitableDestination; snapshot?: Snapshot };
+  type Entry = { id: number; target: RevisitableDestination; snapshot?: Snapshot };
   const [entries, setEntries] = useState<Entry[]>([{ id: 0, target: { page: DEFAULT_PAGE_ID } }]);
   const [cursor, setCursor] = useState(0);
   const [recent, setRecent] = useState<Entry[]>([]);
@@ -273,7 +273,7 @@ function Workspace() {
     if (snapshot.page === "tasks" && retainedReconciliation.has(snapshot.reconciliationRequestId)) setRetainedTaskVisits(previous => new Map(previous).set(snapshot.reconciliationRequestId, entry));
     return entry;
   };
-  const visit = (target: NavigationTarget, snapshot?: Snapshot, contextualBack = true) => {
+  const visit = (target: NavigationTarget, snapshot?: Snapshot) => {
     if (hasUnresolvedSheetConfirmation()) return;
     const source = saveCurrent();
     const resolved = structuredClone(resolveLegacyTarget(target));
@@ -287,7 +287,7 @@ function Workspace() {
       toast.info(t("navigationHistory.sessionLimit"));
       return;
     }
-    const destination = { id: ++nextEntryId.current, contextualBack, target: revisitTarget(resolved), snapshot };
+    const destination = { id: ++nextEntryId.current, target: revisitTarget(resolved), snapshot };
     if (destinationKey(source.target) === destinationKey(destination.target) && !("create" in target && target.create) && !("updateValue" in target && target.updateValue) && resolved.page !== "tasks") return;
     if (snapshot?.page === "historical-overview") {
       // Fork the page's editable UI state while its capture handle keeps the selected
@@ -306,7 +306,7 @@ function Workspace() {
     }
   };
   const open = (target: NavigationTarget) => visit(target);
-  const handleNavigate = (target: NavigationTarget | PageId) => visit(typeof target === "string" ? targetForPage(target) : target, undefined, false);
+  const handleNavigate = (target: NavigationTarget | PageId) => visit(typeof target === "string" ? targetForPage(target) : target);
   const openHealth = (focus: HealthFocus) => {
     if (focus.accountId && !focus.instrumentId && !focus.currencyA) open({ page: "accounts", accountId: focus.accountId, updateValue: true });
     else if (focus.action === "provider_settings") open({ page: "settings" });
@@ -345,7 +345,7 @@ function Workspace() {
   const back = () => move(-1);
   const selectAccount = (accountId: string | null) => {
     if (hasUnresolvedSheetConfirmation()) return;
-    if (accountId) { visit({ page: "accounts", accountId }, undefined, false); return; }
+    if (accountId) { visit({ page: "accounts", accountId }); return; }
     const previous = entries[cursor - 1]?.snapshot;
     if (previous?.page === "accounts" && !previous.accountId) { back(); return; }
     // The dedicated account-list return keeps the original cross-page source.
@@ -371,15 +371,18 @@ function Workspace() {
   const retained = (page: PageId) => activePageId === page || (page === "tasks" && retainedReconciliation.size > 0) || (!(page === "overview" && (activePageId === "historical-overview" || activePageId === "settings")) && allSnapshots.some(entry => entry.page === page));
   return (
     <NavigationContext.Provider value={{ open, openHealth }}>
+    <AssistantPageProvider key={bootstrap.data?.household?.id} householdId={bootstrap.data?.household?.id ?? ""}
+      incarnation={String(startup.dataUpdatedAt)} surface="desktop" viewKey={`${activePageId}:${activePageId === "accounts" ? selectedAccountId ?? "" : ""}`}
+      blocked={hasUnresolvedSheetConfirmation} onNavigate={target => { if (!("mobileAccountId" in target)) open(target); }}>
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data} navigationHistory={{
       canBack: cursor > 0, canForward: cursor < entries.length - 1,
       back, forward: () => move(1),
-      sessions: Array.from(retainedTaskVisits).reverse().map(([requestId, entry]) => ({ id: `tasks-${requestId}`, ordinal: requestId, target: entry.target, onSelect: () => visit(entry.target, entry.snapshot, false) })),
-      recent: recent.map(entry => ({ id: String(entry.id), target: entry.target, onSelect: () => visit(entry.target, entry.snapshot, false) })),
+      backTarget: entries[cursor - 1]?.target, forwardTarget: entries[cursor + 1]?.target,
+      sessions: Array.from(retainedTaskVisits).reverse().map(([requestId, entry]) => ({ id: `tasks-${requestId}`, ordinal: requestId, target: entry.target, onSelect: () => visit(entry.target, entry.snapshot) })),
+      recent: recent.map(entry => ({ id: String(entry.id), target: entry.target, onSelect: () => visit(entry.target, entry.snapshot) })),
     }}>
       <MarketDataSyncWorkspaceObserver />
       <AgentWorkspaceObserver />
-      {entries[cursor].contextualBack && trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: trail[trail.length - 1].page === "instrument-detail" ? t("instrumentDetail.title") : t(`nav.${({ "historical-overview": "historicalOverview", "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges", "available-funds": "availableFunds", tasks: "tasks" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
       {retained("overview") && (
         <div hidden={activePageId !== "overview"}>
         <OverviewPage
@@ -454,8 +457,10 @@ function Workspace() {
         </WorkspaceLazy>
       )}
       {Array.from(new Map<number, { historicalDate?: string; historicalContext?: HistoricalNavigationContext; historicalCapture?: HistoricalCaptureContext }>([...allSnapshots.filter(entry => entry.page === "historical-overview").map(entry => [entry.historicalRequest, entry] as const), ...(activePageId === "historical-overview" ? [[historicalRequest, { historicalDate, historicalContext, historicalCapture }] as const] : [])])).map(([request, entry]) => <div key={request} hidden={activePageId !== "historical-overview" || request !== historicalRequest}><WorkspaceLazy><HistoricalOverviewPage initialDate={entry.historicalDate} initialContext={entry.historicalContext} initialCapture={entry.historicalCapture} onContextChange={request === historicalRequest && activePageId === "historical-overview" ? handleHistoricalContextChange : undefined} isActive={activePageId === "historical-overview" && request === historicalRequest} onExit={() => {
-        if (cursor > 0) back();
-        else { restorePosition.current = { scroll: 0, focus: null, focusId: "open-historical-overview" }; handleNavigate("overview"); }
+        if (hasUnresolvedSheetConfirmation()) return;
+        // Overview reads may still be loading; its main landmark is always mounted.
+        restorePosition.current = { scroll: 0, focus: null, focusId: "main-content" };
+        handleNavigate("overview");
       }} /></WorkspaceLazy></div>)}
       {activePageId === "history" && (
         <WorkspaceLazy>
@@ -477,6 +482,7 @@ function Workspace() {
         </div>
       )}
     </AppShell>
+    </AssistantPageProvider>
     </NavigationContext.Provider>
   );
 }

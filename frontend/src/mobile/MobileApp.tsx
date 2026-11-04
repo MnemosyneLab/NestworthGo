@@ -1,4 +1,7 @@
 import { mobileOperationId } from "./operationId";
+import { MobileAssistant } from "./MobileAssistant";
+import { AssistantPageProvider, usePublishAssistantPage } from "@/features/assistant/PageContext";
+import { nativeAccountMetric, type AccountDisplayProjection } from "@/features/assistant/publications";
 import {
   useCallback,
   useEffect,
@@ -141,7 +144,7 @@ type AccountDetail = {
     defaultCurrency?: string;
   };
   components: Component[];
-  displayValue?: { value: Money | null } | null;
+  displayValue?: AccountDisplayProjection | null;
   baseValue?: Money | null;
   complete?: boolean;
 };
@@ -261,6 +264,7 @@ export function MobileApp() {
   const [detail, setDetail] = useState<{
     kind: "accounts" | "holdings" | "activities";
     id: string;
+    accountSource?: string;
   } | null>(null);
   const [record, setRecord] = useState<string | null>(null);
   const [initialKind, setInitialKind] = useState("expense");
@@ -411,7 +415,13 @@ export function MobileApp() {
     setTab(value);
     document.scrollingElement?.scrollTo?.({ top: 0 });
   };
+  // A new device changes the whole session. Incarnation changes instead revoke
+  // the guide host via props and remount only its UI, preserving financial reviews.
   return (
+    <AssistantPageProvider key={session.device.id} householdId={b?.householdId ?? ""} incarnation={session.instance}
+      surface="mobile" viewKey={`${tab}:${detail ? `${detail.kind}-${detail.id}` : ""}`}
+      blocked={() => !!pending || record !== null || quote !== null || market !== null || offline || !b?.capabilities.read}
+      onNavigate={target => { if ("mobileAccountId" in target) { setTab("accounts"); setDetail({ kind: "accounts", id: target.mobileAccountId }); } }}>
     <main className="mobile-shell" data-nav={hiddenNav ? "hidden" : "shown"}>
       <header className="mobile-appbar">
         <div className="min-w-0 flex-1">
@@ -457,6 +467,7 @@ export function MobileApp() {
         >
           <Settings2 aria-hidden />
         </Button>
+        {b?.capabilities.read && <MobileAssistant key={`${session.device.id}:${session.instance}:${tab}:${detail?.id ?? ""}`} blocked={!!pending || hiddenNav} disconnected={connectionState !== "connected"} />}
       </header>
       {showSettings && (
         <section
@@ -647,7 +658,7 @@ export function MobileApp() {
               <Button
                 variant="ghost"
                 className="mobile-back"
-                onClick={() => setDetail(null)}
+                onClick={() => setDetail(detail.accountSource ? { kind: "accounts", id: detail.accountSource } : null)}
               >
                 <ChevronLeft aria-hidden />
                 {t("mobile.back")}
@@ -655,7 +666,7 @@ export function MobileApp() {
               <Detail
                 kind={detail.kind}
                 id={detail.id}
-                onHolding={(id) => setDetail({ kind: "holdings", id })}
+                onHolding={(id) => setDetail({ kind: "holdings", id, accountSource: detail.kind === "accounts" ? detail.id : detail.accountSource })}
                 onRecord={() => {
                   setInitialKind("expense");
                   setRecord(detail.id);
@@ -803,6 +814,7 @@ export function MobileApp() {
         </>
       )}
     </main>
+    </AssistantPageProvider>
   );
 }
 
@@ -1104,6 +1116,15 @@ function Overview({
         }>
       >(`/overview?range=${range}`),
   });
+  usePublishAssistantPage({ viewKey: "overview:", page: "overview", scope: { kind: "household", label: t("mobile.overview") },
+    timezone: query.data?.ledgerTimezone ?? "UTC", basis: "base", currency: query.data?.data.currency,
+    observedAt: query.dataUpdatedAt, state: query.isError || query.isPlaceholderData ? "unavailable" : query.isPending ? "loading" : "available", targets: [],
+    metrics: query.data ? (["netWorth", "assets", "liabilities"] as const).map(key => {
+      const metric = query.data!.data.valuation[key]; const money = metric.total ?? metric.knownSubtotal;
+      return { label: t(`mobile.${key}`), value: money?.amount ?? null, unit: money?.currency ?? metric.currency ?? query.data!.data.currency,
+        basis: key === "netWorth" ? "net_worth" : key, status: metric.total ? "available" : money ? "incomplete" : "unavailable", missingReasons: metric.total ? [] : ["incomplete"] };
+    }) : [],
+  }, query.refetch);
   if (!query.data)
     return (
       <>
@@ -1319,6 +1340,11 @@ function Accounts({ onOpen }: { onOpen: (id: string) => void }) {
     `q=${encodeURIComponent(search)}&role=${role}&type=${type}`,
   );
   const items = query.data?.data.items;
+  usePublishAssistantPage({ viewKey: "accounts:", page: "accounts", scope: { kind: "household", label: t("mobile.accounts") },
+    timezone: query.data?.ledgerTimezone ?? "UTC", basis: "base", observedAt: query.dataUpdatedAt,
+    state: query.isError ? "unavailable" : query.isPending ? "loading" : "available", metrics: [],
+    targets: (items ?? []).slice(0, 64).map(account => ({ label: [account.name, account.institution, account.currency].filter(Boolean).join(" · "), destination: { mobileAccountId: account.id } })),
+  }, query.refetch);
   return (
     <section className="mobile-stack" aria-labelledby="mobile-accounts">
       <h2 id="mobile-accounts" className="mobile-page-title">
@@ -1783,6 +1809,13 @@ function Detail({
     "/holdings",
     `accountId=${kind === "accounts" ? id : ""}`,
   );
+  const accountEvidence = kind === "accounts" ? query.data?.data as AccountDetail | undefined : undefined;
+  const accountDisplay = accountEvidence?.displayValue;
+  usePublishAssistantPage({ viewKey: `accounts:accounts-${id}`, page: "accounts", scope: { kind: "account", label: accountEvidence?.account.name ?? "" },
+    timezone: query.data?.ledgerTimezone ?? "UTC", basis: "native", currency: accountDisplay?.value?.currency ?? accountDisplay?.currency,
+    observedAt: query.dataUpdatedAt, state: kind !== "accounts" || query.isError ? "unavailable" : query.isPending ? "loading" : "available", targets: [],
+    metrics: [nativeAccountMetric(accountDisplay, accountEvidence?.account.name ?? "")],
+  }, query.refetch);
   if (!query.data)
     return (
       <>

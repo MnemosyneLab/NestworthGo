@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -425,6 +426,10 @@ type holdingRow struct {
 func (s *Server) read(ctx context.Context, r *http.Request, d *session, p string) (any, error) {
 	q := r.URL.Query()
 	switch {
+	case p == "/assistant/status":
+		// Routed only after the live mobile session and Read grant checks.
+		// Never give mobile callers the household-wide local capability session.
+		return s.envelope(ctx, assistant.Closed("mobile")), nil
 	case p == "/bootstrap":
 		b, err := s.app.Bootstrap(ctx)
 		if err != nil {

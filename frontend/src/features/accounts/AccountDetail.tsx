@@ -5,7 +5,6 @@ import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmati
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -32,6 +31,8 @@ import { toast } from "sonner";
 import type { AccountCashValueDTO, AccountRecordDTO, AccountValuationDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import { AccountIcon } from "@/components/icons/AccountIcon";
+import { usePublishAssistantPage } from "@/features/assistant/PageContext";
+import { nativeAccountMetric } from "@/features/assistant/publications";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -107,11 +108,13 @@ export function AccountDetail({
   record,
   valuation,
   valuationUpdatedAt,
+  onRefresh,
   onBack, updateValue = false,
 }: {
   record: AccountRecordDTO;
   valuation?: AccountValuationDTO;
   valuationUpdatedAt?: number;
+  onRefresh?: () => void;
   onBack: () => void;
   updateValue?: boolean;
 }) {
@@ -144,6 +147,15 @@ export function AccountDetail({
 
 
   const displayMoney = accountDisplayMoney(record, valuation);
+  const guideDisplay = valuation?.displayValue ?? {
+    currency: displayMoney.primary?.currency ?? record.account.defaultCurrency, value: displayMoney.primary,
+    complete: !displayMoney.primaryPartial, missingInputs: displayMoney.primaryPartial ? valuation?.missingInputs : [],
+  };
+  usePublishAssistantPage({ viewKey: `accounts:${record.account.id}`, page: "accounts", scope: { kind: "account", label: record.account.name },
+    timezone: settings.data?.timezone ?? "UTC", basis: "native", currency: displayMoney.primary?.currency,
+    observedAt: valuationUpdatedAt ?? 0, state: valuation ? "available" : "unavailable", targets: [],
+    metrics: [nativeAccountMetric(guideDisplay, record.account.name, displayMoney.primary)],
+  }, onRefresh);
   const titleAmount = displayMoney.primary
     ? `${formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)}${displayMoney.primaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`
     : displayMoney.unavailableCurrency
@@ -188,11 +200,14 @@ export function AccountDetail({
       <PageChrome
         pageId="accounts"
         leading={
-          <Button ref={backTrigger} type="button" variant="ghost" size="icon" className="-ml-2 shrink-0" aria-label={t("accounts.backToList")} title={t("accounts.backToList")} onClick={() => { if (!hasUnresolvedSheetConfirmation()) onBack(); }}>
-            <ArrowLeft className="size-4" aria-hidden="true" />
-          </Button>
+          <nav className="flex shrink-0 items-center gap-2" aria-label={t("accounts.backToList")}>
+            <Button ref={backTrigger} type="button" variant="ghost" size="sm" className="-ml-2 shrink-0" aria-label={t("accounts.backToList")} title={t("accounts.backToList")} onClick={() => { if (!hasUnresolvedSheetConfirmation()) onBack(); }}>
+              {t("nav.accounts")}
+            </Button>
+            <span aria-hidden="true" className="text-muted-foreground">/</span>
+          </nav>
         }
-        title={<span className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-6 shrink-0 text-primary" />{record.account.name}</span>}
+        title={<span aria-current="page" className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-6 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
             <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />

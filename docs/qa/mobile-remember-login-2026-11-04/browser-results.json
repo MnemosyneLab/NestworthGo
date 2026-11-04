@@ -14,7 +14,8 @@
     "pending recovery never confirms automatically",
     "port isolation",
     "logout clears credential",
-    "storage-denied memory fallback"
+    "storage-denied memory fallback",
+    "remembered browser reopen retains holding/account/list returns"
   ],
   "tokenExchangesBeforeLogout": 1,
   "automaticConfirmations": 0,

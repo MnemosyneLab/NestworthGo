@@ -1,6 +1,7 @@
 # Remembered mobile login acceptance — 2026-11-04
 
-Source: `fix/mobile-remember-login`, based on main `1f23e0f`. This report and
+Source: `fix/mobile-remember-login`, initially based on main `1f23e0f`, now
+integrating main `85435e919ef038fe308b081319fd914002c42094` (#204 and #208). This report and
 artifacts accompany the implemented source in the same PR. All data, accounts,
 tokens and profiles used here were disposable synthetic fixtures.
 
@@ -41,8 +42,8 @@ tokens and profiles used here were disposable synthetic fixtures.
 | Final Linux native-container `go test ./...`, `go vet ./...`, `go build ./cmd/nestworth` | Passed, including GTK/WebKit native compilation |
 | `go test -race ./internal/mobileapi` | Passed; affected lifecycle/crash/concurrency paths were rerun after the final registry binding change |
 | Frontend ESLint and `tsc --noEmit` | Passed |
-| Full Vitest | 165 files, 1739 tests passed |
-| Final mobile Vitest subset | 7 files, 62 tests passed |
+| Full Vitest | 169 files, 1770 tests passed |
+| Final mobile/navigation/assistant integration subset | 12 files, 150 tests passed |
 | Production Vite build | Passed; existing large-chunk advisory remains |
 | Wails v3.1.0 binding generation | Passed in the Linux native container; generated files are not committed |
 | Skill/tool-name consistency and fast tooling | Passed; 97 tooling tests |
@@ -69,7 +70,7 @@ identities and receipts.
 
 ## Browser evidence
 
-Linux Chromium at 390 × 844 passed the ten assertions in
+Linux Chromium at 390 × 844 passed the eleven assertions in
 [browser-results.json](browser-results.json): explicit opt-in, credential shape,
 reload, tab close/reopen, browser-process close/reopen using a persistent profile,
 503 on initial API validation followed by explicit Reconnect, no automatic
@@ -130,3 +131,34 @@ Final local full native Go test/vet/build, frontend full test/lint/typecheck/bui
 mobile regressions and focused admission/revocation race checks passed after
 these changes. The original PR-head native Mac and Eino CI runs both passed;
 the follow-up head's exact CI results are reported in the delivery message.
+
+## Main integration and return navigation
+
+Main `85435e919ef038fe308b081319fd914002c42094` merged automatically without text
+conflicts. The integration retains #208's account -> holding -> source account ->
+account-list returns and #204's closed page-guide gates. The remembered-login
+refresh/remount regression now exercises that complete return path with one
+token exchange and zero confirmations; the three-language navigation tests remain.
+
+A separate regression failed on the automatic merge: after `GET /session`
+observed a new server incarnation, the new guide provider's React key remounted
+the entire financial subtree and discarded an existing reviewed draft. Only the
+guide component now also resets on incarnation changes; the provider resets its
+subtree only for a different device and already revokes/replaces its host on
+principal-property changes. The regression checks
+that the exact amount input and Confirm button stay mounted, the amount and
+original preview remain, the guide UI is recreated and disabled by the active
+financial flow, and no new preview/confirmation is dispatched. No backend
+plan, CSRF, preview or permission is reconstructed by this UI retention.
+
+Wails bindings were regenerated for the newly integrated assistant service;
+generated output remains uncommitted. Initial desktop tests before generation
+failed on that missing generated import and were rerun after generation.
+
+On the integrated source, the final local Go test/vet/native build and frontend
+ESLint/typecheck/production build passed. Full Vitest passed 169 files / 1770
+tests, and the targeted mobile/navigation/assistant/App subset passed 12 files /
+150 tests. Chromium passed eleven checks, including restored-session holding ->
+source account -> list returns, with one token exchange and zero automatic
+confirmations. The earlier `7d93c71` Mac and Eino runs both passed; the merge
+head's new run links/status are reported separately with its exact SHA.

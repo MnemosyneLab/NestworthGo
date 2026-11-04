@@ -10,6 +10,7 @@ import {
   marketHealthZhCN,
   marketHealthZhTW,
 } from "@/i18n/marketHealth";
+import { assistantEn, assistantZhCN, assistantZhTW } from "@/i18n/assistant";
 import { deepMerge } from "@/i18n/deepMerge";
 
 export async function loadMobileTranslation(language: string) {
@@ -25,7 +26,7 @@ export async function loadMobileTranslation(language: string) {
       : language === "zh-TW"
         ? marketHealthZhTW
         : marketHealthEn;
-  return deepMerge(resource.default, {
+  return deepMerge(deepMerge(resource.default, language === "zh-CN" ? assistantZhCN : language === "zh-TW" ? assistantZhTW : assistantEn), {
     dataHealth: additions.dataHealth,
     marketData: additions.marketData,
   });

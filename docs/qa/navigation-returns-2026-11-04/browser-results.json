@@ -1,0 +1,40 @@
+{
+  "fixture": "Same-page navigation synthetic QA / 61 accounts / 40 holdings",
+  "sandbox": "disabled explicitly",
+  "cases": [
+    {
+      "name": "empty history has disabled traversal",
+      "passed": true
+    },
+    {
+      "name": "list/detail breadcrumb and Back/Forward retain filter, real scroll and focus fallback",
+      "passed": true
+    },
+    {
+      "name": "Recent opens an object as a new visit with Back to selection source",
+      "passed": true
+    },
+    {
+      "name": "history entered from Settings targets current Overview and restores its frozen capture without a service re-read",
+      "passed": true
+    },
+    {
+      "name": "zh-CN: 640px breadcrumb, destination labels and keyboard Recent without overflow",
+      "passed": true
+    },
+    {
+      "name": "zh-TW: 640px breadcrumb, destination labels and keyboard Recent without overflow",
+      "passed": true
+    },
+    {
+      "name": "en: 640px breadcrumb, destination labels and keyboard Recent without overflow",
+      "passed": true
+    },
+    {
+      "name": "reload clears history",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": []
+}

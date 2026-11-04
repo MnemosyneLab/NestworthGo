@@ -34,6 +34,7 @@ import (
 	wailsanalysis "github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	wailsanalytics "github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	wailsapp "github.com/waltwang/nestworth-go/internal/wailsapi/app"
+	wailsassistant "github.com/waltwang/nestworth-go/internal/wailsapi/assistant"
 	wailscatalog "github.com/waltwang/nestworth-go/internal/wailsapi/catalog"
 	wailsbackup "github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup"
 	wailsdata "github.com/waltwang/nestworth-go/internal/wailsapi/data"
@@ -356,6 +357,7 @@ func services(service *nestworthapp.Service, store *settings.Store, recovery *wa
 	}
 	return append(registered,
 		application.NewService(wailshousehold.NewService(service)),
+		application.NewService(wailsassistant.NewService()),
 		application.NewService(wailsdirectory.NewService(service)),
 		application.NewService(wailsaccount.NewService(service)),
 		application.NewService(wailsportfolio.NewService(service)),

@@ -1,0 +1,12 @@
+{
+  "sourceSha": "851e01a0f526c5ddd0124568cea09bdc2976a46e",
+  "previousHead": "c5bf5eb724b5d39e05e269bb4454b1d57edd804b",
+  "files": {
+    "frontend/src/mobile/MobileApp.tsx": "f4cd67feb458e936d868f2c5336e5489c5d193ff3d1d35dad02c8bd44c596de5",
+    "frontend/src/mobile/MobileApp.test.tsx": "94169e7983ead15783a669dea08450396dd547d36a4a8604608a6ffba7c5f52b",
+    "frontend/src/features/accounts/AccountDetail.tsx": "5b1c3657f62b3629e1237e8fdee74864589505ab351587e14ad2eca4a67dc969",
+    "frontend/src/features/assistant/publications.ts": "80ccd65e5a06168a9bb23776dc116484a37edf05858191464bed007644b5a5c7",
+    "frontend/src/features/assistant/pageHost.test.ts": "3aedd4c1856e847d71cb60ba80cbfec330d5bca019c36efe1a89c91ad01c4eae",
+    "internal/mobileapi/assistant_test.go": "02d76e982e7b329e523b3ba372de0670f50aa7b98d9f61a76777e32377415c1a"
+  }
+}

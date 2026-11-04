@@ -1277,7 +1277,7 @@
     "collapse": "收起{{name}}",
     "accountContext": "所属账户：{{name}}",
     "title": "资产回溯",
-    "exit": "返回当前",
+    "exit": "查看当前总览",
     "date": "历史日期",
     "compare": "比较对象",
     "compareDate": "比较日期",
@@ -2277,6 +2277,8 @@
     "generateToken": "随机生成"
   },
   "navigationHistory": {
+    "backTo": "返回{{destination}}",
+    "forwardTo": "前往{{destination}}",
     "retainedSessions": "保留的任务会话",
     "workspace": "工作区 {{number}}",
     "search": "搜索：{{query}}",
