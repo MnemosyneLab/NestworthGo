@@ -461,11 +461,11 @@ describe("App shell smoke test", () => {
     expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-one"');
     await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
     expect(screen.getByTestId("instrument-detail-page")).toHaveTextContent('"section":"data"');
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Investment assets" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Investment assets(?: ·|$)/ }));
     expect(screen.getByRole("tab", { name: "All instruments" })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(await screen.findByRole("button", { name: "Open Fund Two details" }));
     expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-two"');
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Investment assets" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Investment assets(?: ·|$)/ }));
     expect(screen.getByRole("tab", { name: "All instruments" })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -483,7 +483,7 @@ describe("App shell smoke test", () => {
     await userEvent.type(search, "One");
     await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
     expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-one"');
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Data maintenance(?: ·|$)/ }));
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
     expect(screen.getByRole("button", { name: "Open Fund One details" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Fund Two details" })).not.toBeInTheDocument();
@@ -509,7 +509,7 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Instruments" }));
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
     await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Data maintenance(?: ·|$)/ }));
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
     expect(screen.queryByRole("button", { name: "Open Fund Two details" })).not.toBeInTheDocument();
   });
@@ -526,9 +526,9 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("button", { name: "Set synthetic quote period" }));
     await userEvent.click(screen.getByRole("button", { name: "Related transactions" }));
     expect(await screen.findByRole("region", { name: "Synthetic transaction history" })).toHaveTextContent('"from":"2026-07-01","to":"2026-07-31"');
-    await userEvent.click(screen.getByRole("button", { name: `← Back to ${i18n.t("instrumentDetail.title")}` }));
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(`^Go back to ${i18n.t("instrumentDetail.title")}`) }));
     expect(screen.getByTestId("instrument-detail-page")).toHaveTextContent('"from":"2026-07-01"');
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Data maintenance(?: ·|$)/ }));
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
   });
 
@@ -555,10 +555,10 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open Fund One details" }));
     await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
     await userEvent.click(await screen.findByRole("button", { name: "Close" }));
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Instrument details(?: ·|$)/ }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => expect(document.activeElement).toBe(document.getElementById("instrument-detail-maintain")));
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Data maintenance(?: ·|$)/ }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Open Fund One details" }));
@@ -566,12 +566,12 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("button", { name: "Maintain data" }));
     expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Fund One");
     await userEvent.click(await screen.findByRole("button", { name: "Close" }));
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Instrument details(?: ·|$)/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Data maintenance(?: ·|$)/ }));
 
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("");
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Instrument details" }));
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Instrument details(?: ·|$)/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Data maintenance(?: ·|$)/ }));
     expect(screen.getByLabelText(i18n.t("marketData.searchInstruments"))).toHaveValue("One");
     await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Open Fund One details"));
 
@@ -593,7 +593,7 @@ describe("App shell smoke test", () => {
     expect((await screen.findAllByTestId("data-health-indicator")).find(element => !element.closest("[hidden]"))!).toBeInTheDocument();
     await userEvent.click(screen.getAllByTestId("data-health-indicator").find(element => !element.closest("[hidden]"))!);
     expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Data maintenance" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Data maintenance(?: ·|$)/ }));
     expect((await screen.findAllByTestId("data-health-indicator")).find(element => !element.closest("[hidden]"))!).toBeInTheDocument();
   });
 
@@ -677,9 +677,9 @@ it("returns from account analysis with the source archive filter and scroll posi
   const main = document.getElementById("main-content")!;
   main.scrollTop = 170;
   await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
-  expect(await screen.findByRole("button", { name: "← Back to Accounts" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: /^Go back to Accounts(?: ·|$)/ })).toBeVisible();
   expect(screen.getByTestId("account-detail")).not.toBeVisible();
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Accounts(?: ·|$)/ }));
   await waitFor(() => expect(main.scrollTop).toBe(170));
   expect(screen.getByTestId("account-detail")).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
@@ -701,13 +701,13 @@ it("opens Wealth history from Overview, removes current queries and exits back",
   await waitFor(() => expect(queryClient.getQueryCache().find({ queryKey: ["overview"] })?.getObserversCount() ?? 0).toBe(0));
   await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
   expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
-  await waitFor(() => expect(document.getElementById("open-historical-overview")).toHaveFocus());
-  // Sidebar entries now also retain their own source and restore its focus.
+  await waitFor(() => expect(document.getElementById("main-content")).toHaveFocus());
+  // The explicit current-overview action focuses the stable main content while reads reload.
   await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.historicalOverview") }));
   await screen.findByRole("button", { name: i18n.t("historicalOverview.date") });
   await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
   expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
-  await waitFor(() => expect(within(nav).getByRole("button", { name: i18n.t("nav.historicalOverview") })).toHaveFocus());
+  await waitFor(() => expect(document.getElementById("main-content")).toHaveFocus());
 });
 
 
@@ -720,7 +720,7 @@ it("retains the upcoming filter and restores its trigger after Back", async () =
   await userEvent.click(filter);
   const health = await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) });
   await userEvent.click(health);
-  await userEvent.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+  await userEvent.click(await screen.findByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
   await waitFor(() => expect(filter).toHaveAttribute("aria-pressed", "true"));
   await waitFor(() => expect(health).toHaveFocus());
   expect(screen.queryByRole("button", { name: "Verify receipt" })).not.toBeInTheDocument();
@@ -746,19 +746,19 @@ it("returns through Upcoming actions to open another product and does not reopen
   await screen.findByRole("dialog", { name: "product-a" });
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
   expect(screen.queryByRole("button", { name: "View all 2 actions" })).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Overview(?: ·|$)/ }));
   await userEvent.click(await screen.findByRole("button", { name: "View all 2 actions" }));
   await userEvent.click(await screen.findByRole("button", { name: "View terms · Product B" }));
   await screen.findByRole("dialog", { name: "product-b" });
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Tasks & checks" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Overview(?: ·|$)/ }));
   await screen.findByTestId("overview-net-worth");
   // Flush retained-page reads before checking that no detail sheet reopens.
   await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "← Back to Overview" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Go back to Overview(?: ·|$)/ })).not.toBeInTheDocument();
 });
 
 
@@ -775,7 +775,7 @@ it("preserves same-page Data Health gap focus history", async () => {
   expect(rows).toHaveLength(2);
   await userEvent.click(within(rows[0]).getByRole("button", { name: "View gap" }));
   await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(1));
-  await userEvent.click(await screen.findByRole("button", { name: "← Back to Data Health" }));
+  await userEvent.click(await screen.findByRole("button", { name: /^Go back to Data Health(?: ·|$)/ }));
   await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(2));
 });
 
@@ -829,7 +829,7 @@ it.each([
   expect(history).toHaveTextContent('"from":"2026-09-30"'); expect(history).toHaveTextContent(trendEnabled ? '"to":"2026-10-30"' : '"to":"2026-10-11"');
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   vi.setSystemTime(new Date(after as string));
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Wealth history" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Wealth history(?: ·|$)/ }));
   await waitFor(() => expect(screen.getByRole("dialog")).toHaveTextContent("Synthetic retained bank"));
   expect(within(screen.getByRole("group", { name: "View mode", hidden: true })).getByRole("button", { name: trendEnabled ? "Compare dates" : "Date vs. now", hidden: true })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByLabelText(i18n.t("historicalOverview.baselineDate"))).toHaveTextContent("2026-09-30");
@@ -866,13 +866,13 @@ it("blocks top-level and object navigation while a sheet confirmation is unresol
     expect(screen.getByTestId("overview-net-worth")).toBeVisible();
     await userEvent.click(document.getElementById("open-historical-overview")!);
     expect(screen.getByTestId("overview-net-worth")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "← Back to Overview" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Go back to Overview(?: ·|$)/ })).not.toBeInTheDocument();
   } finally { resolveSheetConfirmation(owner); }
   await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
   await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
   await screen.findByTestId("account-detail");
   await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
-  const back = await screen.findByRole("button", { name: "← Back to Accounts" });
+  const back = await screen.findByRole("button", { name: /^Go back to Accounts(?: ·|$)/ });
   registerSheetConfirmation(owner);
   try {
     await userEvent.click(back);
@@ -1018,7 +1018,7 @@ it("preserves filtered page two through the real instrument route and focuses bo
     return request.filter?.status === "unignored" && !request.cursor;
   })).toBe(true);
   const afterHidden = reviewAlerts.mock.calls.length;
-  await user.click(screen.getByRole("button", { name: /Back to/ }));
+  await user.click(screen.getByRole("button", { name: /^Go back to / }));
   expect(await screen.findByRole("textbox", { name: i18n.t("reviewV2.search") })).toHaveValue("Synthetic");
   expect(screen.getByRole("combobox", { name: i18n.t("reviewV2.typeFilter") })).toHaveValue("mutual_fund");
   expect(screen.getByRole("button", { name: i18n.t("reviewV2.status.pending") })).toHaveAttribute("aria-pressed", "true");
@@ -1030,7 +1030,7 @@ it("preserves filtered page two through the real instrument route and focuses bo
   expect(reviewHeading?.closest("[hidden], [inert], [aria-hidden='true']")).toBeNull();
   await waitFor(() => expect(reviewAlerts.mock.calls.length).toBeGreaterThan(afterHidden));
 
-  await user.click(screen.getByRole("button", { name: /Back to/ }));
+  await user.click(screen.getByRole("button", { name: /^Go back to / }));
   expect(await screen.findByTestId("overview-net-worth")).toBeVisible();
   await waitFor(() => expect(overviewReviewTrigger).toHaveFocus());
   expect(overviewReviewTrigger).toBeVisible();
@@ -1083,7 +1083,7 @@ describe("reconciliation navigation boundaries", () => {
     await user.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
     await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
     await vi.dynamicImportSettled();
-    await user.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+    await user.click(await screen.findByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
     await user.click(screen.getByRole("tab", { name: /Reconciliation/ }));
     expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
 
@@ -1131,12 +1131,12 @@ describe("reconciliation navigation boundaries", () => {
     await user.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
     await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
     await vi.dynamicImportSettled();
-    await user.click(await screen.findByRole("button", { name: "← Back to Tasks & checks" }));
+    await user.click(await screen.findByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
     await user.click(screen.getByRole("tab", { name: /Reconciliation/ }));
     expect(screen.getByRole("button", { name: "Back to session list" })).toBeVisible();
     expect(reconciliationGet).toHaveBeenCalledWith("open-checking");
 
-    await user.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+    await user.click(screen.getByRole("button", { name: /^Go back to Accounts(?: ·|$)/ }));
     expect(await screen.findByTestId("account-detail")).toBeVisible();
     await user.click(within(nav).getByRole("button", { name: /Tasks & checks/ }));
     expect(await screen.findByRole("checkbox", { name: "Savings · USD" })).toBeChecked();
@@ -1224,16 +1224,16 @@ it.each([false, true])("restores the original reconciliation entry after a neste
   const owner = {};
   registerSheetConfirmation(owner);
   try {
-    await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Go back to Accounts(?: ·|$)/ }));
     expect(screen.getByText(/Synthetic session session-b/)).toBeVisible();
   } finally {
     resolveSheetConfirmation(owner);
   }
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Accounts(?: ·|$)/ }));
   // Forward retains the nested entry and its editable session while it is hidden.
   expect(screen.getByText(/Synthetic session session-b/)).not.toBeVisible();
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Data Health" }));
-  await userEvent.click(screen.getByRole("button", { name: "← Back to Tasks & checks" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Data Health(?: ·|$)/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
   await userEvent.click(screen.getByRole("tab", { name: /Reconciliation/ }));
   if (continueSession) {
     expect(await screen.findByText(/Synthetic session session-a/)).toBeVisible();
@@ -1267,21 +1267,21 @@ describe("global desktop navigation history", () => {
 
   it("traverses A → B → C → Back → Forward and truncates the forward branch on Back → D", async () => {
     const { user, select, controls } = await ready();
-    expect(controls().getByRole("button", { name: "Go back" })).toBeDisabled();
-    expect(controls().getByRole("button", { name: "Go forward" })).toBeDisabled();
+    expect(controls().getByRole("button", { name: /^Go back/ })).toBeDisabled();
+    expect(controls().getByRole("button", { name: /^Go forward/ })).toBeDisabled();
     expect(controls().getByRole("button", { name: "Recent pages" })).toBeDisabled();
     await select("Accounts");
     await screen.findByTestId("accounts-table");
     await select("Settings");
     await screen.findByRole("form", { name: i18n.t("settings.formLabel") });
-    await user.click(controls().getByRole("button", { name: "Go back" }));
+    await user.click(controls().getByRole("button", { name: /^Go back/ }));
     expect(screen.getByTestId("accounts-table")).toBeVisible();
-    await user.click(controls().getByRole("button", { name: "Go forward" }));
+    await user.click(controls().getByRole("button", { name: /^Go forward/ }));
     expect(await screen.findByRole("form", { name: i18n.t("settings.formLabel") })).toBeVisible();
-    await user.click(controls().getByRole("button", { name: "Go back" }));
+    await user.click(controls().getByRole("button", { name: /^Go back/ }));
     await select(i18n.t("nav.portfolio"));
     await screen.findByRole("tab", { name: i18n.t("investmentAssets.holdings") });
-    expect(controls().getByRole("button", { name: "Go forward" })).toBeDisabled();
+    expect(controls().getByRole("button", { name: /^Go forward/ })).toBeDisabled();
   });
 
   it("uses Recent as new navigation, deduplicates destinations and returns focus on Escape", async () => {
@@ -1299,7 +1299,7 @@ describe("global desktop navigation history", () => {
     await user.keyboard("{ArrowDown}");
     await user.click(await screen.findByRole("menuitem", { name: "Accounts" }));
     expect(screen.getByTestId("accounts-table")).toBeVisible();
-    await user.click(controls().getByRole("button", { name: "Go back" }));
+    await user.click(controls().getByRole("button", { name: /^Go back/ }));
     expect(await screen.findByRole("form", { name: i18n.t("settings.formLabel") })).toBeVisible();
   });
 
@@ -1309,17 +1309,17 @@ describe("global desktop navigation history", () => {
     await screen.findByTestId("accounts-table");
     await select("Settings");
     await screen.findByRole("form", { name: i18n.t("settings.formLabel") });
-    await user.click(controls().getByRole("button", { name: "Go back" }));
+    await user.click(controls().getByRole("button", { name: /^Go back/ }));
     const owner = {};
     registerSheetConfirmation(owner);
     try {
-      await user.click(controls().getByRole("button", { name: "Go back" }));
-      await user.click(controls().getByRole("button", { name: "Go forward" }));
+      await user.click(controls().getByRole("button", { name: /^Go back/ }));
+      await user.click(controls().getByRole("button", { name: /^Go forward/ }));
       await user.click(controls().getByRole("button", { name: "Recent pages" }));
       await user.click(await screen.findByRole("menuitem", { name: "Settings" }));
       expect(screen.getByTestId("accounts-table")).toBeVisible();
     } finally { resolveSheetConfirmation(owner); }
-    await user.click(controls().getByRole("button", { name: "Go forward" }));
+    await user.click(controls().getByRole("button", { name: /^Go forward/ }));
     expect(await screen.findByRole("form", { name: i18n.t("settings.formLabel") })).toBeVisible();
   });
 });
@@ -1335,14 +1335,14 @@ it("keeps historical captures fixed through Back and Forward and gives new visit
   await screen.findByRole("button", { name: i18n.t("historicalOverview.date") });
   await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(1));
   await user.click(within(nav).getByRole("button", { name: "Accounts" }));
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   expect(historicalRead).toHaveBeenCalledTimes(1);
-  await user.click(controls.getByRole("button", { name: "Go forward" }));
+  await user.click(controls.getByRole("button", { name: /^Go forward/ }));
   await user.click(historical);
   await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(2));
   expect(screen.getAllByRole("heading", { name: i18n.t("historicalOverview.title") })).toHaveLength(1);
-  await user.click(controls.getByRole("button", { name: "Go back" }));
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   expect(historicalRead).toHaveBeenCalledTimes(2);
 });
 
@@ -1357,14 +1357,14 @@ it("revisits the exact account and handles deletion without selecting a differen
   await user.click(within(nav).getByRole("button", { name: "Accounts" }));
   await user.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
   await screen.findByTestId("account-detail");
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   expect(screen.getByTestId("accounts-table")).toBeVisible();
-  await user.click(controls.getByRole("button", { name: "Go forward" }));
+  await user.click(controls.getByRole("button", { name: /^Go forward/ }));
   expect(screen.getByRole("heading", { name: "Checking" })).toBeVisible();
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   listAccounts.mockResolvedValue([]);
   await act(async () => { await queryClient.invalidateQueries({ queryKey: ["accounts"] }); });
-  await user.click(controls.getByRole("button", { name: "Go forward" }));
+  await user.click(controls.getByRole("button", { name: /^Go forward/ }));
   expect(await screen.findByText(i18n.t("connections.objectUnavailable"))).toBeVisible();
   expect(screen.queryByTestId("account-detail")).not.toBeInTheDocument();
 });
@@ -1376,12 +1376,12 @@ it("clears all navigation when the household identity changes", async () => {
   const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
   await user.click(within(nav).getByRole("button", { name: "Accounts" }));
   const controls = () => within(screen.getByRole("group", { name: "Navigation history" }));
-  expect(controls().getByRole("button", { name: "Go back" })).toBeEnabled();
+  expect(controls().getByRole("button", { name: /^Go back/ })).toBeEnabled();
   act(() => {
     queryClient.setQueryData(queryKeys.household.bootstrap, { household: { id: "synthetic-new-household", name: "Synthetic replacement", baseCurrency: "USD" }, members: [], institutions: [], groups: [] });
   });
-  await waitFor(() => expect(controls().getByRole("button", { name: "Go back" })).toBeDisabled());
-  expect(controls().getByRole("button", { name: "Go forward" })).toBeDisabled();
+  await waitFor(() => expect(controls().getByRole("button", { name: /^Go back/ })).toBeDisabled());
+  expect(controls().getByRole("button", { name: /^Go forward/ })).toBeDisabled();
   expect(controls().getByRole("button", { name: "Recent pages" })).toBeDisabled();
 });
 
@@ -1400,9 +1400,9 @@ it("executes repeated explicit create intents once each and never replays them o
     expect(await screen.findByRole("dialog")).toBeVisible();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await user.click(controls.getByRole("button", { name: "Go back" }));
+    await user.click(controls.getByRole("button", { name: /^Go back/ }));
   }
-  await user.click(controls.getByRole("button", { name: "Go forward" }));
+  await user.click(controls.getByRole("button", { name: /^Go forward/ }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(within(nav).getByRole("button", { name: "Accounts" })).toHaveAttribute("aria-current", "page");
 });
@@ -1428,7 +1428,7 @@ it("keeps both same-account reconciliation drafts reachable after forward trunca
     await user.type(screen.getByLabelText("Closing explanation"), draft);
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.getByRole("button", { name: "Finish session" })).toHaveFocus());
-    await user.click(controls.getByRole("button", { name: "Go back" }));
+    await user.click(controls.getByRole("button", { name: /^Go back/ }));
   }
   await user.click(within(nav).getByRole("button", { name: "Overview" }));
   for (const [workspace, draft] of [[1, "Synthetic draft A"], [2, "Synthetic draft B"]] as const) {
@@ -1480,11 +1480,11 @@ it("forks a Recent historical visit without changing the original date or frozen
   await user.click(await screen.findByRole("menuitem", { name: `Wealth history · ${dateA}` }));
   expect(screen.getByRole("button", { name: "Historical date" })).toHaveTextContent(dateA);
   expect(historicalRead).toHaveBeenCalledTimes(2);
-  await user.click(controls.getByRole("button", { name: "Go back" }));
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   expect(screen.getByRole("button", { name: "Historical date" })).toHaveTextContent(dateB);
-  await user.click(controls.getByRole("button", { name: "Go back" }));
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   expect(screen.getByRole("button", { name: "Historical date" })).toHaveTextContent(dateA);
   expect(historicalRead).toHaveBeenCalledTimes(2);
 }, 10_000);
@@ -1501,7 +1501,7 @@ it("lands on Accounts after first onboarding without losing the completion callb
   await user.click(within(form).getByRole("button", { name: /get started/i }));
   const nav = await screen.findByRole("navigation", { name: i18n.t("ui.navigation.main") });
   await waitFor(() => expect(within(nav).getByRole("button", { name: "Accounts" })).toHaveAttribute("aria-current", "page"));
-  expect(screen.getByRole("button", { name: "Go back" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^Go back/ })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Recent pages" })).toBeDisabled();
 });
 
@@ -1521,12 +1521,12 @@ it("refreshes a Recent historical fork without changing the source visit's froze
   await user.click(await screen.findByRole("menuitem", { name: `Wealth history · ${date}` }));
   await user.click(screen.getByRole("button", { name: "Refresh date" }));
   await screen.findAllByTitle("2026-11-01T12:00:02Z");
-  await user.click(controls.getByRole("button", { name: "Go back" }));
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   expect(screen.getAllByTitle("2026-11-01T12:00:01Z").some(node => !node.closest("[hidden]"))).toBe(true);
   expect(historicalRead).toHaveBeenCalledTimes(2);
-  await user.click(controls.getByRole("button", { name: "Go forward" }));
-  await user.click(controls.getByRole("button", { name: "Go forward" }));
+  await user.click(controls.getByRole("button", { name: /^Go forward/ }));
+  await user.click(controls.getByRole("button", { name: /^Go forward/ }));
   expect(screen.getAllByTitle("2026-11-01T12:00:02Z").some(node => !node.closest("[hidden]"))).toBe(true);
   expect(historicalRead).toHaveBeenCalledTimes(2);
 }, 10_000);
@@ -1542,7 +1542,7 @@ it("replaces an edited visit's obsolete Recent date after Back instead of advert
   const dateA = (await screen.findByRole("button", { name: "Historical date" })).textContent!;
   await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(1));
   await user.click(within(nav).getByRole("button", { name: "Accounts" }));
-  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: /^Go back/ }));
   await user.click(screen.getByRole("button", { name: i18n.t("historicalOverview.previous") }));
   await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(2));
   const dateB = screen.getByRole("button", { name: "Historical date" }).textContent!;
@@ -1575,7 +1575,7 @@ it("restores source scroll when the external analysis store forces an intermedia
     flushSync(() => original(state));
   });
   try {
-    await user.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+    await user.click(screen.getByRole("button", { name: /^Go back to Accounts(?: ·|$)/ }));
     await waitFor(() => expect(main.scrollTop).toBe(170));
     expect(screen.getByTestId("account-detail")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Back to accounts" }));
@@ -1624,7 +1624,7 @@ it.each(["back", "recent"] as const)("restores same-page %s scroll only after th
     flushSync(() => original(state));
   });
   try {
-    if (route === "back") await user.click(controls.getByRole("button", { name: "Go back" }));
+    if (route === "back") await user.click(controls.getByRole("button", { name: /^Go back/ }));
     else {
       await user.click(controls.getByRole("button", { name: "Recent pages" }));
       await user.click(await screen.findByRole("menuitem", { name: "Accounts · Long synthetic account" }));
@@ -1634,4 +1634,60 @@ it.each(["back", "recent"] as const)("restores same-page %s scroll only after th
     if (route === "back") expect(screen.getByTestId("accounts-table")).toBeVisible();
     else expect(screen.getByRole("heading", { name: "Long synthetic account" })).toBeVisible();
   } finally { setState.mockRestore(); }
+});
+
+
+it.each(["en", "zh-CN", "zh-TW"])("provides one global history return and a distinct account-list breadcrumb in %s", async language => {
+  settingsLoad.mockResolvedValue({ ...defaultSettings, language });
+  listAccounts.mockResolvedValue([checkingAccount]);
+  accountValuations.mockResolvedValue([checkingValuation]);
+  portfolio.mockResolvedValue({ ...emptyPortfolio, accounts: [checkingValuation] });
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const user = userEvent.setup();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await user.click(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") }));
+  await user.click(await screen.findByRole("tab", { name: i18n.t("investmentAssets.allocation") }));
+  await user.click(await screen.findByRole("button", { name: "Checking" }));
+  await screen.findByTestId("account-detail");
+  const controls = within(screen.getByRole("group", { name: i18n.t("navigationHistory.label") }));
+  const backName = i18n.t("navigationHistory.backTo", { destination: `${i18n.t("nav.portfolio")} · ${i18n.t("investmentAssets.allocation")}` });
+  expect(controls.getByRole("button", { name: backName })).toHaveAttribute("title", backName);
+  expect(within(document.getElementById("main-content")!).queryByRole("button", { name: backName })).not.toBeInTheDocument();
+  const breadcrumb = screen.getByRole("button", { name: i18n.t("accounts.backToList") });
+  expect(breadcrumb).toHaveTextContent(i18n.t("nav.accounts"));
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await user.click(breadcrumb);
+    expect(screen.getByTestId("account-detail")).toBeVisible();
+  } finally { resolveSheetConfirmation(owner); }
+  await user.click(breadcrumb);
+  expect(await screen.findByTestId("accounts-table")).toBeVisible();
+  await user.click(controls.getByRole("button", { name: backName }));
+  expect(await screen.findByRole("tab", { name: i18n.t("investmentAssets.allocation") })).toHaveAttribute("aria-selected", "true");
+});
+
+it.each(["settings", "return-analysis"] as const)("opens current overview from history entered via %s and restores the frozen visit on Back", async source => {
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const user = userEvent.setup();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await user.click(within(nav).getByRole("button", { name: source === "settings" ? "Settings" : "Return analysis" }));
+  await vi.dynamicImportSettled();
+  await user.click(within(nav).getByRole("button", { name: "Wealth history" }));
+  const exit = await screen.findByRole("button", { name: "View current overview" });
+  await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(1));
+  const reads = historicalRead.mock.calls.length;
+  const owner = {};
+  registerSheetConfirmation(owner);
+  try {
+    await user.click(exit);
+    expect(screen.getByRole("button", { name: "View current overview" })).toBeVisible();
+  } finally { resolveSheetConfirmation(owner); }
+  await user.click(exit);
+  expect(await screen.findByTestId("overview-net-worth")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: /^Go back to Wealth history/ }));
+  expect(await screen.findByRole("button", { name: "View current overview" })).toBeVisible();
+  expect(historicalRead).toHaveBeenCalledTimes(reads);
 });

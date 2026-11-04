@@ -256,6 +256,7 @@ export function MobileApp() {
   const [detail, setDetail] = useState<{
     kind: "accounts" | "holdings" | "activities";
     id: string;
+    accountSource?: string;
   } | null>(null);
   const [record, setRecord] = useState<string | null>(null);
   const [initialKind, setInitialKind] = useState("expense");
@@ -631,7 +632,7 @@ export function MobileApp() {
               <Button
                 variant="ghost"
                 className="mobile-back"
-                onClick={() => setDetail(null)}
+                onClick={() => setDetail(detail.accountSource ? { kind: "accounts", id: detail.accountSource } : null)}
               >
                 <ChevronLeft aria-hidden />
                 {t("mobile.back")}
@@ -639,7 +640,7 @@ export function MobileApp() {
               <Detail
                 kind={detail.kind}
                 id={detail.id}
-                onHolding={(id) => setDetail({ kind: "holdings", id })}
+                onHolding={(id) => setDetail({ kind: "holdings", id, accountSource: detail.kind === "accounts" ? detail.id : detail.accountSource })}
                 onRecord={() => {
                   setInitialKind("expense");
                   setRecord(detail.id);

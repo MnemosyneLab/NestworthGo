@@ -288,6 +288,30 @@ async function fillRecord(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText("Review account effects before confirming.");
 }
 
+it.each(["en", "zh-CN", "zh-TW"])("returns from a holding to its source account before the list in %s", async language => {
+  await i18n.changeLanguage(language);
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("SYNTHETIC MOBILE TEST");
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.accounts") }));
+  await user.click(await screen.findByRole("button", { name: /Synthetic bank/ }));
+  await user.click(await screen.findByRole("button", { name: /Synthetic fund/ }));
+  await screen.findByText(i18n.t("mobile.cost"));
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.back") }));
+  expect(await screen.findByRole("heading", { name: "Synthetic bank" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /Synthetic fund/ })).toBeVisible();
+  await user.click(within(screen.getByRole("heading", { name: "Synthetic bank" }).closest("section")!).getByRole("button", { name: i18n.t("mobile.quickRecord") }));
+  await user.type(await screen.findByRole("textbox", { name: i18n.t("mobile.amount") }), "1.23");
+  expect(screen.queryByRole("button", { name: i18n.t("mobile.back") })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: i18n.t("common.cancel") }));
+  await screen.findByRole("alertdialog");
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.discard") }));
+  expect(await screen.findByRole("heading", { name: "Synthetic bank" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.back") }));
+  expect(await screen.findByRole("button", { name: /Synthetic bank/ })).toBeVisible();
+  expect(screen.queryByRole("button", { name: i18n.t("mobile.back") })).not.toBeInTheDocument();
+});
+
 describe("mobile financial interruption flow", () => {
   it("shows a known holding cost from the tagged money DTO instead of a blank amount", async () => {
     const user = userEvent.setup();
