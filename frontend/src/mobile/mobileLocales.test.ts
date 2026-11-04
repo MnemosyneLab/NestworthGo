@@ -23,3 +23,10 @@ it.each(["en", "zh-CN", "zh-TW"])(
     );
   },
 );
+
+it.each(["en", "zh-CN", "zh-TW"])("includes the shared loading label even when absent from every other locale in %s", async language => {
+  const resource = await loadMobileTranslation(language);
+  expect(resource.common).toHaveProperty("loading");
+  expect(i18n.getResource(language, "translation", "common.loading")).toEqual(expect.any(String));
+  expect(i18n.t("common.loading", { lng: language })).not.toBe("common.loading");
+});

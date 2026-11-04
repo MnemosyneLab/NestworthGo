@@ -318,3 +318,35 @@ func TestMobileRevocationRejectsAQueuedCommitBeforePersistence(t *testing.T) {
 		t.Fatal("revoked queued commit entered persistence")
 	}
 }
+
+func TestLoginFailureSemanticsAndRateLimit(t *testing.T) {
+	f := fixture(t, Permissions{Read: true})
+	// The fixture has consumed one attempt; the existing five-attempt budget stays unchanged.
+	for attempt := 2; attempt <= 6; attempt++ {
+		response, raw := f.request(t, "POST", "/session", map[string]string{"token": "SYNTHETIC_WRONG_TOKEN"}, nil)
+		wantStatus, wantCode := 401, "invalid_token"
+		if attempt == 6 {
+			wantStatus, wantCode = 429, "rate_limited"
+		}
+		var body struct {
+			Error struct {
+				Code           string `json:"code"`
+				Field          string `json:"field"`
+				OperationState string `json:"operationState"`
+			} `json:"error"`
+		}
+		if err := jsoncodec.Unmarshal(raw, &body); err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != wantStatus || body.Error.Code != wantCode || body.Error.OperationState != "unknown" {
+			t.Fatalf("attempt %d: %d %s", attempt, response.StatusCode, raw)
+		}
+		if bytes.Contains(raw, []byte("SYNTHETIC_WRONG_TOKEN")) || bytes.Contains(raw, []byte(f.s.config.Token)) {
+			t.Fatal("credential leaked")
+		}
+	}
+	response, raw := f.request(t, "GET", "/session", nil, map[string]string{"Authorization": "Bearer synthetic-invalid-session"})
+	if response.StatusCode != 401 || !bytes.Contains(raw, []byte(`"code":"session_expired"`)) {
+		t.Fatalf("session semantics: %d %s", response.StatusCode, raw)
+	}
+}

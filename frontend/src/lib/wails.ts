@@ -31,6 +31,11 @@ function isWireError(value: unknown): value is WireError {
  * crashing the caller.
  */
 export function parseWailsError(error: unknown): WireError {
+  // Preserve the stable payload when a callService rejection is retained for
+  // later rendering (for example after the user changes language).
+  if (error && typeof error === "object" && "wireError" in error && isWireError(error.wireError)) {
+    return error.wireError;
+  }
   const raw = extractMessage(error);
   if (raw) {
     try {

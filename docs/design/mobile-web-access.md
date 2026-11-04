@@ -141,6 +141,12 @@ content type and the session's CSRF value. Cross-origin requests and preflights
 are refused. There is no CORS, trusted-forwarded-header or anonymous connection
 probe implementation.
 
+A refused shared-token login returns `401 invalid_token` (field `token`); an
+invalid or expired session grant returns `401 session_expired`. Rate admission
+returns `429 rate_limited`. The GUI localizes these transport codes separately
+from domain errors and uses known field labels only. These distinctions do not
+change authentication, admission budgets, or unknown-operation recovery.
+
 API responses use no-store. Static assets retain the same-origin CSP, no frames,
 objects, remote scripts or financial service worker. Hash-named JS/CSS are cached
 and gzip is supported. Existing bounds remain: 32KiB request bodies,

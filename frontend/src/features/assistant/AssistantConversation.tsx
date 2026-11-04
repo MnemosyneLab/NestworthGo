@@ -106,7 +106,7 @@ export function AssistantConversation({ surface, status, loading, disconnected, 
           <p className="text-sm">{t(`assistant.basis.${message.metric.basis}`)}</p>
           <p className="text-sm">{t(`assistant.metricState.${message.metric.status}`)}</p>
           <details className="text-sm">
-            <summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("assistant.evidence")}</summary>
+            <summary className={cn("min-h-11 cursor-pointer rounded py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", surface === "desktop" && "xl:min-h-0 xl:py-0")}>{t("assistant.evidence")}</summary>
             <dl className="mt-2 space-y-2 text-muted-foreground">
               <div><dt>{t("assistant.scope")}</dt><dd>{message.context.scope.label}</dd></div>
               <div><dt>{t("assistant.currency")}</dt><dd>{message.metric.unit || t("assistant.state.unavailable")}</dd></div>
@@ -137,7 +137,7 @@ export function AssistantConversation({ surface, status, loading, disconnected, 
     </div>
     <Sheet open={reviewOpen} onOpenChange={setReviewOpen}>
       <SheetContent className="space-y-4">
-        <SheetHeader><SheetTitle>{t("assistant.review")}</SheetTitle></SheetHeader>
+        <SheetHeader touchTarget={surface === "mobile"}><SheetTitle>{t("assistant.review")}</SheetTitle></SheetHeader>
         <Notice>{t("assistant.reviewUnavailable")}</Notice>
         <Button disabled>{t("assistant.confirmUnavailable")}</Button>
       </SheetContent>

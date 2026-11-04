@@ -33,6 +33,7 @@ it.each(["left", "right"] as const)("anchors a %s sheet to the magnified, panned
   expect(panel.parentElement).toHaveClass("fixed", "overflow-clip", "pointer-events-none");
   expect(panel).toHaveClass("absolute", `${side}-0`, "h-full", "w-full", "max-w-md", "overflow-y-auto", "pointer-events-auto");
   expect(panel).not.toHaveClass("fixed");
+  expect(screen.getByRole("button", { name: "Close" })).toHaveClass("min-h-11", "xl:min-h-8");
   await waitFor(() => expect(screen.getByRole("button", { name: "Close" })).toHaveFocus());
 });
 
@@ -112,7 +113,7 @@ it("keeps the visible close affordance in the non-shrinking sticky title region 
   const header = close.parentElement!;
   expect(within(header).getByRole("heading", { name: "Account details" })).toBeInTheDocument();
   expect(header).toHaveClass("sticky", "shrink-0", "items-start");
-  expect(close).toHaveClass("inline-flex", "min-h-8", "shrink-0");
+  expect(close).toHaveClass("inline-flex", "min-h-11", "xl:min-h-8", "shrink-0");
   expect(close).not.toHaveClass("absolute");
   expect(close.querySelector("svg")).toHaveClass("size-4");
   expect(within(close).getByText("Close")).not.toHaveClass("sr-only");

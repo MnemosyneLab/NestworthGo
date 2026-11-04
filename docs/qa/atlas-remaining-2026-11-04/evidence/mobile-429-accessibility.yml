@@ -1,0 +1,14 @@
+- main:
+  - heading "Nestworth" [level=1]
+  - paragraph: 隨身的家庭帳本。
+  - form "登入":
+    - heading "登入" [level=2]
+    - paragraph: 輸入桌面「設定 → 手機存取」中的 token。
+    - text: 手機 token
+    - textbox "手機 token"
+    - checkbox "記住此瀏覽器"
+    - text: 記住此瀏覽器
+    - paragraph: 最長7天，閒置24小時失效。僅在可信裝置和網路中使用：HTTP 明文傳輸憑據和資料。本機儲存的工作階段憑據可被 XSS 讀取；此處絕不儲存共用 token。
+    - alert: 請求過於頻繁，請等待一分鐘後重試。
+    - button "登入"
+  - paragraph: 請讓執行 Nestworth 的電腦保持喚醒，並連線可信私網。關閉最後一個視窗會結束應用程式。

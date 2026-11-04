@@ -163,13 +163,14 @@ const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithou
  * insets by, pushing the header over the first field. Keep Close in the same
  * painted, non-shrinking header, in normal flow: a separately positioned child
  * of the scrolling popup can disappear under native WebView magnification.
- * Every sheet must include a SheetHeader with its accessible title. */
-function SheetHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+ * Every sheet must include a SheetHeader with its accessible title. Close uses
+ * touch height below xl; mobile surfaces opt into it at every width. */
+function SheetHeader({ className, children, touchTarget = false, ...props }: React.HTMLAttributes<HTMLDivElement> & { touchTarget?: boolean }) {
   const { t } = useTranslation();
   const closeDisabled = React.useContext(SheetCloseDisabledContext);
   return <div className={cn("sticky -top-6 z-10 -mx-6 -mt-6 flex shrink-0 items-start gap-3 bg-card px-6 pb-3 pt-6", className)} {...props}>
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">{children}</div>
-    <BaseDialog.Close data-sheet-close disabled={closeDisabled} className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50">
+    <BaseDialog.Close data-sheet-close disabled={closeDisabled} className={cn("inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50", !touchTarget && "xl:min-h-8")}>
       <X className="size-4" />
       <span>{t("common.close")}</span>
     </BaseDialog.Close>
