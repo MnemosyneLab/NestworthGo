@@ -56,25 +56,26 @@ type MarketComparisonRow struct {
 	BatchConflict  bool                        `json:"batchConflict"`
 }
 type MarketComparisonEvidence struct {
-	ID                string                  `json:"id"`
-	Target            domain.MarketReadTarget `json:"target"`
-	Currency          string                  `json:"currency,omitempty"`
-	Value             string                  `json:"value"`
-	Kind              string                  `json:"kind"`
-	Basis             string                  `json:"basis"`
-	PriceBasis        string                  `json:"priceBasis,omitempty"`
-	Date              string                  `json:"date,omitempty"`
-	QuotedAt          time.Time               `json:"quotedAt"`
-	CreatedAt         time.Time               `json:"createdAt"`
-	TimestampBasis    string                  `json:"timestampBasis,omitempty"`
-	SourceKind        domain.QuoteSourceKind  `json:"sourceKind"`
-	SourceKey         string                  `json:"sourceKey"`
-	State             string                  `json:"state"`
-	Revision          int                     `json:"revision"`
-	SupersedesQuoteID *string                 `json:"supersedesQuoteId,omitempty"`
-	AuditIDs          []string                `json:"auditIds"`
-	ConversionJSON    string                  `json:"conversionJson,omitempty"`
-	ChartSelected     bool                    `json:"chartSelected"`
+	ID                   string                  `json:"id"`
+	Target               domain.MarketReadTarget `json:"target"`
+	Currency             string                  `json:"currency,omitempty"`
+	Value                string                  `json:"value"`
+	Kind                 string                  `json:"kind"`
+	Basis                string                  `json:"basis"`
+	PriceBasis           string                  `json:"priceBasis,omitempty"`
+	Date                 string                  `json:"date,omitempty"`
+	QuotedAt             time.Time               `json:"quotedAt"`
+	CreatedAt            time.Time               `json:"createdAt"`
+	TimestampBasis       string                  `json:"timestampBasis,omitempty"`
+	SourceKind           domain.QuoteSourceKind  `json:"sourceKind"`
+	SourceKey            string                  `json:"sourceKey"`
+	State                string                  `json:"state"`
+	Revision             int                     `json:"revision"`
+	SupersedesQuoteID    *string                 `json:"supersedesQuoteId,omitempty"`
+	AuditIDs             []string                `json:"auditIds"`
+	ConversionJSON       string                  `json:"conversionJson,omitempty"`
+	ChartSelected        *bool                   `json:"chartSelected"`
+	ChartSelectionReason string                  `json:"chartSelectionReason,omitempty"`
 }
 type MarketComparisonRelation struct {
 	EvidenceID     string `json:"evidenceId"`
@@ -233,7 +234,7 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 		if d, e := time.Parse(time.DateOnly, i.Date); e == nil && d.Format(time.DateOnly) == i.Date {
 			p.Dates = append(p.Dates, i.Date)
 		}
-		if at, e := time.Parse(time.RFC3339Nano, i.QuotedAt); e == nil {
+		if at, e := time.Parse(time.RFC3339Nano, i.QuotedAt); i.Kind == "latest" && e == nil {
 			p.Instants = append(p.Instants, at.UTC())
 		}
 	}
@@ -307,7 +308,6 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 		}
 		out.Evidence = append(out.Evidence, MarketComparisonEvidence{ID: q.ID.String(), Target: domain.MarketReadTarget{BaseCurrency: q.BaseCurrency.String(), QuoteCurrency: q.QuoteCurrency.String()}, Value: q.Rate.Canonical(), Kind: kind, Basis: comparisonBasis(q.ObservationKind, ""), Date: q.EffectiveDate, QuotedAt: q.QuotedAt, CreatedAt: q.CreatedAt, TimestampBasis: q.TimestampBasis, SourceKind: q.SourceKind, SourceKey: q.SourceKey, Revision: q.Revision, SupersedesQuoteID: q.SupersedesQuoteID})
 	}
-	chart := map[string][]domain.QuoteSeriesPoint{}
 	for j := range out.Evidence {
 		e := &out.Evidence[j]
 		e.State = "active"
@@ -315,24 +315,8 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 			e.State = v
 		}
 		e.AuditIDs = append([]string{}, byQuote[e.ID]...)
-		if e.State == "active" {
-			chartKey := e.Target.Key()
-			if e.Target.InstrumentID == "" {
-				a, b, _ := domain.NormalizeFXPair(domain.CurrencyCode(e.Target.BaseCurrency), domain.CurrencyCode(e.Target.QuoteCurrency))
-				chartKey = "fx/" + a.String() + "/" + b.String()
-			}
-			chart[chartKey] = append(chart[chartKey], domain.QuoteSeriesPoint{ID: e.ID, Value: e.Value, ObservationKind: e.Kind, EffectiveDate: e.Date, QuotedAt: e.QuotedAt, CreatedAt: e.CreatedAt, SourceKind: e.SourceKind})
-		}
 	}
-	selected := map[string]bool{}
-	for _, p := range chart {
-		for _, v := range chartQuotePoints(p, domain.TrendAllTime, location) {
-			selected[v.ID] = true
-		}
-	}
-	for j := range out.Evidence {
-		out.Evidence[j].ChartSelected = selected[out.Evidence[j].ID]
-	}
+	comparisonChartMembership(out.Evidence, query, snap, inactive, location)
 	sort.Slice(out.Evidence, func(i, j int) bool { return out.Evidence[i].ID < out.Evidence[j].ID })
 	// Bound serialized expansion incrementally, before constructing cross products
 	// of candidates and evidence. The final capture also enforces its 4 MiB cap.
@@ -395,7 +379,7 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 			row.Reason = e.Error()
 			continue
 		}
-		when, _, e := parseAgentMarketDataTime(item, instrument, location, out.CapturedAt)
+		when, timestampBasis, e := parseAgentMarketDataTime(item, instrument, location, out.CapturedAt)
 		if e != nil {
 			row.Status = "invalid"
 			row.Reason = e.Error()
@@ -417,12 +401,13 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 		row.Normalized = &n
 		key := comparisonKey(n)
 		groups[key] = append(groups[key], j)
-		matchKeyBytes, _ := jsoncodec.Marshal([]string{key, n.Value, i.Value, i.SourceTitle, i.SourceURL})
+		matchKeyBytes, _ := jsoncodec.Marshal([]string{key, n.QuotedAt, timestampBasis, n.Value, i.Value, i.SourceTitle, i.SourceURL})
 		mk := string(matchKeyBytes)
 		if k, exists := matches[mk]; exists {
 			m := out.Matches[k]
 			row.MatchID = m.ID
 			row.Status = m.Status
+			row.Reason = comparisonResultReason(m)
 			continue
 		}
 		m := MarketComparisonMatch{ID: fmt.Sprintf("match/%d", len(out.Matches)), Status: "missing", SourceEvidence: "not_requested", DisplayScale: 4, Relations: []MarketComparisonRelation{}, SelectionImpact: "unknown", SelectionReason: "selection_simulation_unavailable"}
@@ -528,7 +513,7 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 		if instrument != nil {
 			m.Target.DisplayName = instrument.DisplayLabel()
 		}
-		comparisonSelection(&m, n, instrument, snap, when, out.CapturedAt, providerKey)
+		comparisonSelection(&m, n, instrument, snap, when, out.CapturedAt, providerKey, timestampBasis)
 		if when.Nanosecond()%int(time.Millisecond) != 0 {
 			m.SelectionImpact = "unknown"
 			m.SelectionReason = "submillisecond_timestamp_not_preserved_by_storage"
@@ -544,6 +529,7 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 		out.Matches = append(out.Matches, m)
 		row.MatchID = m.ID
 		row.Status = m.Status
+		row.Reason = comparisonResultReason(m)
 	}
 	for _, indices := range groups {
 		if len(indices) < 2 {
@@ -628,7 +614,7 @@ func compactComparisonStrings(s []string) []string {
 	return out
 }
 
-func comparisonSelection(m *MarketComparisonMatch, n MarketComparisonNormalized, i *domain.Instrument, snap domain.MarketComparisonSnapshot, at, now time.Time, provider string) {
+func comparisonSelection(m *MarketComparisonMatch, n MarketComparisonNormalized, i *domain.Instrument, snap domain.MarketComparisonSnapshot, at, now time.Time, provider, timestampBasis string) {
 	// Simulate a single Agent append using the same current selectors. Ties that
 	// require a future generated ID and converted-metal dependencies stay unknown.
 	if i != nil {
@@ -644,7 +630,7 @@ func comparisonSelection(m *MarketComparisonMatch, n MarketComparisonNormalized,
 			return
 		}
 		p, _ := domain.ParseUnitPrice(n.Value)
-		q := domain.InstrumentQuote{ID: "comparison_candidate", InstrumentID: i.ID, UnitPrice: p, Currency: i.QuoteCurrency, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: now, ObservationKind: "close", EffectiveDate: n.Date, PriceBasis: "agent_raw_close_v1", ValueEffectiveAt: at, SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: "date_label", BindingRevision: i.ProviderBindingRevision}
+		q := domain.InstrumentQuote{ID: "comparison_candidate", InstrumentID: i.ID, UnitPrice: p, Currency: i.QuoteCurrency, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: now, ObservationKind: "close", EffectiveDate: n.Date, PriceBasis: "agent_raw_close_v1", ValueEffectiveAt: at, SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: timestampBasis, BindingRevision: i.ProviderBindingRevision}
 		if n.Kind == "latest" {
 			q.ObservationKind = "realtime"
 			q.PriceBasis = "agent_latest_v1"
@@ -679,7 +665,7 @@ func comparisonSelection(m *MarketComparisonMatch, n MarketComparisonNormalized,
 			m.Target.CurrentEvidence = &MarketComparisonCurrent{Target: domain.MarketReadTarget{BaseCurrency: current.BaseCurrency.String(), QuoteCurrency: current.QuoteCurrency.String()}, Value: m.Target.CurrentValue, SourceKind: current.SourceKind, SourceKey: current.SourceKey, Date: current.EffectiveDate, QuotedAt: current.QuotedAt}
 		}
 		rate, _ := domain.ParseFxRate(n.Value)
-		q := domain.FXQuote{ID: "comparison_candidate", HouseholdID: p.HouseholdID, BaseCurrency: domain.CurrencyCode(n.Target.BaseCurrency), QuoteCurrency: domain.CurrencyCode(n.Target.QuoteCurrency), Rate: rate, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: now, ObservationKind: n.Kind, EffectiveDate: n.Date, ValueEffectiveAt: at, SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: "date_label"}
+		q := domain.FXQuote{ID: "comparison_candidate", HouseholdID: p.HouseholdID, BaseCurrency: domain.CurrencyCode(n.Target.BaseCurrency), QuoteCurrency: domain.CurrencyCode(n.Target.QuoteCurrency), Rate: rate, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", QuotedAt: at, CreatedAt: now, ObservationKind: n.Kind, EffectiveDate: n.Date, ValueEffectiveAt: at, SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: timestampBasis}
 		for _, v := range snap.CurrentFXQuotes {
 			if v.QuotedAt.Equal(at) && v.CreatedAt.Equal(now) && v.SourceKind == domain.QuoteSourceAgent {
 				m.SelectionReason = "future_quote_id_tie"
@@ -695,4 +681,65 @@ func comparisonSelection(m *MarketComparisonMatch, n MarketComparisonNormalized,
 		return
 	}
 	m.SelectionReason = "no_captured_fx_preference"
+}
+
+// Chart order must use stored observation kinds and dependency/revision fields.
+// A normalized display kind (notably nav) is not a selector input.
+func comparisonChartMembership(evidence []MarketComparisonEvidence, scopes []domain.MarketComparisonScope, snap domain.MarketComparisonSnapshot, inactive map[string]string, location *time.Location) {
+	targetKey := func(t domain.MarketReadTarget) string {
+		if t.InstrumentID != "" {
+			return t.Key()
+		}
+		a, b, _ := domain.NormalizeFXPair(domain.CurrencyCode(t.BaseCurrency), domain.CurrencyCode(t.QuoteCurrency))
+		return "fx/" + a.String() + "/" + b.String()
+	}
+	complete := map[string]bool{}
+	for _, scope := range scopes {
+		for _, date := range scope.Dates {
+			complete[targetKey(scope.Target)+"|"+date] = true
+		}
+	}
+	chart := map[string][]domain.QuoteSeriesPoint{}
+	points := instrumentSeriesObservations(snap.InstrumentQuotes)
+	for j, p := range points {
+		if inactive[p.ID] != "" {
+			continue
+		}
+		key := targetKey(domain.MarketReadTarget{InstrumentID: snap.InstrumentQuotes[j].InstrumentID.String()})
+		chart[key] = append(chart[key], p)
+	}
+	for _, q := range snap.FXQuotes {
+		if inactive[q.ID.String()] != "" {
+			continue
+		}
+		key := targetKey(domain.MarketReadTarget{BaseCurrency: q.BaseCurrency.String(), QuoteCurrency: q.QuoteCurrency.String()})
+		chart[key] = append(chart[key], domain.QuoteSeriesPoint{ID: q.ID.String(), Value: q.Rate.Canonical(), SourceKind: q.SourceKind, SourceKey: q.SourceKey, QuotedAt: q.QuotedAt, CreatedAt: q.CreatedAt, ObservationKind: q.ObservationKind, EffectiveDate: q.EffectiveDate, TimestampBasis: q.TimestampBasis, Revision: q.Revision})
+	}
+	selected := map[string]bool{}
+	for _, p := range chart {
+		for _, v := range chartQuotePoints(p, domain.TrendAllTime, location) {
+			selected[v.ID] = true
+		}
+	}
+	for j := range evidence {
+		e := &evidence[j]
+		date := e.Date
+		if date == "" {
+			date = e.QuotedAt.In(location).Format(time.DateOnly)
+		}
+		if e.State == "active" && !complete[targetKey(e.Target)+"|"+date] {
+			e.ChartSelected = nil
+			e.ChartSelectionReason = "incomplete_day_scope"
+			continue
+		}
+		value := e.State == "active" && selected[e.ID]
+		e.ChartSelected = &value
+	}
+}
+
+func comparisonResultReason(m MarketComparisonMatch) string {
+	if m.Status == "same" && m.SourceEvidence == "no_matching_active_agent_provenance" {
+		return "same_value_different_source"
+	}
+	return m.Reason
 }

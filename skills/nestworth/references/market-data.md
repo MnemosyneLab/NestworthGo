@@ -142,32 +142,46 @@ infer a holiday merely from a missing price or an empty provider response.
 
 ## Read-only import comparison
 
-For a multi-target/multi-date CSV precheck, use `compare_market_data_import` when
-it appears in the actual tool schema. It accepts 1–500 ordered rows (maximum 100
-distinct targets and 128 KiB input) with unique `clientItemId`, target, kind,
-currency and exact decimal value; daily rows need the actual source date and
-latest requires the actual quotedAt, without date. Optional timezone/provenance
-follows the tool schema. `nav` means unit NAV; `close` means raw unadjusted close.
-Preserve input order and every repeated business key; reject duplicate client IDs.
+Use `compare_market_data_import` for ordered CSV prechecks: 1–500 rows, maximum
+100 distinct targets and 128 KiB serialized input. Preserve unique clientItemId,
+input order and exact decimal strings. Daily date is the source market/NAV/reference
+date; latest needs actual quotedAt without date. nav is unit NAV, close is raw
+unadjusted close, and FX uses its original direction.
 
-Follow all results, matches, evidence, audits and targets section cursors. Display
-unread evidence as unread. `same`, `conflict`, `missing`, `historical_only`,
-`unknown_target`, `invalid` and `unavailable` are distinct; failed reads, reverse
-FX, unknown bases and unconsumed pages never prove missing. Check batchConflict
-independently: inconsistent proposed values can both be locally missing. Numeric
-same does not prove the proposed source was imported. Agent provenance matching
-and selected current quote/policy are separate captured evidence.
+Default view=summary returns compact ordinal/clientItemId/status plus necessary
+reason, duplicateGroup and batchConflict. Comparison pages default to 100 rows,
+maximum 100, and stop sooner at the 64 KiB final response budget. Follow only the
+results cursor to finish batch classification delivery. Server-computed counts
+and comparisonComputedFromCompleteEvidence do not mean details were delivered.
+Detailed section totals/cursors remain visible with zero delivered rows and
+evidenceDelivery=deferred. Never present unread evidence as empty or complete.
 
-Use original exact decimals and FX direction. Format-only equality is distinct
-from a display precision tail; every nonzero exact difference remains a conflict.
-Do not infer a binary-float cause from a small decimal delta. Unsupported precision
-is invalid, never silently rounded. Corrections/withdrawals remain historical
-facts. Current single-append selection simulation is limited; unknown ties,
-converted dependencies and historical/batch impacts must remain explicit.
+Use `get_read_item` with the SAME captureId, section=results and id=clientItemId
+for one original input, normalized comparison, current policy/impact, related
+quotes, relations and audit sources. Follow any focused child cursors. Focused
+completion concerns that row, not global evidence. For bulk details, page
+result_details/matches/evidence/audits/targets from the original capture. Choose
+view=full upfront when all evidence is needed. Do not recapture to change view
+and silently mix snapshots. Evidence is stored once; detail projections do not
+renew TTL. Restart every requested section after expiration/revocation.
 
-This tool never imports, overwrites, refreshes, requests a provider, changes
-priority, forms a write plan or grants write authorization. Capture/input hashes
-identify frozen evidence, not a subsequent-write CAS. Recheck independently for
-any later authorized write. 35 targets/233 rows fit one bounded comparison;
-233 later imports would still need at least three 100-item writer batches. Separate
-comparison captures have separate snapshot times and are not one global snapshot.
+Same, conflict, missing, historical_only, unknown_target, invalid and unavailable
+are distinct. Batch conflict is independent of stored status. Numeric same is
+not matching source provenance or import idempotency; same_value_different_source
+makes this distinction explicit. No exact price is rounded away. Display tails
+remain conflicts and overprecision is invalid. NAV/raw close, converted bases,
+reverse FX and corrected/withdrawn history retain their original evidence.
+
+chartSelected=null means unknown due to incomplete chart-day scope, not false;
+latest-only facts cannot establish an all-day chart winner. Current selection
+and a single candidate's simulation are separate; actual candidate instants are
+preserved. Historical/batch impacts, future-ID ties and converted dependencies
+remain limited or unknown.
+
+No comparison creates an import plan, authorization or financial change, requests
+a provider, changes priority or overwrites a quote. Hashes bind frozen evidence,
+not future-write CAS. 35 targets/233 rows fit one bounded capture: compact results
+normally take three calls; a common focused detail adds one. Actual byte budgets
+and complex evidence can require more. The existing writer still needs at least
+three independently authorized 100-item batches for 233 later imports. Separate
+captures have separate snapshot times.

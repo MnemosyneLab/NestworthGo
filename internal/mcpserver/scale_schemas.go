@@ -97,6 +97,7 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	}
 
 	if name == "compare_market_data_import" {
+		setSchemaEnum(schema.Properties["view"], []string{"summary", "full"})
 		min, max := 1, 500
 		schema.Properties["items"].MinItems = &min
 		schema.Properties["items"].MaxItems = &max

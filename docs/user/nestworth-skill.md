@@ -55,9 +55,9 @@ bundle; there is no fallback to unreleased main-branch content.
 
 ### Current repository skill: 2.3.0; published skill: 2.0.0
 
-Repository skill 2.3.0 adds the compatible read-only import-comparison workflow,
-ordered CSV rows, exact decimal/source distinctions, inactive evidence and frozen
-paging limits. It retains skill 2.2.0's inclusive batch-history windows and
+Repository skill 2.3.0 adds read-only import comparison with default compact
+ordered results, on-demand details from the same frozen capture, exact decimal/
+source distinctions, inactive evidence and explicit unknown chart selection. It retains skill 2.2.0's inclusive batch-history windows and
 opt-in cross-target `historyLayout=records` paging, original FX direction,
 NAV/close basis, unread-page distinctions and unavailable reverse projections.
 Existing history calls remain compatible.

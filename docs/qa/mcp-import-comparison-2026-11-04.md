@@ -1,169 +1,125 @@
 # MCP import comparison QA — 2026-11-04
 
-Task: [#211](https://github.com/MnemosyneLab/NestworthGo/issues/211).
-Environment: isolated managed cloud Linux amd64, Go 1.27.3, synthetic temporary
-SQLite and loopback MCP HTTP/SDK. No real household/CSV was opened or uploaded,
-and no external market data was requested. Git identity: Walter Wang
-`wangweichen1994@gmail.com`.
+[Task #211](https://github.com/MnemosyneLab/NestworthGo/issues/211),
+[draft PR #212](https://github.com/MnemosyneLab/NestworthGo/pull/212).
+Isolated cloud Linux amd64 / Go 1.27.3, real modernc SQLite temporary databases
+and loopback MCP HTTP/SDK. No real ledger/CSV or external market data was used.
+The endpoint is read-only; setup writes populate synthetic fixtures only.
 
-Branch `feat/mcp-import-comparison` started at main `85435e9` and was rebased
-to latest main `51f498f` after #206/#207/#209 landed. At inspection,
-[#210](https://github.com/MnemosyneLab/NestworthGo/pull/210) was an unmerged draft
-at `4aff374eb925151c9ce87277e7e49a73fce61989`. This implementation does not
-require its date-window or unified-history changes and targets main directly.
-After #210 merged as main `e3ada2c`, this branch was rebased to that main tip,
-combining the existing discovery assertions and upgrading skill to 2.3.0. No
-unmerged stacked dependency or subsequent merge order is required. #210's design-only comparison
-proposal now defers to the [implemented API contract](../design/mcp-import-comparison-api.md).
+## Validated review findings
 
-## Evidence
+Each regression first failed against the published implementation, then passed
+with the fix. The original assertions/oracles were retained.
 
-The implemented endpoint compares 1–500 ordered rows / 100 distinct targets /
-128 KiB against one read transaction, including inactive Agent quote history and
-directly linked audit operations. Results retain exact input, client ID, ordinal,
-batch duplicates/conflicts and decimal relations. Separate shared sections store
-observations, audit records and current target policy/selection once. Hashes are
-snapshot identities, not write CAS or import authorization.
+1. **Daily simulation cache identity.** Persist noon NAV=2; propose same-day/same-
+   price NAV=1 at 09:00 and 15:00. Individually the existing selector reports
+   current_unchanged / would_select_candidate; the old batch reused the first
+   result for both. Cache identity now includes actual normalized instant and
+   timestamp basis. Numeric duplicate groups still use the daily business key.
+   Both input orders are tested.
+2. **Original chart ordering.** Earlier Agent unit NAV versus later provider raw
+   close must resolve as daily source evidence, not normalized nav-as-realtime.
+   Converted provider facts also require raw observation time and revision.
+   Real quote-series reads independently establish the expected selected IDs.
+   Comparison now uses original stored observation kinds and complete ordering
+   fields, preserving revision/conversion evidence.
+3. **Incomplete chart scope.** Latest facts at 09:00 and 15:00, requesting only
+   09:00, previously claimed the captured point was the all-day chart winner.
+   It now returns chartSelected=null / incomplete_day_scope. Adding a daily
+   request supplies the complete day and yields known false/true flags. Current
+   quote selection remains separate. Inactive facts are definitively false.
+4. **SQLite expression depth.** A legal 500-row daily+quotedAt request failed in
+   the project's modernc driver with `Expression tree is too large (maximum depth
+   1000)`. Daily instants no longer duplicate date predicates, and generated OR
+   trees are balanced without changing arguments, precision or row/byte limits.
+   Both 500 daily timestamps and 500 latest instants are regression fixtures.
 
-Targeted synthetic application, SQLite and real SDK/HTTP regressions cover:
+No selector policy was invented, financial write was used for comparison, or
+precision/storage ceiling was raised to pass these tests.
 
-- Same value across Agent/provider/manual sources, provenance matching independent
-  of value, competing equal and different active facts, NAV versus raw close,
-  related unknown/converted/undated evidence and scoped missing versus unknown target.
-- Instrument zero, tiny and maximum values; 8-place price and 12-place FX tails;
-  rejected FX zero, overprecision, float-artifact lexemes, negative/exponent/NaN/Inf;
-  format-only equality and exact nonzero display tails remaining conflicts.
-- Original FX direction and a rounded reciprocal that cannot establish equality;
-  selected current source/direction and conservative unknown simulation conditions.
-- Market day versus UTC date; spring/fall DST, both repeated-hour offsets,
-  missing-origin UTC fallback, invalid configured timezone, future/invalid dates,
-  actual latest instants and explicit unavailable for unsupported submillisecond
-  timestamps. Legacy RFC3339 forms remain discoverable within the queried second.
-- Cross-date correction and later withdrawal, inactive state and original/target/
-  replacement links, historical-only evidence instead of false missing.
-- Reversed client order, same-key repeats with distinct IDs, exact-format repeats,
-  input conflicts even with persisted absence, repeated-ID rejection, max rows,
-  101-target rejection, UTF-8 ID byte bounds and request byte failure.
-- Frozen evidence retry after a later authoritative synthetic write, cursor
-  tampering/wrong-section rejection and capture expiry; ordinary generic cache
-  tests retain cross-capture, eviction and context/permission revocation coverage.
-- SQLite query_only and unchanged total_changes/portfolio facts/preferences;
-  provider fake with zero calls; unauthenticated HTTP failure before disclosure;
-  read permission matrix and unchanged pre-existing external discovery bytes.
-- Atomic paired concurrent writer generations across two targets: captured
-  current/history facts cannot mix generations. Query-only application comparison
-  succeeds; no operation receipt, financial write, refresh or snapshot maintenance
-  path is used.
-- SQL failure, 20,001-row expansion, source-byte budget and JSON escape expansion
-  exceeding the final 4 MiB budget fail closed. MCP's existing final 64 KiB
-  enforcement and explicit oversized-page-item behavior remain in force.
+## Default summary and on-demand evidence
 
-Skill 2.3.0 is a compatible minor addition above merged main/allocated 2.2.0. Main,
-tags, VERSION history and all GitHub releases (including draft visibility) were
-checked; published v0.3.10 still carries skill 2.0.0. The installation guide keeps
-published history separate. No release asset or installed user skill was changed.
+Default view=summary emits compact ordinal/clientItemId/status plus necessary
+reason, duplicateGroup and batchConflict. Detailed original inputs, normalized
+keys, deltas, source records, chart/current selection and audits remain retained
+once in the same frozen capture. Default comparison page size is 100, maximum
+100, with the 65,536-byte final-wire cap still authoritative; explicit 25 is tested.
 
-The production writer's time/value/provenance parsers were extracted into shared
-pure functions; no write entry point is invoked by comparison. Invalid synthetic
-candidates are also checked against authoritative writer validation to retain
-parity. Earlier failures were fixed: the added capability required additive
-local/SDK discovery counts, the SQL row fixture needed valid UUIDs, and legacy
-RFC3339 instant lookup needed a bounded whole-second prefilter before exact
-parsed-time comparison. No assertion was removed to bless a broken contract.
+`comparisonComputedFromCompleteEvidence` and statusCounts describe server
+computation. Delivered result pages and deferred detail sections are separate:
+detail page metadata initially reports returned=0 with signed continuation cursors.
+Following only results establishes batch classification delivery, not full evidence
+delivery. `get_read_item` section=results id=clientItemId returns bounded focused
+children from the same capture; a focused item never claims global delivery.
 
-## Workload measurement
+`result_details` and focused sections are virtual projections, not additional
+stored evidence. The cache still stores only five physical sections. Tests verify
+original decimal lexemes, order, unique evidence identities, fresh decode targets
+(no stale source URL/reason leakage), frozen retries after a later correction,
+unchanged hash/expiry, bounded child pagination, cursor tampering/section binding,
+revocation and expiry. Small focused details fit in one HTTP call. Large relations
+are independently paged rather than embedded in an oversized match record.
 
-The deterministic fixture has 35 instruments and 233 stored Agent NAV facts,
-with 233 ordered proposed rows. Setup uses three authoritative 100-item import
-batches only to populate temporary test data. Setup calls are excluded from the
-read measurement. Every returned section is traversed completely; continuation
-limits match the initial call's explicit/default limit.
+## Measured 35-target / 233-row workload
 
-| Read path | Calls | Final JSON-RPC bytes, total | Maximum actual response | Maximum reserved response | Frozen bytes |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Comparison, default 25 | 40 | 893,196 | 63,844 | 64,724 | 385,888 |
-| Comparison, explicit 100 | 15 | 849,409 | 64,563 | 65,442 | 385,888 |
-| Existing history, explicit 100 | 73 | 567,401 | 63,453 | — | — |
+233 exact proposed rows match 233 synthetic Agent NAV records across 35 targets.
+Setup imports use three existing 100-item writer batches and are excluded from
+read metrics. The SDK returns structured JSON and JSON text; measured bytes include
+both, escaping and the complete JSON-RPC response.
 
-The comparison reads all 233 results, 233 distinct matches, 233 original evidence
-rows, 233 audit rows and 35 current-target rows. The existing history path reads
-233 observations, selected chart points and target metadata, but does not compute
-import classifications or prove absence of withdrawn facts. It is not equivalent
-functionality, and comparison's richer evidence uses more total bytes. Request
-IDs/cursors/UUIDs can slightly change byte sizes. Responses stay under 65,536
-bytes and captures under 4 MiB. No latency, p95, global throughput or one-response
-claim is made. The writer still caps each later authorized import at 100 items.
-
-## Why 233 observations need 15 calls, and remaining reduction options
-
-The original implementation used 16 full-traversal calls: 1 initial capture plus
-4 results, 4 matches, 4 evidence, 2 audit and 1 target continuation. The first
-response contained 100 audit rows and 18 observation rows, leaving all 35 small
-shared target rows deferred. The SDK serializes both structured JSON and a JSON
-text copy. Final-wire bytes, including this duplication and escaping, are the
-actual constraint; comparing only the 385,888-byte stored capture undercounts it.
-
-The implemented bounded packing change reserves shared targets first for this
-capture kind only. The measured first response contains 35 targets and 66 audit
-rows. Continuations remain 4 results + 4 matches + 4 evidence + 2 audits, with
-no target continuation: **15 calls**, all five complete sections, unchanged
-385,888-byte capture. Default 25 remains 40 calls. Existing tools retain their
-lexical initial packing order. No limit, evidence row, decimal or snapshot rule
-was relaxed, and continuation identity checks reject dropped/duplicated rows.
-
-| Section | Complete rows | Stored row bytes | Initial rows at limit 100 | Continuations |
+| Journey | Calls | Total actual response bytes | Maximum actual | Maximum reserved |
 | --- | ---: | ---: | ---: | ---: |
-| results | 233 | 107,858 | 0 | 4 |
-| matches | 233 | 106,061 | 0 | 4 |
-| evidence | 233 | 110,874 | 0 | 4 |
-| audits | 233 | 44,037 | 66 | 2 |
-| targets | 35 | 15,322 | 35 | 0 |
+| Default compact results, 100 rows | 3 | 38,986 | 19,544 | 20,424 |
+| Compact results, explicit 25 | 10 | 51,248 | 10,391 | 11,270 |
+| One common focused detail after summary | +1 | 6,924–6,925 | under 7 KiB | under 8 KiB |
+| Default summary then every detail section | 19 | 885,962 | 64,521 | 65,400 |
+| Upfront full review, default 100 | 15 | 849,937 | 64,520 | 65,398 |
+| Upfront full review, explicit 25 | 40 | 893,792 | 64,394 | 65,272 |
 
-A simpler audit-remainder-first experiment still required 16 calls and was not
-kept. Raising the item count alone cannot fix byte-limited result/match/evidence
-pages. The measured 849,409 total wire bytes divided by 65,536 suggests roughly
-13 responses before section/count/header constraints; this is a volume estimate,
-not proof that a 13-call packing exists. Further substantial reductions need an
-explicit lossless compact representation (shared key/default dictionaries) or a
-client-negotiated structured-only transport that preserves complete structured
-evidence and a compatible text path. Those are separate protocol/client changes,
-not justification to skip sources/audits, round prices, increase the wire ceiling,
-compress around the logical budget or present unread evidence as complete.
+Minor ID/cursor/page-boundary variation changes bytes slightly between runs.
+Frozen summary/full captures measured 386,148/386,151 bytes, below 4 MiB. Complete
+traversals retain 233 full input rows, 233 matches, 233 original facts, 233 audits
+and 35 target rows. The summary-to-all-details total excludes the separate focused
+item experiment. No missing, duplicate or reordered identities are accepted.
 
-## Check scope and remaining gates
+The main tradeoff is explicit: routine precheck needs three calls and one selected
+detail adds one; a caller needing every field should choose full upfront to avoid
+sending both compact and full row projections (19 versus 15 calls). Fields such as
+original input/normalization, exact delta, revision/conversion, source policy and
+audit provenance are useful for detailed review but unnecessary in each default
+status row. Minimal delivery changes neither the computed classification nor the
+retained evidence or later-write authorization.
 
-Passed on the implementation after rebasing to `51f498f`:
+The earlier full-only version needed 16 calls; metadata-first packing reduced it
+to 15. Existing history traversal needs 73 calls but supplies neither comparison
+classification nor withdrawn absence proof. These workloads have different evidence
+content. No latency/p95, universal call count or one-response claim is made.
+The writer remains limited to 100 items per separately authorized batch.
 
-- `go test ./internal/...`: all packages passed, including application 193.749s,
-  SQLite 39.756s and MCP 83.719s under this shared cloud run. These are observed
-  test durations, not product performance measurements.
-- `go vet ./internal/...`, gofmt and `git diff --check`.
-- 136 Python tooling tests, 70 skill JSON/reference examples, the `2.2.0 -> 2.3.0`
-  distribution version guard, Go skill workflows and packaged checksum.
-- The archive's VERSION and all 16 payload files equal their repository sources.
-  Packaging used only the ignored local `dist/skills` directory; nothing was
-  published or installed into a user skill directory.
+## Bounds, non-effects and checks
 
-After #210 merged, the comparison/history/discovery/permission/skill regressions,
-full MCP/SQLite/domain suites and internal vet also passed on the rebased source;
-136 tooling tests passed again in 115.457s; all 71 current skill examples and
-references, version guard and all 16 archive payload comparisons passed. The metadata-first packing follow-up
-is covered by the full MCP suite (57.760s) and a 15-call/40-call workload guard with unique
-identity/completeness checks. Exact-head GitHub Actions links/status are recorded
-in the draft PR; older `ded1d35` native check and Eino acceptance passed but do not
-establish a later head. A full `go test ./...`, `go vet ./...`
-and `go build ./cmd/nestworth` are attempted. The desktop target cannot compile
-locally because GTK4/WebKitGTK6/libsoup and glib/gio development packages are
-missing. This is an environment build limitation, not a passing desktop check.
-No frontend implementation or generated bindings are changed. Full native Mac
-CI, GUI interaction, packaging, signing and notarization are separate evidence;
-none is inferred from these Linux checks. The draft PR records exact-head native CI links and distinguishes them from
-local Linux verification.
+Existing tests retain exact decimal zero/tiny/max/tails/overprecision/format-only
+coverage; different-source equality and simultaneous conflicts; NAV/raw-close and
+original/reverse FX; date/market-day/DST/UTC fallback/invalid zones; correction and
+withdrawal; ordered duplicates; unknown/invalid/unavailable versus scoped missing;
+concurrent atomic snapshot generations; auth/permission failures; SQL errors,
+20,001 rows, source bytes and escaped-JSON 4 MiB failure. query_only, total_changes,
+portfolio equality and forbidden provider fixtures verify no database/provider
+side effects. Snapshot/input hashes are not future-write CAS.
 
-Missing means no comparable retained local fact in this capture's scope, never
-that a target had no historical price anywhere. Non-price closures and unlimited
-history are outside scope. Source equality is not receipt idempotency. Selection
-impact models a single current append only; historical/batch impacts, generated-ID
-ties, absent FX preferences and converted dependencies are explicitly limited or
-unknown. Separate captures have distinct snapshot times. No comparison result
-permits automatic import, overwrite, priority change or provider request.
+Application/MCP/SQLite review regressions and the full internal Go suite passed
+(application 192.184s, SQLite 38.201s, MCP 80.808s in this cloud run). Internal
+vet, formatting and whitespace checks passed. All 136 tooling tests passed in
+123.078s; 73 current skill examples/references, the distribution version guard,
+package checksum and all 16 archive/source comparisons passed. Exact-head native
+CI links/status are recorded separately in the PR; these local timings are test
+durations, not product latency claims.
+Skill 2.3.0 remains the already-increased version in this unmerged PR, above main's
+2.2.0; updated guidance describes compact versus detail delivery and unknown chart
+selection. Published assets and installed user skills are unchanged. No frontend
+implementation or generated bindings are changed.
+
+Native desktop compilation locally requires unavailable GTK4/WebKitGTK6/libsoup/
+glib/gio development packages. Linux tests do not establish native GUI, packaging,
+signing or notarization acceptance. Only the exact new head's CI proves its native
+checks; older green heads remain separate evidence.

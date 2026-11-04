@@ -68,7 +68,7 @@ func (r *Repository) ReadMarketComparisonSnapshot(ctx context.Context, scopes []
 			datePredicate = append(datePredicate, "(q.quoted_at>=? AND q.quoted_at<?)")
 			args = append(args, second.Format("2006-01-02T15:04:05"), second.Add(time.Second).Format("2006-01-02T15:04:05"))
 		}
-		dates := "(" + strings.Join(datePredicate, " OR ") + ")"
+		dates := "(" + comparisonSQLOr(datePredicate) + ")"
 		if s.Target.InstrumentID != "" {
 			scope.instrumentIDs = append(scope.instrumentIDs, s.Target.InstrumentID)
 			ip = append(ip, "(q.instrument_id=? AND "+dates+")")
@@ -84,7 +84,7 @@ func (r *Repository) ReadMarketComparisonSnapshot(ctx context.Context, scopes []
 			fa = append(fa, args...)
 		}
 	}
-	scope.fxPredicate = strings.Join(pairs, " OR ")
+	scope.fxPredicate = comparisonSQLOr(pairs)
 	out.Instruments, err = listInstrumentsQuery(ctx, scope, h, true)
 	if err != nil {
 		return out, err
@@ -112,8 +112,8 @@ func (r *Repository) ReadMarketComparisonSnapshot(ctx context.Context, scopes []
 	if err != nil {
 		return out, err
 	}
-	iw := "EXISTS(SELECT 1 FROM instruments i WHERE i.id=q.instrument_id AND i.household_id=?) AND (" + strings.Join(ip, " OR ") + ")"
-	fw := "q.household_id=? AND (" + strings.Join(fp, " OR ") + ")"
+	iw := "EXISTS(SELECT 1 FROM instruments i WHERE i.id=q.instrument_id AND i.household_id=?) AND (" + comparisonSQLOr(ip) + ")"
+	fw := "q.household_id=? AND (" + comparisonSQLOr(fp) + ")"
 	ia = append([]any{h.String()}, ia...)
 	fa = append([]any{h.String()}, fa...)
 	for _, part := range []struct {
@@ -170,4 +170,17 @@ func (r *Repository) ReadMarketComparisonSnapshot(ctx context.Context, scopes []
 		return out, err
 	}
 	return out, tx.Commit()
+}
+
+// A left-deep OR chain can exceed SQLite's expression depth before the 500-row
+// request limit. A balanced tree preserves parameter order and every predicate.
+func comparisonSQLOr(parts []string) string {
+	if len(parts) == 0 {
+		return "0"
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	middle := len(parts) / 2
+	return "(" + comparisonSQLOr(parts[:middle]) + " OR " + comparisonSQLOr(parts[middle:]) + ")"
 }

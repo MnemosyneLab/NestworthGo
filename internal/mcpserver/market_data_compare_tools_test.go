@@ -32,7 +32,11 @@ func comparisonRows(t *testing.T, c *mcp.ClientSession, cap map[string]any) ([]a
 			t.Fatal(e)
 		}
 	}
-	decode(scaleSection(t, c, cap, "results"), &rows)
+	section := "results"
+	if _, exists := cap["sections"].(map[string]any)["result_details"]; exists {
+		section = "result_details"
+	}
+	decode(scaleSection(t, c, cap, section), &rows)
 	decode(scaleSection(t, c, cap, "matches"), &matches)
 	decode(scaleSection(t, c, cap, "evidence"), &evidence)
 	all := map[string]application.MarketComparisonMatch{}

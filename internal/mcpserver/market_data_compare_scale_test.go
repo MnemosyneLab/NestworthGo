@@ -66,32 +66,83 @@ func TestMarketComparison35Targets233RowsHTTPBudgets(t *testing.T) {
 		}
 	}
 	c, recorder := connectPayload(t, fx.service)
-	for _, limit := range []int{0, 100} {
-		recorder.mu.Lock()
-		recorder.metrics = map[string]payloadMetric{}
-		recorder.mu.Unlock()
-		start := recorder.total()
-		cap := scaleCapture(t, c, "compare_market_data_import", MarketComparisonInput{Items: inputs, Limit: limit})
-		maxReserved := 0
-		counts := map[string]int{}
-		for _, section := range []string{"results", "matches", "evidence", "audits", "targets"} {
-			callsBefore := recorder.total().Calls
-			rows, reserved := comparisonWalk(t, c, cap, section, limit)
-			if limit == 100 {
-				initial := cap["sections"].(map[string]any)[section].(map[string]any)["items"].([]any)
-				entry, e := fx.service.reads.entry(fx.service.contextGeneration, cap["captureId"].(string))
-				if e != nil {
-					t.Fatal(e)
+	for _, view := range []string{"summary", "full"} {
+		for _, limit := range []int{0, 25, 100} {
+			recorder.mu.Lock()
+			recorder.metrics = map[string]payloadMetric{}
+			recorder.mu.Unlock()
+			start := recorder.total()
+			cap := scaleCapture(t, c, "compare_market_data_import", MarketComparisonInput{Items: inputs, Limit: limit, View: map[string]string{"summary": "", "full": "full"}[view]})
+			results, maxReserved := comparisonWalk(t, c, cap, "results", limit)
+			for j, raw := range results {
+				row := raw.(map[string]any)
+				if row["clientItemId"] != inputs[j].ClientItemID || row["status"] != "same" {
+					t.Fatal("lost/reordered classification", j, row)
 				}
-				bytes := 0
-				for _, row := range entry.Sections[section] {
-					bytes += len(row)
+				if view == "summary" {
+					for _, field := range []string{"input", "normalized", "matchId", "value", "currentValue", "sourceTitle"} {
+						if _, exists := row[field]; exists {
+							t.Fatal("detail leaked into compact result", field)
+						}
+					}
 				}
-				t.Logf("section=%s rows=%d initial=%d continuationCalls=%d storedRowBytes=%d", section, len(rows), len(initial), recorder.total().Calls-callsBefore, bytes)
 			}
-			counts[section] = len(rows)
-			if section != "results" {
-				field := map[string]string{"matches": "id", "evidence": "id", "audits": "recordId", "targets": "key"}[section]
+			if len(results) != 233 {
+				t.Fatal("incomplete results")
+			}
+			classified := recorder.total()
+			if view == "summary" {
+				want := 3
+				if limit == 25 {
+					want = 10
+				}
+				if classified.Calls-start.Calls != want {
+					t.Fatal("summary call budget changed", classified.Calls-start.Calls, want)
+				}
+				for _, section := range []string{"result_details", "matches", "evidence", "audits", "targets"} {
+					page := cap["sections"].(map[string]any)[section].(map[string]any)
+					if len(page["items"].([]any)) != 0 || page["page"].(map[string]any)["hasMore"] != true {
+						t.Fatal("unread evidence not marked deferred", section)
+					}
+				}
+			}
+			t.Logf("classification view=%s limit=%d calls=%d wireBytes=%d maxActual=%d maxReserved=%d", view, limit, classified.Calls-start.Calls, classified.Bytes-start.Bytes, classified.Max, maxReserved)
+			if view == "summary" {
+				before := recorder.total()
+				detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: inputs[0].ClientItemID})
+				if detail["contentHash"] != cap["contentHash"] {
+					t.Fatal("focused detail recaptured")
+				}
+				row := detail["summary"].(map[string]any)["result"].(map[string]any)
+				if row["input"].(map[string]any)["value"] != inputs[0].Value {
+					t.Fatal("exact original input lost")
+				}
+				for name, raw := range detail["sections"].(map[string]any) {
+					section := raw.(map[string]any)
+					if section["page"].(map[string]any)["hasMore"] == true {
+						t.Fatal("small focused detail unexpectedly deferred", name)
+					}
+					if len(section["items"].([]any)) != 1 {
+						t.Fatal("focused evidence lost or unrelated evidence included", name)
+					}
+				}
+				after := recorder.total()
+				t.Logf("focused detail view=%s limit=%d extraCalls=%d wireBytes=%d", view, limit, after.Calls-before.Calls, after.Bytes-before.Bytes)
+				if after.Calls-before.Calls != 1 {
+					t.Fatal("focused detail required an extra capture")
+				}
+			}
+			detailStart := recorder.total()
+			counts := map[string]int{"results": len(results)}
+			names := []string{"matches", "evidence", "audits", "targets"}
+			if view == "summary" {
+				names = append([]string{"result_details"}, names...)
+			}
+			for _, section := range names {
+				rows, reserved := comparisonWalk(t, c, cap, section, limit)
+				counts[section] = len(rows)
+				maxReserved = max(maxReserved, reserved)
+				field := map[string]string{"result_details": "clientItemId", "matches": "id", "evidence": "id", "audits": "recordId", "targets": "key"}[section]
 				seen := map[string]bool{}
 				for _, raw := range rows {
 					id, _ := raw.(map[string]any)[field].(string)
@@ -101,34 +152,21 @@ func TestMarketComparison35Targets233RowsHTTPBudgets(t *testing.T) {
 					seen[id] = true
 				}
 			}
-			maxReserved = max(maxReserved, reserved)
-			if section == "results" {
-				for j, raw := range rows {
-					row := raw.(map[string]any)
-					if row["clientItemId"] != inputs[j].ClientItemID || row["status"] != "same" {
-						t.Fatal("comparison dropped/reordered/classified workload row", j, row)
-					}
-				}
+			end := recorder.total()
+			entry, e := fx.service.reads.entry(fx.service.contextGeneration, cap["captureId"].(string))
+			if e != nil {
+				t.Fatal(e)
 			}
-		}
-		end := recorder.total()
-		if counts["results"] != 233 || counts["matches"] != 233 || counts["evidence"] != 233 || counts["audits"] != 233 || counts["targets"] != 35 {
-			t.Fatal(counts)
-		}
-		entry, e := fx.service.reads.entry(fx.service.contextGeneration, cap["captureId"].(string))
-		if e != nil {
-			t.Fatal(e)
-		}
-		t.Logf("comparison limit=%d counts=%v calls=%d actualTotalBytes=%d actualMaxBytes=%d reservedMaxBytes=%d captureBytes=%d", limit, counts, end.Calls-start.Calls, end.Bytes-start.Bytes, end.Max, maxReserved, entry.size)
-		maxCalls := 40
-		if limit == 100 {
-			maxCalls = 15
-			if len(cap["sections"].(map[string]any)["targets"].(map[string]any)["items"].([]any)) != 35 {
-				t.Fatal("small shared metadata deferred into an extra call")
+			// Exclude the separate focused detail experiment from complete-traversal totals.
+			calls := classified.Calls - start.Calls + end.Calls - detailStart.Calls
+			bytes := classified.Bytes - start.Bytes + end.Bytes - detailStart.Bytes
+			t.Logf("complete view=%s limit=%d counts=%v calls=%d wireBytes=%d maxActual=%d maxReserved=%d storedBytes=%d", view, limit, counts, calls, bytes, end.Max, maxReserved, entry.size)
+			if counts["matches"] != 233 || counts["evidence"] != 233 || counts["audits"] != 233 || counts["targets"] != 35 || view == "summary" && counts["result_details"] != 233 {
+				t.Fatal(counts)
 			}
-		}
-		if maxReserved > contextWireLimit || entry.size > readCaptureLimit || end.Calls-start.Calls > maxCalls {
-			t.Fatal("comparison bounds inflated")
+			if maxReserved > contextWireLimit || entry.size > readCaptureLimit {
+				t.Fatal("budget exceeded")
+			}
 		}
 	}
 	targets := []application.MarketReadTarget{}
