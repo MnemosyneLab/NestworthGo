@@ -144,7 +144,7 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 		t.Fatal("initial page falsely complete")
 	}
 	for page["hasMore"] == true {
-		args, _ := jsoncodec.Marshal(map[string]any{"captureId": capture["captureId"], "section": "accounts", "cursor": page["nextCursor"], "limit": 1})
+		args, _ := jsoncodec.Marshal(map[string]any{"cursor": page["nextCursor"], "limit": 1})
 		raw, err = session.Call(t.Context(), "get_read_page", args)
 		if err != nil || len(raw) > 64<<10 {
 			t.Fatal("page/budget failed", err)
