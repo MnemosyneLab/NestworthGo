@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 type AgentReadFilter struct {
@@ -88,17 +89,18 @@ func (s *Service) pagedAgentRecords(ctx context.Context, g uint64, in AgentDataL
 		return ReadEnvelope{}, fail("validation", "Agent sort does not accept horizonOn")
 	}
 	return s.buildRead(ctx, g, in.Limit, func(ctx context.Context) (readCapture, error) {
-		records, err := s.app.AgentMarketDataRecords(ctx)
+		selection, err := s.app.ReadAgentAudit(ctx, domain.AgentAuditFilter{InstrumentIDs: f.InstrumentIDs, FXPairs: f.FXPairs, FromDate: f.FromDate, ToDate: f.ToDate, CreatedFrom: from, CreatedTo: to})
 		if err != nil {
 			return readCapture{}, err
 		}
-		inactive := map[string]bool{}
-		for _, v := range records {
-			if v.TargetQuoteID != "" {
-				inactive[v.TargetQuoteID] = true
-			}
-		}
+		records := selection.Records
+		inactive := selection.Inactive
 		identities := map[string]AgentDataRecordDTO{}
+		for _, v := range selection.Identities {
+			dto := agentRecordDTO(v, inactive)
+			identities[dto.QuoteID] = dto
+		}
+
 		all := make([]AgentDataRecordDTO, 0, len(records))
 		created := map[string]time.Time{}
 		for _, v := range records {
@@ -125,7 +127,7 @@ func (s *Service) pagedAgentRecords(ctx context.Context, g uint64, in AgentDataL
 		}
 		sortAgentReadRecords(rows, created, order)
 		raw, err := readRows(rows)
-		return readCapture{Kind: "agent_market_data", Query: map[string]any{"filter": f, "sort": order}, Summary: map[string]any{"totalRecordCount": len(records), "matchedRecordCount": len(rows), "activeBasis": "not corrected or retracted; independent of current valuation selection"}, Sections: map[string][]json.RawMessage{"records": raw}}, err
+		return readCapture{Kind: "agent_market_data", Query: map[string]any{"filter": f, "sort": order}, Summary: map[string]any{"totalRecordCount": len(records), "countsScope": "target_observation_date_created_bounds", "matchedRecordCount": len(rows), "activeBasis": "not corrected or retracted; independent of current valuation selection"}, Sections: map[string][]json.RawMessage{"records": raw}}, err
 	})
 }
 

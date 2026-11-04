@@ -489,6 +489,16 @@ func (r *Repository) AccountRecord(ctx context.Context, householdID domain.House
 func listAccountRecords(ctx context.Context, query queryer, householdID domain.HouseholdID, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
 	where := []string{"a.household_id = ?"}
 	args := []any{householdID.String()}
+	if len(filter.AccountIDs) > 0 {
+		ids := make([]string, len(filter.AccountIDs))
+		for i, id := range filter.AccountIDs {
+			ids[i] = id.String()
+		}
+		marks, values := sqlInArgs(ids)
+		where = append(where, "a.id IN ("+marks+")")
+		args = append(args, values...)
+	}
+
 	if !filter.IncludeArchived {
 		where = append(where, "a.archived_at IS NULL")
 	}

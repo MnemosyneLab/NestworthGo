@@ -70,6 +70,10 @@ func readPortfolioSnapshotQueryMode(ctx context.Context, query queryer, filter d
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
 	}
+	if len(filter.AccountIDs) > 0 {
+		query = scopedAccountInputs(query, accounts)
+	}
+
 	instruments, err := listInstrumentsQuery(ctx, query, household.ID, true)
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
