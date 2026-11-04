@@ -28,6 +28,15 @@ func TestReviewPreview365DayFrozenPageUnion(t *testing.T) {
 	if summary["sourceToken"] != expected.SourceToken || !reflect.DeepEqual(summary["window"], jsonObject(t, expected)["window"]) {
 		t.Fatal("preview header changed", summary)
 	}
+	// A source mutation changes new previews, but cannot change or invalidate an
+	// already captured page. Published report cursors have a separate contract.
+	if _, err := fx.app.AppendManualInstrumentQuote(t.Context(), domain.InstrumentID(fx.instrument), "123", "2026-09-20", false); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := fx.app.PreviewReviewRuleV2(t.Context(), spec, fx.instrument, "2026-09-28", "")
+	if err != nil || changed.SourceToken == expected.SourceToken {
+		t.Fatal("source mutation did not change preview fingerprint", err)
+	}
 	days := payloadSection(t, client, capture, "days")
 	if !reflect.DeepEqual(days, jsonObject(t, expected)["days"]) {
 		t.Fatal("complete daily evidence differs")
@@ -37,6 +46,11 @@ func TestReviewPreview365DayFrozenPageUnion(t *testing.T) {
 		t.Fatal("preview not paged", m)
 	}
 	t.Logf("365-day exact policy preview: calls=%d wire bytes=%d max=%d", m.Calls, m.Bytes, m.Max)
+	stale, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "preview_investment_review_rule", Arguments: ReviewV2PreviewInput{Spec: object, InstrumentID: fx.instrument, LatestClosedOn: "2026-09-28", ExpectedSourceToken: expected.SourceToken}})
+	staleRaw, _ := jsoncodec.Marshal(stale)
+	if err != nil || !stale.IsError || !strings.Contains(string(staleRaw), "conflict") || !strings.Contains(string(staleRaw), "expectedSourceToken") {
+		t.Fatal("new preview did not reject stale source token explicitly", err, string(staleRaw))
+	}
 	fx.service.reads.revoke()
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_read_page", Arguments: map[string]any{"captureId": capture["captureId"], "section": "days", "cursor": capture["sections"].(map[string]any)["days"].(map[string]any)["page"].(map[string]any)["nextCursor"]}})
 	raw, _ := jsoncodec.Marshal(result)

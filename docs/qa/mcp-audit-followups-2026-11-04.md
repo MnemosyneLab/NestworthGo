@@ -375,3 +375,14 @@ unions: small 119 calls / 1,555,871 bytes / maximum 64,165; large 270 calls /
 static guard, skill 5.0.0 distribution guard, checksum and all 16 archive/source
 byte comparisons passed. The latest 39-test skill tooling run passed; no whole
 136-test tooling rerun or native/macOS/live-model acceptance is claimed here.
+
+
+The final preview regression also mutates a real synthetic instrument quote
+between initial SDK capture and subsequent SDK day pages. It verifies that the
+source fingerprint actually changes, all 365 captured days remain byte-equivalent
+to the original preview, and a new SDK preview with the old expectedSourceToken
+fails explicitly with conflict/expectedSourceToken. Revocation still fails
+explicitly. This directly supports analysis.md's distinction between frozen
+preview captures and revision-bound live report cursors; no blanket publication
+invalidation is claimed for frozen captures. The final focused SDK regression passed in **2.056s**, including the explicit
+error-code/field assertion.
