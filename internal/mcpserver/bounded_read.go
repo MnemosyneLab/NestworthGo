@@ -367,7 +367,7 @@ func (s *Service) boundedReadTools(server *toolSet, g uint64) {
 		}
 		return s.reads.page(g, in)
 	})
-	readTool(server, "get_read_item", "Read full item evidence from a frozen contributions, products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")
 	})
 }
@@ -377,6 +377,9 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	e, err := s.reads.entry(g, in.CaptureID)
 	if err != nil {
 		return nil, err
+	}
+	if requiredKind == "" && e.Kind == "contributions" {
+		return nil, fail("validation", "use get_contribution_item for contribution captures")
 	}
 	if requiredKind != "" && e.Kind != requiredKind {
 		return nil, fail("validation", "capture kind does not match item tool")
