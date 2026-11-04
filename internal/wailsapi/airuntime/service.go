@@ -1,5 +1,5 @@
-// Package airuntime is the bounded desktop conversation adapter. Credential
-// mutation, approval and financial writes are not exported through IPC. Mobile
+// Package airuntime is the bounded desktop conversation adapter. Model
+// activation, approval and financial writes are not exported through IPC. Mobile
 // is not registered here and cannot obtain a household-wide host principal.
 package airuntime
 
@@ -65,4 +65,20 @@ func (s *Service) Messages(epoch, id string, offset int) (assistant.Conversation
 		return assistant.Conversation{}, assistant.ErrUnavailable
 	}
 	return s.runtime.Messages(context.Background(), epoch, id, offset)
+}
+
+// SaveCredential accepts new input only. No method returns stored key material.
+func (s *Service) SaveCredential(epoch, key string) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	value := []byte(key)
+	defer clear(value)
+	return s.runtime.SetCredential(context.Background(), epoch, value)
+}
+func (s *Service) DeleteCredential(epoch string) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.DeleteCredential(context.Background(), epoch)
 }

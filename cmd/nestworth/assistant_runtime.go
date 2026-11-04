@@ -10,14 +10,15 @@ import (
 	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aicredentials"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aistate"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/mcpserver"
 	"github.com/waltwang/nestworth-go/providers/einoopenai"
 )
 
 // All bindings and paths originate in the desktop host. No mobile principal or
 // client-provided household/ledger/path/mode is accepted. Provider activation is
-// disabled by default; credential/configuration mutation is not bound to IPC.
-func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath string) (*assistant.Runtime, error) {
+// disabled by default; activation/configuration mutation is not bound to IPC.
+func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath string, database *sqlite.DB) (*assistant.Runtime, error) {
 	if app == nil {
 		return nil, assistant.ErrUnavailable
 	}
@@ -53,7 +54,7 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 		}
 		return engine, nil
 	}
-	r, err := assistant.NewRuntime(assistant.Options{Ledger: ledger, Store: state, Credentials: aicredentials.New(ledger), Factory: factory,
+	r, err := assistant.NewRuntime(assistant.Options{Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory,
 		Validate: func(ctx context.Context) bool { return ctx.Err() == nil && app.MobileWorkspace() == incarnation },
 	})
 	if err != nil {

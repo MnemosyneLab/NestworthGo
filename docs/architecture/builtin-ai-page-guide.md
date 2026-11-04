@@ -91,8 +91,8 @@ The target remains full read/write. Before activating it, implement and verify:
 
 1. Backend-owned session/incarnation lifecycle, current scoped permissions and
    mobile capability intersection; restore, shutdown and revocation hooks.
-2. System secure credential storage with unavailable/locked states and no
-   plaintext fallback; separate provider/model/scope configuration, no secret
+2. Database credential settings (implemented in the runtime stage); separate
+   provider/model/scope configuration, no secret
    values in tools, model context, logs or frontend responses.
 3. Durable conversations/runs/evidence and complete Eino checkpoints; interrupted
    model requests must not retry automatically or claim successful completion.

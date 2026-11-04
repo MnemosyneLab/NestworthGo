@@ -242,7 +242,7 @@ func run() error {
 	var assistantRuntime *assistant.Runtime
 	if service != nil {
 		var runtimeErr error
-		assistantRuntime, runtimeErr = openAssistantRuntime(service, databasePath, store.Path)
+		assistantRuntime, runtimeErr = openAssistantRuntime(service, databasePath, store.Path, database)
 		if runtimeErr != nil {
 			slog.Info("assistant runtime unavailable; activation remains closed")
 		}
