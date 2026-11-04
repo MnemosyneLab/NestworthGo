@@ -6,11 +6,13 @@ The [desktop runtime contract](builtin-ai-runtime.md) is authoritative for the
 installed product. Users can save an OpenAI API key, choose a model and explicitly
 enable desktop read-only requests. The right-hand panel sends questions, shows
 bounded running/terminal feedback, stops runs and restores paged history without
-automatic request replay. Only current overview, account list and account detail
-are enabled. Their shared capability reads preserve cropping, pagination and
+automatic request replay. Current overview, accounts and bounded strictly read-only closed-period attribution
+are enabled. One-shot model navigation is available only after explicit
+per-message desktop authorization. Their shared capability reads preserve cropping, pagination and
 financial evidence. A current-page selector requests fresh backend evidence; it
 does not assert visible filters or grant authority. User-click account navigation
-retains the local page host guards. Broader model-directed navigation is pending.
+retains the local page host guards; model-selected page changes additionally bind
+backend page/request leases, live successful runs and navigation generations. Arbitrary model UI control and analysis-page/filter navigation remain pending.
 
 Credentials use the main SQLite configuration repository, without field encryption,
 and enter full database backups. No Keychain or signed-build dependency is used.

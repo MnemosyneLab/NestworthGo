@@ -1,5 +1,8 @@
 # Desktop built-in AI read-only acceptance — 2026-11-04
 
+The [follow-up report](followup.md) supersedes the initial period/navigation limits
+below and records the subsequent recovery/lifecycle fixes.
+
 ## Source and environment
 
 Runtime/UI source: `c537bf2d1213b9d5fc96837c58c7b8f160035d1b` on

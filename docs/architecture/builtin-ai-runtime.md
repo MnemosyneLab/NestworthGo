@@ -7,11 +7,12 @@ a write-only key, a model ID and an explicit enable flag. There are no startup,
 reconnect or implicit retry model calls. Financial writes and mobile model access
 remain closed. The existing deterministic page guide remains available on mobile.
 
-The first enabled vertical is current overview, account directory and account
-detail. Period returns, financial proposals, arbitrary page inspection, provider
-refresh and model-driven navigation are unavailable and the UI discloses those
-limits. Existing explicit account target buttons keep the frontend page host's
-expiry, opaque-target and unresolved-review guards.
+The enabled vertical covers current overview, accounts, closed-period attribution
+and one-shot model-selected navigation after explicit per-message authorization.
+Financial proposals/writes, arbitrary page inspection, provider refresh, arbitrary
+UI automation and mobile model access remain unavailable. Existing explicit
+account buttons retain their page-host guards; model navigation has independent
+backend and frontend fences described below.
 
 ## Ownership and authority
 
@@ -24,18 +25,27 @@ Callers cannot select paths, a household, a mobile principal or a tool permissio
 A missing household leaves the backend unavailable until a later application
 restart; onboarding does not silently activate it.
 
-Each model run creates its own direct `InProcessSession` in `ReadOnly` mode,
-owned by the conversation UUID. It is closed when the run ends. No local HTTP,
+Each live conversation owns a direct `InProcessSession` in `ReadOnly` mode through
+`builtinai.Pool`; the provider engine and credential lease remain per-run. This
+preserves frozen captures across turns within the original fixed five-minute TTL.
+Page/item reads never renew it. The pool is bound to this runtime/ledger and at
+most 20 conversations. Delete/retention drops the conversation session; config/key
+changes, disable, restore and shutdown revoke all sessions. Revocation is
+nonblocking under runtime/restore locks; draining occurs outside the restore gate.
+No local HTTP,
 external MCP token, generic Wails dispatch or open-world capability is used.
 Capture/cursor state does not gain fresh authority from chat history. Reads use
 the existing cropping, page limits, missingness and exact-money contracts.
 `internal/builtinai` intersects discovery and dispatch with a fixed read allowlist:
 `get_financial_context`, `get_financial_context_page`, `get_financial_context_item`,
 `get_overview`, `list_accounts`, `get_account_snapshot`, `get_read_page` and
-`get_read_item`. It adds an empty-argument `get_current_page` only for supported
-view selections. The shared session independently rechecks permissions and budgets.
-No configuration, network refresh, projection-maintaining analysis, writer,
-preview or approval method is available. The host
+`get_read_item`, `compare_financial_context`, `compare_financial_attribution` and
+`get_financial_comparison_page`. It adds `get_current_page` only for supported
+view selections, and `get_navigation_targets`/`open_page` only for an explicit
+per-message host grant. The shared session independently rechecks permissions
+and budgets.
+No configuration, network refresh, projection-maintaining analysis, financial
+writer/preview or approval method is available. The host
 review methods from #203 remain separate and are not registered by this stage.
 Their operation receipts remain in their existing household/session namespaces;
 chat deletion neither deletes those receipts nor reverses a financial operation.
@@ -45,6 +55,32 @@ principal may receive it. Trusted proposal/review UI, live mobile permission
 intersection, per-account authorization and other write families remain required
 before any built-in writer can be exposed. The model cannot manufacture host
 approval from text, a summary, a digest, a page snapshot or a saved conversation.
+
+## Strictly read-only period analysis
+
+The external `compare_financial_attribution` retains its existing derived-snapshot
+maintenance behavior. The built-in adapter attaches the private application
+`WithReadOnlyFinancialAttribution` context policy at dispatch and describes its
+narrower semantics in model discovery. No wire argument can mint that policy or
+turn it off. The same handler, coherent comparison cache, historical valuation,
+`ComputeAnalysis`, compatibility proof and attribution projection remain shared.
+The strict path reconstructs daily inputs in memory, never calls the snapshot
+ensurer/saver, never changes dirty ranges and never invalidates previews.
+The existing reentrant coordination permit still protects capture/publication;
+that permit does not imply a SQL/financial write. SQLite `query_only` acceptance
+and exact maintained-projection parity are regression gates.
+
+Supported attribution uses household or one actual account, base valuation and two
+available closed-date endpoints, at most 365 days apart. The reported period is
+left endpoint +1 through the right endpoint in the history timezone. At most
+20,000 daily snapshot items are reconstructed; the shared ten-second build budget,
+wire/capture limits and total run budget also apply. Oversized ranges/data report
+unavailable, without silently dropping facts or substituting a different period.
+Model instructions ask for narrower dates when necessary. Net-worth movement,
+capital flows, residual and signed precision adjustments are not investment return.
+Availability, coverage, missingness, precision, original source dates and same-
+comparison frozen detail remain authoritative. Instrument/member/multiple-account
+analysis and current-day returns are outside this initial period vertical.
 
 ## Configuration and database credentials
 
@@ -170,13 +206,21 @@ keeps #201's own byte/event/item/60-second limits. A response yields an executab
 message only after terminal success, full item/framing validation and clean EOF.
 The whole call inventory is checked before dispatch; a response mixing a valid
 read with a writer dispatches neither. Cancellation after `response.completed`
-but before EOF also dispatches nothing. There is no provisional token display,
-implicit model retry, remote checkpoint, compactor or summary replacement.
+but before EOF also dispatches nothing. There is no provisional token display, SDK request retry, automatic run replay,
+remote checkpoint, compactor or summary replacement. A refused controlled tool
+returns a fixed model-visible error without implementation details or financial
+facts. Within the existing 8-round/16-call budget, the model can re-capture an
+initial read and restart its relevant pages; it cannot revive expired references,
+combine old/new capture IDs or widen permissions/disclosure. Provider/framing,
+context cancellation and invalid/oversized result failures still fail closed.
 
 A successful checkpoint retains the complete Eino messages, native output groups,
 opaque reasoning, tool call/result order and provider/model identity. It is never
 rebuilt from display text. The next actual SDK request validates/replays those
-native groups in place. Changing models cannot silently reuse the old model's
+native groups in place. After loading a checkpoint, each turn replaces only the
+first host-owned system policy with current installed policy. Assistant-native
+outputs and opaque reasoning remain byte-preserved; old capability claims cannot
+suppress newly installed features or grant removed authority. Changing models cannot silently reuse the old model's
 opaque state; configuration changes clear native history and retain display
 turns. Context-budget exhaustion similarly
 requires a new conversation until a verified compaction policy exists.
@@ -202,7 +246,8 @@ database path/household switch selects a separate namespace.
 
 The desktop IPC inventory is `Status`, `List`, `Create`, `Inspect`, `Messages`,
 `Start`, `Cancel`, `Events`, `Delete`, `SaveCredential`, `DeleteCredential` and
-`Configure`. Configuration is desktop-only and uses the current epoch/revision.
+`Configure`, `PublishPage`, `GrantNavigation` and `ConsumeNavigation`.
+Configuration/navigation authority is desktop-only and uses the current epoch/revision.
 `Inspect` returns the latest attempted
 turn; `Messages` takes an explicit zero-based offset and returns one turn plus
 run count. Events contain only sequence, run ID, state and fixed code: at most
@@ -213,7 +258,9 @@ write-only credential input and bounded configuration,
 never stored secrets, history internals or host review methods. The desktop polls
 status every two seconds and the selected latest turn every second while mounted.
 History pages load on explicit selection. No poll invokes a model. Offline state
-pauses actions; reconnect/reload reads persisted state instead of replaying Start.
+pauses only new model submissions. All local Status/List/Inspect/Messages queries
+use `networkMode:always`; Stop and local history remain available under a browser
+offline hint. Reconnect/reload reads persisted state instead of replaying Start.
 
 `PageHost`, `PageBinding`, `PageSnapshot` and `NavigationIntent` are a Go port for
 later structured publishers. `MatchesCurrentPage` is only a prerequisite fence:
@@ -245,8 +292,39 @@ remain in the original tool data. Per-response page flags never prove that every
 relevant continuation was consumed. The UI exposes these records in Data evidence;
 it does not render raw tool payloads, private reasoning or credential material.
 
-Remaining gates include richer financial evidence cards, trusted proposal/
-review/receipt wiring, broader page/navigation coverage, mobile/scoped principals,
-native GUI/accessibility, physical devices,
-power-loss/full backup-restore application acceptance and real-provider encrypted
-signature compatibility. All unsupported paths stay closed.
+## One-shot model navigation
+
+Ordinary Send has no navigation tools/grant. The separate Send-and-allow button
+publishes a fresh backend page lease, records explicit authorization for a
+not-yet-started request and then starts that exact request. A lease/selector alone
+cannot grant authority. Grants bind current epoch/config revision, conversation,
+request, source selection and a fixed two-minute expiry. Backend-issued opaque
+target refs permit only overview, account list and accounts already disclosed by
+controlled reads. IDs in the target inventory are correlation data, never accepted
+as `open_page` authority. No arbitrary route, URL, coordinate, DOM command, SQL,
+financial proposal or approval flag is accepted.
+
+`open_page` records a request, not a completed action. Only successful full model
+completion can offer an intent. Grants, intents and navigation generations live
+only in runtime memory; stored run lease IDs are non-authoritative audit metadata.
+Creation/deletion, new grants/turns, Stop, configuration/key changes, page changes,
+restore and shutdown revoke earlier navigation authority. Publication replaces the
+page lease; navigation generations additionally invalidate new-authorization and
+new-turn races on the same page lease. Native history/restart cannot restore a
+grant or automatically navigate.
+
+Consumption verifies the live conversation's latest successful run, request,
+config revision, source lease, navigation generation and intent before and after
+live object validation. It consumes before validation, so an uncertain response
+cannot be retried as the same intent. The frontend independently verifies its
+private page/publication generation and unresolved financial review before and
+after IPC, and honors App navigation rejection. Stop, a newer submission or
+transport uncertainty also withdraws pending frontend application. Full page-
+publication/mobile authorization via the broader Go PageHost port remains separate.
+
+Remaining gates include richer financial evidence cards, analysis-page/filter/date
+navigation, arbitrary page/control coverage, trusted financial proposal/review/
+receipt wiring, mobile/scoped principals, native GUI/accessibility, physical
+devices, full power-loss/restore acceptance and real-provider encrypted-signature
+compatibility. Larger periods/households need measured memory/latency evidence
+before budgets are expanded. All unsupported paths stay closed.

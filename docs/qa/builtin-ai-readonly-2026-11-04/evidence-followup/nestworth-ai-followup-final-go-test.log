@@ -1,0 +1,57 @@
+ok  	github.com/waltwang/nestworth-go	(cached)
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-probe	(cached)
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-seed	(cached)
+ok  	github.com/waltwang/nestworth-go/cmd/investment-review-qa-seed	(cached)
+ok  	github.com/waltwang/nestworth-go/cmd/nestworth	0.209s
+?   	github.com/waltwang/nestworth-go/docs/qa/post-merge-pr101-pr102-2026-10-17/repro	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/agentcapability	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/application	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/architecture	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/assistant	0.278s
+ok  	github.com/waltwang/nestworth-go/internal/builtinai	0.571s
+ok  	github.com/waltwang/nestworth-go/internal/diagnostics	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/domain	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/format	(cached)
+?   	github.com/waltwang/nestworth-go/internal/infrastructure	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/aicredentials	0.392s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/aistate	0.033s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/appports	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/marketdata	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/jsoncodec	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/mcpserver	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/mobileapi	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/settings	(cached)
+?   	github.com/waltwang/nestworth-go/internal/testsupport/reviewsource	[no test files]
+?   	github.com/waltwang/nestworth-go/internal/testutil	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/version	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/account	(cached)
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/agent	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/airuntime	0.343s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analysis	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analytics	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/apierror	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/app	(cached)
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/assistant	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/catalog	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/data	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/directory	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/history	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/holding	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/household	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/instrument	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/liquidity	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/marketdata	(cached)
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/mobile	[no test files]
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/native	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/portfolio	(cached)
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/preview	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/quote	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/recovery	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/settings	(cached)
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/wailstest	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/wire	(cached)
