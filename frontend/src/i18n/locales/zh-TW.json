@@ -94,6 +94,7 @@
     "name": "Nestworth"
   },
   "common": {
+    "loading": "載入中…",
     "unknownValue": "未知",
     "clearSelection": "清除選擇",
     "selectDate": "選擇日期",

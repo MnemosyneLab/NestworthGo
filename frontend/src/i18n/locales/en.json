@@ -94,6 +94,7 @@
     "name": "Nestworth"
   },
   "common": {
+    "loading": "Loading…",
     "unknownValue": "Unknown",
     "clearSelection": "Clear selection",
     "selectDate": "Select a date",
