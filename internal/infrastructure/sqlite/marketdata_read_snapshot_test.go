@@ -95,6 +95,12 @@ func TestMarketReadSnapshotConcurrentPairsReadOnlyAndBudget(t *testing.T) {
 	if _, err := repository.ReadMarketDataSnapshot(domain.WithBoundedRead(t.Context()), request, now); err != nil {
 		t.Fatalf("snapshot cannot run on enforced read-only connection: %v", err)
 	}
+	explicit := request
+	from, to := "2026-10-01", "2026-10-31"
+	explicit.Range, explicit.FromDate, explicit.ToDate = "", &from, &to
+	if _, err := repository.ReadMarketDataSnapshot(domain.WithBoundedRead(t.Context()), explicit, now); err != nil {
+		t.Fatalf("dated snapshot cannot run read-only: %v", err)
+	}
 	if err := database.SQL.QueryRowContext(t.Context(), `SELECT total_changes()`).Scan(&changesAfter); err != nil {
 		t.Fatal(err)
 	}

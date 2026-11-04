@@ -124,3 +124,15 @@ sort, full current evidence and session revision. stale_cursor means restart
 that read, not guess an offset. Item summaries expose attemptCount; full item
 evidence and pageable attempts are separate. Preserve recorded and effective
 dates on changes. First sessions have no prior successful-check watermark.
+
+### Unified bounded market history
+
+<!-- example: scale-market-records -->
+```json
+{"targets":[{"instrumentId":"${instrumentId}"}],"view":"history","fromDate":"2026-09-01","toDate":"2026-09-28","historyLayout":"records","limit":100}
+```
+
+This opt-in layout returns `records` and `targets` sections. Read all relevant
+cursors; `chartSelected` marks selected chart membership without duplicating the
+raw observation. Dates and exact FX direction/basis rules are documented in
+[market data](market-data.md). Older `history` calls keep per-target entrances.

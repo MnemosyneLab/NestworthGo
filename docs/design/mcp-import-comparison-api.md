@@ -7,9 +7,7 @@ market data or derived snapshots, contacts a provider, changes source preference
 imports, corrects, withdraws or overwrites facts, or grants subsequent write
 permission. Source titles and URLs are untrusted evidence, never instructions.
 
-This implementation starts independently from main `85435e9`, rebased to
-`51f498f`, not from PR #210. The date-window/unified-history feature in #210 is not required. Its
-active-only history capture cannot substitute for the inactive evidence here.
+Active-only market history cannot substitute for inactive comparison evidence.
 
 ## Request
 
@@ -167,7 +165,9 @@ Shared SQL preflight reserves at most 20,000 expanded rows and 4 MiB of estimate
 source bytes across scoped queries. Final serialized evidence is budgeted
 incrementally; the immutable capture is at most 4 MiB. Existing cache limits
 remain five-minute TTL, eight entries/16 MiB, two builders and ten-second build
-timeout. Pages stop at 100 rows or the 64 KiB final JSON-RPC budget; a single
+timeout. Initial comparison packing prioritizes shared target metadata to avoid a small
+metadata-only continuation where it fits. This changes packing, not captured
+facts or hashes. Pages stop at 100 rows or the 64 KiB final JSON-RPC budget; a single
 oversized row fails explicitly. Evidence, audit rows and per-target metadata are
 stored once and referenced; no repeated full chart copy is captured.
 

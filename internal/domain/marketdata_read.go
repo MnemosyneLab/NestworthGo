@@ -19,6 +19,8 @@ type MarketReadRequest struct {
 	Targets      []MarketReadTarget `json:"targets"`
 	View         string             `json:"view,omitempty"`
 	Range        string             `json:"range,omitempty"`
+	FromDate     *string            `json:"fromDate,omitempty"`
+	ToDate       *string            `json:"toDate,omitempty"`
 	SourceFilter string             `json:"sourceFilter,omitempty"`
 }
 type MarketReadSnapshot struct {
@@ -77,4 +79,27 @@ func NewQuoteReadWindow(trendRange TrendRange, sourceFilter QuoteSourceFilter, n
 		query.FromDate = from.Format(time.DateOnly)
 	}
 	return query
+}
+
+// TrendRange reuses the civil-date window shared with quote history. Callers
+// validate the request before reading; named-range defaults remain unchanged.
+func (r MarketReadRequest) TrendRange() (TrendRange, error) {
+	if r.FromDate != nil || r.ToDate != nil {
+		if r.FromDate == nil || r.ToDate == nil || r.Range != "" {
+			return "", validation("fromDate", "fromDate and toDate must be paired and cannot be combined with range")
+		}
+		for _, date := range []string{*r.FromDate, *r.ToDate} {
+			parsed, err := time.Parse(time.DateOnly, date)
+			if err != nil || parsed.Format(time.DateOnly) != date || parsed.Year() < 1 {
+				return "", validation("fromDate", "dates must be valid YYYY-MM-DD")
+			}
+		}
+		value := *r.FromDate + ":" + *r.ToDate
+		parsed, err := ParseTrendRange(value)
+		if err != nil {
+			return "", validation("fromDate", "dates must be valid YYYY-MM-DD in ascending order")
+		}
+		return parsed, nil
+	}
+	return ParseTrendRange(r.Range)
 }

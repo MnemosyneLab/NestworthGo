@@ -213,7 +213,14 @@ func (c *boundedReadCache) initial(id string, e readCapture, limit int) (ReadEnv
 			names = append(names, k)
 		}
 	}
-	sort.Strings(names)
+	sort.Slice(names, func(i, j int) bool {
+		// Small shared target metadata can fit in the first comparison response.
+		// Reserving it first avoids a separate metadata-only continuation call.
+		if e.Kind == "market_import_comparison" && ((names[i] == "targets") != (names[j] == "targets")) {
+			return names[i] == "targets"
+		}
+		return names[i] < names[j]
+	})
 	for _, k := range names {
 		r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: c.pageInfo(id, k, e, 0, 0)}
 	}

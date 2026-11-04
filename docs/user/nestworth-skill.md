@@ -53,17 +53,22 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 2.2.0; published skill: 2.0.0
+### Current repository skill: 2.3.0; published skill: 2.0.0
 
-Repository skill 2.2.0 adds the compatible read-only import-comparison workflow,
+Repository skill 2.3.0 adds the compatible read-only import-comparison workflow,
 ordered CSV rows, exact decimal/source distinctions, inactive evidence and frozen
-paging limits. It retains skill 2.1.0's post-v0.3.10 asset-change guidance:
+paging limits. It retains skill 2.2.0's inclusive batch-history windows and
+opt-in cross-target `historyLayout=records` paging, original FX direction,
+NAV/close basis, unread-page distinctions and unavailable reverse projections.
+Existing history calls remain compatible.
+
+It also retains skill 2.1.0's post-v0.3.10 asset-change guidance:
 `endpoint_bridge/2`, separately paged reconciliation details, paired trade
 principal and valuation semantics, execution-price spreads and quantity
-remeasurement. This minor bump identifies expanded analysis contract guidance;
-it does not claim a new incompatible MCP tool interface. The earlier bounded
-read cutover required major version 2.0.0. Skill 2.2.0 is not yet published;
-`--version latest` still selects App v0.3.10 and skill 2.0.0.
+remeasurement. The earlier bounded read cutover required major version 2.0.0.
+Skill 2.3.0 is not yet published; `--version latest` still selects App v0.3.10
+and skill 2.0.0.
+
 
 The App and skill are separate components: installing a newer skill does not
 add tools to an older App. Actual discovery and returned schemas remain the

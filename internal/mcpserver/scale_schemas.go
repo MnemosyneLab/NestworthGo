@@ -84,7 +84,7 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		}
 	}
 	if name == "get_market_data_batch" {
-		for k, values := range map[string][]string{"view": {"current", "coverage", "history"}, "range": {"30d", "ytd", "1y", "all"}, "sourceFilter": {"all", "manual", "provider", "agent"}} {
+		for k, values := range map[string][]string{"view": {"current", "coverage", "history"}, "range": {"30d", "ytd", "1y", "all"}, "sourceFilter": {"all", "manual", "provider", "agent"}, "historyLayout": {"per_target", "records"}} {
 			setSchemaEnum(schema.Properties[k], values)
 		}
 		targets := schema.Properties["targets"]

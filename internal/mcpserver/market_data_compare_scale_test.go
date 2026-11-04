@@ -75,8 +75,32 @@ func TestMarketComparison35Targets233RowsHTTPBudgets(t *testing.T) {
 		maxReserved := 0
 		counts := map[string]int{}
 		for _, section := range []string{"results", "matches", "evidence", "audits", "targets"} {
+			callsBefore := recorder.total().Calls
 			rows, reserved := comparisonWalk(t, c, cap, section, limit)
+			if limit == 100 {
+				initial := cap["sections"].(map[string]any)[section].(map[string]any)["items"].([]any)
+				entry, e := fx.service.reads.entry(fx.service.contextGeneration, cap["captureId"].(string))
+				if e != nil {
+					t.Fatal(e)
+				}
+				bytes := 0
+				for _, row := range entry.Sections[section] {
+					bytes += len(row)
+				}
+				t.Logf("section=%s rows=%d initial=%d continuationCalls=%d storedRowBytes=%d", section, len(rows), len(initial), recorder.total().Calls-callsBefore, bytes)
+			}
 			counts[section] = len(rows)
+			if section != "results" {
+				field := map[string]string{"matches": "id", "evidence": "id", "audits": "recordId", "targets": "key"}[section]
+				seen := map[string]bool{}
+				for _, raw := range rows {
+					id, _ := raw.(map[string]any)[field].(string)
+					if id == "" || seen[id] {
+						t.Fatal("missing/duplicate evidence identity", section, id)
+					}
+					seen[id] = true
+				}
+			}
 			maxReserved = max(maxReserved, reserved)
 			if section == "results" {
 				for j, raw := range rows {
@@ -96,7 +120,14 @@ func TestMarketComparison35Targets233RowsHTTPBudgets(t *testing.T) {
 			t.Fatal(e)
 		}
 		t.Logf("comparison limit=%d counts=%v calls=%d actualTotalBytes=%d actualMaxBytes=%d reservedMaxBytes=%d captureBytes=%d", limit, counts, end.Calls-start.Calls, end.Bytes-start.Bytes, end.Max, maxReserved, entry.size)
-		if maxReserved > contextWireLimit || entry.size > readCaptureLimit || end.Calls-start.Calls > 50 {
+		maxCalls := 40
+		if limit == 100 {
+			maxCalls = 15
+			if len(cap["sections"].(map[string]any)["targets"].(map[string]any)["items"].([]any)) != 35 {
+				t.Fatal("small shared metadata deferred into an extra call")
+			}
+		}
+		if maxReserved > contextWireLimit || entry.size > readCaptureLimit || end.Calls-start.Calls > maxCalls {
 			t.Fatal("comparison bounds inflated")
 		}
 	}
