@@ -2294,7 +2294,7 @@
   "aiCredentials": {
     "title": "Built-in AI credentials",
     "help": "OpenAI API key. Saving a key does not activate model calls or financial writes.",
-    "backup": "Stored without field encryption in the household database. Full backups include this key; deleting it does not remove copies in older backups.",
+    "backup": "Stored without field encryption in the main household database. Full backups include this key; deleting it does not remove copies in older backups.",
     "key": "OpenAI API key",
     "save": "Save AI key",
     "missing": "No AI key saved",
