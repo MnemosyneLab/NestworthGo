@@ -35,6 +35,25 @@ Sorting is global before pages, null-last in both directions, with fixed identit
 ascending ties. Names compare trimmed case-insensitive text without locale;
 amounts/percentages use exact decimals. IDs determine write identity, not labels.
 
+## Compact directory identity and details
+
+Directory lists return explicit identity projections. Members/groups keep IDs,
+names and archive status; institutions also keep type/country. Accounts keep
+classification, currency, inclusion, lifecycle and ownership, with institution/
+group labels; they do not embed latest values. Holdings keep account/instrument
+IDs, exact quantity and archive status. Use valuation tools for current balances.
+
+Instrument rows retain full/short names, type, symbol, market/country/ISIN,
+quote currency/unit, quote routing, managed/archive status and metadataVersion.
+A shared ticker or display name is not sufficient identity. Lists omit notes,
+icons, sort metadata, household IDs and internal timestamps. For full metadata,
+call `get_read_item` with the same captureId, section (`instruments`, `members`,
+`institutions`, `groups`, `accounts` or `holdings`) and row id. The response's
+summary is the complete frozen item, including the instrument metadataVersion
+and managed flag. Get editable fields there before a complete replacement; do
+not treat omitted list fields as empty. Old captures stay frozen after writes;
+refresh before a new write intention or when checking a stale-version error.
+
 ## Batch writes
 
 Use the ordinary {operationId,input} envelope with 1–100 distinct targets.

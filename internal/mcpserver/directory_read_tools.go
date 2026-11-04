@@ -30,22 +30,37 @@ func (s *Service) pagedDirectory(ctx context.Context, g uint64, section string, 
 				return c, fail("internal", "directory item has no identity")
 			}
 			c.Details[section+"/"+id] = full
-			row, e := readSummary(full)
-			if e != nil {
-				return c, e
+			var row map[string]any
+			switch section {
+			case "members", "groups":
+				row = readFields(entity, "id", "name", "archivedAt")
+			case "institutions":
+				row = readFields(entity, "id", "name", "institutionType", "countryCode", "archivedAt")
+			case "accounts":
+				row = readFields(full, "ownership", "institutionName", "groupName")
+				row["account"] = readFields(entity, "id", "name", "institutionId", "groupId", "accountType", "balanceSheetRole", "trackingMode", "defaultCurrency", "includeInNetWorth", "includeInPortfolio", "includeInLiquidAssets", "openedOn", "closedOn", "archivedAt")
+				row["id"] = id
+			case "holdings":
+				row = readFields(entity, "id", "accountId", "instrumentId", "quantity", "archivedAt")
+			default:
+				return c, fail("internal", "unknown directory section")
 			}
-			compact := row
-			if account, ok := row["account"].(map[string]any); ok {
-				compact = account
-			}
-			for _, key := range []string{"note", "iconKey"} {
-				delete(compact, key)
-			}
-			row["id"] = id
 			rows = append(rows, row)
 		}
 		sort.Slice(rows, func(i, j int) bool { return rows[i]["id"].(string) < rows[j]["id"].(string) })
 		c.Sections[section], e = readRows(rows)
 		return c, e
 	})
+}
+
+// Explicit projections prevent future GUI metadata from expanding MCP lists.
+// Values are from a fresh serialization; the complete frozen detail is retained.
+func readFields(full map[string]any, keys ...string) map[string]any {
+	row := make(map[string]any, len(keys))
+	for _, key := range keys {
+		if value, ok := full[key]; ok {
+			row[key] = value
+		}
+	}
+	return row
 }

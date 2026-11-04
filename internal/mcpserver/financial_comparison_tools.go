@@ -35,7 +35,7 @@ func (s *Service) financialComparisonTools(server *toolSet, generation uint64) {
 	readTool(server, "compare_financial_context", "Deterministically compare two states from one strictly read-only capture. leftAsOf is a closed YYYY-MM-DD date; rightAsOf is a closed date or current database state. Minimal disclosure by default; named requires explicit intent about identity disclosure. Changes are right minus left, never investment returns or attribution. Internal identities are aligned before shared aliases; never pair aliases from independent contexts. Missing differences are null, not zero. Retained corrected facts and current metadata/base currency apply. No history means unavailable. Send a single JSON-RPC object, never a batch. Read all positions, gaps and evidence pages; this does not repair, import or refresh anything.", func(ctx context.Context, in application.FinancialComparisonRequest) (any, error) {
 		return s.buildFinancialComparison(ctx, generation, in)
 	})
-	readTool(server, "get_financial_comparison_page", "Read a frozen comparison section (positions, gaps, evidence), using its comparisonId and exact matching nextCursor. Default limit 50, maximum 100. Zero returned rows with a nextCursor are deferred. Never mix contexts, comparisons, sides, sections or cursors. Expired, evicted or revoked packages require restarting every section; pages do not extend TTL. A too_large summary or row cannot be repaired with smaller pages. Changes are not returns; an attached attribution link is frozen in the same hash and summary and never recomputed by pages. Send a single JSON-RPC object, never a batch.", func(ctx context.Context, in FinancialComparisonPageInput) (any, error) {
+	readTool(server, "get_financial_comparison_page", "Continue one frozen positions/gaps/evidence section using its comparisonId and exact nextCursor. Returns section/items/page plus capture identity/hash/expiry; retain the initial content header including attribution and precision, which are not repeated. Update only this section progress. Default limit 50, maximum 100. Zero returned rows with a nextCursor are deferred. Never mix contexts, comparisons, sides, sections or cursors. Expired, evicted or revoked packages require restarting every section; pages do not extend TTL. A too_large row cannot be repaired with smaller pages. Changes are not returns; the initial attribution link is frozen in the same hash and never recomputed by pages. Send a single JSON-RPC object, never a batch.", func(ctx context.Context, in FinancialComparisonPageInput) (any, error) {
 		return s.financialComparisonPage(ctx, generation, in)
 	})
 }
@@ -111,35 +111,35 @@ func (s *Service) captureFinancialComparison(ctx context.Context, g uint64, in a
 	c.bytes += entry.size
 	return response, nil
 }
-func (s *Service) financialComparisonPage(ctx context.Context, g uint64, in FinancialComparisonPageInput) (FinancialComparisonResponse, error) {
+func (s *Service) financialComparisonPage(ctx context.Context, g uint64, in FinancialComparisonPageInput) (FinancialSectionResponse, error) {
 	if err := ctx.Err(); err != nil {
-		return FinancialComparisonResponse{}, err
+		return FinancialSectionResponse{}, err
 	}
 	if in.Limit == 0 {
 		in.Limit = 50
 	}
 	if in.Limit < 1 || in.Limit > 100 {
-		return FinancialComparisonResponse{}, fail("validation", "limit must be 1 to 100")
+		return FinancialSectionResponse{}, fail("validation", "limit must be 1 to 100")
 	}
 	if in.Section != "positions" && in.Section != "gaps" && in.Section != "evidence" {
-		return FinancialComparisonResponse{}, fail("validation", "unknown section")
+		return FinancialSectionResponse{}, fail("validation", "unknown section")
 	}
 	c := s.contexts
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.revoked || g != c.generation {
-		return FinancialComparisonResponse{}, fail("context_revoked", "connection generation was revoked")
+		return FinancialSectionResponse{}, fail("context_revoked", "connection generation was revoked")
 	}
 	c.prune(c.now())
 	entry, ok := c.entries[in.ComparisonID]
 	if !ok || entry.comparison == nil {
-		return FinancialComparisonResponse{}, fail("context_expired", "comparison expired or was evicted; request a new comparison")
+		return FinancialSectionResponse{}, fail("context_expired", "comparison expired or was evicted; request a new comparison")
 	}
 	cursor, err := c.decodeCursor(in.Cursor)
 	if err != nil || cursor.ContextID != in.ComparisonID || cursor.Section != in.Section || cursor.Generation != g || cursor.Offset < 0 {
-		return FinancialComparisonResponse{}, fail("validation", "cursor does not match comparison, section and generation")
+		return FinancialSectionResponse{}, fail("validation", "cursor does not match comparison, section and generation")
 	}
-	return c.comparisonResponse(in.ComparisonID, entry, g, in.Section, cursor.Offset, in.Limit)
+	return c.comparisonSectionResponse(in.ComparisonID, entry, g, in.Section, cursor.Offset, in.Limit)
 }
 func (c *financialContextCache) comparisonResponse(id string, e cachedFinancialContext, g uint64, section string, offset, limit int) (FinancialComparisonResponse, error) {
 	content := e.comparison.Content
@@ -216,7 +216,7 @@ func (c *financialContextCache) comparisonResponse(id string, e cachedFinancialC
 					// An initial section may be crowded out by earlier sections.
 					// Fail only if its first row cannot fit with the summary alone;
 					// otherwise pageInfo below supplies an offset-zero continuation.
-					if _, err := c.comparisonResponse(id, e, g, name, start, 1); err != nil {
+					if _, err := c.comparisonSectionResponse(id, e, g, name, start, 1); err != nil {
 						return r, err
 					}
 				}

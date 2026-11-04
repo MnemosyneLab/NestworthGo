@@ -53,9 +53,17 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 2.2.0; published skill: 2.0.0
+### Current repository skill: 3.0.0; published skill: 2.0.0
 
-Repository skill 2.2.0 adds compatible guidance for inclusive batch-history
+Repository skill 3.0.0 documents the breaking financial context/comparison
+continuation shape: section/items/page with capture identity/hash/expiry, while
+the complete initial financial header is retained by the client. Directory and
+instrument lists now return compact identity projections; full frozen metadata
+uses get_read_item. Instrument metadataVersion and managed/archive guards remain
+in lists. This major bump requires callers to update their continuation readers
+and avoids a second legacy response path.
+
+It retains skill 2.2.0's compatible guidance for inclusive batch-history
 `fromDate`/`toDate` windows and opt-in cross-target `historyLayout=records` paging.
 It preserves exact original FX direction and NAV/close basis, distinguishes
 unread pages from missing data, and explains unavailable reverse-FX projections.
@@ -67,7 +75,7 @@ It also retains skill 2.1.0's post-v0.3.10 asset-change guidance:
 `endpoint_bridge/2`, separately paged reconciliation details, paired trade
 principal and valuation semantics, execution-price spreads and quantity
 remeasurement. The earlier bounded read cutover required major version 2.0.0.
-Skill 2.2.0 is not yet published; `--version latest` still selects App v0.3.10
+Skill 3.0.0 is not yet published; `--version latest` still selects App v0.3.10
 and skill 2.0.0.
 
 The App and skill are separate components: installing a newer skill does not

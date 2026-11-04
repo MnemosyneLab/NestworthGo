@@ -14,7 +14,7 @@ import (
 
 func decodeComparison(t *testing.T, obj map[string]any) FinancialComparisonResponse {
 	t.Helper()
-	raw, _ := jsoncodec.Marshal(obj["data"])
+	raw, _ := jsoncodec.Marshal(financialPageTestData(t, obj["data"]))
 	var r FinancialComparisonResponse
 	if err := jsoncodec.Unmarshal(raw, &r); err != nil {
 		t.Fatal(err)
@@ -69,11 +69,15 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 					info = initial.EvidencePage
 				}
 				total, count := info.Total, info.Returned
+				_, rows := skillPageState(t, initial)
+				got := rows[section]
 				for info.HasMore {
 					page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 2}, false))
-					if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || *page.Content.Change.NetWorth.Value != "0" {
+					if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.Content.Change.NetWorth.Value != nil {
 						t.Fatal(page)
 					}
+					_, nextRows := skillPageState(t, page)
+					got = append(got, nextRows[section]...)
 					info = page.PositionsPage
 					if section == "gaps" {
 						info = page.GapsPage
@@ -93,6 +97,11 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 				if count != total {
 					t.Fatal(count, total)
 				}
+				full, err := readSummary(s.contexts.entries[initial.ComparisonID].comparison.Content)
+				if err != nil {
+					t.Fatal(err)
+				}
+				productJSONEqual(t, got, full[section])
 			}
 			call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: initial.ComparisonID, Ref: initial.Content.Positions[0].Ref}, true)
 			call(t, client, "get_financial_context_page", FinancialContextPageInput{ContextID: initial.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
