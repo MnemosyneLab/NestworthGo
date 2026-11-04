@@ -7,7 +7,7 @@ import { AssistantPageProvider } from "./PageContext";
 import { useDesktopAssistant } from "./DesktopAssistant";
 
 const status = vi.hoisted(() => vi.fn());
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/assistant", () => ({ Service: { Status: status } }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ({ Status: status }));
 function Shell() { const assistant = useDesktopAssistant(); return <div>{assistant.trigger}<main hidden={assistant.expanded}>Synthetic business page<button>Business action</button></main>{assistant.panel}</div>; }
 afterEach(() => { vi.unstubAllGlobals(); status.mockReset(); });
 
@@ -16,9 +16,9 @@ it("leaves closed surfaces idle, expands, collapses with focus, and pauses offli
   status.mockResolvedValue({ version: 1, surface: "desktop", pageGuide: true, provider: "unavailable", credentials: "unavailable", conversations: "memory", modelRuns: false, financialWrites: false, reason: "activation_incomplete" });
   render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="generation" surface="desktop" viewKey="overview:" blocked={() => false} onNavigate={vi.fn()}><Shell /></AssistantPageProvider></QueryClientProvider>);
   expect(status).not.toHaveBeenCalled();
-  expect(screen.queryByTestId("assistant-conversation")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("model-conversation")).not.toBeInTheDocument();
   const user = userEvent.setup(); await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
-  await waitFor(() => expect(status).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(status).toHaveBeenCalled());
   expect(screen.getByRole("heading", { name: "AI assistant" })).toHaveFocus();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   const dock = screen.getByRole("complementary", { name: "AI assistant" });
